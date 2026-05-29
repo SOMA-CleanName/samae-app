@@ -72,6 +72,7 @@ export default async function StudioHome() {
             <DashLink href="/studio/packages" label="패키지 관리" sub="가격·소요시간·보정본 수" />
             <DashLink href="/studio/portfolio" label="포트폴리오" sub="탐색 노출 사진" />
             <DashLink href="/studio/availability" label="가능 시간" sub="예약 가능 슬롯" />
+            <DashLink href="/studio/settlements" label="정산 내역" sub="결제·정산 현황" />
           </div>
         </div>
       )}
