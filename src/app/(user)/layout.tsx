@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { signOut } from "@/app/actions/auth";
 import { SearchBox } from "@/components/user/SearchBox";
+import { listConversations, myUnread } from "@/lib/chat";
 
 // 사용자(탐색) 영역 공통 헤더
 export default async function UserLayout({
@@ -10,6 +11,13 @@ export default async function UserLayout({
   children: React.ReactNode;
 }) {
   const me = await getCurrentUser();
+
+  // 채팅 안읽음 합계 (로그인 시)
+  let unreadTotal = 0;
+  if (me) {
+    const convs = await listConversations();
+    unreadTotal = convs.reduce((sum, c) => sum + myUnread(c, me), 0);
+  }
 
   return (
     <>
@@ -22,6 +30,14 @@ export default async function UserLayout({
           <nav className="flex items-center gap-3 text-sm font-kr">
             {me ? (
               <>
+                <Link href="/chat" className="relative text-fg/70 hover:text-fg">
+                  채팅
+                  {unreadTotal > 0 && (
+                    <span className="absolute -right-2.5 -top-1.5 rounded-full bg-brand px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                      {unreadTotal}
+                    </span>
+                  )}
+                </Link>
                 <Link href="/favorites" className="text-fg/70 hover:text-fg">
                   찜
                 </Link>

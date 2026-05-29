@@ -9,6 +9,7 @@ import {
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { toggleFavorite } from "../../actions";
+import { startConversation } from "../../chat/actions";
 
 export default async function PhotographerProfile({
   params,
@@ -132,14 +133,20 @@ export default async function PhotographerProfile({
       {/* 하단 고정 CTA — 채팅(3단계에서 연결) */}
       <div className="fixed inset-x-0 bottom-0 z-20 border-t border-fg/8 bg-bg/95 px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur">
         <div className="mx-auto max-w-md">
-          {me ? (
-            <button
-              disabled
-              className="w-full rounded-full bg-fg/30 py-3.5 text-sm font-semibold text-bg"
-              title="채팅은 3단계에서 연결됩니다"
+          {me && me.photographer?.id === ph.id ? (
+            <Link
+              href="/studio"
+              className="block w-full rounded-full bg-fg/[0.06] py-3.5 text-center text-sm font-semibold text-fg/70"
             >
-              작가에게 채팅 문의 (곧 오픈)
-            </button>
+              내 프로필입니다 — 스튜디오로
+            </Link>
+          ) : me ? (
+            <form action={startConversation}>
+              <input type="hidden" name="photographerId" value={ph.id} />
+              <button className="w-full rounded-full bg-fg py-3.5 text-sm font-semibold text-bg hover:opacity-90">
+                작가에게 채팅 문의
+              </button>
+            </form>
           ) : (
             <Link
               href={`/login?next=/photographers/${ph.handle}`}
