@@ -18,13 +18,19 @@ export default async function AdminHome() {
         작가 승인 · 거래/정산 모니터링 · 분쟁 처리. 각 기능은 해당 단계에서 구현됩니다.
       </p>
       <ul className="mt-6 grid gap-2 text-sm">
-        {["작가 승인 (1단계)", "거래 모니터링 (4단계)", "정산 처리 (5단계)", "분쟁 (5단계)"].map(
-          (t) => (
-            <li key={t} className="rounded-lg border border-fg/10 px-4 py-3 text-fg/70">
-              {t}
-            </li>
-          )
-        )}
+        <li>
+          <Link
+            href="/admin/photographers"
+            className="block rounded-lg border border-fg/15 px-4 py-3 font-medium hover:border-fg/30"
+          >
+            작가 승인 →
+          </Link>
+        </li>
+        {["거래 모니터링 (4단계)", "정산 처리 (5단계)", "분쟁 (5단계)"].map((t) => (
+          <li key={t} className="rounded-lg border border-fg/10 px-4 py-3 text-fg/40">
+            {t}
+          </li>
+        ))}
       </ul>
     </main>
   );
