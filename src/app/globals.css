@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+/* ─────────────────────────────────────────────
+   디자인 토큰 — samae 랜딩 톤 이식
+   ───────────────────────────────────────────── */
+:root {
+  --bg: #fafafa;
+  --fg: #0f0e0c;
+  --brand: #ff3d2e;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-fg: var(--fg);
+  --color-brand: var(--brand);
+  --font-display: var(--font-fraunces);
+  --font-sans: var(--font-inter);
+  --font-kr: var(--font-noto-kr);
+}
+
+html,
+body {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+body {
+  font-family: var(--font-inter), var(--font-noto-kr), system-ui, -apple-system,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 한국어 줄바꿈 처리 — 단어 단위 유지 */
+h1, h2, h3, h4, h5, h6 {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+p, blockquote, li {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+/* 가로 스크롤 영역(필터 칩 등) 스크롤바 숨김 */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
