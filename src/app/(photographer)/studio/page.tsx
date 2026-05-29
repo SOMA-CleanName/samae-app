@@ -68,13 +68,13 @@ export default async function StudioHome() {
             <b>@{ph.handle}</b> · 승인 완료 — 활동 중이에요.
           </div>
           <div className="mt-5 grid gap-2 sm:grid-cols-2">
-            <DashLink href="/studio/profile" label="프로필 편집" sub="소개·지역·무드·정산계좌" soon />
-            <DashLink href="/studio/packages" label="패키지 관리" sub="가격·소요시간·보정본 수" soon />
+            <DashLink href="/studio/profile" label="프로필 편집" sub="소개·지역·무드·정산계좌" />
+            <DashLink href="/studio/packages" label="패키지 관리" sub="가격·소요시간·보정본 수" />
             <DashLink href="/studio/portfolio" label="포트폴리오" sub="탐색 노출 사진" soon />
             <DashLink href="/studio/availability" label="가능 시간" sub="예약 가능 슬롯" soon />
           </div>
           <p className="mt-4 text-xs text-fg/45">
-            * 각 기능은 1단계 다음 청크에서 순차적으로 열립니다.
+            * 포트폴리오·가능시간은 다음 청크에서 열립니다.
           </p>
         </div>
       )}

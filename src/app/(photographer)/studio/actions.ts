@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 
 // 작가 신청 입력 검증 스키마
@@ -86,4 +87,79 @@ export async function applyAsPhotographer(
   }
 
   redirect("/studio");
+}
+
+// ─────────────────────────────────────────────
+// 프로필 편집
+// ─────────────────────────────────────────────
+const ProfileSchema = z.object({
+  displayName: z.string().trim().min(1, "작가명을 입력하세요").max(40),
+  bio: z.string().trim().max(500).optional().default(""),
+  regions: z.string().optional().default(""),
+  moodTags: z.string().optional().default(""),
+  priceFrom: z.coerce.number().int().min(0).max(100_000_000).optional().default(0),
+  bankName: z.string().trim().max(40).optional().default(""),
+  accountNumber: z.string().trim().max(40).optional().default(""),
+  accountHolder: z.string().trim().max(40).optional().default(""),
+});
+
+export type ProfileState = {
+  ok?: boolean;
+  error?: string;
+  fieldErrors?: Record<string, string>;
+};
+
+// 작가 프로필 수정 (RLS: 본인 행만. status는 가드 트리거로 보호됨)
+export async function updateProfile(
+  _prev: ProfileState,
+  formData: FormData
+): Promise<ProfileState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "로그인이 필요합니다." };
+
+  const parsed = ProfileSchema.safeParse({
+    displayName: formData.get("displayName"),
+    bio: formData.get("bio"),
+    regions: formData.get("regions"),
+    moodTags: formData.get("moodTags"),
+    priceFrom: formData.get("priceFrom"),
+    bankName: formData.get("bankName"),
+    accountNumber: formData.get("accountNumber"),
+    accountHolder: formData.get("accountHolder"),
+  });
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      fieldErrors[String(issue.path[0])] = issue.message;
+    }
+    return { error: "입력값을 확인해주세요.", fieldErrors };
+  }
+  const v = parsed.data;
+
+  // 정산계좌 3필드 중 하나라도 있으면 객체로 저장 (민감정보)
+  const settlement =
+    v.bankName || v.accountNumber || v.accountHolder
+      ? { bank: v.bankName, number: v.accountNumber, holder: v.accountHolder }
+      : null;
+
+  const { error } = await supabase
+    .from("photographers")
+    .update({
+      display_name: v.displayName,
+      bio: v.bio,
+      regions: parseList(v.regions),
+      mood_tags: parseList(v.moodTags),
+      price_from_krw: v.priceFrom,
+      settlement_account: settlement,
+    })
+    .eq("profile_id", user.id);
+
+  if (error) return { error: "저장 중 오류가 발생했습니다." };
+
+  revalidatePath("/studio/profile");
+  revalidatePath("/studio");
+  return { ok: true };
 }
