@@ -38,6 +38,9 @@ export default async function UserLayout({
                     </span>
                   )}
                 </Link>
+                <Link href="/bookings" className="text-fg/70 hover:text-fg">
+                  예약
+                </Link>
                 <Link href="/favorites" className="text-fg/70 hover:text-fg">
                   찜
                 </Link>

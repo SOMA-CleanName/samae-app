@@ -141,12 +141,20 @@ export default async function PhotographerProfile({
               내 프로필입니다 — 스튜디오로
             </Link>
           ) : me ? (
-            <form action={startConversation}>
-              <input type="hidden" name="photographerId" value={ph.id} />
-              <button className="w-full rounded-full bg-fg py-3.5 text-sm font-semibold text-bg hover:opacity-90">
-                작가에게 채팅 문의
-              </button>
-            </form>
+            <div className="flex gap-2">
+              <form action={startConversation} className="flex-1">
+                <input type="hidden" name="photographerId" value={ph.id} />
+                <button className="w-full rounded-full border border-fg/20 py-3.5 text-sm font-semibold text-fg hover:bg-fg/[0.04]">
+                  채팅 문의
+                </button>
+              </form>
+              <Link
+                href={`/photographers/${ph.handle}/book`}
+                className="flex-1 rounded-full bg-fg py-3.5 text-center text-sm font-semibold text-bg hover:opacity-90"
+              >
+                예약 요청
+              </Link>
+            </div>
           ) : (
             <Link
               href={`/login?next=/photographers/${ph.handle}`}
