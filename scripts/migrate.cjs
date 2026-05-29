@@ -68,15 +68,38 @@ async function connectAny() {
 
 (async () => {
   const client = await connectAny();
+
+  // 적용 이력 테이블 (재실행 시 이미 적용된 마이그레이션은 건너뜀)
+  await client.query(
+    "create table if not exists public._migrations (name text primary key, applied_at timestamptz default now())"
+  );
+  const applied = new Set(
+    (await client.query("select name from public._migrations")).rows.map((r) => r.name)
+  );
+
   for (const f of files) {
+    if (applied.has(f)) {
+      console.log(`⏭️  ${f} (이미 적용됨)`);
+      continue;
+    }
     const sql = fs.readFileSync(path.join(dir, f), "utf8");
     try {
+      await client.query("begin");
       await client.query(sql);
+      await client.query("insert into public._migrations(name) values($1)", [f]);
+      await client.query("commit");
       console.log(`✅ ${f}`);
     } catch (e) {
-      console.error(`❌ ${f}\n   ${e.message}`);
-      await client.end();
-      process.exit(1);
+      await client.query("rollback").catch(() => {});
+      // 추적 도입 전 적용된 레거시(0001/0002 등): "already exists" 면 적용된 것으로 기록
+      if (/already exists/i.test(e.message)) {
+        await client.query("insert into public._migrations(name) values($1) on conflict do nothing", [f]);
+        console.log(`⏭️  ${f} (기존 적용분으로 인식 — already exists)`);
+      } else {
+        console.error(`❌ ${f}\n   ${e.message}`);
+        await client.end();
+        process.exit(1);
+      }
     }
   }
   // 결과 확인: public 테이블 목록
