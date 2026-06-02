@@ -7,6 +7,7 @@ import {
   type GalleryPhoto,
 } from "@/lib/discovery";
 import { PhotographerCardView } from "@/components/user/PhotographerCard";
+import { MoreIcon } from "@/components/user/icons";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,7 @@ export default async function ExploreHome({
   if (sp.q) {
     const results = await searchPhotographers(sp.q);
     return (
-      <main className="mx-auto max-w-6xl px-4 sm:px-6 py-8 font-kr">
+      <section className="px-3 py-6 font-kr sm:px-5">
         <p className="text-sm text-fg/55">
           “{sp.q}” 검색 결과 {results.length}명
         </p>
@@ -32,13 +33,13 @@ export default async function ExploreHome({
             일치하는 작가가 없어요. 다른 이름이나 지역으로 검색해보세요.
           </p>
         ) : (
-          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {results.map((p) => (
               <PhotographerCardView key={p.handle} p={p} />
             ))}
           </div>
         )}
-      </main>
+      </section>
     );
   }
 
@@ -49,79 +50,85 @@ export default async function ExploreHome({
   ]);
 
   return (
-    <main className="mx-auto max-w-6xl px-4 sm:px-6 py-8 font-kr">
-      <h1 className="text-2xl sm:text-3xl font-semibold leading-tight">
-        다양한 무드, 다양한 작가.
-      </h1>
-      <p className="mt-2 text-sm text-fg/55">
-        마음에 드는 장면을 골라 그 작가를 만나보세요.
-      </p>
+    <section className="px-3 pb-10 font-kr sm:px-5">
+      {/* 카테고리 탭 (무드) — 핀터레스트식 상단 탭 */}
+      <TabRow items={moods} active={sp.mood} region={sp.region} />
 
-      {/* 필터 칩 */}
-      <div className="mt-5 flex flex-col gap-2">
-        <ChipRow label="무드" items={moods} active={sp.mood} param="mood" other={sp.region} otherParam="region" />
-        <ChipRow label="지역" items={regions} active={sp.region} param="region" other={sp.mood} otherParam="mood" />
-      </div>
+      {/* 지역 보조 필터 */}
+      {regions.length > 0 && (
+        <div className="mt-1 flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          <RegionChip active={!sp.region} mood={sp.mood}>
+            전체 지역
+          </RegionChip>
+          {regions.map((r) => (
+            <RegionChip key={r} value={r} active={sp.region === r} mood={sp.mood}>
+              📍 {r}
+            </RegionChip>
+          ))}
+        </div>
+      )}
 
-      {/* 갤러리 */}
+      {/* 메이슨리 갤러리 */}
       {photos.length === 0 ? (
-        <p className="mt-12 text-center text-sm text-fg/45">
+        <p className="mt-16 text-center text-sm text-fg/45">
           조건에 맞는 사진이 아직 없어요.
         </p>
       ) : (
-        <div className="mt-6 columns-2 sm:columns-3 lg:columns-4 gap-2 [&>*]:mb-2">
+        <div className="mt-4 columns-2 gap-3 sm:columns-3 md:columns-4 lg:columns-5 xl:columns-6 2xl:columns-7 [&>*]:mb-3">
           {photos.map((photo) => (
             <PhotoCard key={photo.id} photo={photo} />
           ))}
         </div>
       )}
-    </main>
+    </section>
   );
 }
 
-// 필터 칩 한 줄 (선택 시 토글, 다른 파라미터 유지)
-function ChipRow({
-  label,
+// 무드 카테고리 탭 — 선택 시 토글, 지역 파라미터 유지
+function TabRow({
   items,
   active,
-  param,
-  other,
-  otherParam,
+  region,
 }: {
-  label: string;
   items: string[];
   active?: string;
-  param: string;
-  other?: string;
-  otherParam: string;
+  region?: string;
 }) {
-  if (items.length === 0) return null;
   const hrefFor = (val?: string) => {
     const sp = new URLSearchParams();
-    if (other) sp.set(otherParam, other);
-    if (val) sp.set(param, val);
+    if (region) sp.set("region", region);
+    if (val) sp.set("mood", val);
     const s = sp.toString();
     return s ? `/?${s}` : "/";
   };
   return (
-    <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
-      <span className="shrink-0 text-xs text-fg/40">{label}</span>
-      <Chip href={hrefFor(undefined)} on={!active}>전체</Chip>
+    <div className="sticky top-[60px] z-20 -mx-3 flex items-center gap-1 overflow-x-auto bg-bg/85 px-3 py-2 backdrop-blur scrollbar-none sm:-mx-5 sm:px-5">
+      <Tab href={hrefFor(undefined)} on={!active}>
+        전체
+      </Tab>
       {items.map((it) => (
-        <Chip key={it} href={hrefFor(it)} on={active === it}>
-          {param === "mood" ? `#${it}` : it}
-        </Chip>
+        <Tab key={it} href={hrefFor(it)} on={active === it}>
+          {it}
+        </Tab>
       ))}
     </div>
   );
 }
 
-function Chip({ href, on, children }: { href: string; on: boolean; children: React.ReactNode }) {
+function Tab({
+  href,
+  on,
+  children,
+}: {
+  href: string;
+  on: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <Link
       href={href}
-      className={`shrink-0 rounded-full px-3 py-1 text-xs ${
-        on ? "bg-fg text-bg" : "bg-fg/[0.06] text-fg/70 hover:bg-fg/10"
+      className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+        on ? "bg-fg text-bg" : "text-fg/70 hover:bg-fg/[0.06]"
       }`}
     >
       {children}
@@ -129,19 +136,60 @@ function Chip({ href, on, children }: { href: string; on: boolean; children: Rea
   );
 }
 
+function RegionChip({
+  value,
+  active,
+  mood,
+  children,
+}: {
+  value?: string;
+  active: boolean;
+  mood?: string;
+  children: React.ReactNode;
+}) {
+  const sp = new URLSearchParams();
+  if (mood) sp.set("mood", mood);
+  if (value) sp.set("region", value);
+  const s = sp.toString();
+  return (
+    <Link
+      href={s ? `/?${s}` : "/"}
+      className={`shrink-0 rounded-full px-3 py-1 text-xs transition-colors ${
+        active ? "bg-fg/10 text-fg" : "bg-fg/[0.04] text-fg/55 hover:bg-fg/[0.08]"
+      }`}
+    >
+      {children}
+    </Link>
+  );
+}
+
+// 핀터레스트식 핀 카드 — 라운드 타일 + 호버 시 작가명/더보기 오버레이
 function PhotoCard({ photo }: { photo: GalleryPhoto }) {
+  const name =
+    photo.photographer.display_name || `@${photo.photographer.handle}`;
   return (
     <Link
       href={`/photographers/${photo.photographer.handle}`}
-      className="block break-inside-avoid overflow-hidden rounded-lg bg-fg/[0.05]"
+      className="group relative block break-inside-avoid overflow-hidden rounded-2xl bg-fg/[0.05]"
     >
       <img
         src={photo.thumb_url ?? photo.src_url}
         alt=""
         loading="lazy"
-        className="w-full object-cover transition-transform hover:scale-[1.02]"
+        className="w-full object-cover"
       />
+
+      {/* 호버 오버레이 */}
+      <div className="pointer-events-none absolute inset-0 flex flex-col justify-between bg-black/0 p-2 opacity-0 transition-opacity group-hover:bg-black/15 group-hover:opacity-100">
+        <div className="flex justify-end">
+          <span className="grid h-8 w-8 place-items-center rounded-full bg-white/90 text-fg shadow-sm">
+            <MoreIcon />
+          </span>
+        </div>
+        <span className="line-clamp-1 rounded-md bg-black/45 px-2 py-1 text-xs font-medium text-white">
+          {name}
+        </span>
+      </div>
     </Link>
   );
 }
-

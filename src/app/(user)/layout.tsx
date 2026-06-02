@@ -1,10 +1,9 @@
-import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
-import { signOut } from "@/app/actions/auth";
-import { SearchBox } from "@/components/user/SearchBox";
 import { listConversations, myUnread } from "@/lib/chat";
+import { Sidebar, type NavItem } from "@/components/user/Sidebar";
+import { TopBar } from "@/components/user/TopBar";
 
-// 사용자(탐색) 영역 공통 헤더
+// 사용자(탐색) 영역 공통 셸 — 핀터레스트식 좌측 레일 + 상단 검색바
 export default async function UserLayout({
   children,
 }: {
@@ -19,57 +18,39 @@ export default async function UserLayout({
     unreadTotal = convs.reduce((sum, c) => sum + myUnread(c, me), 0);
   }
 
+  // 레일 항목 구성 — 비로그인은 홈만 노출
+  const items: NavItem[] = [{ href: "/", label: "탐색", icon: "home" }];
+  if (me) {
+    items.push(
+      { href: "/favorites", label: "찜", icon: "heart" },
+      { href: "/studio", label: me.photographer ? "스튜디오" : "작가 신청", icon: "plus" },
+      { href: "/bookings", label: "예약", icon: "calendar" },
+      { href: "/chat", label: "채팅", icon: "chat", badge: unreadTotal || undefined },
+    );
+    if (me.role === "admin") {
+      items.push({ href: "/admin", label: "어드민", icon: "shield" });
+    }
+  }
+
   return (
     <>
-      <header className="sticky top-0 z-30 border-b border-fg/8 bg-bg/90 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 sm:px-6 py-3">
-          <Link href="/" className="text-xl font-display italic text-brand">
-            samae
-          </Link>
-          <SearchBox />
-          <nav className="flex items-center gap-3 text-sm font-kr">
-            {me ? (
-              <>
-                <Link href="/chat" className="relative text-fg/70 hover:text-fg">
-                  채팅
-                  {unreadTotal > 0 && (
-                    <span className="absolute -right-2.5 -top-1.5 rounded-full bg-brand px-1.5 py-0.5 text-[10px] font-semibold text-white">
-                      {unreadTotal}
-                    </span>
-                  )}
-                </Link>
-                <Link href="/bookings" className="text-fg/70 hover:text-fg">
-                  예약
-                </Link>
-                <Link href="/favorites" className="text-fg/70 hover:text-fg">
-                  찜
-                </Link>
-                <Link href="/studio" className="text-fg/70 hover:text-fg">
-                  {me.photographer ? "스튜디오" : "작가 신청"}
-                </Link>
-                {me.role === "admin" && (
-                  <Link href="/admin" className="text-fg/70 hover:text-fg">
-                    어드민
-                  </Link>
-                )}
-                <form action={signOut}>
-                  <button className="rounded-full bg-fg/[0.06] px-3 py-1 text-fg/70 hover:bg-fg/10">
-                    로그아웃
-                  </button>
-                </form>
-              </>
-            ) : (
-              <Link
-                href="/login"
-                className="rounded-full bg-fg px-4 py-1.5 font-semibold text-bg hover:opacity-90"
-              >
-                로그인
-              </Link>
-            )}
-          </nav>
-        </div>
-      </header>
-      {children}
+      <Sidebar items={items} />
+      <div className="md:pl-[72px]">
+        <TopBar
+          me={
+            me
+              ? {
+                  displayName: me.displayName,
+                  email: me.email,
+                  avatarUrl: me.avatarUrl,
+                  isPhotographer: !!me.photographer,
+                }
+              : null
+          }
+        />
+        {/* 모바일 하단 탭바 높이만큼 여백 확보 */}
+        <main className="pb-20 md:pb-0">{children}</main>
+      </div>
     </>
   );
 }

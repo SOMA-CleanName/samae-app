@@ -40,9 +40,10 @@ export async function POST(req: Request) {
     .toBuffer();
   const mainMeta = await sharp(mainBuf).metadata();
 
+  // 썸네일도 원본 비율 유지 (비정형 메이슨리 그리드용) — 폭만 제한
   const thumbBuf = await oriented
     .clone()
-    .resize({ width: 400, height: 400, fit: "cover" })
+    .resize({ width: 500, withoutEnlargement: true })
     .jpeg({ quality: 75 })
     .toBuffer();
 
