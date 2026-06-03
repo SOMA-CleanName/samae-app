@@ -24,15 +24,16 @@ export default async function ProfilePage() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("photographers")
-    .select("display_name, bio, regions, mood_tags, price_from_krw, settlement_account")
+    .select("display_name, bio, regions, mood_tags, price_from_krw")
     .eq("id", me.photographer.id)
     .single();
 
-  const acct = (data?.settlement_account ?? {}) as {
-    bank?: string;
-    number?: string;
-    holder?: string;
-  };
+  // 촬영비 수취 계좌 (payout_accounts — 소유자만 RLS 조회)
+  const { data: acct } = await supabase
+    .from("payout_accounts")
+    .select("bank, number, holder")
+    .eq("photographer_id", me.photographer.id)
+    .maybeSingle();
 
   const initial: ProfileInitial = {
     displayName: data?.display_name ?? "",
@@ -40,9 +41,9 @@ export default async function ProfilePage() {
     regions: (data?.regions ?? []).join(", "),
     moodTags: (data?.mood_tags ?? []).join(", "),
     priceFrom: data?.price_from_krw ?? 0,
-    bankName: acct.bank ?? "",
-    accountNumber: acct.number ?? "",
-    accountHolder: acct.holder ?? "",
+    bankName: acct?.bank ?? "",
+    accountNumber: acct?.number ?? "",
+    accountHolder: acct?.holder ?? "",
   };
 
   return (

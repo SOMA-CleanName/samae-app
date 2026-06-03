@@ -139,12 +139,6 @@ export async function updateProfile(
   }
   const v = parsed.data;
 
-  // 정산계좌 3필드 중 하나라도 있으면 객체로 저장 (민감정보)
-  const settlement =
-    v.bankName || v.accountNumber || v.accountHolder
-      ? { bank: v.bankName, number: v.accountNumber, holder: v.accountHolder }
-      : null;
-
   const { error } = await supabase
     .from("photographers")
     .update({
@@ -153,13 +147,47 @@ export async function updateProfile(
       regions: parseList(v.regions),
       mood_tags: parseList(v.moodTags),
       price_from_krw: v.priceFrom,
-      settlement_account: settlement,
     })
     .eq("profile_id", user.id);
 
   if (error) return { error: "저장 중 오류가 발생했습니다." };
 
+  // 촬영비 수취 계좌 — payout_accounts(작가당 1행)에 upsert.
+  // 사용자에게 노출되는 정보이므로 photographers 본문과 분리 저장(RLS: 소유자만 직접 조회).
+  const me = await getCurrentPhotographerId(supabase, user.id);
+  if (me) {
+    const hasAccount = v.bankName && v.accountNumber && v.accountHolder;
+    if (hasAccount) {
+      await supabase.from("payout_accounts").upsert(
+        {
+          photographer_id: me,
+          bank: v.bankName,
+          number: v.accountNumber,
+          holder: v.accountHolder,
+        },
+        { onConflict: "photographer_id" }
+      );
+    } else if (!v.bankName && !v.accountNumber && !v.accountHolder) {
+      // 세 필드 모두 비우면 계좌 삭제
+      await supabase.from("payout_accounts").delete().eq("photographer_id", me);
+    }
+    // 일부만 입력된 경우는 무시(기존 계좌 유지)
+  }
+
   revalidatePath("/studio/profile");
   revalidatePath("/studio");
   return { ok: true };
+}
+
+// 현재 사용자의 작가 id 조회 (RLS: 본인 행)
+async function getCurrentPhotographerId(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string
+): Promise<string | null> {
+  const { data } = await supabase
+    .from("photographers")
+    .select("id")
+    .eq("profile_id", userId)
+    .maybeSingle();
+  return data?.id ?? null;
 }

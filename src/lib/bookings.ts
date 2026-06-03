@@ -9,8 +9,8 @@ export type BookingStatus =
 // 상태 한글 라벨 + 색조
 export const STATUS_LABEL: Record<BookingStatus, string> = {
   requested: "요청됨",
-  accepted: "수락됨 · 결제 대기",
-  paid: "결제 완료",
+  accepted: "수락됨 · 송금 대기",
+  paid: "입금 확인됨",
   shot: "촬영 완료",
   delivered: "보정본 전달됨",
   completed: "완료",

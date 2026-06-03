@@ -2,66 +2,74 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { newPgTxId, type PgWebhookEvent } from "@/lib/pg-mock";
 
 // ════════════════════════════════════════════════════════════════
-// 결제·정산 도메인
-// write(돈·상태 변경)는 전부 service_role(admin)로만. RLS는 조회만 허용.
-// 상태 전이 신뢰의 원천은 PG webhook (→ applyPaymentPaid).
+// 결제·수수료 도메인 — 직접 계좌이체 모델
+//
+// 사용자는 촬영비 전액을 작가 계좌로 "직접" 송금한다(오프플랫폼).
+// 플랫폼은 매칭 건당 PLATFORM_FEE_KRW 원을 작가에게 부과하며,
+// 작가의 입금 확인(accepted→paid) 시점에 발생(accrued)시켜 월 단위로
+// 누적·청구한다. write(상태·원장 변경)는 전부 service_role(admin)로만,
+// RLS 는 조회 게이트만 담당한다.
 // ════════════════════════════════════════════════════════════════
 
+// 매칭 건당 플랫폼 수수료 (작가 부담, 정액)
+export const PLATFORM_FEE_KRW = 6000;
+
+const fmtKrw = (n: number) => new Intl.NumberFormat("ko-KR").format(n);
+
+// ── 결제(직접이체 확인) ──────────────────────────────────────────────
 export type PaymentStatus =
   | "pending" | "paid" | "failed" | "cancelled" | "refunded" | "partial_refunded";
-export type SettlementStatus = "pending" | "scheduled" | "paid" | "held";
-
-// 플랫폼 수수료율 (초안 — 운영정책 확정 전 placeholder, docs/06 참고)
-export const FEE_RATE = 0.15;
-
-// 거래액 → {수수료, 작가 수령액}
-export function computeFee(grossKrw: number): { fee: number; net: number } {
-  const fee = Math.round(grossKrw * FEE_RATE);
-  return { fee, net: grossKrw - fee };
-}
 
 export const PAYMENT_LABEL: Record<PaymentStatus, string> = {
-  pending: "결제 대기",
-  paid: "결제 완료",
-  failed: "결제 실패",
-  cancelled: "결제 취소",
+  pending: "입금 대기",
+  paid: "입금 확인됨",
+  failed: "실패",
+  cancelled: "취소",
   refunded: "환불 완료",
   partial_refunded: "부분 환불",
-};
-
-export const SETTLEMENT_LABEL: Record<SettlementStatus, string> = {
-  pending: "정산 대기 (에스크로 보류)",
-  scheduled: "정산 예정",
-  paid: "정산 완료",
-  held: "정산 보류 (분쟁)",
 };
 
 export type PaymentRow = {
   id: string;
   booking_id: string;
   status: PaymentStatus;
-  provider: string | null;
   amount_krw: number;
   refunded_krw: number;
   paid_at: string | null;
+  method: string | null;
 };
 
-export type SettlementRow = {
+const PAYMENT_COLS = "id, booking_id, status, amount_krw, refunded_krw, paid_at, method";
+
+// ── 플랫폼 수수료 원장 (작가가 낼 매칭 수수료) ────────────────────────
+export type FeeStatus = "accrued" | "billed" | "paid" | "waived";
+
+export const FEE_LABEL: Record<FeeStatus, string> = {
+  accrued: "발생 (미청구)",
+  billed: "청구됨",
+  paid: "납부 완료",
+  waived: "면제",
+};
+
+export type FeeRow = {
   id: string;
   booking_id: string;
-  gross_krw: number;
   fee_krw: number;
-  net_krw: number;
-  status: SettlementStatus;
-  scheduled_at: string | null;
+  status: FeeStatus;
+  period: string | null;
+  accrued_at: string;
   paid_at: string | null;
   booking: { shoot_at: string | null; user: { display_name: string | null } | null } | null;
 };
 
-const PAYMENT_COLS = "id, booking_id, status, provider, amount_krw, refunded_krw, paid_at";
+// 작가 수취 계좌 (촬영비 받을 계좌)
+export type PayoutAccount = { bank: string; number: string; holder: string };
+
+// ─────────────────────────────────────────────
+// 조회
+// ─────────────────────────────────────────────
 
 // 예약의 결제 1건 (RLS: 참여자 조회)
 export async function getPaymentByBooking(bookingId: string): Promise<PaymentRow | null> {
@@ -74,31 +82,56 @@ export async function getPaymentByBooking(bookingId: string): Promise<PaymentRow
   return (data as PaymentRow) ?? null;
 }
 
-// 예약의 정산 1건 (RLS: 작가 본인)
-export async function getSettlementByBooking(bookingId: string): Promise<SettlementRow | null> {
+// 예약의 수수료 1건 (RLS: 작가 본인)
+export async function getFeeByBooking(bookingId: string): Promise<FeeRow | null> {
   const supabase = await createClient();
   const { data } = await supabase
-    .from("settlements")
-    .select("id, booking_id, gross_krw, fee_krw, net_krw, status, scheduled_at, paid_at")
+    .from("platform_fees")
+    .select("id, booking_id, fee_krw, status, period, accrued_at, paid_at")
     .eq("booking_id", bookingId)
     .maybeSingle();
-  return (data as unknown as SettlementRow) ?? null;
+  return (data as unknown as FeeRow) ?? null;
 }
 
-// 내 정산 목록 (RLS: 작가 본인)
-export async function listMySettlements(): Promise<SettlementRow[]> {
+// 내 수수료 원장 (RLS: 작가 본인)
+export async function listMyFees(): Promise<FeeRow[]> {
   const supabase = await createClient();
   const { data } = await supabase
-    .from("settlements")
+    .from("platform_fees")
     .select(
-      "id, booking_id, gross_krw, fee_krw, net_krw, status, scheduled_at, paid_at, " +
+      "id, booking_id, fee_krw, status, period, accrued_at, paid_at, " +
         "booking:bookings(shoot_at, user:profiles!bookings_user_id_fkey(display_name))"
     )
-    .order("created_at", { ascending: false });
-  return (data ?? []) as unknown as SettlementRow[];
+    .order("accrued_at", { ascending: false });
+  return (data ?? []) as unknown as FeeRow[];
 }
 
-// 알림 생성 (service_role)
+// 예약 구매자에게 작가 수취 계좌 노출.
+// 호출자가 이 예약의 참여자일 때만(= booking 이 RLS 로 보일 때만) 계좌를 반환한다.
+// 계좌 자체는 소유자만 RLS 조회 가능하므로 admin 으로 읽되, 노출 게이트는 위 검증이 담당.
+export async function getPayoutAccountForBooking(bookingId: string): Promise<PayoutAccount | null> {
+  const supabase = await createClient();
+  const { data: booking } = await supabase
+    .from("bookings")
+    .select("photographer_id")
+    .eq("id", bookingId)
+    .maybeSingle();
+  if (!booking) return null; // 참여자 아님 또는 없음
+
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("payout_accounts")
+    .select("bank, number, holder")
+    .eq("photographer_id", booking.photographer_id)
+    .maybeSingle();
+  return (data as PayoutAccount) ?? null;
+}
+
+// ─────────────────────────────────────────────
+// 쓰기 (service_role 전용)
+// ─────────────────────────────────────────────
+
+// 알림 생성
 async function notify(
   admin: ReturnType<typeof createAdminClient>,
   recipientId: string,
@@ -110,153 +143,100 @@ async function notify(
   await admin.from("notifications").insert({ recipient_id: recipientId, type, title, body, link });
 }
 
-export type PendingPayment = { pg_tx_id: string; amount_krw: number; status: PaymentStatus };
-
-// ── 결제 사전등록(prepare): 서버가 금액을 생성·보관 ──────────────────
-// 클라이언트가 보내는 금액은 신뢰하지 않는다. 멱등(booking_id unique).
-export async function ensurePendingPayment(
-  bookingId: string,
-  amountKrw: number
-): Promise<PendingPayment> {
+// 송금 대기 결제 레코드 보장 (구매자가 송금 안내를 열 때). 멱등(booking_id unique).
+export async function ensureTransferRecord(bookingId: string, amountKrw: number): Promise<void> {
   const admin = createAdminClient();
   const { data: existing } = await admin
     .from("payments")
-    .select("pg_tx_id, amount_krw, status")
+    .select("id")
     .eq("booking_id", bookingId)
     .maybeSingle();
-  if (existing) return existing as PendingPayment;
-
-  const row = {
+  if (existing) return;
+  await admin.from("payments").insert({
     booking_id: bookingId,
-    status: "pending" as const,
-    provider: process.env.PAYMENT_PROVIDER || "mock",
-    pg_tx_id: newPgTxId(),
+    status: "pending",
+    provider: "bank_transfer",
+    method: "bank_transfer",
     amount_krw: amountKrw,
-    idempotency_key: `pay_${bookingId}`,
-  };
-  const { data, error } = await admin
-    .from("payments")
-    .insert(row)
-    .select("pg_tx_id, amount_krw, status")
-    .single();
-  if (error) {
-    // 동시 prepare 경쟁: 이미 생성됐으면 그것을 반환
-    const { data: again } = await admin
-      .from("payments")
-      .select("pg_tx_id, amount_krw, status")
-      .eq("booking_id", bookingId)
-      .single();
-    return again as PendingPayment;
-  }
-  return data as PendingPayment;
+  });
 }
 
-export type ApplyPaidResult =
-  | { ok: true; idempotent: boolean }
-  | { ok: false; reason: "not_found" | "amount_mismatch" | "bad_state" };
+export type ConfirmResult = { ok: true } | { ok: false; reason: "bad_state" };
 
-// ── PG 결제 성공 확정 (webhook 신뢰 경계 통과 후 호출) ───────────────
-// 멱등: 동일 결제 재수신 시 부수효과 없이 ok 반환.
-export async function applyPaymentPaid(event: PgWebhookEvent): Promise<ApplyPaidResult> {
+// 작가 입금 확인: accepted → paid + 결제 확정 + 플랫폼 수수료 발생(accrued).
+// 낙관적 동시성(작가 본인 + 현재 accepted 조건부 update). 멱등(payments/fees booking_id unique).
+export async function confirmBankTransfer(
+  bookingId: string,
+  photographerId: string
+): Promise<ConfirmResult> {
   const admin = createAdminClient();
+  const now = new Date().toISOString();
 
-  // prepare 단계에서 만든 결제 레코드 (서버 보관 금액의 원천)
-  const { data: payment } = await admin
-    .from("payments")
-    .select("id, booking_id, status, amount_krw")
-    .eq("pg_tx_id", event.pg_tx_id)
-    .maybeSingle();
-  if (!payment || payment.booking_id !== event.booking_id) return { ok: false, reason: "not_found" };
-
-  // 멱등: 이미 결제 완료 처리됨
-  if (payment.status === "paid") return { ok: true, idempotent: true };
-  if (payment.status !== "pending") return { ok: false, reason: "bad_state" };
-
-  // 금액 대조 — 클라이언트/PG 통지 금액이 아니라 서버 보관 금액과 일치해야 함
-  if (event.amount_krw !== payment.amount_krw) return { ok: false, reason: "amount_mismatch" };
-
-  // 예약 전이 (accepted → paid). 현재 status 조건부 update = 낙관적 동시성.
   const { data: moved } = await admin
     .from("bookings")
-    .update({ status: "paid", paid_at: event.paid_at })
-    .eq("id", payment.booking_id)
+    .update({ status: "paid", paid_at: now })
+    .eq("id", bookingId)
+    .eq("photographer_id", photographerId)
     .eq("status", "accepted")
     .select("id, user_id, photographer_id, amount_krw");
   if (!moved || moved.length === 0) return { ok: false, reason: "bad_state" };
-  const booking = moved[0];
+  const b = moved[0];
 
-  // 결제 레코드 확정
-  await admin
-    .from("payments")
-    .update({ status: "paid", paid_at: event.paid_at, raw: event })
-    .eq("id", payment.id);
-
-  // 정산 레코드 생성 (에스크로 보류 = pending). 멱등(booking_id unique).
-  const { fee, net } = computeFee(payment.amount_krw);
-  await admin.from("settlements").upsert(
+  // 입금 확인 기록 (송금 대기 레코드가 있으면 갱신, 없으면 생성)
+  await admin.from("payments").upsert(
     {
-      booking_id: payment.booking_id,
-      photographer_id: booking.photographer_id,
-      gross_krw: payment.amount_krw,
-      fee_krw: fee,
-      net_krw: net,
-      status: "pending",
+      booking_id: bookingId,
+      status: "paid",
+      provider: "bank_transfer",
+      method: "bank_transfer",
+      amount_krw: b.amount_krw ?? 0,
+      paid_at: now,
+    },
+    { onConflict: "booking_id" }
+  );
+
+  // 플랫폼 수수료 발생 (작가 부담, 월 누적). 멱등.
+  await admin.from("platform_fees").upsert(
+    {
+      booking_id: bookingId,
+      photographer_id: b.photographer_id,
+      fee_krw: PLATFORM_FEE_KRW,
+      status: "accrued",
+      period: now.slice(0, 7), // 'YYYY-MM' (UTC 기준 — 청구 정밀화는 운영 시 보정)
+      accrued_at: now,
     },
     { onConflict: "booking_id", ignoreDuplicates: true }
   );
 
   // 양측 알림
-  const link = `/bookings/${payment.booking_id}`;
+  const link = `/bookings/${bookingId}`;
+  await notify(admin, b.user_id, "입금이 확인됐어요", "작가가 촬영을 준비합니다.", link);
   const { data: ph } = await admin
     .from("photographers")
     .select("profile_id")
-    .eq("id", booking.photographer_id)
+    .eq("id", b.photographer_id)
     .single();
-  await notify(admin, booking.user_id, "결제가 완료됐어요", "촬영을 기다려주세요.", link);
-  if (ph) await notify(admin, ph.profile_id, "예약이 결제됐어요", "촬영 일정을 확인하세요.", link);
+  if (ph)
+    await notify(
+      admin,
+      ph.profile_id,
+      "입금을 확인했어요",
+      `매칭 수수료 ₩${fmtKrw(PLATFORM_FEE_KRW)} 이 부과됐습니다.`,
+      "/studio/settlements",
+      "settlement"
+    );
 
-  return { ok: true, idempotent: false };
+  return { ok: true };
 }
 
-// ── 전달 확인 시 정산 예약 (completed 전이의 부수효과) ────────────────
-export async function scheduleSettlementOnComplete(
+// 환불 시 수수료 면제 (accrued/billed → waived)
+export async function waiveFee(
   admin: ReturnType<typeof createAdminClient>,
-  bookingId: string,
-  completedAt: string
-) {
-  // pending(보류) → scheduled(정산 예정). 정산 주기는 운영정책(여기선 즉시 예정).
+  bookingId: string
+): Promise<void> {
   await admin
-    .from("settlements")
-    .update({ status: "scheduled", scheduled_at: completedAt })
+    .from("platform_fees")
+    .update({ status: "waived" })
     .eq("booking_id", bookingId)
-    .eq("status", "pending");
-}
-
-// ── 정산 확정 배치: 예정(scheduled)이고 도래한 건 → paid ──────────────
-export async function runDueSettlements(nowIso: string): Promise<number> {
-  const admin = createAdminClient();
-  const { data } = await admin
-    .from("settlements")
-    .update({ status: "paid", paid_at: nowIso })
-    .eq("status", "scheduled")
-    .lte("scheduled_at", nowIso)
-    .select("id, photographer_id, net_krw, booking_id");
-  const rows = data ?? [];
-  for (const s of rows) {
-    const { data: ph } = await admin
-      .from("photographers")
-      .select("profile_id")
-      .eq("id", s.photographer_id)
-      .single();
-    if (ph)
-      await notify(
-        admin,
-        ph.profile_id,
-        "정산이 완료됐어요",
-        `₩${new Intl.NumberFormat("ko-KR").format(s.net_krw)} 이 정산되었습니다.`,
-        `/studio/settlements`,
-        "settlement"
-      );
-  }
-  return rows.length;
+    .in("status", ["accrued", "billed"]);
 }

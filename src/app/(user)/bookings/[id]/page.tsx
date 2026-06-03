@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getBooking, STATUS_LABEL, statusTone, fmtShootAt } from "@/lib/bookings";
 import { acceptBooking, rejectBooking, cancelBooking } from "@/app/actions/bookings";
 import {
+  confirmTransfer,
   markShot,
   markDelivered,
   confirmCompletion,
@@ -11,9 +12,9 @@ import {
 } from "@/app/actions/payments";
 import {
   getPaymentByBooking,
-  getSettlementByBooking,
+  getFeeByBooking,
   PAYMENT_LABEL,
-  SETTLEMENT_LABEL,
+  FEE_LABEL,
 } from "@/lib/payments";
 
 // 예약 상세 + 역할·상태별 액션
@@ -36,7 +37,7 @@ export default async function BookingDetail({
 
   // 결제·정산 정보 (RLS: 참여자/작가 본인만 조회됨)
   const payment = await getPaymentByBooking(id);
-  const settlement = isOwner ? await getSettlementByBooking(id) : null;
+  const fee = isOwner ? await getFeeByBooking(id) : null;
   const canRefund = (isBuyer || isAdmin) && ["paid", "shot", "delivered"].includes(b.status);
   const counterpart = isBuyer
     ? b.photographer?.display_name || `@${b.photographer?.handle}`
@@ -71,10 +72,10 @@ export default async function BookingDetail({
             }
           />
         )}
-        {settlement && (
+        {fee && (
           <Row
-            label="정산"
-            value={`${SETTLEMENT_LABEL[settlement.status]} · 수령 ₩${fmt.format(settlement.net_krw)}`}
+            label="매칭 수수료"
+            value={`${FEE_LABEL[fee.status]} · ₩${fmt.format(fee.fee_krw)}`}
           />
         )}
       </dl>
@@ -109,14 +110,24 @@ export default async function BookingDetail({
           </div>
         )}
 
-        {/* 구매자: 수락됨 → 결제 */}
+        {/* 구매자: 수락됨 → 송금 안내(작가 계좌 확인) */}
         {isBuyer && b.status === "accepted" && (
           <Link
             href={`/bookings/${b.id}/pay`}
             className="w-full rounded-xl bg-fg py-3 text-center text-sm font-semibold text-bg hover:opacity-90"
           >
-            결제하기
+            송금 안내 보기
           </Link>
+        )}
+
+        {/* 작가: 수락됨 → 입금 확인 */}
+        {isOwner && b.status === "accepted" && (
+          <form action={confirmTransfer}>
+            <input type="hidden" name="id" value={b.id} />
+            <button className="w-full rounded-xl bg-fg py-3 text-sm font-semibold text-bg hover:opacity-90">
+              입금 확인
+            </button>
+          </form>
         )}
 
         {/* 작가: 결제됨 → 촬영 완료 */}

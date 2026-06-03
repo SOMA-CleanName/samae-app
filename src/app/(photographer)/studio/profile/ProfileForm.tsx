@@ -30,9 +30,12 @@ export function ProfileForm({ initial }: { initial: ProfileInitial }) {
       <Field name="moodTags" label="무드 태그" defaultValue={initial.moodTags} hint="쉼표로 구분 (예: 필름, 내추럴)" />
       <Field name="priceFrom" label="최저가 (원)" type="number" defaultValue={String(initial.priceFrom)} hint="표시용 시작 가격" />
 
-      {/* 정산 계좌 — 민감정보 */}
+      {/* 촬영비 수취 계좌 — 예약 확정 시 해당 고객에게 노출됨 */}
       <fieldset className="mt-2 rounded-xl border border-fg/10 p-4">
-        <legend className="px-1 text-xs text-fg/55">정산 계좌 (비공개)</legend>
+        <legend className="px-1 text-xs text-fg/55">촬영비 수취 계좌</legend>
+        <p className="mb-2 text-xs text-fg/45">
+          예약이 확정되면 고객이 이 계좌로 촬영비를 직접 송금합니다.
+        </p>
         <div className="flex flex-col gap-3">
           <Field name="bankName" label="은행" defaultValue={initial.bankName} />
           <Field name="accountNumber" label="계좌번호" defaultValue={initial.accountNumber} />
