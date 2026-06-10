@@ -9,7 +9,7 @@ export type CurrentUser = {
   displayName: string | null;
   avatarUrl: string | null;
   /** 작가 자격 보유 시 작가 정보, 아니면 null (= "작가 여부는 photographers 행으로 판단") */
-  photographer: { id: string; handle: string; status: string } | null;
+  photographer: { id: string; displayName: string; status: string } | null;
 };
 
 /**
@@ -31,7 +31,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
 
   const { data: photographer } = await supabase
     .from("photographers")
-    .select("id, handle, status")
+    .select("id, display_name, status")
     .eq("profile_id", user.id)
     .maybeSingle();
 
@@ -42,7 +42,11 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     displayName: profile?.display_name ?? null,
     avatarUrl: profile?.avatar_url ?? null,
     photographer: photographer
-      ? { id: photographer.id, handle: photographer.handle, status: photographer.status }
+      ? {
+          id: photographer.id,
+          displayName: photographer.display_name ?? "작가",
+          status: photographer.status,
+        }
       : null,
   };
 }

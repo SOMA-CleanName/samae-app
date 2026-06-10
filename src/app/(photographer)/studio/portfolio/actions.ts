@@ -7,6 +7,21 @@ import { getCurrentUser } from "@/lib/auth";
 
 const BUCKET = "samae-portfolio";
 
+// 피드 생성 — 같이 올린 사진들을 한 피드로 묶는다. album id 반환.
+// (1장만 올려도 피드 1개. 프로필 그리드에선 대표 1장만 보이고 클릭 시 스와이프)
+export async function createPost(): Promise<{ id: string }> {
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가만 사용할 수 있습니다.");
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("albums")
+    .insert({ photographer_id: me.photographer.id })
+    .select("id")
+    .single();
+  if (error) throw new Error(error.message);
+  return { id: data.id as string };
+}
+
 // 사진 공개/비공개 전환 (RLS: 본인 작가 사진만)
 export async function setPhotoVisibility(formData: FormData) {
   const id = String(formData.get("id"));
@@ -15,6 +30,32 @@ export async function setPhotoVisibility(formData: FormData) {
   const { error } = await supabase
     .from("photos")
     .update({ visibility })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/studio/portfolio");
+}
+
+// 사진 메타 수정 — 가격·장소. (RLS: 본인 작가 사진만)
+// 가격 노출 on/off 는 작가가 아니라 탐색 메인에서 보는 사람이 토글한다.
+export async function updatePhotoMeta(formData: FormData) {
+  const id = String(formData.get("id"));
+
+  // 가격: 빈 값이면 null, 숫자면 0 이상 정수로 정규화
+  const rawPrice = String(formData.get("price_krw") ?? "").trim();
+  let price_krw: number | null = null;
+  if (rawPrice !== "") {
+    const n = Math.trunc(Number(rawPrice));
+    price_krw = Number.isFinite(n) && n >= 0 ? n : null;
+  }
+
+  // 장소: 빈 문자열은 null 로
+  const rawLoc = String(formData.get("location_text") ?? "").trim();
+  const location_text = rawLoc === "" ? null : rawLoc.slice(0, 120);
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("photos")
+    .update({ price_krw, location_text })
     .eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/studio/portfolio");

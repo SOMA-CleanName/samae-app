@@ -10,8 +10,32 @@ export type ConversationListItem = {
   last_message_at: string | null;
   user_unread: number;
   photographer_unread: number;
-  photographer: { handle: string; display_name: string | null } | null;
+  user_hidden_at: string | null;
+  photographer_hidden_at: string | null;
+  photographer: { display_name: string | null } | null;
   user: { display_name: string | null } | null;
+};
+
+// 채팅방 진행 상태 (예약 단계에서 파생)
+export type ChatStatus = "consulting" | "booked" | "shot";
+export const CHAT_STATUS_LABEL: Record<ChatStatus, string> = {
+  consulting: "상담 중",
+  booked: "예약 완료",
+  shot: "촬영 완료",
+};
+export type ChatRoomItem = ConversationListItem & { status: ChatStatus };
+
+// 예약 제안 카드용 스냅샷 (편집 프리필을 위해 package_id·memo 포함)
+export type BookingSnapshot = {
+  id: string;
+  status: string;
+  shoot_at: string | null;
+  location_text: string | null;
+  amount_krw: number | null;
+  travel_fee_krw: number;
+  package_snapshot: { name?: string } | null;
+  package_id: string | null;
+  memo: string | null;
 };
 
 export type ChatMessage = {
@@ -21,20 +45,73 @@ export type ChatMessage = {
   body: string;
   image_path: string | null;
   created_at: string;
+  booking_id: string | null;
+  booking?: BookingSnapshot | null;
 };
 
-// 내 대화 목록 (RLS가 참여 대화로 제한) — 상대 정보 포함
+const CONV_COLS =
+  "id, user_id, photographer_id, last_message_at, user_unread, photographer_unread, " +
+  "user_hidden_at, photographer_hidden_at, " +
+  "photographer:photographers(display_name), " +
+  "user:profiles!conversations_user_id_fkey(display_name)";
+
+// 내 대화 목록 (RLS가 참여 대화로 제한) — 상대 정보 포함. (안읽음 배지 집계용 — 전체)
 export async function listConversations(): Promise<ConversationListItem[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("conversations")
-    .select(
-      "id, user_id, photographer_id, last_message_at, user_unread, photographer_unread, " +
-        "photographer:photographers(handle, display_name), " +
-        "user:profiles!conversations_user_id_fkey(display_name)"
-    )
+    .select(CONV_COLS)
     .order("last_message_at", { ascending: false, nullsFirst: false });
   return (data ?? []) as unknown as ConversationListItem[];
+}
+
+// 채팅 리스트 화면용 — 실제 대화가 오간 방만 + 내가 나가지 않은 방만 + 진행 상태 부착
+export async function listChatRooms(me: CurrentUser): Promise<ChatRoomItem[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("conversations")
+    .select(CONV_COLS)
+    .order("last_message_at", { ascending: false, nullsFirst: false });
+  const convs = (data ?? []) as unknown as ConversationListItem[];
+
+  // 예약 상태 맵 — (user_id:photographer_id) → '가장 최근 활성 예약' 상태.
+  // 거절/취소/환불은 제외하고 created_at desc로 최신 1건만 반영(역대 최고 단계 오표시 방지).
+  const { data: bookings } = await supabase
+    .from("bookings")
+    .select("user_id, photographer_id, status, created_at")
+    .order("created_at", { ascending: false });
+  const latestByPair = new Map<string, string>();
+  for (const b of bookings ?? []) {
+    if (!LIVE_STATUSES.has(b.status as string)) continue;
+    const key = `${b.user_id}:${b.photographer_id}`;
+    if (!latestByPair.has(key)) latestByPair.set(key, b.status as string); // desc 정렬이라 첫 항목=최신
+  }
+
+  return convs
+    .filter((c) => isVisibleTo(c, me)) // 메시지 있는 + 안 나간 방만
+    .map((c) => ({
+      ...c,
+      status: deriveStatus(latestByPair.get(`${c.user_id}:${c.photographer_id}`)),
+    }));
+}
+
+// 진행 중으로 볼 예약 상태 (거절/취소/환불 제외)
+const LIVE_STATUSES = new Set([
+  "requested", "accepted", "paid", "shot", "delivered", "completed",
+]);
+
+// 리스트에 보일지: 메시지가 한 번이라도 오갔고(last_message_at), 내가 나간 시점 이후 활동이 있을 때
+function isVisibleTo(c: ConversationListItem, me: CurrentUser): boolean {
+  if (!c.last_message_at) return false;
+  const myHidden = c.user_id === me.id ? c.user_hidden_at : c.photographer_hidden_at;
+  return !myHidden || c.last_message_at > myHidden;
+}
+
+// 최근 활성 예약 상태 → 채팅방 진행 상태
+function deriveStatus(status: string | undefined): ChatStatus {
+  if (status === "shot" || status === "delivered" || status === "completed") return "shot";
+  if (status === "accepted" || status === "paid") return "booked";
+  return "consulting";
 }
 
 // 대화 1건 (접근 불가 시 null)
@@ -44,7 +121,7 @@ export async function getConversation(id: string): Promise<ConversationListItem 
     .from("conversations")
     .select(
       "id, user_id, photographer_id, last_message_at, user_unread, photographer_unread, " +
-        "photographer:photographers(handle, display_name), " +
+        "photographer:photographers(display_name), " +
         "user:profiles!conversations_user_id_fkey(display_name)"
     )
     .eq("id", id)
@@ -57,16 +134,44 @@ export async function getMessages(conversationId: string): Promise<ChatMessage[]
   const supabase = await createClient();
   const { data } = await supabase
     .from("messages")
-    .select("id, sender_id, type, body, image_path, created_at")
+    .select(
+      "id, sender_id, type, body, image_path, created_at, booking_id, " +
+        "booking:bookings(id, status, shoot_at, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo)"
+    )
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true });
-  return (data ?? []) as ChatMessage[];
+  return (data ?? []) as unknown as ChatMessage[];
+}
+
+// 상담 정보(인테이크) — 대화별 1건. 고객이 작성, 작가가 열람.
+export type ConsultationBrief = {
+  conversation_id: string;
+  gender: string | null;
+  party_size: number | null;
+  purpose: string | null;
+  preferred_date: string | null;
+  region: string | null;
+  note: string | null;
+  ref_image_paths: string[];
+};
+
+// 대화의 상담 정보 (RLS: 참여자만). 없으면 null.
+export async function getBrief(conversationId: string): Promise<ConsultationBrief | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("consultation_briefs")
+    .select(
+      "conversation_id, gender, party_size, purpose, preferred_date, region, note, ref_image_paths"
+    )
+    .eq("conversation_id", conversationId)
+    .maybeSingle();
+  return (data as ConsultationBrief) ?? null;
 }
 
 // 대화 상대 표시명 (내 관점)
 export function counterpartName(c: ConversationListItem, me: CurrentUser): string {
   if (c.user_id === me.id) {
-    return c.photographer?.display_name || `@${c.photographer?.handle ?? "작가"}`;
+    return c.photographer?.display_name || "작가";
   }
   return c.user?.display_name || "고객";
 }

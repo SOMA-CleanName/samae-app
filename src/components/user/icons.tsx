@@ -75,6 +75,20 @@ export function ShieldIcon({ className }: IconProps) {
   );
 }
 
+// 알림(종)
+export function BellIcon({ className, filled }: IconProps) {
+  return filled ? (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className ?? base}>
+      <path d="M12 2a6 6 0 0 0-6 6c0 3.1-.8 5-1.6 6.1-.5.7 0 1.7.9 1.7h13.4c.9 0 1.4-1 .9-1.7C18.8 13 18 11.1 18 8a6 6 0 0 0-6-6Zm0 20a2.8 2.8 0 0 0 2.7-2h-5.4A2.8 2.8 0 0 0 12 22Z" />
+    </svg>
+  ) : (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinejoin="round" className={className ?? base}>
+      <path d="M6 8a6 6 0 0 1 12 0c0 3.1.8 5 1.6 6.1.5.7 0 1.7-.9 1.7H5.3c-.9 0-1.4-1-.9-1.7C5.2 13 6 11.1 6 8Z" />
+      <path d="M9.5 20a2.6 2.6 0 0 0 5 0" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 // 검색(돋보기)
 export function SearchIcon({ className }: IconProps) {
   return (

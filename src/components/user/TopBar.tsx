@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { signOut } from "@/app/actions/auth";
 import { SearchIcon, ChevronDownIcon } from "./icons";
 
@@ -15,6 +15,10 @@ type MeProps = {
 
 // 핀터레스트식 상단 바 — 큰 검색 알약 + 우측 아바타 메뉴
 export function TopBar({ me }: { me: MeProps }) {
+  const pathname = usePathname();
+  // 개별 채팅방에서는 검색바·헤더바 숨김 (몰입형 대화 화면)
+  if (/^\/chat\/.+/.test(pathname)) return null;
+
   return (
     <header className="sticky top-0 z-30 bg-bg/85 backdrop-blur">
       <div className="flex items-center gap-2 px-3 py-3 sm:px-5">
@@ -45,8 +49,8 @@ function SearchPill() {
       <input
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder="검색"
-        aria-label="작가 이름·지역 검색"
+        placeholder="무드 태그로 검색 (예: 감성, 흑백, 우드톤)"
+        aria-label="무드 태그 검색"
         className="w-full rounded-full bg-fg/[0.06] py-3 pl-11 pr-4 text-sm outline-none transition focus:bg-white focus:ring-2 focus:ring-fg/15"
       />
     </form>

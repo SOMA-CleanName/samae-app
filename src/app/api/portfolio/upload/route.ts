@@ -21,6 +21,27 @@ export async function POST(req: Request) {
   if (!(file instanceof File)) {
     return Response.json({ error: "파일이 없습니다." }, { status: 400 });
   }
+
+  // 묶음/공통 정보 (있으면 적용, 없으면 기존 기본값)
+  const albumIdRaw = form.get("album_id");
+  const albumId = typeof albumIdRaw === "string" && albumIdRaw ? albumIdRaw : null;
+  const visibility = form.get("visibility") === "published" ? "published" : "draft";
+
+  const priceStr = String(form.get("price_krw") ?? "").trim();
+  let priceKrw: number | null = null;
+  if (priceStr !== "") {
+    const n = Math.trunc(Number(priceStr));
+    priceKrw = Number.isFinite(n) && n >= 0 ? n : null;
+  }
+
+  const locStr = String(form.get("location_text") ?? "").trim();
+  const locationText = locStr === "" ? null : locStr.slice(0, 120);
+
+  // 무드태그: "a, b" csv → 배열 (없으면 작가 기본값을 아래에서 사용)
+  const moodStr = String(form.get("mood_tags") ?? "").trim();
+  const moodFromForm = moodStr
+    ? moodStr.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 10)
+    : null;
   if (!file.type.startsWith("image/")) {
     return Response.json({ error: "이미지 파일만 가능합니다." }, { status: 400 });
   }
@@ -69,6 +90,19 @@ export async function POST(req: Request) {
   const srcUrl = admin.storage.from(BUCKET).getPublicUrl(mainPath).data.publicUrl;
   const thumbUrl = admin.storage.from(BUCKET).getPublicUrl(thumbPath).data.publicUrl;
 
+  // 묶음 지정 시 소유권 검증 (남의 앨범에 넣기 차단)
+  if (albumId) {
+    const { data: album } = await admin
+      .from("albums")
+      .select("photographer_id")
+      .eq("id", albumId)
+      .single();
+    if (!album || album.photographer_id !== photographerId) {
+      await admin.storage.from(BUCKET).remove([mainPath, thumbPath]);
+      return Response.json({ error: "잘못된 묶음입니다." }, { status: 403 });
+    }
+  }
+
   // 작가 기본 지역/무드를 사진 기본값으로 (탐색 필터용)
   const { data: ph } = await admin
     .from("photographers")
@@ -78,14 +112,17 @@ export async function POST(req: Request) {
 
   const { error: insErr } = await admin.from("photos").insert({
     photographer_id: photographerId,
+    album_id: albumId,
     storage_path: mainPath,
     src_url: srcUrl,
     thumb_url: thumbUrl,
     width: mainMeta.width ?? 0,
     height: mainMeta.height ?? 0,
     region: ph?.regions?.[0] ?? null,
-    mood_tags: ph?.mood_tags ?? [],
-    visibility: "draft",
+    mood_tags: moodFromForm ?? ph?.mood_tags ?? [],
+    price_krw: priceKrw,
+    location_text: locationText,
+    visibility,
   });
   if (insErr) {
     await admin.storage.from(BUCKET).remove([mainPath, thumbPath]);

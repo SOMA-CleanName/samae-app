@@ -7,11 +7,6 @@ import { createClient } from "@/lib/supabase/server";
 
 // 작가 신청 입력 검증 스키마
 const ApplySchema = z.object({
-  handle: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .regex(/^[a-z0-9_]{3,20}$/, "핸들은 영문 소문자·숫자·_ 3~20자"),
   displayName: z.string().trim().min(1, "작가명을 입력하세요").max(40),
   bio: z.string().trim().max(500).optional().default(""),
   regions: z.string().optional().default(""),
@@ -52,7 +47,6 @@ export async function applyAsPhotographer(
 
   // 입력 검증
   const parsed = ApplySchema.safeParse({
-    handle: formData.get("handle"),
     displayName: formData.get("displayName"),
     bio: formData.get("bio"),
     regions: formData.get("regions"),
@@ -70,7 +64,6 @@ export async function applyAsPhotographer(
   // 삽입 (RLS: profile_id = auth.uid() 만 허용)
   const { error } = await supabase.from("photographers").insert({
     profile_id: user.id,
-    handle: v.handle,
     display_name: v.displayName,
     bio: v.bio,
     regions: parseList(v.regions),
@@ -79,9 +72,9 @@ export async function applyAsPhotographer(
   });
 
   if (error) {
-    // 핸들 중복 (unique violation)
+    // profile_id unique violation (이미 신청 — 위 가드와 동시성 보완)
     if (error.code === "23505") {
-      return { error: "이미 사용 중인 핸들입니다.", fieldErrors: { handle: "중복된 핸들" } };
+      return { error: "이미 작가 신청 내역이 있습니다." };
     }
     return { error: "신청 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요." };
   }

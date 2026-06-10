@@ -9,10 +9,11 @@ import {
   CalendarIcon,
   ChatIcon,
   ShieldIcon,
+  BellIcon,
 } from "./icons";
 
 // 레일에 들어갈 아이콘 키 — 직렬화 가능하도록 문자열로 전달받음
-export type NavIconKey = "home" | "heart" | "plus" | "calendar" | "chat" | "shield";
+export type NavIconKey = "home" | "heart" | "plus" | "calendar" | "chat" | "shield" | "bell";
 
 export type NavItem = {
   href: string;
@@ -37,6 +38,8 @@ function renderIcon(key: NavIconKey, active: boolean) {
       return <ChatIcon className={cls} filled={active} />;
     case "shield":
       return <ShieldIcon className={cls} />;
+    case "bell":
+      return <BellIcon className={cls} filled={active} />;
   }
 }
 

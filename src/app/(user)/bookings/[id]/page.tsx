@@ -16,6 +16,8 @@ import {
   PAYMENT_LABEL,
   FEE_LABEL,
 } from "@/lib/payments";
+import { getReviewByBooking } from "@/lib/reviews";
+import { ReviewForm } from "./ReviewForm";
 
 // 예약 상세 + 역할·상태별 액션
 export default async function BookingDetail({
@@ -38,9 +40,26 @@ export default async function BookingDetail({
   // 결제·정산 정보 (RLS: 참여자/작가 본인만 조회됨)
   const payment = await getPaymentByBooking(id);
   const fee = isOwner ? await getFeeByBooking(id) : null;
+  // 후기 — 완료된 예약만 (구매자는 작성/수정, 그 외 읽기)
+  const review = b.status === "completed" ? await getReviewByBooking(id) : null;
+
+  // 정체 단계 넛지 (경량 인앱 리마인더)
+  const daysSince = (iso: string) => Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+  let nudge: string | null = null;
+  if (b.status === "accepted") {
+    const d = b.accepted_at ? daysSince(b.accepted_at) : 0;
+    const tail = d > 0 ? ` · ${d}일째` : "";
+    nudge = isBuyer
+      ? `송금 대기 중${tail} — 작가 계좌로 직접 송금 후 입금 확인을 기다려주세요.`
+      : `고객 송금 대기 중${tail} — 입금되면 '입금 확인'을 눌러주세요.`;
+  } else if (b.status === "delivered") {
+    nudge = isBuyer
+      ? "보정본이 전달됐어요 — 확인 후 거래 완료를 눌러주세요."
+      : "고객의 전달 확인을 기다리고 있어요.";
+  }
   const canRefund = (isBuyer || isAdmin) && ["paid", "shot", "delivered"].includes(b.status);
   const counterpart = isBuyer
-    ? b.photographer?.display_name || `@${b.photographer?.handle}`
+    ? b.photographer?.display_name || "작가"
     : b.user?.display_name || "고객";
 
   return (
@@ -80,10 +99,17 @@ export default async function BookingDetail({
         )}
       </dl>
 
+      {/* 정체 단계 넛지 */}
+      {nudge && (
+        <p className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.06] px-4 py-3 text-sm text-amber-700">
+          {nudge}
+        </p>
+      )}
+
       {/* 채팅 링크 */}
       {b.photographer && (
         <Link
-          href={`/photographers/${b.photographer.handle}`}
+          href={`/photographers/${b.photographer_id}`}
           className="mt-4 inline-block text-sm text-fg/60 hover:text-fg"
         >
           {isBuyer ? "작가 프로필 보기" : ""}
@@ -180,6 +206,29 @@ export default async function BookingDetail({
           </form>
         )}
       </div>
+
+      {/* 후기 — 완료된 예약 */}
+      {b.status === "completed" && (
+        <section className="mt-6">
+          {isBuyer ? (
+            // 구매자: 작성 또는 수정
+            <ReviewForm
+              bookingId={b.id}
+              initialRating={review?.rating ?? 0}
+              initialBody={review?.body ?? ""}
+            />
+          ) : review ? (
+            // 그 외(작가 등): 읽기 전용
+            <div className="rounded-xl border border-fg/10 p-5">
+              <p className="text-sm font-semibold">고객 후기</p>
+              <p className="mt-1 text-amber-500">{"★".repeat(review.rating)}<span className="text-fg/20">{"★".repeat(5 - review.rating)}</span></p>
+              {review.body && <p className="mt-2 text-sm text-fg/70">{review.body}</p>}
+            </div>
+          ) : (
+            <p className="text-center text-sm text-fg/40">아직 후기가 없어요.</p>
+          )}
+        </section>
+      )}
     </main>
   );
 }

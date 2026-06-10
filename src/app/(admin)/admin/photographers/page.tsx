@@ -6,7 +6,6 @@ import { approvePhotographer, rejectPhotographer } from "./actions";
 
 type Row = {
   id: string;
-  handle: string;
   display_name: string | null;
   bio: string;
   regions: string[];
@@ -24,7 +23,7 @@ export default async function AdminPhotographersPage() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("photographers")
-    .select("id, handle, display_name, bio, regions, mood_tags, status, created_at")
+    .select("id, display_name, bio, regions, mood_tags, status, created_at")
     .order("created_at", { ascending: false });
 
   const rows = (data ?? []) as Row[];
@@ -80,8 +79,7 @@ export default async function AdminPhotographersPage() {
               className="flex items-center justify-between rounded-lg border border-fg/10 px-4 py-3"
             >
               <div className="text-sm">
-                <b>@{r.handle}</b>{" "}
-                <span className="text-fg/50">{r.display_name}</span>
+                <b>{r.display_name}</b>
               </div>
               <div className="flex items-center gap-2">
                 <StatusPill status={r.status} />
@@ -106,8 +104,7 @@ function PhotographerInfo({ row }: { row: Row }) {
   return (
     <div>
       <p className="text-sm">
-        <b>@{row.handle}</b>{" "}
-        <span className="text-fg/55">· {row.display_name}</span>
+        <b>{row.display_name}</b>
       </p>
       {row.bio && <p className="mt-1 text-sm text-fg/65">{row.bio}</p>}
       <div className="mt-2 flex flex-wrap gap-1 text-[11px] text-fg/55">

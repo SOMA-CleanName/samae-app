@@ -15,16 +15,10 @@ export function ApplyForm() {
   return (
     <form action={formAction} className="mt-6 flex flex-col gap-4">
       <Field
-        name="handle"
-        label="핸들 (URL 주소)"
-        placeholder="예: jiwon_film"
-        hint="영문 소문자·숫자·_ 3~20자. /photographers/핸들 로 노출됩니다."
-        error={state.fieldErrors?.handle}
-      />
-      <Field
         name="displayName"
         label="작가명"
         placeholder="예: 지원"
+        hint="탐색·프로필에 노출되는 이름이에요."
         error={state.fieldErrors?.displayName}
       />
       <div className="flex flex-col gap-1">

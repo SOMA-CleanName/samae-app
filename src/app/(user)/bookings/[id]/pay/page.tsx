@@ -24,7 +24,7 @@ export default async function TransferGuidePage({
   await ensureTransferRecord(id, b.amount_krw ?? 0);
   const account = await getPayoutAccountForBooking(id);
   const fmt = new Intl.NumberFormat("ko-KR");
-  const artist = b.photographer?.display_name || `@${b.photographer?.handle}`;
+  const artist = b.photographer?.display_name || "작가";
 
   return (
     <main className="mx-auto max-w-lg px-4 sm:px-6 py-8 font-kr">

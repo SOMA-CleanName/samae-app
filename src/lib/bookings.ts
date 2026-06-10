@@ -36,15 +36,16 @@ export type BookingRow = {
   user_id: string;
   photographer_id: string;
   created_at: string;
+  accepted_at: string | null;
   package_snapshot: { name?: string } | null;
-  photographer: { handle: string; display_name: string | null } | null;
+  photographer: { display_name: string | null } | null;
   user: { display_name: string | null } | null;
   package: { name: string } | null;
 };
 
 const SELECT =
-  "id, status, shoot_at, location_text, amount_krw, memo, user_id, photographer_id, created_at, package_snapshot, " +
-  "photographer:photographers(handle, display_name), " +
+  "id, status, shoot_at, location_text, amount_krw, memo, user_id, photographer_id, created_at, accepted_at, package_snapshot, " +
+  "photographer:photographers(display_name), " +
   "user:profiles!bookings_user_id_fkey(display_name), " +
   "package:packages(name)";
 
@@ -56,6 +57,21 @@ export async function listMyBookings(): Promise<BookingRow[]> {
     .select(SELECT)
     .order("created_at", { ascending: false });
   return (data ?? []) as unknown as BookingRow[];
+}
+
+// 진행 중(종료 안 된) 예약 상태 — 사이드바 배지 집계용
+const ACTIVE_STATUSES: BookingStatus[] = [
+  "requested", "accepted", "paid", "shot", "delivered",
+];
+
+// 진행 중 예약 개수 (RLS: 구매자 또는 해당 작가) — 사이드바 '예약' 배지
+export async function countActiveBookings(): Promise<number> {
+  const supabase = await createClient();
+  const { count } = await supabase
+    .from("bookings")
+    .select("id", { count: "exact", head: true })
+    .in("status", ACTIVE_STATUSES);
+  return count ?? 0;
 }
 
 // 예약 1건

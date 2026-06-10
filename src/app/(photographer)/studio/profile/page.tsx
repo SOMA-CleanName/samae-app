@@ -52,7 +52,7 @@ export default async function ProfilePage() {
         ← 스튜디오
       </Link>
       <h1 className="mt-4 text-2xl font-semibold">프로필 편집</h1>
-      <p className="mt-1 text-sm text-fg/55">@{me.photographer.handle}</p>
+      <p className="mt-1 text-sm text-fg/55">{me.photographer.displayName}</p>
       <ProfileForm initial={initial} />
     </main>
   );
