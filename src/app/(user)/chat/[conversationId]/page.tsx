@@ -85,8 +85,10 @@ export default async function ChatRoomPage({
         </Link>
         <h1 className="text-base font-semibold">{title}</h1>
         <div className="ml-auto flex items-center gap-3">
-          {/* 예약 제안 — 고객만(헤더에서 바로 작성) */}
-          {composerData && <ProposeBookingButton data={composerData} />}
+          {/* 예약 제안 — 작가는 항상, 고객은 첫 채팅(메시지) 이후에만 노출 */}
+          {composerData && (!amCustomer || messages.length > 0) && (
+            <ProposeBookingButton data={composerData} />
+          )}
           {/* 상담 정보 — 고객은 작성/수정, 작가는 열람(수시로) */}
           <BriefPanel
             conversationId={conversationId}

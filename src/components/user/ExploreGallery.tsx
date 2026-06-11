@@ -19,27 +19,24 @@ export function ExploreGallery({
 }) {
   const [showPrice, setShowPrice] = useState(false);
 
-  // 가격 보기 상태를 세션에 유지 — 사진 보고 돌아와도 토글이 풀리지 않게(재요청 없이)
+  // 가격 보기 상태 — 세션 유지 + 헤더 토글(다른 컴포넌트)과 이벤트로 동기화
   useEffect(() => {
     setShowPrice(sessionStorage.getItem("explore:showPrice") === "1");
+    function onToggle(e: Event) {
+      setShowPrice((e as CustomEvent).detail as boolean);
+    }
+    window.addEventListener("samae:price-toggle", onToggle);
+    return () => window.removeEventListener("samae:price-toggle", onToggle);
   }, []);
-  function togglePrice() {
-    setShowPrice((v) => {
-      const next = !v;
-      sessionStorage.setItem("explore:showPrice", next ? "1" : "0");
-      return next;
-    });
-  }
 
   return (
     <>
-      {/* 상단 도구줄 — 검색 결과 수 + 가격 보기 토글 */}
-      <div className="flex items-center justify-between gap-2 px-1 pt-4">
-        <p className="text-sm text-fg/55">
-          {query ? `“${query}” 태그 결과 ${photos.length}장` : ""}
+      {/* 검색 결과 수 — 검색했을 때만 (빈 행 차지 안 하게) */}
+      {query && (
+        <p className="px-1 pt-4 text-sm text-fg/55">
+          “{query}” 태그 결과 {photos.length}장
         </p>
-        <PriceToggle on={showPrice} onToggle={togglePrice} />
-      </div>
+      )}
 
       {/* 메이슨리 갤러리 */}
       {photos.length === 0 ? (
@@ -49,30 +46,13 @@ export function ExploreGallery({
             : "공개된 사진이 아직 없어요."}
         </p>
       ) : (
-        <div className="mt-4 columns-2 gap-3 sm:columns-3 md:columns-4 lg:columns-5 xl:columns-6 2xl:columns-7 [&>*]:mb-3">
+        <div className="columns-2 gap-3 pt-3 sm:columns-3 md:columns-4 lg:columns-5 xl:columns-6 2xl:columns-7 [&>*]:mb-3">
           {photos.map((photo) => (
             <PhotoCard key={photo.id} photo={photo} showPrice={showPrice} />
           ))}
         </div>
       )}
     </>
-  );
-}
-
-// 가격 표시 on/off 토글 (네비게이션 없이 부모 상태만 변경)
-function PriceToggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onToggle}
-      aria-pressed={on}
-      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-1.5 text-sm font-medium transition-colors ${
-        on ? "bg-fg text-bg" : "bg-fg/[0.06] text-fg/70 hover:bg-fg/[0.1]"
-      }`}
-    >
-      <span className="font-semibold">₩</span>
-      가격 {on ? "켜짐" : "보기"}
-    </button>
   );
 }
 

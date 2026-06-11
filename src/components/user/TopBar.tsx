@@ -26,9 +26,38 @@ export function TopBar({ me }: { me: MeProps }) {
     <header className="sticky top-0 z-30 bg-bg/85 backdrop-blur">
       <div className={`flex items-center gap-2 px-3 py-3 sm:px-5 ${showSearch ? "" : "justify-end"}`}>
         {showSearch && <SearchPill />}
+        {showSearch && <PriceToggleButton />}
         {me ? <UserMenu me={me} /> : <LoginButton />}
       </div>
     </header>
+  );
+}
+
+// 탐색 가격 보기 토글 — 헤더에 두고, 세션 + 이벤트로 ExploreGallery와 동기화
+function PriceToggleButton() {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    setOn(sessionStorage.getItem("explore:showPrice") === "1");
+  }, []);
+  function toggle() {
+    const next = !on;
+    setOn(next);
+    sessionStorage.setItem("explore:showPrice", next ? "1" : "0");
+    window.dispatchEvent(new CustomEvent("samae:price-toggle", { detail: next }));
+  }
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-pressed={on}
+      title="가격 보기"
+      className={`inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-2.5 text-sm font-medium transition-colors ${
+        on ? "bg-fg text-bg" : "bg-fg/[0.06] text-fg/70 hover:bg-fg/[0.1]"
+      }`}
+    >
+      <span className="font-semibold">₩</span>
+      <span className="hidden sm:inline">가격</span>
+    </button>
   );
 }
 
