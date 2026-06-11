@@ -1,12 +1,17 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { getBooking, STATUS_LABEL, statusTone, fmtShootAt } from "@/lib/bookings";
+import {
+  getBooking,
+  getConversationIdFor,
+  STATUS_LABEL,
+  statusTone,
+  fmtShootAt,
+} from "@/lib/bookings";
 import { acceptBooking, rejectBooking, cancelBooking } from "@/app/actions/bookings";
 import {
   confirmTransfer,
   markShot,
-  markDelivered,
   confirmCompletion,
   refundBooking,
 } from "@/app/actions/payments";
@@ -17,7 +22,9 @@ import {
   FEE_LABEL,
 } from "@/lib/payments";
 import { getReviewByBooking } from "@/lib/reviews";
+import { getDelivery, getDeliveryDownloads, deliveryAssetName } from "@/lib/deliveries";
 import { ReviewForm } from "./ReviewForm";
+import { DeliveryUploader } from "./DeliveryUploader";
 
 // 예약 상세 + 역할·상태별 액션
 export default async function BookingDetail({
@@ -42,6 +49,20 @@ export default async function BookingDetail({
   const fee = isOwner ? await getFeeByBooking(id) : null;
   // 후기 — 완료된 예약만 (구매자는 작성/수정, 그 외 읽기)
   const review = b.status === "completed" ? await getReviewByBooking(id) : null;
+
+  // 보정본 전달물 — 작가 업로드 현황(전달 단계) / 완료 후 다운로드(참여자)
+  const delivery =
+    b.status === "completed" || (isOwner && ["paid", "shot"].includes(b.status))
+      ? await getDelivery(id)
+      : null;
+  const deliveryAssets = (delivery?.asset_paths ?? []).map((p) => ({
+    path: p,
+    name: deliveryAssetName(p),
+  }));
+  const downloads = b.status === "completed" ? await getDeliveryDownloads(id) : [];
+
+  // 채팅방 바로가기 (B1)
+  const convId = await getConversationIdFor(b.user_id, b.photographer_id);
 
   // 정체 단계 넛지 (경량 인앱 리마인더)
   const daysSince = (iso: string) => Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
@@ -106,20 +127,28 @@ export default async function BookingDetail({
         </p>
       )}
 
-      {/* 채팅 링크 */}
-      {b.photographer && (
-        <Link
-          href={`/photographers/${b.photographer_id}`}
-          className="mt-4 inline-block text-sm text-fg/60 hover:text-fg"
-        >
-          {isBuyer ? "작가 프로필 보기" : ""}
-        </Link>
-      )}
+      {/* 바로가기 — 채팅방 / (구매자) 작가 프로필 */}
+      <div className="mt-4 flex items-center gap-4 text-sm">
+        {convId && (
+          <Link href={`/chat/${convId}`} className="text-fg/70 hover:text-fg">
+            💬 채팅방으로 가기
+          </Link>
+        )}
+        {isBuyer && b.photographer && (
+          <Link
+            href={`/photographers/${b.photographer_id}`}
+            className="text-fg/60 hover:text-fg"
+          >
+            작가 프로필 보기
+          </Link>
+        )}
+      </div>
 
       {/* 액션 */}
       <div className="mt-6 flex flex-col gap-2">
-        {/* 작가: 요청 수락/거절 */}
-        {isOwner && b.status === "requested" && (
+        {/* 수락/거절 — 제안자의 상대(작가 제안→구매자, 구매자 제안→작가) */}
+        {b.status === "requested" &&
+          (b.proposed_by_photographer ? isBuyer : isOwner) && (
           <div className="flex gap-2">
             <form action={acceptBooking} className="flex-1">
               <input type="hidden" name="id" value={b.id} />
@@ -166,14 +195,13 @@ export default async function BookingDetail({
           </form>
         )}
 
-        {/* 작가: 촬영됨 → 보정본 전달 */}
+        {/* 작가: 촬영됨 → 보정본 업로드·전달 (앱 내 전달 + 외부 링크) */}
         {isOwner && b.status === "shot" && (
-          <form action={markDelivered}>
-            <input type="hidden" name="id" value={b.id} />
-            <button className="w-full rounded-xl bg-fg py-3 text-sm font-semibold text-bg hover:opacity-90">
-              보정본 전달 표시
-            </button>
-          </form>
+          <DeliveryUploader
+            bookingId={b.id}
+            initialAssets={deliveryAssets}
+            initialLink={delivery?.external_link ?? ""}
+          />
         )}
 
         {/* 구매자: 전달됨 → 거래 완료 확인 */}
@@ -206,6 +234,58 @@ export default async function BookingDetail({
           </form>
         )}
       </div>
+
+      {/* 보정본 다운로드 — 완료된 예약 (참여자) */}
+      {b.status === "completed" && (downloads.length > 0 || delivery?.external_link) && (
+        <section className="mt-6 rounded-xl border border-fg/10 p-5">
+          <p className="text-sm font-semibold">📸 전달된 보정본</p>
+          {downloads.length > 0 && (
+            <ul className="mt-3 flex flex-col gap-2">
+              {downloads.map((d) => (
+                <li key={d.url}>
+                  <a
+                    href={d.url}
+                    download={d.name}
+                    className="flex items-center justify-between gap-3 rounded-lg bg-fg/[0.04] px-3 py-2 text-sm hover:bg-fg/[0.07]"
+                  >
+                    <span className="truncate">{d.name}</span>
+                    <span className="shrink-0 text-xs text-fg/50">받기 ↓</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+          {delivery?.external_link && (
+            <a
+              href={delivery.external_link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-block text-sm text-fg/60 underline hover:text-fg"
+            >
+              외부 전달 링크 열기 ↗
+            </a>
+          )}
+          {delivery?.expires_at && (
+            <p className="mt-3 text-[11px] text-fg/45">
+              다운로드 링크는 보안을 위해 일정 시간이 지나면 만료돼요. 만료 시 새로고침하면
+              다시 생성됩니다. 파일 보관은 {new Date(delivery.expires_at).toLocaleDateString("ko-KR")}
+              까지 권장돼요.
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* 작가: 완료 후 보정본 잘못 전달 대처 — 파일 교체 + 재전달 알림 */}
+      {isOwner && b.status === "completed" && (
+        <section className="mt-6">
+          <DeliveryUploader
+            bookingId={b.id}
+            initialAssets={deliveryAssets}
+            initialLink={delivery?.external_link ?? ""}
+            delivered
+          />
+        </section>
+      )}
 
       {/* 후기 — 완료된 예약 */}
       {b.status === "completed" && (

@@ -6,6 +6,7 @@ import {
   HomeIcon,
   HeartIcon,
   PlusIcon,
+  CameraIcon,
   CalendarIcon,
   ChatIcon,
   ShieldIcon,
@@ -13,7 +14,7 @@ import {
 } from "./icons";
 
 // 레일에 들어갈 아이콘 키 — 직렬화 가능하도록 문자열로 전달받음
-export type NavIconKey = "home" | "heart" | "plus" | "calendar" | "chat" | "shield" | "bell";
+export type NavIconKey = "home" | "heart" | "plus" | "camera" | "calendar" | "chat" | "shield" | "bell";
 
 export type NavItem = {
   href: string;
@@ -32,6 +33,8 @@ function renderIcon(key: NavIconKey, active: boolean) {
       return <HeartIcon className={cls} filled={active} />;
     case "plus":
       return <PlusIcon className={cls} />;
+    case "camera":
+      return <CameraIcon className={cls} filled={active} />;
     case "calendar":
       return <CalendarIcon className={cls} filled={active} />;
     case "chat":

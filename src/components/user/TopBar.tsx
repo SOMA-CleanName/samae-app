@@ -13,16 +13,19 @@ type MeProps = {
   isPhotographer: boolean;
 } | null;
 
-// 핀터레스트식 상단 바 — 큰 검색 알약 + 우측 아바타 메뉴
+// 핀터레스트식 상단 바 — 검색 알약(탐색 화면 한정) + 우측 아바타 메뉴
 export function TopBar({ me }: { me: MeProps }) {
   const pathname = usePathname();
   // 개별 채팅방에서는 검색바·헤더바 숨김 (몰입형 대화 화면)
   if (/^\/chat\/.+/.test(pathname)) return null;
 
+  // 검색은 탐색 화면(홈)에서만 노출 — 그 외 페이지는 우측 계정 메뉴만
+  const showSearch = pathname === "/";
+
   return (
     <header className="sticky top-0 z-30 bg-bg/85 backdrop-blur">
-      <div className="flex items-center gap-2 px-3 py-3 sm:px-5">
-        <SearchPill />
+      <div className={`flex items-center gap-2 px-3 py-3 sm:px-5 ${showSearch ? "" : "justify-end"}`}>
+        {showSearch && <SearchPill />}
         {me ? <UserMenu me={me} /> : <LoginButton />}
       </div>
     </header>

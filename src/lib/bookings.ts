@@ -37,6 +37,7 @@ export type BookingRow = {
   photographer_id: string;
   created_at: string;
   accepted_at: string | null;
+  proposed_by_photographer: boolean;
   package_snapshot: { name?: string } | null;
   photographer: { display_name: string | null } | null;
   user: { display_name: string | null } | null;
@@ -44,7 +45,7 @@ export type BookingRow = {
 };
 
 const SELECT =
-  "id, status, shoot_at, location_text, amount_krw, memo, user_id, photographer_id, created_at, accepted_at, package_snapshot, " +
+  "id, status, shoot_at, location_text, amount_krw, memo, user_id, photographer_id, created_at, accepted_at, proposed_by_photographer, package_snapshot, " +
   "photographer:photographers(display_name), " +
   "user:profiles!bookings_user_id_fkey(display_name), " +
   "package:packages(name)";
@@ -79,6 +80,33 @@ export async function getBooking(id: string): Promise<BookingRow | null> {
   const supabase = await createClient();
   const { data } = await supabase.from("bookings").select(SELECT).eq("id", id).maybeSingle();
   return (data as unknown as BookingRow) ?? null;
+}
+
+// 예약 → 채팅방 매핑. 대화는 (user_id, photographer_id) 유니크라 그 키로 찾는다.
+// RLS가 내 대화만 반환하므로 키 충돌 없음. (예약 목록의 '채팅 바로가기'용)
+export async function getConversationMap(): Promise<Map<string, string>> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("conversations").select("id, user_id, photographer_id");
+  const map = new Map<string, string>();
+  for (const c of data ?? []) {
+    map.set(`${c.user_id}:${c.photographer_id}`, c.id as string);
+  }
+  return map;
+}
+
+// 예약 1건 → 채팅방 id (예약 상세의 '채팅방으로 가기'용)
+export async function getConversationIdFor(
+  userId: string,
+  photographerId: string
+): Promise<string | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("conversations")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("photographer_id", photographerId)
+    .maybeSingle();
+  return (data?.id as string) ?? null;
 }
 
 // KST 일시 표시

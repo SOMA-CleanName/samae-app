@@ -28,19 +28,19 @@ export default async function UserLayout({
     unreadNotif = notifCount;
   }
 
-  // 레일 항목 구성 — 비로그인은 홈만 노출
+  // 레일 항목 구성 — 비로그인은 홈만 노출.
+  // 작가 계정은 '스튜디오'가 핵심 진입점이라 탐색 바로 다음에 배치(전용 카메라 아이콘).
   const items: NavItem[] = [{ href: "/", label: "탐색", icon: "home" }];
   if (me) {
+    if (me.photographer) {
+      items.push({ href: "/studio", label: "스튜디오", icon: "camera" });
+    }
     items.push(
       { href: "/favorites", label: "찜", icon: "heart" },
       { href: "/bookings", label: "예약", icon: "calendar", badge: activeBookings || undefined },
       { href: "/chat", label: "채팅", icon: "chat", badge: unreadTotal || undefined },
       { href: "/notifications", label: "알림", icon: "bell", badge: unreadNotif || undefined },
     );
-    // 작가 신청은 사이드바에서 제외 — 작가만 '스튜디오' 진입 노출
-    if (me.photographer) {
-      items.push({ href: "/studio", label: "스튜디오", icon: "plus" });
-    }
     if (me.role === "admin") {
       items.push({ href: "/admin", label: "어드민", icon: "shield" });
     }

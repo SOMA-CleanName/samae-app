@@ -74,6 +74,43 @@ export async function sendMessage(conversationId: string, body: string) {
   if (error) throw new Error(error.message);
 }
 
+// 작가 포트폴리오에서 사진 골라 보내기 (C5) — 참여자 검증 후 image 메시지 생성.
+// 업로드 없이 기존 공개 포트폴리오 URL을 그대로 사용한다.
+export async function sendPortfolioPhoto(conversationId: string, photoId: string) {
+  const me = await getCurrentUser();
+  if (!me) throw new Error("로그인이 필요합니다.");
+
+  const supabase = await createClient();
+  const { data: conv } = await supabase
+    .from("conversations")
+    .select("id, user_id, photographer_id")
+    .eq("id", conversationId)
+    .maybeSingle();
+  const isParticipant =
+    conv && (conv.user_id === me.id || me.photographer?.id === conv.photographer_id);
+  if (!conv || !isParticipant) throw new Error("권한이 없습니다.");
+
+  // 사진이 이 작가의 공개 포트폴리오인지 확인 (다른 작가 사진 첨부 방지)
+  const { data: photo } = await supabase
+    .from("photos")
+    .select("src_url, thumb_url, photographer_id, visibility")
+    .eq("id", photoId)
+    .maybeSingle();
+  if (!photo || photo.photographer_id !== conv.photographer_id || photo.visibility !== "published") {
+    throw new Error("보낼 수 없는 사진이에요.");
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin.from("messages").insert({
+    conversation_id: conversationId,
+    sender_id: me.id,
+    type: "image",
+    body: "포트폴리오에서 골랐어요",
+    image_path: photo.thumb_url ?? photo.src_url,
+  });
+  if (error) throw new Error(error.message);
+}
+
 // 채팅방 나가기 — 내 쪽에서만 숨김(상대/기록은 유지, 새 메시지 오면 다시 보임)
 export async function leaveConversation(formData: FormData) {
   const conversationId = String(formData.get("conversationId"));

@@ -1,0 +1,11 @@
+-- ─────────────────────────────────────────────
+-- 0017. bookings 실시간 발행
+--
+-- 목적: 작가가 예약을 수락/거절/취소하면 상대 채팅방의 예약 카드가
+--       즉시 상태를 반영하도록 bookings UPDATE를 realtime으로 흘린다.
+--       (기존엔 messages INSERT만 구독 → 카드 스냅샷이 "수락 대기 중"에 잔류)
+--
+-- RLS가 구독 권한을 게이트한다(당사자만 자기 예약 UPDATE 수신).
+-- old 값은 필요 없고 new(전체 컬럼)로 id 매칭만 하므로 replica identity 변경 불필요.
+-- ─────────────────────────────────────────────
+alter publication supabase_realtime add table public.bookings;

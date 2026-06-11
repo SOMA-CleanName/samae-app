@@ -39,6 +39,20 @@ export function PlusIcon({ className }: IconProps) {
   );
 }
 
+// 스튜디오(카메라)
+export function CameraIcon({ className, filled }: IconProps) {
+  return filled ? (
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className ?? base}>
+      <path d="M9 3 7.8 5H5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2.8L15 3H9Zm3 5.5A4.5 4.5 0 1 1 7.5 13 4.5 4.5 0 0 1 12 8.5Z" />
+    </svg>
+  ) : (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinejoin="round" className={className ?? base}>
+      <path d="M4 8a2 2 0 0 1 2-2h1.6L9 4h6l1.4 2H18a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8Z" />
+      <circle cx="12" cy="13" r="3.2" />
+    </svg>
+  );
+}
+
 // 예약(캘린더)
 export function CalendarIcon({ className, filled }: IconProps) {
   return filled ? (

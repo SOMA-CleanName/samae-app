@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { CurrentUser } from "@/lib/auth";
 
 export type ConversationListItem = {
@@ -36,6 +37,8 @@ export type BookingSnapshot = {
   package_snapshot: { name?: string } | null;
   package_id: string | null;
   memo: string | null;
+  transfer_marked_at: string | null; // 구매자가 송금 완료를 알린 시각
+  proposed_by_photographer: boolean; // 작가가 제안한 건(=구매자가 수락 주체)
 };
 
 export type ChatMessage = {
@@ -54,6 +57,21 @@ const CONV_COLS =
   "user_hidden_at, photographer_hidden_at, " +
   "photographer:photographers(display_name), " +
   "user:profiles!conversations_user_id_fkey(display_name)";
+
+// 작가 시점에서는 고객 profiles 행이 RLS(profiles_select: 본인/관리자만)에 막혀
+// user.display_name이 비어 와 "고객"으로 표시된다. 이미 RLS로 참여자임이 확인된
+// 대화에 한해, admin으로 '이름만' 보강한다(phone 등 민감정보는 노출하지 않음).
+async function fillCustomerNames(convs: ConversationListItem[]): Promise<void> {
+  const missing = convs.filter((c) => !c.user?.display_name);
+  if (missing.length === 0) return;
+  const ids = [...new Set(missing.map((c) => c.user_id))];
+  const admin = createAdminClient();
+  const { data } = await admin.from("profiles").select("id, display_name").in("id", ids);
+  const nameById = new Map((data ?? []).map((r) => [r.id, r.display_name as string | null]));
+  for (const c of missing) {
+    c.user = { display_name: nameById.get(c.user_id) ?? null };
+  }
+}
 
 // 내 대화 목록 (RLS가 참여 대화로 제한) — 상대 정보 포함. (안읽음 배지 집계용 — 전체)
 export async function listConversations(): Promise<ConversationListItem[]> {
@@ -87,12 +105,12 @@ export async function listChatRooms(me: CurrentUser): Promise<ChatRoomItem[]> {
     if (!latestByPair.has(key)) latestByPair.set(key, b.status as string); // desc 정렬이라 첫 항목=최신
   }
 
-  return convs
-    .filter((c) => isVisibleTo(c, me)) // 메시지 있는 + 안 나간 방만
-    .map((c) => ({
-      ...c,
-      status: deriveStatus(latestByPair.get(`${c.user_id}:${c.photographer_id}`)),
-    }));
+  const visible = convs.filter((c) => isVisibleTo(c, me)); // 메시지 있는 + 안 나간 방만
+  await fillCustomerNames(visible); // 작가 시점 고객 이름 보강
+  return visible.map((c) => ({
+    ...c,
+    status: deriveStatus(latestByPair.get(`${c.user_id}:${c.photographer_id}`)),
+  }));
 }
 
 // 진행 중으로 볼 예약 상태 (거절/취소/환불 제외)
@@ -126,7 +144,9 @@ export async function getConversation(id: string): Promise<ConversationListItem 
     )
     .eq("id", id)
     .maybeSingle();
-  return (data as unknown as ConversationListItem) ?? null;
+  const conv = (data as unknown as ConversationListItem) ?? null;
+  if (conv) await fillCustomerNames([conv]); // 작가 시점 고객 이름 보강
+  return conv;
 }
 
 // 대화 메시지 목록
@@ -136,7 +156,7 @@ export async function getMessages(conversationId: string): Promise<ChatMessage[]
     .from("messages")
     .select(
       "id, sender_id, type, body, image_path, created_at, booking_id, " +
-        "booking:bookings(id, status, shoot_at, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo)"
+        "booking:bookings(id, status, shoot_at, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, transfer_marked_at, proposed_by_photographer)"
     )
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true });
@@ -179,4 +199,14 @@ export function counterpartName(c: ConversationListItem, me: CurrentUser): strin
 // 내 안읽음 수 (내 관점)
 export function myUnread(c: ConversationListItem, me: CurrentUser): number {
   return c.user_id === me.id ? c.user_unread : c.photographer_unread;
+}
+
+// 작가 시점 안읽은 문의 합계 (스튜디오 네비 배지)
+export async function countPhotographerUnread(photographerId: string): Promise<number> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("conversations")
+    .select("photographer_unread")
+    .eq("photographer_id", photographerId);
+  return (data ?? []).reduce((sum, c) => sum + (c.photographer_unread ?? 0), 0);
 }

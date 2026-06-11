@@ -48,21 +48,35 @@ async function postSystemMessage(
   });
 }
 
-// ── 예약 제안 (구매자, 채팅 내 템플릿 작성 → 제안) ────────────────
+// ── 예약 제안 (구매자/작가 양측, 채팅 내 템플릿 작성 → 제안) ────────────
+// 당사자는 conversation에서 도출(폼의 photographerId는 신뢰하지 않음).
+// 작가가 제안하는 경우 user_id가 본인이 아니라 RLS insert(check user_id=auth.uid())에
+// 막히므로, 참여자 검증 후 admin(service_role)으로 삽입한다.
 export async function proposeBooking(formData: FormData) {
   const me = await getCurrentUser();
   if (!me) redirect("/login");
   const conversationId = String(formData.get("conversationId"));
-  const photographerId = String(formData.get("photographerId"));
   const packageId = String(formData.get("packageId"));
   const shootAtRaw = String(formData.get("shootAt") || "");
   const locationText = String(formData.get("locationText") || "").slice(0, 200);
   const memo = String(formData.get("memo") || "").slice(0, 500);
   const wantTravel = formData.get("travel") === "on";
 
-  if (me.photographer?.id === photographerId) redirect("/studio");
-
   const supabase = await createClient();
+
+  // 대화에서 당사자 도출 + 참여자 검증 (양측 RLS로 조회 가능)
+  const { data: conv } = await supabase
+    .from("conversations")
+    .select("id, user_id, photographer_id")
+    .eq("id", conversationId)
+    .maybeSingle();
+  if (!conv) throw new Error("대화를 찾을 수 없습니다.");
+  const amCustomer = conv.user_id === me.id;
+  const amPhotographer = me.photographer?.id === conv.photographer_id;
+  if (!amCustomer && !amPhotographer) throw new Error("권한이 없습니다.");
+
+  const photographerId = conv.photographer_id;
+  const userId = conv.user_id;
 
   // 패키지 스냅샷 + 작가 출장비
   const [{ data: pkg }, { data: phRow }] = await Promise.all([
@@ -85,10 +99,12 @@ export async function proposeBooking(formData: FormData) {
     if (!isNaN(d.getTime())) shootAt = d.toISOString();
   }
 
-  const { data: booking, error } = await supabase
+  // 양측 제안을 지원하려면 admin 삽입(작가 제안 시 user_id ≠ auth.uid())
+  const admin = createAdminClient();
+  const { data: booking, error } = await admin
     .from("bookings")
     .insert({
-      user_id: me.id,
+      user_id: userId,
       photographer_id: photographerId,
       package_id: packageId,
       status: "requested",
@@ -99,19 +115,19 @@ export async function proposeBooking(formData: FormData) {
       travel_fee_krw: travelFee,
       package_snapshot: pkg,
       memo,
+      proposed_by_photographer: amPhotographer,
     })
     .select("id")
     .single();
   if (error) throw new Error(error.message);
 
   // 대화에 예약 제안 카드 메시지 + 대화-예약 연결
-  const admin = createAdminClient();
   await admin.from("conversations").update({ booking_id: booking.id }).eq("id", conversationId);
   await admin.from("messages").insert({
     conversation_id: conversationId,
     sender_id: me.id,
     type: "system",
-    body: "📋 예약을 제안했어요",
+    body: amPhotographer ? "📋 작가가 예약을 제안했어요" : "📋 예약을 제안했어요",
     booking_id: booking.id,
   });
 
@@ -189,20 +205,31 @@ export async function updateBooking(formData: FormData) {
 
 // ── 상태 전이 (service_role + 권한·상태 검증) ────────────────────
 
-// 작가: 요청 수락 → accepted + 슬롯 예약
+// 요청 수락 → accepted + 슬롯 예약.
+// 수락 주체는 '제안자의 상대' — 구매자 제안이면 작가가, 작가 제안이면 구매자가 수락한다.
 export async function acceptBooking(formData: FormData) {
   const id = String(formData.get("id"));
   const me = await getCurrentUser();
-  if (!me?.photographer) throw new Error("작가만 가능합니다.");
+  if (!me) throw new Error("로그인이 필요합니다.");
 
   const admin = createAdminClient();
   const { data: b } = await admin
     .from("bookings")
-    .select("id, status, photographer_id, user_id, shoot_at, duration_min, package_snapshot")
+    .select(
+      "id, status, photographer_id, user_id, shoot_at, duration_min, package_snapshot, proposed_by_photographer"
+    )
     .eq("id", id)
     .single();
-  if (!b || b.photographer_id !== me.photographer.id) throw new Error("권한이 없습니다.");
+  if (!b) throw new Error("예약을 찾을 수 없습니다.");
   if (b.status !== "requested") throw new Error("수락할 수 없는 상태입니다.");
+
+  // 수락 권한: 작가 제안 → 구매자가, 구매자 제안 → 작가가
+  const accepterIsCustomer = b.proposed_by_photographer;
+  if (accepterIsCustomer) {
+    if (b.user_id !== me.id) throw new Error("권한이 없습니다.");
+  } else if (me.photographer?.id !== b.photographer_id) {
+    throw new Error("권한이 없습니다.");
+  }
 
   // 시간 충돌 검사 — 이미 점유된 예약과 겹치면 거부 (시각이 정해진 경우만)
   if (b.shoot_at) {
@@ -236,30 +263,51 @@ export async function acceptBooking(formData: FormData) {
     .from("bookings")
     .update({ status: "accepted", accepted_at: new Date().toISOString() })
     .eq("id", id);
-  await notify(admin, b.user_id, "예약이 수락됐어요", "예약이 체결되었습니다.", `/bookings/${id}`);
+
+  // 제안자(상대)에게 알림
+  const proposerId = accepterIsCustomer
+    ? (await admin.from("photographers").select("profile_id").eq("id", b.photographer_id).single())
+        .data?.profile_id
+    : b.user_id;
+  if (proposerId)
+    await notify(admin, proposerId, "예약이 수락됐어요", "예약이 체결되었습니다.", `/bookings/${id}`);
   await postSystemMessage(admin, b.user_id, b.photographer_id, me.id, "✅ 예약이 수락되어 체결되었어요.");
   revalidatePath(`/bookings/${id}`);
   revalidatePath("/bookings");
   revalidatePath("/chat");
 }
 
-// 작가: 요청 거절
+// 요청 거절 — 수락과 동일하게 '제안자의 상대'가 거절한다.
 export async function rejectBooking(formData: FormData) {
   const id = String(formData.get("id"));
   const me = await getCurrentUser();
-  if (!me?.photographer) throw new Error("작가만 가능합니다.");
+  if (!me) throw new Error("로그인이 필요합니다.");
 
   const admin = createAdminClient();
   const { data: b } = await admin
     .from("bookings")
-    .select("status, photographer_id, user_id")
+    .select("status, photographer_id, user_id, proposed_by_photographer")
     .eq("id", id)
     .single();
-  if (!b || b.photographer_id !== me.photographer.id) throw new Error("권한이 없습니다.");
+  if (!b) throw new Error("예약을 찾을 수 없습니다.");
   if (b.status !== "requested") throw new Error("거절할 수 없는 상태입니다.");
 
+  const rejecterIsCustomer = b.proposed_by_photographer;
+  if (rejecterIsCustomer) {
+    if (b.user_id !== me.id) throw new Error("권한이 없습니다.");
+  } else if (me.photographer?.id !== b.photographer_id) {
+    throw new Error("권한이 없습니다.");
+  }
+
   await admin.from("bookings").update({ status: "rejected" }).eq("id", id);
-  await notify(admin, b.user_id, "예약이 거절됐어요", "다른 조건으로 다시 제안해보세요.", `/bookings/${id}`);
+
+  // 제안자(상대)에게 알림
+  const proposerId = rejecterIsCustomer
+    ? (await admin.from("photographers").select("profile_id").eq("id", b.photographer_id).single())
+        .data?.profile_id
+    : b.user_id;
+  if (proposerId)
+    await notify(admin, proposerId, "예약이 거절됐어요", "다른 조건으로 다시 제안해보세요.", `/bookings/${id}`);
   await postSystemMessage(admin, b.user_id, b.photographer_id, me.id, "❌ 예약 제안이 거절되었어요.");
   revalidatePath(`/bookings/${id}`);
   revalidatePath("/bookings");

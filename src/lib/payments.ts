@@ -127,6 +127,21 @@ export async function getPayoutAccountForBooking(bookingId: string): Promise<Pay
   return (data as PayoutAccount) ?? null;
 }
 
+// 작가 수취 계좌를 photographer_id 로 조회 (채팅 송금 카드용).
+// ⚠️ 계좌는 민감정보다. 호출자가 '이 작가와의 대화 참여자'임을 반드시 먼저 보장해야 한다
+//    (채팅방 진입 시 getConversation 이 RLS 로 참여 여부를 이미 검증).
+export async function getPhotographerPayoutAccount(
+  photographerId: string
+): Promise<PayoutAccount | null> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("payout_accounts")
+    .select("bank, number, holder")
+    .eq("photographer_id", photographerId)
+    .maybeSingle();
+  return (data as PayoutAccount) ?? null;
+}
+
 // ─────────────────────────────────────────────
 // 쓰기 (service_role 전용)
 // ─────────────────────────────────────────────

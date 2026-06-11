@@ -4,9 +4,11 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { sendMessage, markRead } from "../actions";
+import { sendMessage, markRead, sendPortfolioPhoto } from "../actions";
 import { acceptBooking, rejectBooking, cancelBooking } from "@/app/actions/bookings";
+import { markTransferSent, confirmTransfer } from "@/app/actions/payments";
 import type { ChatMessage, BookingSnapshot } from "@/lib/chat";
+import type { PayoutAccount } from "@/lib/payments";
 import {
   BookingComposer,
   type ComposerData,
@@ -16,7 +18,7 @@ import {
 const fmt = new Intl.NumberFormat("ko-KR");
 
 const BOOKING_COLS =
-  "id, status, shoot_at, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo";
+  "id, status, shoot_at, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, transfer_marked_at, proposed_by_photographer";
 
 // 메시지 작성 시각 (카카오톡식 HH:MM)
 function timeLabel(iso: string) {
@@ -26,24 +28,32 @@ function timeLabel(iso: string) {
   });
 }
 
+export type PortfolioPhoto = { id: string; thumb_url: string; src_url: string };
+
 export function ChatRoom({
   conversationId,
   meId,
   amPhotographer,
   initialMessages,
   composerData,
+  payoutAccount,
+  portfolioPhotos,
 }: {
   conversationId: string;
   meId: string;
   amPhotographer: boolean;
   initialMessages: ChatMessage[];
   composerData: ComposerData | null;
+  payoutAccount: PayoutAccount | null;
+  portfolioPhotos: PortfolioPhoto[];
 }) {
+  const amCustomer = !amPhotographer; // 참여자 중 작가가 아니면 구매자
   const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [text, setText] = useState("");
   const [uploading, setUploading] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false); // 입력창 + 옵션 메뉴
+  const [pickerOpen, setPickerOpen] = useState(false); // 포트폴리오 사진 고르기 모달
   // 예약 작성기 — null이면 닫힘, {} 신규, {edit} 수정 모드
   const [composer, setComposer] = useState<null | { edit: BookingEditTarget | null }>(null);
   const [, startTransition] = useTransition();
@@ -90,6 +100,22 @@ export function ChatRoom({
             }
             setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
             if (m.sender_id !== meId) markRead(conversationId);
+          }
+        )
+        // 예약 상태 변경(수락/거절/취소/송금 등) → 해당 booking_id 카드 스냅샷 갱신
+        // RLS가 당사자 예약만 흘려보내므로 별도 row 필터 없이 id로 매칭한다.
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "bookings" },
+          (payload) => {
+            const b = payload.new as BookingSnapshot;
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.booking_id === b.id && m.booking
+                  ? { ...m, booking: { ...m.booking, ...b } }
+                  : m
+              )
+            );
           }
         )
         .subscribe();
@@ -151,10 +177,12 @@ export function ChatRoom({
                 key={m.id}
                 booking={m.booking}
                 amPhotographer={amPhotographer}
+                amCustomer={amCustomer}
+                payoutAccount={payoutAccount}
                 onOpenDetail={() => router.push(`/bookings/${m.booking!.id}`)}
                 onEdit={
-                  // 고객(작성자)만 수정 가능 — composerData 있으면 고객
-                  composerData
+                  // 수정은 '구매자가 한 제안'에 한해 구매자만 가능
+                  amCustomer && composerData && !m.booking.proposed_by_photographer
                     ? () =>
                         setComposer({
                           edit: {
@@ -242,6 +270,18 @@ export function ChatRoom({
               >
                 🖼 사진 보내기
               </button>
+              {portfolioPhotos.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOptionsOpen(false);
+                    setPickerOpen(true);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-fg/[0.04]"
+                >
+                  🖼 포트폴리오에서 고르기
+                </button>
+              )}
               {/* 예약 제안은 헤더의 '📋 예약 제안' 버튼으로 이동 — 수정은 예약 카드에서 */}
             </div>
           )}
@@ -261,7 +301,7 @@ export function ChatRoom({
         </button>
       </form>
 
-      {/* 예약 작성기 (신규/수정) — 고객만 */}
+      {/* 예약 작성기 (신규/수정) — 구매자·작가 양측 */}
       {composer && composerData && (
         <BookingComposer
           data={composerData}
@@ -269,26 +309,91 @@ export function ChatRoom({
           onClose={() => setComposer(null)}
         />
       )}
+
+      {/* 포트폴리오 사진 고르기 모달 */}
+      {pickerOpen && (
+        <PhotoPicker
+          photos={portfolioPhotos}
+          onClose={() => setPickerOpen(false)}
+          onPick={(photoId) => {
+            setPickerOpen(false);
+            startTransition(() => {
+              sendPortfolioPhoto(conversationId, photoId);
+            });
+          }}
+        />
+      )}
     </div>
   );
 }
 
-// 예약 제안 카드 — 클릭 시 상세, 작가는 수락/거절, 고객은 수정/취소
+// 작가 포트폴리오 사진 고르기 — 그리드에서 하나 선택해 채팅으로 전송
+function PhotoPicker({
+  photos,
+  onClose,
+  onPick,
+}: {
+  photos: PortfolioPhoto[];
+  onClose: () => void;
+  onPick: (photoId: string) => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 font-kr" onClick={onClose}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-xl"
+      >
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-semibold">포트폴리오에서 고르기</h3>
+          <button type="button" onClick={onClose} className="text-sm text-fg/50 hover:text-fg">
+            닫기
+          </button>
+        </div>
+        <div className="mt-4 grid grid-cols-3 gap-2">
+          {photos.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => onPick(p.id)}
+              className="aspect-square overflow-hidden rounded-lg border border-fg/10 hover:border-fg/40"
+            >
+              <img src={p.thumb_url} alt="" className="h-full w-full object-cover" loading="lazy" />
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// 예약 진행에 따른 뱃지 색: 긍정(체결 이후) / 종료(거절·취소·환불) / 대기
+const POSITIVE_STATUSES = new Set(["accepted", "paid", "shot", "delivered", "completed"]);
+const CLOSED_STATUSES = new Set(["rejected", "cancelled", "refunded"]);
+
+// 예약 제안 카드 — 클릭 시 상세, 수락/거절은 '제안자의 상대', 수정/취소는 제안자
 function BookingCard({
   booking,
   amPhotographer,
+  amCustomer,
+  payoutAccount,
   onOpenDetail,
   onEdit,
 }: {
   booking: BookingSnapshot;
   amPhotographer: boolean;
+  amCustomer: boolean;
+  payoutAccount: PayoutAccount | null;
   onOpenDetail: () => void;
-  onEdit: (() => void) | null; // 고객일 때만 제공
+  onEdit: (() => void) | null; // 구매자 제안일 때 구매자에게만 제공
 }) {
   // 처리 결과를 낙관적으로 반영
   const [acted, setActed] = useState<null | "accepted" | "rejected" | "cancelled">(null);
   const status = acted ?? booking.status;
-  const amCustomer = onEdit !== null; // composerData 보유 = 고객
+
+  // 제안자/수락자 판별 — 작가 제안이면 구매자가 수락, 구매자 제안이면 작가가 수락
+  const proposedByPhotographer = booking.proposed_by_photographer;
+  const amRecipient = proposedByPhotographer ? amCustomer : amPhotographer; // 수락/거절 권한자
+  const amProposer = proposedByPhotographer ? amPhotographer : amCustomer; // 취소 권한자
 
   // 액션 버튼 클릭이 카드 상세 이동으로 번지지 않게
   const stop = (e: React.MouseEvent) => e.stopPropagation();
@@ -296,8 +401,13 @@ function BookingCard({
   const statusLabel: Record<string, string> = {
     requested: "수락 대기 중",
     accepted: "수락됨 ✓ 체결",
+    paid: "결제 완료",
+    shot: "촬영 완료",
+    delivered: "보정본 전달",
+    completed: "거래 완료",
     rejected: "거절됨",
     cancelled: "취소됨",
+    refunded: "환불됨",
   };
 
   const when = booking.shoot_at
@@ -322,9 +432,9 @@ function BookingCard({
         <span className="text-xs font-semibold text-fg/50">📋 예약 제안</span>
         <span
           className={`rounded-full px-2 py-0.5 text-[11px] ${
-            status === "accepted"
+            POSITIVE_STATUSES.has(status)
               ? "bg-emerald-500/15 text-emerald-600"
-              : status === "rejected" || status === "cancelled"
+              : CLOSED_STATUSES.has(status)
               ? "bg-fg/[0.06] text-fg/50"
               : "bg-amber-500/15 text-amber-600"
           }`}
@@ -345,8 +455,33 @@ function BookingCard({
         )}
       </p>
 
-      {/* 작가: 대기 상태일 때만 수락/거절 */}
-      {amPhotographer && status === "requested" && (
+      {/* 수락(체결) 후 송금 단계 — 고객: 계좌·송금완료, 작가: 입금확인 */}
+      {status === "accepted" && (
+        <TransferSection
+          booking={booking}
+          amCustomer={amCustomer}
+          amPhotographer={amPhotographer}
+          payoutAccount={payoutAccount}
+          stop={stop}
+        />
+      )}
+
+      {/* 보정본 전달 완료 → 고객 후기 유도 */}
+      {status === "completed" && amCustomer && (
+        <div className="mt-3 border-t border-fg/10 pt-3" onClick={stop}>
+          <p className="text-xs text-fg/60">📸 보정본 전달이 완료됐어요. 촬영은 어떠셨나요?</p>
+          <button
+            type="button"
+            onClick={onOpenDetail}
+            className="mt-2 w-full rounded-full bg-fg py-2 text-sm font-semibold text-bg hover:opacity-90"
+          >
+            보정본 받기 · 후기 남기기
+          </button>
+        </div>
+      )}
+
+      {/* 수락/거절 — 제안자의 상대(수신자)만, 대기 상태에서 */}
+      {amRecipient && status === "requested" && (
         <div className="mt-3 flex gap-2" onClick={stop}>
           <form action={rejectBooking} onSubmit={() => setActed("rejected")} className="flex-1">
             <input type="hidden" name="id" value={booking.id} />
@@ -363,16 +498,18 @@ function BookingCard({
         </div>
       )}
 
-      {/* 고객: 대기 상태일 때만 수정/취소 */}
-      {amCustomer && status === "requested" && (
+      {/* 수정/취소 — 제안자만, 대기 상태에서 (수정은 구매자 제안에 한해) */}
+      {amProposer && status === "requested" && (
         <div className="mt-3 flex gap-2" onClick={stop}>
-          <button
-            type="button"
-            onClick={onEdit ?? undefined}
-            className="flex-1 rounded-full border border-fg/20 py-2 text-sm font-medium text-fg/70 hover:bg-fg/[0.04]"
-          >
-            수정
-          </button>
+          {onEdit && (
+            <button
+              type="button"
+              onClick={onEdit}
+              className="flex-1 rounded-full border border-fg/20 py-2 text-sm font-medium text-fg/70 hover:bg-fg/[0.04]"
+            >
+              수정
+            </button>
+          )}
           <form action={cancelBooking} onSubmit={() => setActed("cancelled")} className="flex-1">
             <input type="hidden" name="id" value={booking.id} />
             <button className="w-full rounded-full border border-fg/20 py-2 text-sm font-medium text-brand hover:bg-brand/[0.06]">
@@ -381,6 +518,126 @@ function BookingCard({
           </form>
         </div>
       )}
+    </div>
+  );
+}
+
+// 수락(체결) 후 송금 단계 — 고객: 계좌·금액·[송금 완료]·환불정책 / 작가: [입금 확인].
+// 상태 전이(accepted→paid)와 송금 표시는 부모의 bookings realtime 구독이 양쪽에 동기화한다.
+function TransferSection({
+  booking,
+  amCustomer,
+  amPhotographer,
+  payoutAccount,
+  stop,
+}: {
+  booking: BookingSnapshot;
+  amCustomer: boolean;
+  amPhotographer: boolean;
+  payoutAccount: PayoutAccount | null;
+  stop: (e: React.MouseEvent) => void;
+}) {
+  const [sent, setSent] = useState(false); // 고객 [송금 완료] 낙관적 반영
+  const [confirming, setConfirming] = useState(false); // 작가 [입금 확인] 중복 클릭 방지
+  const [showPolicy, setShowPolicy] = useState(false);
+  const marked = sent || !!booking.transfer_marked_at;
+
+  return (
+    <div className="mt-3 border-t border-fg/10 pt-3" onClick={stop}>
+      {/* ── 고객 화면: 계좌·금액·송금 완료·정책 ── */}
+      {amCustomer && (
+        <>
+          <p className="text-xs font-semibold text-fg/55">💸 송금 안내</p>
+          {payoutAccount ? (
+            <div className="mt-2 rounded-xl bg-fg/[0.04] p-3 text-xs">
+              <TransferRow label="은행" value={payoutAccount.bank} />
+              <TransferRow label="계좌번호" value={payoutAccount.number} mono />
+              <TransferRow label="예금주" value={payoutAccount.holder} />
+              <div className="mt-2 flex items-center justify-between border-t border-fg/10 pt-2">
+                <span className="text-fg/50">보낼 금액</span>
+                <span className="text-sm font-bold">₩{fmt.format(booking.amount_krw ?? 0)}</span>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-2 rounded-xl bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+              작가가 아직 계좌를 등록하지 않았어요. 채팅으로 계좌를 문의해주세요.
+            </div>
+          )}
+
+          {marked ? (
+            <p className="mt-3 rounded-full bg-emerald-500/10 px-3 py-2 text-center text-xs text-emerald-600">
+              ✅ 송금 완료를 알렸어요 · 작가의 입금 확인을 기다리는 중
+            </p>
+          ) : (
+            payoutAccount && (
+              <form action={markTransferSent} onSubmit={() => setSent(true)} className="mt-3">
+                <input type="hidden" name="id" value={booking.id} />
+                <button className="w-full rounded-full bg-fg py-2 text-sm font-semibold text-bg hover:opacity-90">
+                  송금 완료
+                </button>
+              </form>
+            )
+          )}
+
+          <button
+            type="button"
+            onClick={() => setShowPolicy((v) => !v)}
+            className="mt-3 text-[11px] text-fg/45 underline"
+          >
+            환불·취소 정책 {showPolicy ? "접기" : "보기"}
+          </button>
+          {showPolicy && <PolicyNote />}
+        </>
+      )}
+
+      {/* ── 작가 화면: 입금 확인 ── */}
+      {amPhotographer && (
+        <>
+          {marked ? (
+            <p className="text-xs font-semibold text-emerald-600">💸 고객이 송금 완료를 알렸어요</p>
+          ) : (
+            <p className="text-xs text-fg/55">고객의 송금을 기다리는 중이에요</p>
+          )}
+          <p className="mt-1 text-[11px] text-fg/45">
+            입금을 확인하면 결제가 완료되고 매칭 수수료가 발생합니다.
+          </p>
+          <form action={confirmTransfer} onSubmit={() => setConfirming(true)} className="mt-3">
+            <input type="hidden" name="id" value={booking.id} />
+            <button
+              disabled={confirming}
+              className="w-full rounded-full bg-fg py-2 text-sm font-semibold text-bg hover:opacity-90 disabled:opacity-50"
+            >
+              {confirming ? "처리 중…" : "입금 확인"}
+            </button>
+          </form>
+        </>
+      )}
+    </div>
+  );
+}
+
+// 송금 안내 계좌 행
+function TransferRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-0.5">
+      <span className="shrink-0 text-fg/50">{label}</span>
+      <span className={`text-right font-medium ${mono ? "tabular-nums tracking-tight" : ""}`}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+// 환불·취소 정책 안내 (직접이체 모델)
+function PolicyNote() {
+  return (
+    <div className="mt-2 rounded-xl bg-fg/[0.04] px-3 py-2 text-[11px] leading-relaxed text-fg/60">
+      · 송금 전에는 언제든 무료로 취소할 수 있어요.
+      <br />
+      · 작가가 입금을 확인한 뒤 환불이 필요하면, 작가와 협의해 직접 환불받게 됩니다.
+      <br />
+      · 사매는 결제를 중개·보증하지 않는 직접거래 방식이라 분쟁 시 중재에 한계가 있어요. 송금
+      전 일정·금액을 꼭 확인하세요.
     </div>
   );
 }

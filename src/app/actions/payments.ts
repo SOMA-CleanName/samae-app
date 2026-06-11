@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
-import { confirmBankTransfer, waiveFee } from "@/lib/payments";
+import { confirmBankTransfer, waiveFee, ensureTransferRecord } from "@/lib/payments";
+import { DELIVERY_BUCKET, deliveryAssetName } from "@/lib/deliveries";
 
 // 알림 헬퍼 (service_role)
 async function notify(
@@ -17,9 +18,87 @@ async function notify(
   await admin.from("notifications").insert({ recipient_id: recipientId, type, title, body, link });
 }
 
+// 해당 유저↔작가 대화에 시스템 메시지 1건 (예약 진행 기록). 트리거가 알림·안읽음 처리.
+async function postSystemMessage(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string,
+  photographerId: string,
+  senderId: string,
+  body: string
+) {
+  const { data: conv } = await admin
+    .from("conversations")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("photographer_id", photographerId)
+    .maybeSingle();
+  if (!conv) return;
+  await admin.from("messages").insert({
+    conversation_id: conv.id,
+    sender_id: senderId,
+    type: "system",
+    body,
+  });
+}
+
 function revalidateBooking(id: string) {
   revalidatePath(`/bookings/${id}`);
   revalidatePath("/bookings");
+}
+
+// ── 송금 완료 알림 (구매자) : accepted 유지 + 작가에게 확인 요청 ──────────
+// 사용자가 작가 계좌로 송금한 뒤 [송금 완료]를 누르면 호출. 상태는 바꾸지 않고
+// (실제 paid 전이는 작가 confirmTransfer가 담당) 작가에게 입금 확인을 재촉한다.
+export async function markTransferSent(formData: FormData) {
+  const id = String(formData.get("id"));
+  const me = await getCurrentUser();
+  if (!me) throw new Error("로그인이 필요합니다.");
+
+  const admin = createAdminClient();
+  // 본인 + accepted + 아직 미표시일 때만 1회 (멱등 — 중복 알림 방지)
+  const { data: moved } = await admin
+    .from("bookings")
+    .update({ transfer_marked_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("user_id", me.id)
+    .eq("status", "accepted")
+    .is("transfer_marked_at", null)
+    .select("id, photographer_id, user_id, amount_krw");
+  if (!moved || moved.length === 0) {
+    revalidateBooking(id); // 이미 표시됐거나 상태가 다름 — 조용히 갱신만
+    return;
+  }
+  const b = moved[0];
+
+  // 송금 대기 결제 레코드 보장(멱등)
+  await ensureTransferRecord(id, b.amount_krw ?? 0);
+
+  // 작가에게 알림 (+ 고객 이름)
+  const [{ data: ph }, { data: prof }] = await Promise.all([
+    admin.from("photographers").select("profile_id").eq("id", b.photographer_id).single(),
+    admin.from("profiles").select("display_name").eq("id", b.user_id).single(),
+  ]);
+  const who = prof?.display_name || "고객";
+  if (ph)
+    await notify(
+      admin,
+      ph.profile_id,
+      "송금 완료 알림",
+      `${who}님이 송금을 완료했어요. 입금을 확인해주세요.`,
+      `/bookings/${id}`,
+      "payment"
+    );
+
+  // 채팅 타임라인 기록
+  await postSystemMessage(
+    admin,
+    b.user_id,
+    b.photographer_id,
+    b.user_id,
+    "💸 송금을 완료했어요. 작가님의 입금 확인을 기다립니다."
+  );
+
+  revalidateBooking(id);
 }
 
 // ── 입금 확인 (작가) : accepted → paid + 플랫폼 수수료 발생 ──────────────
@@ -56,8 +135,148 @@ export async function markShot(formData: FormData) {
   revalidateBooking(id);
 }
 
+// ── 보정본 전달 완료 (작가) : paid/shot → completed ─────────────────
+// 앱 내 업로드(deliveries.asset_paths) 또는 외부 링크로 전달하고 거래를 마무리한다.
+// 직접이체 모델 + 사용자 수신확인 생략(요구사항) → delivered 단계를 건너뛰고 바로 완료.
+// 채팅에 완료 안내를 남겨 후기 작성을 유도한다.
+export async function deliverFinals(formData: FormData) {
+  const id = String(formData.get("id"));
+  const externalLink = String(formData.get("externalLink") || "").trim().slice(0, 500);
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가만 가능합니다.");
+
+  const admin = createAdminClient();
+
+  // 소유 + 결제 이후 단계만
+  const { data: b } = await admin
+    .from("bookings")
+    .select("id, status, user_id, photographer_id")
+    .eq("id", id)
+    .single();
+  if (!b || b.photographer_id !== me.photographer.id) throw new Error("권한이 없습니다.");
+  if (!["paid", "shot"].includes(b.status)) throw new Error("전달할 수 없는 상태입니다.");
+
+  // 전달물 확인 — 업로드 파일 또는 외부 링크 중 하나는 있어야 함
+  const { data: delivery } = await admin
+    .from("deliveries")
+    .select("asset_paths")
+    .eq("booking_id", id)
+    .maybeSingle();
+  const hasFiles = (delivery?.asset_paths?.length ?? 0) > 0;
+  if (!hasFiles && !externalLink) throw new Error("보정본 파일이나 전달 링크를 먼저 등록해주세요.");
+
+  const now = new Date().toISOString();
+  const expires = new Date(Date.now() + 30 * 864e5).toISOString(); // 30일 후 만료
+
+  // 전달 레코드 마무리 (외부 링크·만료 기록)
+  await admin
+    .from("deliveries")
+    .upsert(
+      { booking_id: id, external_link: externalLink || null, expires_at: expires },
+      { onConflict: "booking_id" }
+    );
+
+  // 거래 완료 전이 (사용자 확인 생략)
+  await admin
+    .from("bookings")
+    .update({ status: "completed", delivered_at: now, completed_at: now })
+    .eq("id", id);
+
+  // 채팅 완료 안내 + 알림 (후기 유도는 카드가 담당)
+  await postSystemMessage(
+    admin,
+    b.user_id,
+    b.photographer_id,
+    me.id,
+    "📸 보정본 전달까지 완료되었습니다! 촬영은 어떠셨나요? 후기를 남겨주세요."
+  );
+  await notify(
+    admin,
+    b.user_id,
+    "보정본이 전달됐어요",
+    "보정본을 확인하고 후기를 남겨주세요.",
+    `/bookings/${id}`
+  );
+
+  revalidateBooking(id);
+}
+
+// ── 보정본 파일 삭제 (작가) : 잘못 올린 파일 제거 ──────────────────
+// 전달 전(paid/shot)뿐 아니라 완료 후(completed) 교체도 허용한다(대처).
+export async function removeDeliveryAsset(bookingId: string, path: string) {
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가만 가능합니다.");
+
+  const admin = createAdminClient();
+  const { data: b } = await admin
+    .from("bookings")
+    .select("photographer_id, status")
+    .eq("id", bookingId)
+    .single();
+  if (!b || b.photographer_id !== me.photographer.id) throw new Error("권한이 없습니다.");
+  if (!["paid", "shot", "completed"].includes(b.status)) {
+    throw new Error("변경할 수 없는 상태입니다.");
+  }
+  // 다른 예약 폴더 접근 방지
+  if (!path.startsWith(`${bookingId}/`)) throw new Error("잘못된 경로입니다.");
+
+  const { data: d } = await admin
+    .from("deliveries")
+    .select("asset_paths")
+    .eq("booking_id", bookingId)
+    .maybeSingle();
+  const nextPaths = (d?.asset_paths ?? []).filter((p: string) => p !== path);
+
+  await admin.storage.from(DELIVERY_BUCKET).remove([path]);
+  await admin
+    .from("deliveries")
+    .upsert({ booking_id: bookingId, asset_paths: nextPaths }, { onConflict: "booking_id" });
+
+  revalidateBooking(bookingId);
+  return nextPaths.map((p: string) => ({ path: p, name: deliveryAssetName(p) }));
+}
+
+// ── 보정본 재전달 알림 (작가) : 완료 후 파일 교체 뒤 고객에게 재알림 ──
+export async function redeliverNotify(formData: FormData) {
+  const id = String(formData.get("id"));
+  const externalLink = String(formData.get("externalLink") || "").trim().slice(0, 500);
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가만 가능합니다.");
+
+  const admin = createAdminClient();
+  const { data: b } = await admin
+    .from("bookings")
+    .select("user_id, photographer_id, status")
+    .eq("id", id)
+    .single();
+  if (!b || b.photographer_id !== me.photographer.id) throw new Error("권한이 없습니다.");
+  if (b.status !== "completed") throw new Error("완료된 예약만 재전달할 수 있어요.");
+
+  const { data: d } = await admin
+    .from("deliveries")
+    .select("asset_paths")
+    .eq("booking_id", id)
+    .maybeSingle();
+  const hasFiles = (d?.asset_paths?.length ?? 0) > 0;
+  if (!hasFiles && !externalLink) throw new Error("보정본 파일이나 링크를 먼저 등록해주세요.");
+
+  await admin
+    .from("deliveries")
+    .upsert({ booking_id: id, external_link: externalLink || null }, { onConflict: "booking_id" });
+  await postSystemMessage(
+    admin,
+    b.user_id,
+    b.photographer_id,
+    me.id,
+    "📸 보정본을 다시 전달했어요. 업데이트된 파일을 확인해주세요."
+  );
+  await notify(admin, b.user_id, "보정본이 업데이트됐어요", "변경된 보정본을 확인해주세요.", `/bookings/${id}`);
+
+  revalidateBooking(id);
+}
+
 // ── 보정본 전달 표시 (작가) : shot → delivered ──────────────────────
-// 6단계에서 실제 보정본 업로드(deliveries)와 만료 다운로드 링크를 연결한다.
+// (구 흐름) 사용자 확인 단계를 거치는 전달. 신규는 deliverFinals 사용.
 export async function markDelivered(formData: FormData) {
   const id = String(formData.get("id"));
   const me = await getCurrentUser();

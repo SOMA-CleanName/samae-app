@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import {
   listMyBookings,
+  getConversationMap,
   STATUS_LABEL,
   statusTone,
   fmtShootAt,
@@ -20,12 +21,19 @@ function onlyConfirmed(rows: BookingRow[]): BookingRow[] {
   return rows.filter((b) => CONFIRMED_STATUSES.includes(b.status));
 }
 
-// 예약 목록 (구매자/작가 통합) — 확정 예약만
+// 상태 그룹 — 진행 중 / 완료 / 환불 (B2)
+const BUCKETS: { label: string; statuses: BookingStatus[] }[] = [
+  { label: "진행 중", statuses: ["accepted", "paid", "shot", "delivered"] },
+  { label: "완료", statuses: ["completed"] },
+  { label: "환불", statuses: ["refunded"] },
+];
+
+// 예약 목록 (구매자/작가 통합) — 확정 예약만, 상태별 그룹
 export default async function BookingsPage() {
   const me = await getCurrentUser();
   if (!me) redirect("/login?next=/bookings");
 
-  const all = await listMyBookings();
+  const [all, convMap] = await Promise.all([listMyBookings(), getConversationMap()]);
   const asBuyer = onlyConfirmed(all.filter((b) => b.user_id === me.id));
   const asPhotographer = onlyConfirmed(
     all.filter((b) => me.photographer && b.photographer_id === me.photographer.id)
@@ -56,56 +64,94 @@ export default async function BookingsPage() {
       )}
 
       {me.photographer && (
-        <Section title="받은 예약" rows={asPhotographer} me={me.id} role="photographer" />
+        <RoleBlock title="받은 예약" rows={asPhotographer} role="photographer" convMap={convMap} />
       )}
-      <Section title="내 예약" rows={asBuyer} me={me.id} role="buyer" />
+      <RoleBlock title="내 예약" rows={asBuyer} role="buyer" convMap={convMap} />
     </main>
   );
 }
 
-function Section({
+// 역할(받은/내) 블록 — 안에서 상태 그룹으로 다시 나눈다
+function RoleBlock({
   title,
   rows,
   role,
+  convMap,
 }: {
   title: string;
   rows: BookingRow[];
-  me: string;
   role: "buyer" | "photographer";
+  convMap: Map<string, string>;
 }) {
   return (
-    <section className="mt-6">
+    <section className="mt-8">
       <h2 className="text-sm font-medium text-fg/70">
         {title} {rows.length > 0 && <span className="text-fg/40">{rows.length}</span>}
       </h2>
       {rows.length === 0 ? (
         <p className="mt-3 text-sm text-fg/45">아직 없어요.</p>
       ) : (
-        <ul className="mt-3 flex flex-col gap-2">
-          {rows.map((b) => (
-            <li key={b.id}>
-              <Link
-                href={`/bookings/${b.id}`}
-                className="block rounded-xl border border-fg/10 p-4 hover:border-fg/25"
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-medium">
-                    {role === "buyer"
-                      ? b.photographer?.display_name || "작가"
-                      : b.user?.display_name || "고객"}
-                  </span>
-                  <span className={`rounded-full px-2 py-0.5 text-[11px] ${statusTone(b.status)}`}>
-                    {STATUS_LABEL[b.status]}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-fg/55">
-                  {b.package?.name ?? b.package_snapshot?.name ?? "패키지"} · {fmtShootAt(b.shoot_at)}
-                </p>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        BUCKETS.map((bucket) => {
+          const group = rows.filter((b) => bucket.statuses.includes(b.status));
+          if (group.length === 0) return null;
+          return (
+            <div key={bucket.label} className="mt-4">
+              <p className="text-xs font-medium text-fg/45">
+                {bucket.label} · {group.length}
+              </p>
+              <ul className="mt-2 flex flex-col gap-2">
+                {group.map((b) => (
+                  <BookingItem key={b.id} b={b} role={role} convMap={convMap} />
+                ))}
+              </ul>
+            </div>
+          );
+        })
       )}
     </section>
+  );
+}
+
+// 예약 행 — 상세 링크 + 채팅 바로가기(B1)
+function BookingItem({
+  b,
+  role,
+  convMap,
+}: {
+  b: BookingRow;
+  role: "buyer" | "photographer";
+  convMap: Map<string, string>;
+}) {
+  const convId = convMap.get(`${b.user_id}:${b.photographer_id}`);
+  const counterpart =
+    role === "buyer" ? b.photographer?.display_name || "작가" : b.user?.display_name || "고객";
+
+  return (
+    <li className="flex items-stretch gap-2">
+      <Link
+        href={`/bookings/${b.id}`}
+        className="block flex-1 rounded-xl border border-fg/10 p-4 hover:border-fg/25"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-sm font-medium">{counterpart}</span>
+          <span className={`rounded-full px-2 py-0.5 text-[11px] ${statusTone(b.status)}`}>
+            {STATUS_LABEL[b.status]}
+          </span>
+        </div>
+        <p className="mt-1 text-xs text-fg/55">
+          {b.package?.name ?? b.package_snapshot?.name ?? "패키지"} · {fmtShootAt(b.shoot_at)}
+        </p>
+      </Link>
+      {convId && (
+        <Link
+          href={`/chat/${convId}`}
+          aria-label="채팅방으로 가기"
+          title="채팅방으로 가기"
+          className="grid w-12 shrink-0 place-items-center rounded-xl border border-fg/10 text-lg hover:border-fg/25 hover:bg-fg/[0.03]"
+        >
+          💬
+        </Link>
+      )}
+    </li>
   );
 }
