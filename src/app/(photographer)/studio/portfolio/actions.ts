@@ -9,13 +9,14 @@ const BUCKET = "samae-portfolio";
 
 // 피드 생성 — 같이 올린 사진들을 한 피드로 묶는다. album id 반환.
 // (1장만 올려도 피드 1개. 프로필 그리드에선 대표 1장만 보이고 클릭 시 스와이프)
-export async function createPost(): Promise<{ id: string }> {
+export async function createPost(description?: string): Promise<{ id: string }> {
   const me = await getCurrentUser();
   if (!me?.photographer) throw new Error("작가만 사용할 수 있습니다.");
+  const desc = (description ?? "").trim().slice(0, 1000) || null;
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("albums")
-    .insert({ photographer_id: me.photographer.id })
+    .insert({ photographer_id: me.photographer.id, description: desc })
     .select("id")
     .single();
   if (error) throw new Error(error.message);
@@ -35,10 +36,11 @@ export async function setPhotoVisibility(formData: FormData) {
   revalidatePath("/studio/portfolio");
 }
 
-// 사진 메타 수정 — 가격·장소. (RLS: 본인 작가 사진만)
-// 가격 노출 on/off 는 작가가 아니라 탐색 메인에서 보는 사람이 토글한다.
+// 사진 메타 수정 — 업로드와 동일 항목(설명·가격·장소·무드·공개여부). (RLS: 본인 작가만)
+// 설명은 피드(앨범) 단위, 나머지는 사진 단위.
 export async function updatePhotoMeta(formData: FormData) {
   const id = String(formData.get("id"));
+  const albumId = String(formData.get("album_id") ?? "").trim() || null;
 
   // 가격: 빈 값이면 null, 숫자면 0 이상 정수로 정규화
   const rawPrice = String(formData.get("price_krw") ?? "").trim();
@@ -52,12 +54,65 @@ export async function updatePhotoMeta(formData: FormData) {
   const rawLoc = String(formData.get("location_text") ?? "").trim();
   const location_text = rawLoc === "" ? null : rawLoc.slice(0, 120);
 
+  // 무드 태그: "a, b" csv → 배열 (비우면 [])
+  const rawMoods = String(formData.get("mood_tags") ?? "").trim();
+  const mood_tags = rawMoods
+    ? rawMoods.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 10)
+    : [];
+
+  const visibility = formData.get("visibility") === "published" ? "published" : "draft";
+
   const supabase = await createClient();
   const { error } = await supabase
     .from("photos")
-    .update({ price_krw, location_text })
+    .update({ price_krw, location_text, mood_tags, visibility })
     .eq("id", id);
   if (error) throw new Error(error.message);
+
+  // 피드 설명 (앨범 단위) — 같은 피드 사진들이 공유
+  if (albumId) {
+    const description = String(formData.get("description") ?? "").trim().slice(0, 1000) || null;
+    await supabase.from("albums").update({ description }).eq("id", albumId);
+  }
+
+  revalidatePath("/studio/portfolio");
+}
+
+// 피드(묶음) 공유 메타 수정 — 여러 사진에 가격·장소·무드·공개를 일괄 적용 + 앨범 설명.
+export async function updateFeedMeta(formData: FormData) {
+  const photoIds = String(formData.get("photo_ids") ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const albumId = String(formData.get("album_id") ?? "").trim() || null;
+  if (photoIds.length === 0) return;
+
+  const rawPrice = String(formData.get("price_krw") ?? "").trim();
+  let price_krw: number | null = null;
+  if (rawPrice !== "") {
+    const n = Math.trunc(Number(rawPrice));
+    price_krw = Number.isFinite(n) && n >= 0 ? n : null;
+  }
+  const rawLoc = String(formData.get("location_text") ?? "").trim();
+  const location_text = rawLoc === "" ? null : rawLoc.slice(0, 120);
+  const rawMoods = String(formData.get("mood_tags") ?? "").trim();
+  const mood_tags = rawMoods
+    ? rawMoods.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 10)
+    : [];
+  const visibility = formData.get("visibility") === "published" ? "published" : "draft";
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("photos")
+    .update({ price_krw, location_text, mood_tags, visibility })
+    .in("id", photoIds);
+  if (error) throw new Error(error.message);
+
+  if (albumId) {
+    const description = String(formData.get("description") ?? "").trim().slice(0, 1000) || null;
+    await supabase.from("albums").update({ description }).eq("id", albumId);
+  }
+
   revalidatePath("/studio/portfolio");
 }
 

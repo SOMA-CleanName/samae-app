@@ -4,17 +4,16 @@ import { notFound } from "next/navigation";
 import {
   fetchPhotoById,
   fetchAlbumPhotos,
+  fetchAlbumDescription,
   fetchPhotographerById,
   fetchPhotographerPhotos,
-  fetchPhotoLikeCount,
-  isFavorited,
+  fetchPhotoLikeInfo,
 } from "@/lib/discovery";
 import { getCurrentUser } from "@/lib/auth";
 import { loadExplorePhotos } from "@/app/(user)/actions";
 import { startConversation } from "../../chat/actions";
 import { PhotoCarousel } from "./PhotoCarousel";
 import { PhotoExplore } from "./PhotoExplore";
-import { PhotoLikeButton } from "@/components/user/PhotoLikeButton";
 import { AutoFavorite } from "@/components/user/AutoFavorite";
 
 const fmt = new Intl.NumberFormat("ko-KR");
@@ -32,10 +31,8 @@ export default async function PhotoDetail({
   if (!photo) notFound();
 
   // 상단 정보에 필요한 것들 병렬 조회
-  const [ph, likeCount, liked, me, portfolio, initialRecs] = await Promise.all([
+  const [ph, me, portfolio, initialRecs] = await Promise.all([
     fetchPhotographerById(photo.photographer_id),
-    fetchPhotoLikeCount(photo.id),
-    isFavorited("photo", photo.id),
     getCurrentUser(),
     fetchPhotographerPhotos(photo.photographer_id),
     loadExplorePhotos(photo.id, 0),
@@ -48,16 +45,26 @@ export default async function PhotoDetail({
 
   // 게시물(묶음)이면 같은 게시물 사진들을 스와이프용으로 (클릭한 사진부터)
   const albumPhotos = photo.album_id ? await fetchAlbumPhotos(photo.album_id) : [];
-  const carousel =
+  const albumDescription = photo.album_id ? await fetchAlbumDescription(photo.album_id) : null;
+  const baseCarousel =
     albumPhotos.length > 1
       ? albumPhotos
       : [{ id: photo.id, src_url: photo.src_url, thumb_url: photo.thumb_url }];
+
+  // 슬라이드별 좋아요 정보 — 보고 있는 사진만 정확히 좋아요되도록
+  const likeInfo = await fetchPhotoLikeInfo(baseCarousel.map((p) => p.id), me?.id);
+  const carousel = baseCarousel.map((p) => ({
+    ...p,
+    liked: likeInfo[p.id]?.liked ?? false,
+    count: likeInfo[p.id]?.count ?? 0,
+  }));
   const startIndex = Math.max(0, carousel.findIndex((p) => p.id === photo.id));
 
   // §2-2 사진 실제 비율 → 사진 영역 너비를 비율에 맞춰 가변(세로 사진은 좁게, 가로 사진은 넓게)
   const aspect = photo.width && photo.height ? photo.width / photo.height : 1;
 
   // 로그인 복귀 후 의도했던 좋아요 자동 적용 (아직 안 한 경우에만)
+  const liked = likeInfo[photo.id]?.liked ?? false;
   const autoLike = sp.like === "1" && !!me && !liked;
 
   return (
@@ -69,7 +76,7 @@ export default async function PhotoDetail({
           className="md:sticky md:top-20 md:shrink-0 md:self-start md:w-[min(60%,calc(80vh*var(--ar)))]"
           style={{ "--ar": String(aspect) } as React.CSSProperties}
         >
-          <PhotoCarousel photos={carousel} startIndex={startIndex} />
+          <PhotoCarousel photos={carousel} startIndex={startIndex} pagePath={`/photos/${photo.id}`} />
         </div>
 
         {/* 사진 정보 — 비율로 밀린 나머지 폭을 채움 */}
@@ -87,6 +94,13 @@ export default async function PhotoDetail({
               <span className="block text-xs text-fg/45">작가 사진 보러가기 →</span>
             </span>
           </Link>
+
+          {/* 촬영 설명글 (피드 단위) */}
+          {albumDescription && (
+            <p className="mt-5 whitespace-pre-wrap text-sm leading-relaxed text-fg/75">
+              {albumDescription}
+            </p>
+          )}
 
           {/* 가격·장소 — 톤다운(§2-3), 장소 아이콘 제거(§2-6) */}
           <div className="mt-5 space-y-1 text-sm text-fg/60">
@@ -109,10 +123,7 @@ export default async function PhotoDetail({
             </div>
           )}
 
-          {/* 사진 좋아요 (관심 작가와 별개) */}
-          <div className="mt-5">
-            <PhotoLikeButton photoId={photo.id} liked={liked} count={likeCount} />
-          </div>
+          {/* 좋아요는 사진(캐러셀) 위에 슬라이드별로 표시 */}
 
           {/* 예약·문의 */}
           <PhotoCtas isOwner={isOwner} me={!!me} photographerId={ph.id} photoId={photo.id} />

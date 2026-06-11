@@ -119,14 +119,14 @@ function UserMenu({ me }: { me: NonNullable<MeProps> }) {
             )}
           </div>
           <div className="my-1 border-t border-fg/8" />
-          <MenuLink href="/studio" onClick={() => setOpen(false)}>
-            {me.isPhotographer ? "스튜디오" : "작가 신청"}
-          </MenuLink>
-          <MenuLink href="/favorites" onClick={() => setOpen(false)}>
-            찜한 작가
-          </MenuLink>
           <MenuLink href="/bookings" onClick={() => setOpen(false)}>
             내 예약
+          </MenuLink>
+          <MenuLink href="/settings" onClick={() => setOpen(false)}>
+            계정 설정
+          </MenuLink>
+          <MenuLink href="/studio" onClick={() => setOpen(false)}>
+            {me.isPhotographer ? "스튜디오" : "작가 신청"}
           </MenuLink>
           <div className="my-1 border-t border-fg/8" />
           <form action={signOut}>

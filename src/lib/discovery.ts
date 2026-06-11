@@ -150,6 +150,49 @@ export async function fetchPhotoById(id: string): Promise<PhotoDetail | null> {
   return (data as unknown as PhotoDetail) ?? null;
 }
 
+// 여러 사진의 좋아요 수 + 내 좋아요 여부 (캐러셀 슬라이드별 하트용)
+export async function fetchPhotoLikeInfo(
+  ids: string[],
+  profileId?: string | null
+): Promise<Record<string, { liked: boolean; count: number }>> {
+  const out: Record<string, { liked: boolean; count: number }> = {};
+  if (ids.length === 0) return out;
+  const supabase = await createClient();
+
+  const counts = await Promise.all(
+    ids.map((id) =>
+      supabase.rpc("photo_like_count", { pid: id }).then((r) => (typeof r.data === "number" ? r.data : 0))
+    )
+  );
+
+  let likedSet = new Set<string>();
+  if (profileId) {
+    const { data } = await supabase
+      .from("favorites")
+      .select("target_id")
+      .eq("profile_id", profileId)
+      .eq("target_type", "photo")
+      .in("target_id", ids);
+    likedSet = new Set((data ?? []).map((f) => f.target_id as string));
+  }
+
+  ids.forEach((id, i) => {
+    out[id] = { liked: likedSet.has(id), count: counts[i] };
+  });
+  return out;
+}
+
+// 게시물(album) 설명글 — 사진 상세에 노출.
+export async function fetchAlbumDescription(albumId: string): Promise<string | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("albums")
+    .select("description")
+    .eq("id", albumId)
+    .maybeSingle();
+  return (data?.description as string | null) ?? null;
+}
+
 // 한 게시물(album)의 공개 사진들 — 스와이프 캐러셀용. 정렬 순.
 export async function fetchAlbumPhotos(
   albumId: string

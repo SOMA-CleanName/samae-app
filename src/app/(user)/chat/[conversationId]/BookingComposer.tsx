@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useFormStatus } from "react-dom";
 import { proposeBooking, updateBooking } from "@/app/actions/bookings";
 import { availableStartTimes, type AvailRule, type TimeRange } from "@/lib/slots";
 
@@ -221,12 +222,24 @@ export function BookingComposer({
               />
             </label>
 
-            <button className="mt-5 w-full rounded-full bg-fg py-3 text-sm font-semibold text-bg hover:opacity-90">
-              {isEdit ? "수정하기" : "제안하기"}
-            </button>
+            <ComposerSubmit isEdit={isEdit} />
           </>
         )}
       </form>
     </div>
+  );
+}
+
+// 제출 버튼 — 전송 중 비활성화로 연속 클릭 중복 제안 방지
+function ComposerSubmit({ isEdit }: { isEdit: boolean }) {
+  const { pending } = useFormStatus();
+  return (
+    <button
+      type="submit"
+      disabled={pending}
+      className="mt-5 w-full rounded-full bg-fg py-3 text-sm font-semibold text-bg hover:opacity-90 disabled:opacity-50"
+    >
+      {pending ? "처리 중…" : isEdit ? "수정하기" : "제안하기"}
+    </button>
   );
 }

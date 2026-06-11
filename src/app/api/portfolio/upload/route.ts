@@ -37,7 +37,7 @@ export async function POST(req: Request) {
   const locStr = String(form.get("location_text") ?? "").trim();
   const locationText = locStr === "" ? null : locStr.slice(0, 120);
 
-  // 무드태그: "a, b" csv → 배열 (없으면 작가 기본값을 아래에서 사용)
+  // 무드태그: "a, b" csv → 배열 (비우면 빈 배열 — 작가 기본값 대체 없음)
   const moodStr = String(form.get("mood_tags") ?? "").trim();
   const moodFromForm = moodStr
     ? moodStr.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 10)
@@ -103,13 +103,7 @@ export async function POST(req: Request) {
     }
   }
 
-  // 작가 기본 지역/무드를 사진 기본값으로 (탐색 필터용)
-  const { data: ph } = await admin
-    .from("photographers")
-    .select("regions, mood_tags")
-    .eq("id", photographerId)
-    .single();
-
+  // 입력값만 저장 — 작가 기본값(지역·무드) 대체 없음
   const { error: insErr } = await admin.from("photos").insert({
     photographer_id: photographerId,
     album_id: albumId,
@@ -118,8 +112,8 @@ export async function POST(req: Request) {
     thumb_url: thumbUrl,
     width: mainMeta.width ?? 0,
     height: mainMeta.height ?? 0,
-    region: ph?.regions?.[0] ?? null,
-    mood_tags: moodFromForm ?? ph?.mood_tags ?? [],
+    region: null,
+    mood_tags: moodFromForm ?? [],
     price_krw: priceKrw,
     location_text: locationText,
     visibility,

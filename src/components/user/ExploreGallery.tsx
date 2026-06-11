@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { GalleryPhoto } from "@/lib/discovery";
 import { MoreIcon } from "@/components/user/icons";
@@ -19,6 +19,18 @@ export function ExploreGallery({
 }) {
   const [showPrice, setShowPrice] = useState(false);
 
+  // 가격 보기 상태를 세션에 유지 — 사진 보고 돌아와도 토글이 풀리지 않게(재요청 없이)
+  useEffect(() => {
+    setShowPrice(sessionStorage.getItem("explore:showPrice") === "1");
+  }, []);
+  function togglePrice() {
+    setShowPrice((v) => {
+      const next = !v;
+      sessionStorage.setItem("explore:showPrice", next ? "1" : "0");
+      return next;
+    });
+  }
+
   return (
     <>
       {/* 상단 도구줄 — 검색 결과 수 + 가격 보기 토글 */}
@@ -26,7 +38,7 @@ export function ExploreGallery({
         <p className="text-sm text-fg/55">
           {query ? `“${query}” 태그 결과 ${photos.length}장` : ""}
         </p>
-        <PriceToggle on={showPrice} onToggle={() => setShowPrice((v) => !v)} />
+        <PriceToggle on={showPrice} onToggle={togglePrice} />
       </div>
 
       {/* 메이슨리 갤러리 */}

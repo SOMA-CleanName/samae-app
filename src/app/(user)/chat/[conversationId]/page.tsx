@@ -98,7 +98,7 @@ export default async function ChatRoomPage({
               href={`/photographers/${conv.photographer_id}`}
               className="text-xs text-fg/50 hover:text-fg"
             >
-              프로필
+              작가 프로필
             </Link>
           )}
         </div>
