@@ -24,17 +24,18 @@ export type NavItem = {
   badge?: number;
 };
 
-function renderIcon(key: NavIconKey, active: boolean) {
+// 통일감을 위해 전부 아웃라인(같은 stroke 톤·크기)으로. 활성은 색+펠릿으로 표시.
+function renderIcon(key: NavIconKey) {
   const cls = "h-6 w-6";
   switch (key) {
     case "home":
-      return <HomeIcon className={cls} filled={active} />;
+      return <HomeIcon className={cls} />;
     case "heart":
-      return <HeartIcon className={cls} filled={active} />;
+      return <HeartIcon className={cls} />;
     case "calendar":
-      return <CalendarIcon className={cls} filled={active} />;
+      return <CalendarIcon className={cls} />;
     case "chat":
-      return <ChatIcon className={cls} filled={active} />;
+      return <ChatIcon className={cls} />;
   }
 }
 
@@ -103,12 +104,16 @@ export function Sidebar({
                 href={resolveHref(it.href)}
                 aria-label={it.label}
                 aria-current={active ? "page" : undefined}
-                className={cn(
-                  "relative grid h-14 w-14 place-items-center rounded-2xl",
-                  active ? "text-fg" : "text-fg/55"
-                )}
+                className="relative grid h-14 w-14 place-items-center"
               >
-                {renderIcon(it.icon, active)}
+                <span
+                  className={cn(
+                    "grid h-9 w-12 place-items-center rounded-full transition-colors",
+                    active ? "bg-fg/[0.08] text-fg" : "text-fg/55"
+                  )}
+                >
+                  {renderIcon(it.icon)}
+                </span>
                 {it.badge ? <Badge count={it.badge} /> : null}
               </Link>
             );
@@ -147,7 +152,12 @@ function ProfileButton({
       aria-haspopup="dialog"
       className="relative grid place-items-center rounded-full p-0.5 transition-colors hover:bg-fg/[0.06] cursor-pointer"
     >
-      <Avatar src={me.avatarUrl} name={me.displayName || me.email} size="sm" />
+      <Avatar
+        src={me.avatarUrl}
+        name={me.displayName || me.email}
+        size="xs"
+        className="ring-1 ring-fg/30"
+      />
       {notifUnread > 0 && (
         <span className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-bg bg-brand" />
       )}
@@ -161,9 +171,9 @@ function EmptyProfile() {
     <Link
       href="/login"
       aria-label="로그인"
-      className="grid h-8 w-8 place-items-center rounded-full bg-fg/[0.06] text-fg/45 transition-colors hover:bg-fg/[0.1] hover:text-fg/70"
+      className="grid h-6 w-6 place-items-center rounded-full text-fg/55 ring-1 ring-fg/30 transition-colors hover:text-fg/80"
     >
-      <UserIcon className="h-5 w-5" />
+      <UserIcon className="h-3.5 w-3.5" />
     </Link>
   );
 }
@@ -180,7 +190,7 @@ function RailLink({ item, href, active }: { item: NavItem; href: string; active:
         active ? "bg-fg/[0.08] text-fg" : "text-fg/60 hover:bg-fg/[0.05] hover:text-fg"
       )}
     >
-      {renderIcon(item.icon, active)}
+      {renderIcon(item.icon)}
       {item.badge ? <Badge count={item.badge} /> : null}
     </Link>
   );

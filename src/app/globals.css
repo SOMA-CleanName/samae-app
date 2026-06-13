@@ -77,6 +77,17 @@
   --font-sans: var(--font-inter);
   --font-kr: var(--font-noto-kr);
 
+  /* ── 타이포 역할별 스케일 (size + line-height). 굵기/색은 별도 유틸로 조합.
+        text-display / h1 / h2 / title / body / body-sm / caption / label */
+  --text-display: 1.875rem;   --text-display--line-height: 1.15;
+  --text-h1: 1.5rem;          --text-h1--line-height: 1.25;
+  --text-h2: 1.25rem;         --text-h2--line-height: 1.35;
+  --text-title: 1.125rem;     --text-title--line-height: 1.4;
+  --text-body: 0.9375rem;     --text-body--line-height: 1.6;
+  --text-body-sm: 0.8125rem;  --text-body-sm--line-height: 1.5;
+  --text-caption: 0.75rem;    --text-caption--line-height: 1.4;
+  --text-label: 0.6875rem;    --text-label--line-height: 1;
+
   /* z-index 스케일 — 레일 40, 헤더 30, 드롭다운 50, 모달 60, 토스트 70 */
   --z-nav: 40;
   --z-header: 30;

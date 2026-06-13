@@ -16,6 +16,7 @@ import { PhotoCarousel } from "./PhotoCarousel";
 import { PhotoExplore } from "./PhotoExplore";
 import { PhotoTopBar } from "./PhotoTopBar";
 import { AutoFavorite } from "@/components/user/AutoFavorite";
+import { ChevronRightIcon } from "@/components/user/icons";
 import { Avatar, Button } from "@/components/ui";
 
 const fmt = new Intl.NumberFormat("ko-KR");
@@ -25,7 +26,7 @@ export default async function PhotoDetail({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ like?: string }>;
+  searchParams?: Promise<{ like?: string; mock?: string }>;
 }) {
   const { id } = await params;
   const sp = (await searchParams) ?? {};
@@ -79,6 +80,11 @@ export default async function PhotoDetail({
   const liked = likeInfo[photo.id]?.liked ?? false;
   const autoLike = sp.like === "1" && !!me && !liked;
 
+  // 사진별 작가 글 — 컬럼 연동 전 미리보기용 목데이터(?mock=1). photo.caption ?? 앨범 설명.
+  const mockCaption =
+    "늦은 오후, 햇살이 가장 부드러워지는 시간에 담았어요. 인물의 자연스러운 표정과 빛의 결을 살리려고 노출을 살짝 낮췄고, 배경의 우드톤이 인물과 잘 어우러지도록 자리를 잡았습니다. 편안하게 웃어주신 덕분에 좋은 컷이 많이 나왔어요. 이런 무드를 좋아하시면 비슷한 톤으로 더 찍어드릴 수 있어요.";
+  const caption = sp.mock === "1" ? mockCaption : photo.caption;
+
   return (
     <main className="mx-auto max-w-5xl px-4 pb-8 pt-20 font-kr sm:px-6 md:pt-24">
       {autoLike && <AutoFavorite targetType="photo" targetId={photo.id} path={`/photos/${photo.id}`} />}
@@ -99,51 +105,55 @@ export default async function PhotoDetail({
 
         {/* 사진 정보 — 비율로 밀린 나머지 폭을 채움 */}
         <div className="mt-6 md:mt-0 md:min-w-0 md:flex-1">
-          {/* 작가 — 별점·촬영가 제거, '작가 사진 보러가기'만 (§2-5) */}
+          {/* 작가 — '작가 사진 보러가기' (§2-5) */}
           <Link
             href={`/photographers/${ph.id}`}
             className="flex items-center gap-3 rounded-2xl border border-line p-3 transition-colors hover:bg-surface-2"
           >
             <Avatar name={phName} size="md" />
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-semibold">{phName}</span>
-              <span className="block text-xs text-muted">작가 사진 보러가기 →</span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-body font-semibold">{phName}</span>
+              <span className="block text-caption text-muted">작가 사진 보러가기</span>
             </span>
+            <ChevronRightIcon className="h-4 w-4 shrink-0 text-faint" />
           </Link>
 
-          {/* 무드 태그 — 이름 바로 아래, 빠르게 스캔 */}
+          {/* 작가 글 — 사진별 caption(추후 photos.caption 연동) 우선, 없으면 게시물(앨범) 설명.
+              dev 머지 후 DB 컬럼 추가 + fetchPhotoById select 만 더하면 사진별로 자동 노출. */}
+          {(caption || albumDescription) && (
+            <p className="mt-5 whitespace-pre-wrap text-body text-fg/80">
+              {caption || albumDescription}
+            </p>
+          )}
+
+          {/* 무드 태그 */}
           {photo.mood_tags.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-1.5">
               {photo.mood_tags.map((m) => (
-                <span key={m} className="rounded-full bg-fg/[0.06] px-2.5 py-1 text-xs text-fg/70">
+                <span
+                  key={m}
+                  className="rounded-full bg-fg/[0.06] px-2.5 py-1 text-caption text-fg/70"
+                >
                   #{m}
                 </span>
               ))}
             </div>
           )}
 
-          {/* 촬영 설명글 (피드 단위) */}
-          {albumDescription && (
-            <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-fg/80">
-              {albumDescription}
-            </p>
-          )}
-
-          {/* 가격 — 강조(결정 정보), 장소는 보조 (장소 아이콘 제거 §2-6) */}
-          <div className="mt-6">
-            <p className="text-xs text-muted">가격</p>
-            <p className="mt-0.5 text-2xl font-semibold tracking-tight">
+          {/* 메타 — [3안] 한 줄 메타(가격 강조 · 장소 멋) */}
+          <p className="mt-6">
+            <span className="text-title font-semibold tracking-tight">
               {photo.price_krw != null ? `₩${fmt.format(photo.price_krw)}` : "문의"}
-            </p>
-            {location && <p className="mt-1 text-sm text-muted">{location}</p>}
-          </div>
+            </span>
+            {location && <span className="text-body text-muted"> · {location}</span>}
+          </p>
 
           {/* 예약·문의 (좋아요는 캐러셀 위에 표시) */}
           <PhotoCtas isOwner={isOwner} me={!!me} photographerId={ph.id} photoId={photo.id} />
         </div>
       </div>
 
-      {/* 2단계 상단바 — 항상 뒤로가기, 하단 그리드 노출 시 검색 등장 */}
+      {/* 2단계 상단바 — 항상 고정 (뒤로가기 + 검색) */}
       <PhotoTopBar />
 
       {/* 하단 — 추천(무한 스크롤) ↔ 작가 포트폴리오 탭 (§2-8, §2-9) */}

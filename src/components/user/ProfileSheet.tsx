@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
 import { signOut } from "@/app/actions/auth";
+import { cn } from "@/lib/cn";
 import { Avatar } from "@/components/ui";
 import { BellIcon } from "./icons";
 
@@ -15,7 +16,7 @@ export type ProfileMe = {
 };
 
 // 프로필 시트 — 하단바 '프로필' 진입.
-// 모바일: 하단 바텀시트 / 데스크톱: 좌측 레일 아바타 위 팝오버.
+// 모바일: 하단에서 슬라이드 업 + 핸들 드래그로 닫기 / 데스크톱: 좌하단 팝오버.
 // 구 TopBar의 계정 메뉴 + 과밀 항목(알림·설정·스튜디오·어드민)을 흡수.
 export function ProfileSheet({
   me,
@@ -28,37 +29,90 @@ export function ProfileSheet({
   open: boolean;
   onClose: () => void;
 }) {
-  // ESC 닫기 + 열렸을 때 배경 스크롤 잠금
+  const [entered, setEntered] = useState(false); // 슬라이드 업 트리거
+  const [dragY, setDragY] = useState(0); // 핸들 드래그 오프셋(아래로 +)
+  const dragging = useRef(false);
+  const startY = useRef(0);
+
+  // 열릴 때: 아래(100%)에서 시작 → 다음 프레임에 0으로 슬라이드 업
+  useEffect(() => {
+    if (!open) return;
+    setEntered(false);
+    setDragY(0);
+    const id = requestAnimationFrame(() => setEntered(true));
+    return () => cancelAnimationFrame(id);
+  }, [open]);
+
+  // 부드러운 닫기 — 아래로 내린 뒤 onClose
+  const requestClose = useCallback(() => {
+    setEntered(false);
+    const t = setTimeout(onClose, 250);
+    return () => clearTimeout(t);
+  }, [onClose]);
+
+  // ESC 닫기
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") requestClose();
     }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open, requestClose]);
 
   if (!open) return null;
 
+  function onTouchStart(e: React.TouchEvent) {
+    dragging.current = true;
+    startY.current = e.touches[0].clientY;
+  }
+  function onTouchMove(e: React.TouchEvent) {
+    if (!dragging.current) return;
+    setDragY(Math.max(0, e.touches[0].clientY - startY.current));
+  }
+  function onTouchEnd() {
+    dragging.current = false;
+    if (dragY > 90) requestClose(); // 충분히 내리면 닫기
+    else setDragY(0); // 아니면 제자리로
+  }
+
+  const transform = !entered
+    ? "translateY(100%)"
+    : dragY > 0
+    ? `translateY(${dragY}px)`
+    : "translateY(0)";
+
   return (
     <>
-      {/* 배경 — 클릭 시 닫기 */}
+      {/* 배경 — 클릭 시 닫기, 페이드 */}
       <button
         aria-label="닫기"
-        onClick={onClose}
-        className="fixed inset-0 z-50 cursor-default bg-black/30 md:bg-black/10"
+        onClick={requestClose}
+        className={cn(
+          "fixed inset-0 z-50 cursor-default bg-black/30 transition-opacity duration-200 md:bg-black/10",
+          entered ? "opacity-100" : "opacity-0"
+        )}
       />
 
-      {/* 패널 — 모바일 하단 시트 / 데스크톱 좌하단 팝오버 */}
+      {/* 패널 — 모바일 하단 시트(슬라이드/드래그) / 데스크톱 좌하단 팝오버 */}
       <div
         role="dialog"
         aria-label="내 메뉴"
-        className="fixed inset-x-0 bottom-0 z-50 rounded-t-3xl border border-line bg-surface pb-safe shadow-pop
-                   md:inset-x-auto md:bottom-4 md:left-[80px] md:w-64 md:rounded-2xl"
+        style={{ transform }}
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-50 rounded-t-3xl border border-line bg-surface pb-safe shadow-pop",
+          "md:inset-x-auto md:bottom-4 md:left-[80px] md:w-64 md:rounded-2xl",
+          !dragging.current && "transition-transform duration-300 ease-out"
+        )}
       >
-        {/* 모바일 그랩 핸들 */}
-        <div className="flex justify-center pt-2.5 md:hidden">
-          <span className="h-1 w-9 rounded-full bg-line-strong" />
+        {/* 드래그 핸들 — 모바일 전용, 아래로 끌면 닫힘 */}
+        <div
+          className="touch-none cursor-grab pt-2.5 pb-1 active:cursor-grabbing md:hidden"
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+        >
+          <div className="mx-auto h-1.5 w-10 rounded-full bg-line-strong" />
         </div>
 
         {/* 계정 헤더 */}
@@ -73,7 +127,7 @@ export function ProfileSheet({
         <div className="border-t border-line" />
 
         <nav className="py-1.5">
-          <SheetLink href="/notifications" onClick={onClose}>
+          <SheetLink href="/notifications" onClick={requestClose}>
             <span className="flex items-center gap-2.5">
               <BellIcon className="h-5 w-5 text-fg/55" />
               알림
@@ -84,15 +138,15 @@ export function ProfileSheet({
               </span>
             )}
           </SheetLink>
-          <SheetLink href="/studio" onClick={onClose}>
+          <SheetLink href="/studio" onClick={requestClose}>
             {me.isPhotographer ? "스튜디오" : "작가 신청"}
           </SheetLink>
           {me.isAdmin && (
-            <SheetLink href="/admin" onClick={onClose}>
+            <SheetLink href="/admin" onClick={requestClose}>
               어드민
             </SheetLink>
           )}
-          <SheetLink href="/settings" onClick={onClose}>
+          <SheetLink href="/settings" onClick={requestClose}>
             계정 설정
           </SheetLink>
         </nav>

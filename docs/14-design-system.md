@@ -44,7 +44,34 @@
 
 - `font-display` = Fraunces (italic, 히어로/로고 `samae`)
 - 본문 = Inter + Noto Sans KR (자동), 한글 영역은 `font-kr`
-- 본문 최소 16px, 줄높이 1.5–1.75, 한글 `word-break: keep-all` (전역 적용됨)
+- 한글 `word-break: keep-all` (전역 적용됨)
+
+### 타이포 역할 (크기는 토큰으로만)
+
+임의 `text-sm`/`text-xs` 대신 **역할 클래스**를 쓴다. 크기+줄높이가 토큰에 묶여 있음. 굵기·색은 별도 유틸로 조합.
+
+| 클래스 | 크기/줄높이 | 용도 |
+|---|---|---|
+| `text-display` | 30 / 1.15 | 히어로·로고 (보통 `font-display`) |
+| `text-h1` | 24 / 1.25 | 페이지 제목 (작가명 등) |
+| `text-h2` | 20 / 1.35 | 섹션 제목 |
+| `text-title` | 18 / 1.4 | 카드 제목·강조 값(가격 등) |
+| `text-body` | 15 / 1.6 | 본문 |
+| `text-body-sm` | 13 / 1.5 | 보조 본문 |
+| `text-caption` | 12 / 1.4 | 메타·캡션 |
+| `text-label` | 11 / 1 | 라벨·eyebrow (보통 `uppercase tracking-wide`) |
+
+예: `<h1 className="text-h1 font-semibold">`, `<p className="text-caption text-muted">`.
+
+### 색 역할 (텍스트)
+
+| 클래스 | 용도 |
+|---|---|
+| `text-fg` | 1차 텍스트 |
+| `text-muted` | 2차(캡션·라벨, 대비 4.5:1 ✓) |
+| `text-faint` | 3차(비활성·플레이스홀더) |
+| `text-brand` / `text-brand-ink` | 강조·브랜드 |
+| `text-success/warning/danger/info` | 상태 |
 
 ### 접근성 기본값 (전역 자동)
 

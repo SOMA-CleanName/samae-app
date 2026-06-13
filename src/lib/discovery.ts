@@ -152,6 +152,8 @@ export type PhotoDetail = {
   album_id: string | null;
   photographer_id: string;
   photographer: { id: string; display_name: string | null } | null;
+  // 사진별 작가 코멘트 — 추후 photos.caption 컬럼 추가 후 select 연동(현재 미선택 → undefined).
+  caption?: string | null;
 };
 
 export async function fetchPhotoById(id: string): Promise<PhotoDetail | null> {
