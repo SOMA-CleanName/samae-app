@@ -7,7 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 
 // 작가에게 채팅 시작 — 대화방 get-or-create 후 이동.
-// 사진에서 시작하면(photoId) 신규 대화에 그 사진을 첫 메시지로 첨부해 맥락 전달.
+// 사진에서 시작하면(photoId) 그 사진을 채팅 버블이 아니라 대화의 출처 사진으로 기록(상담 정보에 노출).
 export async function startConversation(formData: FormData) {
   const photographerId = String(formData.get("photographerId"));
   const photoId = String(formData.get("photoId") || "");
@@ -26,31 +26,27 @@ export async function startConversation(formData: FormData) {
 
   if (existing) redirect(`/chat/${existing.id}`);
 
-  const { data: created, error } = await supabase
-    .from("conversations")
-    .insert({ user_id: me.id, photographer_id: photographerId })
-    .select("id")
-    .single();
-  if (error) throw new Error(error.message);
-
-  // 신규 대화 — 사진에서 시작했다면 그 사진을 첫 메시지로 첨부
+  // 사진에서 시작했다면 그 사진 경로를 출처로 기록 — 채팅 버블이 아니라 상담 정보에 노출
+  let sourcePhotoPath: string | null = null;
   if (photoId) {
     const { data: photo } = await supabase
       .from("photos")
       .select("src_url, thumb_url")
       .eq("id", photoId)
       .maybeSingle();
-    if (photo) {
-      const admin = createAdminClient();
-      await admin.from("messages").insert({
-        conversation_id: created.id,
-        sender_id: me.id,
-        type: "image",
-        body: "이 사진을 보고 문의드려요",
-        image_path: photo.thumb_url ?? photo.src_url,
-      });
-    }
+    if (photo) sourcePhotoPath = photo.thumb_url ?? photo.src_url;
   }
+
+  const { data: created, error } = await supabase
+    .from("conversations")
+    .insert({
+      user_id: me.id,
+      photographer_id: photographerId,
+      source_photo_path: sourcePhotoPath,
+    })
+    .select("id")
+    .single();
+  if (error) throw new Error(error.message);
 
   redirect(`/chat/${created.id}`);
 }
@@ -111,7 +107,13 @@ export async function sendPortfolioPhoto(conversationId: string, photoId: string
   if (error) throw new Error(error.message);
 }
 
-// 채팅방 나가기 — 내 쪽에서만 숨김(상대/기록은 유지, 새 메시지 오면 다시 보임)
+// 진행 중으로 볼 예약 상태(거절/취소/환불 제외) — 이 상태의 예약이 있으면 대화를 지우지 않는다.
+const LIVE_BOOKING_STATUSES = ["requested", "accepted", "paid", "shot", "delivered", "completed"];
+
+// 채팅방 나가기 — 대화와 그 안의 메시지·상담 정보를 완전히 삭제(되돌릴 수 없음).
+//   · 같은 작가에게 다시 문의하면 새 대화가 만들어져 옛 상담정보가 남지 않는다.
+//   · 예약/결제/정산은 conversations에 종속되지 않아 그대로 보존(예약 페이지에서 계속 확인).
+//   · 단, 진행 중인 예약이 있으면 맥락 보존을 위해 삭제 대신 내 쪽에서만 숨김.
 export async function leaveConversation(formData: FormData) {
   const conversationId = String(formData.get("conversationId"));
   const me = await getCurrentUser();
@@ -129,12 +131,30 @@ export async function leaveConversation(formData: FormData) {
   const isPhotographer = me.photographer?.id === conv.photographer_id;
   if (!isUser && !isPhotographer) return;
 
-  // 내 쪽 숨김 시각 기록 + 내 안읽음 0
-  const now = new Date().toISOString();
-  const patch = isUser
-    ? { user_hidden_at: now, user_unread: 0 }
-    : { photographer_hidden_at: now, photographer_unread: 0 };
-  await supabase.from("conversations").update(patch).eq("id", conversationId);
+  // 진행 중인 예약이 있으면 대화를 지우지 않고 내 쪽에서만 숨김(예약 맥락 보존)
+  const { data: liveBooking } = await supabase
+    .from("bookings")
+    .select("id")
+    .eq("user_id", conv.user_id)
+    .eq("photographer_id", conv.photographer_id)
+    .in("status", LIVE_BOOKING_STATUSES)
+    .limit(1)
+    .maybeSingle();
+
+  if (liveBooking) {
+    const now = new Date().toISOString();
+    const patch = isUser
+      ? { user_hidden_at: now, user_unread: 0 }
+      : { photographer_hidden_at: now, photographer_unread: 0 };
+    await supabase.from("conversations").update(patch).eq("id", conversationId);
+    revalidatePath("/chat");
+    return;
+  }
+
+  // 진행 중 예약 없음 → 대화 완전 삭제. 메시지·상담정보는 FK ON DELETE CASCADE로 함께 삭제됨.
+  // 참여자임을 위에서 확인했으므로 admin으로 삭제(대화 delete RLS 우회).
+  const admin = createAdminClient();
+  await admin.from("conversations").delete().eq("id", conversationId);
   revalidatePath("/chat");
 }
 

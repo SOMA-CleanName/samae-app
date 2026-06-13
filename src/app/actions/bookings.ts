@@ -344,6 +344,16 @@ export async function cancelBooking(formData: FormData) {
     : b.user_id;
   if (recipient) await notify(admin, recipient, "예약이 취소됐어요", "", `/bookings/${id}`);
 
+  // 채팅 타임라인에도 취소 기록
+  await postSystemMessage(
+    admin,
+    b.user_id,
+    b.photographer_id,
+    me.id,
+    isBuyer ? "🚫 고객이 예약을 취소했어요." : "🚫 작가가 예약을 취소했어요."
+  );
+
   revalidatePath(`/bookings/${id}`);
   revalidatePath("/bookings");
+  revalidatePath("/chat");
 }

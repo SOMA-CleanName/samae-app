@@ -13,7 +13,7 @@ export default async function BookingTemplatePage() {
   const supabase = await createClient();
   const { data: ph } = await supabase
     .from("photographers")
-    .select("booking_note, travel_fee_krw")
+    .select("booking_note, travel_fee_note")
     .eq("id", me.photographer.id)
     .single();
 
@@ -41,20 +41,18 @@ export default async function BookingTemplatePage() {
           <span className="text-xs text-fg/45">고객이 예약 제안 화면 상단에서 보게 됩니다.</span>
         </label>
 
-        {/* 출장비 */}
+        {/* 출장비 — 자유 텍스트 안내 */}
         <label className="flex flex-col gap-1 text-sm font-medium">
-          출장비 (원)
-          <input
-            name="travel_fee_krw"
-            type="number"
-            min={0}
-            step={1000}
-            defaultValue={ph?.travel_fee_krw ? String(ph.travel_fee_krw) : ""}
-            placeholder="예: 20000 (없으면 비워두세요)"
+          출장비 안내
+          <textarea
+            name="travel_fee_note"
+            rows={3}
+            defaultValue={ph?.travel_fee_note ?? ""}
+            placeholder={"예) 성수·한강 무료\n그 외 지역은 거리에 따라 협의 (왕복 교통비 실비)"}
             className="rounded-xl border border-fg/15 bg-white px-4 py-3 text-sm font-normal outline-none focus:border-fg/40"
           />
           <span className="text-xs text-fg/45">
-            0이거나 비우면 출장비 옵션이 표시되지 않아요. 설정하면 고객이 “출장 촬영”을 선택할 때 금액에 더해집니다.
+            금액이 정해져 있지 않아도 돼요. 적어둔 안내가 예약 제안 화면에서 고객에게 보입니다.
           </span>
         </label>
 

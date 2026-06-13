@@ -2,22 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import {
-  createPackage,
-  updatePackage,
-  deletePackage,
-  togglePackageActive,
-} from "./actions";
-
-type Pkg = {
-  id: string;
-  name: string;
-  description: string;
-  price_krw: number;
-  duration_min: number;
-  edited_count: number;
-  is_active: boolean;
-};
+import { createPackage } from "./actions";
+import { PackageItem, type Pkg } from "./PackageItem";
 
 const inputCls =
   "rounded-lg border border-fg/15 bg-white px-3 py-2 text-sm outline-none focus:border-fg/40";
@@ -55,9 +41,9 @@ export default async function PackagesPage() {
           <input name="name" placeholder="패키지 이름 (예: 데이트 스냅 베이직)" required className={inputCls} />
           <textarea name="description" rows={2} placeholder="설명 (선택)" className={inputCls} />
           <div className="grid grid-cols-3 gap-2">
-            <LabeledInput name="priceKrw" label="가격(원)" type="number" required />
-            <LabeledInput name="durationMin" label="소요(분)" type="number" defaultValue="60" required />
-            <LabeledInput name="editedCount" label="보정본(장)" type="number" defaultValue="10" required />
+            <LabeledInput name="priceKrw" label="가격(원)" min={0} max={3_500_000} step={10_000} required />
+            <LabeledInput name="durationMin" label="소요(분)" defaultValue="60" min={1} max={1440} step={10} required />
+            <LabeledInput name="editedCount" label="보정본(장)" defaultValue="10" min={0} step={1} required />
           </div>
           <button className="justify-self-start rounded-full bg-fg px-5 py-2 text-sm font-semibold text-bg hover:opacity-90">
             추가
@@ -73,42 +59,7 @@ export default async function PackagesPage() {
         ) : (
           <ul className="mt-3 flex flex-col gap-4">
             {packages.map((p) => (
-              <li key={p.id} className="rounded-xl border border-fg/10 p-4">
-                {/* 수정 폼 (각 행이 곧 폼) */}
-                <form action={updatePackage} className="grid gap-3">
-                  <input type="hidden" name="id" value={p.id} />
-                  <input name="name" defaultValue={p.name} required className={inputCls} />
-                  <textarea name="description" rows={2} defaultValue={p.description} className={inputCls} />
-                  <div className="grid grid-cols-3 gap-2">
-                    <LabeledInput name="priceKrw" label="가격(원)" type="number" defaultValue={String(p.price_krw)} required />
-                    <LabeledInput name="durationMin" label="소요(분)" type="number" defaultValue={String(p.duration_min)} required />
-                    <LabeledInput name="editedCount" label="보정본(장)" type="number" defaultValue={String(p.edited_count)} required />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button className="rounded-full bg-fg px-4 py-1.5 text-xs font-semibold text-bg hover:opacity-90">
-                      저장
-                    </button>
-                    <StatusPill active={p.is_active} />
-                  </div>
-                </form>
-
-                {/* 노출 토글 / 삭제 */}
-                <div className="mt-2 flex items-center gap-2 border-t border-fg/8 pt-2">
-                  <form action={togglePackageActive}>
-                    <input type="hidden" name="id" value={p.id} />
-                    <input type="hidden" name="isActive" value={String(!p.is_active)} />
-                    <button className="rounded-full border border-fg/20 px-3 py-1 text-xs text-fg/70 hover:bg-fg/[0.04]">
-                      {p.is_active ? "비활성화" : "활성화"}
-                    </button>
-                  </form>
-                  <form action={deletePackage}>
-                    <input type="hidden" name="id" value={p.id} />
-                    <button className="rounded-full px-3 py-1 text-xs text-brand hover:bg-brand/[0.06]">
-                      삭제
-                    </button>
-                  </form>
-                </div>
-              </li>
+              <PackageItem key={p.id} p={p} />
             ))}
           </ul>
         )}
@@ -120,14 +71,18 @@ export default async function PackagesPage() {
 function LabeledInput({
   name,
   label,
-  type = "text",
   defaultValue,
+  min,
+  max,
+  step,
   required,
 }: {
   name: string;
   label: string;
-  type?: string;
   defaultValue?: string;
+  min?: number;
+  max?: number;
+  step?: number;
   required?: boolean;
 }) {
   return (
@@ -135,24 +90,14 @@ function LabeledInput({
       {label}
       <input
         name={name}
-        type={type}
+        type="number"
         defaultValue={defaultValue}
         required={required}
-        min={type === "number" ? 0 : undefined}
+        min={min}
+        max={max}
+        step={step}
         className="rounded-lg border border-fg/15 bg-white px-3 py-2 text-sm text-fg outline-none focus:border-fg/40"
       />
     </label>
-  );
-}
-
-function StatusPill({ active }: { active: boolean }) {
-  return (
-    <span
-      className={`rounded-full px-2 py-0.5 text-[11px] ${
-        active ? "bg-emerald-500/15 text-emerald-700" : "bg-fg/10 text-fg/50"
-      }`}
-    >
-      {active ? "노출 중" : "비활성"}
-    </span>
   );
 }

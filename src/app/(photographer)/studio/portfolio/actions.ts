@@ -116,6 +116,84 @@ export async function updateFeedMeta(formData: FormData) {
   revalidatePath("/studio/portfolio");
 }
 
+// 게시물(피드) 전체 공개/비공개 — 앨범의 모든 사진을 일괄 전환 (RLS: 본인 작가)
+export async function setAlbumVisibility(formData: FormData) {
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가만 사용할 수 있습니다.");
+  const albumId = String(formData.get("album_id"));
+  const visibility = formData.get("visibility") === "published" ? "published" : "draft";
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("photos")
+    .update({ visibility })
+    .eq("album_id", albumId)
+    .eq("photographer_id", me.photographer.id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/studio/portfolio");
+}
+
+// 피드 내 사진 순서 한 칸 이동 (위/아래) — 같은 앨범 안에서만 (RLS: 본인 작가)
+export async function reorderPhoto(formData: FormData) {
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가만 사용할 수 있습니다.");
+  const phId = me.photographer.id;
+  const id = String(formData.get("id"));
+  const dir = String(formData.get("dir")); // "up" | "down"
+
+  const supabase = await createClient();
+  const { data: target } = await supabase
+    .from("photos")
+    .select("album_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (!target?.album_id) return; // 단일(앨범 없음)은 순서 개념 없음
+
+  const { data: list } = await supabase
+    .from("photos")
+    .select("id")
+    .eq("album_id", target.album_id)
+    .eq("photographer_id", phId)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: false });
+  const arr = (list ?? []).map((p) => p.id as string);
+  const idx = arr.indexOf(id);
+  const swap = dir === "up" ? idx - 1 : idx + 1;
+  if (idx === -1 || swap < 0 || swap >= arr.length) return;
+  [arr[idx], arr[swap]] = [arr[swap], arr[idx]];
+
+  // 0..n 으로 sort_order 재기록
+  await Promise.all(
+    arr.map((pid, i) => supabase.from("photos").update({ sort_order: i }).eq("id", pid))
+  );
+  revalidatePath("/studio/portfolio");
+}
+
+// 게시물(피드) 삭제 — 앨범의 모든 사진 + 앨범 제거. 소유권 검증 후 service_role.
+export async function deletePost(formData: FormData) {
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가만 사용할 수 있습니다.");
+  const phId = me.photographer.id;
+  const albumId = String(formData.get("album_id"));
+
+  const admin = createAdminClient();
+  const { data: photos } = await admin
+    .from("photos")
+    .select("id, storage_path, photographer_id")
+    .eq("album_id", albumId);
+  const mine = (photos ?? []).filter((p) => p.photographer_id === phId);
+
+  if (mine.length > 0) {
+    const paths = mine.flatMap((p) => {
+      const main = p.storage_path as string;
+      return [main, main.replace(/\.jpg$/, "_thumb.jpg")];
+    });
+    await admin.storage.from(BUCKET).remove(paths);
+    await admin.from("photos").delete().in("id", mine.map((p) => p.id));
+  }
+  await admin.from("albums").delete().eq("id", albumId).eq("photographer_id", phId);
+  revalidatePath("/studio/portfolio");
+}
+
 // 사진 삭제 — Storage 원본/썸네일 + photos 행 제거. 소유권 검증 후 service_role 로 수행.
 export async function deletePhoto(formData: FormData) {
   const me = await getCurrentUser();

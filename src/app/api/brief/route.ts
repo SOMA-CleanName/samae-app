@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   const supabase = await createClient();
   const { data: conv } = await supabase
     .from("conversations")
-    .select("id, user_id")
+    .select("id, user_id, photographer_id")
     .eq("id", conversationId)
     .maybeSingle();
   if (!conv || conv.user_id !== me.id) {
@@ -58,14 +58,24 @@ export async function POST(req: Request) {
   );
   if (error) return Response.json({ error: error.message }, { status: 500 });
 
-  // 첫 작성이면 작가에게 시스템 메시지로 알림(트리거가 안읽음·알림 처리)
+  // 첫 작성이면 작가에게 알림(notifications)으로만 알린다.
+  //   · 채팅 시스템 메시지로 넣으면 고객 화면에도 떠서 어색하므로 버블은 만들지 않음.
+  //   · 고객 화면엔 채팅방 빈 상태의 '인사 권유' 안내가 대신 보인다.
   if (!prev) {
-    await admin.from("messages").insert({
-      conversation_id: conversationId,
-      sender_id: me.id,
-      type: "system",
-      body: "📋 고객이 상담 정보를 작성했어요.",
-    });
+    const { data: ph } = await admin
+      .from("photographers")
+      .select("profile_id")
+      .eq("id", conv.photographer_id)
+      .maybeSingle();
+    if (ph?.profile_id) {
+      await admin.from("notifications").insert({
+        recipient_id: ph.profile_id,
+        type: "chat",
+        title: "상담 정보 도착",
+        body: "고객이 상담 정보를 작성했어요.",
+        link: `/chat/${conversationId}`,
+      });
+    }
   }
 
   return Response.json({ ok: true });

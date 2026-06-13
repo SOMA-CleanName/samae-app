@@ -13,6 +13,7 @@ export type ConversationListItem = {
   photographer_unread: number;
   user_hidden_at: string | null;
   photographer_hidden_at: string | null;
+  source_photo_path: string | null; // 사진에서 문의 시작 시 그 사진 경로(상담 정보에 노출)
   photographer: { display_name: string | null } | null;
   user: { display_name: string | null } | null;
 };
@@ -54,7 +55,7 @@ export type ChatMessage = {
 
 const CONV_COLS =
   "id, user_id, photographer_id, last_message_at, user_unread, photographer_unread, " +
-  "user_hidden_at, photographer_hidden_at, " +
+  "user_hidden_at, photographer_hidden_at, source_photo_path, " +
   "photographer:photographers(display_name), " +
   "user:profiles!conversations_user_id_fkey(display_name)";
 
@@ -92,6 +93,13 @@ export async function listChatRooms(me: CurrentUser): Promise<ChatRoomItem[]> {
     .order("last_message_at", { ascending: false, nullsFirst: false });
   const convs = (data ?? []) as unknown as ConversationListItem[];
 
+  // 상담 정보가 입력된 대화 id — 아직 메시지가 없어도 '활성'으로 보고 노출.
+  // (사진/프로필에서 방만 만들고 아직 대화가 없는 빈 방은 작가에게 숨김)
+  const { data: briefs } = await supabase
+    .from("consultation_briefs")
+    .select("conversation_id");
+  const withBrief = new Set((briefs ?? []).map((b) => b.conversation_id as string));
+
   // 예약 상태 맵 — (user_id:photographer_id) → '가장 최근 활성 예약' 상태.
   // 거절/취소/환불은 제외하고 created_at desc로 최신 1건만 반영(역대 최고 단계 오표시 방지).
   const { data: bookings } = await supabase
@@ -105,7 +113,7 @@ export async function listChatRooms(me: CurrentUser): Promise<ChatRoomItem[]> {
     if (!latestByPair.has(key)) latestByPair.set(key, b.status as string); // desc 정렬이라 첫 항목=최신
   }
 
-  const visible = convs.filter((c) => isVisibleTo(c, me)); // 메시지 있는 + 안 나간 방만
+  const visible = convs.filter((c) => isVisibleTo(c, me, withBrief)); // 대화 있거나 상담정보 입력된 + 안 나간 방만
   await fillCustomerNames(visible); // 작가 시점 고객 이름 보강
   return visible.map((c) => ({
     ...c,
@@ -118,9 +126,10 @@ const LIVE_STATUSES = new Set([
   "requested", "accepted", "paid", "shot", "delivered", "completed",
 ]);
 
-// 리스트에 보일지: 메시지가 한 번이라도 오갔고(last_message_at), 내가 나간 시점 이후 활동이 있을 때
-function isVisibleTo(c: ConversationListItem, me: CurrentUser): boolean {
-  if (!c.last_message_at) return false;
+// 리스트에 보일지: 메시지가 한 번이라도 오갔거나(last_message_at) 상담 정보가 입력됐고,
+// 내가 나간 시점 이후 활동이 있을 때. (둘 다 없는 빈 방은 작가·고객 양쪽에 숨김)
+function isVisibleTo(c: ConversationListItem, me: CurrentUser, withBrief: Set<string>): boolean {
+  if (!c.last_message_at) return withBrief.has(c.id); // 메시지 없으면 상담정보 있을 때만
   const myHidden = c.user_id === me.id ? c.user_hidden_at : c.photographer_hidden_at;
   return !myHidden || c.last_message_at > myHidden;
 }
@@ -139,6 +148,7 @@ export async function getConversation(id: string): Promise<ConversationListItem 
     .from("conversations")
     .select(
       "id, user_id, photographer_id, last_message_at, user_unread, photographer_unread, " +
+        "source_photo_path, " +
         "photographer:photographers(display_name), " +
         "user:profiles!conversations_user_id_fkey(display_name)"
     )

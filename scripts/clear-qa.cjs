@@ -1,7 +1,7 @@
-// QA용 데이터 초기화 — 채팅/예약 관련 내역만 삭제.
+// QA용 데이터 초기화 — 채팅/예약/찜 등 유저 활동 내역 삭제.
 //   삭제: messages, consultation_briefs, conversations, reviews, deliveries,
-//         platform_fees, payments, bookings, notifications
-//   유지: profiles, photographers, photos, packages, availability*, favorites, payout_accounts, albums
+//         platform_fees, payments, bookings, notifications, favorites
+//   유지: profiles, photographers, photos, packages, availability*, payout_accounts, albums
 //
 // 안전장치: 기본은 '미리보기'(개수만). 실제 삭제는 --yes 를 붙여야 실행.
 //   미리보기: node scripts/clear-qa.cjs
@@ -36,6 +36,7 @@ const TABLES = [
   "conversations",
   "bookings",
   "notifications",
+  "favorites",
 ];
 
 function poolerCandidates(connStr) {
@@ -84,7 +85,7 @@ async function connectAny() {
 
   if (!confirmed) {
     console.log("\n👀 미리보기입니다. 실제로 지우려면:  node scripts/clear-qa.cjs --yes");
-    console.log("   (계정·작가·사진·패키지·가용시간·찜은 그대로 유지됩니다.)");
+    console.log("   (계정·작가·사진·패키지·가용시간은 그대로 유지됩니다.)");
     await client.end();
     return;
   }

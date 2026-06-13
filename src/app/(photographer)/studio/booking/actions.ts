@@ -11,18 +11,17 @@ export async function saveBookingTemplate(formData: FormData) {
 
   const note = String(formData.get("booking_note") ?? "").trim().slice(0, 1000);
 
-  // 출장비: 빈 값/음수면 0
-  const rawFee = String(formData.get("travel_fee_krw") ?? "").trim();
-  let travelFee = 0;
-  if (rawFee !== "") {
-    const n = Math.trunc(Number(rawFee));
-    travelFee = Number.isFinite(n) && n > 0 ? n : 0;
-  }
+  // 출장비: 자유 텍스트 안내 (예: "성수 무료, 그 외 지역 협의"). 고정 금액 add-on은 비활성(0).
+  const travelNote = String(formData.get("travel_fee_note") ?? "").trim().slice(0, 300);
 
   const supabase = await createClient();
   const { error } = await supabase
     .from("photographers")
-    .update({ booking_note: note || null, travel_fee_krw: travelFee })
+    .update({
+      booking_note: note || null,
+      travel_fee_note: travelNote || null,
+      travel_fee_krw: 0,
+    })
     .eq("id", me.photographer.id);
   if (error) throw new Error(error.message);
   revalidatePath("/studio/booking");

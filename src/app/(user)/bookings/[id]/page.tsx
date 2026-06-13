@@ -12,27 +12,33 @@ import { acceptBooking, rejectBooking, cancelBooking } from "@/app/actions/booki
 import {
   confirmTransfer,
   markShot,
+  markTransferSent,
   confirmCompletion,
-  refundBooking,
 } from "@/app/actions/payments";
 import {
   getPaymentByBooking,
   getFeeByBooking,
+  getPayoutAccountForBooking,
+  ensureTransferRecord,
   PAYMENT_LABEL,
   FEE_LABEL,
 } from "@/lib/payments";
 import { getReviewByBooking } from "@/lib/reviews";
-import { getDelivery, getDeliveryDownloads, deliveryAssetName } from "@/lib/deliveries";
+import { getDelivery, getDeliveryDownloads, signDeliveryAssets } from "@/lib/deliveries";
 import { ReviewForm } from "./ReviewForm";
 import { DeliveryUploader } from "./DeliveryUploader";
+import { DeliveryGallery } from "./DeliveryGallery";
 
 // 예약 상세 + 역할·상태별 액션
 export default async function BookingDetail({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ from?: string }>;
 }) {
   const { id } = await params;
+  const { from } = await searchParams;
   const me = await getCurrentUser();
   if (!me) redirect(`/login?next=/bookings/${id}`);
 
@@ -55,14 +61,24 @@ export default async function BookingDetail({
     b.status === "completed" || (isOwner && ["paid", "shot"].includes(b.status))
       ? await getDelivery(id)
       : null;
-  const deliveryAssets = (delivery?.asset_paths ?? []).map((p) => ({
-    path: p,
-    name: deliveryAssetName(p),
-  }));
+  const deliveryAssets = await signDeliveryAssets(delivery?.asset_paths ?? []);
   const downloads = b.status === "completed" ? await getDeliveryDownloads(id) : [];
 
   // 채팅방 바로가기 (B1)
   const convId = await getConversationIdFor(b.user_id, b.photographer_id);
+
+  // 송금 안내 인라인 — 구매자·수락됨일 때 작가 계좌를 바로 노출(별도 페이지 없이)
+  let payoutAccount: Awaited<ReturnType<typeof getPayoutAccountForBooking>> = null;
+  if (isBuyer && b.status === "accepted") {
+    await ensureTransferRecord(id, b.amount_krw ?? 0); // 송금 대기 결제 레코드 보장(멱등)
+    payoutAccount = await getPayoutAccountForBooking(id);
+  }
+
+  // 뒤로가기 — 채팅에서 들어왔으면 채팅방으로, 아니면 예약 목록으로
+  const back =
+    from === "chat" && convId
+      ? { href: `/chat/${convId}`, label: "← 채팅" }
+      : { href: "/bookings", label: "← 예약" };
 
   // 정체 단계 넛지 (경량 인앱 리마인더)
   const daysSince = (iso: string) => Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
@@ -85,8 +101,8 @@ export default async function BookingDetail({
 
   return (
     <main className="mx-auto max-w-lg px-4 sm:px-6 py-8 font-kr">
-      <Link href="/bookings" className="text-sm text-fg/50 hover:text-fg">
-        ← 예약
+      <Link href={back.href} className="text-sm text-fg/50 hover:text-fg">
+        {back.label}
       </Link>
 
       <div className="mt-4 flex items-center justify-between">
@@ -94,6 +110,26 @@ export default async function BookingDetail({
         <span className={`rounded-full px-2.5 py-1 text-xs ${statusTone(b.status)}`}>
           {STATUS_LABEL[b.status]}
         </span>
+      </div>
+
+      {/* 바로가기 — 채팅방 / (구매자) 작가 프로필 · 상단 배치(req3) */}
+      <div className="mt-3 flex items-center gap-2">
+        {convId && (
+          <Link
+            href={`/chat/${convId}`}
+            className="rounded-full border border-fg/15 px-3 py-1.5 text-xs font-medium text-fg/70 hover:bg-fg/[0.04]"
+          >
+            💬 채팅방으로 가기
+          </Link>
+        )}
+        {isBuyer && b.photographer && (
+          <Link
+            href={`/photographers/${b.photographer_id}`}
+            className="rounded-full border border-fg/15 px-3 py-1.5 text-xs font-medium text-fg/70 hover:bg-fg/[0.04]"
+          >
+            작가 프로필 보기
+          </Link>
+        )}
       </div>
 
       <dl className="mt-6 flex flex-col gap-3 rounded-xl border border-fg/10 p-5 text-sm">
@@ -127,23 +163,6 @@ export default async function BookingDetail({
         </p>
       )}
 
-      {/* 바로가기 — 채팅방 / (구매자) 작가 프로필 */}
-      <div className="mt-4 flex items-center gap-4 text-sm">
-        {convId && (
-          <Link href={`/chat/${convId}`} className="text-fg/70 hover:text-fg">
-            💬 채팅방으로 가기
-          </Link>
-        )}
-        {isBuyer && b.photographer && (
-          <Link
-            href={`/photographers/${b.photographer_id}`}
-            className="text-fg/60 hover:text-fg"
-          >
-            작가 프로필 보기
-          </Link>
-        )}
-      </div>
-
       {/* 액션 */}
       <div className="mt-6 flex flex-col gap-2">
         {/* 수락/거절 — 제안자의 상대(작가 제안→구매자, 구매자 제안→작가) */}
@@ -165,14 +184,50 @@ export default async function BookingDetail({
           </div>
         )}
 
-        {/* 구매자: 수락됨 → 송금 안내(작가 계좌 확인) */}
+        {/* 구매자: 수락됨 → 송금 안내(작가 계좌·금액·송금완료) 인라인 노출 (req4) */}
         {isBuyer && b.status === "accepted" && (
-          <Link
-            href={`/bookings/${b.id}/pay`}
-            className="w-full rounded-xl bg-fg py-3 text-center text-sm font-semibold text-bg hover:opacity-90"
-          >
-            송금 안내 보기
-          </Link>
+          <section className="rounded-xl border border-fg/12 bg-white p-5">
+            <p className="text-sm font-semibold">💸 송금 안내</p>
+            <p className="mt-1 text-xs text-fg/55">
+              아래 계좌로 촬영비를 직접 송금해주세요. 작가가 입금을 확인하면 결제가 완료됩니다.
+            </p>
+
+            {payoutAccount ? (
+              <div className="mt-3 rounded-xl bg-fg/[0.04] p-3 text-sm">
+                <Row label="은행" value={payoutAccount.bank} />
+                <Row label="계좌번호" value={payoutAccount.number} />
+                <Row label="예금주" value={payoutAccount.holder} />
+                <div className="mt-2 flex items-center justify-between border-t border-fg/10 pt-2">
+                  <span className="text-fg/50">보낼 금액</span>
+                  <span className="text-base font-bold">₩{fmt.format(b.amount_krw ?? 0)}</span>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-3 rounded-xl bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+                작가가 아직 수취 계좌를 등록하지 않았어요. 채팅으로 계좌를 문의해주세요.
+              </p>
+            )}
+
+            {b.transfer_marked_at ? (
+              <p className="mt-3 rounded-full bg-emerald-500/10 px-3 py-2 text-center text-xs text-emerald-600">
+                ✅ 송금 완료를 알렸어요 · 작가의 입금 확인을 기다리는 중
+              </p>
+            ) : (
+              payoutAccount && (
+                <form action={markTransferSent} className="mt-3">
+                  <input type="hidden" name="id" value={b.id} />
+                  <button className="w-full rounded-xl bg-fg py-3 text-sm font-semibold text-bg hover:opacity-90">
+                    송금 완료
+                  </button>
+                </form>
+              )
+            )}
+
+            <p className="mt-3 text-[11px] text-fg/45">
+              · 받는 분 통장에 <b>예약자 본인 이름</b>으로 보내면 작가가 확인하기 쉬워요.<br />
+              · 플랫폼은 결제를 중개하지 않으며, 송금은 사용자와 작가 간 직접 거래입니다.
+            </p>
+          </section>
         )}
 
         {/* 작가: 수락됨 → 입금 확인 */}
@@ -224,55 +279,43 @@ export default async function BookingDetail({
           </form>
         )}
 
-        {/* 결제 후 환불 (구매자/운영자) */}
+        {/* 결제 후 환불 — 자세한 안내·신청은 환불 페이지에서 (req6) */}
         {canRefund && (
-          <form action={refundBooking}>
-            <input type="hidden" name="id" value={b.id} />
-            <button className="w-full rounded-xl px-4 py-2.5 text-sm text-brand hover:bg-brand/[0.06]">
-              {isAdmin && !isBuyer ? "환불 처리 (운영자)" : "환불 요청"}
-            </button>
-          </form>
+          <Link
+            href={`/bookings/${b.id}/refund`}
+            className="w-full rounded-xl px-4 py-2.5 text-center text-sm text-brand hover:bg-brand/[0.06]"
+          >
+            {isAdmin && !isBuyer ? "환불 처리 (운영자)" : "환불 요청"}
+          </Link>
         )}
       </div>
 
-      {/* 보정본 다운로드 — 완료된 예약 (참여자) */}
-      {b.status === "completed" && (downloads.length > 0 || delivery?.external_link) && (
-        <section className="mt-6 rounded-xl border border-fg/10 p-5">
-          <p className="text-sm font-semibold">📸 전달된 보정본</p>
-          {downloads.length > 0 && (
-            <ul className="mt-3 flex flex-col gap-2">
-              {downloads.map((d) => (
-                <li key={d.url}>
-                  <a
-                    href={d.url}
-                    download={d.name}
-                    className="flex items-center justify-between gap-3 rounded-lg bg-fg/[0.04] px-3 py-2 text-sm hover:bg-fg/[0.07]"
-                  >
-                    <span className="truncate">{d.name}</span>
-                    <span className="shrink-0 text-xs text-fg/50">받기 ↓</span>
-                  </a>
-                </li>
-              ))}
-            </ul>
-          )}
-          {delivery?.external_link && (
-            <a
-              href={delivery.external_link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-2 inline-block text-sm text-fg/60 underline hover:text-fg"
+      {/* 작가: 환불 신청됨 → 직접 송금 안내 (req7) */}
+      {isOwner && b.status === "refunded" && (
+        <section className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/[0.06] p-5">
+          <p className="text-sm font-semibold text-amber-700">↩️ 환불 신청이 접수됐어요</p>
+          <p className="mt-1.5 text-sm text-amber-700/90">
+            고객에게 <b>₩{fmt.format(b.amount_krw ?? 0)}</b>을(를) 직접 송금해 환불해주세요.
+            계좌가 필요하면 채팅으로 문의할 수 있어요.
+          </p>
+          {convId && (
+            <Link
+              href={`/chat/${convId}`}
+              className="mt-3 inline-block rounded-full bg-fg px-4 py-2 text-xs font-semibold text-bg hover:opacity-90"
             >
-              외부 전달 링크 열기 ↗
-            </a>
-          )}
-          {delivery?.expires_at && (
-            <p className="mt-3 text-[11px] text-fg/45">
-              다운로드 링크는 보안을 위해 일정 시간이 지나면 만료돼요. 만료 시 새로고침하면
-              다시 생성됩니다. 파일 보관은 {new Date(delivery.expires_at).toLocaleDateString("ko-KR")}
-              까지 권장돼요.
-            </p>
+              채팅으로 계좌 확인하기
+            </Link>
           )}
         </section>
+      )}
+
+      {/* 보정본 갤러리 — 완료된 예약 (참여자) · 그리드+라이트박스+저장 (req10,11) */}
+      {b.status === "completed" && (downloads.length > 0 || delivery?.external_link) && (
+        <DeliveryGallery
+          items={downloads}
+          externalLink={delivery?.external_link ?? null}
+          expiresAt={delivery?.expires_at ?? null}
+        />
       )}
 
       {/* 작가: 완료 후 보정본 잘못 전달 대처 — 파일 교체 + 재전달 알림 */}

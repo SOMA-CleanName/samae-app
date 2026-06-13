@@ -15,14 +15,16 @@ export function StudioSidebar({ unread }: { unread: number }) {
     href === "/studio" ? pathname === "/studio" : pathname === href || pathname.startsWith(href + "/");
 
   const ops: Item[] = [
-    { href: "/studio", label: "홈" },
+    { href: "/studio", label: "대시보드" },
     { href: "/studio/bookings", label: "예약" },
     { href: "/studio/chat", label: "문의", badge: unread || undefined },
+    { href: "/studio/reviews", label: "후기" },
   ];
   const settings: Item[] = [
     { href: "/studio/profile", label: "프로필" },
     { href: "/studio/packages", label: "패키지" },
     { href: "/studio/portfolio", label: "포트폴리오" },
+    { href: "/studio/highlights", label: "하이라이트" },
     { href: "/studio/availability", label: "일정" },
     { href: "/studio/booking", label: "예약 설정" },
     { href: "/studio/settlements", label: "수수료" },

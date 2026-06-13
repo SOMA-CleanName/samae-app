@@ -27,6 +27,7 @@ export type ComposerData = {
   busy: TimeRange[];
   bookingNote: string | null;
   travelFeeKrw: number;
+  travelFeeNote: string | null;
 };
 
 const fmt = new Intl.NumberFormat("ko-KR");
@@ -53,8 +54,17 @@ export function BookingComposer({
   editTarget?: BookingEditTarget | null;
   onClose: () => void;
 }) {
-  const { conversationId, photographerId, packages, rules, blocks, busy, bookingNote, travelFeeKrw } =
-    data;
+  const {
+    conversationId,
+    photographerId,
+    packages,
+    rules,
+    blocks,
+    busy,
+    bookingNote,
+    travelFeeKrw,
+    travelFeeNote,
+  } = data;
   const isEdit = !!editTarget;
 
   const [packageId, setPackageId] = useState(
@@ -186,7 +196,7 @@ export function BookingComposer({
               ))}
             </fieldset>
 
-            {/* 출장비 옵션 */}
+            {/* 출장비 옵션 — 고정 금액(레거시) */}
             {travelFeeKrw > 0 && (
               <label className="mt-4 flex items-center gap-2 rounded-xl border border-fg/15 px-3 py-2.5 text-sm">
                 <input
@@ -197,6 +207,14 @@ export function BookingComposer({
                 />
                 출장 촬영 (+₩{fmt.format(travelFeeKrw)})
               </label>
+            )}
+
+            {/* 출장비 안내 — 자유 텍스트(금액은 협의) */}
+            {travelFeeKrw === 0 && travelFeeNote && (
+              <div className="mt-4 rounded-xl border border-fg/15 px-3 py-2.5 text-xs text-fg/70">
+                <p className="font-medium text-fg/80">🚗 출장비 안내</p>
+                <p className="mt-1 whitespace-pre-wrap">{travelFeeNote}</p>
+              </div>
             )}
 
             {/* 장소 */}

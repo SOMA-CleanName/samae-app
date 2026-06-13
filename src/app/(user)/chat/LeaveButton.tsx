@@ -2,13 +2,13 @@
 
 import { leaveConversation } from "./actions";
 
-// 채팅방 나가기 버튼 — 확인 후 서버 액션 호출(내 쪽에서만 숨김)
+// 채팅방 나가기 버튼 — 확인 후 서버 액션 호출(대화·상담정보 삭제)
 export function LeaveButton({ conversationId }: { conversationId: string }) {
   return (
     <form
       action={leaveConversation}
       onSubmit={(e) => {
-        if (!confirm("이 채팅방을 나갈까요? 새 메시지가 오면 다시 표시돼요.")) {
+        if (!confirm("이 채팅방을 나갈까요? 주고받은 대화와 상담 정보가 삭제되며 되돌릴 수 없어요.")) {
           e.preventDefault();
         }
       }}

@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { DELIVERY_BUCKET, deliveryAssetName } from "@/lib/deliveries";
+import { DELIVERY_BUCKET, signDeliveryAssets } from "@/lib/deliveries";
 
 export const runtime = "nodejs";
 
@@ -72,6 +72,6 @@ export async function POST(req: Request) {
     .from("deliveries")
     .upsert({ booking_id: bookingId, asset_paths: nextPaths }, { onConflict: "booking_id" });
 
-  const assets = nextPaths.map((p) => ({ path: p, name: deliveryAssetName(p) }));
+  const assets = await signDeliveryAssets(nextPaths);
   return Response.json({ ok: true, assets });
 }

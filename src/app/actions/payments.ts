@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { confirmBankTransfer, waiveFee, ensureTransferRecord } from "@/lib/payments";
-import { DELIVERY_BUCKET, deliveryAssetName } from "@/lib/deliveries";
+import { DELIVERY_BUCKET, signDeliveryAssets } from "@/lib/deliveries";
 
 // 알림 헬퍼 (service_role)
 async function notify(
@@ -233,7 +233,7 @@ export async function removeDeliveryAsset(bookingId: string, path: string) {
     .upsert({ booking_id: bookingId, asset_paths: nextPaths }, { onConflict: "booking_id" });
 
   revalidateBooking(bookingId);
-  return nextPaths.map((p: string) => ({ path: p, name: deliveryAssetName(p) }));
+  return signDeliveryAssets(nextPaths);
 }
 
 // ── 보정본 재전달 알림 (작가) : 완료 후 파일 교체 뒤 고객에게 재알림 ──
@@ -369,9 +369,37 @@ export async function refundBooking(formData: FormData) {
     await admin.from("availability").update({ is_booked: false }).eq("id", b.availability_id);
   }
 
-  await notify(admin, b.user_id, "환불 처리됐어요", "작가의 환불 송금을 확인해주세요.", `/bookings/${id}`, "payment");
+  const refundedByBuyer = isBuyer;
+  await notify(
+    admin,
+    b.user_id,
+    "환불이 접수됐어요",
+    "작가가 환불 금액을 직접 송금할 예정이에요.",
+    `/bookings/${id}`,
+    "payment"
+  );
   const { data: ph } = await admin.from("photographers").select("profile_id").eq("id", b.photographer_id).single();
-  if (ph) await notify(admin, ph.profile_id, "예약이 환불됐어요", "환불 금액을 고객에게 송금해주세요.", `/bookings/${id}`, "payment");
+  if (ph)
+    await notify(
+      admin,
+      ph.profile_id,
+      "환불 신청이 들어왔어요",
+      "환불 금액을 고객에게 직접 송금해주세요.",
+      `/bookings/${id}`,
+      "payment"
+    );
+
+  // 채팅 타임라인에도 환불 신청 기록
+  await postSystemMessage(
+    admin,
+    b.user_id,
+    b.photographer_id,
+    me.id,
+    refundedByBuyer
+      ? "↩️ 환불이 신청되었어요. 작가가 환불 금액을 직접 송금해드립니다."
+      : "↩️ 환불이 처리되었어요. 작가가 환불 금액을 직접 송금해드립니다."
+  );
 
   revalidateBooking(id);
+  revalidatePath("/chat");
 }

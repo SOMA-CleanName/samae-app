@@ -1,14 +1,15 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useEffect, useRef, useState, useTransition } from "react";
+import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { sendMessage, markRead, sendPortfolioPhoto } from "../actions";
 import { acceptBooking, rejectBooking, cancelBooking } from "@/app/actions/bookings";
-import { markTransferSent, confirmTransfer } from "@/app/actions/payments";
-import type { ChatMessage, BookingSnapshot } from "@/lib/chat";
+import { markTransferSent, confirmTransfer, markShot } from "@/app/actions/payments";
+import type { ChatMessage, BookingSnapshot, ConsultationBrief } from "@/lib/chat";
 import type { PayoutAccount } from "@/lib/payments";
+import { DeliveryUploader } from "@/app/(user)/bookings/[id]/DeliveryUploader";
 import {
   BookingComposer,
   type ComposerData,
@@ -38,6 +39,8 @@ export function ChatRoom({
   composerData,
   payoutAccount,
   portfolioPhotos,
+  brief,
+  sourcePhotoPath,
 }: {
   conversationId: string;
   meId: string;
@@ -46,6 +49,8 @@ export function ChatRoom({
   composerData: ComposerData | null;
   payoutAccount: PayoutAccount | null;
   portfolioPhotos: PortfolioPhoto[];
+  brief: ConsultationBrief | null;
+  sourcePhotoPath: string | null;
 }) {
   const amCustomer = !amPhotographer; // 참여자 중 작가가 아니면 구매자
   const router = useRouter();
@@ -169,6 +174,18 @@ export function ChatRoom({
     <div className="flex h-[calc(100svh-8rem)] flex-col">
       {/* 메시지 영역 */}
       <div className="flex flex-1 flex-col gap-2 overflow-y-auto py-4">
+        {/* 작가: 고객이 작성한 상담 정보를 카드로 노출(대화 맥락) */}
+        {amPhotographer && brief && (
+          <ConsultationCard brief={brief} sourcePhotoPath={sourcePhotoPath} />
+        )}
+        {/* 상담 정보를 작성한 고객의 빈 방 — 첫 인사를 권유 (메시지가 생기면 사라짐) */}
+        {messages.length === 0 && amCustomer && brief && (
+          <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+            <span className="text-2xl">✅</span>
+            <p className="mt-2 text-sm font-medium text-fg/80">상담 정보를 작성했어요.</p>
+            <p className="mt-1 text-sm text-fg/55">작가님께 먼저 대화를 건네보세요.</p>
+          </div>
+        )}
         {messages.map((m) => {
           // 예약 제안 카드
           if (m.booking_id && m.booking) {
@@ -179,7 +196,7 @@ export function ChatRoom({
                 amPhotographer={amPhotographer}
                 amCustomer={amCustomer}
                 payoutAccount={payoutAccount}
-                onOpenDetail={() => router.push(`/bookings/${m.booking!.id}`)}
+                onOpenDetail={() => router.push(`/bookings/${m.booking!.id}?from=chat`)}
                 onEdit={
                   // 수정은 '구매자가 한 제안'에 한해 구매자만 가능
                   amCustomer && composerData && !m.booking.proposed_by_photographer
@@ -327,6 +344,72 @@ export function ChatRoom({
   );
 }
 
+// 작가용 상담 정보 카드 — 고객이 작성한 상담 정보를 채팅 상단에 읽기 전용 카드로 노출.
+//   문의한 사진·기본 정보·레퍼런스 사진을 한눈에 보여준다(자세한 열람은 헤더의 상담 정보 버튼).
+function ConsultationCard({
+  brief,
+  sourcePhotoPath,
+}: {
+  brief: ConsultationBrief;
+  sourcePhotoPath: string | null;
+}) {
+  const rows: [string, string | null][] = [
+    ["성별", brief.gender],
+    ["인원", brief.party_size != null ? `${brief.party_size}명` : null],
+    ["목적", brief.purpose],
+    ["희망 일정", brief.preferred_date],
+    ["희망 지역", brief.region],
+    ["요청", brief.note],
+  ];
+  return (
+    <div className="mx-auto w-full max-w-sm rounded-2xl border border-fg/12 bg-white p-4">
+      <p className="text-xs font-semibold text-fg/50">📋 상담 정보</p>
+
+      {sourcePhotoPath && (
+        <div className="mt-3">
+          <p className="text-xs text-fg/45">문의한 사진</p>
+          <a
+            href={sourcePhotoPath}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-1.5 block aspect-[4/5] w-24 overflow-hidden rounded-lg bg-fg/[0.05]"
+          >
+            <img src={sourcePhotoPath} alt="" loading="lazy" className="h-full w-full object-cover" />
+          </a>
+        </div>
+      )}
+
+      <dl className="mt-3 grid grid-cols-[4.5rem_1fr] gap-x-3 gap-y-2 text-sm">
+        {rows.map(([label, value]) => (
+          <Fragment key={label}>
+            <dt className="text-fg/45">{label}</dt>
+            <dd className={value ? "" : "text-fg/35"}>{value || "—"}</dd>
+          </Fragment>
+        ))}
+      </dl>
+
+      {brief.ref_image_paths.length > 0 && (
+        <div className="mt-3">
+          <p className="text-xs text-fg/45">레퍼런스 사진</p>
+          <div className="mt-2 grid grid-cols-4 gap-2">
+            {brief.ref_image_paths.map((url) => (
+              <a
+                key={url}
+                href={url}
+                target="_blank"
+                rel="noreferrer"
+                className="block aspect-square overflow-hidden rounded-lg bg-fg/[0.05]"
+              >
+                <img src={url} alt="" loading="lazy" className="h-full w-full object-cover" />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // 작가 포트폴리오 사진 고르기 — 그리드에서 하나 선택해 채팅으로 전송
 function PhotoPicker({
   photos,
@@ -386,9 +469,24 @@ function BookingCard({
   onOpenDetail: () => void;
   onEdit: (() => void) | null; // 구매자 제안일 때 구매자에게만 제공
 }) {
-  // 처리 결과를 낙관적으로 반영
-  const [acted, setActed] = useState<null | "accepted" | "rejected" | "cancelled">(null);
+  // 처리 결과를 낙관적으로 반영 (서버 액션 + realtime 지연에도 카드가 즉시 진행)
+  const [acted, setActed] = useState<
+    null | "accepted" | "rejected" | "cancelled" | "paid" | "shot"
+  >(null);
   const status = acted ?? booking.status;
+  const router = useRouter();
+  const [advancing, startAdvance] = useTransition();
+
+  // 상태 전이 액션을 실행하고 카드를 낙관적으로 진행시킨다(req8) — markShot/입금확인 등
+  function advance(action: (fd: FormData) => Promise<void>, next: "paid" | "shot") {
+    const fd = new FormData();
+    fd.set("id", booking.id);
+    startAdvance(async () => {
+      await action(fd);
+      setActed(next);
+      router.refresh();
+    });
+  }
 
   // 제안자/수락자 판별 — 작가 제안이면 구매자가 수락, 구매자 제안이면 작가가 수락
   const proposedByPhotographer = booking.proposed_by_photographer;
@@ -463,7 +561,32 @@ function BookingCard({
           amPhotographer={amPhotographer}
           payoutAccount={payoutAccount}
           stop={stop}
+          onConfirmed={() => {
+            setActed("paid");
+            router.refresh();
+          }}
         />
+      )}
+
+      {/* 작가: 결제됨 → 촬영 완료 표시 (req9) */}
+      {amPhotographer && status === "paid" && (
+        <div className="mt-3 border-t border-fg/10 pt-3" onClick={stop}>
+          <button
+            type="button"
+            disabled={advancing}
+            onClick={() => advance(markShot, "shot")}
+            className="w-full rounded-full bg-fg py-2 text-sm font-semibold text-bg hover:opacity-90 disabled:opacity-50"
+          >
+            {advancing ? "처리 중…" : "촬영 완료 표시"}
+          </button>
+        </div>
+      )}
+
+      {/* 작가: 촬영됨 → 보정본 전달 업로더 (req9) */}
+      {amPhotographer && status === "shot" && (
+        <div className="mt-3 border-t border-fg/10 pt-3" onClick={stop}>
+          <DeliveryUploader bookingId={booking.id} initialAssets={[]} initialLink="" />
+        </div>
       )}
 
       {/* 보정본 전달 완료 → 고객 후기 유도 */}
@@ -530,17 +653,43 @@ function TransferSection({
   amPhotographer,
   payoutAccount,
   stop,
+  onConfirmed,
 }: {
   booking: BookingSnapshot;
   amCustomer: boolean;
   amPhotographer: boolean;
   payoutAccount: PayoutAccount | null;
   stop: (e: React.MouseEvent) => void;
+  onConfirmed: () => void; // 작가 입금 확인 후 카드 즉시 진행(req8)
 }) {
+  const router = useRouter();
   const [sent, setSent] = useState(false); // 고객 [송금 완료] 낙관적 반영
   const [confirming, setConfirming] = useState(false); // 작가 [입금 확인] 중복 클릭 방지
   const [showPolicy, setShowPolicy] = useState(false);
+  const [, startSend] = useTransition();
   const marked = sent || !!booking.transfer_marked_at;
+
+  // 고객 송금 완료 알림 — 낙관적 표시 + 서버 반영 후 새로고침
+  function notifySent() {
+    setSent(true);
+    const fd = new FormData();
+    fd.set("id", booking.id);
+    startSend(async () => {
+      await markTransferSent(fd);
+      router.refresh();
+    });
+  }
+
+  // 작가 입금 확인 — accepted→paid. 처리중 표시 후 카드 진행(req8)
+  function doConfirm() {
+    setConfirming(true);
+    const fd = new FormData();
+    fd.set("id", booking.id);
+    startSend(async () => {
+      await confirmTransfer(fd);
+      onConfirmed();
+    });
+  }
 
   return (
     <div className="mt-3 border-t border-fg/10 pt-3" onClick={stop}>
@@ -570,12 +719,13 @@ function TransferSection({
             </p>
           ) : (
             payoutAccount && (
-              <form action={markTransferSent} onSubmit={() => setSent(true)} className="mt-3">
-                <input type="hidden" name="id" value={booking.id} />
-                <button className="w-full rounded-full bg-fg py-2 text-sm font-semibold text-bg hover:opacity-90">
-                  송금 완료
-                </button>
-              </form>
+              <button
+                type="button"
+                onClick={notifySent}
+                className="mt-3 w-full rounded-full bg-fg py-2 text-sm font-semibold text-bg hover:opacity-90"
+              >
+                송금 완료
+              </button>
             )
           )}
 
@@ -601,15 +751,14 @@ function TransferSection({
           <p className="mt-1 text-[11px] text-fg/45">
             입금을 확인하면 결제가 완료되고 매칭 수수료가 발생합니다.
           </p>
-          <form action={confirmTransfer} onSubmit={() => setConfirming(true)} className="mt-3">
-            <input type="hidden" name="id" value={booking.id} />
-            <button
-              disabled={confirming}
-              className="w-full rounded-full bg-fg py-2 text-sm font-semibold text-bg hover:opacity-90 disabled:opacity-50"
-            >
-              {confirming ? "처리 중…" : "입금 확인"}
-            </button>
-          </form>
+          <button
+            type="button"
+            onClick={doConfirm}
+            disabled={confirming}
+            className="mt-3 w-full rounded-full bg-fg py-2 text-sm font-semibold text-bg hover:opacity-90 disabled:opacity-50"
+          >
+            {confirming ? "처리 중…" : "입금 확인"}
+          </button>
         </>
       )}
     </div>

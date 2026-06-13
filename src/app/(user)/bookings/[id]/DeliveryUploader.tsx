@@ -1,8 +1,11 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
 import { useRef, useState } from "react";
 import { deliverFinals, redeliverNotify, removeDeliveryAsset } from "@/app/actions/payments";
 import type { DeliveryAsset } from "@/lib/deliveries";
+
+const IMG_RE = /\.(jpe?g|png|gif|webp|avif|heic|heif|bmp|tiff?)$/i;
 
 // 작가 보정본 전달/관리 — 앱 내 업로드(비공개 버킷) + 외부 링크 + 파일 교체.
 //  · delivered=false: 전달 전(shot) → [보정본 전달 완료]
@@ -22,6 +25,16 @@ export function DeliveryUploader({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const linkRef = useRef<HTMLInputElement>(null);
+
+  // 전달 제출 가드 — 사진 파일도 외부 링크도 없으면 막고 안내(req2)
+  function onDeliverSubmit(e: React.FormEvent<HTMLFormElement>) {
+    const link = linkRef.current?.value.trim() ?? "";
+    if (assets.length === 0 && !link) {
+      e.preventDefault();
+      setError("보정본 사진을 올리거나 외부 전달 링크를 입력해주세요.");
+    }
+  }
 
   // 여러 파일 순차 업로드 — 라우트가 전체 목록을 반환
   async function onFiles(files: FileList | null) {
@@ -66,27 +79,33 @@ export function DeliveryUploader({
           : "사진 파일을 올려 앱 안에서 전달하거나, 대용량은 외부 링크로 보낼 수 있어요."}
       </p>
 
-      {/* 업로드된 파일 목록 + 개별 삭제 */}
+      {/* 업로드된 파일 미리보기(썸네일) + 개별 삭제 (req3) */}
       {assets.length > 0 && (
-        <ul className="mt-3 flex flex-col gap-1.5">
+        <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
           {assets.map((a) => (
-            <li
+            <div
               key={a.path}
-              className="flex items-center justify-between gap-2 rounded-lg bg-fg/[0.04] px-3 py-2 text-xs"
+              className="group relative aspect-square overflow-hidden rounded-lg bg-fg/[0.05]"
             >
-              <span className="truncate">{a.name}</span>
+              {a.preview && IMG_RE.test(a.name) ? (
+                <img src={a.preview} alt={a.name} loading="lazy" className="h-full w-full object-cover" />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center px-2 text-center text-[10px] text-fg/55">
+                  {a.name}
+                </div>
+              )}
               <button
                 type="button"
                 disabled={busy}
                 onClick={() => onRemove(a.path)}
-                className="shrink-0 text-fg/45 hover:text-brand disabled:opacity-50"
                 aria-label="파일 삭제"
+                className="absolute right-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-black/55 text-[10px] text-white opacity-0 transition group-hover:opacity-100 disabled:opacity-50"
               >
-                삭제 ✕
+                ✕
               </button>
-            </li>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
 
       <input
@@ -109,10 +128,12 @@ export function DeliveryUploader({
 
       <form
         action={delivered ? redeliverNotify : deliverFinals}
+        onSubmit={onDeliverSubmit}
         className="mt-4 flex flex-col gap-2"
       >
         <input type="hidden" name="id" value={bookingId} />
         <input
+          ref={linkRef}
           name="externalLink"
           type="url"
           defaultValue={initialLink}

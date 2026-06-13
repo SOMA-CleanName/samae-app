@@ -4,6 +4,22 @@ import { z } from "zod";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+// 최저가·가격 상한 (350만원)
+const MAX_PRICE_KRW = 3_500_000;
+
+// 작가명 중복 검사 — 대소문자 무시, 본인 제외. RLS에 막히지 않게 admin으로 조회.
+async function isDisplayNameTaken(name: string, exceptProfileId: string): Promise<boolean> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("photographers")
+    .select("id")
+    .ilike("display_name", name)
+    .neq("profile_id", exceptProfileId)
+    .maybeSingle();
+  return !!data;
+}
 
 // 작가 신청 입력 검증 스키마
 const ApplySchema = z.object({
@@ -61,6 +77,11 @@ export async function applyAsPhotographer(
   }
   const v = parsed.data;
 
+  // 작가명 중복 불가
+  if (await isDisplayNameTaken(v.displayName, user.id)) {
+    return { error: "이미 사용 중인 작가명이에요.", fieldErrors: { displayName: "이미 사용 중인 작가명이에요." } };
+  }
+
   // 삽입 (RLS: profile_id = auth.uid() 만 허용)
   const { error } = await supabase.from("photographers").insert({
     profile_id: user.id,
@@ -90,7 +111,13 @@ const ProfileSchema = z.object({
   bio: z.string().trim().max(500).optional().default(""),
   regions: z.string().optional().default(""),
   moodTags: z.string().optional().default(""),
-  priceFrom: z.coerce.number().int().min(0).max(100_000_000).optional().default(0),
+  priceFrom: z.coerce
+    .number()
+    .int()
+    .min(0)
+    .max(MAX_PRICE_KRW, "최저가는 350만원 이하로 입력해주세요")
+    .optional()
+    .default(0),
   bankName: z.string().trim().max(40).optional().default(""),
   accountNumber: z.string().trim().max(40).optional().default(""),
   accountHolder: z.string().trim().max(40).optional().default(""),
@@ -131,6 +158,11 @@ export async function updateProfile(
     return { error: "입력값을 확인해주세요.", fieldErrors };
   }
   const v = parsed.data;
+
+  // 작가명 중복 불가 (본인 제외)
+  if (await isDisplayNameTaken(v.displayName, user.id)) {
+    return { error: "이미 사용 중인 작가명이에요.", fieldErrors: { displayName: "이미 사용 중인 작가명이에요." } };
+  }
 
   const { error } = await supabase
     .from("photographers")

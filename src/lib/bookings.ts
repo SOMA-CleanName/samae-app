@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export type BookingStatus =
   | "requested" | "accepted" | "paid" | "shot"
@@ -37,6 +38,7 @@ export type BookingRow = {
   photographer_id: string;
   created_at: string;
   accepted_at: string | null;
+  transfer_marked_at: string | null;
   proposed_by_photographer: boolean;
   package_snapshot: { name?: string } | null;
   photographer: { display_name: string | null } | null;
@@ -45,10 +47,25 @@ export type BookingRow = {
 };
 
 const SELECT =
-  "id, status, shoot_at, location_text, amount_krw, memo, user_id, photographer_id, created_at, accepted_at, proposed_by_photographer, package_snapshot, " +
+  "id, status, shoot_at, location_text, amount_krw, memo, user_id, photographer_id, created_at, accepted_at, transfer_marked_at, proposed_by_photographer, package_snapshot, " +
   "photographer:photographers(display_name), " +
   "user:profiles!bookings_user_id_fkey(display_name), " +
   "package:packages(name)";
+
+// 작가 시점에서는 고객 profiles 행이 RLS(본인/관리자만)에 막혀 user.display_name이 비어 와
+// '고객'으로 표시된다. 이미 RLS로 참여가 확인된 예약에 한해 admin으로 '이름만' 보강한다
+// (phone 등 민감정보는 노출하지 않음). chat.ts의 fillCustomerNames와 동일한 패턴.
+async function fillBookingCustomerNames(rows: BookingRow[]): Promise<void> {
+  const missing = rows.filter((b) => !b.user?.display_name);
+  if (missing.length === 0) return;
+  const ids = [...new Set(missing.map((b) => b.user_id))];
+  const admin = createAdminClient();
+  const { data } = await admin.from("profiles").select("id, display_name").in("id", ids);
+  const nameById = new Map((data ?? []).map((r) => [r.id, r.display_name as string | null]));
+  for (const b of missing) {
+    b.user = { display_name: nameById.get(b.user_id) ?? null };
+  }
+}
 
 // 내 예약 목록 (RLS: 구매자 또는 해당 작가)
 export async function listMyBookings(): Promise<BookingRow[]> {
@@ -57,7 +74,9 @@ export async function listMyBookings(): Promise<BookingRow[]> {
     .from("bookings")
     .select(SELECT)
     .order("created_at", { ascending: false });
-  return (data ?? []) as unknown as BookingRow[];
+  const rows = (data ?? []) as unknown as BookingRow[];
+  await fillBookingCustomerNames(rows); // 작가 시점 고객 이름 보강
+  return rows;
 }
 
 // 진행 중(종료 안 된) 예약 상태 — 사이드바 배지 집계용
@@ -79,7 +98,9 @@ export async function countActiveBookings(): Promise<number> {
 export async function getBooking(id: string): Promise<BookingRow | null> {
   const supabase = await createClient();
   const { data } = await supabase.from("bookings").select(SELECT).eq("id", id).maybeSingle();
-  return (data as unknown as BookingRow) ?? null;
+  const b = (data as unknown as BookingRow) ?? null;
+  if (b) await fillBookingCustomerNames([b]); // 작가 시점 고객 이름 보강
+  return b;
 }
 
 // 예약 → 채팅방 매핑. 대화는 (user_id, photographer_id) 유니크라 그 키로 찾는다.

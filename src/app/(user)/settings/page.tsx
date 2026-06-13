@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { updateDisplayName } from "./actions";
 import { AvatarUploader } from "./AvatarUploader";
+import { DeleteAccount } from "./DeleteAccount";
 
 export const dynamic = "force-dynamic";
 
@@ -31,26 +32,36 @@ export default async function SettingsPage() {
           <label className="text-sm font-medium" htmlFor="displayName">
             닉네임
           </label>
-          <div className="mt-2 flex gap-2">
-            <input
-              id="displayName"
-              name="displayName"
-              defaultValue={me.displayName ?? ""}
-              maxLength={30}
-              required
-              placeholder="표시할 이름"
-              className="flex-1 rounded-xl border border-fg/15 bg-white px-3 py-2.5 text-sm outline-none focus:border-fg/40"
-            />
-            <button className="shrink-0 rounded-xl bg-fg px-5 py-2.5 text-sm font-semibold text-bg hover:opacity-90">
-              저장
-            </button>
-          </div>
+          <input
+            id="displayName"
+            name="displayName"
+            defaultValue={me.displayName ?? ""}
+            maxLength={30}
+            required
+            placeholder="표시할 이름"
+            className="mt-2 w-full rounded-xl border border-fg/15 bg-white px-3 py-2.5 text-sm outline-none focus:border-fg/40"
+          />
+          <button className="mt-3 w-full rounded-xl bg-fg py-3 text-sm font-semibold text-bg hover:opacity-90">
+            변경 사항 저장
+          </button>
         </form>
       </section>
 
       <p className="mt-8 text-xs text-fg/40">
         작가 활동용 공개 이름·소개는 스튜디오 → 프로필에서 따로 관리해요.
       </p>
+
+      {/* 회원 탈퇴 */}
+      <section className="mt-10 border-t border-fg/10 pt-6">
+        <p className="text-sm font-medium">회원 탈퇴</p>
+        <p className="mt-1 text-xs text-fg/50">
+          계정과 대화·예약·찜·후기 등 모든 데이터가 삭제되며 되돌릴 수 없어요. 진행 중인 예약이
+          있으면 마무리한 뒤에 탈퇴할 수 있어요.
+        </p>
+        <div className="mt-3">
+          <DeleteAccount />
+        </div>
+      </section>
     </main>
   );
 }

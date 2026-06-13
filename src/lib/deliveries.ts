@@ -17,13 +17,27 @@ export type Delivery = {
 };
 
 export type DeliveryDownload = { name: string; url: string };
-export type DeliveryAsset = { path: string; name: string };
+export type DeliveryAsset = { path: string; name: string; preview?: string };
 
 // 스토리지 키({bookingId}/{uuid}__{표시명})에서 사람이 읽을 파일명만 뽑는다.
 export function deliveryAssetName(path: string): string {
   const seg = path.split("/").pop() ?? "파일";
   const idx = seg.indexOf("__");
   return idx >= 0 ? seg.slice(idx + 2) : seg;
+}
+
+// 전달 파일들에 미리보기용 서명 URL을 붙여 반환 (전달 단계 썸네일 — req3).
+// ⚠️ 호출자가 참여자(작가)임을 먼저 보장해야 한다.
+export async function signDeliveryAssets(paths: string[]): Promise<DeliveryAsset[]> {
+  if (paths.length === 0) return [];
+  const admin = createAdminClient();
+  const { data } = await admin.storage.from(DELIVERY_BUCKET).createSignedUrls(paths, SIGNED_TTL);
+  const byPath = new Map(
+    (data ?? [])
+      .filter((d) => d.signedUrl)
+      .map((d) => [d.path as string, d.signedUrl as string])
+  );
+  return paths.map((p) => ({ path: p, name: deliveryAssetName(p), preview: byPath.get(p) }));
 }
 
 // 예약의 전달 레코드 (RLS: 참여자 조회)

@@ -12,10 +12,12 @@ export function BriefPanel({
   conversationId,
   amCustomer,
   initialBrief,
+  sourcePhotoPath,
 }: {
   conversationId: string;
   amCustomer: boolean;
   initialBrief: ConsultationBrief | null;
+  sourcePhotoPath: string | null;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -60,10 +62,15 @@ export function BriefPanel({
             <BriefForm
               conversationId={conversationId}
               brief={initialBrief}
+              sourcePhotoPath={sourcePhotoPath}
               onClose={() => setOpen(false)}
             />
           ) : (
-            <BriefView brief={initialBrief} onClose={() => setOpen(false)} />
+            <BriefView
+              brief={initialBrief}
+              sourcePhotoPath={sourcePhotoPath}
+              onClose={() => setOpen(false)}
+            />
           )}
         </Overlay>
       )}
@@ -98,12 +105,39 @@ function Overlay({ onClose, children }: { onClose: () => void; children: React.R
   );
 }
 
+// 문의 진입 출처 사진 — 사진에서 채팅을 시작한 경우 상담 정보에 함께 노출(채팅 버블 대체)
+function SourcePhoto({ path }: { path: string | null }) {
+  if (!path) return null;
+  return (
+    <div className="mt-4">
+      <p className="text-xs text-fg/45">문의한 사진</p>
+      <a
+        href={path}
+        target="_blank"
+        rel="noreferrer"
+        className="mt-2 block aspect-[4/5] w-28 overflow-hidden rounded-lg bg-fg/[0.05]"
+      >
+        <img src={path} alt="" loading="lazy" className="h-full w-full object-cover" />
+      </a>
+    </div>
+  );
+}
+
 // ───────── 작가 열람용(읽기 전용) ─────────
-function BriefView({ brief, onClose }: { brief: ConsultationBrief | null; onClose: () => void }) {
+function BriefView({
+  brief,
+  sourcePhotoPath,
+  onClose,
+}: {
+  brief: ConsultationBrief | null;
+  sourcePhotoPath: string | null;
+  onClose: () => void;
+}) {
   if (!brief) {
     return (
       <div>
         <Header title="상담 정보" onClose={onClose} />
+        <SourcePhoto path={sourcePhotoPath} />
         <p className="mt-6 text-center text-sm text-fg/45">아직 고객이 작성한 상담 정보가 없어요.</p>
       </div>
     );
@@ -111,6 +145,7 @@ function BriefView({ brief, onClose }: { brief: ConsultationBrief | null; onClos
   return (
     <div>
       <Header title="상담 정보" onClose={onClose} />
+      <SourcePhoto path={sourcePhotoPath} />
       <dl className="mt-4 grid grid-cols-[5rem_1fr] gap-x-3 gap-y-2.5 text-sm">
         <Row label="성별" value={brief.gender} />
         <Row label="인원" value={brief.party_size != null ? `${brief.party_size}명` : null} />
@@ -157,10 +192,12 @@ type NewImage = { file: File; url: string };
 function BriefForm({
   conversationId,
   brief,
+  sourcePhotoPath,
   onClose,
 }: {
   conversationId: string;
   brief: ConsultationBrief | null;
+  sourcePhotoPath: string | null;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -214,6 +251,7 @@ function BriefForm({
     <form onSubmit={onSubmit}>
       <Header title={brief ? "상담 정보 수정" : "상담 정보 작성"} onClose={onClose} />
       <p className="mt-1 text-xs text-fg/45">작가가 촬영을 준비할 수 있도록 알려주세요. 나중에 수정할 수 있어요.</p>
+      <SourcePhoto path={sourcePhotoPath} />
 
       <div className="mt-4 space-y-3">
         <label className="block">

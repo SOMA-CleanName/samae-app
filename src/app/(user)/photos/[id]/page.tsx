@@ -104,12 +104,14 @@ export default async function PhotoDetail({
 
           {/* 가격·장소 — 톤다운(§2-3), 장소 아이콘 제거(§2-6) */}
           <div className="mt-5 space-y-1 text-sm text-fg/60">
-            {photo.price_krw != null && (
-              <p>
-                <span className="text-fg/45">가격</span>{" "}
+            <p>
+              <span className="text-fg/45">가격</span>{" "}
+              {photo.price_krw != null ? (
                 <span className="font-medium text-fg/80">₩{fmt.format(photo.price_krw)}</span>
-              </p>
-            )}
+              ) : (
+                <span className="text-fg/45">정보 없음</span>
+              )}
+            </p>
             {location && <p>{location}</p>}
           </div>
 

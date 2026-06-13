@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
@@ -8,9 +7,12 @@ import {
 } from "@/lib/discovery";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { fetchPhotographerHighlights } from "@/lib/highlights";
 import { toggleFavorite } from "../../actions";
 import { startConversation } from "../../chat/actions";
-import { PortfolioGrid, type PortfolioPost } from "./PortfolioGrid";
+import { type PortfolioPost } from "./PortfolioGrid";
+import { ProfileTabs } from "./ProfileTabs";
+import { HighlightsBar } from "./HighlightsBar";
 import { AutoFavorite } from "@/components/user/AutoFavorite";
 
 export default async function PhotographerProfile({
@@ -25,9 +27,10 @@ export default async function PhotographerProfile({
   const ph = await fetchPhotographerById(id);
   if (!ph) notFound();
 
-  const [photos, packages, me] = await Promise.all([
+  const [photos, packages, highlights, me] = await Promise.all([
     fetchPhotographerPhotos(ph.id),
     fetchPhotographerPackages(ph.id),
+    fetchPhotographerHighlights(ph.id),
     getCurrentUser(),
   ]);
 
@@ -159,33 +162,23 @@ export default async function PhotographerProfile({
           <div className="mt-3 hidden md:block">
             <ProfileCta isOwner={isOwner} me={!!me} photographerId={ph.id} />
           </div>
-
-          {/* 패키지 */}
-          {packages.length > 0 && (
-            <section className="mt-6">
-              <h2 className="text-sm font-medium text-fg/70">촬영 패키지</h2>
-              <ul className="mt-3 flex flex-col gap-2">
-                {packages.map((pkg) => (
-                  <li key={pkg.id} className="rounded-xl border border-fg/10 p-4">
-                    <div className="flex items-baseline justify-between gap-3">
-                      <p className="text-sm font-semibold">{pkg.name}</p>
-                      <p className="shrink-0 text-sm font-semibold">₩{fmt.format(pkg.price_krw)}</p>
-                    </div>
-                    {pkg.description && <p className="mt-1 text-sm text-fg/60">{pkg.description}</p>}
-                    <p className="mt-1 text-xs text-fg/45">
-                      {pkg.duration_min}분 · 보정본 {pkg.edited_count}장
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          )}
         </aside>
 
-        {/* 우: 포트폴리오 (넓은 영역) */}
+        {/* 우: 하이라이트(최상단) + 포트폴리오 / 촬영 패키지 탭 */}
         <section className="mt-8 md:mt-0 md:min-w-0 md:flex-1">
-          <h2 className="text-sm font-medium text-fg/70">포트폴리오</h2>
-          <PortfolioGrid posts={posts} viewer={{ isOwner, photographerId: ph.id }} />
+          {highlights.length > 0 && (
+            <div className="mb-6">
+              <HighlightsBar
+                highlights={highlights}
+                cta={<ViewerCta isOwner={isOwner} me={!!me} photographerId={ph.id} />}
+              />
+            </div>
+          )}
+          <ProfileTabs
+            posts={posts}
+            packages={packages}
+            viewer={{ isOwner, photographerId: ph.id }}
+          />
         </section>
       </div>
 
@@ -196,6 +189,37 @@ export default async function PhotographerProfile({
         </div>
       </div>
     </main>
+  );
+}
+
+// 스토리 뷰어용 CTA — 어두운 배경에 흰 버튼 (본인이면 표시 안 함)
+function ViewerCta({
+  isOwner,
+  me,
+  photographerId,
+}: {
+  isOwner: boolean;
+  me: boolean;
+  photographerId: string;
+}) {
+  if (isOwner) return null;
+  if (!me) {
+    return (
+      <Link
+        href={`/login?next=/photographers/${photographerId}`}
+        className="block w-full rounded-full bg-white py-3 text-center text-sm font-semibold text-black hover:opacity-90"
+      >
+        로그인하고 예약·문의하기
+      </Link>
+    );
+  }
+  return (
+    <form action={startConversation}>
+      <input type="hidden" name="photographerId" value={photographerId} />
+      <button className="block w-full rounded-full bg-white py-3 text-center text-sm font-semibold text-black hover:opacity-90">
+        예약·문의하기
+      </button>
+    </form>
   );
 }
 

@@ -31,6 +31,8 @@ export default async function ChatRoomPage({
   ]);
   const title = counterpartName(conv, me);
   const amCustomer = conv.user_id === me.id; // 내가 고객(예약 제안 측)
+  // 작가가 채팅을 한 번이라도 보냈는지 (참여자는 둘뿐 → 고객 외 발신=작가)
+  const photographerHasMessaged = messages.some((m) => m.sender_id !== conv.user_id);
 
   // 고객이면 작가 수취 계좌 미리 준비 (수락 후 채팅 송금 카드에서 즉시 노출).
   // 채팅방 진입 = RLS로 참여 확인됨 → admin 조회 게이트 충족.
@@ -56,7 +58,7 @@ export default async function ChatRoomPage({
       getBusyRanges(conv.photographer_id),
       supabase
         .from("photographers")
-        .select("booking_note, travel_fee_krw")
+        .select("booking_note, travel_fee_krw, travel_fee_note")
         .eq("id", conv.photographer_id)
         .single(),
     ]);
@@ -74,6 +76,7 @@ export default async function ChatRoomPage({
       busy,
       bookingNote: phRes.data?.booking_note ?? null,
       travelFeeKrw: phRes.data?.travel_fee_krw ?? 0,
+      travelFeeNote: phRes.data?.travel_fee_note ?? null,
     };
   }
 
@@ -85,8 +88,8 @@ export default async function ChatRoomPage({
         </Link>
         <h1 className="text-base font-semibold">{title}</h1>
         <div className="ml-auto flex items-center gap-3">
-          {/* 예약 제안 — 작가는 항상, 고객은 첫 채팅(메시지) 이후에만 노출 */}
-          {composerData && (!amCustomer || messages.length > 0) && (
+          {/* 예약 제안 — 작가는 항상, 고객은 작가가 먼저 채팅한 이후에만 노출 */}
+          {composerData && (!amCustomer || photographerHasMessaged) && (
             <ProposeBookingButton data={composerData} />
           )}
           {/* 상담 정보 — 고객은 작성/수정, 작가는 열람(수시로) */}
@@ -94,6 +97,7 @@ export default async function ChatRoomPage({
             conversationId={conversationId}
             amCustomer={amCustomer}
             initialBrief={brief}
+            sourcePhotoPath={conv.source_photo_path}
           />
           {amCustomer && conv.photographer && (
             <Link
@@ -117,6 +121,8 @@ export default async function ChatRoomPage({
         composerData={composerData}
         payoutAccount={payoutAccount}
         portfolioPhotos={portfolioPhotos}
+        brief={brief}
+        sourcePhotoPath={conv.source_photo_path}
       />
     </main>
   );
