@@ -132,3 +132,50 @@ export function ChevronDownIcon({ className }: IconProps) {
     </svg>
   );
 }
+
+// 평점(별) — filled 기본. ⭐/★ 이모지 대체
+export function StarIcon({ className, filled = true }: IconProps) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill={filled ? "currentColor" : "none"}
+      stroke="currentColor"
+      strokeWidth={filled ? 0 : 2}
+      strokeLinejoin="round"
+      className={className ?? "h-4 w-4"}
+    >
+      <path d="m12 3 2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8 6.8 19l1-5.8L3.6 9.1l5.8-.8L12 3Z" />
+    </svg>
+  );
+}
+
+// 위치(핀) — 📍 이모지 대체
+export function MapPinIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinejoin="round" className={className ?? "h-4 w-4"}>
+      <path d="M12 21s-6-5.3-6-10a6 6 0 1 1 12 0c0 4.7-6 10-6 10Z" />
+      <circle cx="12" cy="11" r="2.2" />
+    </svg>
+  );
+}
+
+// 확인(체크) — ✅ 이모지 대체
+export function CheckIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" className={className ?? "h-4 w-4"}>
+      <path d="m5 13 4 4L19 7" />
+    </svg>
+  );
+}
+
+// 보기 옵션(슬라이더) — 가격 표시 등 탐색 옵션 메뉴 트리거
+export function SlidersIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className={className ?? "h-5 w-5"}>
+      <path d="M4 6h10M18 6h2M4 12h2M10 12h10M4 18h8M16 18h4" />
+      <circle cx="16" cy="6" r="2.2" />
+      <circle cx="8" cy="12" r="2.2" />
+      <circle cx="14" cy="18" r="2.2" />
+    </svg>
+  );
+}
