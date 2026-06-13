@@ -53,7 +53,7 @@ export function PortfolioGrid({
 
   return (
     <>
-      <div className="mt-3 grid grid-cols-3 gap-1 sm:gap-1.5 md:grid-cols-4">
+      <div className="mt-3 grid grid-cols-3 gap-2 sm:gap-3">
         {posts.map((post) => (
           <Link
             key={post.key}

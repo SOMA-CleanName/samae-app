@@ -97,8 +97,10 @@
 }
 
 html {
-  /* 스크롤바 거터 항상 확보 — 콘텐츠 높이가 뷰포트를 넘나들 때(예: 탭 전환) 가로 레이아웃 시프트 방지 */
+  /* 스크롤바 공간 항상 확보 — 콘텐츠 높이가 뷰포트를 넘나들 때(예: 탭 전환) 가로 레이아웃 시프트 방지.
+     scrollbar-gutter 미지원/미적용 환경까지 커버하도록 overflow-y:scroll 로 못 박음 */
   scrollbar-gutter: stable;
+  overflow-y: scroll;
 }
 
 html,

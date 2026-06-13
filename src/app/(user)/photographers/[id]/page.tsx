@@ -98,13 +98,13 @@ export default async function PhotographerProfile({
   const autoFav = sp.fav === "1" && !isOwner && !favorited;
 
   return (
-    <main className="mx-auto max-w-6xl px-4 sm:px-6 py-8 font-kr md:pb-12">
+    <main className="mx-auto max-w-6xl px-4 py-8 font-kr sm:px-6 md:pt-16 md:pb-12">
       {autoFav && (
         <AutoFavorite targetType="photographer" targetId={ph.id} path={`/photographers/${ph.id}`} />
       )}
       <div className="md:flex md:items-start md:gap-10">
         {/* 좌: 프로필 정보 (가로 레이아웃 — 데스크톱은 sticky 사이드바) */}
-        <aside className="md:w-72 md:shrink-0 md:sticky md:top-20 md:self-start">
+        <aside className="md:w-72 md:shrink-0 md:sticky md:top-6 md:self-start">
           <div className="flex items-center gap-4 md:flex-col md:items-start md:gap-0">
             <Avatar name={phName} size="xl" className="shadow-lg ring-2 ring-white/40" />
             <div className="min-w-0 md:mt-4">
@@ -154,7 +154,9 @@ export default async function PhotographerProfile({
         </aside>
 
         {/* 우: 하이라이트(최상단) + 포트폴리오 / 촬영 패키지 탭 */}
-        <section className="mt-8 md:mt-0 md:min-w-0 md:flex-1">
+        {/* min-h: 탭 전환 시 높이 급변으로 좌측 sticky 프로필이 튀는 것 방지.
+            -mt-1.5(PC): 하이라이트 행 상단 패딩(py-1.5) 만큼 끌어올려 원-아바타 상단 정렬 */}
+        <section className="mt-8 md:-mt-1.5 md:min-h-[70vh] md:min-w-0 md:flex-1">
           {highlights.length > 0 && (
             <div className="mb-6">
               <HighlightsBar
