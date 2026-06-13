@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useRef, useState } from "react";
 import type { Highlight } from "@/lib/highlights";
+import { StarIcon, XIcon } from "@/components/user/icons";
 
 const STORY_MS = 4000; // 한 장 노출 시간
 
@@ -27,7 +28,7 @@ export function HighlightsBar({
   if (highlights.length === 0) return null;
 
   return (
-    <div className="border-b border-fg/8 pb-5">
+    <div className="border-b border-line pb-5">
       <div className="flex gap-4 overflow-x-auto pb-1">
         {highlights.map((h, i) => {
           const cover = coverOf(h);
@@ -36,16 +37,16 @@ export function HighlightsBar({
               key={h.id}
               type="button"
               onClick={() => setOpen(i)}
-              className="flex w-16 shrink-0 flex-col items-center gap-1.5"
+              className="flex w-16 shrink-0 cursor-pointer flex-col items-center gap-1.5"
             >
-              <span className="grid h-16 w-16 place-items-center overflow-hidden rounded-full bg-fg/[0.06] ring-2 ring-fg/15 ring-offset-2 ring-offset-bg">
+              <span className="grid h-16 w-16 place-items-center overflow-hidden rounded-full bg-fg/[0.06] ring-2 ring-line-strong ring-offset-2 ring-offset-bg">
                 {cover ? (
                   <img src={cover} alt="" className="h-full w-full rounded-full object-cover" />
                 ) : (
-                  <span className="text-fg/30">★</span>
+                  <StarIcon className="h-6 w-6 text-faint" />
                 )}
               </span>
-              <span className="w-full truncate text-center text-[11px] text-fg/70">
+              <span className="w-full truncate text-center text-caption text-muted">
                 {h.title || "하이라이트"}
               </span>
             </button>
@@ -161,15 +162,21 @@ function StoryViewer({
 
       {/* 헤더 */}
       <div className="absolute inset-x-0 top-5 z-10 flex items-center justify-between px-4 pt-2 text-white">
-        <span className="text-sm font-semibold drop-shadow">{current.title || "하이라이트"}</span>
-        <button type="button" onClick={onClose} aria-label="닫기" className="text-2xl leading-none drop-shadow">
-          ✕
+        <span className="text-body-sm font-semibold drop-shadow">{current.title || "하이라이트"}</span>
+        <button type="button" onClick={onClose} aria-label="닫기" className="cursor-pointer drop-shadow">
+          <XIcon className="h-6 w-6" />
         </button>
       </div>
 
-      {/* 이미지 */}
-      <div className="relative flex flex-1 items-center justify-center">
-        <img src={item.src_url} alt="" className="max-h-full max-w-full object-contain" />
+      {/* 이미지 — 정해진 프레임에 contain, 남는 공간은 같은 이미지 blur로 채움 */}
+      <div className="relative flex flex-1 items-center justify-center overflow-hidden">
+        <img
+          src={item.src_url}
+          alt=""
+          aria-hidden
+          className="absolute inset-0 h-full w-full scale-110 object-cover opacity-50 blur-2xl"
+        />
+        <img src={item.src_url} alt="" className="relative max-h-full max-w-full object-contain" />
 
         {/* 탭 영역 — 왼쪽 이전 / 오른쪽 다음 (길게 누르면 일시정지) */}
         <button

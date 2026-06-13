@@ -14,7 +14,8 @@ import { type PortfolioPost } from "./PortfolioGrid";
 import { ProfileTabs } from "./ProfileTabs";
 import { HighlightsBar } from "./HighlightsBar";
 import { AutoFavorite } from "@/components/user/AutoFavorite";
-import { HeartIcon } from "@/components/user/icons";
+import { HeartIcon, StarIcon, MapPinIcon } from "@/components/user/icons";
+import { Avatar, Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
 export default async function PhotographerProfile({
@@ -105,37 +106,38 @@ export default async function PhotographerProfile({
         {/* 좌: 프로필 정보 (가로 레이아웃 — 데스크톱은 sticky 사이드바) */}
         <aside className="md:w-72 md:shrink-0 md:sticky md:top-20 md:self-start">
           <div className="flex items-center gap-4 md:flex-col md:items-start md:gap-0">
-            <div className="grid h-20 w-20 shrink-0 place-items-center rounded-full bg-gradient-to-br from-rose-400 to-orange-400 text-2xl font-bold text-white shadow-lg ring-2 ring-white/40 md:h-24 md:w-24 md:text-3xl">
-              {phName[0]?.toUpperCase()}
-            </div>
+            <Avatar name={phName} size="xl" className="shadow-lg ring-2 ring-white/40" />
             <div className="min-w-0 md:mt-4">
-              <h1 className="text-2xl font-semibold">{phName}</h1>
+              <h1 className="text-h1 font-semibold">{phName}</h1>
               {/* 지표 */}
-              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-fg/70">
-                <span>
-                  <span className="text-amber-500">★</span>{" "}
-                  <strong>{ph.rating_avg.toFixed(1)}</strong>{" "}
-                  <span className="text-fg/45">({ph.review_count})</span>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-body-sm text-muted">
+                <span className="inline-flex items-center gap-1">
+                  <StarIcon className="h-4 w-4 text-amber-500" />
+                  <strong className="text-fg">{ph.rating_avg.toFixed(1)}</strong>
+                  <span className="text-faint">({ph.review_count})</span>
                 </span>
-                <span className="text-fg/25">·</span>
-                <span>작품 <strong>{photos.length}</strong></span>
+                <span className="text-faint">·</span>
+                <span>작품 <strong className="text-fg">{photos.length}</strong></span>
               </div>
-              <p className="mt-1 text-sm text-fg/60">
-                촬영 시작 <strong className="text-fg/80">₩{fmt.format(ph.price_from_krw)}</strong>
+              <p className="mt-1 text-body-sm text-muted">
+                촬영 시작 <strong className="text-fg">₩{fmt.format(ph.price_from_krw)}</strong>
               </p>
             </div>
           </div>
 
-          {ph.bio && <p className="mt-4 text-sm leading-relaxed text-fg/70">{ph.bio}</p>}
+          {ph.bio && <p className="mt-4 text-body leading-relaxed text-fg/80">{ph.bio}</p>}
 
           {/* 태그 */}
           {(ph.mood_tags?.length || ph.regions?.length) ? (
-            <div className="mt-3 flex flex-wrap gap-1">
+            <div className="mt-3 flex flex-wrap gap-1.5">
               {ph.regions?.map((r: string) => (
-                <span key={r} className="rounded-full bg-fg/[0.06] px-2.5 py-0.5 text-[11px] text-fg/70">📍 {r}</span>
+                <span key={r} className="inline-flex items-center gap-1 rounded-full bg-fg/[0.06] px-2.5 py-1 text-caption text-fg/70">
+                  <MapPinIcon className="h-3 w-3 text-fg/45" />
+                  {r}
+                </span>
               ))}
               {ph.mood_tags?.map((m: string) => (
-                <span key={m} className="rounded-full bg-fg/[0.06] px-2.5 py-0.5 text-[11px] text-fg/70">#{m}</span>
+                <span key={m} className="rounded-full bg-fg/[0.06] px-2.5 py-1 text-caption text-fg/70">#{m}</span>
               ))}
             </div>
           ) : null}
@@ -246,7 +248,7 @@ function FavoriteButton({
         aria-pressed={favorited}
         aria-label={favorited ? "관심 작가 해제" : "관심 작가 추가"}
         className={cn(
-          "flex cursor-pointer items-center justify-center gap-1.5 rounded-full border px-5 py-3.5 text-sm font-semibold transition-colors",
+          "flex h-12 cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-5 text-sm font-semibold transition-colors",
           favorited
             ? "border-brand bg-brand/[0.06] text-brand"
             : "border-line-strong text-fg/70 hover:bg-surface-2"
@@ -271,30 +273,24 @@ function ProfileCta({
 }) {
   if (isOwner) {
     return (
-      <Link
-        href="/studio"
-        className="block w-full rounded-full bg-fg/[0.06] py-3.5 text-center text-sm font-semibold text-fg/70"
-      >
+      <Button href="/studio" variant="secondary" size="lg" fullWidth>
         내 프로필입니다 — 스튜디오로
-      </Link>
+      </Button>
     );
   }
   if (!me) {
     return (
-      <Link
-        href={`/login?next=/photographers/${photographerId}`}
-        className="block w-full rounded-full bg-fg py-3.5 text-center text-sm font-semibold text-bg hover:opacity-90"
-      >
+      <Button href={`/login?next=/photographers/${photographerId}`} size="lg" fullWidth>
         로그인하고 예약·문의하기
-      </Link>
+      </Button>
     );
   }
   return (
     <form action={startConversation}>
       <input type="hidden" name="photographerId" value={photographerId} />
-      <button className="block w-full rounded-full bg-fg py-3.5 text-center text-sm font-semibold text-bg hover:opacity-90">
+      <Button type="submit" size="lg" fullWidth>
         예약·문의하기
-      </button>
+      </Button>
     </form>
   );
 }

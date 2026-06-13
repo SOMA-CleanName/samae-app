@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { cn } from "@/lib/cn";
 import { PortfolioGrid, type PortfolioPost } from "./PortfolioGrid";
 
 export type ProfilePkg = {
@@ -29,13 +30,13 @@ export function ProfileTabs({
   return (
     <div>
       {/* 탭 바 */}
-      <div className="flex gap-6 border-b border-fg/10">
+      <div className="flex gap-6 border-b border-line">
         <TabButton active={tab === "portfolio"} onClick={() => setTab("portfolio")}>
           포트폴리오
         </TabButton>
         <TabButton active={tab === "packages"} onClick={() => setTab("packages")}>
           촬영 패키지
-          {packages.length > 0 && <span className="ml-1 text-fg/40">{packages.length}</span>}
+          {packages.length > 0 && <span className="ml-1 text-faint">{packages.length}</span>}
         </TabButton>
       </div>
 
@@ -45,25 +46,27 @@ export function ProfileTabs({
           posts.length > 0 ? (
             <PortfolioGrid posts={posts} viewer={viewer} />
           ) : (
-            <p className="py-16 text-center text-sm text-fg/45">아직 공개된 포트폴리오가 없어요.</p>
+            <p className="py-16 text-center text-body-sm text-muted">아직 공개된 포트폴리오가 없어요.</p>
           )
         ) : packages.length > 0 ? (
-          <ul className="flex flex-col gap-2">
+          <ul className="flex flex-col gap-2.5">
             {packages.map((pkg) => (
-              <li key={pkg.id} className="rounded-xl border border-fg/10 p-4">
+              <li key={pkg.id} className="rounded-2xl border border-line bg-surface p-4">
                 <div className="flex items-baseline justify-between gap-3">
-                  <p className="text-sm font-semibold">{pkg.name}</p>
-                  <p className="shrink-0 text-sm font-semibold">₩{fmt.format(pkg.price_krw)}</p>
+                  <p className="text-body font-semibold">{pkg.name}</p>
+                  <p className="shrink-0 text-body font-semibold">₩{fmt.format(pkg.price_krw)}</p>
                 </div>
-                {pkg.description && <p className="mt-1 text-sm text-fg/60">{pkg.description}</p>}
-                <p className="mt-1 text-xs text-fg/45">
+                {pkg.description && (
+                  <p className="mt-1 text-body-sm text-muted">{pkg.description}</p>
+                )}
+                <p className="mt-1.5 text-caption text-faint">
                   {pkg.duration_min}분 · 보정본 {pkg.edited_count}장
                 </p>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="py-16 text-center text-sm text-fg/45">아직 등록된 패키지가 없어요.</p>
+          <p className="py-16 text-center text-body-sm text-muted">아직 등록된 패키지가 없어요.</p>
         )}
       </div>
     </div>
@@ -83,9 +86,10 @@ function TabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`-mb-px border-b-2 pb-2.5 text-sm transition-colors ${
-        active ? "border-fg font-semibold text-fg" : "border-transparent text-fg/50 hover:text-fg/80"
-      }`}
+      className={cn(
+        "-mb-px cursor-pointer border-b-2 pb-2.5 text-body-sm transition-colors",
+        active ? "border-fg font-semibold text-fg" : "border-transparent text-muted hover:text-fg"
+      )}
     >
       {children}
     </button>

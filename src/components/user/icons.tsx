@@ -110,6 +110,25 @@ export function ChevronRightIcon({ className }: IconProps) {
   );
 }
 
+// 닫기(X) — 모달·시트
+export function XIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className ?? "h-5 w-5"}>
+      <path d="M6 6 18 18M18 6 6 18" />
+    </svg>
+  );
+}
+
+// 여러 장(스택) — 게시물에 사진이 여러 개일 때. ⧉ 대체
+export function LayersIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinejoin="round" className={className ?? "h-4 w-4"}>
+      <rect x="8" y="8" width="12" height="12" rx="2" />
+      <path d="M16 4H6a2 2 0 0 0-2 2v10" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 // 빈 프로필(사람) — 비로그인 아바타 자리. Lucide user 기반
 export function UserIcon({ className }: IconProps) {
   return (

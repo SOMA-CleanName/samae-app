@@ -3,8 +3,11 @@
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { cn } from "@/lib/cn";
+import { Button } from "@/components/ui";
+import { HeartIcon, LayersIcon, XIcon } from "@/components/user/icons";
 import { PhotoCarousel } from "../../photos/[id]/PhotoCarousel";
-import { toggleFavorite, loadPhotoLike } from "../../actions";
+import { togglePhotoLike, loadPhotoLike } from "../../actions";
 import { startConversation } from "../../chat/actions";
 
 const fmt = new Intl.NumberFormat("ko-KR");
@@ -37,7 +40,7 @@ export function PortfolioGrid({
   const [active, setActive] = useState<PortfolioPost | null>(null);
 
   if (posts.length === 0) {
-    return <p className="mt-3 text-sm text-fg/45">아직 등록된 작품이 없어요.</p>;
+    return <p className="mt-3 text-body-sm text-muted">아직 등록된 작품이 없어요.</p>;
   }
 
   // 데스크톱(md+)에서만 모달, 모바일은 기본 링크 이동(+뒤로가기)
@@ -65,8 +68,8 @@ export function PortfolioGrid({
               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
             />
             {post.count > 1 && (
-              <span className="absolute right-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-black/50 text-[10px] text-white">
-                ⧉
+              <span className="absolute right-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-black/50 text-white">
+                <LayersIcon className="h-3 w-3" />
               </span>
             )}
             {(post.price_krw != null || post.location_text) && (
@@ -132,9 +135,9 @@ function PortfolioModal({
           type="button"
           onClick={onClose}
           aria-label="닫기"
-          className="absolute right-3 top-3 z-10 grid h-8 w-8 place-items-center rounded-full bg-black/45 text-white hover:bg-black/60"
+          className="absolute right-3 top-3 z-10 grid h-8 w-8 cursor-pointer place-items-center rounded-full bg-black/45 text-white hover:bg-black/60"
         >
-          ✕
+          <XIcon className="h-4 w-4" />
         </button>
 
         {/* 사진 (좌) — 넓은 영역 */}
@@ -145,22 +148,19 @@ function PortfolioModal({
         </div>
 
         {/* 정보·액션 (우) — 상세 페이지에서 하던 것 그대로 */}
-        <div className="flex shrink-0 flex-col overflow-y-auto p-5 md:w-80 md:border-l md:border-fg/10">
+        <div className="flex shrink-0 flex-col overflow-y-auto p-5 md:w-80 md:border-l md:border-line">
           {post.price_krw != null && (
-            <p className="text-sm text-fg/60">
-              <span className="text-fg/45">가격</span>{" "}
-              <span className="font-semibold text-fg/85">₩{fmt.format(post.price_krw)}</span>
-            </p>
+            <p className="text-title font-semibold tracking-tight">₩{fmt.format(post.price_krw)}</p>
           )}
           {post.location_text && (
-            <p className="mt-1 text-sm text-fg/60">{post.location_text}</p>
+            <p className="mt-1 text-body-sm text-muted">{post.location_text}</p>
           )}
-          {post.count > 1 && <p className="mt-1 text-xs text-fg/45">사진 {post.count}장</p>}
+          {post.count > 1 && <p className="mt-1 text-caption text-faint">사진 {post.count}장</p>}
 
           {post.mood_tags.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-1.5">
               {post.mood_tags.map((m) => (
-                <span key={m} className="rounded-full bg-fg/[0.06] px-2.5 py-1 text-xs text-fg/70">
+                <span key={m} className="rounded-full bg-fg/[0.06] px-2.5 py-1 text-caption text-fg/70">
                   #{m}
                 </span>
               ))}
@@ -214,19 +214,18 @@ function ModalLikeButton({
     }
     setPending(true);
     // 낙관적 반영
+    const optimisticLiked = !state.liked;
     setState({
       ...state,
-      liked: !state.liked,
-      count: state.count + (state.liked ? -1 : 1),
+      liked: optimisticLiked,
+      count: state.count + (optimisticLiked ? 1 : -1),
     });
-    const fd = new FormData();
-    fd.set("targetType", "photo");
-    fd.set("targetId", photoId);
-    fd.set("path", `/photos/${photoId}`);
     try {
-      await toggleFavorite(fd);
+      // 재검증 없는 옵티미스틱 토글 (페이지 리프레시 방지)
+      const res = await togglePhotoLike(photoId);
+      setState((s) => (s ? { ...s, liked: res.liked } : s));
     } catch {
-      // revalidate/redirect 예외는 무시 (낙관적 상태 유지)
+      // 무시 (낙관적 상태 유지)
     }
     setPending(false);
   }
@@ -242,15 +241,16 @@ function ModalLikeButton({
         disabled={!state}
         aria-pressed={liked}
         aria-label={liked ? "좋아요 취소" : "좋아요"}
-        className={`grid h-10 w-10 place-items-center rounded-full border text-lg transition-colors disabled:opacity-50 ${
+        className={cn(
+          "grid h-10 w-10 cursor-pointer place-items-center rounded-full border transition-colors disabled:opacity-50",
           liked
             ? "border-brand bg-brand/[0.08] text-brand"
-            : "border-fg/15 text-fg/55 hover:bg-fg/[0.04]"
-        }`}
+            : "border-line-strong text-fg/55 hover:bg-surface-2"
+        )}
       >
-        {liked ? "♥" : "♡"}
+        <HeartIcon className="h-5 w-5" filled={liked} />
       </button>
-      <span className="text-sm text-fg/60">
+      <span className="text-body-sm text-muted">
         <strong className="text-fg">{count}</strong>
       </span>
     </div>
@@ -261,20 +261,17 @@ function ModalLikeButton({
 function ModalCta({ viewer }: { viewer: Viewer }) {
   if (viewer.isOwner) {
     return (
-      <Link
-        href="/studio"
-        className="block w-full rounded-full bg-fg/[0.06] py-3 text-center text-sm font-semibold text-fg/70"
-      >
+      <Button href="/studio" variant="secondary" fullWidth>
         내 사진입니다 — 스튜디오로
-      </Link>
+      </Button>
     );
   }
   return (
     <form action={startConversation}>
       <input type="hidden" name="photographerId" value={viewer.photographerId} />
-      <button className="block w-full rounded-full bg-fg py-3 text-center text-sm font-semibold text-bg hover:opacity-90">
+      <Button type="submit" fullWidth>
         예약·문의하기
-      </button>
+      </Button>
     </form>
   );
 }
