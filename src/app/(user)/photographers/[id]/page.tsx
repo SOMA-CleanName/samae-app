@@ -14,6 +14,8 @@ import { type PortfolioPost } from "./PortfolioGrid";
 import { ProfileTabs } from "./ProfileTabs";
 import { HighlightsBar } from "./HighlightsBar";
 import { AutoFavorite } from "@/components/user/AutoFavorite";
+import { HeartIcon } from "@/components/user/icons";
+import { cn } from "@/lib/cn";
 
 export default async function PhotographerProfile({
   params,
@@ -95,7 +97,7 @@ export default async function PhotographerProfile({
   const autoFav = sp.fav === "1" && !isOwner && !favorited;
 
   return (
-    <main className="mx-auto max-w-6xl px-4 sm:px-6 py-8 pb-28 font-kr md:pb-12">
+    <main className="mx-auto max-w-6xl px-4 sm:px-6 py-8 font-kr md:pb-12">
       {autoFav && (
         <AutoFavorite targetType="photographer" targetId={ph.id} path={`/photographers/${ph.id}`} />
       )}
@@ -138,29 +140,14 @@ export default async function PhotographerProfile({
             </div>
           ) : null}
 
-          {/* 관심 작가 추가하기 */}
-          {!isOwner && (
-            <form action={toggleFavorite} className="mt-4">
-              <input type="hidden" name="targetType" value="photographer" />
-              <input type="hidden" name="targetId" value={ph.id} />
-              <input type="hidden" name="path" value={`/photographers/${ph.id}`} />
-              {/* 비로그인 → 로그인 복귀 후 관심 작가 자동 적용 */}
-              <input type="hidden" name="next" value={`/photographers/${ph.id}?fav=1`} />
-              <button
-                className={`w-full rounded-full border px-4 py-2 text-sm transition-colors ${
-                  favorited
-                    ? "border-brand bg-brand/[0.06] text-brand"
-                    : "border-fg/20 text-fg/70 hover:bg-fg/[0.04]"
-                }`}
-              >
-                {favorited ? "♥ 관심 작가" : "♡ 관심 작가 추가하기"}
-              </button>
-            </form>
-          )}
-
-          {/* 데스크톱 인라인 CTA (모바일은 하단 고정 바) */}
-          <div className="mt-3 hidden md:block">
-            <ProfileCta isOwner={isOwner} me={!!me} photographerId={ph.id} />
+          {/* 예약·문의(좌) + 관심 작가(우) 나란히 — 프로필 정보 영역에 배치 (모바일·데스크톱 공용) */}
+          <div className="mt-4">
+            <ProfileActions
+              isOwner={isOwner}
+              me={!!me}
+              photographerId={ph.id}
+              favorited={favorited}
+            />
           </div>
         </aside>
 
@@ -180,13 +167,6 @@ export default async function PhotographerProfile({
             viewer={{ isOwner, photographerId: ph.id }}
           />
         </section>
-      </div>
-
-      {/* 하단 고정 CTA — 모바일 전용 */}
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-fg/8 bg-bg/95 px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur md:hidden">
-        <div className="mx-auto max-w-md">
-          <ProfileCta isOwner={isOwner} me={!!me} photographerId={ph.id} />
-        </div>
       </div>
     </main>
   );
@@ -218,6 +198,62 @@ function ViewerCta({
       <input type="hidden" name="photographerId" value={photographerId} />
       <button className="block w-full rounded-full bg-white py-3 text-center text-sm font-semibold text-black hover:opacity-90">
         예약·문의하기
+      </button>
+    </form>
+  );
+}
+
+// 예약·문의(좌, 메인) + 관심 작가(우, 보조) 를 한 줄에 나란히. 데스크톱·모바일 공용.
+function ProfileActions({
+  isOwner,
+  me,
+  photographerId,
+  favorited,
+}: {
+  isOwner: boolean;
+  me: boolean;
+  photographerId: string;
+  favorited: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="min-w-0 flex-1">
+        <ProfileCta isOwner={isOwner} me={me} photographerId={photographerId} />
+      </div>
+      {!isOwner && (
+        <FavoriteButton favorited={favorited} photographerId={photographerId} />
+      )}
+    </div>
+  );
+}
+
+// 관심 작가 토글 — 보조 버튼(하트). 예약·문의 우측에 컴팩트하게.
+function FavoriteButton({
+  favorited,
+  photographerId,
+}: {
+  favorited: boolean;
+  photographerId: string;
+}) {
+  return (
+    <form action={toggleFavorite} className="shrink-0">
+      <input type="hidden" name="targetType" value="photographer" />
+      <input type="hidden" name="targetId" value={photographerId} />
+      <input type="hidden" name="path" value={`/photographers/${photographerId}`} />
+      {/* 비로그인 → 로그인 복귀 후 관심 작가 자동 적용 */}
+      <input type="hidden" name="next" value={`/photographers/${photographerId}?fav=1`} />
+      <button
+        aria-pressed={favorited}
+        aria-label={favorited ? "관심 작가 해제" : "관심 작가 추가"}
+        className={cn(
+          "flex cursor-pointer items-center justify-center gap-1.5 rounded-full border px-5 py-3.5 text-sm font-semibold transition-colors",
+          favorited
+            ? "border-brand bg-brand/[0.06] text-brand"
+            : "border-line-strong text-fg/70 hover:bg-surface-2"
+        )}
+      >
+        <HeartIcon className="h-5 w-5" filled={favorited} />
+        <span className="hidden sm:inline">관심</span>
       </button>
     </form>
   );

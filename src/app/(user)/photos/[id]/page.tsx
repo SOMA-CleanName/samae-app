@@ -14,6 +14,7 @@ import { loadExplorePhotos } from "@/app/(user)/actions";
 import { startConversation } from "../../chat/actions";
 import { PhotoCarousel } from "./PhotoCarousel";
 import { PhotoExplore } from "./PhotoExplore";
+import { PhotoSearchReveal } from "./PhotoSearchReveal";
 import { AutoFavorite } from "@/components/user/AutoFavorite";
 
 const fmt = new Intl.NumberFormat("ko-KR");
@@ -131,6 +132,9 @@ export default async function PhotoDetail({
           <PhotoCtas isOwner={isOwner} me={!!me} photographerId={ph.id} photoId={photo.id} />
         </div>
       </div>
+
+      {/* 2단계 검색바 — 하단 그리드가 보이기 시작하면 상단에서 내려옴 */}
+      <PhotoSearchReveal />
 
       {/* 하단 — 추천(무한 스크롤) ↔ 작가 포트폴리오 탭 (§2-8, §2-9) */}
       <PhotoExplore

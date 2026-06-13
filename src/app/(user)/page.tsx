@@ -3,6 +3,7 @@ import {
   searchPhotosByTag,
 } from "@/lib/discovery";
 import { ExploreGallery } from "@/components/user/ExploreGallery";
+import { ExploreHeader } from "@/components/user/ExploreHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,7 @@ export default async function ExploreHome({
 
   return (
     <section className="px-3 pb-10 font-kr sm:px-5">
+      <ExploreHeader />
       <ExploreGallery photos={photos} query={query} />
     </section>
   );
