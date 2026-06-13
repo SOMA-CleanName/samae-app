@@ -1,7 +1,9 @@
 import {
   fetchPublishedPhotos,
   searchPhotosByTag,
+  fetchLikedPhotoIds,
 } from "@/lib/discovery";
+import { getCurrentUser } from "@/lib/auth";
 import { ExploreGallery } from "@/components/user/ExploreGallery";
 import { ExploreHeader } from "@/components/user/ExploreHeader";
 
@@ -22,10 +24,17 @@ export default async function ExploreHome({
     ? await searchPhotosByTag(query)
     : await fetchPublishedPhotos({});
 
+  // 현재 사용자가 좋아요한 사진(갤러리 하트 초기 상태)
+  const me = await getCurrentUser();
+  const likedIds = await fetchLikedPhotoIds(
+    photos.map((p) => p.id),
+    me?.id
+  );
+
   return (
     <section className="px-3 pb-10 font-kr sm:px-5">
       <ExploreHeader />
-      <ExploreGallery photos={photos} query={query} />
+      <ExploreGallery photos={photos} query={query} likedIds={likedIds} />
     </section>
   );
 }

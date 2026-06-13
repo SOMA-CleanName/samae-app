@@ -39,6 +39,42 @@ export async function toggleFavorite(formData: FormData) {
   revalidatePath("/favorites");
 }
 
+// 탐색 갤러리용 사진 좋아요 토글 — 옵티미스틱 UI 전용.
+// 홈(/)을 재검증하지 않아 좋아요 시 갤러리가 다시 셔플되지 않는다.
+// 비로그인이면 loggedIn:false 반환(클라이언트가 로그인으로 유도).
+export async function togglePhotoLike(
+  photoId: string
+): Promise<{ liked: boolean; loggedIn: boolean }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { liked: false, loggedIn: false };
+
+  const { data: existing } = await supabase
+    .from("favorites")
+    .select("id")
+    .eq("profile_id", user.id)
+    .eq("target_type", "photo")
+    .eq("target_id", photoId)
+    .maybeSingle();
+
+  let liked: boolean;
+  if (existing) {
+    await supabase.from("favorites").delete().eq("id", existing.id);
+    liked = false;
+  } else {
+    await supabase
+      .from("favorites")
+      .insert({ profile_id: user.id, target_type: "photo", target_id: photoId });
+    liked = true;
+  }
+
+  // 재검증 없음 — revalidatePath 는 라우터 캐시를 무효화해 현재 홈까지 새로고침/셔플시킴.
+  // 찜 목록(/favorites)은 동적 페이지라 다음 방문 시 새로 로드된다.
+  return { liked, loggedIn: true };
+}
+
 // 내 알림 모두 읽음 처리 (채팅 제외). 알림 센터 진입 시 호출.
 export async function markNotificationsRead() {
   const supabase = await createClient();

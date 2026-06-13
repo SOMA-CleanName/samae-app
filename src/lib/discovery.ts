@@ -90,6 +90,22 @@ export async function searchPhotosByTag(qRaw: string): Promise<GalleryPhoto[]> {
 }
 
 // id 목록으로 작가 카드 조회 (찜 목록용). 승인 작가만, 대표 사진 포함.
+// 주어진 사진들 중 현재 사용자가 좋아요한 id 집합 — 갤러리 하트 초기 상태용(1쿼리).
+export async function fetchLikedPhotoIds(
+  photoIds: string[],
+  userId?: string
+): Promise<string[]> {
+  if (!userId || photoIds.length === 0) return [];
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("favorites")
+    .select("target_id")
+    .eq("profile_id", userId)
+    .eq("target_type", "photo")
+    .in("target_id", photoIds);
+  return (data ?? []).map((r) => r.target_id as string);
+}
+
 export async function fetchPhotographersByIds(ids: string[]): Promise<PhotographerCard[]> {
   if (ids.length === 0) return [];
   const supabase = await createClient();

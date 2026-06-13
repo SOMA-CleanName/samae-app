@@ -9,10 +9,12 @@ import { SlidersIcon, CheckIcon } from "./icons";
 export function SearchOptions() {
   const [open, setOpen] = useState(false);
   const [showPrice, setShowPrice] = useState(false);
+  const [showName, setShowName] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setShowPrice(sessionStorage.getItem("explore:showPrice") === "1");
+    setShowName(sessionStorage.getItem("explore:showName") === "1");
   }, []);
 
   // 바깥 클릭 + 스크롤 시 닫기
@@ -39,6 +41,13 @@ export function SearchOptions() {
     window.dispatchEvent(new CustomEvent("samae:price-toggle", { detail: next }));
   }
 
+  function toggleName() {
+    const next = !showName;
+    setShowName(next);
+    sessionStorage.setItem("explore:showName", next ? "1" : "0");
+    window.dispatchEvent(new CustomEvent("samae:name-toggle", { detail: next }));
+  }
+
   return (
     <div ref={ref} className="relative shrink-0">
       <button
@@ -49,7 +58,7 @@ export function SearchOptions() {
         aria-haspopup="menu"
         className={cn(
           "grid h-11 w-11 cursor-pointer place-items-center rounded-full transition-colors",
-          open || showPrice ? "bg-fg text-bg" : "bg-fg/[0.06] text-fg/70 hover:bg-fg/[0.1]"
+          open || showPrice || showName ? "bg-fg text-bg" : "bg-fg/[0.06] text-fg/70 hover:bg-fg/[0.1]"
         )}
       >
         <SlidersIcon />
@@ -80,6 +89,25 @@ export function SearchOptions() {
               </span>
             </span>
             <Switch on={showPrice} />
+          </button>
+
+          <button
+            type="button"
+            role="menuitemcheckbox"
+            aria-checked={showName}
+            onClick={toggleName}
+            className="flex w-full cursor-pointer items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm hover:bg-surface-2"
+          >
+            <span className="flex items-center gap-2">
+              <span className="grid h-7 w-7 place-items-center rounded-lg bg-fg/[0.06] text-xs font-bold">
+                @
+              </span>
+              <span>
+                <span className="block font-medium text-fg">작가명 표시</span>
+                <span className="block text-xs text-muted">사진 위에 작가 이름 노출</span>
+              </span>
+            </span>
+            <Switch on={showName} />
           </button>
         </div>
       )}
