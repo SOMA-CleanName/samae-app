@@ -28,16 +28,15 @@ export default async function UserLayout({
     unreadNotif = notifCount;
   }
 
-  // 코어 4탭(탐색·찜·채팅·예약) — 5번째 칸은 프로필.
+  // 코어 4탭(탐색·찜·채팅·예약) — 5번째 칸은 프로필. 항상 5칸 노출(비로그인도 동일 정렬).
+  // 비로그인은 Sidebar에서 게이트(탭 시 로그인)로 처리, 배지는 로그인 시에만.
   // 알림·스튜디오·어드민·설정은 프로필 시트로 흡수.
-  const items: NavItem[] = [{ href: "/", label: "탐색", icon: "home" }];
-  if (me) {
-    items.push(
-      { href: "/favorites", label: "찜", icon: "heart" },
-      { href: "/chat", label: "채팅", icon: "chat", badge: unreadTotal || undefined },
-      { href: "/bookings", label: "예약", icon: "calendar", badge: activeBookings || undefined },
-    );
-  }
+  const items: NavItem[] = [
+    { href: "/", label: "탐색", icon: "home" },
+    { href: "/favorites", label: "찜", icon: "heart" },
+    { href: "/chat", label: "채팅", icon: "chat", badge: unreadTotal || undefined },
+    { href: "/bookings", label: "예약", icon: "calendar", badge: activeBookings || undefined },
+  ];
 
   return (
     <>

@@ -4,28 +4,31 @@ type IconProps = { className?: string; filled?: boolean };
 
 const base = "h-6 w-6";
 
-// 홈(집)
+// 홈(집) — Lucide house 기반
 export function HomeIcon({ className, filled }: IconProps) {
   return filled ? (
     <svg viewBox="0 0 24 24" fill="currentColor" className={className ?? base}>
-      <path d="M11.3 2.3a1 1 0 0 1 1.4 0l8 8A1 1 0 0 1 20 12h-1v8a1 1 0 0 1-1 1h-4v-6h-4v6H6a1 1 0 0 1-1-1v-8H4a1 1 0 0 1-.7-1.7l8-8Z" />
+      <path d="M11.4 2.8a1 1 0 0 1 1.2 0l8 6.5c.25.2.4.5.4.82V19a2 2 0 0 1-2 2h-3.5v-5.5a1 1 0 0 0-1-1h-3a1 1 0 0 0-1 1V21H5a2 2 0 0 1-2-2v-8.88c0-.32.15-.62.4-.82z" />
     </svg>
   ) : (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinejoin="round" className={className ?? base}>
-      <path d="M4 11.5 12 4l8 7.5M6 10v10h4v-6h4v6h4V10" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className ?? base}>
+      <path d="M15 21v-7a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v7" />
+      <path d="M3 10.2a2 2 0 0 1 .7-1.52l7-5.99a2 2 0 0 1 2.6 0l7 5.99a2 2 0 0 1 .7 1.52V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
     </svg>
   );
 }
 
-// 찜(하트)
+// 찜(하트) — Lucide heart 기반
 export function HeartIcon({ className, filled }: IconProps) {
+  const d =
+    "M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.29 1.51 4.04 3 5.5l7 7z";
   return filled ? (
     <svg viewBox="0 0 24 24" fill="currentColor" className={className ?? base}>
-      <path d="M12 21s-7.5-4.6-10-9.1C.4 8.9 1.6 5.4 4.8 4.7 7 4.2 8.9 5.3 12 8c3.1-2.7 5-3.8 7.2-3.3 3.2.7 4.4 4.2 2.8 7.2C19.5 16.4 12 21 12 21Z" />
+      <path d={d} />
     </svg>
   ) : (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinejoin="round" className={className ?? base}>
-      <path d="M12 20s-7-4.3-9.3-8.5C1.3 8.9 2.5 6 5.2 5.5 7.2 5.1 9 6.2 12 8.9c3-2.7 4.8-3.8 6.8-3.4 2.7.5 3.9 3.4 2.5 6C19 15.7 12 20 12 20Z" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className ?? base}>
+      <path d={d} />
     </svg>
   );
 }
@@ -53,29 +56,41 @@ export function CameraIcon({ className, filled }: IconProps) {
   );
 }
 
-// 예약(캘린더)
+// 예약(캘린더) — Lucide calendar 기반
 export function CalendarIcon({ className, filled }: IconProps) {
   return filled ? (
     <svg viewBox="0 0 24 24" fill="currentColor" className={className ?? base}>
       <path d="M7 2v2H5a2 2 0 0 0-2 2v3h18V6a2 2 0 0 0-2-2h-2V2h-2v2H9V2H7ZM3 10v9a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-9H3Z" />
     </svg>
   ) : (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinejoin="round" className={className ?? base}>
-      <rect x="3.5" y="5" width="17" height="15" rx="2" />
-      <path d="M3.5 9.5h17M8 3v3M16 3v3" strokeLinecap="round" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className ?? base}>
+      <path d="M8 2v4M16 2v4" />
+      <rect x="3" y="4" width="18" height="17" rx="2" />
+      <path d="M3 10h18" />
     </svg>
   );
 }
 
-// 채팅(말풍선)
+// 채팅(말풍선) — Lucide message-circle 기반
 export function ChatIcon({ className, filled }: IconProps) {
+  const d = "M7.9 20A9 9 0 1 0 4 16.1L2 22z";
   return filled ? (
     <svg viewBox="0 0 24 24" fill="currentColor" className={className ?? base}>
-      <path d="M12 3c5 0 9 3.4 9 7.6 0 4.2-4 7.6-9 7.6-1 0-2-.1-2.9-.4l-4 1.5a.6.6 0 0 1-.8-.7l.9-3.3C3.6 14.5 3 12.6 3 10.6 3 6.4 7 3 12 3Z" />
+      <path d={d} />
     </svg>
   ) : (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinejoin="round" className={className ?? base}>
-      <path d="M12 4c4.4 0 8 3 8 6.7 0 3.7-3.6 6.7-8 6.7-.9 0-1.8-.1-2.6-.4l-3.6 1.4.8-3C4.4 14.2 4 12.5 4 10.7 4 7 7.6 4 12 4Z" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className ?? base}>
+      <path d={d} />
+    </svg>
+  );
+}
+
+// 빈 프로필(사람) — 비로그인 아바타 자리. Lucide user 기반
+export function UserIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className ?? base}>
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M5 20a7 7 0 0 1 14 0" />
     </svg>
   );
 }

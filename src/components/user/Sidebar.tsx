@@ -11,6 +11,7 @@ import {
   HeartIcon,
   CalendarIcon,
   ChatIcon,
+  UserIcon,
 } from "./icons";
 
 // 하단바/레일에 들어갈 코어 항목 아이콘 키 (탐색·찜·채팅·예약)
@@ -58,15 +59,15 @@ export function Sidebar({
   // 개별 채팅방은 몰입형 — 모바일 하단바 숨김 (데스크톱 레일은 유지)
   const hideMobileBar = /^\/chat\/.+/.test(pathname);
 
+  const authed = !!me;
+  // 비로그인: 게이트 항목(탐색 제외)은 로그인으로 유도(next로 의도한 곳 복귀)
+  const resolveHref = (href: string) =>
+    authed || href === "/" ? href : `/login?next=${encodeURIComponent(href)}`;
+
   const profileSlot = me ? (
     <ProfileButton me={me} notifUnread={notifUnread} onOpen={() => setSheetOpen(true)} />
   ) : (
-    <Link
-      href="/login"
-      className="rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand/90"
-    >
-      로그인
-    </Link>
+    <EmptyProfile />
   );
 
   return (
@@ -83,7 +84,7 @@ export function Sidebar({
 
         <nav className="flex flex-1 flex-col items-center gap-1">
           {items.map((it) => (
-            <RailLink key={it.href} item={it} active={isActive(it.href)} />
+            <RailLink key={it.href} item={it} href={resolveHref(it.href)} active={isActive(it.href)} />
           ))}
         </nav>
 
@@ -99,7 +100,7 @@ export function Sidebar({
             return (
               <Link
                 key={it.href}
-                href={it.href}
+                href={resolveHref(it.href)}
                 aria-label={it.label}
                 aria-current={active ? "page" : undefined}
                 className={cn(
@@ -154,10 +155,23 @@ function ProfileButton({
   );
 }
 
-function RailLink({ item, active }: { item: NavItem; active: boolean }) {
+// 비로그인 프로필 자리 — 빈 프로필 사진(사람 아이콘) → 로그인
+function EmptyProfile() {
   return (
     <Link
-      href={item.href}
+      href="/login"
+      aria-label="로그인"
+      className="grid h-8 w-8 place-items-center rounded-full bg-fg/[0.06] text-fg/45 transition-colors hover:bg-fg/[0.1] hover:text-fg/70"
+    >
+      <UserIcon className="h-5 w-5" />
+    </Link>
+  );
+}
+
+function RailLink({ item, href, active }: { item: NavItem; href: string; active: boolean }) {
+  return (
+    <Link
+      href={href}
       title={item.label}
       aria-label={item.label}
       aria-current={active ? "page" : undefined}
