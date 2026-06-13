@@ -212,17 +212,23 @@ export async function fetchAlbumDescription(albumId: string): Promise<string | n
 // 한 게시물(album)의 공개 사진들 — 스와이프 캐러셀용. 정렬 순.
 export async function fetchAlbumPhotos(
   albumId: string
-): Promise<{ id: string; src_url: string; thumb_url: string | null }[]> {
+): Promise<{ id: string; src_url: string; thumb_url: string | null; width: number; height: number }[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("photos")
-    .select("id, src_url, thumb_url")
+    .select("id, src_url, thumb_url, width, height")
     .eq("album_id", albumId)
     .eq("visibility", "published")
     // 프로필 대표 선정과 동일 정렬 → 대표가 캐러셀 첫 장(1/N)
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false });
-  return (data ?? []) as { id: string; src_url: string; thumb_url: string | null }[];
+  return (data ?? []) as {
+    id: string;
+    src_url: string;
+    thumb_url: string | null;
+    width: number;
+    height: number;
+  }[];
 }
 
 // 작가 총 찜 수 (공개 집계 함수 경유) — 관심 작가 통계용

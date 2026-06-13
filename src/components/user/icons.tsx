@@ -85,6 +85,31 @@ export function ChatIcon({ className, filled }: IconProps) {
   );
 }
 
+// 뒤로 가기(왼쪽 화살표)
+export function ArrowLeftIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className ?? "h-5 w-5"}>
+      <path d="M19 12H5M12 19l-7-7 7-7" />
+    </svg>
+  );
+}
+
+// 캐러셀 이전/다음(<, >)
+export function ChevronLeftIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" className={className ?? "h-5 w-5"}>
+      <path d="m15 18-6-6 6-6" />
+    </svg>
+  );
+}
+export function ChevronRightIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" className={className ?? "h-5 w-5"}>
+      <path d="m9 18 6-6-6-6" />
+    </svg>
+  );
+}
+
 // 빈 프로필(사람) — 비로그인 아바타 자리. Lucide user 기반
 export function UserIcon({ className }: IconProps) {
   return (
