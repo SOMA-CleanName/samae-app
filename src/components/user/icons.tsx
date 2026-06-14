@@ -227,6 +227,61 @@ export function CheckIcon({ className }: IconProps) {
   );
 }
 
+// 보내기(종이비행기) — 채팅 전송. Lucide send 기반
+export function SendIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className ?? "h-5 w-5"}>
+      <path d="M14.54 21.69a.5.5 0 0 0 .94-.03l6.5-19a.5.5 0 0 0-.64-.63l-19 6.5a.5.5 0 0 0-.02.94l7.93 3.18a2 2 0 0 1 1.11 1.11z" />
+      <path d="m21.85 2.15-10.94 10.94" />
+    </svg>
+  );
+}
+
+// 이미지(사진) — 사진 보내기. Lucide image 기반
+export function ImageIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinejoin="round" className={className ?? "h-5 w-5"}>
+      <rect x="3" y="3" width="18" height="18" rx="2.5" />
+      <circle cx="9" cy="9" r="1.6" />
+      <path d="m21 16-4.5-4.5L6 21" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// 상담 정보(클립보드) — 📋 이모지 대체. Lucide clipboard-list 기반
+export function ClipboardIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinejoin="round" className={className ?? "h-5 w-5"}>
+      <rect x="8" y="3" width="8" height="4" rx="1" />
+      <path d="M8 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2" strokeLinecap="round" />
+      <path d="M9 12h6M9 16h4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// 송금/결제(지갑) — 💸 이모지 대체. Lucide wallet 기반
+export function WalletIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className ?? "h-5 w-5"}>
+      <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
+      <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
+      <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
+    </svg>
+  );
+}
+
+// 출장(자동차) — 🚗 이모지 대체. Lucide car 기반
+export function CarIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className ?? "h-5 w-5"}>
+      <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.6-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2" />
+      <circle cx="7" cy="17" r="2" />
+      <path d="M9 17h6" />
+      <circle cx="17" cy="17" r="2" />
+    </svg>
+  );
+}
+
 // 보기 옵션(슬라이더) — 가격 표시 등 탐색 옵션 메뉴 트리거
 export function SlidersIcon({ className }: IconProps) {
   return (

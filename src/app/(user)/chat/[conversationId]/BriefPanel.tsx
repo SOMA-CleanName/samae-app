@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { ConsultationBrief } from "@/lib/chat";
+import { ClipboardIcon, XIcon, PlusIcon } from "@/components/user/icons";
 
 const MAX_IMAGES = 5;
 
@@ -45,15 +46,22 @@ export function BriefPanel({
       ? "상담 정보"
       : "상담 정보 작성"
     : "상담 정보";
+  // 고객이 아직 상담 정보를 안 썼으면 점으로 환기
+  const needsAttention = amCustomer && !initialBrief;
 
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="text-xs text-fg/50 hover:text-fg"
+        aria-label={label}
+        title={label}
+        className="relative grid h-9 w-9 cursor-pointer place-items-center rounded-full text-fg/65 transition-colors hover:bg-fg/[0.06] hover:text-fg"
       >
-        📋 {label}
+        <ClipboardIcon className="h-5 w-5" />
+        {needsAttention && (
+          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-brand ring-2 ring-bg" />
+        )}
       </button>
 
       {open && (
@@ -96,7 +104,7 @@ function Overlay({ onClose, children }: { onClose: () => void; children: React.R
       aria-modal="true"
     >
       <div
-        className="relative max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-bg p-5 shadow-2xl"
+        className="relative max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-bg p-5 shadow-pop"
         onClick={(e) => e.stopPropagation()}
       >
         {children}
@@ -110,7 +118,7 @@ function SourcePhoto({ path }: { path: string | null }) {
   if (!path) return null;
   return (
     <div className="mt-4">
-      <p className="text-xs text-fg/45">문의한 사진</p>
+      <p className="text-xs text-faint">문의한 사진</p>
       <a
         href={path}
         target="_blank"
@@ -138,7 +146,7 @@ function BriefView({
       <div>
         <Header title="상담 정보" onClose={onClose} />
         <SourcePhoto path={sourcePhotoPath} />
-        <p className="mt-6 text-center text-sm text-fg/45">아직 고객이 작성한 상담 정보가 없어요.</p>
+        <p className="mt-6 text-center text-sm text-faint">아직 고객이 작성한 상담 정보가 없어요.</p>
       </div>
     );
   }
@@ -157,7 +165,7 @@ function BriefView({
 
       {brief.ref_image_paths.length > 0 && (
         <div className="mt-4">
-          <p className="text-xs text-fg/45">레퍼런스 사진</p>
+          <p className="text-xs text-faint">레퍼런스 사진</p>
           <div className="mt-2 grid grid-cols-3 gap-2">
             {brief.ref_image_paths.map((url) => (
               <a
@@ -180,8 +188,8 @@ function BriefView({
 function Row({ label, value }: { label: string; value: string | null }) {
   return (
     <>
-      <dt className="text-fg/45">{label}</dt>
-      <dd className={value ? "" : "text-fg/35"}>{value || "—"}</dd>
+      <dt className="text-faint">{label}</dt>
+      <dd className={value ? "" : "text-faint"}>{value || "—"}</dd>
     </>
   );
 }
@@ -250,16 +258,16 @@ function BriefForm({
   return (
     <form onSubmit={onSubmit}>
       <Header title={brief ? "상담 정보 수정" : "상담 정보 작성"} onClose={onClose} />
-      <p className="mt-1 text-xs text-fg/45">작가가 촬영을 준비할 수 있도록 알려주세요. 나중에 수정할 수 있어요.</p>
+      <p className="mt-1 text-xs text-faint">작가가 촬영을 준비할 수 있도록 알려주세요. 나중에 수정할 수 있어요.</p>
       <SourcePhoto path={sourcePhotoPath} />
 
       <div className="mt-4 space-y-3">
         <label className="block">
-          <span className="text-xs text-fg/55">성별</span>
+          <span className="text-xs text-muted">성별</span>
           <select
             name="gender"
             defaultValue={brief?.gender ?? ""}
-            className="mt-1 w-full rounded-lg border border-fg/15 bg-transparent px-3 py-2 text-sm"
+            className="mt-1 w-full rounded-lg border border-line-strong bg-transparent px-3 py-2 text-sm"
           >
             <option value="">선택 안 함</option>
             <option value="여성">여성</option>
@@ -276,19 +284,19 @@ function BriefForm({
         <Input name="region" label="희망 지역" defaultValue={brief?.region ?? ""} placeholder="예: 서울 성수동 일대" />
 
         <label className="block">
-          <span className="text-xs text-fg/55">자유 요청</span>
+          <span className="text-xs text-muted">자유 요청</span>
           <textarea
             name="note"
             defaultValue={brief?.note ?? ""}
             rows={3}
             placeholder="원하는 분위기, 의상, 참고 사항 등"
-            className="mt-1 w-full resize-none rounded-lg border border-fg/15 bg-transparent px-3 py-2 text-sm"
+            className="mt-1 w-full resize-none rounded-lg border border-line-strong bg-transparent px-3 py-2 text-sm"
           />
         </label>
 
         {/* 레퍼런스 사진 */}
         <div>
-          <span className="text-xs text-fg/55">레퍼런스 사진 ({total}/{MAX_IMAGES})</span>
+          <span className="text-xs text-muted">레퍼런스 사진 ({total}/{MAX_IMAGES})</span>
           <div className="mt-2 grid grid-cols-4 gap-2">
             {keep.map((url) => (
               <Thumb key={url} url={url} onRemove={() => setKeep((p) => p.filter((u) => u !== url))} />
@@ -300,10 +308,10 @@ function BriefForm({
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
-                className="grid aspect-square place-items-center rounded-lg border border-dashed border-fg/25 text-fg/40 hover:bg-fg/[0.03]"
+                className="grid aspect-square cursor-pointer place-items-center rounded-lg border border-dashed border-line-strong text-faint transition-colors hover:bg-fg/[0.03] hover:text-muted"
                 aria-label="사진 추가"
               >
-                +
+                <PlusIcon className="h-5 w-5" />
               </button>
             )}
           </div>
@@ -324,7 +332,7 @@ function BriefForm({
         <button
           type="button"
           onClick={onClose}
-          className="flex-1 rounded-full border border-fg/15 py-2.5 text-sm font-medium text-fg/70 hover:bg-fg/[0.04]"
+          className="flex-1 rounded-full border border-line-strong py-2.5 text-sm font-medium text-muted hover:bg-fg/[0.04]"
         >
           {brief ? "닫기" : "건너뛰기"}
         </button>
@@ -355,13 +363,13 @@ function Input({
 }) {
   return (
     <label className="block">
-      <span className="text-xs text-fg/55">{label}</span>
+      <span className="text-xs text-muted">{label}</span>
       <input
         name={name}
         defaultValue={defaultValue}
         placeholder={placeholder}
         inputMode={inputMode}
-        className="mt-1 w-full rounded-lg border border-fg/15 bg-transparent px-3 py-2 text-sm"
+        className="mt-1 w-full rounded-lg border border-line-strong bg-transparent px-3 py-2 text-sm"
       />
     </label>
   );
@@ -375,9 +383,9 @@ function Thumb({ url, onRemove }: { url: string; onRemove: () => void }) {
         type="button"
         onClick={onRemove}
         aria-label="삭제"
-        className="absolute right-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-black/55 text-[10px] text-white hover:bg-black/75"
+        className="absolute right-1 top-1 grid h-5 w-5 cursor-pointer place-items-center rounded-full bg-black/55 text-white transition-colors hover:bg-black/75"
       >
-        ✕
+        <XIcon className="h-3 w-3" />
       </button>
     </div>
   );
@@ -386,9 +394,14 @@ function Thumb({ url, onRemove }: { url: string; onRemove: () => void }) {
 function Header({ title, onClose }: { title: string; onClose: () => void }) {
   return (
     <div className="flex items-center justify-between">
-      <h2 className="text-base font-semibold">{title}</h2>
-      <button type="button" onClick={onClose} aria-label="닫기" className="text-fg/40 hover:text-fg">
-        ✕
+      <h2 className="text-title font-semibold">{title}</h2>
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="닫기"
+        className="grid h-8 w-8 cursor-pointer place-items-center rounded-full text-muted transition-colors hover:bg-fg/[0.06] hover:text-fg"
+      >
+        <XIcon className="h-5 w-5" />
       </button>
     </div>
   );

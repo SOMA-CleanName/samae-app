@@ -15,6 +15,20 @@ import {
   type ComposerData,
   type BookingEditTarget,
 } from "./BookingComposer";
+import { Spinner } from "@/components/ui";
+import {
+  PlusIcon,
+  SendIcon,
+  ImageIcon,
+  LayersIcon,
+  CheckIcon,
+  ClipboardIcon,
+  CalendarIcon,
+  MapPinIcon,
+  CameraIcon,
+  WalletIcon,
+  XIcon,
+} from "@/components/user/icons";
 
 const fmt = new Intl.NumberFormat("ko-KR");
 
@@ -62,7 +76,8 @@ export function ChatRoom({
   // 예약 작성기 — null이면 닫힘, {} 신규, {edit} 수정 모드
   const [composer, setComposer] = useState<null | { edit: BookingEditTarget | null }>(null);
   const [, startTransition] = useTransition();
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const firstScroll = useRef(true);
   const fileRef = useRef<HTMLInputElement>(null);
   const optionsRef = useRef<HTMLDivElement>(null);
 
@@ -132,9 +147,13 @@ export function ChatRoom({
     };
   }, [conversationId, meId]);
 
-  // 새 메시지 시 스크롤 하단
+  // 새 메시지 시 하단으로 — 내부 리스트만 스크롤(진입 시 윈도우가 통째로 밀리는 현상 방지).
+  // 첫 렌더는 즉시(auto), 이후 새 메시지는 부드럽게(smooth).
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = listRef.current;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: firstScroll.current ? "auto" : "smooth" });
+    firstScroll.current = false;
   }, [messages]);
 
   // + 옵션 메뉴 바깥 클릭 시 닫기
@@ -171,9 +190,12 @@ export function ChatRoom({
   }
 
   return (
-    <div className="flex h-[calc(100svh-8rem)] flex-col">
-      {/* 메시지 영역 */}
-      <div className="flex flex-1 flex-col gap-2 overflow-y-auto py-4">
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* 메시지 영역 — 이 컨테이너만 스크롤 */}
+      <div
+        ref={listRef}
+        className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-3 py-4 sm:px-4"
+      >
         {/* 작가: 고객이 작성한 상담 정보를 카드로 노출(대화 맥락) */}
         {amPhotographer && brief && (
           <ConsultationCard brief={brief} sourcePhotoPath={sourcePhotoPath} />
@@ -181,9 +203,11 @@ export function ChatRoom({
         {/* 상담 정보를 작성한 고객의 빈 방 — 첫 인사를 권유 (메시지가 생기면 사라짐) */}
         {messages.length === 0 && amCustomer && brief && (
           <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-            <span className="text-2xl">✅</span>
-            <p className="mt-2 text-sm font-medium text-fg/80">상담 정보를 작성했어요.</p>
-            <p className="mt-1 text-sm text-fg/55">작가님께 먼저 대화를 건네보세요.</p>
+            <span className="grid h-12 w-12 place-items-center rounded-full bg-success-soft text-success">
+              <CheckIcon className="h-6 w-6" />
+            </span>
+            <p className="mt-3 text-body font-semibold text-fg">상담 정보를 작성했어요</p>
+            <p className="mt-1 text-body-sm text-muted">작가님께 먼저 대화를 건네보세요.</p>
           </div>
         )}
         {messages.map((m) => {
@@ -220,11 +244,12 @@ export function ChatRoom({
           // 시스템 안내는 가운데 정렬 회색 칩
           if (m.type === "system") {
             return (
-              <div key={m.id} className="flex justify-center">
-                <span className="rounded-full bg-fg/[0.06] px-3 py-1 text-xs text-fg/55">{m.body}</span>
+              <div key={m.id} className="flex justify-center py-1">
+                <span className="rounded-full bg-fg/[0.06] px-3 py-1 text-caption text-muted">{m.body}</span>
               </div>
             );
           }
+          const isImage = m.type === "image" && m.image_path;
           return (
             <div
               key={m.id}
@@ -232,37 +257,45 @@ export function ChatRoom({
             >
               {/* 카카오톡식: 내 메시지는 시간이 왼쪽, 상대 메시지는 오른쪽 */}
               {mine && (
-                <span className="mb-0.5 shrink-0 text-[10px] text-fg/40">
+                <span className="mb-0.5 shrink-0 text-label text-faint">
                   {timeLabel(m.created_at)}
                 </span>
               )}
-              <div
-                className={`max-w-[75%] rounded-2xl px-3 py-2 text-sm ${
-                  mine ? "bg-fg text-bg" : "bg-fg/[0.07] text-fg"
-                }`}
-              >
-                {m.type === "image" && m.image_path ? (
-                  <img src={m.image_path} alt="" className="max-h-60 rounded-lg" loading="lazy" />
-                ) : (
-                  <span className="whitespace-pre-wrap break-words">{m.body}</span>
-                )}
-              </div>
+              {isImage ? (
+                <img
+                  src={m.image_path!}
+                  alt=""
+                  loading="lazy"
+                  className="max-h-64 max-w-[75%] rounded-2xl object-cover"
+                />
+              ) : (
+                <div
+                  className={`max-w-[75%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-body ${
+                    mine ? "rounded-br-md bg-fg text-bg" : "rounded-bl-md bg-fg/[0.07] text-fg"
+                  }`}
+                >
+                  {m.body}
+                </div>
+              )}
               {!mine && (
-                <span className="mb-0.5 shrink-0 text-[10px] text-fg/40">
+                <span className="mb-0.5 shrink-0 text-label text-faint">
                   {timeLabel(m.created_at)}
                 </span>
               )}
             </div>
           );
         })}
-        <div ref={bottomRef} />
       </div>
 
-      {/* 입력 */}
-      <form onSubmit={onSend} className="flex items-center gap-2 border-t border-fg/8 py-3">
+      {/* 입력 바 — 하단은 safe-area(홈 인디케이터)만큼만 여유 */}
+      <form
+        onSubmit={onSend}
+        className="flex shrink-0 items-center gap-2 border-t border-line px-3 pt-2.5 sm:px-4"
+        style={{ paddingBottom: "calc(0.625rem + env(safe-area-inset-bottom))" }}
+      >
         <input ref={fileRef} type="file" accept="image/*" hidden onChange={(e) => onFile(e.target.files)} />
 
-        {/* + 옵션 메뉴 — 사진 보내기 등 추가 동작 (추후 확장) */}
+        {/* + 옵션 메뉴 — 사진 보내기 등 추가 동작 */}
         <div ref={optionsRef} className="relative shrink-0">
           <button
             type="button"
@@ -270,12 +303,12 @@ export function ChatRoom({
             onClick={() => setOptionsOpen((v) => !v)}
             aria-label="추가 옵션"
             aria-expanded={optionsOpen}
-            className="grid h-9 w-9 place-items-center rounded-full bg-fg/[0.06] text-xl leading-none text-fg/70 hover:bg-fg/10 disabled:opacity-50"
+            className="grid h-10 w-10 cursor-pointer place-items-center rounded-full bg-fg/[0.06] text-fg/70 transition-colors hover:bg-fg/10 disabled:opacity-50"
           >
-            {uploading ? "…" : "+"}
+            {uploading ? <Spinner className="h-4 w-4" /> : <PlusIcon className="h-5 w-5" />}
           </button>
           {optionsOpen && (
-            <div className="absolute bottom-full left-0 mb-2 w-44 overflow-hidden rounded-xl border border-fg/10 bg-white py-1 shadow-lg">
+            <div className="absolute bottom-full left-0 mb-2 w-48 overflow-hidden rounded-xl border border-line bg-surface py-1 shadow-pop">
               <button
                 type="button"
                 disabled={uploading}
@@ -283,9 +316,10 @@ export function ChatRoom({
                   setOptionsOpen(false);
                   fileRef.current?.click();
                 }}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-fg/[0.04] disabled:opacity-50"
+                className="flex w-full cursor-pointer items-center gap-2.5 px-3 py-2.5 text-left text-body-sm text-fg transition-colors hover:bg-fg/[0.04] disabled:opacity-50"
               >
-                🖼 사진 보내기
+                <ImageIcon className="h-5 w-5 text-muted" />
+                사진 보내기
               </button>
               {portfolioPhotos.length > 0 && (
                 <button
@@ -294,12 +328,13 @@ export function ChatRoom({
                     setOptionsOpen(false);
                     setPickerOpen(true);
                   }}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-fg/[0.04]"
+                  className="flex w-full cursor-pointer items-center gap-2.5 px-3 py-2.5 text-left text-body-sm text-fg transition-colors hover:bg-fg/[0.04]"
                 >
-                  🖼 포트폴리오에서 고르기
+                  <LayersIcon className="h-5 w-5 text-muted" />
+                  포트폴리오에서 고르기
                 </button>
               )}
-              {/* 예약 제안은 헤더의 '📋 예약 제안' 버튼으로 이동 — 수정은 예약 카드에서 */}
+              {/* 예약 제안은 헤더의 예약 제안 버튼으로 이동 — 수정은 예약 카드에서 */}
             </div>
           )}
         </div>
@@ -308,13 +343,15 @@ export function ChatRoom({
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="메시지"
-          className="flex-1 rounded-full border border-fg/15 bg-white px-4 py-2 text-sm outline-none focus:border-fg/40"
+          className="min-w-0 flex-1 rounded-full border border-line-strong bg-surface px-4 py-2.5 text-body outline-none transition-colors focus:border-fg/40"
         />
         <button
           type="submit"
-          className="shrink-0 rounded-full bg-fg px-4 py-2 text-sm font-semibold text-bg hover:opacity-90"
+          disabled={!text.trim()}
+          aria-label="전송"
+          className="grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-full bg-fg text-bg transition-opacity hover:opacity-90 disabled:opacity-30"
         >
-          전송
+          <SendIcon className="h-5 w-5" />
         </button>
       </form>
 
@@ -362,12 +399,15 @@ function ConsultationCard({
     ["요청", brief.note],
   ];
   return (
-    <div className="mx-auto w-full max-w-sm rounded-2xl border border-fg/12 bg-white p-4">
-      <p className="text-xs font-semibold text-fg/50">📋 상담 정보</p>
+    <div className="mx-auto w-full max-w-sm rounded-2xl border border-line bg-surface p-4">
+      <p className="flex items-center gap-1.5 text-caption font-semibold text-muted">
+        <ClipboardIcon className="h-4 w-4" />
+        상담 정보
+      </p>
 
       {sourcePhotoPath && (
         <div className="mt-3">
-          <p className="text-xs text-fg/45">문의한 사진</p>
+          <p className="text-caption text-faint">문의한 사진</p>
           <a
             href={sourcePhotoPath}
             target="_blank"
@@ -379,18 +419,18 @@ function ConsultationCard({
         </div>
       )}
 
-      <dl className="mt-3 grid grid-cols-[4.5rem_1fr] gap-x-3 gap-y-2 text-sm">
+      <dl className="mt-3 grid grid-cols-[4.5rem_1fr] gap-x-3 gap-y-2 text-body-sm">
         {rows.map(([label, value]) => (
           <Fragment key={label}>
-            <dt className="text-fg/45">{label}</dt>
-            <dd className={value ? "" : "text-fg/35"}>{value || "—"}</dd>
+            <dt className="text-faint">{label}</dt>
+            <dd className={value ? "text-fg" : "text-faint"}>{value || "—"}</dd>
           </Fragment>
         ))}
       </dl>
 
       {brief.ref_image_paths.length > 0 && (
         <div className="mt-3">
-          <p className="text-xs text-fg/45">레퍼런스 사진</p>
+          <p className="text-caption text-faint">레퍼런스 사진</p>
           <div className="mt-2 grid grid-cols-4 gap-2">
             {brief.ref_image_paths.map((url) => (
               <a
@@ -424,12 +464,17 @@ function PhotoPicker({
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 font-kr" onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-xl"
+        className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-2xl bg-surface p-5 shadow-pop"
       >
         <div className="flex items-center justify-between">
-          <h3 className="text-base font-semibold">포트폴리오에서 고르기</h3>
-          <button type="button" onClick={onClose} className="text-sm text-fg/50 hover:text-fg">
-            닫기
+          <h3 className="text-title font-semibold">포트폴리오에서 고르기</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="닫기"
+            className="grid h-8 w-8 cursor-pointer place-items-center rounded-full text-muted transition-colors hover:bg-fg/[0.06] hover:text-fg"
+          >
+            <XIcon className="h-5 w-5" />
           </button>
         </div>
         <div className="mt-4 grid grid-cols-3 gap-2">
@@ -438,7 +483,7 @@ function PhotoPicker({
               key={p.id}
               type="button"
               onClick={() => onPick(p.id)}
-              className="aspect-square overflow-hidden rounded-lg border border-fg/10 hover:border-fg/40"
+              className="aspect-square cursor-pointer overflow-hidden rounded-lg border border-line transition-colors hover:border-fg/40"
             >
               <img src={p.thumb_url} alt="" className="h-full w-full object-cover" loading="lazy" />
             </button>
@@ -498,7 +543,7 @@ function BookingCard({
 
   const statusLabel: Record<string, string> = {
     requested: "수락 대기 중",
-    accepted: "수락됨 ✓ 체결",
+    accepted: "수락됨 · 체결",
     paid: "결제 완료",
     shot: "촬영 완료",
     delivered: "보정본 전달",
@@ -524,30 +569,41 @@ function BookingCard({
       role="button"
       tabIndex={0}
       onKeyDown={(e) => e.key === "Enter" && onOpenDetail()}
-      className="mx-auto w-full max-w-sm cursor-pointer rounded-2xl border border-fg/12 bg-white p-4 transition hover:border-fg/25"
+      className="mx-auto w-full max-w-sm cursor-pointer rounded-2xl border border-line bg-surface p-4 transition-colors hover:border-line-strong"
     >
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-fg/50">📋 예약 제안</span>
+        <span className="flex items-center gap-1.5 text-caption font-semibold text-muted">
+          <ClipboardIcon className="h-4 w-4" />
+          예약 제안
+        </span>
         <span
-          className={`rounded-full px-2 py-0.5 text-[11px] ${
+          className={`rounded-full px-2 py-0.5 text-label font-semibold ${
             POSITIVE_STATUSES.has(status)
-              ? "bg-emerald-500/15 text-emerald-600"
+              ? "bg-success-soft text-success"
               : CLOSED_STATUSES.has(status)
-              ? "bg-fg/[0.06] text-fg/50"
-              : "bg-amber-500/15 text-amber-600"
+              ? "bg-fg/[0.06] text-faint"
+              : "bg-warning-soft text-warning"
           }`}
         >
           {statusLabel[status] ?? status}
         </span>
       </div>
 
-      <p className="mt-2 text-sm font-semibold">{booking.package_snapshot?.name ?? "촬영"}</p>
-      <p className="mt-1 text-xs text-fg/60">🗓 {when}</p>
-      {booking.location_text && <p className="mt-0.5 text-xs text-fg/60">📍 {booking.location_text}</p>}
-      <p className="mt-2 text-sm font-bold">
+      <p className="mt-2 text-body font-semibold text-fg">{booking.package_snapshot?.name ?? "촬영"}</p>
+      <p className="mt-1.5 flex items-center gap-1.5 text-caption text-muted">
+        <CalendarIcon className="h-4 w-4 shrink-0 text-faint" />
+        {when}
+      </p>
+      {booking.location_text && (
+        <p className="mt-0.5 flex items-center gap-1.5 text-caption text-muted">
+          <MapPinIcon className="h-4 w-4 shrink-0 text-faint" />
+          {booking.location_text}
+        </p>
+      )}
+      <p className="mt-2 text-body font-bold text-fg">
         ₩{fmt.format(booking.amount_krw ?? 0)}
         {booking.travel_fee_krw > 0 && (
-          <span className="ml-1 text-xs font-normal text-fg/45">
+          <span className="ml-1 text-caption font-normal text-faint">
             (출장비 ₩{fmt.format(booking.travel_fee_krw)} 포함)
           </span>
         )}
@@ -570,12 +626,12 @@ function BookingCard({
 
       {/* 작가: 결제됨 → 촬영 완료 표시 (req9) */}
       {amPhotographer && status === "paid" && (
-        <div className="mt-3 border-t border-fg/10 pt-3" onClick={stop}>
+        <div className="mt-3 border-t border-line pt-3" onClick={stop}>
           <button
             type="button"
             disabled={advancing}
             onClick={() => advance(markShot, "shot")}
-            className="w-full rounded-full bg-fg py-2 text-sm font-semibold text-bg hover:opacity-90 disabled:opacity-50"
+            className="w-full cursor-pointer rounded-full bg-fg py-2.5 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {advancing ? "처리 중…" : "촬영 완료 표시"}
           </button>
@@ -584,19 +640,22 @@ function BookingCard({
 
       {/* 작가: 촬영됨 → 보정본 전달 업로더 (req9) */}
       {amPhotographer && status === "shot" && (
-        <div className="mt-3 border-t border-fg/10 pt-3" onClick={stop}>
+        <div className="mt-3 border-t border-line pt-3" onClick={stop}>
           <DeliveryUploader bookingId={booking.id} initialAssets={[]} initialLink="" />
         </div>
       )}
 
       {/* 보정본 전달 완료 → 고객 후기 유도 */}
       {status === "completed" && amCustomer && (
-        <div className="mt-3 border-t border-fg/10 pt-3" onClick={stop}>
-          <p className="text-xs text-fg/60">📸 보정본 전달이 완료됐어요. 촬영은 어떠셨나요?</p>
+        <div className="mt-3 border-t border-line pt-3" onClick={stop}>
+          <p className="flex items-center gap-1.5 text-caption text-muted">
+            <CameraIcon className="h-4 w-4 shrink-0 text-faint" />
+            보정본 전달이 완료됐어요. 촬영은 어떠셨나요?
+          </p>
           <button
             type="button"
             onClick={onOpenDetail}
-            className="mt-2 w-full rounded-full bg-fg py-2 text-sm font-semibold text-bg hover:opacity-90"
+            className="mt-2 w-full cursor-pointer rounded-full bg-fg py-2.5 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90"
           >
             보정본 받기 · 후기 남기기
           </button>
@@ -608,13 +667,13 @@ function BookingCard({
         <div className="mt-3 flex gap-2" onClick={stop}>
           <form action={rejectBooking} onSubmit={() => setActed("rejected")} className="flex-1">
             <input type="hidden" name="id" value={booking.id} />
-            <button className="w-full rounded-full border border-fg/20 py-2 text-sm font-medium text-fg/70 hover:bg-fg/[0.04]">
+            <button className="w-full cursor-pointer rounded-full border border-line-strong py-2.5 text-body-sm font-medium text-muted transition-colors hover:bg-fg/[0.04]">
               거절
             </button>
           </form>
           <form action={acceptBooking} onSubmit={() => setActed("accepted")} className="flex-1">
             <input type="hidden" name="id" value={booking.id} />
-            <button className="w-full rounded-full bg-fg py-2 text-sm font-semibold text-bg hover:opacity-90">
+            <button className="w-full cursor-pointer rounded-full bg-fg py-2.5 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90">
               수락하기
             </button>
           </form>
@@ -628,14 +687,14 @@ function BookingCard({
             <button
               type="button"
               onClick={onEdit}
-              className="flex-1 rounded-full border border-fg/20 py-2 text-sm font-medium text-fg/70 hover:bg-fg/[0.04]"
+              className="flex-1 cursor-pointer rounded-full border border-line-strong py-2.5 text-body-sm font-medium text-muted transition-colors hover:bg-fg/[0.04]"
             >
               수정
             </button>
           )}
           <form action={cancelBooking} onSubmit={() => setActed("cancelled")} className="flex-1">
             <input type="hidden" name="id" value={booking.id} />
-            <button className="w-full rounded-full border border-fg/20 py-2 text-sm font-medium text-brand hover:bg-brand/[0.06]">
+            <button className="w-full cursor-pointer rounded-full border border-line-strong py-2.5 text-body-sm font-medium text-brand transition-colors hover:bg-brand/[0.06]">
               취소
             </button>
           </form>
@@ -692,37 +751,41 @@ function TransferSection({
   }
 
   return (
-    <div className="mt-3 border-t border-fg/10 pt-3" onClick={stop}>
+    <div className="mt-3 border-t border-line pt-3" onClick={stop}>
       {/* ── 고객 화면: 계좌·금액·송금 완료·정책 ── */}
       {amCustomer && (
         <>
-          <p className="text-xs font-semibold text-fg/55">💸 송금 안내</p>
+          <p className="flex items-center gap-1.5 text-caption font-semibold text-muted">
+            <WalletIcon className="h-4 w-4" />
+            송금 안내
+          </p>
           {payoutAccount ? (
-            <div className="mt-2 rounded-xl bg-fg/[0.04] p-3 text-xs">
+            <div className="mt-2 rounded-xl bg-surface-2 p-3 text-caption">
               <TransferRow label="은행" value={payoutAccount.bank} />
               <TransferRow label="계좌번호" value={payoutAccount.number} mono />
               <TransferRow label="예금주" value={payoutAccount.holder} />
-              <div className="mt-2 flex items-center justify-between border-t border-fg/10 pt-2">
-                <span className="text-fg/50">보낼 금액</span>
-                <span className="text-sm font-bold">₩{fmt.format(booking.amount_krw ?? 0)}</span>
+              <div className="mt-2 flex items-center justify-between border-t border-line pt-2">
+                <span className="text-faint">보낼 금액</span>
+                <span className="text-body-sm font-bold text-fg">₩{fmt.format(booking.amount_krw ?? 0)}</span>
               </div>
             </div>
           ) : (
-            <div className="mt-2 rounded-xl bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+            <div className="mt-2 rounded-xl bg-warning-soft px-3 py-2 text-caption text-warning">
               작가가 아직 계좌를 등록하지 않았어요. 채팅으로 계좌를 문의해주세요.
             </div>
           )}
 
           {marked ? (
-            <p className="mt-3 rounded-full bg-emerald-500/10 px-3 py-2 text-center text-xs text-emerald-600">
-              ✅ 송금 완료를 알렸어요 · 작가의 입금 확인을 기다리는 중
+            <p className="mt-3 flex items-center justify-center gap-1.5 rounded-full bg-success-soft px-3 py-2 text-center text-caption text-success">
+              <CheckIcon className="h-4 w-4 shrink-0" />
+              송금 완료를 알렸어요 · 작가의 입금 확인을 기다리는 중
             </p>
           ) : (
             payoutAccount && (
               <button
                 type="button"
                 onClick={notifySent}
-                className="mt-3 w-full rounded-full bg-fg py-2 text-sm font-semibold text-bg hover:opacity-90"
+                className="mt-3 w-full cursor-pointer rounded-full bg-fg py-2.5 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90"
               >
                 송금 완료
               </button>
@@ -732,7 +795,7 @@ function TransferSection({
           <button
             type="button"
             onClick={() => setShowPolicy((v) => !v)}
-            className="mt-3 text-[11px] text-fg/45 underline"
+            className="mt-3 cursor-pointer text-label text-faint underline"
           >
             환불·취소 정책 {showPolicy ? "접기" : "보기"}
           </button>
@@ -744,18 +807,21 @@ function TransferSection({
       {amPhotographer && (
         <>
           {marked ? (
-            <p className="text-xs font-semibold text-emerald-600">💸 고객이 송금 완료를 알렸어요</p>
+            <p className="flex items-center gap-1.5 text-caption font-semibold text-success">
+              <WalletIcon className="h-4 w-4 shrink-0" />
+              고객이 송금 완료를 알렸어요
+            </p>
           ) : (
-            <p className="text-xs text-fg/55">고객의 송금을 기다리는 중이에요</p>
+            <p className="text-caption text-muted">고객의 송금을 기다리는 중이에요</p>
           )}
-          <p className="mt-1 text-[11px] text-fg/45">
+          <p className="mt-1 text-label text-faint">
             입금을 확인하면 결제가 완료되고 매칭 수수료가 발생합니다.
           </p>
           <button
             type="button"
             onClick={doConfirm}
             disabled={confirming}
-            className="mt-3 w-full rounded-full bg-fg py-2 text-sm font-semibold text-bg hover:opacity-90 disabled:opacity-50"
+            className="mt-3 w-full cursor-pointer rounded-full bg-fg py-2.5 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {confirming ? "처리 중…" : "입금 확인"}
           </button>
@@ -769,8 +835,8 @@ function TransferSection({
 function TransferRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex items-center justify-between gap-3 py-0.5">
-      <span className="shrink-0 text-fg/50">{label}</span>
-      <span className={`text-right font-medium ${mono ? "tabular-nums tracking-tight" : ""}`}>
+      <span className="shrink-0 text-faint">{label}</span>
+      <span className={`text-right font-medium text-fg ${mono ? "tabular-nums tracking-tight" : ""}`}>
         {value}
       </span>
     </div>
@@ -780,7 +846,7 @@ function TransferRow({ label, value, mono }: { label: string; value: string; mon
 // 환불·취소 정책 안내 (직접이체 모델)
 function PolicyNote() {
   return (
-    <div className="mt-2 rounded-xl bg-fg/[0.04] px-3 py-2 text-[11px] leading-relaxed text-fg/60">
+    <div className="mt-2 rounded-xl bg-surface-2 px-3 py-2 text-label leading-relaxed text-muted">
       · 송금 전에는 언제든 무료로 취소할 수 있어요.
       <br />
       · 작가가 입금을 확인한 뒤 환불이 필요하면, 작가와 협의해 직접 환불받게 됩니다.
