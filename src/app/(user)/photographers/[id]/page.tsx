@@ -14,6 +14,9 @@ import { type PortfolioPost } from "./PortfolioGrid";
 import { ProfileTabs } from "./ProfileTabs";
 import { HighlightsBar } from "./HighlightsBar";
 import { AutoFavorite } from "@/components/user/AutoFavorite";
+import { HeartIcon, StarIcon, MapPinIcon } from "@/components/user/icons";
+import { Avatar, Button } from "@/components/ui";
+import { cn } from "@/lib/cn";
 
 export default async function PhotographerProfile({
   params,
@@ -95,77 +98,65 @@ export default async function PhotographerProfile({
   const autoFav = sp.fav === "1" && !isOwner && !favorited;
 
   return (
-    <main className="mx-auto max-w-6xl px-4 sm:px-6 py-8 pb-28 font-kr md:pb-12">
+    <main className="mx-auto max-w-6xl px-4 py-8 font-kr sm:px-6 md:pt-16 md:pb-12">
       {autoFav && (
         <AutoFavorite targetType="photographer" targetId={ph.id} path={`/photographers/${ph.id}`} />
       )}
       <div className="md:flex md:items-start md:gap-10">
         {/* 좌: 프로필 정보 (가로 레이아웃 — 데스크톱은 sticky 사이드바) */}
-        <aside className="md:w-72 md:shrink-0 md:sticky md:top-20 md:self-start">
+        <aside className="md:w-72 md:shrink-0 md:sticky md:top-6 md:self-start">
           <div className="flex items-center gap-4 md:flex-col md:items-start md:gap-0">
-            <div className="grid h-20 w-20 shrink-0 place-items-center rounded-full bg-gradient-to-br from-rose-400 to-orange-400 text-2xl font-bold text-white shadow-lg ring-2 ring-white/40 md:h-24 md:w-24 md:text-3xl">
-              {phName[0]?.toUpperCase()}
-            </div>
+            <Avatar name={phName} size="xl" className="shadow-lg ring-2 ring-white/40" />
             <div className="min-w-0 md:mt-4">
-              <h1 className="text-2xl font-semibold">{phName}</h1>
+              <h1 className="text-h1 font-semibold">{phName}</h1>
               {/* 지표 */}
-              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-sm text-fg/70">
-                <span>
-                  <span className="text-amber-500">★</span>{" "}
-                  <strong>{ph.rating_avg.toFixed(1)}</strong>{" "}
-                  <span className="text-fg/45">({ph.review_count})</span>
+              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-body-sm text-muted">
+                <span className="inline-flex items-center gap-1">
+                  <StarIcon className="h-4 w-4 text-amber-500" />
+                  <strong className="text-fg">{ph.rating_avg.toFixed(1)}</strong>
+                  <span className="text-faint">({ph.review_count})</span>
                 </span>
-                <span className="text-fg/25">·</span>
-                <span>작품 <strong>{photos.length}</strong></span>
+                <span className="text-faint">·</span>
+                <span>작품 <strong className="text-fg">{photos.length}</strong></span>
               </div>
-              <p className="mt-1 text-sm text-fg/60">
-                촬영 시작 <strong className="text-fg/80">₩{fmt.format(ph.price_from_krw)}</strong>
+              <p className="mt-1 text-body-sm text-muted">
+                촬영 시작 <strong className="text-fg">₩{fmt.format(ph.price_from_krw)}</strong>
               </p>
             </div>
           </div>
 
-          {ph.bio && <p className="mt-4 text-sm leading-relaxed text-fg/70">{ph.bio}</p>}
+          {ph.bio && <p className="mt-4 text-body leading-relaxed text-fg/80">{ph.bio}</p>}
 
           {/* 태그 */}
           {(ph.mood_tags?.length || ph.regions?.length) ? (
-            <div className="mt-3 flex flex-wrap gap-1">
+            <div className="mt-3 flex flex-wrap gap-1.5">
               {ph.regions?.map((r: string) => (
-                <span key={r} className="rounded-full bg-fg/[0.06] px-2.5 py-0.5 text-[11px] text-fg/70">📍 {r}</span>
+                <span key={r} className="inline-flex items-center gap-1 rounded-full bg-fg/[0.06] px-2.5 py-1 text-caption text-fg/70">
+                  <MapPinIcon className="h-3 w-3 text-fg/45" />
+                  {r}
+                </span>
               ))}
               {ph.mood_tags?.map((m: string) => (
-                <span key={m} className="rounded-full bg-fg/[0.06] px-2.5 py-0.5 text-[11px] text-fg/70">#{m}</span>
+                <span key={m} className="rounded-full bg-fg/[0.06] px-2.5 py-1 text-caption text-fg/70">#{m}</span>
               ))}
             </div>
           ) : null}
 
-          {/* 관심 작가 추가하기 */}
-          {!isOwner && (
-            <form action={toggleFavorite} className="mt-4">
-              <input type="hidden" name="targetType" value="photographer" />
-              <input type="hidden" name="targetId" value={ph.id} />
-              <input type="hidden" name="path" value={`/photographers/${ph.id}`} />
-              {/* 비로그인 → 로그인 복귀 후 관심 작가 자동 적용 */}
-              <input type="hidden" name="next" value={`/photographers/${ph.id}?fav=1`} />
-              <button
-                className={`w-full rounded-full border px-4 py-2 text-sm transition-colors ${
-                  favorited
-                    ? "border-brand bg-brand/[0.06] text-brand"
-                    : "border-fg/20 text-fg/70 hover:bg-fg/[0.04]"
-                }`}
-              >
-                {favorited ? "♥ 관심 작가" : "♡ 관심 작가 추가하기"}
-              </button>
-            </form>
-          )}
-
-          {/* 데스크톱 인라인 CTA (모바일은 하단 고정 바) */}
-          <div className="mt-3 hidden md:block">
-            <ProfileCta isOwner={isOwner} me={!!me} photographerId={ph.id} />
+          {/* 예약·문의(좌) + 관심 작가(우) 나란히 — 프로필 정보 영역에 배치 (모바일·데스크톱 공용) */}
+          <div className="mt-4">
+            <ProfileActions
+              isOwner={isOwner}
+              me={!!me}
+              photographerId={ph.id}
+              favorited={favorited}
+            />
           </div>
         </aside>
 
         {/* 우: 하이라이트(최상단) + 포트폴리오 / 촬영 패키지 탭 */}
-        <section className="mt-8 md:mt-0 md:min-w-0 md:flex-1">
+        {/* min-h: 탭 전환 시 높이 급변으로 좌측 sticky 프로필이 튀는 것 방지.
+            -mt-1.5(PC): 하이라이트 행 상단 패딩(py-1.5) 만큼 끌어올려 원-아바타 상단 정렬 */}
+        <section className="mt-8 md:-mt-1.5 md:min-h-[70vh] md:min-w-0 md:flex-1">
           {highlights.length > 0 && (
             <div className="mb-6">
               <HighlightsBar
@@ -180,13 +171,6 @@ export default async function PhotographerProfile({
             viewer={{ isOwner, photographerId: ph.id }}
           />
         </section>
-      </div>
-
-      {/* 하단 고정 CTA — 모바일 전용 */}
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-fg/8 bg-bg/95 px-4 pt-3 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] backdrop-blur md:hidden">
-        <div className="mx-auto max-w-md">
-          <ProfileCta isOwner={isOwner} me={!!me} photographerId={ph.id} />
-        </div>
       </div>
     </main>
   );
@@ -223,6 +207,62 @@ function ViewerCta({
   );
 }
 
+// 예약·문의(좌, 메인) + 관심 작가(우, 보조) 를 한 줄에 나란히. 데스크톱·모바일 공용.
+function ProfileActions({
+  isOwner,
+  me,
+  photographerId,
+  favorited,
+}: {
+  isOwner: boolean;
+  me: boolean;
+  photographerId: string;
+  favorited: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <div className="min-w-0 flex-1">
+        <ProfileCta isOwner={isOwner} me={me} photographerId={photographerId} />
+      </div>
+      {!isOwner && (
+        <FavoriteButton favorited={favorited} photographerId={photographerId} />
+      )}
+    </div>
+  );
+}
+
+// 관심 작가 토글 — 보조 버튼(하트). 예약·문의 우측에 컴팩트하게.
+function FavoriteButton({
+  favorited,
+  photographerId,
+}: {
+  favorited: boolean;
+  photographerId: string;
+}) {
+  return (
+    <form action={toggleFavorite} className="shrink-0">
+      <input type="hidden" name="targetType" value="photographer" />
+      <input type="hidden" name="targetId" value={photographerId} />
+      <input type="hidden" name="path" value={`/photographers/${photographerId}`} />
+      {/* 비로그인 → 로그인 복귀 후 관심 작가 자동 적용 */}
+      <input type="hidden" name="next" value={`/photographers/${photographerId}?fav=1`} />
+      <button
+        aria-pressed={favorited}
+        aria-label={favorited ? "관심 작가 해제" : "관심 작가 추가"}
+        className={cn(
+          "flex h-12 cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-5 text-sm font-semibold transition-colors",
+          favorited
+            ? "border-brand bg-brand/[0.06] text-brand"
+            : "border-line-strong text-fg/70 hover:bg-surface-2"
+        )}
+      >
+        <HeartIcon className="h-5 w-5" filled={favorited} />
+        <span className="hidden sm:inline">관심</span>
+      </button>
+    </form>
+  );
+}
+
 // 작가 프로필 CTA — 본인/로그인/비로그인 분기 (데스크톱 사이드바 + 모바일 고정 바 공용)
 function ProfileCta({
   isOwner,
@@ -235,30 +275,24 @@ function ProfileCta({
 }) {
   if (isOwner) {
     return (
-      <Link
-        href="/studio"
-        className="block w-full rounded-full bg-fg/[0.06] py-3.5 text-center text-sm font-semibold text-fg/70"
-      >
+      <Button href="/studio" variant="secondary" size="lg" fullWidth>
         내 프로필입니다 — 스튜디오로
-      </Link>
+      </Button>
     );
   }
   if (!me) {
     return (
-      <Link
-        href={`/login?next=/photographers/${photographerId}`}
-        className="block w-full rounded-full bg-fg py-3.5 text-center text-sm font-semibold text-bg hover:opacity-90"
-      >
+      <Button href={`/login?next=/photographers/${photographerId}`} size="lg" fullWidth>
         로그인하고 예약·문의하기
-      </Link>
+      </Button>
     );
   }
   return (
     <form action={startConversation}>
       <input type="hidden" name="photographerId" value={photographerId} />
-      <button className="block w-full rounded-full bg-fg py-3.5 text-center text-sm font-semibold text-bg hover:opacity-90">
+      <Button type="submit" size="lg" fullWidth>
         예약·문의하기
-      </button>
+      </Button>
     </form>
   );
 }

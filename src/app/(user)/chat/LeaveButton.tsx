@@ -16,7 +16,7 @@ export function LeaveButton({ conversationId }: { conversationId: string }) {
       <input type="hidden" name="conversationId" value={conversationId} />
       <button
         type="submit"
-        className="rounded-full px-2 py-1 text-xs text-fg/40 hover:bg-fg/[0.05] hover:text-brand"
+        className="shrink-0 rounded-full px-2 py-1 text-caption text-faint transition-colors hover:bg-fg/[0.05] hover:text-brand"
         aria-label="채팅방 나가기"
       >
         나가기

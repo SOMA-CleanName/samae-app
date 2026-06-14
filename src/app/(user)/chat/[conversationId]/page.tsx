@@ -11,6 +11,8 @@ import { BriefPanel } from "./BriefPanel";
 import { BriefBanner } from "./BriefBanner";
 import { ProposeBookingButton } from "./ProposeBookingButton";
 import type { ComposerData } from "./BookingComposer";
+import { Avatar } from "@/components/ui";
+import { BackButton } from "./BackButton";
 
 // 채팅방
 export default async function ChatRoomPage({
@@ -80,50 +82,64 @@ export default async function ChatRoomPage({
     };
   }
 
+  // 헤더 아바타/이름 — 고객이면 작가 프로필로 이동(별도 '작가 프로필' 링크 흡수)
+  const headerHref = amCustomer && conv.photographer ? `/photographers/${conv.photographer_id}` : null;
+
   return (
-    <main className="mx-auto flex max-w-2xl flex-col px-4 font-kr sm:px-6">
-      <header className="flex items-center gap-3 border-b border-fg/8 py-3">
-        <Link href="/chat" className="text-sm text-fg/50 hover:text-fg">
-          ←
-        </Link>
-        <h1 className="text-base font-semibold">{title}</h1>
-        <div className="ml-auto flex items-center gap-3">
-          {/* 예약 제안 — 작가는 항상, 고객은 작가가 먼저 채팅한 이후에만 노출 */}
-          {composerData && (!amCustomer || photographerHasMessaged) && (
-            <ProposeBookingButton data={composerData} />
-          )}
-          {/* 상담 정보 — 고객은 작성/수정, 작가는 열람(수시로) */}
-          <BriefPanel
-            conversationId={conversationId}
-            amCustomer={amCustomer}
-            initialBrief={brief}
-            sourcePhotoPath={conv.source_photo_path}
-          />
-          {amCustomer && conv.photographer && (
-            <Link
-              href={`/photographers/${conv.photographer_id}`}
-              className="text-xs text-fg/50 hover:text-fg"
-            >
-              작가 프로필
+    <main className="font-kr">
+      {/* 뷰포트 전체를 채우는 고정 높이 컬럼 — 채팅방은 모바일 하단 탭바가 숨겨지므로(몰입형)
+          풀 dvh를 쓰고, 부모 pb-24만 상쇄. 내부에서 메시지 리스트만 스크롤 → 진입 시 윈도우가 통째로 밀리지 않음 */}
+      <div className="mx-auto flex h-dvh max-w-2xl flex-col -mb-24 md:mb-0">
+        <header className="flex shrink-0 items-center gap-2 border-b border-line px-2 py-2 sm:px-3">
+          <BackButton />
+
+          {/* 아바타 + 이름 (고객이면 작가 프로필로 이동) */}
+          {headerHref ? (
+            <Link href={headerHref} className="flex min-w-0 items-center gap-2.5">
+              <Avatar name={title} size="sm" />
+              <span className="truncate text-title font-semibold">{title}</span>
             </Link>
+          ) : (
+            <span className="flex min-w-0 items-center gap-2.5">
+              <Avatar name={title} size="sm" />
+              <span className="truncate text-title font-semibold">{title}</span>
+            </span>
           )}
-        </div>
-      </header>
 
-      {/* 상담 정보 미작성 고객 — 인라인 권유 배너(자동 모달 대체) */}
-      {amCustomer && !brief && <BriefBanner />}
+          <div className="ml-auto flex shrink-0 items-center gap-1">
+            {/* 예약 제안 — 작가는 항상, 고객은 작가가 먼저 채팅한 이후에만 노출 */}
+            {composerData && (!amCustomer || photographerHasMessaged) && (
+              <ProposeBookingButton data={composerData} />
+            )}
+            {/* 상담 정보 — 고객은 작성/수정, 작가는 열람(수시로) */}
+            <BriefPanel
+              conversationId={conversationId}
+              amCustomer={amCustomer}
+              initialBrief={brief}
+              sourcePhotoPath={conv.source_photo_path}
+            />
+          </div>
+        </header>
 
-      <ChatRoom
-        conversationId={conversationId}
-        meId={me.id}
-        amPhotographer={!amCustomer}
-        initialMessages={messages}
-        composerData={composerData}
-        payoutAccount={payoutAccount}
-        portfolioPhotos={portfolioPhotos}
-        brief={brief}
-        sourcePhotoPath={conv.source_photo_path}
-      />
+        {/* 상담 정보 미작성 고객 — 인라인 권유 배너(자동 모달 대체) */}
+        {amCustomer && !brief && (
+          <div className="shrink-0 px-3 pt-3 sm:px-4">
+            <BriefBanner />
+          </div>
+        )}
+
+        <ChatRoom
+          conversationId={conversationId}
+          meId={me.id}
+          amPhotographer={!amCustomer}
+          initialMessages={messages}
+          composerData={composerData}
+          payoutAccount={payoutAccount}
+          portfolioPhotos={portfolioPhotos}
+          brief={brief}
+          sourcePhotoPath={conv.source_photo_path}
+        />
+      </div>
     </main>
   );
 }

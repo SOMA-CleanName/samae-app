@@ -90,6 +90,22 @@ export async function searchPhotosByTag(qRaw: string): Promise<GalleryPhoto[]> {
 }
 
 // id 목록으로 작가 카드 조회 (찜 목록용). 승인 작가만, 대표 사진 포함.
+// 주어진 사진들 중 현재 사용자가 좋아요한 id 집합 — 갤러리 하트 초기 상태용(1쿼리).
+export async function fetchLikedPhotoIds(
+  photoIds: string[],
+  userId?: string
+): Promise<string[]> {
+  if (!userId || photoIds.length === 0) return [];
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("favorites")
+    .select("target_id")
+    .eq("profile_id", userId)
+    .eq("target_type", "photo")
+    .in("target_id", photoIds);
+  return (data ?? []).map((r) => r.target_id as string);
+}
+
 export async function fetchPhotographersByIds(ids: string[]): Promise<PhotographerCard[]> {
   if (ids.length === 0) return [];
   const supabase = await createClient();
@@ -136,6 +152,8 @@ export type PhotoDetail = {
   album_id: string | null;
   photographer_id: string;
   photographer: { id: string; display_name: string | null } | null;
+  // 사진별 작가 코멘트 — 추후 photos.caption 컬럼 추가 후 select 연동(현재 미선택 → undefined).
+  caption?: string | null;
 };
 
 export async function fetchPhotoById(id: string): Promise<PhotoDetail | null> {
@@ -196,17 +214,23 @@ export async function fetchAlbumDescription(albumId: string): Promise<string | n
 // 한 게시물(album)의 공개 사진들 — 스와이프 캐러셀용. 정렬 순.
 export async function fetchAlbumPhotos(
   albumId: string
-): Promise<{ id: string; src_url: string; thumb_url: string | null }[]> {
+): Promise<{ id: string; src_url: string; thumb_url: string | null; width: number; height: number }[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("photos")
-    .select("id, src_url, thumb_url")
+    .select("id, src_url, thumb_url, width, height")
     .eq("album_id", albumId)
     .eq("visibility", "published")
     // 프로필 대표 선정과 동일 정렬 → 대표가 캐러셀 첫 장(1/N)
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false });
-  return (data ?? []) as { id: string; src_url: string; thumb_url: string | null }[];
+  return (data ?? []) as {
+    id: string;
+    src_url: string;
+    thumb_url: string | null;
+    width: number;
+    height: number;
+  }[];
 }
 
 // 작가 총 찜 수 (공개 집계 함수 경유) — 관심 작가 통계용

@@ -1,8 +1,11 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useEffect, useRef, useState } from "react";
-import { toggleFavorite } from "@/app/(user)/actions";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { togglePhotoLike } from "@/app/(user)/actions";
+import { cn } from "@/lib/cn";
+import { HeartIcon, ChevronLeftIcon, ChevronRightIcon } from "@/components/user/icons";
 
 type P = {
   id: string;
@@ -12,8 +15,9 @@ type P = {
   count?: number;
 };
 
-// 썸네일(이미 캐시됨)을 즉시 보여주고, 원본이 다 받아지면 부드럽게 교체
-function Slide({ p }: { p: P }) {
+// 고정 프레임 안에 사진을 안 잘리게(contain) 넣고, 남는 공간은 같은 사진을 흐리게(blur) 깔아 채운다.
+// 썸네일을 즉시 보여주고 원본이 받아지면 부드럽게 교체.
+function Slide({ p, alt }: { p: P; alt: string }) {
   const [src, setSrc] = useState(p.thumb_url ?? p.src_url);
   const isThumb = src !== p.src_url;
 
@@ -29,40 +33,63 @@ function Slide({ p }: { p: P }) {
   }, [p.src_url, p.thumb_url]);
 
   return (
-    <img
-      src={src}
-      alt=""
-      className={`w-full object-contain transition-[filter] duration-300 md:max-h-[82vh] ${
-        isThumb ? "blur-[6px]" : "blur-0"
-      }`}
-    />
+    <>
+      {/* 흐린 배경 채움 — 같은 사진을 blur해 레터박스를 그 사진의 가장자리 색감으로 채움.
+          (슬라이드 컨테이너의 overflow-hidden 으로 옆 슬라이드에 번지지 않게 클립) */}
+      <img
+        src={src}
+        alt=""
+        aria-hidden
+        className="absolute inset-0 h-full w-full scale-125 object-cover blur-2xl"
+      />
+      {/* 전경 — 안 잘리게 contain */}
+      <img
+        src={src}
+        alt={alt}
+        className={cn(
+          "relative h-full w-full object-contain transition-[filter] duration-300",
+          isThumb ? "blur-[6px]" : "blur-0"
+        )}
+      />
+    </>
   );
 }
 
-// 현재 슬라이드 사진에 대한 좋아요 — 어두운 배경이라 흰 사진 위에서도 보인다.
-// 여러 장일 때 '보고 있는 그 사진'만 정확히 좋아요(대표 사진 고정 버그 수정).
-function LikeOverlay({ p, pagePath }: { p: P; pagePath: string }) {
-  const liked = p.liked ?? false;
-  const count = p.count ?? 0;
+// 현재 슬라이드 사진 좋아요 — 옵티미스틱(재검증 없음, 추천 피드 리셔플 방지).
+// key={p.id} 로 슬라이드 전환 시 해당 사진 상태로 리셋.
+function LikeOverlay({ p }: { p: P }) {
+  const [liked, setLiked] = useState(p.liked ?? false);
+  const [count, setCount] = useState(p.count ?? 0);
+  const [, start] = useTransition();
+  const router = useRouter();
+
+  function onClick() {
+    const next = !liked;
+    setLiked(next);
+    setCount((c) => c + (next ? 1 : -1));
+    start(async () => {
+      const res = await togglePhotoLike(p.id);
+      if (!res.loggedIn) {
+        setLiked(false);
+        setCount((c) => c - 1);
+        router.push(`/login?next=${encodeURIComponent(`/photos/${p.id}?like=1`)}`);
+        return;
+      }
+      setLiked(res.liked);
+    });
+  }
+
   return (
-    <form
-      action={toggleFavorite}
-      className="absolute bottom-3 left-3 z-10 flex items-center gap-1.5 rounded-full bg-black/45 px-2.5 py-1.5 backdrop-blur"
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={liked}
+      aria-label={liked ? "좋아요 취소" : "좋아요"}
+      className="absolute bottom-3 left-3 z-10 flex cursor-pointer items-center gap-1.5 rounded-full bg-black/45 px-3 py-2 text-white backdrop-blur transition-colors hover:bg-black/60"
     >
-      <input type="hidden" name="targetType" value="photo" />
-      <input type="hidden" name="targetId" value={p.id} />
-      <input type="hidden" name="path" value={pagePath} />
-      <input type="hidden" name="next" value={`/photos/${p.id}?like=1`} />
-      <button
-        type="submit"
-        aria-pressed={liked}
-        aria-label={liked ? "좋아요 취소" : "좋아요"}
-        className={`text-lg leading-none ${liked ? "text-brand" : "text-white"}`}
-      >
-        {liked ? "♥" : "♡"}
-      </button>
-      {count > 0 && <span className="text-xs font-semibold text-white">{count}</span>}
-    </form>
+      <HeartIcon className="h-5 w-5" filled={liked} />
+      {count > 0 && <span className="text-xs font-semibold">{count}</span>}
+    </button>
   );
 }
 
@@ -71,10 +98,14 @@ export function PhotoCarousel({
   photos,
   startIndex = 0,
   pagePath,
+  photographerName = "작가",
+  frameAspect = 1,
 }: {
   photos: P[];
   startIndex?: number;
   pagePath?: string; // 있으면 슬라이드별 좋아요 오버레이 노출 (사진 상세)
+  photographerName?: string;
+  frameAspect?: number; // 게시물 고정 프레임 비율(대표 사진 기준)
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [idx, setIdx] = useState(startIndex);
@@ -97,12 +128,18 @@ export function PhotoCarousel({
     el.scrollTo({ left: next * el.clientWidth, behavior: "smooth" });
   }
 
-  // 단일 사진 — 배경 없이 좋아요 오버레이만
+  const altFor = (i: number) =>
+    photos.length > 1 ? `${photographerName} 작품 ${i + 1}/${photos.length}` : `${photographerName} 작품`;
+
+  // 단일 사진 — 고정 프레임 + 좋아요 오버레이
   if (photos.length <= 1) {
     return (
-      <div className="relative overflow-hidden rounded-2xl">
-        <Slide p={photos[0]} />
-        {pagePath && <LikeOverlay p={photos[0]} pagePath={pagePath} />}
+      <div
+        className="relative max-h-[82vh] overflow-hidden rounded-2xl bg-black"
+        style={{ aspectRatio: frameAspect }}
+      >
+        <Slide p={photos[0]} alt={altFor(0)} />
+        {pagePath && <LikeOverlay key={photos[0].id} p={photos[0]} />}
       </div>
     );
   }
@@ -114,37 +151,38 @@ export function PhotoCarousel({
       <div
         ref={ref}
         onScroll={onScroll}
-        className="flex snap-x snap-mandatory overflow-x-auto scroll-smooth rounded-2xl scrollbar-none"
+        className="flex max-h-[82vh] snap-x snap-mandatory overflow-x-auto scroll-smooth rounded-2xl bg-black scrollbar-none"
+        style={{ aspectRatio: frameAspect }}
       >
-        {photos.map((p) => (
-          <div key={p.id} className="w-full shrink-0 snap-center">
-            <Slide p={p} />
+        {photos.map((p, i) => (
+          <div key={p.id} className="relative h-full w-full shrink-0 snap-center overflow-hidden">
+            <Slide p={p} alt={altFor(i)} />
           </div>
         ))}
       </div>
 
       {/* 현재 슬라이드 좋아요 */}
-      {pagePath && <LikeOverlay p={cur} pagePath={pagePath} />}
+      {pagePath && <LikeOverlay key={cur.id} p={cur} />}
 
       {/* 좌우 버튼 */}
       {idx > 0 && (
         <button
           type="button"
           onClick={() => go(idx - 1)}
-          className="absolute left-2 top-1/2 -translate-y-1/2 grid h-9 w-9 place-items-center rounded-full bg-black/40 text-white hover:bg-black/55"
+          className="absolute left-2 top-1/2 grid h-9 w-9 -translate-y-1/2 cursor-pointer place-items-center rounded-full bg-black/40 text-white transition-colors hover:bg-black/60"
           aria-label="이전 사진"
         >
-          ‹
+          <ChevronLeftIcon />
         </button>
       )}
       {idx < photos.length - 1 && (
         <button
           type="button"
           onClick={() => go(idx + 1)}
-          className="absolute right-2 top-1/2 -translate-y-1/2 grid h-9 w-9 place-items-center rounded-full bg-black/40 text-white hover:bg-black/55"
+          className="absolute right-2 top-1/2 grid h-9 w-9 -translate-y-1/2 cursor-pointer place-items-center rounded-full bg-black/40 text-white transition-colors hover:bg-black/60"
           aria-label="다음 사진"
         >
-          ›
+          <ChevronRightIcon />
         </button>
       )}
 
@@ -158,7 +196,7 @@ export function PhotoCarousel({
         {photos.map((p, i) => (
           <span
             key={p.id}
-            className={`h-1.5 w-1.5 rounded-full ${i === idx ? "bg-white" : "bg-white/45"}`}
+            className={cn("h-1.5 w-1.5 rounded-full", i === idx ? "bg-white" : "bg-white/45")}
           />
         ))}
       </div>
