@@ -5,50 +5,14 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
+import { getOrCreateConversation } from "@/lib/conversations";
 
-// 작가에게 채팅 시작 — 대화방 get-or-create 후 이동.
-// 사진에서 시작하면(photoId) 그 사진을 채팅 버블이 아니라 대화의 출처 사진으로 기록(상담 정보에 노출).
+// 작가에게 채팅 시작 — 기존 진입점 호환용. 신규 CTA는 문의 폼을 먼저 거친다.
 export async function startConversation(formData: FormData) {
   const photographerId = String(formData.get("photographerId"));
   const photoId = String(formData.get("photoId") || "");
-  const me = await getCurrentUser();
-  if (!me) redirect("/login");
-  // 본인이 그 작가면 자기 자신과 대화 불가
-  if (me.photographer?.id === photographerId) redirect("/studio");
-
-  const supabase = await createClient();
-  const { data: existing } = await supabase
-    .from("conversations")
-    .select("id")
-    .eq("user_id", me.id)
-    .eq("photographer_id", photographerId)
-    .maybeSingle();
-
-  if (existing) redirect(`/chat/${existing.id}`);
-
-  // 사진에서 시작했다면 그 사진 경로를 출처로 기록 — 채팅 버블이 아니라 상담 정보에 노출
-  let sourcePhotoPath: string | null = null;
-  if (photoId) {
-    const { data: photo } = await supabase
-      .from("photos")
-      .select("src_url, thumb_url")
-      .eq("id", photoId)
-      .maybeSingle();
-    if (photo) sourcePhotoPath = photo.thumb_url ?? photo.src_url;
-  }
-
-  const { data: created, error } = await supabase
-    .from("conversations")
-    .insert({
-      user_id: me.id,
-      photographer_id: photographerId,
-      source_photo_path: sourcePhotoPath,
-    })
-    .select("id")
-    .single();
-  if (error) throw new Error(error.message);
-
-  redirect(`/chat/${created.id}`);
+  const conversationId = await getOrCreateConversation(photographerId, photoId);
+  redirect(`/chat/${conversationId}`);
 }
 
 // 텍스트 메시지 전송 (RLS: 발신자=본인 + 대화 참여자)
