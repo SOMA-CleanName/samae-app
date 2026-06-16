@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { archiveAndDelete } from "@/lib/soft-delete";
 
 async function assertAdmin() {
   const me = await getCurrentUser();
@@ -74,12 +75,12 @@ export async function toggleCategoryPublished(formData: FormData) {
   revalidatePath("/admin/categories");
 }
 
-// 삭제
+// 삭제 (소프트딜리트 — 아카이브 후 제거)
 export async function deleteCategory(formData: FormData) {
-  await assertAdmin();
+  const me = await getCurrentUser();
+  if (!me || me.role !== "admin") throw new Error("운영자 권한이 필요합니다.");
   const id = String(formData.get("id"));
-  const admin = createAdminClient();
-  const { error } = await admin.from("categories").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  const { error } = await archiveAndDelete("categories", { col: "id", op: "eq", val: id }, me.id);
+  if (error) throw new Error(error);
   revalidatePath("/admin/categories");
 }

@@ -4,8 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
-
-const BUCKET = "samae-portfolio";
+import { archiveAndDelete } from "@/lib/soft-delete";
 
 // 피드 생성 — 같이 올린 사진들을 한 피드로 묶는다. album id 반환.
 // (1장만 올려도 피드 1개. 프로필 그리드에선 대표 1장만 보이고 클릭 시 스와이프)
@@ -182,15 +181,17 @@ export async function deletePost(formData: FormData) {
     .eq("album_id", albumId);
   const mine = (photos ?? []).filter((p) => p.photographer_id === phId);
 
+  // 소프트딜리트 — 행만 아카이브 후 제거. 스토리지 원본은 보존(복구 가능).
   if (mine.length > 0) {
-    const paths = mine.flatMap((p) => {
-      const main = p.storage_path as string;
-      return [main, main.replace(/\.jpg$/, "_thumb.jpg")];
-    });
-    await admin.storage.from(BUCKET).remove(paths);
-    await admin.from("photos").delete().in("id", mine.map((p) => p.id));
+    const { error } = await archiveAndDelete(
+      "photos",
+      { col: "id", op: "in", val: mine.map((p) => p.id) },
+      me.id
+    );
+    if (error) throw new Error(error);
   }
-  await admin.from("albums").delete().eq("id", albumId).eq("photographer_id", phId);
+  const { error: albErr } = await archiveAndDelete("albums", { col: "id", op: "eq", val: albumId }, me.id);
+  if (albErr) throw new Error(albErr);
   revalidatePath("/studio/portfolio");
 }
 
@@ -212,14 +213,9 @@ export async function deletePhoto(formData: FormData) {
     throw new Error("권한이 없습니다.");
   }
 
-  // Storage 파일 제거 (원본 + 썸네일)
-  const main = photo.storage_path as string;
-  const thumb = main.replace(/\.jpg$/, "_thumb.jpg");
-  await admin.storage.from(BUCKET).remove([main, thumb]);
-
-  // 행 제거
-  const { error } = await admin.from("photos").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  // 소프트딜리트 — 행만 아카이브 후 제거. 스토리지 원본은 보존(복구 가능).
+  const { error } = await archiveAndDelete("photos", { col: "id", op: "eq", val: id }, me.id);
+  if (error) throw new Error(error);
 
   revalidatePath("/studio/portfolio");
 }

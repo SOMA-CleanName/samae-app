@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { archiveAndDelete } from "@/lib/soft-delete";
 
 type Admin = ReturnType<typeof createAdminClient>;
 
@@ -109,13 +110,19 @@ export async function updateHighlight(formData: FormData) {
   revalidateHighlightViews();
 }
 
-// 삭제 — 항목은 cascade
+// 삭제 — 소프트딜리트(항목 + 하이라이트 아카이브 후 제거, 복구 가능)
 export async function deleteHighlight(formData: FormData) {
-  const phId = await requirePhotographerId();
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가만 사용할 수 있습니다.");
+  const phId = me.photographer.id;
   const id = String(formData.get("id"));
   const admin = createAdminClient();
   if (!(await ownsHighlight(admin, id, phId))) throw new Error("권한이 없습니다.");
-  await admin.from("highlights").delete().eq("id", id);
+
+  const r1 = await archiveAndDelete("highlight_items", { col: "highlight_id", op: "eq", val: id }, me.id);
+  if (r1.error) throw new Error(r1.error);
+  const r2 = await archiveAndDelete("highlights", { col: "id", op: "eq", val: id }, me.id);
+  if (r2.error) throw new Error(r2.error);
   revalidateHighlightViews();
 }
 
