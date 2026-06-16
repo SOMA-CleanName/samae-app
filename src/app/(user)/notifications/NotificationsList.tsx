@@ -86,7 +86,7 @@ export function NotificationsList({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [guideOpen, setGuideOpen] = useState(false);
   const [pending, startTransition] = useTransition();
-  const selectableItems = alerts.filter((item) => item.inquiry_id);
+  const selectableItems = alerts.filter((item) => item.type === "booking" && item.inquiry_id);
 
   function toggleSelecting() {
     if (selecting) return;
@@ -116,14 +116,18 @@ export function NotificationsList({
       await acceptInquiryNotifications(ids);
       const acceptedSet = new Set(ids);
       const moved = alerts
-        .filter((item) => acceptedSet.has(item.id) && item.inquiry_id)
+        .filter((item) => acceptedSet.has(item.id) && item.type === "booking" && item.inquiry_id)
         .sort((a, b) => {
           if (ids.length === 1) return 0;
           return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
         })
         .map(notificationToAcceptedInquiry);
       setAlerts((prev) => prev.filter((item) => !acceptedSet.has(item.id)));
-      setAcceptedList((prev) => [...prev, ...moved]);
+      // 이미 목록에 있는 건(서버 데이터)과 중복되지 않게 머지 (중복 key 방지)
+      setAcceptedList((prev) => {
+        const seen = new Set(prev.map((p) => p.id));
+        return [...prev, ...moved.filter((m) => !seen.has(m.id))];
+      });
       setGuideOpen(true);
       cancelSelecting();
     });
@@ -200,7 +204,7 @@ export function NotificationsList({
           const checked = selected.has(n.id);
           const inner = (
             <div className={`flex items-center gap-3 py-3 ${n.read_at ? "" : "bg-brand/[0.03]"}`}>
-              {selecting && n.inquiry_id ? (
+              {selecting && n.type === "booking" && n.inquiry_id ? (
                 <button
                   type="button"
                   onClick={() => toggleItem(n.id)}
@@ -218,22 +222,27 @@ export function NotificationsList({
                 />
               )}
 
-              <div className={`min-w-0 flex-1 ${n.inquiry_id ? "flex min-h-[44px] items-center" : ""}`}>
-                <div>
-                  {display.title && <p className="text-sm font-bold">{display.title}</p>}
-                  {display.body && (
-                    <p
-                      className={`whitespace-pre-line text-sm ${
-                        n.inquiry_id ? "font-bold text-fg" : "mt-0.5 text-fg/60"
-                      }`}
-                    >
-                      {display.body}
-                    </p>
-                  )}
-                </div>
-              </div>
+              {(() => {
+                const isAlert = n.type === "booking" && !!n.inquiry_id;
+                return (
+                  <div className={`min-w-0 flex-1 ${isAlert ? "flex min-h-[44px] items-center" : ""}`}>
+                    <div>
+                      {display.title && <p className="text-sm font-bold">{display.title}</p>}
+                      {display.body && (
+                        <p
+                          className={`whitespace-pre-line text-sm ${
+                            isAlert ? "font-bold text-fg" : "mt-0.5 text-fg/60"
+                          }`}
+                        >
+                          {display.body}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
               <span className="shrink-0 text-xs text-fg/40">{itemTimeLabel(n.created_at)}</span>
-              {n.inquiry_id && !selecting && (
+              {n.type === "booking" && n.inquiry_id && !selecting && (
                 <button
                   type="button"
                   onClick={() => acceptAlert(n.id)}
@@ -457,7 +466,8 @@ function AcceptGuideDialog({ account, onClose }: { account: Account; onClose: ()
 }
 
 function notificationDisplay(n: AppNotification) {
-  if (!n.inquiry_id) {
+  // 문의 '수락 대기' 알림(booking)만 특수 표시. 그 외(입금확인 payment 등)는 일반 제목/본문.
+  if (!n.inquiry_id || n.type !== "booking") {
     return { title: n.title, body: n.body ? n.body.split("\n")[0] : "" };
   }
 
