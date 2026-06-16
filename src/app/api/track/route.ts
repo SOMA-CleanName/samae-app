@@ -17,7 +17,53 @@ function isCustomerPath(path: string): boolean {
   return !/^\/(admin|studio)(\/|$)/.test(path);
 }
 
+// 같은 출처에서 온 요청만 허용 — 미인증 공개 엔드포인트의 익명 스팸 적재(타사이트/봇) 차단.
+// Origin(우선) → Referer 순으로 호스트가 요청 호스트와 일치하는지 확인. 둘 다 없으면 거부.
+function sameOriginOk(req: Request): boolean {
+  const host = req.headers.get("host");
+  if (!host) return false;
+  for (const h of [req.headers.get("origin"), req.headers.get("referer")]) {
+    if (!h) continue;
+    try {
+      return new URL(h).host === host;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
+// 간단 레이트리밋 (인메모리 토큰버킷). 서버리스라 인스턴스별이지만 익명 스팸의 1차 방어.
+//   · 키: 클라이언트 IP. 버스트 30, 초당 1개 보충.
+const RATE_CAPACITY = 30;
+const RATE_REFILL_PER_SEC = 1;
+const buckets = new Map<string, { tokens: number; ts: number }>();
+
+function allowRate(key: string): boolean {
+  const now = Date.now();
+  const b = buckets.get(key);
+  if (!b) {
+    buckets.set(key, { tokens: RATE_CAPACITY - 1, ts: now });
+    return true;
+  }
+  b.tokens = Math.min(RATE_CAPACITY, b.tokens + ((now - b.ts) / 1000) * RATE_REFILL_PER_SEC);
+  b.ts = now;
+  if (b.tokens < 1) return false;
+  b.tokens -= 1;
+  return true;
+}
+
+function clientKey(req: Request): string {
+  const fwd = req.headers.get("x-forwarded-for");
+  return (fwd ? fwd.split(",")[0] : "") || req.headers.get("x-real-ip") || "unknown";
+}
+
 export async function POST(req: Request) {
+  // 출처 검증 — 같은 사이트에서 온 요청만 적재
+  if (!sameOriginOk(req)) return new NextResponse(null, { status: 403 });
+  // 레이트리밋 — IP 단위 토큰버킷
+  if (!allowRate(clientKey(req))) return new NextResponse(null, { status: 429 });
+
   let body: unknown;
   try {
     body = await req.json();

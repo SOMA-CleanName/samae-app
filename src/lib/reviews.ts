@@ -2,6 +2,7 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentUser } from "@/lib/auth";
 
 export type Review = {
   id: string;
@@ -28,11 +29,15 @@ export async function getReviewByBooking(bookingId: string): Promise<Review | nu
   return (data as Review) ?? null;
 }
 
-// 한 작가의 모든 후기 (최신순). 작성자 이름은 profiles RLS(본인만)에 막히므로 admin으로 읽되,
-// ⚠️ 호출자가 이 작가 본인임을 먼저 보장해야 한다(스튜디오 페이지가 me.photographer로 게이트).
+// 한 작가의 모든 후기 (최신순). 작성자 이름은 profiles RLS(본인만)에 막히므로 admin으로 읽는다.
+// service_role 우회이므로 호출자 가드에만 의존하지 않고, 함수 내부에서도 '요청자=해당 작가 본인'을
+// 강제하는 백스톱을 둔다(타작가 후기·고객 실명 유출 방지).
 export async function listReviewsForPhotographer(
   photographerId: string
 ): Promise<PhotographerReview[]> {
+  const me = await getCurrentUser();
+  if (!me?.photographer || me.photographer.id !== photographerId) return [];
+
   const admin = createAdminClient();
   const { data } = await admin
     .from("reviews")
