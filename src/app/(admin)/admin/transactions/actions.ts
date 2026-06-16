@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { archiveAllAndDelete } from "@/lib/soft-delete";
 
 const VALID = ["pending", "scheduled", "paid", "held"];
 const RESET_PASSWORD = "same123!";
@@ -14,26 +15,17 @@ async function assertAdmin() {
 
 export type ResetState = { error?: string; ok?: boolean };
 
-// 거래·정산 전체 초기화 — 운영자 + 비밀번호.
-// bookings 를 참조하는 restrict 테이블(settlements·payments·platform_fees)을 먼저 삭제.
+// 거래·정산 전체 초기화 — 소프트딜리트(아카이브 후 제거). 운영자 + 비밀번호.
+// 순서 중요: bookings 를 restrict 로 참조하는 테이블 먼저(없는 테이블은 자동 스킵).
 export async function clearTransactions(_prev: ResetState, formData: FormData): Promise<ResetState> {
   const me = await getCurrentUser();
   if (!me || me.role !== "admin") return { error: "운영자 권한이 필요합니다." };
   if (String(formData.get("password") ?? "") !== RESET_PASSWORD) return { error: "비밀번호가 올바르지 않아요." };
 
-  const admin = createAdminClient();
-
-  // 없는 테이블(스키마 미존재)은 건너뜀
-  const isMissingTable = (e: { code?: string; message?: string }) =>
-    e.code === "PGRST205" || e.code === "42P01" || /could not find the table/i.test(e.message ?? "");
-
-  // 순서 중요: bookings 를 restrict 로 참조하는 테이블 먼저
-  for (const t of ["settlements", "platform_fees", "payments"]) {
-    const { error } = await admin.from(t).delete().not("id", "is", null);
-    if (error && !isMissingTable(error)) return { error: `${t}: ${error.message}` };
+  for (const t of ["settlements", "platform_fees", "payments", "bookings"]) {
+    const { error } = await archiveAllAndDelete(t, me.id);
+    if (error) return { error };
   }
-  const { error } = await admin.from("bookings").delete().not("id", "is", null);
-  if (error && !isMissingTable(error)) return { error: `bookings: ${error.message}` };
 
   revalidatePath("/admin/transactions");
   return { ok: true };
