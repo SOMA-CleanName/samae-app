@@ -4,6 +4,7 @@ import { randomUUID } from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
+import { notifyOpsNewInquiry } from "@/lib/ops-alert";
 
 export type InquiryState = {
   ok: boolean;
@@ -20,6 +21,7 @@ const MAX_REF_IMAGES = 5;
 export type InquiryValues = {
   phone: string;
   instagramId: string;
+  kakaoId: string;
   extraContact: string;
   brief: InquiryBriefValues;
 };
@@ -27,11 +29,11 @@ export type InquiryValues = {
 type ContactInfo = {
   phone: string | null;
   instagramId: string | null;
+  kakaoId: string | null;
   extraContact: string | null;
 };
 
 type BriefInfo = {
-  gender: string | null;
   partySize: string | null;
   purpose: string | null;
   preferredDate: string | null;
@@ -41,7 +43,6 @@ type BriefInfo = {
 };
 
 type InquiryBriefValues = {
-  gender: string;
   partySize: string;
   purpose: string;
   preferredDate: string;
@@ -73,18 +74,19 @@ function fieldText(formData: FormData, key: string) {
 function validateContactInfo(formData: FormData): ContactInfo {
   const phone = validatePhone(fieldText(formData, "phone"));
   const instagramId = normalizeInstagramId(fieldText(formData, "instagramId"));
+  const kakaoId = fieldText(formData, "kakaoId");
   const extraContact = fieldText(formData, "extraContact");
 
-  if (!phone && !instagramId && !extraContact) {
+  if (!phone && !instagramId && !kakaoId && !extraContact) {
     throw new Error("연락 가능한 수단을 하나 이상 입력해주세요.");
   }
 
-  return { phone, instagramId, extraContact };
+  return { phone, instagramId, kakaoId, extraContact };
 }
 
 function validateBriefInfo(formData: FormData): BriefInfo {
   const brief = readBriefInfo(formData);
-  if (!brief.partySize || !brief.purpose || !brief.preferredDate) {
+  if (!brief.partySize || !brief.purpose || !brief.preferredDate || !brief.region) {
     throw new Error("상담 정보를 먼저 작성해주세요.");
   }
   return brief;
@@ -94,6 +96,7 @@ function readInquiryValues(formData: FormData): InquiryValues {
   return {
     phone: String(formData.get("phone") || ""),
     instagramId: String(formData.get("instagramId") || ""),
+    kakaoId: String(formData.get("kakaoId") || ""),
     extraContact: String(formData.get("extraContact") || ""),
     brief: readBriefValues(formData),
   };
@@ -101,7 +104,6 @@ function readInquiryValues(formData: FormData): InquiryValues {
 
 function readBriefValues(formData: FormData) {
   return {
-    gender: String(formData.get("gender") || ""),
     partySize: String(formData.get("partySize") || ""),
     purpose: String(formData.get("purpose") || ""),
     preferredDate: String(formData.get("preferredDate") || ""),
@@ -113,7 +115,6 @@ function readBriefValues(formData: FormData) {
 function readBriefInfo(formData: FormData): BriefInfo {
   const values = readBriefValues(formData);
   return {
-    gender: values.gender.trim() || null,
     partySize: values.partySize.trim() || null,
     purpose: values.purpose.trim() || null,
     preferredDate: values.preferredDate.trim() || null,
@@ -171,6 +172,15 @@ export async function submitInquiry(
 
   await notifyPhotographer(photographerId, inquiryId, me?.displayName ?? null, contact, brief);
 
+  // 운영진 디스코드 알림 — 리드 플로우 시작(운영진이 작가에게 카톡 통보). PII 미포함, 실패해도 접수는 성공.
+  await notifyOpsNewInquiry({
+    inquiryId,
+    photographerId,
+    purpose: brief.purpose,
+    preferredDate: brief.preferredDate,
+    region: brief.region,
+  });
+
   return {
     ok: true,
     message: "문의가 작가에게 전달되었어요. 작가가 확인 후 연락드릴 예정입니다.",
@@ -193,10 +203,10 @@ async function createInquiry(
       source_photo_id: photoId || null,
       phone: contact.phone,
       instagram_id: contact.instagramId,
-      discord_id: null,
+      // discord_id 컬럼을 카카오 아이디 저장에 재사용(디스코드 채널 미사용)
+      discord_id: contact.kakaoId,
       contact_email: null,
       extra_contact: contact.extraContact,
-      gender: brief.gender,
       party_size: parsePartySize(brief.partySize),
       purpose: brief.purpose,
       preferred_date: brief.preferredDate,

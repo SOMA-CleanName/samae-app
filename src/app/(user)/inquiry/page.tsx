@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import {
   fetchPhotoById,
@@ -7,6 +6,7 @@ import {
 } from "@/lib/discovery";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { Avatar } from "@/components/ui";
 import { InquiryForm } from "./InquiryForm";
 import { InquiryBackButton } from "./InquiryBackButton";
 
@@ -51,31 +51,18 @@ export default async function InquiryPage({
         <InquiryBackButton fallbackHref={`/photographers/${photographerId}`} />
       </div>
 
-      <section className="grid min-h-[650px] overflow-hidden rounded-2xl border border-line bg-surface shadow-sm md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+      <section className="grid min-h-[650px] overflow-hidden rounded-2xl border border-line bg-surface shadow-sm md:h-[650px] md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
         <InquiryMediaPanel
           src={media.src}
           label={media.label}
-          fallbackName={photographer.display_name || "작가"}
+          name={photographer.display_name || "작가"}
         />
 
-        <div className="px-5 pt-5 pb-9 sm:px-6 sm:pt-6 sm:pb-11">
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm text-muted">{photographer.display_name || "작가"} 작가님께 문의하기</p>
-                <Link
-                  href={`/photographers/${photographerId}`}
-                  className="text-xs text-fg/50 transition-all hover:font-semibold hover:text-fg"
-                >
-                  &gt; 작가 프로필 방문하기
-                </Link>
-              </div>
-            </div>
-          </div>
-
+        <div className="min-h-0 px-5 pt-5 pb-9 sm:px-6 sm:pt-6 sm:pb-11 md:overflow-y-auto">
           <InquiryForm
             photographerId={photographerId}
             photoId={photoId}
+            photographerName={photographer.display_name || "작가"}
             initialPhone={(profile?.phone as string | null) ?? ""}
             initialInstagramId={(profile?.instagram_id as string | null) ?? ""}
           />
@@ -107,23 +94,30 @@ async function getInquiryMedia(photoId: string, photographerId: string) {
 function InquiryMediaPanel({
   src,
   label,
-  fallbackName,
+  name,
 }: {
   src: string | null;
   label: string;
-  fallbackName: string;
+  name: string;
 }) {
   return (
     <div className="relative min-h-80 bg-fg/[0.04] md:min-h-full">
       {src ? (
-        <img src={src} alt={label} className="absolute inset-0 h-full w-full object-cover" />
+        // 모바일: 고정 높이 박스라 잘리지 않게 전체 사진 표시(contain) · 데스크톱: 긴 사이드 패널 채우기(cover)
+        <img src={src} alt={label} className="absolute inset-0 h-full w-full object-contain md:object-cover" />
       ) : (
         <div className="absolute inset-0 grid place-items-center bg-fg/[0.04]">
           <div className="grid h-24 w-24 place-items-center rounded-full bg-bg text-3xl font-semibold text-fg/45 shadow-sm">
-            {fallbackName.slice(0, 1)}
+            {name.slice(0, 1)}
           </div>
         </div>
       )}
+
+      {/* 작가 정보 — 사진 오른쪽 하단 오버레이 */}
+      <div className="absolute bottom-3 right-3 flex items-center gap-2 rounded-full bg-black/45 py-1 pl-1 pr-3 backdrop-blur-sm">
+        <Avatar name={name} size="sm" className="ring-1 ring-white/50" />
+        <span className="text-caption font-semibold text-white">{name}</span>
+      </div>
     </div>
   );
 }
