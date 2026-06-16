@@ -7,7 +7,6 @@ export const dynamic = "force-dynamic";
 
 type Row = {
   id: string;
-  handle: string;
   display_name: string | null;
   bio: string;
   regions: string[];
@@ -34,7 +33,7 @@ export default async function AdminPhotographersPage() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("photographers")
-    .select("id, handle, display_name, bio, regions, mood_tags, price_from_krw, review_count, status, created_at")
+    .select("id, display_name, bio, regions, mood_tags, price_from_krw, review_count, status, created_at")
     .order("created_at", { ascending: false });
 
   const rows = (data ?? []) as Row[];
@@ -94,7 +93,7 @@ export default async function AdminPhotographersPage() {
                 <Avatar name={r.display_name} size="sm" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-body-sm font-semibold text-fg">{r.display_name || "이름 없음"}</p>
-                  <p className="truncate text-caption text-faint">@{r.handle} · 후기 {r.review_count}</p>
+                  <p className="truncate text-caption text-faint">후기 {r.review_count}</p>
                 </div>
                 <StatusBadge status={r.status} />
                 <RowAction row={r} />
@@ -118,7 +117,7 @@ function ApplicantHeader({ row }: { row: Row }) {
           <StatusBadge status={row.status} />
         </div>
         <p className="mt-0.5 text-caption text-faint">
-          @{row.handle} · 신청 {when(row.created_at)} · 시작가 ₩{fmt.format(row.price_from_krw)}
+          신청 {when(row.created_at)} · 시작가 ₩{fmt.format(row.price_from_krw)}
         </p>
       </div>
     </div>

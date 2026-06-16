@@ -177,10 +177,15 @@ export async function deliverFinals(formData: FormData) {
     );
 
   // 거래 완료 전이 (사용자 확인 생략)
-  await admin
+  // TOCTOU 방지 — 위 read 이후 상태가 바뀌었을 수 있으므로 paid/shot 일 때만 원자적으로 전이.
+  // (환불 등으로 refunded 가 된 예약을 completed 로 덮어쓰는 경쟁 차단)
+  const { data: completed } = await admin
     .from("bookings")
     .update({ status: "completed", delivered_at: now, completed_at: now })
-    .eq("id", id);
+    .eq("id", id)
+    .in("status", ["paid", "shot"])
+    .select("id");
+  if (!completed || completed.length === 0) throw new Error("전달할 수 없는 상태입니다.");
 
   // 채팅 완료 안내 + 알림 (후기 유도는 카드가 담당)
   await postSystemMessage(
@@ -344,7 +349,14 @@ export async function refundBooking(formData: FormData) {
   if (!["paid", "shot", "delivered"].includes(b.status)) throw new Error("환불할 수 없는 상태입니다.");
 
   // 예약·결제 상태 정리 (전액 환불 기준 — 직접이체라 부분환불은 당사자 간 처리)
-  await admin.from("bookings").update({ status: "refunded" }).eq("id", id);
+  // TOCTOU 방지 — read 이후 상태 변경 경쟁 차단. 환불 가능 상태일 때만 원자적으로 전이.
+  const { data: refunded } = await admin
+    .from("bookings")
+    .update({ status: "refunded" })
+    .eq("id", id)
+    .in("status", ["paid", "shot", "delivered"])
+    .select("id");
+  if (!refunded || refunded.length === 0) throw new Error("환불할 수 없는 상태입니다.");
   const { data: payment } = await admin
     .from("payments")
     .select("id, amount_krw")

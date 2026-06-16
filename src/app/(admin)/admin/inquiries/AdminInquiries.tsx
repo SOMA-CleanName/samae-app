@@ -9,13 +9,14 @@ import { confirmInquiryDeposit, revertInquiryDeposit, setInquiryStatus } from ".
 
 const fmt = new Intl.NumberFormat("ko-KR");
 
-export type Stage = "new" | "await" | "confirmed" | "done";
+export type Stage = "new" | "await" | "confirmed" | "shot" | "refund";
 
 export type InquiryRow = {
   id: string;
   stage: Stage;
   status: string;
   createdAt: string;
+  photographerId: string;
   purpose: string;
   preferredDate: string;
   region: string | null;
@@ -34,16 +35,16 @@ const STAGE: Record<Stage, { label: string; tone: "warning" | "success" | "neutr
   new: { label: "접수", tone: "neutral" },
   await: { label: "입금대기", tone: "warning" },
   confirmed: { label: "입금확인", tone: "success" },
-  done: { label: "종료", tone: "neutral" },
+  shot: { label: "촬영완료", tone: "neutral" },
+  refund: { label: "환불신청", tone: "warning" },
 };
 
 const STATUS_OPTIONS = [
   { v: "new", l: "접수" },
   { v: "accepted", l: "입금대기" },
   { v: "confirmed", l: "입금확인" },
-  { v: "contacted", l: "연락함" },
-  { v: "converted", l: "전환" },
-  { v: "closed", l: "종료" },
+  { v: "shot", l: "촬영완료" },
+  { v: "refund_requested", l: "환불신청" },
 ];
 
 function dt(iso: string) {
@@ -56,16 +57,53 @@ function dt(iso: string) {
   }).format(new Date(iso));
 }
 
+// 날짜 구분선용 (Asia/Seoul)
+function dateKey(iso: string) {
+  return new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: "Asia/Seoul",
+  }).format(new Date(iso));
+}
+function dateLabel(iso: string) {
+  return new Intl.DateTimeFormat("ko-KR", {
+    month: "long",
+    day: "numeric",
+    weekday: "short",
+    timeZone: "Asia/Seoul",
+  }).format(new Date(iso));
+}
+// 입력은 최신순 정렬 가정 — 연속 같은 날짜끼리 묶는다
+function groupByDate(rows: InquiryRow[]) {
+  const groups: { key: string; label: string; items: InquiryRow[] }[] = [];
+  for (const r of rows) {
+    const key = dateKey(r.createdAt);
+    const last = groups[groups.length - 1];
+    if (last && last.key === key) last.items.push(r);
+    else groups.push({ key, label: dateLabel(r.createdAt), items: [r] });
+  }
+  return groups;
+}
+
 export function AdminInquiries({ rows }: { rows: InquiryRow[] }) {
   const [open, setOpen] = useState<string | null>(null);
 
   return (
-    <ul className="mt-4 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
-      {rows.map((r) => {
-        const st = STAGE[r.stage];
-        const isOpen = open === r.id;
-        return (
-          <li key={r.id}>
+    <div className="mt-4 flex flex-col gap-5">
+      {groupByDate(rows).map((group) => (
+        <div key={group.key}>
+          {/* 날짜 구분선 */}
+          <div className="flex items-center gap-3">
+            <span className="shrink-0 text-caption font-medium text-faint">{group.label}</span>
+            <span className="h-px flex-1 bg-line" />
+          </div>
+          <ul className="mt-2 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
+            {group.items.map((r) => {
+              const st = STAGE[r.stage];
+              const isOpen = open === r.id;
+              return (
+                <li key={r.id}>
             {/* 요약 행 — 컴팩트 */}
             <div className="flex items-center gap-3 px-3 py-2.5 sm:px-4">
               <button
@@ -182,9 +220,12 @@ export function AdminInquiries({ rows }: { rows: InquiryRow[] }) {
                 </div>
               </div>
             )}
-          </li>
-        );
-      })}
-    </ul>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+    </div>
   );
 }

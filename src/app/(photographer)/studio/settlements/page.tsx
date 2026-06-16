@@ -1,25 +1,27 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { listMyFees, FEE_LABEL, PLATFORM_FEE_KRW } from "@/lib/payments";
+import { listMyAcceptedInquiries } from "@/lib/inquiries";
 
-// 작가 수수료 내역 — 매칭 건당 플랫폼 수수료(작가 부담)를 누적·표시.
-// 사용자→작가 촬영비는 직접 계좌이체이므로 플랫폼이 보관/정산하지 않는다.
+// 작가 수수료 내역 — 리드(문의) 언락 모델.
+// 작가가 해제 신청한 리드마다 건당 입금액(deposit_amount_krw)이 발생하며,
+// 운영진 입금 확인(confirmed) 전이면 '입금 대기', 확인되면 '납부 완료'.
+// 사용자→작가 촬영비는 오프플랫폼(직접 협의)이라 플랫폼이 보관/정산하지 않는다.
 export default async function FeesPage() {
   const me = await getCurrentUser();
   if (!me) redirect("/login?next=/studio/settlements");
   if (!me.photographer) redirect("/studio");
 
-  const fees = await listMyFees();
+  const leads = await listMyAcceptedInquiries();
   const fmt = new Intl.NumberFormat("ko-KR");
 
-  // 미납(발생·청구) vs 납부 완료 합계
-  const dueTotal = fees
-    .filter((f) => f.status === "accrued" || f.status === "billed")
-    .reduce((sum, f) => sum + f.fee_krw, 0);
-  const paidTotal = fees
-    .filter((f) => f.status === "paid")
-    .reduce((sum, f) => sum + f.fee_krw, 0);
+  // 입금 대기(미확인) vs 납부 완료(입금 확인) 합계
+  const dueTotal = leads
+    .filter((l) => !l.confirmed)
+    .reduce((sum, l) => sum + l.deposit_amount_krw, 0);
+  const paidTotal = leads
+    .filter((l) => l.confirmed)
+    .reduce((sum, l) => sum + l.deposit_amount_krw, 0);
 
   return (
     <main className="mx-auto max-w-3xl px-4 sm:px-6 py-10 font-kr">
@@ -28,12 +30,12 @@ export default async function FeesPage() {
       </Link>
       <h1 className="mt-4 text-2xl font-semibold">수수료 내역</h1>
       <p className="mt-1 text-xs text-fg/45">
-        매칭 건당 플랫폼 수수료 ₩{fmt.format(PLATFORM_FEE_KRW)} (작가 부담) · 월 단위 청구
+        해제 신청한 리드마다 건당 입금액이 발생해요 · 운영진 입금 확인 시 연락처가 공개됩니다
       </p>
 
       <div className="mt-6 grid grid-cols-2 gap-3">
         <div className="rounded-xl border border-fg/10 p-4">
-          <p className="text-xs text-fg/50">미납 (청구 예정)</p>
+          <p className="text-xs text-fg/50">입금 대기</p>
           <p className="mt-1 text-lg font-semibold text-brand">₩{fmt.format(dueTotal)}</p>
         </div>
         <div className="rounded-xl border border-fg/10 p-4">
@@ -42,37 +44,27 @@ export default async function FeesPage() {
         </div>
       </div>
 
-      {fees.length === 0 ? (
+      {leads.length === 0 ? (
         <p className="mt-6 rounded-xl border border-fg/10 p-6 text-sm text-fg/60">
-          아직 수수료 내역이 없어요. 입금이 확인된 예약부터 매칭 수수료가 발생합니다.
+          아직 해제 신청한 리드가 없어요. 문의 리스트에서 연락처를 해제하면 여기에 표시됩니다.
         </p>
       ) : (
         <ul className="mt-6 flex flex-col gap-2">
-          {fees.map((f) => (
-            <li key={f.id}>
-              <Link
-                href={`/bookings/${f.booking_id}`}
-                className="flex items-center justify-between gap-4 rounded-xl border border-fg/10 px-4 py-3 text-sm hover:border-fg/25 transition-colors"
-              >
-                <span className="min-w-0">
-                  <span className="block truncate font-medium">
-                    {f.booking?.user?.display_name || "고객"}
-                  </span>
-                  <span className="block text-xs text-fg/50">
-                    {FEE_LABEL[f.status]}
-                    {f.period ? ` · ${f.period}` : ""}
-                  </span>
+          {leads.map((l) => (
+            <li
+              key={l.id}
+              className="flex items-center justify-between gap-4 rounded-xl border border-fg/10 px-4 py-3 text-sm"
+            >
+              <span className="min-w-0">
+                <span className="block truncate font-medium">{l.display_name || "고객"}</span>
+                <span className="block text-xs text-fg/50">
+                  {l.confirmed ? "납부 완료" : "입금 대기"}
+                  {l.purpose ? ` · ${l.purpose}` : ""}
                 </span>
-                <span className="shrink-0 text-right">
-                  <span
-                    className={`block font-semibold ${
-                      f.status === "waived" ? "text-fg/40 line-through" : ""
-                    }`}
-                  >
-                    ₩{fmt.format(f.fee_krw)}
-                  </span>
-                </span>
-              </Link>
+              </span>
+              <span className="shrink-0 text-right font-semibold">
+                ₩{fmt.format(l.deposit_amount_krw)}
+              </span>
             </li>
           ))}
         </ul>

@@ -4,6 +4,7 @@ import { randomUUID } from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
+import { notifyOpsNewInquiry } from "@/lib/ops-alert";
 
 export type InquiryState = {
   ok: boolean;
@@ -20,6 +21,7 @@ const MAX_REF_IMAGES = 5;
 export type InquiryValues = {
   phone: string;
   instagramId: string;
+  kakaoId: string;
   extraContact: string;
   brief: InquiryBriefValues;
 };
@@ -27,11 +29,11 @@ export type InquiryValues = {
 type ContactInfo = {
   phone: string | null;
   instagramId: string | null;
+  kakaoId: string | null;
   extraContact: string | null;
 };
 
 type BriefInfo = {
-  gender: string | null;
   partySize: string | null;
   purpose: string | null;
   preferredDate: string | null;
@@ -41,7 +43,6 @@ type BriefInfo = {
 };
 
 type InquiryBriefValues = {
-  gender: string;
   partySize: string;
   purpose: string;
   preferredDate: string;
@@ -73,18 +74,19 @@ function fieldText(formData: FormData, key: string) {
 function validateContactInfo(formData: FormData): ContactInfo {
   const phone = validatePhone(fieldText(formData, "phone"));
   const instagramId = normalizeInstagramId(fieldText(formData, "instagramId"));
+  const kakaoId = fieldText(formData, "kakaoId");
   const extraContact = fieldText(formData, "extraContact");
 
-  if (!phone && !instagramId && !extraContact) {
+  if (!phone && !instagramId && !kakaoId && !extraContact) {
     throw new Error("연락 가능한 수단을 하나 이상 입력해주세요.");
   }
 
-  return { phone, instagramId, extraContact };
+  return { phone, instagramId, kakaoId, extraContact };
 }
 
 function validateBriefInfo(formData: FormData): BriefInfo {
   const brief = readBriefInfo(formData);
-  if (!brief.partySize || !brief.purpose || !brief.preferredDate) {
+  if (!brief.partySize || !brief.purpose || !brief.preferredDate || !brief.region) {
     throw new Error("상담 정보를 먼저 작성해주세요.");
   }
   return brief;
@@ -94,6 +96,7 @@ function readInquiryValues(formData: FormData): InquiryValues {
   return {
     phone: String(formData.get("phone") || ""),
     instagramId: String(formData.get("instagramId") || ""),
+    kakaoId: String(formData.get("kakaoId") || ""),
     extraContact: String(formData.get("extraContact") || ""),
     brief: readBriefValues(formData),
   };
@@ -101,7 +104,6 @@ function readInquiryValues(formData: FormData): InquiryValues {
 
 function readBriefValues(formData: FormData) {
   return {
-    gender: String(formData.get("gender") || ""),
     partySize: String(formData.get("partySize") || ""),
     purpose: String(formData.get("purpose") || ""),
     preferredDate: String(formData.get("preferredDate") || ""),
@@ -113,7 +115,6 @@ function readBriefValues(formData: FormData) {
 function readBriefInfo(formData: FormData): BriefInfo {
   const values = readBriefValues(formData);
   return {
-    gender: values.gender.trim() || null,
     partySize: values.partySize.trim() || null,
     purpose: values.purpose.trim() || null,
     preferredDate: values.preferredDate.trim() || null,
@@ -171,9 +172,18 @@ export async function submitInquiry(
 
   await notifyPhotographer(photographerId, inquiryId, me?.displayName ?? null, contact, brief);
 
+  // 운영진 디스코드 알림 — 리드 플로우 시작(운영진이 작가에게 카톡 통보). PII 미포함, 실패해도 접수는 성공.
+  await notifyOpsNewInquiry({
+    inquiryId,
+    photographerId,
+    purpose: brief.purpose,
+    preferredDate: brief.preferredDate,
+    region: brief.region,
+  });
+
   return {
     ok: true,
-    message: "작가에게 연락처가 전송되었습니다. 곧 연락을 할 예정입니다.",
+    message: "문의가 작가에게 전달되었어요. 작가가 확인 후 연락드릴 예정입니다.",
   };
 }
 
@@ -193,10 +203,10 @@ async function createInquiry(
       source_photo_id: photoId || null,
       phone: contact.phone,
       instagram_id: contact.instagramId,
-      discord_id: null,
+      // discord_id 컬럼을 카카오 아이디 저장에 재사용(디스코드 채널 미사용)
+      discord_id: contact.kakaoId,
       contact_email: null,
       extra_contact: contact.extraContact,
-      gender: brief.gender,
       party_size: parsePartySize(brief.partySize),
       purpose: brief.purpose,
       preferred_date: brief.preferredDate,
@@ -237,20 +247,21 @@ async function notifyPhotographer(
   });
 }
 
-function inquiryNickname(displayName: string | null, contact: ContactInfo) {
-  return displayName || contact.instagramId || contact.extraContact || "비회원";
+function inquiryNickname(displayName: string | null) {
+  // 연락처(인스타/기타)는 입금 확인 전 노출 금지 — 닉네임 fallback에도 쓰지 않는다.
+  return displayName || "비회원";
 }
 
-function buildInquiryBody(displayName: string | null, contact: ContactInfo, brief: BriefInfo) {
+// 알림 본문에는 연락처(전화/인스타/기타)를 절대 담지 않는다.
+// 연락처는 운영자 입금 확인(status='confirmed') 후 listMyAcceptedInquiries 경로로만 공개된다.
+function buildInquiryBody(displayName: string | null, _contact: ContactInfo, brief: BriefInfo) {
   const lines = [
-    `${inquiryNickname(displayName, contact)} 님이 예약 문의를 하였습니다.`,
-    contact.phone && `전화번호: ${contact.phone}`,
-    contact.instagramId && `인스타: ${contact.instagramId}`,
-    contact.extraContact && `기타 연락처: ${contact.extraContact}`,
+    `${inquiryNickname(displayName)} 님이 예약 문의를 하였습니다.`,
     `목적: ${brief.purpose}`,
     `희망 일정: ${brief.preferredDate}`,
     brief.region && `희망 지역: ${brief.region}`,
     brief.refImagePaths.length > 0 && `레퍼런스 사진: ${brief.refImagePaths.length}장`,
+    "수락 후 입금이 확인되면 연락처가 공개됩니다.",
   ].filter(Boolean);
 
   return lines.join("\n");

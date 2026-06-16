@@ -234,6 +234,62 @@ export async function acceptInquiry(formData: FormData) {
   revalidatePath("/notifications");
 }
 
+// ─────────────────────────────────────────────
+// 리드 다중 해제 신청 — 작가가 블러 리스트에서 여러 건 선택 → new → accepted(입금 대기).
+// 선택분만 원자적으로 전이하고, 실제로 전이된 건수를 반환(이미 수락됐거나 타인 문의는 제외).
+// ─────────────────────────────────────────────
+export async function unlockInquiries(ids: string[]): Promise<{ ok: boolean; count: number }> {
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가 권한이 필요합니다.");
+
+  const clean = Array.from(new Set(ids.filter((v) => typeof v === "string" && v))).slice(0, 50);
+  if (clean.length === 0) return { ok: true, count: 0 };
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("inquiries")
+    .update({ status: "accepted", accepted_at: new Date().toISOString() })
+    .eq("photographer_id", me.photographer.id) // 본인 문의만
+    .eq("status", "new") // 아직 미수락인 것만
+    .in("id", clean)
+    .select("id");
+  if (error) throw new Error(error.message);
+
+  // 해제된 문의의 '수락 대기' 알림 읽음 처리
+  const unlockedIds = (data ?? []).map((d) => d.id as string);
+  if (unlockedIds.length > 0) {
+    await admin
+      .from("notifications")
+      .update({ read_at: new Date().toISOString() })
+      .eq("recipient_id", me.id)
+      .eq("type", "booking")
+      .in("inquiry_id", unlockedIds);
+  }
+
+  revalidatePath("/studio");
+  revalidatePath("/notifications");
+  return { ok: true, count: unlockedIds.length };
+}
+
+// 입금대기 취소 — 작가가 해제 신청(accepted)을 되돌린다. accepted → new(다시 받은 문의로).
+// 입금 확인(confirmed) 이후에는 취소 불가(연락처가 이미 공개됨).
+export async function cancelInquiryUnlock(id: string): Promise<{ ok: boolean }> {
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가 권한이 필요합니다.");
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("inquiries")
+    .update({ status: "new", accepted_at: null })
+    .eq("id", id)
+    .eq("photographer_id", me.photographer.id) // 본인 문의만
+    .eq("status", "accepted"); // 입금대기만 — confirmed 는 되돌릴 수 없음
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/studio");
+  return { ok: true };
+}
+
 // 현재 사용자의 작가 id 조회 (RLS: 본인 행)
 async function getCurrentPhotographerId(
   supabase: Awaited<ReturnType<typeof createClient>>,

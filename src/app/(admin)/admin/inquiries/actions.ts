@@ -5,7 +5,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { archiveAllAndDelete } from "@/lib/soft-delete";
 
-const VALID = ["new", "accepted", "confirmed", "contacted", "converted", "closed"];
+const VALID = ["new", "accepted", "confirmed", "shot", "refund_requested"];
 const RESET_PASSWORD = "same123!";
 
 async function assertAdmin() {

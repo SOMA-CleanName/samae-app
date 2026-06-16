@@ -3,38 +3,47 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui";
-import { ClipboardIcon, PlusIcon, XIcon } from "@/components/user/icons";
+import { PlusIcon } from "@/components/user/icons";
 import { submitInquiry, type InquiryState } from "./actions";
 
 const INITIAL_STATE: InquiryState = { ok: false };
 
+type ReferencePreview = { name: string; url: string };
+
 export function InquiryForm({
   photographerId,
   photoId,
+  photographerName,
   initialPhone,
   initialInstagramId,
 }: {
   photographerId: string;
   photoId: string;
+  photographerName: string;
   initialPhone: string;
   initialInstagramId: string;
 }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(submitInquiry, INITIAL_STATE);
+
+  // 1: 상담 정보 → 2: 연락처
+  const [step, setStep] = useState<1 | 2>(1);
+
+  // 상담 정보
+  const [partySize, setPartySize] = useState("");
+  const [purpose, setPurpose] = useState("");
+  const [preferredDate, setPreferredDate] = useState("");
+  const [region, setRegion] = useState("");
+  const [note, setNote] = useState("");
+
+  // 연락처
   const [phone, setPhone] = useState(formatPhone(initialPhone));
   const [instagramId, setInstagramId] = useState(initialInstagramId);
+  const [kakaoId, setKakaoId] = useState("");
   const [extraContact, setExtraContact] = useState("");
-  const [brief, setBrief] = useState<BriefValues>({
-    gender: "",
-    partySize: "",
-    purpose: "",
-    preferredDate: "",
-    region: "",
-    note: "",
-  });
-  const [briefOpen, setBriefOpen] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
+
   const [briefPrompt, setBriefPrompt] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [referencePreviews, setReferencePreviews] = useState<ReferencePreview[]>([]);
   const returnPath = photoId ? `/photos/${photoId}` : `/photographers/${photographerId}`;
@@ -42,9 +51,7 @@ export function InquiryForm({
   useEffect(() => {
     if (!state.ok) return;
     setShowSuccess(true);
-    const id = window.setTimeout(() => {
-      closeSuccess();
-    }, 7000);
+    const id = window.setTimeout(() => closeSuccess(), 7000);
     return () => window.clearTimeout(id);
   }, [state.ok]);
 
@@ -53,15 +60,33 @@ export function InquiryForm({
     router.push(returnPath);
   }
 
+  // 제출 에러 시 입력값 복원 — 보통 연락처 단계에서 발생하므로 2단계 유지
   useEffect(() => {
     if (!state.values) return;
     setPhone(formatPhone(state.values.phone));
     setInstagramId(state.values.instagramId);
+    setKakaoId(state.values.kakaoId);
     setExtraContact(state.values.extraContact);
-    setBrief(state.values.brief);
+    setPartySize(state.values.brief.partySize);
+    setPurpose(state.values.brief.purpose);
+    setPreferredDate(state.values.brief.preferredDate);
+    setRegion(state.values.brief.region);
+    setNote(state.values.brief.note);
+    setStep(2);
   }, [state.values]);
 
-  const hasBrief = !!brief.partySize && !!brief.purpose && !!brief.preferredDate;
+  const briefValid = !!partySize && !!purpose && !!preferredDate && !!region;
+  const hasContact =
+    !!phone.trim() || !!instagramId.trim() || !!kakaoId.trim() || !!extraContact.trim();
+
+  function goNext() {
+    if (!briefValid) {
+      setBriefPrompt(true);
+      return;
+    }
+    setBriefPrompt(false);
+    setStep(2);
+  }
 
   function openReferencePicker() {
     fileInputRef.current?.click();
@@ -72,10 +97,7 @@ export function InquiryForm({
     const previews = Array.from(files ?? [])
       .filter((file) => file.type.startsWith("image/"))
       .slice(0, 5)
-      .map((file) => ({
-        name: file.name,
-        url: URL.createObjectURL(file),
-      }));
+      .map((file) => ({ name: file.name, url: URL.createObjectURL(file) }));
     setReferencePreviews(previews);
   }
 
@@ -85,25 +107,11 @@ export function InquiryForm({
     };
   }, [referencePreviews]);
 
-  const hasContact = !!phone.trim() || !!instagramId.trim() || !!extraContact.trim();
-
-  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
-    if (hasBrief) return;
-    event.preventDefault();
-    setBriefPrompt(true);
-  }
-
   return (
     <>
-      <form action={formAction} onSubmit={onSubmit} className="mt-3 flex min-h-[560px] flex-col">
+      <form action={formAction} className="mt-3 flex min-h-[480px] flex-col md:min-h-full">
         <input type="hidden" name="photographerId" value={photographerId} />
         <input type="hidden" name="photoId" value={photoId} />
-        <input type="hidden" name="gender" value={brief.gender} />
-        <input type="hidden" name="partySize" value={brief.partySize} />
-        <input type="hidden" name="purpose" value={brief.purpose} />
-        <input type="hidden" name="preferredDate" value={brief.preferredDate} />
-        <input type="hidden" name="region" value={brief.region} />
-        <input type="hidden" name="note" value={brief.note} />
         <input
           ref={fileInputRef}
           type="file"
@@ -114,30 +122,87 @@ export function InquiryForm({
           onChange={(event) => onReferenceChange(event.target.files)}
         />
 
-        <div className="space-y-5">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="-translate-y-px text-3xl font-semibold leading-none">예약 문의</h1>
-            <button
-              type="button"
-              onClick={() => {
-                setBriefPrompt(false);
-                setBriefOpen(true);
-              }}
-              aria-label={hasBrief ? "상담 정보 수정" : "상담 정보 입력"}
-              title={hasBrief ? "상담 정보 수정" : "상담 정보 입력"}
-              className="relative inline-flex h-8 translate-y-0.5 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-line-strong px-3 text-sm font-semibold text-fg/75 transition-colors hover:bg-fg/[0.06] hover:text-fg"
-            >
-              <ClipboardIcon className="h-4 w-4" />
-              {hasBrief ? "상담 정보 수정" : "상담 정보 입력"}
-              {!hasBrief && (
-                <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-brand ring-2 ring-bg" />
+        <h1 className="text-3xl font-semibold leading-tight">{photographerName} 작가 촬영 문의</h1>
+
+        {/* ── 1단계: 상담 정보 (input 들은 항상 폼에 존재, 단계에 따라 표시만 토글) ── */}
+        <div className={step === 1 ? "mt-5 block" : "hidden"}>
+          <p className="text-base font-semibold text-fg/85">상담 정보를 입력해주세요.</p>
+          <div className="mt-5 space-y-4">
+            <Field
+              label="인원"
+              required
+              name="partySize"
+              value={partySize}
+              onChange={setPartySize}
+              placeholder="예: 2"
+              inputMode="numeric"
+            />
+            <Field
+              label="사진 목적"
+              required
+              name="purpose"
+              value={purpose}
+              onChange={setPurpose}
+              placeholder="프로필 / 커플 / 가족 / 우정 스냅 등"
+            />
+            <Field
+              label="희망 일정"
+              required
+              name="preferredDate"
+              value={preferredDate}
+              onChange={setPreferredDate}
+              placeholder="예: 6월 말 주말 오후"
+            />
+            <Field
+              label="희망 지역"
+              required
+              name="region"
+              value={region}
+              onChange={setRegion}
+              placeholder="예: 서울 성수동 일대"
+            />
+
+            <label className="block">
+              <span className="text-sm font-medium text-fg/80">자유 요청</span>
+              <textarea
+                name="note"
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                rows={3}
+                placeholder="원하는 분위기, 의상, 참고 사항 등"
+                className="mt-2 w-full resize-none rounded-xl border border-line-strong bg-white px-4 py-3 text-base outline-none transition-colors placeholder:text-fg/30 focus:border-fg/45"
+              />
+            </label>
+
+            <div>
+              <span className="text-sm font-medium text-fg/80">레퍼런스 사진</span>
+              <div className="mt-2 grid grid-cols-5 gap-2">
+                <button
+                  type="button"
+                  onClick={openReferencePicker}
+                  aria-label="레퍼런스 사진 선택"
+                  className="grid aspect-square cursor-pointer place-items-center rounded-lg border border-dashed border-line-strong bg-fg/[0.03] text-muted transition-colors hover:bg-fg/[0.06] hover:text-fg"
+                >
+                  <PlusIcon className="h-6 w-6" />
+                </button>
+                {referencePreviews.map((preview) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <div key={preview.url} className="aspect-square overflow-hidden rounded-lg border border-line bg-fg/[0.04]">
+                    <img src={preview.url} alt={preview.name} className="h-full w-full object-cover" />
+                  </div>
+                ))}
+              </div>
+              {referencePreviews.length === 0 && (
+                <p className="mt-2 text-xs text-faint">원하는 분위기의 사진을 최대 5장까지 넣을 수 있어요.</p>
               )}
-            </button>
+            </div>
           </div>
+        </div>
 
+        {/* ── 2단계: 연락처 ── */}
+        <div className={step === 2 ? "mt-5 block" : "hidden"}>
           <p className="text-base font-semibold text-fg/85">연락 가능한 수단을 하나 이상 입력해주세요.</p>
-
-          <div className="space-y-5 pt-5">
+          <div className="mt-5 space-y-5">
             <label className="block">
               <span className="text-sm font-medium text-fg/80">전화번호</span>
               <input
@@ -154,7 +219,7 @@ export function InquiryForm({
             </label>
 
             <label className="block">
-              <span className="text-sm font-medium text-fg/80">인스타 아이디</span>
+              <span className="text-sm font-medium text-fg/80">인스타 DM 아이디</span>
               <input
                 name="instagramId"
                 type="text"
@@ -167,6 +232,19 @@ export function InquiryForm({
             </label>
 
             <label className="block">
+              <span className="text-sm font-medium text-fg/80">카카오 아이디</span>
+              <input
+                name="kakaoId"
+                type="text"
+                autoComplete="off"
+                value={kakaoId}
+                onChange={(event) => setKakaoId(event.target.value)}
+                placeholder="카카오톡 아이디"
+                className="mt-2 h-12 w-full rounded-xl border border-line-strong bg-white px-4 text-base outline-none transition-colors placeholder:text-fg/30 focus:border-fg/45"
+              />
+            </label>
+
+            <label className="block">
               <span className="text-sm font-medium text-fg/80">기타 연락처</span>
               <input
                 name="extraContact"
@@ -174,29 +252,40 @@ export function InquiryForm({
                 autoComplete="off"
                 value={extraContact}
                 onChange={(event) => setExtraContact(event.target.value)}
-                placeholder="디스코드 아이디, 이메일 등등.."
+                placeholder="이메일 등"
                 className="mt-2 h-12 w-full rounded-xl border border-line-strong bg-white px-4 text-base outline-none transition-colors placeholder:text-fg/30 focus:border-fg/45"
               />
             </label>
           </div>
-
-          {state.error && <p className="text-sm font-medium text-brand">{state.error}</p>}
         </div>
 
+        {state.error && <p className="mt-4 text-sm font-medium text-brand">{state.error}</p>}
+
+        {/* ── 하단 액션 ── */}
         <div className="mt-auto pt-6">
-          {briefPrompt && (
-            <p className="mb-2 text-sm font-medium text-brand">상담 정보를 입력해주세요.</p>
+          {step === 1 ? (
+            <>
+              {briefPrompt && (
+                <p className="mb-2 text-sm font-medium text-brand">필수 항목을 모두 입력해주세요.</p>
+              )}
+              <Button type="button" size="lg" fullWidth onClick={goNext} disabled={!briefValid}>
+                다음
+              </Button>
+            </>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                className="shrink-0 rounded-full border border-line-strong px-5 text-sm font-semibold text-muted transition-colors hover:bg-fg/[0.04]"
+              >
+                이전
+              </button>
+              <Button type="submit" size="lg" fullWidth loading={pending} disabled={!hasContact}>
+                문의하기
+              </Button>
+            </div>
           )}
-          <Button
-            type="submit"
-            size="lg"
-            fullWidth
-            loading={pending}
-            disabled={!hasContact}
-            variant={briefPrompt ? "danger" : "primary"}
-          >
-            다음
-          </Button>
         </div>
       </form>
 
@@ -214,191 +303,13 @@ export function InquiryForm({
           </div>
         </div>
       )}
-
-      {briefOpen && (
-        <BriefModal
-          value={brief}
-          referencePreviews={referencePreviews}
-          onPickReferences={openReferencePicker}
-          onChange={(next) => {
-            setBrief(next);
-            setBriefPrompt(false);
-          }}
-          onClose={() => setBriefOpen(false)}
-        />
-      )}
     </>
   );
 }
 
-type BriefValues = {
-  gender: string;
-  partySize: string;
-  purpose: string;
-  preferredDate: string;
-  region: string;
-  note: string;
-};
-
-type ReferencePreview = {
-  name: string;
-  url: string;
-};
-
-function BriefModal({
-  value,
-  referencePreviews,
-  onPickReferences,
-  onChange,
-  onClose,
-}: {
-  value: BriefValues;
-  referencePreviews: ReferencePreview[];
-  onPickReferences: () => void;
-  onChange: (value: BriefValues) => void;
-  onClose: () => void;
-}) {
-  const [draft, setDraft] = useState(value);
-
-  function setField(key: keyof BriefValues, next: string) {
-    setDraft((prev) => ({ ...prev, [key]: next }));
-  }
-
-  function save() {
-    if (!draft.partySize || !draft.purpose || !draft.preferredDate) return;
-    onChange(draft);
-    onClose();
-  }
-
-  return (
-    <div
-      className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4 font-kr"
-      role="dialog"
-      aria-modal="true"
-      onClick={onClose}
-    >
-      <div
-        className="relative max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-bg p-5 shadow-pop"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="flex items-center justify-between">
-          <h2 className="text-title font-semibold">상담 정보 작성</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="닫기"
-            className="grid h-8 w-8 cursor-pointer place-items-center rounded-full text-muted transition-colors hover:bg-fg/[0.06] hover:text-fg"
-          >
-            <XIcon className="h-5 w-5" />
-          </button>
-        </div>
-        <p className="mt-1 text-xs text-faint">
-          작가가 촬영을 준비할 수 있도록 알려주세요. 나중에 다시 작성할 수 있어요.
-        </p>
-
-        <div className="mt-4 space-y-3">
-          <label className="block">
-            <span className="text-xs text-muted">성별</span>
-            <select
-              value={draft.gender}
-              onChange={(event) => setField("gender", event.target.value)}
-              className="mt-1 w-full rounded-lg border border-line-strong bg-transparent px-3 py-2 text-sm"
-            >
-              <option value="">선택 안 함</option>
-              <option value="여성">여성</option>
-              <option value="남성">남성</option>
-              <option value="혼성">혼성</option>
-              <option value="무관">무관</option>
-            </select>
-          </label>
-
-          <BriefInput
-            label="인원"
-            value={draft.partySize}
-            onChange={(next) => setField("partySize", next)}
-            placeholder="예: 2"
-            inputMode="numeric"
-            required
-          />
-          <BriefInput
-            label="사진 목적"
-            value={draft.purpose}
-            onChange={(next) => setField("purpose", next)}
-            placeholder="프로필 / 커플 / 가족 / 우정 스냅 등"
-            required
-          />
-          <BriefInput
-            label="희망 일정"
-            value={draft.preferredDate}
-            onChange={(next) => setField("preferredDate", next)}
-            placeholder="예: 6월 말 주말 오후"
-            required
-          />
-          <BriefInput
-            label="희망 지역"
-            value={draft.region}
-            onChange={(next) => setField("region", next)}
-            placeholder="예: 서울 성수동 일대"
-          />
-
-          <label className="block">
-            <span className="text-xs text-muted">자유 요청</span>
-            <textarea
-              value={draft.note}
-              onChange={(event) => setField("note", event.target.value)}
-              rows={3}
-              placeholder="원하는 분위기, 의상, 참고 사항 등"
-              className="mt-1 w-full resize-none rounded-lg border border-line-strong bg-transparent px-3 py-2 text-sm"
-            />
-          </label>
-
-          <div>
-            <span className="text-xs text-muted">레퍼런스 사진</span>
-            <div className="mt-2 grid grid-cols-5 gap-2">
-              <button
-                type="button"
-                onClick={onPickReferences}
-                aria-label="레퍼런스 사진 선택"
-                className="grid aspect-square cursor-pointer place-items-center rounded-lg border border-dashed border-line-strong bg-fg/[0.03] text-muted transition-colors hover:bg-fg/[0.06] hover:text-fg"
-              >
-                <PlusIcon className="h-6 w-6" />
-              </button>
-              {referencePreviews.map((preview) => (
-                <div key={preview.url} className="aspect-square overflow-hidden rounded-lg border border-line bg-fg/[0.04]">
-                  <img src={preview.url} alt={preview.name} className="h-full w-full object-cover" />
-                </div>
-              ))}
-            </div>
-            {referencePreviews.length === 0 && (
-              <p className="mt-2 text-xs text-faint">원하는 분위기의 사진을 최대 5장까지 넣을 수 있어요.</p>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-5 flex gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 rounded-full border border-line-strong py-2.5 text-sm font-medium text-muted hover:bg-fg/[0.04]"
-          >
-            닫기
-          </button>
-          <button
-            type="button"
-            onClick={save}
-            disabled={!draft.partySize || !draft.purpose || !draft.preferredDate}
-            className="flex-1 rounded-full bg-fg py-2.5 text-sm font-semibold text-bg hover:opacity-90 disabled:opacity-50"
-          >
-            저장
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function BriefInput({
+function Field({
   label,
+  name,
   value,
   onChange,
   placeholder,
@@ -406,6 +317,7 @@ function BriefInput({
   required,
 }: {
   label: string;
+  name: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
@@ -414,17 +326,17 @@ function BriefInput({
 }) {
   return (
     <label className="block">
-      <span className="flex items-center gap-1.5 text-xs text-muted">
+      <span className="flex items-center gap-1.5 text-sm font-medium text-fg/80">
         {label}
-        {required && <span className="font-medium text-brand">필수 입력</span>}
+        {required && <span className="text-xs font-medium text-brand">필수</span>}
       </span>
       <input
+        name={name}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
         inputMode={inputMode}
-        required={required}
-        className="mt-1 w-full rounded-lg border border-line-strong bg-transparent px-3 py-2 text-sm"
+        className="mt-2 h-12 w-full rounded-xl border border-line-strong bg-white px-4 text-base outline-none transition-colors placeholder:text-fg/30 focus:border-fg/45"
       />
     </label>
   );

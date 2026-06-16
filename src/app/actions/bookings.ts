@@ -48,6 +48,33 @@ async function postSystemMessage(
   });
 }
 
+// 작가의 확정 예약 중 [start,end) 구간과 겹치는 것이 있는지 검사 (시각이 정해진 예약만).
+// excludeId 는 검사 대상 예약 자신(자기 자신과의 충돌 제외).
+async function hasTimeConflict(
+  admin: ReturnType<typeof createAdminClient>,
+  photographerId: string,
+  excludeId: string,
+  start: number,
+  end: number
+): Promise<boolean> {
+  const { data: others } = await admin
+    .from("bookings")
+    .select("shoot_at, duration_min, package_snapshot")
+    .eq("photographer_id", photographerId)
+    .in("status", ["accepted", "paid", "shot", "delivered", "completed"])
+    .not("shoot_at", "is", null)
+    .neq("id", excludeId);
+
+  return (others ?? []).some((o) => {
+    const od =
+      o.duration_min ??
+      (o.package_snapshot as { duration_min?: number } | null)?.duration_min ??
+      60;
+    const os = new Date(o.shoot_at as string).getTime();
+    return start < os + od * 60000 && end > os;
+  });
+}
+
 // ── 예약 제안 (구매자/작가 양측, 채팅 내 템플릿 작성 → 제안) ────────────
 // 당사자는 conversation에서 도출(폼의 photographerId는 신뢰하지 않음).
 // 작가가 제안하는 경우 user_id가 본인이 아니라 RLS insert(check user_id=auth.uid())에
@@ -84,6 +111,7 @@ export async function proposeBooking(formData: FormData) {
       .from("packages")
       .select("name, description, price_krw, duration_min, edited_count")
       .eq("id", packageId)
+      .eq("photographer_id", photographerId) // 타작가 패키지 id로 예약 생성(폼 위조) 차단
       .single(),
     supabase.from("photographers").select("travel_fee_krw").eq("id", photographerId).single(),
   ]);
@@ -163,6 +191,7 @@ export async function updateBooking(formData: FormData) {
       .from("packages")
       .select("name, description, price_krw, duration_min, edited_count")
       .eq("id", packageId)
+      .eq("photographer_id", b.photographer_id) // 타작가 패키지 id로 수정(폼 위조) 차단
       .single(),
     admin.from("photographers").select("travel_fee_krw").eq("id", b.photographer_id).single(),
   ]);
@@ -177,7 +206,9 @@ export async function updateBooking(formData: FormData) {
     if (!isNaN(d.getTime())) shootAt = d.toISOString();
   }
 
-  const { error } = await admin
+  // TOCTOU 방지 — read 이후 accept 와 경쟁 시 accepted 예약에 편집이 적용되지 않도록
+  // requested 상태일 때만 원자적으로 수정.
+  const { data: edited, error } = await admin
     .from("bookings")
     .update({
       package_id: packageId,
@@ -189,8 +220,11 @@ export async function updateBooking(formData: FormData) {
       package_snapshot: pkg,
       memo,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("status", "requested")
+    .select("id");
   if (error) throw new Error(error.message);
+  if (!edited || edited.length === 0) throw new Error("수정할 수 없는 상태입니다.");
 
   // 시스템 안내 메시지 (카드는 기존 메시지가 갱신된 booking을 다시 보여줌)
   await admin.from("messages").insert({
@@ -232,37 +266,36 @@ export async function acceptBooking(formData: FormData) {
   }
 
   // 시간 충돌 검사 — 이미 점유된 예약과 겹치면 거부 (시각이 정해진 경우만)
+  let timeWindow: { start: number; end: number } | null = null;
   if (b.shoot_at) {
     const dur =
       b.duration_min ??
       (b.package_snapshot as { duration_min?: number } | null)?.duration_min ??
       60;
     const start = new Date(b.shoot_at).getTime();
-    const end = start + dur * 60000;
-
-    const { data: others } = await admin
-      .from("bookings")
-      .select("shoot_at, duration_min, package_snapshot")
-      .eq("photographer_id", b.photographer_id)
-      .in("status", ["accepted", "paid", "shot", "delivered", "completed"])
-      .not("shoot_at", "is", null)
-      .neq("id", id);
-
-    const conflict = (others ?? []).some((o) => {
-      const od =
-        o.duration_min ??
-        (o.package_snapshot as { duration_min?: number } | null)?.duration_min ??
-        60;
-      const os = new Date(o.shoot_at as string).getTime();
-      return start < os + od * 60000 && end > os;
-    });
-    if (conflict) throw new Error("해당 시간에 이미 다른 예약이 있어요.");
+    timeWindow = { start, end: start + dur * 60000 };
+    if (await hasTimeConflict(admin, b.photographer_id, id, timeWindow.start, timeWindow.end))
+      throw new Error("해당 시간에 이미 다른 예약이 있어요.");
   }
 
-  await admin
+  // 원자적 전이 — requested 일 때만 accepted 로. 동일 예약 동시 수락/상태 경쟁을 차단한다.
+  const { data: accepted, error: acceptErr } = await admin
     .from("bookings")
     .update({ status: "accepted", accepted_at: new Date().toISOString() })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("status", "requested")
+    .select("id");
+  // 시간겹침 EXCLUSION 제약(0040) 위반 — 서로 다른 두 예약이 동시에 수락돼 충돌한 경우
+  if (acceptErr?.code === "23P01") throw new Error("해당 시간에 이미 다른 예약이 있어요.");
+  if (acceptErr) throw new Error(acceptErr.message);
+  if (!accepted || accepted.length === 0) throw new Error("수락할 수 없는 상태입니다.");
+
+  // 수락 직후 재검사 — 서로 다른 두 예약이 동시에 수락돼 시간이 겹치면 이번 예약을 되돌린다.
+  // (완전한 원자성은 bookings 시간겹침 EXCLUSION 제약으로 보강 예정 — 청크3 H3 SQL)
+  if (timeWindow && (await hasTimeConflict(admin, b.photographer_id, id, timeWindow.start, timeWindow.end))) {
+    await admin.from("bookings").update({ status: "requested", accepted_at: null }).eq("id", id);
+    throw new Error("해당 시간에 이미 다른 예약이 있어요.");
+  }
 
   // 제안자(상대)에게 알림
   const proposerId = accepterIsCustomer
