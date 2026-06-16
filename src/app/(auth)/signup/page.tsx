@@ -155,6 +155,7 @@ export default function SignupPage() {
             <button
               type="button"
               onClick={onKakao}
+              data-track="cta:signup_kakao"
               className="mt-6 w-full cursor-pointer rounded-xl bg-[#FEE500] py-3 text-body-sm font-semibold text-[#191600] transition-opacity hover:opacity-90"
             >
               카카오로 시작하기

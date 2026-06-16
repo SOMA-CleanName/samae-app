@@ -287,7 +287,7 @@ function ProfileCta({
     );
   }
   return (
-    <Button href={inquiryHref(photographerId)} size="lg" fullWidth>
+    <Button href={inquiryHref(photographerId)} size="lg" fullWidth data-track="cta:inquiry">
       예약·문의하기
     </Button>
   );

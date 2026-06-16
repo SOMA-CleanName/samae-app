@@ -1,31 +1,35 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { Badge, EmptyState } from "@/components/ui";
-import { ClipboardIcon, MapPinIcon } from "@/components/user/icons";
-import { setInquiryStatus } from "./actions";
+import { getPlatformAccount, hasAccount } from "@/lib/platform-account";
+import { EmptyState } from "@/components/ui";
+import { ClipboardIcon } from "@/components/user/icons";
 import { cn } from "@/lib/cn";
+import { updatePlatformAccount, clearInquiries } from "./actions";
+import { AdminInquiries, type InquiryRow, type Stage } from "./AdminInquiries";
+import { PasswordReset } from "@/components/admin/PasswordReset";
 
 export const dynamic = "force-dynamic";
 
-const STATUS: Record<string, { label: string; tone: "warning" | "info" | "neutral" | "success" }> = {
-  new: { label: "접수", tone: "warning" },
-  accepted: { label: "수락", tone: "info" },
-  contacted: { label: "연락함", tone: "neutral" },
-  converted: { label: "전환", tone: "success" },
-  closed: { label: "종료", tone: "neutral" },
-};
-const STATUS_KEYS = Object.keys(STATUS);
+// status → stage
+function stageOf(status: string): Stage {
+  if (status === "new") return "new";
+  if (status === "accepted") return "await";
+  if (status === "confirmed") return "confirmed";
+  return "done";
+}
 
-const FILTERS = [
-  { key: "", label: "전체" },
-  { key: "new", label: "접수" },
-  { key: "accepted", label: "수락" },
-  { key: "contacted", label: "연락함" },
-  { key: "converted", label: "전환" },
-  { key: "closed", label: "종료" },
+const FILTERS: { key: string; label: string; match: (s: Stage) => boolean }[] = [
+  { key: "", label: "전체", match: () => true },
+  { key: "await", label: "입금대기", match: (s) => s === "await" },
+  { key: "confirmed", label: "입금확인", match: (s) => s === "confirmed" },
+  { key: "new", label: "접수", match: (s) => s === "new" },
+  { key: "done", label: "종료", match: (s) => s === "done" },
 ];
 
-type Row = {
+const one = <T,>(v: T | T[] | null | undefined): T | null =>
+  Array.isArray(v) ? v[0] ?? null : v ?? null;
+
+type DbRow = {
   id: string;
   status: string;
   created_at: string;
@@ -35,166 +39,168 @@ type Row = {
   gender: string | null;
   party_size: number | null;
   note: string | null;
+  deposit_amount_krw: number | null;
   phone: string | null;
   instagram_id: string | null;
   discord_id: string | null;
   contact_email: string | null;
   extra_contact: string | null;
+  ref_image_paths: string[] | null;
   photographer: { display_name: string | null } | { display_name: string | null }[] | null;
   profile: { display_name: string | null } | { display_name: string | null }[] | null;
 };
 
-function one<T>(v: T | T[] | null): T | null {
-  return Array.isArray(v) ? v[0] ?? null : v;
-}
-
-function when(iso: string): string {
-  return new Intl.DateTimeFormat("ko-KR", {
-    month: "numeric",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Asia/Seoul",
-  }).format(new Date(iso));
-}
-
-// 문의 관리 — 전체 문의 모니터링 + 상태 변경. 가드는 (admin)/layout.
+// 입금·문의 관리 — 단일 컴팩트 페이지. 가드는 (admin)/layout.
 export default async function AdminInquiriesPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ status?: string }>;
+  searchParams?: Promise<{ stage?: string }>;
 }) {
-  const status = (await searchParams)?.status ?? "";
+  const stageFilter = (await searchParams)?.stage ?? "";
   const admin = createAdminClient();
 
-  let query = admin
-    .from("inquiries")
-    .select(
-      "id, status, created_at, purpose, preferred_date, region, gender, party_size, note, phone, instagram_id, discord_id, contact_email, extra_contact, photographer:photographers(display_name), profile:profiles(display_name)"
-    )
-    .order("created_at", { ascending: false })
-    .limit(200);
-  if (status && STATUS_KEYS.includes(status)) query = query.eq("status", status);
+  const [{ data }, account] = await Promise.all([
+    admin
+      .from("inquiries")
+      .select(
+        "id, status, created_at, purpose, preferred_date, region, gender, party_size, note, deposit_amount_krw, phone, instagram_id, discord_id, contact_email, extra_contact, ref_image_paths, photographer:photographers(display_name), profile:profiles!inquiries_profile_id_fkey(display_name)"
+      )
+      .order("created_at", { ascending: false })
+      .limit(300),
+    getPlatformAccount(),
+  ]);
 
-  const { data } = await query;
-  const rows = (data ?? []) as Row[];
+  const all = (data ?? []) as DbRow[];
+
+  // 스테이지별 카운트
+  const counts: Record<string, number> = {};
+  for (const r of all) {
+    const s = stageOf(r.status);
+    counts[s] = (counts[s] ?? 0) + 1;
+  }
+
+  const matcher = FILTERS.find((f) => f.key === stageFilter) ?? FILTERS[0];
+  const rows: InquiryRow[] = all
+    .map((r): InquiryRow => {
+      const stage = stageOf(r.status);
+      const confirmed = stage === "confirmed" || stage === "done";
+      const contacts = [
+        ["전화", r.phone],
+        ["인스타", r.instagram_id],
+        ["디스코드", r.discord_id],
+        ["이메일", r.contact_email],
+        ["기타", r.extra_contact],
+      ]
+        .filter(([, v]) => v)
+        .map(([label, value]) => ({ label: label as string, value: value as string }));
+      return {
+        id: r.id,
+        stage,
+        status: r.status,
+        createdAt: r.created_at,
+        purpose: r.purpose,
+        preferredDate: r.preferred_date,
+        region: r.region,
+        gender: r.gender,
+        partySize: r.party_size,
+        note: r.note,
+        depositAmount: r.deposit_amount_krw ?? 0,
+        photographerName: one(r.photographer)?.display_name ?? "작가",
+        customerName: one(r.profile)?.display_name ?? "비회원",
+        contactLocked: !confirmed,
+        contacts: confirmed ? contacts : [],
+        refImages: r.ref_image_paths ?? [],
+      };
+    })
+    .filter((r) => matcher.match(r.stage));
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-5">
-      <h1 className="text-h1 font-semibold">문의 관리</h1>
-      <p className="mt-1 text-body-sm text-muted">예약·상담 문의 접수 현황이에요.</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-h1 font-semibold">입금·문의 관리</h1>
+          <p className="mt-1 text-body-sm text-muted">
+            작가 수락 → 입금대기 → 입금확인 시 고객 연락처가 작가에게 공개돼요.
+          </p>
+        </div>
+        <PasswordReset action={clearInquiries} label="문의 초기화" />
+      </div>
 
-      {/* 상태 필터 */}
-      <div className="mt-5 flex gap-1.5 overflow-x-auto scrollbar-none">
-        {FILTERS.map((f) => (
-          <Link
-            key={f.key}
-            href={f.key ? `/admin/inquiries?status=${f.key}` : "/admin/inquiries"}
-            className={cn(
-              "shrink-0 rounded-full border px-3 py-1.5 text-caption font-medium transition-colors",
-              status === f.key
-                ? "border-fg bg-fg text-bg"
-                : "border-line-strong text-muted hover:bg-fg/[0.04]"
-            )}
-          >
-            {f.label}
-          </Link>
-        ))}
+      {/* 플랫폼 입금 계좌 */}
+      <PlatformAccountEditor account={account} configured={hasAccount(account)} />
+
+      {/* 스테이지 필터 */}
+      <div className="mt-6 flex gap-1.5 overflow-x-auto scrollbar-none">
+        {FILTERS.map((f) => {
+          const active = stageFilter === f.key;
+          const c = f.key === "" ? all.length : counts[f.key] ?? 0;
+          return (
+            <Link
+              key={f.key}
+              href={f.key ? `/admin/inquiries?stage=${f.key}` : "/admin/inquiries"}
+              className={cn(
+                "shrink-0 rounded-full border px-3 py-1.5 text-caption font-medium transition-colors",
+                active ? "border-fg bg-fg text-bg" : "border-line-strong text-muted hover:bg-fg/[0.04]"
+              )}
+            >
+              {f.label} {c}
+            </Link>
+          );
+        })}
       </div>
 
       {rows.length === 0 ? (
-        <EmptyState
-          className="mt-6"
-          icon={<ClipboardIcon className="h-7 w-7" />}
-          title="문의가 없어요"
-        />
+        <EmptyState className="mt-6" icon={<ClipboardIcon className="h-7 w-7" />} title="해당하는 문의가 없어요" />
       ) : (
-        <ul className="mt-4 flex flex-col gap-3">
-          {rows.map((r) => (
-            <InquiryCard key={r.id} row={r} />
-          ))}
-        </ul>
+        <AdminInquiries rows={rows} />
       )}
     </main>
   );
 }
 
-function InquiryCard({ row }: { row: Row }) {
-  const ph = one(row.photographer)?.display_name ?? "작가";
-  const customer = one(row.profile)?.display_name ?? "비회원";
-  const s = STATUS[row.status] ?? { label: row.status, tone: "neutral" as const };
-
-  const contacts: [string, string | null][] = [
-    ["전화", row.phone],
-    ["인스타", row.instagram_id],
-    ["디스코드", row.discord_id],
-    ["이메일", row.contact_email],
-    ["기타", row.extra_contact],
-  ];
-  const meta: [string, string | null][] = [
-    ["희망일", row.preferred_date],
-    ["지역", row.region],
-    ["성별", row.gender],
-    ["인원", row.party_size != null ? `${row.party_size}명` : null],
-  ];
-
+// 플랫폼(우리) 입금 계좌 편집 — 미설정이면 강조
+function PlatformAccountEditor({
+  account,
+  configured,
+}: {
+  account: { bank: string; number: string; holder: string; notice: string };
+  configured: boolean;
+}) {
   return (
-    <li className="rounded-2xl border border-line bg-surface p-4 sm:p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-body font-semibold text-fg">{row.purpose}</p>
-          <p className="mt-0.5 text-caption text-faint">
-            {customer} → {ph} · {when(row.created_at)}
-          </p>
+    <details className="mt-5 rounded-2xl border border-line bg-surface" open={!configured}>
+      <summary className="flex cursor-pointer items-center gap-2 px-4 py-3 text-body-sm font-medium">
+        플랫폼 입금 계좌
+        {configured ? (
+          <span className="text-caption text-faint">
+            {account.bank} {account.number} · {account.holder}
+          </span>
+        ) : (
+          <span className="text-caption font-semibold text-brand">미설정 — 입금 안내가 표시되지 않아요</span>
+        )}
+      </summary>
+      <form action={updatePlatformAccount} className="grid grid-cols-1 gap-2.5 px-4 pb-4 sm:grid-cols-3">
+        <label className="block">
+          <span className="mb-1 block text-caption text-muted">은행</span>
+          <input name="bank" defaultValue={account.bank} placeholder="국민" className="w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-body-sm outline-none focus:border-fg/40" />
+        </label>
+        <label className="block sm:col-span-2">
+          <span className="mb-1 block text-caption text-muted">계좌번호</span>
+          <input name="number" defaultValue={account.number} placeholder="000000-00-000000" className="w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-body-sm tabular-nums outline-none focus:border-fg/40" />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-caption text-muted">예금주</span>
+          <input name="holder" defaultValue={account.holder} placeholder="사매" className="w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-body-sm outline-none focus:border-fg/40" />
+        </label>
+        <label className="block sm:col-span-2">
+          <span className="mb-1 block text-caption text-muted">안내 문구 (선택)</span>
+          <input name="notice" defaultValue={account.notice} placeholder="입금자명을 신청 닉네임과 동일하게 적어주세요." className="w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-body-sm outline-none focus:border-fg/40" />
+        </label>
+        <div className="sm:col-span-3">
+          <button className="cursor-pointer rounded-lg bg-fg px-4 py-2 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90">
+            계좌 저장
+          </button>
         </div>
-        <Badge tone={s.tone}>{s.label}</Badge>
-      </div>
-
-      {/* 메타 */}
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {meta
-          .filter(([, v]) => v)
-          .map(([k, v]) => (
-            <span key={k} className="inline-flex items-center gap-1 rounded-full bg-fg/[0.06] px-2.5 py-1 text-caption text-fg/70">
-              {k === "지역" && <MapPinIcon className="h-3 w-3 text-fg/45" />}
-              <span className="text-faint">{k}</span> {v}
-            </span>
-          ))}
-      </div>
-
-      {row.note && <p className="mt-3 text-body-sm leading-relaxed text-fg/80">{row.note}</p>}
-
-      {/* 연락 수단 */}
-      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-caption">
-        {contacts
-          .filter(([, v]) => v)
-          .map(([k, v]) => (
-            <span key={k}>
-              <span className="text-faint">{k}</span>{" "}
-              <span className="font-medium text-fg">{v}</span>
-            </span>
-          ))}
-      </div>
-
-      {/* 상태 변경 */}
-      <form action={setInquiryStatus} className="mt-4 flex items-center gap-2 border-t border-line pt-3">
-        <input type="hidden" name="id" value={row.id} />
-        <span className="text-caption text-muted">상태 변경</span>
-        <select
-          name="status"
-          defaultValue={row.status}
-          className="rounded-lg border border-line-strong bg-surface px-2.5 py-1.5 text-caption outline-none focus:border-fg/40"
-        >
-          {STATUS_KEYS.map((k) => (
-            <option key={k} value={k}>
-              {STATUS[k].label}
-            </option>
-          ))}
-        </select>
-        <button className="cursor-pointer rounded-lg bg-fg px-3 py-1.5 text-caption font-semibold text-bg transition-opacity hover:opacity-90">
-          변경
-        </button>
       </form>
-    </li>
+    </details>
   );
 }

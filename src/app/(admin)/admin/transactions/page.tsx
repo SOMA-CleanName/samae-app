@@ -2,8 +2,9 @@ import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Badge, EmptyState } from "@/components/ui";
 import { CalendarIcon, WalletIcon } from "@/components/user/icons";
-import { setSettlementStatus } from "./actions";
+import { setSettlementStatus, clearTransactions } from "./actions";
 import { cn } from "@/lib/cn";
+import { PasswordReset } from "@/components/admin/PasswordReset";
 
 export const dynamic = "force-dynamic";
 
@@ -95,8 +96,13 @@ export default async function AdminTransactionsPage({
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-5">
-      <h1 className="text-h1 font-semibold">거래·정산</h1>
-      <p className="mt-1 text-body-sm text-muted">예약 거래 흐름과 작가 정산 현황이에요.</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-h1 font-semibold">거래·정산</h1>
+          <p className="mt-1 text-body-sm text-muted">예약 거래 흐름과 작가 정산 현황이에요.</p>
+        </div>
+        <PasswordReset action={clearTransactions} label="거래·정산 초기화" />
+      </div>
 
       {/* 요약 */}
       <div className="mt-5 grid grid-cols-3 gap-3">

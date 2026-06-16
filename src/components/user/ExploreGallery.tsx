@@ -115,7 +115,7 @@ function PhotoCard({
 
   return (
     <div className="group relative break-inside-avoid overflow-hidden rounded-2xl bg-fg/[0.05]">
-      <Link href={`/photos/${photo.id}`} className="block">
+      <Link href={`/photos/${photo.id}`} className="block" data-track="cta:photo">
         <img
           src={photo.thumb_url ?? photo.src_url}
           alt={alt}

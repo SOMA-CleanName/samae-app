@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentUser } from "@/lib/auth";
 
 // 최저가·가격 상한 (350만원)
 const MAX_PRICE_KRW = 3_500_000;
@@ -202,6 +203,35 @@ export async function updateProfile(
   revalidatePath("/studio/profile");
   revalidatePath("/studio");
   return { ok: true };
+}
+
+// ─────────────────────────────────────────────
+// 문의 수락 (리드 모델) — new → accepted(입금 대기). 관련 알림은 읽음 처리.
+// ─────────────────────────────────────────────
+export async function acceptInquiry(formData: FormData) {
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가 권한이 필요합니다.");
+  const id = String(formData.get("id"));
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("inquiries")
+    .update({ status: "accepted", accepted_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("photographer_id", me.photographer.id)
+    .eq("status", "new");
+  if (error) throw new Error(error.message);
+
+  // 해당 문의의 '수락 대기' 알림 읽음 처리 (알림함에서 사라지게)
+  await admin
+    .from("notifications")
+    .update({ read_at: new Date().toISOString() })
+    .eq("recipient_id", me.id)
+    .eq("inquiry_id", id)
+    .eq("type", "booking");
+
+  revalidatePath("/studio");
+  revalidatePath("/notifications");
 }
 
 // 현재 사용자의 작가 id 조회 (RLS: 본인 행)

@@ -1,27 +1,23 @@
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { listMyNotifications } from "@/lib/notifications";
-import { listMyAcceptedInquiries } from "@/lib/inquiries";
 import { MarkReadOnMount } from "./MarkReadOnMount";
 import { NotificationsList } from "./NotificationsList";
 
 export const dynamic = "force-dynamic";
 
-// 예약 알림 — 문의/예약 관련 알림 목록
+// 알림 — 클릭 시 해당 위치로 이동만(처리는 스튜디오/해당 화면에서)
 export default async function NotificationsPage() {
   const me = await getCurrentUser();
   if (!me) redirect("/login?next=/notifications");
 
-  const [items, acceptedItems] = await Promise.all([
-    listMyNotifications(),
-    listMyAcceptedInquiries(),
-  ]);
+  const items = await listMyNotifications();
   const hasUnread = items.some((n) => !n.read_at);
 
   return (
     <main className="mx-auto max-w-2xl px-4 sm:px-6 py-8 font-kr">
       <MarkReadOnMount hasUnread={hasUnread} />
-      <NotificationsList items={items} acceptedItems={acceptedItems} />
+      <NotificationsList items={items} />
     </main>
   );
 }
