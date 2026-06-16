@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { getOrCreateConversation } from "@/lib/conversations";
+import { archiveAndDelete } from "@/lib/soft-delete";
 
 // 작가에게 채팅 시작 — 기존 진입점 호환용. 신규 CTA는 문의 폼을 먼저 거친다.
 export async function startConversation(formData: FormData) {
@@ -115,10 +116,10 @@ export async function leaveConversation(formData: FormData) {
     return;
   }
 
-  // 진행 중 예약 없음 → 대화 완전 삭제. 메시지·상담정보는 FK ON DELETE CASCADE로 함께 삭제됨.
-  // 참여자임을 위에서 확인했으므로 admin으로 삭제(대화 delete RLS 우회).
-  const admin = createAdminClient();
-  await admin.from("conversations").delete().eq("id", conversationId);
+  // 진행 중 예약 없음 → 소프트딜리트(아카이브 후 제거). 메시지·상담정보도 함께 아카이브해 복구 가능.
+  await archiveAndDelete("messages", { col: "conversation_id", op: "eq", val: conversationId }, me.id);
+  await archiveAndDelete("consultation_briefs", { col: "conversation_id", op: "eq", val: conversationId }, me.id);
+  await archiveAndDelete("conversations", { col: "id", op: "eq", val: conversationId }, me.id);
   revalidatePath("/chat");
 }
 
