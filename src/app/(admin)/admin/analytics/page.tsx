@@ -20,6 +20,8 @@ type Ev = {
   type: "pageview" | "click";
   path: string;
   label: string | null;
+  utm_source: string | null;
+  utm_campaign: string | null;
   created_at: string;
 };
 
@@ -46,7 +48,7 @@ export default async function AdminAnalyticsPage({
   const admin = createAdminClient();
   const { data } = await admin
     .from("analytics_events")
-    .select("session_id, profile_id, type, path, label, created_at")
+    .select("session_id, profile_id, type, path, label, utm_source, utm_campaign, created_at")
     .gte("created_at", sinceIso)
     .order("created_at", { ascending: false })
     .limit(FETCH_CAP);
@@ -65,6 +67,9 @@ export default async function AdminAnalyticsPage({
 
   const topPages = topBy(pageviews, (e) => e.path, 12);
   const topCtas = topBy(clicks, (e) => e.label, 12);
+  // 유입(광고) — 첫 페이지뷰 기준이 이상적이나 단순화: 페이지뷰 이벤트의 utm 집계
+  const topSources = topBy(pageviews, (e) => e.utm_source, 8);
+  const topCampaigns = topBy(pageviews, (e) => e.utm_campaign, 8);
   const capped = events.length >= FETCH_CAP;
 
   return (
@@ -113,6 +118,14 @@ export default async function AdminAnalyticsPage({
             <RankCard title="인기 페이지" rows={topPages} total={pageviews.length} mono />
             <RankCard title="인기 CTA / 클릭" rows={topCtas} total={clicks.length} />
           </div>
+
+          {/* 광고 유입 (UTM) */}
+          {(topSources.length > 0 || topCampaigns.length > 0) && (
+            <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+              <RankCard title="유입 소스 (utm_source)" rows={topSources} total={pageviews.length} />
+              <RankCard title="캠페인 (utm_campaign)" rows={topCampaigns} total={pageviews.length} />
+            </div>
+          )}
         </>
       )}
     </main>

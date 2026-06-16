@@ -7,6 +7,11 @@ import { usePathname } from "next/navigation";
 // 버튼마다 개별 계측 없이 위임 캡처로 "모든 액션"을 잡는다. /api/track 으로 전송.
 
 const SID_KEY = "samae_sid";
+const UTM_KEY = "samae_utm";
+const LP_KEY = "samae_landing";
+const UTM_FIELDS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"] as const;
+
+type Utm = Partial<Record<(typeof UTM_FIELDS)[number], string>>;
 
 type Ev = {
   type: "pageview" | "click";
@@ -29,6 +34,36 @@ function sessionId(): string {
   }
 }
 
+// UTM/랜딩경로 — 첫 진입 시 캡처해 세션 동안 유지(전환까지 광고 귀속)
+function captureAttribution() {
+  try {
+    const sp = new URLSearchParams(window.location.search);
+    const has = UTM_FIELDS.some((f) => sp.get(f));
+    if (has) {
+      const utm: Utm = {};
+      for (const f of UTM_FIELDS) {
+        const v = sp.get(f);
+        if (v) utm[f] = v.slice(0, 200);
+      }
+      sessionStorage.setItem(UTM_KEY, JSON.stringify(utm));
+      sessionStorage.setItem(LP_KEY, window.location.pathname + window.location.search);
+    } else if (!sessionStorage.getItem(LP_KEY)) {
+      sessionStorage.setItem(LP_KEY, window.location.pathname + window.location.search);
+    }
+  } catch {
+    /* 무시 */
+  }
+}
+
+function attribution(): { utm: Utm; landing_path: string | null } {
+  try {
+    const utm = JSON.parse(sessionStorage.getItem(UTM_KEY) || "{}") as Utm;
+    return { utm, landing_path: sessionStorage.getItem(LP_KEY) };
+  } catch {
+    return { utm: {}, landing_path: null };
+  }
+}
+
 export function AnalyticsTracker() {
   const pathname = usePathname();
   const prevPath = useRef<string | null>(null);
@@ -37,7 +72,13 @@ export function AnalyticsTracker() {
 
   function flush(beacon = false) {
     if (queue.current.length === 0) return;
-    const body = JSON.stringify({ sessionId: sessionId(), events: queue.current });
+    const { utm, landing_path } = attribution();
+    const body = JSON.stringify({
+      sessionId: sessionId(),
+      utm,
+      landingPath: landing_path,
+      events: queue.current,
+    });
     queue.current = [];
     if (timer.current) {
       clearTimeout(timer.current);
@@ -67,6 +108,7 @@ export function AnalyticsTracker() {
 
   // 페이지뷰
   useEffect(() => {
+    captureAttribution();
     enqueue({ type: "pageview", path: pathname, referrer: prevPath.current });
     prevPath.current = pathname;
     // eslint-disable-next-line react-hooks/exhaustive-deps
