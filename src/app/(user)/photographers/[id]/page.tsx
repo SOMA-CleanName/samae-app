@@ -189,10 +189,10 @@ function ViewerCta({
   if (!me) {
     return (
       <Link
-        href={`/login?next=${encodeURIComponent(inquiryHref(photographerId))}`}
+        href={inquiryHref(photographerId)}
         className="block w-full rounded-full bg-white py-3 text-center text-sm font-semibold text-black hover:opacity-90"
       >
-        로그인하고 예약·문의하기
+        예약·문의하기
       </Link>
     );
   }
@@ -281,8 +281,8 @@ function ProfileCta({
   }
   if (!me) {
     return (
-      <Button href={`/login?next=${encodeURIComponent(inquiryHref(photographerId))}`} size="lg" fullWidth>
-        로그인하고 예약·문의하기
+      <Button href={inquiryHref(photographerId)} size="lg" fullWidth>
+        예약·문의하기
       </Button>
     );
   }

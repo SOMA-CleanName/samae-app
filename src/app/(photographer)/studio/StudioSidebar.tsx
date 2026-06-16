@@ -5,9 +5,9 @@ import { usePathname } from "next/navigation";
 
 type Item = { href: string; label: string; badge?: number };
 
-// 운영(홈·예약·문의)과 설정(프로필·패키지·…)을 시각적으로 분리한 작가 스튜디오 네비.
+// 운영과 설정을 시각적으로 분리한 작가 스튜디오 네비.
 // 데스크톱: 좌측 고정 사이드바 / 모바일: 상단 가로 스크롤 바.
-export function StudioSidebar({ unread }: { unread: number }) {
+export function StudioSidebar() {
   const pathname = usePathname();
   // 홈은 정확히 일치, 나머지는 경로 경계(href 또는 href/...)로 매칭.
   // ('/studio/booking'(예약설정)과 '/studio/bookings'(예약) 접두 충돌 방지)
@@ -16,8 +16,6 @@ export function StudioSidebar({ unread }: { unread: number }) {
 
   const ops: Item[] = [
     { href: "/studio", label: "대시보드" },
-    { href: "/studio/bookings", label: "예약" },
-    { href: "/studio/chat", label: "문의", badge: unread || undefined },
     { href: "/studio/reviews", label: "후기" },
   ];
   const settings: Item[] = [

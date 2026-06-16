@@ -1,5 +1,4 @@
 import { getCurrentUser } from "@/lib/auth";
-import { countPhotographerUnread } from "@/lib/chat";
 import { StudioSidebar } from "./StudioSidebar";
 
 // 작가 스튜디오 공통 레이아웃 — 승인된 작가에게만 좌측 네비를 씌운다.
@@ -11,11 +10,9 @@ export default async function StudioLayout({ children }: { children: React.React
     return <>{children}</>;
   }
 
-  const unread = await countPhotographerUnread(me.photographer.id);
-
   return (
     <div className="md:pl-52">
-      <StudioSidebar unread={unread} />
+      <StudioSidebar />
       {children}
     </div>
   );

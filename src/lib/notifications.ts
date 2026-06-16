@@ -9,6 +9,8 @@ export type AppNotification = {
   title: string;
   body: string;
   link: string | null;
+  inquiry_id: string | null;
+  inquiry: { status: string | null; accepted_at: string | null } | null;
   read_at: string | null;
   created_at: string;
 };
@@ -20,11 +22,20 @@ export async function listMyNotifications(): Promise<AppNotification[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("notifications")
-    .select("id, type, title, body, link, read_at, created_at")
+    .select("id, type, title, body, link, inquiry_id, inquiry:inquiries(status, accepted_at), read_at, created_at")
     .neq("type", "chat")
     .order("created_at", { ascending: false })
     .limit(50);
-  return (data ?? []) as AppNotification[];
+  const rows = ((data ?? []) as unknown as Array<
+    Omit<AppNotification, "inquiry"> & {
+      inquiry: AppNotification["inquiry"] | AppNotification["inquiry"][];
+    }
+  >).map((item) => ({
+    ...item,
+    inquiry: Array.isArray(item.inquiry) ? item.inquiry[0] ?? null : item.inquiry,
+  }));
+
+  return rows.filter((item) => !item.inquiry_id || item.inquiry?.status !== "accepted");
 }
 
 // 안읽은 알림 수 (채팅 제외) — 사이드바 배지

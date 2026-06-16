@@ -14,6 +14,7 @@ import { loadExplorePhotos } from "@/app/(user)/actions";
 import { PhotoCarousel } from "./PhotoCarousel";
 import { PhotoExplore } from "./PhotoExplore";
 import { PhotoTopBar } from "./PhotoTopBar";
+import { OwnerPhotoBackButton } from "./OwnerPhotoBackButton";
 import { AutoFavorite } from "@/components/user/AutoFavorite";
 import { ChevronRightIcon } from "@/components/user/icons";
 import { Avatar, Button } from "@/components/ui";
@@ -179,21 +180,17 @@ function PhotoCtas({
   photoId: string;
 }) {
   if (isOwner) {
-    return (
-      <Button href="/studio" variant="secondary" size="lg" fullWidth className="mt-6">
-        내 사진입니다 — 스튜디오로
-      </Button>
-    );
+    return <OwnerPhotoBackButton />;
   }
   if (!me) {
     return (
       <Button
-        href={`/login?next=${encodeURIComponent(inquiryHref(photographerId, photoId))}`}
+        href={inquiryHref(photographerId, photoId)}
         size="lg"
         fullWidth
         className="mt-6"
       >
-        로그인하고 예약·문의하기
+        예약·문의하기
       </Button>
     );
   }

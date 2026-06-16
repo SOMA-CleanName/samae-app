@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { ArrowLeftIcon } from "@/components/user/icons";
 
 // 로그인/회원가입 — 카카오 소셜 + 이메일
 export default function LoginPage() {
@@ -13,6 +14,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  function onBack() {
+    if (typeof window !== "undefined" && window.history.length > 1) router.back();
+    else router.push("/");
+  }
 
   async function onKakao() {
     setError(null);
@@ -49,6 +55,14 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-[100svh] flex flex-col items-center justify-center px-6 font-kr">
+      <button
+        type="button"
+        onClick={onBack}
+        aria-label="뒤로 가기"
+        className="fixed left-4 top-4 grid h-10 w-10 cursor-pointer place-items-center rounded-full bg-fg/[0.06] text-fg transition-colors hover:bg-fg/[0.1] sm:left-6 sm:top-6"
+      >
+        <ArrowLeftIcon />
+      </button>
       <div className="w-full max-w-sm">
         <h1 className="text-center text-3xl font-display italic text-brand">samae</h1>
         <p className="mt-2 text-center text-sm text-fg/60">
