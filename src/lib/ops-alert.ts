@@ -1,0 +1,54 @@
+import "server-only";
+
+import { createAdminClient } from "@/lib/supabase/admin";
+
+// 운영진 알림 (디스코드 웹훅) — 리드 모델의 시작점.
+// 새 문의가 들어오면 운영진 채널로 알려, 운영진이 작가에게 카톡으로 통보하도록 한다.
+// ⚠️ 고객 연락처(PII)는 절대 싣지 않는다 — 작가명/브리프 요약/문의 식별자만(연락처는 입금 확인 후 공개).
+
+const OPS_WEBHOOK = process.env.DISCORD_OPS_WEBHOOK_URL;
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
+
+export async function notifyOpsNewInquiry(params: {
+  inquiryId: string;
+  photographerId: string;
+  purpose: string | null;
+  preferredDate: string | null;
+  region: string | null;
+}): Promise<void> {
+  if (!OPS_WEBHOOK) return; // 미설정이면 조용히 패스(로컬/미배포)
+
+  try {
+    const admin = createAdminClient();
+    const { data: ph } = await admin
+      .from("photographers")
+      .select("display_name")
+      .eq("id", params.photographerId)
+      .maybeSingle();
+
+    const who = ph?.display_name || "작가";
+    const ref = params.inquiryId.slice(0, 8); // 운영진 대조용 짧은 참조
+    const studioLink = SITE_URL ? `${SITE_URL}/studio` : "/studio";
+
+    // 작가에게 그대로 복사해 보낼 메시지 (코드블록으로 감싸 복붙 쉽게). 연락처·사전정보 미포함.
+    const forPhotographer =
+      `${who} 작가님, 작가님의 사진을 마음에 들어한 고객이 문의를 남기셨어요!\n` +
+      `확인하러 가기 👉 ${studioLink}`;
+
+    // 운영진용 컨텍스트(내부 참조) + 복붙 블록
+    const lines: string[] = [`📨 **새 문의** — ${who} 작가  (ID \`${ref}\`)`];
+    if (params.purpose) lines.push(`• 목적: ${params.purpose}`);
+    if (params.preferredDate) lines.push(`• 희망일: ${params.preferredDate}`);
+    if (params.region) lines.push(`• 지역: ${params.region}`);
+    lines.push("", "⬇️ 아래 메시지를 복사해 작가에게 보내세요", "```", forPhotographer, "```");
+
+    await fetch(OPS_WEBHOOK, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: lines.join("\n") }),
+      redirect: "manual",
+    });
+  } catch {
+    // 디스코드 실패가 문의 접수를 막지 않게 무시
+  }
+}

@@ -11,10 +11,11 @@ import {
   HeartIcon,
   UserIcon,
   BellIcon,
+  CameraIcon,
 } from "./icons";
 
 // 하단바/레일에 들어갈 코어 항목 아이콘 키
-export type NavIconKey = "home" | "heart" | "bell";
+export type NavIconKey = "home" | "heart" | "bell" | "studio";
 
 export type NavItem = {
   href: string;
@@ -33,6 +34,8 @@ function renderIcon(key: NavIconKey) {
       return <HeartIcon className={cls} />;
     case "bell":
       return <BellIcon className={cls} />;
+    case "studio":
+      return <CameraIcon className={cls} />;
   }
 }
 

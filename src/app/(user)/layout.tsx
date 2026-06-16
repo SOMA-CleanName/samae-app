@@ -23,8 +23,17 @@ export default async function UserLayout({
   const items: NavItem[] = [
     { href: "/", label: "탐색", icon: "home" },
     { href: "/favorites", label: "찜", icon: "heart" },
-    { href: "/notifications", label: "예약 알림", icon: "bell", badge: unreadNotif || undefined },
   ];
+  // 작가에게는 스튜디오 바로가기 아이콘을 레일/하단바에 노출
+  if (me?.photographer) {
+    items.push({ href: "/studio", label: "스튜디오", icon: "studio" });
+  }
+  items.push({
+    href: "/notifications",
+    label: "예약 알림",
+    icon: "bell",
+    badge: unreadNotif || undefined,
+  });
 
   return (
     <>
