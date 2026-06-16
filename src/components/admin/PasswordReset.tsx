@@ -1,12 +1,23 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { clearAnalytics, type ResetState } from "./actions";
 
-// 분석 데이터 초기화 — 버튼 → 비밀번호 입력 → 전체 삭제
-export function ResetAnalytics() {
+export type ResetState = { error?: string; ok?: boolean };
+
+// 비밀번호 확인형 초기화 버튼 — 어드민 공용 (분석·문의·거래 등)
+export function PasswordReset({
+  action,
+  label = "데이터 초기화",
+  confirmLabel = "전체 삭제",
+  okText = "초기화됐어요.",
+}: {
+  action: (prev: ResetState, fd: FormData) => Promise<ResetState>;
+  label?: string;
+  confirmLabel?: string;
+  okText?: string;
+}) {
   const [open, setOpen] = useState(false);
-  const [state, formAction, pending] = useActionState<ResetState, FormData>(clearAnalytics, {});
+  const [state, formAction, pending] = useActionState<ResetState, FormData>(action, {});
 
   if (!open) {
     return (
@@ -15,7 +26,7 @@ export function ResetAnalytics() {
         onClick={() => setOpen(true)}
         className="shrink-0 cursor-pointer rounded-full border border-line-strong px-3 py-1.5 text-caption font-medium text-muted transition-colors hover:bg-fg/[0.04]"
       >
-        데이터 초기화
+        {label}
       </button>
     );
   }
@@ -34,7 +45,7 @@ export function ResetAnalytics() {
         disabled={pending}
         className="cursor-pointer rounded-full bg-danger px-3 py-1.5 text-caption font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
       >
-        {pending ? "삭제 중…" : "전체 삭제"}
+        {pending ? "삭제 중…" : confirmLabel}
       </button>
       <button
         type="button"
@@ -44,7 +55,7 @@ export function ResetAnalytics() {
         취소
       </button>
       {state.error && <span className="text-caption text-danger">{state.error}</span>}
-      {state.ok && <span className="text-caption text-success">초기화됐어요.</span>}
+      {state.ok && <span className="text-caption text-success">{okText}</span>}
     </form>
   );
 }

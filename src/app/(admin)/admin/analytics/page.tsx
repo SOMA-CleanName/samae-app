@@ -2,7 +2,8 @@ import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EmptyState } from "@/components/ui";
 import { cn } from "@/lib/cn";
-import { ResetAnalytics } from "./ResetAnalytics";
+import { clearAnalytics } from "./actions";
+import { PasswordReset } from "@/components/admin/PasswordReset";
 
 export const dynamic = "force-dynamic";
 
@@ -80,7 +81,7 @@ export default async function AdminAnalyticsPage({
           <h1 className="text-h1 font-semibold">분석</h1>
           <p className="mt-1 text-body-sm text-muted">고객 행동 — 페이지뷰·CTA·이탈률 (운영자 전용)</p>
         </div>
-        <ResetAnalytics />
+        <PasswordReset action={clearAnalytics} label="데이터 초기화" />
       </div>
 
       {/* 기간 */}

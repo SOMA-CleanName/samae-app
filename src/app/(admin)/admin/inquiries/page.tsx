@@ -4,8 +4,9 @@ import { getPlatformAccount, hasAccount } from "@/lib/platform-account";
 import { EmptyState } from "@/components/ui";
 import { ClipboardIcon } from "@/components/user/icons";
 import { cn } from "@/lib/cn";
-import { updatePlatformAccount } from "./actions";
+import { updatePlatformAccount, clearInquiries } from "./actions";
 import { AdminInquiries, type InquiryRow, type Stage } from "./AdminInquiries";
+import { PasswordReset } from "@/components/admin/PasswordReset";
 
 export const dynamic = "force-dynamic";
 
@@ -115,10 +116,15 @@ export default async function AdminInquiriesPage({
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-5">
-      <h1 className="text-h1 font-semibold">입금·문의 관리</h1>
-      <p className="mt-1 text-body-sm text-muted">
-        작가 수락 → 입금대기 → 입금확인 시 고객 연락처가 작가에게 공개돼요.
-      </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-h1 font-semibold">입금·문의 관리</h1>
+          <p className="mt-1 text-body-sm text-muted">
+            작가 수락 → 입금대기 → 입금확인 시 고객 연락처가 작가에게 공개돼요.
+          </p>
+        </div>
+        <PasswordReset action={clearInquiries} label="문의 초기화" />
+      </div>
 
       {/* 플랫폼 입금 계좌 */}
       <PlatformAccountEditor account={account} configured={hasAccount(account)} />

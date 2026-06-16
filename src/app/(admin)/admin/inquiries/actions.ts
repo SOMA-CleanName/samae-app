@@ -5,11 +5,27 @@ import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const VALID = ["new", "accepted", "confirmed", "contacted", "converted", "closed"];
+const RESET_PASSWORD = "same123!";
 
 async function assertAdmin() {
   const me = await getCurrentUser();
   if (!me || me.role !== "admin") throw new Error("운영자 권한이 필요합니다.");
   return me;
+}
+
+export type ResetState = { error?: string; ok?: boolean };
+
+// 문의 전체 초기화 — 운영자 + 비밀번호
+export async function clearInquiries(_prev: ResetState, formData: FormData): Promise<ResetState> {
+  const me = await getCurrentUser();
+  if (!me || me.role !== "admin") return { error: "운영자 권한이 필요합니다." };
+  if (String(formData.get("password") ?? "") !== RESET_PASSWORD) return { error: "비밀번호가 올바르지 않아요." };
+
+  const admin = createAdminClient();
+  const { error } = await admin.from("inquiries").delete().not("id", "is", null);
+  if (error) return { error: error.message };
+  revalidatePath("/admin/inquiries");
+  return { ok: true };
 }
 
 // 문의 상태 직접 변경 — 운영자 정리용
