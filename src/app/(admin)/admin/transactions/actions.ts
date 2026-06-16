@@ -22,13 +22,18 @@ export async function clearTransactions(_prev: ResetState, formData: FormData): 
   if (String(formData.get("password") ?? "") !== RESET_PASSWORD) return { error: "비밀번호가 올바르지 않아요." };
 
   const admin = createAdminClient();
-  // 순서 중요: restrict FK 먼저
+
+  // 없는 테이블(스키마 미존재)은 건너뜀
+  const isMissingTable = (e: { code?: string; message?: string }) =>
+    e.code === "PGRST205" || e.code === "42P01" || /could not find the table/i.test(e.message ?? "");
+
+  // 순서 중요: bookings 를 restrict 로 참조하는 테이블 먼저
   for (const t of ["settlements", "platform_fees", "payments"]) {
     const { error } = await admin.from(t).delete().not("id", "is", null);
-    if (error) return { error: `${t}: ${error.message}` };
+    if (error && !isMissingTable(error)) return { error: `${t}: ${error.message}` };
   }
   const { error } = await admin.from("bookings").delete().not("id", "is", null);
-  if (error) return { error: `bookings: ${error.message}` };
+  if (error && !isMissingTable(error)) return { error: `bookings: ${error.message}` };
 
   revalidatePath("/admin/transactions");
   return { ok: true };
