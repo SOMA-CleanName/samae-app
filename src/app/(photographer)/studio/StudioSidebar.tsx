@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { HomeIcon } from "@/components/user/icons";
 
 type Item = { href: string; label: string; badge?: number };
 
@@ -53,23 +54,33 @@ export function StudioSidebar() {
         </Link>
       </aside>
 
-      {/* 모바일: 상단 가로 스크롤 탭 */}
-      <nav className="sticky top-0 z-40 flex gap-1 overflow-x-auto border-b border-fg/8 bg-bg/95 px-3 py-2 backdrop-blur md:hidden">
-        {[...ops, ...settings].map((it) => {
-          const active = isActive(it.href);
-          return (
-            <Link
-              key={it.href}
-              href={it.href}
-              className={`relative shrink-0 rounded-full px-3 py-1.5 text-sm ${
-                active ? "bg-fg text-bg" : "text-fg/60 hover:bg-fg/[0.05]"
-              }`}
-            >
-              {it.label}
-              {it.badge ? <Dot /> : null}
-            </Link>
-          );
-        })}
+      {/* 모바일: 상단 한 줄 바 — 탐색(홈) 복귀 + 가로 스크롤 탭 */}
+      <nav className="sticky top-0 z-40 flex items-center gap-1.5 border-b border-line bg-bg/95 px-2 py-2 backdrop-blur md:hidden">
+        <Link
+          href="/"
+          aria-label="탐색으로"
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-fg/70 transition-colors hover:bg-fg/[0.06]"
+        >
+          <HomeIcon className="h-5 w-5" />
+        </Link>
+        <span className="h-5 w-px shrink-0 bg-line" />
+        <div className="flex gap-1 overflow-x-auto scrollbar-none">
+          {[...ops, ...settings].map((it) => {
+            const active = isActive(it.href);
+            return (
+              <Link
+                key={it.href}
+                href={it.href}
+                className={`relative shrink-0 rounded-full px-3 py-1.5 text-sm transition-colors ${
+                  active ? "bg-fg text-bg" : "text-fg/60 hover:bg-fg/[0.05]"
+                }`}
+              >
+                {it.label}
+                {it.badge ? <Dot /> : null}
+              </Link>
+            );
+          })}
+        </div>
       </nav>
     </>
   );
