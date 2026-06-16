@@ -173,7 +173,7 @@ export async function submitInquiry(
 
   return {
     ok: true,
-    message: "작가에게 연락처가 전송되었습니다. 곧 연락을 할 예정입니다.",
+    message: "문의가 작가에게 전달되었어요. 작가가 확인 후 연락드릴 예정입니다.",
   };
 }
 
@@ -237,20 +237,21 @@ async function notifyPhotographer(
   });
 }
 
-function inquiryNickname(displayName: string | null, contact: ContactInfo) {
-  return displayName || contact.instagramId || contact.extraContact || "비회원";
+function inquiryNickname(displayName: string | null) {
+  // 연락처(인스타/기타)는 입금 확인 전 노출 금지 — 닉네임 fallback에도 쓰지 않는다.
+  return displayName || "비회원";
 }
 
-function buildInquiryBody(displayName: string | null, contact: ContactInfo, brief: BriefInfo) {
+// 알림 본문에는 연락처(전화/인스타/기타)를 절대 담지 않는다.
+// 연락처는 운영자 입금 확인(status='confirmed') 후 listMyAcceptedInquiries 경로로만 공개된다.
+function buildInquiryBody(displayName: string | null, _contact: ContactInfo, brief: BriefInfo) {
   const lines = [
-    `${inquiryNickname(displayName, contact)} 님이 예약 문의를 하였습니다.`,
-    contact.phone && `전화번호: ${contact.phone}`,
-    contact.instagramId && `인스타: ${contact.instagramId}`,
-    contact.extraContact && `기타 연락처: ${contact.extraContact}`,
+    `${inquiryNickname(displayName)} 님이 예약 문의를 하였습니다.`,
     `목적: ${brief.purpose}`,
     `희망 일정: ${brief.preferredDate}`,
     brief.region && `희망 지역: ${brief.region}`,
     brief.refImagePaths.length > 0 && `레퍼런스 사진: ${brief.refImagePaths.length}장`,
+    "수락 후 입금이 확인되면 연락처가 공개됩니다.",
   ].filter(Boolean);
 
   return lines.join("\n");

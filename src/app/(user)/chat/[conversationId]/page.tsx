@@ -5,7 +5,6 @@ import { getConversation, getMessages, counterpartName, getBrief } from "@/lib/c
 import { createClient } from "@/lib/supabase/server";
 import { fetchPhotographerPackages, fetchPhotographerPhotos } from "@/lib/discovery";
 import { getRules, getBlocks, getBusyRanges } from "@/lib/availability";
-import { getPhotographerPayoutAccount, type PayoutAccount } from "@/lib/payments";
 import { ChatRoom } from "./ChatRoom";
 import { BriefPanel } from "./BriefPanel";
 import { BriefBanner } from "./BriefBanner";
@@ -36,11 +35,8 @@ export default async function ChatRoomPage({
   // 작가가 채팅을 한 번이라도 보냈는지 (참여자는 둘뿐 → 고객 외 발신=작가)
   const photographerHasMessaged = messages.some((m) => m.sender_id !== conv.user_id);
 
-  // 고객이면 작가 수취 계좌 미리 준비 (수락 후 채팅 송금 카드에서 즉시 노출).
-  // 채팅방 진입 = RLS로 참여 확인됨 → admin 조회 게이트 충족.
-  const payoutAccount: PayoutAccount | null = amCustomer
-    ? await getPhotographerPayoutAccount(conv.photographer_id)
-    : null;
+  // 작가 수취 계좌는 여기서 미리 내려보내지 않는다 — 수락(accepted) 이후 송금 카드에서
+  // getBookingPayoutAccount 서버액션으로 지연 로딩(채팅 진입만으로 계좌가 응답에 실리는 것 방지).
 
   // 포트폴리오 사진 — 채팅에서 작가 포트폴리오에서 골라 보내기(C5)
   const portfolioPhotos = (await fetchPhotographerPhotos(conv.photographer_id)).map((p) => ({
@@ -134,7 +130,6 @@ export default async function ChatRoomPage({
           amPhotographer={!amCustomer}
           initialMessages={messages}
           composerData={composerData}
-          payoutAccount={payoutAccount}
           portfolioPhotos={portfolioPhotos}
           brief={brief}
           sourcePhotoPath={conv.source_photo_path}

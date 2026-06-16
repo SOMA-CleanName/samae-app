@@ -6,7 +6,26 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { getOrCreateConversation } from "@/lib/conversations";
+import { getPhotographerPayoutAccount, type PayoutAccount } from "@/lib/payments";
 import { archiveAndDelete } from "@/lib/soft-delete";
+
+// 송금 단계(수락 이후)에서만 작가 수취 계좌를 공개 — 채팅 진입만으로 계좌가 응답에 실리지 않게 한다(리드/보안).
+//   · 고객 본인 + 해당 예약이 accepted 이상일 때만 반환, 그 외엔 null.
+const PAYOUT_VISIBLE_STATUSES = ["accepted", "paid", "shot", "delivered", "completed"];
+
+export async function getBookingPayoutAccount(bookingId: string): Promise<PayoutAccount | null> {
+  const me = await getCurrentUser();
+  if (!me) return null;
+  const supabase = await createClient();
+  const { data: booking } = await supabase
+    .from("bookings")
+    .select("photographer_id, user_id, status")
+    .eq("id", bookingId)
+    .maybeSingle();
+  if (!booking || booking.user_id !== me.id) return null; // 고객 본인만
+  if (!PAYOUT_VISIBLE_STATUSES.includes(booking.status as string)) return null;
+  return getPhotographerPayoutAccount(booking.photographer_id as string);
+}
 
 // 작가에게 채팅 시작 — 기존 진입점 호환용. 신규 CTA는 문의 폼을 먼저 거친다.
 export async function startConversation(formData: FormData) {

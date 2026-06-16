@@ -4,7 +4,7 @@
 import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { sendMessage, markRead, sendPortfolioPhoto } from "../actions";
+import { sendMessage, markRead, sendPortfolioPhoto, getBookingPayoutAccount } from "../actions";
 import { acceptBooking, rejectBooking, cancelBooking } from "@/app/actions/bookings";
 import { markTransferSent, confirmTransfer, markShot } from "@/app/actions/payments";
 import type { ChatMessage, BookingSnapshot, ConsultationBrief } from "@/lib/chat";
@@ -51,7 +51,6 @@ export function ChatRoom({
   amPhotographer,
   initialMessages,
   composerData,
-  payoutAccount,
   portfolioPhotos,
   brief,
   sourcePhotoPath,
@@ -61,7 +60,6 @@ export function ChatRoom({
   amPhotographer: boolean;
   initialMessages: ChatMessage[];
   composerData: ComposerData | null;
-  payoutAccount: PayoutAccount | null;
   portfolioPhotos: PortfolioPhoto[];
   brief: ConsultationBrief | null;
   sourcePhotoPath: string | null;
@@ -219,7 +217,6 @@ export function ChatRoom({
                 booking={m.booking}
                 amPhotographer={amPhotographer}
                 amCustomer={amCustomer}
-                payoutAccount={payoutAccount}
                 onOpenDetail={() => router.push(`/bookings/${m.booking!.id}?from=chat`)}
                 onEdit={
                   // 수정은 '구매자가 한 제안'에 한해 구매자만 가능
@@ -503,14 +500,12 @@ function BookingCard({
   booking,
   amPhotographer,
   amCustomer,
-  payoutAccount,
   onOpenDetail,
   onEdit,
 }: {
   booking: BookingSnapshot;
   amPhotographer: boolean;
   amCustomer: boolean;
-  payoutAccount: PayoutAccount | null;
   onOpenDetail: () => void;
   onEdit: (() => void) | null; // 구매자 제안일 때 구매자에게만 제공
 }) {
@@ -615,7 +610,6 @@ function BookingCard({
           booking={booking}
           amCustomer={amCustomer}
           amPhotographer={amPhotographer}
-          payoutAccount={payoutAccount}
           stop={stop}
           onConfirmed={() => {
             setActed("paid");
@@ -710,14 +704,12 @@ function TransferSection({
   booking,
   amCustomer,
   amPhotographer,
-  payoutAccount,
   stop,
   onConfirmed,
 }: {
   booking: BookingSnapshot;
   amCustomer: boolean;
   amPhotographer: boolean;
-  payoutAccount: PayoutAccount | null;
   stop: (e: React.MouseEvent) => void;
   onConfirmed: () => void; // 작가 입금 확인 후 카드 즉시 진행(req8)
 }) {
@@ -727,6 +719,23 @@ function TransferSection({
   const [showPolicy, setShowPolicy] = useState(false);
   const [, startSend] = useTransition();
   const marked = sent || !!booking.transfer_marked_at;
+
+  // 작가 계좌는 수락(accepted) 이후 이 시점에만 서버액션으로 가져온다(고객 본인 + 예약 게이트 검증).
+  // 채팅 진입만으로 계좌가 응답에 실리지 않게 하고, 수락 직후에도 즉시 표시되게 한다.
+  const [payoutAccount, setPayoutAccount] = useState<PayoutAccount | null>(null);
+  const [accountLoading, setAccountLoading] = useState(amCustomer);
+  useEffect(() => {
+    if (!amCustomer) return;
+    let active = true;
+    getBookingPayoutAccount(booking.id).then((acc) => {
+      if (!active) return;
+      setPayoutAccount(acc);
+      setAccountLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [amCustomer, booking.id]);
 
   // 고객 송금 완료 알림 — 낙관적 표시 + 서버 반영 후 새로고침
   function notifySent() {
@@ -759,7 +768,12 @@ function TransferSection({
             <WalletIcon className="h-4 w-4" />
             송금 안내
           </p>
-          {payoutAccount ? (
+          {accountLoading ? (
+            <div className="mt-2 flex items-center gap-2 rounded-xl bg-surface-2 px-3 py-3 text-caption text-muted">
+              <Spinner className="h-4 w-4" />
+              계좌 정보를 불러오는 중…
+            </div>
+          ) : payoutAccount ? (
             <div className="mt-2 rounded-xl bg-surface-2 p-3 text-caption">
               <TransferRow label="은행" value={payoutAccount.bank} />
               <TransferRow label="계좌번호" value={payoutAccount.number} mono />
