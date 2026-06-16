@@ -259,6 +259,16 @@ export function ClipboardIcon({ className }: IconProps) {
   );
 }
 
+// 메일(봉투) — 이메일 인증 안내. Lucide mail 기반
+export function MailIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className ?? "h-5 w-5"}>
+      <rect x="2" y="4" width="20" height="16" rx="2.5" />
+      <path d="m3 7 8.2 5.5a1.5 1.5 0 0 0 1.6 0L21 7" />
+    </svg>
+  );
+}
+
 // 송금/결제(지갑) — 💸 이모지 대체. Lucide wallet 기반
 export function WalletIcon({ className }: IconProps) {
   return (

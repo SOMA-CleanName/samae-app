@@ -1,19 +1,27 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { ArrowLeftIcon } from "@/components/user/icons";
+import { ArrowLeftIcon, CheckIcon } from "@/components/user/icons";
 
-// 로그인/회원가입 — 카카오 소셜 + 이메일
+// 로그인 — 카카오 소셜 + 이메일 (회원가입은 /signup)
 export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [notice, setNotice] = useState<"verified" | "verifyError" | null>(null);
+
+  // 이메일 인증 콜백 결과 배너 (?verified=1 / ?error=verify)
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    if (p.get("verified") === "1") setNotice("verified");
+    else if (p.get("error") === "verify") setNotice("verifyError");
+  }, []);
 
   function onBack() {
     if (typeof window !== "undefined" && window.history.length > 1) router.back();
@@ -33,16 +41,7 @@ export default function LoginPage() {
     setError(null);
     setLoading(true);
 
-    const fn =
-      mode === "signin"
-        ? supabase.auth.signInWithPassword({ email, password })
-        : supabase.auth.signUp({
-            email,
-            password,
-            options: { emailRedirectTo: `${location.origin}/auth/callback` },
-          });
-
-    const { error } = await fn;
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
 
     if (error) {
@@ -64,6 +63,17 @@ export default function LoginPage() {
         <ArrowLeftIcon />
       </button>
       <div className="w-full max-w-sm">
+        {notice === "verified" && (
+          <div className="mb-5 flex items-center gap-2 rounded-xl bg-success-soft px-4 py-3 text-sm text-success">
+            <CheckIcon className="h-4 w-4 shrink-0" />
+            이메일 인증이 완료됐어요. 로그인해 주세요.
+          </div>
+        )}
+        {notice === "verifyError" && (
+          <div className="mb-5 rounded-xl bg-danger-soft px-4 py-3 text-sm text-danger">
+            인증 링크가 만료되었거나 올바르지 않아요. 다시 시도해 주세요.
+          </div>
+        )}
         <h1 className="text-center text-3xl font-display italic text-brand">samae</h1>
         <p className="mt-2 text-center text-sm text-fg/60">
           취향에 맞는 사진작가를 만나보세요.
@@ -107,19 +117,16 @@ export default function LoginPage() {
             disabled={loading}
             className="mt-1 w-full rounded-xl bg-fg py-3 text-sm font-semibold text-bg hover:opacity-90 disabled:opacity-50"
           >
-            {loading ? "처리 중…" : mode === "signin" ? "로그인" : "회원가입"}
+            {loading ? "처리 중…" : "로그인"}
           </button>
         </form>
 
-        <button
-          type="button"
-          onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
-          className="mt-4 w-full text-center text-xs text-fg/50 hover:text-fg/80"
+        <Link
+          href="/signup"
+          className="mt-4 block w-full text-center text-xs text-fg/50 hover:text-fg/80"
         >
-          {mode === "signin"
-            ? "계정이 없으신가요? 회원가입"
-            : "이미 계정이 있으신가요? 로그인"}
-        </button>
+          계정이 없으신가요? 회원가입
+        </Link>
       </div>
     </main>
   );
