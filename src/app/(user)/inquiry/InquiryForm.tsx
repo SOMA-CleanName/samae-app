@@ -47,11 +47,15 @@ export function InquiryForm({
     if (!state.ok) return;
     setShowSuccess(true);
     const id = window.setTimeout(() => {
-      setShowSuccess(false);
-      router.push(returnPath);
-    }, 5000);
+      closeSuccess();
+    }, 7000);
     return () => window.clearTimeout(id);
-  }, [returnPath, router, state.ok]);
+  }, [state.ok]);
+
+  function closeSuccess() {
+    setShowSuccess(false);
+    router.push(returnPath);
+  }
 
   useEffect(() => {
     if (!state.values) return;
@@ -62,7 +66,7 @@ export function InquiryForm({
     setBrief(state.values.brief);
   }, [state.values]);
 
-  const hasBrief = !!brief.purpose && !!brief.preferredDate && !!brief.region;
+  const hasBrief = !!brief.partySize && !!brief.purpose && !!brief.preferredDate;
 
   function openReferencePicker() {
     fileInputRef.current?.click();
@@ -112,16 +116,14 @@ export function InquiryForm({
           <button
             type="button"
             onClick={() => setBriefOpen(true)}
-            aria-label={hasBrief ? "상담 정보 수정" : "상담 정보 작성"}
-            title={hasBrief ? "상담 정보 수정" : "상담 정보 작성"}
-            className="group relative grid h-9 w-9 cursor-pointer place-items-center rounded-full text-fg/65 transition-colors hover:bg-fg/[0.06] hover:text-fg"
+            aria-label={hasBrief ? "상담 정보 수정" : "상담 정보 입력"}
+            title={hasBrief ? "상담 정보 수정" : "상담 정보 입력"}
+            className="relative inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-line-strong px-3 text-sm font-semibold text-fg/75 transition-colors hover:bg-fg/[0.06] hover:text-fg"
           >
-            <ClipboardIcon className="h-5 w-5" />
-            <span className="pointer-events-none absolute right-0 top-10 z-10 whitespace-nowrap rounded-full border border-line bg-bg px-3 py-1.5 text-sm font-medium text-fg opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100">
-              {hasBrief ? "상담 정보 수정" : "상담 정보 작성"}
-            </span>
+            <ClipboardIcon className="h-4 w-4" />
+            {hasBrief ? "상담 정보 수정" : "상담 정보 입력"}
             {!hasBrief && (
-              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-brand ring-2 ring-bg" />
+              <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-brand ring-2 ring-bg" />
             )}
           </button>
         </div>
@@ -192,6 +194,13 @@ export function InquiryForm({
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/35 px-4 font-kr">
           <div className="w-full max-w-sm rounded-2xl bg-bg p-5 text-center shadow-pop">
             <p className="text-base font-semibold text-fg">{state.message}</p>
+            <button
+              type="button"
+              onClick={closeSuccess}
+              className="mt-5 rounded-full bg-fg px-5 py-2.5 text-sm font-semibold text-bg transition-opacity hover:opacity-90"
+            >
+              닫기
+            </button>
           </div>
         </div>
       )}
@@ -243,7 +252,7 @@ function BriefModal({
   }
 
   function save() {
-    if (!draft.purpose || !draft.preferredDate || !draft.region) return;
+    if (!draft.partySize || !draft.purpose || !draft.preferredDate) return;
     onChange(draft);
     onClose();
   }
@@ -296,6 +305,7 @@ function BriefModal({
             onChange={(next) => setField("partySize", next)}
             placeholder="예: 2"
             inputMode="numeric"
+            required
           />
           <BriefInput
             label="사진 목적"
@@ -316,7 +326,6 @@ function BriefModal({
             value={draft.region}
             onChange={(next) => setField("region", next)}
             placeholder="예: 서울 성수동 일대"
-            required
           />
 
           <label className="block">
@@ -364,7 +373,7 @@ function BriefModal({
           <button
             type="button"
             onClick={save}
-            disabled={!draft.purpose || !draft.preferredDate || !draft.region}
+            disabled={!draft.partySize || !draft.purpose || !draft.preferredDate}
             className="flex-1 rounded-full bg-fg py-2.5 text-sm font-semibold text-bg hover:opacity-90 disabled:opacity-50"
           >
             저장
@@ -392,7 +401,10 @@ function BriefInput({
 }) {
   return (
     <label className="block">
-      <span className="text-xs text-muted">{label}</span>
+      <span className="flex items-center gap-1.5 text-xs text-muted">
+        {label}
+        {required && <span className="font-medium text-brand">필수 입력</span>}
+      </span>
       <input
         value={value}
         onChange={(event) => onChange(event.target.value)}

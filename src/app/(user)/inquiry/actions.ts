@@ -91,7 +91,7 @@ function validateContactInfo(formData: FormData): ContactInfo {
 
 function validateBriefInfo(formData: FormData): BriefInfo {
   const brief = readBriefInfo(formData);
-  if (!brief.purpose || !brief.preferredDate || !brief.region) {
+  if (!brief.partySize || !brief.purpose || !brief.preferredDate) {
     throw new Error("상담 정보를 먼저 작성해주세요.");
   }
   return brief;
@@ -259,7 +259,7 @@ function buildInquiryBody(displayName: string | null, contact: ContactInfo, brie
     contact.contactEmail && `이메일: ${contact.contactEmail}`,
     `목적: ${brief.purpose}`,
     `희망 일정: ${brief.preferredDate}`,
-    `희망 지역: ${brief.region}`,
+    brief.region && `희망 지역: ${brief.region}`,
     brief.refImagePaths.length > 0 && `레퍼런스 사진: ${brief.refImagePaths.length}장`,
   ].filter(Boolean);
 
