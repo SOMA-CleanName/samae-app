@@ -13,22 +13,17 @@ export function InquiryForm({
   photoId,
   initialPhone,
   initialInstagramId,
-  initialDiscordId,
-  initialContactEmail,
 }: {
   photographerId: string;
   photoId: string;
   initialPhone: string;
   initialInstagramId: string;
-  initialDiscordId: string;
-  initialContactEmail: string;
 }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(submitInquiry, INITIAL_STATE);
   const [phone, setPhone] = useState(formatPhone(initialPhone));
   const [instagramId, setInstagramId] = useState(initialInstagramId);
-  const [discordId, setDiscordId] = useState(initialDiscordId);
-  const [contactEmail, setContactEmail] = useState(initialContactEmail);
+  const [extraContact, setExtraContact] = useState("");
   const [brief, setBrief] = useState<BriefValues>({
     gender: "",
     partySize: "",
@@ -39,6 +34,7 @@ export function InquiryForm({
   });
   const [briefOpen, setBriefOpen] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [briefPrompt, setBriefPrompt] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [referencePreviews, setReferencePreviews] = useState<ReferencePreview[]>([]);
   const returnPath = photoId ? `/photos/${photoId}` : `/photographers/${photographerId}`;
@@ -61,8 +57,7 @@ export function InquiryForm({
     if (!state.values) return;
     setPhone(formatPhone(state.values.phone));
     setInstagramId(state.values.instagramId);
-    setDiscordId(state.values.discordId);
-    setContactEmail(state.values.contactEmail);
+    setExtraContact(state.values.extraContact);
     setBrief(state.values.brief);
   }, [state.values]);
 
@@ -90,9 +85,17 @@ export function InquiryForm({
     };
   }, [referencePreviews]);
 
+  const hasContact = !!phone.trim() || !!instagramId.trim() || !!extraContact.trim();
+
+  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    if (hasBrief) return;
+    event.preventDefault();
+    setBriefPrompt(true);
+  }
+
   return (
     <>
-      <form action={formAction} className="mt-6 space-y-4">
+      <form action={formAction} onSubmit={onSubmit} className="mt-3 flex min-h-[560px] flex-col">
         <input type="hidden" name="photographerId" value={photographerId} />
         <input type="hidden" name="photoId" value={photoId} />
         <input type="hidden" name="gender" value={brief.gender} />
@@ -111,83 +114,90 @@ export function InquiryForm({
           onChange={(event) => onReferenceChange(event.target.files)}
         />
 
-        <div className="flex items-center justify-between gap-3">
+        <div className="space-y-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="-translate-y-px text-3xl font-semibold leading-none">예약 문의</h1>
+            <button
+              type="button"
+              onClick={() => {
+                setBriefPrompt(false);
+                setBriefOpen(true);
+              }}
+              aria-label={hasBrief ? "상담 정보 수정" : "상담 정보 입력"}
+              title={hasBrief ? "상담 정보 수정" : "상담 정보 입력"}
+              className="relative inline-flex h-8 translate-y-0.5 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-line-strong px-3 text-sm font-semibold text-fg/75 transition-colors hover:bg-fg/[0.06] hover:text-fg"
+            >
+              <ClipboardIcon className="h-4 w-4" />
+              {hasBrief ? "상담 정보 수정" : "상담 정보 입력"}
+              {!hasBrief && (
+                <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-brand ring-2 ring-bg" />
+              )}
+            </button>
+          </div>
+
           <p className="text-base font-semibold text-fg/85">연락 가능한 수단을 하나 이상 입력해주세요.</p>
-          <button
-            type="button"
-            onClick={() => setBriefOpen(true)}
-            aria-label={hasBrief ? "상담 정보 수정" : "상담 정보 입력"}
-            title={hasBrief ? "상담 정보 수정" : "상담 정보 입력"}
-            className="relative inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-line-strong px-3 text-sm font-semibold text-fg/75 transition-colors hover:bg-fg/[0.06] hover:text-fg"
-          >
-            <ClipboardIcon className="h-4 w-4" />
-            {hasBrief ? "상담 정보 수정" : "상담 정보 입력"}
-            {!hasBrief && (
-              <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-brand ring-2 ring-bg" />
-            )}
-          </button>
+
+          <div className="space-y-5 pt-5">
+            <label className="block">
+              <span className="text-sm font-medium text-fg/80">전화번호</span>
+              <input
+                name="phone"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                value={phone}
+                onChange={(event) => setPhone(formatPhone(event.target.value))}
+                placeholder="010-1234-5678"
+                pattern="0[0-9]{2}-[0-9]{4}-[0-9]{4}"
+                className="mt-2 h-12 w-full rounded-xl border border-line-strong bg-white px-4 text-base outline-none transition-colors placeholder:text-fg/30 focus:border-fg/45"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-sm font-medium text-fg/80">인스타 아이디</span>
+              <input
+                name="instagramId"
+                type="text"
+                autoComplete="off"
+                value={instagramId}
+                onChange={(event) => setInstagramId(event.target.value)}
+                placeholder="@samae.photo"
+                className="mt-2 h-12 w-full rounded-xl border border-line-strong bg-white px-4 text-base outline-none transition-colors placeholder:text-fg/30 focus:border-fg/45"
+              />
+            </label>
+
+            <label className="block">
+              <span className="text-sm font-medium text-fg/80">기타 연락처</span>
+              <input
+                name="extraContact"
+                type="text"
+                autoComplete="off"
+                value={extraContact}
+                onChange={(event) => setExtraContact(event.target.value)}
+                placeholder="디스코드 아이디, 이메일 등등.."
+                className="mt-2 h-12 w-full rounded-xl border border-line-strong bg-white px-4 text-base outline-none transition-colors placeholder:text-fg/30 focus:border-fg/45"
+              />
+            </label>
+          </div>
+
+          {state.error && <p className="text-sm font-medium text-brand">{state.error}</p>}
         </div>
 
-        <label className="block">
-          <span className="text-sm font-medium text-fg/80">전화번호</span>
-          <input
-            name="phone"
-            type="tel"
-            inputMode="tel"
-            autoComplete="tel"
-            value={phone}
-            onChange={(event) => setPhone(formatPhone(event.target.value))}
-            placeholder="010-1234-5678"
-            pattern="0[0-9]{2}-[0-9]{4}-[0-9]{4}"
-            className="mt-2 h-12 w-full rounded-xl border border-line-strong bg-white px-4 text-base outline-none transition-colors placeholder:text-fg/30 focus:border-fg/45"
-          />
-        </label>
-
-        <label className="block">
-          <span className="text-sm font-medium text-fg/80">인스타 아이디</span>
-          <input
-            name="instagramId"
-            type="text"
-            autoComplete="off"
-            value={instagramId}
-            onChange={(event) => setInstagramId(event.target.value)}
-            placeholder="@samae.photo"
-            className="mt-2 h-12 w-full rounded-xl border border-line-strong bg-white px-4 text-base outline-none transition-colors placeholder:text-fg/30 focus:border-fg/45"
-          />
-        </label>
-
-        <label className="block">
-          <span className="text-sm font-medium text-fg/80">디스코드 아이디</span>
-          <input
-            name="discordId"
-            type="text"
-            autoComplete="off"
-            value={discordId}
-            onChange={(event) => setDiscordId(event.target.value)}
-            placeholder="samae#1234"
-            className="mt-2 h-12 w-full rounded-xl border border-line-strong bg-white px-4 text-base outline-none transition-colors placeholder:text-fg/30 focus:border-fg/45"
-          />
-        </label>
-
-        <label className="block">
-          <span className="text-sm font-medium text-fg/80">사용하는 이메일</span>
-          <input
-            name="contactEmail"
-            type="email"
-            inputMode="email"
-            autoComplete="email"
-            value={contactEmail}
-            onChange={(event) => setContactEmail(event.target.value)}
-            placeholder="name@example.com"
-            className="mt-2 h-12 w-full rounded-xl border border-line-strong bg-white px-4 text-base outline-none transition-colors placeholder:text-fg/30 focus:border-fg/45"
-          />
-        </label>
-
-        {state.error && <p className="text-sm font-medium text-brand">{state.error}</p>}
-
-        <Button type="submit" size="lg" fullWidth loading={pending}>
-          다음
-        </Button>
+        <div className="mt-auto pt-6">
+          {briefPrompt && (
+            <p className="mb-2 text-sm font-medium text-brand">상담 정보를 입력해주세요.</p>
+          )}
+          <Button
+            type="submit"
+            size="lg"
+            fullWidth
+            loading={pending}
+            disabled={!hasContact}
+            variant={briefPrompt ? "danger" : "primary"}
+          >
+            다음
+          </Button>
+        </div>
       </form>
 
       {showSuccess && state.message && (
@@ -210,7 +220,10 @@ export function InquiryForm({
           value={brief}
           referencePreviews={referencePreviews}
           onPickReferences={openReferencePicker}
-          onChange={setBrief}
+          onChange={(next) => {
+            setBrief(next);
+            setBriefPrompt(false);
+          }}
           onClose={() => setBriefOpen(false)}
         />
       )}

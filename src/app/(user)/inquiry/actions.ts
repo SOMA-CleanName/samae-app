@@ -13,7 +13,6 @@ export type InquiryState = {
 };
 
 const PHONE_PATTERN = /^0\d{2}-\d{4}-\d{4}$/;
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const REF_IMAGE_BUCKET = "samae-chat";
 const MAX_REF_IMAGE_BYTES = 15 * 1024 * 1024;
 const MAX_REF_IMAGES = 5;
@@ -21,16 +20,14 @@ const MAX_REF_IMAGES = 5;
 export type InquiryValues = {
   phone: string;
   instagramId: string;
-  discordId: string;
-  contactEmail: string;
+  extraContact: string;
   brief: InquiryBriefValues;
 };
 
 type ContactInfo = {
   phone: string | null;
   instagramId: string | null;
-  discordId: string | null;
-  contactEmail: string | null;
+  extraContact: string | null;
 };
 
 type BriefInfo = {
@@ -76,17 +73,13 @@ function fieldText(formData: FormData, key: string) {
 function validateContactInfo(formData: FormData): ContactInfo {
   const phone = validatePhone(fieldText(formData, "phone"));
   const instagramId = normalizeInstagramId(fieldText(formData, "instagramId"));
-  const discordId = fieldText(formData, "discordId");
-  const contactEmail = fieldText(formData, "contactEmail");
+  const extraContact = fieldText(formData, "extraContact");
 
-  if (contactEmail && !EMAIL_PATTERN.test(contactEmail)) {
-    throw new Error("이메일 형식을 확인해주세요.");
-  }
-  if (!phone && !instagramId && !discordId && !contactEmail) {
+  if (!phone && !instagramId && !extraContact) {
     throw new Error("연락 가능한 수단을 하나 이상 입력해주세요.");
   }
 
-  return { phone, instagramId, discordId, contactEmail };
+  return { phone, instagramId, extraContact };
 }
 
 function validateBriefInfo(formData: FormData): BriefInfo {
@@ -101,8 +94,7 @@ function readInquiryValues(formData: FormData): InquiryValues {
   return {
     phone: String(formData.get("phone") || ""),
     instagramId: String(formData.get("instagramId") || ""),
-    discordId: String(formData.get("discordId") || ""),
-    contactEmail: String(formData.get("contactEmail") || ""),
+    extraContact: String(formData.get("extraContact") || ""),
     brief: readBriefValues(formData),
   };
 }
@@ -167,8 +159,6 @@ export async function submitInquiry(
       .update({
         phone: contact.phone,
         instagram_id: contact.instagramId,
-        discord_id: contact.discordId,
-        contact_email: contact.contactEmail,
       })
       .eq("id", me.id);
     if (error) return { ok: false, error: error.message, values };
@@ -203,8 +193,9 @@ async function createInquiry(
       source_photo_id: photoId || null,
       phone: contact.phone,
       instagram_id: contact.instagramId,
-      discord_id: contact.discordId,
-      contact_email: contact.contactEmail,
+      discord_id: null,
+      contact_email: null,
+      extra_contact: contact.extraContact,
       gender: brief.gender,
       party_size: parsePartySize(brief.partySize),
       purpose: brief.purpose,
@@ -247,7 +238,7 @@ async function notifyPhotographer(
 }
 
 function inquiryNickname(displayName: string | null, contact: ContactInfo) {
-  return displayName || contact.instagramId || contact.contactEmail || "비회원";
+  return displayName || contact.instagramId || contact.extraContact || "비회원";
 }
 
 function buildInquiryBody(displayName: string | null, contact: ContactInfo, brief: BriefInfo) {
@@ -255,8 +246,7 @@ function buildInquiryBody(displayName: string | null, contact: ContactInfo, brie
     `${inquiryNickname(displayName, contact)} 님이 예약 문의를 하였습니다.`,
     contact.phone && `전화번호: ${contact.phone}`,
     contact.instagramId && `인스타: ${contact.instagramId}`,
-    contact.discordId && `디스코드: ${contact.discordId}`,
-    contact.contactEmail && `이메일: ${contact.contactEmail}`,
+    contact.extraContact && `기타 연락처: ${contact.extraContact}`,
     `목적: ${brief.purpose}`,
     `희망 일정: ${brief.preferredDate}`,
     brief.region && `희망 지역: ${brief.region}`,

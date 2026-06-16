@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { ArrowLeftIcon } from "@/components/user/icons";
 
 export function InquiryBackButton({ fallbackHref }: { fallbackHref: string }) {
   const router = useRouter();
@@ -17,9 +18,10 @@ export function InquiryBackButton({ fallbackHref }: { fallbackHref: string }) {
     <button
       type="button"
       onClick={goBack}
-      className="text-sm text-fg/50 transition-colors hover:text-fg"
+      aria-label="뒤로"
+      className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-full bg-fg/[0.06] text-fg transition-colors hover:bg-fg/[0.1]"
     >
-      ← 뒤로 가기
+      <ArrowLeftIcon />
     </button>
   );
 }
