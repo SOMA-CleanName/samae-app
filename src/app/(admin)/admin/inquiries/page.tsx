@@ -62,7 +62,7 @@ export default async function AdminInquiriesPage({
     admin
       .from("inquiries")
       .select(
-        "id, status, created_at, purpose, preferred_date, region, gender, party_size, note, deposit_amount_krw, phone, instagram_id, discord_id, contact_email, extra_contact, ref_image_paths, photographer:photographers(display_name), profile:profiles(display_name)"
+        "id, status, created_at, purpose, preferred_date, region, gender, party_size, note, deposit_amount_krw, phone, instagram_id, discord_id, contact_email, extra_contact, ref_image_paths, photographer:photographers(display_name), profile:profiles!inquiries_profile_id_fkey(display_name)"
       )
       .order("created_at", { ascending: false })
       .limit(300),

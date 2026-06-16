@@ -31,7 +31,7 @@ export async function listMyAcceptedInquiries(): Promise<AcceptedInquiry[]> {
   const { data } = await admin
     .from("inquiries")
     .select(
-      "id, status, phone, instagram_id, discord_id, contact_email, extra_contact, purpose, preferred_date, region, note, accepted_at, deposit_amount_krw, profile:profiles(display_name)"
+      "id, status, phone, instagram_id, discord_id, contact_email, extra_contact, purpose, preferred_date, region, note, accepted_at, deposit_amount_krw, profile:profiles!inquiries_profile_id_fkey(display_name)"
     )
     .eq("photographer_id", me.photographer.id)
     .in("status", ["accepted", "confirmed"])
