@@ -37,3 +37,16 @@ export async function rejectPhotographer(formData: FormData) {
   if (error) throw new Error(error.message);
   revalidatePath("/admin/photographers");
 }
+
+// 작가 정지: approved → suspended (탐색/노출 차단). 복구는 승인으로.
+export async function suspendPhotographer(formData: FormData) {
+  await assertAdmin();
+  const id = String(formData.get("id"));
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("photographers")
+    .update({ status: "suspended" })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/photographers");
+}
