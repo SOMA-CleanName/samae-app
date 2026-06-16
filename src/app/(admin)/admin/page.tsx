@@ -61,6 +61,7 @@ export default async function AdminHome() {
           value={users.count ?? 0}
         />
         <StatCard
+          href="/admin/transactions"
           icon={<CalendarIcon className="h-5 w-5" />}
           label="진행 중 예약"
           value={bookings.count ?? 0}
