@@ -11,6 +11,7 @@ const TABS = [
   { href: "/admin/transactions", label: "거래·정산" },
   { href: "/admin/users", label: "회원" },
   { href: "/admin/inquiries", label: "문의" },
+  { href: "/admin/analytics", label: "분석" },
 ];
 
 export function AdminNav() {
