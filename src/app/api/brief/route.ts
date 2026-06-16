@@ -28,6 +28,13 @@ export async function POST(req: Request) {
     return Response.json({ error: "권한 없음" }, { status: 403 });
   }
 
+  if (form.get("requireCompletion") === "1") {
+    const missing = ["purpose", "preferred_date", "region"].some((key) => !fieldStr(form, key));
+    if (missing) {
+      return Response.json({ error: "상담 정보를 모두 작성해주세요." }, { status: 400 });
+    }
+  }
+
   // 레퍼런스 이미지: 유지할 기존 URL + 새 업로드 파일
   const keep = form.getAll("keep").map(String).filter(Boolean);
   const files = form.getAll("file").filter((f): f is File => f instanceof File);

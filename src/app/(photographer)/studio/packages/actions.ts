@@ -4,6 +4,7 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth";
+import { archiveAndDelete } from "@/lib/soft-delete";
 
 // 호출자의 작가 id 확보 (없으면 에러)
 async function requirePhotographerId(): Promise<string> {
@@ -85,12 +86,20 @@ export async function togglePackageActive(formData: FormData) {
   revalidatePath("/studio/packages");
 }
 
-// 삭제
+// 삭제 (소프트딜리트 — 아카이브 후 제거). 소유권 확인 후 진행.
 export async function deletePackage(formData: FormData) {
-  await requirePhotographerId();
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가만 사용할 수 있습니다.");
   const id = String(formData.get("id"));
   const supabase = await createClient();
-  const { error } = await supabase.from("packages").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  const { data: pkg } = await supabase
+    .from("packages")
+    .select("id, photographer_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (!pkg || pkg.photographer_id !== me.photographer.id) throw new Error("권한이 없습니다.");
+
+  const { error } = await archiveAndDelete("packages", { col: "id", op: "eq", val: id }, me.id);
+  if (error) throw new Error(error);
   revalidatePath("/studio/packages");
 }

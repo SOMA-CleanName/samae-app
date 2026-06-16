@@ -8,7 +8,6 @@ import { Button } from "@/components/ui";
 import { HeartIcon, LayersIcon, XIcon } from "@/components/user/icons";
 import { PhotoCarousel } from "../../photos/[id]/PhotoCarousel";
 import { togglePhotoLike, loadPhotoLike } from "../../actions";
-import { startConversation } from "../../chat/actions";
 
 const fmt = new Intl.NumberFormat("ko-KR");
 
@@ -174,7 +173,7 @@ function PortfolioModal({
 
           {/* 예약·문의 — 상세 페이지 CTA와 동일 분기 */}
           <div className="mt-auto pt-5">
-            <ModalCta viewer={viewer} />
+            <ModalCta viewer={viewer} photoId={post.coverId} />
           </div>
         </div>
       </div>
@@ -258,7 +257,7 @@ function ModalLikeButton({
 }
 
 // 모달용 예약·문의 CTA — 본인/로그인/비로그인 분기
-function ModalCta({ viewer }: { viewer: Viewer }) {
+function ModalCta({ viewer, photoId }: { viewer: Viewer; photoId: string }) {
   if (viewer.isOwner) {
     return (
       <Button href="/studio" variant="secondary" fullWidth>
@@ -267,11 +266,13 @@ function ModalCta({ viewer }: { viewer: Viewer }) {
     );
   }
   return (
-    <form action={startConversation}>
-      <input type="hidden" name="photographerId" value={viewer.photographerId} />
-      <Button type="submit" fullWidth>
-        예약·문의하기
-      </Button>
-    </form>
+    <Button href={inquiryHref(viewer.photographerId, photoId)} fullWidth>
+      예약·문의하기
+    </Button>
   );
+}
+
+function inquiryHref(photographerId: string, photoId: string) {
+  const params = new URLSearchParams({ photographerId, photoId });
+  return `/inquiry?${params.toString()}`;
 }

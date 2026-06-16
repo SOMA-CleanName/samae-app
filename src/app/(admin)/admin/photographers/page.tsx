@@ -1,29 +1,40 @@
-import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { approvePhotographer, rejectPhotographer } from "./actions";
+import { Avatar, Badge, Button, EmptyState } from "@/components/ui";
+import { CameraIcon, MapPinIcon } from "@/components/user/icons";
+import { approvePhotographer, rejectPhotographer, suspendPhotographer } from "./actions";
+
+export const dynamic = "force-dynamic";
 
 type Row = {
   id: string;
+  handle: string;
   display_name: string | null;
   bio: string;
   regions: string[];
   mood_tags: string[];
+  price_from_krw: number;
+  review_count: number;
   status: string;
   created_at: string;
 };
 
-// 작가 승인 관리 — pending 우선 노출
-export default async function AdminPhotographersPage() {
-  const me = await getCurrentUser();
-  if (!me) redirect("/login?next=/admin/photographers");
-  if (me.role !== "admin") redirect("/");
+const fmt = new Intl.NumberFormat("ko-KR");
 
+function when(iso: string): string {
+  return new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    timeZone: "Asia/Seoul",
+  }).format(new Date(iso));
+}
+
+// 작가 승인 관리 — pending 우선. 가드는 (admin)/layout.
+export default async function AdminPhotographersPage() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("photographers")
-    .select("id, display_name, bio, regions, mood_tags, status, created_at")
+    .select("id, handle, display_name, bio, regions, mood_tags, price_from_krw, review_count, status, created_at")
     .order("created_at", { ascending: false });
 
   const rows = (data ?? []) as Row[];
@@ -31,36 +42,38 @@ export default async function AdminPhotographersPage() {
   const others = rows.filter((r) => r.status !== "pending");
 
   return (
-    <main className="mx-auto max-w-4xl px-4 sm:px-6 py-10 font-kr">
-      <Link href="/admin" className="text-sm text-fg/50 hover:text-fg">
-        ← 어드민
-      </Link>
-      <h1 className="mt-4 text-2xl font-semibold">작가 승인</h1>
+    <main className="mx-auto max-w-5xl px-4 py-8 sm:px-5">
+      <h1 className="text-h1 font-semibold">작가 승인</h1>
+      <p className="mt-1 text-body-sm text-muted">신청을 검토하고 승인·반려·정지를 관리해요.</p>
 
       {/* 승인 대기 */}
       <section className="mt-6">
-        <h2 className="text-sm font-medium text-fg/70">
-          승인 대기 <span className="text-brand">{pending.length}</span>
+        <h2 className="flex items-center gap-2 text-body-sm font-medium text-muted">
+          승인 대기
+          <Badge tone={pending.length > 0 ? "brand" : "neutral"}>{pending.length}</Badge>
         </h2>
+
         {pending.length === 0 ? (
-          <p className="mt-3 text-sm text-fg/45">대기 중인 신청이 없어요.</p>
+          <EmptyState
+            className="mt-2 py-10"
+            icon={<CameraIcon className="h-7 w-7" />}
+            title="대기 중인 신청이 없어요"
+          />
         ) : (
           <ul className="mt-3 flex flex-col gap-3">
             {pending.map((r) => (
-              <li key={r.id} className="rounded-xl border border-fg/10 p-4">
-                <PhotographerInfo row={r} />
-                <div className="mt-3 flex gap-2">
-                  <form action={approvePhotographer}>
+              <li key={r.id} className="rounded-2xl border border-line bg-surface p-4 sm:p-5">
+                <ApplicantHeader row={r} />
+                {r.bio && <p className="mt-3 text-body-sm leading-relaxed text-fg/80">{r.bio}</p>}
+                <TagRow row={r} />
+                <div className="mt-4 flex gap-2">
+                  <form action={approvePhotographer} className="flex-1 sm:flex-none">
                     <input type="hidden" name="id" value={r.id} />
-                    <button className="rounded-full bg-fg px-4 py-1.5 text-xs font-semibold text-bg hover:opacity-90">
-                      승인
-                    </button>
+                    <Button type="submit" size="sm" fullWidth>승인</Button>
                   </form>
-                  <form action={rejectPhotographer}>
+                  <form action={rejectPhotographer} className="flex-1 sm:flex-none">
                     <input type="hidden" name="id" value={r.id} />
-                    <button className="rounded-full border border-fg/20 px-4 py-1.5 text-xs text-fg/70 hover:bg-fg/[0.04]">
-                      반려
-                    </button>
+                    <Button type="submit" size="sm" variant="secondary" fullWidth>반려</Button>
                   </form>
                 </div>
               </li>
@@ -69,70 +82,96 @@ export default async function AdminPhotographersPage() {
         )}
       </section>
 
-      {/* 그 외 (승인됨/반려/정지) */}
+      {/* 전체 작가 */}
       <section className="mt-10">
-        <h2 className="text-sm font-medium text-fg/70">전체 작가 {others.length}</h2>
-        <ul className="mt-3 flex flex-col gap-2">
-          {others.map((r) => (
-            <li
-              key={r.id}
-              className="flex items-center justify-between rounded-lg border border-fg/10 px-4 py-3"
-            >
-              <div className="text-sm">
-                <b>{r.display_name}</b>
-              </div>
-              <div className="flex items-center gap-2">
-                <StatusPill status={r.status} />
-                {r.status !== "approved" && (
-                  <form action={approvePhotographer}>
-                    <input type="hidden" name="id" value={r.id} />
-                    <button className="rounded-full bg-fg/[0.06] px-3 py-1 text-xs hover:bg-fg/10">
-                      승인
-                    </button>
-                  </form>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
+        <h2 className="text-body-sm font-medium text-muted">전체 작가 {others.length}</h2>
+        {others.length === 0 ? (
+          <p className="mt-3 text-body-sm text-faint">아직 없어요.</p>
+        ) : (
+          <ul className="mt-3 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
+            {others.map((r) => (
+              <li key={r.id} className="flex items-center gap-3 px-4 py-3">
+                <Avatar name={r.display_name} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-body-sm font-semibold text-fg">{r.display_name || "이름 없음"}</p>
+                  <p className="truncate text-caption text-faint">@{r.handle} · 후기 {r.review_count}</p>
+                </div>
+                <StatusBadge status={r.status} />
+                <RowAction row={r} />
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
     </main>
   );
 }
 
-function PhotographerInfo({ row }: { row: Row }) {
+// 신청 카드 헤더 — 아바타·이름·신청일·시작가
+function ApplicantHeader({ row }: { row: Row }) {
   return (
-    <div>
-      <p className="text-sm">
-        <b>{row.display_name}</b>
-      </p>
-      {row.bio && <p className="mt-1 text-sm text-fg/65">{row.bio}</p>}
-      <div className="mt-2 flex flex-wrap gap-1 text-[11px] text-fg/55">
-        {row.regions.map((x) => (
-          <span key={x} className="rounded-full bg-fg/[0.06] px-2 py-0.5">
-            📍 {x}
-          </span>
-        ))}
-        {row.mood_tags.map((x) => (
-          <span key={x} className="rounded-full bg-fg/[0.06] px-2 py-0.5">
-            #{x}
-          </span>
-        ))}
+    <div className="flex items-start gap-3">
+      <Avatar name={row.display_name} size="md" />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-title font-semibold text-fg">{row.display_name || "이름 없음"}</p>
+          <StatusBadge status={row.status} />
+        </div>
+        <p className="mt-0.5 text-caption text-faint">
+          @{row.handle} · 신청 {when(row.created_at)} · 시작가 ₩{fmt.format(row.price_from_krw)}
+        </p>
       </div>
     </div>
   );
 }
 
-function StatusPill({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    approved: "bg-emerald-500/15 text-emerald-700",
-    pending: "bg-amber-500/15 text-amber-700",
-    rejected: "bg-brand/15 text-brand",
-    suspended: "bg-fg/10 text-fg/60",
-  };
+// 지역·무드 태그
+function TagRow({ row }: { row: Row }) {
+  if (!row.regions.length && !row.mood_tags.length) return null;
   return (
-    <span className={`rounded-full px-2 py-0.5 text-[11px] ${map[status] ?? "bg-fg/10"}`}>
-      {status}
-    </span>
+    <div className="mt-3 flex flex-wrap gap-1.5">
+      {row.regions.map((x) => (
+        <span key={x} className="inline-flex items-center gap-1 rounded-full bg-fg/[0.06] px-2.5 py-1 text-caption text-fg/70">
+          <MapPinIcon className="h-3 w-3 text-fg/45" />
+          {x}
+        </span>
+      ))}
+      {row.mood_tags.map((x) => (
+        <span key={x} className="rounded-full bg-fg/[0.06] px-2.5 py-1 text-caption text-fg/70">#{x}</span>
+      ))}
+    </div>
   );
+}
+
+// 상태별 액션 — approved→정지 / 그 외→승인
+function RowAction({ row }: { row: Row }) {
+  if (row.status === "approved") {
+    return (
+      <form action={suspendPhotographer}>
+        <input type="hidden" name="id" value={row.id} />
+        <button className="shrink-0 cursor-pointer rounded-full border border-line-strong px-3 py-1 text-caption font-medium text-muted transition-colors hover:bg-fg/[0.04]">
+          정지
+        </button>
+      </form>
+    );
+  }
+  return (
+    <form action={approvePhotographer}>
+      <input type="hidden" name="id" value={row.id} />
+      <button className="shrink-0 cursor-pointer rounded-full bg-fg/[0.06] px-3 py-1 text-caption font-medium text-fg transition-colors hover:bg-fg/10">
+        승인
+      </button>
+    </form>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, { tone: "success" | "warning" | "danger" | "neutral"; label: string }> = {
+    approved: { tone: "success", label: "승인됨" },
+    pending: { tone: "warning", label: "대기" },
+    rejected: { tone: "danger", label: "반려" },
+    suspended: { tone: "neutral", label: "정지" },
+  };
+  const s = map[status] ?? { tone: "neutral" as const, label: status };
+  return <Badge tone={s.tone}>{s.label}</Badge>;
 }

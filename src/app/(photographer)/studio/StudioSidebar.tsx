@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { HomeIcon } from "@/components/user/icons";
 
 type Item = { href: string; label: string; badge?: number };
 
-// 운영(홈·예약·문의)과 설정(프로필·패키지·…)을 시각적으로 분리한 작가 스튜디오 네비.
+// 운영과 설정을 시각적으로 분리한 작가 스튜디오 네비.
 // 데스크톱: 좌측 고정 사이드바 / 모바일: 상단 가로 스크롤 바.
-export function StudioSidebar({ unread }: { unread: number }) {
+export function StudioSidebar() {
   const pathname = usePathname();
   // 홈은 정확히 일치, 나머지는 경로 경계(href 또는 href/...)로 매칭.
   // ('/studio/booking'(예약설정)과 '/studio/bookings'(예약) 접두 충돌 방지)
@@ -15,19 +16,18 @@ export function StudioSidebar({ unread }: { unread: number }) {
     href === "/studio" ? pathname === "/studio" : pathname === href || pathname.startsWith(href + "/");
 
   const ops: Item[] = [
-    { href: "/studio", label: "대시보드" },
-    { href: "/studio/bookings", label: "예약" },
-    { href: "/studio/chat", label: "문의", badge: unread || undefined },
+    { href: "/studio", label: "문의" },
     { href: "/studio/reviews", label: "후기" },
   ];
+  // 리드 모델 전환으로 인앱 예약/정산 기반 항목은 숨김(되돌리려면 hidden 제거):
+  //   { href: "/studio/availability", label: "일정" },
+  //   { href: "/studio/booking", label: "예약 설정" },
+  //   { href: "/studio/settlements", label: "수수료" },
   const settings: Item[] = [
     { href: "/studio/profile", label: "프로필" },
     { href: "/studio/packages", label: "패키지" },
     { href: "/studio/portfolio", label: "포트폴리오" },
     { href: "/studio/highlights", label: "하이라이트" },
-    { href: "/studio/availability", label: "일정" },
-    { href: "/studio/booking", label: "예약 설정" },
-    { href: "/studio/settlements", label: "수수료" },
   ];
 
   return (
@@ -54,23 +54,33 @@ export function StudioSidebar({ unread }: { unread: number }) {
         </Link>
       </aside>
 
-      {/* 모바일: 상단 가로 스크롤 탭 */}
-      <nav className="sticky top-0 z-40 flex gap-1 overflow-x-auto border-b border-fg/8 bg-bg/95 px-3 py-2 backdrop-blur md:hidden">
-        {[...ops, ...settings].map((it) => {
-          const active = isActive(it.href);
-          return (
-            <Link
-              key={it.href}
-              href={it.href}
-              className={`relative shrink-0 rounded-full px-3 py-1.5 text-sm ${
-                active ? "bg-fg text-bg" : "text-fg/60 hover:bg-fg/[0.05]"
-              }`}
-            >
-              {it.label}
-              {it.badge ? <Dot /> : null}
-            </Link>
-          );
-        })}
+      {/* 모바일: 상단 한 줄 바 — 탐색(홈) 복귀 + 가로 스크롤 탭 */}
+      <nav className="sticky top-0 z-40 flex items-center gap-1.5 border-b border-line bg-bg/95 px-2 py-2 backdrop-blur md:hidden">
+        <Link
+          href="/"
+          aria-label="탐색으로"
+          className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-fg/70 transition-colors hover:bg-fg/[0.06]"
+        >
+          <HomeIcon className="h-5 w-5" />
+        </Link>
+        <span className="h-5 w-px shrink-0 bg-line" />
+        <div className="flex gap-1 overflow-x-auto scrollbar-none">
+          {[...ops, ...settings].map((it) => {
+            const active = isActive(it.href);
+            return (
+              <Link
+                key={it.href}
+                href={it.href}
+                className={`relative shrink-0 rounded-full px-3 py-1.5 text-sm transition-colors ${
+                  active ? "bg-fg text-bg" : "text-fg/60 hover:bg-fg/[0.05]"
+                }`}
+              >
+                {it.label}
+                {it.badge ? <Dot /> : null}
+              </Link>
+            );
+          })}
+        </div>
       </nav>
     </>
   );

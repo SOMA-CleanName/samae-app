@@ -9,13 +9,12 @@ import { ProfileSheet, type ProfileMe } from "./ProfileSheet";
 import {
   HomeIcon,
   HeartIcon,
-  CalendarIcon,
-  ChatIcon,
   UserIcon,
+  BellIcon,
 } from "./icons";
 
-// 하단바/레일에 들어갈 코어 항목 아이콘 키 (탐색·찜·채팅·예약)
-export type NavIconKey = "home" | "heart" | "calendar" | "chat";
+// 하단바/레일에 들어갈 코어 항목 아이콘 키
+export type NavIconKey = "home" | "heart" | "bell";
 
 export type NavItem = {
   href: string;
@@ -32,10 +31,8 @@ function renderIcon(key: NavIconKey) {
       return <HomeIcon className={cls} />;
     case "heart":
       return <HeartIcon className={cls} />;
-    case "calendar":
-      return <CalendarIcon className={cls} />;
-    case "chat":
-      return <ChatIcon className={cls} />;
+    case "bell":
+      return <BellIcon className={cls} />;
   }
 }
 
@@ -44,11 +41,9 @@ function renderIcon(key: NavIconKey) {
 export function Sidebar({
   items,
   me,
-  notifUnread,
 }: {
   items: NavItem[];
   me: ProfileMe | null;
-  notifUnread: number;
 }) {
   const pathname = usePathname();
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -57,16 +52,15 @@ export function Sidebar({
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
 
-  // 개별 채팅방은 몰입형 — 모바일 하단바 숨김 (데스크톱 레일은 유지)
-  const hideMobileBar = /^\/chat\/.+/.test(pathname);
-
   const authed = !!me;
+  const primaryItems = items.filter((item) => item.href !== "/notifications");
+  const bottomItems = items.filter((item) => item.href === "/notifications");
   // 비로그인: 게이트 항목(탐색 제외)은 로그인으로 유도(next로 의도한 곳 복귀)
   const resolveHref = (href: string) =>
     authed || href === "/" ? href : `/login?next=${encodeURIComponent(href)}`;
 
   const profileSlot = me ? (
-    <ProfileButton me={me} notifUnread={notifUnread} onOpen={() => setSheetOpen(true)} />
+    <ProfileButton me={me} onOpen={() => setSheetOpen(true)} />
   ) : (
     <EmptyProfile />
   );
@@ -84,7 +78,13 @@ export function Sidebar({
         </Link>
 
         <nav className="flex flex-1 flex-col items-center gap-1">
-          {items.map((it) => (
+          {primaryItems.map((it) => (
+            <RailLink key={it.href} item={it} href={resolveHref(it.href)} active={isActive(it.href)} />
+          ))}
+        </nav>
+
+        <nav className="mb-2 flex flex-col items-center gap-1">
+          {bottomItems.map((it) => (
             <RailLink key={it.href} item={it} href={resolveHref(it.href)} active={isActive(it.href)} />
           ))}
         </nav>
@@ -94,38 +94,35 @@ export function Sidebar({
       </aside>
 
       {/* 모바일: 하단 고정 탭바 */}
-      {!hideMobileBar && (
-        <nav className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around border-t border-line bg-bg/95 pb-safe backdrop-blur md:hidden">
-          {items.map((it) => {
-            const active = isActive(it.href);
-            return (
-              <Link
-                key={it.href}
-                href={resolveHref(it.href)}
-                aria-label={it.label}
-                aria-current={active ? "page" : undefined}
-                className="relative grid h-14 w-14 place-items-center"
+      <nav className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around border-t border-line bg-bg/95 pb-safe backdrop-blur md:hidden">
+        {items.map((it) => {
+          const active = isActive(it.href);
+          return (
+            <Link
+              key={it.href}
+              href={resolveHref(it.href)}
+              aria-label={it.label}
+              aria-current={active ? "page" : undefined}
+              className="relative grid h-14 flex-1 place-items-center"
+            >
+              <span
+                className={cn(
+                  "grid h-9 w-10 place-items-center rounded-full transition-colors sm:w-12",
+                  active ? "bg-fg/[0.08] text-fg" : "text-fg/55"
+                )}
               >
-                <span
-                  className={cn(
-                    "grid h-9 w-12 place-items-center rounded-full transition-colors",
-                    active ? "bg-fg/[0.08] text-fg" : "text-fg/55"
-                  )}
-                >
-                  {renderIcon(it.icon)}
-                </span>
-                {it.badge ? <Badge count={it.badge} /> : null}
-              </Link>
-            );
-          })}
-          <div className="grid h-14 w-14 place-items-center">{profileSlot}</div>
-        </nav>
-      )}
+                {renderIcon(it.icon)}
+              </span>
+              {it.badge ? <Badge count={it.badge} /> : null}
+            </Link>
+          );
+        })}
+        <div className="grid h-14 flex-1 place-items-center">{profileSlot}</div>
+      </nav>
 
       {me && (
         <ProfileSheet
           me={me}
-          notifUnread={notifUnread}
           open={sheetOpen}
           onClose={() => setSheetOpen(false)}
         />
@@ -137,11 +134,9 @@ export function Sidebar({
 // 프로필 진입 버튼 — 아바타 + 안읽은 알림 빨간 점
 function ProfileButton({
   me,
-  notifUnread,
   onOpen,
 }: {
   me: ProfileMe;
-  notifUnread: number;
   onOpen: () => void;
 }) {
   return (
@@ -158,9 +153,6 @@ function ProfileButton({
         size="xs"
         className="ring-1 ring-fg/30"
       />
-      {notifUnread > 0 && (
-        <span className="absolute right-0 top-0 h-2.5 w-2.5 rounded-full border-2 border-bg bg-brand" />
-      )}
     </button>
   );
 }

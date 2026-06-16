@@ -14,13 +14,18 @@ export function BriefPanel({
   amCustomer,
   initialBrief,
   sourcePhotoPath,
+  expandOnHover = false,
+  requireCompletion = false,
 }: {
   conversationId: string;
   amCustomer: boolean;
   initialBrief: ConsultationBrief | null;
   sourcePhotoPath: string | null;
+  expandOnHover?: boolean;
+  requireCompletion?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [hasBrief, setHasBrief] = useState(!!initialBrief);
 
   // 인라인 배너 등 외부에서 'samae:open-brief' 이벤트로 모달 열기(자동 전체화면 대신 완화)
   useEffect(() => {
@@ -42,12 +47,12 @@ export function BriefPanel({
   }, [open]);
 
   const label = amCustomer
-    ? initialBrief
+    ? hasBrief
       ? "상담 정보"
       : "상담 정보 작성"
     : "상담 정보";
   // 고객이 아직 상담 정보를 안 썼으면 점으로 환기
-  const needsAttention = amCustomer && !initialBrief;
+  const needsAttention = amCustomer && !hasBrief;
 
   return (
     <>
@@ -56,9 +61,14 @@ export function BriefPanel({
         onClick={() => setOpen(true)}
         aria-label={label}
         title={label}
-        className="relative grid h-9 w-9 cursor-pointer place-items-center rounded-full text-fg/65 transition-colors hover:bg-fg/[0.06] hover:text-fg"
+        className="group relative grid h-9 w-9 cursor-pointer place-items-center rounded-full text-fg/65 transition-colors hover:bg-fg/[0.06] hover:text-fg"
       >
         <ClipboardIcon className="h-5 w-5" />
+        {expandOnHover && (
+          <span className="pointer-events-none absolute right-0 top-10 z-10 whitespace-nowrap rounded-full border border-line bg-bg px-3 py-1.5 text-sm font-medium text-fg opacity-0 shadow-sm transition-opacity duration-150 group-hover:opacity-100">
+            {label}
+          </span>
+        )}
         {needsAttention && (
           <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-brand ring-2 ring-bg" />
         )}
@@ -71,6 +81,8 @@ export function BriefPanel({
               conversationId={conversationId}
               brief={initialBrief}
               sourcePhotoPath={sourcePhotoPath}
+              requireCompletion={requireCompletion}
+              onSaved={() => setHasBrief(true)}
               onClose={() => setOpen(false)}
             />
           ) : (
@@ -201,11 +213,15 @@ function BriefForm({
   conversationId,
   brief,
   sourcePhotoPath,
+  requireCompletion,
+  onSaved,
   onClose,
 }: {
   conversationId: string;
   brief: ConsultationBrief | null;
   sourcePhotoPath: string | null;
+  requireCompletion: boolean;
+  onSaved: () => void;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -240,6 +256,7 @@ function BriefForm({
 
     const fd = new FormData(e.currentTarget);
     fd.set("conversationId", conversationId);
+    if (requireCompletion) fd.set("requireCompletion", "1");
     keep.forEach((u) => fd.append("keep", u));
     added.forEach((a) => fd.append("file", a.file));
 
@@ -247,7 +264,8 @@ function BriefForm({
       const res = await fetch("/api/brief", { method: "POST", body: fd });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "저장 실패");
-      router.refresh();
+      if (!requireCompletion) router.refresh();
+      onSaved();
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : "저장에 실패했어요.");
@@ -279,9 +297,27 @@ function BriefForm({
 
         <Input name="party_size" label="인원" defaultValue={brief?.party_size?.toString() ?? ""} placeholder="예: 2" inputMode="numeric" />
 
-        <Input name="purpose" label="사진 목적" defaultValue={brief?.purpose ?? ""} placeholder="프로필 / 커플 / 가족 / 우정 스냅 등" />
-        <Input name="preferred_date" label="희망 일정" defaultValue={brief?.preferred_date ?? ""} placeholder="예: 6월 말 주말 오후" />
-        <Input name="region" label="희망 지역" defaultValue={brief?.region ?? ""} placeholder="예: 서울 성수동 일대" />
+        <Input
+          name="purpose"
+          label="사진 목적"
+          defaultValue={brief?.purpose ?? ""}
+          placeholder="프로필 / 커플 / 가족 / 우정 스냅 등"
+          required={requireCompletion}
+        />
+        <Input
+          name="preferred_date"
+          label="희망 일정"
+          defaultValue={brief?.preferred_date ?? ""}
+          placeholder="예: 6월 말 주말 오후"
+          required={requireCompletion}
+        />
+        <Input
+          name="region"
+          label="희망 지역"
+          defaultValue={brief?.region ?? ""}
+          placeholder="예: 서울 성수동 일대"
+          required={requireCompletion}
+        />
 
         <label className="block">
           <span className="text-xs text-muted">자유 요청</span>
@@ -329,13 +365,15 @@ function BriefForm({
       {error && <p className="mt-3 text-sm text-brand">{error}</p>}
 
       <div className="mt-5 flex gap-2">
-        <button
-          type="button"
-          onClick={onClose}
-          className="flex-1 rounded-full border border-line-strong py-2.5 text-sm font-medium text-muted hover:bg-fg/[0.04]"
-        >
-          {brief ? "닫기" : "건너뛰기"}
-        </button>
+        {!requireCompletion && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 rounded-full border border-line-strong py-2.5 text-sm font-medium text-muted hover:bg-fg/[0.04]"
+          >
+            {brief ? "닫기" : "건너뛰기"}
+          </button>
+        )}
         <button
           type="submit"
           disabled={saving}
@@ -354,12 +392,14 @@ function Input({
   defaultValue,
   placeholder,
   inputMode,
+  required,
 }: {
   name: string;
   label: string;
   defaultValue?: string;
   placeholder?: string;
   inputMode?: "numeric" | "text";
+  required?: boolean;
 }) {
   return (
     <label className="block">
@@ -369,6 +409,7 @@ function Input({
         defaultValue={defaultValue}
         placeholder={placeholder}
         inputMode={inputMode}
+        required={required}
         className="mt-1 w-full rounded-lg border border-line-strong bg-transparent px-3 py-2 text-sm"
       />
     </label>

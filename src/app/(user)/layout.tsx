@@ -1,6 +1,4 @@
 import { getCurrentUser } from "@/lib/auth";
-import { listConversations, myUnread } from "@/lib/chat";
-import { countActiveBookings } from "@/lib/bookings";
 import { countUnreadNotifications } from "@/lib/notifications";
 import { Sidebar, type NavItem } from "@/components/user/Sidebar";
 
@@ -13,29 +11,19 @@ export default async function UserLayout({
 }) {
   const me = await getCurrentUser();
 
-  // 채팅 안읽음 합계 + 진행 중 예약 + 안읽은 알림 (로그인 시)
-  let unreadTotal = 0;
-  let activeBookings = 0;
+  // 예약 알림만 사이드 UI에 노출한다.
   let unreadNotif = 0;
   if (me) {
-    const [convs, bookingCount, notifCount] = await Promise.all([
-      listConversations(),
-      countActiveBookings(),
-      countUnreadNotifications(),
-    ]);
-    unreadTotal = convs.reduce((sum, c) => sum + myUnread(c, me), 0);
-    activeBookings = bookingCount;
-    unreadNotif = notifCount;
+    unreadNotif = await countUnreadNotifications();
   }
 
-  // 코어 4탭(탐색·찜·채팅·예약) — 5번째 칸은 프로필. 항상 5칸 노출(비로그인도 동일 정렬).
+  // 코어 탭 — 프로필 시트 밖에 예약 알림을 독립 항목으로 둔다.
   // 비로그인은 Sidebar에서 게이트(탭 시 로그인)로 처리, 배지는 로그인 시에만.
-  // 알림·스튜디오·어드민·설정은 프로필 시트로 흡수.
+  // 스튜디오·어드민·설정은 프로필 시트로 흡수.
   const items: NavItem[] = [
     { href: "/", label: "탐색", icon: "home" },
     { href: "/favorites", label: "찜", icon: "heart" },
-    { href: "/chat", label: "채팅", icon: "chat", badge: unreadTotal || undefined },
-    { href: "/bookings", label: "예약", icon: "calendar", badge: activeBookings || undefined },
+    { href: "/notifications", label: "예약 알림", icon: "bell", badge: unreadNotif || undefined },
   ];
 
   return (
@@ -53,7 +41,6 @@ export default async function UserLayout({
               }
             : null
         }
-        notifUnread={unreadNotif}
       />
       <div className="md:pl-[72px]">
         {/* 모바일 하단 탭바 높이만큼 여백 확보 */}

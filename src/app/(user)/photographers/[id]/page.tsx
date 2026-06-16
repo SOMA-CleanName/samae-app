@@ -9,7 +9,6 @@ import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { fetchPhotographerHighlights } from "@/lib/highlights";
 import { toggleFavorite } from "../../actions";
-import { startConversation } from "../../chat/actions";
 import { type PortfolioPost } from "./PortfolioGrid";
 import { ProfileTabs } from "./ProfileTabs";
 import { HighlightsBar } from "./HighlightsBar";
@@ -190,20 +189,20 @@ function ViewerCta({
   if (!me) {
     return (
       <Link
-        href={`/login?next=/photographers/${photographerId}`}
+        href={inquiryHref(photographerId)}
         className="block w-full rounded-full bg-white py-3 text-center text-sm font-semibold text-black hover:opacity-90"
       >
-        로그인하고 예약·문의하기
+        예약·문의하기
       </Link>
     );
   }
   return (
-    <form action={startConversation}>
-      <input type="hidden" name="photographerId" value={photographerId} />
-      <button className="block w-full rounded-full bg-white py-3 text-center text-sm font-semibold text-black hover:opacity-90">
-        예약·문의하기
-      </button>
-    </form>
+    <Link
+      href={inquiryHref(photographerId)}
+      className="block w-full rounded-full bg-white py-3 text-center text-sm font-semibold text-black hover:opacity-90"
+    >
+      예약·문의하기
+    </Link>
   );
 }
 
@@ -282,17 +281,18 @@ function ProfileCta({
   }
   if (!me) {
     return (
-      <Button href={`/login?next=/photographers/${photographerId}`} size="lg" fullWidth>
-        로그인하고 예약·문의하기
+      <Button href={inquiryHref(photographerId)} size="lg" fullWidth>
+        예약·문의하기
       </Button>
     );
   }
   return (
-    <form action={startConversation}>
-      <input type="hidden" name="photographerId" value={photographerId} />
-      <Button type="submit" size="lg" fullWidth>
-        예약·문의하기
-      </Button>
-    </form>
+    <Button href={inquiryHref(photographerId)} size="lg" fullWidth data-track="cta:inquiry">
+      예약·문의하기
+    </Button>
   );
+}
+
+function inquiryHref(photographerId: string) {
+  return `/inquiry?photographerId=${encodeURIComponent(photographerId)}`;
 }

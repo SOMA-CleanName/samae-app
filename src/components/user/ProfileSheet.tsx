@@ -5,7 +5,6 @@ import Link from "next/link";
 import { signOut } from "@/app/actions/auth";
 import { cn } from "@/lib/cn";
 import { Avatar } from "@/components/ui";
-import { BellIcon } from "./icons";
 
 export type ProfileMe = {
   displayName: string | null;
@@ -20,12 +19,10 @@ export type ProfileMe = {
 // 구 TopBar의 계정 메뉴 + 과밀 항목(알림·설정·스튜디오·어드민)을 흡수.
 export function ProfileSheet({
   me,
-  notifUnread,
   open,
   onClose,
 }: {
   me: ProfileMe;
-  notifUnread: number;
   open: boolean;
   onClose: () => void;
 }) {
@@ -127,17 +124,6 @@ export function ProfileSheet({
         <div className="border-t border-line" />
 
         <nav className="py-1.5">
-          <SheetLink href="/notifications" onClick={requestClose}>
-            <span className="flex items-center gap-2.5">
-              <BellIcon className="h-5 w-5 text-fg/55" />
-              알림
-            </span>
-            {notifUnread > 0 && (
-              <span className="min-w-[18px] rounded-full bg-brand px-1 text-center text-[10px] font-bold leading-[18px] text-white">
-                {notifUnread > 99 ? "99+" : notifUnread}
-              </span>
-            )}
-          </SheetLink>
           <SheetLink href="/studio" onClick={requestClose}>
             {me.isPhotographer ? "스튜디오" : "작가 신청"}
           </SheetLink>

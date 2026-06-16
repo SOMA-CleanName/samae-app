@@ -11,10 +11,10 @@ import {
 } from "@/lib/discovery";
 import { getCurrentUser } from "@/lib/auth";
 import { loadExplorePhotos } from "@/app/(user)/actions";
-import { startConversation } from "../../chat/actions";
 import { PhotoCarousel } from "./PhotoCarousel";
 import { PhotoExplore } from "./PhotoExplore";
 import { PhotoTopBar } from "./PhotoTopBar";
+import { OwnerPhotoBackButton } from "./OwnerPhotoBackButton";
 import { AutoFavorite } from "@/components/user/AutoFavorite";
 import { ChevronRightIcon } from "@/components/user/icons";
 import { Avatar, Button } from "@/components/ui";
@@ -180,26 +180,28 @@ function PhotoCtas({
   photoId: string;
 }) {
   if (isOwner) {
-    return (
-      <Button href="/studio" variant="secondary" size="lg" fullWidth className="mt-6">
-        내 사진입니다 — 스튜디오로
-      </Button>
-    );
+    return <OwnerPhotoBackButton />;
   }
   if (!me) {
     return (
-      <Button href="/login" size="lg" fullWidth className="mt-6">
-        로그인하고 예약·문의하기
+      <Button
+        href={inquiryHref(photographerId, photoId)}
+        size="lg"
+        fullWidth
+        className="mt-6"
+      >
+        예약·문의하기
       </Button>
     );
   }
   return (
-    <form action={startConversation} className="mt-6">
-      <input type="hidden" name="photographerId" value={photographerId} />
-      <input type="hidden" name="photoId" value={photoId} />
-      <Button type="submit" size="lg" fullWidth>
-        예약·문의하기
-      </Button>
-    </form>
+    <Button href={inquiryHref(photographerId, photoId)} size="lg" fullWidth className="mt-6">
+      예약·문의하기
+    </Button>
   );
+}
+
+function inquiryHref(photographerId: string, photoId: string) {
+  const params = new URLSearchParams({ photographerId, photoId });
+  return `/inquiry?${params.toString()}`;
 }

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
+import { archiveAndDelete } from "@/lib/soft-delete";
 
 // 닉네임(profiles.display_name) 수정 — 본인만(RLS check id=auth.uid()).
 export async function updateDisplayName(formData: FormData) {
@@ -69,18 +70,18 @@ export async function deleteAccount() {
     );
   }
 
-  // 3) RESTRICT 자식(결제·수수료) 정리 → 예약 삭제
+  // 3) RESTRICT 자식(결제·수수료) 정리 → 예약 (소프트딜리트: 아카이브 후 제거)
   const bookingIds = [...new Set(all.map((b) => b.id as string))];
   if (bookingIds.length > 0) {
-    await admin.from("platform_fees").delete().in("booking_id", bookingIds);
-    await admin.from("payments").delete().in("booking_id", bookingIds);
-    await admin.from("bookings").delete().in("id", bookingIds);
+    await archiveAndDelete("platform_fees", { col: "booking_id", op: "in", val: bookingIds }, me.id);
+    await archiveAndDelete("payments", { col: "booking_id", op: "in", val: bookingIds }, me.id);
+    await archiveAndDelete("bookings", { col: "id", op: "in", val: bookingIds }, me.id);
   }
-  if (phId) await admin.from("platform_fees").delete().eq("photographer_id", phId); // 잔여 수수료
+  if (phId) await archiveAndDelete("platform_fees", { col: "photographer_id", op: "eq", val: phId }, me.id);
 
-  // 4) 프로필 삭제 (관련 데이터 CASCADE) → 5) 인증 계정 삭제
-  const { error: delErr } = await admin.from("profiles").delete().eq("id", me.id);
-  if (delErr) throw new Error("탈퇴 처리 중 문제가 발생했어요. 잠시 후 다시 시도해주세요.");
+  // 4) 프로필 아카이브 후 삭제 (나머지 관련 데이터는 CASCADE) → 5) 인증 계정 삭제
+  const profRes = await archiveAndDelete("profiles", { col: "id", op: "eq", val: me.id }, me.id);
+  if (profRes.error) throw new Error("탈퇴 처리 중 문제가 발생했어요. 잠시 후 다시 시도해주세요.");
   await admin.auth.admin.deleteUser(me.id);
 
   // 6) 세션 정리 (클라이언트가 홈으로 이동)
