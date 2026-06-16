@@ -69,6 +69,32 @@ export async function fetchPublishedPhotos(opts: {
   return rows.slice(0, opts.limit ?? 48);
 }
 
+// 카테고리(여러 태그)에 해당하는 공개 사진 — 태그가 더 많이 겹칠수록 상위(추천 정렬).
+export async function fetchPhotosByTags(tags: string[], limit = 60): Promise<GalleryPhoto[]> {
+  if (!tags || tags.length === 0) return [];
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("photos")
+    .select(
+      "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name)"
+    )
+    .eq("visibility", "published")
+    .overlaps("mood_tags", tags)
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  const tagSet = new Set(tags.map((t) => t.toLowerCase()));
+  const rows = (data ?? []) as unknown as GalleryPhoto[];
+  // 매칭 태그 수 내림차순(추천 강도), 동률은 최근순(이미 created_at desc로 들어옴)
+  const scored = rows
+    .map((p) => ({
+      p,
+      score: (p.mood_tags ?? []).filter((t) => tagSet.has(t.toLowerCase())).length,
+    }))
+    .sort((a, b) => b.score - a.score);
+  return scored.slice(0, limit).map((s) => s.p);
+}
+
 // 무드 태그로 공개 사진 검색 — 부분 일치(대소문자 무시), 결과는 메이슨리 사진.
 // text[] 부분 일치는 PostgREST 단일 연산자로 어려워, 최근 published 사진을 받아 JS에서 필터(베타 한정 범위).
 export async function searchPhotosByTag(qRaw: string): Promise<GalleryPhoto[]> {
