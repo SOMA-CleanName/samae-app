@@ -15,17 +15,18 @@ export function StudioSidebar() {
     href === "/studio" ? pathname === "/studio" : pathname === href || pathname.startsWith(href + "/");
 
   const ops: Item[] = [
-    { href: "/studio", label: "대시보드" },
+    { href: "/studio", label: "문의" },
     { href: "/studio/reviews", label: "후기" },
   ];
+  // 리드 모델 전환으로 인앱 예약/정산 기반 항목은 숨김(되돌리려면 hidden 제거):
+  //   { href: "/studio/availability", label: "일정" },
+  //   { href: "/studio/booking", label: "예약 설정" },
+  //   { href: "/studio/settlements", label: "수수료" },
   const settings: Item[] = [
     { href: "/studio/profile", label: "프로필" },
     { href: "/studio/packages", label: "패키지" },
     { href: "/studio/portfolio", label: "포트폴리오" },
     { href: "/studio/highlights", label: "하이라이트" },
-    { href: "/studio/availability", label: "일정" },
-    { href: "/studio/booking", label: "예약 설정" },
-    { href: "/studio/settlements", label: "수수료" },
   ];
 
   return (
