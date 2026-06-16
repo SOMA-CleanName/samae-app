@@ -12,6 +12,11 @@ function isKeyEvent(type: string, label: string | null): boolean {
   return type === "pageview" || (!!label && label.startsWith("cta:"));
 }
 
+// 운영자·작가 페이지는 고객 행동이 아니므로 제외 (클라 가드 보조)
+function isCustomerPath(path: string): boolean {
+  return !/^\/(admin|studio)(\/|$)/.test(path);
+}
+
 export async function POST(req: Request) {
   let body: unknown;
   try {
@@ -63,7 +68,7 @@ export async function POST(req: Request) {
   });
 
   const rows = norm
-    .filter((r) => r.path)
+    .filter((r) => r.path && isCustomerPath(r.path))
     .map((r) => ({
       session_id: sessionId,
       profile_id: profileId,
@@ -85,7 +90,7 @@ export async function POST(req: Request) {
   if (SHEETS_URL) {
     const ts = new Date().toISOString();
     const sheetRows = norm
-      .filter((r) => r.path && isKeyEvent(r.type, r.label))
+      .filter((r) => r.path && isCustomerPath(r.path) && isKeyEvent(r.type, r.label))
       .map((r) => ({
         ts,
         event: r.type,

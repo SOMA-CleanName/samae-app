@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EmptyState } from "@/components/ui";
 import { cn } from "@/lib/cn";
+import { ResetAnalytics } from "./ResetAnalytics";
 
 export const dynamic = "force-dynamic";
 
@@ -74,8 +75,13 @@ export default async function AdminAnalyticsPage({
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-5">
-      <h1 className="text-h1 font-semibold">분석</h1>
-      <p className="mt-1 text-body-sm text-muted">고객 행동 — 페이지뷰·CTA·이탈률 (운영자 전용)</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-h1 font-semibold">분석</h1>
+          <p className="mt-1 text-body-sm text-muted">고객 행동 — 페이지뷰·CTA·이탈률 (운영자 전용)</p>
+        </div>
+        <ResetAnalytics />
+      </div>
 
       {/* 기간 */}
       <div className="mt-5 flex gap-1.5">

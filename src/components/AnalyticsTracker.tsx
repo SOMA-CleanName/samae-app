@@ -6,6 +6,12 @@ import { usePathname } from "next/navigation";
 // 행동 분석 트래커 — 페이지뷰(라우트 변경) + 전역 클릭(모든 a/button/CTA) 자동 수집.
 // 버튼마다 개별 계측 없이 위임 캡처로 "모든 액션"을 잡는다. /api/track 으로 전송.
 
+// 측정 제외 — 운영자·작가 페이지는 고객 행동이 아니므로 추적하지 않음
+const EXCLUDED = ["/admin", "/studio"];
+function isTracked(path: string): boolean {
+  return !EXCLUDED.some((p) => path === p || path.startsWith(p + "/"));
+}
+
 const SID_KEY = "samae_sid";
 const UTM_KEY = "samae_utm";
 const LP_KEY = "samae_landing";
@@ -106,10 +112,12 @@ export function AnalyticsTracker() {
     timer.current = setTimeout(() => flush(false), 1000);
   }
 
-  // 페이지뷰
+  // 페이지뷰 (어드민·작가 페이지 제외)
   useEffect(() => {
-    captureAttribution();
-    enqueue({ type: "pageview", path: pathname, referrer: prevPath.current });
+    if (isTracked(pathname)) {
+      captureAttribution();
+      enqueue({ type: "pageview", path: pathname, referrer: prevPath.current });
+    }
     prevPath.current = pathname;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
@@ -117,6 +125,7 @@ export function AnalyticsTracker() {
   // 전역 클릭 캡처 + 떠날 때 flush
   useEffect(() => {
     function onClick(e: MouseEvent) {
+      if (!isTracked(window.location.pathname)) return; // 어드민·작가 페이지 제외
       const start = e.target as HTMLElement | null;
       const el = start?.closest?.("a,button,[role=button],[data-track]") as HTMLElement | null;
       if (!el) return;
