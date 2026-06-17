@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
@@ -160,15 +160,76 @@ function ProfileButton({
   );
 }
 
-// 비로그인 프로필 자리 — 빈 프로필 사진(사람 아이콘) → 로그인
+// 비로그인 프로필 자리 — 클릭 시 작가신청·로그인 메뉴 (둘 다 로그인 화면으로)
 function EmptyProfile() {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // 외부 클릭·Esc로 닫기
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label="계정 메뉴"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="grid h-6 w-6 cursor-pointer place-items-center rounded-full text-fg/55 ring-1 ring-fg/30 transition-colors hover:text-fg/80"
+      >
+        <UserIcon className="h-3.5 w-3.5" />
+      </button>
+
+      {open && (
+        // 모바일(하단바): 위쪽 우측정렬 / 데스크톱(좌측레일): 오른쪽
+        <div
+          role="menu"
+          className="absolute bottom-full right-0 z-50 mb-2 w-36 rounded-xl border border-line bg-bg p-1 shadow-pop md:bottom-0 md:left-full md:right-auto md:mb-0 md:ml-2"
+        >
+          <MenuLink href="/apply" onSelect={() => setOpen(false)}>
+            작가 신청
+          </MenuLink>
+          <MenuLink href="/login" onSelect={() => setOpen(false)}>
+            로그인
+          </MenuLink>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MenuLink({
+  href,
+  onSelect,
+  children,
+}: {
+  href: string;
+  onSelect: () => void;
+  children: React.ReactNode;
+}) {
   return (
     <Link
-      href="/login"
-      aria-label="로그인"
-      className="grid h-6 w-6 place-items-center rounded-full text-fg/55 ring-1 ring-fg/30 transition-colors hover:text-fg/80"
+      role="menuitem"
+      href={href}
+      onClick={onSelect}
+      className="block rounded-lg px-3 py-2 text-sm text-fg/80 transition-colors hover:bg-fg/[0.06] hover:text-fg"
     >
-      <UserIcon className="h-3.5 w-3.5" />
+      {children}
     </Link>
   );
 }
