@@ -4,9 +4,9 @@ import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { SearchIcon } from "./icons";
 
-// 무드 태그 검색 입력 — 제출 시 탐색 홈(/?q=)으로 이동. 메인·이미지 상세 공용.
+// 태그 검색 입력 — 제출 시 탐색 홈(/?q=)으로 이동. 메인·이미지 상세 공용.
 export function SearchPill({
-  placeholder = "무드 태그로 검색 (예: 감성, 흑백, 우드톤)",
+  placeholder = "태그로 검색 (예: 감성, 흑백, 우드톤)",
 }: {
   placeholder?: string;
 }) {
@@ -29,7 +29,7 @@ export function SearchPill({
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder={placeholder}
-        aria-label="무드 태그 검색"
+        aria-label="태그 검색"
         className="h-11 w-full rounded-full bg-fg/[0.06] pl-11 pr-4 text-sm outline-none transition focus:bg-surface focus:ring-2 focus:ring-fg/15"
       />
     </form>

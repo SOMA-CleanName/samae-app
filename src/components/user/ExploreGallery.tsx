@@ -52,7 +52,7 @@ export function ExploreGallery({
         title={query ? `“${query}” 결과가 없어요` : "공개된 사진이 아직 없어요"}
         description={
           query
-            ? "다른 무드 키워드로 검색해보세요. (예: 감성, 흑백, 우드톤)"
+            ? "다른 태그 키워드로 검색해보세요. (예: 감성, 흑백, 우드톤)"
             : "작가들이 작품을 올리면 여기에 표시돼요."
         }
         action={

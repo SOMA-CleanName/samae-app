@@ -35,7 +35,7 @@ export function ProfileForm({ initial }: { initial: ProfileInitial }) {
       </div>
 
       <Field name="regions" label="활동 지역" defaultValue={initial.regions} hint="쉼표로 구분 (예: 성수, 한강)" />
-      <Field name="moodTags" label="무드 태그" defaultValue={initial.moodTags} hint="쉼표로 구분 (예: 필름, 내추럴)" />
+      <Field name="moodTags" label="태그" defaultValue={initial.moodTags} hint="쉼표로 구분 (예: 필름, 내추럴)" />
       <Field
         name="priceFrom"
         label="최저가 (원)"

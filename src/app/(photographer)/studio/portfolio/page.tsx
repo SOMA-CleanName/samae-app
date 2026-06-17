@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { PortfolioManager } from "./PortfolioManager";
 import { PortfolioEditManager } from "./PortfolioEditManager";
+import type { PackageOption } from "./PortfolioUploader";
 import { EditTrigger } from "./EditTrigger";
 import { DeletePostButton } from "./DeletePostButton";
 import { setPhotoVisibility, setAlbumVisibility, reorderPhoto, deletePhoto } from "./actions";
@@ -41,6 +42,16 @@ export default async function PortfolioPage() {
 
   const photos = (data ?? []) as Photo[];
   const publishedCount = photos.filter((p) => p.visibility === "published").length;
+
+  // 가격 선택지 — 작가 본인의 활성 패키지
+  const { data: pkgData } = await supabase
+    .from("packages")
+    .select("id, name, price_krw")
+    .eq("photographer_id", me.photographer.id)
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true });
+  const packages = (pkgData ?? []) as PackageOption[];
 
   // 피드 설명 (앨범 단위)
   const albumIds = [...new Set(photos.map((p) => p.album_id).filter(Boolean))] as string[];
@@ -83,7 +94,7 @@ export default async function PortfolioPage() {
             게시물 단위로 묶여 있어요. 공개한 사진이 탐색에 노출됩니다. (공개 {publishedCount} / 전체 {photos.length}장)
           </p>
         </div>
-        <PortfolioManager />
+        <PortfolioManager packages={packages} />
       </div>
 
       {photos.length === 0 ? (
@@ -100,7 +111,7 @@ export default async function PortfolioPage() {
       )}
 
       {/* 편집 매니저 — 묶음(피드) 함께 수정 + 작업 토스트 (한 번만 마운트) */}
-      <PortfolioEditManager photos={photos} descriptions={Object.fromEntries(descById)} />
+      <PortfolioEditManager photos={photos} descriptions={Object.fromEntries(descById)} packages={packages} />
     </main>
   );
 }

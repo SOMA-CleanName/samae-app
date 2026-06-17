@@ -3,7 +3,8 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createPost } from "./actions";
-import { PortfolioUploader, type UploadPayload } from "./PortfolioUploader";
+import { PortfolioUploader, type UploadPayload, type PackageOption } from "./PortfolioUploader";
+import { HelpTip } from "./HelpTip";
 
 type Status =
   | { kind: "idle" }
@@ -13,7 +14,7 @@ type Status =
 
 // 포트폴리오 추가 매니저 — 모달은 입력만 받고, 업로드는 여기서 수행한다.
 // 모달을 닫아도 업로드가 계속되며 진행/완료를 우하단 토스트로 보여준다.
-export function PortfolioManager() {
+export function PortfolioManager({ packages }: { packages: PackageOption[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
@@ -76,7 +77,12 @@ export function PortfolioManager() {
             className="max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-xl"
           >
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold">포트폴리오 추가</h3>
+              <h3 className="flex items-center gap-1.5 text-base font-semibold">
+                포트폴리오 추가
+                <HelpTip label="포트폴리오 추가 안내">
+                  하나의 촬영(같은 날·같은 콘셉트)에 해당하는 사진들만 한 게시물로 올려주세요.
+                </HelpTip>
+              </h3>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
@@ -87,7 +93,7 @@ export function PortfolioManager() {
               </button>
             </div>
             <div className="mt-4">
-              <PortfolioUploader onStart={start} />
+              <PortfolioUploader onStart={start} packages={packages} />
             </div>
           </div>
         </div>

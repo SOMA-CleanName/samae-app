@@ -2,6 +2,11 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useRef, useState } from "react";
+import { TagInput } from "./TagInput";
+import { HelpTip } from "./HelpTip";
+
+// 가격 선택지로 쓰는 작가 패키지 (활성 패키지만)
+export type PackageOption = { id: string; name: string; price_krw: number };
 
 // 업로드에 필요한 입력 묶음 — 실제 업로드는 PortfolioManager가 수행(모달 닫혀도 계속).
 export type UploadPayload = {
@@ -13,8 +18,16 @@ export type UploadPayload = {
   publish: boolean;
 };
 
+const fmt = new Intl.NumberFormat("ko-KR");
+
 // 포트폴리오 입력 폼 — 드롭존 + 미리보기 + 공통 정보. 제출 시 onStart로 넘긴다.
-export function PortfolioUploader({ onStart }: { onStart: (p: UploadPayload) => void }) {
+export function PortfolioUploader({
+  onStart,
+  packages,
+}: {
+  onStart: (p: UploadPayload) => void;
+  packages: PackageOption[];
+}) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
@@ -23,7 +36,7 @@ export function PortfolioUploader({ onStart }: { onStart: (p: UploadPayload) => 
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [location, setLocation] = useState("");
-  const [moods, setMoods] = useState("");
+  const [moodTags, setMoodTags] = useState<string[]>([]);
   const [publish, setPublish] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,7 +59,7 @@ export function PortfolioUploader({ onStart }: { onStart: (p: UploadPayload) => 
       setError("사진을 1장 이상 선택하세요.");
       return;
     }
-    onStart({ files, description, price, location, moods, publish });
+    onStart({ files, description, price, location, moods: moodTags.join(", "), publish });
   }
 
   return (
@@ -119,58 +132,85 @@ export function PortfolioUploader({ onStart }: { onStart: (p: UploadPayload) => 
       {/* 공통 정보 — 항상 노출 */}
       <div className="mt-4 flex flex-col gap-3 border-t border-fg/10 pt-4">
         <label className="flex flex-col gap-1 text-xs text-fg/55">
-          설명 (선택)
+          설명
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
             maxLength={1000}
-            placeholder="이 촬영에 대한 설명을 적어주세요. (컨셉·장소·후기 등)"
+            placeholder="이 촬영에 대한 설명을 적어주세요."
             className="resize-none rounded-lg border border-fg/15 bg-white px-3 py-2 text-sm text-fg outline-none focus:border-fg/40"
           />
         </label>
         <div className="grid grid-cols-2 gap-3">
           <label className="flex flex-col gap-1 text-xs text-fg/55">
-            가격 (원, 선택)
-            <input
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              type="number"
-              min={0}
-              step={1000}
-              placeholder="예: 50000"
-              className="rounded-lg border border-fg/15 bg-white px-3 py-2 text-sm text-fg outline-none focus:border-fg/40"
-            />
+            <span className="flex items-center gap-1">
+              가격
+              <HelpTip label="가격 안내">
+                패키지로 등록한 가격 중에서만 선택할 수 있어요. ‘가격 미표시’는 가급적 피하고 가격을 함께 보여주세요.
+              </HelpTip>
+            </span>
+            {packages.length > 0 ? (
+              <select
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                className="h-[38px] rounded-lg border border-fg/15 bg-white px-3 text-sm text-fg outline-none focus:border-fg/40"
+              >
+                <option value="">가격 미표시</option>
+                {packages.map((pk) => (
+                  <option key={pk.id} value={String(pk.price_krw)}>
+                    {pk.name} · ₩{fmt.format(pk.price_krw)}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <a
+                href="/studio/packages"
+                className="flex h-[38px] items-center rounded-lg border border-dashed border-fg/20 px-3 text-sm text-fg/45 hover:border-fg/35 hover:text-fg/70"
+              >
+                패키지를 먼저 등록하세요 →
+              </a>
+            )}
           </label>
           <label className="flex flex-col gap-1 text-xs text-fg/55">
-            장소 (선택)
+            <span className="flex items-center gap-1">
+              장소
+              <HelpTip label="장소 안내">
+                정확한 장소가 아니어도 괜찮아요. 작가님이 자유롭게 적어주세요.
+              </HelpTip>
+            </span>
             <input
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               maxLength={120}
-              placeholder="예: 성수동 카페"
+              placeholder="예: 성수동 카페, 골목 어귀"
               className="rounded-lg border border-fg/15 bg-white px-3 py-2 text-sm text-fg outline-none focus:border-fg/40"
             />
           </label>
         </div>
-        <label className="flex flex-col gap-1 text-xs text-fg/55">
-          무드 태그 (쉼표, 선택)
-          <input
-            value={moods}
-            onChange={(e) => setMoods(e.target.value)}
-            placeholder="예: 감성, 흑백"
-            className="rounded-lg border border-fg/15 bg-white px-3 py-2 text-sm text-fg outline-none focus:border-fg/40"
-          />
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={publish}
-            onChange={(e) => setPublish(e.target.checked)}
-            className="h-4 w-4 rounded border-fg/30"
-          />
-          올리면서 바로 공개 (끄면 비공개 저장)
-        </label>
+        <div className="flex flex-col gap-1 text-xs text-fg/55">
+          <span className="flex items-center gap-1">
+            태그
+            <HelpTip label="태그 안내">
+              촬영 목적 태그(예: 웨딩 스냅, 데이트 스냅)는 1~2개만 적어주세요. 나머지는 자유롭게 적되, 모델의 성별·나이 같은 정보는 빼주세요. 최대 5개예요.
+            </HelpTip>
+          </span>
+          <TagInput onChange={setMoodTags} max={5} placeholder="예: 감성 (Enter)" />
+        </div>
+        <div className="flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={publish}
+              onChange={(e) => setPublish(e.target.checked)}
+              className="h-4 w-4 rounded border-fg/30"
+            />
+            올리면서 바로 공개 (끄면 비공개 저장)
+          </label>
+          <HelpTip label="공개 안내" placement="top">
+            체크하면 메인 탐색 탭과 작가 프로필 포트폴리오에 바로 표시돼요.
+          </HelpTip>
+        </div>
 
         {error && <p className="text-xs text-brand">{error}</p>}
 
