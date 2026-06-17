@@ -52,3 +52,35 @@ export async function notifyOpsNewInquiry(params: {
     // 디스코드 실패가 문의 접수를 막지 않게 무시
   }
 }
+
+// 새 작가 신청 알림 — 지원자가 남긴 정보.
+// (문의와 달리 지원자 연락처는 운영자가 직접 연락해야 하므로 포함한다.)
+export async function notifyOpsNewApplication(params: {
+  applicationId: string;
+  displayName: string;
+  portfolioUrl: string;
+  phone: string;
+  bio: string | null;
+}): Promise<void> {
+  if (!OPS_WEBHOOK) return; // 미설정이면 조용히 패스(로컬/미배포)
+
+  try {
+    const ref = params.applicationId.slice(0, 8); // 운영진 대조용 짧은 참조
+    const lines: string[] = [
+      `🎨 **새 작가 신청** — ${params.displayName}  (ID \`${ref}\`)`,
+      `• 포트폴리오: ${params.portfolioUrl}`,
+      `• 연락처: ${params.phone}`,
+    ];
+    if (params.bio) lines.push(`• 소개: ${params.bio}`);
+    lines.push("", "작가가 카카오 채널로도 신청 메시지를 보낼 거예요. 채널 확인 후 진행해주세요.");
+
+    await fetch(OPS_WEBHOOK, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: lines.join("\n") }),
+      redirect: "manual",
+    });
+  } catch {
+    // 알림 실패가 신청 접수를 막지 않게 무시
+  }
+}

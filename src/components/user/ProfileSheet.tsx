@@ -124,7 +124,7 @@ export function ProfileSheet({
         <div className="border-t border-line" />
 
         <nav className="py-1.5">
-          <SheetLink href="/studio" onClick={requestClose}>
+          <SheetLink href={me.isPhotographer ? "/studio" : "/apply"} onClick={requestClose}>
             {me.isPhotographer ? "스튜디오" : "작가 신청"}
           </SheetLink>
           {me.isAdmin && (

@@ -29,7 +29,7 @@ export default async function StudioHome() {
               아직 작가로 등록되지 않았어요. 신청하고 승인받으면 탐색 탭에 노출됩니다.
             </p>
             <Link
-              href="/studio/apply"
+              href="/apply"
               className="mt-4 inline-block rounded-full bg-fg px-5 py-2.5 text-sm font-semibold text-bg hover:opacity-90"
             >
               작가 신청하기
