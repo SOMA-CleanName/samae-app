@@ -41,7 +41,7 @@ export function ApplyForm() {
       />
       <Field
         name="moodTags"
-        label="무드 태그"
+        label="태그"
         placeholder="필름, 내추럴, 에디토리얼 (쉼표로 구분)"
       />
 

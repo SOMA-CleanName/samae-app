@@ -4,6 +4,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { updateFeedMeta, deletePhoto } from "./actions";
+import { TagInput } from "./TagInput";
+import { HelpTip } from "./HelpTip";
+import type { PackageOption } from "./PortfolioUploader";
+
+const fmt = new Intl.NumberFormat("ko-KR");
 
 export type EditPhoto = {
   id: string;
@@ -27,9 +32,11 @@ type Status =
 export function PortfolioEditManager({
   photos,
   descriptions,
+  packages,
 }: {
   photos: EditPhoto[];
   descriptions: Record<string, string | null>;
+  packages: PackageOption[];
 }) {
   const router = useRouter();
   const [target, setTarget] = useState<{ anchorId: string; albumId: string | null } | null>(null);
@@ -163,8 +170,11 @@ export function PortfolioEditManager({
             className="max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-xl"
           >
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold">
+              <h3 className="flex items-center gap-1.5 text-base font-semibold">
                 사진 편집 {feed.length > 1 && <span className="text-sm font-normal text-fg/50">· 피드 {feed.length}장</span>}
+                <HelpTip label="사진 편집 안내">
+                  하나의 촬영(같은 날·같은 콘셉트)에 해당하는 사진들만 한 게시물로 묶여요.
+                </HelpTip>
               </h3>
               <button
                 type="button"
@@ -232,51 +242,84 @@ export function PortfolioEditManager({
               )}
               <div className="grid grid-cols-2 gap-3">
                 <label className="flex flex-col gap-1 text-xs text-fg/55">
-                  가격 (원)
-                  <input
-                    name="price_krw"
-                    type="number"
-                    min={0}
-                    step={1000}
-                    defaultValue={anchor.price_krw ?? ""}
-                    placeholder="예: 50000"
-                    className="rounded-lg border border-fg/15 px-3 py-2 text-sm outline-none focus:border-fg/40"
-                  />
+                  <span className="flex items-center gap-1">
+                    가격
+                    <HelpTip label="가격 안내">
+                      패키지로 등록한 가격 중에서만 선택할 수 있어요. ‘가격 미표시’는 가급적 피하고 가격을 함께 보여주세요.
+                    </HelpTip>
+                  </span>
+                  {packages.length > 0 || anchor.price_krw != null ? (
+                    <select
+                      name="price_krw"
+                      defaultValue={anchor.price_krw != null ? String(anchor.price_krw) : ""}
+                      className="h-[38px] rounded-lg border border-fg/15 bg-white px-3 text-sm outline-none focus:border-fg/40"
+                    >
+                      <option value="">가격 미표시</option>
+                      {/* 현재 가격이 활성 패키지에 없으면(커스텀·비활성) 보존용 항목 추가 */}
+                      {anchor.price_krw != null &&
+                        !packages.some((pk) => pk.price_krw === anchor.price_krw) && (
+                          <option value={String(anchor.price_krw)}>
+                            현재가 · ₩{fmt.format(anchor.price_krw)}
+                          </option>
+                        )}
+                      {packages.map((pk) => (
+                        <option key={pk.id} value={String(pk.price_krw)}>
+                          {pk.name} · ₩{fmt.format(pk.price_krw)}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <a
+                      href="/studio/packages"
+                      className="flex h-[38px] items-center rounded-lg border border-dashed border-fg/20 px-3 text-sm text-fg/45 hover:border-fg/35 hover:text-fg/70"
+                    >
+                      패키지를 먼저 등록하세요 →
+                    </a>
+                  )}
                 </label>
                 <label className="flex flex-col gap-1 text-xs text-fg/55">
-                  장소
+                  <span className="flex items-center gap-1">
+                    장소
+                    <HelpTip label="장소 안내">
+                      정확한 장소가 아니어도 괜찮아요. 작가님이 자유롭게 적어주세요.
+                    </HelpTip>
+                  </span>
                   <input
                     name="location_text"
                     type="text"
                     maxLength={120}
                     defaultValue={anchor.location_text ?? ""}
-                    placeholder="예: 성수동 카페"
+                    placeholder="예: 성수동 카페, 골목 어귀"
                     className="rounded-lg border border-fg/15 px-3 py-2 text-sm outline-none focus:border-fg/40"
                   />
                 </label>
               </div>
-              <label className="flex flex-col gap-1 text-xs text-fg/55">
-                무드 태그 (쉼표)
-                <input
-                  name="mood_tags"
-                  type="text"
-                  defaultValue={anchor.mood_tags.join(", ")}
-                  placeholder="예: 감성, 흑백"
-                  className="rounded-lg border border-fg/15 px-3 py-2 text-sm outline-none focus:border-fg/40"
-                />
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  name="visibility"
-                  value="published"
-                  defaultChecked={anchor.visibility === "published"}
-                  className="h-4 w-4 rounded border-fg/30"
-                />
-                탐색에 공개
-              </label>
+              <div className="flex flex-col gap-1 text-xs text-fg/55">
+                <span className="flex items-center gap-1">
+                  태그
+                  <HelpTip label="태그 안내">
+                    촬영 목적 태그(예: 웨딩 스냅, 데이트 스냅)는 1~2개만 적어주세요. 나머지는 자유롭게 적되, 모델의 성별·나이 같은 정보는 빼주세요. 최대 5개예요.
+                  </HelpTip>
+                </span>
+                <TagInput name="mood_tags" defaultTags={anchor.mood_tags} max={5} placeholder="예: 감성 (Enter)" />
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    name="visibility"
+                    value="published"
+                    defaultChecked={anchor.visibility === "published"}
+                    className="h-4 w-4 rounded border-fg/30"
+                  />
+                  탐색에 공개
+                </label>
+                <HelpTip label="공개 안내" placement="top">
+                  체크하면 메인 탐색 탭과 작가 프로필 포트폴리오에 바로 표시돼요.
+                </HelpTip>
+              </div>
               {feed.length > 1 && (
-                <p className="text-xs text-fg/45">가격·장소·무드·공개는 피드 {feed.length}장 전체에 적용돼요.</p>
+                <p className="text-xs text-fg/45">가격·장소·태그·공개는 피드 {feed.length}장 전체에 적용돼요.</p>
               )}
 
               <div className="mt-1 flex gap-2">

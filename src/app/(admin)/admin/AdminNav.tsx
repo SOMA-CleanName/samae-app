@@ -12,6 +12,7 @@ const TABS = [
   { href: "/admin/users", label: "회원" },
   { href: "/admin/inquiries", label: "문의" },
   { href: "/admin/categories", label: "카테고리" },
+  { href: "/admin/tags", label: "태그" },
   { href: "/admin/analytics", label: "분석" },
 ];
 
