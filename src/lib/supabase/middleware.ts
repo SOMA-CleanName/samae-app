@@ -10,6 +10,13 @@ type CookieToSet = { name: string; value: string; options: CookieOptions };
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
 
+  // 세션 쿠키가 없으면(비로그인·프리패치 등) 갱신할 토큰이 없으므로
+  // Auth 서버 왕복을 생략한다 — 로그아웃 트래픽의 불필요한 네트워크 비용 제거.
+  const hasAuthCookie = request.cookies
+    .getAll()
+    .some((c) => c.name.startsWith("sb-") && c.name.includes("-auth-token"));
+  if (!hasAuthCookie) return response;
+
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
