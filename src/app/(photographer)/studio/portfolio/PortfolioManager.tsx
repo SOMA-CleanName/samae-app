@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createPost } from "./actions";
+import { downscaleImage } from "./downscale";
 import { PortfolioUploader, type UploadPayload, type PackageOption } from "./PortfolioUploader";
 import { HelpTip } from "./HelpTip";
 
@@ -32,8 +33,10 @@ export function PortfolioManager({ packages }: { packages: PackageOption[] }) {
     try {
       const { id: albumId } = await createPost(p.description); // 한 피드로 묶음
       for (let i = 0; i < p.files.length; i++) {
+        // 업로드 전 리사이즈+JPEG 변환 (4.5MB 제한 회피 · HEIC 정규화)
+        const file = await downscaleImage(p.files[i]);
         const fd = new FormData();
-        fd.append("file", p.files[i]);
+        fd.append("file", file);
         fd.append("album_id", albumId);
         if (p.price.trim()) fd.append("price_krw", p.price.trim());
         if (p.location.trim()) fd.append("location_text", p.location.trim());

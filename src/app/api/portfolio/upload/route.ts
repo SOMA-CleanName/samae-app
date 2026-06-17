@@ -49,24 +49,34 @@ export async function POST(req: Request) {
     return Response.json({ error: "15MB 이하만 업로드할 수 있습니다." }, { status: 400 });
   }
 
-  // 이미지 변환 (sharp)
-  const sharp = (await import("sharp")).default;
-  const input = Buffer.from(await file.arrayBuffer());
-  const oriented = sharp(input).rotate(); // EXIF 회전 보정
+  // 이미지 변환 (sharp). HEIC 등 미지원 포맷·손상 파일은 여기서 throw → 친절한 에러로 변환.
+  let mainBuf: Buffer;
+  let thumbBuf: Buffer;
+  let mainMeta: { width?: number; height?: number };
+  try {
+    const sharp = (await import("sharp")).default;
+    const input = Buffer.from(await file.arrayBuffer());
+    const oriented = sharp(input).rotate(); // EXIF 회전 보정
 
-  const mainBuf = await oriented
-    .clone()
-    .resize({ width: 1600, withoutEnlargement: true })
-    .jpeg({ quality: 82 })
-    .toBuffer();
-  const mainMeta = await sharp(mainBuf).metadata();
+    mainBuf = await oriented
+      .clone()
+      .resize({ width: 1600, withoutEnlargement: true })
+      .jpeg({ quality: 82 })
+      .toBuffer();
+    mainMeta = await sharp(mainBuf).metadata();
 
-  // 썸네일도 원본 비율 유지 (비정형 메이슨리 그리드용) — 폭만 제한
-  const thumbBuf = await oriented
-    .clone()
-    .resize({ width: 500, withoutEnlargement: true })
-    .jpeg({ quality: 75 })
-    .toBuffer();
+    // 썸네일도 원본 비율 유지 (비정형 메이슨리 그리드용) — 폭만 제한
+    thumbBuf = await oriented
+      .clone()
+      .resize({ width: 500, withoutEnlargement: true })
+      .jpeg({ quality: 75 })
+      .toBuffer();
+  } catch {
+    return Response.json(
+      { error: "이미지를 처리할 수 없어요. HEIC(아이폰 원본) 형식이면 JPG로 바꿔 다시 올려주세요." },
+      { status: 422 }
+    );
+  }
 
   // Storage 업로드 (service_role)
   const admin = createAdminClient();

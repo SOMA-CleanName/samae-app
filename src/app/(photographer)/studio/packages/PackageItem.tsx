@@ -30,7 +30,7 @@ export function PackageItem({ p }: { p: Pkg }) {
           <textarea name="description" rows={2} defaultValue={p.description} className={inputCls} />
           <div className="grid grid-cols-3 gap-2">
             <LabeledInput name="priceKrw" label="가격(원)" defaultValue={String(p.price_krw)} min={0} max={3_500_000} step={10_000} required />
-            <LabeledInput name="durationMin" label="소요(분)" defaultValue={String(p.duration_min)} min={1} max={1440} step={10} required />
+            <LabeledInput name="durationMin" label="소요(분)" defaultValue={String(p.duration_min)} min={10} max={1440} step={5} required />
             <LabeledInput name="editedCount" label="보정본(장)" defaultValue={String(p.edited_count)} min={0} step={1} required />
           </div>
           <div className="flex items-center gap-2">
