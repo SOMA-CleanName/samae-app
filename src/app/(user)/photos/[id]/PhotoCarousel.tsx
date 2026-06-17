@@ -40,14 +40,16 @@ function Slide({ p, alt }: { p: P; alt: string }) {
         src={src}
         alt=""
         aria-hidden
-        className="absolute inset-0 h-full w-full scale-125 object-cover blur-2xl"
+        draggable={false}
+        className="pointer-events-none absolute inset-0 h-full w-full scale-125 select-none object-cover blur-2xl"
       />
       {/* 전경 — 안 잘리게 contain */}
       <img
         src={src}
         alt={alt}
+        draggable={false}
         className={cn(
-          "relative h-full w-full object-contain transition-[filter] duration-300",
+          "relative h-full w-full select-none object-contain transition-[filter] duration-300 [-webkit-user-drag:none]",
           isThumb ? "blur-[6px]" : "blur-0"
         )}
       />
@@ -135,7 +137,7 @@ export function PhotoCarousel({
   if (photos.length <= 1) {
     return (
       <div
-        className="relative max-h-[82vh] overflow-hidden rounded-2xl bg-black"
+        className="relative max-h-[82vh] select-none overflow-hidden rounded-2xl bg-black"
         style={{ aspectRatio: frameAspect }}
       >
         <Slide p={photos[0]} alt={altFor(0)} />
@@ -151,7 +153,7 @@ export function PhotoCarousel({
       <div
         ref={ref}
         onScroll={onScroll}
-        className="flex max-h-[82vh] snap-x snap-mandatory overflow-x-auto scroll-smooth rounded-2xl bg-black scrollbar-none"
+        className="flex max-h-[82vh] snap-x snap-mandatory select-none overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-smooth rounded-2xl bg-black scrollbar-none [touch-action:pan-x]"
         style={{ aspectRatio: frameAspect }}
       >
         {photos.map((p, i) => (
