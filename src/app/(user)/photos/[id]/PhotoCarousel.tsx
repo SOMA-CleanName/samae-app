@@ -153,7 +153,7 @@ export function PhotoCarousel({
       <div
         ref={ref}
         onScroll={onScroll}
-        className="flex max-h-[82vh] snap-x snap-mandatory select-none overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-smooth rounded-2xl bg-black scrollbar-none [touch-action:pan-x]"
+        className="flex max-h-[82vh] snap-x snap-mandatory select-none overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-smooth rounded-2xl bg-black scrollbar-none"
         style={{ aspectRatio: frameAspect }}
       >
         {photos.map((p, i) => (
