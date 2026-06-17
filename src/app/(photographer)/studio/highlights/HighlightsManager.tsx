@@ -1,9 +1,10 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import type { Highlight } from "@/lib/highlights";
-import { createHighlight, updateHighlight, deleteHighlight, reorderHighlight } from "./actions";
+import { createHighlight, updateHighlight, deleteHighlight, setHighlightOrder } from "./actions";
 
 export type PickPhoto = { id: string; src_url: string; thumb_url: string };
 
@@ -75,69 +76,160 @@ export function HighlightsManager({
   highlights: Highlight[];
   photos: PickPhoto[];
 }) {
+  const router = useRouter();
   const [editing, setEditing] = useState<Highlight | "new" | null>(null);
+  const [ordered, setOrdered] = useState<Highlight[]>(highlights);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const drag = useRef<{ id: string; x: number; y: number; moved: boolean } | null>(null);
+  const [, startTransition] = useTransition();
+
+  // 서버 갱신(router.refresh) 후 목록 동기화
+  useEffect(() => setOrdered(highlights), [highlights]);
+
+  function reorderOver(overId: string) {
+    const cur = drag.current?.id;
+    if (!cur || cur === overId) return;
+    setOrdered((prev) => {
+      const a = [...prev];
+      const fi = a.findIndex((h) => h.id === cur);
+      const ti = a.findIndex((h) => h.id === overId);
+      if (fi < 0 || ti < 0 || fi === ti) return prev;
+      const [m] = a.splice(fi, 1);
+      a.splice(ti, 0, m);
+      return a;
+    });
+  }
+  function onPointerDown(e: React.PointerEvent, id: string) {
+    drag.current = { id, x: e.clientX, y: e.clientY, moved: false };
+    setDraggingId(id);
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+  }
+  function onPointerMove(e: React.PointerEvent) {
+    const d = drag.current;
+    if (!d || selectMode) return; // 선택 모드에선 정렬 안 함
+    if (!d.moved && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6) d.moved = true;
+    if (!d.moved) return;
+    const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+    const overId = el?.closest<HTMLElement>("[data-hid]")?.dataset.hid;
+    if (overId) reorderOver(overId);
+  }
+  function onPointerUp() {
+    const d = drag.current;
+    drag.current = null;
+    setDraggingId(null);
+    if (!d) return;
+    if (selectMode) {
+      toggleSelect(d.id); // 선택 모드: 탭 = 선택/해제
+      return;
+    }
+    if (!d.moved) {
+      const h = ordered.find((x) => x.id === d.id);
+      if (h) setEditing(h); // 이동 없으면 탭 = 수정
+      return;
+    }
+    const ids = ordered.map((h) => h.id);
+    startTransition(async () => {
+      await setHighlightOrder(ids);
+      router.refresh();
+    });
+  }
+  function cancelSelect() {
+    setSelectMode(false);
+    setSelected(new Set());
+  }
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id);
+      else s.add(id);
+      return s;
+    });
+  }
+  function removeSelected() {
+    if (selected.size === 0) return;
+    if (!confirm(`선택한 ${selected.size}개 하이라이트를 삭제할까요?`)) return;
+    const ids = [...selected];
+    startTransition(async () => {
+      for (const id of ids) {
+        try {
+          const fd = new FormData();
+          fd.set("id", id);
+          await deleteHighlight(fd);
+        } catch {
+          /* 이미 삭제됐거나 일시 오류 — 나머지는 계속 진행 */
+        }
+      }
+      setSelected(new Set());
+      setSelectMode(false);
+      router.refresh();
+    });
+  }
 
   return (
     <>
-      <div className="mt-6">
-        <button
-          type="button"
-          onClick={() => setEditing("new")}
-          className="rounded-full bg-fg px-4 py-2 text-sm font-semibold text-bg hover:opacity-90"
-        >
-          + 새 하이라이트
-        </button>
+      <div className="mt-5 flex items-start justify-between gap-3">
+        <p className="text-xs leading-relaxed text-fg/50">
+          {selectMode
+            ? "삭제할 하이라이트를 눌러 선택하세요."
+            : "위 5개가 프로필에 보여요. 끌어서 순서·노출을 바꾸고(구분선 아래는 숨김), 탭하면 수정돼요."}
+        </p>
+        {selectMode ? (
+          <div className="flex shrink-0 gap-2">
+            <button
+              type="button"
+              onClick={cancelSelect}
+              className="rounded-full border border-line-strong px-3 py-1.5 text-xs font-medium text-fg/70 hover:bg-fg/[0.04]"
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              onClick={removeSelected}
+              disabled={selected.size === 0}
+              className="rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-40"
+            >
+              삭제{selected.size > 0 ? ` ${selected.size}` : ""}
+            </button>
+          </div>
+        ) : (
+          ordered.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setSelectMode(true)}
+              className="shrink-0 rounded-full border border-line-strong px-3 py-1.5 text-xs font-medium text-fg/70 hover:bg-fg/[0.04]"
+            >
+              선택
+            </button>
+          )
+        )}
       </div>
 
-      {highlights.length === 0 ? (
-        <div className="mt-6 rounded-2xl border border-dashed border-fg/20 py-14 text-center">
-          <p className="text-sm text-fg/55">아직 하이라이트가 없어요.</p>
-          <p className="mt-1 text-xs text-fg/40">사진을 직접 올리거나 포트폴리오에서 골라 첫 컬렉션을 만들어보세요.</p>
-        </div>
-      ) : (
-        <ul className="mt-6 flex flex-col gap-2">
-          {highlights.map((h, i) => {
-            const cover = coverOf(h);
-            return (
-              <li key={h.id} className="flex items-center gap-3 rounded-xl border border-fg/10 p-3">
-                <span className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-full bg-fg/[0.06] ring-2 ring-fg/10">
-                  {cover ? (
-                    <img src={cover} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <span className="text-fg/30">+</span>
-                  )}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{h.title || "제목 없음"}</p>
-                  <p className="text-xs text-fg/45">{h.items.length}장</p>
-                </div>
-
-                <div className="flex items-center gap-1">
-                  {i > 0 && <ReorderBtn id={h.id} dir="up" label="↑" />}
-                  {i < highlights.length - 1 && <ReorderBtn id={h.id} dir="down" label="↓" />}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setEditing(h)}
-                  className="rounded-full border border-fg/20 px-3 py-1.5 text-xs text-fg/70 hover:bg-fg/[0.04]"
-                >
-                  수정
-                </button>
-                <form
-                  action={deleteHighlight}
-                  onSubmit={(e) => {
-                    if (!confirm(`'${h.title || "제목 없음"}' 하이라이트를 삭제할까요?`)) e.preventDefault();
-                  }}
-                >
-                  <input type="hidden" name="id" value={h.id} />
-                  <button className="rounded-full px-3 py-1.5 text-xs text-brand hover:bg-brand/[0.06]">삭제</button>
-                </form>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+      <div className="mt-4 grid grid-cols-5 gap-x-3 gap-y-5">
+        {ordered.map((h, i) => (
+          <Fragment key={h.id}>
+            {i === 5 && (
+              <div className="col-span-5 my-1 flex items-center gap-2 text-[11px] text-fg/40">
+                <span className="h-px flex-1 bg-fg/15" />
+                숨김 · 프로필 미노출
+                <span className="h-px flex-1 bg-fg/15" />
+              </div>
+            )}
+            <HighlightCircle
+              h={h}
+              hidden={i >= 5}
+              dragging={draggingId === h.id}
+              selectMode={selectMode}
+              selected={selected.has(h.id)}
+              onPointerDown={(e) => onPointerDown(e, h.id)}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+            />
+          </Fragment>
+        ))}
+        <AddCircle onClick={() => setEditing("new")} />
+      </div>
 
       {editing && (
         <HighlightEditor
@@ -150,18 +242,75 @@ export function HighlightsManager({
   );
 }
 
-function ReorderBtn({ id, dir, label }: { id: string; dir: "up" | "down"; label: string }) {
+// 동그라미 하이라이트 — pointer로 끌어서 정렬(데스크톱·모바일), 탭하면 수정, ×로 삭제. hidden(상위 5 밖)은 흐리게.
+function HighlightCircle({
+  h,
+  hidden,
+  dragging,
+  selectMode,
+  selected,
+  onPointerDown,
+  onPointerMove,
+  onPointerUp,
+}: {
+  h: Highlight;
+  hidden: boolean;
+  dragging: boolean;
+  selectMode: boolean;
+  selected: boolean;
+  onPointerDown: (e: React.PointerEvent) => void;
+  onPointerMove: (e: React.PointerEvent) => void;
+  onPointerUp: (e: React.PointerEvent) => void;
+}) {
+  const cover = coverOf(h);
   return (
-    <form action={reorderHighlight}>
-      <input type="hidden" name="id" value={id} />
-      <input type="hidden" name="dir" value={dir} />
-      <button
-        aria-label={dir === "up" ? "위로" : "아래로"}
-        className="grid h-7 w-7 place-items-center rounded-full border border-fg/15 text-xs text-fg/60 hover:bg-fg/[0.04]"
+    <div className="group relative flex flex-col items-center gap-1.5">
+      <div
+        data-hid={h.id}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        className={`grid aspect-square w-full touch-none select-none place-items-center overflow-hidden rounded-full bg-fg/[0.06] ring-2 ring-offset-2 ring-offset-bg transition-transform ${
+          selectMode ? "cursor-pointer" : "cursor-grab"
+        } ${
+          selectMode && selected
+            ? "ring-brand"
+            : hidden
+            ? "opacity-45 ring-line"
+            : "ring-line-strong"
+        } ${selectMode && !selected ? "opacity-60" : ""} ${dragging ? "scale-110 opacity-80 shadow-lg" : ""}`}
       >
-        {label}
-      </button>
-    </form>
+        {cover ? (
+          <img src={cover} alt="" draggable={false} className="pointer-events-none h-full w-full rounded-full object-cover" />
+        ) : (
+          <span className="pointer-events-none text-fg/30">＋</span>
+        )}
+      </div>
+      <span className="w-full truncate text-center text-caption text-muted">{h.title || "하이라이트"}</span>
+      {/* 선택 모드일 때만 체크 인디케이터(탭은 동그라미 본체가 처리) */}
+      {selectMode && (
+        <span
+          className={`pointer-events-none absolute -right-0.5 -top-0.5 grid h-5 w-5 place-items-center rounded-full border text-[10px] leading-none ${
+            selected ? "border-brand bg-brand text-white" : "border-fg/40 bg-white text-transparent"
+          }`}
+        >
+          ✓
+        </span>
+      )}
+    </div>
+  );
+}
+
+// 추가 버튼 — 빈 동그라미 + 가운데 +
+function AddCircle({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="flex flex-col items-center gap-1.5">
+      <span className="grid aspect-square w-full place-items-center rounded-full border-2 border-dashed border-fg/25 text-2xl font-light text-fg/40 transition-colors hover:border-fg/45 hover:text-fg/60">
+        +
+      </span>
+      <span className="text-caption text-fg/40">추가</span>
+    </button>
   );
 }
 
@@ -265,6 +414,29 @@ function HighlightEditor({
     if (itemFileRef.current) itemFileRef.current.value = "";
   }
 
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+
+  // 만들기/저장 — 서버액션 직접 호출 → 목록 새로고침(router.refresh) → 모달 닫기. 실패 시 사유 표시.
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (items.length === 0) {
+      alert("사진을 한 장 이상 추가해주세요.");
+      return;
+    }
+    const fd = new FormData(e.currentTarget);
+    startTransition(async () => {
+      try {
+        if (isEdit) await updateHighlight(fd);
+        else await createHighlight(fd);
+        router.refresh();
+        onClose();
+      } catch (err) {
+        alert("저장에 실패했어요: " + (err instanceof Error ? err.message : "알 수 없는 오류"));
+      }
+    });
+  }
+
   const itemsPayload = JSON.stringify(
     items.map((it) => (it.photo_id ? { photo_id: it.photo_id } : { image_url: it.image_url }))
   );
@@ -274,14 +446,8 @@ function HighlightEditor({
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4 font-kr" onClick={onClose}>
       <form
-        action={isEdit ? updateHighlight : createHighlight}
+        onSubmit={onSubmit}
         onClick={(e) => e.stopPropagation()}
-        onSubmit={(e) => {
-          if (items.length === 0) {
-            e.preventDefault();
-            alert("사진을 한 장 이상 추가해주세요.");
-          }
-        }}
         className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-xl"
       >
         <div className="flex items-center justify-between">
@@ -409,8 +575,12 @@ function HighlightEditor({
           </div>
         )}
 
-        <button type="submit" className="mt-6 w-full rounded-full bg-fg py-3 text-sm font-semibold text-bg hover:opacity-90">
-          {isEdit ? "저장" : "만들기"}
+        <button
+          type="submit"
+          disabled={pending}
+          className="mt-6 w-full rounded-full bg-fg py-3 text-sm font-semibold text-bg hover:opacity-90 disabled:opacity-50"
+        >
+          {pending ? "저장 중…" : isEdit ? "저장" : "만들기"}
         </button>
       </form>
 

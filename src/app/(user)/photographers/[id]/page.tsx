@@ -155,9 +155,9 @@ export default async function PhotographerProfile({
         {/* 우: 하이라이트(최상단) + 포트폴리오 / 촬영 패키지 탭 */}
         {/* min-h: 탭 전환 시 높이 급변으로 좌측 sticky 프로필이 튀는 것 방지.
             -mt-1.5(PC): 하이라이트 행 상단 패딩(py-1.5) 만큼 끌어올려 원-아바타 상단 정렬 */}
-        <section className="mt-8 md:-mt-1.5 md:min-h-[70vh] md:min-w-0 md:flex-1">
+        <section className="mt-5 md:-mt-1.5 md:min-h-[70vh] md:min-w-0 md:flex-1">
           {highlights.length > 0 && (
-            <div className="mb-6">
+            <div className="mb-3">
               <HighlightsBar
                 highlights={highlights}
                 cta={<ViewerCta isOwner={isOwner} me={!!me} photographerId={ph.id} />}

@@ -28,17 +28,15 @@ create policy highlight_items_select on public.highlight_items for select using 
   or exists (select 1 from public.photos p where p.id = photo_id and p.visibility = 'published')
 );
 
--- ── 하이라이트 조회 RLS : 업로드 항목 또는 공개 사진 항목이 1개 이상이면 공개 ──
+-- ── 하이라이트 조회 RLS : 승인 작가의 하이라이트는 공개 ──
+--   ⚠️ highlights_select 는 highlight_items 를 참조하면 안 됨(0027 재귀 방지). highlight_items_select 가
+--      highlights 를 참조하므로 상호 순환(42P17)이 된다. "공개 항목 없는 하이라이트 숨김"은 앱 레이어(shape)에서 처리.
 drop policy if exists highlights_select on public.highlights;
 create policy highlights_select on public.highlights for select using (
   public.is_my_photographer(photographer_id)
   or public.is_admin()
   or exists (
-    select 1 from public.highlight_items hi
-    where hi.highlight_id = highlights.id
-      and (
-        hi.image_url is not null
-        or exists (select 1 from public.photos p where p.id = hi.photo_id and p.visibility = 'published')
-      )
+    select 1 from public.photographers ph
+    where ph.id = highlights.photographer_id and ph.status = 'approved'
   )
 );
