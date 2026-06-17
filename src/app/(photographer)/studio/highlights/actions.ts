@@ -17,40 +17,71 @@ function revalidateHighlightViews() {
   revalidatePath("/studio/highlights");
 }
 
-// 하이라이트 소유 확인
-async function ownsHighlight(admin: Admin, highlightId: string, phId: string): Promise<boolean> {
+// 하이라이트 소유 상태 — owner(본인) / missing(이미 삭제됨) / forbidden(타인)
+async function highlightOwnership(
+  admin: Admin,
+  highlightId: string,
+  phId: string
+): Promise<"owner" | "missing" | "forbidden"> {
   const { data } = await admin
     .from("highlights")
     .select("photographer_id")
     .eq("id", highlightId)
     .maybeSingle();
-  return !!data && data.photographer_id === phId;
+  if (!data) return "missing";
+  return data.photographer_id === phId ? "owner" : "forbidden";
 }
 
-function parsePhotoIds(formData: FormData): string[] {
-  return String(formData.get("photo_ids") ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+// 항목 입력 — 포트폴리오 사진(photo_id) 또는 직접 업로드 이미지(image_url)
+type ItemInput = { photo_id?: string; image_url?: string };
+
+// 직접 업로드 이미지가 하이라이트 버킷의 것인지(타 출처 URL 주입 방지)
+function isHighlightUpload(url: string): boolean {
+  return /\/storage\/v1\/object\/public\/samae-highlight\//.test(url);
 }
 
-// 항목 일괄 교체 — 본인 사진만 통과시키고, 받은 순서대로 sort_order 재기록
-async function replaceItems(admin: Admin, highlightId: string, phId: string, photoIds: string[]) {
-  let valid = photoIds;
+function parseItems(formData: FormData): ItemInput[] {
+  try {
+    const raw = JSON.parse(String(formData.get("items") ?? "[]"));
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .map((r): ItemInput => ({
+        photo_id: typeof r?.photo_id === "string" ? r.photo_id : undefined,
+        image_url: typeof r?.image_url === "string" ? r.image_url : undefined,
+      }))
+      .filter((r) => r.photo_id || (r.image_url && isHighlightUpload(r.image_url)));
+  } catch {
+    return [];
+  }
+}
+
+// 항목 일괄 교체 — 포트폴리오 항목은 본인 사진만 통과, 업로드 항목은 하이라이트 버킷만.
+// 받은 순서대로 sort_order 재기록.
+async function replaceItems(admin: Admin, highlightId: string, phId: string, items: ItemInput[]) {
+  const photoIds = items.map((i) => i.photo_id).filter((v): v is string => !!v);
+  let okPhotos = new Set<string>();
   if (photoIds.length > 0) {
     const { data } = await admin
       .from("photos")
       .select("id")
       .eq("photographer_id", phId)
       .in("id", photoIds);
-    const ok = new Set((data ?? []).map((p) => p.id as string));
-    valid = photoIds.filter((id) => ok.has(id));
+    okPhotos = new Set((data ?? []).map((p) => p.id as string));
   }
+
+  const rows: Array<{ highlight_id: string; photo_id: string | null; image_url: string | null; sort_order: number }> = [];
+  for (const it of items) {
+    if (it.image_url && isHighlightUpload(it.image_url)) {
+      rows.push({ highlight_id: highlightId, photo_id: null, image_url: it.image_url, sort_order: rows.length });
+    } else if (it.photo_id && okPhotos.has(it.photo_id)) {
+      rows.push({ highlight_id: highlightId, photo_id: it.photo_id, image_url: null, sort_order: rows.length });
+    }
+  }
+
   await admin.from("highlight_items").delete().eq("highlight_id", highlightId);
-  if (valid.length > 0) {
-    await admin.from("highlight_items").insert(
-      valid.map((pid, i) => ({ highlight_id: highlightId, photo_id: pid, sort_order: i }))
-    );
+  if (rows.length > 0) {
+    const { error } = await admin.from("highlight_items").insert(rows);
+    if (error) throw new Error(error.message);
   }
 }
 
@@ -65,9 +96,11 @@ function coverFields(formData: FormData) {
 export async function createHighlight(formData: FormData) {
   const phId = await requirePhotographerId();
   const { coverUrl, coverPhotoId, title } = coverFields(formData);
-  const photoIds = parsePhotoIds(formData);
+  const items = parseItems(formData);
 
   const admin = createAdminClient();
+
+  // 생성 개수 제한 없음 — 상위 5개만 프로필에 노출되고 나머지는 보관(숨김)된다.
   const { data: last } = await admin
     .from("highlights")
     .select("sort_order")
@@ -90,7 +123,7 @@ export async function createHighlight(formData: FormData) {
     .single();
   if (error) throw new Error(error.message);
 
-  await replaceItems(admin, h.id as string, phId, photoIds);
+  await replaceItems(admin, h.id as string, phId, items);
   revalidateHighlightViews();
 }
 
@@ -99,14 +132,15 @@ export async function updateHighlight(formData: FormData) {
   const phId = await requirePhotographerId();
   const id = String(formData.get("id"));
   const admin = createAdminClient();
-  if (!(await ownsHighlight(admin, id, phId))) throw new Error("권한이 없습니다.");
+  const own = await highlightOwnership(admin, id, phId);
+  if (own !== "owner") throw new Error(own === "forbidden" ? "권한이 없습니다." : "이미 삭제된 하이라이트예요.");
 
   const { coverUrl, coverPhotoId, title } = coverFields(formData);
   await admin
     .from("highlights")
     .update({ title, cover_url: coverUrl, cover_photo_id: coverPhotoId })
     .eq("id", id);
-  await replaceItems(admin, id, phId, parsePhotoIds(formData));
+  await replaceItems(admin, id, phId, parseItems(formData));
   revalidateHighlightViews();
 }
 
@@ -117,7 +151,12 @@ export async function deleteHighlight(formData: FormData) {
   const phId = me.photographer.id;
   const id = String(formData.get("id"));
   const admin = createAdminClient();
-  if (!(await ownsHighlight(admin, id, phId))) throw new Error("권한이 없습니다.");
+  const own = await highlightOwnership(admin, id, phId);
+  if (own === "forbidden") throw new Error("권한이 없습니다.");
+  if (own === "missing") {
+    revalidateHighlightViews(); // 이미 삭제됨 — 에러 아님, 조용히 성공 처리
+    return;
+  }
 
   const r1 = await archiveAndDelete("highlight_items", { col: "highlight_id", op: "eq", val: id }, me.id);
   if (r1.error) throw new Error(r1.error);
@@ -126,7 +165,22 @@ export async function deleteHighlight(formData: FormData) {
   revalidateHighlightViews();
 }
 
-// 하이라이트 순서 한 칸 이동
+// 하이라이트 전체 순서 저장(드래그 정렬) — 받은 순서대로 sort_order 0..n. 상위 5개가 프로필 노출.
+export async function setHighlightOrder(orderedIds: string[]) {
+  const phId = await requirePhotographerId();
+  const admin = createAdminClient();
+  const { data } = await admin.from("highlights").select("id").eq("photographer_id", phId);
+  const owned = new Set((data ?? []).map((h) => h.id as string));
+  const valid = orderedIds.filter((id) => owned.has(id));
+  await Promise.all(
+    valid.map((id, i) =>
+      admin.from("highlights").update({ sort_order: i }).eq("id", id).eq("photographer_id", phId)
+    )
+  );
+  revalidateHighlightViews();
+}
+
+// 하이라이트 순서 한 칸 이동 (레거시 — 신규 UI는 setHighlightOrder 사용)
 export async function reorderHighlight(formData: FormData) {
   const phId = await requirePhotographerId();
   const id = String(formData.get("id"));

@@ -25,26 +25,28 @@ export function HighlightsBar({
   cta?: React.ReactNode;
 }) {
   const [open, setOpen] = useState<number | null>(null); // 열린 하이라이트 인덱스
-  if (highlights.length === 0) return null;
+  const shown = highlights.slice(0, 5); // 하이라이트는 최대 5개만 노출(모바일 한 화면, 스크롤 없음)
+  if (shown.length === 0) return null;
 
   return (
     <div>
-      {/* px/py: ring-offset(테두리)이 overflow 컨테이너에 잘리지 않도록 여백 확보 (-mx로 좌측 정렬 유지) */}
-      <div className="-mx-1 flex gap-4 overflow-x-auto scrollbar-none px-1 py-1.5">
-        {highlights.map((h, i) => {
+      {/* 최대 5개를 5칸 그리드로 균등 배치 — 간격 일정, 좌우 여백은 부모(main px) 따름, 스크롤 없음 */}
+      {/* px-1: 첫/마지막 원의 ring(2)+ring-offset(2)=4px 외곽을 상쇄해, 시각적 좌우 끝을 상단 버튼과 일치시킴 */}
+      <div className="grid grid-cols-5 gap-[1.35rem] px-1 py-1.5 sm:gap-7">
+        {shown.map((h, i) => {
           const cover = coverOf(h);
           return (
             <button
               key={h.id}
               type="button"
               onClick={() => setOpen(i)}
-              className="flex w-20 shrink-0 cursor-pointer flex-col items-center gap-1.5"
+              className="flex min-w-0 cursor-pointer flex-col items-center gap-1.5"
             >
-              <span className="grid h-20 w-20 place-items-center overflow-hidden rounded-full bg-fg/[0.06] ring-2 ring-line-strong ring-offset-2 ring-offset-bg">
+              <span className="grid aspect-square w-full place-items-center overflow-hidden rounded-full bg-fg/[0.06] ring-2 ring-line-strong ring-offset-2 ring-offset-bg">
                 {cover ? (
                   <img src={cover} alt="" className="h-full w-full rounded-full object-cover" />
                 ) : (
-                  <StarIcon className="h-6 w-6 text-faint" />
+                  <StarIcon className="h-5 w-5 text-faint" />
                 )}
               </span>
               <span className="w-full truncate text-center text-caption text-muted">
@@ -57,7 +59,7 @@ export function HighlightsBar({
 
       {open !== null && (
         <StoryViewer
-          highlights={highlights}
+          highlights={shown}
           startIndex={open}
           cta={cta}
           onClose={() => setOpen(null)}
@@ -235,7 +237,7 @@ function StoryViewer({
         style={{ opacity: backdropOpacity, transition: dragging.current ? "none" : "opacity 260ms" }}
       />
       <div
-        className="relative flex h-full w-full flex-col overflow-hidden bg-black md:h-[80vh] md:w-[min(480px,calc(80vh*0.66))] md:rounded-3xl md:shadow-2xl"
+        className="relative flex h-full w-full flex-col overflow-hidden bg-black md:h-[80vh] md:w-[min(480px,calc(80vh*0.5625))] md:rounded-3xl md:shadow-2xl"
         style={cardStyle}
         onClick={(e) => e.stopPropagation()}
       >

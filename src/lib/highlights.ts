@@ -4,7 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 
 export type HighlightItem = {
   id: string;
-  photo_id: string;
+  photo_id: string | null; // 포트폴리오 사진 참조(직접 업로드 항목이면 null)
+  image_url: string | null; // 직접 업로드(9:16 크롭) 이미지 URL
   src_url: string;
   thumb_url: string | null;
   sort_order: number;
@@ -22,7 +23,8 @@ export type Highlight = {
 // Supabase 조인 응답(부분) 타입
 type RawItem = {
   id: string;
-  photo_id: string;
+  photo_id: string | null;
+  image_url: string | null;
   sort_order: number;
   photo: { src_url: string; thumb_url: string | null; visibility: string } | null;
 };
@@ -37,21 +39,29 @@ type RawHighlight = {
 
 const SELECT =
   "id, title, cover_url, cover_photo_id, sort_order, " +
-  "items:highlight_items(id, photo_id, sort_order, photo:photos(src_url, thumb_url, visibility))";
+  "items:highlight_items(id, photo_id, image_url, sort_order, photo:photos(src_url, thumb_url, visibility))";
 
 function shape(rows: RawHighlight[], onlyPublished: boolean): Highlight[] {
   const out: Highlight[] = [];
   for (const h of rows) {
     const items = (h.items ?? [])
-      .filter((it) => it.photo && (!onlyPublished || it.photo.visibility === "published"))
+      .map((it) => {
+        // 직접 업로드 항목(image_url)은 항상 공개, 포트폴리오 항목은 사진의 visibility 따름
+        const src = it.image_url ?? it.photo?.src_url ?? null;
+        const published = !!it.image_url || it.photo?.visibility === "published";
+        return {
+          id: it.id,
+          photo_id: it.photo_id,
+          image_url: it.image_url ?? null,
+          src_url: src,
+          thumb_url: it.image_url ?? it.photo?.thumb_url ?? null,
+          sort_order: it.sort_order,
+          published,
+        };
+      })
+      .filter((it) => it.src_url !== null && (!onlyPublished || it.published))
       .sort((a, b) => a.sort_order - b.sort_order)
-      .map((it) => ({
-        id: it.id,
-        photo_id: it.photo_id,
-        src_url: it.photo!.src_url,
-        thumb_url: it.photo!.thumb_url,
-        sort_order: it.sort_order,
-      }));
+      .map(({ published, ...rest }) => rest as HighlightItem);
     if (onlyPublished && items.length === 0) continue; // 공개 항목 없으면 숨김
     out.push({
       id: h.id,
