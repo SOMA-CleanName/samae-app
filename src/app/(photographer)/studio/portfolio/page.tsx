@@ -8,6 +8,7 @@ import { PortfolioEditManager } from "./PortfolioEditManager";
 import type { PackageOption } from "./PortfolioUploader";
 import { EditTrigger } from "./EditTrigger";
 import { DeletePostButton } from "./DeletePostButton";
+import { WalletIcon, MapPinIcon } from "@/components/user/icons";
 import { setPhotoVisibility, setAlbumVisibility, reorderPhoto, deletePhoto } from "./actions";
 
 type Photo = {
@@ -122,6 +123,8 @@ function GroupCard({ g }: { g: Group }) {
   const allPublished = g.photos.every((p) => p.visibility === "published");
   const anyPublished = g.photos.some((p) => p.visibility === "published");
   const groupStatus = allPublished ? "공개" : anyPublished ? "일부 공개" : "비공개";
+  // 가격·장소·태그는 피드 전체가 공유 — 대표(첫 장) 값으로 표시
+  const rep = g.photos[0];
 
   return (
     <section className="rounded-2xl border border-fg/10 p-3 sm:p-4">
@@ -142,23 +145,22 @@ function GroupCard({ g }: { g: Group }) {
         >
           {groupStatus}
         </span>
-        {g.description && (
-          <span className="w-full truncate text-xs text-fg/55 sm:w-auto">“{g.description}”</span>
-        )}
-
-        {/* 게시물 단위 공개/삭제 (앨범 있는 경우) */}
-        {g.albumId && (
-          <div className="ml-auto flex items-center gap-2">
-            <form action={setAlbumVisibility}>
-              <input type="hidden" name="album_id" value={g.albumId} />
-              <input type="hidden" name="visibility" value={allPublished ? "draft" : "published"} />
-              <button className="rounded-full border border-fg/20 px-3 py-1 text-xs text-fg/70 hover:bg-fg/[0.04]">
-                {allPublished ? "게시물 비공개" : "게시물 공개"}
-              </button>
-            </form>
-            <DeletePostButton albumId={g.albumId} count={count} />
-          </div>
-        )}
+        {/* 우상단 액션 — 편집(항상) + 게시물 공개/삭제(앨범) */}
+        <div className="ml-auto flex items-center gap-2">
+          <EditTrigger photoId={rep.id} albumId={g.albumId} />
+          {g.albumId && (
+            <>
+              <form action={setAlbumVisibility}>
+                <input type="hidden" name="album_id" value={g.albumId} />
+                <input type="hidden" name="visibility" value={allPublished ? "draft" : "published"} />
+                <button className="rounded-full border border-fg/20 px-3 py-1 text-xs text-fg/70 hover:bg-fg/[0.04]">
+                  {allPublished ? "게시물 비공개" : "게시물 공개"}
+                </button>
+              </form>
+              <DeletePostButton albumId={g.albumId} count={count} />
+            </>
+          )}
+        </div>
       </div>
 
       {/* 사진 그리드 */}
@@ -172,11 +174,48 @@ function GroupCard({ g }: { g: Group }) {
           />
         ))}
       </div>
+
+      {/* 입력 정보 — 가격·장소·태그·설명 (피드 공유) */}
+      <div className="mt-3 flex flex-col gap-2.5 border-t border-fg/10 pt-3">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
+          <span className="inline-flex items-center gap-1.5 text-sm">
+            <WalletIcon className="h-4 w-4 text-fg/40" />
+            {rep.price_krw != null ? (
+              <span className="font-semibold text-fg">₩{fmt.format(rep.price_krw)}</span>
+            ) : (
+              <span className="text-fg/40">가격 미표시</span>
+            )}
+          </span>
+          {rep.location_text && (
+            <span className="inline-flex min-w-0 items-center gap-1.5 text-sm text-fg/70">
+              <MapPinIcon className="h-4 w-4 shrink-0 text-fg/40" />
+              <span className="truncate">{rep.location_text}</span>
+            </span>
+          )}
+        </div>
+
+        {rep.mood_tags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {rep.mood_tags.map((t) => (
+              <span
+                key={t}
+                className="rounded-full bg-fg/[0.06] px-2.5 py-0.5 text-xs font-medium text-fg/70"
+              >
+                #{t}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {g.description && (
+          <p className="whitespace-pre-wrap text-sm leading-relaxed text-fg/70">{g.description}</p>
+        )}
+      </div>
     </section>
   );
 }
 
-// 사진 타일 — 상태·가격(없으면 '가격 정보 없음')·순서이동·편집/공개/삭제
+// 사진 타일 — 상태 표시·순서이동·편집/공개/삭제 (가격·장소·태그는 카드 하단 정보로 표시)
 function PhotoTile({ p, canUp, canDown }: { p: Photo; canUp: boolean; canDown: boolean }) {
   return (
     <div className="group relative overflow-hidden rounded-lg bg-fg/[0.05]">
@@ -189,14 +228,17 @@ function PhotoTile({ p, canUp, canDown }: { p: Photo; canUp: boolean; canDown: b
         />
       </div>
 
-      {/* 상태 뱃지 */}
-      <span
-        className={`absolute left-1.5 top-1.5 rounded-full px-2 py-0.5 text-[10px] ${
-          p.visibility === "published" ? "bg-emerald-500/90 text-white" : "bg-black/55 text-white"
-        }`}
-      >
-        {p.visibility === "published" ? "공개" : "비공개"}
-      </span>
+      {/* 상태 표시 — 공개는 점, 비공개는 라벨 */}
+      {p.visibility === "published" ? (
+        <span
+          className="absolute left-2 top-2 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white/80"
+          title="공개"
+        />
+      ) : (
+        <span className="absolute left-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white">
+          비공개
+        </span>
+      )}
 
       {/* 순서 이동 (피드에 여러 장일 때) */}
       {(canUp || canDown) && (
@@ -222,27 +264,8 @@ function PhotoTile({ p, canUp, canDown }: { p: Photo; canUp: boolean; canDown: b
         </div>
       )}
 
-      {/* 가격·장소 — 가격 없으면 '가격 정보 없음' */}
-      <div className="absolute inset-x-1.5 top-9 flex flex-wrap gap-1">
-        {p.price_krw != null ? (
-          <span className="rounded-full bg-fg/85 px-2 py-0.5 text-[10px] text-bg">
-            ₩{fmt.format(p.price_krw)}
-          </span>
-        ) : (
-          <span className="rounded-full bg-black/40 px-2 py-0.5 text-[10px] text-white">
-            가격 정보 없음
-          </span>
-        )}
-        {p.location_text && (
-          <span className="max-w-full truncate rounded-full bg-black/45 px-2 py-0.5 text-[10px] text-white">
-            📍 {p.location_text}
-          </span>
-        )}
-      </div>
-
-      {/* 액션 */}
+      {/* 사진 호버 액션 — 비공개/공개·삭제 (편집은 카드 우상단) */}
       <div className="absolute inset-x-0 bottom-0 flex gap-1 bg-gradient-to-t from-black/60 to-transparent p-1.5 opacity-0 transition-opacity group-hover:opacity-100">
-        <EditTrigger photoId={p.id} albumId={p.album_id} />
         <form action={setPhotoVisibility} className="flex-1">
           <input type="hidden" name="id" value={p.id} />
           <input type="hidden" name="visibility" value={p.visibility === "published" ? "draft" : "published"} />
