@@ -14,7 +14,7 @@ export function ApplyLeadForm({ kakaoChannelUrl }: { kakaoChannelUrl: string }) 
       {state.ok ? (
         <div className="rounded-2xl border border-success/30 bg-success-soft p-5 text-center">
           <p className="text-base font-semibold text-success">신청이 접수됐어요!</p>
-          <p className="mt-1.5 text-sm text-fg/70">운영자 검토 후 승인되면 작가로 등록돼요. 보통 영업일 기준 1~2일 소요됩니다.</p>
+          <p className="mt-1.5 text-sm text-fg/70">아래 카카오 채널 단계까지 마치면 신청이 완료돼요.</p>
         </div>
       ) : (
         <form action={formAction} className="flex flex-col gap-4">
@@ -68,24 +68,53 @@ export function ApplyLeadForm({ kakaoChannelUrl }: { kakaoChannelUrl: string }) 
         </form>
       )}
 
-      {/* 카카오 채널 — 선택. 빠른 문의/안내용 (승인은 앱 내에서 처리) */}
-      {kakaoChannelUrl && (
-        <div className="rounded-2xl border border-line bg-surface p-5">
-          <p className="text-sm font-semibold text-fg">더 빠른 안내가 필요하면 (선택)</p>
-          <p className="mt-1.5 text-sm text-fg/65">
-            SAMAE 카카오 채널로 문의를 남기면 운영자가 더 빠르게 도와드려요.
-          </p>
-          <a
-            href={kakaoChannelUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-3 inline-flex items-center rounded-xl bg-[#FEE500] px-4 py-2.5 text-sm font-semibold text-[#191600] transition-opacity hover:opacity-90"
-          >
-            카카오 채널 문의하기
-          </a>
-        </div>
-      )}
+      {/* 카카오 채널 — 신청 안내 */}
+      <div className="rounded-2xl border border-line bg-surface p-5">
+        <p className="text-sm font-semibold text-fg">
+          {state.ok ? "마지막 단계예요!" : "카카오 채널로 신청 메시지 보내기"}
+        </p>
+        <ol className="mt-3 flex flex-col gap-3 text-sm text-fg/70">
+          <li className="flex gap-2.5">
+            <Num>1</Num>
+            <div className="flex-1">
+              <p>SAMAE 카카오 채널을 구독해주세요.</p>
+              {kakaoChannelUrl ? (
+                <a
+                  href={kakaoChannelUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 inline-flex items-center rounded-xl bg-[#FEE500] px-4 py-2.5 text-sm font-semibold text-[#191600] transition-opacity hover:opacity-90"
+                >
+                  카카오 채널 구독하기
+                </a>
+              ) : (
+                <span className="mt-2 inline-flex rounded-xl bg-fg/[0.06] px-4 py-2.5 text-sm text-fg/40">
+                  채널 링크 준비중
+                </span>
+              )}
+            </div>
+          </li>
+          <li className="flex gap-2.5">
+            <Num>2</Num>
+            <div className="flex-1">
+              <p>채널 채팅으로 아래 메시지를 보내주세요.</p>
+              <p className="mt-2 rounded-lg border border-line bg-bg px-3 py-2 font-medium text-fg">
+                작가 등록 요청합니다!
+              </p>
+            </div>
+          </li>
+        </ol>
+        <p className="mt-3 text-xs text-fg/45">운영자가 확인 후 카카오로 안내드려요.</p>
+      </div>
     </div>
+  );
+}
+
+function Num({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-fg text-[11px] font-bold text-bg">
+      {children}
+    </span>
   );
 }
 
