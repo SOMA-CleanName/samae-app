@@ -42,7 +42,7 @@ export default async function PackagesPage() {
           <textarea name="description" rows={2} placeholder="설명 (선택)" className={inputCls} />
           <div className="grid grid-cols-3 gap-2">
             <LabeledInput name="priceKrw" label="가격(원)" min={0} max={3_500_000} step={10_000} required />
-            <LabeledInput name="durationMin" label="소요(분)" defaultValue="60" min={1} max={1440} step={10} required />
+            <LabeledInput name="durationMin" label="소요(분)" defaultValue="60" min={10} max={1440} step={5} required />
             <LabeledInput name="editedCount" label="보정본(장)" defaultValue="10" min={0} step={1} required />
           </div>
           <button className="justify-self-start rounded-full bg-fg px-5 py-2 text-sm font-semibold text-bg hover:opacity-90">
