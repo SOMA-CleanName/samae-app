@@ -235,7 +235,7 @@ function StoryViewer({
         style={{ opacity: backdropOpacity, transition: dragging.current ? "none" : "opacity 260ms" }}
       />
       <div
-        className="relative flex h-full w-full flex-col overflow-hidden bg-black md:h-[80vh] md:w-[min(480px,calc(80vh*0.66))] md:rounded-3xl md:shadow-2xl"
+        className="relative flex h-full w-full flex-col overflow-hidden bg-black md:h-[80vh] md:w-[min(480px,calc(80vh*0.5625))] md:rounded-3xl md:shadow-2xl"
         style={cardStyle}
         onClick={(e) => e.stopPropagation()}
       >
