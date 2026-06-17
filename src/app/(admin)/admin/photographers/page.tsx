@@ -5,7 +5,8 @@ import {
   approvePhotographer,
   rejectPhotographer,
   suspendPhotographer,
-  markApplicationContacted,
+  approveApplication,
+  rejectApplication,
   deleteApplication,
 } from "./actions";
 
@@ -25,6 +26,7 @@ type Row = {
 
 type Lead = {
   id: string;
+  profile_id: string | null;
   display_name: string;
   portfolio_url: string;
   phone: string;
@@ -54,7 +56,8 @@ export default async function AdminPhotographersPage() {
       .order("created_at", { ascending: false }),
     supabase
       .from("photographer_applications")
-      .select("id, display_name, portfolio_url, phone, bio, status, created_at")
+      .select("id, profile_id, display_name, portfolio_url, phone, bio, status, created_at")
+      .in("status", ["new", "contacted"])
       .order("created_at", { ascending: false }),
   ]);
 
@@ -68,18 +71,18 @@ export default async function AdminPhotographersPage() {
       <h1 className="text-h1 font-semibold">작가 승인</h1>
       <p className="mt-1 text-body-sm text-muted">신청을 검토하고 승인·반려·정지를 관리해요.</p>
 
-      {/* 공개 신청(리드) — 계정 없이 폼으로 접수된 신청. 연락 후 가입 안내. */}
+      {/* 작가 신청 — /apply 로 접수된 신청. 승인 시 그 계정으로 작가 등록. */}
       <section className="mt-6">
         <h2 className="flex items-center gap-2 text-body-sm font-medium text-muted">
-          공개 신청 (리드)
+          작가 신청
           <Badge tone={leads.length > 0 ? "brand" : "neutral"}>{leads.length}</Badge>
         </h2>
         <p className="mt-1 text-caption text-faint">
-          계정 없이 접수된 신청이에요. 연락처로 안내한 뒤, 본인이 가입 후 작가 신청하면 아래 ‘승인 대기’에 나타나요.
+          승인하면 해당 계정이 작가로 등록돼 탐색에 노출돼요. 포트폴리오 링크를 확인하고 처리해주세요.
         </p>
 
         {leads.length === 0 ? (
-          <p className="mt-3 text-body-sm text-faint">접수된 공개 신청이 없어요.</p>
+          <p className="mt-3 text-body-sm text-faint">대기 중인 신청이 없어요.</p>
         ) : (
           <ul className="mt-3 flex flex-col gap-3">
             {leads.map((l) => (
@@ -89,9 +92,7 @@ export default async function AdminPhotographersPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-title font-semibold text-fg">{l.display_name}</p>
-                      <Badge tone={l.status === "contacted" ? "success" : "warning"}>
-                        {l.status === "contacted" ? "연락함" : "신규"}
-                      </Badge>
+                      {!l.profile_id && <Badge tone="neutral">계정 미연동</Badge>}
                     </div>
                     <p className="mt-0.5 text-caption text-faint">신청 {when(l.created_at)}</p>
                     <dl className="mt-2 flex flex-col gap-1 text-body-sm">
@@ -119,11 +120,21 @@ export default async function AdminPhotographersPage() {
                   </div>
                 </div>
                 <div className="mt-4 flex gap-2">
-                  {l.status !== "contacted" && (
-                    <form action={markApplicationContacted} className="flex-1 sm:flex-none">
-                      <input type="hidden" name="id" value={l.id} />
-                      <Button type="submit" size="sm" variant="secondary" fullWidth>연락 완료</Button>
-                    </form>
+                  {l.profile_id ? (
+                    <>
+                      <form action={approveApplication} className="flex-1 sm:flex-none">
+                        <input type="hidden" name="id" value={l.id} />
+                        <Button type="submit" size="sm" fullWidth>승인</Button>
+                      </form>
+                      <form action={rejectApplication} className="flex-1 sm:flex-none">
+                        <input type="hidden" name="id" value={l.id} />
+                        <Button type="submit" size="sm" variant="secondary" fullWidth>반려</Button>
+                      </form>
+                    </>
+                  ) : (
+                    <p className="flex-1 self-center text-caption text-faint">
+                      계정 미연동(옛 신청) — 로그인 후 재신청 안내 필요
+                    </p>
                   )}
                   <form action={deleteApplication} className="flex-1 sm:flex-none">
                     <input type="hidden" name="id" value={l.id} />

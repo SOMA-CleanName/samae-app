@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notifyOpsNewApplication } from "@/lib/ops-alert";
 
@@ -17,11 +18,26 @@ const Schema = z.object({
   bio: z.string().trim().max(500).optional(),
 });
 
-// 작가 신청(공개) — 비로그인 지원자가 남긴 정보를 저장하고 운영진에 알린다.
+// 작가 신청 — 로그인 사용자의 신청을 계정(profile_id)에 연결해 저장하고 운영진에 알린다.
 export async function submitPhotographerApplication(
   _prev: ApplyLeadState,
   formData: FormData,
 ): Promise<ApplyLeadState> {
+  // 로그인 필수
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "로그인이 필요해요. 로그인 후 다시 신청해주세요." };
+
+  // 이미 작가면 신청 불가
+  const { data: existingPh } = await supabase
+    .from("photographers")
+    .select("id")
+    .eq("profile_id", user.id)
+    .maybeSingle();
+  if (existingPh) return { error: "이미 작가로 등록되어 있어요." };
+
   const parsed = Schema.safeParse({
     displayName: formData.get("displayName"),
     portfolioUrl: formData.get("portfolioUrl"),
@@ -38,11 +54,22 @@ export async function submitPhotographerApplication(
   const v = parsed.data;
   const bio = v.bio && v.bio.length > 0 ? v.bio : null;
 
-  // 공개 폼이므로 service_role 로 삽입 (RLS: 운영자만 조회)
+  // service_role 로 삽입 (RLS: 운영자만 조회). 본인 계정(profile_id) 에 연결.
   const admin = createAdminClient();
+
+  // 처리 전(new·contacted) 신청이 이미 있으면 중복 접수 막기
+  const { data: open } = await admin
+    .from("photographer_applications")
+    .select("id")
+    .eq("profile_id", user.id)
+    .in("status", ["new", "contacted"])
+    .maybeSingle();
+  if (open) return { error: "이미 접수된 신청이 있어요. 승인까지 기다려주세요." };
+
   const { data, error } = await admin
     .from("photographer_applications")
     .insert({
+      profile_id: user.id,
       display_name: v.displayName,
       portfolio_url: v.portfolioUrl,
       phone: v.phone,
@@ -51,6 +78,8 @@ export async function submitPhotographerApplication(
     .select("id")
     .single();
   if (error) {
+    // 부분 유니크(uniq_application_open_profile) 위반 등
+    if (error.code === "23505") return { error: "이미 접수된 신청이 있어요. 승인까지 기다려주세요." };
     return { error: "신청 접수에 실패했어요. 잠시 후 다시 시도해주세요." };
   }
 
