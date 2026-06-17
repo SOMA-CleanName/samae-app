@@ -50,3 +50,32 @@ export async function suspendPhotographer(formData: FormData) {
   if (error) throw new Error(error.message);
   revalidatePath("/admin/photographers");
 }
+
+// ── 공개 신청(리드) 처리 — photographer_applications ──
+// 리드는 계정이 없어 직접 승인 불가. 운영자가 연락 후 상태를 갱신하거나 정리한다.
+
+// 연락 완료 표시: new → contacted
+export async function markApplicationContacted(formData: FormData) {
+  await assertAdmin();
+  const id = String(formData.get("id"));
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("photographer_applications")
+    .update({ status: "contacted" })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/photographers");
+}
+
+// 리드 삭제(처리 완료/중복 정리)
+export async function deleteApplication(formData: FormData) {
+  await assertAdmin();
+  const id = String(formData.get("id"));
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("photographer_applications")
+    .delete()
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/photographers");
+}

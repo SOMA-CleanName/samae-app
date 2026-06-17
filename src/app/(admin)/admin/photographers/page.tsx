@@ -1,7 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { Avatar, Badge, Button, EmptyState } from "@/components/ui";
 import { CameraIcon, MapPinIcon } from "@/components/user/icons";
-import { approvePhotographer, rejectPhotographer, suspendPhotographer } from "./actions";
+import {
+  approvePhotographer,
+  rejectPhotographer,
+  suspendPhotographer,
+  markApplicationContacted,
+  deleteApplication,
+} from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +19,16 @@ type Row = {
   mood_tags: string[];
   price_from_krw: number;
   review_count: number;
+  status: string;
+  created_at: string;
+};
+
+type Lead = {
+  id: string;
+  display_name: string;
+  portfolio_url: string;
+  phone: string;
+  bio: string | null;
   status: string;
   created_at: string;
 };
@@ -31,19 +47,94 @@ function when(iso: string): string {
 // 작가 승인 관리 — pending 우선. 가드는 (admin)/layout.
 export default async function AdminPhotographersPage() {
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("photographers")
-    .select("id, display_name, bio, regions, mood_tags, price_from_krw, review_count, status, created_at")
-    .order("created_at", { ascending: false });
+  const [{ data }, { data: leadData }] = await Promise.all([
+    supabase
+      .from("photographers")
+      .select("id, display_name, bio, regions, mood_tags, price_from_krw, review_count, status, created_at")
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("photographer_applications")
+      .select("id, display_name, portfolio_url, phone, bio, status, created_at")
+      .order("created_at", { ascending: false }),
+  ]);
 
   const rows = (data ?? []) as Row[];
   const pending = rows.filter((r) => r.status === "pending");
   const others = rows.filter((r) => r.status !== "pending");
+  const leads = (leadData ?? []) as Lead[];
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-5">
       <h1 className="text-h1 font-semibold">작가 승인</h1>
       <p className="mt-1 text-body-sm text-muted">신청을 검토하고 승인·반려·정지를 관리해요.</p>
+
+      {/* 공개 신청(리드) — 계정 없이 폼으로 접수된 신청. 연락 후 가입 안내. */}
+      <section className="mt-6">
+        <h2 className="flex items-center gap-2 text-body-sm font-medium text-muted">
+          공개 신청 (리드)
+          <Badge tone={leads.length > 0 ? "brand" : "neutral"}>{leads.length}</Badge>
+        </h2>
+        <p className="mt-1 text-caption text-faint">
+          계정 없이 접수된 신청이에요. 연락처로 안내한 뒤, 본인이 가입 후 작가 신청하면 아래 ‘승인 대기’에 나타나요.
+        </p>
+
+        {leads.length === 0 ? (
+          <p className="mt-3 text-body-sm text-faint">접수된 공개 신청이 없어요.</p>
+        ) : (
+          <ul className="mt-3 flex flex-col gap-3">
+            {leads.map((l) => (
+              <li key={l.id} className="rounded-2xl border border-line bg-surface p-4 sm:p-5">
+                <div className="flex items-start gap-3">
+                  <Avatar name={l.display_name} size="md" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-title font-semibold text-fg">{l.display_name}</p>
+                      <Badge tone={l.status === "contacted" ? "success" : "warning"}>
+                        {l.status === "contacted" ? "연락함" : "신규"}
+                      </Badge>
+                    </div>
+                    <p className="mt-0.5 text-caption text-faint">신청 {when(l.created_at)}</p>
+                    <dl className="mt-2 flex flex-col gap-1 text-body-sm">
+                      <div className="flex gap-2">
+                        <dt className="shrink-0 text-muted">연락처</dt>
+                        <dd>
+                          <a href={`tel:${l.phone}`} className="text-fg hover:text-brand">{l.phone}</a>
+                        </dd>
+                      </div>
+                      <div className="flex gap-2">
+                        <dt className="shrink-0 text-muted">포트폴리오</dt>
+                        <dd className="min-w-0">
+                          <a
+                            href={l.portfolio_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="break-all text-brand hover:underline"
+                          >
+                            {l.portfolio_url}
+                          </a>
+                        </dd>
+                      </div>
+                    </dl>
+                    {l.bio && <p className="mt-2 text-body-sm leading-relaxed text-fg/80">{l.bio}</p>}
+                  </div>
+                </div>
+                <div className="mt-4 flex gap-2">
+                  {l.status !== "contacted" && (
+                    <form action={markApplicationContacted} className="flex-1 sm:flex-none">
+                      <input type="hidden" name="id" value={l.id} />
+                      <Button type="submit" size="sm" variant="secondary" fullWidth>연락 완료</Button>
+                    </form>
+                  )}
+                  <form action={deleteApplication} className="flex-1 sm:flex-none">
+                    <input type="hidden" name="id" value={l.id} />
+                    <Button type="submit" size="sm" variant="ghost" fullWidth>삭제</Button>
+                  </form>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
 
       {/* 승인 대기 */}
       <section className="mt-6">
