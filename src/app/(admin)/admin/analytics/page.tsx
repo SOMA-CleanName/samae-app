@@ -109,7 +109,8 @@ export default async function AdminAnalyticsPage({
       ) : (
         <>
           {/* 요약 */}
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <h2 className="mt-7 text-body-sm font-medium text-muted">요약</h2>
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Stat label="페이지뷰" value={fmt.format(pageviews.length)} />
             <Stat label="순 세션" value={fmt.format(sessions)} />
             <Stat label="이탈률" value={`${bounceRate}%`} accent={bounceRate >= 70} />
@@ -120,18 +121,22 @@ export default async function AdminAnalyticsPage({
             {capped && ` · 최근 ${fmt.format(FETCH_CAP)}건만 집계`}
           </p>
 
-          {/* 인기 페이지 / 인기 CTA */}
-          <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
+          {/* 인기 콘텐츠 */}
+          <h2 className="mt-8 text-body-sm font-medium text-muted">인기 콘텐츠</h2>
+          <div className="mt-3 grid grid-cols-1 gap-6 md:grid-cols-2">
             <RankCard title="인기 페이지" rows={topPages} total={pageviews.length} mono />
             <RankCard title="인기 CTA / 클릭" rows={topCtas} total={clicks.length} />
           </div>
 
           {/* 광고 유입 (UTM) */}
           {(topSources.length > 0 || topCampaigns.length > 0) && (
-            <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
-              <RankCard title="유입 소스 (utm_source)" rows={topSources} total={pageviews.length} />
-              <RankCard title="캠페인 (utm_campaign)" rows={topCampaigns} total={pageviews.length} />
-            </div>
+            <>
+              <h2 className="mt-8 text-body-sm font-medium text-muted">광고 유입</h2>
+              <div className="mt-3 grid grid-cols-1 gap-6 md:grid-cols-2">
+                <RankCard title="유입 소스 (utm_source)" rows={topSources} total={pageviews.length} />
+                <RankCard title="캠페인 (utm_campaign)" rows={topCampaigns} total={pageviews.length} />
+              </div>
+            </>
           )}
         </>
       )}
