@@ -69,6 +69,34 @@ export async function fetchPublishedPhotos(opts: {
   return rows.slice(0, opts.limit ?? 48);
 }
 
+// 공개 사진 갤러리 — 안정 정렬(최신순) + 오프셋 페이지네이션(무한스크롤용).
+// 셔플 없이 created_at desc, id desc(동시각 타이브레이크)로 페이지 간 중복/누락 방지.
+export async function fetchPublishedPhotosPage(opts: {
+  offset?: number;
+  limit?: number;
+  mood?: string;
+  region?: string;
+}): Promise<GalleryPhoto[]> {
+  const supabase = await createClient();
+  const limit = opts.limit ?? 48;
+  const offset = opts.offset ?? 0;
+  let q = supabase
+    .from("photos")
+    .select(
+      "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name)"
+    )
+    .eq("visibility", "published")
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (opts.region) q = q.eq("region", opts.region);
+  if (opts.mood) q = q.contains("mood_tags", [opts.mood]);
+
+  const { data } = await q;
+  return (data ?? []) as unknown as GalleryPhoto[];
+}
+
 // 카테고리(여러 태그)에 해당하는 공개 사진 — 태그가 더 많이 겹칠수록 상위(추천 정렬).
 export async function fetchPhotosByTags(tags: string[], limit = 60): Promise<GalleryPhoto[]> {
   if (!tags || tags.length === 0) return [];

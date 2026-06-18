@@ -1,19 +1,19 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { GalleryPhoto } from "@/lib/discovery";
-import { togglePhotoLike } from "@/app/(user)/actions";
+import { togglePhotoLike, loadGalleryPhotos } from "@/app/(user)/actions";
 import { cn } from "@/lib/cn";
 import { HeartIcon, SearchIcon } from "@/components/user/icons";
 import { EmptyState } from "@/components/ui";
 
 const fmt = new Intl.NumberFormat("ko-KR");
+const PAGE = 48; // actions.ts 의 GALLERY_PAGE 와 동일
 
-// 탐색 갤러리 — 서버에서 받은 사진 목록을 그대로 유지하며 가격·작가명 표시만 클라이언트 토글
-// (토글이 페이지를 재요청하지 않으므로 사진이 다시 셔플되지 않음)
+// 탐색 갤러리 — 첫 페이지는 서버에서, 이후 스크롤 시 무한 로드(검색 모드는 제외).
 export function ExploreGallery({
   photos,
   query,
@@ -25,7 +25,57 @@ export function ExploreGallery({
 }) {
   const [showPrice, setShowPrice] = useState(false);
   const [showName, setShowName] = useState(false);
-  const likedSet = new Set(likedIds);
+
+  // 무한스크롤 상태
+  const [items, setItems] = useState<GalleryPhoto[]>(photos);
+  const [likedSet, setLikedSet] = useState<Set<string>>(() => new Set(likedIds));
+  const [offset, setOffset] = useState(photos.length);
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(!!query || photos.length < PAGE);
+  const sentinel = useRef<HTMLDivElement>(null);
+
+  // 검색어/서버 페이지가 바뀌면(네비게이션) 초기화
+  useEffect(() => {
+    setItems(photos);
+    setLikedSet(new Set(likedIds));
+    setOffset(photos.length);
+    setDone(!!query || photos.length < PAGE);
+    setLoading(false);
+  }, [photos, likedIds, query]);
+
+  const loadMore = useCallback(async () => {
+    if (loading || done || query) return;
+    setLoading(true);
+    const res = await loadGalleryPhotos(offset);
+    const incoming = res.photos;
+    setItems((prev) => {
+      const seen = new Set(prev.map((p) => p.id));
+      return [...prev, ...incoming.filter((p) => !seen.has(p.id))];
+    });
+    setLikedSet((prev) => {
+      const s = new Set(prev);
+      res.likedIds.forEach((id) => s.add(id));
+      return s;
+    });
+    setOffset((o) => o + incoming.length);
+    if (incoming.length < PAGE) setDone(true);
+    setLoading(false);
+  }, [loading, done, query, offset]);
+
+  // 바닥 근처에서 다음 페이지 로드
+  useEffect(() => {
+    if (query || done) return;
+    const el = sentinel.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) loadMore();
+      },
+      { rootMargin: "800px" }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [loadMore, query, done]);
 
   // 보기 옵션(가격·작가명) — 세션 유지 + SearchOptions 토글과 이벤트로 동기화
   useEffect(() => {
@@ -45,7 +95,7 @@ export function ExploreGallery({
     };
   }, []);
 
-  if (photos.length === 0) {
+  if (items.length === 0) {
     return (
       <EmptyState
         icon={<SearchIcon className="h-6 w-6" />}
@@ -74,13 +124,13 @@ export function ExploreGallery({
       {/* 검색 결과 수 — 검색했을 때만 */}
       {query && (
         <p className="px-1 pt-4 text-sm text-muted">
-          “{query}” 결과 {photos.length}장
+          “{query}” 결과 {items.length}장
         </p>
       )}
 
       {/* 메이슨리 갤러리 */}
       <div className="columns-2 gap-3 pt-3 sm:columns-3 md:columns-4 lg:columns-5 xl:columns-6 2xl:columns-7 [&>*]:mb-3">
-        {photos.map((photo) => (
+        {items.map((photo) => (
           <PhotoCard
             key={photo.id}
             photo={photo}
@@ -90,6 +140,17 @@ export function ExploreGallery({
           />
         ))}
       </div>
+
+      {/* 무한스크롤 센티넬 + 로딩/끝 표시 (검색 모드 제외) */}
+      {!query && (
+        <>
+          <div ref={sentinel} className="h-1" />
+          {loading && <p className="py-6 text-center text-sm text-muted">불러오는 중…</p>}
+          {done && items.length > 0 && (
+            <p className="py-6 text-center text-sm text-faint">모든 사진을 다 봤어요.</p>
+          )}
+        </>
+      )}
     </>
   );
 }

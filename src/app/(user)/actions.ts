@@ -3,6 +3,20 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentUser } from "@/lib/auth";
+import { fetchPublishedPhotosPage, fetchLikedPhotoIds, type GalleryPhoto } from "@/lib/discovery";
+
+// 탐색 갤러리 무한스크롤 — 다음 페이지(48장) + 그 페이지의 좋아요 상태.
+// (페이지 크기는 ExploreGallery 의 PAGE 상수와 동일하게 유지)
+const GALLERY_PAGE = 48;
+export async function loadGalleryPhotos(
+  offset: number
+): Promise<{ photos: GalleryPhoto[]; likedIds: string[] }> {
+  const photos = await fetchPublishedPhotosPage({ offset, limit: GALLERY_PAGE });
+  const me = await getCurrentUser();
+  const likedIds = await fetchLikedPhotoIds(photos.map((p) => p.id), me?.id);
+  return { photos, likedIds };
+}
 
 // 찜/좋아요 토글 (작가=관심 작가, 사진=좋아요). 비로그인이면 로그인으로.
 export async function toggleFavorite(formData: FormData) {
