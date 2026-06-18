@@ -61,7 +61,7 @@ export function ApplyLeadForm({ kakaoChannelUrl }: { kakaoChannelUrl: string }) 
           <button
             type="submit"
             disabled={pending}
-            className="mt-1 w-full rounded-xl bg-fg py-3 text-sm font-semibold text-bg transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="mt-1 w-full rounded-xl bg-brand py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {pending ? "보내는 중…" : "작가 신청 보내기"}
           </button>

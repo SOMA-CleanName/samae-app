@@ -150,7 +150,7 @@ export default async function PhotoDetail({
           </p>
 
           {/* 예약·문의 (좋아요는 캐러셀 위에 표시) */}
-          <PhotoCtas isOwner={isOwner} me={!!me} photographerId={ph.id} photoId={photo.id} />
+          <PhotoCtas isOwner={isOwner} photographerId={ph.id} photoId={photo.id} />
         </div>
       </div>
 
@@ -176,32 +176,26 @@ export default async function PhotoDetail({
 // 문의/예약 CTA
 function PhotoCtas({
   isOwner,
-  me,
   photographerId,
   photoId,
 }: {
   isOwner: boolean;
-  me: boolean;
   photographerId: string;
   photoId: string;
 }) {
   if (isOwner) {
     return <OwnerPhotoBackButton />;
   }
-  if (!me) {
-    return (
-      <Button
-        href={inquiryHref(photographerId, photoId)}
-        size="lg"
-        fullWidth
-        className="mt-6"
-      >
-        예약·문의하기
-      </Button>
-    );
-  }
+  // 주 전환 CTA — 브랜드 레드로 강조(로그인 여부 무관, /inquiry 에서 처리)
   return (
-    <Button href={inquiryHref(photographerId, photoId)} size="lg" fullWidth className="mt-6">
+    <Button
+      href={inquiryHref(photographerId, photoId)}
+      variant="brand"
+      size="lg"
+      fullWidth
+      className="mt-6"
+      data-track="cta:inquiry"
+    >
       예약·문의하기
     </Button>
   );
