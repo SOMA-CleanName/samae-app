@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { Avatar, Badge, Button, EmptyState } from "@/components/ui";
+import { Avatar, Badge, EmptyState } from "@/components/ui";
+import { PendingButton } from "@/components/ui/SubmitButton";
 import { CameraIcon, MapPinIcon } from "@/components/user/icons";
 import {
   approvePhotographer,
@@ -124,11 +125,11 @@ export default async function AdminPhotographersPage() {
                     <>
                       <form action={approveApplication} className="flex-1 sm:flex-none">
                         <input type="hidden" name="id" value={l.id} />
-                        <Button type="submit" size="sm" fullWidth>승인</Button>
+                        <PendingButton size="sm" fullWidth>승인</PendingButton>
                       </form>
                       <form action={rejectApplication} className="flex-1 sm:flex-none">
                         <input type="hidden" name="id" value={l.id} />
-                        <Button type="submit" size="sm" variant="secondary" fullWidth>반려</Button>
+                        <PendingButton size="sm" variant="secondary" fullWidth>반려</PendingButton>
                       </form>
                     </>
                   ) : (
@@ -138,7 +139,7 @@ export default async function AdminPhotographersPage() {
                   )}
                   <form action={deleteApplication} className="flex-1 sm:flex-none">
                     <input type="hidden" name="id" value={l.id} />
-                    <Button type="submit" size="sm" variant="ghost" fullWidth>삭제</Button>
+                    <PendingButton size="sm" variant="ghost" fullWidth>삭제</PendingButton>
                   </form>
                 </div>
               </li>
@@ -170,11 +171,11 @@ export default async function AdminPhotographersPage() {
                 <div className="mt-4 flex gap-2">
                   <form action={approvePhotographer} className="flex-1 sm:flex-none">
                     <input type="hidden" name="id" value={r.id} />
-                    <Button type="submit" size="sm" fullWidth>승인</Button>
+                    <PendingButton size="sm" fullWidth>승인</PendingButton>
                   </form>
                   <form action={rejectPhotographer} className="flex-1 sm:flex-none">
                     <input type="hidden" name="id" value={r.id} />
-                    <Button type="submit" size="sm" variant="secondary" fullWidth>반려</Button>
+                    <PendingButton size="sm" variant="secondary" fullWidth>반려</PendingButton>
                   </form>
                 </div>
               </li>
