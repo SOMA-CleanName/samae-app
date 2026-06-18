@@ -4,6 +4,7 @@
 import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Highlight } from "@/lib/highlights";
+import { SortableGrid, SortableItem } from "@/components/ui/SortableGrid";
 import { createHighlight, updateHighlight, deleteHighlight, setHighlightOrder } from "./actions";
 
 export type PickPhoto = { id: string; src_url: string; thumb_url: string };
@@ -79,61 +80,28 @@ export function HighlightsManager({
   const router = useRouter();
   const [editing, setEditing] = useState<Highlight | "new" | null>(null);
   const [ordered, setOrdered] = useState<Highlight[]>(highlights);
-  const [draggingId, setDraggingId] = useState<string | null>(null);
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const drag = useRef<{ id: string; x: number; y: number; moved: boolean } | null>(null);
   const [, startTransition] = useTransition();
 
   // 서버 갱신(router.refresh) 후 목록 동기화
   useEffect(() => setOrdered(highlights), [highlights]);
 
-  function reorderOver(overId: string) {
-    const cur = drag.current?.id;
-    if (!cur || cur === overId) return;
-    setOrdered((prev) => {
-      const a = [...prev];
-      const fi = a.findIndex((h) => h.id === cur);
-      const ti = a.findIndex((h) => h.id === overId);
-      if (fi < 0 || ti < 0 || fi === ti) return prev;
-      const [m] = a.splice(fi, 1);
-      a.splice(ti, 0, m);
-      return a;
-    });
-  }
-  function onPointerDown(e: React.PointerEvent, id: string) {
-    drag.current = { id, x: e.clientX, y: e.clientY, moved: false };
-    setDraggingId(id);
-    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-  }
-  function onPointerMove(e: React.PointerEvent) {
-    const d = drag.current;
-    if (!d || selectMode) return; // 선택 모드에선 정렬 안 함
-    if (!d.moved && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6) d.moved = true;
-    if (!d.moved) return;
-    const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
-    const overId = el?.closest<HTMLElement>("[data-hid]")?.dataset.hid;
-    if (overId) reorderOver(overId);
-  }
-  function onPointerUp() {
-    const d = drag.current;
-    drag.current = null;
-    setDraggingId(null);
-    if (!d) return;
-    if (selectMode) {
-      toggleSelect(d.id); // 선택 모드: 탭 = 선택/해제
-      return;
-    }
-    if (!d.moved) {
-      const h = ordered.find((x) => x.id === d.id);
-      if (h) setEditing(h); // 이동 없으면 탭 = 수정
-      return;
-    }
-    const ids = ordered.map((h) => h.id);
+  // 드래그 정렬 — 받은 순서로 낙관적 갱신 후 서버 저장
+  function onReorder(ids: string[]) {
+    const map = new Map(ordered.map((h) => [h.id, h]));
+    const next = ids.map((id) => map.get(id)).filter(Boolean) as Highlight[];
+    setOrdered(next);
     startTransition(async () => {
       await setHighlightOrder(ids);
       router.refresh();
     });
+  }
+
+  // 동그라미 탭 — 선택 모드면 선택/해제, 아니면 수정
+  function onCircleClick(h: Highlight) {
+    if (selectMode) toggleSelect(h.id);
+    else setEditing(h);
   }
   function cancelSelect() {
     setSelectMode(false);
@@ -206,30 +174,42 @@ export function HighlightsManager({
         )}
       </div>
 
-      <div className="mt-4 grid grid-cols-5 gap-x-3 gap-y-5">
-        {ordered.map((h, i) => (
-          <Fragment key={h.id}>
-            {i === 5 && (
-              <div className="col-span-5 my-1 flex items-center gap-2 text-[11px] text-fg/40">
-                <span className="h-px flex-1 bg-fg/15" />
-                숨김 · 프로필 미노출
-                <span className="h-px flex-1 bg-fg/15" />
-              </div>
-            )}
-            <HighlightCircle
-              h={h}
-              hidden={i >= 5}
-              dragging={draggingId === h.id}
-              selectMode={selectMode}
-              selected={selected.has(h.id)}
-              onPointerDown={(e) => onPointerDown(e, h.id)}
-              onPointerMove={onPointerMove}
-              onPointerUp={onPointerUp}
-            />
-          </Fragment>
-        ))}
-        <AddCircle onClick={() => setEditing("new")} />
-      </div>
+      <SortableGrid
+        ids={ordered.map((h) => h.id)}
+        onReorder={onReorder}
+        disabled={selectMode}
+        className="mt-4 grid grid-cols-5 gap-x-3 gap-y-5"
+        append={<AddCircle onClick={() => setEditing("new")} />}
+      >
+        {(id) => {
+          const i = ordered.findIndex((h) => h.id === id);
+          const h = ordered[i];
+          if (!h) return null;
+          return (
+            <Fragment key={id}>
+              {i === 5 && (
+                <div className="col-span-5 my-1 flex items-center gap-2 text-[11px] text-fg/40">
+                  <span className="h-px flex-1 bg-fg/15" />
+                  숨김 · 프로필 미노출
+                  <span className="h-px flex-1 bg-fg/15" />
+                </div>
+              )}
+              <SortableItem id={id}>
+                {({ isDragging }) => (
+                  <HighlightCircle
+                    h={h}
+                    hidden={i >= 5}
+                    dragging={isDragging}
+                    selectMode={selectMode}
+                    selected={selected.has(h.id)}
+                    onClick={() => onCircleClick(h)}
+                  />
+                )}
+              </SortableItem>
+            </Fragment>
+          );
+        }}
+      </SortableGrid>
 
       {editing && (
         <HighlightEditor
@@ -242,37 +222,31 @@ export function HighlightsManager({
   );
 }
 
-// 동그라미 하이라이트 — pointer로 끌어서 정렬(데스크톱·모바일), 탭하면 수정, ×로 삭제. hidden(상위 5 밖)은 흐리게.
+// 동그라미 하이라이트 — 드래그(길게/끌어서)로 정렬, 탭하면 수정/선택. hidden(상위 5 밖)은 흐리게.
 function HighlightCircle({
   h,
   hidden,
   dragging,
   selectMode,
   selected,
-  onPointerDown,
-  onPointerMove,
-  onPointerUp,
+  onClick,
 }: {
   h: Highlight;
   hidden: boolean;
   dragging: boolean;
   selectMode: boolean;
   selected: boolean;
-  onPointerDown: (e: React.PointerEvent) => void;
-  onPointerMove: (e: React.PointerEvent) => void;
-  onPointerUp: (e: React.PointerEvent) => void;
+  onClick: () => void;
 }) {
   const cover = coverOf(h);
   return (
     <div className="group relative flex flex-col items-center gap-1.5">
       <div
-        data-hid={h.id}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-        className={`grid aspect-square w-full touch-none select-none place-items-center overflow-hidden rounded-full bg-fg/[0.06] ring-2 ring-offset-2 ring-offset-bg transition-transform ${
-          selectMode ? "cursor-pointer" : "cursor-grab"
+        role="button"
+        tabIndex={0}
+        onClick={onClick}
+        className={`grid aspect-square w-full select-none place-items-center overflow-hidden rounded-full bg-fg/[0.06] ring-2 ring-offset-2 ring-offset-bg transition-transform ${
+          selectMode ? "cursor-pointer" : "cursor-grab active:cursor-grabbing"
         } ${
           selectMode && selected
             ? "ring-brand"

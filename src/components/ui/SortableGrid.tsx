@@ -30,12 +30,14 @@ export function SortableGrid({
   onReorder,
   className,
   disabled,
+  append,
   children,
 }: {
   ids: string[];
   onReorder: (ids: string[]) => void;
   className?: string;
   disabled?: boolean;
+  append?: ReactNode; // 정렬 항목 뒤에 붙는 비정렬 노드(예: + 추가 버튼)
   children: (id: string) => ReactNode;
 }) {
   const sensors = useSensors(
@@ -53,14 +55,15 @@ export function SortableGrid({
     onReorder(arrayMove(ids, from, to));
   }
 
-  if (disabled) {
-    return <div className={className}>{ids.map((id) => children(id))}</div>;
-  }
-
+  // disabled 여도 DndContext/SortableContext 는 유지(SortableItem 의 useSortable 안전).
+  // SortableContext disabled 로 드래그만 비활성화한다.
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-      <SortableContext items={ids} strategy={rectSortingStrategy}>
-        <div className={className}>{ids.map((id) => children(id))}</div>
+      <SortableContext items={ids} strategy={rectSortingStrategy} disabled={!!disabled}>
+        <div className={className}>
+          {ids.map((id) => children(id))}
+          {append}
+        </div>
       </SortableContext>
     </DndContext>
   );
