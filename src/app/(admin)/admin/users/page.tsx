@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Avatar, Badge, EmptyState } from "@/components/ui";
+import { SubmitButton } from "@/components/ui/SubmitButton";
 import { UserIcon, SearchIcon } from "@/components/user/icons";
 import { setUserRole, setUserBan } from "./actions";
 
@@ -148,9 +149,9 @@ function RoleButton({ id, role }: { id: string; role: "user" | "admin" }) {
     <form action={setUserRole}>
       <input type="hidden" name="id" value={id} />
       <input type="hidden" name="role" value={next} />
-      <button className="shrink-0 cursor-pointer rounded-full border border-line-strong px-3 py-1 text-caption font-medium text-muted transition-colors hover:bg-fg/[0.04]">
+      <SubmitButton pendingText="처리 중…" className="shrink-0 cursor-pointer rounded-full border border-line-strong px-3 py-1 text-caption font-medium text-muted transition-colors hover:bg-fg/[0.04] disabled:opacity-50">
         {role === "admin" ? "운영자 해제" : "운영자 지정"}
-      </button>
+      </SubmitButton>
     </form>
   );
 }
@@ -161,16 +162,17 @@ function BanButton({ id, banned }: { id: string; banned: boolean }) {
     <form action={setUserBan}>
       <input type="hidden" name="id" value={id} />
       <input type="hidden" name="ban" value={banned ? "0" : "1"} />
-      <button
+      <SubmitButton
+        pendingText="처리 중…"
         className={
-          "shrink-0 cursor-pointer rounded-full px-3 py-1 text-caption font-medium transition-colors " +
+          "shrink-0 cursor-pointer rounded-full px-3 py-1 text-caption font-medium transition-colors disabled:opacity-50 " +
           (banned
             ? "bg-fg/[0.06] text-fg hover:bg-fg/10"
             : "border border-line-strong text-danger hover:bg-danger-soft")
         }
       >
         {banned ? "정지 해제" : "정지"}
-      </button>
+      </SubmitButton>
     </form>
   );
 }

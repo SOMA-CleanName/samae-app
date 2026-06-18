@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { listCategoriesWithCounts } from "@/lib/categories";
 import { Badge, EmptyState } from "@/components/ui";
+import { SubmitButton } from "@/components/ui/SubmitButton";
 import { LayersIcon } from "@/components/user/icons";
 import {
   createCategory,
@@ -35,9 +36,9 @@ export default async function AdminCategoriesPage() {
             <LabeledInput name="description" label="설명 (선택)" placeholder="단정한 프로필·증명사진 모음" />
           </div>
         </div>
-        <button className="mt-3 cursor-pointer rounded-lg bg-fg px-4 py-2 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90">
+        <SubmitButton pendingText="추가 중…" className="mt-3 cursor-pointer rounded-lg bg-fg px-4 py-2 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90 disabled:opacity-50">
           카테고리 추가
-        </button>
+        </SubmitButton>
       </form>
 
       {/* 목록 */}
@@ -72,9 +73,9 @@ export default async function AdminCategoriesPage() {
                   <form action={toggleCategoryPublished}>
                     <input type="hidden" name="id" value={c.id} />
                     <input type="hidden" name="published" value={c.published ? "0" : "1"} />
-                    <button className="cursor-pointer rounded-full bg-fg/[0.06] px-3 py-1 text-caption font-medium text-fg transition-colors hover:bg-fg/10">
+                    <SubmitButton pendingText="처리 중…" className="cursor-pointer rounded-full bg-fg/[0.06] px-3 py-1 text-caption font-medium text-fg transition-colors hover:bg-fg/10 disabled:opacity-50">
                       {c.published ? "비공개로" : "공개"}
-                    </button>
+                    </SubmitButton>
                   </form>
                 </div>
               </div>
@@ -93,9 +94,9 @@ export default async function AdminCategoriesPage() {
                     <LabeledInput name="description" label="설명" defaultValue={c.description} />
                   </div>
                   <div className="flex items-center gap-2 sm:col-span-2">
-                    <button className="cursor-pointer rounded-lg bg-fg px-4 py-2 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90">
+                    <SubmitButton pendingText="저장 중…" className="cursor-pointer rounded-lg bg-fg px-4 py-2 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90 disabled:opacity-50">
                       저장
-                    </button>
+                    </SubmitButton>
                   </div>
                 </form>
                 <form
@@ -103,9 +104,9 @@ export default async function AdminCategoriesPage() {
                   className="mt-2"
                 >
                   <input type="hidden" name="id" value={c.id} />
-                  <button className="cursor-pointer text-caption font-medium text-danger hover:underline">
+                  <SubmitButton pendingText="삭제 중…" className="cursor-pointer text-caption font-medium text-danger hover:underline disabled:opacity-50">
                     카테고리 삭제
-                  </button>
+                  </SubmitButton>
                 </form>
               </details>
             </li>
