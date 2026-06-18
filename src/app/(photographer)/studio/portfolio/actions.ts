@@ -167,6 +167,33 @@ export async function reorderPhoto(formData: FormData) {
   revalidatePath("/studio/portfolio");
 }
 
+// 게시물(앨범) 사진 순서 일괄 저장 — 드래그 정렬. 받은 순서대로 sort_order 0..n.
+// 맨 앞(index 0)이 대표 사진. "대표로 지정"도 해당 사진을 맨 앞으로 보낸 뒤 호출.
+export async function reorderAlbumPhotos(albumId: string, orderedIds: string[]) {
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가만 사용할 수 있습니다.");
+  const phId = me.photographer.id;
+  if (!albumId || !Array.isArray(orderedIds) || orderedIds.length === 0) return;
+
+  const supabase = await createClient();
+  // 같은 앨범·본인 소유 사진만 통과 (남의 사진/타 앨범 주입 차단)
+  const { data: rows } = await supabase
+    .from("photos")
+    .select("id")
+    .eq("album_id", albumId)
+    .eq("photographer_id", phId);
+  const owned = new Set((rows ?? []).map((r) => r.id as string));
+  const ids = orderedIds.filter((id) => owned.has(id));
+  if (ids.length === 0) return;
+
+  await Promise.all(
+    ids.map((id, i) =>
+      supabase.from("photos").update({ sort_order: i }).eq("id", id).eq("photographer_id", phId)
+    )
+  );
+  revalidatePath("/studio/portfolio");
+}
+
 // 게시물(피드) 삭제 — 앨범의 모든 사진 + 앨범 제거. 소유권 검증 후 service_role.
 export async function deletePost(formData: FormData) {
   const me = await getCurrentUser();
