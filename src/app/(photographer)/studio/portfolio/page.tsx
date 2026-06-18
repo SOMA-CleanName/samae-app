@@ -9,7 +9,8 @@ import type { PackageOption } from "./PortfolioUploader";
 import { EditTrigger } from "./EditTrigger";
 import { DeletePostButton } from "./DeletePostButton";
 import { WalletIcon, MapPinIcon } from "@/components/user/icons";
-import { setPhotoVisibility, setAlbumVisibility, reorderPhoto, deletePhoto } from "./actions";
+import { setAlbumVisibility } from "./actions";
+import { PhotoSortGrid } from "./PhotoSortGrid";
 
 type Photo = {
   id: string;
@@ -163,17 +164,8 @@ function GroupCard({ g }: { g: Group }) {
         </div>
       </div>
 
-      {/* 사진 그리드 */}
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-        {g.photos.map((p, i) => (
-          <PhotoTile
-            key={p.id}
-            p={p}
-            canUp={count > 1 && i > 0}
-            canDown={count > 1 && i < count - 1}
-          />
-        ))}
-      </div>
+      {/* 사진 그리드 — 드래그 정렬 + 대표 지정 */}
+      <PhotoSortGrid albumId={g.albumId} photos={g.photos} />
 
       {/* 입력 정보 — 가격·장소·태그·설명 (피드 공유) */}
       <div className="mt-3 flex flex-col gap-2.5 border-t border-fg/10 pt-3">
@@ -215,71 +207,3 @@ function GroupCard({ g }: { g: Group }) {
   );
 }
 
-// 사진 타일 — 상태 표시·순서이동·편집/공개/삭제 (가격·장소·태그는 카드 하단 정보로 표시)
-function PhotoTile({ p, canUp, canDown }: { p: Photo; canUp: boolean; canDown: boolean }) {
-  return (
-    <div className="group relative overflow-hidden rounded-lg bg-fg/[0.05]">
-      <div className="aspect-square">
-        <img
-          src={p.thumb_url ?? p.src_url}
-          alt=""
-          loading="lazy"
-          className={`h-full w-full object-cover ${p.visibility === "published" ? "" : "opacity-50"}`}
-        />
-      </div>
-
-      {/* 상태 표시 — 공개는 점, 비공개는 라벨 */}
-      {p.visibility === "published" ? (
-        <span
-          className="absolute left-2 top-2 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white/80"
-          title="공개"
-        />
-      ) : (
-        <span className="absolute left-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white">
-          비공개
-        </span>
-      )}
-
-      {/* 순서 이동 (피드에 여러 장일 때) */}
-      {(canUp || canDown) && (
-        <div className="absolute right-1.5 top-1.5 flex gap-1">
-          {canUp && (
-            <form action={reorderPhoto}>
-              <input type="hidden" name="id" value={p.id} />
-              <input type="hidden" name="dir" value="up" />
-              <button aria-label="앞으로" className="grid h-6 w-6 place-items-center rounded-full bg-black/55 text-xs text-white hover:bg-black/75">
-                ←
-              </button>
-            </form>
-          )}
-          {canDown && (
-            <form action={reorderPhoto}>
-              <input type="hidden" name="id" value={p.id} />
-              <input type="hidden" name="dir" value="down" />
-              <button aria-label="뒤로" className="grid h-6 w-6 place-items-center rounded-full bg-black/55 text-xs text-white hover:bg-black/75">
-                →
-              </button>
-            </form>
-          )}
-        </div>
-      )}
-
-      {/* 사진 호버 액션 — 비공개/공개·삭제 (편집은 카드 우상단) */}
-      <div className="absolute inset-x-0 bottom-0 flex gap-1 bg-gradient-to-t from-black/60 to-transparent p-1.5 opacity-0 transition-opacity group-hover:opacity-100">
-        <form action={setPhotoVisibility} className="flex-1">
-          <input type="hidden" name="id" value={p.id} />
-          <input type="hidden" name="visibility" value={p.visibility === "published" ? "draft" : "published"} />
-          <button className="w-full rounded bg-white/90 py-1 text-[11px] font-medium text-fg hover:bg-white">
-            {p.visibility === "published" ? "비공개로" : "공개하기"}
-          </button>
-        </form>
-        <form action={deletePhoto}>
-          <input type="hidden" name="id" value={p.id} />
-          <button className="rounded bg-brand/90 px-2 py-1 text-[11px] font-medium text-white hover:bg-brand">
-            삭제
-          </button>
-        </form>
-      </div>
-    </div>
-  );
-}
