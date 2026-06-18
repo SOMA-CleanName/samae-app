@@ -380,12 +380,65 @@ export async function fetchPhotographerPhotos(photographerId: string) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("photos")
-    .select("id, src_url, thumb_url, price_krw, location_text, region, mood_tags, album_id")
+    .select("id, src_url, thumb_url, width, height, price_krw, location_text, region, mood_tags, album_id")
     .eq("photographer_id", photographerId)
     .eq("visibility", "published")
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false });
   return data ?? [];
+}
+
+// 유사 사진 — 현재 사진의 mood_tags 와 겹치는 태그 수가 많은 순(현재 사진/같은 게시물 제외).
+// 사진 상세 '추천' 피드용. 전체 풀을 한 번에 반환하고 클라이언트가 점진 노출.
+export type SimilarPhoto = {
+  id: string;
+  src_url: string;
+  thumb_url: string | null;
+  width: number;
+  height: number;
+};
+
+export async function fetchSimilarPhotos(opts: {
+  photoId: string;
+  albumId: string | null;
+  tags: string[];
+  limit?: number;
+}): Promise<SimilarPhoto[]> {
+  const supabase = await createClient();
+  const limit = opts.limit ?? 400;
+  const { data } = await supabase
+    .from("photos")
+    // 승인 작가의 published 만(!inner + RLS). 현재 사진 제외.
+    .select(
+      "id, src_url, thumb_url, width, height, mood_tags, album_id, photographer:photographers!photos_photographer_id_fkey!inner(id)"
+    )
+    .eq("visibility", "published")
+    .neq("id", opts.photoId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  type Row = SimilarPhoto & { mood_tags: string[] | null; album_id: string | null };
+  const rows = (data ?? []) as unknown as Row[];
+  const tagSet = new Set((opts.tags ?? []).map((t) => t.toLowerCase()));
+
+  // 같은 게시물(앨범) 사진 제외 (null 앨범은 유지)
+  const candidates = rows.filter((p) => !(opts.albumId && p.album_id === opts.albumId));
+
+  // 태그 겹침 점수 desc, 동률은 최신순(이미 created_at desc 순서) 유지
+  const scored = candidates.map((p, i) => ({
+    p,
+    score: tagSet.size === 0 ? 0 : (p.mood_tags ?? []).filter((t) => tagSet.has(t.toLowerCase())).length,
+    i,
+  }));
+  scored.sort((a, b) => b.score - a.score || a.i - b.i);
+
+  return scored.map((s) => ({
+    id: s.p.id,
+    src_url: s.p.src_url,
+    thumb_url: s.p.thumb_url,
+    width: s.p.width,
+    height: s.p.height,
+  }));
 }
 
 // 작가 활성 패키지

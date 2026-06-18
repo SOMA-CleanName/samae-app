@@ -8,9 +8,9 @@ import {
   fetchPhotographerById,
   fetchPhotographerPhotos,
   fetchPhotoLikeInfo,
+  fetchSimilarPhotos,
 } from "@/lib/discovery";
 import { getCurrentUser } from "@/lib/auth";
-import { loadExplorePhotos } from "@/app/(user)/actions";
 import { PhotoCarousel } from "./PhotoCarousel";
 import { PhotoExplore } from "./PhotoExplore";
 import { PhotoTopBar } from "./PhotoTopBar";
@@ -38,7 +38,8 @@ export default async function PhotoDetail({
     fetchPhotographerById(photo.photographer_id),
     getCurrentUser(),
     fetchPhotographerPhotos(photo.photographer_id),
-    loadExplorePhotos(photo.id, 0),
+    // 추천 — 현재 사진 태그와 겹침 점수순(현재 게시물 제외), 풀 전체를 클라이언트가 점진 노출
+    fetchSimilarPhotos({ photoId: photo.id, albumId: photo.album_id, tags: photo.mood_tags ?? [] }),
   ]);
   if (!ph) notFound();
 
@@ -158,9 +159,14 @@ export default async function PhotoDetail({
 
       {/* 하단 — 추천(무한 스크롤) ↔ 작가 포트폴리오 탭 (§2-8, §2-9) */}
       <PhotoExplore
-        photoId={photo.id}
         initialRecs={initialRecs}
-        portfolio={portfolio.map((p) => ({ id: p.id, src_url: p.src_url, thumb_url: p.thumb_url }))}
+        portfolio={portfolio.map((p) => ({
+          id: p.id,
+          src_url: p.src_url,
+          thumb_url: p.thumb_url,
+          width: p.width ?? 0,
+          height: p.height ?? 0,
+        }))}
         photographerName={phName}
       />
     </main>
