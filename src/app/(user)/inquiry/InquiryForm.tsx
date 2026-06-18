@@ -295,7 +295,7 @@ export function InquiryForm({
               >
                 이전
               </button>
-              <Button type="submit" size="lg" fullWidth loading={pending} disabled={!hasContact}>
+              <Button type="submit" variant="brand" size="lg" fullWidth loading={pending} disabled={!hasContact}>
                 문의하기
               </Button>
             </div>

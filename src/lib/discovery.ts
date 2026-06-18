@@ -380,12 +380,88 @@ export async function fetchPhotographerPhotos(photographerId: string) {
   const supabase = await createClient();
   const { data } = await supabase
     .from("photos")
-    .select("id, src_url, thumb_url, price_krw, location_text, region, mood_tags, album_id")
+    .select("id, src_url, thumb_url, width, height, price_krw, location_text, region, mood_tags, album_id")
     .eq("photographer_id", photographerId)
     .eq("visibility", "published")
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false });
   return data ?? [];
+}
+
+// 유사 사진 — 현재 사진의 mood_tags 와 겹치는 태그 수가 많은 순(현재 사진/같은 게시물 제외).
+// 사진 상세 '추천' 피드용. 전체 풀을 한 번에 반환하고 클라이언트가 점진 노출.
+export type SimilarPhoto = {
+  id: string;
+  src_url: string;
+  thumb_url: string | null;
+  width: number;
+  height: number;
+};
+
+export async function fetchSimilarPhotos(opts: {
+  photoId: string;
+  albumId: string | null;
+  tags: string[];
+  limit?: number;
+}): Promise<SimilarPhoto[]> {
+  const supabase = await createClient();
+  const limit = opts.limit ?? 400;
+  const { data } = await supabase
+    .from("photos")
+    // 승인 작가의 published 만(!inner + RLS). 현재 사진 제외.
+    .select(
+      "id, src_url, thumb_url, width, height, mood_tags, album_id, photographer:photographers!photos_photographer_id_fkey!inner(id)"
+    )
+    .eq("visibility", "published")
+    .neq("id", opts.photoId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  type Row = SimilarPhoto & { mood_tags: string[] | null; album_id: string | null };
+  const rows = (data ?? []) as unknown as Row[];
+  const tagSet = new Set((opts.tags ?? []).map((t) => t.toLowerCase()));
+
+  // 같은 게시물(앨범) 사진 제외 (null 앨범은 유지)
+  const candidates = rows.filter((p) => !(opts.albumId && p.album_id === opts.albumId));
+
+  // 태그 겹침 점수 계산
+  const score = (p: Row) =>
+    tagSet.size === 0 ? 0 : (p.mood_tags ?? []).filter((t) => tagSet.has(t.toLowerCase())).length;
+
+  // 점수별 묶기 (점수 높은 묶음이 위로)
+  const byScore = new Map<number, Row[]>();
+  for (const p of candidates) {
+    const s = score(p);
+    (byScore.get(s) ?? byScore.set(s, []).get(s)!).push(p);
+  }
+
+  // 점수 묶음 안에서 앨범별 라운드로빈 → 같은 게시물 사진이 줄지어 뜨지 않게 분산.
+  // 유사도(점수)는 그대로 상위 유지하되, 동점은 여러 게시물이 번갈아 섞이도록.
+  const result: SimilarPhoto[] = [];
+  for (const s of [...byScore.keys()].sort((a, b) => b - a)) {
+    const items = byScore.get(s)!;
+    // 앨범(단일 사진은 각자)별로 묶고, 앨범 순서·앨범 내 순서를 셔플
+    const albums = new Map<string, Row[]>();
+    for (const p of items) {
+      const key = p.album_id ?? `single:${p.id}`;
+      (albums.get(key) ?? albums.set(key, []).get(key)!).push(p);
+    }
+    const groups = shuffle([...albums.values()].map((g) => shuffle(g)));
+    // 라운드로빈: 각 앨범에서 한 장씩 번갈아 뽑기
+    for (let round = 0; ; round++) {
+      let any = false;
+      for (const g of groups) {
+        if (round < g.length) {
+          const p = g[round];
+          result.push({ id: p.id, src_url: p.src_url, thumb_url: p.thumb_url, width: p.width, height: p.height });
+          any = true;
+        }
+      }
+      if (!any) break;
+    }
+  }
+
+  return result;
 }
 
 // 작가 활성 패키지

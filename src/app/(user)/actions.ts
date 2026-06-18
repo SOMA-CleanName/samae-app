@@ -119,29 +119,4 @@ export async function loadPhotoLike(
   return { liked, count, loggedIn: !!user };
 }
 
-// 사진 상세 하단 '추천' 무한 스크롤용 — 공개 사진을 페이지 단위로 반환(현재 사진 제외).
-// created_at desc 윈도우를 받아 배치마다 셔플 → 사실상 전체 랜덤 노출(베타 범위).
-export type ExplorePhoto = { id: string; src_url: string; thumb_url: string | null };
-
-export async function loadExplorePhotos(
-  excludePhotoId: string,
-  offset: number,
-  limit = 30
-): Promise<ExplorePhoto[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("photos")
-    .select("id, src_url, thumb_url")
-    .eq("visibility", "published")
-    .neq("id", excludePhotoId)
-    .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1);
-
-  const rows = (data ?? []) as ExplorePhoto[];
-  // 배치 내 셔플 (요청마다 랜덤한 느낌)
-  for (let i = rows.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [rows[i], rows[j]] = [rows[j], rows[i]];
-  }
-  return rows;
-}
+// (추천 피드는 discovery.fetchSimilarPhotos 로 이전 — 태그 유사도순 풀을 서버에서 한 번에 제공)
