@@ -41,9 +41,9 @@ export function ProfileForm({ initial }: { initial: ProfileInitial }) {
         label="최저가 (원)"
         type="number"
         defaultValue={String(initial.priceFrom)}
-        hint="표시용 시작 가격 (최대 350만원)"
+        hint="표시용 시작 가격"
         min={0}
-        max={3_500_000}
+        max={100_000_000}
         step={1_000}
         error={state.fieldErrors?.priceFrom}
       />
@@ -72,9 +72,12 @@ export function ProfileForm({ initial }: { initial: ProfileInitial }) {
                 <option key={b} value={b}>{b}</option>
               ))}
             </select>
+            {state.fieldErrors?.bankName && (
+              <p className="text-xs text-brand">{state.fieldErrors.bankName}</p>
+            )}
           </div>
-          <Field name="accountNumber" label="계좌번호" defaultValue={initial.accountNumber} />
-          <Field name="accountHolder" label="예금주" defaultValue={initial.accountHolder} />
+          <Field name="accountNumber" label="계좌번호" defaultValue={initial.accountNumber} error={state.fieldErrors?.accountNumber} />
+          <Field name="accountHolder" label="예금주" defaultValue={initial.accountHolder} error={state.fieldErrors?.accountHolder} />
         </div>
       </fieldset>
 

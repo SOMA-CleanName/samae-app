@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui";
 import { PlusIcon } from "@/components/user/icons";
+import { downscaleImage } from "@/lib/downscale";
 import { submitInquiry, type InquiryState } from "./actions";
 
 const INITIAL_STATE: InquiryState = { ok: false };
@@ -46,7 +47,20 @@ export function InquiryForm({
   const [showSuccess, setShowSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [referencePreviews, setReferencePreviews] = useState<ReferencePreview[]>([]);
+  const [refFiles, setRefFiles] = useState<File[]>([]); // 다운스케일 대상 원본 파일
   const returnPath = photoId ? `/photos/${photoId}` : `/photographers/${photographerId}`;
+
+  // 제출 — 레퍼런스 이미지를 업로드 전 클라이언트에서 리사이즈해 서버액션 본문 한계(1MB) 회피
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const fd = new FormData(event.currentTarget);
+    fd.delete("referenceImages"); // 폼의 원본 파일 제거 후 리사이즈본으로 교체
+    for (const file of refFiles.slice(0, 5)) {
+      const small = await downscaleImage(file);
+      fd.append("referenceImages", small);
+    }
+    formAction(fd);
+  }
 
   useEffect(() => {
     if (!state.ok) return;
@@ -94,11 +108,11 @@ export function InquiryForm({
 
   function onReferenceChange(files: FileList | null) {
     referencePreviews.forEach((preview) => URL.revokeObjectURL(preview.url));
-    const previews = Array.from(files ?? [])
+    const picked = Array.from(files ?? [])
       .filter((file) => file.type.startsWith("image/"))
-      .slice(0, 5)
-      .map((file) => ({ name: file.name, url: URL.createObjectURL(file) }));
-    setReferencePreviews(previews);
+      .slice(0, 5);
+    setRefFiles(picked);
+    setReferencePreviews(picked.map((file) => ({ name: file.name, url: URL.createObjectURL(file) })));
   }
 
   useEffect(() => {
@@ -109,13 +123,13 @@ export function InquiryForm({
 
   return (
     <>
-      <form action={formAction} className="mt-3 flex min-h-[480px] flex-col md:min-h-full">
+      <form action={formAction} onSubmit={handleSubmit} className="mt-3 flex min-h-[480px] flex-col md:min-h-full">
         <input type="hidden" name="photographerId" value={photographerId} />
         <input type="hidden" name="photoId" value={photoId} />
+        {/* name 없음 — 원본은 자동 제출하지 않고 handleSubmit 에서 리사이즈본으로 첨부 */}
         <input
           ref={fileInputRef}
           type="file"
-          name="referenceImages"
           accept="image/*"
           multiple
           hidden

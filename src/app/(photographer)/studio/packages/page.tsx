@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createPackage } from "./actions";
 import { PackageItem, type Pkg } from "./PackageItem";
+import { SubmitButton } from "@/components/ui/SubmitButton";
 
 const inputCls =
   "rounded-lg border border-fg/15 bg-white px-3 py-2 text-sm outline-none focus:border-fg/40";
@@ -41,13 +42,13 @@ export default async function PackagesPage() {
           <input name="name" placeholder="패키지 이름 (예: 데이트 스냅 베이직)" required className={inputCls} />
           <textarea name="description" rows={2} placeholder="설명 (선택)" className={inputCls} />
           <div className="grid grid-cols-3 gap-2">
-            <LabeledInput name="priceKrw" label="가격(원)" min={0} max={3_500_000} step={10_000} required />
+            <LabeledInput name="priceKrw" label="가격(원)" min={0} max={100_000_000} step={10_000} required />
             <LabeledInput name="durationMin" label="소요(분)" defaultValue="60" min={10} max={1440} step={5} required />
             <LabeledInput name="editedCount" label="보정본(장)" defaultValue="10" min={0} max={1000} step={1} required />
           </div>
-          <button className="justify-self-start rounded-full bg-fg px-5 py-2 text-sm font-semibold text-bg hover:opacity-90">
+          <SubmitButton pendingText="추가 중…" className="justify-self-start rounded-full bg-fg px-5 py-2 text-sm font-semibold text-bg hover:opacity-90 disabled:opacity-50">
             추가
-          </button>
+          </SubmitButton>
         </form>
       </section>
 

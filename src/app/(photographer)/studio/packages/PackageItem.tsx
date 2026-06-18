@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { updatePackage, deletePackage, togglePackageActive } from "./actions";
+import { SubmitButton } from "@/components/ui/SubmitButton";
 
 export type Pkg = {
   id: string;
@@ -29,7 +30,7 @@ export function PackageItem({ p }: { p: Pkg }) {
           <input name="name" defaultValue={p.name} required className={inputCls} />
           <textarea name="description" rows={2} defaultValue={p.description} className={inputCls} />
           <div className="grid grid-cols-3 gap-2">
-            <LabeledInput name="priceKrw" label="가격(원)" defaultValue={String(p.price_krw)} min={0} max={3_500_000} step={10_000} required />
+            <LabeledInput name="priceKrw" label="가격(원)" defaultValue={String(p.price_krw)} min={0} max={100_000_000} step={10_000} required />
             <LabeledInput name="durationMin" label="소요(분)" defaultValue={String(p.duration_min)} min={10} max={1440} step={5} required />
             <LabeledInput name="editedCount" label="보정본(장)" defaultValue={String(p.edited_count)} min={0} max={1000} step={1} required />
           </div>
@@ -76,9 +77,9 @@ export function PackageItem({ p }: { p: Pkg }) {
         <form action={togglePackageActive}>
           <input type="hidden" name="id" value={p.id} />
           <input type="hidden" name="isActive" value={String(!p.is_active)} />
-          <button className="rounded-full border border-fg/20 px-3 py-1.5 text-xs text-fg/70 hover:bg-fg/[0.04]">
+          <SubmitButton pendingText="처리 중…" className="rounded-full border border-fg/20 px-3 py-1.5 text-xs text-fg/70 hover:bg-fg/[0.04] disabled:opacity-50">
             {p.is_active ? "비활성화" : "활성화"}
-          </button>
+          </SubmitButton>
         </form>
         <form
           action={deletePackage}
@@ -87,9 +88,9 @@ export function PackageItem({ p }: { p: Pkg }) {
           }}
         >
           <input type="hidden" name="id" value={p.id} />
-          <button className="rounded-full px-3 py-1.5 text-xs text-brand hover:bg-brand/[0.06]">
+          <SubmitButton pendingText="삭제 중…" className="rounded-full px-3 py-1.5 text-xs text-brand hover:bg-brand/[0.06] disabled:opacity-50">
             삭제
-          </button>
+          </SubmitButton>
         </form>
       </div>
     </li>
