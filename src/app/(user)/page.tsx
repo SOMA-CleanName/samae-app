@@ -1,5 +1,5 @@
 import {
-  fetchPublishedPhotosPage,
+  fetchPublishedPhotos,
   searchPhotosByTag,
   fetchLikedPhotoIds,
 } from "@/lib/discovery";
@@ -19,10 +19,10 @@ export default async function ExploreHome({
   const sp = await searchParams;
   const query = sp.q?.trim();
 
-  // 검색 모드: 태그로 사진 검색 / 기본 모드: 전체 published 최신순(첫 페이지, 이후 무한스크롤)
+  // 검색 모드: 태그로 사진 검색 / 기본 모드: 셔플된 전체 풀(클라이언트가 점진 노출)
   const photos = query
     ? await searchPhotosByTag(query)
-    : await fetchPublishedPhotosPage({ offset: 0 });
+    : await fetchPublishedPhotos({});
 
   // 현재 사용자가 좋아요한 사진(갤러리 하트 초기 상태)
   const me = await getCurrentUser();

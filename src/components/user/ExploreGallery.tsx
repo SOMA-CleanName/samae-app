@@ -1,19 +1,50 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { GalleryPhoto } from "@/lib/discovery";
-import { togglePhotoLike, loadGalleryPhotos } from "@/app/(user)/actions";
+import { togglePhotoLike } from "@/app/(user)/actions";
 import { cn } from "@/lib/cn";
 import { HeartIcon, SearchIcon } from "@/components/user/icons";
 import { EmptyState } from "@/components/ui";
 
 const fmt = new Intl.NumberFormat("ko-KR");
-const PAGE = 48; // actions.ts 의 GALLERY_PAGE 와 동일
+const STEP = 48; // 스크롤마다 더 보여줄 사진 수(메모리에서 즉시 노출)
 
-// 탐색 갤러리 — 첫 페이지는 서버에서, 이후 스크롤 시 무한 로드(검색 모드는 제외).
+// 컨테이너 폭 기준 반응형 컬럼 수
+function useColumnCount(ref: React.RefObject<HTMLDivElement | null>) {
+  const [cols, setCols] = useState(2);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const compute = () => setCols(Math.max(2, Math.min(7, Math.round(el.clientWidth / 220))));
+    compute();
+    const ro = new ResizeObserver(compute);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref]);
+  return cols;
+}
+
+// 높이 균형 그리디 분배 — 각 사진을 가장 짧은 컬럼에 넣는다.
+// 순서가 고정이면 prefix-stable: 뒤에 더 추가돼도 앞 사진들의 컬럼/위치가 안 바뀜(재정렬 없음).
+function buildColumns(photos: GalleryPhoto[], colCount: number): GalleryPhoto[][] {
+  const cols: GalleryPhoto[][] = Array.from({ length: colCount }, () => []);
+  const heights = new Array(colCount).fill(0);
+  for (const p of photos) {
+    const ratio = p.width > 0 && p.height > 0 ? p.height / p.width : 1; // 단위 폭당 상대 높이
+    let min = 0;
+    for (let c = 1; c < colCount; c++) if (heights[c] < heights[min]) min = c;
+    cols[min].push(p);
+    heights[min] += ratio;
+  }
+  return cols;
+}
+
+// 탐색 갤러리 — 서버가 셔플된 풀을 내려주고, 클라이언트는 메모리에서 점진 노출(네트워크 없음).
+// JS 컬럼 버킷으로 기존 사진은 절대 재배치되지 않음.
 export function ExploreGallery({
   photos,
   query,
@@ -25,57 +56,29 @@ export function ExploreGallery({
 }) {
   const [showPrice, setShowPrice] = useState(false);
   const [showName, setShowName] = useState(false);
-
-  // 무한스크롤 상태
-  const [items, setItems] = useState<GalleryPhoto[]>(photos);
-  const [likedSet, setLikedSet] = useState<Set<string>>(() => new Set(likedIds));
-  const [offset, setOffset] = useState(photos.length);
-  const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(!!query || photos.length < PAGE);
+  const [visible, setVisible] = useState(STEP);
   const sentinel = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const colCount = useColumnCount(gridRef);
+  const likedSet = new Set(likedIds);
 
-  // 검색어/서버 페이지가 바뀌면(네비게이션) 초기화
+  // 풀(검색어/네비게이션) 바뀌면 노출 수 초기화
+  useEffect(() => setVisible(STEP), [photos, query]);
+
+  // 바닥 근처에서 더 노출 — 메모리에서 즉시(네트워크 없음)
   useEffect(() => {
-    setItems(photos);
-    setLikedSet(new Set(likedIds));
-    setOffset(photos.length);
-    setDone(!!query || photos.length < PAGE);
-    setLoading(false);
-  }, [photos, likedIds, query]);
-
-  const loadMore = useCallback(async () => {
-    if (loading || done || query) return;
-    setLoading(true);
-    const res = await loadGalleryPhotos(offset);
-    const incoming = res.photos;
-    setItems((prev) => {
-      const seen = new Set(prev.map((p) => p.id));
-      return [...prev, ...incoming.filter((p) => !seen.has(p.id))];
-    });
-    setLikedSet((prev) => {
-      const s = new Set(prev);
-      res.likedIds.forEach((id) => s.add(id));
-      return s;
-    });
-    setOffset((o) => o + incoming.length);
-    if (incoming.length < PAGE) setDone(true);
-    setLoading(false);
-  }, [loading, done, query, offset]);
-
-  // 바닥 근처에서 다음 페이지 로드
-  useEffect(() => {
-    if (query || done) return;
+    if (visible >= photos.length) return;
     const el = sentinel.current;
     if (!el) return;
     const io = new IntersectionObserver(
       (entries) => {
-        if (entries[0]?.isIntersecting) loadMore();
+        if (entries[0]?.isIntersecting) setVisible((v) => Math.min(photos.length, v + STEP));
       },
-      { rootMargin: "800px" }
+      { rootMargin: "1200px" }
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [loadMore, query, done]);
+  }, [visible, photos.length]);
 
   // 보기 옵션(가격·작가명) — 세션 유지 + SearchOptions 토글과 이벤트로 동기화
   useEffect(() => {
@@ -95,7 +98,12 @@ export function ExploreGallery({
     };
   }, []);
 
-  if (items.length === 0) {
+  const columns = useMemo(
+    () => buildColumns(photos.slice(0, visible), colCount),
+    [photos, visible, colCount]
+  );
+
+  if (photos.length === 0) {
     return (
       <EmptyState
         icon={<SearchIcon className="h-6 w-6" />}
@@ -124,33 +132,29 @@ export function ExploreGallery({
       {/* 검색 결과 수 — 검색했을 때만 */}
       {query && (
         <p className="px-1 pt-4 text-sm text-muted">
-          “{query}” 결과 {items.length}장
+          “{query}” 결과 {photos.length}장
         </p>
       )}
 
-      {/* 메이슨리 갤러리 */}
-      <div className="columns-2 gap-3 pt-3 sm:columns-3 md:columns-4 lg:columns-5 xl:columns-6 2xl:columns-7 [&>*]:mb-3">
-        {items.map((photo) => (
-          <PhotoCard
-            key={photo.id}
-            photo={photo}
-            showPrice={showPrice}
-            showName={showName}
-            liked={likedSet.has(photo.id)}
-          />
+      {/* 메이슨리 갤러리 — JS 컬럼 버킷(추가 시 기존 사진 위치 고정) */}
+      <div ref={gridRef} className="flex gap-3 pt-3">
+        {columns.map((col, ci) => (
+          <div key={ci} className="flex min-w-0 flex-1 flex-col gap-3">
+            {col.map((photo) => (
+              <PhotoCard
+                key={photo.id}
+                photo={photo}
+                showPrice={showPrice}
+                showName={showName}
+                liked={likedSet.has(photo.id)}
+              />
+            ))}
+          </div>
         ))}
       </div>
 
-      {/* 무한스크롤 센티넬 + 로딩/끝 표시 (검색 모드 제외) */}
-      {!query && (
-        <>
-          <div ref={sentinel} className="h-1" />
-          {loading && <p className="py-6 text-center text-sm text-muted">불러오는 중…</p>}
-          {done && items.length > 0 && (
-            <p className="py-6 text-center text-sm text-faint">모든 사진을 다 봤어요.</p>
-          )}
-        </>
-      )}
+      {/* 점진 노출 센티넬 */}
+      {visible < photos.length && <div ref={sentinel} className="h-1" />}
     </>
   );
 }
