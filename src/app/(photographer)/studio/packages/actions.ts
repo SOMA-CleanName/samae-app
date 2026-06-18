@@ -13,26 +13,36 @@ async function requirePhotographerId(): Promise<string> {
   return me.photographer.id;
 }
 
-// 가격 상한 (350만원) — 초과 입력은 에러 대신 상한으로 맞춰(clamp) 저장한다.
+// 범위 상한/하한 — 초과·미달 입력은 에러 대신 범위로 맞춰(clamp) 저장한다.
 const MAX_PRICE_KRW = 3_500_000;
 
+const clamp = (n: number, min: number, max: number) => Math.min(Math.max(n, min), max);
+
+// 숫자 필드는 잘못된 입력이어도 throw 하지 않고 기본값으로 받은 뒤 코드에서 clamp 한다.
 const PackageSchema = z.object({
   name: z.string().trim().min(1, "이름을 입력하세요").max(60),
   description: z.string().trim().max(300).optional().default(""),
-  priceKrw: z.coerce.number().int().min(0),
-  durationMin: z.coerce.number().int().min(1).max(1440),
-  editedCount: z.coerce.number().int().min(0).max(1000),
+  priceKrw: z.coerce.number().int().catch(0),
+  durationMin: z.coerce.number().int().catch(60),
+  editedCount: z.coerce.number().int().catch(10),
 });
 
 function parsePackage(formData: FormData) {
-  const v = PackageSchema.parse({
+  const parsed = PackageSchema.safeParse({
     name: formData.get("name"),
     description: formData.get("description"),
     priceKrw: formData.get("priceKrw"),
     durationMin: formData.get("durationMin"),
     editedCount: formData.get("editedCount"),
   });
-  return { ...v, priceKrw: Math.min(v.priceKrw, MAX_PRICE_KRW) }; // 350만원 상한
+  if (!parsed.success) throw new Error("패키지 정보를 확인해주세요.");
+  const v = parsed.data;
+  return {
+    ...v,
+    priceKrw: clamp(v.priceKrw, 0, MAX_PRICE_KRW), // 0 ~ 350만원
+    durationMin: clamp(v.durationMin, 10, 1440), // 10분 ~ 24시간
+    editedCount: clamp(v.editedCount, 0, 1000), // 0 ~ 1000장
+  };
 }
 
 // 패키지 생성

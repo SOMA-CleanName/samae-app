@@ -31,7 +31,7 @@ export function PackageItem({ p }: { p: Pkg }) {
           <div className="grid grid-cols-3 gap-2">
             <LabeledInput name="priceKrw" label="가격(원)" defaultValue={String(p.price_krw)} min={0} max={3_500_000} step={10_000} required />
             <LabeledInput name="durationMin" label="소요(분)" defaultValue={String(p.duration_min)} min={10} max={1440} step={5} required />
-            <LabeledInput name="editedCount" label="보정본(장)" defaultValue={String(p.edited_count)} min={0} step={1} required />
+            <LabeledInput name="editedCount" label="보정본(장)" defaultValue={String(p.edited_count)} min={0} max={1000} step={1} required />
           </div>
           <div className="flex items-center gap-2">
             <button className="rounded-full bg-fg px-4 py-1.5 text-xs font-semibold text-bg hover:opacity-90">
