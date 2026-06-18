@@ -424,21 +424,44 @@ export async function fetchSimilarPhotos(opts: {
   // 같은 게시물(앨범) 사진 제외 (null 앨범은 유지)
   const candidates = rows.filter((p) => !(opts.albumId && p.album_id === opts.albumId));
 
-  // 태그 겹침 점수 desc, 동률은 최신순(이미 created_at desc 순서) 유지
-  const scored = candidates.map((p, i) => ({
-    p,
-    score: tagSet.size === 0 ? 0 : (p.mood_tags ?? []).filter((t) => tagSet.has(t.toLowerCase())).length,
-    i,
-  }));
-  scored.sort((a, b) => b.score - a.score || a.i - b.i);
+  // 태그 겹침 점수 계산
+  const score = (p: Row) =>
+    tagSet.size === 0 ? 0 : (p.mood_tags ?? []).filter((t) => tagSet.has(t.toLowerCase())).length;
 
-  return scored.map((s) => ({
-    id: s.p.id,
-    src_url: s.p.src_url,
-    thumb_url: s.p.thumb_url,
-    width: s.p.width,
-    height: s.p.height,
-  }));
+  // 점수별 묶기 (점수 높은 묶음이 위로)
+  const byScore = new Map<number, Row[]>();
+  for (const p of candidates) {
+    const s = score(p);
+    (byScore.get(s) ?? byScore.set(s, []).get(s)!).push(p);
+  }
+
+  // 점수 묶음 안에서 앨범별 라운드로빈 → 같은 게시물 사진이 줄지어 뜨지 않게 분산.
+  // 유사도(점수)는 그대로 상위 유지하되, 동점은 여러 게시물이 번갈아 섞이도록.
+  const result: SimilarPhoto[] = [];
+  for (const s of [...byScore.keys()].sort((a, b) => b - a)) {
+    const items = byScore.get(s)!;
+    // 앨범(단일 사진은 각자)별로 묶고, 앨범 순서·앨범 내 순서를 셔플
+    const albums = new Map<string, Row[]>();
+    for (const p of items) {
+      const key = p.album_id ?? `single:${p.id}`;
+      (albums.get(key) ?? albums.set(key, []).get(key)!).push(p);
+    }
+    const groups = shuffle([...albums.values()].map((g) => shuffle(g)));
+    // 라운드로빈: 각 앨범에서 한 장씩 번갈아 뽑기
+    for (let round = 0; ; round++) {
+      let any = false;
+      for (const g of groups) {
+        if (round < g.length) {
+          const p = g[round];
+          result.push({ id: p.id, src_url: p.src_url, thumb_url: p.thumb_url, width: p.width, height: p.height });
+          any = true;
+        }
+      }
+      if (!any) break;
+    }
+  }
+
+  return result;
 }
 
 // 작가 활성 패키지
