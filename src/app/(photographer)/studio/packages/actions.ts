@@ -14,7 +14,8 @@ async function requirePhotographerId(): Promise<string> {
 }
 
 // 범위 상한/하한 — 초과·미달 입력은 에러 대신 범위로 맞춰(clamp) 저장한다.
-const MAX_PRICE_KRW = 3_500_000;
+// 가격 상한은 사실상 무제한(안전값 1억) — 고가 패키지(웨딩·상업) 허용.
+const MAX_PRICE_KRW = 100_000_000;
 
 const clamp = (n: number, min: number, max: number) => Math.min(Math.max(n, min), max);
 

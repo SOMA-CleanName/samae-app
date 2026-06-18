@@ -8,7 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 
 // 최저가·가격 상한 (350만원)
-const MAX_PRICE_KRW = 3_500_000;
+const MAX_PRICE_KRW = 100_000_000; // 사실상 무제한(안전값 1억)
 
 // 작가명 중복 검사 — 대소문자 무시, 본인 제외. RLS에 막히지 않게 admin으로 조회.
 async function isDisplayNameTaken(name: string, exceptProfileId: string): Promise<boolean> {
@@ -116,7 +116,7 @@ const ProfileSchema = z.object({
     .number()
     .int()
     .min(0)
-    .max(MAX_PRICE_KRW, "최저가는 350만원 이하로 입력해주세요")
+    .max(MAX_PRICE_KRW, "최저가는 1억원 이하로 입력해주세요")
     .optional()
     .default(0),
   bankName: z.string().trim().max(40).optional().default(""),
@@ -159,6 +159,19 @@ export async function updateProfile(
     return { error: "입력값을 확인해주세요.", fieldErrors };
   }
   const v = parsed.data;
+
+  // 계좌는 은행·번호·예금주 3개 모두 입력하거나 모두 비워야 함(일부만 입력 → 에러 안내).
+  const bank = v.bankName?.trim() ?? "";
+  const number = v.accountNumber?.trim() ?? "";
+  const holder = v.accountHolder?.trim() ?? "";
+  const filledCount = [bank, number, holder].filter(Boolean).length;
+  if (filledCount > 0 && filledCount < 3) {
+    const fieldErrors: Record<string, string> = {};
+    if (!bank) fieldErrors.bankName = "은행을 입력해주세요.";
+    if (!number) fieldErrors.accountNumber = "계좌번호를 입력해주세요.";
+    if (!holder) fieldErrors.accountHolder = "예금주를 입력해주세요.";
+    return { error: "정산 계좌는 은행·계좌번호·예금주를 모두 입력해주세요.", fieldErrors };
+  }
 
   // 작가명 중복 불가 (본인 제외)
   if (await isDisplayNameTaken(v.displayName, user.id)) {
