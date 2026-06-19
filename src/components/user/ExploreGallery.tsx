@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { GalleryPhoto } from "@/lib/discovery";
@@ -13,22 +13,28 @@ import { EmptyState } from "@/components/ui";
 const fmt = new Intl.NumberFormat("ko-KR");
 const STEP = 48; // 스크롤마다 더 보여줄 사진 수(메모리에서 즉시 노출)
 
-function useColumnCount(ref: React.RefObject<HTMLDivElement | null>) {
+// 콜백 ref — 그리드가 (빈 상태 후) 나중에 마운트돼도 항상 다시 측정한다.
+// useEffect+ref.current 방식은 빈 결과(EmptyState)로 그리드가 없던 상태에서
+// 재노출될 때 effect가 다시 안 돌아 ready가 false로 굳는 버그가 있었음.
+function useColumnCount() {
   const [cols, setCols] = useState(2);
   const [ready, setReady] = useState(false);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
+  const roRef = useRef<ResizeObserver | null>(null);
+
+  const gridRef = useCallback((node: HTMLDivElement | null) => {
+    roRef.current?.disconnect();
+    if (!node) return;
     const compute = () => {
-      setCols(Math.max(2, Math.min(7, Math.round(el.clientWidth / 220))));
+      setCols(Math.max(2, Math.min(7, Math.round(node.clientWidth / 220))));
       setReady(true);
     };
     compute();
     const ro = new ResizeObserver(compute);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [ref]);
-  return { cols, ready };
+    ro.observe(node);
+    roRef.current = ro;
+  }, []);
+
+  return { cols, ready, gridRef };
 }
 
 // 높이 균형 그리디 분배 — 각 사진을 가장 짧은 컬럼에 넣는다.
@@ -61,8 +67,7 @@ export function ExploreGallery({
   const [showName, setShowName] = useState(false);
   const [visible, setVisible] = useState(STEP);
   const sentinel = useRef<HTMLDivElement>(null);
-  const gridRef = useRef<HTMLDivElement>(null);
-  const { cols: colCount, ready: columnsReady } = useColumnCount(gridRef);
+  const { cols: colCount, ready: columnsReady, gridRef } = useColumnCount();
   const likedSet = new Set(likedIds);
 
   // 풀(검색어/네비게이션) 바뀌면 노출 수 초기화

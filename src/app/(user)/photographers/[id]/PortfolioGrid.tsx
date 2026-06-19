@@ -21,6 +21,7 @@ export type PortfolioPost = {
   price_krw: number | null;
   location_text: string | null;
   mood_tags: string[];
+  description: string | null;
   count: number;
   photos: TilePhoto[];
 };
@@ -156,12 +157,21 @@ function PortfolioModal({
           )}
           {post.count > 1 && <p className="mt-1 text-caption text-faint">사진 {post.count}장</p>}
 
+          {/* 게시물(앨범) 설명글 — 상세 페이지와 동일하게 노출 */}
+          {post.description && (
+            <p className="mt-4 whitespace-pre-wrap text-body-sm text-fg/80">{post.description}</p>
+          )}
+
           {post.mood_tags.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-1.5">
               {post.mood_tags.map((m) => (
-                <span key={m} className="rounded-full bg-fg/[0.06] px-2.5 py-1 text-caption text-fg/70">
+                <Link
+                  key={m}
+                  href={`/?q=${encodeURIComponent(m)}`}
+                  className="rounded-full bg-fg/[0.06] px-2.5 py-1 text-caption text-fg/70 transition-colors hover:bg-fg/10"
+                >
                   #{m}
-                </span>
+                </Link>
               ))}
             </div>
           )}
