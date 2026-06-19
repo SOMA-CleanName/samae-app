@@ -2,6 +2,9 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 
+export { UNTAGGED_TOKEN, isUntaggedCategory } from "@/lib/category-constants";
+import { isUntaggedCategory } from "@/lib/category-constants";
+
 export type Category = {
   id: string;
   slug: string;
@@ -39,6 +42,15 @@ export async function listCategoriesWithCounts(): Promise<Array<Category & { pho
   const counts = await Promise.all(
     cats.map(async (c) => {
       if (c.tags.length === 0) return 0;
+      // 임시: 미태그 카테고리는 mood_tags 가 빈 사진을 매칭
+      if (isUntaggedCategory(c.tags)) {
+        const { count } = await admin
+          .from("photos")
+          .select("id", { count: "exact", head: true })
+          .eq("visibility", "published")
+          .eq("mood_tags", "{}");
+        return count ?? 0;
+      }
       const { count } = await admin
         .from("photos")
         .select("id", { count: "exact", head: true })

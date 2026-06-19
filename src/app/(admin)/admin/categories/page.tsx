@@ -1,8 +1,10 @@
 import Link from "next/link";
-import { listCategoriesWithCounts } from "@/lib/categories";
+import { listCategoriesWithCounts, isUntaggedCategory } from "@/lib/categories";
+import { listAllTags } from "@/lib/tags";
 import { Badge, EmptyState } from "@/components/ui";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { LayersIcon } from "@/components/user/icons";
+import { CategoryFields } from "./CategoryFields";
 import {
   createCategory,
   updateCategory,
@@ -14,7 +16,7 @@ export const dynamic = "force-dynamic";
 
 // 카테고리 관리 — 운영자가 카테고리를 만들고, 매칭 사진 수를 보고, 페이지를 공개한다.
 export default async function AdminCategoriesPage() {
-  const cats = await listCategoriesWithCounts();
+  const [cats, allTags] = await Promise.all([listCategoriesWithCounts(), listAllTags()]);
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-5">
@@ -30,7 +32,7 @@ export default async function AdminCategoriesPage() {
           <LabeledInput name="name" label="이름" placeholder="프로필/증명사진" required />
           <LabeledInput name="slug" label="slug (URL, 비우면 자동)" placeholder="portrait" />
           <div className="sm:col-span-2">
-            <LabeledInput name="tags" label="태그 (쉼표로 구분)" placeholder="프로필, 증명, 단정" />
+            <CategoryFields allTags={allTags} />
           </div>
           <div className="sm:col-span-2">
             <LabeledInput name="description" label="설명 (선택)" placeholder="단정한 프로필·증명사진 모음" />
@@ -57,7 +59,11 @@ export default async function AdminCategoriesPage() {
                   </div>
                   <p className="mt-1 text-caption text-muted">
                     매칭 사진 <b className="text-fg">{c.photoCount}</b>장
-                    {c.tags.length > 0 && <> · 태그 {c.tags.join(", ")}</>}
+                    {isUntaggedCategory(c.tags) ? (
+                      <> · <span className="text-fg">태그 없는 사진 (임시)</span></>
+                    ) : (
+                      c.tags.length > 0 && <> · 태그 {c.tags.join(", ")}</>
+                    )}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
@@ -88,7 +94,7 @@ export default async function AdminCategoriesPage() {
                   <LabeledInput name="name" label="이름" defaultValue={c.name} required />
                   <LabeledInput name="slug" label="slug" defaultValue={c.slug} />
                   <div className="sm:col-span-2">
-                    <LabeledInput name="tags" label="태그 (쉼표)" defaultValue={c.tags.join(", ")} />
+                    <CategoryFields allTags={allTags} defaultTags={c.tags} />
                   </div>
                   <div className="sm:col-span-2">
                     <LabeledInput name="description" label="설명" defaultValue={c.description} />

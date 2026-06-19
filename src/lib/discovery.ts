@@ -94,6 +94,21 @@ export async function fetchPhotosByTags(tags: string[], limit = 60): Promise<Gal
   return scored.slice(0, limit).map((s) => s.p);
 }
 
+// 임시: 태그(mood_tags)가 비어 있는 공개 사진 — 미태그 카테고리 랜딩용.
+export async function fetchUntaggedPhotos(limit = 60): Promise<GalleryPhoto[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("photos")
+    .select(
+      "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name)"
+    )
+    .eq("visibility", "published")
+    .eq("mood_tags", "{}")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  return (data ?? []) as unknown as GalleryPhoto[];
+}
+
 // 무드 태그로 공개 사진 검색 — 부분 일치(대소문자 무시), 결과는 메이슨리 사진.
 // text[] 부분 일치는 PostgREST 단일 연산자로 어려워, 최근 published 사진을 받아 JS에서 필터(베타 한정 범위).
 export async function searchPhotosByTag(qRaw: string): Promise<GalleryPhoto[]> {

@@ -17,6 +17,12 @@ export type TagUsageResult = {
 
 // 사진에 실제로 쓰인 태그 목록 + 빈도 + 카테고리 매핑 여부.
 // mood_tags 는 배열 컬럼이라 SQL group-by 대신 JS로 집계한다.
+// 사진에 실제로 쓰인 고유 태그 이름만 (공개 빈도 높은 순) — 카테고리 태그 선택용.
+export async function listAllTags(): Promise<string[]> {
+  const { tags } = await listTagUsage();
+  return tags.map((t) => t.tag);
+}
+
 export async function listTagUsage(): Promise<TagUsageResult> {
   const admin = createAdminClient();
 
