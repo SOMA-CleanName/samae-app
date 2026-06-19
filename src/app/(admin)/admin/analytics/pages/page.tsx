@@ -1,8 +1,18 @@
+import Link from "next/link";
 import { AnalyticsChrome } from "../AnalyticsChrome";
 import { PageHeading, EmptyHint } from "../_ui";
-import { loadAnalytics, fmt, fmtDuration, ctaName } from "../_data";
+import { loadAnalytics, fmt, fmtDuration, ctaName, matchPhoto, matchPhotographer, buildQs } from "../_data";
 
 export const dynamic = "force-dynamic";
+
+// 개별 사진/작가/카테고리 경로를 '타입' 한 줄로 통일 → 페이지별 목록이 폭발하지 않게.
+// 정적 페이지(메인·로그인 등)는 경로 그대로 한 줄.
+function groupKey(path: string): string {
+  if (matchPhoto(path)) return "__photos__";
+  if (matchPhotographer(path)) return "__photographers__";
+  if (/^\/c\//.test(path)) return "__category__";
+  return path;
+}
 
 export default async function AnalyticsPagesPage({
   searchParams,
@@ -11,15 +21,16 @@ export default async function AnalyticsPagesPage({
 }) {
   const sp = (await searchParams) ?? {};
   const data = await loadAnalytics(sp.range, sp.seg);
-  const { sessions, pageName } = data;
+  const { sessions, pageName, range, seg } = data;
+  const qs = buildQs(range.key, seg.key);
 
-  type PageAgg = { views: number; exits: number; dwellSum: number; dwellCnt: number; clicks: Map<string, number> };
+  type PageAgg = { views: number; exits: number; dwellSum: number; dwellCnt: number; clicks: Map<string, number>; uniq: Set<string> };
   const agg = new Map<string, PageAgg>();
-  const ensure = (p: string) => {
-    let a = agg.get(p);
+  const ensure = (key: string) => {
+    let a = agg.get(key);
     if (!a) {
-      a = { views: 0, exits: 0, dwellSum: 0, dwellCnt: 0, clicks: new Map() };
-      agg.set(p, a);
+      a = { views: 0, exits: 0, dwellSum: 0, dwellCnt: 0, clicks: new Map(), uniq: new Set() };
+      agg.set(key, a);
     }
     return a;
   };
@@ -28,8 +39,9 @@ export default async function AnalyticsPagesPage({
     for (let i = 0; i < evs.length; i++) {
       const e = evs[i];
       if (e.type === "pageview") {
-        const a = ensure(e.path);
+        const a = ensure(groupKey(e.path));
         a.views += 1;
+        a.uniq.add(e.path);
         const start = Date.parse(e.created_at);
         let end = start;
         for (let j = i + 1; j < evs.length; j++) {
@@ -42,17 +54,26 @@ export default async function AnalyticsPagesPage({
           a.dwellCnt += 1;
         }
       } else if (e.type === "click") {
-        const a = ensure(e.path);
+        const a = ensure(groupKey(e.path));
         const k = ctaName(e.label, e.target);
         a.clicks.set(k, (a.clicks.get(k) ?? 0) + 1);
       }
     }
-    if (s.lastPath) ensure(s.lastPath).exits += 1;
+    if (s.lastPath) ensure(groupKey(s.lastPath)).exits += 1;
   }
+
+  // 통일 행 표시 이름 + 작가별 탭으로 이동(개별 상세) 여부
+  function groupTitle(key: string, uniq: number): { title: string; sub?: string; drill?: boolean } {
+    if (key === "__photos__") return { title: "사진 상세페이지", sub: `개별 사진 ${fmt.format(uniq)}개 합계`, drill: true };
+    if (key === "__photographers__") return { title: "작가 프로필", sub: `개별 작가 ${fmt.format(uniq)}명 합계`, drill: true };
+    if (key === "__category__") return { title: "카테고리 페이지", sub: `${fmt.format(uniq)}개 카테고리 합계` };
+    return pageName(key);
+  }
+
   const rows = [...agg.entries()]
-    .map(([path, a]) => ({
-      path,
-      ...pageName(path),
+    .map(([key, a]) => ({
+      key,
+      ...groupTitle(key, a.uniq.size),
       views: a.views,
       exits: a.exits,
       dwellAvg: a.dwellCnt > 0 ? a.dwellSum / a.dwellCnt : 0,
@@ -73,7 +94,7 @@ export default async function AnalyticsPagesPage({
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
           {rows.map((p) => (
-            <div key={p.path} className="rounded-2xl border border-line bg-surface p-4">
+            <div key={p.key} className="rounded-2xl border border-line bg-surface p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="truncate text-body-sm font-semibold text-fg">{p.title}</p>
@@ -94,7 +115,7 @@ export default async function AnalyticsPagesPage({
                 </div>
               </div>
               <div className="mt-3">
-                <p className="text-caption text-faint">여기서 누른 버튼</p>
+                <p className="text-caption text-faint">여기서 누른 버튼 (전체 합계)</p>
                 {p.clicks.length === 0 ? (
                   <p className="mt-1 text-caption text-muted">클릭 없음</p>
                 ) : (
@@ -108,6 +129,17 @@ export default async function AnalyticsPagesPage({
                   </ul>
                 )}
               </div>
+              {p.drill && (
+                <Link
+                  href={`/admin/analytics/photographers${qs}`}
+                  className="mt-3 flex items-center justify-center gap-1 rounded-lg border border-line-strong px-3 py-2 text-caption font-medium text-muted transition-colors hover:bg-fg/[0.03] hover:text-fg"
+                >
+                  작가별·사진별 자세히 보기
+                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </Link>
+              )}
             </div>
           ))}
         </div>
