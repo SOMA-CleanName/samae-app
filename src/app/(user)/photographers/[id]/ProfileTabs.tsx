@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { PortfolioGrid, type PortfolioPost } from "./PortfolioGrid";
 
@@ -51,18 +52,7 @@ export function ProfileTabs({
         ) : packages.length > 0 ? (
           <ul className="flex flex-col gap-2.5">
             {packages.map((pkg) => (
-              <li key={pkg.id} className="rounded-2xl border border-line bg-surface p-4">
-                <div className="flex items-baseline justify-between gap-3">
-                  <p className="text-body font-semibold">{pkg.name}</p>
-                  <p className="shrink-0 text-body font-semibold">₩{fmt.format(pkg.price_krw)}</p>
-                </div>
-                {pkg.description && (
-                  <p className="mt-1 text-body-sm text-muted">{pkg.description}</p>
-                )}
-                <p className="mt-1.5 text-caption text-faint">
-                  {pkg.duration_min}분 · 보정본 {pkg.edited_count}장
-                </p>
-              </li>
+              <PackageCard key={pkg.id} pkg={pkg} viewer={viewer} />
             ))}
           </ul>
         ) : (
@@ -70,6 +60,44 @@ export function ProfileTabs({
         )}
       </div>
     </div>
+  );
+}
+
+function PackageCard({
+  pkg,
+  viewer,
+}: {
+  pkg: ProfilePkg;
+  viewer: { isOwner: boolean; photographerId: string };
+}) {
+  const content = (
+    <>
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-body font-semibold">{pkg.name}</p>
+        <p className="shrink-0 text-body font-semibold">₩{fmt.format(pkg.price_krw)}</p>
+      </div>
+      {pkg.description && (
+        <p className="mt-1 text-body-sm text-muted">{pkg.description}</p>
+      )}
+      <p className="mt-1.5 text-caption text-faint">
+        {pkg.duration_min}분 · 보정본 {pkg.edited_count}장
+      </p>
+    </>
+  );
+
+  if (viewer.isOwner) {
+    return <li className="rounded-2xl border border-line bg-surface p-4">{content}</li>;
+  }
+
+  return (
+    <li>
+      <Link
+        href={`/inquiry?photographerId=${encodeURIComponent(viewer.photographerId)}`}
+        className="block rounded-2xl border border-line bg-surface p-4 transition-colors hover:border-fg/25 hover:bg-surface-2"
+      >
+        {content}
+      </Link>
+    </li>
   );
 }
 

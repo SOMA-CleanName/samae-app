@@ -6,9 +6,9 @@ import {
 } from "@/lib/discovery";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { Avatar } from "@/components/ui";
 import { InquiryForm } from "./InquiryForm";
 import { InquiryBackButton } from "./InquiryBackButton";
+import { InquiryMediaPanel, type InquiryMediaItem } from "./InquiryMediaPanel";
 
 export default async function InquiryPage({
   searchParams,
@@ -28,7 +28,7 @@ export default async function InquiryPage({
 
   if (me?.photographer?.id === photographerId) redirect("/studio");
 
-  const media = await getInquiryMedia(photoId, photographerId);
+  const mediaItems = await getInquiryMedia(photoId, photographerId);
 
   let profile: {
     phone: string | null;
@@ -55,8 +55,7 @@ export default async function InquiryPage({
 
       <section className="grid min-h-[650px] overflow-hidden rounded-2xl border border-line bg-surface shadow-sm md:h-[650px] md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
         <InquiryMediaPanel
-          src={media.src}
-          label={media.label}
+          items={mediaItems}
           name={photographer.display_name || "작가"}
         />
 
@@ -80,48 +79,31 @@ async function getInquiryMedia(photoId: string, photographerId: string) {
   if (photoId) {
     const photo = await fetchPhotoById(photoId);
     if (photo) {
-      return {
+      return [{
+        id: photo.id,
         src: photo.thumb_url ?? photo.src_url,
         label: "문의한 사진",
-      };
+      }];
     }
   }
 
   const photos = await fetchPhotographerPhotos(photographerId);
-  const cover = photos[0] as { thumb_url?: string | null; src_url?: string | null } | undefined;
-  return {
-    src: cover?.thumb_url ?? cover?.src_url ?? null,
-    label: "작가 프로필",
-  };
-}
-
-function InquiryMediaPanel({
-  src,
-  label,
-  name,
-}: {
-  src: string | null;
-  label: string;
-  name: string;
-}) {
-  return (
-    <div className="relative min-h-80 bg-fg/[0.04] md:min-h-full">
-      {src ? (
-        // 모바일: 고정 높이 박스라 잘리지 않게 전체 사진 표시(contain) · 데스크톱: 긴 사이드 패널 채우기(cover)
-        <img src={src} alt={label} className="absolute inset-0 h-full w-full object-contain md:object-cover" />
-      ) : (
-        <div className="absolute inset-0 grid place-items-center bg-fg/[0.04]">
-          <div className="grid h-24 w-24 place-items-center rounded-full bg-bg text-3xl font-semibold text-fg/45 shadow-sm">
-            {name.slice(0, 1)}
-          </div>
-        </div>
-      )}
-
-      {/* 작가 정보 — 사진 오른쪽 하단 오버레이 */}
-      <div className="absolute bottom-3 right-3 flex items-center gap-2 rounded-full bg-black/45 py-1 pl-1 pr-3 backdrop-blur-sm">
-        <Avatar name={name} size="sm" className="ring-1 ring-white/50" />
-        <span className="text-caption font-semibold text-white">{name}</span>
-      </div>
-    </div>
-  );
+  const representatives: InquiryMediaItem[] = [];
+  const seen = new Set<string>();
+  for (const photo of photos as {
+    id: string;
+    album_id: string | null;
+    thumb_url: string | null;
+    src_url: string;
+  }[]) {
+    const key = photo.album_id ?? `single:${photo.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    representatives.push({
+      id: photo.id,
+      src: photo.thumb_url ?? photo.src_url,
+      label: "작가 대표 사진",
+    });
+  }
+  return representatives;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { updateProfile, type ProfileState } from "../actions";
 import type { ProfileInitial } from "./page";
 
@@ -17,6 +17,11 @@ const BANKS = [
 // 작가 프로필 편집 폼
 export function ProfileForm({ initial }: { initial: ProfileInitial }) {
   const [state, formAction, pending] = useActionState(updateProfile, initialState);
+
+  useEffect(() => {
+    if (!state.ok) return;
+    window.location.reload();
+  }, [state.ok]);
 
   return (
     <form action={formAction} className="mt-6 flex flex-col gap-4">
@@ -57,21 +62,26 @@ export function ProfileForm({ initial }: { initial: ProfileInitial }) {
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-1">
             <label htmlFor="bankName" className="text-sm font-medium">은행</label>
-            <select
-              id="bankName"
-              name="bankName"
-              defaultValue={initial.bankName}
-              className="rounded-xl border border-fg/15 bg-white px-4 py-3 text-sm outline-none focus:border-fg/40"
-            >
-              <option value="">선택 안 함</option>
-              {/* 기존에 목록 밖 값이 저장돼 있으면 유지 */}
-              {initial.bankName && !BANKS.includes(initial.bankName) && (
-                <option value={initial.bankName}>{initial.bankName}</option>
-              )}
-              {BANKS.map((b) => (
-                <option key={b} value={b}>{b}</option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                id="bankName"
+                name="bankName"
+                defaultValue={initial.bankName}
+                className="w-full appearance-none rounded-xl border border-fg/15 bg-white px-4 py-3 pr-12 text-sm outline-none focus:border-fg/40"
+              >
+                <option value="">선택 안 함</option>
+                {/* 기존에 목록 밖 값이 저장돼 있으면 유지 */}
+                {initial.bankName && !BANKS.includes(initial.bankName) && (
+                  <option value={initial.bankName}>{initial.bankName}</option>
+                )}
+                {BANKS.map((b) => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </select>
+              <span className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-xs text-fg/45">
+                ▼
+              </span>
+            </div>
             {state.fieldErrors?.bankName && (
               <p className="text-xs text-brand">{state.fieldErrors.bankName}</p>
             )}

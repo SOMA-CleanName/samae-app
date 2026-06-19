@@ -194,23 +194,25 @@ export async function updateProfile(
   // 촬영비 수취 계좌 — payout_accounts(작가당 1행)에 upsert.
   // 사용자에게 노출되는 정보이므로 photographers 본문과 분리 저장(RLS: 소유자만 직접 조회).
   const me = await getCurrentPhotographerId(supabase, user.id);
-  if (me) {
-    const hasAccount = v.bankName && v.accountNumber && v.accountHolder;
-    if (hasAccount) {
-      await supabase.from("payout_accounts").upsert(
-        {
-          photographer_id: me,
-          bank: v.bankName,
-          number: v.accountNumber,
-          holder: v.accountHolder,
-        },
-        { onConflict: "photographer_id" }
-      );
-    } else if (!v.bankName && !v.accountNumber && !v.accountHolder) {
-      // 세 필드 모두 비우면 계좌 삭제
-      await supabase.from("payout_accounts").delete().eq("photographer_id", me);
-    }
-    // 일부만 입력된 경우는 무시(기존 계좌 유지)
+  if (!me) return { error: "작가 정보를 찾을 수 없습니다." };
+
+  const admin = createAdminClient();
+  const hasAccount = !!(bank && number && holder);
+  if (hasAccount) {
+    const { error: accountError } = await admin.from("payout_accounts").upsert(
+      {
+        photographer_id: me,
+        bank,
+        number,
+        holder,
+      },
+      { onConflict: "photographer_id" }
+    );
+    if (accountError) return { error: "계좌 저장 중 오류가 발생했습니다." };
+  } else if (!bank && !number && !holder) {
+    // 세 필드 모두 비우면 계좌 삭제
+    const { error: accountError } = await admin.from("payout_accounts").delete().eq("photographer_id", me);
+    if (accountError) return { error: "계좌 삭제 중 오류가 발생했습니다." };
   }
 
   revalidatePath("/studio/profile");

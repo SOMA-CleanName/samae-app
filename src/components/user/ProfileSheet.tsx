@@ -11,6 +11,7 @@ export type ProfileMe = {
   email: string | null;
   avatarUrl: string | null;
   isPhotographer: boolean;
+  photographerId: string | null;
   isAdmin: boolean;
 };
 
@@ -113,13 +114,7 @@ export function ProfileSheet({
         </div>
 
         {/* 계정 헤더 */}
-        <div className="flex items-center gap-3 px-5 py-4">
-          <Avatar src={me.avatarUrl} name={me.displayName || me.email} size="md" />
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">{me.displayName || "사용자"}</p>
-            {me.email && <p className="truncate text-xs text-muted">{me.email}</p>}
-          </div>
-        </div>
+        <AccountHeader me={me} onClick={requestClose} />
 
         <div className="border-t border-line" />
 
@@ -148,6 +143,58 @@ export function ProfileSheet({
         </form>
       </div>
     </>
+  );
+}
+
+function AccountHeader({ me, onClick }: { me: ProfileMe; onClick: () => void }) {
+  const body = (
+    <>
+      <Avatar src={me.avatarUrl} name={me.displayName || me.email} size="md" />
+      <div className="min-w-0">
+        <div className="flex min-w-0 items-center gap-2">
+          <p className="truncate text-sm font-semibold">{me.displayName || "사용자"}</p>
+          {me.isPhotographer && me.photographerId && (
+            <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-muted">
+              <ArrowUpRightIcon />
+              내 프로필 가기
+            </span>
+          )}
+        </div>
+        {me.email && <p className="truncate text-xs text-muted">{me.email}</p>}
+      </div>
+    </>
+  );
+
+  if (!me.isPhotographer || !me.photographerId) {
+    return <div className="flex items-center gap-3 px-5 py-4">{body}</div>;
+  }
+
+  return (
+    <Link
+      href={`/photographers/${me.photographerId}`}
+      onClick={onClick}
+      className="flex items-center gap-3 px-5 py-4 text-left transition-colors hover:bg-surface-2"
+    >
+      {body}
+    </Link>
+  );
+}
+
+function ArrowUpRightIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 16 16"
+      className="h-3.5 w-3.5"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.8"
+    >
+      <path d="M5 4h7v7" />
+      <path d="M4 12 12 4" />
+    </svg>
   );
 }
 
