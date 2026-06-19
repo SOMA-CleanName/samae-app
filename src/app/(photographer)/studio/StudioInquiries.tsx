@@ -407,6 +407,7 @@ function AcceptedRow({ item, account }: { item: AcceptedInquiry; account: Accoun
         <span className="min-w-0 flex-1 truncate text-body-sm font-medium text-fg">
           {item.display_name || "비회원"}
         </span>
+        <span className="shrink-0 text-caption text-faint">{timeOnly(item.created_at)} 접수</span>
         <ChevronDownIcon className={cn("h-4 w-4 shrink-0 text-faint transition-transform", open && "rotate-180")} />
       </button>
       {open && (
@@ -489,8 +490,29 @@ function ConfirmedDetail({ item }: { item: AcceptedInquiry }) {
         <Row label="목적" value={item.purpose} />
         <Row label="희망일" value={item.preferred_date} />
         {item.region && <Row label="지역" value={item.region} />}
+        {item.gender && <Row label="성별" value={item.gender} />}
+        {item.party_size != null && <Row label="인원" value={`${item.party_size}명`} />}
       </div>
       {item.note && <p className="mt-2 whitespace-pre-line text-fg/80">{item.note}</p>}
+      {item.ref_images.length > 0 && (
+        <div className="mt-3">
+          <p className="text-caption font-semibold text-muted">참고 사진</p>
+          <div className="mt-1.5 grid grid-cols-4 gap-1.5 sm:grid-cols-6">
+            {item.ref_images.map((url) => (
+              <a
+                key={url}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block aspect-square overflow-hidden rounded-lg bg-surface"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt="참고 사진" loading="lazy" className="h-full w-full object-cover" />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="mt-3 border-t border-line pt-3">
         <p className="text-caption font-semibold text-muted">연락 수단</p>
         {contacts.some(([, v]) => v) ? (
