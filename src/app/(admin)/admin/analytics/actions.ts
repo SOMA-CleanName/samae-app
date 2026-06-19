@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { archiveAllAndDelete } from "@/lib/soft-delete";
+import { invalidateAnalyticsCache } from "./_data";
 
 const RESET_PASSWORD = "same123!";
 
@@ -17,6 +18,7 @@ export async function clearAnalytics(_prev: ResetState, formData: FormData): Pro
   const { error } = await archiveAllAndDelete("analytics_events", me.id);
   if (error) return { error };
 
+  invalidateAnalyticsCache();
   revalidatePath("/admin/analytics");
   return { ok: true };
 }
