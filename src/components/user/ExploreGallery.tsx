@@ -65,19 +65,44 @@ export function ExploreGallery({
   // 풀(검색어/네비게이션) 바뀌면 노출 수 초기화
   useEffect(() => setVisible(STEP), [photos, query]);
 
-  // 바닥 근처에서 더 노출 — 메모리에서 즉시(네트워크 없음)
+  // 바닥 근처에서 더 노출 — 메모리에서 즉시(네트워크 없음).
+  // IntersectionObserver(주) + 스크롤/리사이즈(폴백). 관찰자 콜백이 한 번씩 누락돼도
+  // 폴백이 바닥 근처를 감지해 이어서 노출 → "스크롤해도 안 뜨는" 멈춤 방지.
   useEffect(() => {
     if (visible >= photos.length) return;
     const el = sentinel.current;
     if (!el) return;
+
+    let done = false; // 이 사이클(visible 값)당 1회만 증가 — 폭주/중복 방지
+    const bump = () => {
+      if (done) return;
+      done = true;
+      setVisible((v) => Math.min(photos.length, v + STEP));
+    };
+
     const io = new IntersectionObserver(
       (entries) => {
-        if (entries[0]?.isIntersecting) setVisible((v) => Math.min(photos.length, v + STEP));
+        if (entries[0]?.isIntersecting) bump();
       },
       { rootMargin: "1200px" }
     );
     io.observe(el);
-    return () => io.disconnect();
+
+    // 폴백: 센티넬이 뷰포트 바닥 1200px 이내로 들어오면 직접 노출
+    const check = () => {
+      const top = el.getBoundingClientRect().top;
+      if (top - window.innerHeight < 1200) bump();
+    };
+    window.addEventListener("scroll", check, { passive: true });
+    window.addEventListener("resize", check);
+    // 초기 1회 — 첫 화면이 충분히 길지 않아 관찰자 초기 콜백이 애매할 때 대비
+    check();
+
+    return () => {
+      io.disconnect();
+      window.removeEventListener("scroll", check);
+      window.removeEventListener("resize", check);
+    };
   }, [visible, photos.length]);
 
   // 보기 옵션(가격·작가명) — 세션 유지 + SearchOptions 토글과 이벤트로 동기화

@@ -213,8 +213,8 @@ export async function updateProfile(
     // 일부만 입력된 경우는 무시(기존 계좌 유지)
   }
 
-  revalidatePath("/studio/profile");
-  revalidatePath("/studio");
+  // 새로고침(RSC 재렌더) 없이 저장 — 폼은 입력값을 그대로 유지하고 성공 표시만.
+  // /studio·/studio/profile 은 인증 기반 동적 페이지라 다음 방문 시 자동으로 최신값 반영됨.
   return { ok: true };
 }
 
