@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { getPublishedCategory } from "@/lib/categories";
-import { fetchPhotosByTags, fetchLikedPhotoIds } from "@/lib/discovery";
+import { getPublishedCategory, isUntaggedCategory } from "@/lib/categories";
+import { fetchPhotosByTags, fetchUntaggedPhotos, fetchLikedPhotoIds } from "@/lib/discovery";
 import { ExploreGallery } from "@/components/user/ExploreGallery";
 import { EmptyState } from "@/components/ui";
 import { LayersIcon } from "@/components/user/icons";
@@ -19,7 +19,9 @@ export default async function CategoryPage({
   if (!category) notFound();
 
   const me = await getCurrentUser();
-  const photos = await fetchPhotosByTags(category.tags, 60);
+  const photos = isUntaggedCategory(category.tags)
+    ? await fetchUntaggedPhotos(60)
+    : await fetchPhotosByTags(category.tags, 60);
   const likedIds = me ? await fetchLikedPhotoIds(photos.map((p) => p.id), me.id) : [];
 
   return (
