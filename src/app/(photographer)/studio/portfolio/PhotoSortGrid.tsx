@@ -24,7 +24,7 @@ export function PhotoSortGrid({
   const [order, setOrder] = useState<SortPhoto[]>(photos);
   const [, start] = useTransition();
 
-  // 서버 재검증으로 사진 구성(추가·삭제)이 바뀌면 동기화. 순서만 바뀐 낙관적 갱신은 유지.
+  // 서버 재검증으로 사진 구성이나 공개 상태가 바뀌면 동기화. 순서만 바뀐 낙관적 갱신은 유지.
   const idSig = [...photos].map((p) => p.id).sort().join(",");
   const lastSig = useRef(idSig);
   useEffect(() => {
@@ -33,6 +33,18 @@ export function PhotoSortGrid({
       lastSig.current = idSig;
     }
   }, [idSig, photos]);
+
+  const visibilitySig = [...photos]
+    .map((p) => `${p.id}:${p.visibility}`)
+    .sort()
+    .join(",");
+  const lastVisibilitySig = useRef(visibilitySig);
+  useEffect(() => {
+    if (visibilitySig === lastVisibilitySig.current) return;
+    const latestById = new Map(photos.map((p) => [p.id, p]));
+    setOrder((current) => current.map((p) => latestById.get(p.id) ?? p));
+    lastVisibilitySig.current = visibilitySig;
+  }, [photos, visibilitySig]);
 
   const canSort = !!albumId && order.length > 1;
 

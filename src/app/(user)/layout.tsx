@@ -46,6 +46,7 @@ export default async function UserLayout({
                 email: me.email,
                 avatarUrl: me.avatarUrl,
                 isPhotographer: !!me.photographer,
+                photographerId: me.photographer?.id ?? null,
                 isAdmin: me.role === "admin",
               }
             : null

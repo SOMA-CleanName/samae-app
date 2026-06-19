@@ -42,7 +42,7 @@ export default async function PackagesPage() {
           <input name="name" placeholder="패키지 이름 (예: 데이트 스냅 베이직)" required className={inputCls} />
           <textarea name="description" rows={2} placeholder="설명 (선택)" className={inputCls} />
           <div className="grid grid-cols-3 gap-2">
-            <LabeledInput name="priceKrw" label="가격(원)" min={0} max={100_000_000} step={10_000} required />
+            <LabeledInput name="priceKrw" label="가격(원)" defaultValue="100000" min={0} max={100_000_000} step={10_000} required />
             <LabeledInput name="durationMin" label="소요(분)" defaultValue="60" min={10} max={1440} step={5} required />
             <LabeledInput name="editedCount" label="보정본(장)" defaultValue="10" min={0} max={1000} step={1} required />
           </div>

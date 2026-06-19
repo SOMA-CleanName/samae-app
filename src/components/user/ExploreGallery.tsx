@@ -13,19 +13,22 @@ import { EmptyState } from "@/components/ui";
 const fmt = new Intl.NumberFormat("ko-KR");
 const STEP = 48; // 스크롤마다 더 보여줄 사진 수(메모리에서 즉시 노출)
 
-// 컨테이너 폭 기준 반응형 컬럼 수
 function useColumnCount(ref: React.RefObject<HTMLDivElement | null>) {
   const [cols, setCols] = useState(2);
+  const [ready, setReady] = useState(false);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    const compute = () => setCols(Math.max(2, Math.min(7, Math.round(el.clientWidth / 220))));
+    const compute = () => {
+      setCols(Math.max(2, Math.min(7, Math.round(el.clientWidth / 220))));
+      setReady(true);
+    };
     compute();
     const ro = new ResizeObserver(compute);
     ro.observe(el);
     return () => ro.disconnect();
   }, [ref]);
-  return cols;
+  return { cols, ready };
 }
 
 // 높이 균형 그리디 분배 — 각 사진을 가장 짧은 컬럼에 넣는다.
@@ -59,7 +62,7 @@ export function ExploreGallery({
   const [visible, setVisible] = useState(STEP);
   const sentinel = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
-  const colCount = useColumnCount(gridRef);
+  const { cols: colCount, ready: columnsReady } = useColumnCount(gridRef);
   const likedSet = new Set(likedIds);
 
   // 풀(검색어/네비게이션) 바뀌면 노출 수 초기화
@@ -162,7 +165,13 @@ export function ExploreGallery({
       )}
 
       {/* 메이슨리 갤러리 — JS 컬럼 버킷(추가 시 기존 사진 위치 고정) */}
-      <div ref={gridRef} className="flex gap-3 pt-3">
+      <div
+        ref={gridRef}
+        className={cn(
+          "flex gap-3 pt-3 transition-opacity",
+          columnsReady ? "opacity-100" : "opacity-0"
+        )}
+      >
         {columns.map((col, ci) => (
           <div key={ci} className="flex min-w-0 flex-1 flex-col gap-3">
             {col.map((photo) => (

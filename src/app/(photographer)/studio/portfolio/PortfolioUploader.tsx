@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from "react";
 import { TagInput } from "./TagInput";
 import { HelpTip } from "./HelpTip";
+import { SortableGrid, SortableItem } from "@/components/ui/SortableGrid";
 
 // 가격 선택지로 쓰는 작가 패키지 (활성 패키지만)
 export type PackageOption = { id: string; name: string; price_krw: number };
@@ -53,6 +54,18 @@ export function PortfolioUploader({
   function removeAt(i: number) {
     setFiles((prev) => prev.filter((_, idx) => idx !== i));
   }
+  function reorderFiles(ids: string[]) {
+    setFiles((prev) => {
+      const byKey = new Map(prev.map((file) => [fileKey(file), file]));
+      return ids.map((id) => byKey.get(id)).filter((file): file is File => !!file);
+    });
+  }
+  function makeCover(i: number) {
+    setFiles((prev) => [
+      ...prev.filter((_, idx) => idx === i),
+      ...prev.filter((_, idx) => idx !== i),
+    ]);
+  }
 
   function submit() {
     if (files.length === 0) {
@@ -101,30 +114,72 @@ export function PortfolioUploader({
         </button>
       ) : (
         <>
-          <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
-            {previews.map((src, i) => (
-              <div key={src} className="group relative aspect-square overflow-hidden rounded-lg bg-fg/[0.06]">
-                <img src={src} alt="" className="h-full w-full object-cover" />
-                <button
-                  type="button"
-                  onClick={() => removeAt(i)}
-                  aria-label="제거"
-                  className="absolute right-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-black/60 text-[11px] text-white opacity-0 transition-opacity group-hover:opacity-100"
+          <SortableGrid
+            ids={files.map(fileKey)}
+            onReorder={reorderFiles}
+            disabled={files.length < 2}
+            className="grid grid-cols-4 gap-2 sm:grid-cols-5"
+            append={
+              <button
+                type="button"
+                onClick={() => inputRef.current?.click()}
+                className="grid aspect-square place-items-center rounded-lg border border-dashed border-fg/25 text-xl text-fg/40 hover:border-fg/40 hover:text-fg/60"
+              >
+                +
+              </button>
+            }
+          >
+            {(id) => {
+              const i = files.findIndex((file) => fileKey(file) === id);
+              const src = previews[i];
+              if (i < 0 || !src) return null;
+              const isCover = i === 0;
+              return (
+                <SortableItem
+                  key={id}
+                  id={id}
+                  className={`group relative aspect-square overflow-hidden rounded-lg bg-fg/[0.06] ${
+                    files.length > 1 ? "cursor-grab touch-manipulation select-none active:cursor-grabbing" : ""
+                  }`}
                 >
-                  ✕
-                </button>
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={() => inputRef.current?.click()}
-              className="grid aspect-square place-items-center rounded-lg border border-dashed border-fg/25 text-xl text-fg/40 hover:border-fg/40 hover:text-fg/60"
-            >
-              +
-            </button>
-          </div>
+                  {({ isDragging }) => (
+                    <div className={isDragging ? "h-full shadow-2xl ring-2 ring-fg/30" : "h-full"}>
+                      <img src={src} alt="" draggable={false} className="pointer-events-none h-full w-full select-none object-cover" />
+                      <div
+                        onPointerDown={(e) => e.stopPropagation()}
+                        className="absolute left-1.5 top-1.5 flex flex-col items-start gap-1"
+                      >
+                        {isCover ? (
+                          <span className="rounded-full bg-fg px-2 py-0.5 text-[10px] font-semibold text-bg shadow">
+                            대표
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => makeCover(i)}
+                            className="rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-fg opacity-0 shadow transition-opacity hover:bg-white group-hover:opacity-100"
+                          >
+                            대표로
+                          </button>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={() => removeAt(i)}
+                        aria-label="제거"
+                        className="absolute right-1 top-1 grid h-5 w-5 place-items-center rounded-full bg-black/60 text-[11px] text-white opacity-0 transition-opacity group-hover:opacity-100"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  )}
+                </SortableItem>
+              );
+            }}
+          </SortableGrid>
           <p className="mt-2 text-xs text-fg/50">
-            {files.length}장 선택됨{files.length > 1 ? " · 하나의 피드로 묶여요" : ""}
+            {files.length}장 선택됨{files.length > 1 ? " · 첫 번째 사진이 대표예요" : ""}
           </p>
         </>
       )}
@@ -225,4 +280,8 @@ export function PortfolioUploader({
       </div>
     </div>
   );
+}
+
+function fileKey(file: File) {
+  return `${file.name}:${file.size}:${file.lastModified}`;
 }

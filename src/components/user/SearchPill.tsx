@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { SearchIcon } from "./icons";
 
@@ -13,6 +13,10 @@ export function SearchPill({
   const router = useRouter();
   const params = useSearchParams();
   const [q, setQ] = useState(params.get("q") ?? "");
+
+  useEffect(() => {
+    setQ(params.get("q") ?? "");
+  }, [params]);
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
