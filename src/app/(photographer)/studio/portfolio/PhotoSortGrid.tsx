@@ -88,12 +88,26 @@ export function PhotoSortGrid({
                   />
                 </div>
 
-                {/* 대표 뱃지 (맨 앞 사진) */}
-                {isCover && (
-                  <span className="absolute left-2 top-2 rounded-full bg-fg px-2 py-0.5 text-[10px] font-semibold text-bg shadow">
-                    대표
-                  </span>
-                )}
+                <div
+                  onPointerDown={(e) => e.stopPropagation()}
+                  className="absolute left-2 top-2 flex flex-col items-start gap-1"
+                >
+                  {/* 대표 뱃지 (맨 앞 사진) */}
+                  {isCover && (
+                    <span className="rounded-full bg-fg px-2 py-0.5 text-[10px] font-semibold text-bg shadow">
+                      대표
+                    </span>
+                  )}
+                  {canSort && !isCover && (
+                    <button
+                      type="button"
+                      onClick={() => makeCover(p.id)}
+                      className="rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-fg opacity-0 shadow transition-opacity hover:bg-white group-hover:opacity-100"
+                    >
+                      대표로
+                    </button>
+                  )}
+                </div>
 
                 {/* 공개 상태 — 우상단 */}
                 {p.visibility === "published" ? (
@@ -112,15 +126,6 @@ export function PhotoSortGrid({
                   onPointerDown={(e) => e.stopPropagation()}
                   className="absolute inset-x-0 bottom-0 flex flex-wrap gap-1 bg-gradient-to-t from-black/65 to-transparent p-1.5 opacity-0 transition-opacity group-hover:opacity-100"
                 >
-                  {canSort && !isCover && (
-                    <button
-                      type="button"
-                      onClick={() => makeCover(p.id)}
-                      className="rounded bg-white/90 px-2 py-1 text-[11px] font-semibold text-fg hover:bg-white"
-                    >
-                      대표로
-                    </button>
-                  )}
                   <form action={setPhotoVisibility} className="flex-1">
                     <input type="hidden" name="id" value={p.id} />
                     <input type="hidden" name="visibility" value={p.visibility === "published" ? "draft" : "published"} />

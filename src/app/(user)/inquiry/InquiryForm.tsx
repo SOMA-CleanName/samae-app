@@ -17,12 +17,16 @@ export function InquiryForm({
   photographerName,
   initialPhone,
   initialInstagramId,
+  initialKakaoId,
+  initialExtraContact,
 }: {
   photographerId: string;
   photoId: string;
   photographerName: string;
   initialPhone: string;
   initialInstagramId: string;
+  initialKakaoId: string;
+  initialExtraContact: string;
 }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(submitInquiry, INITIAL_STATE);
@@ -40,10 +44,9 @@ export function InquiryForm({
   // 연락처
   const [phone, setPhone] = useState(formatPhone(initialPhone));
   const [instagramId, setInstagramId] = useState(initialInstagramId);
-  const [kakaoId, setKakaoId] = useState("");
-  const [extraContact, setExtraContact] = useState("");
+  const [kakaoId, setKakaoId] = useState(initialKakaoId);
+  const [extraContact, setExtraContact] = useState(initialExtraContact);
 
-  const [briefPrompt, setBriefPrompt] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [referencePreviews, setReferencePreviews] = useState<ReferencePreview[]>([]);
@@ -89,16 +92,10 @@ export function InquiryForm({
     setStep(2);
   }, [state.values]);
 
-  const briefValid = !!partySize && !!purpose && !!preferredDate && !!region;
   const hasContact =
     !!phone.trim() || !!instagramId.trim() || !!kakaoId.trim() || !!extraContact.trim();
 
   function goNext() {
-    if (!briefValid) {
-      setBriefPrompt(true);
-      return;
-    }
-    setBriefPrompt(false);
     setStep(2);
   }
 
@@ -140,11 +137,10 @@ export function InquiryForm({
 
         {/* ── 1단계: 상담 정보 (input 들은 항상 폼에 존재, 단계에 따라 표시만 토글) ── */}
         <div className={step === 1 ? "mt-5 block" : "hidden"}>
-          <p className="text-base font-semibold text-fg/85">상담 정보를 입력해주세요.</p>
+          <p className="text-base font-semibold text-fg/85">상담 정보를 입력해주세요. (필수 입력 아님)</p>
           <div className="mt-5 space-y-4">
             <Field
               label="인원"
-              required
               name="partySize"
               value={partySize}
               onChange={setPartySize}
@@ -153,7 +149,6 @@ export function InquiryForm({
             />
             <Field
               label="사진 목적"
-              required
               name="purpose"
               value={purpose}
               onChange={setPurpose}
@@ -161,7 +156,6 @@ export function InquiryForm({
             />
             <Field
               label="희망 일정"
-              required
               name="preferredDate"
               value={preferredDate}
               onChange={setPreferredDate}
@@ -169,7 +163,6 @@ export function InquiryForm({
             />
             <Field
               label="희망 지역"
-              required
               name="region"
               value={region}
               onChange={setRegion}
@@ -279,10 +272,7 @@ export function InquiryForm({
         <div className="mt-auto pt-6">
           {step === 1 ? (
             <>
-              {briefPrompt && (
-                <p className="mb-2 text-sm font-medium text-brand">필수 항목을 모두 입력해주세요.</p>
-              )}
-              <Button type="button" size="lg" fullWidth onClick={goNext} disabled={!briefValid}>
+              <Button type="button" size="lg" fullWidth onClick={goNext}>
                 다음
               </Button>
             </>
@@ -328,7 +318,6 @@ function Field({
   onChange,
   placeholder,
   inputMode,
-  required,
 }: {
   label: string;
   name: string;
@@ -336,13 +325,11 @@ function Field({
   onChange: (value: string) => void;
   placeholder?: string;
   inputMode?: "numeric" | "text";
-  required?: boolean;
 }) {
   return (
     <label className="block">
       <span className="flex items-center gap-1.5 text-sm font-medium text-fg/80">
         {label}
-        {required && <span className="text-xs font-medium text-brand">필수</span>}
       </span>
       <input
         name={name}

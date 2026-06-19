@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { AvatarUploader } from "@/app/(user)/settings/AvatarUploader";
 import { ProfileForm } from "./ProfileForm";
 
 export type ProfileInitial = {
@@ -53,6 +54,15 @@ export default async function ProfilePage() {
       </Link>
       <h1 className="mt-4 text-2xl font-semibold">프로필 편집</h1>
       <p className="mt-1 text-sm text-fg/55">{me.photographer.displayName}</p>
+      <section className="mt-6 rounded-2xl border border-fg/10 bg-white p-4">
+        <p className="text-sm font-semibold text-fg">프로필 대표 사진</p>
+        <div className="mt-4">
+          <AvatarUploader
+            initialUrl={me.avatarUrl}
+            fallback={(me.photographer.displayName || me.displayName || me.email || "작가").slice(0, 1)}
+          />
+        </div>
+      </section>
       <ProfileForm initial={initial} />
     </main>
   );

@@ -85,11 +85,7 @@ function validateContactInfo(formData: FormData): ContactInfo {
 }
 
 function validateBriefInfo(formData: FormData): BriefInfo {
-  const brief = readBriefInfo(formData);
-  if (!brief.partySize || !brief.purpose || !brief.preferredDate || !brief.region) {
-    throw new Error("상담 정보를 먼저 작성해주세요.");
-  }
-  return brief;
+  return readBriefInfo(formData);
 }
 
 function readInquiryValues(formData: FormData): InquiryValues {
@@ -130,7 +126,7 @@ function normalizeInstagramId(value: string | null) {
   return id.replace(/\s/g, "");
 }
 
-// 문의 폼 제출 — 상담 정보 작성과 연락 수단 검증을 통과하면 작가에게 알림을 보낸다.
+// 문의 폼 제출 — 연락 수단 검증을 통과하면 작가에게 알림을 보낸다.
 export async function submitInquiry(
   _prevState: InquiryState,
   formData: FormData
@@ -160,6 +156,8 @@ export async function submitInquiry(
       .update({
         phone: contact.phone,
         instagram_id: contact.instagramId,
+        kakao_id: contact.kakaoId,
+        extra_contact: contact.extraContact,
       })
       .eq("id", me.id);
     if (error) return { ok: false, error: error.message, values };
@@ -257,8 +255,8 @@ function inquiryNickname(displayName: string | null) {
 function buildInquiryBody(displayName: string | null, _contact: ContactInfo, brief: BriefInfo) {
   const lines = [
     `${inquiryNickname(displayName)} 님이 예약 문의를 하였습니다.`,
-    `목적: ${brief.purpose}`,
-    `희망 일정: ${brief.preferredDate}`,
+    brief.purpose && `목적: ${brief.purpose}`,
+    brief.preferredDate && `희망 일정: ${brief.preferredDate}`,
     brief.region && `희망 지역: ${brief.region}`,
     brief.refImagePaths.length > 0 && `레퍼런스 사진: ${brief.refImagePaths.length}장`,
     "수락 후 입금이 확인되면 연락처가 공개됩니다.",
