@@ -8,10 +8,10 @@ export const dynamic = "force-dynamic";
 export default async function AnalyticsJourneysPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ range?: string; seg?: string }>;
+  searchParams?: Promise<{ range?: string; seg?: string; persona?: string }>;
 }) {
   const sp = (await searchParams) ?? {};
-  const data = await loadAnalytics(sp.range, sp.seg);
+  const data = await loadAnalytics(sp.range, sp.seg, sp.persona);
   const { sessions, pageName } = data;
 
   const journeys = sessions

@@ -16,12 +16,12 @@ export const dynamic = "force-dynamic";
 export default async function AnalyticsOverviewPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ range?: string; seg?: string }>;
+  searchParams?: Promise<{ range?: string; seg?: string; persona?: string }>;
 }) {
   const sp = (await searchParams) ?? {};
-  const data = await loadAnalytics(sp.range, sp.seg);
-  const { sessions, seg, range, events } = data;
-  const qs = buildQs(range.key, seg.key);
+  const data = await loadAnalytics(sp.range, sp.seg, sp.persona);
+  const { sessions, seg, persona, range, events } = data;
+  const qs = buildQs(range.key, seg.key, persona.key);
 
   // 요약 지표
   const sessionCount = sessions.length;
@@ -48,9 +48,7 @@ export default async function AnalyticsOverviewPage({
 
   const topPage = topByEvent(sessions, (e) => (e.type === "pageview" ? e.path : null), 1)[0];
   const scrollAll = sessions.flatMap((s) => s.events).filter((e) => e.type === "scroll");
-  const reach100 = scrollAll.filter((e) => Number(e.label) >= 100).length;
-  const reach25 = scrollAll.filter((e) => Number(e.label) >= 25).length;
-  const deepRate = reach25 > 0 ? Math.round((reach100 / reach25) * 100) : 0;
+  const avgScreens = scrollAll.length > 0 ? scrollAll.reduce((n, e) => n + Number(e.label || 0), 0) / scrollAll.length : 0;
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-5">
@@ -108,8 +106,8 @@ export default async function AnalyticsOverviewPage({
             <NavCard
               href={`/admin/analytics/engagement${qs}`}
               title="참여·유입"
-              big={`${deepRate}%`}
-              desc="스크롤 끝까지 본 비율 · 보기 옵션 · 광고 유입"
+              big={`평균 ${avgScreens.toFixed(1)}화면`}
+              desc="무한스크롤 깊이 · 보기 옵션 · 광고 유입"
             />
           </div>
         </>

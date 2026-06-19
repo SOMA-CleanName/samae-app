@@ -27,15 +27,6 @@ type Ev = {
   referrer?: string | null;
 };
 
-// 최대 도달 스크롤 뎁스를 25/50/75/100 버킷으로
-function depthBucket(d: number): number {
-  if (d >= 0.98) return 100;
-  if (d >= 0.75) return 75;
-  if (d >= 0.5) return 50;
-  if (d >= 0.25) return 25;
-  return 0;
-}
-
 function sessionId(): string {
   try {
     let id = localStorage.getItem(SID_KEY);
@@ -84,15 +75,15 @@ export function AnalyticsTracker() {
   const prevPath = useRef<string | null>(null);
   const queue = useRef<Ev[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const maxDepth = useRef(0); // 현재 페이지 최대 스크롤 뎁스(0~1)
+  const maxScreens = useRef(0); // 현재 페이지에서 내려간 최대 화면 수(뷰포트 단위)
 
-  // 페이지를 떠날 때 그 페이지의 최대 스크롤 뎁스를 1건 기록(무한스크롤 뎁스)
+  // 페이지를 떠날 때 그 페이지에서 내려간 최대 화면 수를 1건 기록(무한스크롤 깊이)
+  // 단위: '화면'(=뷰포트 1개). %보다 직관적이고 무한스크롤에서 의미가 분명함.
   function flushScroll(path: string | null) {
-    const d = maxDepth.current;
-    maxDepth.current = 0;
+    const screens = Math.round(maxScreens.current);
+    maxScreens.current = 0;
     if (!path || !isTracked(path)) return;
-    const bucket = depthBucket(d);
-    if (bucket > 0) queue.current.push({ type: "scroll", path, label: String(bucket) });
+    if (screens >= 1) queue.current.push({ type: "scroll", path, label: String(Math.min(screens, 99)) });
   }
 
   function flush(beacon = false) {
@@ -142,7 +133,7 @@ export function AnalyticsTracker() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
-  // 스크롤 뎁스 추적 — 충분히 긴(스크롤 가능한) 페이지에서만 최대 도달 비율 기록
+  // 스크롤 깊이 추적 — 내려간 거리를 '화면 수'(뷰포트 단위)로. 무한스크롤 깊이 측정.
   useEffect(() => {
     let raf = 0;
     function onScroll() {
@@ -151,8 +142,8 @@ export function AnalyticsTracker() {
         raf = 0;
         const doc = document.documentElement;
         if (doc.scrollHeight - window.innerHeight < 200) return; // 거의 스크롤 없는 페이지 무시
-        const d = Math.min(1, (window.scrollY + window.innerHeight) / doc.scrollHeight);
-        if (d > maxDepth.current) maxDepth.current = d;
+        const screens = window.innerHeight > 0 ? window.scrollY / window.innerHeight : 0;
+        if (screens > maxScreens.current) maxScreens.current = screens;
       });
     }
     window.addEventListener("scroll", onScroll, { passive: true });

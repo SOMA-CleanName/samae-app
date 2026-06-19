@@ -2,14 +2,15 @@ import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { clearAnalytics } from "./actions";
 import { PasswordReset } from "@/components/admin/PasswordReset";
-import { RANGES, SEGMENTS, TABS, fmt, buildQs, type AnalyticsData } from "./_data";
+import { RANGES, SEGMENTS, PERSONAS, TABS, fmt, buildQs, type AnalyticsData } from "./_data";
 
-// 분석 대시보드 공통 상단 — 제목 + 기간 + 페르소나 + 탭 네비.
-// 모든 탭(라우트)에서 range·seg 를 유지하며 이동.
+// 분석 대시보드 공통 상단 — 제목 + 기간 + 기본 구분 + 페르소나 + 탭 네비.
+// 기본 구분과 페르소나는 서로 독립(교집합). 모든 탭에서 range·seg·persona 유지.
 export function AnalyticsChrome({ active, data }: { active: string; data: AnalyticsData }) {
-  const { range, seg, allSessions } = data;
-  const qs = buildQs(range.key, seg.key);
+  const { range, seg, persona, allSessions } = data;
+  const qs = buildQs(range.key, seg.key, persona.key);
   const activeTab = TABS.find((t) => t.key === active);
+  const base = activeTab?.path ?? "/admin/analytics";
 
   return (
     <div className="border-b border-line pb-1">
@@ -30,7 +31,7 @@ export function AnalyticsChrome({ active, data }: { active: string; data: Analyt
           {RANGES.map((r) => (
             <Link
               key={r.key}
-              href={`${activeTab?.path ?? "/admin/analytics"}${buildQs(r.key, seg.key)}`}
+              href={`${base}${buildQs(r.key, seg.key, persona.key)}`}
               className={cn(
                 "rounded-full border px-3.5 py-1.5 text-caption font-medium transition-colors",
                 r.key === range.key ? "border-fg bg-fg text-bg" : "border-line-strong text-muted hover:bg-fg/[0.04]"
@@ -42,26 +43,50 @@ export function AnalyticsChrome({ active, data }: { active: string; data: Analyt
         </div>
       </div>
 
-      {/* 페르소나 */}
+      {/* 기본 구분 (계정·행동) — 페르소나와 독립 */}
       <div className="mt-4">
-        <p className="mb-1.5 text-caption font-medium text-faint">누구를 볼까요? (페르소나)</p>
+        <p className="mb-1.5 text-caption font-medium text-faint">기본 구분 (계정·행동)</p>
         <div className="flex flex-wrap gap-1.5">
           {SEGMENTS.map((s) => {
             const n = allSessions.filter((x) => s.match(x)).length;
             return (
               <Link
                 key={s.key}
-                href={`${activeTab?.path ?? "/admin/analytics"}${buildQs(range.key, s.key)}`}
+                href={`${base}${buildQs(range.key, s.key, persona.key)}`}
                 title={s.desc}
                 className={cn(
                   "rounded-full border px-3 py-1.5 text-caption font-medium transition-colors",
-                  s.key === seg.key ? "border-brand bg-brand/[0.06] text-brand" : "border-line-strong text-muted hover:bg-fg/[0.04]"
+                  s.key === seg.key ? "border-fg bg-fg text-bg" : "border-line-strong text-muted hover:bg-fg/[0.04]"
                 )}
               >
                 {s.label} <span className="tabular-nums opacity-70">{fmt.format(n)}</span>
               </Link>
             );
           })}
+        </div>
+      </div>
+
+      {/* 페르소나 — 기본 구분과 독립적으로 교집합 적용 */}
+      <div className="mt-3">
+        <p className="mb-1.5 text-caption font-medium text-faint">페르소나 (별도 · 교집합)</p>
+        <div className="flex flex-wrap gap-1.5">
+          {PERSONAS.map((p) => {
+            const n = allSessions.filter((x) => p.match(x)).length;
+            return (
+              <Link
+                key={p.key}
+                href={`${base}${buildQs(range.key, seg.key, p.key)}`}
+                title={p.desc}
+                className={cn(
+                  "rounded-full border px-3 py-1.5 text-caption font-medium transition-colors",
+                  p.key === persona.key ? "border-brand bg-brand/[0.06] text-brand" : "border-line-strong text-muted hover:bg-fg/[0.04]"
+                )}
+              >
+                {p.label} <span className="tabular-nums opacity-70">{fmt.format(n)}</span>
+              </Link>
+            );
+          })}
+          <span className="self-center text-caption text-faint">페르소나 확정 시 카테고리 추가 예정</span>
         </div>
       </div>
 

@@ -17,12 +17,12 @@ function groupKey(path: string): string {
 export default async function AnalyticsPagesPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ range?: string; seg?: string }>;
+  searchParams?: Promise<{ range?: string; seg?: string; persona?: string }>;
 }) {
   const sp = (await searchParams) ?? {};
-  const data = await loadAnalytics(sp.range, sp.seg);
-  const { sessions, pageName, range, seg } = data;
-  const qs = buildQs(range.key, seg.key);
+  const data = await loadAnalytics(sp.range, sp.seg, sp.persona);
+  const { sessions, pageName, range, seg, persona } = data;
+  const qs = buildQs(range.key, seg.key, persona.key);
 
   type PageAgg = { views: number; exits: number; dwellSum: number; dwellCnt: number; clicks: Map<string, number>; uniq: Set<string> };
   const agg = new Map<string, PageAgg>();
