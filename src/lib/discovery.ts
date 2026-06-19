@@ -15,6 +15,23 @@ export type GalleryPhoto = {
   photographer: { id: string; display_name: string | null };
 };
 
+type SearchablePhoto = GalleryPhoto & {
+  location_text: string | null;
+  album_id: string | null;
+  photographer_id: string;
+  photographer: GalleryPhoto["photographer"] & {
+    regions?: string[] | null;
+    mood_tags?: string[] | null;
+  };
+};
+
+type SearchQuery = {
+  compact: string;
+  terms: string[];
+};
+
+const LIKE_COUNT_BATCH_SIZE = 40;
+
 // 제자리 셔플 (탐색 낱개 랜덤 노출용)
 function shuffle<T>(arr: T[]): T[] {
   for (let i = arr.length - 1; i > 0; i--) {
@@ -40,6 +57,21 @@ export type PhotographerCard = {
 // 검색어에서 PostgREST or-필터를 깨뜨릴 문자 제거
 function sanitize(q: string): string {
   return q.replace(/[,(){}*]/g, " ").trim().slice(0, 40);
+}
+
+// 검색 비교용 정규화 — 사용자가 넣은 띄어쓰기 차이를 줄인다.
+function normalizeSearchText(value: string): string {
+  return value.toLowerCase().replace(/\s+/g, "");
+}
+
+function buildSearchQuery(qRaw: string): SearchQuery {
+  const safe = sanitize(qRaw);
+  const terms = safe
+    .split(/\s+/)
+    .map(normalizeSearchText)
+    .filter(Boolean);
+  const compact = normalizeSearchText(safe);
+  return { compact, terms: [...new Set([compact, ...terms].filter(Boolean))] };
 }
 
 // 공개 사진 갤러리 (무드·지역 필터). 승인 작가의 published 만.
@@ -103,23 +135,209 @@ export async function fetchUntaggedPhotos(limit = 300): Promise<GalleryPhoto[]> 
 }
 
 // 무드 태그로 공개 사진 검색 — 부분 일치(대소문자 무시), 결과는 메이슨리 사진.
-// text[] 부분 일치는 PostgREST 단일 연산자로 어려워, 최근 published 사진을 받아 JS에서 필터(베타 한정 범위).
+// text[] 부분 일치는 PostgREST 단일 연산자로 어려워, published 전체를 페이지 단위로 받아 JS에서 필터.
 export async function searchPhotosByTag(qRaw: string): Promise<GalleryPhoto[]> {
-  const q = sanitize(qRaw).toLowerCase();
-  if (!q) return [];
+  const query = buildSearchQuery(qRaw);
+  if (!query.compact) return [];
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("photos")
-    .select(
-      "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name)"
-    )
-    .eq("visibility", "published")
-    .order("created_at", { ascending: false })
-    .limit(200);
+  const rows = await fetchAllSearchablePhotos(supabase);
+  const scored = rows
+    .map((photo, index) => ({
+      photo,
+      index,
+      score: calculateSearchScore(photo, query),
+    }))
+    .filter((item) => item.score > 0);
+  const primary = await sortPhotosBySearchScore(supabase, scored);
+  return appendRelatedPhotos(primary, rows);
+}
 
-  const rows = (data ?? []) as unknown as GalleryPhoto[];
-  // 낱개 매칭 결과 (묶음 무시)
-  return rows.filter((p) => (p.mood_tags ?? []).some((t) => t.toLowerCase().includes(q)));
+function calculateSearchScore(photo: SearchablePhoto, query: SearchQuery): number {
+  const photographer = photo.photographer;
+  return (
+    bestArrayScore(photo.mood_tags, query, { exact: 120, startsWith: 95, includes: 75 }) +
+    bestTextScore(photo.location_text, query, { exact: 80, startsWith: 65, includes: 50 }) +
+    bestTextScore(photo.region, query, { exact: 75, startsWith: 60, includes: 45 }) +
+    bestTextScore(photographer.display_name, query, { exact: 70, startsWith: 55, includes: 40 }) +
+    bestArrayScore(photographer.mood_tags, query, { exact: 65, startsWith: 50, includes: 35 }) +
+    bestArrayScore(photographer.regions, query, { exact: 60, startsWith: 45, includes: 30 })
+  );
+}
+
+function bestArrayScore(
+  values: string[] | null | undefined,
+  query: SearchQuery,
+  weights: { exact: number; startsWith: number; includes: number }
+): number {
+  let best = 0;
+  for (const value of values ?? []) {
+    best = Math.max(best, bestTextScore(value, query, weights));
+  }
+  return best;
+}
+
+function bestTextScore(
+  value: string | null | undefined,
+  query: SearchQuery,
+  weights: { exact: number; startsWith: number; includes: number }
+): number {
+  if (!value) return 0;
+  const target = normalizeSearchText(value);
+  let score = 0;
+
+  for (const term of query.terms) {
+    if (!term) continue;
+    if (target === term) score = Math.max(score, weights.exact);
+    else if (target.startsWith(term)) score = Math.max(score, weights.startsWith);
+    else if (target.includes(term)) score = Math.max(score, weights.includes);
+  }
+
+  return score;
+}
+
+async function sortPhotosBySearchScore(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  scored: { photo: SearchablePhoto; index: number; score: number }[]
+): Promise<GalleryPhoto[]> {
+  if (scored.length === 0) return [];
+
+  const counts: number[] = [];
+  for (let start = 0; start < scored.length; start += LIKE_COUNT_BATCH_SIZE) {
+    const batch = scored.slice(start, start + LIKE_COUNT_BATCH_SIZE);
+    const batchCounts = await Promise.all(
+      batch.map(async ({ photo }) => {
+        try {
+          const res = await supabase.rpc("photo_like_count", { pid: photo.id });
+          return typeof res.data === "number" ? res.data : 0;
+        } catch {
+          return 0;
+        }
+      })
+    );
+    counts.push(...batchCounts);
+  }
+
+  // 관련도 점수를 우선하고, 좋아요 수는 보조 정렬로 쓴다.
+  const sorted = scored
+    .map((item, index) => ({ ...item, count: counts[index] ?? 0 }))
+    .sort((a, b) => b.score - a.score || b.count - a.count || a.index - b.index);
+
+  return distributeSearchResults(sorted).map((item) => item.photo);
+}
+
+type SearchResultItem = {
+  photo: SearchablePhoto;
+  index: number;
+  score: number;
+  count: number;
+};
+
+function distributeSearchResults(items: SearchResultItem[]): SearchResultItem[] {
+  const byScore = new Map<number, SearchResultItem[]>();
+  for (const item of items) {
+    const bucket = Math.floor(item.score / 10) * 10;
+    (byScore.get(bucket) ?? byScore.set(bucket, []).get(bucket)!).push(item);
+  }
+
+  const result: SearchResultItem[] = [];
+  for (const score of [...byScore.keys()].sort((a, b) => b - a)) {
+    result.push(...roundRobinByAlbumAndPhotographer(byScore.get(score)!));
+  }
+  return result;
+}
+
+function roundRobinByAlbumAndPhotographer(items: SearchResultItem[]): SearchResultItem[] {
+  const groups = new Map<string, SearchResultItem[]>();
+  for (const item of items) {
+    const key = item.photo.album_id
+      ? `album:${item.photo.album_id}`
+      : `photographer:${item.photo.photographer_id}`;
+    (groups.get(key) ?? groups.set(key, []).get(key)!).push(item);
+  }
+
+  const queues = [...groups.values()].sort((a, b) => (b[0]?.count ?? 0) - (a[0]?.count ?? 0));
+  const result: SearchResultItem[] = [];
+  for (let round = 0; ; round++) {
+    let added = false;
+    for (const queue of queues) {
+      if (round < queue.length) {
+        result.push(queue[round]);
+        added = true;
+      }
+    }
+    if (!added) break;
+  }
+  return result;
+}
+
+function appendRelatedPhotos(primary: GalleryPhoto[], allPhotos: SearchablePhoto[]): GalleryPhoto[] {
+  if (primary.length === 0) return [];
+
+  const primaryIds = new Set(primary.map((photo) => photo.id));
+  const relatedTerms = buildRelatedTerms(primary);
+  const related = allPhotos
+    .filter((photo) => !primaryIds.has(photo.id))
+    .map((photo, index) => ({
+      photo,
+      index,
+      score: calculateRelatedScore(photo, relatedTerms),
+    }))
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .map((item) => item.photo);
+
+  return [...primary, ...related];
+}
+
+function buildRelatedTerms(photos: GalleryPhoto[]): Set<string> {
+  const terms = new Set<string>();
+  for (const photo of photos) {
+    for (const tag of photo.mood_tags ?? []) {
+      const normalized = normalizeSearchText(tag);
+      if (normalized) terms.add(normalized);
+    }
+  }
+  return terms;
+}
+
+function calculateRelatedScore(photo: SearchablePhoto, relatedTerms: Set<string>): number {
+  if (relatedTerms.size === 0) return 0;
+  let score = 0;
+
+  for (const tag of photo.mood_tags ?? []) {
+    const normalized = normalizeSearchText(tag);
+    if (relatedTerms.has(normalized)) score += 10;
+  }
+  for (const tag of photo.photographer.mood_tags ?? []) {
+    const normalized = normalizeSearchText(tag);
+    if (relatedTerms.has(normalized)) score += 4;
+  }
+
+  return score;
+}
+
+async function fetchAllSearchablePhotos(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<SearchablePhoto[]> {
+  const pageSize = 1000;
+  const rows: SearchablePhoto[] = [];
+
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from("photos")
+      .select(
+        "id, src_url, thumb_url, width, height, region, location_text, mood_tags, price_krw, album_id, photographer_id, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name, regions, mood_tags)"
+      )
+      .eq("visibility", "published")
+      .order("created_at", { ascending: false })
+      .range(from, from + pageSize - 1);
+
+    if (error) break;
+    const page = (data ?? []) as unknown as SearchablePhoto[];
+    rows.push(...page);
+    if (page.length < pageSize) break;
+  }
+
+  return rows;
 }
 
 // id 목록으로 작가 카드 조회 (찜 목록용). 승인 작가만, 대표 사진 포함.

@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { GalleryPhoto } from "@/lib/discovery";
@@ -12,18 +12,18 @@ import { EmptyState } from "@/components/ui";
 
 const fmt = new Intl.NumberFormat("ko-KR");
 const STEP = 48; // 스크롤마다 더 보여줄 사진 수(메모리에서 즉시 노출)
+const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
-// 콜백 ref — 그리드가 (빈 상태 후) 나중에 마운트돼도 항상 다시 측정한다.
-// useEffect+ref.current 방식은 빈 결과(EmptyState)로 그리드가 없던 상태에서
-// 재노출될 때 effect가 다시 안 돌아 ready가 false로 굳는 버그가 있었음.
 function useColumnCount() {
+  const [node, setNode] = useState<HTMLDivElement | null>(null);
   const [cols, setCols] = useState(2);
   const [ready, setReady] = useState(false);
-  const roRef = useRef<ResizeObserver | null>(null);
 
-  const gridRef = useCallback((node: HTMLDivElement | null) => {
-    roRef.current?.disconnect();
-    if (!node) return;
+  useIsoLayoutEffect(() => {
+    if (!node) {
+      setReady(false);
+      return;
+    }
     const compute = () => {
       setCols(Math.max(2, Math.min(7, Math.round(node.clientWidth / 220))));
       setReady(true);
@@ -31,10 +31,10 @@ function useColumnCount() {
     compute();
     const ro = new ResizeObserver(compute);
     ro.observe(node);
-    roRef.current = ro;
-  }, []);
+    return () => ro.disconnect();
+  }, [node]);
 
-  return { cols, ready, gridRef };
+  return { cols, ready, setNode };
 }
 
 // 높이 균형 그리디 분배 — 각 사진을 가장 짧은 컬럼에 넣는다.
@@ -67,7 +67,7 @@ export function ExploreGallery({
   const [showName, setShowName] = useState(false);
   const [visible, setVisible] = useState(STEP);
   const sentinel = useRef<HTMLDivElement>(null);
-  const { cols: colCount, ready: columnsReady, gridRef } = useColumnCount();
+  const { cols: colCount, ready: columnsReady, setNode: setGridRef } = useColumnCount();
   const likedSet = new Set(likedIds);
 
   // 풀(검색어/네비게이션) 바뀌면 노출 수 초기화
@@ -143,7 +143,7 @@ export function ExploreGallery({
         title={query ? `“${query}” 결과가 없어요` : "공개된 사진이 아직 없어요"}
         description={
           query
-            ? "다른 태그 키워드로 검색해보세요. (예: 감성, 흑백, 우드톤)"
+            ? "다른 태그나 장소로 검색해보세요. (예: 서울, 감성, 웨딩)"
             : "작가들이 작품을 올리면 여기에 표시돼요."
         }
         action={
@@ -162,16 +162,9 @@ export function ExploreGallery({
 
   return (
     <>
-      {/* 검색 결과 수 — 검색했을 때만 */}
-      {query && (
-        <p className="px-1 pt-4 text-sm text-muted">
-          “{query}” 결과 {photos.length}장
-        </p>
-      )}
-
       {/* 메이슨리 갤러리 — JS 컬럼 버킷(추가 시 기존 사진 위치 고정) */}
       <div
-        ref={gridRef}
+        ref={setGridRef}
         className={cn(
           "flex gap-3 pt-3 transition-opacity",
           columnsReady ? "opacity-100" : "opacity-0"
