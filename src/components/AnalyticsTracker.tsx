@@ -20,12 +20,21 @@ const UTM_FIELDS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "
 type Utm = Partial<Record<(typeof UTM_FIELDS)[number], string>>;
 
 type Ev = {
-  type: "pageview" | "click";
+  type: "pageview" | "click" | "scroll";
   path: string;
   label?: string;
   target?: string;
   referrer?: string | null;
 };
+
+// 최대 도달 스크롤 뎁스를 25/50/75/100 버킷으로
+function depthBucket(d: number): number {
+  if (d >= 0.98) return 100;
+  if (d >= 0.75) return 75;
+  if (d >= 0.5) return 50;
+  if (d >= 0.25) return 25;
+  return 0;
+}
 
 function sessionId(): string {
   try {
@@ -75,6 +84,16 @@ export function AnalyticsTracker() {
   const prevPath = useRef<string | null>(null);
   const queue = useRef<Ev[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const maxDepth = useRef(0); // 현재 페이지 최대 스크롤 뎁스(0~1)
+
+  // 페이지를 떠날 때 그 페이지의 최대 스크롤 뎁스를 1건 기록(무한스크롤 뎁스)
+  function flushScroll(path: string | null) {
+    const d = maxDepth.current;
+    maxDepth.current = 0;
+    if (!path || !isTracked(path)) return;
+    const bucket = depthBucket(d);
+    if (bucket > 0) queue.current.push({ type: "scroll", path, label: String(bucket) });
+  }
 
   function flush(beacon = false) {
     if (queue.current.length === 0) return;
@@ -112,8 +131,9 @@ export function AnalyticsTracker() {
     timer.current = setTimeout(() => flush(false), 1000);
   }
 
-  // 페이지뷰 (어드민·작가 페이지 제외)
+  // 페이지뷰 (어드민·작가 페이지 제외) — 이동 전 이전 페이지의 스크롤 뎁스 기록
   useEffect(() => {
+    flushScroll(prevPath.current);
     if (isTracked(pathname)) {
       captureAttribution();
       enqueue({ type: "pageview", path: pathname, referrer: prevPath.current });
@@ -121,6 +141,23 @@ export function AnalyticsTracker() {
     prevPath.current = pathname;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
+
+  // 스크롤 뎁스 추적 — 충분히 긴(스크롤 가능한) 페이지에서만 최대 도달 비율 기록
+  useEffect(() => {
+    let raf = 0;
+    function onScroll() {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        const doc = document.documentElement;
+        if (doc.scrollHeight - window.innerHeight < 200) return; // 거의 스크롤 없는 페이지 무시
+        const d = Math.min(1, (window.scrollY + window.innerHeight) / doc.scrollHeight);
+        if (d > maxDepth.current) maxDepth.current = d;
+      });
+    }
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   // 전역 클릭 캡처 + 떠날 때 flush
   useEffect(() => {
@@ -146,12 +183,16 @@ export function AnalyticsTracker() {
         target,
       });
     }
+    function onLeave() {
+      flushScroll(window.location.pathname); // 떠나는 페이지의 스크롤 뎁스 기록
+      flush(true);
+    }
     function onVisibility() {
-      if (document.visibilityState === "hidden") flush(true);
+      if (document.visibilityState === "hidden") onLeave();
     }
     document.addEventListener("click", onClick, true);
     document.addEventListener("visibilitychange", onVisibility);
-    window.addEventListener("pagehide", () => flush(true));
+    window.addEventListener("pagehide", onLeave);
     return () => {
       document.removeEventListener("click", onClick, true);
       document.removeEventListener("visibilitychange", onVisibility);

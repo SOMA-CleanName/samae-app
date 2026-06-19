@@ -77,6 +77,7 @@ export function SearchOptions() {
             role="menuitemcheckbox"
             aria-checked={showPrice}
             onClick={togglePrice}
+            data-track="toggle:price"
             className="flex w-full cursor-pointer items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm hover:bg-surface-2"
           >
             <span className="flex items-center gap-2">
@@ -96,6 +97,7 @@ export function SearchOptions() {
             role="menuitemcheckbox"
             aria-checked={showName}
             onClick={toggleName}
+            data-track="toggle:name"
             className="flex w-full cursor-pointer items-center justify-between rounded-xl px-3 py-2.5 text-left text-sm hover:bg-surface-2"
           >
             <span className="flex items-center gap-2">
