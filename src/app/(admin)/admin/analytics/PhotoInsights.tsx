@@ -9,6 +9,7 @@ export type PhotoStat = {
   id: string;
   count: number;
   views?: number; // 사진 상세 조회수(작가 드릴다운에서 사용)
+  ctas?: [string, number][]; // 이 사진 페이지에서 누른 버튼(드릴다운에서 사용)
   thumb: string | null;
   src: string | null;
   price: number | null;
@@ -167,6 +168,24 @@ function PhotoModal({ photo, onClose }: { photo: PhotoStat; onClose: () => void 
                   #{t}
                 </span>
               ))}
+            </div>
+          )}
+
+          {photo.ctas && (
+            <div className="rounded-xl border border-line bg-surface-2 p-3">
+              <p className="text-caption font-medium text-faint">이 사진 페이지에서 누른 버튼</p>
+              {photo.ctas.length === 0 ? (
+                <p className="mt-1 text-caption text-muted">아직 누른 버튼이 없어요</p>
+              ) : (
+                <ul className="mt-2 space-y-1.5">
+                  {photo.ctas.map(([k, n]) => (
+                    <li key={k} className="flex items-center justify-between gap-2 text-caption">
+                      <span className="min-w-0 flex-1 truncate text-fg">{k}</span>
+                      <span className="shrink-0 font-semibold tabular-nums text-muted">{won.format(n)}회</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
 
