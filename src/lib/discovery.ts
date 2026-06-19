@@ -100,8 +100,8 @@ export async function fetchPublishedPhotos(opts: {
   return shuffle((data ?? []) as unknown as GalleryPhoto[]);
 }
 
-// 카테고리(여러 태그)에 해당하는 공개 사진 — 태그가 더 많이 겹칠수록 상위(추천 정렬).
-export async function fetchPhotosByTags(tags: string[], limit = 60): Promise<GalleryPhoto[]> {
+// 카테고리(여러 태그)에 해당하는 공개 사진 — 태그가 하나라도 겹치면 포함, 매 요청 전체 셔플.
+export async function fetchPhotosByTags(tags: string[], limit = 300): Promise<GalleryPhoto[]> {
   if (!tags || tags.length === 0) return [];
   const supabase = await createClient();
   const { data } = await supabase
@@ -111,23 +111,15 @@ export async function fetchPhotosByTags(tags: string[], limit = 60): Promise<Gal
     )
     .eq("visibility", "published")
     .overlaps("mood_tags", tags)
-    .order("created_at", { ascending: false })
-    .limit(200);
+    .limit(500);
 
-  const tagSet = new Set(tags.map((t) => t.toLowerCase()));
   const rows = (data ?? []) as unknown as GalleryPhoto[];
-  // 매칭 태그 수 내림차순(추천 강도), 동률은 최근순(이미 created_at desc로 들어옴)
-  const scored = rows
-    .map((p) => ({
-      p,
-      score: (p.mood_tags ?? []).filter((t) => tagSet.has(t.toLowerCase())).length,
-    }))
-    .sort((a, b) => b.score - a.score);
-  return scored.slice(0, limit).map((s) => s.p);
+  // 매칭 사진 전체를 셔플 → 방문마다 다른 순서 (탐색 메인과 동일)
+  return shuffle(rows).slice(0, limit);
 }
 
 // 임시: 태그(mood_tags)가 비어 있는 공개 사진 — 미태그 카테고리 랜딩용.
-export async function fetchUntaggedPhotos(limit = 60): Promise<GalleryPhoto[]> {
+export async function fetchUntaggedPhotos(limit = 300): Promise<GalleryPhoto[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("photos")
@@ -137,8 +129,9 @@ export async function fetchUntaggedPhotos(limit = 60): Promise<GalleryPhoto[]> {
     .eq("visibility", "published")
     .eq("mood_tags", "{}")
     .order("created_at", { ascending: false })
-    .limit(limit);
-  return (data ?? []) as unknown as GalleryPhoto[];
+    .limit(500);
+  // 점수 구분이 없으니 전체 셔플 → 매 방문 랜덤 순서 (탐색 메인과 동일)
+  return shuffle((data ?? []) as unknown as GalleryPhoto[]).slice(0, limit);
 }
 
 // 무드 태그로 공개 사진 검색 — 부분 일치(대소문자 무시), 결과는 메이슨리 사진.
@@ -467,6 +460,23 @@ export async function fetchAlbumDescription(albumId: string): Promise<string | n
     .eq("id", albumId)
     .maybeSingle();
   return (data?.description as string | null) ?? null;
+}
+
+// 여러 게시물(album) 설명글 일괄 조회 — 작가 프로필 포트폴리오 모달용(앨범id → 설명).
+export async function fetchAlbumDescriptions(
+  albumIds: string[]
+): Promise<Record<string, string>> {
+  if (albumIds.length === 0) return {};
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("albums")
+    .select("id, description")
+    .in("id", albumIds);
+  const map: Record<string, string> = {};
+  for (const a of data ?? []) {
+    if (a.description) map[a.id as string] = a.description as string;
+  }
+  return map;
 }
 
 // 한 게시물(album)의 공개 사진들 — 스와이프 캐러셀용. 정렬 순.

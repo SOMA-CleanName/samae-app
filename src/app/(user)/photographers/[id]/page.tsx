@@ -4,6 +4,7 @@ import {
   fetchPhotographerById,
   fetchPhotographerPhotos,
   fetchPhotographerPackages,
+  fetchAlbumDescriptions,
 } from "@/lib/discovery";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -49,6 +50,10 @@ export default async function PhotographerProfile({
   };
   const pubPhotos = photos as ProfilePhoto[];
 
+  // 게시물(앨범) 설명글 — 포트폴리오 모달에 노출하려고 앨범id별로 일괄 조회
+  const albumIds = [...new Set(pubPhotos.map((p) => p.album_id).filter((x): x is string => !!x))];
+  const albumDescriptions = await fetchAlbumDescriptions(albumIds);
+
   const groups = new Map<string, PortfolioPost>();
   const order: string[] = [];
   for (const p of pubPhotos) {
@@ -67,6 +72,7 @@ export default async function PhotographerProfile({
         price_krw: p.price_krw,
         location_text: p.location_text || p.region,
         mood_tags: p.mood_tags ?? [],
+        description: p.album_id ? albumDescriptions[p.album_id] ?? null : null,
         count: 1,
         photos: [tile],
       });

@@ -127,16 +127,17 @@ export default async function PhotoDetail({
             </p>
           )}
 
-          {/* 무드 태그 */}
+          {/* 무드 태그 — 누르면 해당 태그로 검색 결과(/?q=) 이동 */}
           {photo.mood_tags.length > 0 && (
             <div className="mt-4 flex flex-wrap gap-1.5">
               {photo.mood_tags.map((m) => (
-                <span
+                <Link
                   key={m}
-                  className="rounded-full bg-fg/[0.06] px-2.5 py-1 text-caption text-fg/70"
+                  href={`/?q=${encodeURIComponent(m)}`}
+                  className="rounded-full bg-fg/[0.06] px-2.5 py-1 text-caption text-fg/70 transition-colors hover:bg-fg/10"
                 >
                   #{m}
-                </span>
+                </Link>
               ))}
             </div>
           )}

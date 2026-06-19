@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
@@ -50,10 +50,20 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const [sheetOpen, setSheetOpen] = useState(false);
+  // 탐색 "홈" 목적지 — 카테고리(/c/slug)에서 진입했으면 그 카테고리로, 기본 탐색(/)·검색(/?q=)이면 "/".
+  const [homeHref, setHomeHref] = useState("/");
 
-  // 홈은 정확히 "/"일 때만 활성, 나머지는 접두 매칭
+  // 현재 경로로 홈 목적지를 갱신·기억(세션 유지). 사진 상세 등 중간 페이지에선 직전 기억 유지.
+  useEffect(() => {
+    const KEY = "explore:home";
+    if (pathname.startsWith("/c/")) sessionStorage.setItem(KEY, pathname);
+    else if (pathname === "/") sessionStorage.setItem(KEY, "/"); // 검색은 항상 /?q= → "/"로 리셋
+    setHomeHref(sessionStorage.getItem(KEY) || "/");
+  }, [pathname]);
+
+  // 홈(탐색)은 "/" 또는 카테고리(/c/...)일 때 활성, 나머지는 접두 매칭
   const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href);
+    href === "/" ? pathname === "/" || pathname.startsWith("/c/") : pathname.startsWith(href);
 
   const authed = !!me;
   const primaryItems = items.filter((item) => item.href !== "/notifications");
@@ -61,6 +71,8 @@ export function Sidebar({
   // 비로그인: 게이트 항목(탐색 제외)은 로그인으로 유도(next로 의도한 곳 복귀)
   const resolveHref = (href: string) =>
     authed || href === "/" ? href : `/login?next=${encodeURIComponent(href)}`;
+  // 홈(탐색) 항목은 기억된 탐색 목적지(homeHref)로, 그 외는 기본 규칙
+  const navHref = (href: string) => (href === "/" ? homeHref : resolveHref(href));
 
   const profileSlot = me ? (
     <ProfileButton me={me} onOpen={() => setSheetOpen(true)} />
@@ -73,7 +85,7 @@ export function Sidebar({
       {/* 데스크톱: 좌측 세로 레일 */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[72px] flex-col items-center border-r border-line bg-bg py-3 md:flex">
         <Link
-          href="/"
+          href={homeHref}
           aria-label="samae 홈"
           className="mb-2 grid h-12 w-12 place-items-center rounded-full text-brand transition-colors hover:bg-brand/10"
         >
@@ -82,13 +94,13 @@ export function Sidebar({
 
         <nav className="flex flex-1 flex-col items-center gap-1">
           {primaryItems.map((it) => (
-            <RailLink key={it.href} item={it} href={resolveHref(it.href)} active={isActive(it.href)} />
+            <RailLink key={it.href} item={it} href={navHref(it.href)} active={isActive(it.href)} />
           ))}
         </nav>
 
         <nav className="mb-2 flex flex-col items-center gap-1">
           {bottomItems.map((it) => (
-            <RailLink key={it.href} item={it} href={resolveHref(it.href)} active={isActive(it.href)} />
+            <RailLink key={it.href} item={it} href={navHref(it.href)} active={isActive(it.href)} />
           ))}
         </nav>
 
@@ -103,7 +115,7 @@ export function Sidebar({
           return (
             <Link
               key={it.href}
-              href={resolveHref(it.href)}
+              href={navHref(it.href)}
               aria-label={it.label}
               aria-current={active ? "page" : undefined}
               className="relative grid h-14 flex-1 place-items-center"
