@@ -95,23 +95,64 @@ export async function fetchPhotosByTags(tags: string[], limit = 60): Promise<Gal
 }
 
 // 무드 태그로 공개 사진 검색 — 부분 일치(대소문자 무시), 결과는 메이슨리 사진.
-// text[] 부분 일치는 PostgREST 단일 연산자로 어려워, 최근 published 사진을 받아 JS에서 필터(베타 한정 범위).
+// text[] 부분 일치는 PostgREST 단일 연산자로 어려워, published 전체를 페이지 단위로 받아 JS에서 필터.
 export async function searchPhotosByTag(qRaw: string): Promise<GalleryPhoto[]> {
   const q = sanitize(qRaw).toLowerCase();
   if (!q) return [];
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("photos")
-    .select(
-      "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name)"
-    )
-    .eq("visibility", "published")
-    .order("created_at", { ascending: false })
-    .limit(200);
-
-  const rows = (data ?? []) as unknown as GalleryPhoto[];
+  const rows = await fetchAllSearchablePhotos(supabase);
   // 낱개 매칭 결과 (묶음 무시)
-  return rows.filter((p) => (p.mood_tags ?? []).some((t) => t.toLowerCase().includes(q)));
+  const matched = rows.filter((p) => (p.mood_tags ?? []).some((t) => t.toLowerCase().includes(q)));
+  return sortPhotosByLikeCount(supabase, matched);
+}
+
+async function sortPhotosByLikeCount(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  photos: GalleryPhoto[]
+): Promise<GalleryPhoto[]> {
+  if (photos.length === 0) return photos;
+
+  // 검색 결과는 좋아요가 많은 사진을 먼저 보여준다. 집계 실패 시 0으로 보고 기존 순서를 유지한다.
+  const counts = await Promise.all(
+    photos.map(async (photo) => {
+      try {
+        const res = await supabase.rpc("photo_like_count", { pid: photo.id });
+        return typeof res.data === "number" ? res.data : 0;
+      } catch {
+        return 0;
+      }
+    })
+  );
+
+  return photos
+    .map((photo, index) => ({ photo, index, count: counts[index] ?? 0 }))
+    .sort((a, b) => b.count - a.count || a.index - b.index)
+    .map((item) => item.photo);
+}
+
+async function fetchAllSearchablePhotos(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<GalleryPhoto[]> {
+  const pageSize = 1000;
+  const rows: GalleryPhoto[] = [];
+
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from("photos")
+      .select(
+        "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name)"
+      )
+      .eq("visibility", "published")
+      .order("created_at", { ascending: false })
+      .range(from, from + pageSize - 1);
+
+    if (error) break;
+    const page = (data ?? []) as unknown as GalleryPhoto[];
+    rows.push(...page);
+    if (page.length < pageSize) break;
+  }
+
+  return rows;
 }
 
 // id 목록으로 작가 카드 조회 (찜 목록용). 승인 작가만, 대표 사진 포함.
