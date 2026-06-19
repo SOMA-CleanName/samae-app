@@ -36,12 +36,20 @@ export type Session = {
   converted: boolean;
 };
 
-// ⭐ 페르소나가 확정되면 여기만 교체하면 모든 탭이 자동 분리됩니다.
-export const SEGMENTS: { key: string; label: string; desc: string; match: (s: Session) => boolean }[] = [
-  { key: "all", label: "전체 방문자", desc: "모든 고객", match: () => true },
+type Segment = { key: string; label: string; desc: string; match: (s: Session) => boolean };
+
+// 기본 구분 — 계정/행동 기준. 페르소나와 독립적이며 교집합(AND)으로 적용됩니다.
+export const SEGMENTS: Segment[] = [
+  { key: "all", label: "전체", desc: "모든 방문자", match: () => true },
   { key: "guest", label: "비로그인", desc: "로그인 안 한 손님", match: (s) => !s.profileId },
   { key: "member", label: "로그인 회원", desc: "로그인한 회원", match: (s) => !!s.profileId },
-  { key: "converted", label: "문의까지 한 사람", desc: "예약·문의 전환", match: (s) => s.converted },
+  { key: "converted", label: "문의 전환", desc: "예약·문의까지 한 사람", match: (s) => s.converted },
+];
+
+// ⭐ 페르소나 — 추후 확정 시 여기에 카테고리만 추가하면 됩니다(예: 웨딩/프로필/가족 …).
+// 기본 구분과 서로 영향 없이 독립적으로 교집합 적용됩니다. (지금은 '전체'만)
+export const PERSONAS: Segment[] = [
+  { key: "all", label: "전체", desc: "페르소나 구분 없음", match: () => true },
 ];
 
 export const TABS = [
@@ -119,10 +127,11 @@ export type PhotoMeta = {
 
 export type AnalyticsData = {
   range: (typeof RANGES)[number];
-  seg: (typeof SEGMENTS)[number];
+  seg: Segment; // 기본 구분
+  persona: Segment; // 페르소나(독립)
   events: Ev[];
   capped: boolean;
-  sessions: Session[]; // 세그먼트 필터 적용됨
+  sessions: Session[]; // 기본 구분 ∩ 페르소나 적용됨
   allSessions: Session[]; // 세그먼트 카운트용(전체)
   photoMeta: Map<string, PhotoMeta>;
   pgName: Map<string, string>;
@@ -257,11 +266,13 @@ async function loadBase(rangeKey?: string): Promise<AnalyticsBase> {
   return data;
 }
 
-export async function loadAnalytics(rangeKey?: string, segKey?: string): Promise<AnalyticsData> {
+export async function loadAnalytics(rangeKey?: string, segKey?: string, personaKey?: string): Promise<AnalyticsData> {
   const seg = SEGMENTS.find((s) => s.key === segKey) ?? SEGMENTS[0];
+  const persona = PERSONAS.find((p) => p.key === personaKey) ?? PERSONAS[0];
   const base = await loadBase(rangeKey);
   const { range, events, capped, allSessions, photoMeta, pgName } = base;
-  const sessions = allSessions.filter((s) => seg.match(s));
+  // 기본 구분 ∩ 페르소나 (서로 독립, 교집합)
+  const sessions = allSessions.filter((s) => seg.match(s) && persona.match(s));
 
   // 경로 → 한글 페이지 이름 (캐시된 메타 사용)
   const pageName = (path: string): { title: string; sub?: string } => {
@@ -281,10 +292,10 @@ export async function loadAnalytics(rangeKey?: string, segKey?: string): Promise
     return { title: path };
   };
 
-  return { range, seg, events, capped, sessions, allSessions, photoMeta, pgName, pageName };
+  return { range, seg, persona, events, capped, sessions, allSessions, photoMeta, pgName, pageName };
 }
 
-// 탭 간 range·seg 유지용 쿼리스트링
-export function buildQs(range: string, seg: string): string {
-  return `?range=${range}&seg=${seg}`;
+// 탭 간 range·seg·persona 유지용 쿼리스트링
+export function buildQs(range: string, seg: string, persona = "all"): string {
+  return `?range=${range}&seg=${seg}&persona=${persona}`;
 }

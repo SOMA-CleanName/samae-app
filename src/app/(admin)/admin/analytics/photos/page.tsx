@@ -8,10 +8,10 @@ export const dynamic = "force-dynamic";
 export default async function AnalyticsPhotosPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ range?: string; seg?: string }>;
+  searchParams?: Promise<{ range?: string; seg?: string; persona?: string }>;
 }) {
   const sp = (await searchParams) ?? {};
-  const data = await loadAnalytics(sp.range, sp.seg);
+  const data = await loadAnalytics(sp.range, sp.seg, sp.persona);
   const { sessions, photoMeta } = data;
 
   const photoClicks = new Map<string, number>();

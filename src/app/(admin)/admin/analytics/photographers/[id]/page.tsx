@@ -11,13 +11,13 @@ export default async function PhotographerDrillPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ range?: string; seg?: string }>;
+  searchParams?: Promise<{ range?: string; seg?: string; persona?: string }>;
 }) {
   const { id } = await params;
   const sp = (await searchParams) ?? {};
-  const data = await loadAnalytics(sp.range, sp.seg);
-  const { sessions, photoMeta, pgName, range, seg } = data;
-  const qs = buildQs(range.key, seg.key);
+  const data = await loadAnalytics(sp.range, sp.seg, sp.persona);
+  const { sessions, photoMeta, pgName, range, seg, persona } = data;
+  const qs = buildQs(range.key, seg.key, persona.key);
 
   const name = pgName.get(id) ?? "이름 미상 작가";
 

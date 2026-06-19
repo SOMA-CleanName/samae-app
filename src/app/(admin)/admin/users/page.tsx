@@ -1,11 +1,28 @@
+import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Avatar, Badge, EmptyState } from "@/components/ui";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { UserIcon, SearchIcon } from "@/components/user/icons";
+import { cn } from "@/lib/cn";
 import { setUserRole, setUserBan } from "./actions";
 
 export const dynamic = "force-dynamic";
+
+// 역할 구분 탭 — 배타 분류(운영자 > 작가 > 회원). 한 명은 한 탭에만.
+const ROLE_TABS = [
+  { key: "all", label: "전체" },
+  { key: "user", label: "회원" },
+  { key: "photographer", label: "작가" },
+  { key: "admin", label: "운영자" },
+] as const;
+type TabKey = (typeof ROLE_TABS)[number]["key"];
+
+function categoryOf(m: { role: string; isPhotographer: boolean }): "admin" | "photographer" | "user" {
+  if (m.role === "admin") return "admin";
+  if (m.isPhotographer) return "photographer";
+  return "user";
+}
 
 type Member = {
   id: string;
@@ -32,10 +49,12 @@ function when(iso: string): string {
 export default async function AdminUsersPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ q?: string }>;
+  searchParams?: Promise<{ q?: string; tab?: string }>;
 }) {
   const me = await getCurrentUser();
-  const q = ((await searchParams)?.q ?? "").trim().toLowerCase();
+  const sp = (await searchParams) ?? {};
+  const q = (sp.q ?? "").trim().toLowerCase();
+  const tab: TabKey = (ROLE_TABS.find((t) => t.key === sp.tab)?.key ?? "all") as TabKey;
   const admin = createAdminClient();
 
   // auth 사용자(이메일·정지·가입일·provider) + profiles(역할·이름·아바타) + 작가 여부
@@ -74,17 +93,26 @@ export default async function AdminUsersPage({
   // 최신 가입 우선
   members.sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
 
-  const adminCount = members.filter((m) => m.role === "admin").length;
+  // 역할별 카운트(검색 반영) + 탭 필터
+  const count = {
+    all: members.length,
+    user: members.filter((m) => categoryOf(m) === "user").length,
+    photographer: members.filter((m) => categoryOf(m) === "photographer").length,
+    admin: members.filter((m) => categoryOf(m) === "admin").length,
+  };
+  const shown = tab === "all" ? members : members.filter((m) => categoryOf(m) === tab);
+  const tabHref = (key: TabKey) => `/admin/users?tab=${key}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-5">
       <h1 className="text-h1 font-semibold">회원 관리</h1>
       <p className="mt-1 text-body-sm text-muted">
-        전체 {members.length}명 · 운영자 {adminCount}명
+        전체 {count.all}명 · 회원 {count.user} · 작가 {count.photographer} · 운영자 {count.admin}
       </p>
 
-      {/* 검색 (GET) */}
+      {/* 검색 (GET) — 현재 탭 유지 */}
       <form className="mt-5 flex items-center gap-2 rounded-xl border border-line-strong bg-surface px-3.5 py-2.5">
+        <input type="hidden" name="tab" value={tab} />
         <SearchIcon className="h-4 w-4 shrink-0 text-faint" />
         <input
           name="q"
@@ -97,15 +125,31 @@ export default async function AdminUsersPage({
         </button>
       </form>
 
-      {members.length === 0 ? (
+      {/* 역할 구분 탭 */}
+      <nav className="mt-4 flex gap-1 overflow-x-auto border-b border-line">
+        {ROLE_TABS.map((t) => (
+          <Link
+            key={t.key}
+            href={tabHref(t.key)}
+            className={cn(
+              "shrink-0 border-b-2 px-3.5 py-2 text-body-sm font-medium transition-colors",
+              t.key === tab ? "border-brand text-brand" : "border-transparent text-muted hover:text-fg"
+            )}
+          >
+            {t.label} <span className="tabular-nums opacity-70">{count[t.key]}</span>
+          </Link>
+        ))}
+      </nav>
+
+      {shown.length === 0 ? (
         <EmptyState
           className="mt-6"
           icon={<UserIcon className="h-7 w-7" />}
-          title={q ? "검색 결과가 없어요" : "회원이 없어요"}
+          title={q ? "검색 결과가 없어요" : "해당하는 회원이 없어요"}
         />
       ) : (
         <ul className="mt-4 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
-          {members.map((m) => (
+          {shown.map((m) => (
             <li key={m.id} className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
               <Avatar src={m.avatarUrl} name={m.displayName || m.email} size="sm" />
               <div className="min-w-0 flex-1">

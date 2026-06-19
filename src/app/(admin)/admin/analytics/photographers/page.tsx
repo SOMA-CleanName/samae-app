@@ -8,12 +8,12 @@ export const dynamic = "force-dynamic";
 export default async function AnalyticsPhotographersPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ range?: string; seg?: string }>;
+  searchParams?: Promise<{ range?: string; seg?: string; persona?: string }>;
 }) {
   const sp = (await searchParams) ?? {};
-  const data = await loadAnalytics(sp.range, sp.seg);
-  const { sessions, photoMeta, pgName, range, seg } = data;
-  const qs = buildQs(range.key, seg.key);
+  const data = await loadAnalytics(sp.range, sp.seg, sp.persona);
+  const { sessions, photoMeta, pgName, range, seg, persona } = data;
+  const qs = buildQs(range.key, seg.key, persona.key);
 
   type Agg = {
     profileViews: number;
