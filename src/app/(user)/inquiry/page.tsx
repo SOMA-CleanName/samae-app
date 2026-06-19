@@ -33,13 +33,15 @@ export default async function InquiryPage({
   let profile: {
     phone: string | null;
     instagram_id: string | null;
+    kakao_id: string | null;
+    extra_contact: string | null;
   } | null = null;
 
   if (me) {
     const supabase = await createClient();
     const { data } = await supabase
       .from("profiles")
-      .select("phone, instagram_id")
+      .select("phone, instagram_id, kakao_id, extra_contact")
       .eq("id", me.id)
       .maybeSingle();
     profile = data;
@@ -65,6 +67,8 @@ export default async function InquiryPage({
             photographerName={photographer.display_name || "작가"}
             initialPhone={(profile?.phone as string | null) ?? ""}
             initialInstagramId={(profile?.instagram_id as string | null) ?? ""}
+            initialKakaoId={(profile?.kakao_id as string | null) ?? ""}
+            initialExtraContact={(profile?.extra_contact as string | null) ?? ""}
           />
         </div>
       </section>

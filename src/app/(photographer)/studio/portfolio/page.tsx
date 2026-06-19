@@ -206,4 +206,3 @@ function GroupCard({ g }: { g: Group }) {
     </section>
   );
 }
-

@@ -246,7 +246,7 @@ export async function fetchAlbumPhotos(
     .select("id, src_url, thumb_url, width, height")
     .eq("album_id", albumId)
     .eq("visibility", "published")
-    // 프로필 대표 선정과 동일 정렬 → 대표가 캐러셀 첫 장(1/N)
+    // 게시물 대표 선정과 동일 정렬 → 대표가 캐러셀 첫 장(1/N)
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false });
   return (data ?? []) as {
