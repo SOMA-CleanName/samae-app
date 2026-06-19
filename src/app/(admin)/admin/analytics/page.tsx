@@ -79,6 +79,19 @@ function fmtDuration(sec: number): string {
   return s > 0 ? `${m}분 ${s}초` : `${m}분`;
 }
 
+// 경로를 사람이 읽기 쉬운 라벨로 (전환 경로 표시용)
+function pathLabel(path: string): string {
+  if (path === "/") return "탐색 홈";
+  if (/^\/photos\//.test(path)) return "사진 상세";
+  if (/^\/photographers\//.test(path)) return "작가 프로필";
+  if (/^\/c\//.test(path)) return "카테고리";
+  if (path.startsWith("/inquiry")) return "문의";
+  if (path.startsWith("/login")) return "로그인";
+  if (path.startsWith("/signup")) return "회원가입";
+  if (path.startsWith("/favorites")) return "찜";
+  return path;
+}
+
 // 행동 분석 — 세그먼트(페르소나)별. 작가·관리자 트래킹 제외. 가드는 (admin)/layout.
 export default async function AdminAnalyticsPage({
   searchParams,
@@ -165,6 +178,45 @@ export default async function AdminAnalyticsPage({
     ["가격 표시", clickEvents.filter((e) => e.label === "toggle:price").length],
     ["작가명 표시", clickEvents.filter((e) => e.label === "toggle:name").length],
   ];
+
+  // 페이지별 평균 체류시간 — 같은 세션 내 다음 페이지뷰까지의 간격(이상치 30분 컷)
+  const dwellSum = new Map<string, number>();
+  const dwellCnt = new Map<string, number>();
+  for (const s of sessions) {
+    const evs = s.events; // 시간순
+    for (let i = 0; i < evs.length; i++) {
+      if (evs[i].type !== "pageview") continue;
+      const start = Date.parse(evs[i].created_at);
+      let end = start;
+      for (let j = i + 1; j < evs.length; j++) {
+        end = Date.parse(evs[j].created_at);
+        if (evs[j].type === "pageview") break;
+      }
+      const dwell = (end - start) / 1000;
+      if (dwell > 0 && dwell < 1800) {
+        dwellSum.set(evs[i].path, (dwellSum.get(evs[i].path) ?? 0) + dwell);
+        dwellCnt.set(evs[i].path, (dwellCnt.get(evs[i].path) ?? 0) + 1);
+      }
+    }
+  }
+  const dwellRows = [...dwellCnt.keys()]
+    .map((p) => ({ path: p, avg: dwellSum.get(p)! / dwellCnt.get(p)!, n: dwellCnt.get(p)! }))
+    .sort((a, b) => b.avg - a.avg)
+    .slice(0, 10);
+
+  // 전환 경로 — 문의(예약)까지 도달한 세션의 페이지 이동 순서(최근순)
+  const journeys = sessions
+    .filter((s) => s.converted)
+    .sort((a, b) => b.lastTs - a.lastTs)
+    .slice(0, 8)
+    .map((s) => {
+      const seq: string[] = [];
+      for (const e of s.events) {
+        if (e.type !== "pageview") continue;
+        if (seq[seq.length - 1] !== e.path) seq.push(e.path); // 연속 중복 제거
+      }
+      return { id: s.id, member: !!s.profileId, durationSec: (s.lastTs - s.firstTs) / 1000, steps: seq.slice(0, 8) };
+    });
 
   const topExit = topBy(sessions, (s) => s.lastPath, 10); // 이탈 위치
   const topPhotos = topByEvent(sessions, (e) => (e.type === "click" && (e.target ?? "").startsWith("/photos/") ? e.target : null), 10);
@@ -266,6 +318,58 @@ export default async function AdminAnalyticsPage({
           <div className="mt-3 grid grid-cols-1 gap-6 md:grid-cols-2">
             <RankCard title="무한스크롤 뎁스 (최대 도달)" rows={scrollRows} total={reach(25)} />
             <RankCard title="보기 옵션 클릭 (세션 대비)" rows={optionRows} total={sessionCount} />
+          </div>
+
+          {/* 체류 · 전환 경로 */}
+          <h2 className="mt-8 text-body-sm font-medium text-muted">체류 · 전환 경로</h2>
+          <div className="mt-3 grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div className="rounded-2xl border border-line bg-surface p-4">
+              <h3 className="text-body-sm font-semibold text-fg">페이지별 평균 체류시간</h3>
+              {dwellRows.length === 0 ? (
+                <p className="mt-3 text-caption text-faint">데이터 없음</p>
+              ) : (
+                <ul className="mt-3 space-y-2">
+                  {dwellRows.map((d) => (
+                    <li key={d.path} className="flex items-center justify-between gap-3 text-caption">
+                      <span className="min-w-0 flex-1 truncate text-fg">
+                        {pathLabel(d.path)} <span className="text-faint">{d.path}</span>
+                      </span>
+                      <span className="shrink-0 text-muted">
+                        <b className="text-fg tabular-nums">{fmtDuration(d.avg)}</b> · {fmt.format(d.n)}회
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-line bg-surface p-4">
+              <h3 className="text-body-sm font-semibold text-fg">전환 경로 (문의까지)</h3>
+              {journeys.length === 0 ? (
+                <p className="mt-3 text-caption text-faint">전환 세션이 아직 없어요</p>
+              ) : (
+                <ul className="mt-3 space-y-3">
+                  {journeys.map((j) => (
+                    <li key={j.id} className="text-caption">
+                      <div className="flex items-center gap-1.5 text-faint">
+                        <span>{j.member ? "로그인" : "비로그인"}</span>·
+                        <span>{fmtDuration(j.durationSec)}</span>·<span>{j.steps.length}단계</span>
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-1">
+                        {j.steps.map((p, i) => (
+                          <span key={i} className="flex items-center gap-1">
+                            {i > 0 && <span className="text-faint">→</span>}
+                            <span className="rounded-md bg-fg/[0.06] px-1.5 py-0.5 text-fg">{pathLabel(p)}</span>
+                          </span>
+                        ))}
+                        <span className="text-faint">→</span>
+                        <span className="rounded-md bg-brand/10 px-1.5 py-0.5 font-medium text-brand">문의</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
 
           {/* 유입 */}
