@@ -19,7 +19,7 @@ const RANGES = [
 type Ev = {
   session_id: string;
   profile_id: string | null;
-  type: "pageview" | "click";
+  type: "pageview" | "click" | "scroll";
   path: string;
   label: string | null;
   target: string | null;
@@ -149,6 +149,23 @@ export default async function AdminAnalyticsPage({
   const conversions = sessions.filter((s) => s.converted).length;
   const convRate = sessionCount > 0 ? Math.round((conversions / sessionCount) * 100) : 0;
 
+  // 무한스크롤 뎁스 — 세션이 도달한 최대 뎁스(누적 도달률)
+  const scrollEvents = sessions.flatMap((s) => s.events).filter((e) => e.type === "scroll");
+  const reach = (min: number) => scrollEvents.filter((e) => Number(e.label) >= min).length;
+  const scrollRows: [string, number][] = [
+    ["25% 이상", reach(25)],
+    ["50% 이상", reach(50)],
+    ["75% 이상", reach(75)],
+    ["100% (끝까지)", reach(100)],
+  ];
+
+  // 보기 옵션 클릭 — 가격/작가명 표시 토글
+  const clickEvents = sessions.flatMap((s) => s.events).filter((e) => e.type === "click");
+  const optionRows: [string, number][] = [
+    ["가격 표시", clickEvents.filter((e) => e.label === "toggle:price").length],
+    ["작가명 표시", clickEvents.filter((e) => e.label === "toggle:name").length],
+  ];
+
   const topExit = topBy(sessions, (s) => s.lastPath, 10); // 이탈 위치
   const topPhotos = topByEvent(sessions, (e) => (e.type === "click" && (e.target ?? "").startsWith("/photos/") ? e.target : null), 10);
   const topPages = topByEvent(sessions, (e) => (e.type === "pageview" ? e.path : null), 12);
@@ -242,6 +259,13 @@ export default async function AdminAnalyticsPage({
           <div className="mt-6 grid grid-cols-1 gap-6 md:grid-cols-2">
             <RankCard title="인기 페이지" rows={topPages} total={totalPageviews} mono />
             <RankCard title="인기 CTA / 클릭" rows={topCtas} total={totalClicks} />
+          </div>
+
+          {/* 참여 */}
+          <h2 className="mt-8 text-body-sm font-medium text-muted">참여</h2>
+          <div className="mt-3 grid grid-cols-1 gap-6 md:grid-cols-2">
+            <RankCard title="무한스크롤 뎁스 (최대 도달)" rows={scrollRows} total={reach(25)} />
+            <RankCard title="보기 옵션 클릭 (세션 대비)" rows={optionRows} total={sessionCount} />
           </div>
 
           {/* 유입 */}

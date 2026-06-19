@@ -104,8 +104,9 @@ export async function POST(req: Request) {
 
   const norm = events.map((e) => {
     const ev = e as Record<string, unknown>;
+    const t = ev.type === "click" ? "click" : ev.type === "scroll" ? "scroll" : "pageview";
     return {
-      type: ev.type === "click" ? "click" : "pageview",
+      type: t,
       path: str(ev.path, 300) ?? "",
       label: str(ev.label, 200),
       target: str(ev.target, 300),
