@@ -162,13 +162,6 @@ export function ExploreGallery({
 
   return (
     <>
-      {/* 검색 결과 수 — 검색했을 때만 */}
-      {query && (
-        <p className="px-1 pt-4 text-sm text-muted">
-          “{query}” 결과 {photos.length}장
-        </p>
-      )}
-
       {/* 메이슨리 갤러리 — JS 컬럼 버킷(추가 시 기존 사진 위치 고정) */}
       <div
         ref={setGridRef}
