@@ -59,7 +59,13 @@ export default async function ExploreHome({
   return (
     <section className="px-3 pb-10 font-kr sm:px-5">
       <ExploreHeader />
-      <ExploreGallery photos={photos} query={query} likedIds={likedIds} spotlightId={spotlightId} />
+      <ExploreGallery
+        photos={photos}
+        query={query}
+        likedIds={likedIds}
+        spotlightId={spotlightId}
+        loggedIn={!!me}
+      />
     </section>
   );
 }

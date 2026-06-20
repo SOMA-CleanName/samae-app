@@ -49,7 +49,7 @@ export default async function CategoryPage({
           description="곧 채워질 예정이에요."
         />
       ) : (
-        <ExploreGallery photos={photos} likedIds={likedIds} />
+        <ExploreGallery photos={photos} likedIds={likedIds} loggedIn={!!me} />
       )}
     </section>
   );
