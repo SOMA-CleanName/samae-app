@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useState } from "react";
 import { updateProfile, type ProfileState } from "../actions";
 import type { ProfileInitial } from "./page";
 
@@ -14,18 +14,28 @@ const BANKS = [
   "새마을금고", "신협", "우체국", "산업은행",
 ];
 
-// 작가 프로필 편집 폼
+// 작가 프로필 편집 폼 — controlled 입력. 저장(서버액션)은 새로고침 없이 처리하고
+// 입력한 값을 그대로 유지한다(저장 후 폼이 옛 값으로 되돌아가는 문제 방지).
 export function ProfileForm({ initial }: { initial: ProfileInitial }) {
   const [state, formAction, pending] = useActionState(updateProfile, initialState);
-
-  useEffect(() => {
-    if (!state.ok) return;
-    window.location.reload();
-  }, [state.ok]);
+  const [f, setF] = useState({
+    displayName: initial.displayName,
+    bio: initial.bio,
+    regions: initial.regions,
+    moodTags: initial.moodTags,
+    priceFrom: String(initial.priceFrom),
+    bankName: initial.bankName,
+    accountNumber: initial.accountNumber,
+    accountHolder: initial.accountHolder,
+  });
+  const set =
+    (k: keyof typeof f) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
+      setF((prev) => ({ ...prev, [k]: e.target.value }));
 
   return (
     <form action={formAction} className="mt-6 flex flex-col gap-4">
-      <Field name="displayName" label="작가명" defaultValue={initial.displayName} error={state.fieldErrors?.displayName} />
+      <Field name="displayName" label="작가명" value={f.displayName} onChange={set("displayName")} error={state.fieldErrors?.displayName} />
 
       <div className="flex flex-col gap-1">
         <label htmlFor="bio" className="text-sm font-medium">소개</label>
@@ -34,18 +44,20 @@ export function ProfileForm({ initial }: { initial: ProfileInitial }) {
           name="bio"
           rows={3}
           maxLength={500}
-          defaultValue={initial.bio}
+          value={f.bio}
+          onChange={set("bio")}
           className="rounded-xl border border-fg/15 bg-white px-4 py-3 text-sm outline-none focus:border-fg/40"
         />
       </div>
 
-      <Field name="regions" label="활동 지역" defaultValue={initial.regions} hint="쉼표로 구분 (예: 성수, 한강)" />
-      <Field name="moodTags" label="태그" defaultValue={initial.moodTags} hint="쉼표로 구분 (예: 필름, 내추럴)" />
+      <Field name="regions" label="활동 지역" value={f.regions} onChange={set("regions")} hint="쉼표로 구분 (예: 성수, 한강)" />
+      <Field name="moodTags" label="태그" value={f.moodTags} onChange={set("moodTags")} hint="쉼표로 구분 (예: 필름, 내추럴)" />
       <Field
         name="priceFrom"
         label="최저가 (원)"
         type="number"
-        defaultValue={String(initial.priceFrom)}
+        value={f.priceFrom}
+        onChange={set("priceFrom")}
         hint="표시용 시작 가격"
         min={0}
         max={100_000_000}
@@ -66,13 +78,14 @@ export function ProfileForm({ initial }: { initial: ProfileInitial }) {
               <select
                 id="bankName"
                 name="bankName"
-                defaultValue={initial.bankName}
+                value={f.bankName}
+                onChange={set("bankName")}
                 className="w-full appearance-none rounded-xl border border-fg/15 bg-white px-4 py-3 pr-12 text-sm outline-none focus:border-fg/40"
               >
                 <option value="">선택 안 함</option>
                 {/* 기존에 목록 밖 값이 저장돼 있으면 유지 */}
-                {initial.bankName && !BANKS.includes(initial.bankName) && (
-                  <option value={initial.bankName}>{initial.bankName}</option>
+                {f.bankName && !BANKS.includes(f.bankName) && (
+                  <option value={f.bankName}>{f.bankName}</option>
                 )}
                 {BANKS.map((b) => (
                   <option key={b} value={b}>{b}</option>
@@ -86,8 +99,8 @@ export function ProfileForm({ initial }: { initial: ProfileInitial }) {
               <p className="text-xs text-brand">{state.fieldErrors.bankName}</p>
             )}
           </div>
-          <Field name="accountNumber" label="계좌번호" defaultValue={initial.accountNumber} error={state.fieldErrors?.accountNumber} />
-          <Field name="accountHolder" label="예금주" defaultValue={initial.accountHolder} error={state.fieldErrors?.accountHolder} />
+          <Field name="accountNumber" label="계좌번호" value={f.accountNumber} onChange={set("accountNumber")} error={state.fieldErrors?.accountNumber} />
+          <Field name="accountHolder" label="예금주" value={f.accountHolder} onChange={set("accountHolder")} error={state.fieldErrors?.accountHolder} />
         </div>
       </fieldset>
 
@@ -108,7 +121,8 @@ export function ProfileForm({ initial }: { initial: ProfileInitial }) {
 function Field({
   name,
   label,
-  defaultValue,
+  value,
+  onChange,
   hint,
   error,
   type = "text",
@@ -118,7 +132,8 @@ function Field({
 }: {
   name: string;
   label: string;
-  defaultValue?: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   hint?: string;
   error?: string;
   type?: string;
@@ -133,7 +148,8 @@ function Field({
         id={name}
         name={name}
         type={type}
-        defaultValue={defaultValue}
+        value={value}
+        onChange={onChange}
         min={min}
         max={max}
         step={step}
