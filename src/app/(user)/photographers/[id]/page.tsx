@@ -111,7 +111,7 @@ export default async function PhotographerProfile({
         {/* 좌: 프로필 정보 (가로 레이아웃 — 데스크톱은 sticky 사이드바) */}
         <aside className="md:w-72 md:shrink-0 md:sticky md:top-6 md:self-start">
           <div className="flex items-center gap-4 md:flex-col md:items-start md:gap-0">
-            <Avatar name={phName} size="xl" className="shadow-lg ring-2 ring-white/40" />
+            <Avatar src={ph.avatar_url} name={phName} size="xl" className="shadow-lg ring-2 ring-white/40" />
             <div className="min-w-0 md:mt-4">
               <h1 className="text-h1 font-semibold">{phName}</h1>
               {/* 지표 */}

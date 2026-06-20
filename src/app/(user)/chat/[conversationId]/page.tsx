@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { getConversation, getMessages, counterpartName, getBrief } from "@/lib/chat";
+import { getConversation, getMessages, counterpartName, counterpartAvatar, getBrief } from "@/lib/chat";
 import { createClient } from "@/lib/supabase/server";
 import { fetchPhotographerPackages, fetchPhotographerPhotos } from "@/lib/discovery";
 import { getRules, getBlocks, getBusyRanges } from "@/lib/availability";
@@ -31,6 +31,7 @@ export default async function ChatRoomPage({
     getBrief(conversationId),
   ]);
   const title = counterpartName(conv, me);
+  const titleAvatar = counterpartAvatar(conv, me);
   const amCustomer = conv.user_id === me.id; // 내가 고객(예약 제안 측)
   // 작가가 채팅을 한 번이라도 보냈는지 (참여자는 둘뿐 → 고객 외 발신=작가)
   const photographerHasMessaged = messages.some((m) => m.sender_id !== conv.user_id);
@@ -92,12 +93,12 @@ export default async function ChatRoomPage({
           {/* 아바타 + 이름 (고객이면 작가 프로필로 이동) */}
           {headerHref ? (
             <Link href={headerHref} className="flex min-w-0 items-center gap-2.5">
-              <Avatar name={title} size="sm" />
+              <Avatar src={titleAvatar} name={title} size="sm" />
               <span className="truncate text-title font-semibold">{title}</span>
             </Link>
           ) : (
             <span className="flex min-w-0 items-center gap-2.5">
-              <Avatar name={title} size="sm" />
+              <Avatar src={titleAvatar} name={title} size="sm" />
               <span className="truncate text-title font-semibold">{title}</span>
             </span>
           )}

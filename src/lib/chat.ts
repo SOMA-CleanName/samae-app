@@ -14,8 +14,11 @@ export type ConversationListItem = {
   user_hidden_at: string | null;
   photographer_hidden_at: string | null;
   source_photo_path: string | null; // 사진에서 문의 시작 시 그 사진 경로(상담 정보에 노출)
-  photographer: { display_name: string | null } | null;
+  photographer: { display_name: string | null; profile_id?: string | null } | null;
   user: { display_name: string | null } | null;
+  // 상대 아바타 — profiles는 RLS상 본인만 조회 가능해 admin으로 보강(아래 fillCounterpartInfo)
+  user_avatar_url?: string | null;
+  photographer_avatar_url?: string | null;
 };
 
 // 채팅방 진행 상태 (예약 단계에서 파생)
@@ -56,21 +59,33 @@ export type ChatMessage = {
 const CONV_COLS =
   "id, user_id, photographer_id, last_message_at, user_unread, photographer_unread, " +
   "user_hidden_at, photographer_hidden_at, source_photo_path, " +
-  "photographer:photographers(display_name), " +
+  "photographer:photographers(display_name, profile_id), " +
   "user:profiles!conversations_user_id_fkey(display_name)";
 
-// 작가 시점에서는 고객 profiles 행이 RLS(profiles_select: 본인/관리자만)에 막혀
-// user.display_name이 비어 와 "고객"으로 표시된다. 이미 RLS로 참여자임이 확인된
-// 대화에 한해, admin으로 '이름만' 보강한다(phone 등 민감정보는 노출하지 않음).
-async function fillCustomerNames(convs: ConversationListItem[]): Promise<void> {
-  const missing = convs.filter((c) => !c.user?.display_name);
-  if (missing.length === 0) return;
-  const ids = [...new Set(missing.map((c) => c.user_id))];
+// 대화 상대의 표시 정보(이름·아바타)를 보강한다.
+// profiles는 RLS(profiles_select: 본인/관리자만)라 작가 시점의 고객 이름·아바타,
+// 고객 시점의 작가 아바타(profiles 경유)가 비어서 온다. 이미 RLS로 참여자임이 확인된
+// 대화에 한해 admin으로 '이름·아바타만' 보강한다(phone 등 민감정보는 노출하지 않음).
+async function fillCounterpartInfo(convs: ConversationListItem[]): Promise<void> {
+  if (convs.length === 0) return;
+  const ids = new Set<string>();
+  for (const c of convs) {
+    ids.add(c.user_id); // 고객
+    if (c.photographer?.profile_id) ids.add(c.photographer.profile_id); // 작가 소유 profile
+  }
   const admin = createAdminClient();
-  const { data } = await admin.from("profiles").select("id, display_name").in("id", ids);
-  const nameById = new Map((data ?? []).map((r) => [r.id, r.display_name as string | null]));
-  for (const c of missing) {
-    c.user = { display_name: nameById.get(c.user_id) ?? null };
+  const { data } = await admin
+    .from("profiles")
+    .select("id, display_name, avatar_url")
+    .in("id", [...ids]);
+  const byId = new Map((data ?? []).map((r) => [r.id, r]));
+  for (const c of convs) {
+    const u = byId.get(c.user_id);
+    // 고객 이름: 본인 행이면 join으로 이미 채워짐, 작가 시점이면 admin 보강
+    c.user = { display_name: c.user?.display_name ?? u?.display_name ?? null };
+    c.user_avatar_url = (u?.avatar_url as string | null) ?? null;
+    const p = c.photographer?.profile_id ? byId.get(c.photographer.profile_id) : undefined;
+    c.photographer_avatar_url = (p?.avatar_url as string | null) ?? null;
   }
 }
 
@@ -114,7 +129,7 @@ export async function listChatRooms(me: CurrentUser): Promise<ChatRoomItem[]> {
   }
 
   const visible = convs.filter((c) => isVisibleTo(c, me, withBrief)); // 대화 있거나 상담정보 입력된 + 안 나간 방만
-  await fillCustomerNames(visible); // 작가 시점 고객 이름 보강
+  await fillCounterpartInfo(visible); // 상대 이름·아바타 보강
   return visible.map((c) => ({
     ...c,
     status: deriveStatus(latestByPair.get(`${c.user_id}:${c.photographer_id}`)),
@@ -149,13 +164,13 @@ export async function getConversation(id: string): Promise<ConversationListItem 
     .select(
       "id, user_id, photographer_id, last_message_at, user_unread, photographer_unread, " +
         "source_photo_path, " +
-        "photographer:photographers(display_name), " +
+        "photographer:photographers(display_name, profile_id), " +
         "user:profiles!conversations_user_id_fkey(display_name)"
     )
     .eq("id", id)
     .maybeSingle();
   const conv = (data as unknown as ConversationListItem) ?? null;
-  if (conv) await fillCustomerNames([conv]); // 작가 시점 고객 이름 보강
+  if (conv) await fillCounterpartInfo([conv]); // 상대 이름·아바타 보강
   return conv;
 }
 
@@ -204,6 +219,14 @@ export function counterpartName(c: ConversationListItem, me: CurrentUser): strin
     return c.photographer?.display_name || "작가";
   }
   return c.user?.display_name || "고객";
+}
+
+// 대화 상대 아바타 URL (내 관점) — 없으면 null로 이니셜 폴백
+export function counterpartAvatar(c: ConversationListItem, me: CurrentUser): string | null {
+  if (c.user_id === me.id) {
+    return c.photographer_avatar_url ?? null; // 상대 = 작가
+  }
+  return c.user_avatar_url ?? null; // 상대 = 고객
 }
 
 // 내 안읽음 수 (내 관점)

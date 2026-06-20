@@ -57,6 +57,7 @@ export default async function InquiryPage({
         <InquiryMediaPanel
           items={mediaItems}
           name={photographer.display_name || "작가"}
+          avatarUrl={photographer.avatar_url}
         />
 
         <div className="min-h-0 px-5 pt-5 pb-9 sm:px-6 sm:pt-6 sm:pb-11 md:overflow-y-auto">
