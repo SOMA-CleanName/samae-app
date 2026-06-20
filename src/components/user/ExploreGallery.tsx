@@ -52,16 +52,32 @@ function buildColumns(photos: GalleryPhoto[], colCount: number): GalleryPhoto[][
   return cols;
 }
 
+// 온보딩 시 비-스포트라이트 카드가 흩어질 변형 — 황금각으로 사방 방사 분산(결정적).
+function scatterTransform(i: number): string {
+  const a = i * 2.39996323; // 황금각(rad) → 균일한 방사 분포
+  const dist = 540 + (i % 6) * 90;
+  const x = Math.round(Math.cos(a) * dist);
+  const y = Math.round(Math.sin(a) * dist);
+  const r = ((i * 53) % 90) - 45;
+  return `translate(${x}px, ${y}px) rotate(${r}deg) scale(0.38)`;
+}
+function scatterDelay(i: number): number {
+  return Math.min(i, 14) * 22; // 앞 카드부터 물결치듯(최대 ~308ms)
+}
+
 // 탐색 갤러리 — 서버가 셔플된 풀을 내려주고, 클라이언트는 메모리에서 점진 노출(네트워크 없음).
 // JS 컬럼 버킷으로 기존 사진은 절대 재배치되지 않음.
 export function ExploreGallery({
   photos,
   query,
   likedIds = [],
+  spotlightId,
 }: {
   photos: GalleryPhoto[];
   query?: string;
   likedIds?: string[];
+  // 광고 유입 온보딩 — 이 id 사진(좌상단 첫 카드)만 남기고 나머지를 어둡게+뿌옇게.
+  spotlightId?: string;
 }) {
   const [showPrice, setShowPrice] = useState(false);
   const [showName, setShowName] = useState(false);
@@ -69,6 +85,65 @@ export function ExploreGallery({
   const sentinel = useRef<HTMLDivElement>(null);
   const { cols: colCount, ready: columnsReady, setNode: setGridRef } = useColumnCount();
   const likedSet = new Set(likedIds);
+
+  // ── 온보딩 스포트라이트 상태머신 ──────────────────────────────
+  // idle → (그리드 준비 후) enter → 4초 강제 → ready → (클릭/X) leaving → done
+  const OB_FORCED_MS = 4000;
+  const [obPhase, setObPhase] = useState<"idle" | "enter" | "ready" | "leaving" | "done">(
+    spotlightId ? "idle" : "done"
+  );
+  const obActive = !!spotlightId && obPhase !== "done";
+  const obShown = obPhase === "enter" || obPhase === "ready"; // 오버레이 보이는 상태
+
+  // 1) 마운트 즉시 상호작용 잠금(스크롤·드래그) + 광고 사진 프리로드.
+  //    기다리는 동안 유저가 스크롤/액션 못 하게 하고, 사진이 로딩된 뒤 애니메이션 시작.
+  const [heroReady, setHeroReady] = useState(false);
+  useEffect(() => {
+    if (!spotlightId) return;
+    document.body.style.overflow = "hidden";
+    const hero = photos.find((p) => p.id === spotlightId);
+    const src = hero?.src_url || hero?.thumb_url || "";
+    let settled = false;
+    const mark = () => {
+      if (!settled) {
+        settled = true;
+        setHeroReady(true);
+      }
+    };
+    const img = new window.Image();
+    img.onload = mark;
+    img.onerror = mark;
+    img.src = src;
+    if (img.complete) mark(); // 캐시된 경우 즉시
+    const fallback = setTimeout(mark, 3000); // 안전망(너무 느린 이미지)
+    return () => clearTimeout(fallback);
+  }, [spotlightId, photos]);
+
+  // 2) 레이아웃 준비 + 사진 로딩 완료 후 한 번만 시작 — 사진을 한 박자 보여준 뒤
+  //    enter(흩어짐) → 4초 강제 → ready. obPhase 는 deps 에서 제외(타이머 보존).
+  const obStarted = useRef(false);
+  useEffect(() => {
+    if (obStarted.current || !spotlightId || !columnsReady || !heroReady) return;
+    obStarted.current = true;
+    const enterT = setTimeout(() => setObPhase("enter"), 350); // 로딩된 화면을 잠깐 보여줌
+    const readyT = setTimeout(() => setObPhase("ready"), 350 + OB_FORCED_MS + 60);
+    return () => {
+      clearTimeout(enterT);
+      clearTimeout(readyT);
+    };
+  }, [spotlightId, columnsReady, heroReady]);
+
+  // 스크롤 잠금 복구(언마운트 대비)
+  useEffect(() => () => {
+    document.body.style.overflow = "";
+  }, []);
+
+  function dismissOnboard() {
+    if (obPhase !== "ready") return; // 4초 전엔 강제(닫기 불가)
+    setObPhase("leaving");
+    document.body.style.overflow = "";
+    setTimeout(() => setObPhase("done"), 1100); // 카드 복귀·오버레이 페이드 완료까지
+  }
 
   // 풀(검색어/네비게이션) 바뀌면 노출 수 초기화
   useEffect(() => setVisible(STEP), [photos, query]);
@@ -136,6 +211,13 @@ export function ExploreGallery({
     [photos, visible, colCount]
   );
 
+  // 온보딩 흩어짐 stagger 용 — 사진 id → 노출 순서 인덱스
+  const orderIndex = useMemo(() => {
+    const m = new Map<string, number>();
+    photos.slice(0, visible).forEach((p, i) => m.set(p.id, i));
+    return m;
+  }, [photos, visible]);
+
   if (photos.length === 0) {
     return (
       <EmptyState
@@ -172,21 +254,169 @@ export function ExploreGallery({
       >
         {columns.map((col, ci) => (
           <div key={ci} className="flex min-w-0 flex-1 flex-col gap-3">
-            {col.map((photo) => (
-              <PhotoCard
-                key={photo.id}
-                photo={photo}
-                showPrice={showPrice}
-                showName={showName}
-                liked={likedSet.has(photo.id)}
-              />
-            ))}
+            {col.map((photo) => {
+              const card = (
+                <PhotoCard
+                  photo={photo}
+                  showPrice={showPrice}
+                  showName={showName}
+                  liked={likedSet.has(photo.id)}
+                />
+              );
+              // 스포트라이트 카드 — 오버레이(z-100) 위로 띄워 제자리 그대로 밝게
+              if (spotlightId && photo.id === spotlightId) {
+                return (
+                  <div
+                    key={photo.id}
+                    className={cn(
+                      "transition-all duration-700",
+                      obActive && "relative z-[110]",
+                      obShown && "rounded-2xl ring-2 ring-white/70 ring-offset-2 ring-offset-black"
+                    )}
+                  >
+                    {card}
+                  </div>
+                );
+              }
+              // 나머지 카드 — 온보딩 시 사방으로 휘리릭 흩어짐(닫을 땐 제자리로 복귀)
+              if (obActive) {
+                const i = orderIndex.get(photo.id) ?? 0;
+                return (
+                  <div
+                    key={photo.id}
+                    style={{
+                      transform: obShown ? scatterTransform(i) : "none",
+                      opacity: obShown ? 0 : 1,
+                      transition: `transform 780ms cubic-bezier(.45,0,.15,1) ${scatterDelay(i)}ms, opacity 780ms ease ${scatterDelay(i)}ms`,
+                      willChange: "transform, opacity",
+                    }}
+                  >
+                    {card}
+                  </div>
+                );
+              }
+              return <div key={photo.id}>{card}</div>;
+            })}
           </div>
         ))}
       </div>
 
       {/* 점진 노출 센티넬 */}
       {visible < photos.length && <div ref={sentinel} className="h-1" />}
+
+      {/* ── 온보딩 스포트라이트 오버레이 ── */}
+      {obActive && (
+        <>
+          {/* 어둡게 + 뿌옇게 덮는 레이어 — 카드가 흩어지는 동안 서서히 어두워짐 */}
+          <div
+            className={cn(
+              "fixed inset-0 z-[100] bg-black/75 backdrop-blur-md transition-opacity duration-[1100ms] ease-out",
+              obShown ? "opacity-100" : "opacity-0"
+            )}
+          />
+
+          {/* 상단 진행 바 (4초) */}
+          <div className="fixed inset-x-0 top-0 z-[105] h-[3px] bg-white/10">
+            <div
+              className="h-full bg-white/80"
+              style={{
+                width: obShown ? "100%" : "0%",
+                transition: obShown ? `width ${OB_FORCED_MS}ms linear` : "none",
+              }}
+            />
+          </div>
+
+          {/* 핵심 문구 — 하단 에디토리얼 블록. 라인 마스크 reveal + 스태거 */}
+          <div className="pointer-events-none fixed inset-0 z-[105] flex flex-col justify-end px-7 pb-24 sm:pb-28">
+            <div className="mx-auto w-full max-w-md">
+              {/* 키커 */}
+              <p
+                style={{ transitionDelay: obShown ? "60ms" : "0ms" }}
+                className={cn(
+                  "text-[0.68rem] font-semibold uppercase tracking-[0.24em] transition-all duration-700 ease-[cubic-bezier(.16,1,.3,1)]",
+                  obShown ? "translate-y-0 text-white/50 opacity-100" : "translate-y-3 opacity-0"
+                )}
+              >
+                사매 · 사진작가 매칭
+              </p>
+
+              {/* 액센트 라인 — 폭이 그어지듯 */}
+              <span
+                aria-hidden
+                className="mt-3 block h-px bg-white/30 transition-all duration-[900ms] ease-[cubic-bezier(.16,1,.3,1)]"
+                style={{ width: obShown ? "2.75rem" : "0px", transitionDelay: "140ms" }}
+              />
+
+              {/* 헤드라인 — 라인이 아래에서 솟아오름(마스크) */}
+              <h2 className="mt-4 text-[2.05rem] font-semibold leading-[1.18] tracking-tight text-white">
+                {["마음에 든 사진,", "그 작가에게 바로."].map((line, i) => (
+                  <span key={line} className="block overflow-hidden pb-[2px]">
+                    <span
+                      style={{ transitionDelay: obShown ? `${230 + i * 110}ms` : "0ms" }}
+                      className={cn(
+                        "block transition-all duration-[800ms] ease-[cubic-bezier(.16,1,.3,1)]",
+                        obShown ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
+                      )}
+                    >
+                      {line}
+                    </span>
+                  </span>
+                ))}
+              </h2>
+
+              {/* 서브카피 */}
+              <p
+                style={{ transitionDelay: obShown ? "480ms" : "0ms" }}
+                className={cn(
+                  "mt-4 text-[0.95rem] leading-relaxed transition-all duration-700 ease-[cubic-bezier(.16,1,.3,1)]",
+                  obShown ? "translate-y-0 text-white/72 opacity-100" : "translate-y-3 opacity-0"
+                )}
+              >
+                원하는 느낌의 사진을 고르면
+                <br />그 작가와 바로 연결해드려요.
+              </p>
+            </div>
+          </div>
+
+          {/* 닫기 안내 — 화면 최하단 중앙 */}
+          <div className="pointer-events-none fixed inset-x-0 bottom-6 z-[105] flex justify-center">
+            <span
+              className={cn(
+                "text-xs transition-opacity duration-500",
+                obPhase === "ready" ? "text-white/55 opacity-100" : "text-white/30 opacity-100"
+              )}
+            >
+              {obPhase === "ready" ? "화면을 누르면 시작해요" : "잠시만요…"}
+            </span>
+          </div>
+
+          {/* 전체 클릭 캐처 — 4초 전엔 강제(클릭 무시), 이후 어디를 눌러도 닫힘.
+              카드 위(z-115)라 온보딩 중 카드 탭 이동·드래그·스크롤도 전부 막힘. */}
+          <div
+            className="fixed inset-0 z-[115] touch-none select-none overscroll-none"
+            onClick={dismissOnboard}
+            onTouchMove={(e) => e.preventDefault()}
+            onDragStart={(e) => e.preventDefault()}
+            aria-hidden
+          />
+
+          {/* 닫기 X — 4초 후 표시 */}
+          <button
+            type="button"
+            onClick={dismissOnboard}
+            aria-label="닫고 시작하기"
+            tabIndex={obPhase === "ready" ? 0 : -1}
+            className={cn(
+              "fixed right-4 top-4 z-[116] grid h-10 w-10 place-items-center rounded-full bg-white/12 text-white backdrop-blur transition-all duration-300 hover:bg-white/25",
+              obPhase === "ready" ? "opacity-100" : "pointer-events-none opacity-0"
+            )}
+          >
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
+            </svg>
+          </button>
+        </>
+      )}
     </>
   );
 }
