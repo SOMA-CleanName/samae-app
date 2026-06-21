@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import {
   listChatRooms,
   counterpartName,
+  counterpartAvatar,
   myUnread,
   CHAT_STATUS_LABEL,
   type ChatStatus,
@@ -87,7 +88,7 @@ export function ChatRoomRow({
         href={`/chat/${c.id}`}
         className="flex min-w-0 flex-1 items-center gap-3 rounded-xl py-3 pr-1 transition-colors hover:bg-fg/[0.03]"
       >
-        <Avatar name={name} size="md" />
+        <Avatar src={counterpartAvatar(c, me)} name={name} size="md" />
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
             <span className="truncate text-body font-semibold text-fg">{name}</span>

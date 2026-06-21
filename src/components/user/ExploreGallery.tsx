@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/ui";
 
 const fmt = new Intl.NumberFormat("ko-KR");
 const STEP = 48; // 스크롤마다 더 보여줄 사진 수(메모리에서 즉시 노출)
+const TUTORIAL_SEEN_KEY = "samae:tutorial-seen"; // 일반 유저 첫 방문 튜토리얼 열람 여부
 const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 function useColumnCount() {
@@ -72,12 +73,15 @@ export function ExploreGallery({
   query,
   likedIds = [],
   spotlightId,
+  loggedIn = false,
 }: {
   photos: GalleryPhoto[];
   query?: string;
   likedIds?: string[];
   // 광고 유입 온보딩 — 이 id 사진(좌상단 첫 카드)만 남기고 나머지를 어둡게+뿌옇게.
   spotlightId?: string;
+  // 로그인 여부 — 로그인 유저에게는 일반 첫 방문 튜토리얼을 띄우지 않음.
+  loggedIn?: boolean;
 }) {
   const [showPrice, setShowPrice] = useState(false);
   const [showName, setShowName] = useState(false);
@@ -86,21 +90,38 @@ export function ExploreGallery({
   const { cols: colCount, ready: columnsReady, setNode: setGridRef } = useColumnCount();
   const likedSet = new Set(likedIds);
 
-  // ── 온보딩 스포트라이트 상태머신 ──────────────────────────────
+  // ── 온보딩 상태머신 ──────────────────────────────────────────
   // idle → (그리드 준비 후) enter → 4초 강제 → ready → (클릭/X) leaving → done
+  // 두 가지 트리거가 같은 머신·오버레이를 공유:
+  //  · 광고 유입(spotlightId) — 특정 사진을 제자리 강조 + 배경 카드 흩어짐
+  //  · 일반 첫 방문(generalOnboard) — 강조 사진 없이 배경 전체를 어둡게+뿌옇게
   const OB_FORCED_MS = 4000;
   const [obPhase, setObPhase] = useState<"idle" | "enter" | "ready" | "leaving" | "done">(
     spotlightId ? "idle" : "done"
   );
-  const obActive = !!spotlightId && obPhase !== "done";
+
+  // 일반 유저 첫 방문 튜토리얼 — 클라이언트에서만 판정(localStorage 필요).
+  // 비로그인 + 미열람 + 검색/광고 모드 아님일 때만 1회 노출.
+  const [generalOnboard, setGeneralOnboard] = useState(false);
+  useEffect(() => {
+    if (spotlightId || loggedIn || query) return;
+    try {
+      if (localStorage.getItem(TUTORIAL_SEEN_KEY) === "1") return;
+    } catch {
+      return; // 스토리지 접근 불가(사생활 모드 등) → 튜토리얼 생략
+    }
+    setGeneralOnboard(true);
+  }, [spotlightId, loggedIn, query]);
+
+  const obTriggered = !!spotlightId || generalOnboard;
+  const obActive = obTriggered && obPhase !== "done";
   const obShown = obPhase === "enter" || obPhase === "ready"; // 오버레이 보이는 상태
 
-  // 1) 마운트 즉시 상호작용 잠금(스크롤·드래그) + 광고 사진 프리로드.
-  //    기다리는 동안 유저가 스크롤/액션 못 하게 하고, 사진이 로딩된 뒤 애니메이션 시작.
-  const [heroReady, setHeroReady] = useState(false);
+  // 광고 모드 hero 사진 프리로드 — 로딩 완료 후 애니메이션 시작.
+  // 일반 모드는 프리로드할 hero 가 없어 초기값부터 준비 완료로 둠.
+  const [heroReady, setHeroReady] = useState(!spotlightId);
   useEffect(() => {
     if (!spotlightId) return;
-    document.body.style.overflow = "hidden";
     const hero = photos.find((p) => p.id === spotlightId);
     const src = hero?.src_url || hero?.thumb_url || "";
     let settled = false;
@@ -119,11 +140,19 @@ export function ExploreGallery({
     return () => clearTimeout(fallback);
   }, [spotlightId, photos]);
 
-  // 2) 레이아웃 준비 + 사진 로딩 완료 후 한 번만 시작 — 사진을 한 박자 보여준 뒤
-  //    enter(흩어짐) → 4초 강제 → ready. obPhase 는 deps 에서 제외(타이머 보존).
   const obStarted = useRef(false);
+
+  // 일반 모드 트리거가 잡히면 idle 진입 — 아직 시작 전일 때만(닫은 뒤 재진입 방지).
   useEffect(() => {
-    if (obStarted.current || !spotlightId || !columnsReady || !heroReady) return;
+    if (generalOnboard && !obStarted.current && obPhase === "done") {
+      setObPhase("idle");
+    }
+  }, [generalOnboard, obPhase]);
+
+  // 레이아웃 준비 + (광고 모드면) 사진 로딩 후 한 번만 시작 — 한 박자 보여준 뒤
+  // enter → 4초 강제 → ready. obPhase 는 deps 에서 제외(타이머 보존).
+  useEffect(() => {
+    if (obStarted.current || !obTriggered || !columnsReady || !heroReady) return;
     obStarted.current = true;
     const enterT = setTimeout(() => setObPhase("enter"), 350); // 로딩된 화면을 잠깐 보여줌
     const readyT = setTimeout(() => setObPhase("ready"), 350 + OB_FORCED_MS + 60);
@@ -131,17 +160,32 @@ export function ExploreGallery({
       clearTimeout(enterT);
       clearTimeout(readyT);
     };
-  }, [spotlightId, columnsReady, heroReady]);
+  }, [obTriggered, columnsReady, heroReady]);
 
-  // 스크롤 잠금 복구(언마운트 대비)
-  useEffect(() => () => {
-    document.body.style.overflow = "";
-  }, []);
+  // 온보딩 중 스크롤 잠금 — 활성화되면 잠그고, 종료(또는 언마운트) 시 자동 복구.
+  // 실제 스크롤 루트는 <html>(layout 의 h-full) 이라 documentElement 까지 잠가야 먹힘.
+  useEffect(() => {
+    if (!obActive) return;
+    const html = document.documentElement;
+    const { body } = document;
+    const prevHtml = html.style.overflow;
+    const prevBody = body.style.overflow;
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    return () => {
+      html.style.overflow = prevHtml;
+      body.style.overflow = prevBody;
+    };
+  }, [obActive]);
 
   function dismissOnboard() {
     if (obPhase !== "ready") return; // 4초 전엔 강제(닫기 불가)
+    try {
+      localStorage.setItem(TUTORIAL_SEEN_KEY, "1"); // 다시 보지 않음
+    } catch {
+      /* 스토리지 불가 시 무시 */
+    }
     setObPhase("leaving");
-    document.body.style.overflow = "";
     setTimeout(() => setObPhase("done"), 1100); // 카드 복귀·오버레이 페이드 완료까지
   }
 
@@ -278,8 +322,9 @@ export function ExploreGallery({
                   </div>
                 );
               }
-              // 나머지 카드 — 온보딩 시 사방으로 휘리릭 흩어짐(닫을 땐 제자리로 복귀)
-              if (obActive) {
+              // 나머지 카드 — 광고 온보딩 시 사방으로 휘리릭 흩어짐(닫을 땐 제자리로 복귀).
+              // 일반 모드는 강조 사진이 없어 흩어지지 않고, 오버레이로만 어둡게+뿌옇게 덮음.
+              if (spotlightId && obActive) {
                 const i = orderIndex.get(photo.id) ?? 0;
                 return (
                   <div
@@ -329,17 +374,6 @@ export function ExploreGallery({
           {/* 핵심 문구 — 하단 에디토리얼 블록. 라인 마스크 reveal + 스태거 */}
           <div className="pointer-events-none fixed inset-0 z-[105] flex flex-col justify-end px-7 pb-24 sm:pb-28">
             <div className="mx-auto w-full max-w-md">
-              {/* 키커 */}
-              <p
-                style={{ transitionDelay: obShown ? "60ms" : "0ms" }}
-                className={cn(
-                  "text-[0.68rem] font-semibold uppercase tracking-[0.24em] transition-all duration-700 ease-[cubic-bezier(.16,1,.3,1)]",
-                  obShown ? "translate-y-0 text-white/50 opacity-100" : "translate-y-3 opacity-0"
-                )}
-              >
-                사매 · 사진작가 매칭
-              </p>
-
               {/* 액센트 라인 — 폭이 그어지듯 */}
               <span
                 aria-hidden

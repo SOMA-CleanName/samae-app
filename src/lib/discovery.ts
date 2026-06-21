@@ -615,7 +615,11 @@ export async function fetchPhotographerById(id: string) {
     .eq("id", id)
     .eq("status", "approved")
     .maybeSingle();
-  return data;
+  if (!data) return null;
+  // 아바타는 profiles.avatar_url 에 있고 RLS상 본인만 조회 가능 →
+  // 공개 노출용 security definer RPC 로 승인 작가의 아바타만 가져온다 (0046)
+  const { data: avatarUrl } = await supabase.rpc("photographer_avatar_url", { pid: id });
+  return { ...data, avatar_url: (avatarUrl as string | null) ?? null };
 }
 
 // 작가 공개 사진 (사진별 가격·장소·무드·게시물)

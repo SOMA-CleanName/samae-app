@@ -14,9 +14,11 @@ export type InquiryMediaItem = {
 export function InquiryMediaPanel({
   items,
   name,
+  avatarUrl,
 }: {
   items: InquiryMediaItem[];
   name: string;
+  avatarUrl?: string | null;
 }) {
   const [index, setIndex] = useState(0);
   const visibleItems = items.filter((item) => item.src);
@@ -85,7 +87,7 @@ export function InquiryMediaPanel({
 
       {/* 작가 정보 — 사진 오른쪽 하단 오버레이 */}
       <div className="absolute bottom-3 right-3 flex items-center gap-2 rounded-full bg-black/45 py-1 pl-1 pr-3 backdrop-blur-sm">
-        <Avatar name={name} size="sm" className="ring-1 ring-white/50" />
+        <Avatar src={avatarUrl} name={name} size="sm" className="ring-1 ring-white/50" />
         <span className="text-caption font-semibold text-white">{name}</span>
       </div>
     </div>

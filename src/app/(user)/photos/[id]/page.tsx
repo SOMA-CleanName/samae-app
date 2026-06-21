@@ -111,7 +111,7 @@ export default async function PhotoDetail({
             href={`/photographers/${ph.id}`}
             className="flex items-center gap-3 rounded-2xl border border-line p-3 transition-colors hover:bg-surface-2"
           >
-            <Avatar name={phName} size="md" />
+            <Avatar src={ph.avatar_url} name={phName} size="md" />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-body font-semibold">{phName}</span>
               <span className="block text-caption text-muted">작가 사진 보러가기</span>
