@@ -65,6 +65,7 @@ export default async function ExploreHome({
         likedIds={likedIds}
         spotlightId={spotlightId}
         loggedIn={!!me}
+        spotlightFirstOnGeneral
       />
     </section>
   );
