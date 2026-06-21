@@ -74,6 +74,7 @@ export function ExploreGallery({
   likedIds = [],
   spotlightId,
   loggedIn = false,
+  spotlightFirstOnGeneral = false,
 }: {
   photos: GalleryPhoto[];
   query?: string;
@@ -82,6 +83,9 @@ export function ExploreGallery({
   spotlightId?: string;
   // 로그인 여부 — 로그인 유저에게는 일반 첫 방문 튜토리얼을 띄우지 않음.
   loggedIn?: boolean;
+  // 일반 첫 방문 튜토리얼에서 좌상단 첫 사진을 스포트라이트로 강조(슬러그 없는 탐색 메인 전용).
+  // false 면 강조 사진 없이 배경 전체만 어둡게(카테고리 slug 페이지).
+  spotlightFirstOnGeneral?: boolean;
 }) {
   const [showPrice, setShowPrice] = useState(false);
   const [showName, setShowName] = useState(false);
@@ -93,8 +97,9 @@ export function ExploreGallery({
   // ── 온보딩 상태머신 ──────────────────────────────────────────
   // idle → (그리드 준비 후) enter → 4초 강제 → ready → (클릭/X) leaving → done
   // 두 가지 트리거가 같은 머신·오버레이를 공유:
-  //  · 광고 유입(spotlightId) — 특정 사진을 제자리 강조 + 배경 카드 흩어짐
-  //  · 일반 첫 방문(generalOnboard) — 강조 사진 없이 배경 전체를 어둡게+뿌옇게
+  //  · 광고 유입(spotlightId) — 지정 사진을 제자리 강조 + 배경 카드 흩어짐
+  //  · 일반 첫 방문(generalOnboard) — 탐색 메인이면 좌상단 첫 사진을 강조,
+  //    slug 페이지면 강조 없이 배경 전체를 어둡게+뿌옇게
   const OB_FORCED_MS = 4000;
   const [obPhase, setObPhase] = useState<"idle" | "enter" | "ready" | "leaving" | "done">(
     spotlightId ? "idle" : "done"
@@ -113,9 +118,26 @@ export function ExploreGallery({
     setGeneralOnboard(true);
   }, [spotlightId, loggedIn, query]);
 
+  // 뷰포트가 데스크탑(넓은 화면)인지 — 데스크탑은 좌상단 첫 사진 스포트라이트가
+  // 구석의 작은 카드로 어색해, 강조 없이 가운데 인트로로 전환.
+  const [isDesktop, setIsDesktop] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const update = () => setIsDesktop(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+
   const obTriggered = !!spotlightId || generalOnboard;
   const obActive = obTriggered && obPhase !== "done";
   const obShown = obPhase === "enter" || obPhase === "ready"; // 오버레이 보이는 상태
+
+  // 강조(스포트라이트)할 사진 id — 광고는 지정 사진, 일반은 좌상단 첫 카드(메인 + 모바일에서만).
+  // undefined 면 강조 카드 없이 배경 전체만 어둡게(slug 일반 모드 / 데스크탑 일반 모드).
+  const spotlightTargetId =
+    spotlightId ??
+    (generalOnboard && spotlightFirstOnGeneral && !isDesktop ? photos[0]?.id : undefined);
 
   // 광고 모드 hero 사진 프리로드 — 로딩 완료 후 애니메이션 시작.
   // 일반 모드는 프리로드할 hero 가 없어 초기값부터 준비 완료로 둠.
@@ -308,7 +330,7 @@ export function ExploreGallery({
                 />
               );
               // 스포트라이트 카드 — 오버레이(z-100) 위로 띄워 제자리 그대로 밝게
-              if (spotlightId && photo.id === spotlightId) {
+              if (spotlightTargetId && photo.id === spotlightTargetId) {
                 return (
                   <div
                     key={photo.id}
@@ -322,9 +344,9 @@ export function ExploreGallery({
                   </div>
                 );
               }
-              // 나머지 카드 — 광고 온보딩 시 사방으로 휘리릭 흩어짐(닫을 땐 제자리로 복귀).
-              // 일반 모드는 강조 사진이 없어 흩어지지 않고, 오버레이로만 어둡게+뿌옇게 덮음.
-              if (spotlightId && obActive) {
+              // 나머지 카드 — 강조 사진이 있을 때만 사방으로 휘리릭 흩어짐(닫을 땐 제자리로 복귀).
+              // 강조 사진이 없는 일반 모드(slug)는 흩어지지 않고 오버레이로만 어둡게+뿌옇게 덮음.
+              if (spotlightTargetId && obActive) {
                 const i = orderIndex.get(photo.id) ?? 0;
                 return (
                   <div
@@ -371,20 +393,31 @@ export function ExploreGallery({
             />
           </div>
 
-          {/* 핵심 문구 — 하단 에디토리얼 블록. 라인 마스크 reveal + 스태거 */}
-          <div className="pointer-events-none fixed inset-0 z-[105] flex flex-col justify-end px-7 pb-24 sm:pb-28">
-            <div className="mx-auto w-full max-w-md">
-              {/* 액센트 라인 — 폭이 그어지듯 */}
+          {/* 핵심 문구 — 모바일은 하단 에디토리얼, 데스크탑은 화면 가운데 인트로. 라인 마스크 reveal + 스태거 */}
+          <div className="pointer-events-none fixed inset-0 z-[105] flex flex-col justify-end px-7 pb-24 sm:pb-28 md:justify-center md:pb-0">
+            <div className="mx-auto w-full max-w-md md:text-center">
+              {/* 액센트 라인 — 폭이 그어지듯 (데스크탑은 가운데 정렬) */}
               <span
                 aria-hidden
-                className="mt-3 block h-px bg-white/30 transition-all duration-[900ms] ease-[cubic-bezier(.16,1,.3,1)]"
+                className="mt-3 block h-px bg-white/30 transition-all duration-[900ms] ease-[cubic-bezier(.16,1,.3,1)] md:mx-auto"
                 style={{ width: obShown ? "2.75rem" : "0px", transitionDelay: "140ms" }}
               />
 
               {/* 헤드라인 — 라인이 아래에서 솟아오름(마스크) */}
               <h2 className="mt-4 text-[2.05rem] font-semibold leading-[1.18] tracking-tight text-white">
-                {["마음에 든 사진,", "그 작가에게 바로."].map((line, i) => (
-                  <span key={line} className="block overflow-hidden pb-[2px]">
+                {[
+                  { key: "l1", node: "마음에 든 이 느낌 그대로," },
+                  // 핵심 단어 '작가'를 로고 컬러로 강조 (튜토리얼 목적: 작가 인식)
+                  {
+                    key: "l2",
+                    node: (
+                      <>
+                        그 <span className="text-brand">작가</span>가 당신을 담아요.
+                      </>
+                    ),
+                  },
+                ].map((line, i) => (
+                  <span key={line.key} className="block overflow-hidden pb-[2px]">
                     <span
                       style={{ transitionDelay: obShown ? `${230 + i * 110}ms` : "0ms" }}
                       className={cn(
@@ -392,7 +425,7 @@ export function ExploreGallery({
                         obShown ? "translate-y-0 opacity-100" : "translate-y-full opacity-0"
                       )}
                     >
-                      {line}
+                      {line.node}
                     </span>
                   </span>
                 ))}
@@ -406,8 +439,8 @@ export function ExploreGallery({
                   obShown ? "translate-y-0 text-white/72 opacity-100" : "translate-y-3 opacity-0"
                 )}
               >
-                원하는 느낌의 사진을 고르면
-                <br />그 작가와 바로 연결해드려요.
+                지금 보는 사진을 찍은 바로 그 작가와
+                <br />같은 무드로 촬영을 진행해보세요.
               </p>
             </div>
           </div>
