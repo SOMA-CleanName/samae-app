@@ -19,6 +19,12 @@ type SearchablePhoto = GalleryPhoto & {
   location_text: string | null;
   album_id: string | null;
   photographer_id: string;
+  album?: {
+    id: string;
+    title: string | null;
+    description: string | null;
+    location_text: string | null;
+  } | null;
   photographer: GalleryPhoto["photographer"] & {
     regions?: string[] | null;
     mood_tags?: string[] | null;
@@ -28,9 +34,48 @@ type SearchablePhoto = GalleryPhoto & {
 type SearchQuery = {
   compact: string;
   terms: string[];
+  initials: string[];
 };
 
 const LIKE_COUNT_BATCH_SIZE = 40;
+const BROAD_SEARCH_THRESHOLD = 80;
+const FIRST_SCREEN_SIZE = 48;
+const HANGUL_BASE = 0xac00;
+const HANGUL_LAST = 0xd7a3;
+const HANGUL_UNIT = 588;
+const CHOSEONG = [
+  "ㄱ",
+  "ㄲ",
+  "ㄴ",
+  "ㄷ",
+  "ㄸ",
+  "ㄹ",
+  "ㅁ",
+  "ㅂ",
+  "ㅃ",
+  "ㅅ",
+  "ㅆ",
+  "ㅇ",
+  "ㅈ",
+  "ㅉ",
+  "ㅊ",
+  "ㅋ",
+  "ㅌ",
+  "ㅍ",
+  "ㅎ",
+] as const;
+
+const SEARCH_ALIASES: Record<string, string[]> = {
+  감성: ["무드", "분위기", "내추럴", "자연스러운"],
+  개인: ["프로필", "개인화보", "화보", "스냅"],
+  데이트: ["커플", "연인", "스냅"],
+  빈티지: ["필름", "레트로", "아날로그"],
+  스냅: ["사진", "촬영", "화보"],
+  웨딩: ["본식", "결혼", "브라이덜"],
+  증명: ["프로필", "이력서", "여권"],
+  프로필: ["개인", "화보", "증명"],
+  필름: ["빈티지", "레트로", "아날로그"],
+};
 
 // 제자리 셔플 (탐색 낱개 랜덤 노출용)
 function shuffle<T>(arr: T[]): T[] {
@@ -61,17 +106,63 @@ function sanitize(q: string): string {
 
 // 검색 비교용 정규화 — 사용자가 넣은 띄어쓰기 차이를 줄인다.
 function normalizeSearchText(value: string): string {
-  return value.toLowerCase().replace(/\s+/g, "");
+  return value
+    .toLowerCase()
+    .normalize("NFKC")
+    .replace(/[^\p{L}\p{N}ㄱ-ㅎㅏ-ㅣ]+/gu, "")
+    .replace(/\s+/g, "");
 }
 
 function buildSearchQuery(qRaw: string): SearchQuery {
   const safe = sanitize(qRaw);
-  const terms = safe
+  const baseTerms = safe
     .split(/\s+/)
     .map(normalizeSearchText)
     .filter(Boolean);
   const compact = normalizeSearchText(safe);
-  return { compact, terms: [...new Set([compact, ...terms].filter(Boolean))] };
+  const expanded = expandSearchTerms([compact, ...baseTerms]);
+  const initials = expanded.map(toChoseong).filter((term) => term.length >= 2);
+  return {
+    compact,
+    terms: [...new Set(expanded.filter(Boolean))],
+    initials: [...new Set(initials)],
+  };
+}
+
+function expandSearchTerms(terms: string[]): string[] {
+  const expanded = new Set<string>();
+  for (const term of terms) {
+    if (!term) continue;
+    expanded.add(term);
+    addAliasTerms(expanded, term);
+    for (const key of Object.keys(SEARCH_ALIASES)) {
+      if (term !== key && term.includes(key)) {
+        expanded.add(key);
+        addAliasTerms(expanded, key);
+      }
+    }
+  }
+  return [...expanded];
+}
+
+function addAliasTerms(expanded: Set<string>, term: string) {
+  for (const alias of SEARCH_ALIASES[term] ?? []) {
+    const normalized = normalizeSearchText(alias);
+    if (normalized) expanded.add(normalized);
+  }
+}
+
+function toChoseong(value: string): string {
+  let out = "";
+  for (const char of normalizeSearchText(value)) {
+    const code = char.charCodeAt(0);
+    if (code >= HANGUL_BASE && code <= HANGUL_LAST) {
+      out += CHOSEONG[Math.floor((code - HANGUL_BASE) / HANGUL_UNIT)] ?? "";
+    } else if (/[ㄱ-ㅎ]/.test(char)) {
+      out += char;
+    }
+  }
+  return out;
 }
 
 // 공개 사진 갤러리 (무드·지역 필터). 승인 작가의 published 만.
@@ -154,20 +245,25 @@ export async function searchPhotosByTag(qRaw: string): Promise<GalleryPhoto[]> {
 
 function calculateSearchScore(photo: SearchablePhoto, query: SearchQuery): number {
   const photographer = photo.photographer;
+  const album = photo.album;
   return (
-    bestArrayScore(photo.mood_tags, query, { exact: 120, startsWith: 95, includes: 75 }) +
-    bestTextScore(photo.location_text, query, { exact: 80, startsWith: 65, includes: 50 }) +
-    bestTextScore(photo.region, query, { exact: 75, startsWith: 60, includes: 45 }) +
-    bestTextScore(photographer.display_name, query, { exact: 70, startsWith: 55, includes: 40 }) +
-    bestArrayScore(photographer.mood_tags, query, { exact: 65, startsWith: 50, includes: 35 }) +
-    bestArrayScore(photographer.regions, query, { exact: 60, startsWith: 45, includes: 30 })
+    bestArrayScore(photo.mood_tags, query, { exact: 150, startsWith: 115, includes: 90, initial: 55, fuzzy: 70 }) +
+    bestTextScore(album?.title, query, { exact: 105, startsWith: 85, includes: 65, initial: 35, fuzzy: 45 }) +
+    bestTextScore(photo.location_text, query, { exact: 95, startsWith: 75, includes: 58, initial: 30, fuzzy: 40 }) +
+    bestTextScore(album?.location_text, query, { exact: 90, startsWith: 70, includes: 54, initial: 28, fuzzy: 38 }) +
+    bestTextScore(photo.region, query, { exact: 85, startsWith: 65, includes: 48, initial: 25, fuzzy: 36 }) +
+    bestTextScore(photographer.display_name, query, { exact: 78, startsWith: 60, includes: 42, initial: 24, fuzzy: 30 }) +
+    bestArrayScore(photographer.mood_tags, query, { exact: 72, startsWith: 55, includes: 38, initial: 22, fuzzy: 28 }) +
+    bestArrayScore(photographer.regions, query, { exact: 68, startsWith: 50, includes: 34, initial: 20, fuzzy: 26 }) +
+    bestTextScore(album?.description, query, { exact: 45, startsWith: 34, includes: 24, initial: 12, fuzzy: 0 }) +
+    coverageBonus(photo, query)
   );
 }
 
 function bestArrayScore(
   values: string[] | null | undefined,
   query: SearchQuery,
-  weights: { exact: number; startsWith: number; includes: number }
+  weights: SearchWeights
 ): number {
   let best = 0;
   for (const value of values ?? []) {
@@ -179,10 +275,11 @@ function bestArrayScore(
 function bestTextScore(
   value: string | null | undefined,
   query: SearchQuery,
-  weights: { exact: number; startsWith: number; includes: number }
+  weights: SearchWeights
 ): number {
   if (!value) return 0;
   const target = normalizeSearchText(value);
+  const targetInitials = toChoseong(value);
   let score = 0;
 
   for (const term of query.terms) {
@@ -190,9 +287,73 @@ function bestTextScore(
     if (target === term) score = Math.max(score, weights.exact);
     else if (target.startsWith(term)) score = Math.max(score, weights.startsWith);
     else if (target.includes(term)) score = Math.max(score, weights.includes);
+    else if (weights.fuzzy > 0 && isNearTextMatch(target, term)) {
+      score = Math.max(score, weights.fuzzy);
+    }
+  }
+  for (const initial of query.initials) {
+    if (targetInitials.includes(initial)) score = Math.max(score, weights.initial);
   }
 
   return score;
+}
+
+type SearchWeights = {
+  exact: number;
+  startsWith: number;
+  includes: number;
+  initial: number;
+  fuzzy: number;
+};
+
+function isNearTextMatch(target: string, term: string): boolean {
+  if (term.length < 2 || target.length > 24) return false;
+  if (Math.abs(target.length - term.length) > 2) return false;
+  const allowedDistance = term.length >= 5 ? 2 : 1;
+  return limitedEditDistance(target, term, allowedDistance) <= allowedDistance;
+}
+
+function limitedEditDistance(a: string, b: string, limit: number): number {
+  const prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  const curr = new Array(b.length + 1).fill(0);
+
+  for (let i = 1; i <= a.length; i++) {
+    curr[0] = i;
+    let rowMin = curr[0];
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      curr[j] = Math.min(prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost);
+      rowMin = Math.min(rowMin, curr[j]);
+    }
+    if (rowMin > limit) return limit + 1;
+    for (let j = 0; j <= b.length; j++) prev[j] = curr[j];
+  }
+
+  return prev[b.length];
+}
+
+function coverageBonus(photo: SearchablePhoto, query: SearchQuery): number {
+  if (query.terms.length <= 1) return 0;
+  const haystack = searchableTextBlob(photo);
+  const matched = query.terms.filter((term) => haystack.includes(term)).length;
+  return matched * 12;
+}
+
+function searchableTextBlob(photo: SearchablePhoto): string {
+  return [
+    ...(photo.mood_tags ?? []),
+    photo.region,
+    photo.location_text,
+    photo.album?.title,
+    photo.album?.location_text,
+    photo.album?.description,
+    photo.photographer.display_name,
+    ...(photo.photographer.mood_tags ?? []),
+    ...(photo.photographer.regions ?? []),
+  ]
+    .filter((value): value is string => Boolean(value))
+    .map(normalizeSearchText)
+    .join(" ");
 }
 
 async function sortPhotosBySearchScore(
@@ -233,6 +394,8 @@ type SearchResultItem = {
 };
 
 function distributeSearchResults(items: SearchResultItem[]): SearchResultItem[] {
+  if (items.length >= BROAD_SEARCH_THRESHOLD) return distributeBroadSearchResults(items);
+
   const byScore = new Map<number, SearchResultItem[]>();
   for (const item of items) {
     const bucket = Math.floor(item.score / 10) * 10;
@@ -244,6 +407,127 @@ function distributeSearchResults(items: SearchResultItem[]): SearchResultItem[] 
     result.push(...roundRobinByAlbumAndPhotographer(byScore.get(score)!));
   }
   return result;
+}
+
+function distributeBroadSearchResults(items: SearchResultItem[]): SearchResultItem[] {
+  const byScoreBand = new Map<number, SearchResultItem[]>();
+  for (const item of items) {
+    const band = Math.floor(item.score / 30) * 30;
+    (byScoreBand.get(band) ?? byScoreBand.set(band, []).get(band)!).push(item);
+  }
+
+  const result: SearchResultItem[] = [];
+  for (const score of [...byScoreBand.keys()].sort((a, b) => b - a)) {
+    result.push(...greedyDiverseOrder(byScoreBand.get(score)!));
+  }
+  return diversifyFirstScreen(result);
+}
+
+function greedyDiverseOrder(items: SearchResultItem[]): SearchResultItem[] {
+  const remaining = [...items];
+  const result: SearchResultItem[] = [];
+  const albumUse = new Map<string, number>();
+  const photographerUse = new Map<string, number>();
+  const recentAlbums: string[] = [];
+  const recentPhotographers: string[] = [];
+
+  while (remaining.length > 0) {
+    let bestIndex = 0;
+    let bestScore = -Infinity;
+    const scanLimit = Math.min(remaining.length, 120);
+
+    for (let i = 0; i < scanLimit; i++) {
+      const item = remaining[i];
+      const albumKey = item.photo.album_id ?? item.photo.id;
+      const photographerKey = item.photo.photographer_id;
+      const diversityPenalty =
+        (recentAlbums.includes(albumKey) ? 900 : 0) +
+        (recentPhotographers.includes(photographerKey) ? 520 : 0) +
+        (albumUse.get(albumKey) ?? 0) * 140 +
+        (photographerUse.get(photographerKey) ?? 0) * 90;
+      const candidateScore = item.score * 10 + item.count * 2 - item.index * 0.001 - diversityPenalty;
+
+      if (candidateScore > bestScore) {
+        bestScore = candidateScore;
+        bestIndex = i;
+      }
+    }
+
+    const [picked] = remaining.splice(bestIndex, 1);
+    const albumKey = picked.photo.album_id ?? picked.photo.id;
+    const photographerKey = picked.photo.photographer_id;
+    result.push(picked);
+    albumUse.set(albumKey, (albumUse.get(albumKey) ?? 0) + 1);
+    photographerUse.set(photographerKey, (photographerUse.get(photographerKey) ?? 0) + 1);
+    pushRecent(recentAlbums, albumKey, 18);
+    pushRecent(recentPhotographers, photographerKey, 8);
+  }
+
+  return result;
+}
+
+function diversifyFirstScreen(items: SearchResultItem[]): SearchResultItem[] {
+  if (items.length <= FIRST_SCREEN_SIZE) return greedyFirstScreenOrder(items);
+
+  const firstPool = items.slice(0, Math.min(items.length, FIRST_SCREEN_SIZE * 3));
+  const rest = items.slice(firstPool.length);
+  const firstScreen = greedyFirstScreenOrder(firstPool).slice(0, FIRST_SCREEN_SIZE);
+  const firstIds = new Set(firstScreen.map((item) => item.photo.id));
+  const leftovers = firstPool.filter((item) => !firstIds.has(item.photo.id));
+
+  return [...firstScreen, ...leftovers, ...rest];
+}
+
+function greedyFirstScreenOrder(items: SearchResultItem[]): SearchResultItem[] {
+  const remaining = [...items];
+  const result: SearchResultItem[] = [];
+  const recentAlbums: string[] = [];
+  const recentPhotographers: string[] = [];
+  const recentTags: string[] = [];
+
+  while (remaining.length > 0) {
+    let bestIndex = 0;
+    let bestScore = -Infinity;
+    const scanLimit = Math.min(remaining.length, 96);
+
+    for (let i = 0; i < scanLimit; i++) {
+      const item = remaining[i];
+      const albumKey = item.photo.album_id ?? item.photo.id;
+      const photographerKey = item.photo.photographer_id;
+      const tags = primaryDiversityTags(item.photo);
+      const repeatedTagCount = tags.filter((tag) => recentTags.includes(tag)).length;
+      const firstScreenPenalty =
+        (recentAlbums.includes(albumKey) ? 1400 : 0) +
+        (recentPhotographers.includes(photographerKey) ? 850 : 0) +
+        repeatedTagCount * 220;
+      const candidateScore = item.score * 10 + item.count * 2 - item.index * 0.001 - firstScreenPenalty;
+
+      if (candidateScore > bestScore) {
+        bestScore = candidateScore;
+        bestIndex = i;
+      }
+    }
+
+    const [picked] = remaining.splice(bestIndex, 1);
+    result.push(picked);
+    pushRecent(recentAlbums, picked.photo.album_id ?? picked.photo.id, 24);
+    pushRecent(recentPhotographers, picked.photo.photographer_id, 12);
+    for (const tag of primaryDiversityTags(picked.photo)) pushRecent(recentTags, tag, 18);
+  }
+
+  return result;
+}
+
+function primaryDiversityTags(photo: SearchablePhoto): string[] {
+  return [...(photo.mood_tags ?? []), photo.region ?? "", photo.album?.location_text ?? ""]
+    .map(normalizeSearchText)
+    .filter(Boolean)
+    .slice(0, 4);
+}
+
+function pushRecent(values: string[], value: string, limit: number) {
+  values.push(value);
+  if (values.length > limit) values.shift();
 }
 
 function roundRobinByAlbumAndPhotographer(items: SearchResultItem[]): SearchResultItem[] {
@@ -283,9 +567,9 @@ function appendRelatedPhotos(primary: GalleryPhoto[], allPhotos: SearchablePhoto
       score: calculateRelatedScore(photo, relatedTerms),
     }))
     .sort((a, b) => b.score - a.score || a.index - b.index)
-    .map((item) => item.photo);
+    .map((item) => item);
 
-  return [...primary, ...related];
+  return [...primary, ...distributeRelatedResults(related).map((item) => item.photo)];
 }
 
 function buildRelatedTerms(photos: GalleryPhoto[]): Set<string> {
@@ -295,6 +579,8 @@ function buildRelatedTerms(photos: GalleryPhoto[]): Set<string> {
       const normalized = normalizeSearchText(tag);
       if (normalized) terms.add(normalized);
     }
+    if (photo.region) terms.add(normalizeSearchText(photo.region));
+    if (photo.photographer.display_name) terms.add(normalizeSearchText(photo.photographer.display_name));
   }
   return terms;
 }
@@ -311,8 +597,54 @@ function calculateRelatedScore(photo: SearchablePhoto, relatedTerms: Set<string>
     const normalized = normalizeSearchText(tag);
     if (relatedTerms.has(normalized)) score += 4;
   }
+  if (photo.region && relatedTerms.has(normalizeSearchText(photo.region))) score += 5;
+  if (photo.album?.location_text && relatedTerms.has(normalizeSearchText(photo.album.location_text))) score += 3;
 
   return score;
+}
+
+type RelatedResultItem = {
+  photo: SearchablePhoto;
+  index: number;
+  score: number;
+};
+
+function distributeRelatedResults(items: RelatedResultItem[]): RelatedResultItem[] {
+  const byScore = new Map<number, RelatedResultItem[]>();
+  for (const item of items) {
+    const bucket = Math.max(0, Math.floor(item.score / 5) * 5);
+    (byScore.get(bucket) ?? byScore.set(bucket, []).get(bucket)!).push(item);
+  }
+
+  const result: RelatedResultItem[] = [];
+  for (const score of [...byScore.keys()].sort((a, b) => b - a)) {
+    result.push(...roundRobinRelated(byScore.get(score)!));
+  }
+  return result;
+}
+
+function roundRobinRelated(items: RelatedResultItem[]): RelatedResultItem[] {
+  const groups = new Map<string, RelatedResultItem[]>();
+  for (const item of items) {
+    const key = item.photo.album_id
+      ? `album:${item.photo.album_id}`
+      : `photographer:${item.photo.photographer_id}`;
+    (groups.get(key) ?? groups.set(key, []).get(key)!).push(item);
+  }
+
+  const queues = [...groups.values()].sort((a, b) => b[0].score - a[0].score || a[0].index - b[0].index);
+  const result: RelatedResultItem[] = [];
+  for (let round = 0; ; round++) {
+    let added = false;
+    for (const queue of queues) {
+      if (round < queue.length) {
+        result.push(queue[round]);
+        added = true;
+      }
+    }
+    if (!added) break;
+  }
+  return result;
 }
 
 async function fetchAllSearchablePhotos(
@@ -325,7 +657,7 @@ async function fetchAllSearchablePhotos(
     const { data, error } = await supabase
       .from("photos")
       .select(
-        "id, src_url, thumb_url, width, height, region, location_text, mood_tags, price_krw, album_id, photographer_id, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name, regions, mood_tags)"
+        "id, src_url, thumb_url, width, height, region, location_text, mood_tags, price_krw, album_id, photographer_id, album:albums(id, title, description, location_text), photographer:photographers!photos_photographer_id_fkey!inner(id, display_name, regions, mood_tags)"
       )
       .eq("visibility", "published")
       .order("created_at", { ascending: false })
