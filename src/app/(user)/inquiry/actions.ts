@@ -11,6 +11,8 @@ export type InquiryState = {
   message?: string;
   error?: string;
   values?: InquiryValues;
+  // Meta 픽셀 Lead 이벤트 중복 제거용 — 클라이언트가 eventID 로 사용
+  inquiryId?: string;
 };
 
 const PHONE_PATTERN = /^0\d{2}-\d{4}-\d{4}$/;
@@ -182,6 +184,7 @@ export async function submitInquiry(
   return {
     ok: true,
     message: "문의가 작가에게 전달되었어요. 작가가 확인 후 연락드릴 예정입니다.",
+    inquiryId,
   };
 }
 
