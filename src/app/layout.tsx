@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Inter, Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
 import { AnalyticsTracker } from "@/components/AnalyticsTracker";
+import { MetaPixel } from "@/components/MetaPixel";
 
 // 디스플레이용 세리프 (히어로 타이틀 등)
 const fraunces = Fraunces({
@@ -42,6 +43,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-bg text-fg">
         {children}
         <AnalyticsTracker />
+        <MetaPixel />
       </body>
     </html>
   );

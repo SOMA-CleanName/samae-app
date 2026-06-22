@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui";
 import { PlusIcon } from "@/components/user/icons";
@@ -53,24 +53,34 @@ export function InquiryForm({
   const [refFiles, setRefFiles] = useState<File[]>([]); // 다운스케일 대상 원본 파일
   const returnPath = photoId ? `/photos/${photoId}` : `/photographers/${photographerId}`;
 
-  // 제출 — 레퍼런스 이미지를 업로드 전 클라이언트에서 리사이즈해 서버액션 본문 한계(1MB) 회피
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+  // 제출 — 레퍼런스 이미지를 업로드 전 클라이언트에서 리사이즈해 서버액션 본문 한계(1MB) 회피.
+  // 리사이즈는 비동기라, dispatch(formAction)를 startTransition 안에서 호출해 pending 상태를 유지한다.
+  function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const fd = new FormData(event.currentTarget);
-    fd.delete("referenceImages"); // 폼의 원본 파일 제거 후 리사이즈본으로 교체
-    for (const file of refFiles.slice(0, 5)) {
-      const small = await downscaleImage(file);
-      fd.append("referenceImages", small);
-    }
-    formAction(fd);
+    const fd = new FormData(event.currentTarget); // 비동기 진입 전 동기로 폼 데이터 확보
+    startTransition(async () => {
+      fd.delete("referenceImages"); // 폼의 원본 파일 제거 후 리사이즈본으로 교체
+      for (const file of refFiles.slice(0, 5)) {
+        const small = await downscaleImage(file);
+        fd.append("referenceImages", small);
+      }
+      formAction(fd);
+    });
   }
 
+  const leadFiredFor = useRef<string | null>(null);
   useEffect(() => {
     if (!state.ok) return;
+    // Meta 픽셀 전환 이벤트 — 문의 제출 성공(리드 발생). 광고 최적화 신호로 사용.
+    // eventID 로 inquiryId 를 넘겨 연타·리렌더로 같은 제출이 여러 번 발화돼도 Meta 가 중복 제거하게 한다.
+    if (state.inquiryId && leadFiredFor.current !== state.inquiryId) {
+      leadFiredFor.current = state.inquiryId;
+      window.fbq?.("track", "Lead", {}, { eventID: `inquiry_${state.inquiryId}` });
+    }
     setShowSuccess(true);
     const id = window.setTimeout(() => closeSuccess(), 7000);
     return () => window.clearTimeout(id);
-  }, [state.ok]);
+  }, [state.ok, state.inquiryId]);
 
   function closeSuccess() {
     setShowSuccess(false);
