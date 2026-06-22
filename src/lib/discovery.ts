@@ -19,6 +19,7 @@ type SearchablePhoto = GalleryPhoto & {
   location_text: string | null;
   album_id: string | null;
   photographer_id: string;
+  generated_tags?: string[] | null;
   album?: {
     id: string;
     title: string | null;
@@ -248,6 +249,7 @@ function calculateSearchScore(photo: SearchablePhoto, query: SearchQuery): numbe
   const album = photo.album;
   return (
     bestArrayScore(photo.mood_tags, query, { exact: 150, startsWith: 115, includes: 90, initial: 55, fuzzy: 70 }) +
+    bestArrayScore(photo.generated_tags, query, { exact: 135, startsWith: 105, includes: 82, initial: 50, fuzzy: 62 }) +
     bestTextScore(album?.title, query, { exact: 105, startsWith: 85, includes: 65, initial: 35, fuzzy: 45 }) +
     bestTextScore(photo.location_text, query, { exact: 95, startsWith: 75, includes: 58, initial: 30, fuzzy: 40 }) +
     bestTextScore(album?.location_text, query, { exact: 90, startsWith: 70, includes: 54, initial: 28, fuzzy: 38 }) +
@@ -342,6 +344,7 @@ function coverageBonus(photo: SearchablePhoto, query: SearchQuery): number {
 function searchableTextBlob(photo: SearchablePhoto): string {
   return [
     ...(photo.mood_tags ?? []),
+    ...(photo.generated_tags ?? []),
     photo.region,
     photo.location_text,
     photo.album?.title,
@@ -519,7 +522,7 @@ function greedyFirstScreenOrder(items: SearchResultItem[]): SearchResultItem[] {
 }
 
 function primaryDiversityTags(photo: SearchablePhoto): string[] {
-  return [...(photo.mood_tags ?? []), photo.region ?? "", photo.album?.location_text ?? ""]
+  return [...(photo.mood_tags ?? []), ...(photo.generated_tags ?? []), photo.region ?? "", photo.album?.location_text ?? ""]
     .map(normalizeSearchText)
     .filter(Boolean)
     .slice(0, 4);
@@ -579,6 +582,10 @@ function buildRelatedTerms(photos: GalleryPhoto[]): Set<string> {
       const normalized = normalizeSearchText(tag);
       if (normalized) terms.add(normalized);
     }
+    for (const tag of (photo as SearchablePhoto).generated_tags ?? []) {
+      const normalized = normalizeSearchText(tag);
+      if (normalized) terms.add(normalized);
+    }
     if (photo.region) terms.add(normalizeSearchText(photo.region));
     if (photo.photographer.display_name) terms.add(normalizeSearchText(photo.photographer.display_name));
   }
@@ -596,6 +603,10 @@ function calculateRelatedScore(photo: SearchablePhoto, relatedTerms: Set<string>
   for (const tag of photo.photographer.mood_tags ?? []) {
     const normalized = normalizeSearchText(tag);
     if (relatedTerms.has(normalized)) score += 4;
+  }
+  for (const tag of photo.generated_tags ?? []) {
+    const normalized = normalizeSearchText(tag);
+    if (relatedTerms.has(normalized)) score += 8;
   }
   if (photo.region && relatedTerms.has(normalizeSearchText(photo.region))) score += 5;
   if (photo.album?.location_text && relatedTerms.has(normalizeSearchText(photo.album.location_text))) score += 3;
@@ -657,7 +668,7 @@ async function fetchAllSearchablePhotos(
     const { data, error } = await supabase
       .from("photos")
       .select(
-        "id, src_url, thumb_url, width, height, region, location_text, mood_tags, price_krw, album_id, photographer_id, album:albums(id, title, description, location_text), photographer:photographers!photos_photographer_id_fkey!inner(id, display_name, regions, mood_tags)"
+        "id, src_url, thumb_url, width, height, region, location_text, mood_tags, generated_tags, price_krw, album_id, photographer_id, album:albums(id, title, description, location_text), photographer:photographers!photos_photographer_id_fkey!inner(id, display_name, regions, mood_tags)"
       )
       .eq("visibility", "published")
       .order("created_at", { ascending: false })
