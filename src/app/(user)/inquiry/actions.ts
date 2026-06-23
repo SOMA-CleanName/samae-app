@@ -167,19 +167,24 @@ export async function submitInquiry(
 
   brief.refImagePaths = await uploadReferenceImages(formData);
 
-  const inquiryId = await createInquiry(me?.id ?? null, photographerId, photoId, contact, brief);
-  if (!inquiryId) return { ok: false, error: "문의 저장에 실패했어요.", values };
+  const result = await createInquiry(me?.id ?? null, photographerId, photoId, contact, brief);
+  if (!result) return { ok: false, error: "문의 저장에 실패했어요.", values };
+  const { id: inquiryId, isNew } = result;
 
-  await notifyPhotographer(photographerId, inquiryId, me?.displayName ?? null, contact, brief);
+  // 연타·재제출로 기존 리드를 재사용한 경우엔 알림을 다시 보내지 않는다.
+  // Lead 픽셀 이벤트는 동일 inquiryId(eventID)로 Meta 가 자동 중복 제거.
+  if (isNew) {
+    await notifyPhotographer(photographerId, inquiryId, me?.displayName ?? null, contact, brief);
 
-  // 운영진 디스코드 알림 — 리드 플로우 시작(운영진이 작가에게 카톡 통보). PII 미포함, 실패해도 접수는 성공.
-  await notifyOpsNewInquiry({
-    inquiryId,
-    photographerId,
-    purpose: brief.purpose,
-    preferredDate: brief.preferredDate,
-    region: brief.region,
-  });
+    // 운영진 디스코드 알림 — 리드 플로우 시작(운영진이 작가에게 카톡 통보). PII 미포함, 실패해도 접수는 성공.
+    await notifyOpsNewInquiry({
+      inquiryId,
+      photographerId,
+      purpose: brief.purpose,
+      preferredDate: brief.preferredDate,
+      region: brief.region,
+    });
+  }
 
   return {
     ok: true,
@@ -188,14 +193,46 @@ export async function submitInquiry(
   };
 }
 
+// 같은 작가에게 최근 2분 내 동일인(로그인=profile_id, 비로그인=연락처) 문의가 있으면 그 id 재사용
+// → 연타·재제출 시 리드 중복 적재 방지. 다른 작가에게의 문의는 별개 리드로 허용.
+async function findRecentDuplicate(
+  admin: ReturnType<typeof createAdminClient>,
+  profileId: string | null,
+  photographerId: string,
+  contact: ContactInfo
+): Promise<string | null> {
+  const since = new Date(Date.now() - 120_000).toISOString();
+  let q = admin
+    .from("inquiries")
+    .select("id")
+    .eq("photographer_id", photographerId)
+    .eq("status", "new")
+    .gte("created_at", since)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (profileId) q = q.eq("profile_id", profileId);
+  else if (contact.phone) q = q.eq("phone", contact.phone);
+  else if (contact.instagramId) q = q.eq("instagram_id", contact.instagramId);
+  else if (contact.kakaoId) q = q.eq("discord_id", contact.kakaoId);
+  else return null; // 식별 수단이 없으면 중복 판정 생략
+
+  const { data } = await q;
+  return data && data.length > 0 ? (data[0].id as string) : null;
+}
+
 async function createInquiry(
   profileId: string | null,
   photographerId: string,
   photoId: string,
   contact: ContactInfo,
   brief: BriefInfo
-) {
+): Promise<{ id: string; isNew: boolean } | null> {
   const admin = createAdminClient();
+
+  const dupId = await findRecentDuplicate(admin, profileId, photographerId, contact);
+  if (dupId) return { id: dupId, isNew: false };
+
   const { data, error } = await admin
     .from("inquiries")
     .insert({
@@ -219,7 +256,7 @@ async function createInquiry(
     .single();
 
   if (error) return null;
-  return data.id as string;
+  return { id: data.id as string, isNew: true };
 }
 
 async function notifyPhotographer(
