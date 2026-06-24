@@ -1027,7 +1027,7 @@ export async function fetchSimilarPhotos(opts: {
 
   // 점수 묶음 안에서 앨범별 라운드로빈 → 같은 게시물 사진이 줄지어 뜨지 않게 분산.
   // 유사도(점수)는 그대로 상위 유지하되, 동점은 여러 게시물이 번갈아 섞이도록.
-  const result: SimilarPhoto[] = [];
+  const ordered: Row[] = [];
   for (const s of [...byScore.keys()].sort((a, b) => b - a)) {
     const items = byScore.get(s)!;
     // 앨범(단일 사진은 각자)별로 묶고, 앨범 순서·앨범 내 순서를 셔플
@@ -1042,8 +1042,7 @@ export async function fetchSimilarPhotos(opts: {
       let any = false;
       for (const g of groups) {
         if (round < g.length) {
-          const p = g[round];
-          result.push({ id: p.id, src_url: p.src_url, thumb_url: p.thumb_url, width: p.width, height: p.height });
+          ordered.push(g[round]);
           any = true;
         }
       }
@@ -1051,7 +1050,34 @@ export async function fetchSimilarPhotos(opts: {
     }
   }
 
-  return result;
+  // 최종 간격 보정 — 인접한 두 사진이 같은 게시물(앨범)이 되지 않도록 재배치.
+  // 라운드로빈만으로는 한 앨범만 남거나 점수 묶음 경계에서 같은 앨범이 연속될 수 있어, 한 번 더 보장.
+  const spaced = spaceByAlbum(ordered, (p) => p.album_id ?? `single:${p.id}`);
+
+  return spaced.map((p) => ({
+    id: p.id,
+    src_url: p.src_url,
+    thumb_url: p.thumb_url,
+    width: p.width,
+    height: p.height,
+  }));
+}
+
+// 우선순위 순서를 최대한 보존하면서, 인접한 두 항목이 같은 키(게시물)가 되지 않게 재배치.
+// 다음 항목이 직전과 같은 게시물이면 그 뒤에서 다른 게시물을 먼저 꺼내 끼워넣는다.
+// 남은 게 전부 같은 게시물뿐일 때만 불가피하게 연속된다.
+function spaceByAlbum<T>(items: T[], keyOf: (item: T) => string): T[] {
+  const pending = [...items];
+  const out: T[] = [];
+  let lastKey: string | null = null;
+  while (pending.length > 0) {
+    let idx = pending.findIndex((it) => keyOf(it) !== lastKey);
+    if (idx === -1) idx = 0; // 전부 같은 게시물이면 어쩔 수 없이 연속
+    const [picked] = pending.splice(idx, 1);
+    out.push(picked);
+    lastKey = keyOf(picked);
+  }
+  return out;
 }
 
 // 작가 활성 패키지
