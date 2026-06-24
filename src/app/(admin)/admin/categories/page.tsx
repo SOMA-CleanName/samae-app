@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { listCategoriesWithCounts, isUntaggedCategory } from "@/lib/categories";
+import { listCategoriesWithCounts, fetchAdCandidates, isUntaggedCategory } from "@/lib/categories";
 import { listAllTags } from "@/lib/tags";
 import { Badge, EmptyState } from "@/components/ui";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { LayersIcon } from "@/components/user/icons";
 import { CategoryFields } from "./CategoryFields";
+import { CategoryAdPicker } from "./CategoryAdPicker";
 import {
   createCategory,
   updateCategory,
@@ -17,6 +18,8 @@ export const dynamic = "force-dynamic";
 // 카테고리 관리 — 운영자가 카테고리를 만들고, 매칭 사진 수를 보고, 페이지를 공개한다.
 export default async function AdminCategoriesPage() {
   const [cats, allTags] = await Promise.all([listCategoriesWithCounts(), listAllTags()]);
+  // 각 카테고리의 광고 소재 채택 후보 썸네일 (병렬)
+  const candidatesByCat = await Promise.all(cats.map((c) => fetchAdCandidates(c)));
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-5">
@@ -48,7 +51,7 @@ export default async function AdminCategoriesPage() {
         <EmptyState className="mt-6" icon={<LayersIcon className="h-7 w-7" />} title="아직 카테고리가 없어요" />
       ) : (
         <ul className="mt-6 flex flex-col gap-3">
-          {cats.map((c) => (
+          {cats.map((c, i) => (
             <li key={c.id} className="rounded-2xl border border-line bg-surface p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -85,6 +88,22 @@ export default async function AdminCategoriesPage() {
                   </form>
                 </div>
               </div>
+
+              {/* 광고 소재 채택 (펼침) */}
+              <details className="mt-3" open={c.adPhotoIds.length > 0}>
+                <summary className="cursor-pointer text-caption font-medium text-fg">
+                  📣 광고 소재 채택
+                  {c.adPhotoIds.length > 0 && (
+                    <span className="ml-1 text-brand">· {c.adPhotoIds.length}장 채택됨</span>
+                  )}
+                </summary>
+                <CategoryAdPicker
+                  categoryId={c.id}
+                  slug={c.slug}
+                  candidates={candidatesByCat[i]}
+                  adopted={c.adPhotoIds}
+                />
+              </details>
 
               {/* 편집 (펼침) */}
               <details className="mt-3">
