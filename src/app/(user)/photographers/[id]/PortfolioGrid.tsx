@@ -128,7 +128,7 @@ function PortfolioModal({
     >
       {/* 가로 2열 — 사진(좌, 넓게) + 정보·액션(우) */}
       <div
-        className="relative flex max-h-[88vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-bg shadow-2xl md:flex-row"
+        className="relative flex max-h-[88svh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-bg shadow-2xl md:flex-row"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -142,7 +142,7 @@ function PortfolioModal({
 
         {/* 사진 (좌) — 넓은 영역 */}
         <div className="grid min-w-0 flex-1 place-items-center overflow-hidden bg-fg/[0.03]">
-          <div className="max-h-[88vh] w-full">
+          <div className="max-h-[88svh] w-full">
             <PhotoCarousel photos={post.photos} />
           </div>
         </div>

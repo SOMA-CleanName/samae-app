@@ -48,7 +48,7 @@ export default async function InquiryPage({
   }
 
   return (
-    <main className="mx-auto flex min-h-[calc(100vh-96px)] max-w-5xl flex-col justify-center px-4 py-10 font-kr sm:px-6">
+    <main className="mx-auto flex min-h-[calc(100svh-96px)] max-w-5xl flex-col justify-center px-4 py-10 font-kr sm:px-6">
       <div className="mb-6 flex items-center justify-between gap-4">
         <InquiryBackButton fallbackHref={`/photographers/${photographerId}`} />
       </div>

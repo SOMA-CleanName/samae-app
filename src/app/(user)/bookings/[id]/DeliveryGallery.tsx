@@ -187,11 +187,11 @@ export function DeliveryGallery({
             </button>
           )}
 
-          <figure className="flex max-h-[88vh] max-w-[92vw] flex-col items-center" onClick={(e) => e.stopPropagation()}>
+          <figure className="flex max-h-[88svh] max-w-[92vw] flex-col items-center" onClick={(e) => e.stopPropagation()}>
             <img
               src={images[viewer].url}
               alt={images[viewer].name}
-              className="max-h-[80vh] max-w-[92vw] rounded-lg object-contain"
+              className="max-h-[80svh] max-w-[92vw] rounded-lg object-contain"
             />
             <figcaption className="mt-3 flex items-center gap-4 text-xs text-white/80">
               <span>

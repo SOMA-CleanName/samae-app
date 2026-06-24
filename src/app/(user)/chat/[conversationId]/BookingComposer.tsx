@@ -91,7 +91,7 @@ export function BookingComposer({
       <form
         action={isEdit ? updateBooking : proposeBooking}
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[88vh] w-full max-w-md overflow-y-auto rounded-2xl bg-surface p-5 shadow-pop"
+        className="max-h-[88svh] w-full max-w-md overflow-y-auto rounded-2xl bg-surface p-5 shadow-pop"
       >
         <div className="flex items-center justify-between">
           <h3 className="text-title font-semibold">{isEdit ? "예약 제안 수정" : "예약 제안"}</h3>

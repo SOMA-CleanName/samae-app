@@ -16,6 +16,7 @@ import { PhotoExplore } from "./PhotoExplore";
 import { PhotoTopBar } from "./PhotoTopBar";
 import { OwnerPhotoBackButton } from "./OwnerPhotoBackButton";
 import { AutoFavorite } from "@/components/user/AutoFavorite";
+import { PixelViewContent } from "@/components/PixelViewContent";
 import { ChevronRightIcon } from "@/components/user/icons";
 import { Avatar, Button } from "@/components/ui";
 
@@ -89,6 +90,8 @@ export default async function PhotoDetail({
   return (
     <main className="mx-auto max-w-5xl px-4 pb-8 pt-20 font-kr sm:px-6 md:pt-24">
       {autoLike && <AutoFavorite targetType="photo" targetId={photo.id} path={`/photos/${photo.id}`} />}
+      {/* Meta 픽셀 ViewContent — 사진 조회(중간 깔때기). 작가 본인 제외 */}
+      <PixelViewContent id={photo.id} name={phName} disabled={isOwner} />
       <div className="md:flex md:items-start md:gap-8">
         {/* 사진 (게시물이면 스와이프) — 비율에 맞춰 너비 가변 */}
         <div
