@@ -2,8 +2,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import {
   fetchPublishedPhotos,
-  fetchPhotosByTags,
-  fetchUntaggedPhotos,
+  fetchCategoryFeed,
   searchPhotosByTag,
   fetchLikedPhotoIds,
   fetchPhotoById,
@@ -39,13 +38,11 @@ export default async function ExploreHome({
   // 그 사진을 좌상단 첫 카드로 고정하고 스포트라이트로 서비스 소개. (검색 모드 아닐 때)
   const adPhoto = !query && sp.ad ? await fetchPhotoById(sp.ad) : null;
 
-  // 피드: 검색 > 카테고리 알고리즘 > 전체 셔플
+  // 피드: 검색 > 카테고리 알고리즘(매칭 우선 + 나머지 전체) > 전체 셔플
   const basePhotos = query
     ? await searchPhotosByTag(query)
     : category
-      ? isUntaggedCategory(category.tags)
-        ? await fetchUntaggedPhotos(300)
-        : await fetchPhotosByTags(category.tags, 300)
+      ? await fetchCategoryFeed(category.tags, isUntaggedCategory(category.tags))
       : await fetchPublishedPhotos({});
 
   // 광고 사진을 맨 앞으로 → 메이슨리 좌상단 첫 카드 = 광고 이미지

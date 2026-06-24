@@ -226,6 +226,37 @@ export async function fetchUntaggedPhotos(limit = 300): Promise<GalleryPhoto[]> 
   return shuffle((data ?? []) as unknown as GalleryPhoto[]).slice(0, limit);
 }
 
+// 카테고리 피드 — 카테고리 매칭 사진을 먼저, 그 다음 나머지 공개 사진 전체를 이어붙인다.
+// (카테고리 페이지/메인 카테고리 모드에서 무한스크롤로 결국 모든 사진이 나오도록.
+//  매칭 우선이라 상단은 카테고리 알고리즘, 하단은 그 외 전체.)
+export async function fetchCategoryFeed(tags: string[], untagged = false): Promise<GalleryPhoto[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("photos")
+    .select(
+      "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name)"
+    )
+    .eq("visibility", "published")
+    .order("created_at", { ascending: false })
+    .limit(1000);
+
+  const all = (data ?? []) as unknown as GalleryPhoto[];
+  const tagSet = new Set((tags ?? []).map((t) => t.toLowerCase()));
+
+  const matches: GalleryPhoto[] = [];
+  const rest: GalleryPhoto[] = [];
+  for (const p of all) {
+    const moodTags = p.mood_tags ?? [];
+    const isMatch = untagged
+      ? moodTags.length === 0
+      : moodTags.some((t) => tagSet.has(t.toLowerCase()));
+    (isMatch ? matches : rest).push(p);
+  }
+
+  // 각 그룹을 셔플 → 매 방문 다른 순서, 그래도 매칭 그룹이 항상 위.
+  return [...shuffle(matches), ...shuffle(rest)];
+}
+
 // 무드 태그로 공개 사진 검색 — 부분 일치(대소문자 무시), 결과는 메이슨리 사진.
 // text[] 부분 일치는 PostgREST 단일 연산자로 어려워, published 전체를 페이지 단위로 받아 JS에서 필터.
 export async function searchPhotosByTag(qRaw: string): Promise<GalleryPhoto[]> {
