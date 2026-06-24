@@ -5,7 +5,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ApplyLeadForm } from "./ApplyLeadForm";
 
-export const metadata: Metadata = { title: "작가 신청 · SAMAE" };
+export const metadata: Metadata = { title: "작가 신청" };
 export const dynamic = "force-dynamic";
 
 // 작가 신청 — 로그인 필수. 신청은 계정에 연결되고, 운영자 승인 시 작가로 등록된다.
