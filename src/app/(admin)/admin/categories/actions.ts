@@ -64,6 +64,25 @@ export async function updateCategory(formData: FormData) {
   revalidatePath("/admin/categories");
 }
 
+// 광고 소재 채택 — 카테고리에 광고로 쓸 사진 id 목록 저장 (A/B 여러 장 가능)
+export async function setCategoryAdPhotos(formData: FormData) {
+  await assertAdmin();
+  const id = String(formData.get("id"));
+  // 체크된 사진 id 들이 "photoIds" 에 콤마로 직렬화돼 들어온다
+  const ids = [
+    ...new Set(
+      String(formData.get("photoIds") ?? "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    ),
+  ];
+  const admin = createAdminClient();
+  const { error } = await admin.from("categories").update({ ad_photo_ids: ids }).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/categories");
+}
+
 // 공개/비공개 토글
 export async function toggleCategoryPublished(formData: FormData) {
   await assertAdmin();
