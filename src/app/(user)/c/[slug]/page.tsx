@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { getPublishedCategory, isUntaggedCategory } from "@/lib/categories";
-import { fetchPhotosByTags, fetchUntaggedPhotos, fetchLikedPhotoIds } from "@/lib/discovery";
+import { fetchCategoryFeed, fetchLikedPhotoIds } from "@/lib/discovery";
 import { ExploreGallery } from "@/components/user/ExploreGallery";
 import { ExploreHeader } from "@/components/user/ExploreHeader";
 import { EmptyState } from "@/components/ui";
@@ -31,10 +31,8 @@ export default async function CategoryPage({
   if (!category) notFound();
 
   const me = await getCurrentUser();
-  // 넉넉히 받아 클라이언트가 점진 노출(무한 스크롤) — 탐색 메인과 동일 패턴
-  const photos = isUntaggedCategory(category.tags)
-    ? await fetchUntaggedPhotos(300)
-    : await fetchPhotosByTags(category.tags, 300);
+  // 카테고리 매칭 사진 먼저 + 나머지 전체 → 무한스크롤로 결국 모든 사진 노출
+  const photos = await fetchCategoryFeed(category.tags, isUntaggedCategory(category.tags));
   const likedIds = me ? await fetchLikedPhotoIds(photos.map((p) => p.id), me.id) : [];
 
   return (
