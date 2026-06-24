@@ -68,3 +68,50 @@ export async function listTagUsage(): Promise<TagUsageResult> {
     mappedTagCount: tags.filter((t) => t.mapped).length,
   };
 }
+
+export type GeneratedTagUsage = {
+  tag: string;
+  publishedCount: number;
+  totalCount: number;
+};
+
+export type GeneratedTagUsageResult = {
+  tags: GeneratedTagUsage[];
+  photoCount: number; // generated_tags 가 1개 이상인 사진 수
+};
+
+// 숨김 태그(generated_tags) 사용 빈도 — 검색/알고리즘에만 쓰이고 사용자엔 안 보이는 태그.
+export async function listGeneratedTagUsage(): Promise<GeneratedTagUsageResult> {
+  const admin = createAdminClient();
+
+  const { data: photos } = await admin.from("photos").select("generated_tags, visibility");
+
+  const total = new Map<string, number>();
+  const published = new Map<string, number>();
+  let tagged = 0;
+  for (const p of photos ?? []) {
+    const tags = (p.generated_tags as string[] | null) ?? [];
+    if (tags.length === 0) continue;
+    tagged += 1;
+    const isPublished = p.visibility === "published";
+    for (const t of new Set(tags)) {
+      total.set(t, (total.get(t) ?? 0) + 1);
+      if (isPublished) published.set(t, (published.get(t) ?? 0) + 1);
+    }
+  }
+
+  const tags: GeneratedTagUsage[] = [...total.entries()]
+    .map(([tag, totalCount]) => ({
+      tag,
+      totalCount,
+      publishedCount: published.get(tag) ?? 0,
+    }))
+    .sort(
+      (a, b) =>
+        b.publishedCount - a.publishedCount ||
+        b.totalCount - a.totalCount ||
+        a.tag.localeCompare(b.tag, "ko"),
+    );
+
+  return { tags, photoCount: tagged };
+}

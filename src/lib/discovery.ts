@@ -275,22 +275,85 @@ export async function searchPhotosByTag(qRaw: string): Promise<GalleryPhoto[]> {
   return appendRelatedPhotos(primary, rows);
 }
 
+// 검색어 정규화 키 — 검색어 로깅/집계의 그룹핑 키로 쓴다(대소문자·띄어쓰기 차이 흡수).
+export function normalizeQuery(raw: string): string {
+  return buildSearchQuery(raw).compact;
+}
+
+export type SearchScoreBreakdown = { label: string; score: number };
+export type DebugSearchPhoto = {
+  id: string;
+  thumb_url: string | null;
+  src_url: string;
+  mood_tags: string[];
+  generated_tags: string[];
+  display_name: string | null;
+};
+export type DebugSearchResult = {
+  photo: DebugSearchPhoto;
+  score: number;
+  breakdown: SearchScoreBreakdown[];
+};
+export type DebugSearchResponse = {
+  query: SearchQuery;
+  total: number;
+  results: DebugSearchResult[];
+};
+
+// 어드민 디버그용 — 실제 검색과 동일한 점수로 상위 N개 + 필드별 기여도를 돌려준다.
+// 정렬은 점수 내림차순만(분산/좋아요 보정 없이) — 원시 관련도를 그대로 보기 위함.
+export async function debugSearchPhotos(qRaw: string, limit = 60): Promise<DebugSearchResponse> {
+  const query = buildSearchQuery(qRaw);
+  if (!query.compact) return { query, total: 0, results: [] };
+  const supabase = await createClient();
+  const rows = await fetchAllSearchablePhotos(supabase);
+  const scored = rows
+    .map((photo) => ({ photo, score: calculateSearchScore(photo, query) }))
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  const results: DebugSearchResult[] = scored.slice(0, limit).map(({ photo, score }) => {
+    const breakdown = SEARCH_FIELDS.map((field) => ({ label: field.label, score: field.score(photo, query) })).filter(
+      (item) => item.score > 0
+    );
+    const bonus = coverageBonus(photo, query);
+    if (bonus > 0) breakdown.push({ label: "다중어 보너스", score: bonus });
+    breakdown.sort((a, b) => b.score - a.score);
+    return {
+      photo: {
+        id: photo.id,
+        thumb_url: photo.thumb_url,
+        src_url: photo.src_url,
+        mood_tags: photo.mood_tags ?? [],
+        generated_tags: photo.generated_tags ?? [],
+        display_name: photo.photographer.display_name,
+      },
+      score,
+      breakdown,
+    };
+  });
+
+  return { query, total: scored.length, results };
+}
+
+// 점수 필드 정의 — 본 점수 합산과 디버그 분해가 같은 소스를 쓰게 한다(가중치 드리프트 방지).
+const SEARCH_FIELDS: { label: string; score: (photo: SearchablePhoto, query: SearchQuery) => number }[] = [
+  { label: "사진 태그(공개)", score: (p, q) => bestArrayScore(p.mood_tags, q, { exact: 150, startsWith: 115, includes: 90, initial: 55, fuzzy: 70 }) },
+  { label: "검색 태그(숨김)", score: (p, q) => bestArrayScore(p.generated_tags, q, { exact: 135, startsWith: 105, includes: 82, initial: 50, fuzzy: 62 }) },
+  { label: "앨범 제목", score: (p, q) => bestTextScore(p.album?.title, q, { exact: 105, startsWith: 85, includes: 65, initial: 35, fuzzy: 45 }) },
+  { label: "사진 장소", score: (p, q) => bestTextScore(p.location_text, q, { exact: 95, startsWith: 75, includes: 58, initial: 30, fuzzy: 40 }) },
+  { label: "앨범 장소", score: (p, q) => bestTextScore(p.album?.location_text, q, { exact: 90, startsWith: 70, includes: 54, initial: 28, fuzzy: 38 }) },
+  { label: "지역", score: (p, q) => bestTextScore(p.region, q, { exact: 85, startsWith: 65, includes: 48, initial: 25, fuzzy: 36 }) },
+  { label: "작가명", score: (p, q) => bestTextScore(p.photographer.display_name, q, { exact: 78, startsWith: 60, includes: 42, initial: 24, fuzzy: 30 }) },
+  { label: "작가 태그", score: (p, q) => bestArrayScore(p.photographer.mood_tags, q, { exact: 72, startsWith: 55, includes: 38, initial: 22, fuzzy: 28 }) },
+  { label: "작가 지역", score: (p, q) => bestArrayScore(p.photographer.regions, q, { exact: 68, startsWith: 50, includes: 34, initial: 20, fuzzy: 26 }) },
+  { label: "앨범 설명", score: (p, q) => bestTextScore(p.album?.description, q, { exact: 45, startsWith: 34, includes: 24, initial: 12, fuzzy: 0 }) },
+];
+
 function calculateSearchScore(photo: SearchablePhoto, query: SearchQuery): number {
-  const photographer = photo.photographer;
-  const album = photo.album;
-  return (
-    bestArrayScore(photo.mood_tags, query, { exact: 150, startsWith: 115, includes: 90, initial: 55, fuzzy: 70 }) +
-    bestArrayScore(photo.generated_tags, query, { exact: 135, startsWith: 105, includes: 82, initial: 50, fuzzy: 62 }) +
-    bestTextScore(album?.title, query, { exact: 105, startsWith: 85, includes: 65, initial: 35, fuzzy: 45 }) +
-    bestTextScore(photo.location_text, query, { exact: 95, startsWith: 75, includes: 58, initial: 30, fuzzy: 40 }) +
-    bestTextScore(album?.location_text, query, { exact: 90, startsWith: 70, includes: 54, initial: 28, fuzzy: 38 }) +
-    bestTextScore(photo.region, query, { exact: 85, startsWith: 65, includes: 48, initial: 25, fuzzy: 36 }) +
-    bestTextScore(photographer.display_name, query, { exact: 78, startsWith: 60, includes: 42, initial: 24, fuzzy: 30 }) +
-    bestArrayScore(photographer.mood_tags, query, { exact: 72, startsWith: 55, includes: 38, initial: 22, fuzzy: 28 }) +
-    bestArrayScore(photographer.regions, query, { exact: 68, startsWith: 50, includes: 34, initial: 20, fuzzy: 26 }) +
-    bestTextScore(album?.description, query, { exact: 45, startsWith: 34, includes: 24, initial: 12, fuzzy: 0 }) +
-    coverageBonus(photo, query)
-  );
+  let total = 0;
+  for (const field of SEARCH_FIELDS) total += field.score(photo, query);
+  return total + coverageBonus(photo, query);
 }
 
 function bestArrayScore(
@@ -346,7 +409,7 @@ function isNearTextMatch(target: string, term: string): boolean {
   return limitedEditDistance(target, term, allowedDistance) <= allowedDistance;
 }
 
-function limitedEditDistance(a: string, b: string, limit: number): number {
+export function limitedEditDistance(a: string, b: string, limit: number): number {
   const prev = Array.from({ length: b.length + 1 }, (_, i) => i);
   const curr = new Array(b.length + 1).fill(0);
 

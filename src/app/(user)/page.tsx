@@ -7,6 +7,7 @@ import {
   fetchLikedPhotoIds,
   fetchPhotoById,
 } from "@/lib/discovery";
+import { logSearch } from "@/lib/search-log";
 import { getCurrentUser } from "@/lib/auth";
 import { getPublishedCategory, isUntaggedCategory } from "@/lib/categories";
 import { CATEGORY_COOKIE } from "@/lib/category-constants";
@@ -66,6 +67,9 @@ export default async function ExploreHome({
 
   // 현재 사용자가 좋아요한 사진(갤러리 하트 초기 상태)
   const me = await getCurrentUser();
+
+  // 검색어 적재 — 인기 검색어/검색 실패어 통계용(운영자 전용 조회).
+  if (query) await logSearch(query, basePhotos.length, me?.id);
   const likedIds = await fetchLikedPhotoIds(
     photos.map((p) => p.id),
     me?.id
