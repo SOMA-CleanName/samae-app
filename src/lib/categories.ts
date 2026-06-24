@@ -90,7 +90,7 @@ export async function getPublishedCategory(slug: string): Promise<Category | nul
 // 이미 채택된 사진은 후보 윈도우 밖이라도 항상 포함해 체크 상태를 유지한다.
 export async function fetchAdCandidates(
   category: Pick<Category, "tags" | "adPhotoIds">,
-  limit = 48
+  limit = 300
 ): Promise<AdCandidatePhoto[]> {
   const admin = createAdminClient();
   const select = "id, thumb_url, src_url";

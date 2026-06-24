@@ -34,7 +34,8 @@ export function CategoryAdPicker({
 
       <div className="flex items-center justify-between gap-2">
         <p className="text-caption text-muted">
-          광고 소재로 쓸 사진 선택 (선택 <b className="text-fg">{selected.length}</b>장)
+          광고 소재로 쓸 사진 선택 · 후보 {candidates.length}장 중 선택{" "}
+          <b className="text-fg">{selected.length}</b>장
         </p>
         <SaveButton />
       </div>
@@ -42,7 +43,7 @@ export function CategoryAdPicker({
       {candidates.length === 0 ? (
         <p className="mt-2 text-caption text-faint">매칭되는 공개 사진이 없어요.</p>
       ) : (
-        <div className="mt-2 grid grid-cols-4 gap-1.5 sm:grid-cols-6 md:grid-cols-8">
+        <div className="mt-2 grid max-h-[60vh] grid-cols-4 gap-1.5 overflow-y-auto rounded-lg border border-line p-1.5 sm:grid-cols-6 md:grid-cols-8">
           {candidates.map((p) => {
             const on = selected.includes(p.id);
             return (
