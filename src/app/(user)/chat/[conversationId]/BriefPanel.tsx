@@ -116,7 +116,7 @@ function Overlay({ onClose, children }: { onClose: () => void; children: React.R
       aria-modal="true"
     >
       <div
-        className="relative max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-bg p-5 shadow-pop"
+        className="relative max-h-[88svh] w-full max-w-lg overflow-y-auto rounded-2xl bg-bg p-5 shadow-pop"
         onClick={(e) => e.stopPropagation()}
       >
         {children}

@@ -337,7 +337,8 @@ export function ExploreGallery({
                     className={cn(
                       "transition-all duration-700",
                       obActive && "relative z-[110]",
-                      obShown && "rounded-2xl ring-2 ring-white/70 ring-offset-2 ring-offset-black"
+                      // 세로 긴 사진/작은 화면에서 카드가 하단 문구를 덮지 않게 높이 캡(모바일만).
+                      obShown && "max-h-[44svh] overflow-hidden rounded-2xl ring-2 ring-white/70 ring-offset-2 ring-offset-black md:max-h-none"
                     )}
                   >
                     {card}
@@ -404,7 +405,7 @@ export function ExploreGallery({
               />
 
               {/* 헤드라인 — 라인이 아래에서 솟아오름(마스크) */}
-              <h2 className="mt-4 text-[2.05rem] font-semibold leading-[1.18] tracking-tight text-white">
+              <h2 className="mt-4 text-[1.6rem] font-semibold leading-[1.18] tracking-tight text-white sm:text-[2.05rem]">
                 {[
                   { key: "l1", node: "마음에 든 이 느낌 그대로," },
                   // 핵심 단어 '작가'를 로고 컬러로 강조 (튜토리얼 목적: 작가 인식)

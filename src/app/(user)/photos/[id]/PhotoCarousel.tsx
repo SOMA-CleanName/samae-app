@@ -15,6 +15,24 @@ type P = {
   count?: number;
 };
 
+// 인스타식 점 인디케이터 — 한 번에 최대 5개만 보여 사진 폭을 넘지 않게.
+// 사진이 많으면 현재 위치 중심의 슬라이딩 윈도우, 양끝(더 있음) 점은 작게.
+const MAX_DOTS = 5;
+function dotWindow(idx: number, total: number): { i: number; scale: number }[] {
+  if (total <= MAX_DOTS) return Array.from({ length: total }, (_, i) => ({ i, scale: 1 }));
+  let start = idx - Math.floor(MAX_DOTS / 2);
+  start = Math.max(0, Math.min(start, total - MAX_DOTS));
+  return Array.from({ length: MAX_DOTS }, (_, k) => {
+    const i = start + k;
+    const moreLeft = start > 0;
+    const moreRight = start + MAX_DOTS < total;
+    let scale = 1;
+    if ((k === 0 && moreLeft) || (k === MAX_DOTS - 1 && moreRight)) scale = 0.5;
+    else if ((k === 1 && moreLeft) || (k === MAX_DOTS - 2 && moreRight)) scale = 0.7;
+    return { i, scale };
+  });
+}
+
 // 고정 프레임 안에 사진을 안 잘리게(contain) 넣고, 남는 공간은 같은 사진을 흐리게(blur) 깔아 채운다.
 // 썸네일을 즉시 보여주고 원본이 받아지면 부드럽게 교체.
 function Slide({ p, alt }: { p: P; alt: string }) {
@@ -137,7 +155,7 @@ export function PhotoCarousel({
   if (photos.length <= 1) {
     return (
       <div
-        className="relative max-h-[82vh] select-none overflow-hidden rounded-2xl bg-black"
+        className="relative max-h-[82svh] select-none overflow-hidden rounded-2xl bg-black"
         style={{ aspectRatio: frameAspect }}
       >
         <Slide p={photos[0]} alt={altFor(0)} />
@@ -153,7 +171,7 @@ export function PhotoCarousel({
       <div
         ref={ref}
         onScroll={onScroll}
-        className="flex max-h-[82vh] snap-x snap-mandatory select-none overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-smooth rounded-2xl bg-black scrollbar-none"
+        className="flex max-h-[82svh] snap-x snap-mandatory select-none overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-smooth rounded-2xl bg-black scrollbar-none"
         style={{ aspectRatio: frameAspect }}
       >
         {photos.map((p, i) => (
@@ -193,12 +211,16 @@ export function PhotoCarousel({
         {idx + 1}/{photos.length}
       </span>
 
-      {/* 점 인디케이터 — 어두운 알약 배경으로 흰 사진에서도 보이게 */}
-      <div className="pointer-events-none absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-black/30 px-2 py-1">
-        {photos.map((p, i) => (
+      {/* 점 인디케이터 — 인스타식 최대 5개 윈도우(많아도 사진 폭 안 넘음) */}
+      <div className="pointer-events-none absolute bottom-3 left-1/2 flex max-w-[80%] -translate-x-1/2 items-center justify-center gap-1.5 rounded-full bg-black/30 px-2 py-1">
+        {dotWindow(idx, photos.length).map(({ i, scale }) => (
           <span
-            key={p.id}
-            className={cn("h-1.5 w-1.5 rounded-full", i === idx ? "bg-white" : "bg-white/45")}
+            key={i}
+            className={cn(
+              "h-1.5 w-1.5 shrink-0 rounded-full transition-all",
+              i === idx ? "bg-white" : "bg-white/45"
+            )}
+            style={{ transform: `scale(${scale})` }}
           />
         ))}
       </div>

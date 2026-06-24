@@ -461,7 +461,7 @@ function PhotoPicker({
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 font-kr" onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[80vh] w-full max-w-md overflow-y-auto rounded-2xl bg-surface p-5 shadow-pop"
+        className="max-h-[80svh] w-full max-w-md overflow-y-auto rounded-2xl bg-surface p-5 shadow-pop"
       >
         <div className="flex items-center justify-between">
           <h3 className="text-title font-semibold">포트폴리오에서 고르기</h3>
