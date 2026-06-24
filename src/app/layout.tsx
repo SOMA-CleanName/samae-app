@@ -3,6 +3,7 @@ import { Fraunces, Inter, Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
 import { AnalyticsTracker } from "@/components/AnalyticsTracker";
 import { MetaPixel } from "@/components/MetaPixel";
+import { SITE_URL, SITE_NAME, SITE_TITLE, SITE_DESCRIPTION } from "@/lib/site";
 
 // 디스플레이용 세리프 (히어로 타이틀 등)
 const fraunces = Fraunces({
@@ -27,9 +28,26 @@ const notoKr = Noto_Sans_KR({
 });
 
 export const metadata: Metadata = {
-  title: "samae — 취향에 맞는 사진작가 매칭",
-  description:
-    "사진작가를 탐색하고, 채팅으로 협의하고, 예약·결제부터 보정본 수령까지 한 흐름에서.",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: SITE_TITLE,
+    template: `%s · ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    locale: "ko_KR",
+    url: SITE_URL,
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+  },
 };
 
 export default function RootLayout({
