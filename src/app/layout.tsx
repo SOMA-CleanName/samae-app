@@ -35,6 +35,12 @@ export const metadata: Metadata = {
   },
   description: SITE_DESCRIPTION,
   alternates: { canonical: "/" },
+  // Meta(Facebook) 도메인 인증 — ATT 이후 iOS 전환 측정에 필수. 정적 <head>에 렌더됨.
+  verification: {
+    other: {
+      "facebook-domain-verification": "k68lrant37edz9cnuiibojjski29tw",
+    },
+  },
   openGraph: {
     type: "website",
     siteName: SITE_NAME,
