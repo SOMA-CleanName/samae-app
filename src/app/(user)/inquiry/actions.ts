@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { notifyOpsNewInquiry } from "@/lib/ops-alert";
+import { sendCapiLead } from "@/lib/meta-capi";
 
 export type InquiryState = {
   ok: boolean;
@@ -184,6 +185,11 @@ export async function submitInquiry(
       preferredDate: brief.preferredDate,
       region: brief.region,
     });
+
+    // Meta 전환 API — 서버측 Lead 전송(브라우저 픽셀 보완). 같은 eventID 로 중복 제거.
+    // 이메일은 전용 필드가 없어 '기타 연락처'가 이메일 형태면 사용. (FB_CAPI_TOKEN 없으면 무동작)
+    const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.extraContact ?? "") ? contact.extraContact : null;
+    await sendCapiLead({ inquiryId, phone: contact.phone, email });
   }
 
   return {
