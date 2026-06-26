@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
-import { accentRingIds } from "@/lib/seeded-shuffle";
+import { assignColumnAccents } from "@/lib/seeded-shuffle";
 
 export type ExplorePhoto = {
   id: string;
@@ -100,8 +100,8 @@ function PhotoMasonry({
   const ref = useRef<HTMLDivElement>(null);
   const colCount = useColumnCount(ref);
   const columns = useMemo(() => buildColumns(photos, colCount), [photos, colCount]);
-  // 브랜드 테두리 — 노출 순서 기준 가변 간격(6~11)으로만 표시 → 몰리거나 매번 같은 자리 방지
-  const accentIds = useMemo(() => accentRingIds(photos), [photos]);
+  // 테두리 — 컬럼별로 어긋나게 배치(한쪽 쏠림 방지) + 가끔 검정
+  const accentMap = useMemo(() => assignColumnAccents(columns), [columns]);
   if (photos.length === 0) {
     return <p className="mt-10 text-center text-sm text-muted">{empty}</p>;
   }
@@ -111,13 +111,13 @@ function PhotoMasonry({
         <div key={ci} className="flex min-w-0 flex-1 flex-col gap-3">
           {col.map((p) => {
             const ratio = p.width > 0 && p.height > 0 ? `${p.width} / ${p.height}` : undefined;
-            const accent = accentIds.has(p.id);
+            const accent = accentMap.get(p.id);
             return (
               <div
                 key={p.id}
                 data-cart-card
                 className={`group relative overflow-hidden rounded-2xl bg-fg/[0.05] ring-4 ${
-                  accent ? "ring-brand" : "ring-bg"
+                  accent === "brand" ? "ring-brand" : accent === "ink" ? "ring-fg" : "ring-bg"
                 }`}
               >
                 <Link

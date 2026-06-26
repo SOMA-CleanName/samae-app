@@ -5,7 +5,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { GalleryPhoto } from "@/lib/discovery";
 import { cn } from "@/lib/cn";
-import { accentRingIds } from "@/lib/seeded-shuffle";
+import { assignColumnAccents, type AccentColor } from "@/lib/seeded-shuffle";
 import { SearchIcon } from "@/components/user/icons";
 import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
 import { EmptyState } from "@/components/ui";
@@ -283,8 +283,8 @@ export function ExploreGallery({
     return m;
   }, [photos, visible]);
 
-  // 브랜드 테두리 — 노출 순서 기준 가변 간격(6~11)으로 분산
-  const accentIds = useMemo(() => accentRingIds(photos.slice(0, visible)), [photos, visible]);
+  // 테두리 — 컬럼별로 어긋나게 배치(한쪽 쏠림 방지) + 가끔 검정
+  const accentMap = useMemo(() => assignColumnAccents(columns), [columns]);
 
   if (photos.length === 0) {
     return (
@@ -328,7 +328,7 @@ export function ExploreGallery({
                   photo={photo}
                   showPrice={showPrice}
                   showName={showName}
-                  accent={accentIds.has(photo.id)}
+                  accent={accentMap.get(photo.id)}
                 />
               );
               // 스포트라이트 카드 — 오버레이(z-100) 위로 띄워 제자리 그대로 밝게
@@ -502,7 +502,7 @@ function PhotoCard({
   photo: GalleryPhoto;
   showPrice: boolean;
   showName: boolean;
-  accent: boolean;
+  accent?: AccentColor;
 }) {
   const tags = (photo.mood_tags ?? []).slice(0, 3).join(", ");
   const alt = tags ? `사진 · ${tags}` : "사진";
@@ -514,9 +514,9 @@ function PhotoCard({
     <div
       data-cart-card
       className={cn(
-        // 모든 사진에 동일 테두리 — 기본은 배경색(보이지 않음), 저빈도만 브랜드색
+        // 모든 사진에 동일 테두리 — 기본은 배경색(보이지 않음), 저빈도만 브랜드/검정
         "group relative break-inside-avoid overflow-hidden rounded-2xl bg-fg/[0.05] ring-4",
-        accent ? "ring-brand" : "ring-bg"
+        accent === "brand" ? "ring-brand" : accent === "ink" ? "ring-fg" : "ring-bg"
       )}
     >
       <Link href={`/photos/${photo.id}`} className="block" data-track="cta:photo">

@@ -33,23 +33,26 @@ export function dayKey(): string {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
-// 노출 순서 기준으로 브랜드 테두리를 줄 사진 id 집합.
-// 간격을 id 해시로 6~11 가변 → 고정 주기(매번 같은 자리) 제거해 단조로움 완화.
-export function accentRingIds<T extends { id: string }>(ordered: T[]): Set<string> {
-  const ids = new Set<string>();
-  let since = 0;
-  let target = 4; // 첫 테두리까지 간격
-  for (let i = 0; i < ordered.length; i++) {
-    if (since >= target) {
-      const id = ordered[i].id;
-      ids.add(id);
-      since = 0;
-      target = 5 + (hashStr(id) % 5); // 다음 간격 5~9 가변(빈도 약간 ↑)
-    } else {
-      since++;
+export type AccentColor = "brand" | "ink";
+
+// 컬럼(메이슨리)별로 테두리 사진을 배치 — 컬럼마다 시작점을 어긋나게 해 한쪽 쏠림·가로 줄맞춤을 방지.
+// 색은 대부분 브랜드(빨강), 가끔(약 1/4) 검정(ink). 간격은 id 해시로 6~9 가변(단조로움 완화).
+export function assignColumnAccents<T extends { id: string }>(
+  columns: T[][]
+): Map<string, AccentColor> {
+  const out = new Map<string, AccentColor>();
+  columns.forEach((col, ci) => {
+    let next = 2 + ((ci * 3) % 5); // 컬럼마다 첫 테두리 위치를 다르게(2~6)
+    for (let r = 0; r < col.length; r++) {
+      if (r >= next) {
+        const id = col[r].id;
+        const h = hashStr(id);
+        out.set(id, h % 4 === 0 ? "ink" : "brand"); // 1/4 검정, 3/4 빨강
+        next = r + 6 + (h % 4); // 다음 간격 6~9
+      }
     }
-  }
-  return ids;
+  });
+  return out;
 }
 
 // 인접한 두 항목이 같은 키(게시물/앨범)가 되지 않게 재배치 — 우선순위 순서는 최대한 보존.
