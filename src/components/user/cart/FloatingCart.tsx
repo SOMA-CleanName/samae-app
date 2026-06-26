@@ -262,8 +262,8 @@ function CartModal({
   originRef: React.RefObject<HTMLButtonElement | null>;
 }) {
   const { clear } = useCart();
-  // 모션 단계: in(더미 자리) → center(가운데로 모임) → open(펼침) → [닫기] center → out(더미로 복귀)
-  const [phase, setPhase] = useState<"in" | "center" | "open" | "out">("in");
+  // 모션 단계: in(더미 자리) → center(가운데로 모임) → open(펼침) → [닫기] exit(중앙으로 모이며 사라짐)
+  const [phase, setPhase] = useState<"in" | "center" | "open" | "exit">("in");
   const show = phase === "center" || phase === "open"; // 배경·바 노출 상태
   const [vp, setVp] = useState<{ w: number; h: number } | null>(null);
   const [origin, setOrigin] = useState<{ x: number; y: number } | null>(null);
@@ -303,11 +303,10 @@ function CartModal({
     if (state.leadId) window.fbq?.("track", "Lead", {}, { eventID: `inquiry_${state.leadId}` });
   }, [state.ok, state.leadId]);
 
-  // 닫힘 시퀀스: open → center 로 모임 → 300ms 후 out(더미로 복귀) → 완료 시 언마운트
+  // 닫힘 시퀀스: 펼친 사진들이 중앙으로 모이며 사라짐(펼침의 역방향)
   function close() {
-    setPhase("center");
-    setTimeout(() => setPhase("out"), 300);
-    setTimeout(onClose, 640);
+    setPhase("exit");
+    setTimeout(onClose, 380);
   }
   function removeOne(id: string) {
     setLeaving((s) => new Set(s).add(id));
@@ -439,13 +438,14 @@ function CartModal({
                 } else if (phase === "center") {
                   tf = `translate(${cx - x}px, ${cy - y}px) scale(.28) rotate(0deg)`;
                   op = 1;
-                } else if (phase === "in") {
+                } else if (phase === "exit") {
+                  // 닫힘 — 중앙으로 모이며 사라짐
+                  tf = `translate(${cx - x}px, ${cy - y}px) scale(.3) rotate(0deg)`;
+                  op = 0;
+                } else {
+                  // in — 더미(버튼) 위치에서 출발
                   tf = `translate(${gx - x}px, ${gy - y}px) scale(.18) rotate(0deg)`;
                   op = 1;
-                } else {
-                  // out
-                  tf = `translate(${gx - x}px, ${gy - y}px) scale(.16) rotate(0deg)`;
-                  op = 0;
                 }
                 // 펼칠 때만 스태거(모임·복귀는 한 덩어리로)
                 const delay = phase === "open" ? Math.min(z, 24) * 20 : 0;
