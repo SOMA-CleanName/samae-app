@@ -66,6 +66,7 @@ export function InquiryChat({
   const [contact, setContact] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [done, setDone] = useState(false);
+  const [editing, setEditing] = useState<number | null>(null); // 재선택 중인 질문 index
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const started = useRef(false);
@@ -98,9 +99,13 @@ export function InquiryChat({
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [revealed, typing, contactStep, answers, done]);
 
-  function onAnswer(i: number, value: string | null) {
+  function onAnswer(i: number, value: string) {
     const key = STEPS[i].key;
-    setAnswers((prev) => ({ ...prev, [key]: value ?? "" }));
+    setAnswers((prev) => ({ ...prev, [key]: value }));
+    if (editing === i) {
+      setEditing(null); // 재선택 완료 — 다음 질문 진행 없이 그대로
+      return;
+    }
     if (i === revealed) {
       if (i < STEPS.length - 1) advanceTo(i + 1);
       else revealContact();
@@ -178,20 +183,37 @@ export function InquiryChat({
         </SystemBubble>
 
         {/* 질문/답변 */}
-        {STEPS.map((step, i) =>
-          i <= revealed ? (
-            <div key={step.key} className="space-y-2">
+        {STEPS.map((step, i) => {
+          if (i > revealed) return null;
+          const answered = answers[step.key] !== undefined;
+          const choosing = !done && (!answered || editing === i);
+          return (
+            <div key={step.key} className="space-y-1.5">
               <SystemBubble>{step.q}</SystemBubble>
-              <UserChoiceBubble
-                options={step.options}
-                soft={SOFT_SKIP}
-                selected={answers[step.key]}
-                disabled={done}
-                onPick={(v) => onAnswer(i, v)}
-              />
+              {choosing ? (
+                <ChoiceTray
+                  options={step.options}
+                  soft={SOFT_SKIP}
+                  selected={answers[step.key]}
+                  onPick={(v) => onAnswer(i, v)}
+                />
+              ) : (
+                <div className="ml-auto flex w-fit max-w-[88%] flex-col items-end gap-0.5">
+                  <SentBubble>{answers[step.key]}</SentBubble>
+                  {!done && (
+                    <button
+                      type="button"
+                      onClick={() => setEditing(i)}
+                      className="cursor-pointer px-1 text-[11px] text-faint transition-colors hover:text-muted"
+                    >
+                      수정
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
-          ) : null
-        )}
+          );
+        })}
 
         {typing && <TypingBubble />}
 
@@ -269,6 +291,15 @@ function SystemBubble({ children }: { children: React.ReactNode }) {
   );
 }
 
+// 내가 보낸 답변 — 채팅 전송 말풍선(오른쪽, 브랜드)
+function SentBubble({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="w-fit rounded-2xl rounded-tr-md bg-brand px-3.5 py-2.5 text-sm font-medium text-white">
+      {children}
+    </div>
+  );
+}
+
 function TypingBubble() {
   return (
     <div className="mr-auto flex max-w-[88%] items-center gap-1 rounded-2xl rounded-tl-md bg-surface-2 px-4 py-3">
@@ -280,29 +311,27 @@ function Dot() {
   return <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-fg/40" />;
 }
 
-// 사용자 답변 말풍선 — 선택 버튼 + 소프트 스킵. 제출 전까지 언제든 재선택 가능.
-function UserChoiceBubble({
+// 선택 트레이 — 답변 후보 버튼 + 소프트 스킵. 고르면 전송 말풍선으로 바뀜.
+function ChoiceTray({
   options,
   soft,
   selected,
-  disabled,
   onPick,
 }: {
   options: string[];
   soft: string[];
   selected?: string;
-  disabled?: boolean;
-  onPick: (value: string | null) => void;
+  onPick: (value: string) => void;
 }) {
   return (
-    <div className="ml-auto flex max-w-[88%] flex-wrap justify-end gap-1.5">
+    <div className="ml-auto flex max-w-[92%] flex-wrap justify-end gap-1.5">
       {options.map((opt) => (
-        <Chip key={opt} active={selected === opt} disabled={disabled} onClick={() => onPick(opt)}>
+        <Chip key={opt} active={selected === opt} onClick={() => onPick(opt)}>
           {opt}
         </Chip>
       ))}
       {soft.map((opt) => (
-        <Chip key={opt} active={selected === opt} soft disabled={disabled} onClick={() => onPick(opt)}>
+        <Chip key={opt} active={selected === opt} soft onClick={() => onPick(opt)}>
           {opt}
         </Chip>
       ))}
