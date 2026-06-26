@@ -10,7 +10,7 @@ import {
   useState,
 } from "react";
 import Link from "next/link";
-import { useCart, cartCardJitter, PEEK_FRAME, PEEK_CARD_W } from "./CartProvider";
+import { useCart, cartCardJitter, PEEK_FRAME, PEEK_CARD_W, type CartItem } from "./CartProvider";
 
 // FLIP 은 페인트 전에 측정/적용해야 깜빡임이 없음(SSR 에선 useEffect 로 폴백)
 const useIsoLayout = typeof window === "undefined" ? useEffect : useLayoutEffect;
@@ -229,21 +229,43 @@ export function FloatingCart() {
   );
 }
 
+// 펼침용 흩뿌림 변형 — id 해시로 각도·셀 내 오프셋 결정(고정)
+function spreadJitter(id: string): { rot: number; fx: number; fy: number } {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return {
+    rot: (h % 25) - 12, // -12 ~ 12도
+    fx: (((h >> 5) % 21) - 10) / 10, // -1 ~ 1
+    fy: (((h >> 11) % 21) - 10) / 10, // -1 ~ 1
+  };
+}
+
+// 장바구니 펼침 — 담아둔 폴라로이드들이 화면 가득 흩뿌려짐(테이블에 쏟은 느낌).
+// 사진 탭=빼기(휙 날아감), 빈 곳/닫기=다시 더미로. 하단 고정 CTA로 일괄 상담.
 function CartModal({
   items,
   onRemove,
   onClose,
 }: {
-  items: { id: string; src: string }[];
+  items: CartItem[];
   onRemove: (id: string) => void;
   onClose: () => void;
 }) {
   const { clear } = useCart();
   const [show, setShow] = useState(false);
+  const [vp, setVp] = useState<{ w: number; h: number } | null>(null);
+  const [leaving, setLeaving] = useState<Set<string>>(new Set());
   const [askContact, setAskContact] = useState(false);
   const [contact, setContact] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [state, formAction, pending] = useActionState(submitCartInquiry, { ok: false });
+
+  useIsoLayout(() => {
+    const set = () => setVp({ w: window.innerWidth, h: window.innerHeight });
+    set();
+    window.addEventListener("resize", set);
+    return () => window.removeEventListener("resize", set);
+  }, []);
 
   useEffect(() => {
     const r = requestAnimationFrame(() => setShow(true));
@@ -258,6 +280,14 @@ function CartModal({
     if (state.leadId) window.fbq?.("track", "Lead", {}, { eventID: `inquiry_${state.leadId}` });
   }, [state.ok, state.leadId]);
 
+  function close() {
+    setShow(false);
+    setTimeout(onClose, 360);
+  }
+  function removeOne(id: string) {
+    setLeaving((s) => new Set(s).add(id));
+    setTimeout(() => onRemove(id), 260);
+  }
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!contact.trim() || !agreed) return;
@@ -267,124 +297,190 @@ function CartModal({
     startTransition(() => formAction(fd));
   }
 
+  // 흩뿌림 레이아웃 — 셀 그리드 + 셀 내 지터(겹침 최소화하면서 자연스럽게)
+  const N = items.length;
+  const layout = (() => {
+    if (!vp || N === 0) return [] as Array<{
+      it: CartItem; x: number; y: number; rot: number; photoW: number; photoH: number; side: number; bottom: number; z: number;
+    }>;
+    const { w: W, h: H } = vp;
+    const padX = Math.max(14, W * 0.05);
+    const topPad = 76;
+    const bottomReserve = 156;
+    const areaW = W - padX * 2;
+    const areaH = Math.max(160, H - topPad - bottomReserve);
+    const cols = Math.max(2, Math.min(N, Math.round(Math.sqrt((N * areaW) / areaH)) || 2));
+    const rows = Math.ceil(N / cols);
+    const cellW = areaW / cols;
+    const cellH = areaH / rows;
+    const photoW = Math.min(cellW * 0.84, 168);
+    const side = Math.max(5, Math.round(photoW * 0.07));
+    const bottom = Math.max(12, Math.round(photoW * 0.2));
+    return items.map((it, i) => {
+      const row = Math.floor(i / cols);
+      const inRow = i - row * cols;
+      const itemsInRow = row < rows - 1 ? cols : N - cols * (rows - 1);
+      const rowStartX = padX + (areaW - itemsInRow * cellW) / 2;
+      const cxc = rowStartX + (inRow + 0.5) * cellW;
+      const cyc = topPad + (row + 0.5) * cellH;
+      const j = spreadJitter(it.id);
+      const x = cxc + j.fx * cellW * 0.18;
+      const y = cyc + j.fy * cellH * 0.18;
+      const ratio = it.w > 0 && it.h > 0 ? it.h / it.w : 1;
+      const photoH = Math.min(Math.round(photoW * ratio), Math.round(cellH * 0.92));
+      return { it, x, y, rot: j.rot, photoW, photoH, side, bottom, z: i };
+    });
+  })();
+
+  const cx = vp ? vp.w / 2 : 0;
+  const cy = vp ? vp.h * 0.66 : 0;
+
   return (
     <div className="fixed inset-0 z-50 font-kr" role="dialog" aria-modal="true">
+      {/* 배경(테이블) — 빈 곳 탭하면 닫힘 */}
       <button
         aria-label="닫기"
-        onClick={onClose}
-        className={`absolute inset-0 bg-black/40 transition-opacity duration-200 ${show ? "opacity-100" : "opacity-0"}`}
+        onClick={close}
+        className={`absolute inset-0 bg-black/85 backdrop-blur-sm transition-opacity duration-300 ${show ? "opacity-100" : "opacity-0"}`}
       />
-      <div
-        className={`absolute inset-x-0 bottom-0 max-h-[85svh] rounded-t-3xl bg-bg shadow-pop transition-transform duration-300 ease-out ${
-          show ? "translate-y-0" : "translate-y-full"
-        }`}
-      >
-        <div className="mx-auto flex max-w-xl flex-col">
-          {state.ok ? (
-            // 완료
-            <div className="px-5 py-14 text-center">
-              <p className="text-lg font-bold">신청 완료!</p>
-              <p className="mt-1.5 text-sm text-muted">담아둔 사진들로 작가님이 곧 연락드릴 거예요.</p>
-              <button
-                type="button"
-                onClick={() => {
-                  clear();
-                  onClose();
-                }}
-                className="mt-6 cursor-pointer rounded-full bg-fg px-6 py-2.5 text-sm font-semibold text-bg transition-opacity hover:opacity-90"
+
+      {state.ok ? (
+        <div className="absolute inset-0 grid place-items-center px-6 text-center">
+          <div>
+            <p className="text-xl font-bold text-white">신청 완료!</p>
+            <p className="mt-2 text-sm text-white/70">담아둔 사진들로 작가님이 곧 연락드릴 거예요.</p>
+            <button
+              type="button"
+              onClick={() => {
+                clear();
+                onClose();
+              }}
+              className="mt-7 cursor-pointer rounded-full bg-white px-6 py-2.5 text-sm font-semibold text-black transition-opacity hover:opacity-90"
+            >
+              닫기
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {/* 흩뿌린 폴라로이드 */}
+          {layout.map(({ it, x, y, rot, photoW, photoH, side, bottom, z }) => {
+            const isLeaving = leaving.has(it.id);
+            return (
+              <div
+                key={it.id}
+                className="absolute"
+                style={{ left: x, top: y, transform: "translate(-50%,-50%)", zIndex: 10 + z }}
               >
-                닫기
-              </button>
-            </div>
-          ) : (
-            <>
-              <div className="flex items-center justify-between px-5 pb-3 pt-4">
-                <p className="text-base font-semibold">
-                  담은 사진 <span className="text-brand">{items.length}</span>
-                </p>
                 <button
                   type="button"
-                  onClick={onClose}
-                  className="cursor-pointer rounded-full px-3 py-1 text-sm font-medium text-muted transition-colors hover:bg-fg/[0.06] hover:text-fg"
+                  onClick={() => removeOne(it.id)}
+                  aria-label="빼기"
+                  className="block cursor-pointer bg-white shadow-[0_10px_28px_rgba(0,0,0,0.45)]"
+                  style={{
+                    padding: `${side}px ${side}px ${bottom}px`,
+                    borderRadius: 3,
+                    transformOrigin: "center",
+                    transform: isLeaving
+                      ? `translate(0,-44px) scale(.6) rotate(${rot}deg)`
+                      : show
+                        ? `translate(0,0) scale(1) rotate(${rot}deg)`
+                        : `translate(${cx - x}px, ${cy - y}px) scale(.22) rotate(0deg)`,
+                    opacity: isLeaving ? 0 : show ? 1 : 0,
+                    transition: `transform 460ms cubic-bezier(.2,.7,.2,1) ${Math.min(z, 24) * 22}ms, opacity 360ms ease ${Math.min(z, 24) * 22}ms`,
+                  }}
                 >
-                  닫기
+                  <img
+                    src={it.src}
+                    alt=""
+                    draggable={false}
+                    style={{
+                      display: "block",
+                      width: photoW,
+                      height: photoH,
+                      objectFit: "cover",
+                      borderRadius: 1,
+                    }}
+                  />
                 </button>
               </div>
+            );
+          })}
 
-              {items.length === 0 ? (
-                <p className="px-5 py-16 text-center text-sm text-muted">담은 사진이 없어요.</p>
+          {/* 상단 — 안내 + 닫기 */}
+          <div
+            className={`absolute inset-x-0 top-0 z-[60] flex items-center justify-between px-5 pt-5 transition-opacity duration-300 ${show ? "opacity-100" : "opacity-0"}`}
+          >
+            <p className="text-sm text-white/75">
+              담은 사진 <span className="font-bold text-white">{N}</span>
+              <span className="text-white/45"> · 탭하면 빼기</span>
+            </p>
+            <button
+              type="button"
+              onClick={close}
+              aria-label="닫기"
+              className="grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
+            >
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+
+          {/* 하단 — 일괄 상담 CTA */}
+          <div
+            className={`absolute inset-x-0 bottom-0 z-[60] px-4 pb-6 pt-3 transition-transform duration-300 ${show ? "translate-y-0" : "translate-y-full"}`}
+          >
+            <div className="mx-auto max-w-md">
+              {N === 0 ? (
+                <p className="rounded-2xl bg-white/10 py-4 text-center text-sm text-white/70">담은 사진이 없어요.</p>
+              ) : !askContact ? (
+                <button
+                  type="button"
+                  onClick={() => setAskContact(true)}
+                  className="w-full cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
+                >
+                  이 사진들로 무료 상담 신청 ({N})
+                </button>
               ) : (
-                <>
-                  <div className="grid max-h-[44svh] grid-cols-3 gap-2 overflow-y-auto px-5 pb-4 sm:grid-cols-4">
-                    {items.map((it) => (
-                      <div key={it.id} className="group relative aspect-square overflow-hidden rounded-xl bg-fg/[0.05]">
-                        <Link href={`/photos/${it.id}`} onClick={onClose} className="block h-full w-full">
-                          <img src={it.src} alt="" className="h-full w-full object-cover" />
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => onRemove(it.id)}
-                          aria-label="빼기"
-                          className="absolute right-1 top-1 grid h-6 w-6 cursor-pointer place-items-center rounded-full bg-black/55 text-sm text-white transition-colors hover:bg-black/75"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* 일괄 상담 신청 */}
-                  <div className="border-t border-line px-5 pb-8 pt-4">
-                    {!askContact ? (
-                      <button
-                        type="button"
-                        onClick={() => setAskContact(true)}
-                        className="w-full cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white transition-opacity hover:opacity-90"
-                      >
-                        이 사진들로 무료 상담 신청
-                      </button>
-                    ) : (
-                      <form onSubmit={onSubmit}>
-                        <input
-                          type="text"
-                          value={contact}
-                          onChange={(e) => setContact(e.target.value)}
-                          placeholder="전화번호 · 카카오 ID · 인스타 등"
-                          autoFocus
-                          className="h-11 w-full rounded-xl border border-line-strong bg-surface px-3 text-base outline-none transition-colors placeholder:text-fg/30 focus:border-brand"
-                        />
-                        <label className="mt-2.5 flex cursor-pointer items-start gap-2 text-xs text-muted">
-                          <input
-                            type="checkbox"
-                            checked={agreed}
-                            onChange={(e) => setAgreed(e.target.checked)}
-                            className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
-                          />
-                          <span>
-                            연락처 전달 및 상담을 위한{" "}
-                            <Link href="/privacy" target="_blank" className="underline underline-offset-2 hover:text-fg">
-                              개인정보 수집·이용
-                            </Link>
-                            에 동의합니다.
-                          </span>
-                        </label>
-                        {state.error && <p className="mt-2 text-xs font-medium text-brand">{state.error}</p>}
-                        <button
-                          type="submit"
-                          disabled={!contact.trim() || !agreed || pending}
-                          className="mt-3 h-12 w-full cursor-pointer rounded-xl bg-brand text-base font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                        >
-                          {pending ? "신청 중…" : "상담 신청하기"}
-                        </button>
-                      </form>
-                    )}
-                  </div>
-                </>
+                <form onSubmit={onSubmit} className="rounded-2xl bg-bg p-4 shadow-pop">
+                  <input
+                    type="text"
+                    value={contact}
+                    onChange={(e) => setContact(e.target.value)}
+                    placeholder="전화번호 · 카카오 ID · 인스타 등"
+                    autoFocus
+                    className="h-11 w-full rounded-xl border border-line-strong bg-surface px-3 text-base outline-none transition-colors placeholder:text-fg/30 focus:border-brand"
+                  />
+                  <label className="mt-2.5 flex cursor-pointer items-start gap-2 text-xs text-muted">
+                    <input
+                      type="checkbox"
+                      checked={agreed}
+                      onChange={(e) => setAgreed(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
+                    />
+                    <span>
+                      연락처 전달 및 상담을 위한{" "}
+                      <Link href="/privacy" target="_blank" className="underline underline-offset-2 hover:text-fg">
+                        개인정보 수집·이용
+                      </Link>
+                      에 동의합니다.
+                    </span>
+                  </label>
+                  {state.error && <p className="mt-2 text-xs font-medium text-brand">{state.error}</p>}
+                  <button
+                    type="submit"
+                    disabled={!contact.trim() || !agreed || pending}
+                    className="mt-3 h-12 w-full cursor-pointer rounded-xl bg-brand text-base font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    {pending ? "신청 중…" : "상담 신청하기"}
+                  </button>
+                </form>
               )}
-            </>
-          )}
-        </div>
-      </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
