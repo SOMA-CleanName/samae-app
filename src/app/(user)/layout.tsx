@@ -1,6 +1,8 @@
 import { getCurrentUser } from "@/lib/auth";
 import { countUnreadNotifications } from "@/lib/notifications";
 import { Sidebar, type NavItem } from "@/components/user/Sidebar";
+import { CartProvider } from "@/components/user/cart/CartProvider";
+import { FloatingCart } from "@/components/user/cart/FloatingCart";
 
 // 사용자(탐색) 영역 공통 셸 — 통합 하단바/레일 1개.
 // 상단바 제거: 검색은 탐색 페이지 sticky 헤더, 계정 메뉴는 프로필 시트로 이동.
@@ -36,7 +38,7 @@ export default async function UserLayout({
   });
 
   return (
-    <>
+    <CartProvider>
       <Sidebar
         items={items}
         me={
@@ -56,6 +58,7 @@ export default async function UserLayout({
         {/* 모바일 하단 탭바 높이만큼 여백 확보 */}
         <main className="pb-24 md:pb-0">{children}</main>
       </div>
-    </>
+      <FloatingCart />
+    </CartProvider>
   );
 }
