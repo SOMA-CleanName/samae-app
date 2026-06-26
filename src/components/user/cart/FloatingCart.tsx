@@ -61,6 +61,7 @@ export function FloatingCart() {
   const [leaving, setLeaving] = useState<Set<string>>(new Set());
   const [state, formAction, pending] = useActionState(submitCartInquiry, { ok: false });
   const cardRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const layerRef = useRef<HTMLDivElement>(null);
 
   const N = count;
 
@@ -257,6 +258,11 @@ export function FloatingCart() {
   const cx = W / 2; // 중앙 스택 위치
   const cy = H / 2;
 
+  // 펼쳐질 때 항상 맨 위에서 시작(이전 스크롤 위치 리셋)
+  useIsoLayout(() => {
+    if (phase === "spread" && layerRef.current) layerRef.current.scrollTop = 0;
+  }, [phase]);
+
   // ── 방금 담은 카드 FLIP(출발 사진 → 도크) ──
   const newestId = N > 0 ? items[items.length - 1].id : null;
   useIsoLayout(() => {
@@ -296,6 +302,7 @@ export function FloatingCart() {
 
       {/* 카드 레이어 — 도크↔중앙↔펼침 동일 엘리먼트가 변형(복제본 없음) */}
       <div
+        ref={layerRef}
         onClick={phase === "spread" ? close : undefined}
         className={`fixed inset-0 z-[55] ${
           phase === "spread" && SCROLL ? "overflow-y-auto overscroll-contain" : ""
