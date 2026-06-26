@@ -17,7 +17,6 @@ import { DetailMoreInfo } from "./DetailMoreInfo";
 import { OwnerPhotoBackButton } from "./OwnerPhotoBackButton";
 import { AutoFavorite } from "@/components/user/AutoFavorite";
 import { PixelViewContent } from "@/components/PixelViewContent";
-import { ShareButton } from "@/components/user/ShareButton";
 import { Button } from "@/components/ui";
 
 const fmt = new Intl.NumberFormat("ko-KR");
@@ -102,10 +101,8 @@ export default async function PhotoDetail({
             pagePath={`/photos/${photo.id}`}
             frameAspect={aspect}
           />
-          {/* 좌상단 투명 뒤로가기 */}
+          {/* 좌상단 투명 뒤로가기 (담기·공유는 carousel 내부에서 사진 모서리에 붙음) */}
           <PhotoTopBar />
-          {/* 이미지 하단(좌) 공유 */}
-          <ShareButton variant="overlay" className="absolute bottom-3 left-3 z-10" />
         </div>
 
         {/* 사진 정보 — 가격·CTA 먼저 보이고, 작가·글·태그는 접기 */}

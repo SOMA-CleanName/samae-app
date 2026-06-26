@@ -38,13 +38,13 @@ export function dayKey(): string {
 export function accentRingIds<T extends { id: string }>(ordered: T[]): Set<string> {
   const ids = new Set<string>();
   let since = 0;
-  let target = 5; // 첫 테두리까지 간격
+  let target = 4; // 첫 테두리까지 간격
   for (let i = 0; i < ordered.length; i++) {
     if (since >= target) {
       const id = ordered[i].id;
       ids.add(id);
       since = 0;
-      target = 6 + (hashStr(id) % 6); // 다음 간격 6~11 가변
+      target = 5 + (hashStr(id) % 5); // 다음 간격 5~9 가변(빈도 약간 ↑)
     } else {
       since++;
     }

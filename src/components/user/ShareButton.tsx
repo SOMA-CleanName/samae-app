@@ -53,7 +53,13 @@ export function ShareButton({
         <path d="M5 12v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
       {copied && (
-        <span className="absolute right-0 top-11 whitespace-nowrap rounded-full bg-fg px-2.5 py-1 text-xs font-medium text-bg shadow">
+        <span
+          className={[
+            "absolute left-0 whitespace-nowrap rounded-full bg-fg px-2.5 py-1 text-xs font-medium text-bg shadow",
+            // overlay(사진 좌하단)면 위로, 기본이면 아래로
+            variant === "overlay" ? "bottom-11" : "top-11",
+          ].join(" ")}
+        >
           링크 복사됨
         </span>
       )}

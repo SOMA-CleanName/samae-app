@@ -515,7 +515,7 @@ function PhotoCard({
       data-cart-card
       className={cn(
         "group relative break-inside-avoid overflow-hidden rounded-2xl bg-fg/[0.05]",
-        accent && "ring-[3px] ring-brand"
+        accent && "ring-4 ring-brand"
       )}
     >
       <Link href={`/photos/${photo.id}`} className="block" data-track="cta:photo">
