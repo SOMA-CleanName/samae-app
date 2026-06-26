@@ -60,7 +60,7 @@ export function FloatingCart() {
   const [agreed, setAgreed] = useState(false);
   const [leaving, setLeaving] = useState<Set<string>>(new Set());
   const [state, formAction, pending] = useActionState(submitCartInquiry, { ok: false });
-  const cardRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const layerRef = useRef<HTMLDivElement>(null);
 
   const N = count;
@@ -344,12 +344,13 @@ export function FloatingCart() {
                 className="absolute"
                 style={{ left: x, top: y, transform: "translate(-50%,-50%)", zIndex: 10 + z }}
               >
-                <button
+                <div
                   ref={(el) => {
                     if (el) cardRefs.current.set(it.id, el);
                     else cardRefs.current.delete(it.id);
                   }}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
                   onPointerDown={startDrag}
                   onPointerMove={moveDrag}
                   onPointerUp={endDrag}
@@ -364,7 +365,7 @@ export function FloatingCart() {
                     // center: 전환 중 — 무시
                   }}
                   aria-label={open ? "크게 보기" : "장바구니 펼치기 (드래그로 이동)"}
-                  className="block cursor-pointer select-none bg-white shadow-[0_10px_28px_rgba(0,0,0,0.4)]"
+                  className="relative block cursor-pointer select-none bg-white shadow-[0_10px_28px_rgba(0,0,0,0.4)]"
                   style={{
                     padding: `${side}px ${side}px ${bottom}px`,
                     borderRadius: 3,
@@ -390,7 +391,29 @@ export function FloatingCart() {
                       borderRadius: 1,
                     }}
                   />
-                </button>
+                  {/* 펼침 그리드에서만 — 우상단 작은 삭제(휴지통) */}
+                  {phase === "spread" && (
+                    <button
+                      type="button"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeOne(it.id);
+                      }}
+                      aria-label="삭제"
+                      style={{ top: side + 2, right: side + 2 }}
+                      className="absolute grid h-6 w-6 cursor-pointer place-items-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75"
+                    >
+                      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path
+                          d="M5 7h14M10 11v6M14 11v6M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -409,22 +432,30 @@ export function FloatingCart() {
             </div>
           ) : (
             <>
-              {/* 상단 — 안내 + 닫기 */}
+              {/* 상단 — 좌:뒤로가기(확대 중이면 그리드로, 아니면 닫기) / 우:담은 사진 수(확대 중 숨김) */}
               <div className="pointer-events-none fixed inset-x-0 top-0 z-[62] flex items-center justify-between px-5 pt-5">
-                <p className="text-sm text-white/75">
-                  담은 사진 <span className="font-bold text-white">{N}</span>
-                  <span className="text-white/45"> · 탭하면 크게</span>
-                </p>
                 <button
                   type="button"
-                  onClick={close}
-                  aria-label="닫기"
+                  onClick={() => {
+                    if (focused) {
+                      setFocused(null);
+                      if (formFor && formFor !== "all") setFormFor(null);
+                    } else {
+                      close();
+                    }
+                  }}
+                  aria-label="뒤로"
                   className="pointer-events-auto grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
                 >
                   <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
+                    <path d="M15 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 </button>
+                {!focused && (
+                  <p className="text-sm text-white/75">
+                    담은 사진 <span className="font-bold text-white">{N}</span>
+                  </p>
+                )}
               </div>
 
               {/* 하단 — 상담 CTA(항상 유지). 한 장 크게 볼 땐 '이 사진으로'로 전환 */}
@@ -504,11 +535,6 @@ export function FloatingCart() {
                     setFocused(null);
                     if (formFor && formFor !== "all") setFormFor(null);
                   }}
-                  onRemove={(id) => {
-                    setFocused(null);
-                    if (formFor && formFor !== "all") setFormFor(null);
-                    removeOne(id);
-                  }}
                 />
               )}
             </>
@@ -525,13 +551,11 @@ function FocusedPhoto({
   fromRect,
   vp,
   onBack,
-  onRemove,
 }: {
   item: CartItem;
   fromRect: DOMRect;
   vp: { w: number; h: number } | null;
   onBack: () => void;
-  onRemove: (id: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const dimRef = useRef<HTMLButtonElement>(null);
@@ -567,16 +591,6 @@ function FocusedPhoto({
     // 하단 상담 바(z-62) 아래에 깔리도록 z-58, 하단 여백 확보
     <div className="fixed inset-0 z-[58] flex flex-col items-center justify-center px-6 pb-28 font-kr">
       <button ref={dimRef} aria-label="뒤로" onClick={onBack} className="absolute inset-0 bg-black/75 backdrop-blur-sm" />
-      <button
-        type="button"
-        onClick={() => onRemove(item.id)}
-        aria-label="장바구니에서 빼기"
-        className="absolute right-4 top-4 z-10 grid h-10 w-10 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
-      >
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
-        </svg>
-      </button>
 
       <div
         ref={ref}
