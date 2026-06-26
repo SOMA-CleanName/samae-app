@@ -114,7 +114,7 @@ export function FloatingCart() {
     );
   }
 
-  const peek = items.slice(-3);
+  const peek = items.slice(-5);
 
   return (
     <>
@@ -144,7 +144,9 @@ export function FloatingCart() {
               }}
             >
               {peek.map((it, i) => {
-                const rot = (peek.length - 1 - i) * (side === "right" ? -10 : 10);
+                // 5장까지 부채꼴 — 장수 많을수록 카드당 각도를 줄여 과하게 안 벌어지게
+                const step = peek.length > 3 ? 7 : 10;
+                const rot = (peek.length - 1 - i) * (side === "right" ? -step : step);
                 return (
                   <img
                     key={it.id}
