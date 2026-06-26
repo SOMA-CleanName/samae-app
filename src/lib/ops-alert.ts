@@ -53,6 +53,48 @@ export async function notifyOpsNewInquiry(params: {
   }
 }
 
+// 장바구니 일괄 상담 신청 — 고객이 담은 사진들로 운영진에게 한 번에 문의.
+// 운영진이 사진별 작가에게 라우팅하므로 연락처를 포함한다(작가 신청 알림과 동일 원칙).
+export async function notifyOpsCartInquiry(params: {
+  contact: string;
+  photoIds: string[];
+}): Promise<void> {
+  if (!OPS_WEBHOOK) return;
+  try {
+    const admin = createAdminClient();
+    const { data: photos } = await admin
+      .from("photos")
+      .select("id, photographer:photographers!photos_photographer_id_fkey(display_name)")
+      .in("id", params.photoIds);
+
+    const names = [
+      ...new Set(
+        (photos ?? [])
+          .map((p) => (p.photographer as { display_name?: string } | null)?.display_name)
+          .filter(Boolean)
+      ),
+    ];
+
+    const lines: string[] = [
+      `🛒 **장바구니 일괄 상담 신청** — 사진 ${params.photoIds.length}장`,
+      `• 연락처: ${params.contact}`,
+      `• 관련 작가: ${names.join(", ") || "확인 필요"}`,
+      `• 사진 ID: ${params.photoIds.map((id) => "`" + id.slice(0, 8) + "`").join(", ")}`,
+      "",
+      "고객이 담아둔 사진들이에요. 해당 작가들에게 연결해주세요.",
+    ];
+
+    await fetch(OPS_WEBHOOK, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: lines.join("\n") }),
+      redirect: "manual",
+    });
+  } catch {
+    // 알림 실패가 접수를 막지 않게 무시
+  }
+}
+
 // 새 작가 신청 알림 — 지원자가 남긴 정보.
 // (문의와 달리 지원자 연락처는 운영자가 직접 연락해야 하므로 포함한다.)
 export async function notifyOpsNewApplication(params: {

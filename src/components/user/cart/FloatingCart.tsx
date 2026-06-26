@@ -1,9 +1,10 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useEffect, useRef, useState } from "react";
+import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useCart } from "./CartProvider";
+import { submitCartInquiry } from "@/app/(user)/inquiry/actions";
 
 // 장바구니 — 담은 사진이 부채꼴로 겹쳐 가장자리에 삐져나옴. 탭하면 모달.
 // 드래그로 손가락 따라 자유 이동 → 놓으면 가까운 좌/우 가장자리로 부드럽게 스냅(위치 저장).
@@ -159,12 +160,34 @@ function CartModal({
   onRemove: (id: string) => void;
   onClose: () => void;
 }) {
-  // 진입 애니메이션
+  const { clear } = useCart();
   const [show, setShow] = useState(false);
+  const [askContact, setAskContact] = useState(false);
+  const [contact, setContact] = useState("");
+  const [agreed, setAgreed] = useState(false);
+  const [state, formAction, pending] = useActionState(submitCartInquiry, { ok: false });
+
   useEffect(() => {
     const r = requestAnimationFrame(() => setShow(true));
     return () => cancelAnimationFrame(r);
   }, []);
+
+  // 성공 → Lead 픽셀(중복 제거 eventID)
+  const fired = useRef(false);
+  useEffect(() => {
+    if (!state.ok || fired.current) return;
+    fired.current = true;
+    if (state.leadId) window.fbq?.("track", "Lead", {}, { eventID: `inquiry_${state.leadId}` });
+  }, [state.ok, state.leadId]);
+
+  function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!contact.trim() || !agreed) return;
+    const fd = new FormData();
+    fd.set("contact", contact);
+    fd.set("photoIds", items.map((i) => i.id).join(","));
+    startTransition(() => formAction(fd));
+  }
 
   return (
     <div className="fixed inset-0 z-50 font-kr" role="dialog" aria-modal="true">
@@ -174,44 +197,113 @@ function CartModal({
         className={`absolute inset-0 bg-black/40 transition-opacity duration-200 ${show ? "opacity-100" : "opacity-0"}`}
       />
       <div
-        className={`absolute inset-x-0 bottom-0 max-h-[80svh] rounded-t-3xl bg-bg shadow-pop transition-transform duration-300 ease-out ${
+        className={`absolute inset-x-0 bottom-0 max-h-[85svh] rounded-t-3xl bg-bg shadow-pop transition-transform duration-300 ease-out ${
           show ? "translate-y-0" : "translate-y-full"
         }`}
       >
         <div className="mx-auto flex max-w-xl flex-col">
-          <div className="flex items-center justify-between px-5 pb-3 pt-4">
-            <p className="text-base font-semibold">
-              담은 사진 <span className="text-brand">{items.length}</span>
-            </p>
-            <button
-              type="button"
-              onClick={onClose}
-              className="cursor-pointer rounded-full px-3 py-1 text-sm font-medium text-muted transition-colors hover:bg-fg/[0.06] hover:text-fg"
-            >
-              닫기
-            </button>
-          </div>
-
-          {items.length === 0 ? (
-            <p className="px-5 py-16 text-center text-sm text-muted">담은 사진이 없어요.</p>
-          ) : (
-            <div className="grid max-h-[60svh] grid-cols-3 gap-2 overflow-y-auto px-5 pb-8 sm:grid-cols-4">
-              {items.map((it) => (
-                <div key={it.id} className="group relative aspect-square overflow-hidden rounded-xl bg-fg/[0.05]">
-                  <Link href={`/photos/${it.id}`} onClick={onClose} className="block h-full w-full">
-                    <img src={it.src} alt="" className="h-full w-full object-cover" />
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={() => onRemove(it.id)}
-                    aria-label="빼기"
-                    className="absolute right-1 top-1 grid h-6 w-6 cursor-pointer place-items-center rounded-full bg-black/55 text-sm text-white transition-colors hover:bg-black/75"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
+          {state.ok ? (
+            // 완료
+            <div className="px-5 py-14 text-center">
+              <p className="text-lg font-bold">신청 완료!</p>
+              <p className="mt-1.5 text-sm text-muted">담아둔 사진들로 작가님이 곧 연락드릴 거예요.</p>
+              <button
+                type="button"
+                onClick={() => {
+                  clear();
+                  onClose();
+                }}
+                className="mt-6 cursor-pointer rounded-full bg-fg px-6 py-2.5 text-sm font-semibold text-bg transition-opacity hover:opacity-90"
+              >
+                닫기
+              </button>
             </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between px-5 pb-3 pt-4">
+                <p className="text-base font-semibold">
+                  담은 사진 <span className="text-brand">{items.length}</span>
+                </p>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="cursor-pointer rounded-full px-3 py-1 text-sm font-medium text-muted transition-colors hover:bg-fg/[0.06] hover:text-fg"
+                >
+                  닫기
+                </button>
+              </div>
+
+              {items.length === 0 ? (
+                <p className="px-5 py-16 text-center text-sm text-muted">담은 사진이 없어요.</p>
+              ) : (
+                <>
+                  <div className="grid max-h-[44svh] grid-cols-3 gap-2 overflow-y-auto px-5 pb-4 sm:grid-cols-4">
+                    {items.map((it) => (
+                      <div key={it.id} className="group relative aspect-square overflow-hidden rounded-xl bg-fg/[0.05]">
+                        <Link href={`/photos/${it.id}`} onClick={onClose} className="block h-full w-full">
+                          <img src={it.src} alt="" className="h-full w-full object-cover" />
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => onRemove(it.id)}
+                          aria-label="빼기"
+                          className="absolute right-1 top-1 grid h-6 w-6 cursor-pointer place-items-center rounded-full bg-black/55 text-sm text-white transition-colors hover:bg-black/75"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* 일괄 상담 신청 */}
+                  <div className="border-t border-line px-5 pb-8 pt-4">
+                    {!askContact ? (
+                      <button
+                        type="button"
+                        onClick={() => setAskContact(true)}
+                        className="w-full cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white transition-opacity hover:opacity-90"
+                      >
+                        이 사진들로 무료 상담 신청
+                      </button>
+                    ) : (
+                      <form onSubmit={onSubmit}>
+                        <input
+                          type="text"
+                          value={contact}
+                          onChange={(e) => setContact(e.target.value)}
+                          placeholder="전화번호 · 카카오 ID · 인스타 등"
+                          autoFocus
+                          className="h-11 w-full rounded-xl border border-line-strong bg-surface px-3 text-base outline-none transition-colors placeholder:text-fg/30 focus:border-brand"
+                        />
+                        <label className="mt-2.5 flex cursor-pointer items-start gap-2 text-xs text-muted">
+                          <input
+                            type="checkbox"
+                            checked={agreed}
+                            onChange={(e) => setAgreed(e.target.checked)}
+                            className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
+                          />
+                          <span>
+                            연락처 전달 및 상담을 위한{" "}
+                            <Link href="/privacy" target="_blank" className="underline underline-offset-2 hover:text-fg">
+                              개인정보 수집·이용
+                            </Link>
+                            에 동의합니다.
+                          </span>
+                        </label>
+                        {state.error && <p className="mt-2 text-xs font-medium text-brand">{state.error}</p>}
+                        <button
+                          type="submit"
+                          disabled={!contact.trim() || !agreed || pending}
+                          className="mt-3 h-12 w-full cursor-pointer rounded-xl bg-brand text-base font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          {pending ? "신청 중…" : "상담 신청하기"}
+                        </button>
+                      </form>
+                    )}
+                  </div>
+                </>
+              )}
+            </>
           )}
         </div>
       </div>
