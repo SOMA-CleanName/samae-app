@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useCart } from "./CartProvider";
+import { useCart, cartCardJitter } from "./CartProvider";
 import { submitCartInquiry } from "@/app/(user)/inquiry/actions";
 
 // 장바구니 — 담은 사진이 부채꼴로 겹쳐 가장자리에 삐져나옴. 탭하면 모달.
@@ -144,21 +144,21 @@ export function FloatingCart() {
               }}
             >
               {peek.map((it, i) => {
-                // 5장까지 부채꼴 — 장수 많을수록 카드당 각도를 줄여 과하게 안 벌어지게
-                const step = peek.length > 3 ? 7 : 10;
-                const rot = (peek.length - 1 - i) * (side === "right" ? -step : step);
+                // 흐트러진 더미 — id 해시로 각도·위치 결정(고정). 최신 카드일수록 위로(zIndex).
+                const j = cartCardJitter(it.id);
                 return (
                   <img
                     key={it.id}
                     src={it.src}
                     alt=""
                     draggable={false}
-                    className={`absolute bottom-0 ${side === "right" ? "right-0" : "left-0"} rounded-lg object-cover shadow-[0_8px_22px_rgba(0,0,0,0.42)] ring-[3px] ring-white transition-transform duration-300 ease-out`}
+                    className="absolute bottom-0 left-1/2 rounded-lg object-cover shadow-[0_8px_22px_rgba(0,0,0,0.42)] ring-[3px] ring-white transition-transform duration-300 ease-out"
                     style={{
                       width: CART_W,
                       height: cardH(it),
-                      transformOrigin: side === "right" ? "bottom right" : "bottom left",
-                      transform: `rotate(${rot}deg)`,
+                      marginLeft: -CART_W / 2,
+                      transformOrigin: "center",
+                      transform: `translate(${j.dx}px, ${j.dy}px) rotate(${j.rot}deg)`,
                       zIndex: i,
                     }}
                   />

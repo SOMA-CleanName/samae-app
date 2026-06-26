@@ -77,7 +77,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
       // 도착 순간 장바구니에 추가 → 새 카드는 클론이 안착한 자리에 그대로 뜨고,
       // 기존 카드는 transition-transform 으로 부드럽게 밀려난다(통 튀는 펄스 제거).
-      flyToCart(sourceEl, target, item.src, () => pushItem(item));
+      flyToCart(sourceEl, target, item.src, cartCardJitter(item.id).rot, () => pushItem(item));
     },
     [pushItem]
   );
@@ -97,8 +97,26 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+// 카드별 흐트러진 더미 변형 — id 해시로 각도·위치를 결정(고정). 부채꼴 대신 툭 쌓은 느낌.
+// FloatingCart 의 쌓인 카드와 fly 클론 착지 각도를 같은 값으로 맞추는 데 공용.
+export function cartCardJitter(id: string): { rot: number; dx: number; dy: number } {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return {
+    rot: (h % 29) - 14, // -14 ~ 14도
+    dx: ((h >> 5) % 13) - 6, // -6 ~ 6px
+    dy: ((h >> 9) % 11) - 5, // -5 ~ 5px
+  };
+}
+
 // 사진 클론을 source 에서 cart target 으로 날려보낸다 (Web Animations API, 라이브러리 없음)
-function flyToCart(sourceEl: HTMLElement, target: HTMLElement, src: string, onLand: () => void) {
+function flyToCart(
+  sourceEl: HTMLElement,
+  target: HTMLElement,
+  src: string,
+  endRot: number,
+  onLand: () => void
+) {
   const s = sourceEl.getBoundingClientRect();
   const t = target.getBoundingClientRect();
   if (s.width === 0 || t.width === 0) {
@@ -140,13 +158,17 @@ function flyToCart(sourceEl: HTMLElement, target: HTMLElement, src: string, onLa
 
   const anim = clone.animate(
     [
-      { transform: "translate(0,0) scale(1)", opacity: 1, offset: 0 },
+      { transform: "translate(0,0) scale(1) rotate(0deg)", opacity: 1, offset: 0 },
       {
-        transform: `translate(${dx * 0.55}px, ${dy * 0.55}px) scale(${(1 + endScale) / 2})`,
+        transform: `translate(${dx * 0.55}px, ${dy * 0.55}px) scale(${(1 + endScale) / 2}) rotate(${endRot * 0.5}deg)`,
         opacity: 1,
         offset: 0.55,
       },
-      { transform: `translate(${dx}px, ${dy}px) scale(${endScale})`, opacity: 1, offset: 1 },
+      {
+        transform: `translate(${dx}px, ${dy}px) scale(${endScale}) rotate(${endRot}deg)`,
+        opacity: 1,
+        offset: 1,
+      },
     ],
     { duration: 620, easing: "cubic-bezier(.45,0,.2,1)" }
   );
