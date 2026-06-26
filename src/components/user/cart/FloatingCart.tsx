@@ -129,29 +129,42 @@ export function FloatingCart() {
         style={style}
         className="fixed z-40 cursor-grab touch-none select-none active:cursor-grabbing"
       >
-        {/* 카드 묶음을 가장자리 밖으로 밀어 부채꼴 일부만 보이게 (방향에 따라 미러) */}
-        <div
-          className="relative h-24 w-16"
-          style={{ transform: `translateX(${side === "right" ? "34%" : "-34%"})` }}
-        >
-          {peek.map((it, i) => {
-            const rot = (peek.length - 1 - i) * (side === "right" ? -10 : 10);
-            return (
-              <img
-                key={it.id}
-                src={it.src}
-                alt=""
-                draggable={false}
-                className={`absolute bottom-0 ${side === "right" ? "right-0" : "left-0"} h-24 w-16 rounded-lg object-cover shadow-[0_8px_22px_rgba(0,0,0,0.42)] ring-[3px] ring-white transition-transform duration-300 ease-out`}
-                style={{
-                  transformOrigin: side === "right" ? "bottom right" : "bottom left",
-                  transform: `rotate(${rot}deg)`,
-                  zIndex: i,
-                }}
-              />
-            );
-          })}
-        </div>
+        {/* 카드 묶음 — 각 사진의 실제 비율 그대로(고정 사이즈 X) 쌓임. 부채꼴 일부만 보이게 (방향에 따라 미러) */}
+        {(() => {
+          const cardH = (it: { w: number; h: number }) =>
+            it.w > 0 && it.h > 0 ? Math.round((CART_W * it.h) / it.w) : 96;
+          const maxH = Math.max(...peek.map(cardH));
+          return (
+            <div
+              className="relative"
+              style={{
+                width: CART_W,
+                height: maxH,
+                transform: `translateX(${side === "right" ? "34%" : "-34%"})`,
+              }}
+            >
+              {peek.map((it, i) => {
+                const rot = (peek.length - 1 - i) * (side === "right" ? -10 : 10);
+                return (
+                  <img
+                    key={it.id}
+                    src={it.src}
+                    alt=""
+                    draggable={false}
+                    className={`absolute bottom-0 ${side === "right" ? "right-0" : "left-0"} rounded-lg object-cover shadow-[0_8px_22px_rgba(0,0,0,0.42)] ring-[3px] ring-white transition-transform duration-300 ease-out`}
+                    style={{
+                      width: CART_W,
+                      height: cardH(it),
+                      transformOrigin: side === "right" ? "bottom right" : "bottom left",
+                      transform: `rotate(${rot}deg)`,
+                      zIndex: i,
+                    }}
+                  />
+                );
+              })}
+            </div>
+          );
+        })()}
       </button>
 
       {open && <CartModal onClose={() => setOpen(false)} items={items} onRemove={remove} />}

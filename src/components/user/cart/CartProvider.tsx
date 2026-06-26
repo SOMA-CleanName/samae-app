@@ -105,11 +105,18 @@ function flyToCart(sourceEl: HTMLElement, target: HTMLElement, src: string, onLa
     onLand();
     return;
   }
+  // 장바구니 미리보기 카드 너비(64px, FloatingCart CART_W)에 맞춰 축소 →
+  // 같은 비율 그대로 카드로 안착. 사진 원래 비율은 균등 스케일이라 유지됨.
+  const CART_PEEK_W = 64;
+  const endScale = Math.max(0.16, Math.min(0.8, CART_PEEK_W / s.width));
+  // 테두리·radius 는 transform scale 로 같이 줄어드므로, 착지(=endScale)에서 정확히
+  // 3px/8px 가 되도록 역보정. border 는 box 밖(content-box)이라 미리보기의 ring 과 동일.
+  const frameBorder = 3 / endScale;
+  const frameRadius = 8 / endScale;
+
   const clone = document.createElement("img");
   clone.src = src;
   clone.setAttribute("aria-hidden", "true");
-  // 장바구니 미리보기 썸네일과 같은 프레임(흰 테두리·radius·그림자)으로 날아가
-  // 도착 시 카드로 자연스럽게 안착. (rounded-lg=8px, ring-[3px] white, 동일 shadow)
   Object.assign(clone.style, {
     position: "fixed",
     left: `${s.left}px`,
@@ -117,10 +124,11 @@ function flyToCart(sourceEl: HTMLElement, target: HTMLElement, src: string, onLa
     width: `${s.width}px`,
     height: `${s.height}px`,
     objectFit: "cover",
-    borderRadius: "8px",
-    border: "3px solid #fff",
-    boxSizing: "border-box",
+    boxSizing: "content-box",
+    borderRadius: `${frameRadius}px`,
+    border: `${frameBorder}px solid #fff`,
     boxShadow: "0 8px 22px rgba(0,0,0,0.42)",
+    transformOrigin: "center",
     zIndex: "200",
     pointerEvents: "none",
     margin: "0",
@@ -129,8 +137,6 @@ function flyToCart(sourceEl: HTMLElement, target: HTMLElement, src: string, onLa
 
   const dx = t.left + t.width / 2 - (s.left + s.width / 2);
   const dy = t.top + t.height / 2 - (s.top + s.height / 2);
-  // 도착 시 장바구니 카드(약 56px) 크기에 맞춰 축소 → 클론이 그대로 카드로 안착하는 느낌
-  const endScale = Math.max(0.16, Math.min(0.5, 56 / s.width));
 
   const anim = clone.animate(
     [
