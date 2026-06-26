@@ -5,55 +5,119 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useCart } from "./CartProvider";
 
-// 하단 우측 장바구니 — 담은 사진이 겹쳐 모서리만 살짝 보이고,
-// 클릭하면 모달로 펼쳐져 담은 사진들을 비교·열람한다.
+// 장바구니 — 담은 사진이 부채꼴로 겹쳐 가장자리에 삐져나옴. 탭하면 모달.
+// 드래그로 좌/우 가장자리 어디든 옮길 수 있고(위치 저장), 부채꼴은 방향에 맞춰 미러.
+type CartPos = { side: "left" | "right"; top: number };
+const POS_KEY = "samae:cart-pos";
+
 export function FloatingCart() {
   const { items, count, remove, registerTarget } = useCart();
   const stackRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<CartPos | null>(null);
+  const drag = useRef({ active: false, moved: false, startX: 0, startY: 0, offsetY: 0 });
 
   useEffect(() => {
     registerTarget(stackRef.current);
-  }, [registerTarget]);
+  }, [registerTarget, count, pos]);
 
-  // 비었으면 숨김 (담는 순간 fly 도착 지점이 필요하니 등록은 위에서 유지)
+  // 저장된 위치 로드 (없으면 우측, 화면 하단쯤)
+  useEffect(() => {
+    let p: CartPos | null = null;
+    try {
+      const raw = localStorage.getItem(POS_KEY);
+      if (raw) p = JSON.parse(raw);
+    } catch {
+      /* 무시 */
+    }
+    if (!p) p = { side: "right", top: Math.max(120, window.innerHeight - 220) };
+    p.top = Math.min(Math.max(80, p.top), window.innerHeight - 150);
+    setPos(p);
+  }, []);
+
+  function clampTop(t: number) {
+    return Math.min(Math.max(80, t), window.innerHeight - 150);
+  }
+
+  function onPointerDown(e: React.PointerEvent) {
+    if (!pos) return;
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+    const rectTop = stackRef.current?.getBoundingClientRect().top ?? pos.top;
+    drag.current = { active: true, moved: false, startX: e.clientX, startY: e.clientY, offsetY: e.clientY - rectTop };
+  }
+  function onPointerMove(e: React.PointerEvent) {
+    if (!drag.current.active) return;
+    if (!drag.current.moved && (Math.abs(e.clientX - drag.current.startX) > 6 || Math.abs(e.clientY - drag.current.startY) > 6)) {
+      drag.current.moved = true;
+    }
+    if (drag.current.moved) {
+      setPos((prev) => (prev ? { ...prev, top: clampTop(e.clientY - drag.current.offsetY) } : prev));
+    }
+  }
+  function onPointerUp(e: React.PointerEvent) {
+    if (!drag.current.active) return;
+    drag.current.active = false;
+    if (drag.current.moved) {
+      const side: CartPos["side"] = e.clientX < window.innerWidth / 2 ? "left" : "right";
+      const next = { side, top: clampTop(e.clientY - drag.current.offsetY) };
+      setPos(next);
+      try {
+        localStorage.setItem(POS_KEY, JSON.stringify(next));
+      } catch {
+        /* 무시 */
+      }
+    } else {
+      setOpen(true); // 탭 = 열기
+    }
+  }
+
+  const side = pos?.side ?? "right";
+  const style: React.CSSProperties = pos
+    ? side === "right"
+      ? { top: pos.top, right: 0 }
+      : { top: pos.top, left: 0 }
+    : { bottom: 112, right: 0 };
+
+  // 비었어도 fly 도착 지점 유지(보이지 않는 1px)
   if (count === 0) {
-    // 빈 상태에서도 fly 목표가 필요해 보이지 않는 1px 타겟만 둔다(우측 가장자리).
     return (
-      <button
-        ref={stackRef}
-        aria-hidden
-        tabIndex={-1}
-        className="pointer-events-none fixed bottom-28 right-0 h-1 w-1 opacity-0"
-      />
+      <button ref={stackRef} aria-hidden tabIndex={-1} style={style} className="pointer-events-none fixed z-40 h-1 w-1 opacity-0" />
     );
   }
 
-  const peek = items.slice(-3); // 최근 3장 부채꼴
+  const peek = items.slice(-3);
 
   return (
     <>
-      {/* 우측 가장자리에 카드가 부채꼴로 겹쳐 좌측 일부가 삐져나옴 */}
       <button
         ref={stackRef}
         type="button"
-        onClick={() => setOpen(true)}
-        aria-label="장바구니 보기"
-        className="fixed bottom-28 right-0 z-40 cursor-pointer"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        aria-label="장바구니 보기 (드래그로 이동)"
+        style={style}
+        className="fixed z-40 cursor-grab touch-none select-none active:cursor-grabbing"
       >
-        {/* 카드 묶음을 오른쪽으로 밀어 좌측 부채꼴만 보이게 */}
-        <div className="relative h-24 w-16 translate-x-[34%]">
+        {/* 카드 묶음을 가장자리 밖으로 밀어 부채꼴 일부만 보이게 (방향에 따라 미러) */}
+        <div
+          className="relative h-24 w-16"
+          style={{ transform: `translateX(${side === "right" ? "34%" : "-34%"})` }}
+        >
           {peek.map((it, i) => {
-            const rot = (peek.length - 1 - i) * -10;
+            const rot = (peek.length - 1 - i) * (side === "right" ? -10 : 10);
             return (
               <img
                 key={it.id}
                 src={it.src}
                 alt=""
-                // 흰 프레임(카드처럼 보이게, 뒤 갤러리와 분리) + 강한 그림자로 띄움.
-                // transition-transform: 새 카드 담기면 기존 카드가 부드럽게 밀려남.
-                className="absolute bottom-0 right-0 h-24 w-16 rounded-lg object-cover shadow-[0_8px_22px_rgba(0,0,0,0.42)] ring-[3px] ring-white transition-transform duration-300 ease-out"
-                style={{ transformOrigin: "bottom right", transform: `rotate(${rot}deg)`, zIndex: i }}
+                draggable={false}
+                className={`absolute bottom-0 ${side === "right" ? "right-0" : "left-0"} h-24 w-16 rounded-lg object-cover shadow-[0_8px_22px_rgba(0,0,0,0.42)] ring-[3px] ring-white transition-transform duration-300 ease-out`}
+                style={{
+                  transformOrigin: side === "right" ? "bottom right" : "bottom left",
+                  transform: `rotate(${rot}deg)`,
+                  zIndex: i,
+                }}
               />
             );
           })}
