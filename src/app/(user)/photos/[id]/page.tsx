@@ -86,7 +86,7 @@ export default async function PhotoDetail({
   const caption = sp.mock === "1" ? mockCaption : photo.caption;
 
   return (
-    <main className="mx-auto max-w-5xl px-4 pb-8 pt-0 font-kr sm:px-6">
+    <main className="mx-auto max-w-5xl px-4 pb-8 pt-4 font-kr sm:px-6 sm:pt-6">
       {autoLike && <AutoFavorite targetType="photo" targetId={photo.id} path={`/photos/${photo.id}`} />}
       {/* Meta 픽셀 ViewContent — 작가명 노출 금지(content_name 익명) */}
       <PixelViewContent id={photo.id} disabled={isOwner} />

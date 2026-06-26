@@ -5,13 +5,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
 
-// 일부 카드(약 1/8)에 브랜드 테두리 (결정적 해시)
-function accentRing(id: string): boolean {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return h % 8 === 0;
-}
-
 export type ExplorePhoto = {
   id: string;
   src_url: string;
@@ -26,7 +19,7 @@ const STEP = 30; // 스크롤마다 더 보여줄 사진 수(메모리에서 즉
 // (작가 사진 탭은 제거: 작가 식별 노출 금지 + 이탈 유도 방지. 스크롤 내리면 추천만 이어짐)
 export function PhotoExplore({ initialRecs }: { initialRecs: ExplorePhoto[] }) {
   return (
-    <section className="mt-12">
+    <section className="mt-6">
       <RecsFeed initial={initialRecs} />
     </section>
   );
@@ -106,6 +99,14 @@ function PhotoMasonry({
   const ref = useRef<HTMLDivElement>(null);
   const colCount = useColumnCount(ref);
   const columns = useMemo(() => buildColumns(photos, colCount), [photos, colCount]);
+  // 브랜드 테두리 — 노출 순서 기준 일정 간격(약 1/9)으로만 표시 → 연속으로 몰리지 않음
+  const accentIds = useMemo(() => {
+    const s = new Set<string>();
+    photos.forEach((p, i) => {
+      if (i % 9 === 4) s.add(p.id);
+    });
+    return s;
+  }, [photos]);
   if (photos.length === 0) {
     return <p className="mt-10 text-center text-sm text-muted">{empty}</p>;
   }
@@ -115,13 +116,13 @@ function PhotoMasonry({
         <div key={ci} className="flex min-w-0 flex-1 flex-col gap-3">
           {col.map((p) => {
             const ratio = p.width > 0 && p.height > 0 ? `${p.width} / ${p.height}` : undefined;
-            const accent = accentRing(p.id);
+            const accent = accentIds.has(p.id);
             return (
               <div
                 key={p.id}
                 data-cart-card
                 className={`group relative overflow-hidden rounded-2xl bg-fg/[0.05] ${
-                  accent ? "ring-2 ring-brand ring-offset-2 ring-offset-bg" : ""
+                  accent ? "ring-[3px] ring-brand" : ""
                 }`}
               >
                 <Link

@@ -320,7 +320,12 @@ export function ExploreGallery({
           <div key={ci} className="flex min-w-0 flex-1 flex-col gap-3">
             {col.map((photo) => {
               const card = (
-                <PhotoCard photo={photo} showPrice={showPrice} showName={showName} />
+                <PhotoCard
+                  photo={photo}
+                  showPrice={showPrice}
+                  showName={showName}
+                  accent={(orderIndex.get(photo.id) ?? 0) % 9 === 4}
+                />
               );
               // 스포트라이트 카드 — 오버레이(z-100) 위로 띄워 제자리 그대로 밝게
               if (spotlightTargetId && photo.id === spotlightTargetId) {
@@ -483,35 +488,30 @@ export function ExploreGallery({
 }
 
 // 핀터레스트식 핀 카드 — 비율 예약(레이아웃 점프 방지) + 담기('+') + 옵션 표시(가격)
-// 일부 카드(약 1/8)에 브랜드 테두리 — 화면당 1~2개로 브랜드 감성 노출(결정적 해시)
-function accentRing(id: string): boolean {
-  let h = 0;
-  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
-  return h % 8 === 0;
-}
-
+// 브랜드 테두리(accent)는 노출 순서 기준 일정 간격으로만 부여 → 연속으로 몰리지 않음(상위에서 계산)
 function PhotoCard({
   photo,
   showPrice,
   showName,
+  accent,
 }: {
   photo: GalleryPhoto;
   showPrice: boolean;
   showName: boolean;
+  accent: boolean;
 }) {
   const tags = (photo.mood_tags ?? []).slice(0, 3).join(", ");
   const alt = tags ? `사진 · ${tags}` : "사진";
   // DB 비율로 공간 예약 → 이미지 로드 시 레이아웃 점프 제거
   const ratio =
     photo.width > 0 && photo.height > 0 ? `${photo.width} / ${photo.height}` : undefined;
-  const accent = accentRing(photo.id);
 
   return (
     <div
       data-cart-card
       className={cn(
         "group relative break-inside-avoid overflow-hidden rounded-2xl bg-fg/[0.05]",
-        accent && "ring-2 ring-brand ring-offset-2 ring-offset-bg"
+        accent && "ring-[3px] ring-brand"
       )}
     >
       <Link href={`/photos/${photo.id}`} className="block" data-track="cta:photo">
