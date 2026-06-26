@@ -28,17 +28,17 @@ export function AddToCartButton({ item, className = "" }: { item: CartItem; clas
       aria-pressed={inCart}
       aria-label={inCart ? "장바구니에서 빼기" : "장바구니에 담기"}
       className={[
-        "grid h-9 w-9 cursor-pointer place-items-center rounded-full shadow-sm backdrop-blur transition-colors",
+        "grid h-7 w-7 cursor-pointer place-items-center rounded-full shadow-sm backdrop-blur transition-colors",
         inCart ? "bg-brand text-white" : "bg-white/90 text-fg/80 hover:bg-white",
         className,
       ].join(" ")}
     >
       {inCart ? (
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.4">
+        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.8">
           <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       ) : (
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.4">
+        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.8">
           <path d="M12 5v14M5 12h14" strokeLinecap="round" />
         </svg>
       )}

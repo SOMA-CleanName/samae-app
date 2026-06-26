@@ -18,45 +18,47 @@ export function FloatingCart() {
 
   // 비었으면 숨김 (담는 순간 fly 도착 지점이 필요하니 등록은 위에서 유지)
   if (count === 0) {
-    // 빈 상태에서도 fly 목표가 필요해 보이지 않는 1px 타겟만 둔다.
+    // 빈 상태에서도 fly 목표가 필요해 보이지 않는 1px 타겟만 둔다(우측 가장자리).
     return (
       <button
         ref={stackRef}
         aria-hidden
         tabIndex={-1}
-        className="pointer-events-none fixed bottom-24 right-5 h-1 w-1 opacity-0 md:bottom-6 md:right-6"
+        className="pointer-events-none fixed bottom-28 right-0 h-1 w-1 opacity-0"
       />
     );
   }
 
-  const peek = items.slice(-3); // 최근 3장만 겹쳐 노출
+  const peek = items.slice(-4); // 최근 4장만 부채꼴로 노출
 
   return (
     <>
+      {/* 우측 가장자리에 카드가 부채꼴로 겹쳐 좌측 일부만 삐져나옴(대부분 화면 밖) */}
       <button
         ref={stackRef}
         type="button"
         onClick={() => setOpen(true)}
         aria-label={`장바구니 ${count}장 보기`}
-        className="fixed bottom-24 right-5 z-40 h-16 w-16 cursor-pointer md:bottom-6 md:right-6"
+        className="fixed bottom-28 right-0 z-40 cursor-pointer"
       >
-        {/* 겹친 카드 스택 */}
-        {peek.map((it, i) => (
-          <img
-            key={it.id}
-            src={it.src}
-            alt=""
-            className="absolute h-14 w-14 rounded-xl object-cover shadow-lg ring-1 ring-black/10 transition-transform"
-            style={{
-              right: `${i * 5}px`,
-              bottom: `${i * 5}px`,
-              transform: `rotate(${(peek.length - 1 - i) * -5}deg)`,
-              zIndex: i,
-            }}
-          />
-        ))}
-        {/* 카운트 배지 */}
-        <span className="absolute -right-1 -top-1 z-10 grid h-6 min-w-6 place-items-center rounded-full bg-brand px-1.5 text-xs font-bold text-white shadow ring-2 ring-bg">
+        {/* 카드 묶음을 오른쪽으로 밀어 화면 밖으로 → 좌측 부채꼴만 보이게 */}
+        <div className="relative h-24 w-16 translate-x-[42%]">
+          {peek.map((it, i) => {
+            // 맨 위(마지막) 카드는 세로(오른쪽, 거의 화면 밖), 아래 카드일수록 좌측으로 부채꼴
+            const rot = (peek.length - 1 - i) * -13;
+            return (
+              <img
+                key={it.id}
+                src={it.src}
+                alt=""
+                className="absolute bottom-0 right-0 h-24 w-16 rounded-lg object-cover shadow-xl ring-1 ring-black/10"
+                style={{ transformOrigin: "bottom right", transform: `rotate(${rot}deg)`, zIndex: i }}
+              />
+            );
+          })}
+        </div>
+        {/* 카운트 배지 — 보이는 쪽(좌상단) */}
+        <span className="absolute -left-1 top-1 grid h-5 min-w-5 place-items-center rounded-full bg-brand px-1 text-[11px] font-bold text-white shadow ring-2 ring-bg">
           {count}
         </span>
       </button>
