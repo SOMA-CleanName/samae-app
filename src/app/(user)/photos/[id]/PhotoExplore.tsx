@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
+import { accentRingIds } from "@/lib/seeded-shuffle";
 
 export type ExplorePhoto = {
   id: string;
@@ -99,14 +100,8 @@ function PhotoMasonry({
   const ref = useRef<HTMLDivElement>(null);
   const colCount = useColumnCount(ref);
   const columns = useMemo(() => buildColumns(photos, colCount), [photos, colCount]);
-  // 브랜드 테두리 — 노출 순서 기준 일정 간격(약 1/9)으로만 표시 → 연속으로 몰리지 않음
-  const accentIds = useMemo(() => {
-    const s = new Set<string>();
-    photos.forEach((p, i) => {
-      if (i % 9 === 4) s.add(p.id);
-    });
-    return s;
-  }, [photos]);
+  // 브랜드 테두리 — 노출 순서 기준 가변 간격(6~11)으로만 표시 → 몰리거나 매번 같은 자리 방지
+  const accentIds = useMemo(() => accentRingIds(photos), [photos]);
   if (photos.length === 0) {
     return <p className="mt-10 text-center text-sm text-muted">{empty}</p>;
   }

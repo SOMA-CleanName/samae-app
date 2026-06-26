@@ -33,6 +33,25 @@ export function dayKey(): string {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
+// 노출 순서 기준으로 브랜드 테두리를 줄 사진 id 집합.
+// 간격을 id 해시로 6~11 가변 → 고정 주기(매번 같은 자리) 제거해 단조로움 완화.
+export function accentRingIds<T extends { id: string }>(ordered: T[]): Set<string> {
+  const ids = new Set<string>();
+  let since = 0;
+  let target = 5; // 첫 테두리까지 간격
+  for (let i = 0; i < ordered.length; i++) {
+    if (since >= target) {
+      const id = ordered[i].id;
+      ids.add(id);
+      since = 0;
+      target = 6 + (hashStr(id) % 6); // 다음 간격 6~11 가변
+    } else {
+      since++;
+    }
+  }
+  return ids;
+}
+
 // 인접한 두 항목이 같은 키(게시물/앨범)가 되지 않게 재배치 — 우선순위 순서는 최대한 보존.
 export function spaceByKey<T>(items: T[], keyOf: (item: T) => string): T[] {
   const pending = [...items];

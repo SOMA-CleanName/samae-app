@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { GalleryPhoto } from "@/lib/discovery";
 import { cn } from "@/lib/cn";
+import { accentRingIds } from "@/lib/seeded-shuffle";
 import { SearchIcon } from "@/components/user/icons";
 import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
 import { EmptyState } from "@/components/ui";
@@ -282,6 +283,9 @@ export function ExploreGallery({
     return m;
   }, [photos, visible]);
 
+  // 브랜드 테두리 — 노출 순서 기준 가변 간격(6~11)으로 분산
+  const accentIds = useMemo(() => accentRingIds(photos.slice(0, visible)), [photos, visible]);
+
   if (photos.length === 0) {
     return (
       <EmptyState
@@ -324,7 +328,7 @@ export function ExploreGallery({
                   photo={photo}
                   showPrice={showPrice}
                   showName={showName}
-                  accent={(orderIndex.get(photo.id) ?? 0) % 9 === 4}
+                  accent={accentIds.has(photo.id)}
                 />
               );
               // 스포트라이트 카드 — 오버레이(z-100) 위로 띄워 제자리 그대로 밝게
