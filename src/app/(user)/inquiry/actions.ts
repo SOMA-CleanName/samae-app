@@ -4,7 +4,7 @@ import { randomUUID } from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
-import { notifyOpsNewInquiry } from "@/lib/ops-alert";
+import { notifyOpsNewInquiry, notifyOpsCartInquiry } from "@/lib/ops-alert";
 import { sendCapiLead } from "@/lib/meta-capi";
 
 export type InquiryState = {
@@ -346,4 +346,40 @@ function parsePartySize(value: string | null) {
   if (!value) return null;
   const parsed = parseInt(value.replace(/[^0-9]/g, ""), 10);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+// ── 장바구니 일괄 상담 신청 (운영진 라우팅) ───────────────────────
+export type CartInquiryState = { ok: boolean; error?: string; leadId?: string };
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// 담은 사진들 + 연락처를 운영진에게 일괄 전달. DB 문의행 없이 ops 알림 + Meta Lead.
+export async function submitCartInquiry(
+  _prev: CartInquiryState,
+  formData: FormData
+): Promise<CartInquiryState> {
+  const contact = String(formData.get("contact") || "").trim();
+  const photoIds = [
+    ...new Set(
+      String(formData.get("photoIds") || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    ),
+  ];
+  if (!contact) return { ok: false, error: "연락받을 연락처를 입력해주세요." };
+  if (photoIds.length === 0) return { ok: false, error: "담은 사진이 없어요." };
+
+  const leadId = randomUUID();
+
+  // 운영진 디스코드 알림 (작가 라우팅용 — 연락처 포함)
+  await notifyOpsCartInquiry({ contact, photoIds });
+
+  // Meta 전환 API — 서버측 Lead (클라 픽셀과 같은 eventID 로 중복 제거)
+  const email = EMAIL_RE.test(contact) ? contact : null;
+  const digits = contact.replace(/\D/g, "");
+  const phone = digits.length === 11 && digits.startsWith("01") ? contact : null;
+  await sendCapiLead({ inquiryId: leadId, phone, email });
+
+  return { ok: true, leadId };
 }
