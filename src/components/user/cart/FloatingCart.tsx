@@ -262,8 +262,9 @@ function CartModal({
   originRef: React.RefObject<HTMLButtonElement | null>;
 }) {
   const { clear } = useCart();
-  // 모션 단계: in(더미 자리) → center(가운데로 모임) → open(펼침) → [닫기] exit(중앙으로 모이며 사라짐)
-  const [phase, setPhase] = useState<"in" | "center" | "open" | "exit">("in");
+  // 모션 단계: in(더미의 스택) → center(스택 그대로 중앙) → open(펼침)
+  //            [닫기] center(다시 스택으로 모임) → out(스택 그대로 더미 위치로 복귀)
+  const [phase, setPhase] = useState<"in" | "center" | "open" | "out">("in");
   const show = phase === "center" || phase === "open"; // 배경·바 노출 상태
   const [vp, setVp] = useState<{ w: number; h: number } | null>(null);
   const [origin, setOrigin] = useState<{ x: number; y: number } | null>(null);
@@ -306,10 +307,11 @@ function CartModal({
     if (state.leadId) window.fbq?.("track", "Lead", {}, { eventID: `inquiry_${state.leadId}` });
   }, [state.ok, state.leadId]);
 
-  // 닫힘 시퀀스: 펼친 사진들이 중앙으로 모이며 사라짐(펼침의 역방향)
+  // 닫힘 시퀀스: 펼친 사진 → 중앙 스택으로 모임 → 스택 그대로 더미 위치로 복귀 → 언마운트(실제 스택과 핸드오프)
   function close() {
-    setPhase("exit");
-    setTimeout(onClose, 380);
+    setPhase("center");
+    setTimeout(() => setPhase("out"), 320);
+    setTimeout(onClose, 660);
   }
   function removeOne(id: string) {
     setLeaving((s) => new Set(s).add(id));
@@ -331,8 +333,8 @@ function CartModal({
   type Placed = {
     it: CartItem; x: number; y: number; rot: number; photoW: number; photoH: number; side: number; bottom: number; z: number;
   };
-  const { cards, contentH } = ((): { cards: Placed[]; contentH: number } => {
-    if (!vp || N === 0) return { cards: [], contentH: 0 };
+  const { cards, contentH, cardW } = ((): { cards: Placed[]; contentH: number; cardW: number } => {
+    if (!vp || N === 0) return { cards: [], contentH: 0, cardW: PEEK_CARD_W };
     const { w: W, h: H } = vp;
     const padX = Math.max(16, W * 0.06);
     const topPad = 84;
@@ -386,13 +388,15 @@ function CartModal({
       const photoH = Math.min(Math.round(photoW * ratio), Math.max(40, maxPhotoH));
       return { it, x, y, rot: j.rot, photoW, photoH, side, bottom, z: i };
     });
-    return { cards, contentH };
+    return { cards, contentH, cardW };
   })();
 
   const cx = vp ? vp.w / 2 : 0;
   const cy = vp ? vp.h * 0.5 : 0; // 모임 중심
   const gx = origin ? origin.x : cx; // 더미(출발/복귀) 위치
   const gy = origin ? origin.y : cy;
+  // 스택 단계에서 카드를 peek 스택과 같은 크기로 축소(64px 기준)
+  const stackScale = cardW > 0 ? PEEK_CARD_W / cardW : 0.27;
 
   return (
     <div className="fixed inset-0 z-50 font-kr" role="dialog" aria-modal="true">
@@ -430,28 +434,27 @@ function CartModal({
             <div className="relative w-full" style={{ height: contentH }}>
               {cards.map(({ it, x, y, rot, photoW, photoH, side, bottom, z }) => {
                 const isLeaving = leaving.has(it.id);
-                // 단계별 변형 — in(더미)·center(모임)·open(펼침)·out(더미 복귀)
+                // 스택 단계(in/center/out)에서는 peek 스택과 같은 크기·지터로 보이게 유지.
+                const sj = cartCardJitter(it.id);
                 let tf: string;
                 let op: number;
                 if (isLeaving) {
                   tf = `translate(0,-44px) scale(.6) rotate(${rot}deg)`;
                   op = 0;
                 } else if (phase === "open") {
+                  // 펼침 — 각자 자리·실제 크기
                   tf = `translate(0,0) scale(1) rotate(${rot}deg)`;
                   op = 1;
                 } else if (phase === "center") {
-                  tf = `translate(${cx - x}px, ${cy - y}px) scale(.28) rotate(0deg)`;
+                  // 중앙에 모인 스택(peek 모양 그대로)
+                  tf = `translate(${cx - x + sj.dx}px, ${cy - y + sj.dy}px) scale(${stackScale}) rotate(${sj.rot}deg)`;
                   op = 1;
-                } else if (phase === "exit") {
-                  // 닫힘 — 중앙으로 모이며 사라짐
-                  tf = `translate(${cx - x}px, ${cy - y}px) scale(.3) rotate(0deg)`;
-                  op = 0;
                 } else {
-                  // in — 더미(버튼) 위치에서 출발
-                  tf = `translate(${gx - x}px, ${gy - y}px) scale(.18) rotate(0deg)`;
+                  // in/out — 더미(버튼) 위치의 스택(peek 모양 그대로)
+                  tf = `translate(${gx - x + sj.dx}px, ${gy - y + sj.dy}px) scale(${stackScale}) rotate(${sj.rot}deg)`;
                   op = 1;
                 }
-                // 펼칠 때만 스태거(모임·복귀는 한 덩어리로)
+                // 펼칠 때만 스태거(모임·이동은 한 덩어리로)
                 const delay = phase === "open" ? Math.min(z, 24) * 20 : 0;
                 return (
                   <div
