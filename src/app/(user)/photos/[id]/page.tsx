@@ -92,7 +92,7 @@ export default async function PhotoDetail({
       <div className="md:flex md:items-start md:gap-8">
         {/* 사진 — 화면 최상단. 뒤로가기·공유는 이미지 위 오버레이 */}
         <div
-          className="relative md:sticky md:top-4 md:shrink-0 md:self-start md:w-[min(60%,calc(80vh*var(--ar)))]"
+          className="relative mx-auto w-[min(100%,calc(82svh*var(--ar)))] md:mx-0 md:sticky md:top-4 md:shrink-0 md:self-start md:w-[min(60%,calc(80vh*var(--ar)))]"
           style={{ "--ar": String(aspect) } as React.CSSProperties}
         >
           <PhotoCarousel
