@@ -42,13 +42,13 @@ export function assignColumnAccents<T extends { id: string }>(
 ): Map<string, AccentColor> {
   const out = new Map<string, AccentColor>();
   columns.forEach((col, ci) => {
-    let next = 2 + ((ci * 3) % 5); // 컬럼마다 첫 테두리 위치를 다르게(2~6)
+    let next = 1 + ((ci * 2) % 4); // 컬럼마다 첫 테두리 위치를 다르게(1~4)
     for (let r = 0; r < col.length; r++) {
       if (r >= next) {
         const id = col[r].id;
         const h = hashStr(id);
-        out.set(id, h % 4 === 0 ? "ink" : "brand"); // 1/4 검정, 3/4 빨강
-        next = r + 6 + (h % 4); // 다음 간격 6~9
+        out.set(id, h % 2 === 0 ? "ink" : "brand"); // 검정·빨강 반반
+        next = r + 3 + (h % 3); // 다음 간격 3~5 (기존의 약 2배 빈도)
       }
     }
   });
