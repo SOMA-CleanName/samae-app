@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>samae.ai — Resend 이메일 인증 셋업 가이드</title>
+<style>
+  :root{
+    --bg:#fafafa; --fg:#16140f; --muted:#6b6760; --line:#e7e4dd;
+    --brand:#ff3d2e; --brand-soft:#fff1ef; --card:#ffffff; --code:#f4f2ec;
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",Segoe UI,Roboto,sans-serif;
+    line-height:1.7; letter-spacing:-0.01em;
+  }
+  .wrap{max-width:760px; margin:0 auto; padding:56px 22px 96px}
+  header{margin-bottom:40px}
+  .eyebrow{display:inline-block; font-size:13px; font-weight:700; color:var(--brand);
+    background:var(--brand-soft); padding:5px 11px; border-radius:999px; letter-spacing:0}
+  h1{font-size:30px; line-height:1.25; margin:16px 0 8px; font-weight:800}
+  .sub{color:var(--muted); font-size:15px; margin:0}
+  .goal{margin:22px 0 0; padding:16px 18px; background:var(--card); border:1px solid var(--line);
+    border-radius:14px; font-size:14.5px}
+  .goal b{color:var(--brand)}
+  h2{font-size:20px; margin:48px 0 4px; font-weight:800; display:flex; align-items:center; gap:10px}
+  .num{display:inline-grid; place-items:center; width:28px; height:28px; flex:none;
+    background:var(--brand); color:#fff; border-radius:8px; font-size:14px; font-weight:800}
+  h2 .t{flex:1}
+  .step-desc{color:var(--muted); font-size:14px; margin:6px 0 14px; padding-left:38px}
+  .body{padding-left:38px}
+  ol.steps{margin:0; padding-left:20px}
+  ol.steps>li{margin:0 0 10px}
+  code{background:var(--code); padding:2px 7px; border-radius:6px; font-size:13.5px;
+    font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace; word-break:break-all}
+  table{width:100%; border-collapse:collapse; margin:14px 0; font-size:13.5px; background:var(--card);
+    border:1px solid var(--line); border-radius:12px; overflow:hidden}
+  th,td{text-align:left; padding:11px 13px; border-bottom:1px solid var(--line); vertical-align:top}
+  th{background:#f3f1ea; font-weight:700; font-size:12.5px; color:var(--muted)}
+  tr:last-child td{border-bottom:none}
+  td code{display:inline-block}
+  .kv{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:6px 0; margin:14px 0}
+  .kv .row{display:flex; gap:12px; padding:8px 16px; border-bottom:1px solid var(--line)}
+  .kv .row:last-child{border-bottom:none}
+  .kv .k{width:130px; flex:none; color:var(--muted); font-size:13.5px; font-weight:600}
+  .kv .v{font-family:"SF Mono",ui-monospace,Menlo,monospace; font-size:13.5px; word-break:break-all}
+  .note{margin:14px 0; padding:13px 16px; border-radius:12px; font-size:13.5px;
+    background:var(--brand-soft); border:1px solid #ffd9d4}
+  .note.warn{background:#fff8e6; border-color:#ffe7a8}
+  .note.ok{background:#eefaf0; border-color:#bfe9c8}
+  .note b{font-weight:800}
+  .pill{display:inline-block; font-size:11.5px; font-weight:700; padding:2px 8px; border-radius:999px;
+    background:#eef0f3; color:#555; margin-left:6px; vertical-align:middle}
+  a{color:var(--brand); text-decoration:none; border-bottom:1px solid #ffc9c3}
+  hr{border:none; border-top:1px solid var(--line); margin:40px 0}
+  footer{color:var(--muted); font-size:12.5px; margin-top:40px; text-align:center}
+  ul.plain{padding-left:18px; margin:8px 0}
+  ul.plain li{margin:4px 0; font-size:14px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <span class="eyebrow">samae.ai · 이메일 인증</span>
+    <h1>Resend로 회원가입 인증 메일 보내기</h1>
+    <p class="sub">DNS는 Vercel · 인증은 Supabase Auth · 발송은 Resend SMTP</p>
+    <div class="goal">
+      <b>목표</b> — Supabase Auth가 보내는 메일(회원가입 인증·매직링크·비밀번호 재설정)을
+      <code>noreply@samae.ai</code> 주소로, Resend를 통해 안정적으로 발송. 코드 변경 없이 대시보드·DNS 설정만으로 끝납니다.
+    </div>
+  </header>
+
+  <!-- 1 -->
+  <h2><span class="num">1</span><span class="t">Resend에 도메인 추가</span></h2>
+  <p class="step-desc">발신 도메인을 등록하고, Vercel에 넣을 DNS 레코드를 받습니다.</p>
+  <div class="body">
+    <ol class="steps">
+      <li><a href="https://resend.com" target="_blank">resend.com</a> 가입/로그인</li>
+      <li><b>Domains → Add Domain</b> → <code>samae.ai</code> 입력 (Region은 기본 <code>us-east-1</code> 무방)</li>
+      <li>추가하면 <b>DNS 레코드 목록</b>이 표시됩니다. 값은 도메인마다 다르니 <b>이 화면을 켜둔 채</b> 다음 단계로.</li>
+    </ol>
+  </div>
+
+  <!-- 2 -->
+  <h2><span class="num">2</span><span class="t">Vercel에 DNS 레코드 추가</span></h2>
+  <p class="step-desc">Vercel Dashboard → <b>Domains</b> → <code>samae.ai</code> → <b>DNS Records</b> → <b>Add</b></p>
+  <div class="body">
+    <p style="font-size:14px;margin:0 0 8px">아래 4개를 추가합니다. <b>Name(이름)에는 <code>samae.ai</code>를 붙이지 마세요</b> — Vercel은 입력한 이름 뒤에 자동으로 도메인을 붙입니다.</p>
+    <table>
+      <thead><tr><th>Type</th><th>Name</th><th>Value</th><th>비고</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>MX</b></td><td><code>send</code></td>
+          <td><code>feedback-smtp.us-east-1.amazonses.com</code></td>
+          <td>Priority <code>10</code></td>
+        </tr>
+        <tr>
+          <td><b>TXT</b><br><span class="pill">SPF</span></td><td><code>send</code></td>
+          <td><code>v=spf1 include:amazonses.com ~all</code></td>
+          <td>발신 인증</td>
+        </tr>
+        <tr>
+          <td><b>TXT</b><br><span class="pill">DKIM</span></td><td><code>resend._domainkey</code></td>
+          <td><code>p=MIGfMA0GCSq…</code><br>(Resend가 준 <b>긴 키 그대로</b> 복사)</td>
+          <td>서명</td>
+        </tr>
+        <tr>
+          <td><b>TXT</b><br><span class="pill">DMARC</span></td><td><code>_dmarc</code></td>
+          <td><code>v=DMARC1; p=none;</code></td>
+          <td>정책(권장)</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="note warn">
+      <b>주의</b> · Region이 us-east-1이 아니면 MX·SPF의 <code>us-east-1</code> 부분이 다르게 표시됩니다 — <b>Resend 화면 값을 그대로</b> 복사하세요.
+      값 끝에 점(<code>.</code>)이 붙어 있으면 빼고 넣어도 됩니다.
+    </div>
+    <div class="note">
+      이미 apex(<code>@</code>)에 다른 SPF TXT가 있어도 괜찮습니다. 위 SPF는 <code>send</code> 서브도메인용이라 충돌하지 않아요.
+    </div>
+  </div>
+
+  <!-- 3 -->
+  <h2><span class="num">3</span><span class="t">도메인 인증(Verify)</span></h2>
+  <div class="body">
+    <ol class="steps">
+      <li>Resend로 돌아가 <b>Verify</b> 클릭 (전파에 몇 분~수십 분)</li>
+      <li>모든 레코드가 <b>초록색 Verified</b> 가 되면 완료</li>
+    </ol>
+    <div class="note ok"><b>팁</b> · 안 잡히면 Vercel 레코드의 Name이 정확한지(<code>send</code>, <code>resend._domainkey</code>, <code>_dmarc</code>), DKIM 키가 잘렸는지 확인하세요.</div>
+  </div>
+
+  <!-- 4 -->
+  <h2><span class="num">4</span><span class="t">Resend API 키 발급</span></h2>
+  <p class="step-desc">이 키가 SMTP 비밀번호로 쓰입니다.</p>
+  <div class="body">
+    <ol class="steps">
+      <li><b>API Keys → Create API Key</b></li>
+      <li>이름 <code>supabase-smtp</code>, 권한 <b>Sending access</b></li>
+      <li><code>re_…</code> 키 복사 — <b>한 번만 표시</b>되니 안전히 보관</li>
+    </ol>
+  </div>
+
+  <!-- 5 -->
+  <h2><span class="num">5</span><span class="t">Supabase 커스텀 SMTP 연결</span></h2>
+  <p class="step-desc">Supabase Dashboard → <b>Authentication → Emails → SMTP Settings</b> → <b>Enable Custom SMTP</b> 켜고 입력</p>
+  <div class="body">
+    <div class="kv">
+      <div class="row"><div class="k">Sender email</div><div class="v">noreply@samae.ai</div></div>
+      <div class="row"><div class="k">Sender name</div><div class="v">사매</div></div>
+      <div class="row"><div class="k">Host</div><div class="v">smtp.resend.com</div></div>
+      <div class="row"><div class="k">Port</div><div class="v">465 <span style="color:var(--muted)">(안 되면 587)</span></div></div>
+      <div class="row"><div class="k">Username</div><div class="v">resend</div></div>
+      <div class="row"><div class="k">Password</div><div class="v">re_… (4단계 API 키)</div></div>
+    </div>
+    <div class="note warn"><b>Sender email의 @ 뒤 도메인</b>은 반드시 Resend에서 <b>Verified된 도메인</b>(samae.ai)이어야 합니다. 아니면 발송이 거부돼요.</div>
+    <p style="font-size:14px;margin:14px 0 0">저장 후 <b>Authentication → URL Configuration</b>에서 <b>Site URL</b>이 <code>https://samae.ai</code> 인지 한 번 더 확인.</p>
+  </div>
+
+  <!-- 6 -->
+  <h2><span class="num">6</span><span class="t">테스트</span></h2>
+  <div class="body">
+    <ol class="steps">
+      <li>시크릿 창에서 이메일로 신규 가입 → 인증 메일 수신 확인</li>
+      <li>안 오면 <b>Resend → Logs</b>에서 발송/실패 사유 확인</li>
+      <li>스팸함도 확인 (초기 <code>p=none</code> 단계라 평판 쌓이기 전엔 스팸 가능)</li>
+    </ol>
+    <div class="note">자주 막히는 원인 — ① 도메인 Verified 전 ② Sender 도메인 불일치 ③ DKIM 키 잘림 ④ 포트(465↔587).</div>
+  </div>
+
+  <hr />
+
+  <h2 style="font-size:18px"><span class="num" style="background:#16140f">✓</span><span class="t">참고</span></h2>
+  <div class="body">
+    <ul class="plain">
+      <li><b>무료 플랜</b> 월 3,000통 / 일 100통 — 인증 메일용으론 충분.</li>
+      <li><b>예약 확정·정산 알림</b> 같은 앱 메일은 SMTP 대신 <b>Resend API + React Email</b>로 보내면 디자인까지 깔끔 (추후 연동 가능).</li>
+      <li>가입 인증 메일 <b>한국어·브랜드 템플릿</b>은 Supabase <b>Email Templates</b>에서 교체 가능.</li>
+    </ul>
+  </div>
+
+  <footer>samae.ai · Resend × Supabase Auth × Vercel DNS — 코드 변경 없음(대시보드·DNS 설정)</footer>
+
+</div>
+</body>
+</html>

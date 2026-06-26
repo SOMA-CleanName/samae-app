@@ -535,6 +535,11 @@ export function FloatingCart() {
                     setFocused(null);
                     if (formFor && formFor !== "all") setFormFor(null);
                   }}
+                  onRemove={(id) => {
+                    setFocused(null);
+                    if (formFor && formFor !== "all") setFormFor(null);
+                    removeOne(id);
+                  }}
                 />
               )}
             </>
@@ -545,20 +550,22 @@ export function FloatingCart() {
   );
 }
 
-// 탭한 사진을 부드럽게 중앙으로 와서 확대(FLIP). 상담 CTA 는 하단 바가 담당. 상세보기·빼기 제공.
+// 탭한 사진을 부드럽게 화면 중앙으로 와서 확대(FLIP). 상담 CTA 는 하단 바, 보조로 게시물 보기·삭제.
 function FocusedPhoto({
   item,
   fromRect,
   vp,
   onBack,
+  onRemove,
 }: {
   item: CartItem;
   fromRect: DOMRect;
   vp: { w: number; h: number } | null;
   onBack: () => void;
+  onRemove: (id: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const dimRef = useRef<HTMLButtonElement>(null);
+  const dimRef = useRef<HTMLDivElement>(null);
   useIsoLayout(() => {
     const el = ref.current;
     if (!el) return;
@@ -567,16 +574,15 @@ function FocusedPhoto({
     const dx = fromRect.left + fromRect.width / 2 - (last.left + last.width / 2);
     const dy = fromRect.top + fromRect.height / 2 - (last.top + last.height / 2);
     const s = Math.max(0.05, fromRect.width / last.width);
-    // 부드럽게 중앙으로 이동하며 커짐
+    // 카드 자리에서 화면 중앙으로 이동하며 커짐
     el.animate(
       [
-        { transform: `translate(${dx}px,${dy}px) scale(${s})`, offset: 0 },
-        { transform: "translate(0,0) scale(1)", offset: 1 },
+        { transform: `translate(${dx}px,${dy}px) scale(${s})`, opacity: 0.85, offset: 0 },
+        { transform: "translate(0,0) scale(1)", opacity: 1, offset: 1 },
       ],
-      { duration: 420, easing: "cubic-bezier(.22,1,.36,1)" }
+      { duration: 440, easing: "cubic-bezier(.22,1,.36,1)" }
     );
-    // 딤도 함께 서서히
-    dimRef.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: "ease" });
+    dimRef.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 280, easing: "ease" });
   }, []);
 
   const vw = vp?.w ?? 360;
@@ -585,32 +591,45 @@ function FocusedPhoto({
   const ratio = item.w > 0 && item.h > 0 ? item.h / item.w : 1;
   const side = Math.max(8, Math.round(photoW * 0.05));
   const bottom = Math.max(20, Math.round(photoW * 0.14));
-  const photoH = Math.min(Math.round(photoW * ratio), Math.round(vh * 0.5));
+  const photoH = Math.min(Math.round(photoW * ratio), Math.round(vh * 0.46));
 
   return (
-    // 하단 상담 바(z-62) 아래에 깔리도록 z-58, 하단 여백 확보
-    <div className="fixed inset-0 z-[58] flex flex-col items-center justify-center px-6 pb-28 font-kr">
-      <button ref={dimRef} aria-label="뒤로" onClick={onBack} className="absolute inset-0 bg-black/75 backdrop-blur-sm" />
+    <div className="fixed inset-0 z-[58] font-kr">
+      {/* 딤 — 빈 곳/사진 탭하면 그리드로 */}
+      <div ref={dimRef} onClick={onBack} aria-hidden className="absolute inset-0 bg-black/78 backdrop-blur-sm" />
 
-      <div
-        ref={ref}
-        className="relative bg-white shadow-[0_18px_50px_rgba(0,0,0,0.55)]"
-        style={{ padding: `${side}px ${side}px ${bottom}px`, borderRadius: 4 }}
-      >
-        <img
-          src={item.src}
-          alt=""
-          draggable={false}
-          style={{ display: "block", width: photoW, height: photoH, objectFit: "cover", borderRadius: 2 }}
-        />
+      {/* 사진 — 화면 중앙 (보조 버튼·하단 바 자리만 약간 비움) */}
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6 pb-16">
+        <div
+          ref={ref}
+          className="relative bg-white shadow-[0_18px_50px_rgba(0,0,0,0.55)]"
+          style={{ padding: `${side}px ${side}px ${bottom}px`, borderRadius: 4 }}
+        >
+          <img
+            src={item.src}
+            alt=""
+            draggable={false}
+            style={{ display: "block", width: photoW, height: photoH, objectFit: "cover", borderRadius: 2 }}
+          />
+        </div>
       </div>
 
-      <Link
-        href={`/photos/${item.id}`}
-        className="relative z-10 mt-5 rounded-full bg-white/15 px-5 py-2.5 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
-      >
-        사진 상세보기
-      </Link>
+      {/* 보조 액션 — 무료상담 바(bottom-0) 바로 위 */}
+      <div className="absolute inset-x-0 bottom-[88px] z-[60] flex items-center justify-center gap-2 px-6">
+        <Link
+          href={`/photos/${item.id}`}
+          className="rounded-full bg-white/15 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
+        >
+          이 사진 게시물 보러가기
+        </Link>
+        <button
+          type="button"
+          onClick={() => onRemove(item.id)}
+          className="rounded-full bg-white/10 px-4 py-2.5 text-sm font-semibold text-white/85 backdrop-blur transition-colors hover:bg-white/20"
+        >
+          삭제하기
+        </button>
+      </div>
     </div>
   );
 }
