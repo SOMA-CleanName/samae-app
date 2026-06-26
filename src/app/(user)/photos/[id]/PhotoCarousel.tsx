@@ -76,7 +76,7 @@ function CartOverlay({ p }: { p: P }) {
   return (
     <AddToCartButton
       item={{ id: p.id, src: p.thumb_url ?? p.src_url, w: p.width ?? 0, h: p.height ?? 0 }}
-      className="absolute right-3 top-3 z-10"
+      className="absolute bottom-3 right-3 z-10"
     />
   );
 }

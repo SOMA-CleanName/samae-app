@@ -6,11 +6,17 @@ import { useState } from "react";
 export function ShareButton({
   title = "samae — 이 사진 어때요?",
   className = "",
+  variant = "default",
 }: {
   title?: string;
   className?: string;
+  variant?: "default" | "overlay";
 }) {
   const [copied, setCopied] = useState(false);
+  const tone =
+    variant === "overlay"
+      ? "bg-black/35 text-white backdrop-blur-sm hover:bg-black/55"
+      : "bg-bg/80 text-fg shadow-sm ring-1 ring-line backdrop-blur hover:bg-bg";
 
   async function onShare() {
     const url = typeof window !== "undefined" ? window.location.href : "";
@@ -37,7 +43,8 @@ export function ShareButton({
       onClick={onShare}
       aria-label="공유하기"
       className={[
-        "relative grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-bg/80 text-fg shadow-sm ring-1 ring-line backdrop-blur transition-colors hover:bg-bg",
+        "relative grid h-9 w-9 cursor-pointer place-items-center rounded-full transition-colors",
+        tone,
         className,
       ].join(" ")}
     >
