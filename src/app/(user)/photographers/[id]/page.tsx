@@ -14,7 +14,7 @@ import { type PortfolioPost } from "./PortfolioGrid";
 import { ProfileTabs } from "./ProfileTabs";
 import { HighlightsBar } from "./HighlightsBar";
 import { AutoFavorite } from "@/components/user/AutoFavorite";
-import { HeartIcon, StarIcon, MapPinIcon } from "@/components/user/icons";
+import { HeartIcon, MapPinIcon } from "@/components/user/icons";
 import { Avatar, Button } from "@/components/ui";
 import { cn } from "@/lib/cn";
 
@@ -97,7 +97,6 @@ export default async function PhotographerProfile({
 
   const fmt = new Intl.NumberFormat("ko-KR");
   const isOwner = me?.photographer?.id === ph.id;
-  const phName = ph.display_name || "작가";
 
   // 로그인 복귀 후 의도했던 관심 작가 자동 적용 (아직 안 했고 본인 아님)
   const autoFav = sp.fav === "1" && !isOwner && !favorited;
@@ -111,17 +110,12 @@ export default async function PhotographerProfile({
         {/* 좌: 프로필 정보 (가로 레이아웃 — 데스크톱은 sticky 사이드바) */}
         <aside className="md:w-72 md:shrink-0 md:sticky md:top-6 md:self-start">
           <div className="flex items-center gap-4 md:flex-col md:items-start md:gap-0">
-            <Avatar src={ph.avatar_url} name={phName} size="xl" className="shadow-lg ring-2 ring-white/40" />
+            <Avatar src={ph.avatar_url} name="사진작가" size="xl" className="shadow-lg ring-2 ring-white/40" />
             <div className="min-w-0 md:mt-4">
-              <h1 className="text-h1 font-semibold">{phName}</h1>
+              {/* 작가 실명 노출 금지 — 별점/후기도 숨김(데이터·기능은 보존) */}
+              <h1 className="text-h1 font-semibold">사진작가</h1>
               {/* 지표 */}
               <div className="mt-1.5 flex flex-wrap items-center gap-2 text-body-sm text-muted">
-                <span className="inline-flex items-center gap-1">
-                  <StarIcon className="h-4 w-4 text-amber-500" />
-                  <strong className="text-fg">{ph.rating_avg.toFixed(1)}</strong>
-                  <span className="text-faint">({ph.review_count})</span>
-                </span>
-                <span className="text-faint">·</span>
                 <span>작품 <strong className="text-fg">{photos.length}</strong></span>
               </div>
               <p className="mt-1 text-body-sm text-muted">
