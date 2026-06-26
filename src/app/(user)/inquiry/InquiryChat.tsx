@@ -324,17 +324,20 @@ function ChoiceTray({
   onPick: (value: string) => void;
 }) {
   return (
-    <div className="ml-auto flex max-w-[92%] flex-wrap justify-end gap-1.5">
-      {options.map((opt) => (
-        <Chip key={opt} active={selected === opt} onClick={() => onPick(opt)}>
-          {opt}
-        </Chip>
-      ))}
-      {soft.map((opt) => (
-        <Chip key={opt} active={selected === opt} soft onClick={() => onPick(opt)}>
-          {opt}
-        </Chip>
-      ))}
+    // 선택지를 사용자 쪽 말풍선 안에 담는다 (시스템 말풍선과 대칭)
+    <div className="ml-auto w-fit max-w-[92%] rounded-2xl rounded-tr-md bg-brand/[0.06] p-2.5">
+      <div className="flex flex-wrap justify-end gap-1.5">
+        {options.map((opt) => (
+          <Chip key={opt} active={selected === opt} onClick={() => onPick(opt)}>
+            {opt}
+          </Chip>
+        ))}
+        {soft.map((opt) => (
+          <Chip key={opt} active={selected === opt} soft onClick={() => onPick(opt)}>
+            {opt}
+          </Chip>
+        ))}
+      </div>
     </div>
   );
 }
