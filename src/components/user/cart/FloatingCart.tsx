@@ -50,8 +50,9 @@ export function FloatingCart() {
                 key={it.id}
                 src={it.src}
                 alt=""
-                // transition-transform: 새 카드가 담기면 기존 카드가 부드럽게 밀려나도록
-                className="absolute bottom-0 right-0 h-24 w-16 rounded-lg object-cover shadow-lg ring-1 ring-black/10 transition-transform duration-300 ease-out"
+                // 흰 프레임(카드처럼 보이게, 뒤 갤러리와 분리) + 강한 그림자로 띄움.
+                // transition-transform: 새 카드 담기면 기존 카드가 부드럽게 밀려남.
+                className="absolute bottom-0 right-0 h-24 w-16 rounded-lg object-cover shadow-[0_8px_22px_rgba(0,0,0,0.42)] ring-[3px] ring-white transition-transform duration-300 ease-out"
                 style={{ transformOrigin: "bottom right", transform: `rotate(${rot}deg)`, zIndex: i }}
               />
             );
