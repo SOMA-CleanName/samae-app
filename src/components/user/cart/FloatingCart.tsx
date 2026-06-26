@@ -46,7 +46,9 @@ type Placed = {
 
 export function FloatingCart() {
   const { items, count, remove, consumeFlyFrom } = useCart();
-  const [open, setOpen] = useState(false);
+  // 단계: dock(가장자리) → center(중앙 스택) → spread(펼침). 열고 닫을 때 중앙을 경유.
+  const [phase, setPhase] = useState<"dock" | "center" | "spread">("dock");
+  const open = phase !== "dock";
   const [view, setView] = useState<{ right: number; top: number } | null>(null);
   const [dragging, setDragging] = useState(false);
   const drag = useRef({ active: false, moved: false, startX: 0, startY: 0, baseRight: 0, baseTop: 0 });
@@ -92,12 +94,12 @@ export function FloatingCart() {
 
   // 비워지면 닫기
   useEffect(() => {
-    if (open && N === 0) {
-      setOpen(false);
+    if (phase !== "dock" && N === 0) {
       setFocused(null);
       setFormFor(null);
+      setPhase("dock");
     }
-  }, [open, N]);
+  }, [phase, N]);
 
   // 성공 → Lead 픽셀(중복 제거 eventID)
   const fired = useRef(false);
@@ -149,10 +151,17 @@ export function FloatingCart() {
     }
   }
 
+  // 펼침: 도크 → 중앙 스택 → 펼침
+  function startOpen() {
+    setPhase("center");
+    window.setTimeout(() => setPhase("spread"), 300);
+  }
+  // 닫힘: 펼침 → 중앙 스택 → 도크 복귀
   function close() {
     setFocused(null);
     setFormFor(null);
-    setOpen(false);
+    setPhase("center");
+    window.setTimeout(() => setPhase("dock"), 300);
   }
   function removeOne(id: string) {
     setLeaving((s) => new Set(s).add(id));
@@ -242,11 +251,13 @@ export function FloatingCart() {
   const dockCx = W - dockRight - CART_W / 2 + (dockOnRight ? 0.34 : -0.34) * CART_W;
   const dockCy = dockTop + 46;
   const dockScale = cardW > 0 ? CART_W / cardW : 0.27;
+  const cx = W / 2; // 중앙 스택 위치
+  const cy = H / 2;
 
   // ── 방금 담은 카드 FLIP(출발 사진 → 도크) ──
   const newestId = N > 0 ? items[items.length - 1].id : null;
   useIsoLayout(() => {
-    if (!newestId || open) return;
+    if (!newestId || phase !== "dock") return;
     const from = consumeFlyFrom(newestId);
     if (!from) return;
     const el = cardRefs.current.get(newestId);
@@ -280,14 +291,14 @@ export function FloatingCart() {
         }`}
       />
 
-      {/* 카드 레이어 — 도크↔펼침 동일 엘리먼트가 변형(복제본 없음) */}
+      {/* 카드 레이어 — 도크↔중앙↔펼침 동일 엘리먼트가 변형(복제본 없음) */}
       <div
-        onClick={open ? close : undefined}
+        onClick={phase === "spread" ? close : undefined}
         className={`fixed inset-0 z-[55] ${
-          open ? (SCROLL ? "overflow-y-auto overscroll-contain" : "") : "pointer-events-none"
-        }`}
+          phase === "spread" && SCROLL ? "overflow-y-auto overscroll-contain" : ""
+        } ${open ? "" : "pointer-events-none"}`}
       >
-        <div className="relative w-full" style={{ height: open && SCROLL ? contentH : "100%" }}>
+        <div className="relative w-full" style={{ height: phase === "spread" && SCROLL ? contentH : "100%" }}>
           {cards.map(({ it, x, y, rot, photoW, photoH, side, bottom, z }) => {
             const isLeaving = leaving.has(it.id);
             const depth = N - 1 - z; // 0 = 최신(맨 위)
@@ -297,15 +308,20 @@ export function FloatingCart() {
             if (isLeaving) {
               tf = `translate(0,-44px) scale(.6) rotate(${rot}deg)`;
               op = 0;
-            } else if (open) {
+            } else if (phase === "spread") {
               tf = `translate(0,0) scale(1) rotate(${rot}deg)`;
               op = 1;
+            } else if (phase === "center") {
+              // 중앙에 모인 스택(도크와 같은 크기·지터)
+              tf = `translate(${cx - x + j.dx}px, ${cy - y + j.dy}px) scale(${dockScale}) rotate(${j.rot}deg)`;
+              op = depth >= 5 ? 0 : 1;
             } else {
               // 도크 — 그 자리의 폴라로이드 더미
               tf = `translate(${dockCx - x + j.dx}px, ${dockCy - y + j.dy}px) scale(${dockScale}) rotate(${j.rot}deg)`;
               op = depth >= 5 ? 0 : 1;
             }
-            const delay = dragging ? 0 : Math.min(depth, 16) * 22;
+            // 펼칠 때만 스태거 — 그리드 위(z 작은 쪽)부터 한 장씩 펼쳐짐. 모임·이동은 한 덩어리로.
+            const delay = !dragging && phase === "spread" ? Math.min(z, 16) * 22 : 0;
             return (
               <div
                 key={it.id}
@@ -323,13 +339,13 @@ export function FloatingCart() {
                   onPointerUp={endDrag}
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (open) {
+                    if (phase === "spread") {
                       setFocused({ id: it.id, rect: e.currentTarget.getBoundingClientRect() });
-                    } else if (drag.current.moved) {
-                      drag.current.moved = false;
-                    } else {
-                      setOpen(true);
+                    } else if (phase === "dock") {
+                      if (drag.current.moved) drag.current.moved = false;
+                      else startOpen();
                     }
+                    // center: 전환 중 — 무시
                   }}
                   aria-label={open ? "크게 보기" : "장바구니 펼치기 (드래그로 이동)"}
                   className="block cursor-pointer select-none bg-white shadow-[0_10px_28px_rgba(0,0,0,0.4)]"
@@ -365,8 +381,8 @@ export function FloatingCart() {
         </div>
       </div>
 
-      {/* 펼침 UI — 상단/하단/포커스/성공 */}
-      {open && (
+      {/* 펼침 UI — 상단/하단/포커스/성공 (완전히 펼쳐진 뒤에만) */}
+      {phase === "spread" && (
         <>
           {state.ok ? (
             <div className="fixed inset-0 z-[68] grid place-items-center px-6 text-center">
