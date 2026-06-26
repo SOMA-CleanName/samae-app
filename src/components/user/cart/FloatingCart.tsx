@@ -1,9 +1,19 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { startTransition, useActionState, useEffect, useRef, useState } from "react";
+import {
+  startTransition,
+  useActionState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import Link from "next/link";
 import { useCart, cartCardJitter, PEEK_FRAME, PEEK_CARD_W } from "./CartProvider";
+
+// FLIP 은 페인트 전에 측정/적용해야 깜빡임이 없음(SSR 에선 useEffect 로 폴백)
+const useIsoLayout = typeof window === "undefined" ? useEffect : useLayoutEffect;
 import { submitCartInquiry } from "@/app/(user)/inquiry/actions";
 
 // 장바구니 — 담은 사진이 부채꼴로 겹쳐 가장자리에 삐져나옴. 탭하면 모달.
@@ -12,8 +22,9 @@ const POS_KEY = "samae:cart-pos";
 const CART_W = 64; // w-16
 
 export function FloatingCart() {
-  const { items, count, remove, registerTarget } = useCart();
+  const { items, count, remove, registerTarget, consumeFlyFrom } = useCart();
   const stackRef = useRef<HTMLButtonElement>(null);
+  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const [open, setOpen] = useState(false);
   // right/top(px) 로 위치 — right 값을 트랜지션해서 좌↔우 슬라이드가 애니메이션됨
   const [view, setView] = useState<{ right: number; top: number } | null>(null);
@@ -23,6 +34,30 @@ export function FloatingCart() {
   useEffect(() => {
     registerTarget(stackRef.current);
   }, [registerTarget, count]);
+
+  // 방금 담은 카드를 출발 사진 자리에서 제자리로 FLIP — 끊김 없는 안착(클론·핸드오프 없음)
+  const newestId = count > 0 ? items[items.length - 1].id : null;
+  useIsoLayout(() => {
+    if (!newestId) return;
+    const from = consumeFlyFrom(newestId);
+    if (!from) return;
+    const el = cardRefs.current.get(newestId);
+    if (!el) return;
+    const last = el.getBoundingClientRect();
+    if (last.width === 0) return;
+    const j = cartCardJitter(newestId);
+    const rest = `translate(${j.dx}px, ${j.dy}px) rotate(${j.rot}deg)`;
+    const dx = from.left + from.width / 2 - (last.left + last.width / 2);
+    const dy = from.top + from.height / 2 - (last.top + last.height / 2);
+    const scale = Math.max(0.05, from.width / last.width);
+    el.animate(
+      [
+        { transform: `translate(${dx}px, ${dy}px) scale(${scale}) ${rest}`, opacity: 1, offset: 0 },
+        { transform: rest, opacity: 1, offset: 1 },
+      ],
+      { duration: 560, easing: "cubic-bezier(.42,0,.18,1)" }
+    );
+  }, [newestId, count, consumeFlyFrom]);
 
   const clampTop = (t: number) => Math.min(Math.max(80, t), window.innerHeight - 150);
   const clampRight = (r: number) => Math.min(Math.max(0, r), window.innerWidth - CART_W);
@@ -114,7 +149,8 @@ export function FloatingCart() {
     );
   }
 
-  const peek = items.slice(-5);
+  // 6장 렌더(앞 5장 노출 + 가장 깊은 1장은 페이드아웃 중) → 넘칠 때 툭 사라지지 않게
+  const peek = items.slice(-6);
 
   return (
     <>
@@ -148,16 +184,23 @@ export function FloatingCart() {
               {peek.map((it, i) => {
                 // 흐트러진 더미 — id 해시로 각도·위치 결정(고정). 최신 카드일수록 위로(zIndex).
                 const j = cartCardJitter(it.id);
+                // 위에서부터 깊이 — 6번째(가장 깊은)는 opacity 0 으로 서서히 빠짐
+                const depth = peek.length - 1 - i;
                 return (
                   <div
                     key={it.id}
-                    className="absolute bottom-0 left-1/2 bg-white shadow-[0_8px_20px_rgba(0,0,0,0.3)] transition-transform duration-300 ease-out"
+                    ref={(el) => {
+                      if (el) cardRefs.current.set(it.id, el);
+                      else cardRefs.current.delete(it.id);
+                    }}
+                    className="absolute bottom-0 left-1/2 bg-white shadow-[0_8px_20px_rgba(0,0,0,0.3)] transition-[transform,opacity] duration-300 ease-out"
                     style={{
                       padding: `${PEEK_FRAME.top}px ${PEEK_FRAME.side}px ${PEEK_FRAME.bottom}px`,
                       borderRadius: 3,
                       marginLeft: -PEEK_CARD_W / 2,
                       transformOrigin: "center",
                       transform: `translate(${j.dx}px, ${j.dy}px) rotate(${j.rot}deg)`,
+                      opacity: depth >= 5 ? 0 : 1,
                       zIndex: i,
                     }}
                   >
