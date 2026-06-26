@@ -410,7 +410,7 @@ export function FloatingCart() {
           ) : (
             <>
               {/* 상단 — 안내 + 닫기 */}
-              <div className="pointer-events-none fixed inset-x-0 top-0 z-[60] flex items-center justify-between px-5 pt-5">
+              <div className="pointer-events-none fixed inset-x-0 top-0 z-[62] flex items-center justify-between px-5 pt-5">
                 <p className="text-sm text-white/75">
                   담은 사진 <span className="font-bold text-white">{N}</span>
                   <span className="text-white/45"> · 탭하면 크게</span>
@@ -427,18 +427,10 @@ export function FloatingCart() {
                 </button>
               </div>
 
-              {/* 하단 — 일괄 상담 CTA */}
-              <div className="fixed inset-x-0 bottom-0 z-[60] px-4 pb-6 pt-3">
+              {/* 하단 — 상담 CTA(항상 유지). 한 장 크게 볼 땐 '이 사진으로'로 전환 */}
+              <div className="fixed inset-x-0 bottom-0 z-[62] px-4 pb-6 pt-3">
                 <div className="mx-auto max-w-md">
-                  {formFor === null ? (
-                    <button
-                      type="button"
-                      onClick={() => setFormFor("all")}
-                      className="w-full cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
-                    >
-                      이 사진들로 무료 상담 신청 ({N})
-                    </button>
-                  ) : (
+                  {formFor !== null ? (
                     <form onSubmit={onSubmit} className="rounded-2xl bg-bg p-4 shadow-pop">
                       <p className="mb-2.5 text-sm font-semibold text-fg">
                         {formFor === "all" ? `담은 사진 ${N}장으로 상담 신청` : "이 사진으로 상담 신청"}
@@ -482,24 +474,40 @@ export function FloatingCart() {
                         {pending ? "신청 중…" : "상담 신청하기"}
                       </button>
                     </form>
+                  ) : focused && items.some((i) => i.id === focused.id) ? (
+                    <button
+                      type="button"
+                      onClick={() => setFormFor(focused.id)}
+                      className="w-full cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
+                    >
+                      이 사진으로 무료 상담 신청
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setFormFor("all")}
+                      className="w-full cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
+                    >
+                      이 사진들로 무료 상담 신청 ({N})
+                    </button>
                   )}
                 </div>
               </div>
 
-              {/* 탭한 사진 중앙 확대 */}
+              {/* 탭한 사진 중앙 확대 — 상담 CTA 는 하단 바가 담당 */}
               {focused && items.some((i) => i.id === focused.id) && (
                 <FocusedPhoto
                   item={items.find((i) => i.id === focused.id)!}
                   fromRect={focused.rect}
                   vp={vp}
-                  onBack={() => setFocused(null)}
+                  onBack={() => {
+                    setFocused(null);
+                    if (formFor && formFor !== "all") setFormFor(null);
+                  }}
                   onRemove={(id) => {
                     setFocused(null);
+                    if (formFor && formFor !== "all") setFormFor(null);
                     removeOne(id);
-                  }}
-                  onInquire={(id) => {
-                    setFocused(null);
-                    setFormFor(id);
                   }}
                 />
               )}
@@ -511,23 +519,22 @@ export function FloatingCart() {
   );
 }
 
-// 탭한 사진을 중앙으로 확대(FLIP) + [무료 상담]/[상세보기]. 빼기는 X.
+// 탭한 사진을 부드럽게 중앙으로 와서 확대(FLIP). 상담 CTA 는 하단 바가 담당. 상세보기·빼기 제공.
 function FocusedPhoto({
   item,
   fromRect,
   vp,
   onBack,
   onRemove,
-  onInquire,
 }: {
   item: CartItem;
   fromRect: DOMRect;
   vp: { w: number; h: number } | null;
   onBack: () => void;
   onRemove: (id: string) => void;
-  onInquire: (id: string) => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const dimRef = useRef<HTMLButtonElement>(null);
   useIsoLayout(() => {
     const el = ref.current;
     if (!el) return;
@@ -536,13 +543,16 @@ function FocusedPhoto({
     const dx = fromRect.left + fromRect.width / 2 - (last.left + last.width / 2);
     const dy = fromRect.top + fromRect.height / 2 - (last.top + last.height / 2);
     const s = Math.max(0.05, fromRect.width / last.width);
+    // 부드럽게 중앙으로 이동하며 커짐
     el.animate(
       [
-        { transform: `translate(${dx}px,${dy}px) scale(${s})`, opacity: 0.7, offset: 0 },
-        { transform: "translate(0,0) scale(1)", opacity: 1, offset: 1 },
+        { transform: `translate(${dx}px,${dy}px) scale(${s})`, offset: 0 },
+        { transform: "translate(0,0) scale(1)", offset: 1 },
       ],
-      { duration: 320, easing: "cubic-bezier(.2,.7,.2,1)" }
+      { duration: 420, easing: "cubic-bezier(.22,1,.36,1)" }
     );
+    // 딤도 함께 서서히
+    dimRef.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: "ease" });
   }, []);
 
   const vw = vp?.w ?? 360;
@@ -551,11 +561,12 @@ function FocusedPhoto({
   const ratio = item.w > 0 && item.h > 0 ? item.h / item.w : 1;
   const side = Math.max(8, Math.round(photoW * 0.05));
   const bottom = Math.max(20, Math.round(photoW * 0.14));
-  const photoH = Math.min(Math.round(photoW * ratio), Math.round(vh * 0.56));
+  const photoH = Math.min(Math.round(photoW * ratio), Math.round(vh * 0.5));
 
   return (
-    <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center px-6 font-kr">
-      <button aria-label="뒤로" onClick={onBack} className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+    // 하단 상담 바(z-62) 아래에 깔리도록 z-58, 하단 여백 확보
+    <div className="fixed inset-0 z-[58] flex flex-col items-center justify-center px-6 pb-28 font-kr">
+      <button ref={dimRef} aria-label="뒤로" onClick={onBack} className="absolute inset-0 bg-black/75 backdrop-blur-sm" />
       <button
         type="button"
         onClick={() => onRemove(item.id)}
@@ -580,21 +591,12 @@ function FocusedPhoto({
         />
       </div>
 
-      <div className="relative z-10 mt-6 flex w-full max-w-xs flex-col gap-2.5">
-        <button
-          type="button"
-          onClick={() => onInquire(item.id)}
-          className="cursor-pointer rounded-2xl bg-brand py-3.5 text-base font-bold text-white transition-opacity hover:opacity-90"
-        >
-          이 사진으로 무료 상담 신청
-        </button>
-        <Link
-          href={`/photos/${item.id}`}
-          className="rounded-2xl bg-white/15 py-3.5 text-center text-base font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
-        >
-          사진 상세보기
-        </Link>
-      </div>
+      <Link
+        href={`/photos/${item.id}`}
+        className="relative z-10 mt-5 rounded-full bg-white/15 px-5 py-2.5 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
+      >
+        사진 상세보기
+      </Link>
     </div>
   );
 }
