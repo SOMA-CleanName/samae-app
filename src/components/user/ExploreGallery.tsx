@@ -1,13 +1,12 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import type { GalleryPhoto } from "@/lib/discovery";
-import { togglePhotoLike } from "@/app/(user)/actions";
 import { cn } from "@/lib/cn";
-import { HeartIcon, SearchIcon } from "@/components/user/icons";
+import { SearchIcon } from "@/components/user/icons";
+import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
 import { EmptyState } from "@/components/ui";
 
 const fmt = new Intl.NumberFormat("ko-KR");
@@ -92,7 +91,6 @@ export function ExploreGallery({
   const [visible, setVisible] = useState(STEP);
   const sentinel = useRef<HTMLDivElement>(null);
   const { cols: colCount, ready: columnsReady, setNode: setGridRef } = useColumnCount();
-  const likedSet = new Set(likedIds);
 
   // ── 온보딩 상태머신 ──────────────────────────────────────────
   // idle → (그리드 준비 후) enter → 4초 강제 → ready → (클릭/X) leaving → done
@@ -322,12 +320,7 @@ export function ExploreGallery({
           <div key={ci} className="flex min-w-0 flex-1 flex-col gap-3">
             {col.map((photo) => {
               const card = (
-                <PhotoCard
-                  photo={photo}
-                  showPrice={showPrice}
-                  showName={showName}
-                  liked={likedSet.has(photo.id)}
-                />
+                <PhotoCard photo={photo} showPrice={showPrice} showName={showName} />
               );
               // 스포트라이트 카드 — 오버레이(z-100) 위로 띄워 제자리 그대로 밝게
               if (spotlightTargetId && photo.id === spotlightTargetId) {
@@ -489,27 +482,27 @@ export function ExploreGallery({
   );
 }
 
-// 핀터레스트식 핀 카드 — 비율 예약(레이아웃 점프 방지) + 찜(하트) + 옵션 표시(가격·작가명)
+// 핀터레스트식 핀 카드 — 비율 예약(레이아웃 점프 방지) + 담기('+') + 옵션 표시(가격)
 function PhotoCard({
   photo,
   showPrice,
   showName,
-  liked,
 }: {
   photo: GalleryPhoto;
   showPrice: boolean;
   showName: boolean;
-  liked: boolean;
 }) {
-  const name = photo.photographer.display_name || "작가";
   const tags = (photo.mood_tags ?? []).slice(0, 3).join(", ");
-  const alt = tags ? `${name} 작품 · ${tags}` : `${name} 작품`;
+  const alt = tags ? `사진 · ${tags}` : "사진";
   // DB 비율로 공간 예약 → 이미지 로드 시 레이아웃 점프 제거
   const ratio =
     photo.width > 0 && photo.height > 0 ? `${photo.width} / ${photo.height}` : undefined;
 
   return (
-    <div className="group relative break-inside-avoid overflow-hidden rounded-2xl bg-fg/[0.05]">
+    <div
+      data-cart-card
+      className="group relative break-inside-avoid overflow-hidden rounded-2xl bg-fg/[0.05]"
+    >
       <Link href={`/photos/${photo.id}`} className="block" data-track="cta:photo">
         <img
           src={photo.thumb_url ?? photo.src_url}
@@ -527,53 +520,16 @@ function PhotoCard({
         </span>
       )}
 
-      {/* 찜(하트) — hover(또는 키보드 포커스) 시에만 노출, 평소엔 사진에 집중 */}
-      <LikeHeart photoId={photo.id} liked={liked} />
-
-      {/* 작가명 (토글 ON일 때만) */}
-      {showName && (
-        <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent px-2.5 pb-2 pt-6 text-xs font-medium text-white">
-          <span className="line-clamp-1">{name}</span>
-        </span>
-      )}
+      {/* 장바구니 담기 ('+') — 작가명/좋아요 대신 담기로 일원화 */}
+      <AddToCartButton
+        item={{
+          id: photo.id,
+          src: photo.thumb_url ?? photo.src_url,
+          w: photo.width,
+          h: photo.height,
+        }}
+        className="absolute right-2 top-2"
+      />
     </div>
-  );
-}
-
-// 갤러리 좋아요 버튼 — 옵티미스틱(셔플/재요청 없음). 비로그인은 로그인으로.
-function LikeHeart({ photoId, liked: initial }: { photoId: string; liked: boolean }) {
-  const [liked, setLiked] = useState(initial);
-  const [, start] = useTransition();
-  const router = useRouter();
-
-  function onClick(e: React.MouseEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    const optimistic = !liked;
-    setLiked(optimistic);
-    start(async () => {
-      const res = await togglePhotoLike(photoId);
-      if (!res.loggedIn) {
-        setLiked(false);
-        router.push(`/login?next=${encodeURIComponent(`/photos/${photoId}?like=1`)}`);
-        return;
-      }
-      setLiked(res.liked);
-    });
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={liked}
-      aria-label={liked ? "좋아요 취소" : "좋아요"}
-      className={cn(
-        "absolute right-2 top-2 grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/90 opacity-0 shadow-sm backdrop-blur transition-opacity hover:bg-white group-hover:opacity-100 focus-visible:opacity-100",
-        liked ? "text-brand" : "text-fg/70"
-      )}
-    >
-      <HeartIcon className="h-5 w-5" filled={liked} />
-    </button>
   );
 }

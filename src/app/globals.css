@@ -183,3 +183,14 @@ p, blockquote, li {
 /* 라인 클램프 보강(2/3줄) — Tailwind line-clamp 보완용 단축 */
 .clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* 페이지 전환 모션 — (user) template 에서 네비게이션마다 재생 */
+@keyframes page-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+/* fill 미사용 — 애니메이션 종료 후 transform 제거(내부 fixed 요소 containing-block 잔존 방지) */
+.page-enter { animation: page-enter 0.24s cubic-bezier(0.4, 0, 0.2, 1); }
+@media (prefers-reduced-motion: reduce) {
+  .page-enter { animation: none; }
+}
