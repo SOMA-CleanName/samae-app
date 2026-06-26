@@ -37,8 +37,6 @@ function dotWindow(idx: number, total: number): { i: number; scale: number }[] {
 // 썸네일을 즉시 보여주고 원본이 받아지면 부드럽게 교체.
 function Slide({ p, alt }: { p: P; alt: string }) {
   const [src, setSrc] = useState(p.thumb_url ?? p.src_url);
-  const isThumb = src !== p.src_url;
-
   useEffect(() => {
     if (!p.thumb_url || p.thumb_url === p.src_url) {
       setSrc(p.src_url);
@@ -61,15 +59,12 @@ function Slide({ p, alt }: { p: P; alt: string }) {
         draggable={false}
         className="pointer-events-none absolute inset-0 h-full w-full scale-125 select-none object-cover blur-2xl"
       />
-      {/* 전경 — 안 잘리게 contain */}
+      {/* 전경 — 안 잘리게 contain. (진입 시 blur→선명 모션 제거: 거슬림) */}
       <img
         src={src}
         alt={alt}
         draggable={false}
-        className={cn(
-          "relative h-full w-full select-none object-contain transition-[filter] duration-300 [-webkit-user-drag:none]",
-          isThumb ? "blur-[6px]" : "blur-0"
-        )}
+        className="relative h-full w-full select-none object-contain [-webkit-user-drag:none]"
       />
     </>
   );
@@ -118,13 +113,11 @@ export function PhotoCarousel({
   photos,
   startIndex = 0,
   pagePath,
-  photographerName = "작가",
   frameAspect = 1,
 }: {
   photos: P[];
   startIndex?: number;
   pagePath?: string; // 있으면 슬라이드별 좋아요 오버레이 노출 (사진 상세)
-  photographerName?: string;
   frameAspect?: number; // 게시물 고정 프레임 비율(대표 사진 기준)
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -148,8 +141,8 @@ export function PhotoCarousel({
     el.scrollTo({ left: next * el.clientWidth, behavior: "smooth" });
   }
 
-  const altFor = (i: number) =>
-    photos.length > 1 ? `${photographerName} 작품 ${i + 1}/${photos.length}` : `${photographerName} 작품`;
+  // 작가명 노출 금지 — alt 도 익명 처리
+  const altFor = (i: number) => (photos.length > 1 ? `사진 ${i + 1}/${photos.length}` : "사진");
 
   // 단일 사진 — 고정 프레임 + 좋아요 오버레이
   if (photos.length <= 1) {
