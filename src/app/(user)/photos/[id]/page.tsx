@@ -6,7 +6,6 @@ import {
   fetchAlbumPhotos,
   fetchAlbumDescription,
   fetchPhotographerById,
-  fetchPhotographerPhotos,
   fetchPhotoLikeInfo,
   fetchSimilarPhotos,
 } from "@/lib/discovery";
@@ -35,10 +34,9 @@ export default async function PhotoDetail({
   if (!photo) notFound();
 
   // 상단 정보에 필요한 것들 병렬 조회
-  const [ph, me, portfolio, initialRecs] = await Promise.all([
+  const [ph, me, initialRecs] = await Promise.all([
     fetchPhotographerById(photo.photographer_id),
     getCurrentUser(),
-    fetchPhotographerPhotos(photo.photographer_id),
     // 추천 — 현재 사진 태그와 겹침 점수순(현재 게시물 제외), 풀 전체를 클라이언트가 점진 노출
     fetchSimilarPhotos({ photoId: photo.id, albumId: photo.album_id, tags: photo.mood_tags ?? [] }),
   ]);
@@ -46,7 +44,6 @@ export default async function PhotoDetail({
 
   const isOwner = me?.photographer?.id === ph.id;
   const location = photo.location_text || photo.region || null;
-  const phName = ph.display_name || "작가";
 
   // 게시물(묶음)이면 같은 게시물 사진들을 스와이프용으로 (클릭한 사진부터)
   const albumPhotos = photo.album_id ? await fetchAlbumPhotos(photo.album_id) : [];
@@ -91,7 +88,8 @@ export default async function PhotoDetail({
     <main className="mx-auto max-w-5xl px-4 pb-8 pt-20 font-kr sm:px-6 md:pt-24">
       {autoLike && <AutoFavorite targetType="photo" targetId={photo.id} path={`/photos/${photo.id}`} />}
       {/* Meta 픽셀 ViewContent — 사진 조회(중간 깔때기). 작가 본인 제외 */}
-      <PixelViewContent id={photo.id} name={phName} disabled={isOwner} />
+      {/* 작가명 노출 금지 — 픽셀 content_name 도 익명(페이지 소스 잔존 방지) */}
+      <PixelViewContent id={photo.id} disabled={isOwner} />
       <div className="md:flex md:items-start md:gap-8">
         {/* 사진 (게시물이면 스와이프) — 비율에 맞춰 너비 가변 */}
         <div
@@ -102,28 +100,37 @@ export default async function PhotoDetail({
             photos={carousel}
             startIndex={startIndex}
             pagePath={`/photos/${photo.id}`}
-            photographerName={phName}
             frameAspect={aspect}
           />
         </div>
 
         {/* 사진 정보 — 비율로 밀린 나머지 폭을 채움 */}
         <div className="mt-6 md:mt-0 md:min-w-0 md:flex-1">
-          {/* 작가 — '작가 사진 보러가기' (§2-5) */}
+          {/* 가격·장소 — 한 줄 메타 */}
+          <p>
+            <span className="text-title font-semibold tracking-tight">
+              {photo.price_krw != null ? `₩${fmt.format(photo.price_krw)}` : "문의"}
+            </span>
+            {location && <span className="text-body text-muted"> · {location}</span>}
+          </p>
+
+          {/* 예약·문의 CTA — 가장 위 (전환 최우선) */}
+          <PhotoCtas isOwner={isOwner} photographerId={ph.id} photoId={photo.id} />
+
+          {/* 작가 프로필(익명) — 이름 노출 금지, 버튼만 유지 */}
           <Link
             href={`/photographers/${ph.id}`}
-            className="flex items-center gap-3 rounded-2xl border border-line p-3 transition-colors hover:bg-surface-2"
+            className="mt-6 flex items-center gap-3 rounded-2xl border border-line p-3 transition-colors hover:bg-surface-2"
           >
-            <Avatar src={ph.avatar_url} name={phName} size="md" />
+            <Avatar src={ph.avatar_url} name="사진작가" size="md" />
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-body font-semibold">{phName}</span>
-              <span className="block text-caption text-muted">작가 사진 보러가기</span>
+              <span className="block truncate text-body font-semibold">사진작가</span>
+              <span className="block text-caption text-muted">이 작가의 다른 사진 보기</span>
             </span>
             <ChevronRightIcon className="h-4 w-4 shrink-0 text-faint" />
           </Link>
 
-          {/* 작가 글 — 사진별 caption(추후 photos.caption 연동) 우선, 없으면 게시물(앨범) 설명.
-              dev 머지 후 DB 컬럼 추가 + fetchPhotoById select 만 더하면 사진별로 자동 노출. */}
+          {/* 작가 글 — 사진별 caption 우선, 없으면 게시물(앨범) 설명 */}
           {(caption || albumDescription) && (
             <p className="mt-5 whitespace-pre-wrap text-body text-fg/80">
               {caption || albumDescription}
@@ -144,35 +151,14 @@ export default async function PhotoDetail({
               ))}
             </div>
           )}
-
-          {/* 메타 — [3안] 한 줄 메타(가격 강조 · 장소 멋) */}
-          <p className="mt-6">
-            <span className="text-title font-semibold tracking-tight">
-              {photo.price_krw != null ? `₩${fmt.format(photo.price_krw)}` : "문의"}
-            </span>
-            {location && <span className="text-body text-muted"> · {location}</span>}
-          </p>
-
-          {/* 예약·문의 (좋아요는 캐러셀 위에 표시) */}
-          <PhotoCtas isOwner={isOwner} photographerId={ph.id} photoId={photo.id} />
         </div>
       </div>
 
       {/* 2단계 상단바 — 항상 고정 (뒤로가기 + 검색) */}
       <PhotoTopBar />
 
-      {/* 하단 — 추천(무한 스크롤) ↔ 작가 포트폴리오 탭 (§2-8, §2-9) */}
-      <PhotoExplore
-        initialRecs={initialRecs}
-        portfolio={portfolio.map((p) => ({
-          id: p.id,
-          src_url: p.src_url,
-          thumb_url: p.thumb_url,
-          width: p.width ?? 0,
-          height: p.height ?? 0,
-        }))}
-        photographerName={phName}
-      />
+      {/* 하단 — 추천 사진 무한 스크롤 (작가 사진 탭 제거) */}
+      <PhotoExplore initialRecs={initialRecs} />
     </main>
   );
 }
@@ -190,17 +176,17 @@ function PhotoCtas({
   if (isOwner) {
     return <OwnerPhotoBackButton />;
   }
-  // 주 전환 CTA — 브랜드 레드로 강조(로그인 여부 무관, /inquiry 에서 처리)
+  // 주 전환 CTA — 혜택형 카피로 클릭 욕구 자극(로그인 무관, /inquiry 에서 처리)
   return (
     <Button
       href={inquiryHref(photographerId, photoId)}
       variant="brand"
       size="lg"
       fullWidth
-      className="mt-6"
+      className="mt-4"
       data-track="cta:inquiry"
     >
-      예약·문의하기
+      무료로 상담 신청하기
     </Button>
   );
 }
