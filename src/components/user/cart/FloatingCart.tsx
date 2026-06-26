@@ -6,44 +6,57 @@ import Link from "next/link";
 import { useCart } from "./CartProvider";
 
 // 장바구니 — 담은 사진이 부채꼴로 겹쳐 가장자리에 삐져나옴. 탭하면 모달.
-// 드래그로 좌/우 가장자리 어디든 옮길 수 있고(위치 저장), 부채꼴은 방향에 맞춰 미러.
-type CartPos = { side: "left" | "right"; top: number };
+// 드래그로 손가락 따라 자유 이동 → 놓으면 가까운 좌/우 가장자리로 부드럽게 스냅(위치 저장).
 const POS_KEY = "samae:cart-pos";
+const CART_W = 64; // w-16
 
 export function FloatingCart() {
   const { items, count, remove, registerTarget } = useCart();
   const stackRef = useRef<HTMLButtonElement>(null);
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<CartPos | null>(null);
-  const drag = useRef({ active: false, moved: false, startX: 0, startY: 0, offsetY: 0 });
+  // right/top(px) 로 위치 — right 값을 트랜지션해서 좌↔우 슬라이드가 애니메이션됨
+  const [view, setView] = useState<{ right: number; top: number } | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const drag = useRef({ active: false, moved: false, startX: 0, startY: 0, offX: 0, offY: 0 });
 
   useEffect(() => {
     registerTarget(stackRef.current);
-  }, [registerTarget, count, pos]);
+  }, [registerTarget, count]);
+
+  const clampTop = (t: number) => Math.min(Math.max(80, t), window.innerHeight - 150);
+  const clampRight = (r: number) => Math.min(Math.max(0, r), window.innerWidth - CART_W);
+  const leftEdgeRight = () => window.innerWidth - CART_W;
 
   // 저장된 위치 로드 (없으면 우측, 화면 하단쯤)
   useEffect(() => {
-    let p: CartPos | null = null;
+    let side: "left" | "right" = "right";
+    let top = window.innerHeight - 220;
     try {
       const raw = localStorage.getItem(POS_KEY);
-      if (raw) p = JSON.parse(raw);
+      if (raw) {
+        const p = JSON.parse(raw);
+        side = p.side === "left" ? "left" : "right";
+        top = p.top ?? top;
+      }
     } catch {
       /* 무시 */
     }
-    if (!p) p = { side: "right", top: Math.max(120, window.innerHeight - 220) };
-    p.top = Math.min(Math.max(80, p.top), window.innerHeight - 150);
-    setPos(p);
+    setView({ right: side === "right" ? 0 : leftEdgeRight(), top: clampTop(top) });
   }, []);
 
-  function clampTop(t: number) {
-    return Math.min(Math.max(80, t), window.innerHeight - 150);
-  }
-
   function onPointerDown(e: React.PointerEvent) {
-    if (!pos) return;
+    if (!view) return;
     (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-    const rectTop = stackRef.current?.getBoundingClientRect().top ?? pos.top;
-    drag.current = { active: true, moved: false, startX: e.clientX, startY: e.clientY, offsetY: e.clientY - rectTop };
+    const rect = stackRef.current?.getBoundingClientRect();
+    drag.current = {
+      active: true,
+      moved: false,
+      startX: e.clientX,
+      startY: e.clientY,
+      offX: e.clientX - (rect?.left ?? 0),
+      offY: e.clientY - (rect?.top ?? 0),
+    };
+    setDragging(true);
   }
   function onPointerMove(e: React.PointerEvent) {
     if (!drag.current.active) return;
@@ -51,18 +64,22 @@ export function FloatingCart() {
       drag.current.moved = true;
     }
     if (drag.current.moved) {
-      setPos((prev) => (prev ? { ...prev, top: clampTop(e.clientY - drag.current.offsetY) } : prev));
+      const right = clampRight(window.innerWidth - (e.clientX - drag.current.offX) - CART_W);
+      setView({ right, top: clampTop(e.clientY - drag.current.offY) });
     }
   }
-  function onPointerUp(e: React.PointerEvent) {
+  function onPointerUp() {
     if (!drag.current.active) return;
     drag.current.active = false;
-    if (drag.current.moved) {
-      const side: CartPos["side"] = e.clientX < window.innerWidth / 2 ? "left" : "right";
-      const next = { side, top: clampTop(e.clientY - drag.current.offsetY) };
-      setPos(next);
+    setDragging(false);
+    if (drag.current.moved && view) {
+      // 컨테이너 중심이 화면 좌측 절반이면 왼쪽 가장자리로
+      const center = window.innerWidth - view.right - CART_W / 2;
+      const side: "left" | "right" = center < window.innerWidth / 2 ? "left" : "right";
+      const snapRight = side === "right" ? 0 : leftEdgeRight();
+      setView({ right: snapRight, top: view.top });
       try {
-        localStorage.setItem(POS_KEY, JSON.stringify(next));
+        localStorage.setItem(POS_KEY, JSON.stringify({ side, top: view.top }));
       } catch {
         /* 무시 */
       }
@@ -71,11 +88,15 @@ export function FloatingCart() {
     }
   }
 
-  const side = pos?.side ?? "right";
-  const style: React.CSSProperties = pos
-    ? side === "right"
-      ? { top: pos.top, right: 0 }
-      : { top: pos.top, left: 0 }
+  // 부채꼴 방향 — 컨테이너가 화면 우측이면 right, 좌측이면 left (드래그 중에도 라이브로 미러)
+  const side: "left" | "right" =
+    view && view.right > (typeof window !== "undefined" ? window.innerWidth : 9999) / 2 ? "left" : "right";
+  const style: React.CSSProperties = view
+    ? {
+        right: view.right,
+        top: view.top,
+        transition: dragging ? "none" : "right 0.3s cubic-bezier(.4,0,.2,1), top 0.3s cubic-bezier(.4,0,.2,1)",
+      }
     : { bottom: 112, right: 0 };
 
   // 비었어도 fly 도착 지점 유지(보이지 않는 1px)
