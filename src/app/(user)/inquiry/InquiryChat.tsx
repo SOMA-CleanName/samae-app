@@ -4,49 +4,188 @@
 import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeftIcon } from "@/components/user/icons";
+import { ArrowLeftIcon, CheckIcon, ChevronDownIcon } from "@/components/user/icons";
 import { submitInquiry, type InquiryState } from "./actions";
 
 const INITIAL_STATE: InquiryState = { ok: false };
 
-// 채팅형 문의 — 한 화면 한 질문이 아니라 스크롤되는 채팅방.
-// 시스템이 진입 사진을 보내고 → 0.5초 뒤 질문 도착 → 사용자 말풍선에 선택 버튼.
-// 선택형은 버튼, 연락처만 텍스트. 각 질문에 소프트 스킵 + 언제든 바로 연락처 경로.
-// 제출 전까진 이전 답변(버튼) 언제든 수정 가능.
+// 채팅형 문의 — 스크롤되는 채팅방. 시스템이 질문을 보내고, 사용자는 질문별 맞춤 입력으로 답함.
+// soft-skip은 다른 선택지와 동등한 버튼. 언제든 "바로 문의" 경로 → 건너뛴 질문은 접이식 아코디언.
+// 제출 전까진 이전 답변 언제든 수정(답변 칩 유지 + 선택지 부드럽게 펼침).
 
 type StepKey = "purpose" | "preferredDate" | "region" | "partySize" | "note";
+type StepType = "options" | "date" | "note";
 
-const STEPS: { key: StepKey; q: string; options: string[] }[] = [
+type Step = {
+  key: StepKey;
+  q: React.ReactNode;
+  type: StepType;
+  options?: string[];
+  cols?: 1 | 2; // options 레이아웃 (기본 2열)
+  skip: string; // 질문별 맞춤 soft-skip (다른 선택지와 동등 버튼)
+  short: string; // 아코디언 요약 라벨
+};
+
+const STEPS: Step[] = [
   {
     key: "purpose",
-    q: "어떤 촬영을 찾고 계세요?",
+    q: "어떤 사진 촬영을 원하시나요?",
+    type: "options",
     options: ["커플·우정 스냅", "웨딩·본식", "개인·프로필", "가족", "행사·기타"],
+    skip: "아직 고민 중이에요",
+    short: "촬영 종류",
   },
   {
     key: "preferredDate",
-    q: "언제쯤 찍고 싶으세요?",
-    options: ["이번 주말", "2주 이내", "한 달 이내", "날짜는 미정"],
+    q: (
+      <>
+        촬영 <Em>희망일</Em>을 선택해주세요.
+      </>
+    ),
+    type: "date",
+    skip: "날짜는 미정이에요",
+    short: "희망일",
   },
   {
     key: "region",
-    q: "어느 지역에서 촬영하실 건가요?",
-    options: ["서울", "경기·인천", "부산·경남", "대구·경북", "대전·충청", "광주·전라", "제주", "온라인 협의"],
+    q: (
+      <>
+        <Em>지역</Em>을 선택해주세요.
+      </>
+    ),
+    type: "options",
+    options: ["서울", "경기·인천", "부산·경남", "대구·경북", "대전·충청", "광주·전라", "제주"],
+    skip: "협의 후 결정",
+    short: "지역",
   },
   {
     key: "partySize",
-    q: "몇 분이 함께 찍으시나요?",
-    options: ["1명", "2명", "3~4명", "5명 이상"],
+    q: (
+      <>
+        <Em>몇 분</Em>이 함께 찍으시나요?
+      </>
+    ),
+    type: "options",
+    options: ["1명", "2명", "3~6명", "그 이상"],
+    cols: 1,
+    skip: "미정",
+    short: "인원",
   },
   {
     key: "note",
-    q: "원하는 분위기가 있다면 골라주세요.",
-    options: ["자연스러운 무드", "화보 느낌", "빈티지·필름", "발랄·러블리", "작가님께 맡길게요"],
+    q: (
+      <>
+        촬영 관련 <Em>문의사항</Em>을 알려주세요!
+      </>
+    ),
+    type: "note",
+    skip: "작가님과 상담 시 논의할게요",
+    short: "문의사항",
   },
 ];
 
-const SOFT_SKIP = ["모르겠어요", "아직 못 정했어요", "작가님과 상의 후 정할게요"];
-const PARTY_MAP: Record<string, string> = { "1명": "1", "2명": "2", "3~4명": "4", "5명 이상": "5" };
+// 키워드 강조 — 볼드 + 브랜드 컬러
+function Em({ children }: { children: React.ReactNode }) {
+  return <b className="font-semibold text-brand">{children}</b>;
+}
+
 const REVEAL_MS = 500;
+const POST_INQUIRY_KEY = "samae:post-inquiry"; // 완료 후 로그인 복귀 시 탐색 바운스용
+const ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
+const WEEKDAY = ["일", "월", "화", "수", "목", "금", "토"];
+
+function isISODate(v: string) {
+  return ISO_RE.test(v);
+}
+function formatDateKo(iso: string) {
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${WEEKDAY[d.getDay()]})`;
+}
+// 저장값 → 화면 표시 문자열
+function displayAnswer(key: StepKey, value: string) {
+  if (key === "preferredDate" && isISODate(value)) return formatDateKo(value);
+  return value;
+}
+
+// 입력 중인 답변을 사진별로 보존 (새로고침·뒤로가기 후 복원)
+function inquiryStorageKey(photoId: string, photographerId: string) {
+  return `samae:inquiry:${photoId || photographerId}`;
+}
+function loadSavedAnswers(key: string): Partial<Record<StepKey, string>> | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object") return parsed as Partial<Record<StepKey, string>>;
+  } catch {
+    /* 무시 */
+  }
+  return null;
+}
+
+// ── 연락처 타입 / 유효성 (item9) ─────────────────────────────────
+type ContactType = "phone" | "instagram" | "email";
+const CONTACT_TYPES: {
+  key: ContactType;
+  label: string;
+  placeholder: string;
+  inputMode: "tel" | "text" | "email";
+  empty: string; // 빈칸일 때 안내문
+}[] = [
+  { key: "phone", label: "전화번호", placeholder: "010-1234-5678", inputMode: "tel", empty: "전화번호를 입력해주세요." },
+  { key: "instagram", label: "인스타 DM", placeholder: "@samae_photo_official", inputMode: "text", empty: "인스타 아이디를 입력해주세요." },
+  { key: "email", label: "이메일", placeholder: "photosame00@gmail.com", inputMode: "email", empty: "이메일 주소를 입력해주세요." },
+];
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const IG_RE = /^[a-zA-Z0-9._]{1,30}$/;
+
+// 전화번호 — "-" 없이 입력해도 자동으로 하이픈 삽입 (item5)
+function formatPhoneInput(raw: string) {
+  const d = raw.replace(/\D/g, "").slice(0, 11);
+  if (d.length < 4) return d;
+  if (d.length < 8) return `${d.slice(0, 3)}-${d.slice(3)}`;
+  return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+}
+// 인스타 — "@" 없이 입력해도 자동으로 붙고, 허용 외 문자는 애초에 입력 차단(영문·숫자·_·.)
+function formatInstaInput(raw: string) {
+  const id = raw.replace(/^@+/, "").replace(/[^a-zA-Z0-9._]/g, "");
+  return id ? `@${id}` : "";
+}
+
+// 입력창 흔들림 — 미완성 제출 시 "여기 입력해주세요" 시선 유도
+function shakeEl(el: HTMLElement | null) {
+  el?.animate(
+    [
+      { transform: "translateX(0)" },
+      { transform: "translateX(-5px)" },
+      { transform: "translateX(5px)" },
+      { transform: "translateX(-4px)" },
+      { transform: "translateX(4px)" },
+      { transform: "translateX(0)" },
+    ],
+    { duration: 320, easing: "ease-in-out" }
+  );
+}
+
+function validateContact(type: ContactType, raw: string): { valid: boolean; error: string | null } {
+  const v = raw.trim();
+  if (!v) return { valid: false, error: null };
+  if (type === "phone") {
+    const d = v.replace(/\D/g, "");
+    if (d.length !== 11 || !d.startsWith("01"))
+      return { valid: false, error: "010으로 시작하는 11자리를 입력해주세요." };
+    return { valid: true, error: null };
+  }
+  if (type === "instagram") {
+    const id = v.replace(/^@/, "");
+    if (!IG_RE.test(id)) return { valid: false, error: "영문·숫자·_·.만 쓸 수 있어요." };
+    return { valid: true, error: null };
+  }
+  if (!EMAIL_RE.test(v))
+    return { valid: false, error: "올바른 이메일 형식이 아니에요. 예: id@gmail.com" };
+  return { valid: true, error: null };
+}
 
 export function InquiryChat({
   photographerId,
@@ -64,15 +203,18 @@ export function InquiryChat({
   const [revealed, setRevealed] = useState(-1); // 노출된 질문 최대 index
   const [typing, setTyping] = useState(false);
   const [contactStep, setContactStep] = useState(false);
-  const [contact, setContact] = useState("");
-  const [agreed, setAgreed] = useState(false);
-  const [done, setDone] = useState(false);
   const [editing, setEditing] = useState<number | null>(null); // 재선택 중인 질문 index
+  const [skippedKeys, setSkippedKeys] = useState<StepKey[] | null>(null); // 바로 문의로 건너뛴 질문들
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const started = useRef(false);
 
-  // 다음 시스템 말풍선을 타이핑 인디케이터 후 노출
+  const storageKey = inquiryStorageKey(photoId, photographerId);
+  const answeredCount = STEPS.filter((s) => answers[s.key] !== undefined).length;
+  const done = state.ok;
+  // 100% 기준 = 질문 5개 + 연락처 제출 1개 (제출까지 완료해야 100%)
+  const percent = Math.round(((answeredCount + (done ? 1 : 0)) / (STEPS.length + 1)) * 100);
+
   function advanceTo(index: number) {
     setTyping(true);
     window.setTimeout(() => {
@@ -92,121 +234,229 @@ export function InquiryChat({
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    // 문의(예약) 진입 = 전환 행동 → A11 혜택 hook 더 이상 안 띄움
+    // item10 — 완료 후 로그인 갔다가 '뒤로'로 돌아오면 빈 폼 대신 탐색 탭으로 보냄.
+    // (완료 시점에 세션 플래그를 심고, 새로 마운트될 때 감지해 바운스)
+    try {
+      if (sessionStorage.getItem(POST_INQUIRY_KEY) === "1") {
+        sessionStorage.removeItem(POST_INQUIRY_KEY);
+        router.replace("/explore");
+        return;
+      }
+    } catch {
+      /* 무시 */
+    }
     try {
       localStorage.setItem("samae:hooked", "1");
     } catch {
       /* 무시 */
     }
-    advanceTo(0);
-  }, []);
+    // 사진별로 저장된 입력이 있으면 복원 (새로고침·뒤로가기 후 그대로)
+    const saved = loadSavedAnswers(storageKey);
+    if (saved && Object.keys(saved).length > 0) {
+      const cnt = STEPS.filter((s) => saved[s.key] !== undefined).length;
+      window.setTimeout(() => {
+        setAnswers(saved);
+        if (cnt >= STEPS.length) {
+          setRevealed(STEPS.length - 1);
+          setContactStep(true);
+        } else {
+          setRevealed(cnt); // 순차 답변 가정 — 다음 질문을 활성화
+        }
+      }, 0);
+      return;
+    }
+    // 첫 질문 노출 — 타이머로 미뤄 effect 본문에서 직접 setState 하지 않음
+    window.setTimeout(() => advanceTo(0), 0);
+  }, [router, storageKey]);
+
+  // 입력 변경 시 사진별로 저장 (제출 완료 전까지)
+  useEffect(() => {
+    if (done) return;
+    try {
+      if (Object.keys(answers).length > 0) {
+        localStorage.setItem(storageKey, JSON.stringify(answers));
+      }
+    } catch {
+      /* 무시 */
+    }
+  }, [answers, done, storageKey]);
+
+  // 완료 — 세션 플래그(로그인 복귀 동선) + 저장본 정리
+  useEffect(() => {
+    if (!done) return;
+    try {
+      sessionStorage.setItem(POST_INQUIRY_KEY, "1");
+      localStorage.removeItem(storageKey);
+    } catch {
+      /* 무시 */
+    }
+  }, [done, storageKey]);
 
   // 새 말풍선마다 하단으로 스크롤
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [revealed, typing, contactStep, answers, done]);
 
+  // 성공 — Lead 픽셀 발화(중복 제거 eventID)
+  const leadFiredFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!state.ok || !state.inquiryId) return;
+    if (leadFiredFor.current !== state.inquiryId) {
+      leadFiredFor.current = state.inquiryId;
+      window.fbq?.("track", "Lead", {}, { eventID: `inquiry_${state.inquiryId}` });
+    }
+  }, [state.ok, state.inquiryId]);
+
   function onAnswer(i: number, value: string) {
     const key = STEPS[i].key;
     setAnswers((prev) => ({ ...prev, [key]: value }));
     if (editing === i) {
-      setEditing(null); // 재선택 완료 — 다음 질문 진행 없이 그대로
+      setEditing(null);
       return;
     }
+    // item9 — 맨 아래(현재) 질문에 답하면 진행 중이던 수정도 자동으로 닫힘
+    if (editing !== null) setEditing(null);
     if (i === revealed) {
       if (i < STEPS.length - 1) advanceTo(i + 1);
       else revealContact();
     }
   }
 
+  function setAnswerByKey(key: StepKey, value: string) {
+    setAnswers((prev) => ({ ...prev, [key]: value }));
+  }
+
   function skipToContact() {
-    setRevealed(STEPS.length - 1);
+    setEditing(null);
+    setSkippedKeys(STEPS.filter((s) => answers[s.key] === undefined).map((s) => s.key));
     revealContact();
   }
 
-  // 제출 — 채팅 답변을 FormData 로 변환해 기존 submitInquiry 재사용
-  function submit() {
-    if (!contact.trim() || !agreed) return;
+  // 제출 — 채팅 답변 + 연락처를 FormData 로 변환해 기존 submitInquiry 재사용
+  function submit(contactType: ContactType, contactValue: string) {
     const fd = new FormData();
     fd.set("photographerId", photographerId);
     fd.set("photoId", photoId);
-    fd.set("purpose", answers.purpose ?? "");
-    fd.set("preferredDate", answers.preferredDate ?? "");
-    fd.set("region", answers.region ?? "");
-    fd.set("partySize", answers.partySize ? PARTY_MAP[answers.partySize] ?? "" : "");
-    fd.set("note", answers.note ?? "");
-    // 연락처: 휴대폰 형태면 phone, 아니면 기타 연락처
-    const digits = contact.replace(/\D/g, "");
-    if (digits.length === 11 && digits.startsWith("01")) {
-      fd.set("phone", `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`);
+    for (const s of STEPS) {
+      const raw = answers[s.key];
+      if (!raw) {
+        fd.set(s.key, "");
+        continue;
+      }
+      if (s.key === "partySize") {
+        const m = raw.match(/\d+/); // "3~6명" → 3, "그 이상"/"미정" → 없음
+        fd.set("partySize", m ? m[0] : "");
+        continue;
+      }
+      fd.set(s.key, displayAnswer(s.key, raw));
+    }
+    if (contactType === "phone") {
+      const d = contactValue.replace(/\D/g, "");
+      fd.set("phone", `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`);
+    } else if (contactType === "instagram") {
+      fd.set("instagramId", contactValue.replace(/^@/, "").trim());
     } else {
-      fd.set("extraContact", contact.trim());
+      fd.set("extraContact", contactValue.trim());
     }
     startTransition(() => formAction(fd));
   }
 
-  // 성공 — Lead 픽셀 발화(중복 제거 eventID) + 완료 상태
-  const leadFiredFor = useRef<string | null>(null);
-  useEffect(() => {
-    if (!state.ok) return;
-    if (state.inquiryId && leadFiredFor.current !== state.inquiryId) {
-      leadFiredFor.current = state.inquiryId;
-      window.fbq?.("track", "Lead", {}, { eventID: `inquiry_${state.inquiryId}` });
+  // item10 — 완료 모달 동선
+  function goExplore() {
+    try {
+      sessionStorage.removeItem(POST_INQUIRY_KEY);
+    } catch {
+      /* 무시 */
     }
-    setDone(true);
-  }, [state.ok, state.inquiryId]);
+    router.replace("/");
+  }
+  function goSave() {
+    // 플래그는 완료 시 이미 설정됨 → 로그인에서 '뒤로' 시 이 폼은 마운트되며 탐색으로 바운스
+    router.push("/login?next=/bookings");
+  }
+
+  const inAccordion = (key: StepKey) => skippedKeys?.includes(key) ?? false;
 
   return (
     <div className="fixed inset-0 z-50 mx-auto flex h-[100svh] max-w-xl flex-col bg-bg font-kr">
-      {/* 상단바 */}
-      <header className="flex items-center gap-2 border-b border-line px-4 py-3">
-        <button
-          type="button"
-          onClick={() => router.push(photoId ? `/photos/${photoId}` : "/")}
-          aria-label="뒤로"
-          className="grid h-9 w-9 cursor-pointer place-items-center rounded-full text-fg transition-colors hover:bg-fg/[0.06]"
-        >
-          <ArrowLeftIcon />
-        </button>
-        <div className="min-w-0">
-          <p className="text-sm font-semibold">무료 상담 신청</p>
-          <p className="text-xs text-muted">보통 1시간 내 답변드려요</p>
+      {/* 상단바 + 진행률 (item8 — 퍼센티지 강조) */}
+      <header className="border-b border-line">
+        <div className="flex items-center gap-2 px-4 pt-3">
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="뒤로"
+            className="grid h-9 w-9 cursor-pointer place-items-center rounded-full text-fg transition-colors hover:bg-fg/[0.06]"
+          >
+            <ArrowLeftIcon />
+          </button>
+          <div className="min-w-0 flex-1">
+            <p className="text-base font-semibold">무료 상담 신청</p>
+            <p className="text-sm text-muted">보통 1시간 내 답변드려요</p>
+          </div>
+        </div>
+        <div className="px-4 pb-3 pt-2">
+          <div className="mb-1.5 flex items-baseline justify-between">
+            <span className="text-sm font-semibold text-muted">답변 진행률</span>
+            <span className="text-lg font-extrabold tabular-nums leading-none text-brand">
+              {percent}%
+            </span>
+          </div>
+          <div className="h-2 w-full overflow-hidden rounded-full bg-fg/[0.08]">
+            <div
+              className="h-full rounded-full bg-brand transition-[width] duration-500 ease-out"
+              style={{ width: `${percent}%` }}
+            />
+          </div>
         </div>
       </header>
 
       {/* 채팅 본문 */}
       <div className="flex-1 space-y-3 overflow-y-auto px-4 py-5">
-        {/* 진입 사진 + 인사 (시스템) */}
+        {/* 진입 사진 + 인사 (시스템) — 비율 유지(자르지 않음) */}
         <SystemBubble>
           {photoSrc && (
-            <img
-              src={photoSrc}
-              alt="문의한 사진"
-              className="mb-2 h-40 w-full rounded-xl object-cover"
-            />
+            <img src={photoSrc} alt="문의한 사진" className="mb-2 w-full rounded-xl" />
           )}
-          이 사진처럼 찍어드릴 작가님과 연결해드릴게요.
-          <br />몇 가지만 가볍게 골라주시면 끝나요. (다 건너뛰어도 돼요)
+          몇 가지 정보만 알려주시면
+          <br />사진을 찍은 <Em>작가님과 연결</Em>해드려요.
         </SystemBubble>
 
         {/* 질문/답변 */}
         {STEPS.map((step, i) => {
-          if (i > revealed) return null;
           const answered = answers[step.key] !== undefined;
-          const choosing = !done && (!answered || editing === i);
-          return (
-            <div key={step.key} className="space-y-1.5">
-              <SystemBubble>{step.q}</SystemBubble>
-              {choosing ? (
-                <ChoiceTray
-                  options={step.options}
-                  soft={SOFT_SKIP}
-                  selected={answers[step.key]}
-                  onPick={(v) => onAnswer(i, v)}
-                />
-              ) : (
+          const isEditing = editing === i;
+
+          // item4/5/6 — 수정 중: 질문 강조 + 답변 칩 유지 + 선택지 부드럽게 펼침
+          if (isEditing) {
+            return (
+              <div key={step.key} className="space-y-1.5">
+                <SystemBubble emphasis>{step.q}</SystemBubble>
+                {answered && (
+                  <div className="ml-auto w-fit max-w-[88%]">
+                    <SentBubble muted>{displayAnswer(step.key, answers[step.key]!)}</SentBubble>
+                  </div>
+                )}
+                <ExpandIn>
+                  <UserTray>
+                    <QuestionInput
+                      step={step}
+                      value={answers[step.key]}
+                      onSubmit={(v) => onAnswer(i, v)}
+                      onCancel={() => setEditing(null)}
+                    />
+                  </UserTray>
+                </ExpandIn>
+              </div>
+            );
+          }
+
+          if (answered && !inAccordion(step.key)) {
+            return (
+              <div key={step.key} className="space-y-1.5">
+                <SystemBubble>{step.q}</SystemBubble>
                 <div className="ml-auto flex w-fit max-w-[88%] flex-col items-end gap-0.5">
-                  <SentBubble>{answers[step.key]}</SentBubble>
+                  <SentBubble>{displayAnswer(step.key, answers[step.key]!)}</SentBubble>
                   {!done && (
                     <button
                       type="button"
@@ -217,14 +467,27 @@ export function InquiryChat({
                     </button>
                   )}
                 </div>
-              )}
-            </div>
-          );
+              </div>
+            );
+          }
+
+          if (!contactStep && !inAccordion(step.key) && i === revealed && !answered) {
+            return (
+              <div key={step.key} className="space-y-1.5">
+                <SystemBubble>{step.q}</SystemBubble>
+                <UserTray>
+                  <QuestionInput step={step} onSubmit={(v) => onAnswer(i, v)} />
+                </UserTray>
+              </div>
+            );
+          }
+
+          return null;
         })}
 
         {typing && <TypingBubble />}
 
-        {/* 바로 연락처 남기기 (질문 단계 동안) */}
+        {/* 바로 문의 남기기 (질문 단계 동안) */}
         {!contactStep && !typing && revealed >= 0 && !done && (
           <div className="flex justify-center pt-1">
             <button
@@ -232,86 +495,701 @@ export function InquiryChat({
               onClick={skipToContact}
               className="cursor-pointer rounded-full bg-fg/[0.05] px-4 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-fg/10 hover:text-fg"
             >
-              다 건너뛰고 바로 연락처 남기기
+              건너뛰고 바로 문의 남기기
             </button>
           </div>
         )}
 
-        {/* 연락처 단계 */}
+        {/* item7 — 건너뛴 질문: 접이식 아코디언 + 미답변 표시 */}
+        {contactStep && skippedKeys && skippedKeys.length > 0 && (
+          <SkippedSection
+            steps={STEPS.filter((s) => skippedKeys.includes(s.key))}
+            answers={answers}
+            onAnswer={setAnswerByKey}
+            disabled={done}
+          />
+        )}
+
+        {/* 연락처 단계 (item9) */}
         {contactStep && (
           <div className="space-y-2">
             <SystemBubble>
-              마지막이에요! 연락받으실 곳만 남겨주시면 작가님이 직접 연락드려요.
+              <Em>마지막 단계</Em>예요!
+              <br />
+              작가님이 직접 연락드릴 수 있도록
+              <br />
+              <Em>연락받을 방법</Em> 하나만 남겨주세요.
             </SystemBubble>
-            {!done ? (
-              <div className="ml-auto w-full max-w-[88%] rounded-2xl rounded-tr-md bg-brand/[0.07] p-3">
-                <input
-                  type="text"
-                  value={contact}
-                  onChange={(e) => setContact(e.target.value)}
-                  placeholder="전화번호 · 카카오 ID · 인스타 등"
-                  inputMode="text"
-                  autoFocus
-                  className="h-11 w-full rounded-xl border border-line-strong bg-surface px-3 text-base outline-none transition-colors placeholder:text-fg/30 focus:border-brand"
-                />
-                <label className="mt-2.5 flex cursor-pointer items-start gap-2 text-xs text-muted">
-                  <input
-                    type="checkbox"
-                    checked={agreed}
-                    onChange={(e) => setAgreed(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
-                  />
-                  <span>
-                    연락처 전달 및 상담을 위한{" "}
-                    <Link
-                      href="/privacy"
-                      target="_blank"
-                      className="underline underline-offset-2 hover:text-fg"
-                    >
-                      개인정보 수집·이용
-                    </Link>
-                    에 동의합니다.
-                  </span>
-                </label>
-                {state.error && <p className="mt-2 text-xs font-medium text-brand">{state.error}</p>}
-                <button
-                  type="button"
-                  onClick={submit}
-                  disabled={!contact.trim() || !agreed || pending}
-                  className="mt-3 h-12 w-full cursor-pointer rounded-xl bg-brand text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {pending ? "신청 중…" : "무료 상담 신청하기"}
-                </button>
-              </div>
-            ) : null}
+            {!done && (
+              <ContactBlock onSubmit={submit} pending={pending} serverError={state.error} />
+            )}
           </div>
         )}
 
-        {/* 완료 */}
-        {done && (
-          <SystemBubble>
-            신청이 접수됐어요! 작가님이 확인 후 곧 연락드릴 거예요. 감사합니다.
-          </SystemBubble>
-        )}
-
         <div ref={bottomRef} />
+      </div>
+
+      {/* item3 — 완료 모달 (닫기 불가) */}
+      {done && <DoneModal onExplore={goExplore} onSave={goSave} />}
+    </div>
+  );
+
+  function onBack() {
+    // item1 — detail→inquiry→detail 흐름에서 history 중복을 만들지 않도록 back 우선.
+    if (typeof window !== "undefined" && window.history.length > 1) router.back();
+    else router.push(photoId ? `/photos/${photoId}` : "/");
+  }
+}
+
+// ── 완료 모달 (item3) ─────────────────────────────────────────────
+function DoneModal({ onExplore, onSave }: { onExplore: () => void; onSave: () => void }) {
+  return (
+    <div className="fixed inset-0 z-[70] grid place-items-center bg-black/50 p-6 font-kr">
+      <div className="w-full max-w-sm rounded-3xl bg-bg p-7 text-center shadow-pop">
+        <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full bg-brand/10 text-brand">
+          <CheckIcon className="h-7 w-7" />
+        </div>
+        <p className="text-xl font-bold">신청 접수 완료!</p>
+        <p className="mt-2 text-sm leading-relaxed text-muted">
+          곧 작가님으로부터 연락이 도착합니다.
+        </p>
+        <button
+          type="button"
+          onClick={onExplore}
+          className="mt-6 block w-full cursor-pointer rounded-2xl bg-brand py-3.5 text-base font-bold text-white transition-opacity hover:opacity-90"
+        >
+          더 많은 사진 탐색하기
+        </button>
+        <button
+          type="button"
+          onClick={onSave}
+          className="mt-2.5 block w-full cursor-pointer rounded-2xl border border-line py-3.5 text-base font-semibold text-fg transition-colors hover:bg-surface-2"
+        >
+          문의 내역 보러가기
+        </button>
       </div>
     </div>
   );
 }
 
-function SystemBubble({ children }: { children: React.ReactNode }) {
+// ── 연락처 입력 (item9) ───────────────────────────────────────────
+function ContactBlock({
+  onSubmit,
+  pending,
+  serverError,
+}: {
+  onSubmit: (type: ContactType, value: string) => void;
+  pending: boolean;
+  serverError?: string;
+}) {
+  const [type, setType] = useState<ContactType | null>(null);
+  const [val, setVal] = useState("");
+  const [attempted, setAttempted] = useState(false);
+  const [blockMsg, setBlockMsg] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const endRef = useRef<HTMLDivElement>(null);
+  const blockTimer = useRef<number | undefined>(undefined);
+
+  const active = CONTACT_TYPES.find((t) => t.key === type);
+  const check = type ? validateContact(type, val) : { valid: false, error: null };
+  const errorText = check.valid
+    ? null
+    : val.trim()
+      ? check.error
+      : (active?.empty ?? "연락받을 연락처를 입력해주세요.");
+  // 안내문: blur/버튼 시 검증 노출 + 허용 외 문자 입력 시 즉시(blockMsg) 노출
+  const showError = attempted && !!errorText;
+  const displayedError = blockMsg ?? (showError ? errorText : null);
+
+  // 허용 외 문자 입력 시 즉시 안내 (입력 자체는 차단)
+  function flashBlock(msg: string) {
+    setBlockMsg(msg);
+    if (blockTimer.current) window.clearTimeout(blockTimer.current);
+    blockTimer.current = window.setTimeout(() => setBlockMsg(null), 2200);
+  }
+  function handleChange(raw: string) {
+    if (type === "phone") {
+      if (/[^\d\s().-]/.test(raw)) flashBlock("숫자만 입력할 수 있어요.");
+      setVal(formatPhoneInput(raw));
+    } else if (type === "instagram") {
+      if (/[^a-zA-Z0-9._]/.test(raw.replace(/^@+/, "")))
+        flashBlock("영문·숫자·_·.만 쓸 수 있어요.");
+      setVal(formatInstaInput(raw));
+    } else {
+      setVal(raw);
+    }
+  }
+  useEffect(() => () => window.clearTimeout(blockTimer.current), []);
+
+  // 연락처 종류 선택 시 채팅 스크롤을 최하단까지 내려 입력창·버튼이 보이게
+  useEffect(() => {
+    if (!type) return;
+    const id = window.setTimeout(() => {
+      const sc = endRef.current?.closest<HTMLElement>(".overflow-y-auto");
+      if (sc) sc.scrollTo({ top: sc.scrollHeight, behavior: "smooth" });
+      else endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }, 80);
+    return () => window.clearTimeout(id);
+  }, [type]);
+
+  function handleSubmit() {
+    setAttempted(true);
+    if (!type || !check.valid) {
+      // 연락처 미완성 — 입력창으로 시선 유도(포커스 + 흔들림)
+      inputRef.current?.focus();
+      shakeEl(inputRef.current);
+      return;
+    }
+    onSubmit(type, val);
+  }
+
   return (
-    <div className="mr-auto max-w-[88%] rounded-2xl rounded-tl-md bg-surface-2 px-3.5 py-2.5 text-sm leading-relaxed text-fg">
+    <div className="ml-auto w-full max-w-[88%] rounded-2xl rounded-tr-md bg-brand/[0.07] p-3">
+      <div className="grid grid-cols-3 gap-1.5">
+        {CONTACT_TYPES.map((t) => (
+          <OptionButton
+            key={t.key}
+            active={type === t.key}
+            onClick={() => {
+              setType(t.key);
+              setVal("");
+              setAttempted(false);
+              setBlockMsg(null);
+            }}
+          >
+            {t.label}
+          </OptionButton>
+        ))}
+      </div>
+
+      {type && active && (
+        <div className="mt-3">
+          <input
+            ref={inputRef}
+            type="text"
+            value={val}
+            onChange={(e) => handleChange(e.target.value)}
+            onBlur={() => setAttempted(true)}
+            placeholder={active.placeholder}
+            inputMode={active.inputMode}
+            autoFocus
+            className={[
+              "h-11 w-full rounded-xl border bg-surface px-3 text-base text-fg outline-none transition-colors placeholder:text-faint",
+              displayedError ? "border-danger" : "border-line-strong focus:border-brand",
+            ].join(" ")}
+          />
+          {/* 안내문 자리를 항상 확보 — 등장해도 버튼이 밀리지 않게 */}
+          <p className="mt-1.5 min-h-[18px] whitespace-nowrap text-[11px] font-medium leading-[18px] text-danger">
+            {displayedError ?? ""}
+          </p>
+
+          {serverError && <p className="mt-2 text-xs font-medium text-danger">{serverError}</p>}
+
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={pending}
+            className={[
+              "mt-3 h-12 w-full cursor-pointer rounded-xl bg-brand text-base font-semibold text-white transition-opacity",
+              check.valid ? "opacity-100 hover:opacity-90" : "opacity-40",
+              "disabled:cursor-not-allowed",
+            ].join(" ")}
+          >
+            {pending ? "신청 중…" : "무료 상담 신청하기"}
+          </button>
+
+          {/* 동의 간주 고지 — 버튼 클릭이 개인정보 수집·이용 동의를 갈음 */}
+          <p className="mt-2 break-keep text-center text-[11px] leading-relaxed text-faint">
+            신청하기를 누르면 연락처 전달 및 상담을 위한
+            <br />
+            <Link
+              href="/privacy"
+              target="_blank"
+              className="underline underline-offset-2 hover:text-muted"
+            >
+              개인정보 수집·이용
+            </Link>
+            에 동의하는 것으로 간주됩니다.
+          </p>
+          <div ref={endRef} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── 건너뛴 질문 아코디언 (item7) ──────────────────────────────────
+function SkippedSection({
+  steps,
+  answers,
+  onAnswer,
+  disabled,
+}: {
+  steps: Step[];
+  answers: Partial<Record<StepKey, string>>;
+  onAnswer: (key: StepKey, value: string) => void;
+  disabled: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [editKey, setEditKey] = useState<StepKey | null>(null);
+  const pending = steps.filter((s) => answers[s.key] === undefined).length;
+
+  return (
+    <div className="mr-auto w-full max-w-[92%] overflow-hidden rounded-2xl rounded-tl-md bg-surface-2">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full cursor-pointer items-center justify-between gap-2 px-3.5 py-3 text-left"
+      >
+        <span className="text-sm font-medium text-fg">미리 알려주면 작가님과 소통이 빨라져요</span>
+        <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted">
+          {pending > 0 ? `${pending}개 미답변` : "입력 완료"}
+          <ChevronDownIcon className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
+        </span>
+      </button>
+      <Reveal open={open}>
+        <div className="space-y-1 px-2 pb-2">
+          {steps.map((s) => {
+            const answered = answers[s.key] !== undefined;
+            const isEditing = editKey === s.key;
+            return (
+              <div key={s.key} className={`rounded-xl ${isEditing ? "bg-brand/[0.06]" : ""}`}>
+                <div className="flex items-center justify-between gap-2 px-2 py-2">
+                  <span className={`text-sm ${isEditing ? "font-semibold text-brand-ink" : "text-fg"}`}>
+                    {s.short}
+                  </span>
+                  {answered ? (
+                    <span className="flex items-center gap-2">
+                      <span className="text-sm text-fg/80">{displayAnswer(s.key, answers[s.key]!)}</span>
+                      {!disabled && (
+                        <button
+                          type="button"
+                          onClick={() => setEditKey(isEditing ? null : s.key)}
+                          className="cursor-pointer text-[11px] text-faint transition-colors hover:text-muted"
+                        >
+                          수정
+                        </button>
+                      )}
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-2">
+                      <span className="flex items-center gap-1 text-xs text-faint">
+                        <span className="h-1.5 w-1.5 rounded-full bg-fg/25" />
+                        미답변
+                      </span>
+                      {!disabled && (
+                        <button
+                          type="button"
+                          onClick={() => setEditKey(isEditing ? null : s.key)}
+                          className="cursor-pointer rounded-full border border-line-strong bg-surface px-3 py-1 text-xs font-medium text-fg transition-colors hover:bg-surface-2"
+                        >
+                          {isEditing ? "닫기" : "고르기"}
+                        </button>
+                      )}
+                    </span>
+                  )}
+                </div>
+                {isEditing && (
+                  <ExpandIn>
+                    <div className="px-2 pb-2">
+                      <QuestionInput
+                        step={s}
+                        value={answers[s.key]}
+                        onSubmit={(v) => {
+                          onAnswer(s.key, v);
+                          setEditKey(null);
+                        }}
+                        onCancel={() => setEditKey(null)}
+                      />
+                    </div>
+                  </ExpandIn>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </Reveal>
+    </div>
+  );
+}
+
+// ── 질문별 맞춤 입력 (item2) ──────────────────────────────────────
+function QuestionInput({
+  step,
+  value,
+  onSubmit,
+  onCancel,
+}: {
+  step: Step;
+  value?: string;
+  onSubmit: (value: string) => void;
+  onCancel?: () => void;
+}) {
+  return (
+    <div className="space-y-2.5">
+      {step.type === "options" && (
+        <OptionGrid
+          options={step.options!}
+          skip={step.skip}
+          cols={step.cols ?? 2}
+          value={value}
+          onPick={onSubmit}
+        />
+      )}
+      {step.type === "date" && (
+        <DateField skip={step.skip} value={value} onPick={onSubmit} />
+      )}
+      {step.type === "note" && (
+        <NoteField skip={step.skip} value={value} onPick={onSubmit} />
+      )}
+      {onCancel && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="cursor-pointer text-xs font-medium text-muted underline-offset-2 transition-colors hover:text-fg hover:underline"
+          >
+            수정 취소
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 모든 선택지(소프트 스킵 포함) 동등 버튼 (item4) — 다크모드 안전 토큰 (item11)
+function OptionButton({
+  active,
+  onClick,
+  children,
+}: {
+  active?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={[
+        "cursor-pointer rounded-xl px-3 py-2.5 text-base font-medium transition-colors",
+        active
+          ? "bg-brand text-white"
+          : "border border-line-strong bg-surface text-fg hover:bg-surface-2",
+      ].join(" ")}
+    >
+      {children}
+    </button>
+  );
+}
+
+function OptionGrid({
+  options,
+  skip,
+  cols = 2,
+  value,
+  onPick,
+}: {
+  options: string[];
+  skip: string;
+  cols?: 1 | 2;
+  value?: string;
+  onPick: (v: string) => void;
+}) {
+  return (
+    <div className={`grid gap-1.5 ${cols === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+      {[...options, skip].map((opt) => (
+        <OptionButton key={opt} active={value === opt} onClick={() => onPick(opt)}>
+          {opt}
+        </OptionButton>
+      ))}
+    </div>
+  );
+}
+
+// 날짜 — 빠른 칩 + "날짜 직접 선택" → 핸들 달린 바텀시트(캘린더 바로 노출, item2)
+function DateField({
+  skip,
+  value,
+  onPick,
+}: {
+  skip: string;
+  value?: string;
+  onPick: (v: string) => void;
+}) {
+  const [sheet, setSheet] = useState(false);
+  const quick = ["이번 주말", "2주 이내", "한 달 이내"];
+  const pickedDate = value && isISODate(value) ? value : "";
+
+  return (
+    <div className="grid grid-cols-2 gap-1.5">
+      {quick.map((q) => (
+        <OptionButton key={q} active={value === q} onClick={() => onPick(q)}>
+          {q}
+        </OptionButton>
+      ))}
+      <OptionButton active={!!pickedDate} onClick={() => setSheet(true)}>
+        {pickedDate ? formatDateKo(pickedDate) : "날짜 직접 선택"}
+      </OptionButton>
+      <OptionButton active={value === skip} onClick={() => onPick(skip)}>
+        {skip}
+      </OptionButton>
+      {sheet && (
+        <DateSheet
+          value={pickedDate}
+          onClose={() => setSheet(false)}
+          onConfirm={(iso) => {
+            setSheet(false);
+            onPick(iso);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+// 핸들 달린 바텀시트 — 아래에서 올라오고 캘린더가 바로 보임
+function DateSheet({
+  value,
+  onClose,
+  onConfirm,
+}: {
+  value: string;
+  onClose: () => void;
+  onConfirm: (iso: string) => void;
+}) {
+  const [sel, setSel] = useState(value && isISODate(value) ? value : "");
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setShown(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+  function close() {
+    setShown(false);
+    window.setTimeout(onClose, 250);
+  }
+  return (
+    <div className="fixed inset-0 z-[80] font-kr">
+      <div
+        className={`absolute inset-0 bg-black/45 transition-opacity duration-300 ${
+          shown ? "opacity-100" : "opacity-0"
+        }`}
+        onClick={close}
+      />
+      <div
+        className={`absolute inset-x-0 bottom-0 rounded-t-3xl bg-bg px-5 pb-9 pt-4 shadow-pop transition-transform duration-300 ease-out ${
+          shown ? "translate-y-0" : "translate-y-full"
+        }`}
+      >
+        <div className="mx-auto max-w-md">
+          <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-fg/15" />
+          <p className="mb-4 text-center text-base font-semibold">촬영 희망일 선택</p>
+          <Calendar value={sel} onSelect={setSel} />
+          <button
+            type="button"
+            onClick={() => sel && onConfirm(sel)}
+            disabled={!sel}
+            className="mt-5 h-12 w-full cursor-pointer rounded-xl bg-brand text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            이 날짜로 선택
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const WEEKDAY_SHORT = ["일", "월", "화", "수", "목", "금", "토"];
+
+// 월 단위 캘린더 — 오늘 이전은 비활성, 선택일 브랜드 강조
+function Calendar({ value, onSelect }: { value: string; onSelect: (iso: string) => void }) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const base = value && isISODate(value) ? new Date(`${value}T00:00:00`) : today;
+  const [view, setView] = useState({ y: base.getFullYear(), m: base.getMonth() });
+
+  const startDow = new Date(view.y, view.m, 1).getDay();
+  const daysInMonth = new Date(view.y, view.m + 1, 0).getDate();
+  const atCurrentMonth = view.y === today.getFullYear() && view.m === today.getMonth();
+  const isPastMonth =
+    view.y < today.getFullYear() || (view.y === today.getFullYear() && view.m < today.getMonth());
+
+  const cells: (number | null)[] = [];
+  for (let i = 0; i < startDow; i++) cells.push(null);
+  for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+
+  const iso = (d: number) =>
+    `${view.y}-${String(view.m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+
+  function shift(delta: number) {
+    setView((v) => {
+      const m = v.m + delta;
+      if (m < 0) return { y: v.y - 1, m: 11 };
+      if (m > 11) return { y: v.y + 1, m: 0 };
+      return { y: v.y, m };
+    });
+  }
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <button
+          type="button"
+          onClick={() => shift(-1)}
+          disabled={atCurrentMonth || isPastMonth}
+          aria-label="이전 달"
+          className="grid h-9 w-9 cursor-pointer place-items-center rounded-full text-fg transition-colors hover:bg-fg/[0.06] disabled:cursor-not-allowed disabled:opacity-30"
+        >
+          ‹
+        </button>
+        <span className="text-base font-semibold tabular-nums">
+          {view.y}년 {view.m + 1}월
+        </span>
+        <button
+          type="button"
+          onClick={() => shift(1)}
+          aria-label="다음 달"
+          className="grid h-9 w-9 cursor-pointer place-items-center rounded-full text-fg transition-colors hover:bg-fg/[0.06]"
+        >
+          ›
+        </button>
+      </div>
+      <div className="mb-1 grid grid-cols-7">
+        {WEEKDAY_SHORT.map((w, i) => (
+          <div
+            key={w}
+            className={`py-1 text-center text-xs font-medium ${
+              i === 0 ? "text-danger" : "text-muted"
+            }`}
+          >
+            {w}
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {cells.map((d, i) => {
+          if (d === null) return <div key={`e${i}`} />;
+          const dayDate = new Date(view.y, view.m, d);
+          const past = dayDate < today;
+          const selected = value === iso(d);
+          return (
+            <button
+              key={d}
+              type="button"
+              disabled={past}
+              onClick={() => onSelect(iso(d))}
+              className={[
+                "mx-auto grid h-9 w-9 place-items-center rounded-full text-sm tabular-nums transition-colors",
+                selected
+                  ? "bg-brand font-semibold text-white"
+                  : past
+                    ? "cursor-not-allowed text-faint/40"
+                    : "cursor-pointer text-fg hover:bg-brand/[0.08]",
+              ].join(" ")}
+            >
+              {d}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// 문의사항 — 두 버튼(상담 시 논의 / 지금 작성). "지금 작성" → 텍스트 (item8)
+function NoteField({
+  skip,
+  value,
+  onPick,
+}: {
+  skip: string;
+  value?: string;
+  onPick: (v: string) => void;
+}) {
+  const isCustom = !!value && value !== skip;
+  const [writing, setWriting] = useState(isCustom);
+  const [t, setT] = useState(isCustom ? value! : "");
+
+  if (writing) {
+    return (
+      <div className="space-y-2">
+        <textarea
+          value={t}
+          onChange={(e) => setT(e.target.value)}
+          rows={3}
+          autoFocus
+          placeholder="예: 원하는 분위기, 의상, 시간대, 예산 등 자유롭게 적어주세요"
+          className="w-full resize-none rounded-xl border border-line-strong bg-surface px-3 py-2.5 text-base text-fg outline-none transition-colors placeholder:text-faint focus:border-brand"
+        />
+        <div className="flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => setWriting(false)}
+            className="cursor-pointer text-xs font-medium text-muted underline-offset-2 transition-colors hover:text-fg hover:underline"
+          >
+            뒤로
+          </button>
+          <button
+            type="button"
+            onClick={() => onPick(t.trim())}
+            disabled={!t.trim()}
+            className="h-9 cursor-pointer rounded-xl bg-brand px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            보내기
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-1.5">
+      <OptionButton active={value === skip} onClick={() => onPick(skip)}>
+        {skip}
+      </OptionButton>
+      <OptionButton onClick={() => setWriting(true)}>지금 작성할게요</OptionButton>
+    </div>
+  );
+}
+
+// ── 공통 말풍선/유틸 ──────────────────────────────────────────────
+function UserTray({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="ml-auto w-full max-w-[92%] rounded-2xl rounded-tr-md bg-brand/[0.06] p-2.5">
       {children}
     </div>
   );
 }
 
-// 내가 보낸 답변 — 채팅 전송 말풍선(오른쪽, 브랜드)
-function SentBubble({ children }: { children: React.ReactNode }) {
+function SystemBubble({
+  children,
+  emphasis,
+}: {
+  children: React.ReactNode;
+  emphasis?: boolean;
+}) {
   return (
-    <div className="w-fit rounded-2xl rounded-tr-md bg-brand px-3.5 py-2.5 text-sm font-medium text-white">
+    <div
+      className={[
+        "mr-auto max-w-[88%] rounded-2xl rounded-tl-md px-3.5 py-2.5 text-[17px] leading-relaxed text-fg transition-colors",
+        emphasis ? "bg-brand/[0.08] ring-1 ring-brand/25" : "bg-surface-2",
+      ].join(" ")}
+    >
+      {children}
+    </div>
+  );
+}
+
+function SentBubble({ children, muted }: { children: React.ReactNode; muted?: boolean }) {
+  return (
+    <div
+      className={[
+        "w-fit rounded-2xl rounded-tr-md px-3.5 py-2.5 text-[17px] font-medium",
+        // 수정 중: 강조된 질문 말풍선과 동일한 배경(브랜드 틴트 + 링) — 라이트/다크 모두 읽히는 적응형 텍스트
+        muted ? "bg-brand/[0.08] text-brand-ink ring-1 ring-brand/25" : "bg-brand text-white",
+      ].join(" ")}
+    >
       {children}
     </div>
   );
@@ -328,66 +1206,25 @@ function Dot() {
   return <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-fg/40" />;
 }
 
-// 선택 트레이 — 답변 후보 버튼 + 소프트 스킵. 고르면 전송 말풍선으로 바뀜.
-function ChoiceTray({
-  options,
-  soft,
-  selected,
-  onPick,
-}: {
-  options: string[];
-  soft: string[];
-  selected?: string;
-  onPick: (value: string) => void;
-}) {
+// 높이 0→auto 부드러운 펼침 (grid-rows 트릭)
+function Reveal({ open, children }: { open: boolean; children: React.ReactNode }) {
   return (
-    // 선택지를 사용자 쪽 말풍선 안에 담는다 (시스템 말풍선과 대칭)
-    <div className="ml-auto w-fit max-w-[92%] rounded-2xl rounded-tr-md bg-brand/[0.06] p-2.5">
-      <div className="flex flex-wrap justify-end gap-1.5">
-        {options.map((opt) => (
-          <Chip key={opt} active={selected === opt} onClick={() => onPick(opt)}>
-            {opt}
-          </Chip>
-        ))}
-        {soft.map((opt) => (
-          <Chip key={opt} active={selected === opt} soft onClick={() => onPick(opt)}>
-            {opt}
-          </Chip>
-        ))}
-      </div>
+    <div
+      className={`grid transition-[grid-template-rows] duration-300 ease-out ${
+        open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+      }`}
+    >
+      <div className="overflow-hidden">{children}</div>
     </div>
   );
 }
 
-function Chip({
-  children,
-  active,
-  soft,
-  disabled,
-  onClick,
-}: {
-  children: React.ReactNode;
-  active?: boolean;
-  soft?: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      aria-pressed={active}
-      className={[
-        "cursor-pointer rounded-full px-3.5 py-2 text-sm font-medium transition-colors disabled:cursor-default",
-        active
-          ? "bg-brand text-white"
-          : soft
-            ? "bg-fg/[0.04] text-muted hover:bg-fg/[0.08]"
-            : "border border-brand/40 bg-white text-brand hover:bg-brand/[0.06]",
-      ].join(" ")}
-    >
-      {children}
-    </button>
-  );
+// 마운트 시 0→1 로 펼쳐지며 등장
+function ExpandIn({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setOpen(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+  return <Reveal open={open}>{children}</Reveal>;
 }
