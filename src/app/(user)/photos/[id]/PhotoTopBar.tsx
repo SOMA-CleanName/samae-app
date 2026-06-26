@@ -2,8 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { ArrowLeftIcon } from "@/components/user/icons";
+import { ShareButton } from "@/components/user/ShareButton";
 
-// 이미지 상세(2단계) 상단바 — 뒤로가기만. (상세에선 검색바 노출 안 함: 이탈 유도 방지)
+// 이미지 상세(2단계) 상단바 — 뒤로가기 + 공유. (검색바는 노출 안 함: 이탈 유도 방지)
 export function PhotoTopBar() {
   const router = useRouter();
 
@@ -13,8 +14,8 @@ export function PhotoTopBar() {
   }
 
   return (
-    <div className="fixed inset-x-0 top-0 z-30 md:left-[72px]">
-      <div className="mx-auto flex max-w-5xl items-center px-4 py-3 sm:px-6">
+    <div className="fixed inset-x-0 top-0 z-30">
+      <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3 sm:px-6">
         <button
           type="button"
           onClick={onBack}
@@ -23,6 +24,7 @@ export function PhotoTopBar() {
         >
           <ArrowLeftIcon />
         </button>
+        <ShareButton />
       </div>
     </div>
   );
