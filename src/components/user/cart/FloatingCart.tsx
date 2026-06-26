@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useCart, cartCardJitter } from "./CartProvider";
+import { useCart, cartCardJitter, PEEK_FRAME, PEEK_CARD_W } from "./CartProvider";
 import { submitCartInquiry } from "@/app/(user)/inquiry/actions";
 
 // 장바구니 — 담은 사진이 부채꼴로 겹쳐 가장자리에 삐져나옴. 탭하면 모달.
@@ -129,16 +129,18 @@ export function FloatingCart() {
         style={style}
         className="fixed z-40 cursor-grab touch-none select-none active:cursor-grabbing"
       >
-        {/* 카드 묶음 — 각 사진의 실제 비율 그대로(고정 사이즈 X) 쌓임. 부채꼴 일부만 보이게 (방향에 따라 미러) */}
+        {/* 폴라로이드 더미 — 흰 프레임(하단 두껍게) + 각 사진 실제 비율. 부채꼴 대신 타이트한 더미 */}
         {(() => {
+          const photoH = (it: { w: number; h: number }) =>
+            it.w > 0 && it.h > 0 ? Math.round((PEEK_FRAME.photoW * it.h) / it.w) : PEEK_FRAME.photoW;
           const cardH = (it: { w: number; h: number }) =>
-            it.w > 0 && it.h > 0 ? Math.round((CART_W * it.h) / it.w) : 96;
+            photoH(it) + PEEK_FRAME.top + PEEK_FRAME.bottom;
           const maxH = Math.max(...peek.map(cardH));
           return (
             <div
               className="relative"
               style={{
-                width: CART_W,
+                width: PEEK_CARD_W,
                 height: maxH,
                 transform: `translateX(${side === "right" ? "34%" : "-34%"})`,
               }}
@@ -147,21 +149,31 @@ export function FloatingCart() {
                 // 흐트러진 더미 — id 해시로 각도·위치 결정(고정). 최신 카드일수록 위로(zIndex).
                 const j = cartCardJitter(it.id);
                 return (
-                  <img
+                  <div
                     key={it.id}
-                    src={it.src}
-                    alt=""
-                    draggable={false}
-                    className="absolute bottom-0 left-1/2 rounded-lg object-cover shadow-[0_8px_22px_rgba(0,0,0,0.42)] ring-[3px] ring-white transition-transform duration-300 ease-out"
+                    className="absolute bottom-0 left-1/2 bg-white shadow-[0_8px_20px_rgba(0,0,0,0.3)] transition-transform duration-300 ease-out"
                     style={{
-                      width: CART_W,
-                      height: cardH(it),
-                      marginLeft: -CART_W / 2,
+                      padding: `${PEEK_FRAME.top}px ${PEEK_FRAME.side}px ${PEEK_FRAME.bottom}px`,
+                      borderRadius: 3,
+                      marginLeft: -PEEK_CARD_W / 2,
                       transformOrigin: "center",
                       transform: `translate(${j.dx}px, ${j.dy}px) rotate(${j.rot}deg)`,
                       zIndex: i,
                     }}
-                  />
+                  >
+                    <img
+                      src={it.src}
+                      alt=""
+                      draggable={false}
+                      style={{
+                        display: "block",
+                        width: PEEK_FRAME.photoW,
+                        height: photoH(it),
+                        objectFit: "cover",
+                        borderRadius: 1,
+                      }}
+                    />
+                  </div>
                 );
               })}
             </div>
