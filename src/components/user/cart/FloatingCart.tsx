@@ -24,6 +24,7 @@ const CART_W = 64; // w-16
 export function FloatingCart() {
   const { items, count, remove, registerTarget, consumeFlyFrom } = useCart();
   const stackRef = useRef<HTMLButtonElement>(null);
+  const peekInnerRef = useRef<HTMLDivElement>(null); // translateX 된 실제 스택 컨테이너(원점 측정용)
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const [open, setOpen] = useState(false);
   // right/top(px) 로 위치 — right 값을 트랜지션해서 좌↔우 슬라이드가 애니메이션됨
@@ -162,7 +163,7 @@ export function FloatingCart() {
         onPointerUp={onPointerUp}
         onClick={onClick}
         aria-label="장바구니 보기 (드래그로 이동)"
-        style={style}
+        style={{ ...style, opacity: open ? 0 : 1, pointerEvents: open ? "none" : undefined }}
         className="fixed z-40 cursor-grab touch-none select-none active:cursor-grabbing"
       >
         {/* 폴라로이드 더미 — 흰 프레임(하단 두껍게) + 각 사진 실제 비율. 부채꼴 대신 타이트한 더미 */}
@@ -174,6 +175,7 @@ export function FloatingCart() {
           const maxH = Math.max(...peek.map(cardH));
           return (
             <div
+              ref={peekInnerRef}
               className="relative"
               style={{
                 width: PEEK_CARD_W,
@@ -229,7 +231,7 @@ export function FloatingCart() {
           onClose={() => setOpen(false)}
           items={items}
           onRemove={remove}
-          originRef={stackRef}
+          originRef={peekInnerRef}
         />
       )}
     </>
@@ -258,8 +260,8 @@ function CartModal({
   items: CartItem[];
   onRemove: (id: string) => void;
   onClose: () => void;
-  // 펼침/닫힘 시 사진이 출발/복귀할 더미(플로팅 버튼) 위치
-  originRef: React.RefObject<HTMLButtonElement | null>;
+  // 펼침/닫힘 시 사진이 출발/복귀할 더미(실제 스택 컨테이너) 위치
+  originRef: React.RefObject<HTMLDivElement | null>;
 }) {
   const { clear } = useCart();
   // 모션 단계: in(더미의 스택) → center(스택 그대로 중앙) → open(펼침)
