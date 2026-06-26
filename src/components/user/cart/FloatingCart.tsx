@@ -268,7 +268,10 @@ function CartModal({
   const [vp, setVp] = useState<{ w: number; h: number } | null>(null);
   const [origin, setOrigin] = useState<{ x: number; y: number } | null>(null);
   const [leaving, setLeaving] = useState<Set<string>>(new Set());
-  const [askContact, setAskContact] = useState(false);
+  // 탭한 사진을 중앙 확대(포커스). rect 는 FLIP 출발 위치.
+  const [focused, setFocused] = useState<{ id: string; rect: DOMRect } | null>(null);
+  // 상담 폼 대상 — null(닫힘) / "all"(전체) / photoId(단일)
+  const [formFor, setFormFor] = useState<string | null>(null);
   const [contact, setContact] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [state, formAction, pending] = useActionState(submitCartInquiry, { ok: false });
@@ -315,9 +318,10 @@ function CartModal({
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!contact.trim() || !agreed) return;
+    const ids = formFor === "all" || formFor === null ? items.map((i) => i.id) : [formFor];
     const fd = new FormData();
     fd.set("contact", contact);
-    fd.set("photoIds", items.map((i) => i.id).join(","));
+    fd.set("photoIds", ids.join(","));
     startTransition(() => formAction(fd));
   }
 
@@ -459,9 +463,9 @@ function CartModal({
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        removeOne(it.id);
+                        setFocused({ id: it.id, rect: e.currentTarget.getBoundingClientRect() });
                       }}
-                      aria-label="빼기"
+                      aria-label="크게 보기"
                       className="block cursor-pointer bg-white shadow-[0_10px_28px_rgba(0,0,0,0.45)]"
                       style={{
                         padding: `${side}px ${side}px ${bottom}px`,
@@ -518,16 +522,26 @@ function CartModal({
             <div className="mx-auto max-w-md">
               {N === 0 ? (
                 <p className="rounded-2xl bg-white/10 py-4 text-center text-sm text-white/70">담은 사진이 없어요.</p>
-              ) : !askContact ? (
+              ) : formFor === null ? (
                 <button
                   type="button"
-                  onClick={() => setAskContact(true)}
+                  onClick={() => setFormFor("all")}
                   className="w-full cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
                 >
                   이 사진들로 무료 상담 신청 ({N})
                 </button>
               ) : (
                 <form onSubmit={onSubmit} className="rounded-2xl bg-bg p-4 shadow-pop">
+                  <p className="mb-2.5 text-sm font-semibold text-fg">
+                    {formFor === "all" ? `담은 사진 ${N}장으로 상담 신청` : "이 사진으로 상담 신청"}
+                    <button
+                      type="button"
+                      onClick={() => setFormFor(null)}
+                      className="float-right cursor-pointer text-xs font-medium text-muted hover:text-fg"
+                    >
+                      취소
+                    </button>
+                  </p>
                   <input
                     type="text"
                     value={contact}
@@ -563,8 +577,114 @@ function CartModal({
               )}
             </div>
           </div>
+
+          {/* 탭한 사진 중앙 확대 — 무료 상담 / 상세보기 */}
+          {focused && items.some((i) => i.id === focused.id) && (
+            <FocusedPhoto
+              item={items.find((i) => i.id === focused.id)!}
+              fromRect={focused.rect}
+              vp={vp}
+              onBack={() => setFocused(null)}
+              onRemove={(id) => {
+                setFocused(null);
+                removeOne(id);
+              }}
+              onInquire={(id) => {
+                setFocused(null);
+                setFormFor(id);
+              }}
+            />
+          )}
         </>
       )}
+    </div>
+  );
+}
+
+// 탭한 사진을 중앙으로 확대(FLIP) + [무료 상담]/[상세보기]. 빼기는 X.
+function FocusedPhoto({
+  item,
+  fromRect,
+  vp,
+  onBack,
+  onRemove,
+  onInquire,
+}: {
+  item: CartItem;
+  fromRect: DOMRect;
+  vp: { w: number; h: number } | null;
+  onBack: () => void;
+  onRemove: (id: string) => void;
+  onInquire: (id: string) => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useIsoLayout(() => {
+    const el = ref.current;
+    if (!el) return;
+    const last = el.getBoundingClientRect();
+    if (last.width === 0) return;
+    const dx = fromRect.left + fromRect.width / 2 - (last.left + last.width / 2);
+    const dy = fromRect.top + fromRect.height / 2 - (last.top + last.height / 2);
+    const s = Math.max(0.05, fromRect.width / last.width);
+    el.animate(
+      [
+        { transform: `translate(${dx}px,${dy}px) scale(${s})`, opacity: 0.7, offset: 0 },
+        { transform: "translate(0,0) scale(1)", opacity: 1, offset: 1 },
+      ],
+      { duration: 320, easing: "cubic-bezier(.2,.7,.2,1)" }
+    );
+  }, []);
+
+  const vw = vp?.w ?? 360;
+  const vh = vp?.h ?? 720;
+  const photoW = Math.min(vw * 0.82, 340);
+  const ratio = item.w > 0 && item.h > 0 ? item.h / item.w : 1;
+  const side = Math.max(8, Math.round(photoW * 0.05));
+  const bottom = Math.max(20, Math.round(photoW * 0.14));
+  const photoH = Math.min(Math.round(photoW * ratio), Math.round(vh * 0.56));
+
+  return (
+    <div className="fixed inset-0 z-[70] flex flex-col items-center justify-center px-6 font-kr">
+      <button aria-label="뒤로" onClick={onBack} className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+      <button
+        type="button"
+        onClick={() => onRemove(item.id)}
+        aria-label="장바구니에서 빼기"
+        className="absolute right-4 top-4 z-10 grid h-10 w-10 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
+      >
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
+        </svg>
+      </button>
+
+      <div
+        ref={ref}
+        className="relative bg-white shadow-[0_18px_50px_rgba(0,0,0,0.55)]"
+        style={{ padding: `${side}px ${side}px ${bottom}px`, borderRadius: 4 }}
+      >
+        <img
+          src={item.src}
+          alt=""
+          draggable={false}
+          style={{ display: "block", width: photoW, height: photoH, objectFit: "cover", borderRadius: 2 }}
+        />
+      </div>
+
+      <div className="relative z-10 mt-6 flex w-full max-w-xs flex-col gap-2.5">
+        <button
+          type="button"
+          onClick={() => onInquire(item.id)}
+          className="cursor-pointer rounded-2xl bg-brand py-3.5 text-base font-bold text-white transition-opacity hover:opacity-90"
+        >
+          이 사진으로 무료 상담 신청
+        </button>
+        <Link
+          href={`/photos/${item.id}`}
+          className="rounded-2xl bg-white/15 py-3.5 text-center text-base font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
+        >
+          사진 상세보기
+        </Link>
+      </div>
     </div>
   );
 }
