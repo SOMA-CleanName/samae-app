@@ -29,11 +29,11 @@ export function FloatingCart() {
     );
   }
 
-  const peek = items.slice(-2); // 최근 2장만 살짝 — 화면 덜 가리게
+  const peek = items.slice(-3); // 최근 3장 부채꼴
 
   return (
     <>
-      {/* 우측 가장자리에 카드가 살짝 겹쳐 좌측 일부만 삐져나옴(대부분 화면 밖) */}
+      {/* 우측 가장자리에 카드가 부채꼴로 겹쳐 좌측 일부가 삐져나옴 */}
       <button
         ref={stackRef}
         type="button"
@@ -41,16 +41,17 @@ export function FloatingCart() {
         aria-label="장바구니 보기"
         className="fixed bottom-28 right-0 z-40 cursor-pointer"
       >
-        {/* 카드 묶음을 오른쪽으로 밀어 화면 밖으로 → 좌측 부채꼴만 살짝 보이게 */}
-        <div className="relative h-20 w-14 translate-x-[52%]">
+        {/* 카드 묶음을 오른쪽으로 밀어 좌측 부채꼴만 보이게 */}
+        <div className="relative h-24 w-16 translate-x-[34%]">
           {peek.map((it, i) => {
-            const rot = (peek.length - 1 - i) * -9;
+            const rot = (peek.length - 1 - i) * -10;
             return (
               <img
                 key={it.id}
                 src={it.src}
                 alt=""
-                className="absolute bottom-0 right-0 h-20 w-14 rounded-lg object-cover shadow-lg ring-1 ring-black/10"
+                // transition-transform: 새 카드가 담기면 기존 카드가 부드럽게 밀려나도록
+                className="absolute bottom-0 right-0 h-24 w-16 rounded-lg object-cover shadow-lg ring-1 ring-black/10 transition-transform duration-300 ease-out"
                 style={{ transformOrigin: "bottom right", transform: `rotate(${rot}deg)`, zIndex: i }}
               />
             );

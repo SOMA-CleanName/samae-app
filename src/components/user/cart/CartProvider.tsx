@@ -69,14 +69,9 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         pushItem(item);
         return;
       }
-      flyToCart(sourceEl, target, item.src, () => {
-        pushItem(item);
-        // 안착 바운스 — 카드가 "톡" 담기는 마무리
-        target.animate(
-          [{ transform: "scale(1)" }, { transform: "scale(1.12)" }, { transform: "scale(1)" }],
-          { duration: 360, easing: "cubic-bezier(.34,1.56,.64,1)" }
-        );
-      });
+      // 도착 순간 장바구니에 추가 → 새 카드는 클론이 안착한 자리에 그대로 뜨고,
+      // 기존 카드는 transition-transform 으로 부드럽게 밀려난다(통 튀는 펄스 제거).
+      flyToCart(sourceEl, target, item.src, () => pushItem(item));
     },
     [pushItem]
   );
