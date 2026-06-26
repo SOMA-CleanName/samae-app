@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { ArrowLeftIcon } from "@/components/user/icons";
 import { submitInquiry, type InquiryState } from "./actions";
 
@@ -251,7 +252,7 @@ export function InquiryChat({
                   placeholder="전화번호 · 카카오 ID · 인스타 등"
                   inputMode="text"
                   autoFocus
-                  className="h-11 w-full rounded-xl border border-line-strong bg-white px-3 text-base outline-none transition-colors placeholder:text-fg/30 focus:border-brand"
+                  className="h-11 w-full rounded-xl border border-line-strong bg-surface px-3 text-base outline-none transition-colors placeholder:text-fg/30 focus:border-brand"
                 />
                 <label className="mt-2.5 flex cursor-pointer items-start gap-2 text-xs text-muted">
                   <input
@@ -260,7 +261,17 @@ export function InquiryChat({
                     onChange={(e) => setAgreed(e.target.checked)}
                     className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
                   />
-                  <span>연락처 전달 및 상담을 위한 개인정보 수집·이용에 동의합니다.</span>
+                  <span>
+                    연락처 전달 및 상담을 위한{" "}
+                    <Link
+                      href="/privacy"
+                      target="_blank"
+                      className="underline underline-offset-2 hover:text-fg"
+                    >
+                      개인정보 수집·이용
+                    </Link>
+                    에 동의합니다.
+                  </span>
                 </label>
                 {state.error && <p className="mt-2 text-xs font-medium text-brand">{state.error}</p>}
                 <button
