@@ -224,7 +224,14 @@ export function FloatingCart() {
         })()}
       </button>
 
-      {open && <CartModal onClose={() => setOpen(false)} items={items} onRemove={remove} />}
+      {open && (
+        <CartModal
+          onClose={() => setOpen(false)}
+          items={items}
+          onRemove={remove}
+          originRef={stackRef}
+        />
+      )}
     </>
   );
 }
@@ -246,14 +253,20 @@ function CartModal({
   items,
   onRemove,
   onClose,
+  originRef,
 }: {
   items: CartItem[];
   onRemove: (id: string) => void;
   onClose: () => void;
+  // 펼침/닫힘 시 사진이 출발/복귀할 더미(플로팅 버튼) 위치
+  originRef: React.RefObject<HTMLButtonElement | null>;
 }) {
   const { clear } = useCart();
-  const [show, setShow] = useState(false);
+  // 모션 단계: in(더미 자리) → center(가운데로 모임) → open(펼침) → [닫기] center → out(더미로 복귀)
+  const [phase, setPhase] = useState<"in" | "center" | "open" | "out">("in");
+  const show = phase === "center" || phase === "open"; // 배경·바 노출 상태
   const [vp, setVp] = useState<{ w: number; h: number } | null>(null);
+  const [origin, setOrigin] = useState<{ x: number; y: number } | null>(null);
   const [leaving, setLeaving] = useState<Set<string>>(new Set());
   const [askContact, setAskContact] = useState(false);
   const [contact, setContact] = useState("");
@@ -263,13 +276,23 @@ function CartModal({
   useIsoLayout(() => {
     const set = () => setVp({ w: window.innerWidth, h: window.innerHeight });
     set();
+    const el = originRef.current;
+    if (el) {
+      const r = el.getBoundingClientRect();
+      setOrigin({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+    }
     window.addEventListener("resize", set);
     return () => window.removeEventListener("resize", set);
-  }, []);
+  }, [originRef]);
 
+  // 펼침 시퀀스: in → (다음 프레임) center 로 모임 → 320ms 후 open 으로 펼침
   useEffect(() => {
-    const r = requestAnimationFrame(() => setShow(true));
-    return () => cancelAnimationFrame(r);
+    const r = requestAnimationFrame(() => setPhase("center"));
+    const t = setTimeout(() => setPhase("open"), 320);
+    return () => {
+      cancelAnimationFrame(r);
+      clearTimeout(t);
+    };
   }, []);
 
   // 성공 → Lead 픽셀(중복 제거 eventID)
@@ -280,9 +303,11 @@ function CartModal({
     if (state.leadId) window.fbq?.("track", "Lead", {}, { eventID: `inquiry_${state.leadId}` });
   }, [state.ok, state.leadId]);
 
+  // 닫힘 시퀀스: open → center 로 모임 → 300ms 후 out(더미로 복귀) → 완료 시 언마운트
   function close() {
-    setShow(false);
-    setTimeout(onClose, 360);
+    setPhase("center");
+    setTimeout(() => setPhase("out"), 300);
+    setTimeout(onClose, 640);
   }
   function removeOne(id: string) {
     setLeaving((s) => new Set(s).add(id));
@@ -297,44 +322,54 @@ function CartModal({
     startTransition(() => formAction(fd));
   }
 
-  // 그리드 레이아웃 — 모든 사진이 한 화면에 들어오도록 칸을 나누고, 칸 크기를 최대화.
-  // 위치 지터는 아주 작게(겹침 방지) + 살짝 기울임으로 폴라로이드 느낌만.
+  // 레이아웃 — 8장 이하면 한 화면에 다 담고(스크롤 X), 9장 이상이면 편안한 크기로 두고 세로 스크롤.
   const N = items.length;
-  const layout = (() => {
-    if (!vp || N === 0) return [] as Array<{
-      it: CartItem; x: number; y: number; rot: number; photoW: number; photoH: number; side: number; bottom: number; z: number;
-    }>;
+  const SCROLL = N >= 9; // 9장↑ 스크롤 모드
+  type Placed = {
+    it: CartItem; x: number; y: number; rot: number; photoW: number; photoH: number; side: number; bottom: number; z: number;
+  };
+  const { cards, contentH } = ((): { cards: Placed[]; contentH: number } => {
+    if (!vp || N === 0) return { cards: [], contentH: 0 };
     const { w: W, h: H } = vp;
     const padX = Math.max(16, W * 0.06);
     const topPad = 84;
     const bottomReserve = 150;
     const areaW = W - padX * 2;
-    const areaH = Math.max(180, H - topPad - bottomReserve);
     const CARD_ASPECT = 0.8; // 폴라로이드(세로형) 대략 너비/높이
 
-    // 칸 크기를 최대화하는 열 수 선택(모든 사진을 영역 안에 담되 최대한 크게)
-    let cols = 1;
-    let cardW = 0;
-    for (let c = 1; c <= N; c++) {
-      const rows = Math.ceil(N / c);
-      const cw = areaW / c;
-      const ch = areaH / rows;
-      const w = Math.min(cw * 0.92, ch * 0.92 * CARD_ASPECT);
-      if (w > cardW) {
-        cardW = w;
-        cols = c;
+    let cols: number;
+    let cardW: number;
+    let cellH: number;
+    if (SCROLL) {
+      // 화면 폭 기준 편안한 칸(약 150px) → 사진을 작게 줄이지 않고 아래로 흐름
+      cols = Math.max(2, Math.min(4, Math.floor(areaW / 150)));
+      cardW = Math.min((areaW / cols) * 0.92, 240);
+      cellH = cardW / CARD_ASPECT + 18; // 세로 간격
+    } else {
+      // 한 화면에 다 담되 칸 크기를 최대화
+      const areaH = Math.max(180, H - topPad - bottomReserve);
+      cols = 1;
+      cardW = 0;
+      for (let c = 1; c <= N; c++) {
+        const rows = Math.ceil(N / c);
+        const w = Math.min((areaW / c) * 0.92, (areaH / rows) * 0.92 * CARD_ASPECT);
+        if (w > cardW) {
+          cardW = w;
+          cols = c;
+        }
       }
+      cardW = Math.min(cardW, 240);
+      cellH = areaH / Math.ceil(N / cols);
     }
-    cardW = Math.min(cardW, 240); // 적을 때 과하게 커지지 않게 상한
     const rows = Math.ceil(N / cols);
     const cellW = areaW / cols;
-    const cellH = areaH / rows;
     const side = Math.max(6, Math.round(cardW * 0.055));
     const bottom = Math.max(14, Math.round(cardW * 0.16));
     const photoW = Math.round(cardW - side * 2);
     const maxPhotoH = Math.round(cellH * 0.9 - side - bottom);
+    const contentH = SCROLL ? topPad + rows * cellH + 32 : H;
 
-    return items.map((it, i) => {
+    const cards = items.map((it, i) => {
       const row = Math.floor(i / cols);
       const inRow = i - row * cols;
       const itemsInRow = row < rows - 1 ? cols : N - cols * (rows - 1);
@@ -348,10 +383,13 @@ function CartModal({
       const photoH = Math.min(Math.round(photoW * ratio), Math.max(40, maxPhotoH));
       return { it, x, y, rot: j.rot, photoW, photoH, side, bottom, z: i };
     });
+    return { cards, contentH };
   })();
 
   const cx = vp ? vp.w / 2 : 0;
-  const cy = vp ? vp.h * 0.66 : 0;
+  const cy = vp ? vp.h * 0.5 : 0; // 모임 중심
+  const gx = origin ? origin.x : cx; // 더미(출발/복귀) 위치
+  const gy = origin ? origin.y : cy;
 
   return (
     <div className="fixed inset-0 z-50 font-kr" role="dialog" aria-modal="true">
@@ -381,49 +419,77 @@ function CartModal({
         </div>
       ) : (
         <>
-          {/* 흩뿌린 폴라로이드 */}
-          {layout.map(({ it, x, y, rot, photoW, photoH, side, bottom, z }) => {
-            const isLeaving = leaving.has(it.id);
-            return (
-              <div
-                key={it.id}
-                className="absolute"
-                style={{ left: x, top: y, transform: "translate(-50%,-50%)", zIndex: 10 + z }}
-              >
-                <button
-                  type="button"
-                  onClick={() => removeOne(it.id)}
-                  aria-label="빼기"
-                  className="block cursor-pointer bg-white shadow-[0_10px_28px_rgba(0,0,0,0.45)]"
-                  style={{
-                    padding: `${side}px ${side}px ${bottom}px`,
-                    borderRadius: 3,
-                    transformOrigin: "center",
-                    transform: isLeaving
-                      ? `translate(0,-44px) scale(.6) rotate(${rot}deg)`
-                      : show
-                        ? `translate(0,0) scale(1) rotate(${rot}deg)`
-                        : `translate(${cx - x}px, ${cy - y}px) scale(.22) rotate(0deg)`,
-                    opacity: isLeaving ? 0 : show ? 1 : 0,
-                    transition: `transform 460ms cubic-bezier(.2,.7,.2,1) ${Math.min(z, 24) * 22}ms, opacity 360ms ease ${Math.min(z, 24) * 22}ms`,
-                  }}
-                >
-                  <img
-                    src={it.src}
-                    alt=""
-                    draggable={false}
-                    style={{
-                      display: "block",
-                      width: photoW,
-                      height: photoH,
-                      objectFit: "cover",
-                      borderRadius: 1,
-                    }}
-                  />
-                </button>
-              </div>
-            );
-          })}
+          {/* 폴라로이드 레이어 — 9장↑ 세로 스크롤. 빈 곳 탭하면 닫힘 */}
+          <div
+            onClick={close}
+            className={`absolute inset-0 ${SCROLL ? "overflow-y-auto overscroll-contain" : "overflow-hidden"}`}
+          >
+            <div className="relative w-full" style={{ height: contentH }}>
+              {cards.map(({ it, x, y, rot, photoW, photoH, side, bottom, z }) => {
+                const isLeaving = leaving.has(it.id);
+                // 단계별 변형 — in(더미)·center(모임)·open(펼침)·out(더미 복귀)
+                let tf: string;
+                let op: number;
+                if (isLeaving) {
+                  tf = `translate(0,-44px) scale(.6) rotate(${rot}deg)`;
+                  op = 0;
+                } else if (phase === "open") {
+                  tf = `translate(0,0) scale(1) rotate(${rot}deg)`;
+                  op = 1;
+                } else if (phase === "center") {
+                  tf = `translate(${cx - x}px, ${cy - y}px) scale(.28) rotate(0deg)`;
+                  op = 1;
+                } else if (phase === "in") {
+                  tf = `translate(${gx - x}px, ${gy - y}px) scale(.18) rotate(0deg)`;
+                  op = 1;
+                } else {
+                  // out
+                  tf = `translate(${gx - x}px, ${gy - y}px) scale(.16) rotate(0deg)`;
+                  op = 0;
+                }
+                // 펼칠 때만 스태거(모임·복귀는 한 덩어리로)
+                const delay = phase === "open" ? Math.min(z, 24) * 20 : 0;
+                return (
+                  <div
+                    key={it.id}
+                    className="absolute"
+                    style={{ left: x, top: y, transform: "translate(-50%,-50%)", zIndex: 10 + z }}
+                  >
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeOne(it.id);
+                      }}
+                      aria-label="빼기"
+                      className="block cursor-pointer bg-white shadow-[0_10px_28px_rgba(0,0,0,0.45)]"
+                      style={{
+                        padding: `${side}px ${side}px ${bottom}px`,
+                        borderRadius: 3,
+                        transformOrigin: "center",
+                        transform: tf,
+                        opacity: op,
+                        transition: `transform 400ms cubic-bezier(.2,.7,.2,1) ${delay}ms, opacity 320ms ease ${delay}ms`,
+                      }}
+                    >
+                      <img
+                        src={it.src}
+                        alt=""
+                        draggable={false}
+                        style={{
+                          display: "block",
+                          width: photoW,
+                          height: photoH,
+                          objectFit: "cover",
+                          borderRadius: 1,
+                        }}
+                      />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
           {/* 상단 — 안내 + 닫기 */}
           <div
