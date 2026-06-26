@@ -483,6 +483,13 @@ export function ExploreGallery({
 }
 
 // 핀터레스트식 핀 카드 — 비율 예약(레이아웃 점프 방지) + 담기('+') + 옵션 표시(가격)
+// 일부 카드(약 1/8)에 브랜드 테두리 — 화면당 1~2개로 브랜드 감성 노출(결정적 해시)
+function accentRing(id: string): boolean {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return h % 8 === 0;
+}
+
 function PhotoCard({
   photo,
   showPrice,
@@ -497,11 +504,15 @@ function PhotoCard({
   // DB 비율로 공간 예약 → 이미지 로드 시 레이아웃 점프 제거
   const ratio =
     photo.width > 0 && photo.height > 0 ? `${photo.width} / ${photo.height}` : undefined;
+  const accent = accentRing(photo.id);
 
   return (
     <div
       data-cart-card
-      className="group relative break-inside-avoid overflow-hidden rounded-2xl bg-fg/[0.05]"
+      className={cn(
+        "group relative break-inside-avoid overflow-hidden rounded-2xl bg-fg/[0.05]",
+        accent && "ring-2 ring-brand ring-offset-2 ring-offset-bg"
+      )}
     >
       <Link href={`/photos/${photo.id}`} className="block" data-track="cta:photo">
         <img

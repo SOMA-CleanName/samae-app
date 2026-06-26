@@ -3,6 +3,14 @@
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
+
+// 일부 카드(약 1/8)에 브랜드 테두리 (결정적 해시)
+function accentRing(id: string): boolean {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return h % 8 === 0;
+}
 
 export type ExplorePhoto = {
   id: string;
@@ -107,20 +115,33 @@ function PhotoMasonry({
         <div key={ci} className="flex min-w-0 flex-1 flex-col gap-3">
           {col.map((p) => {
             const ratio = p.width > 0 && p.height > 0 ? `${p.width} / ${p.height}` : undefined;
+            const accent = accentRing(p.id);
             return (
-              <Link
+              <div
                 key={p.id}
-                href={`/photos/${p.id}`}
-                className="block overflow-hidden rounded-2xl bg-fg/[0.05] transition-opacity hover:opacity-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                data-cart-card
+                className={`group relative overflow-hidden rounded-2xl bg-fg/[0.05] ${
+                  accent ? "ring-2 ring-brand ring-offset-2 ring-offset-bg" : ""
+                }`}
               >
-                <img
-                  src={p.thumb_url ?? p.src_url}
-                  alt={altLabel}
-                  loading="lazy"
-                  style={ratio ? { aspectRatio: ratio } : undefined}
-                  className="w-full object-cover"
+                <Link
+                  href={`/photos/${p.id}`}
+                  className="block transition-opacity hover:opacity-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                >
+                  <img
+                    src={p.thumb_url ?? p.src_url}
+                    alt={altLabel}
+                    loading="lazy"
+                    style={ratio ? { aspectRatio: ratio } : undefined}
+                    className="w-full object-cover"
+                  />
+                </Link>
+                {/* 상세 하단 추천에서도 담기 가능 */}
+                <AddToCartButton
+                  item={{ id: p.id, src: p.thumb_url ?? p.src_url, w: p.width, h: p.height }}
+                  className="absolute right-2 top-2"
                 />
-              </Link>
+              </div>
             );
           })}
         </div>

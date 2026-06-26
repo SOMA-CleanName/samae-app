@@ -68,7 +68,7 @@ function NavPill({
       className={[
         // 탭 균등 너비 — 라벨 길이 달라도 같은 크기
         "flex min-w-[5.5rem] items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors",
-        active ? "bg-fg text-bg" : "text-fg/65 hover:bg-fg/[0.06] hover:text-fg",
+        active ? "bg-brand text-white" : "text-fg/65 hover:bg-brand/[0.08] hover:text-brand",
       ].join(" ")}
     >
       {icon}

@@ -84,9 +84,16 @@ export function FloatingCart() {
       } catch {
         /* 무시 */
       }
-    } else {
-      setOpen(true); // 탭 = 열기
     }
+    // 열기는 onClick 에서 처리(데스크톱 마우스 호환 — pointercapture 후에도 click 은 발화)
+  }
+  // 드래그가 아니면 클릭으로 열기 (드래그 직후 합성 click 은 moved 가드로 무시)
+  function onClick() {
+    if (drag.current.moved) {
+      drag.current.moved = false;
+      return;
+    }
+    setOpen(true);
   }
 
   // 부채꼴 방향 — 컨테이너가 화면 우측이면 right, 좌측이면 left (드래그 중에도 라이브로 미러)
@@ -117,6 +124,7 @@ export function FloatingCart() {
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
+        onClick={onClick}
         aria-label="장바구니 보기 (드래그로 이동)"
         style={style}
         className="fixed z-40 cursor-grab touch-none select-none active:cursor-grabbing"
