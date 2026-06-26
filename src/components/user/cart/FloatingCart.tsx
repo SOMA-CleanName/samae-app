@@ -574,15 +574,22 @@ function FocusedPhoto({
     const dx = fromRect.left + fromRect.width / 2 - (last.left + last.width / 2);
     const dy = fromRect.top + fromRect.height / 2 - (last.top + last.height / 2);
     const s = Math.max(0.05, fromRect.width / last.width);
-    // 카드 자리에서 화면 중앙으로 이동하며 커짐
-    el.animate(
-      [
-        { transform: `translate(${dx}px,${dy}px) scale(${s})`, opacity: 0.85, offset: 0 },
-        { transform: "translate(0,0) scale(1)", opacity: 1, offset: 1 },
-      ],
-      { duration: 440, easing: "cubic-bezier(.22,1,.36,1)" }
-    );
-    dimRef.current?.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 280, easing: "ease" });
+    // FLIP — 페인트 전 카드 위치/크기로 즉시 배치한 뒤, 다음 프레임에 트랜지션으로 중앙·원래 크기로.
+    el.style.transformOrigin = "center";
+    el.style.transform = `translate(${dx}px,${dy}px) scale(${s})`;
+    el.style.opacity = "0.85";
+    const dim = dimRef.current;
+    if (dim) dim.style.opacity = "0";
+    const raf = requestAnimationFrame(() => {
+      el.style.transition = "transform 440ms cubic-bezier(.22,1,.36,1), opacity 300ms ease";
+      el.style.transform = "translate(0,0) scale(1)";
+      el.style.opacity = "1";
+      if (dim) {
+        dim.style.transition = "opacity 300ms ease";
+        dim.style.opacity = "1";
+      }
+    });
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   const vw = vp?.w ?? 360;
