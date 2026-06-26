@@ -37,13 +37,19 @@ export function ShareButton({
     }
   }
 
+  // className 으로 위치를 받으면(absolute 등) 그걸 쓰고, 없을 때만 relative.
+  // (base 에 relative 를 박아두면 전달된 absolute 가 Tailwind 순서에 밀려 무시되어
+  //  버튼이 in-flow 가 되고 → 같은 박스의 다른 오버레이를 아래로 밀어냄)
+  const positioned = /\b(absolute|fixed|relative|sticky)\b/.test(className);
+
   return (
     <button
       type="button"
       onClick={onShare}
       aria-label="공유하기"
       className={[
-        "relative grid h-9 w-9 cursor-pointer place-items-center rounded-full transition-colors",
+        "grid h-9 w-9 cursor-pointer place-items-center rounded-full transition-colors",
+        positioned ? "" : "relative",
         tone,
         className,
       ].join(" ")}
