@@ -1,16 +1,17 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useEffect, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import { togglePhotoLike } from "@/app/(user)/actions";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
-import { HeartIcon, ChevronLeftIcon, ChevronRightIcon } from "@/components/user/icons";
+import { ChevronLeftIcon, ChevronRightIcon } from "@/components/user/icons";
+import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
 
 type P = {
   id: string;
   src_url: string;
   thumb_url: string | null;
+  width?: number;
+  height?: number;
   liked?: boolean;
   count?: number;
 };
@@ -70,41 +71,13 @@ function Slide({ p, alt }: { p: P; alt: string }) {
   );
 }
 
-// 현재 슬라이드 사진 좋아요 — 옵티미스틱(재검증 없음, 추천 피드 리셔플 방지).
-// key={p.id} 로 슬라이드 전환 시 해당 사진 상태로 리셋.
-function LikeOverlay({ p }: { p: P }) {
-  const [liked, setLiked] = useState(p.liked ?? false);
-  const [count, setCount] = useState(p.count ?? 0);
-  const [, start] = useTransition();
-  const router = useRouter();
-
-  function onClick() {
-    const next = !liked;
-    setLiked(next);
-    setCount((c) => c + (next ? 1 : -1));
-    start(async () => {
-      const res = await togglePhotoLike(p.id);
-      if (!res.loggedIn) {
-        setLiked(false);
-        setCount((c) => c - 1);
-        router.push(`/login?next=${encodeURIComponent(`/photos/${p.id}?like=1`)}`);
-        return;
-      }
-      setLiked(res.liked);
-    });
-  }
-
+// 현재 슬라이드 사진을 장바구니에 담는 '+' 오버레이 (좋아요 대체)
+function CartOverlay({ p }: { p: P }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={liked}
-      aria-label={liked ? "좋아요 취소" : "좋아요"}
-      className="absolute bottom-3 left-3 z-10 flex cursor-pointer items-center gap-1.5 rounded-full bg-black/45 px-3 py-2 text-white backdrop-blur transition-colors hover:bg-black/60"
-    >
-      <HeartIcon className="h-5 w-5" filled={liked} />
-      {count > 0 && <span className="text-xs font-semibold">{count}</span>}
-    </button>
+    <AddToCartButton
+      item={{ id: p.id, src: p.thumb_url ?? p.src_url, w: p.width ?? 0, h: p.height ?? 0 }}
+      className="absolute right-3 top-3 z-10"
+    />
   );
 }
 
@@ -148,11 +121,12 @@ export function PhotoCarousel({
   if (photos.length <= 1) {
     return (
       <div
+        data-cart-card
         className="relative max-h-[82svh] select-none overflow-hidden rounded-2xl bg-black"
         style={{ aspectRatio: frameAspect }}
       >
         <Slide p={photos[0]} alt={altFor(0)} />
-        {pagePath && <LikeOverlay key={photos[0].id} p={photos[0]} />}
+        {pagePath && <CartOverlay key={photos[0].id} p={photos[0]} />}
       </div>
     );
   }
@@ -160,7 +134,7 @@ export function PhotoCarousel({
   const cur = photos[Math.max(0, Math.min(photos.length - 1, idx))];
 
   return (
-    <div className="relative">
+    <div className="relative" data-cart-card>
       <div
         ref={ref}
         onScroll={onScroll}
@@ -174,8 +148,8 @@ export function PhotoCarousel({
         ))}
       </div>
 
-      {/* 현재 슬라이드 좋아요 */}
-      {pagePath && <LikeOverlay key={cur.id} p={cur} />}
+      {/* 현재 슬라이드 담기 */}
+      {pagePath && <CartOverlay key={cur.id} p={cur} />}
 
       {/* 좌우 버튼 */}
       {idx > 0 && (
