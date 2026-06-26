@@ -91,6 +91,12 @@ export function InquiryChat({
   useEffect(() => {
     if (started.current) return;
     started.current = true;
+    // 문의(예약) 진입 = 전환 행동 → A11 혜택 hook 더 이상 안 띄움
+    try {
+      localStorage.setItem("samae:hooked", "1");
+    } catch {
+      /* 무시 */
+    }
     advanceTo(0);
   }, []);
 

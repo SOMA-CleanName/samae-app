@@ -64,6 +64,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   // 담기 — sourceEl 이 있으면 fly 모션 후 도착 시 추가, 없으면 즉시 추가
   const add = useCallback(
     (item: CartItem, sourceEl?: HTMLElement | null) => {
+      // 장바구니 담기 = 전환 행동 → A11 혜택 hook 더 이상 안 띄움
+      try {
+        localStorage.setItem("samae:hooked", "1");
+      } catch {
+        /* 무시 */
+      }
       const target = targetRef.current;
       if (!sourceEl || !target || typeof document === "undefined") {
         pushItem(item);

@@ -13,6 +13,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { PhotoCarousel } from "./PhotoCarousel";
 import { PhotoExplore } from "./PhotoExplore";
 import { PhotoTopBar } from "./PhotoTopBar";
+import { DetailHookCta } from "./DetailHookCta";
 import { OwnerPhotoBackButton } from "./OwnerPhotoBackButton";
 import { AutoFavorite } from "@/components/user/AutoFavorite";
 import { PixelViewContent } from "@/components/PixelViewContent";
@@ -159,6 +160,9 @@ export default async function PhotoDetail({
 
       {/* 하단 — 추천 사진 무한 스크롤 (작가 사진 탭 제거) */}
       <PhotoExplore initialRecs={initialRecs} />
+
+      {/* A11 혜택 hook — 스크롤 내리면 노출, 예약/장바구니 1회 후 숨김 */}
+      {!isOwner && <DetailHookCta href={inquiryHref(ph.id, photo.id)} />}
     </main>
   );
 }
