@@ -108,6 +108,8 @@ function flyToCart(sourceEl: HTMLElement, target: HTMLElement, src: string, onLa
   const clone = document.createElement("img");
   clone.src = src;
   clone.setAttribute("aria-hidden", "true");
+  // 장바구니 미리보기 썸네일과 같은 프레임(흰 테두리·radius·그림자)으로 날아가
+  // 도착 시 카드로 자연스럽게 안착. (rounded-lg=8px, ring-[3px] white, 동일 shadow)
   Object.assign(clone.style, {
     position: "fixed",
     left: `${s.left}px`,
@@ -115,8 +117,10 @@ function flyToCart(sourceEl: HTMLElement, target: HTMLElement, src: string, onLa
     width: `${s.width}px`,
     height: `${s.height}px`,
     objectFit: "cover",
-    borderRadius: "14px",
-    boxShadow: "0 10px 30px rgba(0,0,0,.28)",
+    borderRadius: "8px",
+    border: "3px solid #fff",
+    boxSizing: "border-box",
+    boxShadow: "0 8px 22px rgba(0,0,0,0.42)",
     zIndex: "200",
     pointerEvents: "none",
     margin: "0",

@@ -514,8 +514,9 @@ function PhotoCard({
     <div
       data-cart-card
       className={cn(
-        "group relative break-inside-avoid overflow-hidden rounded-2xl bg-fg/[0.05]",
-        accent && "ring-4 ring-brand"
+        // 모든 사진에 동일 테두리 — 기본은 배경색(보이지 않음), 저빈도만 브랜드색
+        "group relative break-inside-avoid overflow-hidden rounded-2xl bg-fg/[0.05] ring-4",
+        accent ? "ring-brand" : "ring-bg"
       )}
     >
       <Link href={`/photos/${photo.id}`} className="block" data-track="cta:photo">
