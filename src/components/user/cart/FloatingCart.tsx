@@ -234,7 +234,7 @@ function spreadJitter(id: string): { rot: number; fx: number; fy: number } {
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
   return {
-    rot: (h % 25) - 12, // -12 ~ 12도
+    rot: (h % 11) - 5, // -5 ~ 5도(살짝만 기울임 → 그리드 유지)
     fx: (((h >> 5) % 21) - 10) / 10, // -1 ~ 1
     fy: (((h >> 11) % 21) - 10) / 10, // -1 ~ 1
   };
@@ -297,25 +297,43 @@ function CartModal({
     startTransition(() => formAction(fd));
   }
 
-  // 흩뿌림 레이아웃 — 셀 그리드 + 셀 내 지터(겹침 최소화하면서 자연스럽게)
+  // 그리드 레이아웃 — 모든 사진이 한 화면에 들어오도록 칸을 나누고, 칸 크기를 최대화.
+  // 위치 지터는 아주 작게(겹침 방지) + 살짝 기울임으로 폴라로이드 느낌만.
   const N = items.length;
   const layout = (() => {
     if (!vp || N === 0) return [] as Array<{
       it: CartItem; x: number; y: number; rot: number; photoW: number; photoH: number; side: number; bottom: number; z: number;
     }>;
     const { w: W, h: H } = vp;
-    const padX = Math.max(14, W * 0.05);
-    const topPad = 76;
-    const bottomReserve = 156;
+    const padX = Math.max(16, W * 0.06);
+    const topPad = 84;
+    const bottomReserve = 150;
     const areaW = W - padX * 2;
-    const areaH = Math.max(160, H - topPad - bottomReserve);
-    const cols = Math.max(2, Math.min(N, Math.round(Math.sqrt((N * areaW) / areaH)) || 2));
+    const areaH = Math.max(180, H - topPad - bottomReserve);
+    const CARD_ASPECT = 0.8; // 폴라로이드(세로형) 대략 너비/높이
+
+    // 칸 크기를 최대화하는 열 수 선택(모든 사진을 영역 안에 담되 최대한 크게)
+    let cols = 1;
+    let cardW = 0;
+    for (let c = 1; c <= N; c++) {
+      const rows = Math.ceil(N / c);
+      const cw = areaW / c;
+      const ch = areaH / rows;
+      const w = Math.min(cw * 0.92, ch * 0.92 * CARD_ASPECT);
+      if (w > cardW) {
+        cardW = w;
+        cols = c;
+      }
+    }
+    cardW = Math.min(cardW, 240); // 적을 때 과하게 커지지 않게 상한
     const rows = Math.ceil(N / cols);
     const cellW = areaW / cols;
     const cellH = areaH / rows;
-    const photoW = Math.min(cellW * 0.84, 168);
-    const side = Math.max(5, Math.round(photoW * 0.07));
-    const bottom = Math.max(12, Math.round(photoW * 0.2));
+    const side = Math.max(6, Math.round(cardW * 0.055));
+    const bottom = Math.max(14, Math.round(cardW * 0.16));
+    const photoW = Math.round(cardW - side * 2);
+    const maxPhotoH = Math.round(cellH * 0.9 - side - bottom);
+
     return items.map((it, i) => {
       const row = Math.floor(i / cols);
       const inRow = i - row * cols;
@@ -324,10 +342,10 @@ function CartModal({
       const cxc = rowStartX + (inRow + 0.5) * cellW;
       const cyc = topPad + (row + 0.5) * cellH;
       const j = spreadJitter(it.id);
-      const x = cxc + j.fx * cellW * 0.18;
-      const y = cyc + j.fy * cellH * 0.18;
+      const x = cxc + j.fx * Math.min(8, cellW * 0.03);
+      const y = cyc + j.fy * Math.min(6, cellH * 0.03);
       const ratio = it.w > 0 && it.h > 0 ? it.h / it.w : 1;
-      const photoH = Math.min(Math.round(photoW * ratio), Math.round(cellH * 0.92));
+      const photoH = Math.min(Math.round(photoW * ratio), Math.max(40, maxPhotoH));
       return { it, x, y, rot: j.rot, photoW, photoH, side, bottom, z: i };
     });
   })();
