@@ -41,7 +41,8 @@ type Placed = {
   photoH: number;
   side: number;
   bottom: number;
-  z: number;
+  z: number; // 담은 순서 인덱스(최신=큼) → zIndex
+  g: number; // 그리드 순서(최신=0, 좌상단) → 펼침 스태거
 };
 
 export function FloatingCart() {
@@ -226,8 +227,10 @@ export function FloatingCart() {
     const contentH = SCROLL ? topPad + rows * cellH + 32 : H;
 
     const cards = items.map((it, i) => {
-      const row = Math.floor(i / cols);
-      const inRow = i - row * cols;
+      // 그리드 순서는 최신이 좌상단(g=0) — 도크에서 보이던 카드가 위로 펼쳐지게.
+      const g = N - 1 - i;
+      const row = Math.floor(g / cols);
+      const inRow = g - row * cols;
       const itemsInRow = row < rows - 1 ? cols : N - cols * (rows - 1);
       const rowStartX = padX + (areaW - itemsInRow * cellW) / 2;
       const cxc = rowStartX + (inRow + 0.5) * cellW;
@@ -237,7 +240,7 @@ export function FloatingCart() {
       const y = cyc + j.fy * Math.min(6, cellH * 0.03);
       const ratio = it.w > 0 && it.h > 0 ? it.h / it.w : 1;
       const photoH = Math.min(Math.round(photoW * ratio), Math.max(40, maxPhotoH));
-      return { it, x, y, rot: j.rot, photoW, photoH, side, bottom, z: i };
+      return { it, x, y, rot: j.rot, photoW, photoH, side, bottom, z: i, g };
     });
     return { cards, contentH, cardW };
   })();
@@ -299,10 +302,12 @@ export function FloatingCart() {
         } ${open ? "" : "pointer-events-none"}`}
       >
         <div className="relative w-full" style={{ height: phase === "spread" && SCROLL ? contentH : "100%" }}>
-          {cards.map(({ it, x, y, rot, photoW, photoH, side, bottom, z }) => {
+          {cards.map(({ it, x, y, rot, photoW, photoH, side, bottom, z, g }) => {
             const isLeaving = leaving.has(it.id);
-            const depth = N - 1 - z; // 0 = 최신(맨 위)
             const j = cartCardJitter(it.id);
+            // 펼침 위치가 화면 밖(아래)인 카드 — 스택에서 빠져나오는 게 아니라 제자리에서 페이드만
+            // (아래로 내려가며 사라지는 느낌 제거). 이런 카드는 도크에서도 안 보이는 깊은 카드들.
+            const belowFold = y > H;
             let tf: string;
             let op: number;
             if (isLeaving) {
@@ -311,17 +316,21 @@ export function FloatingCart() {
             } else if (phase === "spread") {
               tf = `translate(0,0) scale(1) rotate(${rot}deg)`;
               op = 1;
+            } else if (belowFold) {
+              // 화면 밖(아래) 제자리 대기 — 이동 없이 펼침에서 페이드 인
+              tf = `translate(0,0) scale(1) rotate(${rot}deg)`;
+              op = 0;
             } else if (phase === "center") {
               // 중앙에 모인 스택(도크와 같은 크기·지터)
               tf = `translate(${cx - x + j.dx}px, ${cy - y + j.dy}px) scale(${dockScale}) rotate(${j.rot}deg)`;
-              op = depth >= 5 ? 0 : 1;
+              op = g >= 5 ? 0 : 1;
             } else {
               // 도크 — 그 자리의 폴라로이드 더미
               tf = `translate(${dockCx - x + j.dx}px, ${dockCy - y + j.dy}px) scale(${dockScale}) rotate(${j.rot}deg)`;
-              op = depth >= 5 ? 0 : 1;
+              op = g >= 5 ? 0 : 1;
             }
-            // 펼칠 때만 스태거 — 그리드 위(z 작은 쪽)부터 한 장씩 펼쳐짐. 모임·이동은 한 덩어리로.
-            const delay = !dragging && phase === "spread" ? Math.min(z, 16) * 22 : 0;
+            // 펼칠 때만 스태거 — 그리드 위(g 작은 쪽=최신)부터 한 장씩. 모임·이동은 한 덩어리로.
+            const delay = !dragging && phase === "spread" ? Math.min(g, 16) * 22 : 0;
             return (
               <div
                 key={it.id}
