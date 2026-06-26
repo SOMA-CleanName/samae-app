@@ -3,7 +3,6 @@ import { getCurrentUser } from "@/lib/auth";
 import { getPublishedCategory, isUntaggedCategory } from "@/lib/categories";
 import { fetchCategoryFeed, fetchLikedPhotoIds } from "@/lib/discovery";
 import { ExploreGallery } from "@/components/user/ExploreGallery";
-import { ExploreHeader } from "@/components/user/ExploreHeader";
 import { EmptyState } from "@/components/ui";
 import { LayersIcon } from "@/components/user/icons";
 
@@ -36,10 +35,7 @@ export default async function CategoryPage({
   const likedIds = me ? await fetchLikedPhotoIds(photos.map((p) => p.id), me.id) : [];
 
   return (
-    <section className="px-3 pb-10 font-kr sm:px-5">
-      {/* 탐색 메인과 동일한 sticky 검색 헤더 (제목 없이 검색·보기옵션만) */}
-      <ExploreHeader />
-
+    <section className="px-3 pb-10 pt-4 font-kr sm:px-5">
       {photos.length === 0 ? (
         <EmptyState
           icon={<LayersIcon className="h-7 w-7" />}

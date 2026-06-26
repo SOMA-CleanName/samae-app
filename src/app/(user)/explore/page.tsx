@@ -3,7 +3,6 @@ import Link from "next/link";
 import { listPublishedCategories } from "@/lib/categories";
 import { fetchPhotosByTags, fetchUntaggedPhotos } from "@/lib/discovery";
 import { isUntaggedCategory } from "@/lib/category-constants";
-import { SearchPill } from "@/components/user/SearchPill";
 import { ChevronRightIcon } from "@/components/user/icons";
 
 export const dynamic = "force-dynamic";
@@ -23,12 +22,7 @@ export default async function ExplorePage() {
 
   return (
     <section className="font-kr">
-      {/* 상단 검색바 (sticky) */}
-      <div className="sticky top-0 z-30 flex items-center gap-2 bg-bg/90 px-4 py-3 backdrop-blur sm:px-5">
-        <SearchPill />
-      </div>
-
-      <div className="space-y-7 px-4 pb-4 pt-2 sm:px-5">
+      <div className="space-y-7 px-4 pb-4 pt-5 sm:px-5">
         {sections.map(
           ({ c, photos }) =>
             photos.length > 0 && (

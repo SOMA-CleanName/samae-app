@@ -12,7 +12,6 @@ import { getCurrentUser } from "@/lib/auth";
 import { getPublishedCategory, isUntaggedCategory } from "@/lib/categories";
 import { CATEGORY_COOKIE } from "@/lib/category-constants";
 import { ExploreGallery } from "@/components/user/ExploreGallery";
-import { ExploreHeader } from "@/components/user/ExploreHeader";
 import type { GalleryPhoto } from "@/lib/discovery";
 
 export const dynamic = "force-dynamic";
@@ -76,9 +75,7 @@ export default async function ExploreHome({
   );
 
   return (
-    <section className="px-3 pb-10 font-kr sm:px-5">
-      <ExploreHeader />
-
+    <section className="px-3 pb-10 pt-4 font-kr sm:px-5">
       {/* 카테고리 알고리즘 보는 중 표시 + 전체 보기 해제 (검색 모드 아닐 때만) */}
       {category && !query && (
         <div className="mx-auto mt-1 flex max-w-screen-2xl items-center gap-2 px-1">
