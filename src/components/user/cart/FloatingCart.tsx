@@ -29,38 +29,33 @@ export function FloatingCart() {
     );
   }
 
-  const peek = items.slice(-4); // 최근 4장만 부채꼴로 노출
+  const peek = items.slice(-2); // 최근 2장만 살짝 — 화면 덜 가리게
 
   return (
     <>
-      {/* 우측 가장자리에 카드가 부채꼴로 겹쳐 좌측 일부만 삐져나옴(대부분 화면 밖) */}
+      {/* 우측 가장자리에 카드가 살짝 겹쳐 좌측 일부만 삐져나옴(대부분 화면 밖) */}
       <button
         ref={stackRef}
         type="button"
         onClick={() => setOpen(true)}
-        aria-label={`장바구니 ${count}장 보기`}
+        aria-label="장바구니 보기"
         className="fixed bottom-28 right-0 z-40 cursor-pointer"
       >
-        {/* 카드 묶음을 오른쪽으로 밀어 화면 밖으로 → 좌측 부채꼴만 보이게 */}
-        <div className="relative h-24 w-16 translate-x-[42%]">
+        {/* 카드 묶음을 오른쪽으로 밀어 화면 밖으로 → 좌측 부채꼴만 살짝 보이게 */}
+        <div className="relative h-20 w-14 translate-x-[52%]">
           {peek.map((it, i) => {
-            // 맨 위(마지막) 카드는 세로(오른쪽, 거의 화면 밖), 아래 카드일수록 좌측으로 부채꼴
-            const rot = (peek.length - 1 - i) * -13;
+            const rot = (peek.length - 1 - i) * -9;
             return (
               <img
                 key={it.id}
                 src={it.src}
                 alt=""
-                className="absolute bottom-0 right-0 h-24 w-16 rounded-lg object-cover shadow-xl ring-1 ring-black/10"
+                className="absolute bottom-0 right-0 h-20 w-14 rounded-lg object-cover shadow-lg ring-1 ring-black/10"
                 style={{ transformOrigin: "bottom right", transform: `rotate(${rot}deg)`, zIndex: i }}
               />
             );
           })}
         </div>
-        {/* 카운트 배지 — 보이는 쪽(좌상단) */}
-        <span className="absolute -left-1 top-1 grid h-5 min-w-5 place-items-center rounded-full bg-brand px-1 text-[11px] font-bold text-white shadow ring-2 ring-bg">
-          {count}
-        </span>
       </button>
 
       {open && <CartModal onClose={() => setOpen(false)} items={items} onRemove={remove} />}

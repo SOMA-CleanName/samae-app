@@ -71,9 +71,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       }
       flyToCart(sourceEl, target, item.src, () => {
         pushItem(item);
+        // 안착 바운스 — 카드가 "톡" 담기는 마무리
         target.animate(
-          [{ transform: "scale(1)" }, { transform: "scale(1.18)" }, { transform: "scale(1)" }],
-          { duration: 320, easing: "ease-out" }
+          [{ transform: "scale(1)" }, { transform: "scale(1.12)" }, { transform: "scale(1)" }],
+          { duration: 360, easing: "cubic-bezier(.34,1.56,.64,1)" }
         );
       });
     },
@@ -123,21 +124,26 @@ function flyToCart(sourceEl: HTMLElement, target: HTMLElement, src: string, onLa
 
   const dx = t.left + t.width / 2 - (s.left + s.width / 2);
   const dy = t.top + t.height / 2 - (s.top + s.height / 2);
+  // 도착 시 장바구니 카드(약 56px) 크기에 맞춰 축소 → 클론이 그대로 카드로 안착하는 느낌
+  const endScale = Math.max(0.16, Math.min(0.5, 56 / s.width));
 
   const anim = clone.animate(
     [
-      { transform: "translate(0,0) scale(1)", opacity: 1 },
-      { transform: `translate(${dx * 0.6}px, ${dy * 0.6}px) scale(0.5)`, opacity: 1, offset: 0.6 },
-      { transform: `translate(${dx}px, ${dy}px) scale(0.12)`, opacity: 0.4 },
+      { transform: "translate(0,0) scale(1)", opacity: 1, offset: 0 },
+      {
+        transform: `translate(${dx * 0.55}px, ${dy * 0.55}px) scale(${(1 + endScale) / 2})`,
+        opacity: 1,
+        offset: 0.55,
+      },
+      { transform: `translate(${dx}px, ${dy}px) scale(${endScale})`, opacity: 1, offset: 1 },
     ],
-    { duration: 680, easing: "cubic-bezier(.4,0,.2,1)" }
+    { duration: 620, easing: "cubic-bezier(.45,0,.2,1)" }
   );
-  anim.onfinish = () => {
-    clone.remove();
+  // 끊김 없이: 먼저 장바구니에 담아 카드가 렌더된 뒤 다음 프레임에 클론 제거
+  const finish = () => {
     onLand();
+    requestAnimationFrame(() => clone.remove());
   };
-  anim.oncancel = () => {
-    clone.remove();
-    onLand();
-  };
+  anim.onfinish = finish;
+  anim.oncancel = finish;
 }
