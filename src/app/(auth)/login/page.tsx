@@ -6,6 +6,9 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ArrowLeftIcon, CheckIcon } from "@/components/user/icons";
 
+const DEFAULT_LOGIN_NEXT = "/studio";
+const OAUTH_NEXT_COOKIE = "samae_oauth_next";
+
 // 로그인 — 카카오 소셜 + 이메일 (회원가입은 /signup)
 export default function LoginPage() {
   const router = useRouter();
@@ -28,8 +31,16 @@ export default function LoginPage() {
     else router.push("/");
   }
 
+  function loginNext() {
+    if (typeof window === "undefined") return DEFAULT_LOGIN_NEXT;
+    const next = new URLSearchParams(window.location.search).get("next");
+    return safeClientNext(next, DEFAULT_LOGIN_NEXT);
+  }
+
   async function onKakao() {
     setError(null);
+    const next = loginNext();
+    document.cookie = `${OAUTH_NEXT_COOKIE}=${encodeURIComponent(next)}; path=/; max-age=600; SameSite=Lax`;
     await supabase.auth.signInWithOAuth({
       provider: "kakao",
       options: { redirectTo: `${location.origin}/auth/callback` },
@@ -48,7 +59,7 @@ export default function LoginPage() {
       setError(error.message);
       return;
     }
-    router.push("/");
+    router.push(loginNext());
     router.refresh();
   }
 
@@ -130,4 +141,16 @@ export default function LoginPage() {
       </div>
     </main>
   );
+}
+
+function safeClientNext(next: string | null | undefined, fallback: string) {
+  if (!next) return fallback;
+  if (!next.startsWith("/") || next.startsWith("//") || next.startsWith("/\\")) return fallback;
+  try {
+    const url = new URL(next, "http://internal.invalid");
+    if (url.origin !== "http://internal.invalid") return fallback;
+    return url.pathname + url.search + url.hash;
+  } catch {
+    return fallback;
+  }
 }
