@@ -65,6 +65,7 @@ export function FloatingCart() {
   const [leaving, setLeaving] = useState<Set<string>>(new Set());
   const [state, formAction, pending] = useActionState(submitCartInquiry, { ok: false });
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const flownRef = useRef<Set<string>>(new Set()); // 이미 fly 처리한 id(StrictMode 중복 방지)
   const layerRef = useRef<HTMLDivElement>(null);
 
   const N = count;
@@ -296,6 +297,7 @@ export function FloatingCart() {
   const newestId = N > 0 ? items[items.length - 1].id : null;
   useIsoLayout(() => {
     if (!newestId || phase !== "dock") return;
+    if (flownRef.current.has(newestId)) return; // StrictMode 중복/재실행 방지
     const from = consumeFlyFrom(newestId);
     if (!from) return;
     const el = cardRefs.current.get(newestId);
@@ -305,6 +307,7 @@ export function FloatingCart() {
     const item = items[items.length - 1];
     if (!item) return;
 
+    flownRef.current.add(newestId);
     // 새 카드는 클론이 도착할 때까지 숨김 → 도착하면 그 자리에 그대로 나타남
     el.style.opacity = "0";
 
@@ -331,22 +334,27 @@ export function FloatingCart() {
     const scale = to.width / from.width;
     const tx = to.left - from.left;
     const ty = to.top - from.top;
-    const raf = requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
       clone.style.transition = "transform 520ms cubic-bezier(.42,0,.18,1)";
       clone.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
     });
+    let finished = false;
     const done = () => {
-      clone.remove();
-      el.style.opacity = "";
+      if (finished) return;
+      finished = true;
+      // 카드를 즉시(트랜지션 없이) 보이게 → 다음 프레임에 클론 제거(겹쳐서 갭 없음)
+      el.style.transition = "none";
+      el.style.opacity = "1";
+      requestAnimationFrame(() => {
+        clone.remove();
+        el.style.transition = "";
+        el.style.opacity = "";
+        flownRef.current.delete(newestId);
+      });
     };
     clone.addEventListener("transitionend", done, { once: true });
-    const t = window.setTimeout(done, 640);
-    return () => {
-      cancelAnimationFrame(raf);
-      clearTimeout(t);
-      clone.remove();
-      el.style.opacity = "";
-    };
+    window.setTimeout(done, 700);
+    // cleanup 은 비파괴적 — StrictMode 더블 실행에도 클론/불투명도를 되돌리지 않음
   }, [newestId, count, phase, consumeFlyFrom, items]);
 
   if (!vp || N === 0) return null;
