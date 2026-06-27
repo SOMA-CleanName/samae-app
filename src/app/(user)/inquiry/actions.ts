@@ -385,3 +385,92 @@ export async function submitCartInquiry(
 
   return { ok: true, leadId };
 }
+
+// ── 찜 여러 장 묶음 상담(채팅) — 작가별로 같은 내용 각각 전송, 같은 작가는 하나만 ──
+export async function submitMultiInquiry(
+  _prevState: InquiryState,
+  formData: FormData
+): Promise<InquiryState> {
+  const photoIds = [
+    ...new Set(
+      String(formData.get("photoIds") || "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    ),
+  ];
+  const values = readInquiryValues(formData);
+  const me = await getCurrentUser();
+
+  let contact: ContactInfo;
+  let brief: BriefInfo;
+  try {
+    contact = validateContactInfo(formData);
+    brief = validateBriefInfo(formData);
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "연락 수단을 확인해주세요.",
+      values,
+    };
+  }
+  if (photoIds.length === 0) return { ok: false, error: "선택한 사진이 없어요.", values };
+
+  if (me) {
+    const supabase = await createClient();
+    await supabase
+      .from("profiles")
+      .update({
+        phone: contact.phone,
+        instagram_id: contact.instagramId,
+        kakao_id: contact.kakaoId,
+        extra_contact: contact.extraContact,
+      })
+      .eq("id", me.id);
+  }
+
+  brief.refImagePaths = await uploadReferenceImages(formData);
+
+  // 사진 → 작가 매핑. 같은 작가는 대표 사진 1장으로 묶어 문의 1건만 생성.
+  const admin = createAdminClient();
+  const { data: photos } = await admin
+    .from("photos")
+    .select("id, photographer_id")
+    .in("id", photoIds);
+
+  const repByPhotographer = new Map<string, string>(); // photographer_id → 대표 photoId
+  for (const p of (photos ?? []) as { id: string; photographer_id: string }[]) {
+    if (p.photographer_id && !repByPhotographer.has(p.photographer_id)) {
+      repByPhotographer.set(p.photographer_id, p.id);
+    }
+  }
+  if (repByPhotographer.size === 0) {
+    return { ok: false, error: "작가 정보를 찾지 못했어요.", values };
+  }
+
+  let firstInquiryId: string | null = null;
+  for (const [photographerId, repPhotoId] of repByPhotographer) {
+    // 본인(작가)이 자기 사진에 보낸 건 건너뜀
+    if (me?.photographer?.id === photographerId) continue;
+    const result = await createInquiry(me?.id ?? null, photographerId, repPhotoId, contact, brief);
+    if (!result) continue;
+    if (!firstInquiryId) firstInquiryId = result.id;
+    if (result.isNew) {
+      await notifyPhotographer(photographerId, result.id, me?.displayName ?? null, contact, brief);
+    }
+  }
+
+  if (!firstInquiryId) return { ok: false, error: "문의 저장에 실패했어요.", values };
+
+  // Meta Lead 1회(첫 문의 기준 eventID)
+  const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.extraContact ?? "")
+    ? contact.extraContact
+    : null;
+  await sendCapiLead({ inquiryId: firstInquiryId, phone: contact.phone, email });
+
+  return {
+    ok: true,
+    message: "선택한 사진의 작가님들에게 문의가 전달되었어요. 곧 연락드릴 예정입니다.",
+    inquiryId: firstInquiryId,
+  };
+}

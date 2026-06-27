@@ -5,7 +5,7 @@ import { startTransition, useActionState, useEffect, useRef, useState } from "re
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeftIcon, CheckIcon, ChevronDownIcon } from "@/components/user/icons";
-import { submitInquiry, type InquiryState } from "./actions";
+import { submitInquiry, submitMultiInquiry, type InquiryState } from "./actions";
 
 const INITIAL_STATE: InquiryState = { ok: false };
 
@@ -191,13 +191,22 @@ export function InquiryChat({
   photographerId,
   photoId,
   photoSrc,
+  photoIds,
+  photoSrcs,
 }: {
   photographerId: string;
   photoId: string;
   photoSrc: string | null;
+  // 찜에서 여러 장 묶음 상담(작가별 dedup은 서버에서). 있으면 멀티 모드.
+  photoIds?: string[];
+  photoSrcs?: string[];
 }) {
   const router = useRouter();
-  const [state, formAction, pending] = useActionState(submitInquiry, INITIAL_STATE);
+  const multi = !!photoIds && photoIds.length > 0;
+  const [state, formAction, pending] = useActionState(
+    multi ? submitMultiInquiry : submitInquiry,
+    INITIAL_STATE
+  );
 
   const [answers, setAnswers] = useState<Partial<Record<StepKey, string>>>({});
   const [revealed, setRevealed] = useState(-1); // 노출된 질문 최대 index
@@ -209,7 +218,9 @@ export function InquiryChat({
   const bottomRef = useRef<HTMLDivElement>(null);
   const started = useRef(false);
 
-  const storageKey = inquiryStorageKey(photoId, photographerId);
+  const storageKey = multi
+    ? `samae:inquiry:cart:${(photoIds ?? []).slice(0, 3).join("_")}`
+    : inquiryStorageKey(photoId, photographerId);
   const answeredCount = STEPS.filter((s) => answers[s.key] !== undefined).length;
   const done = state.ok;
   // 100% 기준 = 질문 5개 + 연락처 제출 1개 (제출까지 완료해야 100%)
@@ -335,8 +346,12 @@ export function InquiryChat({
   // 제출 — 채팅 답변 + 연락처를 FormData 로 변환해 기존 submitInquiry 재사용
   function submit(contactType: ContactType, contactValue: string) {
     const fd = new FormData();
-    fd.set("photographerId", photographerId);
-    fd.set("photoId", photoId);
+    if (multi) {
+      fd.set("photoIds", (photoIds ?? []).join(","));
+    } else {
+      fd.set("photographerId", photographerId);
+      fd.set("photoId", photoId);
+    }
     for (const s of STEPS) {
       const raw = answers[s.key];
       if (!raw) {
@@ -415,11 +430,33 @@ export function InquiryChat({
       <div className="flex-1 space-y-3 overflow-y-auto px-4 py-5">
         {/* 진입 사진 + 인사 (시스템) — 비율 유지(자르지 않음) */}
         <SystemBubble>
-          {photoSrc && (
-            <img src={photoSrc} alt="문의한 사진" className="mb-2 w-full rounded-xl" />
+          {multi ? (
+            (photoSrcs ?? []).length > 0 && (
+              <div className="mb-2 flex gap-1.5 overflow-x-auto">
+                {(photoSrcs ?? []).map((s, i) => (
+                  <img
+                    key={i}
+                    src={s}
+                    alt=""
+                    className="h-20 w-20 shrink-0 rounded-lg object-cover"
+                  />
+                ))}
+              </div>
+            )
+          ) : (
+            photoSrc && <img src={photoSrc} alt="문의한 사진" className="mb-2 w-full rounded-xl" />
           )}
           몇 가지 정보만 알려주시면
-          <br />사진을 찍은 <Em>작가님과 연결</Em>해드려요.
+          <br />
+          {multi ? (
+            <>
+              선택한 사진의 <Em>작가님들과 연결</Em>해드려요.
+            </>
+          ) : (
+            <>
+              사진을 찍은 <Em>작가님과 연결</Em>해드려요.
+            </>
+          )}
         </SystemBubble>
 
         {/* 질문/답변 */}

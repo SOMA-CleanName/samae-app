@@ -613,7 +613,10 @@ export function FloatingCart() {
                   ) : selectMode ? (
                     <button
                       type="button"
-                      onClick={() => setFormFor("selected")}
+                      onClick={() =>
+                        selectedIds.size > 0 &&
+                        router.push(`/inquiry/cart?ids=${[...selectedIds].join(",")}`)
+                      }
                       disabled={selectedIds.size === 0}
                       className="w-full cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                     >
