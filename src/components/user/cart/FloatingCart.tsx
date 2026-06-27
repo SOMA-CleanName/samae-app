@@ -58,8 +58,6 @@ export function FloatingCart() {
   const [formFor, setFormFor] = useState<string | null>(null); // null / photoId(단일) / "selected"(선택 묶음)
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [suppressAnim, setSuppressAnim] = useState(false); // N 변동 프레임에 카드 트랜지션 끄기(슬라이드 잔상 방지)
-  const prevNRef = useRef(0);
   const [contact, setContact] = useState("");
   const [timing, setTiming] = useState(""); // 촬영 희망 시기(한정자, 필수)
   const [region, setRegion] = useState(""); // 희망 지역(선택)
@@ -294,15 +292,6 @@ export function FloatingCart() {
     if (phase === "spread" && layerRef.current) layerRef.current.scrollTop = 0;
   }, [phase]);
 
-  // 사진 수가 바뀌면(담기/삭제) 그 프레임만 카드 트랜지션 끔 → 그리드 재배치 슬라이드 잔상 제거
-  useIsoLayout(() => {
-    if (prevNRef.current === N) return;
-    prevNRef.current = N;
-    setSuppressAnim(true);
-    const r = requestAnimationFrame(() => setSuppressAnim(false));
-    return () => cancelAnimationFrame(r);
-  }, [N]);
-
   // ── 방금 담은 사진 — 원래 위치에서 복제(클론)되어 도크로 빨려들어감 ──
   const newestId = N > 0 ? items[items.length - 1].id : null;
   useIsoLayout(() => {
@@ -385,37 +374,39 @@ export function FloatingCart() {
           {cards.map(({ it, x, y, rot, photoW, photoH, side, bottom, z, g }) => {
             const isLeaving = leaving.has(it.id);
             const j = cartCardJitter(it.id);
-            // 펼침 위치가 화면 밖(아래)인 카드 — 스택에서 빠져나오는 게 아니라 제자리에서 페이드만
-            // (아래로 내려가며 사라지는 느낌 제거). 이런 카드는 도크에서도 안 보이는 깊은 카드들.
-            const belowFold = y > H;
+            const belowFold = y > H; // 펼침 위치가 화면 밖(아래) — 이동 없이 제자리 페이드
+            // 위치를 전부 transform 으로 처리(left/top 은 0 고정) → 도크 좌표가 x,y 와 무관해
+            // 담기/빼기로 N 이 바뀌어도 도크 카드가 흔들리지 않음.
+            const cardW = photoW + side * 2;
+            const cardH = photoH + side + bottom;
+            const tfAt = (X: number, Y: number, s: number, r: number) =>
+              `translate(${X - cardW / 2}px, ${Y - cardH / 2}px) scale(${s}) rotate(${r}deg)`;
             let tf: string;
             let op: number;
             if (isLeaving) {
-              tf = `translate(0,-44px) scale(.6) rotate(${rot}deg)`;
+              tf = tfAt(x, y - 44, 0.6, rot);
               op = 0;
             } else if (phase === "spread") {
-              tf = `translate(0,0) scale(1) rotate(${rot}deg)`;
+              tf = tfAt(x, y, 1, rot);
               op = 1;
             } else if (belowFold) {
-              // 화면 밖(아래) 제자리 대기 — 이동 없이 펼침에서 페이드 인
-              tf = `translate(0,0) scale(1) rotate(${rot}deg)`;
+              tf = tfAt(x, y, 1, rot);
               op = 0;
             } else if (phase === "center") {
-              // 중앙에 모인 스택(도크와 같은 크기·지터)
-              tf = `translate(${cx - x + j.dx}px, ${cy - y + j.dy}px) scale(${dockScale}) rotate(${j.rot}deg)`;
+              tf = tfAt(cx + j.dx, cy + j.dy, dockScale, j.rot);
               op = g >= 5 ? 0 : 1;
             } else {
-              // 도크 — 그 자리의 폴라로이드 더미
-              tf = `translate(${dockCx - x + j.dx}px, ${dockCy - y + j.dy}px) scale(${dockScale}) rotate(${j.rot}deg)`;
+              // 도크 — x,y 무관 고정 좌표
+              tf = tfAt(dockCx + j.dx, dockCy + j.dy, dockScale, j.rot);
               op = g >= 5 ? 0 : 1;
             }
-            // 펼칠 때만 스태거 — 그리드 위(g 작은 쪽=최신)부터 한 장씩. 모임·이동은 한 덩어리로.
+            // 펼칠 때만 스태거 — 그리드 위(g 작은 쪽=최신)부터 한 장씩.
             const delay = !dragging && phase === "spread" ? Math.min(g, 16) * 22 : 0;
             return (
               <div
                 key={it.id}
                 className="absolute"
-                style={{ left: x, top: y, transform: "translate(-50%,-50%)", zIndex: 10 + z }}
+                style={{ left: 0, top: 0, zIndex: 10 + z }}
               >
                 <div
                   ref={(el) => {
@@ -449,10 +440,9 @@ export function FloatingCart() {
                       phase === "spread" && selectMode && !selectedIds.has(it.id) ? 0.5 : op,
                     pointerEvents: "auto", // 닫힘 시 레이어가 none 이라 카드만 살림
                     touchAction: open ? "auto" : "none",
-                    transition:
-                      dragging || suppressAnim
-                        ? "none"
-                        : `transform 460ms cubic-bezier(.2,.7,.2,1) ${delay}ms, opacity 360ms ease ${delay}ms`,
+                    transition: dragging
+                      ? "none"
+                      : `transform 460ms cubic-bezier(.2,.7,.2,1) ${delay}ms, opacity 360ms ease ${delay}ms`,
                   }}
                 >
                   <img
