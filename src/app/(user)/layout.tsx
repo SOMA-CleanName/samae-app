@@ -2,6 +2,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { CartProvider } from "@/components/user/cart/CartProvider";
 import { FloatingCart } from "@/components/user/cart/FloatingCart";
 import { FloatingNav } from "@/components/user/FloatingNav";
+import { NavRevealProvider } from "@/components/user/NavReveal";
 
 // 사용자(탐색) 영역 공통 셸 — 기존 하단바/레일 제거.
 // 하단 중앙 홈/탐색 플로팅 내비 + (로그인 시) 좌측 하단 계정 + 우측 하단 장바구니.
@@ -24,10 +25,12 @@ export default async function UserLayout({
 
   return (
     <CartProvider>
-      {/* 하단 플로팅 내비 높이만큼 여백 확보 */}
-      <main className="pb-28">{children}</main>
-      <FloatingNav me={profileMe} />
-      <FloatingCart />
+      <NavRevealProvider>
+        {/* 하단 플로팅 내비 높이만큼 여백 확보 */}
+        <main className="pb-28">{children}</main>
+        <FloatingNav me={profileMe} />
+        <FloatingCart />
+      </NavRevealProvider>
     </CartProvider>
   );
 }
