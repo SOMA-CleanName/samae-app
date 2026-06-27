@@ -649,12 +649,13 @@ export function FloatingCart() {
               {/* 확대 중 보조 액션 — 무료상담 바 바로 위. (확대 사진은 실제 카드가 중앙으로 옴) */}
               {focused && items.some((i) => i.id === focused) && (
                 <div className="fixed inset-x-0 bottom-[88px] z-[60] flex items-center justify-center gap-2 px-6">
-                  <Link
-                    href={`/photos/${focused}`}
-                    className="rounded-full bg-white/15 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
+                  <button
+                    type="button"
+                    onClick={() => leaveToInquiry(`/photos/${focused}`)}
+                    className="cursor-pointer rounded-full bg-white/15 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
                   >
                     이 사진 게시물 보러가기
-                  </Link>
+                  </button>
                   <button
                     type="button"
                     onClick={() => {
