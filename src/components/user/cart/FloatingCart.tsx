@@ -65,7 +65,6 @@ export function FloatingCart() {
   const [leaving, setLeaving] = useState<Set<string>>(new Set());
   const [state, formAction, pending] = useActionState(submitCartInquiry, { ok: false });
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
-  const flownRef = useRef<Set<string>>(new Set()); // 이미 fly 처리한 id(StrictMode 중복 방지)
   const layerRef = useRef<HTMLDivElement>(null);
 
   const N = count;
@@ -293,69 +292,29 @@ export function FloatingCart() {
     if (phase === "spread" && layerRef.current) layerRef.current.scrollTop = 0;
   }, [phase]);
 
-  // ── 방금 담은 사진 — 원래 위치에서 복제(클론)되어 도크로 빨려들어감 ──
+  // ── 방금 담은 카드 — 출발 사진 자리에서 도크로 부드럽게 날아와 안착(WAAPI FLIP, 77fcd7e 방식) ──
+  // 카드 엘리먼트 자체를 애니메이션. 도크 좌표가 x,y 무관이라 안착 위치가 안정적이라 끊김 없음.
   const newestId = N > 0 ? items[items.length - 1].id : null;
   useIsoLayout(() => {
     if (!newestId || phase !== "dock") return;
-    if (flownRef.current.has(newestId)) return; // StrictMode 중복/재실행 방지
-    const from = consumeFlyFrom(newestId);
+    const from = consumeFlyFrom(newestId); // 한 번만 소비 → StrictMode 재실행 시 자연 무시
     if (!from) return;
     const el = cardRefs.current.get(newestId);
     if (!el) return;
-    const to = el.getBoundingClientRect(); // 도크에 안착할 카드 위치
-    if (!to.width || !from.width) return;
-    const item = items[items.length - 1];
-    if (!item) return;
-
-    flownRef.current.add(newestId);
-    // 새 카드는 클론이 도착할 때까지 숨김 → 도착하면 그 자리에 그대로 나타남
-    el.style.opacity = "0";
-
-    const clone = document.createElement("img");
-    clone.src = item.src;
-    Object.assign(clone.style, {
-      position: "fixed",
-      left: `${from.left}px`,
-      top: `${from.top}px`,
-      width: `${from.width}px`,
-      height: `${from.height}px`,
-      objectFit: "cover",
-      borderRadius: "3px",
-      border: "3px solid #fff",
-      boxSizing: "border-box",
-      boxShadow: "0 10px 28px rgba(0,0,0,0.4)",
-      zIndex: "70",
-      pointerEvents: "none",
-      margin: "0",
-      transformOrigin: "top left",
-    } as CSSStyleDeclaration);
-    document.body.appendChild(clone);
-
-    const scale = to.width / from.width;
-    const tx = to.left - from.left;
-    const ty = to.top - from.top;
-    requestAnimationFrame(() => {
-      clone.style.transition = "transform 520ms cubic-bezier(.42,0,.18,1)";
-      clone.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
-    });
-    let finished = false;
-    const done = () => {
-      if (finished) return;
-      finished = true;
-      // 카드를 즉시(트랜지션 없이) 보이게 → 다음 프레임에 클론 제거(겹쳐서 갭 없음)
-      el.style.transition = "none";
-      el.style.opacity = "1";
-      requestAnimationFrame(() => {
-        clone.remove();
-        el.style.transition = "";
-        el.style.opacity = "";
-        flownRef.current.delete(newestId);
-      });
-    };
-    clone.addEventListener("transitionend", done, { once: true });
-    window.setTimeout(done, 700);
-    // cleanup 은 비파괴적 — StrictMode 더블 실행에도 클론/불투명도를 되돌리지 않음
-  }, [newestId, count, phase, consumeFlyFrom, items]);
+    const last = el.getBoundingClientRect(); // 도크에 안착한 카드 위치
+    if (!last.width) return;
+    const rest = el.style.transform; // 현재 도크 포즈(인라인)
+    const dx = from.left + from.width / 2 - (last.left + last.width / 2);
+    const dy = from.top + from.height / 2 - (last.top + last.height / 2);
+    const scale = Math.max(0.05, from.width / last.width);
+    el.animate(
+      [
+        { transform: `translate(${dx}px, ${dy}px) scale(${scale}) ${rest}`, offset: 0 },
+        { transform: rest, offset: 1 },
+      ],
+      { duration: 560, easing: "cubic-bezier(.42,0,.18,1)" }
+    );
+  }, [newestId, count, phase, consumeFlyFrom]);
 
   if (!vp || N === 0) return null;
 
