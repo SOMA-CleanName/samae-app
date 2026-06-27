@@ -292,29 +292,34 @@ export function FloatingCart() {
     if (phase === "spread" && layerRef.current) layerRef.current.scrollTop = 0;
   }, [phase]);
 
-  // ── 방금 담은 카드 — 출발 사진 자리에서 도크로 부드럽게 날아와 안착(WAAPI FLIP, 77fcd7e 방식) ──
-  // 카드 엘리먼트 자체를 애니메이션. 도크 좌표가 x,y 무관이라 안착 위치가 안정적이라 끊김 없음.
+  // ── 방금 담은 카드 — 출발 사진 자리에서 도크로 부드럽게 날아와 안착(WAAPI) ──
+  // 시작·끝 키프레임을 같은 tfAt 형태로 계산(중심 오프셋 일관) → 시작 위치 어긋남 없음.
   const newestId = N > 0 ? items[items.length - 1].id : null;
   useIsoLayout(() => {
     if (!newestId || phase !== "dock") return;
     const from = consumeFlyFrom(newestId); // 한 번만 소비 → StrictMode 재실행 시 자연 무시
-    if (!from) return;
+    if (!from || !from.width) return;
     const el = cardRefs.current.get(newestId);
     if (!el) return;
-    const last = el.getBoundingClientRect(); // 도크에 안착한 카드 위치
-    if (!last.width) return;
-    const rest = el.style.transform; // 현재 도크 포즈(인라인)
-    const dx = from.left + from.width / 2 - (last.left + last.width / 2);
-    const dy = from.top + from.height / 2 - (last.top + last.height / 2);
-    const scale = Math.max(0.05, from.width / last.width);
+    const rest = el.style.transform; // 현재 도크 포즈(인라인, tfAt 형태)
+    if (!rest) return;
+    const nc = cards[cards.length - 1]; // 최신 카드 = 마지막
+    if (!nc || nc.it.id !== newestId) return;
+    const ncW = nc.photoW + nc.side * 2;
+    const ncH = nc.photoH + nc.side + nc.bottom;
+    const fromCx = from.left + from.width / 2;
+    const fromCy = from.top + from.height / 2;
+    const s = Math.max(0.05, from.width / ncW);
+    // 출발: 사진 자리·사진 크기·회전 0 (도크 포즈와 같은 좌표계)
+    const startTf = `translate(${fromCx - ncW / 2}px, ${fromCy - ncH / 2}px) scale(${s}) rotate(0deg)`;
     el.animate(
       [
-        { transform: `translate(${dx}px, ${dy}px) scale(${scale}) ${rest}`, offset: 0 },
+        { transform: startTf, offset: 0 },
         { transform: rest, offset: 1 },
       ],
       { duration: 560, easing: "cubic-bezier(.42,0,.18,1)" }
     );
-  }, [newestId, count, phase, consumeFlyFrom]);
+  }, [newestId, count, phase, consumeFlyFrom, cards]);
 
   if (!vp || N === 0) return null;
 
