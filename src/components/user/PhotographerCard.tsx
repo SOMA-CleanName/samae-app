@@ -1,5 +1,5 @@
-/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
+import Image from "next/image";
 import type { PhotographerCard } from "@/lib/discovery";
 import { MapPinIcon } from "./icons";
 
@@ -11,13 +11,14 @@ export function PhotographerCardView({ p }: { p: PhotographerCard }) {
       href={`/photographers/${p.id}`}
       className="group block overflow-hidden rounded-2xl border border-line bg-surface transition-colors hover:border-line-strong hover:bg-surface-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
     >
-      <div className="aspect-[4/3] overflow-hidden bg-fg/[0.05]">
+      <div className="relative aspect-[4/3] overflow-hidden bg-fg/[0.05]">
         {p.cover_url ? (
-          <img
+          <Image
             src={p.cover_url}
             alt="사진작가 대표 작품"
-            loading="lazy"
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+            fill
+            sizes="(max-width: 768px) 50vw, 320px"
+            className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
           />
         ) : null}
       </div>

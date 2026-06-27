@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import type { GalleryPhoto, PhotographerCard } from "@/lib/discovery";
 import { PhotographerCardView } from "@/components/user/PhotographerCard";
 
@@ -42,12 +43,24 @@ export function FavoritesTabs({
                 href={`/photos/${p.id}`}
                 className="block break-inside-avoid overflow-hidden rounded-2xl bg-fg/[0.05]"
               >
-                <img
-                  src={p.thumb_url ?? p.src_url}
-                  alt=""
-                  loading="lazy"
-                  className="w-full object-cover"
-                />
+                {p.width > 0 && p.height > 0 ? (
+                  <Image
+                    src={p.thumb_url ?? p.src_url}
+                    alt=""
+                    width={p.width}
+                    height={p.height}
+                    sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 220px"
+                    style={{ width: "100%", height: "auto", aspectRatio: `${p.width} / ${p.height}` }}
+                    className="object-cover"
+                  />
+                ) : (
+                  <img
+                    src={p.thumb_url ?? p.src_url}
+                    alt=""
+                    loading="lazy"
+                    className="w-full object-cover"
+                  />
+                )}
               </Link>
             ))}
           </div>
