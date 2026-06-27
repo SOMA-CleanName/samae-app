@@ -55,7 +55,9 @@ export function FloatingCart() {
   const drag = useRef({ active: false, moved: false, startX: 0, startY: 0, baseRight: 0, baseTop: 0 });
   const [vp, setVp] = useState<{ w: number; h: number } | null>(null);
   const [focused, setFocused] = useState<{ id: string; rect: DOMRect } | null>(null);
-  const [formFor, setFormFor] = useState<string | null>(null); // null/"all"/photoId
+  const [formFor, setFormFor] = useState<string | null>(null); // null / photoId(단일) / "selected"(선택 묶음)
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [contact, setContact] = useState("");
   const [timing, setTiming] = useState(""); // 촬영 희망 시기(한정자, 필수)
   const [region, setRegion] = useState(""); // 희망 지역(선택)
@@ -164,8 +166,28 @@ export function FloatingCart() {
   function close() {
     setFocused(null);
     setFormFor(null);
+    setSelectMode(false);
+    setSelectedIds(new Set());
     setPhase("center");
     window.setTimeout(() => setPhase("dock"), 300);
+  }
+  function exitSelect() {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+    setFormFor(null);
+  }
+  function toggleSelect(id: string) {
+    setSelectedIds((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }
+  function deleteSelected() {
+    const ids = [...selectedIds];
+    exitSelect();
+    ids.forEach((id) => removeOne(id));
   }
   function removeOne(id: string) {
     setLeaving((s) => new Set(s).add(id));
@@ -181,7 +203,8 @@ export function FloatingCart() {
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!contact.trim() || !timing || !agreed) return;
-    const ids = formFor === "all" || formFor === null ? items.map((i) => i.id) : [formFor];
+    const ids =
+      formFor === "selected" ? [...selectedIds] : formFor && formFor !== "all" ? [formFor] : items.map((i) => i.id);
     const fd = new FormData();
     fd.set("contact", contact);
     fd.set("timing", timing);
@@ -193,7 +216,7 @@ export function FloatingCart() {
   const TIMINGS = ["1개월 내", "1~3개월", "3개월+", "미정"];
 
   // ── 펼침 레이아웃(그리드) ──
-  const SCROLL = N >= 9;
+  const SCROLL = N >= 5; // 2열 기준 5장(3행)부터는 줄이지 말고 스크롤
   const { cards, contentH, cardW } = ((): { cards: Placed[]; contentH: number; cardW: number } => {
     if (!vp || N === 0) return { cards: [], contentH: 0, cardW: CART_W };
     const { w: W, h: H } = vp;
@@ -207,14 +230,14 @@ export function FloatingCart() {
     let cardW: number;
     let cellH: number;
     if (SCROLL) {
-      cols = Math.max(2, Math.min(4, Math.floor(areaW / 150)));
+      cols = Math.min(2, N); // 항상 최대 2열
       cardW = Math.min((areaW / cols) * 0.92, 240);
       cellH = cardW / CARD_ASPECT + 18;
     } else {
       const areaH = Math.max(180, H - topPad - bottomReserve);
       cols = 1;
       cardW = 0;
-      for (let c = 1; c <= N; c++) {
+      for (let c = 1; c <= Math.min(2, N); c++) {
         const rows = Math.ceil(N / c);
         const w = Math.min((areaW / c) * 0.92, (areaH / rows) * 0.92 * CARD_ASPECT);
         if (w > cardW) {
@@ -269,7 +292,7 @@ export function FloatingCart() {
     if (phase === "spread" && layerRef.current) layerRef.current.scrollTop = 0;
   }, [phase]);
 
-  // ── 방금 담은 카드 FLIP(출발 사진 → 도크) ──
+  // ── 방금 담은 사진 — 원래 위치에서 복제(클론)되어 도크로 빨려들어감 ──
   const newestId = N > 0 ? items[items.length - 1].id : null;
   useIsoLayout(() => {
     if (!newestId || phase !== "dock") return;
@@ -277,21 +300,54 @@ export function FloatingCart() {
     if (!from) return;
     const el = cardRefs.current.get(newestId);
     if (!el) return;
-    const last = el.getBoundingClientRect();
-    if (last.width === 0) return;
-    // 현재 인라인(도크 포즈)으로 자연 복귀하도록, 시작 키프레임에만 출발 위치 추가
-    const restTf = el.style.transform;
-    const dx = from.left + from.width / 2 - (last.left + last.width / 2);
-    const dy = from.top + from.height / 2 - (last.top + last.height / 2);
-    const scale = Math.max(0.05, from.width / last.width);
-    el.animate(
-      [
-        { transform: `translate(${dx}px, ${dy}px) scale(${scale}) ${restTf}`, offset: 0 },
-        { transform: restTf, offset: 1 },
-      ],
-      { duration: 540, easing: "cubic-bezier(.42,0,.18,1)" }
-    );
-  }, [newestId, count, open, consumeFlyFrom]);
+    const to = el.getBoundingClientRect(); // 도크에 안착할 카드 위치
+    if (!to.width || !from.width) return;
+    const item = items[items.length - 1];
+    if (!item) return;
+
+    // 새 카드는 클론이 도착할 때까지 숨김 → 도착하면 그 자리에 그대로 나타남
+    el.style.opacity = "0";
+
+    const clone = document.createElement("img");
+    clone.src = item.src;
+    Object.assign(clone.style, {
+      position: "fixed",
+      left: `${from.left}px`,
+      top: `${from.top}px`,
+      width: `${from.width}px`,
+      height: `${from.height}px`,
+      objectFit: "cover",
+      borderRadius: "3px",
+      border: "3px solid #fff",
+      boxSizing: "border-box",
+      boxShadow: "0 10px 28px rgba(0,0,0,0.4)",
+      zIndex: "70",
+      pointerEvents: "none",
+      margin: "0",
+      transformOrigin: "top left",
+    } as CSSStyleDeclaration);
+    document.body.appendChild(clone);
+
+    const scale = to.width / from.width;
+    const tx = to.left - from.left;
+    const ty = to.top - from.top;
+    const raf = requestAnimationFrame(() => {
+      clone.style.transition = "transform 520ms cubic-bezier(.42,0,.18,1)";
+      clone.style.transform = `translate(${tx}px, ${ty}px) scale(${scale})`;
+    });
+    const done = () => {
+      clone.remove();
+      el.style.opacity = "";
+    };
+    clone.addEventListener("transitionend", done, { once: true });
+    const t = window.setTimeout(done, 640);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(t);
+      clone.remove();
+      el.style.opacity = "";
+    };
+  }, [newestId, count, phase, consumeFlyFrom, items]);
 
   if (!vp || N === 0) return null;
 
@@ -363,21 +419,23 @@ export function FloatingCart() {
                   onClick={(e) => {
                     e.stopPropagation();
                     if (phase === "spread") {
-                      setFocused({ id: it.id, rect: e.currentTarget.getBoundingClientRect() });
+                      if (selectMode) toggleSelect(it.id);
+                      else setFocused({ id: it.id, rect: e.currentTarget.getBoundingClientRect() });
                     } else if (phase === "dock") {
                       if (drag.current.moved) drag.current.moved = false;
                       else startOpen();
                     }
                     // center: 전환 중 — 무시
                   }}
-                  aria-label={open ? "크게 보기" : "찜 펼치기 (드래그로 이동)"}
+                  aria-label={open ? (selectMode ? "선택/해제" : "크게 보기") : "찜 펼치기 (드래그로 이동)"}
                   className="relative block cursor-pointer select-none bg-white shadow-[0_10px_28px_rgba(0,0,0,0.4)]"
                   style={{
                     padding: `${side}px ${side}px ${bottom}px`,
                     borderRadius: 3,
                     transformOrigin: "center",
                     transform: tf,
-                    opacity: op,
+                    opacity:
+                      phase === "spread" && selectMode && !selectedIds.has(it.id) ? 0.5 : op,
                     pointerEvents: "auto", // 닫힘 시 레이어가 none 이라 카드만 살림
                     touchAction: open ? "auto" : "none",
                     transition: dragging
@@ -397,27 +455,20 @@ export function FloatingCart() {
                       borderRadius: 1,
                     }}
                   />
-                  {/* 펼침 그리드에서만 — 우상단 작은 삭제(휴지통) */}
-                  {phase === "spread" && (
-                    <button
-                      type="button"
-                      onPointerDown={(e) => e.stopPropagation()}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeOne(it.id);
-                      }}
-                      aria-label="삭제"
+                  {/* 선택 모드 — 우상단 체크 표시 */}
+                  {phase === "spread" && selectMode && (
+                    <span
                       style={{ top: side + 2, right: side + 2 }}
-                      className="absolute grid h-6 w-6 cursor-pointer place-items-center rounded-full bg-black/55 text-white backdrop-blur-sm transition-colors hover:bg-black/75"
+                      className={`absolute grid h-6 w-6 place-items-center rounded-full border-2 ${
+                        selectedIds.has(it.id)
+                          ? "border-brand bg-brand text-white"
+                          : "border-white bg-black/25 text-transparent"
+                      }`}
                     >
-                      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path
-                          d="M5 7h14M10 11v6M14 11v6M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
+                      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3">
+                        <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
-                    </button>
+                    </span>
                   )}
                 </div>
               </div>
@@ -438,22 +489,54 @@ export function FloatingCart() {
             </div>
           ) : (
             <>
-              {/* 상단 — 확대 중이 아닐 때만: 좌 뒤로가기(닫기) + 우 담은 사진 수. 확대 중엔 FocusedPhoto가 자체 뒤로가기 */}
+              {/* 상단 — 확대 중이 아닐 때. 일반: 뒤로 / 찜 수(중앙) / 선택. 선택모드: 취소 / N장 선택 / 삭제 */}
               {!focused && (
                 <div className="pointer-events-none fixed inset-x-0 top-0 z-[62] flex items-center justify-between px-5 pt-5">
-                  <button
-                    type="button"
-                    onClick={close}
-                    aria-label="뒤로"
-                    className="pointer-events-auto grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
-                  >
-                    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M15 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </button>
-                  <p className="text-sm text-white/75">
-                    찜한 사진 <span className="font-bold text-white">{N}</span>
-                  </p>
+                  {selectMode ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={exitSelect}
+                        className="pointer-events-auto cursor-pointer rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
+                      >
+                        취소
+                      </button>
+                      <p className="text-sm text-white/75">
+                        <span className="font-bold text-white">{selectedIds.size}</span>장 선택
+                      </p>
+                      <button
+                        type="button"
+                        onClick={deleteSelected}
+                        disabled={selectedIds.size === 0}
+                        className="pointer-events-auto cursor-pointer rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        삭제
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={close}
+                        aria-label="뒤로"
+                        className="pointer-events-auto grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
+                      >
+                        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M15 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                      <p className="text-sm text-white/75">
+                        찜한 사진 <span className="font-bold text-white">{N}</span>
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setSelectMode(true)}
+                        className="pointer-events-auto cursor-pointer rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
+                      >
+                        선택
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
 
@@ -463,7 +546,7 @@ export function FloatingCart() {
                   {formFor !== null ? (
                     <form onSubmit={onSubmit} className="rounded-2xl bg-bg p-4 shadow-pop">
                       <p className="mb-2.5 text-sm font-semibold text-fg">
-                        이 사진으로 상담 신청
+                        {formFor === "selected" ? `선택한 ${selectedIds.size}장으로 상담 신청` : "이 사진으로 상담 신청"}
                         <button
                           type="button"
                           onClick={() => setFormFor(null)}
@@ -530,6 +613,15 @@ export function FloatingCart() {
                         {pending ? "신청 중…" : "상담 신청하기"}
                       </button>
                     </form>
+                  ) : selectMode ? (
+                    <button
+                      type="button"
+                      onClick={() => setFormFor("selected")}
+                      disabled={selectedIds.size === 0}
+                      className="w-full cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {selectedIds.size > 0 ? `선택한 ${selectedIds.size}장 상담 신청` : "상담할 사진을 선택하세요"}
+                    </button>
                   ) : focused && items.some((i) => i.id === focused.id) ? (
                     <button
                       type="button"
