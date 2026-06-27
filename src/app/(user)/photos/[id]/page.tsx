@@ -14,6 +14,7 @@ import { PhotoExplore } from "./PhotoExplore";
 import { PhotoTopBar } from "./PhotoTopBar";
 import { DetailHookCta } from "./DetailHookCta";
 import { DetailMoreInfo } from "./DetailMoreInfo";
+import { NavRevealOnScroll } from "@/components/user/NavReveal";
 import { OwnerPhotoBackButton } from "./OwnerPhotoBackButton";
 import { AutoFavorite } from "@/components/user/AutoFavorite";
 import { PixelViewContent } from "@/components/PixelViewContent";
@@ -116,6 +117,9 @@ export default async function PhotoDetail({
 
           {/* 예약·문의 CTA — 가장 위 (전환 최우선) */}
           <PhotoCtas isOwner={isOwner} photographerId={ph.id} photoId={photo.id} />
+
+          {/* 작가 상세정보 라인 — 이 지점이 화면 상단 50%에 닿으면 플로팅 내비 노출 */}
+          <NavRevealOnScroll />
 
           {/* 작가·글·태그 — 기본 접힘, 누르면 펼침 */}
           <DetailMoreInfo

@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCart, cartCardJitter, PEEK_CARD_W, type CartItem } from "./CartProvider";
 import { submitCartInquiry } from "@/app/(user)/inquiry/actions";
 
@@ -47,6 +48,7 @@ type Placed = {
 
 export function FloatingCart() {
   const { items, count, remove, consumeFlyFrom } = useCart();
+  const router = useRouter();
   // 단계: dock(가장자리) → center(중앙 스택) → spread(펼침). 열고 닫을 때 중앙을 경유.
   const [phase, setPhase] = useState<"dock" | "center" | "spread">("dock");
   const open = phase !== "dock";
@@ -178,6 +180,15 @@ export function FloatingCart() {
     setSelectedIds(new Set());
     setFormFor(null);
   }
+  // 상담 페이지로 이동 — 찜 모달을 즉시 닫고(도크) 이동
+  function leaveToInquiry(href: string) {
+    setFocused(null);
+    setFormFor(null);
+    setSelectMode(false);
+    setSelectedIds(new Set());
+    setPhase("dock");
+    router.push(href);
+  }
   function toggleSelect(id: string) {
     setSelectedIds((s) => {
       const n = new Set(s);
@@ -217,46 +228,37 @@ export function FloatingCart() {
 
   const TIMINGS = ["1개월 내", "1~3개월", "3개월+", "미정"];
 
-  // ── 펼침 레이아웃(그리드) ──
-  const SCROLL = N >= 5; // 2열 기준 5장(3행)부터는 줄이지 말고 스크롤
-  const { cards, contentH, cardW } = ((): { cards: Placed[]; contentH: number; cardW: number } => {
-    if (!vp || N === 0) return { cards: [], contentH: 0, cardW: CART_W };
+  // ── 펼침 레이아웃(그리드) — 카드 크기는 모바일 2열 기준 유지, 화면 폭만큼 열 수 증가 ──
+  const { cards, contentH, cardW, SCROLL } = ((): {
+    cards: Placed[];
+    contentH: number;
+    cardW: number;
+    SCROLL: boolean;
+  } => {
+    if (!vp || N === 0) return { cards: [], contentH: 0, cardW: CART_W, SCROLL: false };
     const { w: W, h: H } = vp;
     const padX = Math.max(16, W * 0.06);
     const topPad = 84;
     const bottomReserve = 150;
     const areaW = W - padX * 2;
     const CARD_ASPECT = 0.8;
+    const TARGET_CELL = 184; // 모바일 2열 기준 셀 폭 → 카드 ~168px. 화면 넓으면 같은 크기로 열만 늘림
 
-    let cols: number;
-    let cardW: number;
-    let cellH: number;
-    if (SCROLL) {
-      cols = Math.min(2, N); // 항상 최대 2열
-      cardW = Math.min((areaW / cols) * 0.92, 240);
-      cellH = cardW / CARD_ASPECT + 18;
-    } else {
-      const areaH = Math.max(180, H - topPad - bottomReserve);
-      cols = 1;
-      cardW = 0;
-      for (let c = 1; c <= Math.min(2, N); c++) {
-        const rows = Math.ceil(N / c);
-        const w = Math.min((areaW / c) * 0.92, (areaH / rows) * 0.92 * CARD_ASPECT);
-        if (w > cardW) {
-          cardW = w;
-          cols = c;
-        }
-      }
-      cardW = Math.min(cardW, 240);
-      cellH = areaH / Math.ceil(N / cols);
-    }
-    const rows = Math.ceil(N / cols);
+    const cols = Math.max(2, Math.min(N, Math.round(areaW / TARGET_CELL)));
+    const cardW = Math.min((areaW / cols) * 0.92, 240);
     const cellW = areaW / cols;
+    const cellH = cardW / CARD_ASPECT + 18;
+    const rows = Math.ceil(N / cols);
+    const gridH = rows * cellH;
+    const avail = Math.max(180, H - topPad - bottomReserve);
+    const SCROLL = gridH > avail; // 한 화면 넘으면 스크롤
+    const yOffset = SCROLL ? 0 : Math.max(0, (avail - gridH) / 2); // 적으면 세로 중앙 정렬
+    const contentH = SCROLL ? topPad + gridH + 32 : H;
+
     const side = Math.max(6, Math.round(cardW * 0.055));
     const bottom = Math.max(14, Math.round(cardW * 0.16));
     const photoW = Math.round(cardW - side * 2);
     const maxPhotoH = Math.round(cellH * 0.9 - side - bottom);
-    const contentH = SCROLL ? topPad + rows * cellH + 32 : H;
 
     const cards = items.map((it, i) => {
       // 그리드 순서는 최신이 좌상단(g=0) — 도크에서 보이던 카드가 위로 펼쳐지게.
@@ -266,7 +268,7 @@ export function FloatingCart() {
       const itemsInRow = row < rows - 1 ? cols : N - cols * (rows - 1);
       const rowStartX = padX + (areaW - itemsInRow * cellW) / 2;
       const cxc = rowStartX + (inRow + 0.5) * cellW;
-      const cyc = topPad + (row + 0.5) * cellH;
+      const cyc = topPad + yOffset + (row + 0.5) * cellH;
       const j = spreadJitter(it.id);
       const x = cxc + j.fx * Math.min(8, cellW * 0.03);
       const y = cyc + j.fy * Math.min(6, cellH * 0.03);
@@ -274,7 +276,7 @@ export function FloatingCart() {
       const photoH = Math.min(Math.round(photoW * ratio), Math.max(40, maxPhotoH));
       return { it, x, y, rot: j.rot, photoW, photoH, side, bottom, z: i, g };
     });
-    return { cards, contentH, cardW };
+    return { cards, contentH, cardW, SCROLL };
   })();
 
   // ── 도크(닫힘) 위치·스케일 ──
@@ -620,7 +622,10 @@ export function FloatingCart() {
                   ) : selectMode ? (
                     <button
                       type="button"
-                      onClick={() => setFormFor("selected")}
+                      onClick={() =>
+                        selectedIds.size > 0 &&
+                        leaveToInquiry(`/inquiry/cart?ids=${[...selectedIds].join(",")}`)
+                      }
                       disabled={selectedIds.size === 0}
                       className="w-full cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                     >
@@ -629,7 +634,7 @@ export function FloatingCart() {
                   ) : focused && items.some((i) => i.id === focused) ? (
                     <button
                       type="button"
-                      onClick={() => setFormFor(focused)}
+                      onClick={() => leaveToInquiry(`/inquiry/photo/${focused}`)}
                       className="w-full cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
                     >
                       이 사진으로 무료 상담 신청
