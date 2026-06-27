@@ -180,6 +180,15 @@ export function FloatingCart() {
     setSelectedIds(new Set());
     setFormFor(null);
   }
+  // 상담 페이지로 이동 — 찜 모달을 즉시 닫고(도크) 이동
+  function leaveToInquiry(href: string) {
+    setFocused(null);
+    setFormFor(null);
+    setSelectMode(false);
+    setSelectedIds(new Set());
+    setPhase("dock");
+    router.push(href);
+  }
   function toggleSelect(id: string) {
     setSelectedIds((s) => {
       const n = new Set(s);
@@ -615,7 +624,7 @@ export function FloatingCart() {
                       type="button"
                       onClick={() =>
                         selectedIds.size > 0 &&
-                        router.push(`/inquiry/cart?ids=${[...selectedIds].join(",")}`)
+                        leaveToInquiry(`/inquiry/cart?ids=${[...selectedIds].join(",")}`)
                       }
                       disabled={selectedIds.size === 0}
                       className="w-full cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
@@ -625,7 +634,7 @@ export function FloatingCart() {
                   ) : focused && items.some((i) => i.id === focused) ? (
                     <button
                       type="button"
-                      onClick={() => router.push(`/inquiry/photo/${focused}`)}
+                      onClick={() => leaveToInquiry(`/inquiry/photo/${focused}`)}
                       className="w-full cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
                     >
                       이 사진으로 무료 상담 신청
