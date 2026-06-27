@@ -339,21 +339,13 @@ export function FloatingCart() {
       {/* 카드 레이어 — 도크↔중앙↔펼침↔확대 동일 엘리먼트가 변형(복제본 없음) */}
       <div
         ref={layerRef}
-        onClick={phase === "spread" && !focused ? close : undefined}
+        onClick={
+          phase === "spread" ? (focused ? () => setFocused(null) : close) : undefined
+        }
         className={`fixed inset-0 z-[55] ${
           phase === "spread" && SCROLL && !focused ? "overflow-y-auto overscroll-contain" : ""
         } ${open ? "" : "pointer-events-none"}`}
       >
-        {/* 확대 시 딤 — 카드 위, 포커스 카드 아래. 탭하면 그리드로 복귀 */}
-        <div
-          aria-hidden
-          onClick={(e) => {
-            e.stopPropagation();
-            setFocused(null);
-          }}
-          className="fixed inset-0 bg-black/72 transition-opacity duration-300"
-          style={{ zIndex: 500, opacity: focused ? 1 : 0, pointerEvents: focused ? "auto" : "none" }}
-        />
         <div className="relative w-full" style={{ height: phase === "spread" && SCROLL ? contentH : "100%" }}>
           {cards.map(({ it, x, y, rot, photoW, photoH, side, bottom, z, g }) => {
             const isLeaving = leaving.has(it.id);
