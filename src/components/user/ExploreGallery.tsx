@@ -507,6 +507,7 @@ function PhotoCard({
 }) {
   const tags = (photo.mood_tags ?? []).slice(0, 3).join(", ");
   const alt = tags ? `사진 · ${tags}` : "사진";
+  const [loaded, setLoaded] = useState(false);
   // DB 비율로 공간 예약 → 이미지 로드 시 레이아웃 점프 제거
   const ratio =
     photo.width > 0 && photo.height > 0 ? `${photo.width} / ${photo.height}` : undefined;
@@ -520,6 +521,8 @@ function PhotoCard({
         accent === "brand" ? "ring-brand" : accent === "ink" ? "ring-fg" : "ring-bg"
       )}
     >
+      {/* 로드 전 스켈레톤 — 빠르게 스크롤해도 빈 칸이 '로딩 중'으로 보이게 */}
+      {!loaded && <div aria-hidden className="pointer-events-none absolute inset-0 animate-pulse bg-fg/[0.08]" />}
       <Link href={`/photos/${photo.id}`} className="block" data-track="cta:photo">
         {photo.width > 0 && photo.height > 0 ? (
           // next/image — 표시 폭(모바일 2열 ~45vw)에 맞춰 AVIF/WebP·반응형 srcset 생성.
@@ -531,7 +534,8 @@ function PhotoCard({
             height={photo.height}
             sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 220px"
             style={{ width: "100%", height: "auto", aspectRatio: ratio }}
-            className="object-cover"
+            className="relative object-cover"
+            onLoad={() => setLoaded(true)}
           />
         ) : (
           <img
@@ -539,7 +543,8 @@ function PhotoCard({
             alt={alt}
             loading="lazy"
             style={ratio ? { aspectRatio: ratio } : undefined}
-            className="w-full object-cover"
+            className="relative w-full object-cover"
+            onLoad={() => setLoaded(true)}
           />
         )}
       </Link>

@@ -1,5 +1,6 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/cn";
@@ -52,6 +53,17 @@ function Slide({ p, alt, priority }: { p: P; alt: string; priority?: boolean }) 
         draggable={false}
         className="pointer-events-none scale-125 select-none object-cover blur-2xl"
       />
+      {/* 즉시 표시용 썸네일 — Supabase CDN 정적 파일이라 변환 지연 없이 바로 뜸.
+          위에 선명본(next/image)이 로드되면 자연스럽게 덮인다(검은 화면 0.5초 방지). */}
+      {p.thumb_url && p.thumb_url !== p.src_url && (
+        <img
+          src={p.thumb_url}
+          alt=""
+          aria-hidden
+          draggable={false}
+          className="absolute inset-0 h-full w-full select-none object-contain [-webkit-user-drag:none]"
+        />
+      )}
       {/* 전경 — 안 잘리게 contain. 화질 위해 원본(src_url) 소스에서 화면 폭으로 다운스케일. */}
       <Image
         src={p.src_url}
