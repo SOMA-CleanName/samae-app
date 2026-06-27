@@ -26,7 +26,7 @@ export function AddToCartButton({ item, className = "" }: { item: CartItem; clas
       type="button"
       onClick={onClick}
       aria-pressed={inCart}
-      aria-label={inCart ? "장바구니에서 빼기" : "장바구니에 담기"}
+      aria-label={inCart ? "찜 해제" : "찜하기"}
       className={[
         "grid h-6 w-6 cursor-pointer place-items-center rounded-full backdrop-blur-sm transition-colors",
         inCart ? "bg-brand text-white" : "bg-black/30 text-white hover:bg-black/55",

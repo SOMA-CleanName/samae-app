@@ -370,7 +370,7 @@ export function FloatingCart() {
                     }
                     // center: 전환 중 — 무시
                   }}
-                  aria-label={open ? "크게 보기" : "장바구니 펼치기 (드래그로 이동)"}
+                  aria-label={open ? "크게 보기" : "찜 펼치기 (드래그로 이동)"}
                   className="relative block cursor-pointer select-none bg-white shadow-[0_10px_28px_rgba(0,0,0,0.4)]"
                   style={{
                     padding: `${side}px ${side}px ${bottom}px`,
@@ -433,7 +433,7 @@ export function FloatingCart() {
             <div className="fixed inset-0 z-[68] grid place-items-center px-6 text-center">
               <div>
                 <p className="text-xl font-bold text-white">신청 완료!</p>
-                <p className="mt-2 text-sm text-white/70">담아둔 사진들로 작가님이 곧 연락드릴 거예요.</p>
+                <p className="mt-2 text-sm text-white/70">찜한 사진으로 작가님이 곧 연락드릴 거예요.</p>
               </div>
             </div>
           ) : (
@@ -452,7 +452,7 @@ export function FloatingCart() {
                     </svg>
                   </button>
                   <p className="text-sm text-white/75">
-                    담은 사진 <span className="font-bold text-white">{N}</span>
+                    찜한 사진 <span className="font-bold text-white">{N}</span>
                   </p>
                 </div>
               )}
@@ -463,7 +463,7 @@ export function FloatingCart() {
                   {formFor !== null ? (
                     <form onSubmit={onSubmit} className="rounded-2xl bg-bg p-4 shadow-pop">
                       <p className="mb-2.5 text-sm font-semibold text-fg">
-                        {formFor === "all" ? `담은 사진 ${N}장으로 상담 신청` : "이 사진으로 상담 신청"}
+                        이 사진으로 상담 신청
                         <button
                           type="button"
                           onClick={() => setFormFor(null)}
@@ -539,13 +539,8 @@ export function FloatingCart() {
                       이 사진으로 무료 상담 신청
                     </button>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => setFormFor("all")}
-                      className="w-full cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
-                    >
-                      이 사진들로 무료 상담 신청 ({N})
-                    </button>
+                    // 찜 보관함 — 블래스트 없음. 사진을 탭하면 그 사진(=그 작가)로 단일 문의
+                    <p className="text-center text-sm text-white/55">사진을 탭하면 크게 보고 상담할 수 있어요</p>
                   )}
                 </div>
               </div>
