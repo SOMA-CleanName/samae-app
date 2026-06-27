@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import type { GalleryPhoto } from "@/lib/discovery";
 import { cn } from "@/lib/cn";
 import { assignColumnAccents, type AccentColor } from "@/lib/seeded-shuffle";
@@ -520,13 +521,27 @@ function PhotoCard({
       )}
     >
       <Link href={`/photos/${photo.id}`} className="block" data-track="cta:photo">
-        <img
-          src={photo.thumb_url ?? photo.src_url}
-          alt={alt}
-          loading="lazy"
-          style={ratio ? { aspectRatio: ratio } : undefined}
-          className="w-full object-cover"
-        />
+        {photo.width > 0 && photo.height > 0 ? (
+          // next/image — 표시 폭(모바일 2열 ~45vw)에 맞춰 AVIF/WebP·반응형 srcset 생성.
+          // 원본 썸네일(500px)을 그대로 받던 것 대비 모바일 바이트가 크게 줄어든다.
+          <Image
+            src={photo.thumb_url ?? photo.src_url}
+            alt={alt}
+            width={photo.width}
+            height={photo.height}
+            sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 220px"
+            style={{ width: "100%", height: "auto", aspectRatio: ratio }}
+            className="object-cover"
+          />
+        ) : (
+          <img
+            src={photo.thumb_url ?? photo.src_url}
+            alt={alt}
+            loading="lazy"
+            style={ratio ? { aspectRatio: ratio } : undefined}
+            className="w-full object-cover"
+          />
+        )}
       </Link>
 
       {/* 가격 표시 (토글 ON + 가격 설정된 사진만) */}

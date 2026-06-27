@@ -59,9 +59,14 @@ export default async function ExploreHome({
         photographer: adPhoto.photographer ?? { id: adPhoto.photographer_id, display_name: null },
       }
     : null;
-  const photos = adAsGallery
+  // 초기 payload 상한 — 갤러리는 48장씩 점진 노출(STEP)이라 수백 장을 한 번에
+  // 직렬화하면 HTML/RSC 전송량만 커진다(체감 이득 0). 셔플 다양성은 위 fetch 풀에서
+  // 이미 확보됐으므로, 클라이언트로 보내는 건 넉넉한 상한까지만 자른다.
+  const FEED_CAP = 160;
+  const merged = adAsGallery
     ? [adAsGallery, ...basePhotos.filter((p) => p.id !== adAsGallery.id)]
     : basePhotos;
+  const photos = merged.slice(0, FEED_CAP);
   const spotlightId = adAsGallery?.id;
 
   // 현재 사용자가 좋아요한 사진(갤러리 하트 초기 상태)
