@@ -58,7 +58,7 @@ export default async function TransferGuidePage({
 
       {/* 작가 계좌 */}
       {account ? (
-        <div className="mt-4 rounded-xl border border-fg/15 bg-white p-5">
+        <div className="mt-4 rounded-xl border border-fg/15 bg-surface p-5">
           <p className="text-xs text-fg/50">입금 계좌</p>
           <div className="mt-2 flex flex-col gap-2 text-sm">
             <Line label="은행" value={account.bank} />
@@ -67,7 +67,7 @@ export default async function TransferGuidePage({
           </div>
         </div>
       ) : (
-        <div className="mt-4 rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-700">
+        <div className="mt-4 rounded-xl bg-warning-soft px-4 py-3 text-sm text-warning">
           작가가 아직 수취 계좌를 등록하지 않았어요. 채팅으로 계좌를 문의해주세요.
         </div>
       )}

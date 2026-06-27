@@ -157,7 +157,7 @@ export function PortfolioUploader({
                           <button
                             type="button"
                             onClick={() => makeCover(i)}
-                            className="rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-fg opacity-0 shadow transition-opacity hover:bg-white group-hover:opacity-100"
+                            className="rounded-full bg-surface/90 px-2 py-0.5 text-[10px] font-semibold text-fg opacity-0 shadow transition-opacity hover:bg-surface group-hover:opacity-100"
                           >
                             대표로
                           </button>
@@ -194,7 +194,7 @@ export function PortfolioUploader({
             rows={3}
             maxLength={1000}
             placeholder="이 촬영에 대한 설명을 적어주세요."
-            className="resize-none rounded-lg border border-fg/15 bg-white px-3 py-2 text-sm text-fg outline-none focus:border-fg/40"
+            className="resize-none rounded-lg border border-fg/15 bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-fg/40"
           />
         </label>
         <div className="grid grid-cols-2 gap-3">
@@ -209,7 +209,7 @@ export function PortfolioUploader({
               <select
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
-                className="h-[38px] rounded-lg border border-fg/15 bg-white px-3 text-sm text-fg outline-none focus:border-fg/40"
+                className="h-[38px] rounded-lg border border-fg/15 bg-surface px-3 text-sm text-fg outline-none focus:border-fg/40"
               >
                 <option value="">가격 미표시</option>
                 {packages.map((pk) => (
@@ -239,7 +239,7 @@ export function PortfolioUploader({
               onChange={(e) => setLocation(e.target.value)}
               maxLength={120}
               placeholder="예: 성수동 카페, 골목 어귀"
-              className="rounded-lg border border-fg/15 bg-white px-3 py-2 text-sm text-fg outline-none focus:border-fg/40"
+              className="rounded-lg border border-fg/15 bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-fg/40"
             />
           </label>
         </div>

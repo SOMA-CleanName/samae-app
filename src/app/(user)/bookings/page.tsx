@@ -54,12 +54,12 @@ export default async function BookingsPage() {
       {pendingCount > 0 && (
         <Link
           href="/chat"
-          className="mt-4 flex items-center justify-between gap-2 rounded-xl border border-amber-500/30 bg-amber-500/[0.06] px-4 py-3 text-sm hover:bg-amber-500/[0.1]"
+          className="mt-4 flex items-center justify-between gap-2 rounded-xl border border-warning/30 bg-warning/[0.06] px-4 py-3 text-sm transition-colors hover:bg-warning/[0.12]"
         >
-          <span className="text-amber-700">
+          <span className="text-warning">
             대기 중인 예약 제안 <strong>{pendingCount}건</strong>이 있어요.
           </span>
-          <span className="shrink-0 text-xs text-amber-700/80">채팅에서 확인 →</span>
+          <span className="shrink-0 text-xs text-warning/80">채팅에서 확인 →</span>
         </Link>
       )}
 

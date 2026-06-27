@@ -138,9 +138,9 @@ function GroupCard({ g }: { g: Group }) {
         <span
           className={`rounded-full px-2 py-0.5 text-[11px] ${
             allPublished
-              ? "bg-emerald-500/15 text-emerald-700"
+              ? "bg-success-soft text-success"
               : anyPublished
-              ? "bg-amber-500/15 text-amber-700"
+              ? "bg-warning-soft text-warning"
               : "bg-fg/10 text-fg/50"
           }`}
         >

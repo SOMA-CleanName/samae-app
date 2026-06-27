@@ -190,7 +190,7 @@ function ViewerCta({
     return (
       <Link
         href={inquiryHref(photographerId)}
-        className="block w-full rounded-full bg-white py-3 text-center text-sm font-semibold text-black hover:opacity-90"
+        className="block w-full rounded-full bg-fg py-3 text-center text-sm font-semibold text-bg hover:opacity-90"
       >
         예약·문의하기
       </Link>
@@ -199,7 +199,7 @@ function ViewerCta({
   return (
     <Link
       href={inquiryHref(photographerId)}
-      className="block w-full rounded-full bg-white py-3 text-center text-sm font-semibold text-black hover:opacity-90"
+      className="block w-full rounded-full bg-fg py-3 text-center text-sm font-semibold text-bg hover:opacity-90"
     >
       예약·문의하기
     </Link>

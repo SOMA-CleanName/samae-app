@@ -40,7 +40,7 @@ export default async function FeesPage() {
         </div>
         <div className="rounded-xl border border-fg/10 p-4">
           <p className="text-xs text-fg/50">납부 완료</p>
-          <p className="mt-1 text-lg font-semibold text-emerald-700">₩{fmt.format(paidTotal)}</p>
+          <p className="mt-1 text-lg font-semibold text-success">₩{fmt.format(paidTotal)}</p>
         </div>
       </div>
 

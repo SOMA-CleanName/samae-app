@@ -27,7 +27,7 @@ export default async function ApplyPage() {
     return (
       <main className="mx-auto max-w-lg px-4 py-10 sm:px-6 font-kr">
         <h1 className="text-2xl font-semibold">작가 신청</h1>
-        <div className="mt-6 rounded-2xl border border-amber-500/20 bg-amber-500/[0.06] p-6">
+        <div className="mt-6 rounded-2xl border border-warning/20 bg-warning-soft p-6">
           <p className="text-base font-semibold">승인 대기 중이에요</p>
           <p className="mt-1.5 text-sm text-fg/65">
             운영자 검토 후 안내드려요. 보통 영업일 기준 1~2일 소요됩니다.

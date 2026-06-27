@@ -111,7 +111,7 @@ export default function LoginPage() {
             placeholder="you@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="rounded-xl border border-fg/15 bg-white px-4 py-3 text-sm outline-none focus:border-fg/40"
+            className="rounded-xl border border-fg/15 bg-surface px-4 py-3 text-sm outline-none focus:border-fg/40"
           />
           <input
             type="password"
@@ -120,7 +120,7 @@ export default function LoginPage() {
             placeholder="비밀번호 (6자 이상)"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="rounded-xl border border-fg/15 bg-white px-4 py-3 text-sm outline-none focus:border-fg/40"
+            className="rounded-xl border border-fg/15 bg-surface px-4 py-3 text-sm outline-none focus:border-fg/40"
           />
           {error && <p className="text-xs text-brand">{error}</p>}
           <button

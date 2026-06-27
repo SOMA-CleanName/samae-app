@@ -20,7 +20,7 @@ export function SearchBox({ initial = "" }: { initial?: string }) {
         value={q}
         onChange={(e) => setQ(e.target.value)}
         placeholder="작가 이름·지역 검색"
-        className="w-full rounded-full border border-fg/15 bg-white px-4 py-1.5 text-sm outline-none focus:border-fg/40"
+        className="w-full rounded-full border border-fg/15 bg-surface px-4 py-1.5 text-sm outline-none focus:border-fg/40"
       />
     </form>
   );

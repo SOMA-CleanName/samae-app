@@ -138,7 +138,7 @@ export function DeliveryUploader({
           type="url"
           defaultValue={initialLink}
           placeholder="외부 전달 링크 (선택 · 예: 구글드라이브)"
-          className="w-full rounded-xl border border-fg/15 bg-white px-3 py-2 text-sm outline-none focus:border-fg/40"
+          className="w-full rounded-xl border border-fg/15 bg-surface px-3 py-2 text-sm outline-none focus:border-fg/40"
         />
         <button
           disabled={busy}

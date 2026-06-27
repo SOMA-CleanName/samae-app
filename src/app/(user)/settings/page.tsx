@@ -39,7 +39,7 @@ export default async function SettingsPage() {
             maxLength={30}
             required
             placeholder="표시할 이름"
-            className="mt-2 w-full rounded-xl border border-fg/15 bg-white px-3 py-2.5 text-sm outline-none focus:border-fg/40"
+            className="mt-2 w-full rounded-xl border border-fg/15 bg-surface px-3 py-2.5 text-sm outline-none focus:border-fg/40"
           />
           <button className="mt-3 w-full rounded-xl bg-fg py-3 text-sm font-semibold text-bg hover:opacity-90">
             변경 사항 저장

@@ -36,7 +36,7 @@ export default async function BookingTemplatePage() {
             rows={5}
             defaultValue={ph?.booking_note ?? ""}
             placeholder={"예) 선입금 후 예약 확정됩니다.\n촬영 3일 전까지 취소 가능, 이후 환불 불가."}
-            className="rounded-xl border border-fg/15 bg-white px-4 py-3 text-sm font-normal outline-none focus:border-fg/40"
+            className="rounded-xl border border-fg/15 bg-surface px-4 py-3 text-sm font-normal outline-none focus:border-fg/40"
           />
           <span className="text-xs text-fg/45">고객이 예약 제안 화면 상단에서 보게 됩니다.</span>
         </label>
@@ -49,7 +49,7 @@ export default async function BookingTemplatePage() {
             rows={3}
             defaultValue={ph?.travel_fee_note ?? ""}
             placeholder={"예) 성수·한강 무료\n그 외 지역은 거리에 따라 협의 (왕복 교통비 실비)"}
-            className="rounded-xl border border-fg/15 bg-white px-4 py-3 text-sm font-normal outline-none focus:border-fg/40"
+            className="rounded-xl border border-fg/15 bg-surface px-4 py-3 text-sm font-normal outline-none focus:border-fg/40"
           />
           <span className="text-xs text-fg/45">
             금액이 정해져 있지 않아도 돼요. 적어둔 안내가 예약 제안 화면에서 고객에게 보입니다.
