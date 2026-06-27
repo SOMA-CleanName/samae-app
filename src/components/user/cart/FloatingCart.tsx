@@ -432,31 +432,24 @@ export function FloatingCart() {
             </div>
           ) : (
             <>
-              {/* 상단 — 좌:뒤로가기(확대 중이면 그리드로, 아니면 닫기) / 우:담은 사진 수(확대 중 숨김) */}
-              <div className="pointer-events-none fixed inset-x-0 top-0 z-[62] flex items-center justify-between px-5 pt-5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (focused) {
-                      setFocused(null);
-                      if (formFor && formFor !== "all") setFormFor(null);
-                    } else {
-                      close();
-                    }
-                  }}
-                  aria-label="뒤로"
-                  className="pointer-events-auto grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
-                >
-                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M15 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round" />
-                  </svg>
-                </button>
-                {!focused && (
+              {/* 상단 — 확대 중이 아닐 때만: 좌 뒤로가기(닫기) + 우 담은 사진 수. 확대 중엔 FocusedPhoto가 자체 뒤로가기 */}
+              {!focused && (
+                <div className="pointer-events-none fixed inset-x-0 top-0 z-[62] flex items-center justify-between px-5 pt-5">
+                  <button
+                    type="button"
+                    onClick={close}
+                    aria-label="뒤로"
+                    className="pointer-events-auto grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
+                  >
+                    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M15 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
                   <p className="text-sm text-white/75">
                     담은 사진 <span className="font-bold text-white">{N}</span>
                   </p>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* 하단 — 상담 CTA(항상 유지). 한 장 크게 볼 땐 '이 사진으로'로 전환 */}
               <div className="fixed inset-x-0 bottom-0 z-[62] px-4 pb-6 pt-3">
@@ -550,7 +543,7 @@ export function FloatingCart() {
   );
 }
 
-// 탭한 사진을 부드럽게 화면 중앙으로 와서 확대(FLIP). 상담 CTA 는 하단 바, 보조로 게시물 보기·삭제.
+// 탭한 사진을 카드 자리 ↔ 화면 중앙으로 확대/복귀(transform 상태 토글, 측정 없음 → 확실히 모션 적용).
 function FocusedPhoto({
   item,
   fromRect,
@@ -564,53 +557,74 @@ function FocusedPhoto({
   onBack: () => void;
   onRemove: (id: string) => void;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const dimRef = useRef<HTMLDivElement>(null);
-  useIsoLayout(() => {
-    const el = ref.current;
-    if (!el) return;
-    const last = el.getBoundingClientRect();
-    if (last.width === 0) return;
-    const dx = fromRect.left + fromRect.width / 2 - (last.left + last.width / 2);
-    const dy = fromRect.top + fromRect.height / 2 - (last.top + last.height / 2);
-    const s = Math.max(0.05, fromRect.width / last.width);
-    // FLIP — 페인트 전 카드 위치/크기로 즉시 배치한 뒤, 다음 프레임에 트랜지션으로 중앙·원래 크기로.
-    el.style.transformOrigin = "center";
-    el.style.transform = `translate(${dx}px,${dy}px) scale(${s})`;
-    el.style.opacity = "0.85";
-    const dim = dimRef.current;
-    if (dim) dim.style.opacity = "0";
-    const raf = requestAnimationFrame(() => {
-      el.style.transition = "transform 440ms cubic-bezier(.22,1,.36,1), opacity 300ms ease";
-      el.style.transform = "translate(0,0) scale(1)";
-      el.style.opacity = "1";
-      if (dim) {
-        dim.style.transition = "opacity 300ms ease";
-        dim.style.opacity = "1";
-      }
-    });
-    return () => cancelAnimationFrame(raf);
+  // entered=false: 카드 자리(작게) / true: 화면 중앙(원래 크기)
+  const [entered, setEntered] = useState(false);
+  const closing = useRef(false);
+  useEffect(() => {
+    const r = requestAnimationFrame(() => setEntered(true));
+    return () => cancelAnimationFrame(r);
   }, []);
+  // 닫힘 — 카드 자리로 되돌아간 뒤 언마운트
+  function leave(after: () => void) {
+    if (closing.current) return;
+    closing.current = true;
+    setEntered(false);
+    setTimeout(after, 420);
+  }
 
   const vw = vp?.w ?? 360;
   const vh = vp?.h ?? 720;
   const photoW = Math.min(vw * 0.82, 340);
   const ratio = item.w > 0 && item.h > 0 ? item.h / item.w : 1;
   const side = Math.max(8, Math.round(photoW * 0.05));
-  const bottom = Math.max(20, Math.round(photoW * 0.14));
+  const bottomPad = Math.max(20, Math.round(photoW * 0.14));
   const photoH = Math.min(Math.round(photoW * ratio), Math.round(vh * 0.46));
+
+  // 카드 자리 → 중앙 변환을 직접 계산(렌더 시점). 중앙은 px-6/pb-16 영역의 중심.
+  const cardFullW = photoW + side * 2;
+  const targetCx = vw / 2;
+  const targetCy = (vh - 64) / 2;
+  const fromCx = fromRect.left + fromRect.width / 2;
+  const fromCy = fromRect.top + fromRect.height / 2;
+  const dx = fromCx - targetCx;
+  const dy = fromCy - targetCy;
+  const s = Math.max(0.05, fromRect.width / cardFullW);
+  const startTf = `translate(${dx}px, ${dy}px) scale(${s})`;
 
   return (
     <div className="fixed inset-0 z-[58] font-kr">
       {/* 딤 — 빈 곳/사진 탭하면 그리드로 */}
-      <div ref={dimRef} onClick={onBack} aria-hidden className="absolute inset-0 bg-black/78 backdrop-blur-sm" />
+      <div
+        onClick={() => leave(onBack)}
+        aria-hidden
+        className="absolute inset-0 bg-black/78 backdrop-blur-sm transition-opacity duration-300"
+        style={{ opacity: entered ? 1 : 0 }}
+      />
 
-      {/* 사진 — 화면 중앙 (보조 버튼·하단 바 자리만 약간 비움) */}
+      {/* 좌상단 뒤로가기 */}
+      <button
+        type="button"
+        onClick={() => leave(onBack)}
+        aria-label="뒤로"
+        className="absolute left-5 top-5 z-10 grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-all duration-300 hover:bg-white/25"
+        style={{ opacity: entered ? 1 : 0 }}
+      >
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M15 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {/* 사진 — 카드 자리(작게) ↔ 화면 중앙(원래 크기) */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6 pb-16">
         <div
-          ref={ref}
           className="relative bg-white shadow-[0_18px_50px_rgba(0,0,0,0.55)]"
-          style={{ padding: `${side}px ${side}px ${bottom}px`, borderRadius: 4 }}
+          style={{
+            padding: `${side}px ${side}px ${bottomPad}px`,
+            borderRadius: 4,
+            transformOrigin: "center",
+            transform: entered ? "translate(0,0) scale(1)" : startTf,
+            transition: "transform 440ms cubic-bezier(.22,1,.36,1)",
+          }}
         >
           <img
             src={item.src}
@@ -622,7 +636,10 @@ function FocusedPhoto({
       </div>
 
       {/* 보조 액션 — 무료상담 바(bottom-0) 바로 위 */}
-      <div className="absolute inset-x-0 bottom-[88px] z-[60] flex items-center justify-center gap-2 px-6">
+      <div
+        className="absolute inset-x-0 bottom-[88px] z-[60] flex items-center justify-center gap-2 px-6 transition-opacity duration-300"
+        style={{ opacity: entered ? 1 : 0 }}
+      >
         <Link
           href={`/photos/${item.id}`}
           className="rounded-full bg-white/15 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
@@ -631,7 +648,7 @@ function FocusedPhoto({
         </Link>
         <button
           type="button"
-          onClick={() => onRemove(item.id)}
+          onClick={() => leave(() => onRemove(item.id))}
           className="rounded-full bg-white/10 px-4 py-2.5 text-sm font-semibold text-white/85 backdrop-blur transition-colors hover:bg-white/20"
         >
           삭제하기
