@@ -52,7 +52,7 @@ export function ApplyLeadForm({ kakaoChannelUrl }: { kakaoChannelUrl: string }) 
               rows={3}
               maxLength={500}
               placeholder="작업 스타일이나 소개를 자유롭게 적어주세요."
-              className="resize-none rounded-xl border border-line-strong bg-white px-4 py-3 text-sm outline-none transition-colors placeholder:text-fg/30 focus:border-fg/45"
+              className="resize-none rounded-xl border border-line-strong bg-surface px-4 py-3 text-sm outline-none transition-colors placeholder:text-fg/30 focus:border-fg/45"
             />
           </div>
 
@@ -149,7 +149,7 @@ function Field({
         type={type}
         inputMode={inputMode}
         placeholder={placeholder}
-        className="h-12 rounded-xl border border-line-strong bg-white px-4 text-sm outline-none transition-colors placeholder:text-fg/30 focus:border-fg/45"
+        className="h-12 rounded-xl border border-line-strong bg-surface px-4 text-sm outline-none transition-colors placeholder:text-fg/30 focus:border-fg/45"
       />
       {error ? (
         <p className="text-xs text-brand">{error}</p>

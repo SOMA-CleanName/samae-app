@@ -167,7 +167,7 @@ export function PortfolioEditManager({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-xl"
+            className="max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-bg p-5 shadow-xl"
           >
             <div className="flex items-center justify-between">
               <h3 className="flex items-center gap-1.5 text-base font-semibold">
@@ -198,7 +198,7 @@ export function PortfolioEditManager({
                         setReplaceId(p.id);
                         replaceRef.current?.click();
                       }}
-                      className="rounded bg-white/90 px-2 py-0.5 text-[10px] font-medium text-fg hover:bg-white"
+                      className="rounded bg-surface/90 px-2 py-0.5 text-[10px] font-medium text-fg hover:bg-surface"
                     >
                       교체
                     </button>
@@ -252,7 +252,7 @@ export function PortfolioEditManager({
                     <select
                       name="price_krw"
                       defaultValue={anchor.price_krw != null ? String(anchor.price_krw) : ""}
-                      className="h-[38px] rounded-lg border border-fg/15 bg-white px-3 text-sm outline-none focus:border-fg/40"
+                      className="h-[38px] rounded-lg border border-fg/15 bg-surface px-3 text-sm outline-none focus:border-fg/40"
                     >
                       <option value="">가격 미표시</option>
                       {/* 현재 가격이 활성 패키지에 없으면(커스텀·비활성) 보존용 항목 추가 */}
@@ -355,7 +355,7 @@ export function PortfolioEditManager({
 function EditToast({ status, onClose }: { status: Status; onClose: () => void }) {
   if (status.kind === "working") {
     return (
-      <div className="flex items-center gap-3 rounded-xl border border-fg/10 bg-white px-4 py-3 shadow-lg">
+      <div className="flex items-center gap-3 rounded-xl border border-fg/10 bg-surface px-4 py-3 shadow-lg">
         <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-fg/20 border-t-fg" />
         <span className="text-sm">{status.label}</span>
       </div>
@@ -363,9 +363,9 @@ function EditToast({ status, onClose }: { status: Status; onClose: () => void })
   }
   if (status.kind === "success") {
     return (
-      <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-50 px-4 py-3 shadow-lg">
-        <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-emerald-500 text-xs text-white">✓</span>
-        <span className="text-sm text-emerald-800">{status.label}</span>
+      <div className="flex items-center gap-3 rounded-xl border border-success bg-success-soft px-4 py-3 shadow-lg">
+        <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-success text-xs text-white">✓</span>
+        <span className="text-sm text-success">{status.label}</span>
       </div>
     );
   }

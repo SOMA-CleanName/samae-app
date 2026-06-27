@@ -114,7 +114,7 @@ export function PhotoSortGrid({
                     <button
                       type="button"
                       onClick={() => makeCover(p.id)}
-                      className="rounded-full bg-white/90 px-2 py-0.5 text-[10px] font-semibold text-fg opacity-0 shadow transition-opacity hover:bg-white group-hover:opacity-100"
+                      className="rounded-full bg-surface/90 px-2 py-0.5 text-[10px] font-semibold text-fg opacity-0 shadow transition-opacity hover:bg-surface group-hover:opacity-100"
                     >
                       대표로
                     </button>
@@ -124,7 +124,7 @@ export function PhotoSortGrid({
                 {/* 공개 상태 — 우상단 */}
                 {p.visibility === "published" ? (
                   <span
-                    className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white/80"
+                    className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-success ring-2 ring-white/80"
                     title="공개"
                   />
                 ) : (
@@ -141,7 +141,7 @@ export function PhotoSortGrid({
                   <form action={setPhotoVisibility} className="flex-1">
                     <input type="hidden" name="id" value={p.id} />
                     <input type="hidden" name="visibility" value={p.visibility === "published" ? "draft" : "published"} />
-                    <button className="w-full rounded bg-white/90 py-1 text-[11px] font-medium text-fg hover:bg-white">
+                    <button className="w-full rounded bg-surface/90 py-1 text-[11px] font-medium text-fg hover:bg-surface">
                       {p.visibility === "published" ? "비공개로" : "공개하기"}
                     </button>
                   </form>

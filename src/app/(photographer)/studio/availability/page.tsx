@@ -117,15 +117,15 @@ export default async function AvailabilityPage() {
         <form action={addBlock} className="mt-3 grid grid-cols-[1.3fr_1fr_1fr_auto] items-end gap-2 rounded-xl border border-fg/15 p-3">
           <label className="flex flex-col gap-1 text-xs text-fg/55">
             날짜
-            <input type="date" name="date" required className="rounded-lg border border-fg/15 bg-white px-2 py-2 text-sm outline-none focus:border-fg/40" />
+            <input type="date" name="date" required className="rounded-lg border border-fg/15 bg-surface px-2 py-2 text-sm outline-none focus:border-fg/40" />
           </label>
           <label className="flex flex-col gap-1 text-xs text-fg/55">
             시작
-            <input type="time" name="start_time" required className="rounded-lg border border-fg/15 bg-white px-2 py-2 text-sm outline-none focus:border-fg/40" />
+            <input type="time" name="start_time" required className="rounded-lg border border-fg/15 bg-surface px-2 py-2 text-sm outline-none focus:border-fg/40" />
           </label>
           <label className="flex flex-col gap-1 text-xs text-fg/55">
             종료
-            <input type="time" name="end_time" required className="rounded-lg border border-fg/15 bg-white px-2 py-2 text-sm outline-none focus:border-fg/40" />
+            <input type="time" name="end_time" required className="rounded-lg border border-fg/15 bg-surface px-2 py-2 text-sm outline-none focus:border-fg/40" />
           </label>
           <button className="rounded-full bg-fg px-4 py-2 text-sm font-semibold text-bg hover:opacity-90">차단</button>
         </form>
@@ -150,7 +150,7 @@ export default async function AvailabilityPage() {
                 key={day}
                 className={`aspect-square rounded-lg py-1 ${
                   booked ? "bg-fg text-bg font-semibold" : "bg-fg/[0.03] text-fg/70"
-                } ${isToday ? "ring-2 ring-amber-400" : ""}`}
+                } ${isToday ? "ring-2 ring-warning" : ""}`}
               >
                 {day}
               </div>

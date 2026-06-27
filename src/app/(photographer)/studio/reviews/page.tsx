@@ -25,7 +25,7 @@ export default async function StudioReviewsPage() {
       <div className="mt-5 flex items-center gap-4 rounded-xl border border-fg/10 p-5">
         <div className="text-center">
           <p className="text-3xl font-semibold leading-none">{avg.toFixed(1)}</p>
-          <p className="mt-1 text-amber-500" aria-hidden>
+          <p className="mt-1 text-warning" aria-hidden>
             {"★".repeat(Math.round(avg))}
             <span className="text-fg/20">{"★".repeat(5 - Math.round(avg))}</span>
           </p>
@@ -46,7 +46,7 @@ export default async function StudioReviewsPage() {
           {reviews.map((r) => (
             <li key={r.id} className="rounded-xl border border-fg/10 p-4">
               <div className="flex items-center justify-between gap-3">
-                <span className="text-amber-500 text-sm">
+                <span className="text-warning text-sm">
                   {"★".repeat(r.rating)}
                   <span className="text-fg/20">{"★".repeat(5 - r.rating)}</span>
                 </span>

@@ -15,7 +15,7 @@ export type Pkg = {
 };
 
 const inputCls =
-  "rounded-lg border border-fg/15 bg-white px-3 py-2 text-sm text-fg outline-none focus:border-fg/40";
+  "rounded-lg border border-fg/15 bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-fg/40";
 const fmt = new Intl.NumberFormat("ko-KR");
 
 // 패키지 1행 — 평소엔 보기 모드, '수정'을 눌러야 편집. 삭제는 확인 후 진행.
@@ -125,7 +125,7 @@ function LabeledInput({
         min={min}
         max={max}
         step={step}
-        className="rounded-lg border border-fg/15 bg-white px-3 py-2 text-sm text-fg outline-none focus:border-fg/40"
+        className="rounded-lg border border-fg/15 bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-fg/40"
       />
     </label>
   );
@@ -135,7 +135,7 @@ function StatusPill({ active }: { active: boolean }) {
   return (
     <span
       className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] ${
-        active ? "bg-emerald-500/15 text-emerald-700" : "bg-fg/10 text-fg/50"
+        active ? "bg-success-soft text-success" : "bg-fg/10 text-fg/50"
       }`}
     >
       {active ? "노출 중" : "비활성"}

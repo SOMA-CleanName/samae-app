@@ -46,7 +46,7 @@ export function ProfileForm({ initial }: { initial: ProfileInitial }) {
           maxLength={500}
           value={f.bio}
           onChange={set("bio")}
-          className="rounded-xl border border-fg/15 bg-white px-4 py-3 text-sm outline-none focus:border-fg/40"
+          className="rounded-xl border border-fg/15 bg-surface px-4 py-3 text-sm outline-none focus:border-fg/40"
         />
       </div>
 
@@ -80,7 +80,7 @@ export function ProfileForm({ initial }: { initial: ProfileInitial }) {
                 name="bankName"
                 value={f.bankName}
                 onChange={set("bankName")}
-                className="w-full appearance-none rounded-xl border border-fg/15 bg-white px-4 py-3 pr-12 text-sm outline-none focus:border-fg/40"
+                className="w-full appearance-none rounded-xl border border-fg/15 bg-surface px-4 py-3 pr-12 text-sm outline-none focus:border-fg/40"
               >
                 <option value="">선택 안 함</option>
                 {/* 기존에 목록 밖 값이 저장돼 있으면 유지 */}
@@ -105,7 +105,7 @@ export function ProfileForm({ initial }: { initial: ProfileInitial }) {
       </fieldset>
 
       {state.error && <p className="text-sm text-brand">{state.error}</p>}
-      {state.ok && <p className="text-sm text-emerald-600">저장됐어요.</p>}
+      {state.ok && <p className="text-sm text-success">저장됐어요.</p>}
 
       <button
         type="submit"
@@ -153,7 +153,7 @@ function Field({
         min={min}
         max={max}
         step={step}
-        className="rounded-xl border border-fg/15 bg-white px-4 py-3 text-sm outline-none focus:border-fg/40"
+        className="rounded-xl border border-fg/15 bg-surface px-4 py-3 text-sm outline-none focus:border-fg/40"
       />
       {hint && !error && <p className="text-xs text-fg/45">{hint}</p>}
       {error && <p className="text-xs text-brand">{error}</p>}

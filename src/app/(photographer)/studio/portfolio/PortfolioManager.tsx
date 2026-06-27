@@ -77,7 +77,7 @@ export function PortfolioManager({ packages }: { packages: PackageOption[] }) {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-xl"
+            className="max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-bg p-5 shadow-xl"
           >
             <div className="flex items-center justify-between">
               <h3 className="flex items-center gap-1.5 text-base font-semibold">
@@ -115,7 +115,7 @@ export function PortfolioManager({ packages }: { packages: PackageOption[] }) {
 function UploadToast({ status, onClose }: { status: Status; onClose: () => void }) {
   if (status.kind === "uploading") {
     return (
-      <div className="flex items-center gap-3 rounded-xl border border-fg/10 bg-white px-4 py-3 shadow-lg">
+      <div className="flex items-center gap-3 rounded-xl border border-fg/10 bg-surface px-4 py-3 shadow-lg">
         <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-fg/20 border-t-fg" />
         <span className="text-sm">
           사진 업로드 중… <strong>{status.done}/{status.total}</strong>
@@ -125,9 +125,9 @@ function UploadToast({ status, onClose }: { status: Status; onClose: () => void 
   }
   if (status.kind === "success") {
     return (
-      <div className="flex items-center gap-3 rounded-xl border border-emerald-500/30 bg-emerald-50 px-4 py-3 shadow-lg">
-        <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-emerald-500 text-xs text-white">✓</span>
-        <span className="text-sm text-emerald-800">업로드 완료 · {status.count}장</span>
+      <div className="flex items-center gap-3 rounded-xl border border-success bg-success-soft px-4 py-3 shadow-lg">
+        <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-success text-xs text-white">✓</span>
+        <span className="text-sm text-success">업로드 완료 · {status.count}장</span>
       </div>
     );
   }

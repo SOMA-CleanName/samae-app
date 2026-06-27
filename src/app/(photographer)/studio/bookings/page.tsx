@@ -42,7 +42,7 @@ export default async function StudioBookingsPage() {
       {/* 받은 제안 — 수락 대기 (액션 필요) */}
       {received.length > 0 && (
         <section className="mt-6">
-          <h2 className="text-sm font-medium text-amber-700">받은 예약 제안 · {received.length}</h2>
+          <h2 className="text-sm font-medium text-warning">받은 예약 제안 · {received.length}</h2>
           <ul className="mt-2 flex flex-col gap-2">
             {received.map((b) => (
               <BookingItem key={b.id} b={b} convMap={convMap} highlight />
@@ -99,7 +99,7 @@ function BookingItem({
       <Link
         href={`/bookings/${b.id}`}
         className={`block flex-1 rounded-xl border p-4 transition-colors ${
-          highlight ? "border-amber-500/30 bg-amber-500/[0.06] hover:bg-amber-500/[0.1]" : "border-fg/10 hover:border-fg/25"
+          highlight ? "border-warning/30 bg-warning/[0.06] hover:bg-warning/[0.1]" : "border-fg/10 hover:border-fg/25"
         }`}
       >
         <div className="flex items-center justify-between gap-2">

@@ -54,7 +54,7 @@ export default async function ProfilePage() {
       </Link>
       <h1 className="mt-4 text-2xl font-semibold">프로필 편집</h1>
       <p className="mt-1 text-sm text-fg/55">{me.photographer.displayName}</p>
-      <section className="mt-6 rounded-2xl border border-fg/10 bg-white p-4">
+      <section className="mt-6 rounded-2xl border border-fg/10 bg-surface p-4">
         <p className="text-sm font-semibold text-fg">프로필 대표 사진</p>
         <div className="mt-4">
           <AvatarUploader

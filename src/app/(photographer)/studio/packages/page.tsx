@@ -7,7 +7,7 @@ import { PackageItem, type Pkg } from "./PackageItem";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 
 const inputCls =
-  "rounded-lg border border-fg/15 bg-white px-3 py-2 text-sm outline-none focus:border-fg/40";
+  "rounded-lg border border-fg/15 bg-surface px-3 py-2 text-sm outline-none focus:border-fg/40";
 
 // 패키지 관리 — 서버 구동 폼(클라이언트 상태 없음)
 export default async function PackagesPage() {
@@ -97,7 +97,7 @@ function LabeledInput({
         min={min}
         max={max}
         step={step}
-        className="rounded-lg border border-fg/15 bg-white px-3 py-2 text-sm text-fg outline-none focus:border-fg/40"
+        className="rounded-lg border border-fg/15 bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-fg/40"
       />
     </label>
   );

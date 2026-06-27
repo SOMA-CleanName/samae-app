@@ -82,7 +82,7 @@ function StatusCard({
   displayName: string;
 }) {
   const color =
-    tone === "wait" ? "border-amber-500/20 bg-amber-500/[0.06]" : "border-brand/20 bg-brand/[0.06]";
+    tone === "wait" ? "border-warning/20 bg-warning/[0.06]" : "border-brand/20 bg-brand/[0.06]";
   return (
     <div className={`mt-6 rounded-xl border p-6 ${color}`}>
       <p className="text-sm font-semibold">{title}</p>

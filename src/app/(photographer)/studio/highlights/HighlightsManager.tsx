@@ -266,7 +266,7 @@ function HighlightCircle({
       {selectMode && (
         <span
           className={`pointer-events-none absolute -right-0.5 -top-0.5 grid h-5 w-5 place-items-center rounded-full border text-[10px] leading-none ${
-            selected ? "border-brand bg-brand text-white" : "border-fg/40 bg-white text-transparent"
+            selected ? "border-brand bg-brand text-white" : "border-fg/40 bg-surface text-transparent"
           }`}
         >
           ✓
@@ -422,7 +422,7 @@ function HighlightEditor({
       <form
         onSubmit={onSubmit}
         onClick={(e) => e.stopPropagation()}
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-5 shadow-xl"
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-bg p-5 shadow-xl"
       >
         <div className="flex items-center justify-between">
           <h3 className="text-base font-semibold">{isEdit ? "하이라이트 수정" : "새 하이라이트"}</h3>
@@ -452,7 +452,7 @@ function HighlightEditor({
               onChange={(e) => setTitle(e.target.value)}
               maxLength={30}
               placeholder="제목 (예: 웨딩, 프로필)"
-              className="w-full rounded-lg border border-fg/15 bg-white px-3 py-2 text-sm outline-none focus:border-fg/40"
+              className="w-full rounded-lg border border-fg/15 bg-surface px-3 py-2 text-sm outline-none focus:border-fg/40"
             />
             <input ref={coverFileRef} type="file" accept="image/*" hidden onChange={(e) => onCoverFile(e.target.files)} />
             <button
@@ -500,7 +500,7 @@ function HighlightEditor({
                     type="button"
                     onClick={() => setCover(it)}
                     className={`relative h-[72px] w-[40px] overflow-hidden rounded-md ring-2 ${
-                      isCover(it) ? "ring-amber-500" : "ring-fg/10"
+                      isCover(it) ? "ring-warning" : "ring-fg/10"
                     }`}
                     title="커버로 지정"
                   >
@@ -509,7 +509,7 @@ function HighlightEditor({
                       {i + 1}
                     </span>
                     {isCover(it) && (
-                      <span className="absolute inset-x-0 bottom-0 bg-amber-500 text-center text-[8px] font-bold text-white">
+                      <span className="absolute inset-x-0 bottom-0 bg-warning text-center text-[8px] font-bold text-white">
                         커버
                       </span>
                     )}
@@ -624,7 +624,7 @@ function CropModal({
 
   return (
     <div className="fixed inset-0 z-[60] grid place-items-center bg-black/70 p-4 font-kr" onClick={onCancel}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm overflow-hidden rounded-2xl bg-white">
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm overflow-hidden rounded-2xl bg-bg">
         <div className="flex items-center justify-between px-4 py-3">
           <h4 className="text-sm font-semibold">9:16에 담기</h4>
           <button type="button" onClick={onCancel} className="text-sm text-fg/50 hover:text-fg">취소</button>

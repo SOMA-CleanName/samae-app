@@ -158,7 +158,7 @@ export default async function BookingDetail({
 
       {/* 정체 단계 넛지 */}
       {nudge && (
-        <p className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/[0.06] px-4 py-3 text-sm text-amber-700">
+        <p className="mt-3 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning">
           {nudge}
         </p>
       )}
@@ -186,7 +186,7 @@ export default async function BookingDetail({
 
         {/* 구매자: 수락됨 → 송금 안내(작가 계좌·금액·송금완료) 인라인 노출 (req4) */}
         {isBuyer && b.status === "accepted" && (
-          <section className="rounded-xl border border-fg/12 bg-white p-5">
+          <section className="rounded-xl border border-fg/12 bg-surface p-5">
             <p className="text-sm font-semibold">💸 송금 안내</p>
             <p className="mt-1 text-xs text-fg/55">
               아래 계좌로 촬영비를 직접 송금해주세요. 작가가 입금을 확인하면 결제가 완료됩니다.
@@ -203,13 +203,13 @@ export default async function BookingDetail({
                 </div>
               </div>
             ) : (
-              <p className="mt-3 rounded-xl bg-amber-500/10 px-3 py-2 text-xs text-amber-700">
+              <p className="mt-3 rounded-xl bg-warning-soft px-3 py-2 text-xs text-warning">
                 작가가 아직 수취 계좌를 등록하지 않았어요. 채팅으로 계좌를 문의해주세요.
               </p>
             )}
 
             {b.transfer_marked_at ? (
-              <p className="mt-3 rounded-full bg-emerald-500/10 px-3 py-2 text-center text-xs text-emerald-600">
+              <p className="mt-3 rounded-full bg-success-soft px-3 py-2 text-center text-xs text-success">
                 ✅ 송금 완료를 알렸어요 · 작가의 입금 확인을 기다리는 중
               </p>
             ) : (
@@ -263,7 +263,7 @@ export default async function BookingDetail({
         {isBuyer && b.status === "delivered" && (
           <form action={confirmCompletion}>
             <input type="hidden" name="id" value={b.id} />
-            <button className="w-full rounded-xl bg-emerald-600 py-3 text-sm font-semibold text-white hover:opacity-90">
+            <button className="w-full rounded-xl bg-success py-3 text-sm font-semibold text-white hover:opacity-90">
               전달 확인 · 거래 완료
             </button>
           </form>
@@ -292,9 +292,9 @@ export default async function BookingDetail({
 
       {/* 작가: 환불 신청됨 → 직접 송금 안내 (req7) */}
       {isOwner && b.status === "refunded" && (
-        <section className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/[0.06] p-5">
-          <p className="text-sm font-semibold text-amber-700">↩️ 환불 신청이 접수됐어요</p>
-          <p className="mt-1.5 text-sm text-amber-700/90">
+        <section className="mt-6 rounded-xl border border-warning/30 bg-warning-soft p-5">
+          <p className="text-sm font-semibold text-warning">↩️ 환불 신청이 접수됐어요</p>
+          <p className="mt-1.5 text-sm text-warning/90">
             고객에게 <b>₩{fmt.format(b.amount_krw ?? 0)}</b>을(를) 직접 송금해 환불해주세요.
             계좌가 필요하면 채팅으로 문의할 수 있어요.
           </p>
@@ -344,7 +344,7 @@ export default async function BookingDetail({
             // 그 외(작가 등): 읽기 전용
             <div className="rounded-xl border border-fg/10 p-5">
               <p className="text-sm font-semibold">고객 후기</p>
-              <p className="mt-1 text-amber-500">{"★".repeat(review.rating)}<span className="text-fg/20">{"★".repeat(5 - review.rating)}</span></p>
+              <p className="mt-1 text-warning">{"★".repeat(review.rating)}<span className="text-fg/20">{"★".repeat(5 - review.rating)}</span></p>
               {review.body && <p className="mt-2 text-sm text-fg/70">{review.body}</p>}
             </div>
           ) : (
