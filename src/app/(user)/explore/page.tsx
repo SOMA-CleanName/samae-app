@@ -1,5 +1,5 @@
-/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/server";
 import { EXPLORE_CATEGORIES } from "@/lib/explore-categories";
 import { seededShuffle, spaceByKey, dayKey } from "@/lib/seeded-shuffle";
@@ -57,10 +57,12 @@ export default async function ExplorePage() {
                   key={p.id}
                   className="block shrink-0 overflow-hidden rounded-xl bg-fg/[0.05]"
                 >
-                  <img
+                  <Image
                     src={p.thumb_url ?? p.src_url}
                     alt=""
-                    loading="lazy"
+                    width={128}
+                    height={176}
+                    sizes="128px"
                     className="h-44 w-32 object-cover"
                   />
                 </div>

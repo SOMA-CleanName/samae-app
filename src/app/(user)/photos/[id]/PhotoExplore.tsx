@@ -3,6 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
 import { assignColumnAccents } from "@/lib/seeded-shuffle";
 
@@ -124,13 +125,25 @@ function PhotoMasonry({
                   href={`/photos/${p.id}`}
                   className="block transition-opacity hover:opacity-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                 >
-                  <img
-                    src={p.thumb_url ?? p.src_url}
-                    alt={altLabel}
-                    loading="lazy"
-                    style={ratio ? { aspectRatio: ratio } : undefined}
-                    className="w-full object-cover"
-                  />
+                  {p.width > 0 && p.height > 0 ? (
+                    <Image
+                      src={p.thumb_url ?? p.src_url}
+                      alt={altLabel}
+                      width={p.width}
+                      height={p.height}
+                      sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 220px"
+                      style={{ width: "100%", height: "auto", aspectRatio: ratio }}
+                      className="object-cover"
+                    />
+                  ) : (
+                    <img
+                      src={p.thumb_url ?? p.src_url}
+                      alt={altLabel}
+                      loading="lazy"
+                      style={ratio ? { aspectRatio: ratio } : undefined}
+                      className="w-full object-cover"
+                    />
+                  )}
                 </Link>
                 {/* 상세 하단 추천에서도 담기 가능 */}
                 <AddToCartButton
