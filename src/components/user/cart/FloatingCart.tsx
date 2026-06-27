@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCart, cartCardJitter, PEEK_CARD_W, type CartItem } from "./CartProvider";
 import { submitCartInquiry } from "@/app/(user)/inquiry/actions";
 
@@ -47,6 +48,7 @@ type Placed = {
 
 export function FloatingCart() {
   const { items, count, remove, consumeFlyFrom } = useCart();
+  const router = useRouter();
   // 단계: dock(가장자리) → center(중앙 스택) → spread(펼침). 열고 닫을 때 중앙을 경유.
   const [phase, setPhase] = useState<"dock" | "center" | "spread">("dock");
   const open = phase !== "dock";
@@ -620,7 +622,7 @@ export function FloatingCart() {
                   ) : focused && items.some((i) => i.id === focused) ? (
                     <button
                       type="button"
-                      onClick={() => setFormFor(focused)}
+                      onClick={() => router.push(`/inquiry/photo/${focused}`)}
                       className="w-full cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
                     >
                       이 사진으로 무료 상담 신청
