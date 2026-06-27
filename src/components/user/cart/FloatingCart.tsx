@@ -345,8 +345,8 @@ export function FloatingCart() {
           phase === "spread" ? (focused ? () => setFocused(null) : close) : undefined
         }
         className={`fixed inset-0 z-[55] ${
-          phase === "spread" && SCROLL && !focused ? "overflow-y-auto overscroll-contain" : ""
-        } ${open ? "" : "pointer-events-none"}`}
+          phase === "spread" && SCROLL ? "overflow-y-auto overscroll-contain" : ""
+        } ${focused ? "[touch-action:none]" : ""} ${open ? "" : "pointer-events-none"}`}
       >
         <div className="relative w-full" style={{ height: phase === "spread" && SCROLL ? contentH : "100%" }}>
           {cards.map(({ it, x, y, rot, photoW, photoH, side, bottom, z, g }) => {
@@ -368,8 +368,11 @@ export function FloatingCart() {
               op = 0;
             } else if (isFocused) {
               // 실제 카드가 화면 중앙으로 와서 확대(복제 없음). 스크롤 보정 포함.
-              const focusScale = Math.min(W * 0.82, 360) / cardW;
-              tf = tfAt(W / 2, focusScroll + H * 0.43, focusScale, 0);
+              // 가로 폭 + 세로 높이 둘 다 제약 → 세로로 긴 사진이 하단 액션바에 가리지 않게.
+              const maxW = Math.min(W * 0.82, 360);
+              const maxH = H * 0.64; // 상단 안전영역 + 하단 액션바(≈150px) 회피
+              const focusScale = Math.min(maxW / cardW, maxH / cardH);
+              tf = tfAt(W / 2, focusScroll + H * 0.42, focusScale, 0);
               op = 1;
             } else if (phase === "spread") {
               tf = tfAt(x, y, 1, rot);

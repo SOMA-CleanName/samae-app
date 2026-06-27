@@ -87,6 +87,47 @@ function buildColumns(photos: ExplorePhoto[], colCount: number): ExplorePhoto[][
   return cols;
 }
 
+// 추천 타일 이미지 — 로드 전 스켈레톤(빠른 스크롤 시 빈 칸이 '로딩 중'으로 보이게).
+function RecTileImage({
+  p,
+  alt,
+  ratio,
+}: {
+  p: ExplorePhoto;
+  alt: string;
+  ratio: string | undefined;
+}) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <>
+      {!loaded && (
+        <span aria-hidden className="pointer-events-none absolute inset-0 animate-pulse bg-fg/[0.08]" />
+      )}
+      {p.width > 0 && p.height > 0 ? (
+        <Image
+          src={p.thumb_url ?? p.src_url}
+          alt={alt}
+          width={p.width}
+          height={p.height}
+          sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 220px"
+          style={{ width: "100%", height: "auto", aspectRatio: ratio }}
+          className="relative object-cover"
+          onLoad={() => setLoaded(true)}
+        />
+      ) : (
+        <img
+          src={p.thumb_url ?? p.src_url}
+          alt={alt}
+          loading="lazy"
+          style={ratio ? { aspectRatio: ratio } : undefined}
+          className="relative w-full object-cover"
+          onLoad={() => setLoaded(true)}
+        />
+      )}
+    </>
+  );
+}
+
 // 메이슨리 사진 그리드 — 클릭 시 해당 사진 상세로.
 // JS 컬럼 버킷(높이 균형) — 점진 노출 시 기존 사진이 재배치되지 않음.
 function PhotoMasonry({
@@ -125,25 +166,7 @@ function PhotoMasonry({
                   href={`/photos/${p.id}`}
                   className="block transition-opacity hover:opacity-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                 >
-                  {p.width > 0 && p.height > 0 ? (
-                    <Image
-                      src={p.thumb_url ?? p.src_url}
-                      alt={altLabel}
-                      width={p.width}
-                      height={p.height}
-                      sizes="(max-width: 640px) 45vw, (max-width: 1024px) 30vw, 220px"
-                      style={{ width: "100%", height: "auto", aspectRatio: ratio }}
-                      className="object-cover"
-                    />
-                  ) : (
-                    <img
-                      src={p.thumb_url ?? p.src_url}
-                      alt={altLabel}
-                      loading="lazy"
-                      style={ratio ? { aspectRatio: ratio } : undefined}
-                      className="w-full object-cover"
-                    />
-                  )}
+                  <RecTileImage p={p} alt={altLabel} ratio={ratio} />
                 </Link>
                 {/* 상세 하단 추천에서도 담기 가능 */}
                 <AddToCartButton
