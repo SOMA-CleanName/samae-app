@@ -54,7 +54,9 @@ export function FloatingCart() {
   const [dragging, setDragging] = useState(false);
   const drag = useRef({ active: false, moved: false, startX: 0, startY: 0, baseRight: 0, baseTop: 0 });
   const [vp, setVp] = useState<{ w: number; h: number } | null>(null);
-  const [focused, setFocused] = useState<{ id: string; rect: DOMRect } | null>(null);
+  // 탭한 사진 id — 실제 카드 자체가 중앙으로 와서 확대(복제본 없음)
+  const [focused, setFocused] = useState<string | null>(null);
+  const [focusScroll, setFocusScroll] = useState(0); // 확대 시점의 스크롤 오프셋(중앙 보정용)
   const [formFor, setFormFor] = useState<string | null>(null); // null / photoId(단일) / "selected"(선택 묶음)
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -334,14 +336,24 @@ export function FloatingCart() {
         }`}
       />
 
-      {/* 카드 레이어 — 도크↔중앙↔펼침 동일 엘리먼트가 변형(복제본 없음) */}
+      {/* 카드 레이어 — 도크↔중앙↔펼침↔확대 동일 엘리먼트가 변형(복제본 없음) */}
       <div
         ref={layerRef}
-        onClick={phase === "spread" ? close : undefined}
+        onClick={phase === "spread" && !focused ? close : undefined}
         className={`fixed inset-0 z-[55] ${
-          phase === "spread" && SCROLL ? "overflow-y-auto overscroll-contain" : ""
+          phase === "spread" && SCROLL && !focused ? "overflow-y-auto overscroll-contain" : ""
         } ${open ? "" : "pointer-events-none"}`}
       >
+        {/* 확대 시 딤 — 카드 위, 포커스 카드 아래. 탭하면 그리드로 복귀 */}
+        <div
+          aria-hidden
+          onClick={(e) => {
+            e.stopPropagation();
+            setFocused(null);
+          }}
+          className="fixed inset-0 bg-black/78 backdrop-blur-sm transition-opacity duration-300"
+          style={{ zIndex: 500, opacity: focused ? 1 : 0, pointerEvents: focused ? "auto" : "none" }}
+        />
         <div className="relative w-full" style={{ height: phase === "spread" && SCROLL ? contentH : "100%" }}>
           {cards.map(({ it, x, y, rot, photoW, photoH, side, bottom, z, g }) => {
             const isLeaving = leaving.has(it.id);
@@ -353,14 +365,21 @@ export function FloatingCart() {
             const cardH = photoH + side + bottom;
             const tfAt = (X: number, Y: number, s: number, r: number) =>
               `translate(${X - cardW / 2}px, ${Y - cardH / 2}px) scale(${s}) rotate(${r}deg)`;
+            const isFocused = focused === it.id;
+            const anyFocused = focused != null;
             let tf: string;
             let op: number;
             if (isLeaving) {
               tf = tfAt(x, y - 44, 0.6, rot);
               op = 0;
+            } else if (isFocused) {
+              // 실제 카드가 화면 중앙으로 와서 확대(복제 없음). 스크롤 보정 포함.
+              const focusScale = Math.min(W * 0.82, 360) / cardW;
+              tf = tfAt(W / 2, focusScroll + H * 0.43, focusScale, 0);
+              op = 1;
             } else if (phase === "spread") {
               tf = tfAt(x, y, 1, rot);
-              op = 1;
+              op = anyFocused ? 0 : selectMode && !selectedIds.has(it.id) ? 0.5 : 1;
             } else if (belowFold) {
               tf = tfAt(x, y, 1, rot);
               op = 0;
@@ -372,13 +391,13 @@ export function FloatingCart() {
               tf = tfAt(dockCx + j.dx, dockCy + j.dy, dockScale, j.rot);
               op = g >= 5 ? 0 : 1;
             }
-            // 펼칠 때만 스태거 — 그리드 위(g 작은 쪽=최신)부터 한 장씩.
-            const delay = !dragging && phase === "spread" ? Math.min(g, 16) * 22 : 0;
+            // 펼칠 때만 스태거 — 그리드 위(g 작은 쪽=최신)부터 한 장씩. 포커스 이동은 즉시.
+            const delay = !dragging && phase === "spread" && !anyFocused ? Math.min(g, 16) * 22 : 0;
             return (
               <div
                 key={it.id}
                 className="absolute"
-                style={{ left: 0, top: 0, zIndex: 10 + z }}
+                style={{ left: 0, top: 0, zIndex: isFocused ? 1000 : 10 + z }}
               >
                 <div
                   ref={(el) => {
@@ -394,7 +413,11 @@ export function FloatingCart() {
                     e.stopPropagation();
                     if (phase === "spread") {
                       if (selectMode) toggleSelect(it.id);
-                      else setFocused({ id: it.id, rect: e.currentTarget.getBoundingClientRect() });
+                      else if (focused === it.id) setFocused(null);
+                      else {
+                        setFocusScroll(layerRef.current?.scrollTop ?? 0);
+                        setFocused(it.id);
+                      }
                     } else if (phase === "dock") {
                       if (drag.current.moved) drag.current.moved = false;
                       else startOpen();
@@ -408,9 +431,8 @@ export function FloatingCart() {
                     borderRadius: 3,
                     transformOrigin: "center",
                     transform: tf,
-                    opacity:
-                      phase === "spread" && selectMode && !selectedIds.has(it.id) ? 0.5 : op,
-                    pointerEvents: "auto", // 닫힘 시 레이어가 none 이라 카드만 살림
+                    opacity: op,
+                    pointerEvents: anyFocused && !isFocused ? "none" : "auto",
                     touchAction: open ? "auto" : "none",
                     transition: dragging
                       ? "none"
@@ -463,6 +485,22 @@ export function FloatingCart() {
             </div>
           ) : (
             <>
+              {/* 상단(확대 중) — 좌상단 뒤로가기(그리드로 복귀) */}
+              {focused && (
+                <div className="fixed inset-x-0 top-0 z-[62] flex items-center px-5 pt-5">
+                  <button
+                    type="button"
+                    onClick={() => setFocused(null)}
+                    aria-label="뒤로"
+                    className="grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
+                  >
+                    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M15 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+
               {/* 상단 — 확대 중이 아닐 때. 일반: 뒤로 / 찜 수(중앙) / 선택. 선택모드: 취소 / N장 선택 / 삭제 */}
               {!focused && (
                 <div className="pointer-events-none fixed inset-x-0 top-0 z-[62] flex items-center justify-between px-5 pt-5">
@@ -596,10 +634,10 @@ export function FloatingCart() {
                     >
                       {selectedIds.size > 0 ? `선택한 ${selectedIds.size}장 상담 신청` : "상담할 사진을 선택하세요"}
                     </button>
-                  ) : focused && items.some((i) => i.id === focused.id) ? (
+                  ) : focused && items.some((i) => i.id === focused) ? (
                     <button
                       type="button"
-                      onClick={() => setFormFor(focused.id)}
+                      onClick={() => setFormFor(focused)}
                       className="w-full cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
                     >
                       이 사진으로 무료 상담 신청
@@ -611,142 +649,33 @@ export function FloatingCart() {
                 </div>
               </div>
 
-              {/* 탭한 사진 중앙 확대 — 상담 CTA 는 하단 바가 담당 */}
-              {focused && items.some((i) => i.id === focused.id) && (
-                <FocusedPhoto
-                  item={items.find((i) => i.id === focused.id)!}
-                  fromRect={focused.rect}
-                  vp={vp}
-                  onBack={() => {
-                    setFocused(null);
-                    if (formFor && formFor !== "all") setFormFor(null);
-                  }}
-                  onRemove={(id) => {
-                    setFocused(null);
-                    if (formFor && formFor !== "all") setFormFor(null);
-                    removeOne(id);
-                  }}
-                />
+              {/* 확대 중 보조 액션 — 무료상담 바 바로 위. (확대 사진은 실제 카드가 중앙으로 옴) */}
+              {focused && items.some((i) => i.id === focused) && (
+                <div className="fixed inset-x-0 bottom-[88px] z-[60] flex items-center justify-center gap-2 px-6">
+                  <Link
+                    href={`/photos/${focused}`}
+                    className="rounded-full bg-white/15 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
+                  >
+                    이 사진 게시물 보러가기
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const id = focused;
+                      setFocused(null);
+                      setFormFor(null);
+                      removeOne(id);
+                    }}
+                    className="rounded-full bg-white/10 px-4 py-2.5 text-sm font-semibold text-white/85 backdrop-blur transition-colors hover:bg-white/20"
+                  >
+                    삭제하기
+                  </button>
+                </div>
               )}
             </>
           )}
         </>
       )}
     </>
-  );
-}
-
-// 탭한 사진을 카드 자리 ↔ 화면 중앙으로 확대/복귀(transform 상태 토글, 측정 없음 → 확실히 모션 적용).
-function FocusedPhoto({
-  item,
-  fromRect,
-  vp,
-  onBack,
-  onRemove,
-}: {
-  item: CartItem;
-  fromRect: DOMRect;
-  vp: { w: number; h: number } | null;
-  onBack: () => void;
-  onRemove: (id: string) => void;
-}) {
-  // entered=false: 카드 자리(작게) / true: 화면 중앙(원래 크기)
-  const [entered, setEntered] = useState(false);
-  const closing = useRef(false);
-  useEffect(() => {
-    const r = requestAnimationFrame(() => setEntered(true));
-    return () => cancelAnimationFrame(r);
-  }, []);
-  // 닫힘 — 카드 자리로 되돌아간 뒤 언마운트
-  function leave(after: () => void) {
-    if (closing.current) return;
-    closing.current = true;
-    setEntered(false);
-    setTimeout(after, 420);
-  }
-
-  const vw = vp?.w ?? 360;
-  const vh = vp?.h ?? 720;
-  const photoW = Math.min(vw * 0.82, 340);
-  const ratio = item.w > 0 && item.h > 0 ? item.h / item.w : 1;
-  const side = Math.max(8, Math.round(photoW * 0.05));
-  const bottomPad = Math.max(20, Math.round(photoW * 0.14));
-  const photoH = Math.min(Math.round(photoW * ratio), Math.round(vh * 0.46));
-
-  // 카드 자리 → 중앙 변환을 직접 계산(렌더 시점). 중앙은 px-6/pb-16 영역의 중심.
-  const cardFullW = photoW + side * 2;
-  const targetCx = vw / 2;
-  const targetCy = (vh - 64) / 2;
-  const fromCx = fromRect.left + fromRect.width / 2;
-  const fromCy = fromRect.top + fromRect.height / 2;
-  const dx = fromCx - targetCx;
-  const dy = fromCy - targetCy;
-  const s = Math.max(0.05, fromRect.width / cardFullW);
-  const startTf = `translate(${dx}px, ${dy}px) scale(${s})`;
-
-  return (
-    <div className="fixed inset-0 z-[58] font-kr">
-      {/* 딤 — 빈 곳/사진 탭하면 그리드로 */}
-      <div
-        onClick={() => leave(onBack)}
-        aria-hidden
-        className="absolute inset-0 bg-black/78 backdrop-blur-sm transition-opacity duration-300"
-        style={{ opacity: entered ? 1 : 0 }}
-      />
-
-      {/* 좌상단 뒤로가기 */}
-      <button
-        type="button"
-        onClick={() => leave(onBack)}
-        aria-label="뒤로"
-        className="absolute left-5 top-5 z-10 grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-all duration-300 hover:bg-white/25"
-        style={{ opacity: entered ? 1 : 0 }}
-      >
-        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M15 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
-
-      {/* 사진 — 카드 자리(작게) ↔ 화면 중앙(원래 크기) */}
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6 pb-16">
-        <div
-          className="relative bg-white shadow-[0_18px_50px_rgba(0,0,0,0.55)]"
-          style={{
-            padding: `${side}px ${side}px ${bottomPad}px`,
-            borderRadius: 4,
-            transformOrigin: "center",
-            transform: entered ? "translate(0,0) scale(1)" : startTf,
-            transition: "transform 440ms cubic-bezier(.22,1,.36,1)",
-          }}
-        >
-          <img
-            src={item.src}
-            alt=""
-            draggable={false}
-            style={{ display: "block", width: photoW, height: photoH, objectFit: "cover", borderRadius: 2 }}
-          />
-        </div>
-      </div>
-
-      {/* 보조 액션 — 무료상담 바(bottom-0) 바로 위 */}
-      <div
-        className="absolute inset-x-0 bottom-[88px] z-[60] flex items-center justify-center gap-2 px-6 transition-opacity duration-300"
-        style={{ opacity: entered ? 1 : 0 }}
-      >
-        <Link
-          href={`/photos/${item.id}`}
-          className="rounded-full bg-white/15 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
-        >
-          이 사진 게시물 보러가기
-        </Link>
-        <button
-          type="button"
-          onClick={() => leave(() => onRemove(item.id))}
-          className="rounded-full bg-white/10 px-4 py-2.5 text-sm font-semibold text-white/85 backdrop-blur transition-colors hover:bg-white/20"
-        >
-          삭제하기
-        </button>
-      </div>
-    </div>
   );
 }
