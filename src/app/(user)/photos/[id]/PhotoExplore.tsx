@@ -3,6 +3,8 @@
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
+import { assignColumnAccents } from "@/lib/seeded-shuffle";
 
 export type ExplorePhoto = {
   id: string;
@@ -18,7 +20,7 @@ const STEP = 30; // 스크롤마다 더 보여줄 사진 수(메모리에서 즉
 // (작가 사진 탭은 제거: 작가 식별 노출 금지 + 이탈 유도 방지. 스크롤 내리면 추천만 이어짐)
 export function PhotoExplore({ initialRecs }: { initialRecs: ExplorePhoto[] }) {
   return (
-    <section className="mt-12">
+    <section className="mt-6">
       <RecsFeed initial={initialRecs} />
     </section>
   );
@@ -98,6 +100,8 @@ function PhotoMasonry({
   const ref = useRef<HTMLDivElement>(null);
   const colCount = useColumnCount(ref);
   const columns = useMemo(() => buildColumns(photos, colCount), [photos, colCount]);
+  // 테두리 — 컬럼별로 어긋나게 배치(한쪽 쏠림 방지) + 가끔 검정
+  const accentMap = useMemo(() => assignColumnAccents(columns), [columns]);
   if (photos.length === 0) {
     return <p className="mt-10 text-center text-sm text-muted">{empty}</p>;
   }
@@ -107,20 +111,33 @@ function PhotoMasonry({
         <div key={ci} className="flex min-w-0 flex-1 flex-col gap-3">
           {col.map((p) => {
             const ratio = p.width > 0 && p.height > 0 ? `${p.width} / ${p.height}` : undefined;
+            const accent = accentMap.get(p.id);
             return (
-              <Link
+              <div
                 key={p.id}
-                href={`/photos/${p.id}`}
-                className="block overflow-hidden rounded-2xl bg-fg/[0.05] transition-opacity hover:opacity-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                data-cart-card
+                className={`group relative overflow-hidden rounded-2xl bg-fg/[0.05] ring-4 ${
+                  accent === "brand" ? "ring-brand" : accent === "ink" ? "ring-fg" : "ring-bg"
+                }`}
               >
-                <img
-                  src={p.thumb_url ?? p.src_url}
-                  alt={altLabel}
-                  loading="lazy"
-                  style={ratio ? { aspectRatio: ratio } : undefined}
-                  className="w-full object-cover"
+                <Link
+                  href={`/photos/${p.id}`}
+                  className="block transition-opacity hover:opacity-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                >
+                  <img
+                    src={p.thumb_url ?? p.src_url}
+                    alt={altLabel}
+                    loading="lazy"
+                    style={ratio ? { aspectRatio: ratio } : undefined}
+                    className="w-full object-cover"
+                  />
+                </Link>
+                {/* 상세 하단 추천에서도 담기 가능 */}
+                <AddToCartButton
+                  item={{ id: p.id, src: p.thumb_url ?? p.src_url, w: p.width, h: p.height }}
+                  className="absolute right-2 top-2"
                 />
-              </Link>
+              </div>
             );
           })}
         </div>

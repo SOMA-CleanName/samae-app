@@ -359,6 +359,8 @@ export async function submitCartInquiry(
   formData: FormData
 ): Promise<CartInquiryState> {
   const contact = String(formData.get("contact") || "").trim();
+  const timing = String(formData.get("timing") || "").trim() || null;
+  const region = String(formData.get("region") || "").trim() || null;
   const photoIds = [
     ...new Set(
       String(formData.get("photoIds") || "")
@@ -372,8 +374,8 @@ export async function submitCartInquiry(
 
   const leadId = randomUUID();
 
-  // 운영진 디스코드 알림 (작가 라우팅용 — 연락처 포함)
-  await notifyOpsCartInquiry({ contact, photoIds });
+  // 운영진 디스코드 알림 (작가 라우팅용 — 연락처 + 한정자 포함)
+  await notifyOpsCartInquiry({ contact, photoIds, timing, region });
 
   // Meta 전환 API — 서버측 Lead (클라 픽셀과 같은 eventID 로 중복 제거)
   const email = EMAIL_RE.test(contact) ? contact : null;

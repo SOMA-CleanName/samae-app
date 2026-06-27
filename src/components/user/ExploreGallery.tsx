@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { GalleryPhoto } from "@/lib/discovery";
 import { cn } from "@/lib/cn";
+import { assignColumnAccents, type AccentColor } from "@/lib/seeded-shuffle";
 import { SearchIcon } from "@/components/user/icons";
 import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
 import { EmptyState } from "@/components/ui";
@@ -282,6 +283,9 @@ export function ExploreGallery({
     return m;
   }, [photos, visible]);
 
+  // 테두리 — 컬럼별로 어긋나게 배치(한쪽 쏠림 방지) + 가끔 검정
+  const accentMap = useMemo(() => assignColumnAccents(columns), [columns]);
+
   if (photos.length === 0) {
     return (
       <EmptyState
@@ -320,7 +324,12 @@ export function ExploreGallery({
           <div key={ci} className="flex min-w-0 flex-1 flex-col gap-3">
             {col.map((photo) => {
               const card = (
-                <PhotoCard photo={photo} showPrice={showPrice} showName={showName} />
+                <PhotoCard
+                  photo={photo}
+                  showPrice={showPrice}
+                  showName={showName}
+                  accent={accentMap.get(photo.id)}
+                />
               );
               // 스포트라이트 카드 — 오버레이(z-100) 위로 띄워 제자리 그대로 밝게
               if (spotlightTargetId && photo.id === spotlightTargetId) {
@@ -483,14 +492,17 @@ export function ExploreGallery({
 }
 
 // 핀터레스트식 핀 카드 — 비율 예약(레이아웃 점프 방지) + 담기('+') + 옵션 표시(가격)
+// 브랜드 테두리(accent)는 노출 순서 기준 일정 간격으로만 부여 → 연속으로 몰리지 않음(상위에서 계산)
 function PhotoCard({
   photo,
   showPrice,
   showName,
+  accent,
 }: {
   photo: GalleryPhoto;
   showPrice: boolean;
   showName: boolean;
+  accent?: AccentColor;
 }) {
   const tags = (photo.mood_tags ?? []).slice(0, 3).join(", ");
   const alt = tags ? `사진 · ${tags}` : "사진";
@@ -501,7 +513,11 @@ function PhotoCard({
   return (
     <div
       data-cart-card
-      className="group relative break-inside-avoid overflow-hidden rounded-2xl bg-fg/[0.05]"
+      className={cn(
+        // 모든 사진에 동일 테두리 — 기본은 배경색(보이지 않음), 저빈도만 브랜드/검정
+        "group relative break-inside-avoid overflow-hidden rounded-2xl bg-fg/[0.05] ring-4",
+        accent === "brand" ? "ring-brand" : accent === "ink" ? "ring-fg" : "ring-bg"
+      )}
     >
       <Link href={`/photos/${photo.id}`} className="block" data-track="cta:photo">
         <img

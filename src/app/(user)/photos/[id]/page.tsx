@@ -1,5 +1,4 @@
 /* eslint-disable @next/next/no-img-element */
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   fetchPhotoById,
@@ -14,11 +13,11 @@ import { PhotoCarousel } from "./PhotoCarousel";
 import { PhotoExplore } from "./PhotoExplore";
 import { PhotoTopBar } from "./PhotoTopBar";
 import { DetailHookCta } from "./DetailHookCta";
+import { DetailMoreInfo } from "./DetailMoreInfo";
 import { OwnerPhotoBackButton } from "./OwnerPhotoBackButton";
 import { AutoFavorite } from "@/components/user/AutoFavorite";
 import { PixelViewContent } from "@/components/PixelViewContent";
-import { ChevronRightIcon } from "@/components/user/icons";
-import { Avatar, Button } from "@/components/ui";
+import { Button } from "@/components/ui";
 
 const fmt = new Intl.NumberFormat("ko-KR");
 
@@ -86,15 +85,14 @@ export default async function PhotoDetail({
   const caption = sp.mock === "1" ? mockCaption : photo.caption;
 
   return (
-    <main className="mx-auto max-w-5xl px-4 pb-8 pt-20 font-kr sm:px-6 md:pt-24">
+    <main className="mx-auto max-w-5xl px-4 pb-8 pt-4 font-kr sm:px-6 sm:pt-6">
       {autoLike && <AutoFavorite targetType="photo" targetId={photo.id} path={`/photos/${photo.id}`} />}
-      {/* Meta 픽셀 ViewContent — 사진 조회(중간 깔때기). 작가 본인 제외 */}
-      {/* 작가명 노출 금지 — 픽셀 content_name 도 익명(페이지 소스 잔존 방지) */}
+      {/* Meta 픽셀 ViewContent — 작가명 노출 금지(content_name 익명) */}
       <PixelViewContent id={photo.id} disabled={isOwner} />
       <div className="md:flex md:items-start md:gap-8">
-        {/* 사진 (게시물이면 스와이프) — 비율에 맞춰 너비 가변 */}
+        {/* 사진 — 화면 최상단. 뒤로가기·공유는 이미지 위 오버레이 */}
         <div
-          className="md:sticky md:top-20 md:shrink-0 md:self-start md:w-[min(60%,calc(80vh*var(--ar)))]"
+          className="relative mx-auto w-[min(100%,calc(82svh*var(--ar)))] md:mx-0 md:sticky md:top-4 md:shrink-0 md:self-start md:w-[min(60%,calc(80vh*var(--ar)))]"
           style={{ "--ar": String(aspect) } as React.CSSProperties}
         >
           <PhotoCarousel
@@ -103,11 +101,12 @@ export default async function PhotoDetail({
             pagePath={`/photos/${photo.id}`}
             frameAspect={aspect}
           />
+          {/* 좌상단 투명 뒤로가기 (담기·공유는 carousel 내부에서 사진 모서리에 붙음) */}
+          <PhotoTopBar />
         </div>
 
-        {/* 사진 정보 — 비율로 밀린 나머지 폭을 채움 */}
-        <div className="mt-6 md:mt-0 md:min-w-0 md:flex-1">
-          {/* 가격·장소 — 한 줄 메타 */}
+        {/* 사진 정보 — 가격·CTA 먼저 보이고, 작가·글·태그는 접기 */}
+        <div className="mt-4 md:mt-0 md:min-w-0 md:flex-1">
           <p>
             <span className="text-title font-semibold tracking-tight">
               {photo.price_krw != null ? `₩${fmt.format(photo.price_krw)}` : "문의"}
@@ -118,45 +117,15 @@ export default async function PhotoDetail({
           {/* 예약·문의 CTA — 가장 위 (전환 최우선) */}
           <PhotoCtas isOwner={isOwner} photographerId={ph.id} photoId={photo.id} />
 
-          {/* 작가 프로필(익명) — 이름 노출 금지, 버튼만 유지 */}
-          <Link
-            href={`/photographers/${ph.id}`}
-            className="mt-6 flex items-center gap-3 rounded-2xl border border-line p-3 transition-colors hover:bg-surface-2"
-          >
-            <Avatar src={ph.avatar_url} name="사진작가" size="md" />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-body font-semibold">사진작가</span>
-              <span className="block text-caption text-muted">이 작가의 다른 사진 보기</span>
-            </span>
-            <ChevronRightIcon className="h-4 w-4 shrink-0 text-faint" />
-          </Link>
-
-          {/* 작가 글 — 사진별 caption 우선, 없으면 게시물(앨범) 설명 */}
-          {(caption || albumDescription) && (
-            <p className="mt-5 whitespace-pre-wrap text-body text-fg/80">
-              {caption || albumDescription}
-            </p>
-          )}
-
-          {/* 무드 태그 — 누르면 해당 태그로 검색 결과(/?q=) 이동 */}
-          {photo.mood_tags.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-1.5">
-              {photo.mood_tags.map((m) => (
-                <Link
-                  key={m}
-                  href={`/?q=${encodeURIComponent(m)}`}
-                  className="rounded-full bg-fg/[0.06] px-2.5 py-1 text-caption text-fg/70 transition-colors hover:bg-fg/10"
-                >
-                  #{m}
-                </Link>
-              ))}
-            </div>
-          )}
+          {/* 작가·글·태그 — 기본 접힘, 누르면 펼침 */}
+          <DetailMoreInfo
+            photographerId={ph.id}
+            avatarUrl={ph.avatar_url}
+            caption={caption || albumDescription}
+            moodTags={photo.mood_tags}
+          />
         </div>
       </div>
-
-      {/* 2단계 상단바 — 항상 고정 (뒤로가기 + 검색) */}
-      <PhotoTopBar />
 
       {/* 하단 — 추천 사진 무한 스크롤 (작가 사진 탭 제거) */}
       <PhotoExplore initialRecs={initialRecs} />

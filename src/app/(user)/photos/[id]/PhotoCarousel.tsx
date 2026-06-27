@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/components/user/icons";
 import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
+import { ShareButton } from "@/components/user/ShareButton";
 
 type P = {
   id: string;
@@ -76,7 +77,7 @@ function CartOverlay({ p }: { p: P }) {
   return (
     <AddToCartButton
       item={{ id: p.id, src: p.thumb_url ?? p.src_url, w: p.width ?? 0, h: p.height ?? 0 }}
-      className="absolute right-3 top-3 z-10"
+      className="absolute bottom-3 right-3 z-10"
     />
   );
 }
@@ -127,6 +128,7 @@ export function PhotoCarousel({
       >
         <Slide p={photos[0]} alt={altFor(0)} />
         {pagePath && <CartOverlay key={photos[0].id} p={photos[0]} />}
+        {pagePath && <ShareButton variant="overlay" className="absolute bottom-3 left-3 z-10" />}
       </div>
     );
   }
@@ -150,6 +152,8 @@ export function PhotoCarousel({
 
       {/* 현재 슬라이드 담기 */}
       {pagePath && <CartOverlay key={cur.id} p={cur} />}
+      {/* 공유 — 담기와 같은 박스 안(사진 좌하단에 깔끔히 붙음) */}
+      {pagePath && <ShareButton variant="overlay" className="absolute bottom-3 left-3 z-10" />}
 
       {/* 좌우 버튼 */}
       {idx > 0 && (

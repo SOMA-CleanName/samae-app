@@ -1,34 +1,86 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { startTransition, useActionState, useEffect, useRef, useState } from "react";
+import {
+  startTransition,
+  useActionState,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import Link from "next/link";
-import { useCart } from "./CartProvider";
+import { useCart, cartCardJitter, PEEK_CARD_W, type CartItem } from "./CartProvider";
 import { submitCartInquiry } from "@/app/(user)/inquiry/actions";
 
-// 장바구니 — 담은 사진이 부채꼴로 겹쳐 가장자리에 삐져나옴. 탭하면 모달.
-// 드래그로 손가락 따라 자유 이동 → 놓으면 가까운 좌/우 가장자리로 부드럽게 스냅(위치 저장).
+// FLIP 은 페인트 전에 측정/적용해야 깜빡임이 없음(SSR 에선 useEffect 로 폴백)
+const useIsoLayout = typeof window === "undefined" ? useEffect : useLayoutEffect;
+
+// 장바구니 — 담은 사진이 가장자리에 폴라로이드 더미(도크)로 떠 있음. 드래그로 이동, 클릭하면
+// "그 사진들 자체"가 도크에서 빠져나와 화면 가득 펼쳐짐(복제본 없음). 닫으면 다시 도크로 모임.
 const POS_KEY = "samae:cart-pos";
-const CART_W = 64; // w-16
+const CART_W = PEEK_CARD_W; // 64
+
+// 펼침용 흩뿌림 변형 — id 해시로 각도·셀 내 오프셋 결정(고정)
+function spreadJitter(id: string): { rot: number; fx: number; fy: number } {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return {
+    rot: (h % 11) - 5, // -5 ~ 5도(살짝만 기울임 → 그리드 유지)
+    fx: (((h >> 5) % 21) - 10) / 10, // -1 ~ 1
+    fy: (((h >> 11) % 21) - 10) / 10, // -1 ~ 1
+  };
+}
+
+type Placed = {
+  it: CartItem;
+  x: number;
+  y: number;
+  rot: number;
+  photoW: number;
+  photoH: number;
+  side: number;
+  bottom: number;
+  z: number; // 담은 순서 인덱스(최신=큼) → zIndex
+  g: number; // 그리드 순서(최신=0, 좌상단) → 펼침 스태거
+};
 
 export function FloatingCart() {
-  const { items, count, remove, registerTarget } = useCart();
-  const stackRef = useRef<HTMLButtonElement>(null);
-  const [open, setOpen] = useState(false);
-  // right/top(px) 로 위치 — right 값을 트랜지션해서 좌↔우 슬라이드가 애니메이션됨
+  const { items, count, remove, consumeFlyFrom } = useCart();
+  // 단계: dock(가장자리) → center(중앙 스택) → spread(펼침). 열고 닫을 때 중앙을 경유.
+  const [phase, setPhase] = useState<"dock" | "center" | "spread">("dock");
+  const open = phase !== "dock";
   const [view, setView] = useState<{ right: number; top: number } | null>(null);
   const [dragging, setDragging] = useState(false);
-  const drag = useRef({ active: false, moved: false, startX: 0, startY: 0, offX: 0, offY: 0 });
+  const drag = useRef({ active: false, moved: false, startX: 0, startY: 0, baseRight: 0, baseTop: 0 });
+  const [vp, setVp] = useState<{ w: number; h: number } | null>(null);
+  // 탭한 사진 id — 실제 카드 자체가 중앙으로 와서 확대(복제본 없음)
+  const [focused, setFocused] = useState<string | null>(null);
+  const [focusScroll, setFocusScroll] = useState(0); // 확대 시점의 스크롤 오프셋(중앙 보정용)
+  const [formFor, setFormFor] = useState<string | null>(null); // null / photoId(단일) / "selected"(선택 묶음)
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [contact, setContact] = useState("");
+  const [timing, setTiming] = useState(""); // 촬영 희망 시기(한정자, 필수)
+  const [region, setRegion] = useState(""); // 희망 지역(선택)
+  const [agreed, setAgreed] = useState(false);
+  const [leaving, setLeaving] = useState<Set<string>>(new Set());
+  const [state, formAction, pending] = useActionState(submitCartInquiry, { ok: false });
+  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const layerRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    registerTarget(stackRef.current);
-  }, [registerTarget, count]);
+  const N = count;
 
-  const clampTop = (t: number) => Math.min(Math.max(80, t), window.innerHeight - 150);
-  const clampRight = (r: number) => Math.min(Math.max(0, r), window.innerWidth - CART_W);
-  const leftEdgeRight = () => window.innerWidth - CART_W;
+  // 뷰포트
+  useIsoLayout(() => {
+    if (typeof window === "undefined") return;
+    const set = () => setVp({ w: window.innerWidth, h: window.innerHeight });
+    set();
+    window.addEventListener("resize", set);
+    return () => window.removeEventListener("resize", set);
+  }, []);
 
-  // 저장된 위치 로드 (없으면 우측, 화면 하단쯤)
+  // 도크 위치 로드
   useEffect(() => {
     let side: "left" | "right" = "right";
     let top = window.innerHeight - 220;
@@ -42,135 +94,20 @@ export function FloatingCart() {
     } catch {
       /* 무시 */
     }
-    setView({ right: side === "right" ? 0 : leftEdgeRight(), top: clampTop(top) });
+    setView({
+      right: side === "right" ? 0 : window.innerWidth - CART_W,
+      top: Math.min(Math.max(80, top), window.innerHeight - 150),
+    });
   }, []);
 
-  function onPointerDown(e: React.PointerEvent) {
-    if (!view) return;
-    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
-    const rect = stackRef.current?.getBoundingClientRect();
-    drag.current = {
-      active: true,
-      moved: false,
-      startX: e.clientX,
-      startY: e.clientY,
-      offX: e.clientX - (rect?.left ?? 0),
-      offY: e.clientY - (rect?.top ?? 0),
-    };
-    setDragging(true);
-  }
-  function onPointerMove(e: React.PointerEvent) {
-    if (!drag.current.active) return;
-    if (!drag.current.moved && (Math.abs(e.clientX - drag.current.startX) > 6 || Math.abs(e.clientY - drag.current.startY) > 6)) {
-      drag.current.moved = true;
-    }
-    if (drag.current.moved) {
-      const right = clampRight(window.innerWidth - (e.clientX - drag.current.offX) - CART_W);
-      setView({ right, top: clampTop(e.clientY - drag.current.offY) });
-    }
-  }
-  function onPointerUp() {
-    if (!drag.current.active) return;
-    drag.current.active = false;
-    setDragging(false);
-    if (drag.current.moved && view) {
-      // 컨테이너 중심이 화면 좌측 절반이면 왼쪽 가장자리로
-      const center = window.innerWidth - view.right - CART_W / 2;
-      const side: "left" | "right" = center < window.innerWidth / 2 ? "left" : "right";
-      const snapRight = side === "right" ? 0 : leftEdgeRight();
-      setView({ right: snapRight, top: view.top });
-      try {
-        localStorage.setItem(POS_KEY, JSON.stringify({ side, top: view.top }));
-      } catch {
-        /* 무시 */
-      }
-    } else {
-      setOpen(true); // 탭 = 열기
-    }
-  }
-
-  // 부채꼴 방향 — 컨테이너가 화면 우측이면 right, 좌측이면 left (드래그 중에도 라이브로 미러)
-  const side: "left" | "right" =
-    view && view.right > (typeof window !== "undefined" ? window.innerWidth : 9999) / 2 ? "left" : "right";
-  const style: React.CSSProperties = view
-    ? {
-        right: view.right,
-        top: view.top,
-        transition: dragging ? "none" : "right 0.3s cubic-bezier(.4,0,.2,1), top 0.3s cubic-bezier(.4,0,.2,1)",
-      }
-    : { bottom: 112, right: 0 };
-
-  // 비었어도 fly 도착 지점 유지(보이지 않는 1px)
-  if (count === 0) {
-    return (
-      <button ref={stackRef} aria-hidden tabIndex={-1} style={style} className="pointer-events-none fixed z-40 h-1 w-1 opacity-0" />
-    );
-  }
-
-  const peek = items.slice(-3);
-
-  return (
-    <>
-      <button
-        ref={stackRef}
-        type="button"
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        aria-label="장바구니 보기 (드래그로 이동)"
-        style={style}
-        className="fixed z-40 cursor-grab touch-none select-none active:cursor-grabbing"
-      >
-        {/* 카드 묶음을 가장자리 밖으로 밀어 부채꼴 일부만 보이게 (방향에 따라 미러) */}
-        <div
-          className="relative h-24 w-16"
-          style={{ transform: `translateX(${side === "right" ? "34%" : "-34%"})` }}
-        >
-          {peek.map((it, i) => {
-            const rot = (peek.length - 1 - i) * (side === "right" ? -10 : 10);
-            return (
-              <img
-                key={it.id}
-                src={it.src}
-                alt=""
-                draggable={false}
-                className={`absolute bottom-0 ${side === "right" ? "right-0" : "left-0"} h-24 w-16 rounded-lg object-cover shadow-[0_8px_22px_rgba(0,0,0,0.42)] ring-[3px] ring-white transition-transform duration-300 ease-out`}
-                style={{
-                  transformOrigin: side === "right" ? "bottom right" : "bottom left",
-                  transform: `rotate(${rot}deg)`,
-                  zIndex: i,
-                }}
-              />
-            );
-          })}
-        </div>
-      </button>
-
-      {open && <CartModal onClose={() => setOpen(false)} items={items} onRemove={remove} />}
-    </>
-  );
-}
-
-function CartModal({
-  items,
-  onRemove,
-  onClose,
-}: {
-  items: { id: string; src: string }[];
-  onRemove: (id: string) => void;
-  onClose: () => void;
-}) {
-  const { clear } = useCart();
-  const [show, setShow] = useState(false);
-  const [askContact, setAskContact] = useState(false);
-  const [contact, setContact] = useState("");
-  const [agreed, setAgreed] = useState(false);
-  const [state, formAction, pending] = useActionState(submitCartInquiry, { ok: false });
-
+  // 비워지면 닫기
   useEffect(() => {
-    const r = requestAnimationFrame(() => setShow(true));
-    return () => cancelAnimationFrame(r);
-  }, []);
+    if (phase !== "dock" && N === 0) {
+      setFocused(null);
+      setFormFor(null);
+      setPhase("dock");
+    }
+  }, [phase, N]);
 
   // 성공 → Lead 픽셀(중복 제거 eventID)
   const fired = useRef(false);
@@ -180,133 +117,557 @@ function CartModal({
     if (state.leadId) window.fbq?.("track", "Lead", {}, { eventID: `inquiry_${state.leadId}` });
   }, [state.ok, state.leadId]);
 
+  const clampTop = (t: number) => Math.min(Math.max(80, t), window.innerHeight - 150);
+  const clampRight = (r: number) => Math.min(Math.max(0, r), window.innerWidth - CART_W);
+
+  // ── 도크 드래그(닫힌 상태에서만) ──
+  function startDrag(e: React.PointerEvent) {
+    if (open || !view) return;
+    (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+    drag.current = {
+      active: true,
+      moved: false,
+      startX: e.clientX,
+      startY: e.clientY,
+      baseRight: view.right,
+      baseTop: view.top,
+    };
+    setDragging(true);
+  }
+  function moveDrag(e: React.PointerEvent) {
+    if (open || !drag.current.active) return;
+    const dx = e.clientX - drag.current.startX;
+    const dy = e.clientY - drag.current.startY;
+    if (!drag.current.moved && (Math.abs(dx) > 6 || Math.abs(dy) > 6)) drag.current.moved = true;
+    if (drag.current.moved) {
+      setView({ right: clampRight(drag.current.baseRight - dx), top: clampTop(drag.current.baseTop + dy) });
+    }
+  }
+  function endDrag() {
+    if (open || !drag.current.active) return;
+    drag.current.active = false;
+    setDragging(false);
+    if (drag.current.moved && view) {
+      const center = window.innerWidth - view.right - CART_W / 2;
+      const side: "left" | "right" = center < window.innerWidth / 2 ? "left" : "right";
+      setView({ right: side === "right" ? 0 : window.innerWidth - CART_W, top: view.top });
+      try {
+        localStorage.setItem(POS_KEY, JSON.stringify({ side, top: view.top }));
+      } catch {
+        /* 무시 */
+      }
+    }
+  }
+
+  // 펼침: 도크 → 중앙 스택 → 펼침
+  function startOpen() {
+    setPhase("center");
+    window.setTimeout(() => setPhase("spread"), 300);
+  }
+  // 닫힘: 펼침 → 중앙 스택 → 도크 복귀
+  function close() {
+    setFocused(null);
+    setFormFor(null);
+    setSelectMode(false);
+    setSelectedIds(new Set());
+    setPhase("center");
+    window.setTimeout(() => setPhase("dock"), 300);
+  }
+  function exitSelect() {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+    setFormFor(null);
+  }
+  function toggleSelect(id: string) {
+    setSelectedIds((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }
+  function deleteSelected() {
+    const ids = [...selectedIds];
+    exitSelect();
+    ids.forEach((id) => removeOne(id));
+  }
+  function removeOne(id: string) {
+    setLeaving((s) => new Set(s).add(id));
+    setTimeout(() => {
+      remove(id);
+      setLeaving((s) => {
+        const n = new Set(s);
+        n.delete(id);
+        return n;
+      });
+    }, 260);
+  }
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!contact.trim() || !agreed) return;
+    if (!contact.trim() || !timing || !agreed) return;
+    const ids =
+      formFor === "selected" ? [...selectedIds] : formFor && formFor !== "all" ? [formFor] : items.map((i) => i.id);
     const fd = new FormData();
     fd.set("contact", contact);
-    fd.set("photoIds", items.map((i) => i.id).join(","));
+    fd.set("timing", timing);
+    fd.set("region", region);
+    fd.set("photoIds", ids.join(","));
     startTransition(() => formAction(fd));
   }
 
+  const TIMINGS = ["1개월 내", "1~3개월", "3개월+", "미정"];
+
+  // ── 펼침 레이아웃(그리드) ──
+  const SCROLL = N >= 5; // 2열 기준 5장(3행)부터는 줄이지 말고 스크롤
+  const { cards, contentH, cardW } = ((): { cards: Placed[]; contentH: number; cardW: number } => {
+    if (!vp || N === 0) return { cards: [], contentH: 0, cardW: CART_W };
+    const { w: W, h: H } = vp;
+    const padX = Math.max(16, W * 0.06);
+    const topPad = 84;
+    const bottomReserve = 150;
+    const areaW = W - padX * 2;
+    const CARD_ASPECT = 0.8;
+
+    let cols: number;
+    let cardW: number;
+    let cellH: number;
+    if (SCROLL) {
+      cols = Math.min(2, N); // 항상 최대 2열
+      cardW = Math.min((areaW / cols) * 0.92, 240);
+      cellH = cardW / CARD_ASPECT + 18;
+    } else {
+      const areaH = Math.max(180, H - topPad - bottomReserve);
+      cols = 1;
+      cardW = 0;
+      for (let c = 1; c <= Math.min(2, N); c++) {
+        const rows = Math.ceil(N / c);
+        const w = Math.min((areaW / c) * 0.92, (areaH / rows) * 0.92 * CARD_ASPECT);
+        if (w > cardW) {
+          cardW = w;
+          cols = c;
+        }
+      }
+      cardW = Math.min(cardW, 240);
+      cellH = areaH / Math.ceil(N / cols);
+    }
+    const rows = Math.ceil(N / cols);
+    const cellW = areaW / cols;
+    const side = Math.max(6, Math.round(cardW * 0.055));
+    const bottom = Math.max(14, Math.round(cardW * 0.16));
+    const photoW = Math.round(cardW - side * 2);
+    const maxPhotoH = Math.round(cellH * 0.9 - side - bottom);
+    const contentH = SCROLL ? topPad + rows * cellH + 32 : H;
+
+    const cards = items.map((it, i) => {
+      // 그리드 순서는 최신이 좌상단(g=0) — 도크에서 보이던 카드가 위로 펼쳐지게.
+      const g = N - 1 - i;
+      const row = Math.floor(g / cols);
+      const inRow = g - row * cols;
+      const itemsInRow = row < rows - 1 ? cols : N - cols * (rows - 1);
+      const rowStartX = padX + (areaW - itemsInRow * cellW) / 2;
+      const cxc = rowStartX + (inRow + 0.5) * cellW;
+      const cyc = topPad + (row + 0.5) * cellH;
+      const j = spreadJitter(it.id);
+      const x = cxc + j.fx * Math.min(8, cellW * 0.03);
+      const y = cyc + j.fy * Math.min(6, cellH * 0.03);
+      const ratio = it.w > 0 && it.h > 0 ? it.h / it.w : 1;
+      const photoH = Math.min(Math.round(photoW * ratio), Math.max(40, maxPhotoH));
+      return { it, x, y, rot: j.rot, photoW, photoH, side, bottom, z: i, g };
+    });
+    return { cards, contentH, cardW };
+  })();
+
+  // ── 도크(닫힘) 위치·스케일 ──
+  const W = vp?.w ?? 0;
+  const H = vp?.h ?? 0;
+  const dockRight = view?.right ?? 0;
+  const dockTop = view?.top ?? H - 220;
+  const dockOnRight = view ? W - view.right - CART_W / 2 >= W / 2 : true;
+  const dockCx = W - dockRight - CART_W / 2 + (dockOnRight ? 0.34 : -0.34) * CART_W;
+  const dockCy = dockTop + 46;
+  const dockScale = cardW > 0 ? CART_W / cardW : 0.27;
+  const cx = W / 2; // 중앙 스택 위치
+  const cy = H / 2;
+
+  // 펼쳐질 때 항상 맨 위에서 시작(이전 스크롤 위치 리셋)
+  useIsoLayout(() => {
+    if (phase === "spread" && layerRef.current) layerRef.current.scrollTop = 0;
+  }, [phase]);
+
+  // ── 방금 담은 카드 — 출발 사진 자리에서 도크로 부드럽게 날아와 안착(WAAPI) ──
+  // 시작·끝 키프레임을 같은 tfAt 형태로 계산(중심 오프셋 일관) → 시작 위치 어긋남 없음.
+  const newestId = N > 0 ? items[items.length - 1].id : null;
+  useIsoLayout(() => {
+    if (!newestId || phase !== "dock") return;
+    const from = consumeFlyFrom(newestId); // 한 번만 소비 → StrictMode 재실행 시 자연 무시
+    if (!from || !from.width) return;
+    const el = cardRefs.current.get(newestId);
+    if (!el) return;
+    const rest = el.style.transform; // 현재 도크 포즈(인라인, tfAt 형태)
+    if (!rest) return;
+    const nc = cards[cards.length - 1]; // 최신 카드 = 마지막
+    if (!nc || nc.it.id !== newestId) return;
+    const ncW = nc.photoW + nc.side * 2;
+    const ncH = nc.photoH + nc.side + nc.bottom;
+    const fromCx = from.left + from.width / 2;
+    const fromCy = from.top + from.height / 2;
+    const s = Math.max(0.05, from.width / ncW);
+    // 출발: 사진 자리·사진 크기·회전 0 (도크 포즈와 같은 좌표계)
+    const startTf = `translate(${fromCx - ncW / 2}px, ${fromCy - ncH / 2}px) scale(${s}) rotate(0deg)`;
+    el.animate(
+      [
+        { transform: startTf, offset: 0 },
+        { transform: rest, offset: 1 },
+      ],
+      { duration: 560, easing: "cubic-bezier(.42,0,.18,1)" }
+    );
+  }, [newestId, count, phase, consumeFlyFrom, cards]);
+
+  if (!vp || N === 0) return null;
+
   return (
-    <div className="fixed inset-0 z-50 font-kr" role="dialog" aria-modal="true">
-      <button
-        aria-label="닫기"
-        onClick={onClose}
-        className={`absolute inset-0 bg-black/40 transition-opacity duration-200 ${show ? "opacity-100" : "opacity-0"}`}
-      />
+    <>
+      {/* 배경(테이블) — 펼침 시에만 보이고, 빈 곳 탭하면 닫힘 */}
       <div
-        className={`absolute inset-x-0 bottom-0 max-h-[85svh] rounded-t-3xl bg-bg shadow-pop transition-transform duration-300 ease-out ${
-          show ? "translate-y-0" : "translate-y-full"
+        aria-hidden={!open}
+        onClick={open ? close : undefined}
+        className={`fixed inset-0 z-[50] bg-black/85 backdrop-blur-sm transition-opacity duration-300 ${
+          open ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
+      />
+
+      {/* 카드 레이어 — 도크↔중앙↔펼침↔확대 동일 엘리먼트가 변형(복제본 없음) */}
+      <div
+        ref={layerRef}
+        onClick={
+          phase === "spread" ? (focused ? () => setFocused(null) : close) : undefined
+        }
+        className={`fixed inset-0 z-[55] ${
+          phase === "spread" && SCROLL && !focused ? "overflow-y-auto overscroll-contain" : ""
+        } ${open ? "" : "pointer-events-none"}`}
       >
-        <div className="mx-auto flex max-w-xl flex-col">
-          {state.ok ? (
-            // 완료
-            <div className="px-5 py-14 text-center">
-              <p className="text-lg font-bold">신청 완료!</p>
-              <p className="mt-1.5 text-sm text-muted">담아둔 사진들로 작가님이 곧 연락드릴 거예요.</p>
-              <button
-                type="button"
-                onClick={() => {
-                  clear();
-                  onClose();
-                }}
-                className="mt-6 cursor-pointer rounded-full bg-fg px-6 py-2.5 text-sm font-semibold text-bg transition-opacity hover:opacity-90"
+        <div className="relative w-full" style={{ height: phase === "spread" && SCROLL ? contentH : "100%" }}>
+          {cards.map(({ it, x, y, rot, photoW, photoH, side, bottom, z, g }) => {
+            const isLeaving = leaving.has(it.id);
+            const j = cartCardJitter(it.id);
+            const belowFold = y > H; // 펼침 위치가 화면 밖(아래) — 이동 없이 제자리 페이드
+            // 위치를 전부 transform 으로 처리(left/top 은 0 고정) → 도크 좌표가 x,y 와 무관해
+            // 담기/빼기로 N 이 바뀌어도 도크 카드가 흔들리지 않음.
+            const cardW = photoW + side * 2;
+            const cardH = photoH + side + bottom;
+            const tfAt = (X: number, Y: number, s: number, r: number) =>
+              `translate(${X - cardW / 2}px, ${Y - cardH / 2}px) scale(${s}) rotate(${r}deg)`;
+            const isFocused = focused === it.id;
+            const anyFocused = focused != null;
+            let tf: string;
+            let op: number;
+            if (isLeaving) {
+              tf = tfAt(x, y - 44, 0.6, rot);
+              op = 0;
+            } else if (isFocused) {
+              // 실제 카드가 화면 중앙으로 와서 확대(복제 없음). 스크롤 보정 포함.
+              const focusScale = Math.min(W * 0.82, 360) / cardW;
+              tf = tfAt(W / 2, focusScroll + H * 0.43, focusScale, 0);
+              op = 1;
+            } else if (phase === "spread") {
+              tf = tfAt(x, y, 1, rot);
+              op = anyFocused ? 0 : selectMode && !selectedIds.has(it.id) ? 0.5 : 1;
+            } else if (belowFold) {
+              tf = tfAt(x, y, 1, rot);
+              op = 0;
+            } else if (phase === "center") {
+              tf = tfAt(cx + j.dx, cy + j.dy, dockScale, j.rot);
+              op = g >= 5 ? 0 : 1;
+            } else {
+              // 도크 — x,y 무관 고정 좌표
+              tf = tfAt(dockCx + j.dx, dockCy + j.dy, dockScale, j.rot);
+              op = g >= 5 ? 0 : 1;
+            }
+            // 펼칠 때만 스태거 — 그리드 위(g 작은 쪽=최신)부터 한 장씩. 포커스 이동은 즉시.
+            const delay = !dragging && phase === "spread" && !anyFocused ? Math.min(g, 16) * 22 : 0;
+            return (
+              <div
+                key={it.id}
+                className="absolute"
+                style={{ left: 0, top: 0, zIndex: isFocused ? 1000 : 10 + z }}
               >
-                닫기
-              </button>
+                <div
+                  ref={(el) => {
+                    if (el) cardRefs.current.set(it.id, el);
+                    else cardRefs.current.delete(it.id);
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  onPointerDown={startDrag}
+                  onPointerMove={moveDrag}
+                  onPointerUp={endDrag}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (phase === "spread") {
+                      if (selectMode) toggleSelect(it.id);
+                      else if (focused === it.id) setFocused(null);
+                      else {
+                        setFocusScroll(layerRef.current?.scrollTop ?? 0);
+                        setFocused(it.id);
+                      }
+                    } else if (phase === "dock") {
+                      if (drag.current.moved) drag.current.moved = false;
+                      else startOpen();
+                    }
+                    // center: 전환 중 — 무시
+                  }}
+                  aria-label={open ? (selectMode ? "선택/해제" : "크게 보기") : "찜 펼치기 (드래그로 이동)"}
+                  className="relative block cursor-pointer select-none bg-white shadow-[0_10px_28px_rgba(0,0,0,0.4)]"
+                  style={{
+                    padding: `${side}px ${side}px ${bottom}px`,
+                    borderRadius: 3,
+                    transformOrigin: "center",
+                    transform: tf,
+                    opacity: op,
+                    pointerEvents: anyFocused && !isFocused ? "none" : "auto",
+                    touchAction: open ? "auto" : "none",
+                    transition: dragging
+                      ? "none"
+                      : `transform 460ms cubic-bezier(.2,.7,.2,1) ${delay}ms, opacity 360ms ease ${delay}ms`,
+                  }}
+                >
+                  <img
+                    src={it.src}
+                    alt=""
+                    draggable={false}
+                    style={{
+                      display: "block",
+                      width: photoW,
+                      height: photoH,
+                      objectFit: "cover",
+                      borderRadius: 1,
+                    }}
+                  />
+                  {/* 선택 모드 — 우상단 체크 표시 */}
+                  {phase === "spread" && selectMode && (
+                    <span
+                      style={{ top: side + 2, right: side + 2 }}
+                      className={`absolute grid h-6 w-6 place-items-center rounded-full border-2 ${
+                        selectedIds.has(it.id)
+                          ? "border-brand bg-brand text-white"
+                          : "border-white bg-black/25 text-transparent"
+                      }`}
+                    >
+                      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3">
+                        <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 펼침 UI — 상단/하단/포커스/성공 (완전히 펼쳐진 뒤에만) */}
+      {phase === "spread" && (
+        <>
+          {state.ok ? (
+            <div className="fixed inset-0 z-[68] grid place-items-center px-6 text-center">
+              <div>
+                <p className="text-xl font-bold text-white">신청 완료!</p>
+                <p className="mt-2 text-sm text-white/70">찜한 사진으로 작가님이 곧 연락드릴 거예요.</p>
+              </div>
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between px-5 pb-3 pt-4">
-                <p className="text-base font-semibold">
-                  담은 사진 <span className="text-brand">{items.length}</span>
-                </p>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="cursor-pointer rounded-full px-3 py-1 text-sm font-medium text-muted transition-colors hover:bg-fg/[0.06] hover:text-fg"
-                >
-                  닫기
-                </button>
-              </div>
+              {/* 상단(확대 중) — 좌상단 뒤로가기(그리드로 복귀) */}
+              {focused && (
+                <div className="fixed inset-x-0 top-0 z-[62] flex items-center px-5 pt-5">
+                  <button
+                    type="button"
+                    onClick={() => setFocused(null)}
+                    aria-label="뒤로"
+                    className="grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
+                  >
+                    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M15 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                </div>
+              )}
 
-              {items.length === 0 ? (
-                <p className="px-5 py-16 text-center text-sm text-muted">담은 사진이 없어요.</p>
-              ) : (
-                <>
-                  <div className="grid max-h-[44svh] grid-cols-3 gap-2 overflow-y-auto px-5 pb-4 sm:grid-cols-4">
-                    {items.map((it) => (
-                      <div key={it.id} className="group relative aspect-square overflow-hidden rounded-xl bg-fg/[0.05]">
-                        <Link href={`/photos/${it.id}`} onClick={onClose} className="block h-full w-full">
-                          <img src={it.src} alt="" className="h-full w-full object-cover" />
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => onRemove(it.id)}
-                          aria-label="빼기"
-                          className="absolute right-1 top-1 grid h-6 w-6 cursor-pointer place-items-center rounded-full bg-black/55 text-sm text-white transition-colors hover:bg-black/75"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* 일괄 상담 신청 */}
-                  <div className="border-t border-line px-5 pb-8 pt-4">
-                    {!askContact ? (
+              {/* 상단 — 확대 중이 아닐 때. 일반: 뒤로 / 찜 수(중앙) / 선택. 선택모드: 취소 / N장 선택 / 삭제 */}
+              {!focused && (
+                <div className="pointer-events-none fixed inset-x-0 top-0 z-[62] flex items-center justify-between px-5 pt-5">
+                  {selectMode ? (
+                    <>
                       <button
                         type="button"
-                        onClick={() => setAskContact(true)}
-                        className="w-full cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white transition-opacity hover:opacity-90"
+                        onClick={exitSelect}
+                        className="pointer-events-auto cursor-pointer rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
                       >
-                        이 사진들로 무료 상담 신청
+                        취소
                       </button>
-                    ) : (
-                      <form onSubmit={onSubmit}>
-                        <input
-                          type="text"
-                          value={contact}
-                          onChange={(e) => setContact(e.target.value)}
-                          placeholder="전화번호 · 카카오 ID · 인스타 등"
-                          autoFocus
-                          className="h-11 w-full rounded-xl border border-line-strong bg-surface px-3 text-base outline-none transition-colors placeholder:text-fg/30 focus:border-brand"
-                        />
-                        <label className="mt-2.5 flex cursor-pointer items-start gap-2 text-xs text-muted">
-                          <input
-                            type="checkbox"
-                            checked={agreed}
-                            onChange={(e) => setAgreed(e.target.checked)}
-                            className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
-                          />
-                          <span>
-                            연락처 전달 및 상담을 위한{" "}
-                            <Link href="/privacy" target="_blank" className="underline underline-offset-2 hover:text-fg">
-                              개인정보 수집·이용
-                            </Link>
-                            에 동의합니다.
-                          </span>
-                        </label>
-                        {state.error && <p className="mt-2 text-xs font-medium text-brand">{state.error}</p>}
+                      <p className="text-sm text-white/75">
+                        <span className="font-bold text-white">{selectedIds.size}</span>장 선택
+                      </p>
+                      <button
+                        type="button"
+                        onClick={deleteSelected}
+                        disabled={selectedIds.size === 0}
+                        className="pointer-events-auto cursor-pointer rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        삭제
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={close}
+                        aria-label="뒤로"
+                        className="pointer-events-auto grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
+                      >
+                        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M15 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </button>
+                      <p className="text-sm text-white/75">
+                        찜한 사진 <span className="font-bold text-white">{N}</span>
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setSelectMode(true)}
+                        className="pointer-events-auto cursor-pointer rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
+                      >
+                        선택
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* 하단 — 상담 CTA(항상 유지). 한 장 크게 볼 땐 '이 사진으로'로 전환 */}
+              <div className="fixed inset-x-0 bottom-0 z-[62] px-4 pb-6 pt-3">
+                <div className="mx-auto max-w-md">
+                  {formFor !== null ? (
+                    <form onSubmit={onSubmit} className="rounded-2xl bg-bg p-4 shadow-pop">
+                      <p className="mb-2.5 text-sm font-semibold text-fg">
+                        {formFor === "selected" ? `선택한 ${selectedIds.size}장으로 상담 신청` : "이 사진으로 상담 신청"}
                         <button
-                          type="submit"
-                          disabled={!contact.trim() || !agreed || pending}
-                          className="mt-3 h-12 w-full cursor-pointer rounded-xl bg-brand text-base font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                          type="button"
+                          onClick={() => setFormFor(null)}
+                          className="float-right cursor-pointer text-xs font-medium text-muted hover:text-fg"
                         >
-                          {pending ? "신청 중…" : "상담 신청하기"}
+                          취소
                         </button>
-                      </form>
-                    )}
-                  </div>
-                </>
+                      </p>
+                      <input
+                        type="text"
+                        value={contact}
+                        onChange={(e) => setContact(e.target.value)}
+                        placeholder="전화번호 · 카카오 ID · 인스타 등"
+                        autoFocus
+                        className="h-11 w-full rounded-xl border border-line-strong bg-surface px-3 text-base outline-none transition-colors placeholder:text-fg/30 focus:border-brand"
+                      />
+                      {/* 한정자 — 희망 시기(필수, 한 번 탭) */}
+                      <p className="mt-3 text-xs font-medium text-muted">촬영 희망 시기</p>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {TIMINGS.map((t) => (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() => setTiming(t)}
+                            className={`cursor-pointer rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                              timing === t
+                                ? "border-brand bg-brand text-white"
+                                : "border-line-strong bg-surface text-fg/70 hover:border-brand/50"
+                            }`}
+                          >
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                      {/* 한정자 — 지역(선택) */}
+                      <input
+                        type="text"
+                        value={region}
+                        onChange={(e) => setRegion(e.target.value)}
+                        placeholder="희망 지역 (선택) · 예: 서울, 부산, 온라인"
+                        className="mt-2.5 h-11 w-full rounded-xl border border-line-strong bg-surface px-3 text-base outline-none transition-colors placeholder:text-fg/30 focus:border-brand"
+                      />
+                      <label className="mt-2.5 flex cursor-pointer items-start gap-2 text-xs text-muted">
+                        <input
+                          type="checkbox"
+                          checked={agreed}
+                          onChange={(e) => setAgreed(e.target.checked)}
+                          className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
+                        />
+                        <span>
+                          연락처 전달 및 상담을 위한{" "}
+                          <Link href="/privacy" target="_blank" className="underline underline-offset-2 hover:text-fg">
+                            개인정보 수집·이용
+                          </Link>
+                          에 동의합니다.
+                        </span>
+                      </label>
+                      {state.error && <p className="mt-2 text-xs font-medium text-brand">{state.error}</p>}
+                      <button
+                        type="submit"
+                        disabled={!contact.trim() || !timing || !agreed || pending}
+                        className="mt-3 h-12 w-full cursor-pointer rounded-xl bg-brand text-base font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {pending ? "신청 중…" : "상담 신청하기"}
+                      </button>
+                    </form>
+                  ) : selectMode ? (
+                    <button
+                      type="button"
+                      onClick={() => setFormFor("selected")}
+                      disabled={selectedIds.size === 0}
+                      className="w-full cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {selectedIds.size > 0 ? `선택한 ${selectedIds.size}장 상담 신청` : "상담할 사진을 선택하세요"}
+                    </button>
+                  ) : focused && items.some((i) => i.id === focused) ? (
+                    <button
+                      type="button"
+                      onClick={() => setFormFor(focused)}
+                      className="w-full cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
+                    >
+                      이 사진으로 무료 상담 신청
+                    </button>
+                  ) : (
+                    // 찜 보관함 — 블래스트 없음. 사진을 탭하면 그 사진(=그 작가)로 단일 문의
+                    <p className="text-center text-sm text-white/55">사진을 탭하면 크게 보고 상담할 수 있어요</p>
+                  )}
+                </div>
+              </div>
+
+              {/* 확대 중 보조 액션 — 무료상담 바 바로 위. (확대 사진은 실제 카드가 중앙으로 옴) */}
+              {focused && items.some((i) => i.id === focused) && (
+                <div className="fixed inset-x-0 bottom-[88px] z-[60] flex items-center justify-center gap-2 px-6">
+                  <Link
+                    href={`/photos/${focused}`}
+                    className="rounded-full bg-white/15 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
+                  >
+                    이 사진 게시물 보러가기
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const id = focused;
+                      setFocused(null);
+                      setFormFor(null);
+                      removeOne(id);
+                    }}
+                    className="rounded-full bg-white/10 px-4 py-2.5 text-sm font-semibold text-white/85 backdrop-blur transition-colors hover:bg-white/20"
+                  >
+                    삭제하기
+                  </button>
+                </div>
               )}
             </>
           )}
-        </div>
-      </div>
-    </div>
+        </>
+      )}
+    </>
   );
 }
