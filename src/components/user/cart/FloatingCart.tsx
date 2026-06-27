@@ -351,7 +351,7 @@ export function FloatingCart() {
             e.stopPropagation();
             setFocused(null);
           }}
-          className="fixed inset-0 bg-black/78 backdrop-blur-sm transition-opacity duration-300"
+          className="fixed inset-0 bg-black/72 transition-opacity duration-300"
           style={{ zIndex: 500, opacity: focused ? 1 : 0, pointerEvents: focused ? "auto" : "none" }}
         />
         <div className="relative w-full" style={{ height: phase === "spread" && SCROLL ? contentH : "100%" }}>
