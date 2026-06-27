@@ -57,6 +57,8 @@ export function FloatingCart() {
   const [focused, setFocused] = useState<{ id: string; rect: DOMRect } | null>(null);
   const [formFor, setFormFor] = useState<string | null>(null); // null/"all"/photoId
   const [contact, setContact] = useState("");
+  const [timing, setTiming] = useState(""); // 촬영 희망 시기(한정자, 필수)
+  const [region, setRegion] = useState(""); // 희망 지역(선택)
   const [agreed, setAgreed] = useState(false);
   const [leaving, setLeaving] = useState<Set<string>>(new Set());
   const [state, formAction, pending] = useActionState(submitCartInquiry, { ok: false });
@@ -178,13 +180,17 @@ export function FloatingCart() {
   }
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!contact.trim() || !agreed) return;
+    if (!contact.trim() || !timing || !agreed) return;
     const ids = formFor === "all" || formFor === null ? items.map((i) => i.id) : [formFor];
     const fd = new FormData();
     fd.set("contact", contact);
+    fd.set("timing", timing);
+    fd.set("region", region);
     fd.set("photoIds", ids.join(","));
     startTransition(() => formAction(fd));
   }
+
+  const TIMINGS = ["1개월 내", "1~3개월", "3개월+", "미정"];
 
   // ── 펼침 레이아웃(그리드) ──
   const SCROLL = N >= 9;
@@ -474,6 +480,32 @@ export function FloatingCart() {
                         autoFocus
                         className="h-11 w-full rounded-xl border border-line-strong bg-surface px-3 text-base outline-none transition-colors placeholder:text-fg/30 focus:border-brand"
                       />
+                      {/* 한정자 — 희망 시기(필수, 한 번 탭) */}
+                      <p className="mt-3 text-xs font-medium text-muted">촬영 희망 시기</p>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {TIMINGS.map((t) => (
+                          <button
+                            key={t}
+                            type="button"
+                            onClick={() => setTiming(t)}
+                            className={`cursor-pointer rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                              timing === t
+                                ? "border-brand bg-brand text-white"
+                                : "border-line-strong bg-surface text-fg/70 hover:border-brand/50"
+                            }`}
+                          >
+                            {t}
+                          </button>
+                        ))}
+                      </div>
+                      {/* 한정자 — 지역(선택) */}
+                      <input
+                        type="text"
+                        value={region}
+                        onChange={(e) => setRegion(e.target.value)}
+                        placeholder="희망 지역 (선택) · 예: 서울, 부산, 온라인"
+                        className="mt-2.5 h-11 w-full rounded-xl border border-line-strong bg-surface px-3 text-base outline-none transition-colors placeholder:text-fg/30 focus:border-brand"
+                      />
                       <label className="mt-2.5 flex cursor-pointer items-start gap-2 text-xs text-muted">
                         <input
                           type="checkbox"
@@ -492,7 +524,7 @@ export function FloatingCart() {
                       {state.error && <p className="mt-2 text-xs font-medium text-brand">{state.error}</p>}
                       <button
                         type="submit"
-                        disabled={!contact.trim() || !agreed || pending}
+                        disabled={!contact.trim() || !timing || !agreed || pending}
                         className="mt-3 h-12 w-full cursor-pointer rounded-xl bg-brand text-base font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         {pending ? "신청 중…" : "상담 신청하기"}

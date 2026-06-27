@@ -58,6 +58,8 @@ export async function notifyOpsNewInquiry(params: {
 export async function notifyOpsCartInquiry(params: {
   contact: string;
   photoIds: string[];
+  timing?: string | null;
+  region?: string | null;
 }): Promise<void> {
   if (!OPS_WEBHOOK) return;
   try {
@@ -78,11 +80,13 @@ export async function notifyOpsCartInquiry(params: {
     const lines: string[] = [
       `🛒 **장바구니 일괄 상담 신청** — 사진 ${params.photoIds.length}장`,
       `• 연락처: ${params.contact}`,
+      params.timing ? `• 희망 시기: ${params.timing}` : null,
+      params.region ? `• 희망 지역: ${params.region}` : null,
       `• 관련 작가: ${names.join(", ") || "확인 필요"}`,
       `• 사진 ID: ${params.photoIds.map((id) => "`" + id.slice(0, 8) + "`").join(", ")}`,
       "",
       "고객이 담아둔 사진들이에요. 해당 작가들에게 연결해주세요.",
-    ];
+    ].filter((l): l is string => Boolean(l));
 
     await fetch(OPS_WEBHOOK, {
       method: "POST",
