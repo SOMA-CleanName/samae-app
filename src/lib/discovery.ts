@@ -182,7 +182,8 @@ export async function fetchPublishedPhotos(opts: {
     )
     .eq("visibility", "published")
     .order("created_at", { ascending: false })
-    .limit(opts.limit ?? 500);
+    // 클라이언트는 상한(FEED_CAP)까지만 받으므로 풀은 셔플 다양성에 충분한 만큼만.
+    .limit(opts.limit ?? 400);
 
   if (opts.region) q = q.eq("region", opts.region);
   if (opts.mood) q = q.contains("mood_tags", [opts.mood]);
@@ -238,7 +239,7 @@ export async function fetchCategoryFeed(tags: string[], untagged = false): Promi
     )
     .eq("visibility", "published")
     .order("created_at", { ascending: false })
-    .limit(1000);
+    .limit(400);
 
   const all = (data ?? []) as unknown as GalleryPhoto[];
   const tagSet = new Set((tags ?? []).map((t) => t.toLowerCase()));

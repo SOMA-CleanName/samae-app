@@ -46,9 +46,10 @@ export default async function PhotoDetail({
   const isOwner = me?.photographer?.id === ph.id;
   const location = photo.location_text || photo.region || null;
 
-  // 게시물(묶음)이면 같은 게시물 사진들을 스와이프용으로 (클릭한 사진부터)
-  const albumPhotos = photo.album_id ? await fetchAlbumPhotos(photo.album_id) : [];
-  const albumDescription = photo.album_id ? await fetchAlbumDescription(photo.album_id) : null;
+  // 게시물(묶음)이면 같은 게시물 사진들을 스와이프용으로 (클릭한 사진부터) — 두 조회 병렬
+  const [albumPhotos, albumDescription] = photo.album_id
+    ? await Promise.all([fetchAlbumPhotos(photo.album_id), fetchAlbumDescription(photo.album_id)])
+    : [[], null];
   const baseCarousel =
     albumPhotos.length > 1
       ? albumPhotos
@@ -131,8 +132,9 @@ export default async function PhotoDetail({
         </div>
       </div>
 
-      {/* 하단 — 추천 사진 무한 스크롤 (작가 사진 탭 제거) */}
-      <PhotoExplore initialRecs={initialRecs} />
+      {/* 하단 — 추천 사진 무한 스크롤. PhotoExplore는 30장씩 점진 노출이므로
+          초기 payload는 넉넉한 상한까지만 직렬화(점수 산정은 위 풀 전체에서 끝남). */}
+      <PhotoExplore initialRecs={initialRecs.slice(0, 120)} />
 
       {/* A11 혜택 hook — 스크롤 내리면 노출, 예약/장바구니 1회 후 숨김 */}
       {!isOwner && <DetailHookCta href={inquiryHref(ph.id, photo.id)} />}
