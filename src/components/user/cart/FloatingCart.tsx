@@ -58,6 +58,8 @@ export function FloatingCart() {
   const [formFor, setFormFor] = useState<string | null>(null); // null / photoId(단일) / "selected"(선택 묶음)
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [suppressAnim, setSuppressAnim] = useState(false); // N 변동 프레임에 카드 트랜지션 끄기(슬라이드 잔상 방지)
+  const prevNRef = useRef(0);
   const [contact, setContact] = useState("");
   const [timing, setTiming] = useState(""); // 촬영 희망 시기(한정자, 필수)
   const [region, setRegion] = useState(""); // 희망 지역(선택)
@@ -292,6 +294,15 @@ export function FloatingCart() {
     if (phase === "spread" && layerRef.current) layerRef.current.scrollTop = 0;
   }, [phase]);
 
+  // 사진 수가 바뀌면(담기/삭제) 그 프레임만 카드 트랜지션 끔 → 그리드 재배치 슬라이드 잔상 제거
+  useIsoLayout(() => {
+    if (prevNRef.current === N) return;
+    prevNRef.current = N;
+    setSuppressAnim(true);
+    const r = requestAnimationFrame(() => setSuppressAnim(false));
+    return () => cancelAnimationFrame(r);
+  }, [N]);
+
   // ── 방금 담은 사진 — 원래 위치에서 복제(클론)되어 도크로 빨려들어감 ──
   const newestId = N > 0 ? items[items.length - 1].id : null;
   useIsoLayout(() => {
@@ -438,9 +449,10 @@ export function FloatingCart() {
                       phase === "spread" && selectMode && !selectedIds.has(it.id) ? 0.5 : op,
                     pointerEvents: "auto", // 닫힘 시 레이어가 none 이라 카드만 살림
                     touchAction: open ? "auto" : "none",
-                    transition: dragging
-                      ? "none"
-                      : `transform 460ms cubic-bezier(.2,.7,.2,1) ${delay}ms, opacity 360ms ease ${delay}ms`,
+                    transition:
+                      dragging || suppressAnim
+                        ? "none"
+                        : `transform 460ms cubic-bezier(.2,.7,.2,1) ${delay}ms, opacity 360ms ease ${delay}ms`,
                   }}
                 >
                   <img
