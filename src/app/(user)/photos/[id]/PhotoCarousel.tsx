@@ -1,7 +1,7 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element */
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { cn } from "@/lib/cn";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/components/user/icons";
 import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
@@ -36,37 +36,31 @@ function dotWindow(idx: number, total: number): { i: number; scale: number }[] {
 }
 
 // 고정 프레임 안에 사진을 안 잘리게(contain) 넣고, 남는 공간은 같은 사진을 흐리게(blur) 깔아 채운다.
-// 썸네일을 즉시 보여주고 원본이 받아지면 부드럽게 교체.
-function Slide({ p, alt }: { p: P; alt: string }) {
-  const [src, setSrc] = useState(p.thumb_url ?? p.src_url);
-  useEffect(() => {
-    if (!p.thumb_url || p.thumb_url === p.src_url) {
-      setSrc(p.src_url);
-      return;
-    }
-    setSrc(p.thumb_url);
-    const full = new window.Image();
-    full.src = p.src_url;
-    full.onload = () => setSrc(p.src_url);
-  }, [p.src_url, p.thumb_url]);
-
+// next/image(fill)가 화면 폭에 맞는 AVIF/WebP를 1회 서빙 — 기존 thumb→full 수동 스왑을 대체.
+// LCP인 첫 슬라이드만 priority(즉시 로드), 나머지는 lazy(스크롤 도달 시 로드).
+function Slide({ p, alt, priority }: { p: P; alt: string; priority?: boolean }) {
   return (
     <>
       {/* 흐린 배경 채움 — 같은 사진을 blur해 레터박스를 그 사진의 가장자리 색감으로 채움.
-          (슬라이드 컨테이너의 overflow-hidden 으로 옆 슬라이드에 번지지 않게 클립) */}
-      <img
-        src={src}
+          블러라 디테일 불필요 → 작은 썸네일(sizes 작게)로 충분. */}
+      <Image
+        src={p.thumb_url ?? p.src_url}
         alt=""
         aria-hidden
+        fill
+        sizes="120px"
         draggable={false}
-        className="pointer-events-none absolute inset-0 h-full w-full scale-125 select-none object-cover blur-2xl"
+        className="pointer-events-none scale-125 select-none object-cover blur-2xl"
       />
-      {/* 전경 — 안 잘리게 contain. (진입 시 blur→선명 모션 제거: 거슬림) */}
-      <img
-        src={src}
+      {/* 전경 — 안 잘리게 contain. 화질 위해 원본(src_url) 소스에서 화면 폭으로 다운스케일. */}
+      <Image
+        src={p.src_url}
         alt={alt}
+        fill
+        priority={priority}
+        sizes="(max-width: 768px) 100vw, 640px"
         draggable={false}
-        className="relative h-full w-full select-none object-contain [-webkit-user-drag:none]"
+        className="select-none object-contain [-webkit-user-drag:none]"
       />
     </>
   );
@@ -126,7 +120,7 @@ export function PhotoCarousel({
         className="relative max-h-[82svh] select-none overflow-hidden rounded-2xl bg-black"
         style={{ aspectRatio: frameAspect }}
       >
-        <Slide p={photos[0]} alt={altFor(0)} />
+        <Slide p={photos[0]} alt={altFor(0)} priority />
         {pagePath && <CartOverlay key={photos[0].id} p={photos[0]} />}
         {pagePath && <ShareButton variant="overlay" className="absolute bottom-3 left-3 z-10" />}
       </div>
@@ -145,7 +139,7 @@ export function PhotoCarousel({
       >
         {photos.map((p, i) => (
           <div key={p.id} className="relative h-full w-full shrink-0 snap-center overflow-hidden">
-            <Slide p={p} alt={altFor(i)} />
+            <Slide p={p} alt={altFor(i)} priority={i === startIndex} />
           </div>
         ))}
       </div>

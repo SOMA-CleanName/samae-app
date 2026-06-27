@@ -2,6 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import type { Highlight } from "@/lib/highlights";
 import { StarIcon, XIcon } from "@/components/user/icons";
 
@@ -42,9 +43,9 @@ export function HighlightsBar({
               onClick={() => setOpen(i)}
               className="flex min-w-0 cursor-pointer flex-col items-center gap-1.5"
             >
-              <span className="grid aspect-square w-full place-items-center overflow-hidden rounded-full bg-fg/[0.06] ring-2 ring-line-strong ring-offset-2 ring-offset-bg">
+              <span className="relative grid aspect-square w-full place-items-center overflow-hidden rounded-full bg-fg/[0.06] ring-2 ring-line-strong ring-offset-2 ring-offset-bg">
                 {cover ? (
-                  <img src={cover} alt="" className="h-full w-full rounded-full object-cover" />
+                  <Image src={cover} alt="" fill sizes="80px" className="rounded-full object-cover" />
                 ) : (
                   <StarIcon className="h-5 w-5 text-faint" />
                 )}

@@ -1,8 +1,8 @@
 "use client";
 
-/* eslint-disable @next/next/no-img-element */
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { cn } from "@/lib/cn";
 import { Button } from "@/components/ui";
 import { HeartIcon, LayersIcon, XIcon } from "@/components/user/icons";
@@ -61,11 +61,12 @@ export function PortfolioGrid({
             onClick={(e) => onTileClick(e, post)}
             className="group relative block aspect-square overflow-hidden rounded bg-fg/[0.05]"
           >
-            <img
+            <Image
               src={post.cover_thumb ?? post.cover_src}
               alt=""
-              loading="lazy"
-              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+              fill
+              sizes="(max-width: 768px) 33vw, 220px"
+              className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
             />
             {post.count > 1 && (
               <span className="absolute right-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-black/50 text-white">
