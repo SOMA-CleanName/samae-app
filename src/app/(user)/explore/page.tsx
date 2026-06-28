@@ -36,34 +36,37 @@ export default async function ExplorePage() {
     const set = new Set(c.tags.map((t) => t.toLowerCase()));
     const matched = rows.filter((p) => (p.mood_tags ?? []).some((t) => set.has(t.toLowerCase())));
     const ordered = spaceByKey(seededShuffle(matched, `${seed}:${c.name}`), (p) => p.album_id ?? `s:${p.id}`);
-    return { c, idx, photos: ordered.slice(0, 14) };
-  }).filter((s) => s.photos.length > 0);
+    // 한 화면 폭에 꽉 차는 만큼만(모바일 4 / PC 6). 4장은 채워야 깔끔한 4-up.
+    return { c, idx, photos: ordered.slice(0, 6) };
+  }).filter((s) => s.photos.length >= 4);
 
   return (
     <section className="font-kr">
       <div className="space-y-7 px-4 pb-4 pt-5 sm:px-5">
         <h1 className="text-xl font-bold tracking-tight">탐색</h1>
         {sections.map(({ c, idx, photos }) => (
-          <Link key={c.name} href={`/explore/${idx}`} className="block">
+          <Link key={c.name} href={`/explore/${idx}`} className="group block">
             <div className="mb-2.5 flex items-center justify-between gap-2">
               <h2 className="text-lg font-semibold tracking-tight">{c.name}</h2>
-              <span className="flex items-center gap-0.5 text-sm font-medium text-muted">
-                더보기 <ChevronRightIcon className="h-4 w-4" />
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-fg/[0.06] text-muted transition-colors group-hover:bg-fg/10 group-hover:text-fg">
+                <ChevronRightIcon className="h-4 w-4" />
               </span>
             </div>
-            <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:-mx-5 sm:px-5 [&::-webkit-scrollbar]:hidden">
-              {photos.map((p) => (
+            {/* 한 화면 폭에 꽉 차는 4-up(모바일) / 6-up(PC) — 가로 스크롤 없음 */}
+            <div className="flex gap-1.5">
+              {photos.map((p, i) => (
                 <div
                   key={p.id}
-                  className="block shrink-0 overflow-hidden rounded-xl bg-fg/[0.05]"
+                  className={`relative aspect-[3/4] flex-1 overflow-hidden rounded-xl bg-fg/[0.05] ${
+                    i >= 4 ? "hidden md:block" : ""
+                  }`}
                 >
                   <Image
                     src={p.thumb_url ?? p.src_url}
                     alt=""
-                    width={128}
-                    height={176}
-                    sizes="128px"
-                    className="h-44 w-32 object-cover"
+                    fill
+                    sizes="(max-width: 768px) 25vw, 16vw"
+                    className="object-cover"
                   />
                 </div>
               ))}
