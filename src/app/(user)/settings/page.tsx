@@ -14,7 +14,7 @@ export default async function SettingsPage() {
   const fallback = (me.displayName || me.email || "?").trim().charAt(0).toUpperCase();
 
   return (
-    <main className="mx-auto max-w-lg px-4 sm:px-6 py-8 font-kr">
+    <main className="mx-auto max-w-lg px-3.5 sm:px-5 py-8 font-kr">
       <h1 className="text-2xl font-semibold">계정 설정</h1>
       <p className="mt-1 text-sm text-fg/50">채팅·예약에 표시되는 이름과 프로필 사진이에요.</p>
 

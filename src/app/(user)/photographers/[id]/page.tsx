@@ -7,26 +7,20 @@ import {
   fetchAlbumDescriptions,
 } from "@/lib/discovery";
 import { getCurrentUser } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
 import { fetchPhotographerHighlights } from "@/lib/highlights";
-import { toggleFavorite } from "../../actions";
 import { type PortfolioPost } from "./PortfolioGrid";
 import { ProfileTabs } from "./ProfileTabs";
 import { HighlightsBar } from "./HighlightsBar";
-import { AutoFavorite } from "@/components/user/AutoFavorite";
-import { HeartIcon, MapPinIcon } from "@/components/user/icons";
+import { ProfileBackButton } from "./ProfileBackButton";
+import { MapPinIcon } from "@/components/user/icons";
 import { Avatar, Button } from "@/components/ui";
-import { cn } from "@/lib/cn";
 
 export default async function PhotographerProfile({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams?: Promise<{ fav?: string }>;
 }) {
   const { id } = await params;
-  const sp = (await searchParams) ?? {};
   const ph = await fetchPhotographerById(id);
   if (!ph) notFound();
 
@@ -81,43 +75,20 @@ export default async function PhotographerProfile({
   }
   const posts = order.map((k) => groups.get(k)!);
 
-  // 관심 작가 여부
-  let favorited = false;
-  if (me) {
-    const supabase = await createClient();
-    const { data } = await supabase
-      .from("favorites")
-      .select("id")
-      .eq("profile_id", me.id)
-      .eq("target_type", "photographer")
-      .eq("target_id", ph.id)
-      .maybeSingle();
-    favorited = !!data;
-  }
-
   const fmt = new Intl.NumberFormat("ko-KR");
   const isOwner = me?.photographer?.id === ph.id;
 
-  // 로그인 복귀 후 의도했던 관심 작가 자동 적용 (아직 안 했고 본인 아님)
-  const autoFav = sp.fav === "1" && !isOwner && !favorited;
-
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8 font-kr sm:px-6 md:pt-16 md:pb-12">
-      {autoFav && (
-        <AutoFavorite targetType="photographer" targetId={ph.id} path={`/photographers/${ph.id}`} />
-      )}
+    <main className="mx-auto max-w-6xl px-2.5 py-2.5 font-kr sm:px-4 sm:py-4">
+      <ProfileBackButton />
       <div className="md:flex md:items-start md:gap-10">
         {/* 좌: 프로필 정보 (가로 레이아웃 — 데스크톱은 sticky 사이드바) */}
         <aside className="md:w-72 md:shrink-0 md:sticky md:top-6 md:self-start">
           <div className="flex items-center gap-4 md:flex-col md:items-start md:gap-0">
-            <Avatar src={ph.avatar_url} name="사진작가" size="xl" className="shadow-lg ring-2 ring-white/40" />
+            <Avatar src={ph.avatar_url} name="사진작가" size="lg" className="shadow-lg ring-2 ring-white/40" />
             <div className="min-w-0 md:mt-4">
               {/* 작가 실명 노출 금지 — 별점/후기도 숨김(데이터·기능은 보존) */}
               <h1 className="text-h1 font-semibold">사진작가</h1>
-              {/* 지표 */}
-              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-body-sm text-muted">
-                <span>작품 <strong className="text-fg">{photos.length}</strong></span>
-              </div>
               <p className="mt-1 text-body-sm text-muted">
                 촬영 시작 <strong className="text-fg">₩{fmt.format(ph.price_from_krw)}</strong>
               </p>
@@ -141,14 +112,9 @@ export default async function PhotographerProfile({
             </div>
           ) : null}
 
-          {/* 예약·문의(좌) + 관심 작가(우) 나란히 — 프로필 정보 영역에 배치 (모바일·데스크톱 공용) */}
+          {/* 예약·문의 CTA */}
           <div className="mt-4">
-            <ProfileActions
-              isOwner={isOwner}
-              me={!!me}
-              photographerId={ph.id}
-              favorited={favorited}
-            />
+            <ProfileCta isOwner={isOwner} me={!!me} photographerId={ph.id} />
           </div>
         </aside>
 
@@ -203,62 +169,6 @@ function ViewerCta({
     >
       예약·문의하기
     </Link>
-  );
-}
-
-// 예약·문의(좌, 메인) + 관심 작가(우, 보조) 를 한 줄에 나란히. 데스크톱·모바일 공용.
-function ProfileActions({
-  isOwner,
-  me,
-  photographerId,
-  favorited,
-}: {
-  isOwner: boolean;
-  me: boolean;
-  photographerId: string;
-  favorited: boolean;
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <div className="min-w-0 flex-1">
-        <ProfileCta isOwner={isOwner} me={me} photographerId={photographerId} />
-      </div>
-      {!isOwner && (
-        <FavoriteButton favorited={favorited} photographerId={photographerId} />
-      )}
-    </div>
-  );
-}
-
-// 관심 작가 토글 — 보조 버튼(하트). 예약·문의 우측에 컴팩트하게.
-function FavoriteButton({
-  favorited,
-  photographerId,
-}: {
-  favorited: boolean;
-  photographerId: string;
-}) {
-  return (
-    <form action={toggleFavorite} className="shrink-0">
-      <input type="hidden" name="targetType" value="photographer" />
-      <input type="hidden" name="targetId" value={photographerId} />
-      <input type="hidden" name="path" value={`/photographers/${photographerId}`} />
-      {/* 비로그인 → 로그인 복귀 후 관심 작가 자동 적용 */}
-      <input type="hidden" name="next" value={`/photographers/${photographerId}?fav=1`} />
-      <button
-        aria-pressed={favorited}
-        aria-label={favorited ? "관심 작가 해제" : "관심 작가 추가"}
-        className={cn(
-          "flex h-12 cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-5 text-sm font-semibold transition-colors",
-          favorited
-            ? "border-brand bg-brand/[0.06] text-brand"
-            : "border-line-strong text-fg/70 hover:bg-surface-2"
-        )}
-      >
-        <HeartIcon className="h-5 w-5" filled={favorited} />
-        <span className="hidden sm:inline">관심</span>
-      </button>
-    </form>
   );
 }
 

@@ -29,7 +29,7 @@ export default async function FavoritesPage() {
   ]);
 
   return (
-    <main className="mx-auto max-w-6xl px-4 sm:px-6 py-8 font-kr">
+    <main className="mx-auto max-w-6xl px-3.5 sm:px-5 py-8 font-kr">
       <h1 className="text-2xl font-semibold">보관함</h1>
       <FavoritesTabs likedPhotos={likedPhotos} photographers={photographers} />
     </main>

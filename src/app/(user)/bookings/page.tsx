@@ -30,10 +30,13 @@ const BUCKETS: { label: string; statuses: BookingStatus[] }[] = [
 
 // 예약 목록 (구매자/작가 통합) — 확정 예약만, 상태별 그룹
 export default async function BookingsPage() {
-  const me = await getCurrentUser();
+  // me·목록·대화맵 병렬 (내부적으로 getCurrentUser 는 React.cache 로 1회만 실제 조회)
+  const [me, all, convMap] = await Promise.all([
+    getCurrentUser(),
+    listMyBookings(),
+    getConversationMap(),
+  ]);
   if (!me) redirect("/login?next=/bookings");
-
-  const [all, convMap] = await Promise.all([listMyBookings(), getConversationMap()]);
   const asBuyer = onlyConfirmed(all.filter((b) => b.user_id === me.id));
   const asPhotographer = onlyConfirmed(
     all.filter((b) => me.photographer && b.photographer_id === me.photographer.id)
@@ -47,7 +50,7 @@ export default async function BookingsPage() {
   ).length;
 
   return (
-    <main className="mx-auto max-w-2xl px-4 sm:px-6 py-8 font-kr">
+    <main className="mx-auto max-w-2xl px-3.5 sm:px-5 py-8 font-kr">
       <h1 className="text-2xl font-semibold">예약</h1>
       <p className="mt-1 text-sm text-fg/50">확정된 예약만 표시돼요. 요청·취소 내역은 채팅방에서 확인할 수 있어요.</p>
 

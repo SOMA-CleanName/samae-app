@@ -25,7 +25,7 @@ export default async function ApplyPage() {
 
   if (open) {
     return (
-      <main className="mx-auto max-w-lg px-4 py-10 sm:px-6 font-kr">
+      <main className="mx-auto max-w-lg px-3.5 py-10 sm:px-5 font-kr">
         <h1 className="text-2xl font-semibold">작가 신청</h1>
         <div className="mt-6 rounded-2xl border border-warning/20 bg-warning-soft p-6">
           <p className="text-base font-semibold">승인 대기 중이에요</p>
@@ -42,7 +42,7 @@ export default async function ApplyPage() {
   }
 
   return (
-    <main className="mx-auto max-w-lg px-4 py-10 sm:px-6 font-kr">
+    <main className="mx-auto max-w-lg px-3.5 py-10 sm:px-5 font-kr">
       <h1 className="text-2xl font-semibold">작가 신청</h1>
       <p className="mt-2 text-sm text-fg/60">
         아래 정보를 남기고 신청하면, 운영자 검토 후 작가로 등록돼 탐색 탭에 노출되고 의뢰를 받을 수 있어요.

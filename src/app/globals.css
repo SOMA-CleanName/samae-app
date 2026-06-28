@@ -226,3 +226,30 @@ img {
 @media (prefers-reduced-motion: reduce) {
   .page-enter { animation: none; }
 }
+
+/* 이미지 로딩 시머 — 스켈레톤 위로 밝은 띠가 좌→우로 반복 슬라이드 */
+@keyframes shimmer-slide {
+  100% { transform: translateX(100%); }
+}
+/* 위치 속성은 사용처(absolute inset-0 등)에 맡긴다 — position 강제 시 오버레이의 absolute 가 깨짐 */
+.shimmer {
+  overflow: hidden;
+  background-color: var(--surface-2);
+}
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  animation: shimmer-slide 1.4s ease-in-out infinite;
+}
+@media (prefers-color-scheme: dark) {
+  /* 어두운 표면 위에선 밝은 띠를 옅게 */
+  .shimmer::after {
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.07), transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shimmer::after { animation: none; }
+}

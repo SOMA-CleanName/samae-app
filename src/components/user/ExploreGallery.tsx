@@ -10,6 +10,7 @@ import { assignColumnAccents, type AccentColor } from "@/lib/seeded-shuffle";
 import { SearchIcon } from "@/components/user/icons";
 import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
 import { EmptyState } from "@/components/ui";
+import { rememberPhotoAspect } from "@/lib/photo-aspect";
 
 const fmt = new Intl.NumberFormat("ko-KR");
 const STEP = 48; // 스크롤마다 더 보여줄 사진 수(메모리에서 즉시 노출)
@@ -317,12 +318,12 @@ export function ExploreGallery({
       <div
         ref={setGridRef}
         className={cn(
-          "flex gap-3 pt-3 transition-opacity",
+          "flex gap-2.5 transition-opacity sm:gap-4",
           columnsReady ? "opacity-100" : "opacity-0"
         )}
       >
         {columns.map((col, ci) => (
-          <div key={ci} className="flex min-w-0 flex-1 flex-col gap-3">
+          <div key={ci} className="flex min-w-0 flex-1 flex-col gap-2.5 sm:gap-4">
             {col.map((photo) => {
               const card = (
                 <PhotoCard
@@ -524,8 +525,13 @@ function PhotoCard({
       )}
     >
       {/* 로드 전 스켈레톤 — 빠르게 스크롤해도 빈 칸이 '로딩 중'으로 보이게 */}
-      {!loaded && <div aria-hidden className="pointer-events-none absolute inset-0 animate-pulse bg-fg/[0.08]" />}
-      <Link href={`/photos/${photo.id}`} className="block" data-track="cta:photo">
+      {!loaded && <div aria-hidden className="pointer-events-none absolute inset-0 shimmer" />}
+      <Link
+        href={`/photos/${photo.id}`}
+        className="block"
+        data-track="cta:photo"
+        onClick={() => rememberPhotoAspect(photo.id, photo.width, photo.height)}
+      >
         {photo.width > 0 && photo.height > 0 ? (
           // next/image — 표시 폭(모바일 2열 ~45vw)에 맞춰 AVIF/WebP·반응형 srcset 생성.
           // 원본 썸네일(500px)을 그대로 받던 것 대비 모바일 바이트가 크게 줄어든다.

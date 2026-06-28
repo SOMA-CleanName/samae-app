@@ -27,7 +27,7 @@ export default async function TransferGuidePage({
   const artist = b.photographer?.display_name || "작가";
 
   return (
-    <main className="mx-auto max-w-lg px-4 sm:px-6 py-8 font-kr">
+    <main className="mx-auto max-w-lg px-3.5 sm:px-5 py-8 font-kr">
       <Link href={`/bookings/${id}`} className="text-sm text-fg/50 hover:text-fg">
         ← 예약 상세
       </Link>

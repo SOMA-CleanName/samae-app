@@ -1,12 +1,13 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/cn";
 import { ChevronLeftIcon, ChevronRightIcon } from "@/components/user/icons";
-import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
-import { ShareButton } from "@/components/user/ShareButton";
+
+// SSR 경고 없이 페인트 전에 초기 스크롤 위치를 잡기 위한 동형 레이아웃 이펙트
+const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 type P = {
   id: string;
@@ -78,32 +79,22 @@ function Slide({ p, alt, priority }: { p: P; alt: string; priority?: boolean }) 
   );
 }
 
-// 현재 슬라이드 사진을 장바구니에 담는 '+' 오버레이 (좋아요 대체)
-function CartOverlay({ p }: { p: P }) {
-  return (
-    <AddToCartButton
-      item={{ id: p.id, src: p.thumb_url ?? p.src_url, w: p.width ?? 0, h: p.height ?? 0 }}
-      className="absolute bottom-3 right-3 z-10"
-    />
-  );
-}
-
-// 게시물 사진 스와이프 캐러셀 — 스크롤 스냅 + 좌우 버튼 + 점 인디케이터 + 슬라이드별 좋아요
+// 게시물 사진 스와이프 캐러셀 — 스크롤 스냅 + 좌우 버튼 + 점 인디케이터
 export function PhotoCarousel({
   photos,
   startIndex = 0,
-  pagePath,
   frameAspect = 1,
 }: {
   photos: P[];
   startIndex?: number;
-  pagePath?: string; // 있으면 슬라이드별 좋아요 오버레이 노출 (사진 상세)
-  frameAspect?: number; // 게시물 고정 프레임 비율(대표 사진 기준)
+  frameAspect?: number; // 프레임 비율(세로가 가장 긴 사진 기준)
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [idx, setIdx] = useState(startIndex);
 
-  useEffect(() => {
+  // 클릭한 사진(앨범 내 startIndex)으로 즉시 이동 — 페인트 전에 위치를 잡아
+  // "쉬리릭" 부드러운 스크롤 없이 바로 해당 슬라이드가 보이게 한다.
+  useIsoLayoutEffect(() => {
     const el = ref.current;
     if (el && startIndex > 0) el.scrollLeft = startIndex * el.clientWidth;
   }, [startIndex]);
@@ -133,20 +124,16 @@ export function PhotoCarousel({
         style={{ aspectRatio: frameAspect }}
       >
         <Slide p={photos[0]} alt={altFor(0)} priority />
-        {pagePath && <CartOverlay key={photos[0].id} p={photos[0]} />}
-        {pagePath && <ShareButton variant="overlay" className="absolute bottom-3 left-3 z-10" />}
       </div>
     );
   }
-
-  const cur = photos[Math.max(0, Math.min(photos.length - 1, idx))];
 
   return (
     <div className="relative" data-cart-card>
       <div
         ref={ref}
         onScroll={onScroll}
-        className="flex max-h-[82svh] snap-x snap-mandatory select-none overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-smooth rounded-2xl bg-black scrollbar-none"
+        className="flex max-h-[82svh] snap-x snap-mandatory select-none overflow-x-auto overflow-y-hidden overscroll-x-contain rounded-2xl bg-black scrollbar-none"
         style={{ aspectRatio: frameAspect }}
       >
         {photos.map((p, i) => (
@@ -156,17 +143,12 @@ export function PhotoCarousel({
         ))}
       </div>
 
-      {/* 현재 슬라이드 담기 */}
-      {pagePath && <CartOverlay key={cur.id} p={cur} />}
-      {/* 공유 — 담기와 같은 박스 안(사진 좌하단에 깔끔히 붙음) */}
-      {pagePath && <ShareButton variant="overlay" className="absolute bottom-3 left-3 z-10" />}
-
       {/* 좌우 버튼 */}
       {idx > 0 && (
         <button
           type="button"
           onClick={() => go(idx - 1)}
-          className="absolute left-2 top-1/2 grid h-9 w-9 -translate-y-1/2 cursor-pointer place-items-center rounded-full bg-black/40 text-white transition-colors hover:bg-black/60"
+          className="absolute left-2 top-1/2 grid h-8 w-8 -translate-y-1/2 cursor-pointer place-items-center rounded-full bg-black/40 text-white transition-colors hover:bg-black/60"
           aria-label="이전 사진"
         >
           <ChevronLeftIcon />
@@ -176,25 +158,21 @@ export function PhotoCarousel({
         <button
           type="button"
           onClick={() => go(idx + 1)}
-          className="absolute right-2 top-1/2 grid h-9 w-9 -translate-y-1/2 cursor-pointer place-items-center rounded-full bg-black/40 text-white transition-colors hover:bg-black/60"
+          className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 cursor-pointer place-items-center rounded-full bg-black/40 text-white transition-colors hover:bg-black/60"
           aria-label="다음 사진"
         >
           <ChevronRightIcon />
         </button>
       )}
 
-      {/* 카운터 */}
-      <span className="absolute right-3 top-3 rounded-full bg-black/45 px-2 py-0.5 text-xs text-white">
-        {idx + 1}/{photos.length}
-      </span>
-
       {/* 점 인디케이터 — 인스타식 최대 5개 윈도우(많아도 사진 폭 안 넘음) */}
       <div className="pointer-events-none absolute bottom-3 left-1/2 flex max-w-[80%] -translate-x-1/2 items-center justify-center gap-1.5 rounded-full bg-black/30 px-2 py-1">
-        {dotWindow(idx, photos.length).map(({ i, scale }) => (
+        {dotWindow(idx, photos.length).map(({ i, scale }, k) => (
+          // 슬롯(위치) 기준 키 — 윈도우가 슬라이드해도 점이 튀지 않고 부드럽게 전환
           <span
-            key={i}
+            key={k}
             className={cn(
-              "h-1.5 w-1.5 shrink-0 rounded-full transition-all",
+              "h-1.5 w-1.5 shrink-0 rounded-full transition-all duration-200",
               i === idx ? "bg-white" : "bg-white/45"
             )}
             style={{ transform: `scale(${scale})` }}
