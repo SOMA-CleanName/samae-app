@@ -36,19 +36,23 @@ export function dayKey(): string {
 export type AccentColor = "brand" | "ink";
 
 // 컬럼(메이슨리)별로 테두리 사진을 배치 — 컬럼마다 시작점을 어긋나게 해 한쪽 쏠림·가로 줄맞춤을 방지.
-// 색은 대부분 브랜드(빨강), 가끔(약 1/4) 검정(ink). 간격은 id 해시로 6~9 가변(단조로움 완화).
+// 색은 컬럼 안에서 검정↔빨강 교대(독립 랜덤이면 같은 색이 우연히 쭉 이어지는 구간이 생김).
+// 간격은 id 해시로 2~3 가변 → 자주 나오되 세로 연속(간격 1)은 없음.
 export function assignColumnAccents<T extends { id: string }>(
   columns: T[][]
 ): Map<string, AccentColor> {
   const out = new Map<string, AccentColor>();
   columns.forEach((col, ci) => {
-    let next = 1 + ((ci * 2) % 4); // 컬럼마다 첫 테두리 위치를 다르게(1~4)
+    let next = ci % 2; // 컬럼마다 첫 테두리 위치를 어긋나게(0~1)
+    let k = 0; // 이 컬럼에서 몇 번째 테두리인지 → 교대용
     for (let r = 0; r < col.length; r++) {
       if (r >= next) {
         const id = col[r].id;
         const h = hashStr(id);
-        out.set(id, h % 2 === 0 ? "ink" : "brand"); // 검정·빨강 반반
-        next = r + 3 + (h % 3); // 다음 간격 3~5 (기존의 약 2배 빈도)
+        // 컬럼 내 교대 + 열별 시작 오프셋 → 같은 색이 세로로 이어지지 않고, 옆 열과도 다르게 시작
+        out.set(id, (k + ci) % 2 === 0 ? "brand" : "ink");
+        k++;
+        next = r + 2 + (h % 2); // 다음 간격 2~3 (자주, 단 연속 없음)
       }
     }
   });
