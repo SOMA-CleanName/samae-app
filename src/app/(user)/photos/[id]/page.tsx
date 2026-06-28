@@ -1,4 +1,4 @@
-/* eslint-disable @next/next/no-img-element */
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import {
   fetchPhotoById,
@@ -11,6 +11,11 @@ import {
 import { getCurrentUser } from "@/lib/auth";
 import { PhotoCarousel } from "./PhotoCarousel";
 import { PhotoExplore } from "./PhotoExplore";
+import { RecsSkeleton } from "@/components/user/skeletons";
+import { ScrollTop } from "@/components/user/ScrollTop";
+import { RememberFrameAspect } from "./RememberFrameAspect";
+import { ShareButton } from "@/components/user/ShareButton";
+import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
 import { PhotoTopBar } from "./PhotoTopBar";
 import { DetailHookCta } from "./DetailHookCta";
 import { DetailMoreInfo } from "./DetailMoreInfo";
@@ -34,12 +39,11 @@ export default async function PhotoDetail({
   const photo = await fetchPhotoById(id);
   if (!photo) notFound();
 
-  // 상단 정보에 필요한 것들 병렬 조회
-  const [ph, me, initialRecs] = await Promise.all([
+  // 상단(즉시 노출)에 필요한 것만 병렬 조회. 추천(400장 조회+스코어링)은 첫 화면을
+  // 막지 않도록 아래 <Suspense>에서 따로 스트리밍한다.
+  const [ph, me] = await Promise.all([
     fetchPhotographerById(photo.photographer_id),
     getCurrentUser(),
-    // 추천 — 현재 사진 태그와 겹침 점수순(현재 게시물 제외), 풀 전체를 클라이언트가 점진 노출
-    fetchSimilarPhotos({ photoId: photo.id, albumId: photo.album_id, tags: photo.mood_tags ?? [] }),
   ]);
   if (!ph) notFound();
 
@@ -72,10 +76,10 @@ export default async function PhotoDetail({
   }));
   const startIndex = Math.max(0, carousel.findIndex((p) => p.id === photo.id));
 
-  // 게시물 프레임 비율 = 대표(첫) 사진 기준 고정 → 스와이프해도 캐러셀이 출렁이지 않음.
-  // 각 사진은 이 프레임 안에서 안 잘리게(contain) 들어가고 남는 공간은 흐린 배경으로 채움.
-  const cover = baseCarousel[0];
-  const aspect = cover.width && cover.height ? cover.width / cover.height : 1;
+  // 게시물 프레임 비율 = 진입한(클릭한) 그 사진 기준 → 탐색·추천에서 누른 사진이 자기
+  // 비율로 보이고, 로딩 스켈레톤(클릭 사진 비율)과도 정확히 일치한다.
+  // 앨범의 다른 사진은 이 프레임 안에 잘리지 않게(contain) 들어가고 여백은 흐린 배경.
+  const aspect = photo.width && photo.height ? photo.width / photo.height : 1;
 
   // 로그인 복귀 후 의도했던 좋아요 자동 적용 (아직 안 한 경우에만)
   const liked = likeInfo[photo.id]?.liked ?? false;
@@ -87,7 +91,9 @@ export default async function PhotoDetail({
   const caption = sp.mock === "1" ? mockCaption : photo.caption;
 
   return (
-    <main className="mx-auto max-w-5xl px-4 pb-8 pt-4 font-kr sm:px-6 sm:pt-6">
+    <main className="mx-auto max-w-5xl px-2.5 pb-2.5 pt-2.5 font-kr sm:px-4 sm:pt-4 sm:pb-4">
+      <ScrollTop />
+      <RememberFrameAspect id={photo.id} aspect={aspect} />
       {autoLike && <AutoFavorite targetType="photo" targetId={photo.id} path={`/photos/${photo.id}`} />}
       {/* Meta 픽셀 ViewContent — 작가명 노출 금지(content_name 익명) */}
       <PixelViewContent id={photo.id} disabled={isOwner} />
@@ -97,24 +103,34 @@ export default async function PhotoDetail({
           className="relative mx-auto w-[min(100%,calc(82svh*var(--ar)))] md:mx-0 md:sticky md:top-4 md:shrink-0 md:self-start md:w-[min(60%,calc(80vh*var(--ar)))]"
           style={{ "--ar": String(aspect) } as React.CSSProperties}
         >
-          <PhotoCarousel
-            photos={carousel}
-            startIndex={startIndex}
-            pagePath={`/photos/${photo.id}`}
-            frameAspect={aspect}
-          />
+          <PhotoCarousel photos={carousel} startIndex={startIndex} frameAspect={aspect} />
           {/* 좌상단 투명 뒤로가기 (담기·공유는 carousel 내부에서 사진 모서리에 붙음) */}
           <PhotoTopBar />
         </div>
 
         {/* 사진 정보 — 가격·CTA 먼저 보이고, 작가·글·태그는 접기 */}
         <div className="mt-4 md:mt-0 md:min-w-0 md:flex-1">
-          <p>
-            <span className="text-title font-semibold tracking-tight">
-              {photo.price_krw != null ? `₩${fmt.format(photo.price_krw)}` : "문의"}
-            </span>
-            {location && <span className="text-body text-muted"> · {location}</span>}
-          </p>
+          {/* 공유·담기(좌) · 가격(우) 한 행 */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-1.5">
+              <ShareButton />
+              <AddToCartButton
+                variant="row"
+                item={{
+                  id: photo.id,
+                  src: photo.thumb_url ?? photo.src_url,
+                  w: photo.width ?? 0,
+                  h: photo.height ?? 0,
+                }}
+              />
+            </div>
+            <p className="text-right">
+              <span className="text-title font-semibold tracking-tight">
+                {photo.price_krw != null ? `₩${fmt.format(photo.price_krw)}` : "문의"}
+              </span>
+              {location && <span className="text-body text-muted"> · {location}</span>}
+            </p>
+          </div>
 
           {/* 예약·문의 CTA — 가장 위 (전환 최우선) */}
           <PhotoCtas isOwner={isOwner} photographerId={ph.id} photoId={photo.id} />
@@ -127,14 +143,15 @@ export default async function PhotoDetail({
             photographerId={ph.id}
             avatarUrl={ph.avatar_url}
             caption={caption || albumDescription}
-            moodTags={photo.mood_tags}
           />
         </div>
       </div>
 
-      {/* 하단 — 추천 사진 무한 스크롤. PhotoExplore는 30장씩 점진 노출이므로
-          초기 payload는 넉넉한 상한까지만 직렬화(점수 산정은 위 풀 전체에서 끝남). */}
-      <PhotoExplore initialRecs={initialRecs.slice(0, 120)} />
+      {/* 하단 — 추천 사진. Suspense 로 분리해 상단(사진·CTA)을 먼저 렌더하고 추천은 스트리밍.
+          400장 조회+스코어링이 더 이상 첫 화면(LCP)을 막지 않는다. */}
+      <Suspense fallback={<RecsSkeleton />}>
+        <Recommendations photoId={photo.id} albumId={photo.album_id} tags={photo.mood_tags ?? []} />
+      </Suspense>
 
       {/* A11 혜택 hook — 스크롤 내리면 노출, 예약/장바구니 1회 후 숨김 */}
       {!isOwner && <DetailHookCta href={inquiryHref(ph.id, photo.id)} />}
@@ -174,3 +191,18 @@ function inquiryHref(photographerId: string, photoId: string) {
   const params = new URLSearchParams({ photographerId, photoId });
   return `/inquiry?${params.toString()}`;
 }
+
+// 추천 사진 — 별도 스트리밍 경계. 400장 조회+스코어링이 상단 렌더(LCP)를 막지 않게 분리.
+async function Recommendations({
+  photoId,
+  albumId,
+  tags,
+}: {
+  photoId: string;
+  albumId: string | null;
+  tags: string[];
+}) {
+  const recs = await fetchSimilarPhotos({ photoId, albumId, tags });
+  return <PhotoExplore initialRecs={recs.slice(0, 120)} />;
+}
+

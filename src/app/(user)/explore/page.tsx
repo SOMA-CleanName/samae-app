@@ -44,7 +44,7 @@ export default async function ExplorePage() {
 
   return (
     <section className="font-kr">
-      <div className="space-y-7 px-4 pb-4 pt-5 sm:px-5">
+      <div className="space-y-7 px-2.5 pb-2.5 pt-2.5 sm:px-4 sm:pt-4 sm:pb-4">
         <h1 className="text-xl font-bold tracking-tight">탐색</h1>
         {sections.map(({ c, idx, photos }) => (
           <Link key={c.name} href={`/explore/${idx}`} className="group block">

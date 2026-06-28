@@ -26,16 +26,16 @@ export default async function CategoryPage({
   const { slug } = await params;
   // Next.js 16: 동적 라우트 param 은 자동 디코딩되지 않음 — 한글 slug 매칭 위해 직접 디코딩
   const decodedSlug = safeDecode(slug);
-  const category = await getPublishedCategory(decodedSlug);
+  // 카테고리·로그인유저 병렬(서로 독립)
+  const [category, me] = await Promise.all([getPublishedCategory(decodedSlug), getCurrentUser()]);
   if (!category) notFound();
 
-  const me = await getCurrentUser();
   // 카테고리 매칭 사진 먼저 + 나머지 전체 → 무한스크롤로 결국 모든 사진 노출
   const photos = await fetchCategoryFeed(category.tags, isUntaggedCategory(category.tags));
   const likedIds = me ? await fetchLikedPhotoIds(photos.map((p) => p.id), me.id) : [];
 
   return (
-    <section className="px-3 pb-10 pt-4 font-kr sm:px-5">
+    <section className="px-2.5 pb-2.5 pt-2.5 font-kr sm:px-4 sm:pt-4 sm:pb-4">
       {photos.length === 0 ? (
         <EmptyState
           icon={<LayersIcon className="h-7 w-7" />}

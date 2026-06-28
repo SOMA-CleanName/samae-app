@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
 import { assignColumnAccents } from "@/lib/seeded-shuffle";
+import { rememberPhotoAspect } from "@/lib/photo-aspect";
 
 export type ExplorePhoto = {
   id: string;
@@ -101,7 +102,7 @@ function RecTileImage({
   return (
     <>
       {!loaded && (
-        <span aria-hidden className="pointer-events-none absolute inset-0 animate-pulse bg-fg/[0.08]" />
+        <span aria-hidden className="pointer-events-none absolute inset-0 shimmer" />
       )}
       {p.width > 0 && p.height > 0 ? (
         <Image
@@ -165,6 +166,7 @@ function PhotoMasonry({
                 <Link
                   href={`/photos/${p.id}`}
                   className="block transition-opacity hover:opacity-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                  onClick={() => rememberPhotoAspect(p.id, p.width, p.height)}
                 >
                   <RecTileImage p={p} alt={altLabel} ratio={ratio} />
                 </Link>

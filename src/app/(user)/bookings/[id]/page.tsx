@@ -39,10 +39,9 @@ export default async function BookingDetail({
 }) {
   const { id } = await params;
   const { from } = await searchParams;
-  const me = await getCurrentUser();
+  // me·예약은 서로 독립 → 병렬
+  const [me, b] = await Promise.all([getCurrentUser(), getBooking(id)]);
   if (!me) redirect(`/login?next=/bookings/${id}`);
-
-  const b = await getBooking(id);
   if (!b) notFound();
 
   const isBuyer = b.user_id === me.id;
@@ -50,29 +49,25 @@ export default async function BookingDetail({
   const isAdmin = me.role === "admin";
   const fmt = new Intl.NumberFormat("ko-KR");
 
-  // 결제·정산 정보 (RLS: 참여자/작가 본인만 조회됨)
-  const payment = await getPaymentByBooking(id);
-  const fee = isOwner ? await getFeeByBooking(id) : null;
-  // 후기 — 완료된 예약만 (구매자는 작성/수정, 그 외 읽기)
-  const review = b.status === "completed" ? await getReviewByBooking(id) : null;
-
-  // 보정본 전달물 — 작가 업로드 현황(전달 단계) / 완료 후 다운로드(참여자)
-  const delivery =
-    b.status === "completed" || (isOwner && ["paid", "shot"].includes(b.status))
-      ? await getDelivery(id)
-      : null;
+  // 결제·정산·후기·전달물·채팅방·송금계좌 — 모두 예약/역할에만 의존하고 서로 독립 →
+  // 한 번에 병렬 조회(기존 8단계 직렬 제거). 조건 미충족 항목은 즉시 null/[] 로 해소.
+  const needDelivery =
+    b.status === "completed" || (isOwner && ["paid", "shot"].includes(b.status));
+  const [payment, fee, review, delivery, downloads, convId, payoutAccount] = await Promise.all([
+    getPaymentByBooking(id),
+    isOwner ? getFeeByBooking(id) : Promise.resolve(null),
+    b.status === "completed" ? getReviewByBooking(id) : Promise.resolve(null),
+    needDelivery ? getDelivery(id) : Promise.resolve(null),
+    b.status === "completed"
+      ? getDeliveryDownloads(id)
+      : Promise.resolve([] as Awaited<ReturnType<typeof getDeliveryDownloads>>),
+    getConversationIdFor(b.user_id, b.photographer_id),
+    isBuyer && b.status === "accepted"
+      ? ensureTransferRecord(id, b.amount_krw ?? 0).then(() => getPayoutAccountForBooking(id)) // 송금대기 레코드 보장(멱등) 후 계좌 조회
+      : Promise.resolve(null),
+  ]);
+  // 전달물 서명 URL — delivery 결과에 의존하므로 이후 단계
   const deliveryAssets = await signDeliveryAssets(delivery?.asset_paths ?? []);
-  const downloads = b.status === "completed" ? await getDeliveryDownloads(id) : [];
-
-  // 채팅방 바로가기 (B1)
-  const convId = await getConversationIdFor(b.user_id, b.photographer_id);
-
-  // 송금 안내 인라인 — 구매자·수락됨일 때 작가 계좌를 바로 노출(별도 페이지 없이)
-  let payoutAccount: Awaited<ReturnType<typeof getPayoutAccountForBooking>> = null;
-  if (isBuyer && b.status === "accepted") {
-    await ensureTransferRecord(id, b.amount_krw ?? 0); // 송금 대기 결제 레코드 보장(멱등)
-    payoutAccount = await getPayoutAccountForBooking(id);
-  }
 
   // 뒤로가기 — 채팅에서 들어왔으면 채팅방으로, 아니면 예약 목록으로
   const back =
@@ -100,7 +95,7 @@ export default async function BookingDetail({
     : b.user?.display_name || "고객";
 
   return (
-    <main className="mx-auto max-w-lg px-4 sm:px-6 py-8 font-kr">
+    <main className="mx-auto max-w-lg px-3.5 sm:px-5 py-8 font-kr">
       <Link href={back.href} className="text-sm text-fg/50 hover:text-fg">
         {back.label}
       </Link>

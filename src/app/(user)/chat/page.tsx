@@ -49,7 +49,7 @@ export default async function ChatListPage() {
   const rooms = await listChatRooms(me);
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8 font-kr sm:px-6">
+    <main className="mx-auto max-w-2xl px-3.5 py-8 font-kr sm:px-5">
       <h1 className="text-h1 font-semibold">채팅</h1>
 
       {rooms.length === 0 ? (

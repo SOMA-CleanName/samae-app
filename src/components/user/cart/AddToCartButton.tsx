@@ -4,9 +4,18 @@ import { useCart, type CartItem } from "./CartProvider";
 
 // 사진 카드/상세의 '+' 담기 버튼. 담기면 사진이 하단 장바구니로 빨려들어감.
 // 이미 담겼으면 체크 표시 + 다시 누르면 빼기.
-export function AddToCartButton({ item, className = "" }: { item: CartItem; className?: string }) {
+export function AddToCartButton({
+  item,
+  className = "",
+  variant = "overlay",
+}: {
+  item: CartItem;
+  className?: string;
+  variant?: "overlay" | "row";
+}) {
   const { has, add, remove } = useCart();
   const inCart = has(item.id);
+  const row = variant === "row";
 
   function onClick(e: React.MouseEvent<HTMLButtonElement>) {
     e.preventDefault();
@@ -28,17 +37,22 @@ export function AddToCartButton({ item, className = "" }: { item: CartItem; clas
       aria-pressed={inCart}
       aria-label={inCart ? "찜 해제" : "찜하기"}
       className={[
-        "grid h-6 w-6 cursor-pointer place-items-center rounded-full backdrop-blur-sm transition-colors",
-        inCart ? "bg-brand text-white" : "bg-black/30 text-white hover:bg-black/55",
+        "grid cursor-pointer place-items-center rounded-full transition-colors",
+        row ? "h-9 w-9" : "h-6 w-6 backdrop-blur-sm",
+        inCart
+          ? "bg-brand text-white"
+          : row
+            ? "bg-bg/80 text-fg shadow-sm ring-1 ring-line hover:bg-bg"
+            : "bg-black/30 text-white hover:bg-black/55",
         className,
       ].join(" ")}
     >
       {inCart ? (
-        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.6">
+        <svg viewBox="0 0 24 24" className={row ? "h-[18px] w-[18px]" : "h-3.5 w-3.5"} fill="none" stroke="currentColor" strokeWidth="2.6">
           <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       ) : (
-        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.2">
+        <svg viewBox="0 0 24 24" className={row ? "h-[18px] w-[18px]" : "h-3.5 w-3.5"} fill="none" stroke="currentColor" strokeWidth="2.2">
           <path d="M12 5v14M5 12h14" strokeLinecap="round" />
         </svg>
       )}

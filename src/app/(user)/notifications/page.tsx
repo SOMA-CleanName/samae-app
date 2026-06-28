@@ -15,7 +15,7 @@ export default async function NotificationsPage() {
   const hasUnread = items.some((n) => !n.read_at);
 
   return (
-    <main className="mx-auto max-w-2xl px-4 sm:px-6 py-8 font-kr">
+    <main className="mx-auto max-w-2xl px-3.5 sm:px-5 py-8 font-kr">
       <MarkReadOnMount hasUnread={hasUnread} />
       <NotificationsList items={items} />
     </main>

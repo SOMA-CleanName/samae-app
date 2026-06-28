@@ -32,18 +32,22 @@ export default async function ExploreHome({
   const cookieStore = await cookies();
   const cookieCat = cookieStore.get(CATEGORY_COOKIE)?.value || undefined;
   const activeSlug = query || sp.nocat ? undefined : sp.cat?.trim() || cookieCat;
-  const category = activeSlug ? await getPublishedCategory(activeSlug) : null;
 
-  // 광고 유입 온보딩 — URL ?ad=<사진ID>(광고 크리에이티브 사진)가 있을 때만,
-  // 그 사진을 좌상단 첫 카드로 고정하고 스포트라이트로 서비스 소개. (검색 모드 아닐 때)
-  const adPhoto = !query && sp.ad ? await fetchPhotoById(sp.ad) : null;
+  // 카테고리·로그인유저·광고사진은 서로 독립 → 병렬로 시작.
+  // (피드는 카테고리에 의존하므로 카테고리 해석 후 조회)
+  const categoryPromise = activeSlug ? getPublishedCategory(activeSlug) : Promise.resolve(null);
+  const mePromise = getCurrentUser();
+  // 광고 유입 온보딩 — URL ?ad=<사진ID>가 있을 때만 좌상단 첫 카드로 고정. (검색 모드 아닐 때)
+  const adPromise = !query && sp.ad ? fetchPhotoById(sp.ad) : Promise.resolve(null);
 
+  const category = await categoryPromise;
   // 피드: 검색 > 카테고리 알고리즘(매칭 우선 + 나머지 전체) > 전체 셔플
   const basePhotos = query
     ? await searchPhotosByTag(query)
     : category
       ? await fetchCategoryFeed(category.tags, isUntaggedCategory(category.tags))
       : await fetchPublishedPhotos({});
+  const [me, adPhoto] = await Promise.all([mePromise, adPromise]);
 
   // 광고 사진을 맨 앞으로 → 메이슨리 좌상단 첫 카드 = 광고 이미지
   const adAsGallery: GalleryPhoto | null = adPhoto
@@ -69,9 +73,6 @@ export default async function ExploreHome({
   const photos = merged.slice(0, FEED_CAP);
   const spotlightId = adAsGallery?.id;
 
-  // 현재 사용자가 좋아요한 사진(갤러리 하트 초기 상태)
-  const me = await getCurrentUser();
-
   // 검색어 적재 — 인기 검색어/검색 실패어 통계용(운영자 전용 조회).
   if (query) await logSearch(query, basePhotos.length, me?.id);
   const likedIds = await fetchLikedPhotoIds(
@@ -80,7 +81,7 @@ export default async function ExploreHome({
   );
 
   return (
-    <section className="px-3 pb-10 pt-4 font-kr sm:px-5">
+    <section className="px-2.5 pb-2.5 pt-2.5 font-kr sm:px-4 sm:pt-4 sm:pb-4">
       {/* 카테고리 알고리즘 보는 중 표시 + 전체 보기 해제 (검색 모드 아닐 때만) */}
       {category && !query && (
         <div className="mx-auto mt-1 flex max-w-screen-2xl items-center gap-2 px-1">

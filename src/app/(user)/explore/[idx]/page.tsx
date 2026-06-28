@@ -39,7 +39,7 @@ export default async function ExploreCategoryPage({
   );
 
   return (
-    <section className="px-3 pb-10 pt-4 font-kr sm:px-5">
+    <section className="px-2.5 pb-2.5 pt-2.5 font-kr sm:px-4 sm:pt-4 sm:pb-4">
       <h1 className="mb-3 px-1 text-xl font-bold tracking-tight">{cat.name}</h1>
       <ExploreGallery photos={ordered} loggedIn={!!me} />
     </section>
