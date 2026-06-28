@@ -159,8 +159,8 @@ function PhotoMasonry({
               <div
                 key={p.id}
                 data-cart-card
-                className={`group relative overflow-hidden rounded-2xl bg-fg/[0.05] ring-4 ${
-                  accent === "brand" ? "ring-brand" : accent === "ink" ? "ring-fg" : "ring-bg"
+                className={`group relative overflow-hidden bg-fg/[0.05] ${
+                  accent === "brand" ? "border-[6px] border-brand" : accent === "ink" ? "border-[6px] border-fg" : ""
                 }`}
               >
                 <Link

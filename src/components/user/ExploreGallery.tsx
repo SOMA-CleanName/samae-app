@@ -519,9 +519,10 @@ function PhotoCard({
     <div
       data-cart-card
       className={cn(
-        // 모든 사진에 동일 테두리 — 기본은 배경색(보이지 않음), 저빈도만 브랜드/검정
-        "group relative break-inside-avoid overflow-hidden rounded-2xl bg-fg/[0.05] ring-4",
-        accent === "brand" ? "ring-brand" : accent === "ink" ? "ring-fg" : "ring-bg"
+        // 저빈도 악센트 테두리 — border(안쪽)라 사진만 살짝 줄고 바깥 크기는 열 폭 그대로
+        // (ring 바깥쪽이면 옆으로 삐져나와 더 커 보였음). 기본은 테두리 없음.
+        "group relative break-inside-avoid overflow-hidden bg-fg/[0.05]",
+        accent === "brand" ? "border-[6px] border-brand" : accent === "ink" ? "border-[6px] border-fg" : ""
       )}
     >
       {/* 로드 전 스켈레톤 — 빠르게 스크롤해도 빈 칸이 '로딩 중'으로 보이게 */}

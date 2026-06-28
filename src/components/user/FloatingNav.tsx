@@ -20,7 +20,10 @@ export function FloatingNav({ me }: { me: ProfileMe | null }) {
   const homeActive = pathname === "/" || pathname.startsWith("/c/");
   const exploreActive = pathname.startsWith("/explore");
 
-  const visible = forced ?? true; // null=항상 보임
+  // 상세(/photos/[id])에선 기본 숨김 + 스크롤로만 노출(forced===true). 그 외엔 기본 보임.
+  // usePathname 으로 판단해 라우트가 바뀌는 즉시(로딩 스켈레톤 단계부터) 사라진다.
+  const onDetail = pathname.startsWith("/photos/");
+  const visible = onDetail ? forced === true : forced ?? true;
   // 아래에서 위로 올라오는 슬라이드 (숨김 시 화면 아래로)
   const revealStyle = {
     transform: visible ? "translateY(0)" : "translateY(180%)",
