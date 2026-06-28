@@ -329,7 +329,8 @@ export function ExploreGallery({
                   photo={photo}
                   showPrice={showPrice}
                   showName={showName}
-                  accent={accentMap.get(photo.id)}
+                  // 온보딩 디밍 중엔 브랜드 빨간 테두리가 비쳐 어색해 보여 숨김
+                  accent={obActive ? undefined : accentMap.get(photo.id)}
                 />
               );
               // 스포트라이트 카드 — 오버레이(z-100) 위로 띄워 제자리 그대로 밝게
@@ -378,10 +379,11 @@ export function ExploreGallery({
       {/* ── 온보딩 스포트라이트 오버레이 ── */}
       {obActive && (
         <>
-          {/* 어둡게 + 뿌옇게 덮는 레이어 — 카드가 흩어지는 동안 서서히 어두워짐 */}
+          {/* 어둡게 + 뿌옇게 덮는 레이어 — 카드가 흩어지는 동안 서서히 어두워짐.
+              h-[100lvh]: iOS 하단 툴바가 접혀도 화면 끝까지 덮어 하단 사진이 새지 않게. */}
           <div
             className={cn(
-              "fixed inset-0 z-[100] bg-black/75 backdrop-blur-md transition-opacity duration-[1100ms] ease-out",
+              "fixed inset-x-0 top-0 z-[100] h-[100lvh] bg-black/[0.88] backdrop-blur-md transition-opacity duration-[1100ms] ease-out",
               obShown ? "opacity-100" : "opacity-0"
             )}
           />
