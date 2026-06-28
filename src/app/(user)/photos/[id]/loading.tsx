@@ -25,7 +25,7 @@ export default function Loading() {
           style={{ "--ar": String(aspect) } as React.CSSProperties}
         >
           <div
-            className="w-full animate-pulse rounded-2xl bg-surface-2"
+            className="w-full animate-pulse bg-surface-2"
             style={{ aspectRatio: String(aspect) }}
           />
         </div>
