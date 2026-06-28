@@ -154,6 +154,18 @@ p, blockquote, li {
    접근성 / 인터랙션 기본값
    ───────────────────────────────────────────── */
 
+/* iOS 롱프레스 미리보기/콜아웃 비활성화 — 사진(링크)을 길게 누르면 화면이
+   어두워진 채 고착되던 문제 방지(가로 스크롤 스트립에서 특히 발생).
+   앱형 UX라 링크 미리보기·이미지 저장 콜아웃은 끄는 게 자연스럽다. */
+a,
+img {
+  -webkit-touch-callout: none;
+}
+img {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
 /* 키보드 포커스 링 — 마우스 클릭엔 안 뜨고 Tab 이동 시만 */
 :focus-visible {
   outline: 2px solid var(--brand);
