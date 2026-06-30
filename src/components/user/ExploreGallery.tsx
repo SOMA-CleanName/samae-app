@@ -545,6 +545,8 @@ function PhotoCard({
             style={{ width: "100%", height: "auto", aspectRatio: ratio }}
             className="relative object-cover"
             onLoad={() => setLoaded(true)}
+            // 로드 실패해도 스켈레톤 해제 — 무한 shimmer 방지
+            onError={() => setLoaded(true)}
           />
         ) : (
           <img
@@ -554,6 +556,7 @@ function PhotoCard({
             style={ratio ? { aspectRatio: ratio } : undefined}
             className="relative w-full object-cover"
             onLoad={() => setLoaded(true)}
+            onError={() => setLoaded(true)}
           />
         )}
       </Link>

@@ -6,6 +6,12 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "*.supabase.co" },
     ],
+    // Vercel 이미지 최적화(/_next/image) 비활성화.
+    // 홈 한 화면에서만 변환 요청이 500+개라 플랜 할당량을 소진 → 일부 이미지가
+    // 402(OPTIMIZED_IMAGE_REQUEST_PAYMENT_REQUIRED)로 막혀 무한로딩되던 문제.
+    // 이미지는 전부 업로드 시 생성한 500px 썸네일(thumb_url, ~30~80KB)이라
+    // Supabase CDN에서 그대로 서빙해도 충분하다(추가 변환 불필요·비용 0).
+    unoptimized: true,
   },
   experimental: {
     // 서버액션 본문 한계 상향(기본 1MB) — 문의 레퍼런스 이미지 첨부 대응.
