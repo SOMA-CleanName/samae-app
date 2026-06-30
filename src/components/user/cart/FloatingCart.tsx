@@ -102,6 +102,22 @@ export function FloatingCart() {
     });
   }, []);
 
+  // 펼친 동안 배경(body) 스크롤 잠금 — 블러 백드롭 뒤로 페이지가 같이 스크롤되던 문제 방지.
+  // 사진이 적어 레이어가 스크롤 컨테이너가 아닐 때도 제스처가 body로 새지 않게 함.
+  useEffect(() => {
+    if (!open) return;
+    const html = document.documentElement;
+    const { body } = document;
+    const prevHtml = html.style.overflow;
+    const prevBody = body.style.overflow;
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    return () => {
+      html.style.overflow = prevHtml;
+      body.style.overflow = prevBody;
+    };
+  }, [open]);
+
   // 비워지면 닫기
   useEffect(() => {
     if (phase !== "dock" && N === 0) {
