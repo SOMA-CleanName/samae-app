@@ -35,7 +35,7 @@ export function AddToCartButton({
       type="button"
       onClick={onClick}
       aria-pressed={inCart}
-      aria-label={inCart ? "찜 해제" : "찜하기"}
+      aria-label={inCart ? "관심 해제" : "관심 추가"}
       className={[
         "grid cursor-pointer place-items-center rounded-full transition-colors",
         row ? "h-9 w-9" : "h-6 w-6 backdrop-blur-sm",
