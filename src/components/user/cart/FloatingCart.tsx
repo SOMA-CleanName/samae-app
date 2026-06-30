@@ -70,9 +70,6 @@ export function FloatingCart() {
   const [shareToast, setShareToast] = useState(false);
   const [photoMenu, setPhotoMenu] = useState(false); // 확대 보기 더보기(⋯) 메뉴
   const [closing, setClosing] = useState(false); // 닫는 중 — 카드 트랜지션을 더 빠르게
-  // 폰 뒤로가기(popstate) 핸들러에서 현재 focused/selectMode 를 읽기 위한 ref(스테일 클로저 방지)
-  const backNavRef = useRef<{ focused: string | null; selectMode: boolean }>({ focused: null, selectMode: false });
-  backNavRef.current = { focused, selectMode };
   // 길게 누르기(롱프레스) 추적 — 타이머/발동여부/시작좌표
   const longPress = useRef<{ timer: number | null; fired: boolean; x: number; y: number }>({
     timer: null,
@@ -131,41 +128,58 @@ export function FloatingCart() {
     };
   }, [open]);
 
-  // 폰 내장 뒤로가기 → 뒤 페이지가 아니라 '관심 사진'을 단계적으로 닫는다.
-  // 펼칠 때 더미 히스토리 항목을 push 하고, popstate(뒤로) 를 가로채 처리. URL 은 그대로라
-  // 페이지 이동/리로드 없음(Next 라우터 상태는 보존해 충돌 방지).
+  // ── 폰 내장 뒤로가기: 논리적 '깊이'마다 히스토리 가드 1개 (열림=1, 확대/선택=2). ──
+  // 깊이가 늘면 가드를 push, 줄면 제거. 뒤로(popstate)는 한 단계씩만 닫는다(뒤 페이지로 안 샘).
+  // 핵심: pushState/back 은 전부 effect(렌더 후)에서만 호출 → popstate 핸들러 '안'에서
+  // 재push 하던 이전 방식의 모바일+Next 라우터 비신뢰성 문제를 피한다.
+  const histRef = useRef({ pushed: 0, browserPopped: false, ignore: 0 });
+  const navDepth = !open ? 0 : focused || selectMode ? 2 : 1;
+
   useEffect(() => {
-    if (!open) return;
-    // guarded: 우리가 push 한 가드 항목이 히스토리에 살아있는지(로컬 플래그).
-    // history.state 를 읽어 판단하면 Next 라우터의 replaceState 동기화로 samaeCart 키가
-    // 섞여 오판 → 닫을 때 history.back() 이 한 번 더 불려 뒤 페이지가 뒤로 가던 버그가 있었음.
-    let guarded = true;
-    window.history.pushState({ ...window.history.state, samaeCart: true }, "");
-    const onPop = () => {
-      const { focused: f, selectMode: s } = backNavRef.current;
-      if (f) {
-        // 확대 보기 → 그리드 (오버레이 유지 → 가드 항목 재설치)
-        setPhotoMenu(false);
-        setFocused(null);
-        window.history.pushState({ ...window.history.state, samaeCart: true }, "");
-      } else if (s) {
-        // 선택 모드 → 선택 해제 (오버레이 유지 → 가드 재설치)
-        exitSelect();
-        window.history.pushState({ ...window.history.state, samaeCart: true }, "");
+    const h = histRef.current;
+    // 깊이 증가(enter) → 가드 push
+    while (h.pushed < navDepth) {
+      window.history.pushState({ ...window.history.state, samaeCart: true }, "");
+      h.pushed += 1;
+    }
+    // 깊이 감소(exit) → 가드 제거
+    while (h.pushed > navDepth) {
+      h.pushed -= 1;
+      if (h.browserPopped) {
+        h.browserPopped = false; // 뒤로로 줄어듦: 브라우저가 이미 pop 함
       } else {
-        guarded = false; // 뒤로가 가드를 소비함 → 오버레이 닫힘(추가 back 불필요)
-        close();
+        h.ignore += 1; // UI 로 줄어듦: 우리가 pop(그 popstate 는 무시)
+        window.history.back();
       }
-    };
+    }
+  }, [navDepth]);
+
+  // popstate(뒤로) — 현재 상태/함수는 ref 로 읽어 항상 최신.
+  const onPopRef = useRef<() => void>(() => {});
+  onPopRef.current = () => {
+    const h = histRef.current;
+    if (h.ignore > 0) {
+      h.ignore -= 1; // 우리가 부른 history.back() — 무시
+      return;
+    }
+    // 사용자 뒤로: 브라우저가 가드 1개 소비 → 한 단계만 닫는다.
+    h.browserPopped = true;
+    if (focused) {
+      setPhotoMenu(false);
+      setFocused(null);
+    } else if (selectMode) {
+      exitSelect();
+    } else if (open) {
+      close();
+    } else {
+      h.browserPopped = false;
+    }
+  };
+  useEffect(() => {
+    const onPop = () => onPopRef.current();
     window.addEventListener("popstate", onPop);
-    return () => {
-      window.removeEventListener("popstate", onPop);
-      // UI(✕/여백)로 닫혀 가드가 아직 살아있을 때만 우리가 넣은 항목 제거.
-      if (guarded) window.history.back();
-    };
-    // 가드 push 는 [open] 변화시 1회만 실행돼야 하므로 deps 는 [open] 만 둔다
-    // (close/exitSelect 는 setState 래퍼라 스테일이어도 동작 동일).
-  }, [open]);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   // 비워지면 닫기
   useEffect(() => {
@@ -260,6 +274,8 @@ export function FloatingCart() {
     setSelectMode(false);
     setSelectedIds(new Set());
     setPhase("dock");
+    // 페이지 이동이므로 가드 동기화(history.back)가 router.push 와 경쟁하지 않게 카운트만 비움.
+    histRef.current.pushed = 0;
     router.push(href);
   }
   function toggleSelect(id: string) {
