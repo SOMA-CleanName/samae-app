@@ -136,6 +136,10 @@ export function FloatingCart() {
   // 페이지 이동/리로드 없음(Next 라우터 상태는 보존해 충돌 방지).
   useEffect(() => {
     if (!open) return;
+    // guarded: 우리가 push 한 가드 항목이 히스토리에 살아있는지(로컬 플래그).
+    // history.state 를 읽어 판단하면 Next 라우터의 replaceState 동기화로 samaeCart 키가
+    // 섞여 오판 → 닫을 때 history.back() 이 한 번 더 불려 뒤 페이지가 뒤로 가던 버그가 있었음.
+    let guarded = true;
     window.history.pushState({ ...window.history.state, samaeCart: true }, "");
     const onPop = () => {
       const { focused: f, selectMode: s } = backNavRef.current;
@@ -145,18 +149,19 @@ export function FloatingCart() {
         setFocused(null);
         window.history.pushState({ ...window.history.state, samaeCart: true }, "");
       } else if (s) {
-        // 선택 모드 → 선택 해제 (오버레이 유지)
+        // 선택 모드 → 선택 해제 (오버레이 유지 → 가드 재설치)
         exitSelect();
         window.history.pushState({ ...window.history.state, samaeCart: true }, "");
       } else {
-        close(); // 도크로 닫기
+        guarded = false; // 뒤로가 가드를 소비함 → 오버레이 닫힘(추가 back 불필요)
+        close();
       }
     };
     window.addEventListener("popstate", onPop);
     return () => {
       window.removeEventListener("popstate", onPop);
-      // UI 로 닫은 경우(가드 항목이 아직 최상단) 우리가 넣은 항목 제거
-      if (window.history.state?.samaeCart) window.history.back();
+      // UI(✕/여백)로 닫혀 가드가 아직 살아있을 때만 우리가 넣은 항목 제거.
+      if (guarded) window.history.back();
     };
     // 가드 push 는 [open] 변화시 1회만 실행돼야 하므로 deps 는 [open] 만 둔다
     // (close/exitSelect 는 setState 래퍼라 스테일이어도 동작 동일).
