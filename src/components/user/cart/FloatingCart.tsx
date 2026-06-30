@@ -70,6 +70,9 @@ export function FloatingCart() {
   const [shareToast, setShareToast] = useState(false);
   const [photoMenu, setPhotoMenu] = useState(false); // 확대 보기 더보기(⋯) 메뉴
   const [closing, setClosing] = useState(false); // 닫는 중 — 카드 트랜지션을 더 빠르게
+  // 폰 뒤로가기(popstate) 핸들러에서 현재 focused/selectMode 를 읽기 위한 ref(스테일 클로저 방지)
+  const backNavRef = useRef<{ focused: string | null; selectMode: boolean }>({ focused: null, selectMode: false });
+  backNavRef.current = { focused, selectMode };
   // 길게 누르기(롱프레스) 추적 — 타이머/발동여부/시작좌표
   const longPress = useRef<{ timer: number | null; fired: boolean; x: number; y: number }>({
     timer: null,
@@ -126,6 +129,37 @@ export function FloatingCart() {
       html.style.overflow = prevHtml;
       body.style.overflow = prevBody;
     };
+  }, [open]);
+
+  // 폰 내장 뒤로가기 → 뒤 페이지가 아니라 '관심 사진'을 단계적으로 닫는다.
+  // 펼칠 때 더미 히스토리 항목을 push 하고, popstate(뒤로) 를 가로채 처리. URL 은 그대로라
+  // 페이지 이동/리로드 없음(Next 라우터 상태는 보존해 충돌 방지).
+  useEffect(() => {
+    if (!open) return;
+    window.history.pushState({ ...window.history.state, samaeCart: true }, "");
+    const onPop = () => {
+      const { focused: f, selectMode: s } = backNavRef.current;
+      if (f) {
+        // 확대 보기 → 그리드 (오버레이 유지 → 가드 항목 재설치)
+        setPhotoMenu(false);
+        setFocused(null);
+        window.history.pushState({ ...window.history.state, samaeCart: true }, "");
+      } else if (s) {
+        // 선택 모드 → 선택 해제 (오버레이 유지)
+        exitSelect();
+        window.history.pushState({ ...window.history.state, samaeCart: true }, "");
+      } else {
+        close(); // 도크로 닫기
+      }
+    };
+    window.addEventListener("popstate", onPop);
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      // UI 로 닫은 경우(가드 항목이 아직 최상단) 우리가 넣은 항목 제거
+      if (window.history.state?.samaeCart) window.history.back();
+    };
+    // 가드 push 는 [open] 변화시 1회만 실행돼야 하므로 deps 는 [open] 만 둔다
+    // (close/exitSelect 는 setState 래퍼라 스테일이어도 동작 동일).
   }, [open]);
 
   // 비워지면 닫기
