@@ -9,6 +9,7 @@ import { cn } from "@/lib/cn";
 import { assignColumnAccents, type AccentColor } from "@/lib/seeded-shuffle";
 import { SearchIcon } from "@/components/user/icons";
 import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
+import { useCart } from "@/components/user/cart/CartProvider";
 import { EmptyState } from "@/components/ui";
 import { rememberPhotoAspect } from "@/lib/photo-aspect";
 
@@ -55,18 +56,6 @@ function buildColumns(photos: GalleryPhoto[], colCount: number): GalleryPhoto[][
   return cols;
 }
 
-// 온보딩 시 비-스포트라이트 카드가 흩어질 변형 — 황금각으로 사방 방사 분산(결정적).
-function scatterTransform(i: number): string {
-  const a = i * 2.39996323; // 황금각(rad) → 균일한 방사 분포
-  const dist = 540 + (i % 6) * 90;
-  const x = Math.round(Math.cos(a) * dist);
-  const y = Math.round(Math.sin(a) * dist);
-  const r = ((i * 53) % 90) - 45;
-  return `translate(${x}px, ${y}px) rotate(${r}deg) scale(0.38)`;
-}
-function scatterDelay(i: number): number {
-  return Math.min(i, 14) * 22; // 앞 카드부터 물결치듯(최대 ~308ms)
-}
 
 // 탐색 갤러리 — 서버가 셔플된 풀을 내려주고, 클라이언트는 메모리에서 점진 노출(네트워크 없음).
 // JS 컬럼 버킷으로 기존 사진은 절대 재배치되지 않음.
@@ -101,8 +90,10 @@ export function ExploreGallery({
   //  · 광고 유입(spotlightId) — 지정 사진을 제자리 강조 + 배경 카드 흩어짐
   //  · 일반 첫 방문(generalOnboard) — 탐색 메인이면 좌상단 첫 사진을 강조,
   //    slug 페이지면 강조 없이 배경 전체를 어둡게+뿌옇게
-  const OB_FORCED_MS = 4000;
-  const [obPhase, setObPhase] = useState<"idle" | "enter" | "ready" | "leaving" | "done">(
+  const OB_FORCED_MS = 2000; // 약 2초 — 이 시간 뒤 스킵(닫기) 가능
+  const OB_AUTO_AFTER_READY_MS = 600; // ready(약 2초) 후 0.6초 → 약 3초에 자동 종료
+  const { add } = useCart(); // 온보딩 종료 시 강조 사진을 담기(관심사진)에 추가
+  const [obPhase, setObPhase] = useState<"idle" | "enter" | "ready" | "adding" | "leaving" | "done">(
     spotlightId ? "idle" : "done"
   );
 
@@ -132,7 +123,7 @@ export function ExploreGallery({
 
   const obTriggered = !!spotlightId || generalOnboard;
   const obActive = obTriggered && obPhase !== "done";
-  const obShown = obPhase === "enter" || obPhase === "ready"; // 오버레이 보이는 상태
+  const obShown = obPhase === "enter" || obPhase === "ready" || obPhase === "adding"; // 오버레이 보이는 상태(담기 연출 포함)
 
   // 강조(스포트라이트)할 사진 id — 광고는 지정 사진, 일반은 좌상단 첫 카드(메인 + 모바일에서만).
   // undefined 면 강조 카드 없이 배경 전체만 어둡게(slug 일반 모드 / 데스크탑 일반 모드).
@@ -202,15 +193,36 @@ export function ExploreGallery({
   }, [obActive]);
 
   function dismissOnboard() {
-    if (obPhase !== "ready") return; // 4초 전엔 강제(닫기 불가)
+    if (obPhase !== "ready") return; // 2초 전엔 강제(닫기 불가)
     try {
       localStorage.setItem(TUTORIAL_SEEN_KEY, "1"); // 다시 보지 않음
     } catch {
       /* 스토리지 불가 시 무시 */
     }
-    setObPhase("leaving");
-    setTimeout(() => setObPhase("done"), 1100); // 카드 복귀·오버레이 페이드 완료까지
+    // ① 어두운 배경(딤은 카트 아래로 낮아짐)은 그대로 둔 채 '원래 담기' 연출 실행 —
+    //    강조 사진 카드의 <img> 를 소스로 넘겨 폴라로이드가 도크로 날아가는 기존 애니메이션 재생.
+    setObPhase("adding");
+    if (spotlightTargetId) {
+      const hero = photos.find((p) => p.id === spotlightTargetId);
+      if (hero) {
+        const cardEl = document.querySelector(`[data-cart-card][data-pid="${hero.id}"]`);
+        const img = (cardEl?.querySelector("img") as HTMLElement | null) ?? null;
+        add({ id: hero.id, src: hero.thumb_url ?? hero.src_url, w: hero.width, h: hero.height }, img);
+      }
+    }
+    // ② 담기(폴라로이드 fly ~0.56초) 후 오버레이 걷고 원래 탐색으로 복귀
+    setTimeout(() => setObPhase("leaving"), 720);
+    setTimeout(() => setObPhase("done"), 720 + 520);
   }
+
+  // ready(약 2초) 후 0.6초 뒤 자동 종료 — 사용자가 직접 안 닫아도 약 3초면 내려간다.
+  useEffect(() => {
+    if (obPhase !== "ready") return;
+    const t = setTimeout(() => dismissOnboard(), OB_AUTO_AFTER_READY_MS);
+    return () => clearTimeout(t);
+    // dismissOnboard 는 obPhase==="ready" 렌더의 클로저로 호출돼 스테일 아님(deps 에 넣으면 타이머가 매 렌더 리셋)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [obPhase]);
 
   // 풀(검색어/네비게이션) 바뀌면 노출 수 초기화
   useEffect(() => setVisible(STEP), [photos, query]);
@@ -278,14 +290,8 @@ export function ExploreGallery({
     [photos, visible, colCount]
   );
 
-  // 온보딩 흩어짐 stagger 용 — 사진 id → 노출 순서 인덱스
-  const orderIndex = useMemo(() => {
-    const m = new Map<string, number>();
-    photos.slice(0, visible).forEach((p, i) => m.set(p.id, i));
-    return m;
-  }, [photos, visible]);
-
   // 테두리 — 컬럼별로 어긋나게 배치(한쪽 쏠림 방지) + 가끔 검정
+  const SHOW_ACCENTS = false; // 탐색 카드 악센트 테두리 임시 OFF (true 로 복구)
   const accentMap = useMemo(() => assignColumnAccents(columns), [columns]);
 
   if (photos.length === 0) {
@@ -331,16 +337,17 @@ export function ExploreGallery({
                   showPrice={showPrice}
                   showName={showName}
                   // 온보딩 디밍 중엔 브랜드 빨간 테두리가 비쳐 어색해 보여 숨김
-                  accent={obActive ? undefined : accentMap.get(photo.id)}
+                  accent={obActive || !SHOW_ACCENTS ? undefined : accentMap.get(photo.id)}
                 />
               );
-              // 스포트라이트 카드 — 오버레이(z-100) 위로 띄워 제자리 그대로 밝게
-              if (spotlightTargetId && photo.id === spotlightTargetId) {
+              // 스포트라이트 카드 — 오버레이(z-100) 위로 띄워 제자리 그대로 밝게(온보딩 활성 중에만).
+              // done 이후엔 일반 카드로 렌더돼 그리드에 그대로 남는다(도크엔 담긴 복제본).
+              if (spotlightTargetId && photo.id === spotlightTargetId && obActive) {
                 return (
                   <div
                     key={photo.id}
                     className={cn(
-                      "transition-all duration-700",
+                      "transition-all duration-[560ms] ease-[cubic-bezier(.5,0,.2,1)]",
                       obActive && "relative z-[110]",
                       // 세로 긴 사진/작은 화면에서 카드가 하단 문구를 덮지 않게 높이 캡(모바일만).
                       obShown && "max-h-[44svh] overflow-hidden rounded-2xl ring-2 ring-white/70 ring-offset-2 ring-offset-black md:max-h-none"
@@ -350,24 +357,7 @@ export function ExploreGallery({
                   </div>
                 );
               }
-              // 나머지 카드 — 강조 사진이 있을 때만 사방으로 휘리릭 흩어짐(닫을 땐 제자리로 복귀).
-              // 강조 사진이 없는 일반 모드(slug)는 흩어지지 않고 오버레이로만 어둡게+뿌옇게 덮음.
-              if (spotlightTargetId && obActive) {
-                const i = orderIndex.get(photo.id) ?? 0;
-                return (
-                  <div
-                    key={photo.id}
-                    style={{
-                      transform: obShown ? scatterTransform(i) : "none",
-                      opacity: obShown ? 0 : 1,
-                      transition: `transform 780ms cubic-bezier(.45,0,.15,1) ${scatterDelay(i)}ms, opacity 780ms ease ${scatterDelay(i)}ms`,
-                      willChange: "transform, opacity",
-                    }}
-                  >
-                    {card}
-                  </div>
-                );
-              }
+              // 나머지 카드 — 흩어지지 않고 제자리 유지(오버레이의 블러+딤으로만 살짝 가려짐).
               return <div key={photo.id}>{card}</div>;
             })}
           </div>
@@ -384,7 +374,10 @@ export function ExploreGallery({
               h-[100lvh]: iOS 하단 툴바가 접혀도 화면 끝까지 덮어 하단 사진이 새지 않게. */}
           <div
             className={cn(
-              "fixed inset-x-0 top-0 z-[100] h-[100lvh] bg-black/[0.88] backdrop-blur-md transition-opacity duration-[1100ms] ease-out",
+              "fixed inset-x-0 top-0 h-[100lvh] bg-black/[0.6] backdrop-blur-lg transition-opacity ease-out",
+              // 담기 연출 중엔 딤을 카트(z-50)보다 아래로 낮춰 폴라로이드 fly·도크가 어두운 배경 위로 보이게
+              obPhase === "adding" || obPhase === "leaving" ? "z-[45]" : "z-[100]",
+              obPhase === "leaving" ? "duration-[520ms]" : "duration-[1100ms]",
               obShown ? "opacity-100" : "opacity-0"
             )}
           />
@@ -401,7 +394,12 @@ export function ExploreGallery({
           </div>
 
           {/* 핵심 문구 — 모바일은 하단 에디토리얼, 데스크탑은 화면 가운데 인트로. 라인 마스크 reveal + 스태거 */}
-          <div className="pointer-events-none fixed inset-0 z-[105] flex flex-col justify-end px-7 pb-24 sm:pb-28 md:justify-center md:pb-0">
+          <div
+            className={cn(
+              "pointer-events-none fixed inset-0 z-[105] flex flex-col justify-end px-7 pb-24 transition-opacity duration-300 sm:pb-28 md:justify-center md:pb-0",
+              obPhase === "adding" || obPhase === "leaving" ? "opacity-0" : "opacity-100"
+            )}
+          >
             <div className="mx-auto w-full max-w-md md:text-center">
               {/* 액센트 라인 — 폭이 그어지듯 (데스크탑은 가운데 정렬) */}
               <span
@@ -518,6 +516,7 @@ function PhotoCard({
   return (
     <div
       data-cart-card
+      data-pid={photo.id}
       className={cn(
         // 저빈도 악센트 테두리 — border(안쪽)라 사진만 살짝 줄고 바깥 크기는 열 폭 그대로
         // (ring 바깥쪽이면 옆으로 삐져나와 더 커 보였음). 기본은 테두리 없음.
