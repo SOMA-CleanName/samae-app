@@ -600,16 +600,44 @@ export function InquiryChat({
 
 // ── 완료 모달 (item3) ─────────────────────────────────────────────
 function DoneModal({ onExplore, onSave }: { onExplore: () => void; onSave: () => void }) {
+  // 마운트 시 팝인 — 완료를 여정의 Peak 로
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const r = requestAnimationFrame(() => setShown(true));
+    return () => cancelAnimationFrame(r);
+  }, []);
+  const nextSteps = ["작가님이 신청을 확인해요", "보통 1시간 내 연락드려요", "채팅에서 일정·컨셉을 협의해요"];
   return (
     <div className="fixed inset-0 z-[70] grid place-items-center bg-black/50 p-6 font-kr">
-      <div className="w-full max-w-sm rounded-3xl bg-bg p-7 text-center shadow-pop">
-        <div className="mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full bg-brand/10 text-brand">
+      <div
+        className={`w-full max-w-sm rounded-3xl bg-bg p-7 text-center shadow-pop transition-all duration-500 ease-[cubic-bezier(.16,1,.3,1)] ${
+          shown ? "translate-y-0 scale-100 opacity-100" : "translate-y-2 scale-95 opacity-0"
+        }`}
+      >
+        <div
+          className={`mx-auto mb-4 grid h-14 w-14 place-items-center rounded-full bg-brand/10 text-brand transition-transform duration-500 ease-[cubic-bezier(.34,1.56,.64,1)] ${
+            shown ? "scale-100" : "scale-0"
+          }`}
+        >
           <CheckIcon className="h-7 w-7" />
         </div>
         <p className="text-xl font-bold">신청 접수 완료!</p>
         <p className="mt-2 text-sm leading-relaxed text-muted">
           곧 작가님으로부터 연락이 도착합니다.
         </p>
+
+        {/* 다음 일 타임라인 — '끝'이 아니라 '다음'을 보여줘 안심 */}
+        <ol className="mt-5 space-y-2.5 text-left">
+          {nextSteps.map((s, i) => (
+            <li key={i} className="flex items-center gap-2.5">
+              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand/10 text-xs font-bold text-brand">
+                {i + 1}
+              </span>
+              <span className="text-sm text-fg/80">{s}</span>
+            </li>
+          ))}
+        </ol>
+
         <button
           type="button"
           onClick={onExplore}
@@ -718,6 +746,15 @@ function ContactBlock({
           </OptionButton>
         ))}
       </div>
+
+      {/* 연락처 안심 — 왜 필요한지 + 노출 범위(이탈 최다 지점 방어) */}
+      <p className="mt-2 flex items-center gap-1.5 text-[11px] leading-tight text-muted">
+        <svg viewBox="0 0 24 24" className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
+          <rect x="5" y="11" width="14" height="9" rx="2" />
+          <path d="M8 11V8a4 4 0 0 1 8 0v3" strokeLinecap="round" />
+        </svg>
+        이 작가에게만 전달돼요 · 스팸·마케팅 발송 없음
+      </p>
 
       {type && active && (
         <div className="mt-3">
