@@ -211,6 +211,7 @@ export function InquiryChat({
   const [answers, setAnswers] = useState<Partial<Record<StepKey, string>>>({});
   const [revealed, setRevealed] = useState(-1); // 노출된 질문 최대 index
   const [typing, setTyping] = useState(false);
+  const [optionsReady, setOptionsReady] = useState(false); // 질문 노출 후 1초 뒤 선지 노출
   const [contactStep, setContactStep] = useState(false);
   const [editing, setEditing] = useState<number | null>(null); // 재선택 중인 질문 index
   const [skippedKeys, setSkippedKeys] = useState<StepKey[] | null>(null); // 바로 문의로 건너뛴 질문들
@@ -226,11 +227,24 @@ export function InquiryChat({
   // 100% 기준 = 질문 5개 + 연락처 제출 1개 (제출까지 완료해야 100%)
   const percent = Math.round(((answeredCount + (done ? 1 : 0)) / (STEPS.length + 1)) * 100);
 
+  // 질문 노출 후 선지는 0.6초 뒤에 펼침 — 질문을 먼저 읽게 하되 너무 늦지 않게.
+  function revealOptionsSoon() {
+    setOptionsReady(false);
+    window.setTimeout(() => {
+      setOptionsReady(true);
+      // Reveal 펼침(0.3s)이 끝난 뒤 하단으로 스크롤 — 선지가 화면에 들어오게
+      window.setTimeout(
+        () => bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }),
+        360
+      );
+    }, 600);
+  }
   function advanceTo(index: number) {
     setTyping(true);
     window.setTimeout(() => {
       setTyping(false);
       setRevealed((r) => Math.max(r, index));
+      revealOptionsSoon();
     }, REVEAL_MS);
   }
   function revealContact() {
@@ -272,12 +286,15 @@ export function InquiryChat({
           setContactStep(true);
         } else {
           setRevealed(cnt); // 순차 답변 가정 — 다음 질문을 활성화
+          revealOptionsSoon();
         }
       }, 0);
       return;
     }
     // 첫 질문 노출 — 타이머로 미뤄 effect 본문에서 직접 setState 하지 않음
     window.setTimeout(() => advanceTo(0), 0);
+    // started.current 가드로 1회만 실행되는 진입 effect — advanceTo 등은 deps 불필요.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router, storageKey]);
 
   // 입력 변경 시 사진별로 저장 (제출 완료 전까지)
@@ -303,7 +320,7 @@ export function InquiryChat({
     }
   }, [done, storageKey]);
 
-  // 새 말풍선마다 하단으로 스크롤
+  // 새 말풍선마다 하단으로 스크롤 (선지 펼침은 revealOptionsSoon 에서 별도 처리)
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [revealed, typing, contactStep, answers, done]);
@@ -512,9 +529,12 @@ export function InquiryChat({
             return (
               <div key={step.key} className="space-y-1.5">
                 <SystemBubble>{step.q}</SystemBubble>
-                <UserTray>
-                  <QuestionInput step={step} onSubmit={(v) => onAnswer(i, v)} />
-                </UserTray>
+                {/* 선지는 질문 노출 1초 뒤 부드럽게 펼쳐짐 */}
+                <Reveal open={optionsReady}>
+                  <UserTray>
+                    <QuestionInput step={step} onSubmit={(v) => onAnswer(i, v)} />
+                  </UserTray>
+                </Reveal>
               </div>
             );
           }
