@@ -12,6 +12,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getPublishedCategory, isUntaggedCategory } from "@/lib/categories";
 import { CATEGORY_COOKIE } from "@/lib/category-constants";
 import { ExploreGallery } from "@/components/user/ExploreGallery";
+import { ScrollMemory } from "@/components/user/ScrollMemory";
 import type { GalleryPhoto } from "@/lib/discovery";
 
 export const dynamic = "force-dynamic";
@@ -82,6 +83,28 @@ export default async function ExploreHome({
 
   return (
     <section className="px-2.5 pb-2.5 pt-2.5 font-kr sm:px-4 sm:pt-4 sm:pb-4">
+      {/* 탭 전환 시 스크롤 위치 유지 */}
+      <ScrollMemory />
+      {/* 홈 최상단 안내 — 원하는 사진을 골라 작가에게 촬영 문의 (검색 모드 아닐 때만) */}
+      {!query && (
+        <div className="mx-auto max-w-screen-2xl px-1 pb-6 pt-3 sm:pb-9 sm:pt-7">
+          {/* 로고 워드마크 + 태그라인 (브랜드 일관 — font-display italic text-brand) */}
+          <div className="flex items-center gap-2.5">
+            <span className="font-display text-2xl italic leading-none text-brand sm:text-[1.7rem]">
+              samae
+            </span>
+            <span className="h-3.5 w-px bg-line-strong" />
+            <span className="text-caption font-medium tracking-wide text-muted">사진으로 고르는 촬영</span>
+          </div>
+          {/* 헤드라인 — 2줄 에디토리얼, 핵심어 브랜드 강조 */}
+          <h1 className="mt-3.5 text-[1.75rem] font-semibold leading-[1.18] tracking-tight text-fg text-balance sm:text-[2.6rem] sm:leading-[1.12]">
+            원하는 사진을 고르고,
+            <br />
+            <span className="text-brand">그 작가</span>에게 촬영을 문의하세요.
+          </h1>
+        </div>
+      )}
+
       {/* 카테고리 알고리즘 보는 중 표시 + 전체 보기 해제 (검색 모드 아닐 때만) */}
       {category && !query && (
         <div className="mx-auto mt-1 flex max-w-screen-2xl items-center gap-2 px-1">

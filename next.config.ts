@@ -17,6 +17,9 @@ const nextConfig: NextConfig = {
     // 서버액션 본문 한계 상향(기본 1MB) — 문의 레퍼런스 이미지 첨부 대응.
     // 단, Vercel 함수 플랫폼 한계(~4.5MB)가 있어 클라이언트 리사이즈와 함께 사용.
     serverActions: { bodySizeLimit: "4mb" },
+    // 클라이언트 라우터 캐시 — 동적 페이지도 180초간 재사용.
+    // 홈↔탐색 탭 전환마다 서버 재조회(스켈레톤·재셔플)되던 것을 없애, 최근 본 피드를 즉시 표시.
+    staleTimes: { dynamic: 180 },
   },
   // 옛 배포 도메인 → 정식 도메인(apex samae.ai) 301 통합 (SEO 중복 방지).
   // apex↔www 정규화는 Vercel 도메인 설정이 단독으로 처리한다(코드에서 www 를 건드리면
