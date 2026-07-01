@@ -4,6 +4,7 @@ import { EXPLORE_CATEGORIES } from "@/lib/explore-categories";
 import { seededShuffle, spaceByKey, dayKey } from "@/lib/seeded-shuffle";
 import { ChevronRightIcon } from "@/components/user/icons";
 import { ExploreStrip } from "./ExploreStrip";
+import { ScrollMemory } from "@/components/user/ScrollMemory";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +45,7 @@ export default async function ExplorePage() {
 
   return (
     <section className="font-kr">
+      <ScrollMemory />
       <div className="space-y-7 px-2.5 pb-2.5 pt-2.5 sm:px-4 sm:pt-4 sm:pb-4">
         <h1 className="text-xl font-bold tracking-tight">탐색</h1>
         {sections.map(({ c, idx, photos }) => (

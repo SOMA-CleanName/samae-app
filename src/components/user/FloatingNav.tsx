@@ -81,6 +81,7 @@ function NavPill({
   return (
     <Link
       href={href}
+      scroll={false} // 탭 전환 시 최상단 강제 스크롤 방지 — 위치 복원은 ScrollMemory 가 담당
       aria-current={active ? "page" : undefined}
       className={[
         // 탭 균등 너비 — 라벨 길이 달라도 같은 크기
