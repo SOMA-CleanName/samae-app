@@ -132,6 +132,16 @@ export default async function PhotoDetail({
             </p>
           </div>
 
+          {/* 첫 촬영 할인 배지 — CTA 바로 위(프라이밍). 스크롤 후 hook 전에도 혜택을 즉시 인지 */}
+          {!isOwner && (
+            <p className="mt-3.5 inline-flex items-center gap-1.5 rounded-full bg-brand-soft px-3 py-1.5 text-body-sm font-medium text-brand-ink">
+              <span className="grid h-4 w-4 place-items-center rounded-full bg-brand text-[10px] font-bold leading-none text-white">
+                %
+              </span>
+              지금 신청하면 <b className="font-bold">첫 촬영 할인</b>
+            </p>
+          )}
+
           {/* 예약·문의 CTA — 가장 위 (전환 최우선) */}
           <PhotoCtas isOwner={isOwner} photographerId={ph.id} photoId={photo.id} />
 
