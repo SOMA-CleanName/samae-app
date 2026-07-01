@@ -7,15 +7,15 @@
 :root {
   color-scheme: light dark; /* 네이티브 컨트롤·스크롤바도 다크 따름 */
   /* 코어 — 랜딩에서 이식 */
-  --bg: #fafafa;        /* 페이지 배경 */
+  --bg: #f4f5f6;        /* 페이지 배경 (중성 그레이) */
   --fg: #0f0e0c;        /* 본문 텍스트 / 잉크 */
   --brand: #ff3d2e;     /* 시그니처 레드-오렌지 */
 
   /* 표면 / 경계 — 카드·시트·인풋 */
-  --surface: #ffffff;          /* 카드·모달 표면 */
-  --surface-2: #f4f2ef;        /* 살짝 떠 있는 보조 표면 */
-  --line: #e7e5e1;             /* 기본 경계선 */
-  --line-strong: #d6d3ce;      /* 강조 경계선 */
+  --surface: #fcfcfd;          /* 카드·모달 표면 (순백 X) */
+  --surface-2: #ebecee;        /* 살짝 떠 있는 보조 표면 */
+  --line: #e2e3e5;             /* 기본 경계선 */
+  --line-strong: #d5d7da;      /* 강조 경계선 */
 
   /* 텍스트 계조 — 솔리드 컬러로 대비 4.5:1 보장 */
   --muted: #57534e;     /* 보조 텍스트 (캡션·메타) */
@@ -46,12 +46,12 @@
 /* 다크모드 — 시스템 설정(prefers-color-scheme) 자동 따름 (토글 없음, A9) */
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #121110;            /* 페이지 배경(따뜻한 near-black) */
+    --bg: #181818;            /* 페이지 배경(중성 near-black) */
     --fg: #f3f1ec;            /* 본문 텍스트 */
-    --surface: #1b1916;       /* 카드·모달 표면 */
-    --surface-2: #262320;     /* 살짝 떠 있는 보조 표면 */
-    --line: #322e29;          /* 기본 경계선 */
-    --line-strong: #443f38;   /* 강조 경계선 */
+    --surface: #202020;       /* 카드·모달 표면 */
+    --surface-2: #2a2a2a;     /* 살짝 떠 있는 보조 표면 */
+    --line: #353535;          /* 기본 경계선 */
+    --line-strong: #404040;   /* 강조 경계선 */
     --muted: #b4ada3;         /* 보조 텍스트 */
     --faint: #837c72;         /* 비활성·플레이스홀더 */
     --brand-soft: #3a201c;    /* 브랜드 틴트 배경(다크) */
