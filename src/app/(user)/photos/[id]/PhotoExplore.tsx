@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
 import { rememberPhotoAspect } from "@/lib/photo-aspect";
+import type { GalleryPhoto } from "@/lib/discovery";
 
 export type ExplorePhoto = {
   id: string;
@@ -19,37 +20,126 @@ const STEP = 30; // 스크롤마다 더 보여줄 사진 수(메모리에서 즉
 
 // 사진 상세 하단 — 추천 사진만 무한스크롤로 노출.
 // (작가 사진 탭은 제거: 작가 식별 노출 금지 + 이탈 유도 방지. 스크롤 내리면 추천만 이어짐)
-export function PhotoExplore({ initialRecs }: { initialRecs: ExplorePhoto[] }) {
+export function PhotoExplore({
+  initialRecs,
+  feedSeed,
+  loadMore,
+  excludeId,
+}: {
+  initialRecs: ExplorePhoto[];
+  // 시드 무한 스크롤(전체 피드) — 큐레이션 추천 뒤에 이어붙임. 둘 다 있으면 무한.
+  feedSeed?: string;
+  loadMore?: (seed: string, page: number) => Promise<GalleryPhoto[]>;
+  excludeId?: string; // 현재 사진 — 이어붙일 때 제외
+}) {
   return (
     <section className="mt-6">
-      <RecsFeed initial={initialRecs} />
+      {/* key=현재 사진 → 다른 사진으로 이동 시 리마운트되어 누적/페이지 상태 초기화 */}
+      <RecsFeed
+        key={excludeId ?? "recs"}
+        initial={initialRecs}
+        feedSeed={feedSeed}
+        loadMore={loadMore}
+        excludeId={excludeId}
+      />
     </section>
   );
 }
 
-// 추천 피드 — 서버가 유사도순 풀을 한 번에 주고, 메모리에서 점진 노출(네트워크 없음).
-function RecsFeed({ initial }: { initial: ExplorePhoto[] }) {
+// 추천 피드 — page0 은 서버 유사도순 큐레이션(initial), 그 끝에 닿으면 시드 피드를 이어붙여 무한 노출.
+function RecsFeed({
+  initial,
+  feedSeed,
+  loadMore,
+  excludeId,
+}: {
+  initial: ExplorePhoto[];
+  feedSeed?: string;
+  loadMore?: (seed: string, page: number) => Promise<GalleryPhoto[]>;
+  excludeId?: string;
+}) {
+  const [items, setItems] = useState(initial);
   const [visible, setVisible] = useState(STEP);
   const sentinel = useRef<HTMLDivElement>(null);
+  const feedPage = useRef(0);
+  const feedExhausted = useRef(false);
+  const feedLoading = useRef(false);
 
+  // 바닥 근처 → 로드된 것부터 노출, 끝에 닿으면 시드 피드 다음 페이지를 이어붙임(중복·현재 사진 제외).
+  // (다른 사진으로 이동하면 key 로 리마운트되어 상태가 초기화됨 — 별도 리셋 effect 불필요)
   useEffect(() => {
-    if (visible >= initial.length) return;
     const el = sentinel.current;
     if (!el) return;
+    let busy = false;
+    const advance = async () => {
+      if (busy) return;
+      if (visible < items.length) {
+        busy = true;
+        setVisible((v) => Math.min(items.length, v + STEP));
+        return;
+      }
+      if (!loadMore || !feedSeed || feedExhausted.current || feedLoading.current) return;
+      busy = true;
+      feedLoading.current = true;
+      try {
+        // 새 사진이 나올 때까지 다음 페이지 진행(이미 추천에 있던 것/현재 사진은 건너뜀)
+        while (!feedExhausted.current) {
+          const more = await loadMore(feedSeed, feedPage.current + 1);
+          if (!more || more.length === 0) {
+            feedExhausted.current = true;
+            break;
+          }
+          feedPage.current += 1;
+          const seen = new Set(items.map((p) => p.id));
+          if (excludeId) seen.add(excludeId);
+          const fresh = more
+            .filter((p) => !seen.has(p.id))
+            .map((p) => ({
+              id: p.id,
+              src_url: p.src_url,
+              thumb_url: p.thumb_url,
+              width: p.width,
+              height: p.height,
+            }));
+          if (fresh.length) {
+            setItems((prev) => [...prev, ...fresh]);
+            setVisible((v) => v + STEP);
+            break;
+          }
+          // 전부 중복 → 다음 페이지 계속
+        }
+      } catch {
+        feedExhausted.current = true;
+      } finally {
+        feedLoading.current = false;
+      }
+    };
+
     const io = new IntersectionObserver(
       (entries) => {
-        if (entries[0]?.isIntersecting) setVisible((v) => Math.min(initial.length, v + STEP));
+        if (entries[0]?.isIntersecting) advance();
       },
       { rootMargin: "1200px" }
     );
     io.observe(el);
-    return () => io.disconnect();
-  }, [visible, initial.length]);
+    const check = () => {
+      const top = el.getBoundingClientRect().top;
+      if (top - window.innerHeight < 1200) advance();
+    };
+    window.addEventListener("scroll", check, { passive: true });
+    window.addEventListener("resize", check);
+    check();
+    return () => {
+      io.disconnect();
+      window.removeEventListener("scroll", check);
+      window.removeEventListener("resize", check);
+    };
+  }, [visible, items, feedSeed, loadMore, excludeId]);
 
   return (
     <>
-      <PhotoMasonry photos={initial.slice(0, visible)} empty="추천할 사진이 아직 없어요." altLabel="추천 사진" />
-      {visible < initial.length && <div ref={sentinel} className="h-1" />}
+      <PhotoMasonry photos={items.slice(0, visible)} empty="추천할 사진이 아직 없어요." altLabel="추천 사진" />
+      {(visible < items.length || (!!loadMore && !!feedSeed)) && <div ref={sentinel} className="h-1" />}
     </>
   );
 }
