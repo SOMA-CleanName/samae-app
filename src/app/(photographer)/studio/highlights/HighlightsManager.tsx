@@ -53,12 +53,8 @@ async function composeFrame(
   if (!ctx) return null;
   const R = OUT_W / frameW; // 미리보기 px → 출력 px 배율 (프레임도 9:16)
 
-  // 흐린 배경 (cover)
-  const cov = Math.max(OUT_W / iw, OUT_H / ih);
-  ctx.filter = "blur(36px)";
-  ctx.drawImage(img, (OUT_W - iw * cov) / 2, (OUT_H - ih * cov) / 2, iw * cov, ih * cov);
-  ctx.filter = "none";
-  ctx.fillStyle = "rgba(0,0,0,0.18)";
+  // 단색 배경 (뷰어와 동일 near-black) — 여백을 흐린 배경 대신 단색으로 구워 저장
+  ctx.fillStyle = "#0a0a0a"; // neutral-950
   ctx.fillRect(0, 0, OUT_W, OUT_H);
 
   // 전경 (contain × scale + translate)
