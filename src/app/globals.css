@@ -253,3 +253,13 @@ img {
 @media (prefers-reduced-motion: reduce) {
   .shimmer::after { animation: none; }
 }
+
+/* 첫 담기 툴팁 등장 — 도크 쪽에서 살짝 팝 */
+@keyframes cart-tip-in {
+  from { opacity: 0; transform: scale(0.82); }
+  to { opacity: 1; transform: scale(1); }
+}
+.cart-tip-in { animation: cart-tip-in 300ms cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .cart-tip-in { animation: none; }
+}

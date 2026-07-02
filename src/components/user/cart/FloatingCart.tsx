@@ -68,6 +68,10 @@ export function FloatingCart() {
   const [agreed, setAgreed] = useState(false);
   const [leaving, setLeaving] = useState<Set<string>>(new Set());
   const [shareToast, setShareToast] = useState(false);
+  const [cartTip, setCartTip] = useState(false); // 첫 담기 시 도크 용도 툴팁(1회)
+  const prevCount = useRef(0);
+  const tipDone = useRef(false); // 한 번 노출 후 끝 — 재등장 방지
+  const tipTimers = useRef<number[]>([]);
   const [photoMenu, setPhotoMenu] = useState(false); // 확대 보기 더보기(⋯) 메뉴
   const [closing, setClosing] = useState(false); // 닫는 중 — 카드 트랜지션을 더 빠르게
   // 길게 누르기(롱프레스) 추적 — 타이머/발동여부/시작좌표
@@ -181,6 +185,47 @@ export function FloatingCart() {
     return () => window.removeEventListener("popstate", onPop);
   }, []);
 
+  // 첫 담기(0→1) 때 도크가 뭔지 1회 툴팁. 첫 담기 ~3초 후 사라지고, 그 전이라도
+  // 도크 열기(startOpen) / 사진을 더 담거나 빼면 즉시 종료 — 한 번 노출로 끝(재등장 X).
+  // (setState 는 타이머 콜백/이벤트에서만 호출 → effect 본문 동기 setState 회피)
+  useEffect(() => {
+    const prev = prevCount.current;
+    prevCount.current = count;
+    if (tipDone.current) return;
+    if (prev === 0 && count > 0) {
+      // 첫 담기 — seen 플래그 없을 때만 예약
+      let seen = true;
+      try {
+        seen = localStorage.getItem("samae:cart-tip-seen") === "1";
+      } catch {
+        /* 무시 */
+      }
+      if (seen) {
+        tipDone.current = true;
+        return;
+      }
+      try {
+        localStorage.setItem("samae:cart-tip-seen", "1");
+      } catch {
+        /* 무시 */
+      }
+      tipTimers.current = [
+        window.setTimeout(() => setCartTip(true), 300),
+        window.setTimeout(() => dismissTip(), 3000), // 첫 담기 후 3초면 사라짐
+      ];
+    } else if (prev !== count) {
+      // 첫 담기 이후 담기 수가 또 바뀌면 즉시 종료
+      dismissTip();
+    }
+  }, [count]);
+
+  function dismissTip() {
+    tipDone.current = true;
+    tipTimers.current.forEach((t) => window.clearTimeout(t));
+    tipTimers.current = [];
+    setCartTip(false);
+  }
+
   // 비워지면 닫기
   useEffect(() => {
     if (phase !== "dock" && N === 0) {
@@ -242,6 +287,7 @@ export function FloatingCart() {
 
   // 펼침: 도크 → 중앙 스택 → 펼침
   function startOpen() {
+    if (cartTip || !tipDone.current) dismissTip(); // 도크 열면 툴팁 종료(재등장 방지)
     setPhase("center");
     window.setTimeout(() => setPhase("spread"), 300);
   }
@@ -634,6 +680,35 @@ export function FloatingCart() {
       </div>
 
       {/* 펼침 UI — 상단/하단/포커스/성공 (완전히 펼쳐진 뒤에만) */}
+      {/* 첫 담기 툴팁 — 도크가 뭔지 1초 안에 (도크 접힘 상태에서만). 도크를 가리키는 화살표 + 팝 등장 */}
+      {cartTip && phase === "dock" && view && (
+        <div
+          aria-hidden
+          className="pointer-events-none fixed z-[60] max-w-[232px]"
+          style={
+            dockOnRight
+              ? { top: view.top + 6, right: view.right + CART_W + 12 }
+              : { top: view.top + 6, left: W - view.right + 12 }
+          }
+        >
+          <div
+            className="cart-tip-in relative rounded-2xl bg-fg px-4 py-2.5 shadow-pop"
+            style={{ transformOrigin: dockOnRight ? "right center" : "left center" }}
+          >
+            <p className="text-sm font-semibold leading-snug text-bg [word-break:keep-all]">
+              <span className="font-bold text-brand">＋</span> 버튼을 눌러
+              <br />
+              <span className="text-brand">관심 사진</span>을 추가해보세요
+            </p>
+            {/* 도크를 가리키는 화살표(회전 사각형) */}
+            <span
+              className="absolute top-1/2 h-3 w-3 -translate-y-1/2 rotate-45 rounded-[2px] bg-fg"
+              style={dockOnRight ? { right: -4 } : { left: -4 }}
+            />
+          </div>
+        </div>
+      )}
+
       {phase === "spread" && (
         <>
           {state.ok ? (
@@ -889,12 +964,23 @@ export function FloatingCart() {
                       이 사진으로 무료 상담 신청
                     </button>
                   ) : (
-                    // 찜 보관함 — 블래스트 없음. 사진을 탭하면 그 사진(=그 작가)로 단일 문의
-                    <p className="text-center">
-                      <span className="inline-block rounded-full bg-black/45 px-4 py-2 text-sm font-medium text-white/85 backdrop-blur-sm">
-                        사진을 탭하면 크게 보고 상담할 수 있어요
-                      </span>
-                    </p>
+                    // 기본: 모은 관심 사진 전체로 한 번에 상담(묶음)을 앞세움. 탭하면 개별 확대/상담도 가능.
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          leaveToInquiry(`/inquiry/cart?ids=${items.map((i) => i.id).join(",")}`)
+                        }
+                        className="w-full cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
+                      >
+                        {N === 1 ? "이 사진으로 상담 신청" : `관심 사진 ${N}장 모두 상담 신청`}
+                      </button>
+                      <p className="text-center">
+                        <span className="inline-block rounded-full bg-black/45 px-3 py-1 text-xs font-medium text-white/70 backdrop-blur-sm">
+                          사진을 탭하면 하나씩 보고 상담할 수도 있어요
+                        </span>
+                      </p>
+                    </div>
                   )}
                 </div>
               </div>
