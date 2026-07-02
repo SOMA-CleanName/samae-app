@@ -165,20 +165,29 @@ export function PhotoCarousel({
         </button>
       )}
 
-      {/* 점 인디케이터 — 인스타식 최대 5개 윈도우(많아도 사진 폭 안 넘음) */}
-      <div className="pointer-events-none absolute bottom-3 left-1/2 flex max-w-[80%] -translate-x-1/2 items-center justify-center gap-1.5 rounded-full bg-black/30 px-2 py-1">
-        {dotWindow(idx, photos.length).map(({ i, scale }, k) => (
-          // 슬롯(위치) 기준 키 — 윈도우가 슬라이드해도 점이 튀지 않고 부드럽게 전환
-          <span
-            key={k}
-            className={cn(
-              "h-1.5 w-1.5 shrink-0 rounded-full transition-all duration-200",
-              i === idx ? "bg-white" : "bg-white/45"
-            )}
-            style={{ transform: `scale(${scale})` }}
-          />
-        ))}
-      </div>
+      {/* 위치 인디케이터 — 6장 이상은 슬라이딩 윈도우 점이 중간에서 안 변하는 듯 보여
+          '현재/전체' 카운터로 명확히. 5장 이하는 인스타식 점. */}
+      {photos.length > MAX_DOTS ? (
+        <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/40 px-2.5 py-0.5">
+          <span className="text-xs font-semibold tabular-nums text-white">
+            {idx + 1} <span className="text-white/55">/ {photos.length}</span>
+          </span>
+        </div>
+      ) : (
+        <div className="pointer-events-none absolute bottom-3 left-1/2 flex max-w-[80%] -translate-x-1/2 items-center justify-center gap-1.5 rounded-full bg-black/30 px-2 py-1">
+          {dotWindow(idx, photos.length).map(({ i, scale }, k) => (
+            // 슬롯(위치) 기준 키 — 윈도우가 슬라이드해도 점이 튀지 않고 부드럽게 전환
+            <span
+              key={k}
+              className={cn(
+                "h-1.5 w-1.5 shrink-0 rounded-full transition-all duration-200",
+                i === idx ? "bg-white" : "bg-white/45"
+              )}
+              style={{ transform: `scale(${scale})` }}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
