@@ -60,12 +60,14 @@ function buildColumns(photos: GalleryPhoto[], colCount: number): GalleryPhoto[][
 // 탐색 갤러리 — 서버가 셔플된 풀을 내려주고, 클라이언트는 메모리에서 점진 노출(네트워크 없음).
 // JS 컬럼 버킷으로 기존 사진은 절대 재배치되지 않음.
 export function ExploreGallery({
-  photos,
+  photos: initialPhotos,
   query,
   likedIds = [],
   spotlightId,
   loggedIn = false,
   spotlightFirstOnGeneral = false,
+  feedSeed,
+  loadMore,
 }: {
   photos: GalleryPhoto[];
   query?: string;
@@ -77,7 +79,15 @@ export function ExploreGallery({
   // 일반 첫 방문 튜토리얼에서 좌상단 첫 사진을 스포트라이트로 강조(슬러그 없는 탐색 메인 전용).
   // false 면 강조 사진 없이 배경 전체만 어둡게(카테고리 slug 페이지).
   spotlightFirstOnGeneral?: boolean;
+  // 시드 기반 무한 스크롤(전체 피드 전용) — 둘 다 있으면 바닥에서 서버 페이지를 이어받음.
+  feedSeed?: string;
+  loadMore?: (seed: string, page: number) => Promise<GalleryPhoto[]>;
 }) {
+  // 서버가 준 첫 페이지에서 시작해, 무한 스크롤로 다음 페이지를 이어붙인다(누적).
+  const [items, setItems] = useState(initialPhotos);
+  const feedPage = useRef(0); // 마지막으로 받은 서버 페이지(0=초기)
+  const feedExhausted = useRef(false);
+  const feedLoading = useRef(false);
   const [showPrice, setShowPrice] = useState(false);
   const [showName, setShowName] = useState(false);
   const [visible, setVisible] = useState(STEP);
@@ -129,14 +139,14 @@ export function ExploreGallery({
   // undefined 면 강조 카드 없이 배경 전체만 어둡게(slug 일반 모드 / 데스크탑 일반 모드).
   const spotlightTargetId =
     spotlightId ??
-    (generalOnboard && spotlightFirstOnGeneral && !isDesktop ? photos[0]?.id : undefined);
+    (generalOnboard && spotlightFirstOnGeneral && !isDesktop ? items[0]?.id : undefined);
 
   // 광고 모드 hero 사진 프리로드 — 로딩 완료 후 애니메이션 시작.
   // 일반 모드는 프리로드할 hero 가 없어 초기값부터 준비 완료로 둠.
   const [heroReady, setHeroReady] = useState(!spotlightId);
   useEffect(() => {
     if (!spotlightId) return;
-    const hero = photos.find((p) => p.id === spotlightId);
+    const hero = items.find((p) => p.id === spotlightId);
     const src = hero?.src_url || hero?.thumb_url || "";
     let settled = false;
     const mark = () => {
@@ -152,7 +162,7 @@ export function ExploreGallery({
     if (img.complete) mark(); // 캐시된 경우 즉시
     const fallback = setTimeout(mark, 3000); // 안전망(너무 느린 이미지)
     return () => clearTimeout(fallback);
-  }, [spotlightId, photos]);
+  }, [spotlightId, items]);
 
   const obStarted = useRef(false);
 
@@ -203,7 +213,7 @@ export function ExploreGallery({
     //    강조 사진 카드의 <img> 를 소스로 넘겨 폴라로이드가 도크로 날아가는 기존 애니메이션 재생.
     setObPhase("adding");
     if (spotlightTargetId) {
-      const hero = photos.find((p) => p.id === spotlightTargetId);
+      const hero = items.find((p) => p.id === spotlightTargetId);
       if (hero) {
         const cardEl = document.querySelector(`[data-cart-card][data-pid="${hero.id}"]`);
         const img = (cardEl?.querySelector("img") as HTMLElement | null) ?? null;
@@ -225,39 +235,67 @@ export function ExploreGallery({
   }, [obPhase]);
 
   // 풀(검색어/네비게이션) 바뀌면 노출 수 초기화
-  useEffect(() => setVisible(STEP), [photos, query]);
-
-  // 바닥 근처에서 더 노출 — 메모리에서 즉시(네트워크 없음).
-  // IntersectionObserver(주) + 스크롤/리사이즈(폴백). 관찰자 콜백이 한 번씩 누락돼도
-  // 폴백이 바닥 근처를 감지해 이어서 노출 → "스크롤해도 안 뜨는" 멈춤 방지.
+  // 피드 프롭(내비/검색 전환)이 바뀌면 누적 리스트·페이지 상태 초기화
   useEffect(() => {
-    if (visible >= photos.length) return;
+    setItems(initialPhotos);
+    setVisible(STEP);
+    feedPage.current = 0;
+    feedExhausted.current = false;
+    feedLoading.current = false;
+  }, [initialPhotos, query]);
+
+  // 바닥 근처에서 더 노출 — 로드된 건 STEP 씩 노출, 끝에 닿으면 서버 다음 페이지를 이어받음(무한).
+  // IntersectionObserver(주) + 스크롤/리사이즈(폴백).
+  useEffect(() => {
     const el = sentinel.current;
     if (!el) return;
 
-    let done = false; // 이 사이클(visible 값)당 1회만 증가 — 폭주/중복 방지
-    const bump = () => {
-      if (done) return;
-      done = true;
-      setVisible((v) => Math.min(photos.length, v + STEP));
+    let busy = false; // 이 사이클당 1회만 진행 — 폭주/중복 방지
+    const advance = async () => {
+      if (busy) return;
+      // 1) 이미 로드된 것 중 아직 안 보인 게 있으면 그것부터 노출
+      if (visible < items.length) {
+        busy = true;
+        setVisible((v) => Math.min(items.length, v + STEP));
+        return;
+      }
+      // 2) 노출이 로드된 끝에 도달 → 서버 다음 페이지(전체 피드에서만, 소진 전)
+      if (!loadMore || !feedSeed || feedExhausted.current || feedLoading.current) return;
+      busy = true;
+      feedLoading.current = true;
+      try {
+        const more = await loadMore(feedSeed, feedPage.current + 1);
+        if (!more || more.length === 0) {
+          feedExhausted.current = true; // 더 없음 → 종료
+        } else {
+          feedPage.current += 1;
+          setItems((prev) => {
+            const seen = new Set(prev.map((p) => p.id));
+            return [...prev, ...more.filter((p) => !seen.has(p.id))];
+          });
+          setVisible((v) => v + STEP);
+        }
+      } catch {
+        feedExhausted.current = true;
+      } finally {
+        feedLoading.current = false;
+      }
     };
 
     const io = new IntersectionObserver(
       (entries) => {
-        if (entries[0]?.isIntersecting) bump();
+        if (entries[0]?.isIntersecting) advance();
       },
       { rootMargin: "1200px" }
     );
     io.observe(el);
 
-    // 폴백: 센티넬이 뷰포트 바닥 1200px 이내로 들어오면 직접 노출
     const check = () => {
       const top = el.getBoundingClientRect().top;
-      if (top - window.innerHeight < 1200) bump();
+      if (top - window.innerHeight < 1200) advance();
     };
     window.addEventListener("scroll", check, { passive: true });
     window.addEventListener("resize", check);
-    // 초기 1회 — 첫 화면이 충분히 길지 않아 관찰자 초기 콜백이 애매할 때 대비
     check();
 
     return () => {
@@ -265,7 +303,7 @@ export function ExploreGallery({
       window.removeEventListener("scroll", check);
       window.removeEventListener("resize", check);
     };
-  }, [visible, photos.length]);
+  }, [visible, items.length, feedSeed, loadMore]);
 
   // 보기 옵션(가격·작가명) — 세션 유지 + SearchOptions 토글과 이벤트로 동기화
   useEffect(() => {
@@ -286,15 +324,15 @@ export function ExploreGallery({
   }, []);
 
   const columns = useMemo(
-    () => buildColumns(photos.slice(0, visible), colCount),
-    [photos, visible, colCount]
+    () => buildColumns(items.slice(0, visible), colCount),
+    [items, visible, colCount]
   );
 
   // 테두리 — 컬럼별로 어긋나게 배치(한쪽 쏠림 방지) + 가끔 검정
   const SHOW_ACCENTS = false; // 탐색 카드 악센트 테두리 임시 OFF (true 로 복구)
   const accentMap = useMemo(() => assignColumnAccents(columns), [columns]);
 
-  if (photos.length === 0) {
+  if (items.length === 0) {
     return (
       <EmptyState
         icon={<SearchIcon className="h-6 w-6" />}
@@ -365,7 +403,9 @@ export function ExploreGallery({
       </div>
 
       {/* 점진 노출 센티넬 */}
-      {visible < photos.length && <div ref={sentinel} className="h-1" />}
+      {(visible < items.length || (!!loadMore && !!feedSeed)) && (
+        <div ref={sentinel} className="h-1" />
+      )}
 
       {/* ── 온보딩 스포트라이트 오버레이 ── */}
       {obActive && (

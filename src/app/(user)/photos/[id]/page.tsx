@@ -7,7 +7,9 @@ import {
   fetchPhotographerById,
   fetchPhotoLikeInfo,
   fetchSimilarPhotos,
+  newFeedSeed,
 } from "@/lib/discovery";
+import { loadMorePhotos } from "../../feed-actions";
 import { getCurrentUser } from "@/lib/auth";
 import { PhotoCarousel } from "./PhotoCarousel";
 import { PhotoExplore } from "./PhotoExplore";
@@ -213,6 +215,14 @@ async function Recommendations({
   tags: string[];
 }) {
   const recs = await fetchSimilarPhotos({ photoId, albumId, tags });
-  return <PhotoExplore initialRecs={recs.slice(0, 120)} />;
+  // 큐레이션 추천(유사도순 120장) 뒤로는 시드 피드를 무한 이어붙임(현재 사진 제외).
+  return (
+    <PhotoExplore
+      initialRecs={recs.slice(0, 120)}
+      feedSeed={newFeedSeed()}
+      loadMore={loadMorePhotos}
+      excludeId={photoId}
+    />
+  );
 }
 

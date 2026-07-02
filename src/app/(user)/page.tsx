@@ -6,7 +6,10 @@ import {
   searchPhotosByTag,
   fetchLikedPhotoIds,
   fetchPhotoById,
+  fetchSeededFeedPage,
+  newFeedSeed,
 } from "@/lib/discovery";
+import { loadMorePhotos } from "./feed-actions";
 import { logSearch } from "@/lib/search-log";
 import { getCurrentUser } from "@/lib/auth";
 import { getPublishedCategory, isUntaggedCategory } from "@/lib/categories";
@@ -42,15 +45,9 @@ export default async function ExploreHome({
   const adPromise = !query && sp.ad ? fetchPhotoById(sp.ad) : Promise.resolve(null);
 
   const category = await categoryPromise;
-  // 피드: 검색 > 카테고리 알고리즘(매칭 우선 + 나머지 전체) > 전체 셔플
-  const basePhotos = query
-    ? await searchPhotosByTag(query)
-    : category
-      ? await fetchCategoryFeed(category.tags, isUntaggedCategory(category.tags))
-      : await fetchPublishedPhotos({});
   const [me, adPhoto] = await Promise.all([mePromise, adPromise]);
 
-  // 광고 사진을 맨 앞으로 → 메이슨리 좌상단 첫 카드 = 광고 이미지
+  // 광고 사진을 맨 앞으로 → 메이슨리 좌상단 첫 카드 = 광고 이미지 (?ad= 온보딩)
   const adAsGallery: GalleryPhoto | null = adPhoto
     ? {
         id: adPhoto.id,
@@ -64,18 +61,33 @@ export default async function ExploreHome({
         photographer: adPhoto.photographer ?? { id: adPhoto.photographer_id, display_name: null },
       }
     : null;
-  // 초기 payload 상한 — 갤러리는 48장씩 점진 노출(STEP)이라 수백 장을 한 번에
-  // 직렬화하면 HTML/RSC 전송량만 커진다(체감 이득 0). 셔플 다양성은 위 fetch 풀에서
-  // 이미 확보됐으므로, 클라이언트로 보내는 건 넉넉한 상한까지만 자른다.
+
   const FEED_CAP = 160;
-  const merged = adAsGallery
-    ? [adAsGallery, ...basePhotos.filter((p) => p.id !== adAsGallery.id)]
-    : basePhotos;
-  const photos = merged.slice(0, FEED_CAP);
+  // 전체 피드(검색·카테고리·광고 아님)는 시드 기반 '무한 스크롤'(0050 RPC). seed 는 요청마다
+  // 생성 → 방문마다 순서 변주 + ExploreGallery 가 같은 seed 로 다음 페이지를 이어받아 무제한 노출.
+  // 검색/카테고리/광고는 기존 방식(풀 셔플 + 상한 노출).
+  const isAllFeed = !query && !category && !adAsGallery;
+  const feedSeed = isAllFeed ? newFeedSeed() : undefined;
+
+  let photos: GalleryPhoto[];
+  if (isAllFeed && feedSeed) {
+    // 마이그레이션 전(RPC 없음)이면 page0 가 null → 기존 방식 폴백(스크롤은 상한에서 멈춤)
+    photos =
+      (await fetchSeededFeedPage(feedSeed, 0)) ?? (await fetchPublishedPhotos({})).slice(0, FEED_CAP);
+  } else {
+    const basePhotos = query
+      ? await searchPhotosByTag(query)
+      : category
+        ? await fetchCategoryFeed(category.tags, isUntaggedCategory(category.tags))
+        : await fetchPublishedPhotos({});
+    if (query) await logSearch(query, basePhotos.length, me?.id);
+    const merged = adAsGallery
+      ? [adAsGallery, ...basePhotos.filter((p) => p.id !== adAsGallery.id)]
+      : basePhotos;
+    photos = merged.slice(0, FEED_CAP);
+  }
   const spotlightId = adAsGallery?.id;
 
-  // 검색어 적재 — 인기 검색어/검색 실패어 통계용(운영자 전용 조회).
-  if (query) await logSearch(query, basePhotos.length, me?.id);
   const likedIds = await fetchLikedPhotoIds(
     photos.map((p) => p.id),
     me?.id
@@ -128,6 +140,8 @@ export default async function ExploreHome({
         spotlightId={spotlightId}
         loggedIn={!!me}
         spotlightFirstOnGeneral
+        feedSeed={feedSeed}
+        loadMore={loadMorePhotos}
       />
     </section>
   );

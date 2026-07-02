@@ -193,6 +193,52 @@ export async function fetchPublishedPhotos(opts: {
   return shuffle((data ?? []) as unknown as GalleryPhoto[]);
 }
 
+// 요청마다 다른 피드 순서용 시드 — 서버 컴포넌트 렌더에서 Math.random 직접 호출은
+// react-hooks/purity 에 걸리므로 헬퍼로 분리.
+export function newFeedSeed(): string {
+  return Math.floor(Math.random() * 2 ** 31).toString(36);
+}
+
+type FeedRow = {
+  id: string;
+  src_url: string;
+  thumb_url: string | null;
+  width: number;
+  height: number;
+  region: string | null;
+  mood_tags: string[] | null;
+  price_krw: number | null;
+  photographer_id: string;
+  photographer_name: string | null;
+};
+
+// 홈 피드 페이지 — 시드 기반 랜덤 정렬(0050 RPC)로 무한 스크롤. seed 가 같으면 순서 일관.
+// RPC 미적용(마이그레이션 전)/오류면 null → 호출부가 기존 방식으로 폴백.
+export async function fetchSeededFeedPage(
+  seed: string,
+  page: number,
+  pageSize = 48
+): Promise<GalleryPhoto[] | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("feed_photos_seeded", {
+    p_seed: seed,
+    p_offset: page * pageSize,
+    p_limit: pageSize,
+  });
+  if (error) return null;
+  return ((data ?? []) as FeedRow[]).map((r) => ({
+    id: r.id,
+    src_url: r.src_url,
+    thumb_url: r.thumb_url,
+    width: r.width,
+    height: r.height,
+    region: r.region,
+    mood_tags: r.mood_tags ?? [],
+    price_krw: r.price_krw,
+    photographer: { id: r.photographer_id, display_name: r.photographer_name },
+  }));
+}
+
 // 카테고리(여러 태그)에 해당하는 공개 사진 — 태그가 하나라도 겹치면 포함, 매 요청 전체 셔플.
 export async function fetchPhotosByTags(tags: string[], limit = 300): Promise<GalleryPhoto[]> {
   if (!tags || tags.length === 0) return [];
