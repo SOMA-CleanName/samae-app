@@ -24,10 +24,12 @@ export function AddToCartButton({
       remove(item.id);
       return;
     }
-    // 카드 안의 이미지를 fly 출발점으로
-    const card = e.currentTarget.closest("[data-cart-card]");
-    const img = card?.querySelector("img") as HTMLElement | null;
-    add(item, img);
+    // fly 출발점 = 카드 컨테이너(항상 화면에 보이는 프레임). 버튼이 카드 밖(사진 상세 액션행)이면
+    // 페이지 첫 [data-cart-card](=상세 캐러셀 프레임)로 폴백. img 대신 컨테이너를 쓰는 이유:
+    // 캐러셀은 가로 스크롤이라 첫 img 가 화면 밖(왼쪽)에 있을 수 있어 엉뚱한 곳에서 날아옴.
+    const card = e.currentTarget.closest<HTMLElement>("[data-cart-card]");
+    const source = card ?? document.querySelector<HTMLElement>("[data-cart-card]");
+    add(item, source);
   }
 
   return (
