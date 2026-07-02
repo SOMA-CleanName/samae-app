@@ -137,10 +137,17 @@ export default async function PhotoDetail({
                 </span>
               )}
               <p className="min-w-0 text-right">
-                <span className="text-title font-semibold tracking-tight">
-                  {photo.price_krw != null ? `₩${fmt.format(photo.price_krw)}` : "문의"}
-                </span>
-                {location && <span className="text-body text-muted"> · {location}</span>}
+                {photo.price_krw != null && (
+                  <span className="text-title font-semibold tracking-tight">
+                    ₩{fmt.format(photo.price_krw)}
+                  </span>
+                )}
+                {location && (
+                  <span className="text-body text-muted">
+                    {photo.price_krw != null ? " · " : ""}
+                    {location}
+                  </span>
+                )}
               </p>
             </div>
           </div>
