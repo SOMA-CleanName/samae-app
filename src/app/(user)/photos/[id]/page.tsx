@@ -108,6 +108,15 @@ export default async function PhotoDetail({
           <PhotoCarousel photos={carousel} startIndex={startIndex} frameAspect={aspect} />
           {/* 좌상단 투명 뒤로가기 (담기·공유는 carousel 내부에서 사진 모서리에 붙음) */}
           <PhotoTopBar />
+          {/* 첫 촬영 할인 — 사진 좌하단 오버레이(정보 칼럼 공간을 차지하지 않아 작은 폰에서도 CTA가 한 화면에) */}
+          {!isOwner && (
+            <span className="pointer-events-none absolute bottom-2.5 left-2.5 z-10 inline-flex items-center gap-1.5 rounded-full bg-brand-soft/95 px-2.5 py-1 text-body-sm font-medium text-brand-ink shadow-sm backdrop-blur-sm">
+              <span className="grid h-4 w-4 place-items-center rounded-full bg-brand text-[10px] font-bold leading-none text-white">
+                %
+              </span>
+              첫 촬영 할인
+            </span>
+          )}
         </div>
 
         {/* 사진 정보 — 가격·CTA 먼저 보이고, 작가·글·태그는 접기 */}
@@ -134,17 +143,7 @@ export default async function PhotoDetail({
             </p>
           </div>
 
-          {/* 첫 촬영 할인 배지 — CTA 바로 위(프라이밍). 스크롤 후 hook 전에도 혜택을 즉시 인지 */}
-          {!isOwner && (
-            <p className="mt-3.5 inline-flex items-center gap-1.5 rounded-full bg-brand-soft px-3 py-1.5 text-body-sm font-medium text-brand-ink">
-              <span className="grid h-4 w-4 place-items-center rounded-full bg-brand text-[10px] font-bold leading-none text-white">
-                %
-              </span>
-              지금 신청하면 <b className="font-bold">첫 촬영 할인</b>
-            </p>
-          )}
-
-          {/* 예약·문의 CTA — 가장 위 (전환 최우선) */}
+          {/* 예약·문의 CTA — 가장 위 (전환 최우선). 할인 배지는 사진 좌하단으로 이동(공간 확보) */}
           <PhotoCtas isOwner={isOwner} photographerId={ph.id} photoId={photo.id} />
 
           {/* 작가 상세정보 라인 — 이 지점이 화면 상단 50%에 닿으면 플로팅 내비 노출 */}
