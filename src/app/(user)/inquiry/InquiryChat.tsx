@@ -967,10 +967,11 @@ function OptionButton({
       onClick={onClick}
       aria-pressed={active}
       className={[
+        // 은은한 채움형 — 미선택은 테두리 없이 연한 표면, 선택은 brand 채움(셋 통일)
         "cursor-pointer rounded-xl px-3 py-2.5 text-base font-medium transition-colors",
         active
-          ? "bg-brand text-white"
-          : "border border-line-strong bg-surface text-fg hover:bg-surface-2",
+          ? "bg-brand text-white shadow-sm"
+          : "bg-fg/[0.06] text-fg hover:bg-fg/[0.10]",
       ].join(" ")}
     >
       {children}

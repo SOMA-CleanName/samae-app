@@ -126,25 +126,33 @@ export default async function PhotoDetail({
                 }}
               />
             </div>
-            <p className="text-right">
-              <span className="text-title font-semibold tracking-tight">
-                {photo.price_krw != null ? `₩${fmt.format(photo.price_krw)}` : "문의"}
-              </span>
-              {location && <span className="text-body text-muted"> · {location}</span>}
-            </p>
+            <div className="flex min-w-0 items-center gap-2">
+              {/* 첫 촬영 할인 — 가격 옆 컴팩트 칩(별도 줄 차지 안 함 → 작은폰에서도 CTA 한 화면에) */}
+              {!isOwner && (
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand-soft px-2 py-1 text-caption font-medium text-brand-ink">
+                  <span className="grid h-3.5 w-3.5 place-items-center rounded-full bg-brand text-[9px] font-bold leading-none text-white">
+                    %
+                  </span>
+                  첫 촬영 할인
+                </span>
+              )}
+              <p className="min-w-0 text-right">
+                {photo.price_krw != null && (
+                  <span className="text-title font-semibold tracking-tight">
+                    ₩{fmt.format(photo.price_krw)}
+                  </span>
+                )}
+                {location && (
+                  <span className="text-body text-muted">
+                    {photo.price_krw != null ? " · " : ""}
+                    {location}
+                  </span>
+                )}
+              </p>
+            </div>
           </div>
 
-          {/* 첫 촬영 할인 배지 — CTA 바로 위(프라이밍). 스크롤 후 hook 전에도 혜택을 즉시 인지 */}
-          {!isOwner && (
-            <p className="mt-3.5 inline-flex items-center gap-1.5 rounded-full bg-brand-soft px-3 py-1.5 text-body-sm font-medium text-brand-ink">
-              <span className="grid h-4 w-4 place-items-center rounded-full bg-brand text-[10px] font-bold leading-none text-white">
-                %
-              </span>
-              지금 신청하면 <b className="font-bold">첫 촬영 할인</b>
-            </p>
-          )}
-
-          {/* 예약·문의 CTA — 가장 위 (전환 최우선) */}
+          {/* 예약·문의 CTA — 가장 위 (전환 최우선). 할인 배지는 사진 좌하단으로 이동(공간 확보) */}
           <PhotoCtas isOwner={isOwner} photographerId={ph.id} photoId={photo.id} />
 
           {/* 작가 상세정보 라인 — 이 지점이 화면 상단 50%에 닿으면 플로팅 내비 노출 */}

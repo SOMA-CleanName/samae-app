@@ -53,12 +53,8 @@ async function composeFrame(
   if (!ctx) return null;
   const R = OUT_W / frameW; // 미리보기 px → 출력 px 배율 (프레임도 9:16)
 
-  // 흐린 배경 (cover)
-  const cov = Math.max(OUT_W / iw, OUT_H / ih);
-  ctx.filter = "blur(36px)";
-  ctx.drawImage(img, (OUT_W - iw * cov) / 2, (OUT_H - ih * cov) / 2, iw * cov, ih * cov);
-  ctx.filter = "none";
-  ctx.fillStyle = "rgba(0,0,0,0.18)";
+  // 단색 배경 (뷰어와 동일 near-black) — 여백을 흐린 배경 대신 단색으로 구워 저장
+  ctx.fillStyle = "#0a0a0a"; // neutral-950
   ctx.fillRect(0, 0, OUT_W, OUT_H);
 
   // 전경 (contain × scale + translate)
@@ -630,17 +626,15 @@ function CropModal({
           <button type="button" onClick={onCancel} className="text-sm text-fg/50 hover:text-fg">취소</button>
         </div>
 
-        {/* 9:16 프레임 = 업로드될 화면 그대로. 이미지 전체가 보이고 여백은 흐린 배경 */}
+        {/* 9:16 프레임 = 업로드될 화면 그대로. 이미지 전체가 보이고 여백은 단색(뷰어와 동일) */}
         <div
           ref={frameRef}
-          className="relative mx-auto aspect-[9/16] h-[58vh] cursor-grab touch-none select-none overflow-hidden bg-black active:cursor-grabbing"
+          className="relative mx-auto aspect-[9/16] h-[58vh] cursor-grab touch-none select-none overflow-hidden bg-neutral-950 active:cursor-grabbing"
           onPointerDown={onDown}
           onPointerMove={onMove}
           onPointerUp={onUp}
           onPointerCancel={onUp}
         >
-          <img src={src} alt="" aria-hidden draggable={false} className="pointer-events-none absolute inset-0 h-full w-full scale-125 object-cover opacity-50 blur-2xl" />
-          <div className="pointer-events-none absolute inset-0 bg-black/[0.18]" />
           <img
             src={src}
             alt=""

@@ -264,6 +264,12 @@ function StoryViewer({
           ))}
         </div>
 
+        {/* 상단 스크림 — 블러 배경 위 제목·진행바 가독성 확보(잘린 사진에서도 텍스트 또렷) */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 z-10 h-28 bg-gradient-to-b from-black/60 to-transparent"
+        />
+
         {/* 헤더 — 제목 + 닫기 */}
         <div className="absolute inset-x-0 top-5 z-20 flex items-center justify-between px-4 pt-2 text-white">
           <span className="text-body-sm font-semibold drop-shadow">{current.title || "하이라이트"}</span>
@@ -280,7 +286,7 @@ function StoryViewer({
         {/* 이미지 — 잡고 끌면 따라오며(3D 회전) 다른 하이라이트로 굴러감. 탭=이미지 이동 */}
         <div
           ref={vpRef}
-          className="relative flex flex-1 touch-none select-none items-center justify-center overflow-hidden [perspective:1200px]"
+          className="relative flex flex-1 touch-none select-none items-center justify-center overflow-hidden bg-neutral-950 [perspective:1200px]"
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
@@ -303,13 +309,7 @@ function StoryViewer({
                 : { transform: "translateX(0) rotateY(0deg)", transition: "transform 260ms cubic-bezier(0.22,1,0.36,1)" }
             }
           >
-            <img
-              src={item.src_url}
-              alt=""
-              aria-hidden
-              draggable={false}
-              className="absolute inset-0 h-full w-full scale-110 object-cover opacity-50 blur-2xl"
-            />
+            {/* 단색(near-black) 배경 위 사진 contain — 잘려도 모자이크 없이 깔끔·가독성 우선 */}
             <img
               src={item.src_url}
               alt=""
