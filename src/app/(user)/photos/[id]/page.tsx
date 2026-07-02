@@ -108,15 +108,6 @@ export default async function PhotoDetail({
           <PhotoCarousel photos={carousel} startIndex={startIndex} frameAspect={aspect} />
           {/* 좌상단 투명 뒤로가기 (담기·공유는 carousel 내부에서 사진 모서리에 붙음) */}
           <PhotoTopBar />
-          {/* 첫 촬영 할인 — 사진 좌하단 오버레이(정보 칼럼 공간을 차지하지 않아 작은 폰에서도 CTA가 한 화면에) */}
-          {!isOwner && (
-            <span className="pointer-events-none absolute bottom-2.5 left-2.5 z-10 inline-flex items-center gap-1.5 rounded-full bg-brand-soft/95 px-2.5 py-1 text-body-sm font-medium text-brand-ink shadow-sm backdrop-blur-sm">
-              <span className="grid h-4 w-4 place-items-center rounded-full bg-brand text-[10px] font-bold leading-none text-white">
-                %
-              </span>
-              첫 촬영 할인
-            </span>
-          )}
         </div>
 
         {/* 사진 정보 — 가격·CTA 먼저 보이고, 작가·글·태그는 접기 */}
@@ -135,12 +126,23 @@ export default async function PhotoDetail({
                 }}
               />
             </div>
-            <p className="text-right">
-              <span className="text-title font-semibold tracking-tight">
-                {photo.price_krw != null ? `₩${fmt.format(photo.price_krw)}` : "문의"}
-              </span>
-              {location && <span className="text-body text-muted"> · {location}</span>}
-            </p>
+            <div className="flex min-w-0 items-center gap-2">
+              {/* 첫 촬영 할인 — 가격 옆 컴팩트 칩(별도 줄 차지 안 함 → 작은폰에서도 CTA 한 화면에) */}
+              {!isOwner && (
+                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand-soft px-2 py-1 text-caption font-medium text-brand-ink">
+                  <span className="grid h-3.5 w-3.5 place-items-center rounded-full bg-brand text-[9px] font-bold leading-none text-white">
+                    %
+                  </span>
+                  첫 촬영 할인
+                </span>
+              )}
+              <p className="min-w-0 text-right">
+                <span className="text-title font-semibold tracking-tight">
+                  {photo.price_krw != null ? `₩${fmt.format(photo.price_krw)}` : "문의"}
+                </span>
+                {location && <span className="text-body text-muted"> · {location}</span>}
+              </p>
+            </div>
           </div>
 
           {/* 예약·문의 CTA — 가장 위 (전환 최우선). 할인 배지는 사진 좌하단으로 이동(공간 확보) */}

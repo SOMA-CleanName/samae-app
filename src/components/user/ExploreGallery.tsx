@@ -386,7 +386,9 @@ export function ExploreGallery({
                     key={photo.id}
                     className={cn(
                       "transition-all duration-[560ms] ease-[cubic-bezier(.5,0,.2,1)]",
-                      obActive && "relative z-[110]",
+                      // 소개(enter/ready) 중에만 카드를 띄움. 담기(adding)·나가기(leaving) 땐 z 를 낮춰
+                      // fly 폴라로이드(도크로 날아가는 z-50)가 카드에 가려지지 않게 한다.
+                      (obPhase === "enter" || obPhase === "ready") && "relative z-[110]",
                       // 세로 긴 사진/작은 화면에서 카드가 하단 문구를 덮지 않게 높이 캡(모바일만).
                       obShown && "max-h-[44svh] overflow-hidden rounded-2xl ring-2 ring-white/70 ring-offset-2 ring-offset-black md:max-h-none"
                     )}
@@ -522,7 +524,20 @@ export function ExploreGallery({
             aria-hidden
           />
 
-          {/* (닫기 X 제거 — 약 3초 자동 종료 + 화면 아무 곳이나 탭하면 닫힘) */}
+          {/* 닫기 X — 스킵 가능(ready) 시 우상단에 노출. 클릭 캐처(z-115)보다 위(z-116). */}
+          <button
+            type="button"
+            onClick={dismissOnboard}
+            aria-label="건너뛰기"
+            className={cn(
+              "fixed right-4 top-4 z-[116] grid h-9 w-9 place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-opacity duration-300 hover:bg-white/25",
+              obPhase === "ready" ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+            )}
+          >
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M6 6l12 12M18 6L6 18" />
+            </svg>
+          </button>
         </>
       )}
     </>

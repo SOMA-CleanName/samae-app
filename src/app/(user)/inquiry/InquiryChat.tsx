@@ -971,7 +971,7 @@ function OptionButton({
         "cursor-pointer rounded-xl px-3 py-2.5 text-base font-medium transition-colors",
         active
           ? "bg-brand text-white shadow-sm"
-          : "bg-surface-2 text-fg hover:bg-line",
+          : "bg-fg/[0.06] text-fg hover:bg-fg/[0.10]",
       ].join(" ")}
     >
       {children}

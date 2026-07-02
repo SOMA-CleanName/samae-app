@@ -29,7 +29,7 @@ export function RecsSkeleton({ count = 10 }: { count?: number }) {
     <section className="mt-6">
       {/* 실제 추천(PhotoMasonry)은 flex gap-3 · 폭 기반 JS 컬럼 · 정사각(라운드 없음).
           gap·컬럼 수를 맞춰 로드 시 튐 최소화. */}
-      <div className="columns-2 gap-3 sm:columns-3 md:columns-4 lg:columns-5 [&>*]:mb-3">
+      <div className="columns-2 gap-3 sm:columns-3 md:columns-4 lg:columns-6 [&>*]:mb-3">
         {Array.from({ length: count }).map((_, i) => (
           <div
             key={i}
