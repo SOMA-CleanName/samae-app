@@ -513,15 +513,20 @@ export function FloatingCart() {
     const ncH = nc.photoH + nc.side + nc.bottom;
     const fromCx = from.left + from.width / 2;
     const fromCy = from.top + from.height / 2;
-    const s = Math.max(0.05, from.width / ncW);
+    // 큰 사진(상세 히어로)에서 폴라로이드가 과하게 크게 시작하지 않도록 출발 배율 상한.
+    const s = Math.min(Math.max(0.05, from.width / ncW), 1.5);
     // 출발: 사진 자리·사진 크기·회전 0 (도크 포즈와 같은 좌표계)
     const startTf = `translate(${fromCx - ncW / 2}px, ${fromCy - ncH / 2}px) scale(${s}) rotate(0deg)`;
+    // 팝: 같은 자리에서 아주 살짝만 확대 + 살짝 틸트 → 폴라로이드로 '툭' 튀어나오는 느낌
+    const popTf = `translate(${fromCx - ncW / 2}px, ${fromCy - ncH / 2}px) scale(${s * 1.06}) rotate(-2deg)`;
     el.animate(
       [
-        { transform: startTf, offset: 0 },
+        { transform: startTf, offset: 0, easing: "cubic-bezier(.34,1.56,.64,1)" }, // 오버슈트로 팝
+        { transform: popTf, offset: 0.22 },
+        { transform: popTf, offset: 0.42, easing: "cubic-bezier(.5,0,.2,1)" }, // 짧게 유지 후 도크로 슝
         { transform: rest, offset: 1 },
       ],
-      { duration: 560, easing: "cubic-bezier(.42,0,.18,1)" }
+      { duration: 780 }
     );
   }, [newestId, count, phase, consumeFlyFrom, cards]);
 
@@ -553,6 +558,9 @@ export function FloatingCart() {
           {cards.map(({ it, x, y, rot, photoW, photoH, side, bottom, z, g }) => {
             const isLeaving = leaving.has(it.id);
             const j = cartCardJitter(it.id);
+            // 도크 회전 부호를 '고정 순번(seq)'으로 번갈아(±). seq 는 담기·빼기에도 안 바뀌어
+            // 이미 쌓인 카드 각도가 흔들리지 않음. (z=배열 인덱스는 빼면 당겨져서 부호가 뒤집힘)
+            const jRot = ((it.seq ?? z) % 2 === 0 ? 1 : -1) * Math.abs(j.rot);
             const belowFold = y > H; // 펼침 위치가 화면 밖(아래) — 이동 없이 제자리 페이드
             // 위치를 전부 transform 으로 처리(left/top 은 0 고정) → 도크 좌표가 x,y 와 무관해
             // 담기/빼기로 N 이 바뀌어도 도크 카드가 흔들리지 않음.
@@ -582,11 +590,11 @@ export function FloatingCart() {
               tf = tfAt(x, y, 1, rot);
               op = 0;
             } else if (phase === "center") {
-              tf = tfAt(cx + j.dx, cy + j.dy, dockScale, j.rot);
+              tf = tfAt(cx + j.dx, cy + j.dy, dockScale, jRot);
               op = g >= 5 ? 0 : 1;
             } else {
               // 도크 — x,y 무관 고정 좌표
-              tf = tfAt(dockCx + j.dx, dockCy + j.dy, dockScale, j.rot);
+              tf = tfAt(dockCx + j.dx, dockCy + j.dy, dockScale, jRot);
               op = g >= 5 ? 0 : 1;
             }
             // 펼칠 때만 스태거 — 그리드 위(g 작은 쪽=최신)부터 한 장씩. 포커스 이동은 즉시.

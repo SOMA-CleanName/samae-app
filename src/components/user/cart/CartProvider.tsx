@@ -5,7 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 // 장바구니 — 완전 비로그인 기준이라 localStorage 에만 저장.
 // 담을 때 사진이 하단 우측 장바구니로 "빨려들어가는" 모션이 핵심.
 
-export type CartItem = { id: string; src: string; w: number; h: number };
+export type CartItem = { id: string; src: string; w: number; h: number; seq?: number };
 
 type CartContextValue = {
   items: CartItem[];
@@ -40,7 +40,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setItems(JSON.parse(raw));
+      if (raw) {
+        const parsed = JSON.parse(raw) as CartItem[];
+        // 레거시(seq 없음) 마이그레이션 — 배열 순서로 고정 순번 부여
+        setItems(parsed.map((p, i) => ({ ...p, seq: typeof p.seq === "number" ? p.seq : i })));
+      }
     } catch {
       /* 손상된 값 무시 */
     }
@@ -62,7 +66,12 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const pushItem = useCallback((item: CartItem) => {
-    setItems((prev) => (prev.some((p) => p.id === item.id) ? prev : [...prev, item]));
+    setItems((prev) => {
+      if (prev.some((p) => p.id === item.id)) return prev;
+      // 고정 순번 — 단조 증가(빼도 재사용/이동 없음) → 카드별 각도/부호가 담기·빼기에도 안 변함
+      const seq = prev.reduce((m, p) => Math.max(m, p.seq ?? -1), -1) + 1;
+      return [...prev, { ...item, seq }];
+    });
   }, []);
 
   // 담기 — sourceEl 의 사진 위치를 출발점으로 기록하고 바로 추가.
@@ -115,8 +124,8 @@ export function cartCardJitter(id: string): { rot: number; dx: number; dy: numbe
   let h = 0;
   for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
   return {
-    rot: (h % 17) - 8, // -8 ~ 8도(타이트)
-    dx: ((h >> 5) % 11) - 5, // -5 ~ 5px
+    rot: (h % 65) - 32, // -32 ~ 32도(각도는 아주 러프하게)
+    dx: ((h >> 5) % 9) - 4, // -4 ~ 4px (중심은 타이트하게 — 같은 자리에 쌓인 더미)
     dy: ((h >> 9) % 9) - 4, // -4 ~ 4px
   };
 }
