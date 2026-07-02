@@ -62,10 +62,12 @@ export function PortfolioGrid({
             className="group relative block aspect-square overflow-hidden rounded bg-fg/[0.05]"
           >
             <Image
-              src={post.cover_thumb ?? post.cover_src}
+              src={post.cover_src ?? post.cover_thumb}
               alt=""
               fill
-              sizes="(max-width: 768px) 33vw, 220px"
+              // 대표(커버) 사진은 원본 소스 + 넉넉한 sizes·quality 로 그리드에서도 선명하게
+              sizes="(max-width: 768px) 45vw, 320px"
+              quality={90}
               className="object-cover transition-transform duration-300 group-hover:scale-[1.03]"
             />
             {post.count > 1 && (
