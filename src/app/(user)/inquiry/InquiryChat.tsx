@@ -967,11 +967,12 @@ function OptionButton({
       onClick={onClick}
       aria-pressed={active}
       className={[
-        // 은은한 채움형 — 미선택은 테두리 없이 연한 표면, 선택은 brand 채움(셋 통일)
-        "cursor-pointer rounded-xl px-3 py-2.5 text-base font-medium transition-colors",
+        // 중성 자립형(모바일·호버 없음) — 어포던스는 solid 표면+뚜렷한 라인 테두리+살짝 그림자로,
+        // 색은 선택 시에만 brand. 탭 피드백은 active 스케일.
+        "cursor-pointer rounded-xl px-3.5 py-3 text-[15px] font-medium transition-transform active:scale-[0.97]",
         active
-          ? "bg-brand text-white shadow-sm"
-          : "bg-fg/[0.06] text-fg hover:bg-fg/[0.10]",
+          ? "bg-brand text-white"
+          : "bg-surface text-fg ring-1 ring-line-strong active:bg-surface-2",
       ].join(" ")}
     >
       {children}
@@ -993,7 +994,7 @@ function OptionGrid({
   onPick: (v: string) => void;
 }) {
   return (
-    <div className={`grid gap-1.5 ${cols === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
+    <div className={`grid gap-2 ${cols === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
       {[...options, skip].map((opt) => (
         <OptionButton key={opt} active={value === opt} onClick={() => onPick(opt)}>
           {opt}
@@ -1251,9 +1252,7 @@ function NoteField({
 // ── 공통 말풍선/유틸 ──────────────────────────────────────────────
 function UserTray({ children }: { children: React.ReactNode }) {
   return (
-    <div className="ml-auto w-full max-w-[92%] rounded-2xl rounded-tr-md bg-brand/[0.06] p-2.5">
-      {children}
-    </div>
+    <div className="ml-auto mt-2 w-full max-w-[92%]">{children}</div>
   );
 }
 
@@ -1309,7 +1308,7 @@ function Reveal({ open, children }: { open: boolean; children: React.ReactNode }
         open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
       }`}
     >
-      <div className="overflow-hidden">{children}</div>
+      <div className="overflow-hidden pb-1">{children}</div>
     </div>
   );
 }
