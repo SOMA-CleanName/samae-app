@@ -19,9 +19,9 @@ export default function Loading() {
     <main className="mx-auto max-w-5xl px-2.5 pb-2.5 pt-2.5 font-kr sm:px-4 sm:pt-4 sm:pb-4">
       <ScrollTop />
       <div className="md:flex md:items-start md:gap-8">
-        {/* 사진 자리 — 실제 비율 적용 */}
+        {/* 사진 자리 — 실제 비율 적용. 데스크탑은 실제 페이지처럼 sticky */}
         <div
-          className="relative mx-auto w-[min(100%,calc(82svh*var(--ar)))] md:mx-0 md:w-[min(60%,calc(80vh*var(--ar)))]"
+          className="relative mx-auto w-[min(100%,calc(82svh*var(--ar)))] md:mx-0 md:sticky md:top-4 md:shrink-0 md:self-start md:w-[min(60%,calc(80vh*var(--ar)))]"
           style={{ "--ar": String(aspect) } as React.CSSProperties}
         >
           <div
@@ -30,22 +30,22 @@ export default function Loading() {
           />
         </div>
 
-        {/* 정보 자리 — 실제 레이아웃(가격·장소 / 상담 CTA / 작가·상세 토글) 골격 그대로 */}
+        {/* 정보 자리 — 실제 레이아웃(공유·담기 / 가격 · 상담 CTA) 골격 그대로 */}
         <div className="mt-4 w-full md:mt-0 md:min-w-0 md:flex-1">
-          {/* 가격 · 장소 */}
-          <div className="flex items-baseline gap-2">
-            <div className="h-7 w-28 animate-pulse rounded bg-surface-2" />
-            <div className="h-4 w-16 animate-pulse rounded bg-surface-2" />
+          {/* 공유·담기(좌) · 가격(우) 한 행 */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-1.5">
+              <div className="h-9 w-9 animate-pulse rounded-full bg-surface-2" />
+              <div className="h-9 w-9 animate-pulse rounded-full bg-surface-2" />
+            </div>
+            <div className="flex items-baseline gap-2">
+              <div className="h-6 w-24 animate-pulse rounded bg-surface-2" />
+              <div className="h-4 w-14 animate-pulse rounded bg-surface-2" />
+            </div>
           </div>
 
           {/* 무료 상담 신청 CTA (브랜드 톤) */}
           <div className="mt-4 h-12 w-full animate-pulse rounded-xl bg-brand/15" />
-
-          {/* 작가 · 상세 정보 토글 (접힘) */}
-          <div className="mt-4 flex items-center justify-between border-t border-line pt-3.5">
-            <div className="h-4 w-24 animate-pulse rounded bg-surface-2" />
-            <div className="h-4 w-4 animate-pulse rounded bg-surface-2" />
-          </div>
         </div>
       </div>
 

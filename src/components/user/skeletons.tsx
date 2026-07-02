@@ -4,14 +4,16 @@
 const MASONRY_HEIGHTS = [180, 240, 200, 280, 160, 220, 260, 190, 230, 170, 250, 210];
 
 // 피드/갤러리(메이슨리) 스켈레톤 — 홈·탐색 상세·카테고리·찜
-export function MasonrySkeleton({ count = 12 }: { count?: number }) {
+export function MasonrySkeleton({ count = 16 }: { count?: number }) {
   return (
     <section className="px-2.5 pb-2.5 pt-2.5 font-kr sm:px-4 sm:pt-4 sm:pb-4">
-      <div className="mx-auto max-w-screen-2xl columns-2 gap-2 sm:columns-3 lg:columns-4 [&>*]:mb-2">
+      {/* 실제 그리드(ExploreGallery)는 폭 기반 JS 컬럼 + gap-2.5/sm:gap-4, 정사각(라운드 없음) 카드.
+          데스크탑에서 컬럼 수·간격이 맞도록 반응형 columns 를 넉넉히 올림. */}
+      <div className="mx-auto max-w-screen-2xl columns-2 gap-2.5 sm:columns-3 sm:gap-4 md:columns-4 lg:columns-5 xl:columns-6 [&>*]:mb-2.5 sm:[&>*]:mb-4">
         {Array.from({ length: count }).map((_, i) => (
           <div
             key={i}
-            className="w-full animate-pulse rounded-xl bg-surface-2"
+            className="w-full animate-pulse bg-surface-2"
             style={{ height: MASONRY_HEIGHTS[i % MASONRY_HEIGHTS.length] }}
           />
         ))}
@@ -22,14 +24,16 @@ export function MasonrySkeleton({ count = 12 }: { count?: number }) {
 
 // 추천(상세 하단 탐색 사진) 메이슨리 스켈레톤 — 상세 loading + 추천 Suspense 공용
 const RECS_HEIGHTS = [200, 260, 180, 240, 220, 280, 190, 250, 210, 270, 200, 240];
-export function RecsSkeleton({ count = 8 }: { count?: number }) {
+export function RecsSkeleton({ count = 10 }: { count?: number }) {
   return (
     <section className="mt-6">
-      <div className="columns-2 gap-2 sm:columns-3 md:columns-4 [&>*]:mb-2">
+      {/* 실제 추천(PhotoMasonry)은 flex gap-3 · 폭 기반 JS 컬럼 · 정사각(라운드 없음).
+          gap·컬럼 수를 맞춰 로드 시 튐 최소화. */}
+      <div className="columns-2 gap-3 sm:columns-3 md:columns-4 lg:columns-5 [&>*]:mb-3">
         {Array.from({ length: count }).map((_, i) => (
           <div
             key={i}
-            className="w-full animate-pulse rounded-xl bg-surface-2"
+            className="w-full animate-pulse bg-surface-2"
             style={{ height: RECS_HEIGHTS[i % RECS_HEIGHTS.length] }}
           />
         ))}
