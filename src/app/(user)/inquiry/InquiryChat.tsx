@@ -463,7 +463,7 @@ export function InquiryChat({
           ) : (
             photoSrc && <img src={photoSrc} alt="문의한 사진" className="mb-2 w-full rounded-xl" />
           )}
-          몇 가지 정보만 알려주시면
+          짧게 몇 가지만 알려주시면
           <br />
           {multi ? (
             <>
