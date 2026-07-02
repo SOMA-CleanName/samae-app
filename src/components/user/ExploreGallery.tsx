@@ -101,7 +101,7 @@ export function ExploreGallery({
   //  · 일반 첫 방문(generalOnboard) — 탐색 메인이면 좌상단 첫 사진을 강조,
   //    slug 페이지면 강조 없이 배경 전체를 어둡게+뿌옇게
   const OB_FORCED_MS = 2000; // 약 2초 — 이 시간 뒤 스킵(닫기) 가능
-  const OB_AUTO_AFTER_READY_MS = 600; // ready(약 2초) 후 0.6초 → 약 3초에 자동 종료
+  const OB_AUTO_AFTER_READY_MS = 2100; // ready(약 2.4초) 후 → 약 4.5초에 자동 종료(읽을 시간 확보)
   const { add } = useCart(); // 온보딩 종료 시 강조 사진을 담기(관심사진)에 추가
   const [obPhase, setObPhase] = useState<"idle" | "enter" | "ready" | "adding" | "leaving" | "done">(
     spotlightId ? "idle" : "done"
@@ -422,21 +422,31 @@ export function ExploreGallery({
             )}
           />
 
-          {/* 상단 진행 바 (4초) */}
+          {/* 상단 진행 바 — 자동 종료 시점까지 채워짐 */}
           <div className="fixed inset-x-0 top-0 z-[105] h-[3px] bg-white/10">
             <div
               className="h-full bg-white/80"
               style={{
                 width: obShown ? "100%" : "0%",
-                transition: obShown ? `width ${OB_FORCED_MS}ms linear` : "none",
+                transition: obShown ? `width ${OB_FORCED_MS + OB_AUTO_AFTER_READY_MS}ms linear` : "none",
               }}
             />
           </div>
 
-          {/* 핵심 문구 — 모바일은 하단 에디토리얼, 데스크탑은 화면 가운데 인트로. 라인 마스크 reveal + 스태거 */}
+          {/* 하단 스크림 — 작은 화면·긴 사진에서 문구가 밝은 스포트라이트 사진 위로 겹쳐도 읽히게(모바일만). */}
+          <div
+            aria-hidden
+            className={cn(
+              "pointer-events-none fixed inset-x-0 bottom-0 z-[114] h-72 bg-gradient-to-t from-black/75 via-black/40 to-transparent transition-opacity duration-500 md:hidden",
+              obShown && obPhase !== "adding" ? "opacity-100" : "opacity-0"
+            )}
+          />
+
+          {/* 핵심 문구 — 모바일은 하단 에디토리얼, 데스크탑은 화면 가운데 인트로. 라인 마스크 reveal + 스태거.
+              z-[115]: 스포트라이트 사진(z-110) 위에 올려 작은 화면에서 사진에 가려지지 않게. */}
           <div
             className={cn(
-              "pointer-events-none fixed inset-0 z-[105] flex flex-col justify-end px-7 pb-24 transition-opacity duration-300 sm:pb-28 md:justify-center md:pb-0",
+              "pointer-events-none fixed inset-0 z-[115] flex flex-col justify-end px-7 pb-24 transition-opacity duration-300 sm:pb-28 md:justify-center md:pb-0",
               obPhase === "adding" || obPhase === "leaving" ? "opacity-0" : "opacity-100"
             )}
           >
@@ -490,8 +500,8 @@ export function ExploreGallery({
             </div>
           </div>
 
-          {/* 닫기 안내 — 화면 최하단 중앙 */}
-          <div className="pointer-events-none fixed inset-x-0 bottom-6 z-[105] flex justify-center">
+          {/* 닫기 안내 — 화면 최하단 중앙 (사진 위 z-115) */}
+          <div className="pointer-events-none fixed inset-x-0 bottom-6 z-[115] flex justify-center">
             <span
               className={cn(
                 "text-xs transition-opacity duration-500",
