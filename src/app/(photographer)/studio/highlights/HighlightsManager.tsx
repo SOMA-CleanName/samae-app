@@ -630,17 +630,15 @@ function CropModal({
           <button type="button" onClick={onCancel} className="text-sm text-fg/50 hover:text-fg">취소</button>
         </div>
 
-        {/* 9:16 프레임 = 업로드될 화면 그대로. 이미지 전체가 보이고 여백은 흐린 배경 */}
+        {/* 9:16 프레임 = 업로드될 화면 그대로. 이미지 전체가 보이고 여백은 단색(뷰어와 동일) */}
         <div
           ref={frameRef}
-          className="relative mx-auto aspect-[9/16] h-[58vh] cursor-grab touch-none select-none overflow-hidden bg-black active:cursor-grabbing"
+          className="relative mx-auto aspect-[9/16] h-[58vh] cursor-grab touch-none select-none overflow-hidden bg-neutral-950 active:cursor-grabbing"
           onPointerDown={onDown}
           onPointerMove={onMove}
           onPointerUp={onUp}
           onPointerCancel={onUp}
         >
-          <img src={src} alt="" aria-hidden draggable={false} className="pointer-events-none absolute inset-0 h-full w-full scale-125 object-cover opacity-50 blur-2xl" />
-          <div className="pointer-events-none absolute inset-0 bg-black/[0.18]" />
           <img
             src={src}
             alt=""
