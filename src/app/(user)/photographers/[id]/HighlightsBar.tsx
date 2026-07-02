@@ -264,6 +264,12 @@ function StoryViewer({
           ))}
         </div>
 
+        {/* 상단 스크림 — 블러 배경 위 제목·진행바 가독성 확보(잘린 사진에서도 텍스트 또렷) */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 z-10 h-28 bg-gradient-to-b from-black/60 to-transparent"
+        />
+
         {/* 헤더 — 제목 + 닫기 */}
         <div className="absolute inset-x-0 top-5 z-20 flex items-center justify-between px-4 pt-2 text-white">
           <span className="text-body-sm font-semibold drop-shadow">{current.title || "하이라이트"}</span>
