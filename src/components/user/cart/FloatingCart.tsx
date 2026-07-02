@@ -723,7 +723,7 @@ export function FloatingCart() {
             <div className="fixed inset-0 z-[68] grid place-items-center px-6 text-center">
               <div>
                 <p className="text-xl font-bold text-white">신청 완료!</p>
-                <p className="mt-2 text-sm text-white/70">관심 사진으로 작가님이 곧 연락드릴 거예요.</p>
+                <p className="mt-2 text-sm text-white/70">담아둔 사진을 보고 작가님이 곧 연락드릴 거예요.</p>
               </div>
             </div>
           ) : (
@@ -948,7 +948,7 @@ export function FloatingCart() {
                         disabled={!contact.trim() || !timing || !agreed || pending}
                         className="mt-3 h-12 w-full cursor-pointer rounded-xl bg-brand text-base font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                       >
-                        {pending ? "신청 중…" : "상담 신청하기"}
+                        {pending ? "신청 중…" : "무료 상담 신청하기"}
                       </button>
                     </form>
                   ) : selectMode ? (
@@ -961,7 +961,7 @@ export function FloatingCart() {
                       disabled={selectedIds.size === 0}
                       className="w-full cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:bg-[#3a3a3a] disabled:text-white/40 disabled:shadow-none disabled:hover:opacity-100"
                     >
-                      {selectedIds.size > 0 ? `선택한 ${selectedIds.size}장 상담 신청` : "상담할 사진을 선택하세요"}
+                      {selectedIds.size > 0 ? `선택한 ${selectedIds.size}장 무료 상담 신청` : "상담할 사진을 선택하세요"}
                     </button>
                   ) : focused && items.some((i) => i.id === focused) ? (
                     <button
@@ -981,7 +981,7 @@ export function FloatingCart() {
                         }
                         className="w-full cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
                       >
-                        {N === 1 ? "이 사진으로 상담 신청" : `관심 사진 ${N}장 모두 상담 신청`}
+                        {N === 1 ? "이 사진으로 무료 상담 신청" : `관심 사진 ${N}장 무료 상담 신청`}
                       </button>
                       <p className="text-center">
                         <span className="inline-block rounded-full bg-black/45 px-3 py-1 text-xs font-medium text-white/70 backdrop-blur-sm">

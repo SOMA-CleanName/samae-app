@@ -510,7 +510,7 @@ export function ExploreGallery({
                 obPhase === "ready" ? "text-white/55 opacity-100" : "text-white/30 opacity-100"
               )}
             >
-              {obPhase === "ready" ? "화면을 눌러 시작" : "잠시만요…"}
+              {obPhase === "ready" ? "탭해서 둘러보기" : "잠시만요…"}
             </span>
           </div>
 
