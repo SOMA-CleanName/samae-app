@@ -472,21 +472,7 @@ export function ExploreGallery({
             aria-hidden
           />
 
-          {/* 닫기 X — 4초 후 표시 */}
-          <button
-            type="button"
-            onClick={dismissOnboard}
-            aria-label="닫고 시작하기"
-            tabIndex={obPhase === "ready" ? 0 : -1}
-            className={cn(
-              "fixed right-4 top-4 z-[116] grid h-10 w-10 place-items-center rounded-full bg-white/12 text-white backdrop-blur transition-all duration-300 hover:bg-white/25",
-              obPhase === "ready" ? "opacity-100" : "pointer-events-none opacity-0"
-            )}
-          >
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
-            </svg>
-          </button>
+          {/* (닫기 X 제거 — 약 3초 자동 종료 + 화면 아무 곳이나 탭하면 닫힘) */}
         </>
       )}
     </>
