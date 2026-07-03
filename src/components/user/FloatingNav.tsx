@@ -28,13 +28,19 @@ export function FloatingNav({ me }: { me: ProfileMe | null }) {
   const revealStyle = {
     transform: visible ? "translateY(0)" : "translateY(180%)",
     opacity: visible ? 1 : 0,
+    // 숨김 시 히트영역 제거 — translate 로 시각만 사라지고 레이아웃 박스는 원위치에 남아
+    // 그 자리(하단) 터치가 막히던 문제 방지.
+    pointerEvents: visible ? "auto" : "none",
     transition: "transform 320ms cubic-bezier(.4,0,.2,1), opacity 260ms ease",
   } as React.CSSProperties;
 
   return (
     <>
-      {/* 가운데 홈/탐색 pill */}
-      <nav className="fixed bottom-5 left-1/2 z-40 -translate-x-1/2">
+      {/* 가운데 홈/탐색 pill — 바깥 nav 의 레이아웃 박스도 숨김 시 터치 통과시킴 */}
+      <nav
+        className="fixed bottom-5 left-1/2 z-40 -translate-x-1/2"
+        style={{ pointerEvents: visible ? "auto" : "none" }}
+      >
         <div style={revealStyle}>
           <div className="flex items-center gap-1 rounded-full bg-bg/95 p-1 shadow-lg ring-1 ring-line backdrop-blur">
             <NavPill href="/" label="홈" active={homeActive} icon={<HomeIcon className="h-5 w-5" />} />
