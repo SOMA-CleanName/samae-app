@@ -261,11 +261,16 @@ export function InquiryChat({
     setOptionsReady(false);
     window.setTimeout(() => {
       setOptionsReady(true);
-      // Reveal 펼침(0.3s)이 끝난 뒤 하단으로 스크롤 — 선지가 화면에 들어오게
-      window.setTimeout(
-        () => bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }),
-        360
-      );
+      // 선지가 펼쳐지는 동안(Reveal ~0.3s) 매 프레임 뷰를 하단에 붙여, 펼쳐짐과 함께
+      // 자연스럽게 스크롤이 따라 내려가게 한다(펼친 뒤 한 번에 튀지 않도록).
+      const sc = bottomRef.current?.closest<HTMLElement>(".overflow-y-auto");
+      if (!sc) return;
+      let frames = 0;
+      const stick = () => {
+        sc.scrollTop = sc.scrollHeight;
+        if (++frames < 30) requestAnimationFrame(stick);
+      };
+      requestAnimationFrame(stick);
     }, 600);
   }
   function advanceTo(index: number) {
