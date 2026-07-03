@@ -10,7 +10,7 @@ import {
   useState,
 } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useCart, cartCardJitter, PEEK_CARD_W, type CartItem } from "./CartProvider";
 import { submitCartInquiry } from "@/app/(user)/inquiry/actions";
 
@@ -49,6 +49,10 @@ type Placed = {
 export function FloatingCart() {
   const { items, count, remove, consumeFlyFrom } = useCart();
   const router = useRouter();
+  const pathname = usePathname();
+  // 문의·채팅 같은 풀스크린 몰입 플로우에선 도크를 숨김 — 도크가 그 위에 떠서 하단 버튼
+  // 탭을 가로채(뒤로/담기 등이 씹히고 장바구니가 열리던) 문제 방지.
+  const hideOnRoute = !!pathname && (pathname.startsWith("/inquiry") || pathname.startsWith("/chat"));
   // 단계: dock(가장자리) → center(중앙 스택) → spread(펼침). 열고 닫을 때 중앙을 경유.
   const [phase, setPhase] = useState<"dock" | "center" | "spread">("dock");
   const open = phase !== "dock";
@@ -530,7 +534,7 @@ export function FloatingCart() {
     );
   }, [newestId, count, phase, consumeFlyFrom, cards]);
 
-  if (!vp || N === 0) return null;
+  if (!vp || N === 0 || hideOnRoute) return null;
 
   return (
     <>
@@ -644,7 +648,9 @@ export function FloatingCart() {
                     transformOrigin: "center",
                     transform: tf,
                     opacity: op,
-                    pointerEvents: anyFocused && !isFocused ? "none" : "auto",
+                    // 숨은(opacity 0) 도크 카드는 탭을 받지 않게 — 유령 히트영역이 하단 버튼을
+                    // 가로채던 문제 완화. 보이는 카드만 탭 가능.
+                    pointerEvents: (anyFocused && !isFocused) || op === 0 ? "none" : "auto",
                     touchAction: open ? "auto" : "none",
                     transition: dragging
                       ? "none"
