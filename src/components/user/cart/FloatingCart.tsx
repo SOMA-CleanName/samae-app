@@ -822,17 +822,26 @@ export function FloatingCart() {
                 <div className="pointer-events-none fixed inset-x-0 top-0 z-[62] flex items-center justify-between px-5 pt-5">
                   {selectMode ? (
                     <>
-                      <button
-                        type="button"
-                        onClick={exitSelect}
-                        className="pointer-events-auto cursor-pointer rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
-                      >
-                        취소
-                      </button>
-                      <p className="text-sm text-white/75">
-                        <span className="font-bold text-white">{selectedIds.size}</span>장 선택
+                      {/* 양옆 flex-1 균형 → 선택 개수 표시가 화면 정중앙에 놓임 */}
+                      <div className="flex flex-1 justify-start">
+                        <button
+                          type="button"
+                          onClick={exitSelect}
+                          className="pointer-events-auto cursor-pointer rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
+                        >
+                          취소
+                        </button>
+                      </div>
+                      <p className="whitespace-nowrap text-sm text-white/75">
+                        {selectedIds.size > 0 ? (
+                          <>
+                            <span className="font-bold text-white">{selectedIds.size}</span>장 선택
+                          </>
+                        ) : (
+                          "사진을 선택하세요"
+                        )}
                       </p>
-                      <div className="pointer-events-auto flex items-center gap-2">
+                      <div className="pointer-events-auto flex flex-1 items-center justify-end gap-2">
                         <button
                           type="button"
                           onClick={() => sharePhotos([...selectedIds])}
@@ -853,26 +862,35 @@ export function FloatingCart() {
                     </>
                   ) : (
                     <>
-                      <button
-                        type="button"
-                        onClick={close}
-                        aria-label="뒤로"
-                        className="pointer-events-auto grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
-                      >
-                        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M15 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </button>
-                      <p className="text-sm text-white/75">
-                        관심 사진 <span className="font-bold text-white">{N}</span>
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setSelectMode(true)}
-                        className="pointer-events-auto cursor-pointer rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
-                      >
-                        선택
-                      </button>
+                      {/* 양옆 flex-1 균형 → '관심 사진' 이 화면 정중앙에 놓임 */}
+                      <div className="flex flex-1 justify-start">
+                        <button
+                          type="button"
+                          onClick={close}
+                          aria-label="뒤로"
+                          className="pointer-events-auto grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
+                        >
+                          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M15 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+                      </div>
+                      {/* '관심 사진' 은 가로·세로 정중앙, 개수는 absolute 로 아래에(타이틀 안 밀림) */}
+                      <div className="relative">
+                        <p className="text-sm font-semibold text-white">관심 사진</p>
+                        <span className="pointer-events-none absolute left-1/2 top-full mt-0.5 -translate-x-1/2 whitespace-nowrap text-xs text-white/60">
+                          {N}장
+                        </span>
+                      </div>
+                      <div className="flex flex-1 justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setSelectMode(true)}
+                          className="pointer-events-auto cursor-pointer rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
+                        >
+                          선택
+                        </button>
+                      </div>
                     </>
                   )}
                 </div>
