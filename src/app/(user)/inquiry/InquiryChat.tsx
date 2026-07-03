@@ -1261,9 +1261,11 @@ function NoteField({
           rows={3}
           autoFocus
           placeholder="예: 원하는 분위기, 의상, 시간대, 예산 등 자유롭게 적어주세요"
-          // focus 표시는 박스 '안쪽'(border+inset ring)으로 — 글로벌 :focus-visible 아웃라인(2px offset)이
-          // Reveal 의 overflow-hidden 에 우측이 잘려 깨지던 문제 방지. 라디우스는 옵션칩과 통일.
-          className="w-full resize-none rounded-xl border border-line-strong bg-surface px-3.5 py-2.5 text-base text-fg outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-1 focus:ring-inset focus:ring-brand focus-visible:outline-none"
+          // 글로벌 :focus-visible 아웃라인(2px offset)이 unlayered라 유틸보다 우선순위가 높아 안 죽음 →
+          // Reveal overflow-hidden 에 우측 잘리던 원인. 인라인 style 로 확실히 차단하고,
+          // 포커스 표시는 박스 '안쪽'(border+inset ring)으로 대체.
+          style={{ outline: "none" }}
+          className="w-full resize-none rounded-xl border border-line-strong bg-surface px-3.5 py-2.5 text-base text-fg transition-colors placeholder:text-faint focus:border-brand focus:ring-1 focus:ring-inset focus:ring-brand"
         />
         <div className="flex items-center justify-between">
           <button
@@ -1355,7 +1357,8 @@ function Reveal({ open, children }: { open: boolean; children: React.ReactNode }
         open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
       }`}
     >
-      <div className="overflow-hidden pb-1">{children}</div>
+      {/* px-0.5: overflow-hidden 우측 클립 경계에 입력 border(포커스 시 brand)가 딱 붙어 살짝 잘리던 것 방지 */}
+      <div className="overflow-hidden px-0.5 pb-1">{children}</div>
     </div>
   );
 }
