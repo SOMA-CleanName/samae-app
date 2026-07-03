@@ -129,14 +129,43 @@ type ContactType = "phone" | "instagram" | "email";
 const CONTACT_TYPES: {
   key: ContactType;
   label: string;
+  short: string; // 아이콘 아래 짧은 라벨
   placeholder: string;
   inputMode: "tel" | "text" | "email";
   empty: string; // 빈칸일 때 안내문
 }[] = [
-  { key: "phone", label: "전화번호", placeholder: "010-1234-5678", inputMode: "tel", empty: "전화번호를 입력해주세요." },
-  { key: "instagram", label: "인스타 DM", placeholder: "@samae_photo_official", inputMode: "text", empty: "인스타 아이디를 입력해주세요." },
-  { key: "email", label: "이메일", placeholder: "photosame00@gmail.com", inputMode: "email", empty: "이메일 주소를 입력해주세요." },
+  { key: "phone", label: "전화번호", short: "전화", placeholder: "010-1234-5678", inputMode: "tel", empty: "전화번호를 입력해주세요." },
+  { key: "instagram", label: "인스타 DM", short: "인스타", placeholder: "@samae_photo_official", inputMode: "text", empty: "인스타 아이디를 입력해주세요." },
+  { key: "email", label: "이메일", short: "이메일", placeholder: "photosame00@gmail.com", inputMode: "email", empty: "이메일 주소를 입력해주세요." },
 ];
+
+// 연락처 방식 아이콘 (전화 / 인스타 / 이메일)
+function ContactIcon({ kind }: { kind: ContactType }) {
+  const cls = "h-5 w-5";
+  if (kind === "phone")
+    return (
+      <svg viewBox="0 0 24 24" className={cls} fill="none" stroke="currentColor" strokeWidth="1.8">
+        <path
+          d="M4 5c0-.6.4-1 1-1h2.3c.5 0 .9.3 1 .8l.8 3c.1.4 0 .8-.3 1.1L7.3 10.4a12 12 0 0 0 6.3 6.3l1.5-1.5c.3-.3.7-.4 1.1-.3l3 .8c.5.1.8.5.8 1V19c0 .6-.4 1-1 1A15 15 0 0 1 4 5z"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  if (kind === "instagram")
+    return (
+      <svg viewBox="0 0 24 24" className={cls} fill="none" stroke="currentColor" strokeWidth="1.8">
+        <rect x="3.5" y="3.5" width="17" height="17" rx="5" />
+        <circle cx="12" cy="12" r="3.8" />
+        <circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none" />
+      </svg>
+    );
+  return (
+    <svg viewBox="0 0 24 24" className={cls} fill="none" stroke="currentColor" strokeWidth="1.8">
+      <rect x="3" y="5" width="18" height="14" rx="2.5" />
+      <path d="M4 7l8 5.5L20 7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const IG_RE = /^[a-zA-Z0-9._]{1,30}$/;
 
@@ -730,21 +759,32 @@ function ContactBlock({
 
   return (
     <div className="ml-auto w-full max-w-[88%] rounded-2xl rounded-tr-md bg-brand/[0.07] p-3">
-      <div className="grid grid-cols-3 gap-1.5">
-        {CONTACT_TYPES.map((t) => (
-          <OptionButton
-            key={t.key}
-            active={type === t.key}
-            onClick={() => {
-              setType(t.key);
-              setVal("");
-              setAttempted(false);
-              setBlockMsg(null);
-            }}
-          >
-            {t.label}
-          </OptionButton>
-        ))}
+      <div className="grid grid-cols-3 gap-2">
+        {CONTACT_TYPES.map((t) => {
+          const on = type === t.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              aria-pressed={on}
+              aria-label={t.label}
+              onClick={() => {
+                setType(t.key);
+                setVal("");
+                setAttempted(false);
+                setBlockMsg(null);
+              }}
+              className={[
+                // 아이콘 + 짧은 라벨 세로 스택 — '인스타 DM' 처럼 긴 라벨로 줄바꿈되던 문제 해소
+                "flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl py-2.5 text-[13px] font-medium transition-transform active:scale-[0.97]",
+                on ? "bg-brand text-white" : "bg-surface text-fg ring-1 ring-line-strong active:bg-surface-2",
+              ].join(" ")}
+            >
+              <ContactIcon kind={t.key} />
+              {t.short}
+            </button>
+          );
+        })}
       </div>
 
       {/* 연락처 안심 — 왜 필요한지 + 노출 범위(이탈 최다 지점 방어) */}
@@ -1216,7 +1256,9 @@ function NoteField({
           rows={3}
           autoFocus
           placeholder="예: 원하는 분위기, 의상, 시간대, 예산 등 자유롭게 적어주세요"
-          className="w-full resize-none rounded-xl border border-line-strong bg-surface px-3 py-2.5 text-base text-fg outline-none transition-colors placeholder:text-faint focus:border-brand"
+          // focus 표시는 박스 '안쪽'(border+inset ring)으로 — 글로벌 :focus-visible 아웃라인(2px offset)이
+          // Reveal 의 overflow-hidden 에 우측이 잘려 깨지던 문제 방지. 라디우스는 옵션칩과 통일.
+          className="w-full resize-none rounded-xl border border-line-strong bg-surface px-3.5 py-2.5 text-base text-fg outline-none transition-colors placeholder:text-faint focus:border-brand focus:ring-1 focus:ring-inset focus:ring-brand focus-visible:outline-none"
         />
         <div className="flex items-center justify-between">
           <button
