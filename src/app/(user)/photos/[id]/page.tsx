@@ -127,15 +127,6 @@ export default async function PhotoDetail({
               />
             </div>
             <div className="flex min-w-0 items-center gap-2">
-              {/* 첫 촬영 할인 — 가격 옆 컴팩트 칩(별도 줄 차지 안 함 → 작은폰에서도 CTA 한 화면에) */}
-              {!isOwner && (
-                <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand-soft px-2 py-1 text-caption font-medium text-brand-ink">
-                  <span className="grid h-3.5 w-3.5 place-items-center rounded-full bg-brand text-[9px] font-bold leading-none text-white">
-                    %
-                  </span>
-                  첫 촬영 할인
-                </span>
-              )}
               <p className="min-w-0 text-right">
                 {photo.price_krw != null && (
                   <span className="text-title font-semibold tracking-tight">
@@ -152,7 +143,7 @@ export default async function PhotoDetail({
             </div>
           </div>
 
-          {/* 예약·문의 CTA — 가장 위 (전환 최우선). 할인 배지는 사진 좌하단으로 이동(공간 확보) */}
+          {/* 예약·문의 CTA — 가장 위 (전환 최우선) */}
           <PhotoCtas isOwner={isOwner} photographerId={ph.id} photoId={photo.id} />
 
           {/* 작가 상세정보 라인 — 이 지점이 화면 상단 50%에 닿으면 플로팅 내비 노출 */}
