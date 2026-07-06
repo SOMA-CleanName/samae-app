@@ -89,10 +89,10 @@ export function DetailHookCta({ href }: { href: string }) {
         <div className="mx-auto max-w-md text-center">
           <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-fg/15" />
           <p className="text-xl font-bold leading-snug">
-            지금 신청하면 <span className="text-brand">첫 촬영 할인</span>
+            이 사진 느낌 그대로, <span className="text-brand">그 작가</span>에게
           </p>
           <p className="mt-1.5 text-sm text-muted">
-            마음에 드는 사진의 작가에게 무료로 상담받아보세요. 1분이면 끝나요.
+            무료로 상담받아보세요. 1분이면 끝나요.
           </p>
           <Link
             href={href}
@@ -100,7 +100,7 @@ export function DetailHookCta({ href }: { href: string }) {
             data-track="cta:hook"
             className="mt-5 block w-full rounded-2xl bg-brand py-4 text-base font-bold text-white transition-opacity hover:opacity-90"
           >
-            무료 상담 신청하고 할인받기
+            무료 상담 신청하기
           </Link>
           <button
             type="button"
