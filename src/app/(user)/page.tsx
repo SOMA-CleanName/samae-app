@@ -16,6 +16,8 @@ import { getPublishedCategory, isUntaggedCategory } from "@/lib/categories";
 import { CATEGORY_COOKIE } from "@/lib/category-constants";
 import { ExploreGallery } from "@/components/user/ExploreGallery";
 import { ScrollMemory } from "@/components/user/ScrollMemory";
+import { JsonLd } from "@/components/JsonLd";
+import { siteJsonLd } from "@/lib/seo";
 import type { GalleryPhoto } from "@/lib/discovery";
 
 export const dynamic = "force-dynamic";
@@ -95,6 +97,8 @@ export default async function ExploreHome({
 
   return (
     <section className="px-2.5 pb-2.5 pt-2.5 font-kr sm:px-4 sm:pt-4 sm:pb-4">
+      {/* 브랜드 구조화데이터 — Organization(사매) + WebSite(검색박스) */}
+      {!query && <JsonLd data={siteJsonLd()} />}
       {/* 탭 전환 시 스크롤 위치 유지 */}
       <ScrollMemory />
       {/* 홈 최상단 안내 — 원하는 사진을 골라 작가에게 촬영 문의 (검색 모드 아닐 때만) */}
