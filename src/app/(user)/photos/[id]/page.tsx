@@ -19,7 +19,6 @@ import { RememberFrameAspect } from "./RememberFrameAspect";
 import { ShareButton } from "@/components/user/ShareButton";
 import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
 import { PhotoTopBar } from "./PhotoTopBar";
-import { DetailHookCta } from "./DetailHookCta";
 import { DetailMoreInfo } from "./DetailMoreInfo";
 import { NavRevealOnScroll } from "@/components/user/NavReveal";
 import { OwnerPhotoBackButton } from "./OwnerPhotoBackButton";
@@ -180,7 +179,6 @@ export default async function PhotoDetail({
       </Suspense>
 
       {/* A11 혜택 hook — 스크롤 내리면 노출, 예약/장바구니 1회 후 숨김 */}
-      {!isOwner && <DetailHookCta href={inquiryHref(ph.id, photo.id)} />}
     </main>
   );
 }
