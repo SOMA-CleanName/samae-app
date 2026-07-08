@@ -94,10 +94,16 @@ export function FloatingCart() {
   // 뷰포트
   useIsoLayout(() => {
     if (typeof window === "undefined") return;
-    const set = () => setVp({ w: window.innerWidth, h: window.innerHeight });
-    set();
-    window.addEventListener("resize", set);
-    return () => window.removeEventListener("resize", set);
+    setVp({ w: window.innerWidth, h: window.innerHeight });
+    // iOS 사파리는 스크롤 시 주소창 접힘/펴짐으로 '높이만' 소폭 바뀌는 resize 를 쏨 →
+    // 도크가 재배치되며 뒷 카드가 흔들리던 문제. 너비 변화나 큰 높이 변화(회전 등)만 반영.
+    const onResize = () => {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      setVp((prev) => (prev && prev.w === w && Math.abs(prev.h - h) < 150 ? prev : { w, h }));
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
   // 도크 위치 로드

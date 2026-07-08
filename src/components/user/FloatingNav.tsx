@@ -30,11 +30,14 @@ export function FloatingNav({ me }: { me: ProfileMe | null }) {
   const visible = onDetail ? forced === true : forced ?? true;
   // 아래에서 위로 올라오는 슬라이드 (숨김 시 화면 아래로)
   const revealStyle = {
-    transform: visible ? "translateY(0)" : "translateY(180%)",
+    // translate3d + will-change 로 별도 합성 레이어 승격 → iOS 사파리가 스크롤 중에도
+    // 트랜지션을 컴포지터에서 재생(메인스레드 지연으로 '띡' 나타나던 문제 완화).
+    transform: visible ? "translate3d(0,0,0)" : "translate3d(0,180%,0)",
     opacity: visible ? 1 : 0,
     // 숨김 시 히트영역 제거 — translate 로 시각만 사라지고 레이아웃 박스는 원위치에 남아
     // 그 자리(하단) 터치가 막히던 문제 방지.
     pointerEvents: visible ? "auto" : "none",
+    willChange: "transform, opacity",
     transition: "transform 320ms cubic-bezier(.4,0,.2,1), opacity 260ms ease",
   } as React.CSSProperties;
 

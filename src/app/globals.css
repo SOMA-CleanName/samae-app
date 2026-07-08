@@ -121,6 +121,9 @@ html {
      scrollbar-gutter 미지원/미적용 환경까지 커버하도록 overflow-y:scroll 로 못 박음 */
   scrollbar-gutter: stable;
   overflow-y: scroll;
+  /* iOS 사파리: 최상단에서 고무줄 오버스크롤 시 position:fixed 요소(장바구니 도크)가
+     순간 이동·복귀하며 뒷 카드가 밀렸다 사라지는 모션을 만들던 문제 억제. */
+  overscroll-behavior-y: none;
 }
 
 html,
