@@ -246,7 +246,7 @@ export function InquiryChat({
   const [skippedKeys, setSkippedKeys] = useState<StepKey[] | null>(null); // 바로 문의로 건너뛴 질문들
 
   const bottomRef = useRef<HTMLDivElement>(null);
-  const optionsEndRef = useRef<HTMLDivElement>(null); // 현재 선지 하단 — 생성 시 채팅창 바닥에 맞춤
+  const optionsEndRef = useRef<HTMLDivElement>(null); // 선지+건너뛰기 하단 — 생성 시 채팅창 바닥에 맞춤
   const started = useRef(false);
 
   const storageKey = multi
@@ -562,19 +562,15 @@ export function InquiryChat({
                   </ExpandIn>
                 )}
                 {i === revealed && !contactStep && (
-                  <>
-                    <Reveal key="opts" snapOpen open={!answered && optionsReady}>
-                      <UserTray>
-                        <QuestionInput
-                          step={step}
-                          open={!answered && optionsReady}
-                          onSubmit={(v) => onAnswer(i, v)}
-                        />
-                      </UserTray>
-                    </Reveal>
-                    {/* 선지 하단 마커 — 선지 생성 시 이 지점을 채팅창 바닥에 맞춰 스크롤 */}
-                    <div ref={optionsEndRef} aria-hidden />
-                  </>
+                  <Reveal key="opts" snapOpen open={!answered && optionsReady}>
+                    <UserTray>
+                      <QuestionInput
+                        step={step}
+                        open={!answered && optionsReady}
+                        onSubmit={(v) => onAnswer(i, v)}
+                      />
+                    </UserTray>
+                  </Reveal>
                 )}
               </div>
             );
@@ -597,6 +593,10 @@ export function InquiryChat({
             </button>
           </div>
         )}
+
+        {/* 스크롤 기준 마커 — 선지 생성 시 이 지점을 채팅창 바닥에 맞춰, 선지 + '건너뛰고 바로
+            문의 남기기' 버튼까지 함께 보이도록 스크롤한다. */}
+        <div ref={optionsEndRef} aria-hidden />
 
         {/* item7 — 건너뛴 질문: 접이식 아코디언 + 미답변 표시 */}
         {contactStep && skippedKeys && skippedKeys.length > 0 && (
