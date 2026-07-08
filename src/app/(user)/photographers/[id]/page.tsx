@@ -14,6 +14,19 @@ import { HighlightsBar } from "./HighlightsBar";
 import { ProfileBackButton } from "./ProfileBackButton";
 import { MapPinIcon } from "@/components/user/icons";
 import { Avatar, Button } from "@/components/ui";
+import type { Metadata } from "next";
+import { photographerMetadata } from "@/lib/seo";
+
+// 페이지별 동적 메타 — 지역·무드·시작가로 고유 제목/설명(작가 실명은 미노출).
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const ph = await fetchPhotographerById(id);
+  return ph ? photographerMetadata(ph) : {};
+}
 
 export default async function PhotographerProfile({
   params,

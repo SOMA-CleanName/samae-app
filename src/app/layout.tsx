@@ -34,9 +34,24 @@ export const metadata: Metadata = {
     template: `%s · ${SITE_NAME}`,
   },
   description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  keywords: [
+    "samae",
+    "사매",
+    "사진작가",
+    "사진작가 매칭",
+    "스냅 촬영",
+    "프로필 사진",
+    "웨딩 스냅",
+    "커플 스냅",
+    "사진 예약",
+    "촬영 문의",
+  ],
   alternates: { canonical: "/" },
-  // Meta(Facebook) 도메인 인증 — ATT 이후 iOS 전환 측정에 필수. 정적 <head>에 렌더됨.
+  // 구글 서치 콘솔 인증 — NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION 에 토큰 넣으면 <head>에 렌더됨.
+  // Meta(Facebook) 도메인 인증 — ATT 이후 iOS 전환 측정에 필수.
   verification: {
+    google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
     other: {
       "facebook-domain-verification": "k68lrant37edz9cnuiibojjski29tw",
     },

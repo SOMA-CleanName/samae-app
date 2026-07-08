@@ -26,8 +26,22 @@ import { OwnerPhotoBackButton } from "./OwnerPhotoBackButton";
 import { AutoFavorite } from "@/components/user/AutoFavorite";
 import { PixelViewContent } from "@/components/PixelViewContent";
 import { Button } from "@/components/ui";
+import type { Metadata } from "next";
+import { photoMetadata, photoImageJsonLd } from "@/lib/seo";
+import { JsonLd } from "@/components/JsonLd";
 
 const fmt = new Intl.NumberFormat("ko-KR");
+
+// 페이지별 동적 메타 — 사진의 무드·지역·가격으로 고유 제목/설명, OG 이미지는 그 사진.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  const photo = await fetchPhotoById(id);
+  return photo ? photoMetadata(photo) : {};
+}
 
 export default async function PhotoDetail({
   params,
@@ -94,6 +108,7 @@ export default async function PhotoDetail({
 
   return (
     <main className="mx-auto max-w-5xl px-2.5 pb-2.5 pt-2.5 font-kr sm:px-4 sm:pt-4 sm:pb-4">
+      <JsonLd data={photoImageJsonLd(photo)} />
       <ScrollTop />
       <RememberFrameAspect id={photo.id} aspect={aspect} />
       {autoLike && <AutoFavorite targetType="photo" targetId={photo.id} path={`/photos/${photo.id}`} />}

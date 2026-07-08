@@ -5,8 +5,20 @@ import { fetchCategoryFeed, fetchLikedPhotoIds } from "@/lib/discovery";
 import { ExploreGallery } from "@/components/user/ExploreGallery";
 import { EmptyState } from "@/components/ui";
 import { LayersIcon } from "@/components/user/icons";
+import type { Metadata } from "next";
+import { categoryMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const category = await getPublishedCategory(safeDecode(slug));
+  return category ? categoryMetadata(category.name, slug) : {};
+}
 
 // 잘못된 인코딩(혹은 이미 디코딩된 값)이 와도 throw 없이 원본을 돌려줌
 function safeDecode(s: string): string {
@@ -43,7 +55,7 @@ export default async function CategoryPage({
           description="곧 채워질 예정이에요."
         />
       ) : (
-        <ExploreGallery photos={photos} likedIds={likedIds} loggedIn={!!me} />
+        <ExploreGallery photos={photos} likedIds={likedIds} loggedIn={!!me} spotlightFirstOnGeneral />
       )}
     </section>
   );
