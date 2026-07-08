@@ -239,40 +239,6 @@ export async function fetchSeededFeedPage(
   }));
 }
 
-// 카테고리(여러 태그)에 해당하는 공개 사진 — 태그가 하나라도 겹치면 포함, 매 요청 전체 셔플.
-export async function fetchPhotosByTags(tags: string[], limit = 300): Promise<GalleryPhoto[]> {
-  if (!tags || tags.length === 0) return [];
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("photos")
-    .select(
-      "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name)"
-    )
-    .eq("visibility", "published")
-    .overlaps("mood_tags", tags)
-    .limit(500);
-
-  const rows = (data ?? []) as unknown as GalleryPhoto[];
-  // 매칭 사진 전체를 셔플 → 방문마다 다른 순서 (탐색 메인과 동일)
-  return shuffle(rows).slice(0, limit);
-}
-
-// 임시: 태그(mood_tags)가 비어 있는 공개 사진 — 미태그 카테고리 랜딩용.
-export async function fetchUntaggedPhotos(limit = 300): Promise<GalleryPhoto[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("photos")
-    .select(
-      "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name)"
-    )
-    .eq("visibility", "published")
-    .eq("mood_tags", "{}")
-    .order("created_at", { ascending: false })
-    .limit(500);
-  // 점수 구분이 없으니 전체 셔플 → 매 방문 랜덤 순서 (탐색 메인과 동일)
-  return shuffle((data ?? []) as unknown as GalleryPhoto[]).slice(0, limit);
-}
-
 // 카테고리 피드 — 카테고리 매칭 사진을 먼저, 그 다음 나머지 공개 사진 전체를 이어붙인다.
 // (카테고리 페이지/메인 카테고리 모드에서 무한스크롤로 결국 모든 사진이 나오도록.
 //  매칭 우선이라 상단은 카테고리 알고리즘, 하단은 그 외 전체.)
@@ -1022,42 +988,6 @@ export async function fetchAlbumPhotos(
   }[];
 }
 
-// 작가 총 찜 수 (공개 집계 함수 경유) — 관심 작가 통계용
-export async function fetchPhotographerFavoriteCount(photographerId: string): Promise<number> {
-  const supabase = await createClient();
-  const { data } = await supabase.rpc("photographer_favorite_count", {
-    pid: photographerId,
-  });
-  return typeof data === "number" ? data : 0;
-}
-
-// 사진 총 좋아요 수 (공개 집계 함수 경유) — 사진 상세 하트 옆 표기
-export async function fetchPhotoLikeCount(photoId: string): Promise<number> {
-  const supabase = await createClient();
-  const { data } = await supabase.rpc("photo_like_count", { pid: photoId });
-  return typeof data === "number" ? data : 0;
-}
-
-// 내가 이 대상을 찜/좋아요 했는지 (본인 favorites 행, 비로그인 false)
-export async function isFavorited(
-  targetType: "photographer" | "photo",
-  targetId: string
-): Promise<boolean> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return false;
-  const { data } = await supabase
-    .from("favorites")
-    .select("id")
-    .eq("profile_id", user.id)
-    .eq("target_type", targetType)
-    .eq("target_id", targetId)
-    .maybeSingle();
-  return !!data;
-}
-
 // 내가 좋아요한 사진들 (좋아요 최신순) — 찜 화면 '좋아요한 사진' 탭
 export async function fetchMyLikedPhotos(profileId: string): Promise<GalleryPhoto[]> {
   const supabase = await createClient();
@@ -1082,49 +1012,6 @@ export async function fetchMyLikedPhotos(profileId: string): Promise<GalleryPhot
   const rows = (data ?? []) as unknown as GalleryPhoto[];
   const byId = new Map(rows.map((r) => [r.id, r]));
   return ids.map((id) => byId.get(id)).filter((p): p is GalleryPhoto => !!p);
-}
-
-// 사진 상세 2단계 랜덤 추천 — 같은 무드 우선, 본인 사진/같은 작가 제외, 셔플.
-export async function fetchRandomRecommendations(
-  photoId: string,
-  moodTags: string[],
-  excludePhotographerId: string,
-  limit = 8
-): Promise<GalleryPhoto[]> {
-  const supabase = await createClient();
-  let q = supabase
-    .from("photos")
-    .select(
-      "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name)"
-    )
-    .eq("visibility", "published")
-    .neq("id", photoId)
-    .neq("photographer_id", excludePhotographerId)
-    .limit(40);
-  // 같은 무드가 있으면 우선 필터
-  if (moodTags.length > 0) q = q.overlaps("mood_tags", moodTags);
-
-  let rows = ((await q).data ?? []) as unknown as GalleryPhoto[];
-  // 같은 무드 결과가 없으면 무드 무시하고 재조회
-  if (rows.length === 0 && moodTags.length > 0) {
-    const { data } = await supabase
-      .from("photos")
-      .select(
-        "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name)"
-      )
-      .eq("visibility", "published")
-      .neq("id", photoId)
-      .neq("photographer_id", excludePhotographerId)
-      .limit(40);
-    rows = (data ?? []) as unknown as GalleryPhoto[];
-  }
-
-  // 셔플 후 limit (요청마다 랜덤)
-  for (let i = rows.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [rows[i], rows[j]] = [rows[j], rows[i]];
-  }
-  return rows.slice(0, limit);
 }
 
 // 작가 id로 공개 프로필 (승인된 작가만)

@@ -181,24 +181,3 @@ export async function setHighlightOrder(orderedIds: string[]) {
 }
 
 // 하이라이트 순서 한 칸 이동 (레거시 — 신규 UI는 setHighlightOrder 사용)
-export async function reorderHighlight(formData: FormData) {
-  const phId = await requirePhotographerId();
-  const id = String(formData.get("id"));
-  const dir = String(formData.get("dir")); // "up" | "down"
-  const admin = createAdminClient();
-
-  const { data: list } = await admin
-    .from("highlights")
-    .select("id")
-    .eq("photographer_id", phId)
-    .order("sort_order", { ascending: true });
-  const arr = (list ?? []).map((h) => h.id as string);
-  const idx = arr.indexOf(id);
-  const swap = dir === "up" ? idx - 1 : idx + 1;
-  if (idx === -1 || swap < 0 || swap >= arr.length) return;
-  [arr[idx], arr[swap]] = [arr[swap], arr[idx]];
-  await Promise.all(
-    arr.map((hid, i) => admin.from("highlights").update({ sort_order: i }).eq("id", hid))
-  );
-  revalidateHighlightViews();
-}

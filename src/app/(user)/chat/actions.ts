@@ -5,7 +5,6 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
-import { getOrCreateConversation } from "@/lib/conversations";
 import { getPhotographerPayoutAccount, type PayoutAccount } from "@/lib/payments";
 import { archiveAndDelete } from "@/lib/soft-delete";
 
@@ -25,14 +24,6 @@ export async function getBookingPayoutAccount(bookingId: string): Promise<Payout
   if (!booking || booking.user_id !== me.id) return null; // 고객 본인만
   if (!PAYOUT_VISIBLE_STATUSES.includes(booking.status as string)) return null;
   return getPhotographerPayoutAccount(booking.photographer_id as string);
-}
-
-// 작가에게 채팅 시작 — 기존 진입점 호환용. 신규 CTA는 문의 폼을 먼저 거친다.
-export async function startConversation(formData: FormData) {
-  const photographerId = String(formData.get("photographerId"));
-  const photoId = String(formData.get("photoId") || "");
-  const conversationId = await getOrCreateConversation(photographerId, photoId);
-  redirect(`/chat/${conversationId}`);
 }
 
 // 텍스트 메시지 전송 (RLS: 발신자=본인 + 대화 참여자)

@@ -93,19 +93,6 @@ export async function getFeeByBooking(bookingId: string): Promise<FeeRow | null>
   return (data as unknown as FeeRow) ?? null;
 }
 
-// 내 수수료 원장 (RLS: 작가 본인)
-export async function listMyFees(): Promise<FeeRow[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("platform_fees")
-    .select(
-      "id, booking_id, fee_krw, status, period, accrued_at, paid_at, " +
-        "booking:bookings(shoot_at, user:profiles!bookings_user_id_fkey(display_name))"
-    )
-    .order("accrued_at", { ascending: false });
-  return (data ?? []) as unknown as FeeRow[];
-}
-
 // 예약 구매자에게 작가 수취 계좌 노출.
 // 호출자가 이 예약의 참여자일 때만(= booking 이 RLS 로 보일 때만) 계좌를 반환한다.
 // 계좌 자체는 소유자만 RLS 조회 가능하므로 admin 으로 읽되, 노출 게이트는 위 검증이 담당.
