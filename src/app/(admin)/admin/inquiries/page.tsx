@@ -166,7 +166,12 @@ export default async function AdminInquiriesPage({
             작가 수락 → 입금대기 → 입금확인 시 고객 연락처가 작가에게 공개돼요.
           </p>
         </div>
-        <PasswordReset action={clearInquiries} label="문의 초기화" />
+        <PasswordReset
+          action={clearInquiries}
+          label="문의 초기화"
+          count={all.length}
+          warning="모든 문의가 삭제돼요. 되돌릴 수 없어요(백업은 보관)."
+        />
       </div>
 
       {/* 리드 수익 집계 — 입금 확인 누계 vs 입금 대기(미수금) */}

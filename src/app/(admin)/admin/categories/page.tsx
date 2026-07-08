@@ -3,6 +3,7 @@ import { listCategoriesWithCounts, fetchAdCandidates, isUntaggedCategory } from 
 import { listAllTags } from "@/lib/tags";
 import { Badge, EmptyState } from "@/components/ui";
 import { SubmitButton } from "@/components/ui/SubmitButton";
+import { ConfirmForm } from "@/components/admin/ConfirmForm";
 import { LayersIcon } from "@/components/user/icons";
 import { CategoryFields } from "./CategoryFields";
 import { CategoryAdPicker } from "./CategoryAdPicker";
@@ -124,15 +125,16 @@ export default async function AdminCategoriesPage() {
                     </SubmitButton>
                   </div>
                 </form>
-                <form
+                <ConfirmForm
                   action={deleteCategory}
+                  message={`"${c.name}" 카테고리를 삭제할까요? 되돌릴 수 없어요(백업은 보관).`}
                   className="mt-2"
                 >
                   <input type="hidden" name="id" value={c.id} />
                   <SubmitButton pendingText="삭제 중…" className="cursor-pointer text-caption font-medium text-danger hover:underline disabled:opacity-50">
                     카테고리 삭제
                   </SubmitButton>
-                </form>
+                </ConfirmForm>
               </details>
             </li>
           ))}

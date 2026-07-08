@@ -21,7 +21,11 @@ export function AnalyticsChrome({ active, data }: { active: string; data: Analyt
             손님들이 어떤 사진을 보고 어디서 떠나는지 — 작가·관리자 본인 방문은 빼고 집계해요.
           </p>
         </div>
-        <PasswordReset action={clearAnalytics} label="데이터 초기화" />
+        <PasswordReset
+          action={clearAnalytics}
+          label="데이터 초기화"
+          warning="수집된 방문·행동 로그가 모두 삭제돼요. 되돌릴 수 없어요(백업은 보관)."
+        />
       </div>
 
       {/* 기간 */}
