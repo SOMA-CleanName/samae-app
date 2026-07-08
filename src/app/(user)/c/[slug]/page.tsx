@@ -44,7 +44,11 @@ export default async function CategoryPage({
   if (!category) notFound();
 
   // 카테고리 매칭 사진 먼저 + 나머지 전체 → 무한스크롤로 결국 모든 사진 노출
-  const photos = await fetchCategoryFeed(category.tags, isUntaggedCategory(category.tags));
+  const photos = await fetchCategoryFeed(
+    category.tags,
+    isUntaggedCategory(category.tags),
+    category.orderedPhotoIds
+  );
   const likedIds = me ? await fetchLikedPhotoIds(photos.map((p) => p.id), me.id) : [];
 
   return (

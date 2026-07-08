@@ -83,6 +83,26 @@ export async function setCategoryAdPhotos(formData: FormData) {
   revalidatePath("/admin/categories");
 }
 
+// 카테고리 사진 '고정 순서' 저장 — 첫 진입 시 상단에 이 순서대로 노출
+export async function setCategoryPhotoOrder(formData: FormData) {
+  await assertAdmin();
+  const id = String(formData.get("id"));
+  const slug = String(formData.get("slug") ?? "");
+  const ids = [
+    ...new Set(
+      String(formData.get("orderedIds") ?? "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    ),
+  ];
+  const admin = createAdminClient();
+  const { error } = await admin.from("categories").update({ ordered_photo_ids: ids }).eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/categories");
+  if (slug) revalidatePath(`/c/${slug}`);
+}
+
 // 공개/비공개 토글
 export async function toggleCategoryPublished(formData: FormData) {
   await assertAdmin();
