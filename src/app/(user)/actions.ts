@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { mpTrackServer } from "@/lib/mixpanel-server";
 
 // 찜/좋아요 토글 (작가=관심 작가, 사진=좋아요). 비로그인이면 로그인으로.
 export async function toggleFavorite(formData: FormData) {
@@ -34,6 +35,12 @@ export async function toggleFavorite(formData: FormData) {
       .from("favorites")
       .insert({ profile_id: user.id, target_type: targetType, target_id: targetId });
   }
+
+  await mpTrackServer("Toggle Favorite", user.id, {
+    target_type: targetType,
+    target_id: targetId,
+    action: existing ? "remove" : "add",
+  });
 
   if (path) revalidatePath(path);
   revalidatePath("/favorites");
@@ -69,6 +76,12 @@ export async function togglePhotoLike(
       .insert({ profile_id: user.id, target_type: "photo", target_id: photoId });
     liked = true;
   }
+
+  await mpTrackServer("Toggle Favorite", user.id, {
+    target_type: "photo",
+    target_id: photoId,
+    action: liked ? "add" : "remove",
+  });
 
   // 재검증 없음 — revalidatePath 는 라우터 캐시를 무효화해 현재 홈까지 새로고침/셔플시킴.
   // 찜 목록(/favorites)은 동적 페이지라 다음 방문 시 새로 로드된다.

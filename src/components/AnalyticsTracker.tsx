@@ -2,7 +2,19 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
-import { mpRegister, mpTrack } from "@/lib/mixpanel";
+import { mpRegister, mpPeopleOnce, mpTrack } from "@/lib/mixpanel";
+
+// 배포 환경 판별(클라이언트) — 테스트/프리뷰 트래픽을 리포트에서 걸러내기 위한 슈퍼속성.
+function appEnv(): "production" | "preview" | "development" {
+  try {
+    const h = window.location.hostname;
+    if (h === "samae.ai" || h === "www.samae.ai") return "production";
+    if (h.endsWith(".vercel.app")) return "preview";
+  } catch {
+    /* 무시 */
+  }
+  return "development";
+}
 
 // 행동 분석 트래커 — 페이지뷰(라우트 변경) + 전역 클릭(모든 a/button/CTA) 자동 수집.
 // 버튼마다 개별 계측 없이 위임 캡처로 "모든 액션"을 잡는다.
@@ -140,7 +152,14 @@ export function AnalyticsTracker() {
       if (!mpRegistered.current) {
         mpRegistered.current = true;
         const { utm, landing_path } = attribution();
-        mpRegister({ ...utm, landing_path });
+        // 슈퍼속성(이후 모든 이벤트에 첨부) + first-touch 유입원인(people, 최초 1회만)
+        mpRegister({ ...utm, landing_path, app_env: appEnv() });
+        mpPeopleOnce({
+          first_utm_source: utm.utm_source,
+          first_utm_medium: utm.utm_medium,
+          first_utm_campaign: utm.utm_campaign,
+          first_landing_path: landing_path,
+        });
       }
       enqueue({ type: "pageview", path: pathname, referrer: prevPath.current });
     }

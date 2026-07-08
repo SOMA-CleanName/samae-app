@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { archiveAndDelete } from "@/lib/soft-delete";
+import { mpTrackServer } from "@/lib/mixpanel-server";
 
 // 피드 생성 — 같이 올린 사진들을 한 피드로 묶는다. album id 반환.
 // (1장만 올려도 피드 1개. 프로필 그리드에선 대표 1장만 보이고 클릭 시 스와이프)
@@ -19,6 +20,15 @@ export async function createPost(description?: string): Promise<{ id: string }> 
     .select("id")
     .single();
   if (error) throw new Error(error.message);
+
+  // 포트폴리오 게시물 생성 — 작가(공급) 온보딩 퍼널. 사진은 이후 개별 업로드됨.
+  await mpTrackServer(
+    "Upload Portfolio",
+    me.id,
+    { album_id: data.id },
+    `Upload Portfolio:${data.id}`,
+  );
+
   return { id: data.id as string };
 }
 

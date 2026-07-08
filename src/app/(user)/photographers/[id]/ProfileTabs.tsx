@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
+import { mpTrack } from "@/lib/mixpanel";
 import { PortfolioGrid, type PortfolioPost } from "./PortfolioGrid";
 
 export type ProfilePkg = {
@@ -27,6 +28,14 @@ export function ProfileTabs({
   viewer: { isOwner: boolean; photographerId: string };
 }) {
   const [tab, setTab] = useState<"portfolio" | "packages">("portfolio");
+
+  // 작가 프로필 조회 — 본인 조회는 noise 라 제외. 마운트당 1회.
+  const viewFired = useRef(false);
+  useEffect(() => {
+    if (viewer.isOwner || viewFired.current) return;
+    viewFired.current = true;
+    mpTrack("View Photographer", { photographer_id: viewer.photographerId });
+  }, [viewer.isOwner, viewer.photographerId]);
 
   return (
     <div>

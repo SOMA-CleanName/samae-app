@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { mpTrack } from "@/lib/mixpanel";
 
 // 작가 검색 입력 — 제출 시 ?q= 로 탐색 홈 이동
 export function SearchBox({ initial = "" }: { initial?: string }) {
@@ -11,6 +12,7 @@ export function SearchBox({ initial = "" }: { initial?: string }) {
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     const v = q.trim();
+    if (v) mpTrack("Search", { query: v });
     router.push(v ? `/?q=${encodeURIComponent(v)}` : "/");
   }
 

@@ -9,10 +9,12 @@ import { mpTrack } from "@/lib/mixpanel";
 export function PixelViewContent({
   id,
   name,
+  photographerId,
   disabled = false,
 }: {
   id: string;
   name?: string;
+  photographerId?: string;
   disabled?: boolean;
 }) {
   const fired = useRef(false);
@@ -24,7 +26,10 @@ export function PixelViewContent({
       content_type: "product",
       content_name: name,
     });
-    mpTrack("View Photo", { photo_id: id });
-  }, [id, name, disabled]);
+    mpTrack("View Photo", {
+      photo_id: id,
+      ...(photographerId ? { photographer_id: photographerId } : {}),
+    });
+  }, [id, name, photographerId, disabled]);
   return null;
 }

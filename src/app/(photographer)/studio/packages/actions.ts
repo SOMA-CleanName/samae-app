@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth";
 import { archiveAndDelete } from "@/lib/soft-delete";
+import { mpTrackServer } from "@/lib/mixpanel-server";
 
 // 호출자의 작가 id 확보 (없으면 에러)
 async function requirePhotographerId(): Promise<string> {
@@ -48,18 +49,32 @@ function parsePackage(formData: FormData) {
 
 // 패키지 생성
 export async function createPackage(formData: FormData) {
-  const photographerId = await requirePhotographerId();
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가만 사용할 수 있습니다.");
+  const photographerId = me.photographer.id;
   const v = parsePackage(formData);
   const supabase = await createClient();
-  const { error } = await supabase.from("packages").insert({
-    photographer_id: photographerId,
-    name: v.name,
-    description: v.description,
-    price_krw: v.priceKrw,
-    duration_min: v.durationMin,
-    edited_count: v.editedCount,
-  });
+  const { data: created, error } = await supabase
+    .from("packages")
+    .insert({
+      photographer_id: photographerId,
+      name: v.name,
+      description: v.description,
+      price_krw: v.priceKrw,
+      duration_min: v.durationMin,
+      edited_count: v.editedCount,
+    })
+    .select("id")
+    .single();
   if (error) throw new Error(error.message);
+
+  await mpTrackServer(
+    "Create Package",
+    me.id,
+    { package_id: created?.id, price_krw: v.priceKrw, duration_min: v.durationMin },
+    created?.id ? `Create Package:${created.id}` : undefined,
+  );
+
   revalidatePath("/studio/packages");
 }
 

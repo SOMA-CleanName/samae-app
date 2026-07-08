@@ -250,6 +250,18 @@ export function InquiryChat({
   const optionsEndRef = useRef<HTMLDivElement>(null); // 선지+건너뛰기 하단 — 생성 시 채팅창 바닥에 맞춤
   const started = useRef(false);
 
+  // 문의 위저드 진입 — 마운트당 1회 (문의 시작 → 제출 전환율 측정)
+  const startFired = useRef(false);
+  useEffect(() => {
+    if (startFired.current) return;
+    startFired.current = true;
+    mpTrack("Start Inquiry", {
+      source: multi ? "cart" : "photo",
+      photographer_id: photographerId,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const storageKey = multi
     ? `samae:inquiry:cart:${(photoIds ?? []).slice(0, 3).join("_")}`
     : inquiryStorageKey(photoId, photographerId);
@@ -364,7 +376,12 @@ export function InquiryChat({
     if (leadFiredFor.current !== state.inquiryId) {
       leadFiredFor.current = state.inquiryId;
       window.fbq?.("track", "Lead", {}, { eventID: `inquiry_${state.inquiryId}` });
-      mpTrack("Submit Inquiry", { inquiry_id: state.inquiryId });
+      mpTrack("Submit Inquiry", {
+        inquiry_id: state.inquiryId,
+        source: multi ? "cart" : "photo",
+        photographer_id: photographerId,
+        item_count: multi ? photoIds?.length ?? 1 : 1,
+      });
     }
   }, [state.ok, state.inquiryId]);
 

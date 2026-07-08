@@ -253,8 +253,10 @@ export function FloatingCart() {
     fired.current = true;
     if (state.leadId) {
       window.fbq?.("track", "Lead", {}, { eventID: `inquiry_${state.leadId}` });
-      mpTrack("Submit Inquiry", { inquiry_id: state.leadId });
+      mpTrack("Submit Inquiry", { inquiry_id: state.leadId, source: "cart", item_count: N });
     }
+    // N(장바구니 수)은 제출 시점 값을 그대로 기록하면 됨 — fired 가드로 1회만 발화.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.ok, state.leadId]);
 
   const clampTop = (t: number) => Math.min(Math.max(80, t), window.innerHeight - 150);

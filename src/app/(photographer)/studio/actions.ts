@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
+import { mpTrackServer } from "@/lib/mixpanel-server";
 
 // 최저가·가격 상한 (350만원)
 const MAX_PRICE_KRW = 100_000_000; // 사실상 무제한(안전값 1억)
@@ -229,13 +230,24 @@ export async function acceptInquiry(formData: FormData) {
   const id = String(formData.get("id"));
 
   const admin = createAdminClient();
-  const { error } = await admin
+  const { data: moved, error } = await admin
     .from("inquiries")
     .update({ status: "accepted", accepted_at: new Date().toISOString() })
     .eq("id", id)
     .eq("photographer_id", me.photographer.id)
-    .eq("status", "new");
+    .eq("status", "new")
+    .select("id");
   if (error) throw new Error(error.message);
+
+  // 실제 전이됐을 때만 — 작가(공급) 타임라인에 리드 해제 기록
+  if (moved && moved.length > 0) {
+    await mpTrackServer(
+      "Unlock Lead",
+      me.id,
+      { inquiry_id: id, photographer_id: me.photographer.id },
+      `Unlock Lead:${id}`,
+    );
+  }
 
   // 해당 문의의 '수락 대기' 알림 읽음 처리 (알림함에서 사라지게)
   await admin
@@ -279,6 +291,16 @@ export async function unlockInquiries(ids: string[]): Promise<{ ok: boolean; cou
       .eq("recipient_id", me.id)
       .eq("type", "booking")
       .in("inquiry_id", unlockedIds);
+
+    // 다건 해제 — 건별로 작가(공급) 타임라인에 기록
+    for (const uid of unlockedIds) {
+      await mpTrackServer(
+        "Unlock Lead",
+        me.id,
+        { inquiry_id: uid, photographer_id: me.photographer.id, bulk: true },
+        `Unlock Lead:${uid}`,
+      );
+    }
   }
 
   revalidatePath("/studio");

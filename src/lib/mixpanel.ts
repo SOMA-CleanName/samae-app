@@ -60,6 +60,26 @@ export function mpIdentify(id: string, props?: Record<string, unknown>): void {
   }
 }
 
+/** 유저 프로필 속성 갱신(people.set) — role·작가상태 등 최신값. */
+export function mpPeople(props: Record<string, unknown>): void {
+  if (!ensure()) return;
+  try {
+    mixpanel.people.set(props);
+  } catch {
+    /* 무시 */
+  }
+}
+
+/** 최초값만 기록(people.set_once) — first-touch UTM 등 유입 원인 보존. */
+export function mpPeopleOnce(props: Record<string, unknown>): void {
+  if (!ensure()) return;
+  try {
+    mixpanel.people.set_once(props);
+  } catch {
+    /* 무시 */
+  }
+}
+
 /** 로그아웃 — 익명 distinct_id 로 초기화(유저 혼입 방지). */
 export function mpReset(): void {
   if (!ready || !TOKEN) return;

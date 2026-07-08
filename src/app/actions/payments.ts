@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { confirmBankTransfer, waiveFee, ensureTransferRecord } from "@/lib/payments";
 import { DELIVERY_BUCKET, signDeliveryAssets } from "@/lib/deliveries";
+import { mpTrackServer } from "@/lib/mixpanel-server";
 
 // 알림 헬퍼 (service_role)
 async function notify(
@@ -98,6 +99,14 @@ export async function markTransferSent(formData: FormData) {
     "💸 송금을 완료했어요. 작가님의 입금 확인을 기다립니다."
   );
 
+  // 고객의 결제 의사(송금) 신호 — 매출 확정(Confirm Payment) 직전 단계.
+  await mpTrackServer(
+    "Mark Transfer Sent",
+    b.user_id,
+    { booking_id: id, photographer_id: b.photographer_id, amount_krw: b.amount_krw },
+    `Mark Transfer Sent:${id}`,
+  );
+
   revalidateBooking(id);
 }
 
@@ -110,6 +119,22 @@ export async function confirmTransfer(formData: FormData) {
 
   const result = await confirmBankTransfer(id, me.photographer.id);
   if (!result.ok) throw new Error("처리할 수 없는 상태입니다.");
+
+  // ★ 매출 확정(paid) — 고객 타임라인에 귀속. 멱등이라 $insert_id 로 중복 제거.
+  const admin = createAdminClient();
+  const { data: paid } = await admin
+    .from("bookings")
+    .select("user_id, amount_krw")
+    .eq("id", id)
+    .single();
+  if (paid) {
+    await mpTrackServer(
+      "Confirm Payment",
+      paid.user_id,
+      { booking_id: id, photographer_id: me.photographer.id, amount_krw: paid.amount_krw },
+      `Confirm Payment:${id}`,
+    );
+  }
 
   revalidateBooking(id);
   revalidatePath("/studio/settlements");
@@ -132,6 +157,14 @@ export async function markShot(formData: FormData) {
   if (!moved || moved.length === 0) throw new Error("처리할 수 없는 상태입니다.");
 
   await notify(admin, moved[0].user_id, "촬영이 완료됐어요", "보정본 전달을 기다려주세요.", `/bookings/${id}`);
+
+  await mpTrackServer(
+    "Shoot Completed",
+    moved[0].user_id,
+    { booking_id: id, photographer_id: me.photographer.id },
+    `Shoot Completed:${id}`,
+  );
+
   revalidateBooking(id);
 }
 
@@ -150,7 +183,7 @@ export async function deliverFinals(formData: FormData) {
   // 소유 + 결제 이후 단계만
   const { data: b } = await admin
     .from("bookings")
-    .select("id, status, user_id, photographer_id")
+    .select("id, status, user_id, photographer_id, amount_krw")
     .eq("id", id)
     .single();
   if (!b || b.photographer_id !== me.photographer.id) throw new Error("권한이 없습니다.");
@@ -201,6 +234,14 @@ export async function deliverFinals(formData: FormData) {
     "보정본이 전달됐어요",
     "보정본을 확인하고 후기를 남겨주세요.",
     `/bookings/${id}`
+  );
+
+  // 거래 완료(completed) — 후기 유도 시작점. confirmCompletion 과 동일 $insert_id 로 중복 제거.
+  await mpTrackServer(
+    "Complete Booking",
+    b.user_id,
+    { booking_id: id, photographer_id: b.photographer_id, amount_krw: b.amount_krw },
+    `Complete Booking:${id}`,
   );
 
   revalidateBooking(id);
@@ -325,6 +366,14 @@ export async function confirmCompletion(formData: FormData) {
     .eq("id", moved[0].photographer_id)
     .single();
   if (ph) await notify(admin, ph.profile_id, "거래가 완료됐어요", "고객이 전달을 확인했습니다.", `/bookings/${id}`);
+
+  await mpTrackServer(
+    "Complete Booking",
+    me.id,
+    { booking_id: id, photographer_id: moved[0].photographer_id },
+    `Complete Booking:${id}`,
+  );
+
   revalidateBooking(id);
 }
 
@@ -410,6 +459,18 @@ export async function refundBooking(formData: FormData) {
     refundedByBuyer
       ? "↩️ 환불이 신청되었어요. 작가가 환불 금액을 직접 송금해드립니다."
       : "↩️ 환불이 처리되었어요. 작가가 환불 금액을 직접 송금해드립니다."
+  );
+
+  await mpTrackServer(
+    "Refund Booking",
+    b.user_id,
+    {
+      booking_id: id,
+      photographer_id: b.photographer_id,
+      amount_krw: payment?.amount_krw,
+      actor: refundedByBuyer ? "customer" : "admin",
+    },
+    `Refund Booking:${id}`,
   );
 
   revalidateBooking(id);
