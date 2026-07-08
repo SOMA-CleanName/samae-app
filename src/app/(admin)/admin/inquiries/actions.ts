@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { archiveAllAndDelete } from "@/lib/soft-delete";
+import { archiveAllAndDelete, archiveAndDelete } from "@/lib/soft-delete";
 import { verifyResetPassword } from "@/lib/admin-reset";
 
 const VALID = ["new", "accepted", "confirmed", "shot", "refund_requested"];
@@ -27,6 +27,32 @@ export async function clearInquiries(_prev: ResetState, formData: FormData): Pro
   if (error) return { error };
   revalidatePath("/admin/inquiries");
   return { ok: true };
+}
+
+// 선택한 문의만 삭제 — 삭제 모드. 운영자 + 비밀번호 + 선택 id 목록.
+export async function deleteInquiriesSelected(_prev: ResetState, formData: FormData): Promise<ResetState> {
+  const me = await getCurrentUser();
+  if (!me || me.role !== "admin") return { error: "운영자 권한이 필요합니다." };
+  const pw = verifyResetPassword(formData.get("password"));
+  if (pw.error) return { error: pw.error };
+
+  const ids = parseIds(formData.get("ids"));
+  if (ids.length === 0) return { error: "선택된 문의가 없어요." };
+
+  const { error } = await archiveAndDelete("inquiries", { col: "id", op: "in", val: ids }, me.id);
+  if (error) return { error };
+  revalidatePath("/admin/inquiries");
+  return { ok: true };
+}
+
+// FormData 의 ids(JSON 문자열 배열) 파싱 — 안전하게 문자열 배열로.
+function parseIds(raw: FormDataEntryValue | null): string[] {
+  try {
+    const arr = JSON.parse(String(raw ?? "[]"));
+    return Array.isArray(arr) ? arr.map(String) : [];
+  } catch {
+    return [];
+  }
 }
 
 // 문의 상태 직접 변경 — 운영자 정리용

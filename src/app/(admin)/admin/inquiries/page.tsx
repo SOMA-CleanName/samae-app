@@ -4,10 +4,10 @@ import { getPlatformAccount, hasAccount } from "@/lib/platform-account";
 import { EmptyState } from "@/components/ui";
 import { ClipboardIcon } from "@/components/user/icons";
 import { cn } from "@/lib/cn";
-import { updatePlatformAccount, clearInquiries } from "./actions";
+import { updatePlatformAccount, clearInquiries, deleteInquiriesSelected } from "./actions";
 import { AdminInquiries, type InquiryRow, type Stage } from "./AdminInquiries";
 import { PhotographerFilter } from "./PhotographerFilter";
-import { PasswordReset } from "@/components/admin/PasswordReset";
+import { DeleteModeProvider, DeleteModeToolbar } from "@/components/admin/DeleteMode";
 
 export const dynamic = "force-dynamic";
 
@@ -159,6 +159,7 @@ export default async function AdminInquiriesPage({
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-5">
+     <DeleteModeProvider>
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-h1 font-semibold">입금·문의 관리</h1>
@@ -166,11 +167,12 @@ export default async function AdminInquiriesPage({
             작가 수락 → 입금대기 → 입금확인 시 고객 연락처가 작가에게 공개돼요.
           </p>
         </div>
-        <PasswordReset
-          action={clearInquiries}
-          label="문의 초기화"
-          count={all.length}
-          warning="모든 문의가 삭제돼요. 되돌릴 수 없어요(백업은 보관)."
+        <DeleteModeToolbar
+          clearAction={clearInquiries}
+          deleteSelectedAction={deleteInquiriesSelected}
+          allIds={rows.map((r) => r.id)}
+          clearWarning="모든 문의가 삭제돼요. 되돌릴 수 없어요(백업은 보관)."
+          entityLabel="건"
         />
       </div>
 
@@ -219,6 +221,7 @@ export default async function AdminInquiriesPage({
       ) : (
         <AdminInquiries rows={rows} />
       )}
+     </DeleteModeProvider>
     </main>
   );
 }
