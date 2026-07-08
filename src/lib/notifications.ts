@@ -59,13 +59,3 @@ export async function listMyNotifications(): Promise<AppNotification[]> {
     );
 }
 
-// 안읽은 알림 수 (채팅 제외) — 사이드바 배지
-export async function countUnreadNotifications(): Promise<number> {
-  const supabase = await createClient();
-  const { count } = await supabase
-    .from("notifications")
-    .select("id", { count: "exact", head: true })
-    .neq("type", "chat")
-    .is("read_at", null);
-  return count ?? 0;
-}

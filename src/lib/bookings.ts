@@ -79,21 +79,6 @@ export async function listMyBookings(): Promise<BookingRow[]> {
   return rows;
 }
 
-// 진행 중(종료 안 된) 예약 상태 — 사이드바 배지 집계용
-const ACTIVE_STATUSES: BookingStatus[] = [
-  "requested", "accepted", "paid", "shot", "delivered",
-];
-
-// 진행 중 예약 개수 (RLS: 구매자 또는 해당 작가) — 사이드바 '예약' 배지
-export async function countActiveBookings(): Promise<number> {
-  const supabase = await createClient();
-  const { count } = await supabase
-    .from("bookings")
-    .select("id", { count: "exact", head: true })
-    .in("status", ACTIVE_STATUSES);
-  return count ?? 0;
-}
-
 // 예약 1건
 export async function getBooking(id: string): Promise<BookingRow | null> {
   const supabase = await createClient();
