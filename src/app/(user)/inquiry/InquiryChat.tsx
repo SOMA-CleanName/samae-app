@@ -625,9 +625,9 @@ export function InquiryChat({
         )}
 
         {/* 하단 여백 스페이서 — 선지가 접힐 때 콘텐츠가 짧아져도 스크롤이 위로 튕기지(clamp) 않게
-            버퍼를 상시 확보. 이게 있어야 선지 접힘 시 위 채팅들이 아래로 안 내려온다.
-            (선지 최대 높이보다 충분히 큰 값) */}
-        <div aria-hidden className="h-[65vh]" />
+            버퍼를 상시 확보(선지 최대 높이보다 큼). 연락처·완료 단계에선 불필요(빈공간만 크게
+            남음)해서 제외한다. */}
+        {!contactStep && !done && <div aria-hidden className="h-[65vh]" />}
         <div ref={bottomRef} />
       </div>
 
@@ -812,10 +812,13 @@ function ContactBlock({
         이 작가에게만 전달돼요 · 스팸·마케팅 발송 없음
       </p>
 
-      {type && active && (
-        <div className="mt-3">
-          <input
-            ref={inputRef}
+      {/* 입력 영역 공간을 선택 전에도 미리 확보 — 종류 선택 시 입력창·버튼이 생겨도 영역이
+          커지며 아래가 밀리지 않게(질문 등장 시점부터 여백을 잡아둠). */}
+      <div className="mt-3 min-h-[184px]">
+        {type && active && (
+          <>
+            <input
+              ref={inputRef}
             type="text"
             value={val}
             onChange={(e) => handleChange(e.target.value)}
@@ -861,9 +864,10 @@ function ContactBlock({
             </Link>
             에 동의하는 것으로 간주됩니다.
           </p>
-          <div ref={endRef} />
-        </div>
-      )}
+            <div ref={endRef} />
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -1381,8 +1385,9 @@ function SentBubble({ children, muted }: { children: React.ReactNode; muted?: bo
 }
 
 function TypingBubble() {
+  // 높이·패딩을 SystemBubble(px-3.5 py-2.5 text-[17px] leading-relaxed, 약 2.9rem)과 맞춤
   return (
-    <div className="mr-auto flex max-w-[88%] items-center gap-1 rounded-2xl rounded-tl-md bg-surface-2 px-4 py-3">
+    <div className="mr-auto flex min-h-[2.9rem] max-w-[88%] items-center gap-1 rounded-2xl rounded-tl-md bg-surface-2 px-3.5 py-2.5">
       <Dot /> <Dot /> <Dot />
     </div>
   );
