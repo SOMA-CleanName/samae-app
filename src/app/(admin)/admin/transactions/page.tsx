@@ -101,7 +101,12 @@ export default async function AdminTransactionsPage({
           <h1 className="text-h1 font-semibold">거래·정산</h1>
           <p className="mt-1 text-body-sm text-muted">예약 거래 흐름과 작가 정산 현황이에요.</p>
         </div>
-        <PasswordReset action={clearTransactions} label="거래·정산 초기화" />
+        <PasswordReset
+          action={clearTransactions}
+          label="거래·정산 초기화"
+          count={bookings.length}
+          warning="거래·결제·정산·수수료가 모두 삭제돼요. 되돌릴 수 없어요(백업은 보관)."
+        />
       </div>
 
       {/* 요약 */}
