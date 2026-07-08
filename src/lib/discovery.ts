@@ -276,31 +276,47 @@ export async function fetchUntaggedPhotos(limit = 300): Promise<GalleryPhoto[]> 
 // 카테고리 피드 — 카테고리 매칭 사진을 먼저, 그 다음 나머지 공개 사진 전체를 이어붙인다.
 // (카테고리 페이지/메인 카테고리 모드에서 무한스크롤로 결국 모든 사진이 나오도록.
 //  매칭 우선이라 상단은 카테고리 알고리즘, 하단은 그 외 전체.)
+const CATEGORY_SELECT =
+  "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name)";
+
 export async function fetchCategoryFeed(tags: string[], untagged = false): Promise<GalleryPhoto[]> {
   const supabase = await createClient();
-  const { data } = await supabase
+
+  // untagged(캐치올) — 태그 없는 사진을 최신 풀에서 우선.
+  if (untagged) {
+    const { data } = await supabase
+      .from("photos")
+      .select(CATEGORY_SELECT)
+      .eq("visibility", "published")
+      .order("created_at", { ascending: false })
+      .limit(400);
+    const all = (data ?? []) as unknown as GalleryPhoto[];
+    const matches = all.filter((p) => (p.mood_tags ?? []).length === 0);
+    const rest = all.filter((p) => (p.mood_tags ?? []).length > 0);
+    return [...shuffle(matches), ...shuffle(rest)];
+  }
+
+  // 매칭 사진 — DB에서 태그로 직접 필터(overlaps)해 '최신 400 풀' 밖의 오래된 매칭도 전부 포함.
+  // (기존엔 최신 400장만 받아 그 안에서만 매칭 → 오래된 매칭 사진이 누락됐음)
+  const { data: matchData } = await supabase
     .from("photos")
-    .select(
-      "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name)"
-    )
+    .select(CATEGORY_SELECT)
+    .eq("visibility", "published")
+    .overlaps("mood_tags", tags)
+    .order("created_at", { ascending: false })
+    .limit(1000);
+  const matches = (matchData ?? []) as unknown as GalleryPhoto[];
+
+  // 나머지(비매칭) — 최신 풀에서 매칭 제외. 무한스크롤 뒤쪽 채움용.
+  const matchedIds = new Set(matches.map((p) => p.id));
+  const { data: restData } = await supabase
+    .from("photos")
+    .select(CATEGORY_SELECT)
     .eq("visibility", "published")
     .order("created_at", { ascending: false })
     .limit(400);
+  const rest = ((restData ?? []) as unknown as GalleryPhoto[]).filter((p) => !matchedIds.has(p.id));
 
-  const all = (data ?? []) as unknown as GalleryPhoto[];
-  const tagSet = new Set((tags ?? []).map((t) => t.toLowerCase()));
-
-  const matches: GalleryPhoto[] = [];
-  const rest: GalleryPhoto[] = [];
-  for (const p of all) {
-    const moodTags = p.mood_tags ?? [];
-    const isMatch = untagged
-      ? moodTags.length === 0
-      : moodTags.some((t) => tagSet.has(t.toLowerCase()));
-    (isMatch ? matches : rest).push(p);
-  }
-
-  // 각 그룹을 셔플 → 매 방문 다른 순서, 그래도 매칭 그룹이 항상 위.
   return [...shuffle(matches), ...shuffle(rest)];
 }
 
