@@ -246,6 +246,7 @@ export function InquiryChat({
   const [skippedKeys, setSkippedKeys] = useState<StepKey[] | null>(null); // 바로 문의로 건너뛴 질문들
 
   const bottomRef = useRef<HTMLDivElement>(null);
+  const activeQRef = useRef<HTMLDivElement>(null); // 현재 질문 — 상단 근처 고정용
   const started = useRef(false);
 
   const storageKey = multi
@@ -257,21 +258,10 @@ export function InquiryChat({
   const percent = Math.round(((answeredCount + (done ? 1 : 0)) / (STEPS.length + 1)) * 100);
 
   // 질문 노출 후 선지는 0.6초 뒤에 펼침 — 질문을 먼저 읽게 하되 너무 늦지 않게.
+  // 스크롤은 '질문 상단 고정' 정책이 담당 — 여기선 바닥에 붙이지 않는다(밀림/스냅 제거).
   function revealOptionsSoon() {
     setOptionsReady(false);
-    window.setTimeout(() => {
-      setOptionsReady(true);
-      // 선지가 펼쳐지는 동안(Reveal ~0.3s) 매 프레임 뷰를 하단에 붙여, 펼쳐짐과 함께
-      // 자연스럽게 스크롤이 따라 내려가게 한다(펼친 뒤 한 번에 튀지 않도록).
-      const sc = bottomRef.current?.closest<HTMLElement>(".overflow-y-auto");
-      if (!sc) return;
-      let frames = 0;
-      const stick = () => {
-        sc.scrollTop = sc.scrollHeight;
-        if (++frames < 30) requestAnimationFrame(stick);
-      };
-      requestAnimationFrame(stick);
-    }, 600);
+    window.setTimeout(() => setOptionsReady(true), 600);
   }
   function advanceTo(index: number) {
     setTyping(true);
@@ -354,10 +344,27 @@ export function InquiryChat({
     }
   }, [done, storageKey]);
 
-  // 새 말풍선마다 하단으로 스크롤 (선지 펼침은 revealOptionsSoon 에서 별도 처리)
+  // 스크롤 정책 — 하단 고정(스냅) 대신 '현재 질문을 상단 근처'에 고정.
+  // 선지가 아래 여백에 나타나 기존 채팅을 위로 밀어올리지 않게 → 선지 등장 시 밀림/답변 시 스냅 피로 제거.
+  // (answers 는 deps 에서 제외 — 답변해도 스크롤하지 않음. 다음 질문이 뜰 때만 이동)
+  // 연락처·완료 단계에선 마지막 요소가 보이게 하단으로.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [revealed, typing, contactStep, answers, done]);
+    if (done || contactStep) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+      return;
+    }
+    if (typing) return; // 타이핑 중엔 대기 — 질문이 렌더된 뒤 이동
+    const el = activeQRef.current;
+    const sc = el?.closest<HTMLElement>(".overflow-y-auto");
+    if (!el || !sc) return;
+    // 첫 질문은 인사말을 가리지 않게 최상단, 그 외엔 질문 상단을 컨테이너 상단 96px 아래로
+    // (직전 답변이 위에 살짝 보이고, 아래엔 선지가 들어갈 여백 확보).
+    const target =
+      revealed <= 0
+        ? 0
+        : sc.scrollTop + el.getBoundingClientRect().top - sc.getBoundingClientRect().top - 96;
+    sc.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
+  }, [revealed, typing, contactStep, done]);
 
   // 성공 — Lead 픽셀 발화(중복 제거 eventID)
   const leadFiredFor = useRef<string | null>(null);
@@ -544,7 +551,11 @@ export function InquiryChat({
           // 자식 key(q/a/opts)로 answered 전환 시에도 Reveal 인스턴스가 보존돼 닫힘 애니가 재생된다.
           if (!inAccordion(step.key) && (answered || (!contactStep && i === revealed))) {
             return (
-              <div key={step.key} className="space-y-1.5">
+              <div
+                key={step.key}
+                ref={i === revealed && !answered ? activeQRef : null}
+                className="space-y-1.5"
+              >
                 <ExpandIn key="q">
                   <SystemBubble>{step.q}</SystemBubble>
                 </ExpandIn>
