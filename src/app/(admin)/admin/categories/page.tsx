@@ -7,6 +7,7 @@ import { ConfirmForm } from "@/components/admin/ConfirmForm";
 import { LayersIcon } from "@/components/user/icons";
 import { CategoryFields } from "./CategoryFields";
 import { CategoryAdPicker } from "./CategoryAdPicker";
+import { CategoryPhotoOrder } from "./CategoryPhotoOrder";
 import {
   createCategory,
   updateCategory,
@@ -103,6 +104,22 @@ export default async function AdminCategoriesPage() {
                   slug={c.slug}
                   candidates={candidatesByCat[i]}
                   adopted={c.adPhotoIds}
+                />
+              </details>
+
+              {/* 첫 진입 사진 순서 배치 (펼침) */}
+              <details className="mt-3">
+                <summary className="cursor-pointer text-caption font-medium text-fg">
+                  🎯 첫 진입 사진 순서
+                  {c.orderedPhotoIds.length > 0 && (
+                    <span className="ml-1 text-brand">· {c.orderedPhotoIds.length}장 고정</span>
+                  )}
+                </summary>
+                <CategoryPhotoOrder
+                  categoryId={c.id}
+                  slug={c.slug}
+                  candidates={candidatesByCat[i]}
+                  ordered={c.orderedPhotoIds}
                 />
               </details>
 

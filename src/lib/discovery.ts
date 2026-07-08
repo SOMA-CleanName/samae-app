@@ -279,8 +279,29 @@ export async function fetchUntaggedPhotos(limit = 300): Promise<GalleryPhoto[]> 
 const CATEGORY_SELECT =
   "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name)";
 
-export async function fetchCategoryFeed(tags: string[], untagged = false): Promise<GalleryPhoto[]> {
+export async function fetchCategoryFeed(
+  tags: string[],
+  untagged = false,
+  orderedIds: string[] = []
+): Promise<GalleryPhoto[]> {
   const supabase = await createClient();
+
+  // 수동 '고정 순서'(orderedIds)를 맨 앞에 그 순서대로, 나머지 매칭은 셔플, 그 뒤 비매칭.
+  const withPinned = (matches: GalleryPhoto[], rest: GalleryPhoto[]): GalleryPhoto[] => {
+    if (orderedIds.length === 0) return [...shuffle(matches), ...shuffle(rest)];
+    const byId = new Map(matches.map((p) => [p.id, p]));
+    const seen = new Set<string>();
+    const pinned: GalleryPhoto[] = [];
+    for (const id of orderedIds) {
+      const p = byId.get(id);
+      if (p && !seen.has(id)) {
+        pinned.push(p);
+        seen.add(id);
+      }
+    }
+    const restMatches = matches.filter((p) => !seen.has(p.id));
+    return [...pinned, ...shuffle(restMatches), ...shuffle(rest)];
+  };
 
   // untagged(캐치올) — 태그 없는 사진을 최신 풀에서 우선.
   if (untagged) {
@@ -293,7 +314,7 @@ export async function fetchCategoryFeed(tags: string[], untagged = false): Promi
     const all = (data ?? []) as unknown as GalleryPhoto[];
     const matches = all.filter((p) => (p.mood_tags ?? []).length === 0);
     const rest = all.filter((p) => (p.mood_tags ?? []).length > 0);
-    return [...shuffle(matches), ...shuffle(rest)];
+    return withPinned(matches, rest);
   }
 
   // 매칭 사진 — DB에서 태그로 직접 필터(overlaps)해 '최신 400 풀' 밖의 오래된 매칭도 전부 포함.
@@ -317,7 +338,7 @@ export async function fetchCategoryFeed(tags: string[], untagged = false): Promi
     .limit(400);
   const rest = ((restData ?? []) as unknown as GalleryPhoto[]).filter((p) => !matchedIds.has(p.id));
 
-  return [...shuffle(matches), ...shuffle(rest)];
+  return withPinned(matches, rest);
 }
 
 // 무드 태그로 공개 사진 검색 — 부분 일치(대소문자 무시), 결과는 메이슨리 사진.

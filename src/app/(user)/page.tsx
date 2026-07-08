@@ -81,7 +81,7 @@ export default async function ExploreHome({
     const basePhotos = query
       ? await searchPhotosByTag(query)
       : category
-        ? await fetchCategoryFeed(category.tags, isUntaggedCategory(category.tags))
+        ? await fetchCategoryFeed(category.tags, isUntaggedCategory(category.tags), category.orderedPhotoIds)
         : await fetchPublishedPhotos({});
     if (query) await logSearch(query, basePhotos.length, me?.id);
     const merged = adAsGallery
