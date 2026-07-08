@@ -867,8 +867,8 @@ function ContactBlock({
       )}
     </div>
     {/* 박스 밖 하단 여백 — 선택 전엔 입력영역 높이만큼 '공간만' 확보(박스 자체는 안 커짐).
-        선택 시 0 → 박스가 입력창만큼 커져도 아래가 안 밀린다. */}
-    {!type && <div aria-hidden className="h-[184px]" />}
+        선택 시 0 → 박스가 입력창만큼 커져도 아래가 안 밀린다. 실제 입력영역보다 살짝 넉넉히. */}
+    {!type && <div aria-hidden className="h-[212px]" />}
     </>
   );
 }
