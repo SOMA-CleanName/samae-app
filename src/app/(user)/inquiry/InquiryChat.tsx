@@ -810,7 +810,7 @@ function ContactBlock({
           <rect x="5" y="11" width="14" height="9" rx="2" />
           <path d="M8 11V8a4 4 0 0 1 8 0v3" strokeLinecap="round" />
         </svg>
-        이 작가에게만 전달돼요 · 상담 목적으로만 사용해요
+        연락처는 작가 전달 이외의 용도로 사용되지 않습니다.
       </p>
 
       {type && active && (
