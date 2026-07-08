@@ -107,7 +107,7 @@ export default async function ExploreHome({
 
       {/* 카테고리 알고리즘 보는 중 표시 + 전체 보기 해제 (검색 모드 아닐 때만) */}
       {category && !query && (
-        <div className="mx-auto mt-1 flex max-w-screen-2xl items-center gap-2 px-1">
+        <div className="mx-auto mt-1 mb-3 flex max-w-screen-2xl items-center gap-2 px-1 sm:mb-4">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-brand/10 px-3 py-1 text-caption font-medium text-brand">
             <span className="h-1.5 w-1.5 rounded-full bg-brand" />
             {category.name} 추천 보는 중
