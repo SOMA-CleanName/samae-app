@@ -20,6 +20,10 @@ export function FloatingNav({ me }: { me: ProfileMe | null }) {
   const homeActive = pathname === "/" || pathname.startsWith("/c/");
   const exploreActive = pathname.startsWith("/explore");
 
+  // 문의·채팅 같은 풀스크린 몰입 플로우에선 내비를 아예 렌더하지 않음 — 전환·애니메이션 중
+  // 그 위(z-50)로 잠깐 새어 보이던 문제 방지.
+  if (pathname.startsWith("/inquiry") || pathname.startsWith("/chat")) return null;
+
   // 상세(/photos/[id])에선 기본 숨김 + 스크롤로만 노출(forced===true). 그 외엔 기본 보임.
   // usePathname 으로 판단해 라우트가 바뀌는 즉시(로딩 스켈레톤 단계부터) 사라진다.
   const onDetail = pathname.startsWith("/photos/");
