@@ -71,7 +71,10 @@ export function DetailHookCta({ href }: { href: string }) {
   }
 
   return (
-    <div className="fixed inset-0 z-[60] font-kr" aria-hidden={!open}>
+    <div
+      className={`fixed inset-0 z-[60] font-kr ${open ? "" : "pointer-events-none"}`}
+      aria-hidden={!open}
+    >
       {/* 스크림 */}
       <div
         className={`absolute inset-0 bg-black/45 transition-opacity duration-300 ${
