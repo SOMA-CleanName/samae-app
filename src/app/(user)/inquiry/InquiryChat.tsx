@@ -539,36 +539,38 @@ export function InquiryChat({
             );
           }
 
-          if (answered && !inAccordion(step.key)) {
+          // 답변 완료 또는 현재 노출 스텝을 한 블록으로 렌더 — 답변 시 선지 Reveal 이 즉시
+          // 언마운트되지 않고 부드럽게 닫히게, 질문·답변칩은 ExpandIn 으로 등장 → 레이아웃 시프트 완화.
+          // 자식 key(q/a/opts)로 answered 전환 시에도 Reveal 인스턴스가 보존돼 닫힘 애니가 재생된다.
+          if (!inAccordion(step.key) && (answered || (!contactStep && i === revealed))) {
             return (
               <div key={step.key} className="space-y-1.5">
-                <SystemBubble>{step.q}</SystemBubble>
-                <div className="ml-auto flex w-fit max-w-[88%] flex-col items-end gap-0.5">
-                  <SentBubble>{displayAnswer(step.key, answers[step.key]!)}</SentBubble>
-                  {!done && (
-                    <button
-                      type="button"
-                      onClick={() => setEditing(i)}
-                      className="cursor-pointer px-1 text-[11px] text-faint transition-colors hover:text-muted"
-                    >
-                      수정
-                    </button>
-                  )}
-                </div>
-              </div>
-            );
-          }
-
-          if (!contactStep && !inAccordion(step.key) && i === revealed && !answered) {
-            return (
-              <div key={step.key} className="space-y-1.5">
-                <SystemBubble>{step.q}</SystemBubble>
-                {/* 선지는 질문 노출 1초 뒤 부드럽게 펼쳐짐 */}
-                <Reveal open={optionsReady}>
-                  <UserTray>
-                    <QuestionInput step={step} onSubmit={(v) => onAnswer(i, v)} />
-                  </UserTray>
-                </Reveal>
+                <ExpandIn key="q">
+                  <SystemBubble>{step.q}</SystemBubble>
+                </ExpandIn>
+                {answered && (
+                  <ExpandIn key="a">
+                    <div className="ml-auto flex w-fit max-w-[88%] flex-col items-end gap-0.5">
+                      <SentBubble>{displayAnswer(step.key, answers[step.key]!)}</SentBubble>
+                      {!done && (
+                        <button
+                          type="button"
+                          onClick={() => setEditing(i)}
+                          className="cursor-pointer px-1 text-[11px] text-faint transition-colors hover:text-muted"
+                        >
+                          수정
+                        </button>
+                      )}
+                    </div>
+                  </ExpandIn>
+                )}
+                {i === revealed && !contactStep && (
+                  <Reveal key="opts" open={!answered && optionsReady}>
+                    <UserTray>
+                      <QuestionInput step={step} onSubmit={(v) => onAnswer(i, v)} />
+                    </UserTray>
+                  </Reveal>
+                )}
               </div>
             );
           }
@@ -1357,8 +1359,9 @@ function Reveal({ open, children }: { open: boolean; children: React.ReactNode }
         open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
       }`}
     >
-      {/* px-0.5: overflow-hidden 우측 클립 경계에 입력 border(포커스 시 brand)가 딱 붙어 살짝 잘리던 것 방지 */}
-      <div className="overflow-hidden px-0.5 pb-1">{children}</div>
+      {/* justify-end: 콘텐츠를 하단 정렬 → grid-rows 가 펼쳐질 때 '맨 아래 선지부터 위로' 드러남.
+          px-0.5: overflow-hidden 우측 클립 경계에 입력 border(포커스 시 brand)가 살짝 잘리던 것 방지 */}
+      <div className="flex flex-col justify-end overflow-hidden px-0.5 pb-1">{children}</div>
     </div>
   );
 }
