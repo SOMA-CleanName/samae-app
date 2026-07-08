@@ -246,7 +246,6 @@ export function InquiryChat({
   const [skippedKeys, setSkippedKeys] = useState<StepKey[] | null>(null); // 바로 문의로 건너뛴 질문들
 
   const bottomRef = useRef<HTMLDivElement>(null);
-  const activeQRef = useRef<HTMLDivElement>(null); // 현재 질문 — 상단 근처 고정용
   const started = useRef(false);
 
   const storageKey = multi
@@ -344,27 +343,17 @@ export function InquiryChat({
     }
   }, [done, storageKey]);
 
-  // 스크롤 정책 — 하단 고정(스냅) 대신 '현재 질문을 상단 근처'에 고정.
-  // 선지가 아래 여백에 나타나 기존 채팅을 위로 밀어올리지 않게 → 선지 등장 시 밀림/답변 시 스냅 피로 제거.
-  // (answers 는 deps 에서 제외 — 답변해도 스크롤하지 않음. 다음 질문이 뜰 때만 이동)
-  // 연락처·완료 단계에선 마지막 요소가 보이게 하단으로.
+  // 스크롤 정책 — 기존 채팅은 그대로 둔다(답변해도 위 텍스트가 안 움직임). 콘텐츠는 위에서부터
+  // 흐르고 마지막 채팅 아래엔 항상 여백(스페이서)이 남는다. 새 내용이 화면 아래로 넘쳐 안 보일
+  // 때만 block:"nearest" 로 '최소한' 따라 내려가 보이게 한다(이미 다 보이면 스크롤하지 않음).
+  // (answers 는 deps 제외 — 답변만으로는 스크롤 트리거 안 함)
+  // 연락처·완료 단계에선 폼/모달이 보이게 하단(end)으로.
   useEffect(() => {
-    if (done || contactStep) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-      return;
-    }
-    if (typing) return; // 타이핑 중엔 대기 — 질문이 렌더된 뒤 이동
-    const el = activeQRef.current;
-    const sc = el?.closest<HTMLElement>(".overflow-y-auto");
-    if (!el || !sc) return;
-    // 첫 질문은 인사말을 가리지 않게 최상단, 그 외엔 질문 상단을 컨테이너 상단 96px 아래로
-    // (직전 답변이 위에 살짝 보이고, 아래엔 선지가 들어갈 여백 확보).
-    const target =
-      revealed <= 0
-        ? 0
-        : sc.scrollTop + el.getBoundingClientRect().top - sc.getBoundingClientRect().top - 96;
-    sc.scrollTo({ top: Math.max(0, target), behavior: "smooth" });
-  }, [revealed, typing, contactStep, done]);
+    bottomRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: done || contactStep ? "end" : "nearest",
+    });
+  }, [revealed, optionsReady, typing, contactStep, done]);
 
   // 성공 — Lead 픽셀 발화(중복 제거 eventID)
   const leadFiredFor = useRef<string | null>(null);
@@ -551,11 +540,7 @@ export function InquiryChat({
           // 자식 key(q/a/opts)로 answered 전환 시에도 Reveal 인스턴스가 보존돼 닫힘 애니가 재생된다.
           if (!inAccordion(step.key) && (answered || (!contactStep && i === revealed))) {
             return (
-              <div
-                key={step.key}
-                ref={i === revealed && !answered ? activeQRef : null}
-                className="space-y-1.5"
-              >
+              <div key={step.key} className="space-y-1.5">
                 <ExpandIn key="q">
                   <SystemBubble>{step.q}</SystemBubble>
                 </ExpandIn>
@@ -634,6 +619,8 @@ export function InquiryChat({
           </div>
         )}
 
+        {/* 마지막 채팅 아래 여백 — 하단에 항상 숨 쉴 공간을 남긴다 */}
+        <div aria-hidden className="h-24" />
         <div ref={bottomRef} />
       </div>
 
