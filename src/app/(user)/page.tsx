@@ -16,6 +16,7 @@ import { getPublishedCategory, isUntaggedCategory } from "@/lib/categories";
 import { CATEGORY_COOKIE } from "@/lib/category-constants";
 import { ExploreGallery } from "@/components/user/ExploreGallery";
 import { ScrollMemory } from "@/components/user/ScrollMemory";
+import { FeedHero } from "@/components/user/FeedHero";
 import { JsonLd } from "@/components/JsonLd";
 import { siteJsonLd } from "@/lib/seo";
 import type { GalleryPhoto } from "@/lib/discovery";
@@ -101,26 +102,8 @@ export default async function ExploreHome({
       {!query && <JsonLd data={siteJsonLd()} />}
       {/* 탭 전환 시 스크롤 위치 유지 */}
       <ScrollMemory />
-      {/* 홈 최상단 안내 — 원하는 사진을 골라 작가에게 촬영 문의 (검색 모드 아닐 때만) */}
-      {!query && (
-        <div className="mx-auto max-w-screen-2xl px-1 pb-6 pt-3 sm:pb-9 sm:pt-7">
-          {/* 로고 워드마크 + 태그라인 (브랜드 일관 — font-display italic text-brand) */}
-          <div className="flex items-center gap-2.5">
-            <span className="font-display text-2xl italic leading-none text-brand sm:text-[1.7rem]">
-              samae
-            </span>
-            <span className="h-3.5 w-px bg-line-strong" />
-            <span className="text-caption font-medium tracking-wide text-muted">사진으로 고르는 촬영</span>
-          </div>
-          {/* 헤드라인 — 2줄 에디토리얼, 핵심어 브랜드 강조.
-              폰트를 뷰포트 유동(clamp) + 줄바꿈 금지 → 모든 기기에서 딱 2줄 유지(3줄로 안 넘어감). */}
-          <h1 className="mt-3.5 whitespace-nowrap text-[clamp(1.2rem,6vw,2.6rem)] font-semibold leading-[1.15] tracking-tight text-fg sm:leading-[1.12]">
-            원하는 사진을 고르고,
-            <br />
-            <span className="text-brand">그 작가</span>에게 촬영을 문의하세요.
-          </h1>
-        </div>
-      )}
+      {/* 홈 최상단 히어로 (검색 모드 아닐 때만) */}
+      {!query && <FeedHero />}
 
       {/* 카테고리 알고리즘 보는 중 표시 + 전체 보기 해제 (검색 모드 아닐 때만) */}
       {category && !query && (

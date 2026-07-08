@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getPublishedCategory, isUntaggedCategory } from "@/lib/categories";
 import { fetchCategoryFeed, fetchLikedPhotoIds } from "@/lib/discovery";
 import { ExploreGallery } from "@/components/user/ExploreGallery";
+import { FeedHero } from "@/components/user/FeedHero";
 import { EmptyState } from "@/components/ui";
 import { LayersIcon } from "@/components/user/icons";
 import type { Metadata } from "next";
@@ -48,6 +49,7 @@ export default async function CategoryPage({
 
   return (
     <section className="px-2.5 pb-2.5 pt-2.5 font-kr sm:px-4 sm:pt-4 sm:pb-4">
+      <FeedHero />
       {photos.length === 0 ? (
         <EmptyState
           icon={<LayersIcon className="h-7 w-7" />}
