@@ -168,10 +168,11 @@ export function PhotoCarousel({
       {/* 위치 인디케이터 — 6장 이상은 슬라이딩 윈도우 점이 중간에서 안 변하는 듯 보여
           '현재/전체' 카운터로 명확히. 5장 이하는 인스타식 점. */}
       {photos.length > MAX_DOTS ? (
-        <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/40 px-2.5 py-0.5">
-          <span className="text-xs font-semibold tabular-nums text-white">
-            {/* 현재 숫자 폭을 총 자릿수로 고정 → 1→2자리로 바뀌어도 pill 폭이 안 변해 가운데 유지 */}
-            <span className="inline-block text-center" style={{ minWidth: `${String(photos.length).length}ch` }}>
+        <div className="pointer-events-none absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center justify-center rounded-full bg-black/40 px-2.5 py-1 text-xs font-semibold leading-none tabular-nums text-white">
+          {/* 바깥 div: flex items-center + leading-none 로 세로 중앙. 안쪽은 하나의 inline span 으로
+              묶어 ' / ' 공백 보존. 현재 숫자는 총 자릿수 폭 고정(우측정렬)해 슬래시 위치가 안 흔들리게 */}
+          <span>
+            <span className="inline-block text-right" style={{ minWidth: `${String(photos.length).length}ch` }}>
               {idx + 1}
             </span>
             <span className="text-white/55"> / {photos.length}</span>
