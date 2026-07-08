@@ -15,7 +15,9 @@ export function ScrollMemory() {
 
     // 복원 — 스트리밍으로 콘텐츠 높이가 늘어날 수 있어 짧은 시간(≤500ms) 재시도.
     // 사용자가 스크롤(휠/터치/키)하면 즉시 중단해 의도적 스크롤을 방해하지 않는다.
-    let restoring = saved > 0;
+    // 항상 복원(saved=0 → 최상단): NavPill 의 scroll={false} 로 이전 탭의 스크롤이 남아
+    // 첫 방문 시 '약간 내려간 위치'로 보이던 문제 방지.
+    let restoring = true;
     const stop = () => (restoring = false);
     if (restoring) {
       const start = performance.now();
