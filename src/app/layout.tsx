@@ -77,9 +77,11 @@ export default function RootLayout({
   return (
     <html
       lang="ko"
-      className={`${fraunces.variable} ${inter.variable} ${notoKr.variable} h-full antialiased`}
+      className={`${fraunces.variable} ${inter.variable} ${notoKr.variable} antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-bg text-fg">
+      {/* min-h-dvh(동적 뷰포트) — 모바일 주소창 접힘/펴짐에 따라 하단에 빈 공간이 생겼다
+          사라지던 문제 방지(고정 h-full=large 대신 현재 뷰포트 높이를 따라감). */}
+      <body className="flex min-h-dvh flex-col bg-bg text-fg">
         {children}
         <AnalyticsTracker />
         <MetaPixel />
