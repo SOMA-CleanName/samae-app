@@ -246,6 +246,7 @@ export function InquiryChat({
   const [skippedKeys, setSkippedKeys] = useState<StepKey[] | null>(null); // 바로 문의로 건너뛴 질문들
 
   const bottomRef = useRef<HTMLDivElement>(null);
+  const optionsEndRef = useRef<HTMLDivElement>(null); // 현재 선지 하단 — 생성 시 채팅창 바닥에 맞춤
   const started = useRef(false);
 
   const storageKey = multi
@@ -343,17 +344,17 @@ export function InquiryChat({
     }
   }, [done, storageKey]);
 
-  // 스크롤 정책 — 기존 채팅은 그대로 둔다(답변해도 위 텍스트가 안 움직임). 콘텐츠는 위에서부터
-  // 흐르고 마지막 채팅 아래엔 항상 여백(스페이서)이 남는다. 새 내용이 화면 아래로 넘쳐 안 보일
-  // 때만 block:"nearest" 로 '최소한' 따라 내려가 보이게 한다(이미 다 보이면 스크롤하지 않음).
-  // (answers 는 deps 제외 — 답변만으로는 스크롤 트리거 안 함)
-  // 연락처·완료 단계에선 폼/모달이 보이게 하단(end)으로.
+  // 스크롤은 오직 '선지가 생성될 때'만 — 선지의 맨 아래가 채팅창 바닥에 붙도록(block:"end").
+  // 답변(선지 접힘)·타이핑·질문 등장 시엔 스크롤하지 않아 기존 채팅이 그대로 있는다.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: done || contactStep ? "end" : "nearest",
-    });
-  }, [revealed, optionsReady, typing, contactStep, done]);
+    if (!optionsReady) return;
+    optionsEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [optionsReady]);
+
+  // 연락처·완료 단계 진입 시엔 폼/모달이 보이게 하단으로.
+  useEffect(() => {
+    if (contactStep || done) bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [contactStep, done]);
 
   // 성공 — Lead 픽셀 발화(중복 제거 eventID)
   const leadFiredFor = useRef<string | null>(null);
@@ -561,15 +562,19 @@ export function InquiryChat({
                   </ExpandIn>
                 )}
                 {i === revealed && !contactStep && (
-                  <Reveal key="opts" snapOpen open={!answered && optionsReady}>
-                    <UserTray>
-                      <QuestionInput
-                        step={step}
-                        open={!answered && optionsReady}
-                        onSubmit={(v) => onAnswer(i, v)}
-                      />
-                    </UserTray>
-                  </Reveal>
+                  <>
+                    <Reveal key="opts" snapOpen open={!answered && optionsReady}>
+                      <UserTray>
+                        <QuestionInput
+                          step={step}
+                          open={!answered && optionsReady}
+                          onSubmit={(v) => onAnswer(i, v)}
+                        />
+                      </UserTray>
+                    </Reveal>
+                    {/* 선지 하단 마커 — 선지 생성 시 이 지점을 채팅창 바닥에 맞춰 스크롤 */}
+                    <div ref={optionsEndRef} aria-hidden />
+                  </>
                 )}
               </div>
             );
@@ -619,8 +624,6 @@ export function InquiryChat({
           </div>
         )}
 
-        {/* 마지막 채팅 아래 여백 — 하단에 항상 숨 쉴 공간을 남긴다 */}
-        <div aria-hidden className="h-24" />
         <div ref={bottomRef} />
       </div>
 
