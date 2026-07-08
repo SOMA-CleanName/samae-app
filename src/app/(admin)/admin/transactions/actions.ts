@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { archiveAllAndDelete } from "@/lib/soft-delete";
+import { verifyResetPassword } from "@/lib/admin-reset";
 
 const VALID = ["pending", "scheduled", "paid", "held"];
-const RESET_PASSWORD = "same123!";
 
 async function assertAdmin() {
   const me = await getCurrentUser();
@@ -20,7 +20,8 @@ export type ResetState = { error?: string; ok?: boolean };
 export async function clearTransactions(_prev: ResetState, formData: FormData): Promise<ResetState> {
   const me = await getCurrentUser();
   if (!me || me.role !== "admin") return { error: "운영자 권한이 필요합니다." };
-  if (String(formData.get("password") ?? "") !== RESET_PASSWORD) return { error: "비밀번호가 올바르지 않아요." };
+  const pw = verifyResetPassword(formData.get("password"));
+  if (pw.error) return { error: pw.error };
 
   for (const t of ["settlements", "platform_fees", "payments", "bookings"]) {
     const { error } = await archiveAllAndDelete(t, me.id);

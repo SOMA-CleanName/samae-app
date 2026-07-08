@@ -3,9 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { archiveAllAndDelete } from "@/lib/soft-delete";
+import { verifyResetPassword } from "@/lib/admin-reset";
 import { invalidateAnalyticsCache } from "./_data";
-
-const RESET_PASSWORD = "same123!";
 
 export type ResetState = { error?: string; ok?: boolean };
 
@@ -13,7 +12,8 @@ export type ResetState = { error?: string; ok?: boolean };
 export async function clearAnalytics(_prev: ResetState, formData: FormData): Promise<ResetState> {
   const me = await getCurrentUser();
   if (!me || me.role !== "admin") return { error: "운영자 권한이 필요합니다." };
-  if (String(formData.get("password") ?? "") !== RESET_PASSWORD) return { error: "비밀번호가 올바르지 않아요." };
+  const pw = verifyResetPassword(formData.get("password"));
+  if (pw.error) return { error: pw.error };
 
   const { error } = await archiveAllAndDelete("analytics_events", me.id);
   if (error) return { error };
