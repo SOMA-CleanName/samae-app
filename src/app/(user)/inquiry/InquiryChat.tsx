@@ -774,6 +774,7 @@ function ContactBlock({
   }
 
   return (
+    <>
     <div className="ml-auto w-full max-w-[88%] rounded-2xl rounded-tr-md bg-brand/[0.07] p-3">
       <div className="grid grid-cols-3 gap-2">
         {CONTACT_TYPES.map((t) => {
@@ -812,13 +813,10 @@ function ContactBlock({
         이 작가에게만 전달돼요 · 스팸·마케팅 발송 없음
       </p>
 
-      {/* 입력 영역 공간을 선택 전에도 미리 확보 — 종류 선택 시 입력창·버튼이 생겨도 영역이
-          커지며 아래가 밀리지 않게(질문 등장 시점부터 여백을 잡아둠). */}
-      <div className="mt-3 min-h-[184px]">
-        {type && active && (
-          <>
-            <input
-              ref={inputRef}
+      {type && active && (
+        <div className="mt-3">
+          <input
+            ref={inputRef}
             type="text"
             value={val}
             onChange={(e) => handleChange(e.target.value)}
@@ -864,11 +862,14 @@ function ContactBlock({
             </Link>
             에 동의하는 것으로 간주됩니다.
           </p>
-            <div ref={endRef} />
-          </>
-        )}
-      </div>
+          <div ref={endRef} />
+        </div>
+      )}
     </div>
+    {/* 박스 밖 하단 여백 — 선택 전엔 입력영역 높이만큼 '공간만' 확보(박스 자체는 안 커짐).
+        선택 시 0 → 박스가 입력창만큼 커져도 아래가 안 밀린다. */}
+    {!type && <div aria-hidden className="h-[184px]" />}
+    </>
   );
 }
 
