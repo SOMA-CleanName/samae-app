@@ -64,3 +64,13 @@ export async function deleteBookingsByIds(
   if (error) return { error: `거래 삭제: ${error.message}` };
   return {};
 }
+
+// deleted_records 의 지정 행들을 원본 테이블로 복구(RPC admin_restore_records).
+// 부모→자식 순서·단일 트랜잭션은 RPC 가 처리. 복구된 행은 deleted_records 에서 제거됨.
+export async function restoreRecords(ids: string[]): Promise<{ error?: string }> {
+  if (ids.length === 0) return {};
+  const admin = createAdminClient();
+  const { error } = await admin.rpc("admin_restore_records", { p_ids: ids });
+  if (error) return { error: `복구: ${error.message}` };
+  return {};
+}

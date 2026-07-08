@@ -16,6 +16,7 @@ const TABS = [
   { href: "/admin/tags", label: "태그" },
   { href: "/admin/search", label: "검색" },
   { href: "/admin/analytics", label: "분석" },
+  { href: "/admin/trash", label: "휴지통" },
 ];
 
 export function AdminNav() {
