@@ -46,4 +46,7 @@ export default withSentryConfig(nextConfig, {
   silent: !process.env.CI,
   widenClientFileUpload: true,
   disableLogger: true,
+  // 광고차단기 우회 — Sentry 요청을 자체 도메인(/monitoring)으로 프록시.
+  // 소비자 앱이라 애드블록 사용자 비중이 커, 없으면 클라이언트 에러 상당수가 유실됨.
+  tunnelRoute: "/monitoring",
 });
