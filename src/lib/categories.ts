@@ -89,19 +89,30 @@ export async function getPublishedCategory(slug: string): Promise<Category | nul
 // 어드민 광고 소재 채택용 — 카테고리에 매칭되는 공개 사진 썸네일 후보.
 // 이미 채택된 사진은 후보 윈도우 밖이라도 항상 포함해 체크 상태를 유지한다.
 export async function fetchAdCandidates(
-  category: Pick<Category, "tags" | "adPhotoIds">,
-  limit = 300
+  category: Pick<Category, "tags" | "adPhotoIds">
 ): Promise<AdCandidatePhoto[]> {
   const admin = createAdminClient();
   const select = "id, thumb_url, src_url";
 
-  let query = admin.from("photos").select(select).eq("visibility", "published");
-  query = isUntaggedCategory(category.tags)
-    ? query.eq("mood_tags", "{}")
-    : query.overlaps("mood_tags", category.tags);
-  const { data } = await query.order("created_at", { ascending: false }).limit(limit);
+  const buildQuery = () => {
+    const q = admin.from("photos").select(select).eq("visibility", "published");
+    return isUntaggedCategory(category.tags)
+      ? q.eq("mood_tags", "{}")
+      : q.overlaps("mood_tags", category.tags);
+  };
 
-  const candidates = (data ?? []) as AdCandidatePhoto[];
+  // 매칭 사진을 전부 노출 — PostgREST 페이지 크기(기본 1000행)를 넘겨도 range 로 순회해 모두 수집.
+  const PAGE = 1000;
+  const candidates: AdCandidatePhoto[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data } = await buildQuery()
+      .order("created_at", { ascending: false })
+      .range(from, from + PAGE - 1);
+    const batch = (data ?? []) as AdCandidatePhoto[];
+    candidates.push(...batch);
+    if (batch.length < PAGE) break;
+  }
+
   const have = new Set(candidates.map((p) => p.id));
   const missingAdopted = category.adPhotoIds.filter((id) => !have.has(id));
 
