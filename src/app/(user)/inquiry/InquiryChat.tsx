@@ -5,6 +5,7 @@ import { startTransition, useActionState, useEffect, useRef, useState } from "re
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeftIcon, CheckIcon, ChevronDownIcon } from "@/components/user/icons";
+import { mpTrack } from "@/lib/mixpanel";
 import { submitInquiry, submitMultiInquiry, type InquiryState } from "./actions";
 
 const INITIAL_STATE: InquiryState = { ok: false };
@@ -363,6 +364,7 @@ export function InquiryChat({
     if (leadFiredFor.current !== state.inquiryId) {
       leadFiredFor.current = state.inquiryId;
       window.fbq?.("track", "Lead", {}, { eventID: `inquiry_${state.inquiryId}` });
+      mpTrack("Submit Inquiry", { inquiry_id: state.inquiryId });
     }
   }, [state.ok, state.inquiryId]);
 

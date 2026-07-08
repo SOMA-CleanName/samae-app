@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Inter, Noto_Sans_KR } from "next/font/google";
 import "./globals.css";
 import { AnalyticsTracker } from "@/components/AnalyticsTracker";
+import { MixpanelTracker } from "@/components/MixpanelTracker";
 import { MetaPixel } from "@/components/MetaPixel";
 import { SITE_URL, SITE_NAME, SITE_TITLE, SITE_DESCRIPTION } from "@/lib/site";
 
@@ -82,6 +83,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-bg text-fg">
         {children}
         <AnalyticsTracker />
+        <MixpanelTracker />
         <MetaPixel />
       </body>
     </html>

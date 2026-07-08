@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { mpTrack } from "@/lib/mixpanel";
 
 // 사진 상세 조회 시 Meta 픽셀 ViewContent 발화 — 중간 깔때기 신호.
 // 용도: ① Lead 최적화 학습 신호 보강 ② 리타게팅 모수(사진은 봤지만 문의 안 한 사람) 생성.
@@ -23,6 +24,7 @@ export function PixelViewContent({
       content_type: "product",
       content_name: name,
     });
+    mpTrack("View Photo", { photo_id: id });
   }, [id, name, disabled]);
   return null;
 }

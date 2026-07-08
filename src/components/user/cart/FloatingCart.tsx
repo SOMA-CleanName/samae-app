@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useCart, cartCardJitter, PEEK_CARD_W, type CartItem } from "./CartProvider";
 import { submitCartInquiry } from "@/app/(user)/inquiry/actions";
+import { mpTrack } from "@/lib/mixpanel";
 
 // FLIP 은 페인트 전에 측정/적용해야 깜빡임이 없음(SSR 에선 useEffect 로 폴백)
 const useIsoLayout = typeof window === "undefined" ? useEffect : useLayoutEffect;
@@ -250,7 +251,10 @@ export function FloatingCart() {
   useEffect(() => {
     if (!state.ok || fired.current) return;
     fired.current = true;
-    if (state.leadId) window.fbq?.("track", "Lead", {}, { eventID: `inquiry_${state.leadId}` });
+    if (state.leadId) {
+      window.fbq?.("track", "Lead", {}, { eventID: `inquiry_${state.leadId}` });
+      mpTrack("Submit Inquiry", { inquiry_id: state.leadId });
+    }
   }, [state.ok, state.leadId]);
 
   const clampTop = (t: number) => Math.min(Math.max(80, t), window.innerHeight - 150);

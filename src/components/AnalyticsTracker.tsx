@@ -2,9 +2,11 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
+import { mpRegister, mpTrack } from "@/lib/mixpanel";
 
 // 행동 분석 트래커 — 페이지뷰(라우트 변경) + 전역 클릭(모든 a/button/CTA) 자동 수집.
-// 버튼마다 개별 계측 없이 위임 캡처로 "모든 액션"을 잡는다. /api/track 으로 전송.
+// 버튼마다 개별 계측 없이 위임 캡처로 "모든 액션"을 잡는다.
+// 싱크 2곳: 자체 /api/track(세션·전환경로) + Mixpanel(퍼널·리텐션·코호트).
 
 // 측정 제외 — 운영자·작가 페이지는 고객 행동이 아니므로 추적하지 않음
 const EXCLUDED = ["/admin", "/studio"];
@@ -76,6 +78,7 @@ export function AnalyticsTracker() {
   const queue = useRef<Ev[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const maxScreens = useRef(0); // 현재 페이지에서 내려간 최대 화면 수(뷰포트 단위)
+  const mpRegistered = useRef(false); // Mixpanel UTM super props 1회 등록
 
   // 페이지를 떠날 때 그 페이지에서 내려간 최대 화면 수를 1건 기록(무한스크롤 깊이)
   // 단위: '화면'(=뷰포트 1개). %보다 직관적이고 무한스크롤에서 의미가 분명함.
@@ -83,7 +86,11 @@ export function AnalyticsTracker() {
     const screens = Math.round(maxScreens.current);
     maxScreens.current = 0;
     if (!path || !isTracked(path)) return;
-    if (screens >= 1) queue.current.push({ type: "scroll", path, label: String(Math.min(screens, 99)) });
+    if (screens >= 1) {
+      const capped = Math.min(screens, 99);
+      queue.current.push({ type: "scroll", path, label: String(capped) });
+      mpTrack("Scroll Depth", { path, screens: capped });
+    }
   }
 
   function flush(beacon = false) {
@@ -118,6 +125,9 @@ export function AnalyticsTracker() {
 
   function enqueue(ev: Ev) {
     queue.current.push(ev);
+    // Mixpanel 병행 전송 (자체 이벤트 타입 → Mixpanel 이벤트명 매핑)
+    if (ev.type === "pageview") mpTrack("Page View", { path: ev.path, referrer: ev.referrer ?? undefined });
+    else if (ev.type === "click") mpTrack("Click", { path: ev.path, label: ev.label, target: ev.target });
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => flush(false), 1000);
   }
@@ -127,6 +137,11 @@ export function AnalyticsTracker() {
     flushScroll(prevPath.current);
     if (isTracked(pathname)) {
       captureAttribution();
+      if (!mpRegistered.current) {
+        mpRegistered.current = true;
+        const { utm, landing_path } = attribution();
+        mpRegister({ ...utm, landing_path });
+      }
       enqueue({ type: "pageview", path: pathname, referrer: prevPath.current });
     }
     prevPath.current = pathname;
