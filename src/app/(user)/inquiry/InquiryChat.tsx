@@ -624,6 +624,10 @@ export function InquiryChat({
           </div>
         )}
 
+        {/* 하단 여백 스페이서 — 선지가 접힐 때 콘텐츠가 짧아져도 스크롤이 위로 튕기지(clamp) 않게
+            버퍼를 상시 확보. 이게 있어야 선지 접힘 시 위 채팅들이 아래로 안 내려온다.
+            (선지 최대 높이보다 충분히 큰 값) */}
+        <div aria-hidden className="h-[65vh]" />
         <div ref={bottomRef} />
       </div>
 
