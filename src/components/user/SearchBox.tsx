@@ -2,9 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { mpTrack } from "@/lib/mixpanel";
 
-// 작가 검색 입력 — 제출 시 ?q= 로 탐색 홈 이동
+// 작가 검색 입력 — 제출 시 ?q= 로 탐색 홈 이동.
+// (Search 이벤트는 서버 logSearch 에서 result_count 와 함께 발화 — 여기선 안 쏨)
 export function SearchBox({ initial = "" }: { initial?: string }) {
   const router = useRouter();
   const [q, setQ] = useState(initial);
@@ -12,7 +12,6 @@ export function SearchBox({ initial = "" }: { initial?: string }) {
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     const v = q.trim();
-    if (v) mpTrack("Search", { query: v });
     router.push(v ? `/?q=${encodeURIComponent(v)}` : "/");
   }
 

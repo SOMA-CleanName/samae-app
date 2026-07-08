@@ -93,6 +93,16 @@ export function ChatRoom({
     });
   }, [conversationId, amPhotographer]);
 
+  // 예약 작성기 열기 — 예약 제안 직전 이탈지점. 열릴 때(신규/수정)만.
+  useEffect(() => {
+    if (!composer) return;
+    mpTrack("Open Booking Composer", {
+      conversation_id: conversationId,
+      is_edit: !!composer.edit,
+      role: amPhotographer ? "photographer" : "customer",
+    });
+  }, [composer, conversationId, amPhotographer]);
+
   // Realtime 구독 — 새 메시지 수신 (예약 메시지는 booking 스냅샷 보강)
   useEffect(() => {
     const supabase = createClient();

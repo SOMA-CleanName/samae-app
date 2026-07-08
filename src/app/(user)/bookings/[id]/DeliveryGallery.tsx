@@ -2,6 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { useEffect, useState } from "react";
+import { mpTrack } from "@/lib/mixpanel";
 import type { DeliveryDownload } from "@/lib/deliveries";
 
 // 전달된 보정본 뷰어 — 썸네일 그리드(컴팩트) + 라이트박스 슬라이드 + 실제 저장.
@@ -11,10 +12,12 @@ import type { DeliveryDownload } from "@/lib/deliveries";
 const IMG_RE = /\.(jpe?g|png|gif|webp|avif|heic|heif|bmp|tiff?)$/i;
 
 export function DeliveryGallery({
+  bookingId,
   items,
   externalLink,
   expiresAt,
 }: {
+  bookingId: string;
   items: DeliveryDownload[];
   externalLink: string | null;
   expiresAt: string | null;
@@ -24,8 +27,10 @@ export function DeliveryGallery({
   const [viewer, setViewer] = useState<number | null>(null);
   const [savingAll, setSavingAll] = useState(false);
 
-  // 크로스 오리진 서명 URL을 blob 으로 받아 강제 저장
-  async function saveOne(item: DeliveryDownload) {
+  // 크로스 오리진 서명 URL을 blob 으로 받아 강제 저장.
+  // track=true 일 때만 개별 다운로드 이벤트(전체저장 루프에선 중복 방지 위해 false).
+  async function saveOne(item: DeliveryDownload, track = true) {
+    if (track) mpTrack("Download Delivery", { booking_id: bookingId, mode: "one" });
     try {
       const res = await fetch(item.url);
       const blob = await res.blob();
@@ -45,8 +50,9 @@ export function DeliveryGallery({
 
   // 전체 저장 — 순차 다운로드(브라우저 동시 다운로드 차단 회피)
   async function saveAll() {
+    mpTrack("Download Delivery", { booking_id: bookingId, mode: "all", count: items.length });
     setSavingAll(true);
-    for (const it of items) await saveOne(it);
+    for (const it of items) await saveOne(it, false);
     setSavingAll(false);
   }
 

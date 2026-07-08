@@ -307,6 +307,7 @@ export default async function BookingDetail({
       {/* 보정본 갤러리 — 완료된 예약 (참여자) · 그리드+라이트박스+저장 (req10,11) */}
       {b.status === "completed" && (downloads.length > 0 || delivery?.external_link) && (
         <DeliveryGallery
+          bookingId={id}
           items={downloads}
           externalLink={delivery?.external_link ?? null}
           expiresAt={delivery?.expires_at ?? null}

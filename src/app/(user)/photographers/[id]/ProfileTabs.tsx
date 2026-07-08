@@ -28,14 +28,21 @@ export function ProfileTabs({
   viewer: { isOwner: boolean; photographerId: string };
 }) {
   const [tab, setTab] = useState<"portfolio" | "packages">("portfolio");
+  const pkgViewFired = useRef(false);
 
   // 작가 프로필 조회 — 본인 조회는 noise 라 제외. 마운트당 1회.
   const viewFired = useRef(false);
   useEffect(() => {
     if (viewer.isOwner || viewFired.current) return;
     viewFired.current = true;
-    mpTrack("View Photographer", { photographer_id: viewer.photographerId });
-  }, [viewer.isOwner, viewer.photographerId]);
+    const prices = packages.map((p) => p.price_krw).filter((n) => n > 0);
+    mpTrack("View Photographer", {
+      photographer_id: viewer.photographerId,
+      package_count: packages.length,
+      post_count: posts.length,
+      ...(prices.length ? { min_price_krw: Math.min(...prices) } : {}),
+    });
+  }, [viewer.isOwner, viewer.photographerId, packages, posts.length]);
 
   return (
     <div>
@@ -44,7 +51,20 @@ export function ProfileTabs({
         <TabButton active={tab === "portfolio"} onClick={() => setTab("portfolio")}>
           포트폴리오
         </TabButton>
-        <TabButton active={tab === "packages"} onClick={() => setTab("packages")}>
+        <TabButton
+          active={tab === "packages"}
+          onClick={() => {
+            setTab("packages");
+            // 패키지 탭 첫 열람 — 예약 직전 관심 신호(퍼널 이탈지점)
+            if (!pkgViewFired.current) {
+              pkgViewFired.current = true;
+              mpTrack("View Packages", {
+                photographer_id: viewer.photographerId,
+                package_count: packages.length,
+              });
+            }
+          }}
+        >
           촬영 패키지
           {packages.length > 0 && <span className="ml-1 text-faint">{packages.length}</span>}
         </TabButton>

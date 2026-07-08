@@ -10,11 +10,18 @@ export function PixelViewContent({
   id,
   name,
   photographerId,
+  category,
+  region,
+  price,
   disabled = false,
 }: {
   id: string;
   name?: string;
   photographerId?: string;
+  // 무드태그(카테고리 대용) — 배열이면 첫 태그 또는 전체를 넘겨도 됨
+  category?: string | string[] | null;
+  region?: string | null;
+  price?: number | null;
   disabled?: boolean;
 }) {
   const fired = useRef(false);
@@ -29,7 +36,10 @@ export function PixelViewContent({
     mpTrack("View Photo", {
       photo_id: id,
       ...(photographerId ? { photographer_id: photographerId } : {}),
+      ...(category != null ? { category: Array.isArray(category) ? category : [category] } : {}),
+      ...(region ? { region } : {}),
+      ...(price != null ? { price_krw: price } : {}),
     });
-  }, [id, name, photographerId, disabled]);
+  }, [id, name, photographerId, category, region, price, disabled]);
   return null;
 }

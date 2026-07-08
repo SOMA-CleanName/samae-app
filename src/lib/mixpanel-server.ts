@@ -52,3 +52,41 @@ export async function mpTrackServer(
     /* 분석 실패가 트랜잭션을 막지 않게 무시 */
   }
 }
+
+/**
+ * 매출 기록(LTV) — Mixpanel Engage 로 유저 프로필에 거래 1건 적립.
+ * · $transactions 에 거래(금액·시각) append → Mixpanel Revenue 리포트 집계
+ * · total_spent_krw / paid_bookings 증분 → 재구매·VIP 코호트 정밀화
+ * confirmBankTransfer 가 멱등(accepted→paid 1회)이라 이중 적립 없음.
+ */
+export async function mpRevenueServer(
+  distinctId: string | null | undefined,
+  amountKrw: number | null | undefined,
+): Promise<void> {
+  if (!TOKEN || !distinctId || !amountKrw || amountKrw <= 0) return;
+  try {
+    const now = new Date().toISOString();
+    const data = [
+      {
+        $token: TOKEN,
+        $distinct_id: distinctId,
+        $append: { $transactions: { $time: now, $amount: amountKrw } },
+      },
+      {
+        $token: TOKEN,
+        $distinct_id: distinctId,
+        $add: { total_spent_krw: amountKrw, paid_bookings: 1 },
+      },
+    ];
+    await fetch("https://api.mixpanel.com/engage", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        accept: "text/plain",
+      },
+      body: "data=" + encodeURIComponent(JSON.stringify(data)),
+    });
+  } catch {
+    /* 무시 */
+  }
+}

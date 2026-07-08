@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { confirmBankTransfer, waiveFee, ensureTransferRecord } from "@/lib/payments";
 import { DELIVERY_BUCKET, signDeliveryAssets } from "@/lib/deliveries";
-import { mpTrackServer } from "@/lib/mixpanel-server";
+import { mpTrackServer, mpRevenueServer } from "@/lib/mixpanel-server";
 
 // 알림 헬퍼 (service_role)
 async function notify(
@@ -134,6 +134,8 @@ export async function confirmTransfer(formData: FormData) {
       { booking_id: id, photographer_id: me.photographer.id, amount_krw: paid.amount_krw },
       `Confirm Payment:${id}`,
     );
+    // 매출/LTV 적립 (Mixpanel Revenue 리포트 + total_spent 코호트)
+    await mpRevenueServer(paid.user_id, paid.amount_krw);
   }
 
   revalidateBooking(id);

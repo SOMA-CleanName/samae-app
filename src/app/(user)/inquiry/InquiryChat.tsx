@@ -381,8 +381,15 @@ export function InquiryChat({
         source: multi ? "cart" : "photo",
         photographer_id: photographerId,
         item_count: multi ? photoIds?.length ?? 1 : 1,
+        // 위저드 답변(수요 차원 — 촬영목적·지역·인원·희망일). note(자유서술)는 제외.
+        purpose: answers.purpose,
+        region: answers.region,
+        party_size: answers.partySize,
+        preferred_date: answers.preferredDate,
       });
     }
+    // 답변·모드는 제출 성공 시점 값으로 1회만 기록 — leadFiredFor 가드로 중복 방지.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.ok, state.inquiryId]);
 
   function onAnswer(i: number, value: string) {
