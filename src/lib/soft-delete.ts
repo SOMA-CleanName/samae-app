@@ -48,3 +48,19 @@ export async function archiveAllAndDelete(
 ): Promise<{ error?: string }> {
   return archiveAllAndDeleteMany([table], deletedBy);
 }
+
+// 선택한 거래(booking) id 들을 연관 테이블(payments·platform_fees)과 함께
+// 단일 트랜잭션으로 아카이브 후 삭제(RPC admin_delete_bookings). FK 순서는 RPC 가 처리.
+export async function deleteBookingsByIds(
+  ids: string[],
+  deletedBy: string | null
+): Promise<{ error?: string }> {
+  if (ids.length === 0) return {};
+  const admin = createAdminClient();
+  const { error } = await admin.rpc("admin_delete_bookings", {
+    p_ids: ids,
+    p_deleted_by: deletedBy,
+  });
+  if (error) return { error: `거래 삭제: ${error.message}` };
+  return {};
+}
