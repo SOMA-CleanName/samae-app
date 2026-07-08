@@ -109,7 +109,7 @@ export function FloatingCart() {
   // 도크 위치 로드
   useEffect(() => {
     let side: "left" | "right" = "right";
-    let top = window.innerHeight - 170; // 도크를 더 아래(깊게)로 — 바닥 위 빈 공간 축소
+    let top = window.innerHeight - 220;
     try {
       const raw = localStorage.getItem(POS_KEY);
       if (raw) {
@@ -122,7 +122,7 @@ export function FloatingCart() {
     }
     setView({
       right: side === "right" ? 0 : window.innerWidth - CART_W,
-      top: Math.min(Math.max(80, top), window.innerHeight - 130),
+      top: Math.min(Math.max(80, top), window.innerHeight - 150),
     });
   }, []);
 
@@ -493,9 +493,10 @@ export function FloatingCart() {
   const W = vp?.w ?? 0;
   const H = vp?.h ?? 0;
   const dockRight = view?.right ?? 0;
-  const dockTop = view?.top ?? H - 170;
+  const dockTop = view?.top ?? H - 220;
   const dockOnRight = view ? W - view.right - CART_W / 2 >= W / 2 : true;
-  const dockCx = W - dockRight - CART_W / 2 + (dockOnRight ? 0.34 : -0.34) * CART_W;
+  // 가장자리 오프셋 계수 ↑ → 도크가 좌/우 화면 밖으로 더 박혀 화면을 덜 차지
+  const dockCx = W - dockRight - CART_W / 2 + (dockOnRight ? 0.5 : -0.5) * CART_W;
   const dockCy = dockTop + 46;
   const dockScale = cardW > 0 ? CART_W / cardW : 0.27;
   const cx = W / 2; // 중앙 스택 위치
