@@ -100,9 +100,9 @@ export default async function PhotographerProfile({
           <div className="flex items-center gap-4 md:flex-col md:items-start md:gap-0">
             <Avatar src={ph.avatar_url} name="사진작가" size="lg" className="shadow-lg ring-2 ring-white/40" />
             <div className="min-w-0 md:mt-4">
-              {/* 작가 실명 노출 금지 — 별점/후기도 숨김(데이터·기능은 보존) */}
-              <h1 className="text-h1 font-semibold">사진작가</h1>
-              <p className="mt-1 text-body-sm text-muted">
+              {/* 작가 실명·'사진작가' 라벨 미표시 — 제목은 접근성/SEO 구조용으로만(화면 숨김) */}
+              <h1 className="sr-only">작가 프로필</h1>
+              <p className="text-body-sm text-muted">
                 촬영 시작 <strong className="text-fg">₩{fmt.format(ph.price_from_krw)}</strong>
               </p>
             </div>
