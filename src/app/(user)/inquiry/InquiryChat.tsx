@@ -565,9 +565,13 @@ export function InquiryChat({
                   </ExpandIn>
                 )}
                 {i === revealed && !contactStep && (
-                  <Reveal key="opts" open={!answered && optionsReady}>
+                  <Reveal key="opts" snapOpen open={!answered && optionsReady}>
                     <UserTray>
-                      <QuestionInput step={step} onSubmit={(v) => onAnswer(i, v)} />
+                      <QuestionInput
+                        step={step}
+                        open={!answered && optionsReady}
+                        onSubmit={(v) => onAnswer(i, v)}
+                      />
                     </UserTray>
                   </Reveal>
                 )}
@@ -960,11 +964,13 @@ function QuestionInput({
   value,
   onSubmit,
   onCancel,
+  open = true,
 }: {
   step: Step;
   value?: string;
   onSubmit: (value: string) => void;
   onCancel?: () => void;
+  open?: boolean;
 }) {
   return (
     <div className="space-y-2.5">
@@ -975,6 +981,7 @@ function QuestionInput({
           cols={step.cols ?? 2}
           value={value}
           onPick={onSubmit}
+          open={open}
         />
       )}
       {step.type === "date" && (
@@ -1033,20 +1040,48 @@ function OptionGrid({
   cols = 2,
   value,
   onPick,
+  open = true,
 }: {
+  open?: boolean;
   options: string[];
   skip: string;
   cols?: 1 | 2;
   value?: string;
   onPick: (v: string) => void;
 }) {
+  // 열릴 때(open) 각 버튼이 아래→위로 '떠오르듯' 등장 — 맨 아래(마지막) 버튼부터 먼저(지연 역순).
+  // 마운트가 아니라 open 전환에 맞춰 재생 → 접혀있는 동안 미리 애니가 소진되지 않게.
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    if (!open) {
+      setShown(false);
+      return;
+    }
+    const id = requestAnimationFrame(() => setShown(true));
+    return () => cancelAnimationFrame(id);
+  }, [open]);
+  const items = [...options, skip];
   return (
     <div className={`grid gap-2 ${cols === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
-      {[...options, skip].map((opt) => (
-        <OptionButton key={opt} active={value === opt} onClick={() => onPick(opt)}>
-          {opt}
-        </OptionButton>
-      ))}
+      {items.map((opt, idx) => {
+        const delay = (items.length - 1 - idx) * 40; // 맨 아래=0, 위로 갈수록 지연
+        return (
+          // grid 래퍼 — 버튼이 셀을 꽉 채우게 유지하면서 래퍼에 등장 트랜지션 적용
+          <div
+            key={opt}
+            className="grid"
+            style={{
+              opacity: shown ? 1 : 0,
+              transform: shown ? "translateY(0)" : "translateY(10px)",
+              transition: `opacity 240ms ease ${delay}ms, transform 260ms cubic-bezier(.2,.7,.2,1) ${delay}ms`,
+            }}
+          >
+            <OptionButton active={value === opt} onClick={() => onPick(opt)}>
+              {opt}
+            </OptionButton>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -1352,16 +1387,25 @@ function Dot() {
 }
 
 // 높이 0→auto 부드러운 펼침 (grid-rows 트릭)
-function Reveal({ open, children }: { open: boolean; children: React.ReactNode }) {
+// snapOpen: 열릴 땐 높이를 즉시 확보(클립 없이) → 내부 버튼이 아래→위 스태거로 '떠오르게',
+//           닫힐 땐 부드럽게 collapse. (일반 Reveal 은 양방향 부드럽게 — 질문·답변칩·날짜·노트)
+function Reveal({
+  open,
+  snapOpen = false,
+  children,
+}: {
+  open: boolean;
+  snapOpen?: boolean;
+  children: React.ReactNode;
+}) {
   return (
     <div
-      className={`grid transition-[grid-template-rows] duration-300 ease-out ${
-        open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+      className={`grid ease-out ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"} ${
+        open && snapOpen ? "" : "transition-[grid-template-rows] duration-300"
       }`}
     >
-      {/* justify-end: 콘텐츠를 하단 정렬 → grid-rows 가 펼쳐질 때 '맨 아래 선지부터 위로' 드러남.
-          px-0.5: overflow-hidden 우측 클립 경계에 입력 border(포커스 시 brand)가 살짝 잘리던 것 방지 */}
-      <div className="flex flex-col justify-end overflow-hidden px-0.5 pb-1">{children}</div>
+      {/* px-0.5: overflow-hidden 우측 클립 경계에 입력 border(포커스 시 brand)가 살짝 잘리던 것 방지 */}
+      <div className="overflow-hidden px-0.5 pb-1">{children}</div>
     </div>
   );
 }
