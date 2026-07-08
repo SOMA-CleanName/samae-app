@@ -170,7 +170,11 @@ export function PhotoCarousel({
       {photos.length > MAX_DOTS ? (
         <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/40 px-2.5 py-0.5">
           <span className="text-xs font-semibold tabular-nums text-white">
-            {idx + 1} <span className="text-white/55">/ {photos.length}</span>
+            {/* 현재 숫자 폭을 총 자릿수로 고정 → 1→2자리로 바뀌어도 pill 폭이 안 변해 가운데 유지 */}
+            <span className="inline-block text-center" style={{ minWidth: `${String(photos.length).length}ch` }}>
+              {idx + 1}
+            </span>
+            <span className="text-white/55"> / {photos.length}</span>
           </span>
         </div>
       ) : (
