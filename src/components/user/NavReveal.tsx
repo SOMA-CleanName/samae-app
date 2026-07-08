@@ -33,7 +33,11 @@ export function NavRevealOnScroll() {
     const check = () => {
       const el = ref.current;
       if (!el) return;
-      const v = el.getBoundingClientRect().top < window.innerHeight * 0.5;
+      const top = el.getBoundingClientRect().top;
+      const mid = window.innerHeight * 0.5;
+      // 히스테리시스 — iOS 사파리는 스크롤 중 주소창 접힘으로 innerHeight 가 요동쳐
+      // 경계에서 forced 가 깜빡이며 내비가 '띡' 나타났다 사라졌음. 40px 데드밴드로 흡수.
+      const v = last.current === true ? top < mid + 40 : top < mid;
       if (v !== last.current) {
         last.current = v;
         setForced(v);
