@@ -109,7 +109,7 @@ export function FloatingCart() {
   // 도크 위치 로드
   useEffect(() => {
     let side: "left" | "right" = "right";
-    let top = window.innerHeight - 220;
+    let top = window.innerHeight - 170; // 도크를 더 아래(깊게)로 — 바닥 위 빈 공간 축소
     try {
       const raw = localStorage.getItem(POS_KEY);
       if (raw) {
@@ -122,7 +122,7 @@ export function FloatingCart() {
     }
     setView({
       right: side === "right" ? 0 : window.innerWidth - CART_W,
-      top: Math.min(Math.max(80, top), window.innerHeight - 150),
+      top: Math.min(Math.max(80, top), window.innerHeight - 130),
     });
   }, []);
 
@@ -493,7 +493,7 @@ export function FloatingCart() {
   const W = vp?.w ?? 0;
   const H = vp?.h ?? 0;
   const dockRight = view?.right ?? 0;
-  const dockTop = view?.top ?? H - 220;
+  const dockTop = view?.top ?? H - 170;
   const dockOnRight = view ? W - view.right - CART_W / 2 >= W / 2 : true;
   const dockCx = W - dockRight - CART_W / 2 + (dockOnRight ? 0.34 : -0.34) * CART_W;
   const dockCy = dockTop + 46;
