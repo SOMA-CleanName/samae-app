@@ -57,14 +57,7 @@ export function FloatingNav({
       >
         <div style={revealStyle}>
           <div className="flex items-center gap-1 rounded-full bg-bg/95 p-1 shadow-lg ring-1 ring-line backdrop-blur">
-            <NavPill href="/" label="홈" active={homeActive} icon={<HomeIcon className="h-5 w-5" />} />
-            <NavPill
-              href="/explore"
-              label="탐색"
-              active={exploreActive}
-              icon={<SearchIcon className="h-5 w-5" />}
-            />
-            {/* '내 문의' — 쿠키에 문의 내역이 있을 때만 (비로그인 포함) */}
+            {/* '문의' — 문의 내역이 있을 때만(쿠키·비로그인 포함). 맨 앞에 노출 */}
             {hasInquiries && (
               <NavPill
                 href="/my-inquiries"
@@ -73,6 +66,13 @@ export function FloatingNav({
                 icon={<ClipboardIcon className="h-5 w-5" />}
               />
             )}
+            <NavPill href="/" label="홈" active={homeActive} icon={<HomeIcon className="h-5 w-5" />} />
+            <NavPill
+              href="/explore"
+              label="탐색"
+              active={exploreActive}
+              icon={<SearchIcon className="h-5 w-5" />}
+            />
           </div>
         </div>
       </nav>
