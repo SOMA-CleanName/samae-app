@@ -89,7 +89,7 @@ function MyInquiryItem({ iq }: { iq: MyInquiry }) {
           <p className="mb-2 text-caption text-muted">남긴 연락처</p>
           <div className="space-y-2">
             {contactRows(iq).map((c, i) => (
-              <div key={i} className="flex items-center gap-2 text-body-sm text-fg">
+              <div key={i} className="flex items-center gap-2 text-body-sm leading-4 text-fg">
                 <ContactIcon kind={c.kind} />
                 <span className="min-w-0 break-all">{c.value}</span>
               </div>
