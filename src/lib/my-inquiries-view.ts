@@ -2,7 +2,8 @@
 
 export type MyInquiry = {
   id: string;
-  createdLabel: string; // "2026년 7월 8일 14:11 제출" (KST, 서버 계산 — 하이드레이션 안전)
+  createdDate: string; // "2026년 7월 8일" (KST)
+  createdTime: string; // "14:11 제출" (KST) — 서버 계산이라 하이드레이션 안전
   status: string;
   photoThumb: string | null;
   phone: string | null;
