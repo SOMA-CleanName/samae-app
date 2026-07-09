@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { notifyOpsNewInquiry, notifyOpsCartInquiry } from "@/lib/ops-alert";
 import { sendCapiLead } from "@/lib/meta-capi";
+import { rememberInquiryIds } from "@/lib/my-inquiries";
 
 export type InquiryState = {
   ok: boolean;
@@ -171,6 +172,9 @@ export async function submitInquiry(
   const result = await createInquiry(me?.id ?? null, photographerId, photoId, contact, brief);
   if (!result) return { ok: false, error: "문의 저장에 실패했어요.", values };
   const { id: inquiryId, isNew } = result;
+
+  // 비로그인 '내 문의' 내역용 — 쿠키에 문의 id 보관(재제출/중복이어도 보관)
+  await rememberInquiryIds([inquiryId]);
 
   // 연타·재제출로 기존 리드를 재사용한 경우엔 알림을 다시 보내지 않는다.
   // Lead 픽셀 이벤트는 동일 inquiryId(eventID)로 Meta 가 자동 중복 제거.
@@ -449,11 +453,13 @@ export async function submitMultiInquiry(
   }
 
   let firstInquiryId: string | null = null;
+  const createdIds: string[] = [];
   for (const [photographerId, repPhotoId] of repByPhotographer) {
     // 본인(작가)이 자기 사진에 보낸 건 건너뜀
     if (me?.photographer?.id === photographerId) continue;
     const result = await createInquiry(me?.id ?? null, photographerId, repPhotoId, contact, brief);
     if (!result) continue;
+    createdIds.push(result.id);
     if (!firstInquiryId) firstInquiryId = result.id;
     if (result.isNew) {
       await notifyPhotographer(photographerId, result.id, me?.displayName ?? null, contact, brief);
@@ -461,6 +467,9 @@ export async function submitMultiInquiry(
   }
 
   if (!firstInquiryId) return { ok: false, error: "문의 저장에 실패했어요.", values };
+
+  // 비로그인 '내 문의' 내역용 — 생성된 문의 id 전부 쿠키에 보관
+  await rememberInquiryIds(createdIds);
 
   // Meta Lead 1회(첫 문의 기준 eventID)
   const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.extraContact ?? "")

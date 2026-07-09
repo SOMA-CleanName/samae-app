@@ -4,14 +4,20 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Avatar } from "@/components/ui";
-import { HomeIcon, SearchIcon } from "@/components/user/icons";
+import { HomeIcon, SearchIcon, ClipboardIcon } from "@/components/user/icons";
 import { ProfileSheet, type ProfileMe } from "./ProfileSheet";
 import { useNavReveal } from "./NavReveal";
 
 // 하단 플로팅 내비 — 기존 하단바/레일 대체.
 // 가운데: 홈/탐색 pill. (로그인 시) 좌측 하단: 계정 아바타 → ProfileSheet. 우측 하단: 장바구니(FloatingCart).
 // 상세페이지 등에선 스크롤로 노출(forced) — 기본은 항상 보임.
-export function FloatingNav({ me }: { me: ProfileMe | null }) {
+export function FloatingNav({
+  me,
+  hasInquiries = false,
+}: {
+  me: ProfileMe | null;
+  hasInquiries?: boolean;
+}) {
   const pathname = usePathname();
   const [sheetOpen, setSheetOpen] = useState(false);
   const { forced } = useNavReveal();
@@ -19,6 +25,7 @@ export function FloatingNav({ me }: { me: ProfileMe | null }) {
   // 홈 = 메인 피드(카테고리 컨텍스트는 쿠키로 복원), 탐색 = /explore
   const homeActive = pathname === "/" || pathname.startsWith("/c/");
   const exploreActive = pathname.startsWith("/explore");
+  const inquiriesActive = pathname.startsWith("/my-inquiries");
 
   // 문의·채팅 같은 풀스크린 몰입 플로우에선 내비를 아예 렌더하지 않음 — 전환·애니메이션 중
   // 그 위(z-50)로 잠깐 새어 보이던 문제 방지.
@@ -57,6 +64,15 @@ export function FloatingNav({ me }: { me: ProfileMe | null }) {
               active={exploreActive}
               icon={<SearchIcon className="h-5 w-5" />}
             />
+            {/* '내 문의' — 쿠키에 문의 내역이 있을 때만 (비로그인 포함) */}
+            {hasInquiries && (
+              <NavPill
+                href="/my-inquiries"
+                label="내 문의"
+                active={inquiriesActive}
+                icon={<ClipboardIcon className="h-5 w-5" />}
+              />
+            )}
           </div>
         </div>
       </nav>
