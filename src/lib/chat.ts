@@ -90,14 +90,6 @@ async function fillCounterpartInfo(convs: ConversationListItem[]): Promise<void>
 }
 
 // 내 대화 목록 (RLS가 참여 대화로 제한) — 상대 정보 포함. (안읽음 배지 집계용 — 전체)
-export async function listConversations(): Promise<ConversationListItem[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("conversations")
-    .select(CONV_COLS)
-    .order("last_message_at", { ascending: false, nullsFirst: false });
-  return (data ?? []) as unknown as ConversationListItem[];
-}
 
 // 채팅 리스트 화면용 — 실제 대화가 오간 방만 + 내가 나가지 않은 방만 + 진행 상태 부착
 export async function listChatRooms(me: CurrentUser): Promise<ChatRoomItem[]> {
@@ -235,11 +227,3 @@ export function myUnread(c: ConversationListItem, me: CurrentUser): number {
 }
 
 // 작가 시점 안읽은 문의 합계 (스튜디오 네비 배지)
-export async function countPhotographerUnread(photographerId: string): Promise<number> {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("conversations")
-    .select("photographer_unread")
-    .eq("photographer_id", photographerId);
-  return (data ?? []).reduce((sum, c) => sum + (c.photographer_unread ?? 0), 0);
-}

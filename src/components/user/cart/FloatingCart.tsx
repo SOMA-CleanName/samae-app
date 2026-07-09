@@ -634,6 +634,10 @@ export function FloatingCart() {
                   onPointerDown={(e) => cardPointerDown(e, it.id)}
                   onPointerMove={cardPointerMove}
                   onPointerUp={cardPointerUp}
+                  // 롱프레스 시 브라우저 기본 메뉴(이미지 공유·다운로드·복사) 차단 —
+                  // iOS 콜아웃은 globals.css로, Android/데스크톱 contextmenu는 JS로 막아야 함.
+                  // 선택 모드만 발동되도록 기본 동작 제거.
+                  onContextMenu={(e) => e.preventDefault()}
                   onClick={(e) => {
                     e.stopPropagation();
                     // 롱프레스로 선택된 직후의 클릭은 무시(토글/포커스 방지)
@@ -917,11 +921,12 @@ export function FloatingCart() {
                 </div>
               )}
 
-              {/* 하단 — 상담 CTA(항상 유지). 한 장 크게 볼 땐 '이 사진으로'로 전환 */}
-              <div className="fixed inset-x-0 bottom-0 z-[62] px-4 pb-6 pt-3">
+              {/* 하단 — 개별 사진(확대) 상담만 유지. 전체·묶음 상담 CTA 제거, 선택 모드는 공유·삭제 전용.
+                  컨테이너는 pointer-events-none, 실제 버튼/폼만 auto → 빈 영역 탭이 그대로 '닫기'로 전달됨. */}
+              <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[62] px-4 pb-6 pt-3">
                 <div className="mx-auto max-w-md">
                   {formFor !== null ? (
-                    <form onSubmit={onSubmit} className="rounded-2xl bg-bg p-4 shadow-pop">
+                    <form onSubmit={onSubmit} className="pointer-events-auto rounded-2xl bg-bg p-4 shadow-pop">
                       <p className="mb-2.5 text-sm font-semibold text-fg">
                         {formFor === "selected" ? `선택한 ${selectedIds.size}장으로 상담 신청` : "이 사진으로 상담 신청"}
                         <button
@@ -990,44 +995,21 @@ export function FloatingCart() {
                         {pending ? "신청 중…" : "무료 상담 신청하기"}
                       </button>
                     </form>
-                  ) : selectMode ? (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        selectedIds.size > 0 &&
-                        leaveToInquiry(`/inquiry/cart?ids=${[...selectedIds].join(",")}`)
-                      }
-                      disabled={selectedIds.size === 0}
-                      className="w-full cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:bg-[#3a3a3a] disabled:text-white/40 disabled:shadow-none disabled:hover:opacity-100"
-                    >
-                      {selectedIds.size > 0 ? `선택한 ${selectedIds.size}장 무료 상담 신청` : "상담할 사진을 선택하세요"}
-                    </button>
-                  ) : focused && items.some((i) => i.id === focused) ? (
+                  ) : selectMode ? null : focused && items.some((i) => i.id === focused) ? (
                     <button
                       type="button"
                       onClick={() => leaveToInquiry(`/inquiry/photo/${focused}`)}
-                      className="w-full cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
+                      className="pointer-events-auto w-full cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
                     >
                       이 사진으로 무료 상담 신청
                     </button>
                   ) : (
-                    // 기본: 모은 관심 사진 전체로 한 번에 상담(묶음)을 앞세움. 탭하면 개별 확대/상담도 가능.
-                    <div className="space-y-2">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          leaveToInquiry(`/inquiry/cart?ids=${items.map((i) => i.id).join(",")}`)
-                        }
-                        className="w-full cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
-                      >
-                        {N === 1 ? "이 사진으로 무료 상담 신청" : `관심 사진 ${N}장 무료 상담 신청`}
-                      </button>
-                      <p className="text-center">
-                        <span className="inline-block rounded-full bg-black/45 px-3 py-1 text-xs font-medium text-white/70 backdrop-blur-sm">
-                          사진을 탭하면 하나씩 보고 상담할 수도 있어요
-                        </span>
-                      </p>
-                    </div>
+                    // 전체·묶음 상담 CTA 제거 — 개별 사진 상담으로만 안내.
+                    <p className="text-center">
+                      <span className="inline-block rounded-full bg-black/65 px-4 py-2.5 text-sm font-semibold text-white shadow-pop backdrop-blur-sm">
+                        사진을 탭하면 상담을 신청할 수 있어요
+                      </span>
+                    </p>
                   )}
                 </div>
               </div>

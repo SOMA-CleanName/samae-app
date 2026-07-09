@@ -47,45 +47,6 @@ export async function setPhotoVisibility(formData: FormData) {
 
 // 사진 메타 수정 — 업로드와 동일 항목(설명·가격·장소·무드·공개여부). (RLS: 본인 작가만)
 // 설명은 피드(앨범) 단위, 나머지는 사진 단위.
-export async function updatePhotoMeta(formData: FormData) {
-  const id = String(formData.get("id"));
-  const albumId = String(formData.get("album_id") ?? "").trim() || null;
-
-  // 가격: 빈 값이면 null, 숫자면 0 이상 정수로 정규화
-  const rawPrice = String(formData.get("price_krw") ?? "").trim();
-  let price_krw: number | null = null;
-  if (rawPrice !== "") {
-    const n = Math.trunc(Number(rawPrice));
-    price_krw = Number.isFinite(n) && n >= 0 ? n : null;
-  }
-
-  // 장소: 빈 문자열은 null 로
-  const rawLoc = String(formData.get("location_text") ?? "").trim();
-  const location_text = rawLoc === "" ? null : rawLoc.slice(0, 120);
-
-  // 무드 태그: "a, b" csv → 배열 (비우면 [])
-  const rawMoods = String(formData.get("mood_tags") ?? "").trim();
-  const mood_tags = rawMoods
-    ? rawMoods.split(",").map((s) => s.trim()).filter(Boolean).slice(0, 10)
-    : [];
-
-  const visibility = formData.get("visibility") === "published" ? "published" : "draft";
-
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("photos")
-    .update({ price_krw, location_text, mood_tags, visibility })
-    .eq("id", id);
-  if (error) throw new Error(error.message);
-
-  // 피드 설명 (앨범 단위) — 같은 피드 사진들이 공유
-  if (albumId) {
-    const description = String(formData.get("description") ?? "").trim().slice(0, 1000) || null;
-    await supabase.from("albums").update({ description }).eq("id", albumId);
-  }
-
-  revalidatePath("/studio/portfolio");
-}
 
 // 피드(묶음) 공유 메타 수정 — 여러 사진에 가격·장소·무드·공개를 일괄 적용 + 앨범 설명.
 export async function updateFeedMeta(formData: FormData) {
@@ -142,40 +103,6 @@ export async function setAlbumVisibility(formData: FormData) {
 }
 
 // 피드 내 사진 순서 한 칸 이동 (위/아래) — 같은 앨범 안에서만 (RLS: 본인 작가)
-export async function reorderPhoto(formData: FormData) {
-  const me = await getCurrentUser();
-  if (!me?.photographer) throw new Error("작가만 사용할 수 있습니다.");
-  const phId = me.photographer.id;
-  const id = String(formData.get("id"));
-  const dir = String(formData.get("dir")); // "up" | "down"
-
-  const supabase = await createClient();
-  const { data: target } = await supabase
-    .from("photos")
-    .select("album_id")
-    .eq("id", id)
-    .maybeSingle();
-  if (!target?.album_id) return; // 단일(앨범 없음)은 순서 개념 없음
-
-  const { data: list } = await supabase
-    .from("photos")
-    .select("id")
-    .eq("album_id", target.album_id)
-    .eq("photographer_id", phId)
-    .order("sort_order", { ascending: true })
-    .order("created_at", { ascending: false });
-  const arr = (list ?? []).map((p) => p.id as string);
-  const idx = arr.indexOf(id);
-  const swap = dir === "up" ? idx - 1 : idx + 1;
-  if (idx === -1 || swap < 0 || swap >= arr.length) return;
-  [arr[idx], arr[swap]] = [arr[swap], arr[idx]];
-
-  // 0..n 으로 sort_order 재기록
-  await Promise.all(
-    arr.map((pid, i) => supabase.from("photos").update({ sort_order: i }).eq("id", pid))
-  );
-  revalidatePath("/studio/portfolio");
-}
 
 // 게시물(앨범) 사진 순서 일괄 저장 — 드래그 정렬. 받은 순서대로 sort_order 0..n.
 // 맨 앞(index 0)이 대표 사진. "대표로 지정"도 해당 사진을 맨 앞으로 보낸 뒤 호출.

@@ -325,24 +325,6 @@ export async function redeliverNotify(formData: FormData) {
 
 // ── 보정본 전달 표시 (작가) : shot → delivered ──────────────────────
 // (구 흐름) 사용자 확인 단계를 거치는 전달. 신규는 deliverFinals 사용.
-export async function markDelivered(formData: FormData) {
-  const id = String(formData.get("id"));
-  const me = await getCurrentUser();
-  if (!me?.photographer) throw new Error("작가만 가능합니다.");
-
-  const admin = createAdminClient();
-  const { data: moved } = await admin
-    .from("bookings")
-    .update({ status: "delivered", delivered_at: new Date().toISOString() })
-    .eq("id", id)
-    .eq("photographer_id", me.photographer.id)
-    .eq("status", "shot")
-    .select("id, user_id");
-  if (!moved || moved.length === 0) throw new Error("처리할 수 없는 상태입니다.");
-
-  await notify(admin, moved[0].user_id, "보정본이 전달됐어요", "확인 후 거래를 완료해주세요.", `/bookings/${id}`);
-  revalidateBooking(id);
-}
 
 // ── 전달 확인 (구매자) : delivered → completed ──────────────────────
 // 직접이체 모델에서는 정산 보류/예약 개념이 없다(작가는 이미 촬영비를 받음).

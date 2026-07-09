@@ -97,13 +97,3 @@ export async function listMyHighlights(photographerId: string): Promise<Highligh
   return shape((data ?? []) as unknown as RawHighlight[], false);
 }
 
-// 하이라이트 커버 이미지 URL 결정 — cover_url > 커버 사진 > 첫 항목
-export function highlightCover(h: Highlight): string | null {
-  if (h.cover_url) return h.cover_url;
-  if (h.cover_photo_id) {
-    const found = h.items.find((it) => it.photo_id === h.cover_photo_id);
-    if (found) return found.thumb_url ?? found.src_url;
-  }
-  const first = h.items[0];
-  return first ? first.thumb_url ?? first.src_url : null;
-}
