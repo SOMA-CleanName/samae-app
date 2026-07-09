@@ -28,6 +28,18 @@ function hashPhone(raw: string | null | undefined): string | null {
   return sha256(e164);
 }
 
+export type MetaAdCookies = { fbp: string | null; fbc: string | null };
+
+// 픽셀이 심은 광고 식별자를 요청 쿠키에서 읽는다.
+// CAPI 전송용이자, 문의 행에 스냅샷으로 남기는 값(0055). 픽셀 미로딩 시 둘 다 null.
+export async function readMetaAdCookies(): Promise<MetaAdCookies> {
+  const c = await cookies();
+  return {
+    fbp: c.get("_fbp")?.value ?? null,
+    fbc: c.get("_fbc")?.value ?? null,
+  };
+}
+
 export async function sendCapiLead(opts: {
   inquiryId: string;
   phone?: string | null;
