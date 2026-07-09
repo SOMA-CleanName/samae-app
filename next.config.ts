@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   images: {
@@ -37,4 +38,15 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Sentry 래핑 — 소스맵 업로드는 SENTRY_AUTH_TOKEN(+org/project) 있을 때만 동작(없으면 자동 스킵).
+export default withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !process.env.CI,
+  widenClientFileUpload: true,
+  disableLogger: true,
+  // 광고차단기 우회 — Sentry 요청을 자체 도메인(/monitoring)으로 프록시.
+  // 소비자 앱이라 애드블록 사용자 비중이 커, 없으면 클라이언트 에러 상당수가 유실됨.
+  tunnelRoute: "/monitoring",
+});
