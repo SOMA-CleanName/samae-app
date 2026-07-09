@@ -51,7 +51,9 @@ function MyInquiryItem({ iq }: { iq: MyInquiry }) {
           </div>
         )}
 
-        <h3 className="text-body font-bold tracking-tight text-fg">{iq.purpose} 문의</h3>
+        <h3 className="text-body font-bold tracking-tight text-fg">
+          {iq.purpose && iq.purpose !== "아직 고민 중이에요" ? `${iq.purpose} 문의` : "문의"}
+        </h3>
 
         <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3">
           <Cell label="희망일" value={iq.preferredDate} />
