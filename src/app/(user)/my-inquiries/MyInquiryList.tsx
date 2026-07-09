@@ -3,7 +3,7 @@ import { inquiryStatusLabel, type MyInquiry } from "@/lib/my-inquiries-view";
 
 export function MyInquiryList({ inquiries }: { inquiries: MyInquiry[] }) {
   return (
-    <ul className="mt-4 space-y-3">
+    <ul className="mt-4 space-y-3.5">
       {inquiries.map((iq) => (
         <MyInquiryItem key={iq.id} iq={iq} />
       ))}
@@ -20,60 +20,91 @@ const TONE: Record<string, string> = {
 function MyInquiryItem({ iq }: { iq: MyInquiry }) {
   const st = inquiryStatusLabel(iq.status);
   return (
-    <li className="overflow-hidden rounded-2xl bg-surface ring-1 ring-line">
-      <div className="flex items-center gap-3 p-3">
-        {iq.photoThumb && (
+    <li className="overflow-hidden rounded-2xl bg-surface shadow-sm ring-1 ring-line">
+      {/* 상단 히어로 — 문의한 사진 + 날짜/상태 오버레이 */}
+      {iq.photoThumb && (
+        <div className="relative h-44 w-full">
           <img
             src={iq.photoThumb}
             alt="문의한 사진"
-            className="h-24 w-24 shrink-0 rounded-xl object-cover"
+            className="h-full w-full object-cover"
             loading="lazy"
           />
-        )}
-        <div className="min-w-0 flex-1">
-          <p className="text-body-sm font-semibold text-fg">{iq.createdLabel} 문의 내역</p>
-          <span
-            className={`mt-1.5 inline-block rounded-full px-2.5 py-1 text-caption font-medium ${TONE[st.tone]}`}
-          >
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/15" />
+          <span className="absolute right-2.5 top-2.5 rounded-full bg-black/55 px-2.5 py-1 text-caption font-medium text-white backdrop-blur">
             {st.label}
           </span>
+          <span className="absolute bottom-2.5 left-3 text-caption font-semibold text-white [text-shadow:0_1px_8px_rgba(0,0,0,0.55)]">
+            {iq.createdLabel}
+          </span>
         </div>
-      </div>
+      )}
 
-      {/* 내가 보낸 내용 — 처음부터 전부 노출 */}
-      <dl className="space-y-2 border-t border-line px-3 py-3 text-body-sm">
-        <Row label="목적" value={iq.purpose} />
-        <Row label="희망일" value={iq.preferredDate} />
-        <Row label="지역" value={iq.region} />
-        {iq.partySize ? <Row label="인원" value={`${iq.partySize}명`} /> : null}
-        <Row label="연락처" value={contactSummary(iq)} />
-        {iq.note ? <Row label="메모" value={iq.note} /> : null}
+      <div className="p-3.5">
+        {/* 사진이 없을 때만 본문 상단에 날짜/상태 */}
+        {!iq.photoThumb && (
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <span className="text-caption font-medium text-muted">{iq.createdLabel}</span>
+            <span className={`rounded-full px-2.5 py-1 text-caption font-medium ${TONE[st.tone]}`}>
+              {st.label}
+            </span>
+          </div>
+        )}
+
+        <h3 className="text-body font-bold tracking-tight text-fg">{iq.purpose} 문의</h3>
+
+        <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3">
+          <Cell label="희망일" value={iq.preferredDate} />
+          <Cell
+            label={iq.partySize ? "지역 · 인원" : "지역"}
+            value={iq.partySize ? `${iq.region} · ${iq.partySize}명` : iq.region}
+          />
+          <Cell label="연락처" value={contactSummary(iq)} full />
+          {iq.note ? <Cell label="메모" value={iq.note} full soft /> : null}
+        </div>
+
         {iq.refImages.length > 0 && (
-          <div className="pt-1">
-            <dt className="mb-1 text-caption text-muted">참고 사진</dt>
+          <div className="mt-3 border-t border-line pt-3">
+            <p className="mb-1.5 text-caption text-muted">참고 사진</p>
             <div className="flex flex-wrap gap-1.5">
               {iq.refImages.map((src, i) => (
                 <img
                   key={i}
                   src={src}
                   alt={`참고 ${i + 1}`}
-                  className="h-16 w-16 rounded-lg object-cover ring-1 ring-line"
+                  className="h-14 w-14 rounded-lg object-cover ring-1 ring-line"
                   loading="lazy"
                 />
               ))}
             </div>
           </div>
         )}
-      </dl>
+      </div>
     </li>
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Cell({
+  label,
+  value,
+  full,
+  soft,
+}: {
+  label: string;
+  value: string;
+  full?: boolean;
+  soft?: boolean;
+}) {
   return (
-    <div className="flex gap-3">
-      <dt className="w-14 shrink-0 text-caption text-muted">{label}</dt>
-      <dd className="min-w-0 flex-1 whitespace-pre-wrap break-words text-fg">{value}</dd>
+    <div className={full ? "col-span-2" : "min-w-0"}>
+      <p className="mb-0.5 text-caption text-muted">{label}</p>
+      <p
+        className={`whitespace-pre-wrap break-words text-body-sm text-fg ${
+          soft ? "font-normal" : "font-medium"
+        }`}
+      >
+        {value}
+      </p>
     </div>
   );
 }
