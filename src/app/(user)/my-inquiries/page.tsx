@@ -5,7 +5,7 @@ import { ClipboardIcon } from "@/components/user/icons";
 import { MyInquiryList } from "./MyInquiryList";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "내 문의", robots: { index: false } };
+export const metadata: Metadata = { title: "문의 내역", robots: { index: false } };
 
 // 비로그인 사용자의 '내 문의' 내역 — 쿠키에 보관된 문의 id 로 조회.
 export default async function MyInquiriesPage() {
@@ -14,7 +14,7 @@ export default async function MyInquiriesPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6 font-kr">
-      <h1 className="text-h1 font-semibold">내 문의</h1>
+      <h1 className="text-h1 font-semibold">문의 내역</h1>
       <p className="mt-1 text-body-sm text-muted">문의한 내역과 진행 상태를 확인할 수 있어요.</p>
 
       {inquiries.length === 0 ? (

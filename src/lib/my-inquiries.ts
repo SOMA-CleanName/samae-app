@@ -62,7 +62,15 @@ type InquiryRow = {
   created_at: string;
 };
 
-// 쿠키의 id 들로 문의 내역 조회(최신순) — 작가 아바타 + 문의한 사진 썸네일 포함.
+// created_at(UTC) → KST 벽시계 라벨 "YYYY년 M월 D일 H시 MM분". (한국은 DST 없음 → +9h 고정)
+function formatInquiryDate(iso: string): string {
+  const d = new Date(new Date(iso).getTime() + 9 * 3600 * 1000);
+  return `${d.getUTCFullYear()}년 ${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일 ${d.getUTCHours()}시 ${String(
+    d.getUTCMinutes()
+  ).padStart(2, "0")}분`;
+}
+
+// 쿠키의 id 들로 문의 내역 조회(최신순) — 문의한 사진 썸네일 포함.
 export async function fetchMyInquiries(ids: string[]): Promise<MyInquiry[]> {
   if (ids.length === 0) return [];
   const admin = createAdminClient();
@@ -76,32 +84,18 @@ export async function fetchMyInquiries(ids: string[]): Promise<MyInquiry[]> {
   const rows = (data ?? []) as InquiryRow[];
   if (rows.length === 0) return [];
 
-  const phIds = [...new Set(rows.map((r) => r.photographer_id).filter(Boolean))];
   const photoIds = [...new Set(rows.map((r) => r.source_photo_id).filter(Boolean))] as string[];
-
-  const [{ data: phs }, { data: photos }] = await Promise.all([
-    admin.from("photographers").select("id, profile_id").in("id", phIds),
-    admin.from("photos").select("id, thumb_url, src_url").in("id", photoIds.length ? photoIds : ["-"]),
-  ]);
-  const phRows = (phs ?? []) as { id: string; profile_id: string | null }[];
+  const { data: photos } = await admin
+    .from("photos")
+    .select("id, thumb_url, src_url")
+    .in("id", photoIds.length ? photoIds : ["-"]);
   const photoRows = (photos ?? []) as { id: string; thumb_url: string | null; src_url: string }[];
-
-  const profileIds = [...new Set(phRows.map((p) => p.profile_id).filter(Boolean))] as string[];
-  const { data: profiles } = await admin
-    .from("profiles")
-    .select("id, avatar_url")
-    .in("id", profileIds.length ? profileIds : ["-"]);
-  const avatarByProfile = new Map(
-    ((profiles ?? []) as { id: string; avatar_url: string | null }[]).map((p) => [p.id, p.avatar_url])
-  );
-  const avatarByPh = new Map(phRows.map((p) => [p.id, p.profile_id ? avatarByProfile.get(p.profile_id) ?? null : null]));
   const thumbByPhoto = new Map(photoRows.map((p) => [p.id, p.thumb_url ?? p.src_url]));
 
   return rows.map((r) => ({
     id: r.id,
-    createdAt: r.created_at,
+    createdLabel: formatInquiryDate(r.created_at),
     status: r.status,
-    photographerAvatar: avatarByPh.get(r.photographer_id) ?? null,
     photoThumb: r.source_photo_id ? thumbByPhoto.get(r.source_photo_id) ?? null : null,
     phone: r.phone,
     instagram: r.instagram_id,
