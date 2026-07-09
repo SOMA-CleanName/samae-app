@@ -28,6 +28,7 @@ import { getDelivery, getDeliveryDownloads, signDeliveryAssets } from "@/lib/del
 import { ReviewForm } from "./ReviewForm";
 import { DeliveryUploader } from "./DeliveryUploader";
 import { DeliveryGallery } from "./DeliveryGallery";
+import { MpTrackOnce } from "@/components/MpTrackOnce";
 
 // 예약 상세 + 역할·상태별 액션
 export default async function BookingDetail({
@@ -96,6 +97,11 @@ export default async function BookingDetail({
 
   return (
     <main className="mx-auto max-w-lg px-3.5 sm:px-5 py-8 font-kr">
+      {/* 예약 상세 진입 — 예약 상태별 이탈/전환 분석 */}
+      <MpTrackOnce
+        event="View Booking Detail"
+        props={{ booking_id: id, status: b.status, viewer: isBuyer ? "buyer" : isOwner ? "photographer" : "admin" }}
+      />
       <Link href={back.href} className="text-sm text-fg/50 hover:text-fg">
         {back.label}
       </Link>
@@ -307,6 +313,7 @@ export default async function BookingDetail({
       {/* 보정본 갤러리 — 완료된 예약 (참여자) · 그리드+라이트박스+저장 (req10,11) */}
       {b.status === "completed" && (downloads.length > 0 || delivery?.external_link) && (
         <DeliveryGallery
+          bookingId={id}
           items={downloads}
           externalLink={delivery?.external_link ?? null}
           expiresAt={delivery?.expires_at ?? null}

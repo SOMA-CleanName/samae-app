@@ -5,6 +5,7 @@ import { startTransition, useActionState, useEffect, useRef, useState } from "re
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeftIcon, CheckIcon, ChevronDownIcon } from "@/components/user/icons";
+import { mpTrack } from "@/lib/mixpanel";
 import { submitInquiry, submitMultiInquiry, type InquiryState } from "./actions";
 
 const INITIAL_STATE: InquiryState = { ok: false };
@@ -249,6 +250,18 @@ export function InquiryChat({
   const optionsEndRef = useRef<HTMLDivElement>(null); // 선지+건너뛰기 하단 — 생성 시 채팅창 바닥에 맞춤
   const started = useRef(false);
 
+  // 문의 위저드 진입 — 마운트당 1회 (문의 시작 → 제출 전환율 측정)
+  const startFired = useRef(false);
+  useEffect(() => {
+    if (startFired.current) return;
+    startFired.current = true;
+    mpTrack("Start Inquiry", {
+      source: multi ? "cart" : "photo",
+      photographer_id: photographerId,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const storageKey = multi
     ? `samae:inquiry:cart:${(photoIds ?? []).slice(0, 3).join("_")}`
     : inquiryStorageKey(photoId, photographerId);
@@ -363,7 +376,20 @@ export function InquiryChat({
     if (leadFiredFor.current !== state.inquiryId) {
       leadFiredFor.current = state.inquiryId;
       window.fbq?.("track", "Lead", {}, { eventID: `inquiry_${state.inquiryId}` });
+      mpTrack("Submit Inquiry", {
+        inquiry_id: state.inquiryId,
+        source: multi ? "cart" : "photo",
+        photographer_id: photographerId,
+        item_count: multi ? photoIds?.length ?? 1 : 1,
+        // 위저드 답변(수요 차원 — 촬영목적·지역·인원·희망일). note(자유서술)는 제외.
+        purpose: answers.purpose,
+        region: answers.region,
+        party_size: answers.partySize,
+        preferred_date: answers.preferredDate,
+      });
     }
+    // 답변·모드는 제출 성공 시점 값으로 1회만 기록 — leadFiredFor 가드로 중복 방지.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.ok, state.inquiryId]);
 
   function onAnswer(i: number, value: string) {

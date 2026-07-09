@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth";
 import { archiveAndDelete } from "@/lib/soft-delete";
+import { mpTrackServer } from "@/lib/mixpanel-server";
 
 // 호출자의 작가 id 확보 (없으면 에러)
 async function requirePhotographerId(): Promise<string> {
@@ -48,24 +49,39 @@ function parsePackage(formData: FormData) {
 
 // 패키지 생성
 export async function createPackage(formData: FormData) {
-  const photographerId = await requirePhotographerId();
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가만 사용할 수 있습니다.");
+  const photographerId = me.photographer.id;
   const v = parsePackage(formData);
   const supabase = await createClient();
-  const { error } = await supabase.from("packages").insert({
-    photographer_id: photographerId,
-    name: v.name,
-    description: v.description,
-    price_krw: v.priceKrw,
-    duration_min: v.durationMin,
-    edited_count: v.editedCount,
-  });
+  const { data: created, error } = await supabase
+    .from("packages")
+    .insert({
+      photographer_id: photographerId,
+      name: v.name,
+      description: v.description,
+      price_krw: v.priceKrw,
+      duration_min: v.durationMin,
+      edited_count: v.editedCount,
+    })
+    .select("id")
+    .single();
   if (error) throw new Error(error.message);
+
+  await mpTrackServer(
+    "Create Package",
+    me.id,
+    { package_id: created?.id, price_krw: v.priceKrw, duration_min: v.durationMin },
+    created?.id ? `Create Package:${created.id}` : undefined,
+  );
+
   revalidatePath("/studio/packages");
 }
 
 // 패키지 수정 (RLS: 본인 작가 패키지만)
 export async function updatePackage(formData: FormData) {
-  await requirePhotographerId();
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가만 사용할 수 있습니다.");
   const id = String(formData.get("id"));
   const v = parsePackage(formData);
   const supabase = await createClient();
@@ -80,12 +96,20 @@ export async function updatePackage(formData: FormData) {
     })
     .eq("id", id);
   if (error) throw new Error(error.message);
+
+  await mpTrackServer("Edit Package", me.id, {
+    package_id: id,
+    price_krw: v.priceKrw,
+    duration_min: v.durationMin,
+  });
+
   revalidatePath("/studio/packages");
 }
 
 // 노출 토글
 export async function togglePackageActive(formData: FormData) {
-  await requirePhotographerId();
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가만 사용할 수 있습니다.");
   const id = String(formData.get("id"));
   const isActive = formData.get("isActive") === "true";
   const supabase = await createClient();
@@ -94,6 +118,9 @@ export async function togglePackageActive(formData: FormData) {
     .update({ is_active: isActive })
     .eq("id", id);
   if (error) throw new Error(error.message);
+
+  await mpTrackServer("Toggle Package Active", me.id, { package_id: id, is_active: isActive });
+
   revalidatePath("/studio/packages");
 }
 
@@ -112,5 +139,8 @@ export async function deletePackage(formData: FormData) {
 
   const { error } = await archiveAndDelete("packages", { col: "id", op: "eq", val: id }, me.id);
   if (error) throw new Error(error);
+
+  await mpTrackServer("Delete Package", me.id, { package_id: id });
+
   revalidatePath("/studio/packages");
 }

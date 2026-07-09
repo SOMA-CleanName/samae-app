@@ -1,5 +1,6 @@
 "use client";
 
+import { mpTrack } from "@/lib/mixpanel";
 import { useCart, type CartItem } from "./CartProvider";
 
 // 사진 카드/상세의 '+' 담기 버튼. 담기면 사진이 하단 장바구니로 빨려들어감.
@@ -21,9 +22,11 @@ export function AddToCartButton({
     e.preventDefault();
     e.stopPropagation();
     if (inCart) {
+      mpTrack("Remove from Cart", { photo_id: item.id, source: variant });
       remove(item.id);
       return;
     }
+    mpTrack("Add to Cart", { photo_id: item.id, source: variant });
     // fly 출발점 = 카드 컨테이너(항상 화면에 보이는 프레임). 버튼이 카드 밖(사진 상세 액션행)이면
     // 페이지 첫 [data-cart-card](=상세 캐러셀 프레임)로 폴백. img 대신 컨테이너를 쓰는 이유:
     // 캐러셀은 가로 스크롤이라 첫 img 가 화면 밖(왼쪽)에 있을 수 있어 엉뚱한 곳에서 날아옴.

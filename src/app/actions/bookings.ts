@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
+import { mpTrackServer } from "@/lib/mixpanel-server";
 
 // 알림 생성 헬퍼 (service_role)
 async function notify(
@@ -159,6 +160,19 @@ export async function proposeBooking(formData: FormData) {
     booking_id: booking.id,
   });
 
+  // 예약 이벤트는 고객 타임라인에 귀속(수요 퍼널). redirect() 전에 발화.
+  await mpTrackServer(
+    "Propose Booking",
+    userId,
+    {
+      booking_id: booking.id,
+      photographer_id: photographerId,
+      amount_krw: amount,
+      proposed_by: amPhotographer ? "photographer" : "customer",
+    },
+    `Propose Booking:${booking.id}`,
+  );
+
   redirect(`/chat/${conversationId}`);
 }
 
@@ -250,7 +264,7 @@ export async function acceptBooking(formData: FormData) {
   const { data: b } = await admin
     .from("bookings")
     .select(
-      "id, status, photographer_id, user_id, shoot_at, duration_min, package_snapshot, proposed_by_photographer"
+      "id, status, photographer_id, user_id, shoot_at, duration_min, package_snapshot, proposed_by_photographer, amount_krw"
     )
     .eq("id", id)
     .single();
@@ -305,6 +319,19 @@ export async function acceptBooking(formData: FormData) {
   if (proposerId)
     await notify(admin, proposerId, "예약이 수락됐어요", "예약이 체결되었습니다.", `/bookings/${id}`);
   await postSystemMessage(admin, b.user_id, b.photographer_id, me.id, "✅ 예약이 수락되어 체결되었어요.");
+
+  await mpTrackServer(
+    "Accept Booking",
+    b.user_id,
+    {
+      booking_id: id,
+      photographer_id: b.photographer_id,
+      amount_krw: b.amount_krw,
+      actor: accepterIsCustomer ? "customer" : "photographer",
+    },
+    `Accept Booking:${id}`,
+  );
+
   revalidatePath(`/bookings/${id}`);
   revalidatePath("/bookings");
   revalidatePath("/chat");
@@ -342,6 +369,18 @@ export async function rejectBooking(formData: FormData) {
   if (proposerId)
     await notify(admin, proposerId, "예약이 거절됐어요", "다른 조건으로 다시 제안해보세요.", `/bookings/${id}`);
   await postSystemMessage(admin, b.user_id, b.photographer_id, me.id, "❌ 예약 제안이 거절되었어요.");
+
+  await mpTrackServer(
+    "Reject Booking",
+    b.user_id,
+    {
+      booking_id: id,
+      photographer_id: b.photographer_id,
+      actor: rejecterIsCustomer ? "customer" : "photographer",
+    },
+    `Reject Booking:${id}`,
+  );
+
   revalidatePath(`/bookings/${id}`);
   revalidatePath("/bookings");
   revalidatePath("/chat");
@@ -384,6 +423,19 @@ export async function cancelBooking(formData: FormData) {
     b.photographer_id,
     me.id,
     isBuyer ? "🚫 고객이 예약을 취소했어요." : "🚫 작가가 예약을 취소했어요."
+  );
+
+  await mpTrackServer(
+    "Cancel Booking",
+    b.user_id,
+    {
+      booking_id: id,
+      photographer_id: b.photographer_id,
+      from_status: b.status,
+      actor: isBuyer ? "customer" : "photographer",
+    },
+    // from_status 포함 — 같은 예약이 여러 상태에서 취소될 일은 없지만 방어적으로.
+    `Cancel Booking:${id}`,
   );
 
   revalidatePath(`/bookings/${id}`);

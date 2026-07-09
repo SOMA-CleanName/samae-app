@@ -5,6 +5,7 @@ import { seededShuffle, spaceByKey, dayKey } from "@/lib/seeded-shuffle";
 import { ChevronRightIcon } from "@/components/user/icons";
 import { ExploreStrip } from "./ExploreStrip";
 import { ScrollMemory } from "@/components/user/ScrollMemory";
+import { MpTrackOnce } from "@/components/MpTrackOnce";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +46,8 @@ export default async function ExplorePage() {
 
   return (
     <section className="font-kr">
+      {/* 탐색 피드 진입 — 발견 퍼널 상단 */}
+      <MpTrackOnce event="View Explore Feed" props={{ section_count: sections.length }} />
       <ScrollMemory />
       <div className="space-y-7 px-2.5 pb-2.5 pt-2.5 sm:px-4 sm:pt-4 sm:pb-4">
         <h1 className="text-xl font-bold tracking-tight">탐색</h1>

@@ -14,6 +14,7 @@ import type { CurrentUser } from "@/lib/auth";
 import { Avatar, Badge, EmptyState } from "@/components/ui";
 import { ChatIcon } from "@/components/user/icons";
 import { LeaveButton } from "./LeaveButton";
+import { MpTrackOnce } from "@/components/MpTrackOnce";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,8 @@ export default async function ChatListPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-3.5 py-8 font-kr sm:px-5">
+      {/* 채팅 목록 진입 — 상담 활동·리텐션 */}
+      <MpTrackOnce event="View Chat List" props={{ room_count: rooms.length }} />
       <h1 className="text-h1 font-semibold">채팅</h1>
 
       {rooms.length === 0 ? (

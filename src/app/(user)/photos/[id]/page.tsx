@@ -112,7 +112,14 @@ export default async function PhotoDetail({
       <RememberFrameAspect id={photo.id} aspect={aspect} />
       {autoLike && <AutoFavorite targetType="photo" targetId={photo.id} path={`/photos/${photo.id}`} />}
       {/* Meta 픽셀 ViewContent — 작가명 노출 금지(content_name 익명) */}
-      <PixelViewContent id={photo.id} disabled={isOwner} />
+      <PixelViewContent
+        id={photo.id}
+        photographerId={photo.photographer_id}
+        category={photo.mood_tags ?? null}
+        region={photo.region ?? photo.location_text ?? null}
+        price={photo.price_krw ?? null}
+        disabled={isOwner}
+      />
       <div className="md:flex md:items-start md:gap-8">
         {/* 사진 — 화면 최상단. 뒤로가기·공유는 이미지 위 오버레이 */}
         <div
@@ -129,7 +136,7 @@ export default async function PhotoDetail({
           {/* 공유·담기(좌) · 가격(우) 한 행 */}
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-1.5">
-              <ShareButton />
+              <ShareButton photoId={photo.id} />
               <AddToCartButton
                 variant="row"
                 item={{

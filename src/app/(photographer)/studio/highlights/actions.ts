@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { archiveAndDelete } from "@/lib/soft-delete";
+import { mpTrackServer } from "@/lib/mixpanel-server";
 
 type Admin = ReturnType<typeof createAdminClient>;
 
@@ -94,7 +95,9 @@ function coverFields(formData: FormData) {
 
 // 생성 — 제목·사진·커버
 export async function createHighlight(formData: FormData) {
-  const phId = await requirePhotographerId();
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가만 사용할 수 있습니다.");
+  const phId = me.photographer.id;
   const { coverUrl, coverPhotoId, title } = coverFields(formData);
   const items = parseItems(formData);
 
@@ -124,6 +127,9 @@ export async function createHighlight(formData: FormData) {
   if (error) throw new Error(error.message);
 
   await replaceItems(admin, h.id as string, phId, items);
+
+  await mpTrackServer("Set Highlight", me.id, { highlight_id: h.id, item_count: items.length });
+
   revalidateHighlightViews();
 }
 

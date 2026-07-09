@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { getBooking, fmtShootAt } from "@/lib/bookings";
 import { ensureTransferRecord, getPayoutAccountForBooking } from "@/lib/payments";
+import { MpTrackOnce } from "@/components/MpTrackOnce";
 
 // 송금 안내 — 사용자가 작가 계좌로 직접 촬영비를 송금하도록 계좌를 노출한다.
 // 입금 확인은 작가가 예약 상세에서 처리한다(→ accepted→paid).
@@ -28,6 +29,8 @@ export default async function TransferGuidePage({
 
   return (
     <main className="mx-auto max-w-lg px-3.5 sm:px-5 py-8 font-kr">
+      {/* 결제(송금) 안내 페이지 도달 — 결제 직전 이탈지점 */}
+      <MpTrackOnce event="View Payment Page" props={{ booking_id: id, amount_krw: b.amount_krw ?? 0 }} />
       <Link href={`/bookings/${id}`} className="text-sm text-fg/50 hover:text-fg">
         ← 예약 상세
       </Link>
