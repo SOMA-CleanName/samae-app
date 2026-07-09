@@ -59,7 +59,6 @@ function MyInquiryItem({ iq }: { iq: MyInquiry }) {
             label={iq.partySize ? "지역 · 인원" : "지역"}
             value={iq.partySize ? `${iq.region} · ${iq.partySize}명` : iq.region}
           />
-          <Cell label="연락처" value={contactSummary(iq)} full />
           {iq.note ? <Cell label="메모" value={iq.note} full soft /> : null}
         </div>
 
@@ -79,6 +78,14 @@ function MyInquiryItem({ iq }: { iq: MyInquiry }) {
             </div>
           </div>
         )}
+
+        {/* 남긴 연락처 — 맨 아래 별도 칸 */}
+        <div className="mt-3 rounded-xl bg-surface-2 px-3 py-2.5">
+          <p className="text-caption text-muted">남긴 연락처</p>
+          <p className="mt-0.5 whitespace-pre-wrap break-words text-body-sm font-medium text-fg">
+            {contactSummary(iq)}
+          </p>
+        </div>
       </div>
     </li>
   );
