@@ -15,12 +15,17 @@ export default function Loading() {
               <div className="h-5 w-32 animate-pulse rounded bg-fg/[0.08]" />
               {/* 2열 상세 */}
               <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3">
-                {Array.from({ length: 4 }).map((__, c) => (
-                  <div key={c} className={c >= 2 ? "col-span-2" : ""}>
+                {Array.from({ length: 2 }).map((__, c) => (
+                  <div key={c}>
                     <div className="h-3 w-10 animate-pulse rounded bg-fg/[0.06]" />
-                    <div className="mt-1.5 h-3.5 w-28 max-w-full animate-pulse rounded bg-fg/[0.06]" />
+                    <div className="mt-1.5 h-3.5 w-24 max-w-full animate-pulse rounded bg-fg/[0.06]" />
                   </div>
                 ))}
+              </div>
+              {/* 남긴 연락처 박스 */}
+              <div className="mt-3 rounded-xl bg-surface-2 px-3 py-2.5">
+                <div className="h-3 w-16 animate-pulse rounded bg-fg/[0.07]" />
+                <div className="mt-1.5 h-3.5 w-40 max-w-full animate-pulse rounded bg-fg/[0.07]" />
               </div>
             </div>
           </li>
