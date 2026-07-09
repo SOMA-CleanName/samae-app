@@ -137,7 +137,7 @@ export default async function PhotoDetail({
           {/* 공유·담기(좌) · 가격(우) 한 행 */}
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-1.5">
-              <ShareButton />
+              <ShareButton photoId={photo.id} />
               <AddToCartButton
                 variant="row"
                 item={{

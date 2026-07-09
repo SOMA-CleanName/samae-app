@@ -18,7 +18,18 @@ function ensure(): boolean {
       persistence: "localStorage",
       // EU 데이터 레지던시가 필요하면 아래 주석 해제:
       // api_host: "https://api-eu.mixpanel.com",
-      autocapture: false,
+      // 오토캡처: 페이지뷰·클릭·스크롤·폼제출을 자동 수집(폭넓은 탐색용).
+      // 커스텀 이벤트(핵심 퍼널)와 병행. PII 안전 설정:
+      //  · input=false → 입력 상호작용 미수집(계좌·이름 등 폼 보호)
+      //  · capture_text_content=false → 요소 텍스트(계좌번호 등) 미수집
+      autocapture: {
+        pageview: "full-url",
+        click: true,
+        scroll: true,
+        submit: true,
+        input: false,
+        capture_text_content: false,
+      },
     });
     ready = true;
   } catch {

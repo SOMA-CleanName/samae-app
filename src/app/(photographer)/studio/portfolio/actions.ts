@@ -229,6 +229,9 @@ export async function deletePost(formData: FormData) {
   }
   const { error: albErr } = await archiveAndDelete("albums", { col: "id", op: "eq", val: albumId }, me.id);
   if (albErr) throw new Error(albErr);
+
+  await mpTrackServer("Delete Portfolio", me.id, { album_id: albumId, photo_count: mine.length });
+
   revalidatePath("/studio/portfolio");
 }
 

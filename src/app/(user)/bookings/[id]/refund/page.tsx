@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { getBooking, fmtShootAt } from "@/lib/bookings";
 import { refundBooking } from "@/app/actions/payments";
+import { MpTrackOnce } from "@/components/MpTrackOnce";
 
 // 환불 안내·신청 — 결제 이후(paid/shot/delivered) 구매자(또는 운영자)가
 // 자세한 정책을 읽고 환불을 신청한다. 실제 환불 송금은 작가가 직접 한다(오프플랫폼).
@@ -30,6 +31,11 @@ export default async function RefundPage({
 
   return (
     <main className="mx-auto max-w-lg px-3.5 sm:px-5 py-8 font-kr">
+      {/* 환불 신청 페이지 진입 — 결제 후 이탈/불만 신호(제출=Refund Booking) */}
+      <MpTrackOnce
+        event="Start Refund"
+        props={{ booking_id: id, status: b.status, amount_krw: b.amount_krw ?? 0 }}
+      />
       <Link href={`/bookings/${id}`} className="text-sm text-fg/50 hover:text-fg">
         ← 예약 상세
       </Link>

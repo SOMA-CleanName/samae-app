@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth";
+import { mpTrackServer } from "@/lib/mixpanel-server";
 
 // 예약 템플릿 저장 — 예약 안내문/조건 + 출장비. (RLS: 본인 작가만)
 export async function saveBookingTemplate(formData: FormData) {
@@ -24,5 +25,11 @@ export async function saveBookingTemplate(formData: FormData) {
     })
     .eq("id", me.photographer.id);
   if (error) throw new Error(error.message);
+
+  await mpTrackServer("Save Booking Template", me.id, {
+    has_note: !!note,
+    has_travel_note: !!travelNote,
+  });
+
   revalidatePath("/studio/booking");
 }

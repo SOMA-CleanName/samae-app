@@ -27,6 +27,12 @@ export function DeliveryGallery({
   const [viewer, setViewer] = useState<number | null>(null);
   const [savingAll, setSavingAll] = useState(false);
 
+  // 전달본 갤러리 노출 — 결과물 도달(다운로드 전환 직전)
+  useEffect(() => {
+    mpTrack("View Delivery", { booking_id: bookingId, item_count: items.length });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // 크로스 오리진 서명 URL을 blob 으로 받아 강제 저장.
   // track=true 일 때만 개별 다운로드 이벤트(전체저장 루프에선 중복 방지 위해 false).
   async function saveOne(item: DeliveryDownload, track = true) {

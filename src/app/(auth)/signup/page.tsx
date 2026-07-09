@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { mpTrack } from "@/lib/mixpanel";
 import { ArrowLeftIcon, MailIcon, CheckIcon } from "@/components/user/icons";
 
 // 이메일 가입 노출 여부 — 도메인/커스텀 SMTP 준비 전까지는 false(카카오만).
@@ -24,6 +25,11 @@ export default function SignupPage() {
   const [resentMsg, setResentMsg] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0); // 재발송 쿨다운(초) — 이메일 한도 보호
 
+  // 회원가입 페이지 진입 — 가입 퍼널 시작점
+  useEffect(() => {
+    mpTrack("Start Sign Up");
+  }, []);
+
   // 쿨다운 카운트다운
   useEffect(() => {
     if (cooldown <= 0) return;
@@ -42,6 +48,7 @@ export default function SignupPage() {
 
   async function onKakao() {
     setError(null);
+    mpTrack("Start Kakao Login", { context: "signup" });
     await supabase.auth.signInWithOAuth({
       provider: "kakao",
       options: { redirectTo: `${location.origin}/auth/callback` },

@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { listMyNewInquiries, listMyAcceptedInquiries } from "@/lib/inquiries";
 import { getPlatformAccount } from "@/lib/platform-account";
 import { StudioInquiries } from "./StudioInquiries";
+import { MpTrackOnce } from "@/components/MpTrackOnce";
 
 export const dynamic = "force-dynamic";
 
@@ -58,6 +59,11 @@ export default async function StudioHome() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 sm:px-6 py-8 font-kr">
+      {/* 스튜디오 홈(문의 허브) 진입 — 작가 활성/리드 열람 */}
+      <MpTrackOnce
+        event="View Studio Dashboard"
+        props={{ new_inquiry_count: newItems.length, accepted_inquiry_count: acceptedItems.length }}
+      />
       <h1 className="text-2xl font-semibold">문의</h1>
       <p className="mt-1 text-sm text-fg/50">
         <b className="text-fg/70">{ph.displayName}</b> 작가님, 새 문의를 확인하고 수락해보세요.

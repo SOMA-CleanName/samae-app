@@ -80,7 +80,8 @@ export async function createPackage(formData: FormData) {
 
 // 패키지 수정 (RLS: 본인 작가 패키지만)
 export async function updatePackage(formData: FormData) {
-  await requirePhotographerId();
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가만 사용할 수 있습니다.");
   const id = String(formData.get("id"));
   const v = parsePackage(formData);
   const supabase = await createClient();
@@ -95,12 +96,20 @@ export async function updatePackage(formData: FormData) {
     })
     .eq("id", id);
   if (error) throw new Error(error.message);
+
+  await mpTrackServer("Edit Package", me.id, {
+    package_id: id,
+    price_krw: v.priceKrw,
+    duration_min: v.durationMin,
+  });
+
   revalidatePath("/studio/packages");
 }
 
 // 노출 토글
 export async function togglePackageActive(formData: FormData) {
-  await requirePhotographerId();
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가만 사용할 수 있습니다.");
   const id = String(formData.get("id"));
   const isActive = formData.get("isActive") === "true";
   const supabase = await createClient();
@@ -109,6 +118,9 @@ export async function togglePackageActive(formData: FormData) {
     .update({ is_active: isActive })
     .eq("id", id);
   if (error) throw new Error(error.message);
+
+  await mpTrackServer("Toggle Package Active", me.id, { package_id: id, is_active: isActive });
+
   revalidatePath("/studio/packages");
 }
 
@@ -127,5 +139,8 @@ export async function deletePackage(formData: FormData) {
 
   const { error } = await archiveAndDelete("packages", { col: "id", op: "eq", val: id }, me.id);
   if (error) throw new Error(error);
+
+  await mpTrackServer("Delete Package", me.id, { package_id: id });
+
   revalidatePath("/studio/packages");
 }

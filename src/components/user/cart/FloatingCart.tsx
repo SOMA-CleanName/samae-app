@@ -303,6 +303,7 @@ export function FloatingCart() {
 
   // 펼침: 도크 → 중앙 스택 → 펼침
   function startOpen() {
+    mpTrack("View Cart", { item_count: items.length });
     if (cartTip || !tipDone.current) dismissTip(); // 도크 열면 툴팁 종료(재등장 방지)
     setPhase("center");
     window.setTimeout(() => setPhase("spread"), 300);
@@ -354,6 +355,7 @@ export function FloatingCart() {
     ids.forEach((id) => removeOne(id));
   }
   function removeOne(id: string) {
+    mpTrack("Remove from Cart", { photo_id: id, source: "cart_drawer" });
     setLeaving((s) => new Set(s).add(id));
     setTimeout(() => {
       remove(id);

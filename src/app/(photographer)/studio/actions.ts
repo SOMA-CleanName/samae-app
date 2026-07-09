@@ -216,6 +216,18 @@ export async function updateProfile(
     if (accountError) return { error: "계좌 삭제 중 오류가 발생했습니다." };
   }
 
+  // 공급측 계측 (PII 계좌정보는 전송하지 않음)
+  await mpTrackServer("Update Studio Profile", user.id, {
+    region_count: parseList(v.regions).length,
+    mood_tag_count: parseList(v.moodTags).length,
+    price_from_krw: v.priceFrom,
+    has_bio: !!v.bio?.trim(),
+  });
+  if (hasAccount) {
+    // 수취 계좌 등록 = 작가 활성화 핵심 지표. insert_id 고정으로 최초 1회만 집계.
+    await mpTrackServer("Register Payout Account", user.id, {}, `Register Payout Account:${me}`);
+  }
+
   // 새로고침(RSC 재렌더) 없이 저장 — 폼은 입력값을 그대로 유지하고 성공 표시만.
   // /studio·/studio/profile 은 인증 기반 동적 페이지라 다음 방문 시 자동으로 최신값 반영됨.
   return { ok: true };

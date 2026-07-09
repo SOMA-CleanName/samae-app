@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { listMyAcceptedInquiries } from "@/lib/inquiries";
+import { MpTrackOnce } from "@/components/MpTrackOnce";
 
 // 작가 수수료 내역 — 리드(문의) 언락 모델.
 // 작가가 해제 신청한 리드마다 건당 입금액(deposit_amount_krw)이 발생하며,
@@ -25,6 +26,11 @@ export default async function FeesPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 sm:px-6 py-10 font-kr">
+      {/* 수수료/정산 내역 진입 — 작가 리텐션·수익 관심 신호 */}
+      <MpTrackOnce
+        event="View Settlements"
+        props={{ due_total_krw: dueTotal, paid_total_krw: paidTotal, lead_count: leads.length }}
+      />
       <Link href="/studio" className="text-sm text-fg/50 hover:text-fg">
         ← 스튜디오
       </Link>

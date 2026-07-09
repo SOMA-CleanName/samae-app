@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { submitReview } from "@/app/actions/reviews";
+import { mpTrack } from "@/lib/mixpanel";
 
 // 후기 작성 폼 — 별점(1~5) + 텍스트. 기존 후기가 있으면 프리필(수정).
 export function ReviewForm({
@@ -15,6 +16,16 @@ export function ReviewForm({
 }) {
   const [rating, setRating] = useState(initialRating);
   const [hover, setHover] = useState(0);
+  const startedRef = useRef(false);
+
+  // 후기 작성 착수(첫 별점 선택) — 제출 전 의도 신호. 1회만.
+  function pickRating(n: number) {
+    if (!startedRef.current) {
+      startedRef.current = true;
+      mpTrack("Start Review", { booking_id: bookingId, is_edit: !!initialRating });
+    }
+    setRating(n);
+  }
 
   return (
     <form action={submitReview} className="mt-4 rounded-xl border border-fg/10 p-5">
@@ -28,7 +39,7 @@ export function ReviewForm({
           <button
             key={n}
             type="button"
-            onClick={() => setRating(n)}
+            onClick={() => pickRating(n)}
             onMouseEnter={() => setHover(n)}
             aria-label={`${n}점`}
             className={`text-2xl leading-none transition-colors ${
