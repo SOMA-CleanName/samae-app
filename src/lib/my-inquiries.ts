@@ -62,12 +62,15 @@ type InquiryRow = {
   created_at: string;
 };
 
-// created_at(UTC) → KST 벽시계 라벨 "YYYY년 M월 D일 HH:MM 제출". (한국은 DST 없음 → +9h 고정)
-function formatInquiryDate(iso: string): string {
+// created_at(UTC) → KST 벽시계. 날짜/시각 두 파트로. (한국은 DST 없음 → +9h 고정)
+function formatInquiryDate(iso: string): { date: string; time: string } {
   const d = new Date(new Date(iso).getTime() + 9 * 3600 * 1000);
   const hh = String(d.getUTCHours()).padStart(2, "0");
   const mm = String(d.getUTCMinutes()).padStart(2, "0");
-  return `${d.getUTCFullYear()}년 ${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일 ${hh}:${mm} 제출`;
+  return {
+    date: `${d.getUTCFullYear()}년 ${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일`,
+    time: `${hh}:${mm} 제출`,
+  };
 }
 
 // 쿠키의 id 들로 문의 내역 조회(최신순) — 문의한 사진 썸네일 포함.
@@ -92,20 +95,24 @@ export async function fetchMyInquiries(ids: string[]): Promise<MyInquiry[]> {
   const photoRows = (photos ?? []) as { id: string; thumb_url: string | null; src_url: string }[];
   const thumbByPhoto = new Map(photoRows.map((p) => [p.id, p.thumb_url ?? p.src_url]));
 
-  return rows.map((r) => ({
-    id: r.id,
-    createdLabel: formatInquiryDate(r.created_at),
-    status: r.status,
-    photoThumb: r.source_photo_id ? thumbByPhoto.get(r.source_photo_id) ?? null : null,
-    phone: r.phone,
-    instagram: r.instagram_id,
-    kakao: r.discord_id,
-    extraContact: r.extra_contact,
-    partySize: r.party_size,
-    purpose: r.purpose,
-    preferredDate: r.preferred_date,
-    region: r.region,
-    note: r.note,
-    refImages: r.ref_image_paths ?? [],
-  }));
+  return rows.map((r) => {
+    const dt = formatInquiryDate(r.created_at);
+    return {
+      id: r.id,
+      createdDate: dt.date,
+      createdTime: dt.time,
+      status: r.status,
+      photoThumb: r.source_photo_id ? thumbByPhoto.get(r.source_photo_id) ?? null : null,
+      phone: r.phone,
+      instagram: r.instagram_id,
+      kakao: r.discord_id,
+      extraContact: r.extra_contact,
+      partySize: r.party_size,
+      purpose: r.purpose,
+      preferredDate: r.preferred_date,
+      region: r.region,
+      note: r.note,
+      refImages: r.ref_image_paths ?? [],
+    };
+  });
 }
