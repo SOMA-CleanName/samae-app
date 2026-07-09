@@ -1,16 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import { mpTrack } from "@/lib/mixpanel";
 
 // 사진 공유 — 모바일은 네이티브 공유 시트(navigator.share), 데스크톱 등 미지원은 링크 복사.
 export function ShareButton({
   title = "samae — 이 사진 어때요?",
   className = "",
   variant = "default",
+  photoId,
 }: {
   title?: string;
   className?: string;
   variant?: "default" | "overlay";
+  photoId?: string;
 }) {
   const [copied, setCopied] = useState(false);
   const tone =
@@ -23,6 +26,7 @@ export function ShareButton({
     try {
       if (navigator.share) {
         await navigator.share({ title, url });
+        mpTrack("Share Photo", { photo_id: photoId, method: "native" });
         return;
       }
     } catch {
@@ -30,6 +34,7 @@ export function ShareButton({
     }
     try {
       await navigator.clipboard.writeText(url);
+      mpTrack("Share Photo", { photo_id: photoId, method: "clipboard" });
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
     } catch {

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth";
+import { mpTrackServer } from "@/lib/mixpanel-server";
 
 // 후기 작성/수정 (구매자, completed 예약만) — 1예약 1후기(upsert). 집계는 DB 트리거가 처리.
 export async function submitReview(formData: FormData) {
@@ -37,6 +38,14 @@ export async function submitReview(formData: FormData) {
     { onConflict: "booking_id" }
   );
   if (error) throw new Error(error.message);
+
+  // 후기 작성 — 고객 타임라인. 수정(upsert)해도 1예약 1후기라 $insert_id 로 1건.
+  await mpTrackServer(
+    "Submit Review",
+    me.id,
+    { booking_id: bookingId, photographer_id: b.photographer_id, rating },
+    `Submit Review:${bookingId}`,
+  );
 
   revalidatePath(`/bookings/${bookingId}`);
 }

@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
+import { mpTrackServer } from "@/lib/mixpanel-server";
 
 // 최저가·가격 상한 (350만원)
 const MAX_PRICE_KRW = 100_000_000; // 사실상 무제한(안전값 1억)
@@ -142,14 +143,22 @@ export async function updateProfile(
     if (accountError) return { error: "계좌 삭제 중 오류가 발생했습니다." };
   }
 
+  // 공급측 계측 (PII 계좌정보는 전송하지 않음)
+  await mpTrackServer("Update Studio Profile", user.id, {
+    region_count: parseList(v.regions).length,
+    mood_tag_count: parseList(v.moodTags).length,
+    price_from_krw: v.priceFrom,
+    has_bio: !!v.bio?.trim(),
+  });
+  if (hasAccount) {
+    // 수취 계좌 등록 = 작가 활성화 핵심 지표. insert_id 고정으로 최초 1회만 집계.
+    await mpTrackServer("Register Payout Account", user.id, {}, `Register Payout Account:${me}`);
+  }
+
   // 새로고침(RSC 재렌더) 없이 저장 — 폼은 입력값을 그대로 유지하고 성공 표시만.
   // /studio·/studio/profile 은 인증 기반 동적 페이지라 다음 방문 시 자동으로 최신값 반영됨.
   return { ok: true };
 }
-
-// ─────────────────────────────────────────────
-// 문의 수락 (리드 모델) — new → accepted(입금 대기). 관련 알림은 읽음 처리.
-// ─────────────────────────────────────────────
 
 // ─────────────────────────────────────────────
 // 리드 다중 해제 신청 — 작가가 블러 리스트에서 여러 건 선택 → new → accepted(입금 대기).
@@ -181,6 +190,16 @@ export async function unlockInquiries(ids: string[]): Promise<{ ok: boolean; cou
       .eq("recipient_id", me.id)
       .eq("type", "booking")
       .in("inquiry_id", unlockedIds);
+
+    // 다건 해제 — 건별로 작가(공급) 타임라인에 기록
+    for (const uid of unlockedIds) {
+      await mpTrackServer(
+        "Unlock Lead",
+        me.id,
+        { inquiry_id: uid, photographer_id: me.photographer.id, bulk: true },
+        `Unlock Lead:${uid}`,
+      );
+    }
   }
 
   revalidatePath("/studio");

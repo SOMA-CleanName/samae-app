@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { listMyNotifications } from "@/lib/notifications";
 import { MarkReadOnMount } from "./MarkReadOnMount";
 import { NotificationsList } from "./NotificationsList";
+import { MpTrackOnce } from "@/components/MpTrackOnce";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,11 @@ export default async function NotificationsPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-3.5 sm:px-5 py-8 font-kr">
+      {/* 알림함 진입 — 재방문 경로·알림 효용 */}
+      <MpTrackOnce
+        event="View Notifications"
+        props={{ total: items.length, unread: items.filter((n) => !n.read_at).length }}
+      />
       <MarkReadOnMount hasUnread={hasUnread} />
       <NotificationsList items={items} />
     </main>

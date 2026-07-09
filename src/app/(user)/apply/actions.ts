@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notifyOpsNewApplication } from "@/lib/ops-alert";
+import { mpTrackServer } from "@/lib/mixpanel-server";
 
 export type ApplyLeadState = {
   ok?: boolean;
@@ -90,6 +91,14 @@ export async function submitPhotographerApplication(
     phone: v.phone,
     bio,
   });
+
+  // 작가 신청 — 공급 온보딩 퍼널 진입. (PII 제외: 이름·전화·링크 미전송)
+  await mpTrackServer(
+    "Apply Photographer",
+    user.id,
+    { application_id: data.id },
+    `Apply Photographer:${data.id}`,
+  );
 
   return { ok: true };
 }

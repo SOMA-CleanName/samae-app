@@ -3,6 +3,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { fetchPhotographersByIds, fetchMyLikedPhotos } from "@/lib/discovery";
 import { FavoritesTabs } from "./FavoritesTabs";
+import { MpTrackOnce } from "@/components/MpTrackOnce";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,11 @@ export default async function FavoritesPage() {
 
   return (
     <main className="mx-auto max-w-6xl px-3.5 sm:px-5 py-8 font-kr">
+      {/* 보관함 진입 — 리텐션·관심 강도 신호 */}
+      <MpTrackOnce
+        event="View Favorites"
+        props={{ liked_photo_count: likedPhotos.length, saved_photographer_count: photographers.length }}
+      />
       <h1 className="text-2xl font-semibold">보관함</h1>
       <FavoritesTabs likedPhotos={likedPhotos} photographers={photographers} />
     </main>

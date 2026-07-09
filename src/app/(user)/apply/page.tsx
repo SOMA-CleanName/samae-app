@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { MpTrackOnce } from "@/components/MpTrackOnce";
 import { ApplyLeadForm } from "./ApplyLeadForm";
 
 export const metadata: Metadata = { title: "작가 신청" };
@@ -43,6 +44,8 @@ export default async function ApplyPage() {
 
   return (
     <main className="mx-auto max-w-lg px-3.5 py-10 sm:px-5 font-kr">
+      {/* 작가 지원 폼 진입 — 공급측 온보딩 퍼널 시작(제출=Apply Photographer) */}
+      <MpTrackOnce event="Start Apply Photographer" />
       <h1 className="text-2xl font-semibold">작가 신청</h1>
       <p className="mt-2 text-sm text-fg/60">
         아래 정보를 남기고 신청하면, 운영자 검토 후 작가로 등록돼 탐색 탭에 노출되고 의뢰를 받을 수 있어요.

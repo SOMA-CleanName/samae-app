@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useCart, cartCardJitter, PEEK_CARD_W, type CartItem } from "./CartProvider";
 import { submitCartInquiry } from "@/app/(user)/inquiry/actions";
+import { mpTrack } from "@/lib/mixpanel";
 
 // FLIP 은 페인트 전에 측정/적용해야 깜빡임이 없음(SSR 에선 useEffect 로 폴백)
 const useIsoLayout = typeof window === "undefined" ? useEffect : useLayoutEffect;
@@ -250,7 +251,12 @@ export function FloatingCart() {
   useEffect(() => {
     if (!state.ok || fired.current) return;
     fired.current = true;
-    if (state.leadId) window.fbq?.("track", "Lead", {}, { eventID: `inquiry_${state.leadId}` });
+    if (state.leadId) {
+      window.fbq?.("track", "Lead", {}, { eventID: `inquiry_${state.leadId}` });
+      mpTrack("Submit Inquiry", { inquiry_id: state.leadId, source: "cart", item_count: N });
+    }
+    // N(장바구니 수)은 제출 시점 값을 그대로 기록하면 됨 — fired 가드로 1회만 발화.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.ok, state.leadId]);
 
   const clampTop = (t: number) => Math.min(Math.max(80, t), window.innerHeight - 150);
@@ -297,6 +303,7 @@ export function FloatingCart() {
 
   // 펼침: 도크 → 중앙 스택 → 펼침
   function startOpen() {
+    mpTrack("View Cart", { item_count: items.length });
     if (cartTip || !tipDone.current) dismissTip(); // 도크 열면 툴팁 종료(재등장 방지)
     setPhase("center");
     window.setTimeout(() => setPhase("spread"), 300);
@@ -348,6 +355,7 @@ export function FloatingCart() {
     ids.forEach((id) => removeOne(id));
   }
   function removeOne(id: string) {
+    mpTrack("Remove from Cart", { photo_id: id, source: "cart_drawer" });
     setLeaving((s) => new Set(s).add(id));
     setTimeout(() => {
       remove(id);

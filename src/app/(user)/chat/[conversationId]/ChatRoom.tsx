@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { sendMessage, markRead, sendPortfolioPhoto, getBookingPayoutAccount } from "../actions";
 import { acceptBooking, rejectBooking, cancelBooking } from "@/app/actions/bookings";
 import { markTransferSent, confirmTransfer, markShot } from "@/app/actions/payments";
+import { mpTrack } from "@/lib/mixpanel";
 import type { ChatMessage, BookingSnapshot, ConsultationBrief } from "@/lib/chat";
 import type { PayoutAccount } from "@/lib/payments";
 import { DeliveryUploader } from "@/app/(user)/bookings/[id]/DeliveryUploader";
@@ -83,6 +84,24 @@ export function ChatRoom({
   useEffect(() => {
     markRead(conversationId);
   }, [conversationId]);
+
+  // 대화방 진입 — 방마다 1회 (채팅 engagement)
+  useEffect(() => {
+    mpTrack("Open Chat", {
+      conversation_id: conversationId,
+      role: amPhotographer ? "photographer" : "customer",
+    });
+  }, [conversationId, amPhotographer]);
+
+  // 예약 작성기 열기 — 예약 제안 직전 이탈지점. 열릴 때(신규/수정)만.
+  useEffect(() => {
+    if (!composer) return;
+    mpTrack("Open Booking Composer", {
+      conversation_id: conversationId,
+      is_edit: !!composer.edit,
+      role: amPhotographer ? "photographer" : "customer",
+    });
+  }, [composer, conversationId, amPhotographer]);
 
   // Realtime 구독 — 새 메시지 수신 (예약 메시지는 booking 스냅샷 보강)
   useEffect(() => {
@@ -171,6 +190,11 @@ export function ChatRoom({
     const t = text.trim();
     if (!t) return;
     setText("");
+    mpTrack("Send Message", {
+      conversation_id: conversationId,
+      has_image: false,
+      role: amPhotographer ? "photographer" : "customer",
+    });
     startTransition(() => {
       sendMessage(conversationId, t);
     });
@@ -182,7 +206,14 @@ export function ChatRoom({
     const fd = new FormData();
     fd.append("file", files[0]);
     fd.append("conversationId", conversationId);
-    await fetch("/api/chat/upload", { method: "POST", body: fd });
+    const res = await fetch("/api/chat/upload", { method: "POST", body: fd });
+    if (res.ok) {
+      mpTrack("Send Message", {
+        conversation_id: conversationId,
+        has_image: true,
+        role: amPhotographer ? "photographer" : "customer",
+      });
+    }
     setUploading(false);
     if (fileRef.current) fileRef.current.value = "";
   }

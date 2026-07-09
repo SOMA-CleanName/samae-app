@@ -10,6 +10,7 @@ import { assignColumnAccents, type AccentColor } from "@/lib/seeded-shuffle";
 import { SearchIcon } from "@/components/user/icons";
 import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
 import { useCart } from "@/components/user/cart/CartProvider";
+import { mpTrack } from "@/lib/mixpanel";
 import { EmptyState } from "@/components/ui";
 import { rememberPhotoAspect } from "@/lib/photo-aspect";
 
@@ -217,6 +218,7 @@ export function ExploreGallery({
       if (hero) {
         const cardEl = document.querySelector(`[data-cart-card][data-pid="${hero.id}"]`);
         const img = (cardEl?.querySelector("img") as HTMLElement | null) ?? null;
+        mpTrack("Add to Cart", { photo_id: hero.id, source: "onboarding" });
         add({ id: hero.id, src: hero.thumb_url ?? hero.src_url, w: hero.width, h: hero.height }, img);
       }
     }

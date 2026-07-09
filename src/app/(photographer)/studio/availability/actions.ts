@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth";
+import { mpTrackServer } from "@/lib/mixpanel-server";
 
 // 주간 격자 전체 저장 (전부 교체) — 연속 칸은 [start,end] 구간으로 병합된 채 전달됨
 export async function saveRules(
@@ -32,6 +33,9 @@ export async function saveRules(
       .insert(clean.map((r) => ({ ...r, photographer_id: pid })));
     if (error) throw new Error(error.message);
   }
+
+  await mpTrackServer("Set Availability", me.id, { rule_count: clean.length });
+
   revalidatePath("/studio/availability");
 }
 

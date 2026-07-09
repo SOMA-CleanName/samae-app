@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { mpTrack } from "@/lib/mixpanel";
 import { ArrowLeftIcon, CheckIcon } from "@/components/user/icons";
 
 const DEFAULT_LOGIN_NEXT = "/studio";
@@ -39,6 +40,7 @@ export default function LoginPage() {
 
   async function onKakao() {
     setError(null);
+    mpTrack("Start Kakao Login", { context: "login" });
     const next = loginNext();
     document.cookie = `${OAUTH_NEXT_COOKIE}=${encodeURIComponent(next)}; path=/; max-age=600; SameSite=Lax`;
     await supabase.auth.signInWithOAuth({

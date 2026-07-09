@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
+import { MpTrackOnce } from "@/components/MpTrackOnce";
 import {
   listMyBookings,
   getConversationMap,
@@ -51,6 +52,11 @@ export default async function BookingsPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-3.5 sm:px-5 py-8 font-kr">
+      {/* 예약 목록 진입 — 리텐션·거래 활동 신호 */}
+      <MpTrackOnce
+        event="View Bookings"
+        props={{ as_buyer_count: asBuyer.length, as_photographer_count: asPhotographer.length, pending_count: pendingCount }}
+      />
       <h1 className="text-2xl font-semibold">예약</h1>
       <p className="mt-1 text-sm text-fg/50">확정된 예약만 표시돼요. 요청·취소 내역은 채팅방에서 확인할 수 있어요.</p>
 

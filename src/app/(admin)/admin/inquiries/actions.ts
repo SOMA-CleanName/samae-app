@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { mpTrackServer } from "@/lib/mixpanel-server";
 import { archiveAllAndDelete, archiveAndDelete } from "@/lib/soft-delete";
 import { verifyResetPassword } from "@/lib/admin-reset";
 
@@ -98,6 +99,15 @@ export async function confirmInquiryDeposit(formData: FormData) {
       body: "입금이 확인되어 고객 연락처가 공개됐어요. 예약 목록에서 확인하세요.",
       inquiry_id: id,
     });
+
+    // 리드 확정(연락처 공개 = 리드 언락 매출) — 작가(공급) 타임라인에 귀속.
+    // data 가 있다는 건 accepted→confirmed 전이가 실제로 일어난 것.
+    await mpTrackServer(
+      "Confirm Lead",
+      profileId,
+      { inquiry_id: id },
+      `Confirm Lead:${id}`,
+    );
   }
   revalidatePath("/admin/inquiries");
 }
