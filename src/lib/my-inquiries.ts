@@ -62,12 +62,12 @@ type InquiryRow = {
   created_at: string;
 };
 
-// created_at(UTC) → KST 벽시계 라벨 "YYYY년 M월 D일 H시 MM분". (한국은 DST 없음 → +9h 고정)
+// created_at(UTC) → KST 벽시계 라벨 "YYYY년 M월 D일 HH:MM 제출". (한국은 DST 없음 → +9h 고정)
 function formatInquiryDate(iso: string): string {
   const d = new Date(new Date(iso).getTime() + 9 * 3600 * 1000);
-  return `${d.getUTCFullYear()}년 ${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일 ${d.getUTCHours()}시 ${String(
-    d.getUTCMinutes()
-  ).padStart(2, "0")}분`;
+  const hh = String(d.getUTCHours()).padStart(2, "0");
+  const mm = String(d.getUTCMinutes()).padStart(2, "0");
+  return `${d.getUTCFullYear()}년 ${d.getUTCMonth() + 1}월 ${d.getUTCDate()}일 ${hh}:${mm} 제출`;
 }
 
 // 쿠키의 id 들로 문의 내역 조회(최신순) — 문의한 사진 썸네일 포함.
