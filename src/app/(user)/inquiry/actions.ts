@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { notifyOpsNewInquiry, notifyOpsCartInquiry } from "@/lib/ops-alert";
-import { sendCapiLead } from "@/lib/meta-capi";
+import { sendCapiLead, readMetaAdCookies, type MetaAdCookies } from "@/lib/meta-capi";
 import { rememberInquiryIds } from "@/lib/my-inquiries";
 
 export type InquiryState = {
@@ -169,7 +169,10 @@ export async function submitInquiry(
 
   brief.refImagePaths = await uploadReferenceImages(formData);
 
-  const result = await createInquiry(me?.id ?? null, photographerId, photoId, contact, brief);
+  // 광고 식별자 — 접수 시점에만 읽을 수 있다(입금 확인은 운영자가 누르므로 그땐 없음).
+  const ad = await readMetaAdCookies();
+
+  const result = await createInquiry(me?.id ?? null, photographerId, photoId, contact, brief, ad);
   if (!result) return { ok: false, error: "문의 저장에 실패했어요.", values };
   const { id: inquiryId, isNew } = result;
 
@@ -236,10 +239,12 @@ async function createInquiry(
   photographerId: string,
   photoId: string,
   contact: ContactInfo,
-  brief: BriefInfo
+  brief: BriefInfo,
+  ad: MetaAdCookies
 ): Promise<{ id: string; isNew: boolean } | null> {
   const admin = createAdminClient();
 
+  // 재사용된 리드는 최초 접수 때의 광고 식별자를 유지한다(first-touch).
   const dupId = await findRecentDuplicate(admin, profileId, photographerId, contact);
   if (dupId) return { id: dupId, isNew: false };
 
@@ -261,6 +266,8 @@ async function createInquiry(
       region: brief.region,
       note: brief.note,
       ref_image_paths: brief.refImagePaths,
+      fbp: ad.fbp,
+      fbc: ad.fbc,
     })
     .select("id")
     .single();
@@ -452,12 +459,15 @@ export async function submitMultiInquiry(
     return { ok: false, error: "작가 정보를 찾지 못했어요.", values };
   }
 
+  // 광고 식별자 — 작가별 문의가 여러 건 생겨도 접수 1회분이므로 루프 밖에서 한 번만 읽는다.
+  const ad = await readMetaAdCookies();
+
   let firstInquiryId: string | null = null;
   const createdIds: string[] = [];
   for (const [photographerId, repPhotoId] of repByPhotographer) {
     // 본인(작가)이 자기 사진에 보낸 건 건너뜀
     if (me?.photographer?.id === photographerId) continue;
-    const result = await createInquiry(me?.id ?? null, photographerId, repPhotoId, contact, brief);
+    const result = await createInquiry(me?.id ?? null, photographerId, repPhotoId, contact, brief, ad);
     if (!result) continue;
     createdIds.push(result.id);
     if (!firstInquiryId) firstInquiryId = result.id;
