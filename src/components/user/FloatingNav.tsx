@@ -68,7 +68,7 @@ export function FloatingNav({
             {hasInquiries && (
               <NavPill
                 href="/my-inquiries"
-                label="내 문의"
+                label="문의"
                 active={inquiriesActive}
                 icon={<ClipboardIcon className="h-5 w-5" />}
               />
