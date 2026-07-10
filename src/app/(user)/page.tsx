@@ -1,8 +1,5 @@
-import { cookies } from "next/headers";
-import Link from "next/link";
 import {
   fetchPublishedPhotos,
-  fetchCategoryFeed,
   searchPhotosByTag,
   fetchLikedPhotoIds,
   fetchPhotoById,
@@ -12,8 +9,6 @@ import {
 import { loadMorePhotos } from "./feed-actions";
 import { logSearch } from "@/lib/search-log";
 import { getCurrentUser } from "@/lib/auth";
-import { getPublishedCategory, isUntaggedCategory } from "@/lib/categories";
-import { CATEGORY_COOKIE } from "@/lib/category-constants";
 import { ExploreGallery } from "@/components/user/ExploreGallery";
 import { ScrollMemory } from "@/components/user/ScrollMemory";
 import { FeedHero } from "@/components/user/FeedHero";
@@ -32,25 +27,11 @@ export default async function ExploreHome({
 }) {
   const sp = await searchParams;
   const query = sp.q?.trim();
+  // 카테고리 컨텍스트(?cat·쿠키)는 proxy 가 /c/<slug> 로 리다이렉트 → 여기(홈)는 검색·전체 피드만.
 
-  // ── 카테고리 컨텍스트 결정 ───────────────────────────────
-  // 우선순위: 검색(q) > '전체 보기'(nocat) 해제 > URL ?cat > 쿠키(유지).
-  // 광고 유입(/?cat=)으로 들어오면 proxy 가 쿠키를 심어, 이후 메인 복귀에도 유지된다.
-  const cookieStore = await cookies();
-  const cookieCat = cookieStore.get(CATEGORY_COOKIE)?.value || undefined;
-  const activeSlug = query || sp.nocat ? undefined : sp.cat?.trim() || cookieCat;
-
-  // 카테고리·로그인유저·광고사진은 서로 독립 → 병렬로 시작.
-  // (피드는 카테고리에 의존하므로 카테고리 해석 후 조회)
-  const categoryPromise = activeSlug ? getPublishedCategory(activeSlug) : Promise.resolve(null);
-  const mePromise = getCurrentUser();
-  // 광고 유입 온보딩 — URL ?ad=<사진ID>가 있을 때만 좌상단 첫 카드로 고정. (검색 모드 아닐 때)
-  const adPromise = !query && sp.ad ? fetchPhotoById(sp.ad) : Promise.resolve(null);
-
-  const category = await categoryPromise;
-  const [me, adPhoto] = await Promise.all([mePromise, adPromise]);
-
-  // 광고 사진을 맨 앞으로 → 메이슨리 좌상단 첫 카드 = 광고 이미지 (?ad= 온보딩)
+  const me = await getCurrentUser();
+  // 광고 유입 온보딩(카테고리 없는 /?ad=<사진ID>) — 좌상단 첫 카드로 고정. (검색 모드 아닐 때)
+  const adPhoto = !query && sp.ad ? await fetchPhotoById(sp.ad) : null;
   const adAsGallery: GalleryPhoto | null = adPhoto
     ? {
         id: adPhoto.id,
@@ -66,10 +47,9 @@ export default async function ExploreHome({
     : null;
 
   const FEED_CAP = 160;
-  // 전체 피드(검색·카테고리·광고 아님)는 시드 기반 '무한 스크롤'(0050 RPC). seed 는 요청마다
-  // 생성 → 방문마다 순서 변주 + ExploreGallery 가 같은 seed 로 다음 페이지를 이어받아 무제한 노출.
-  // 검색/카테고리/광고는 기존 방식(풀 셔플 + 상한 노출).
-  const isAllFeed = !query && !category && !adAsGallery;
+  // 전체 피드(검색·광고 아님)는 시드 기반 무한 스크롤(0050 RPC). seed 는 요청마다 생성 →
+  // 방문마다 순서 변주 + ExploreGallery 가 같은 seed 로 다음 페이지를 이어받아 무제한 노출.
+  const isAllFeed = !query && !adAsGallery;
   const feedSeed = isAllFeed ? newFeedSeed() : undefined;
 
   let photos: GalleryPhoto[];
@@ -78,11 +58,7 @@ export default async function ExploreHome({
     photos =
       (await fetchSeededFeedPage(feedSeed, 0)) ?? (await fetchPublishedPhotos({})).slice(0, FEED_CAP);
   } else {
-    const basePhotos = query
-      ? await searchPhotosByTag(query)
-      : category
-        ? await fetchCategoryFeed(category.tags, isUntaggedCategory(category.tags), category.orderedPhotoIds)
-        : await fetchPublishedPhotos({});
+    const basePhotos = query ? await searchPhotosByTag(query) : await fetchPublishedPhotos({});
     if (query) await logSearch(query, basePhotos.length, me?.id);
     const merged = adAsGallery
       ? [adAsGallery, ...basePhotos.filter((p) => p.id !== adAsGallery.id)]
@@ -104,22 +80,6 @@ export default async function ExploreHome({
       <ScrollMemory />
       {/* 홈 최상단 히어로 (검색 모드 아닐 때만) */}
       {!query && <FeedHero />}
-
-      {/* 카테고리 알고리즘 보는 중 표시 + 전체 보기 해제 (검색 모드 아닐 때만) */}
-      {category && !query && (
-        <div className="mx-auto mt-1 mb-3 flex max-w-screen-2xl items-center gap-2 px-1 sm:mb-4">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-brand/10 px-3 py-1 text-caption font-medium text-brand">
-            <span className="h-1.5 w-1.5 rounded-full bg-brand" />
-            {category.name} 추천 보는 중
-          </span>
-          <Link
-            href="/?nocat=1"
-            className="rounded-full px-2.5 py-1 text-caption font-medium text-muted transition-colors hover:bg-fg/[0.05] hover:text-fg"
-          >
-            전체 보기 ✕
-          </Link>
-        </div>
-      )}
 
       <ExploreGallery
         photos={photos}
