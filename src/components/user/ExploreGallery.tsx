@@ -424,10 +424,12 @@ export function ExploreGallery({
           <div
             className={cn(
               "fixed inset-x-0 top-0 h-[100lvh] bg-black/[0.6] backdrop-blur-lg transition-opacity ease-out",
-              // 담기 연출 중엔 딤을 카트(z-50)보다 아래로 낮춰 폴라로이드 fly·도크가 어두운 배경 위로 보이게
+              // 담기 연출 중엔 딤을 카트(z-50)보다 아래로 낮춰 폴라로이드 fly·도크가 배경 위로 보이게
               obPhase === "adding" || obPhase === "leaving" ? "z-[45]" : "z-[100]",
-              obPhase === "leaving" ? "duration-[520ms]" : "duration-[1100ms]",
-              obShown ? "opacity-100" : "opacity-0"
+              // 탭해서 스킵하면(=adding) 딤·블러를 바로 걷어내 배경이 빠르게 선명해지게 —
+              // 폴라로이드는 선명해진 배경 위로 날아간다(블러가 늦게 풀리던 문제 해결).
+              obPhase === "adding" || obPhase === "leaving" ? "duration-[300ms]" : "duration-[1100ms]",
+              obPhase === "enter" || obPhase === "ready" ? "opacity-100" : "opacity-0"
             )}
           />
 
