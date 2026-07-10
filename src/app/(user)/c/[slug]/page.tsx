@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { getPublishedCategory, isUntaggedCategory } from "@/lib/categories";
-import { fetchCategoryFeed, fetchLikedPhotoIds } from "@/lib/discovery";
+import { fetchCategoryFeed, fetchLikedPhotoIds, fetchPhotoById } from "@/lib/discovery";
+import type { GalleryPhoto } from "@/lib/discovery";
 import { ExploreGallery } from "@/components/user/ExploreGallery";
 import { FeedHero } from "@/components/user/FeedHero";
 import { EmptyState } from "@/components/ui";
@@ -10,6 +12,8 @@ import type { Metadata } from "next";
 import { categoryMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
+
+type SearchParams = { ad?: string };
 
 export async function generateMetadata({
   params,
@@ -30,30 +34,73 @@ function safeDecode(s: string): string {
   }
 }
 
-// 카테고리 랜딩 — 광고 유입(/c/<slug>?utm_*). 카테고리 태그와 겹치는 사진을 추천순으로.
+// 카테고리 페이지 — 유일한 카테고리 화면(홈의 ?cat·쿠키는 여기로 리다이렉트되어 통일).
+// 광고 유입(/c/<slug>?utm_*, /c/<slug>?ad=<사진id>). 매칭 사진 먼저 + 나머지 전체.
 export default async function CategoryPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<SearchParams>;
 }) {
   const { slug } = await params;
+  const sp = await searchParams;
   // Next.js 16: 동적 라우트 param 은 자동 디코딩되지 않음 — 한글 slug 매칭 위해 직접 디코딩
   const decodedSlug = safeDecode(slug);
-  // 카테고리·로그인유저 병렬(서로 독립)
-  const [category, me] = await Promise.all([getPublishedCategory(decodedSlug), getCurrentUser()]);
+  // 카테고리·로그인유저·광고사진은 서로 독립 → 병렬
+  const [category, me, adPhoto] = await Promise.all([
+    getPublishedCategory(decodedSlug),
+    getCurrentUser(),
+    sp.ad ? fetchPhotoById(sp.ad) : Promise.resolve(null),
+  ]);
   if (!category) notFound();
 
-  // 카테고리 매칭 사진 먼저 + 나머지 전체 → 무한스크롤로 결국 모든 사진 노출
-  const photos = await fetchCategoryFeed(
+  // 광고 유입 온보딩 — ?ad=<사진ID>가 있으면 좌상단 첫 카드로 고정
+  const adAsGallery: GalleryPhoto | null = adPhoto
+    ? {
+        id: adPhoto.id,
+        src_url: adPhoto.src_url,
+        thumb_url: adPhoto.thumb_url,
+        width: adPhoto.width,
+        height: adPhoto.height,
+        region: adPhoto.region,
+        mood_tags: adPhoto.mood_tags ?? [],
+        price_krw: adPhoto.price_krw,
+        photographer: adPhoto.photographer ?? { id: adPhoto.photographer_id, display_name: null },
+      }
+    : null;
+
+  // 카테고리 매칭 사진 먼저 + 나머지 전체 → 스크롤로 결국 모든 사진 노출(상한 없음)
+  const base = await fetchCategoryFeed(
     category.tags,
     isUntaggedCategory(category.tags),
     category.orderedPhotoIds
   );
+  const photos = adAsGallery
+    ? [adAsGallery, ...base.filter((p) => p.id !== adAsGallery.id)]
+    : base;
+  const spotlightId = adAsGallery?.id;
+
   const likedIds = me ? await fetchLikedPhotoIds(photos.map((p) => p.id), me.id) : [];
 
   return (
     <section className="px-2.5 pb-2.5 pt-2.5 font-kr sm:px-4 sm:pt-4 sm:pb-4">
       <FeedHero />
+
+      {/* 카테고리 추천 보는 중 + 전체 보기 해제(쿠키도 해제됨 → /?nocat=1) */}
+      <div className="mx-auto mt-1 mb-3 flex max-w-screen-2xl items-center gap-2 px-1 sm:mb-4">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-brand/10 px-3 py-1 text-caption font-medium text-brand">
+          <span className="h-1.5 w-1.5 rounded-full bg-brand" />
+          {category.name} 추천 보는 중
+        </span>
+        <Link
+          href="/?nocat=1"
+          className="rounded-full px-2.5 py-1 text-caption font-medium text-muted transition-colors hover:bg-fg/[0.05] hover:text-fg"
+        >
+          전체 보기 ✕
+        </Link>
+      </div>
+
       {photos.length === 0 ? (
         <EmptyState
           icon={<LayersIcon className="h-7 w-7" />}
@@ -61,7 +108,13 @@ export default async function CategoryPage({
           description="곧 채워질 예정이에요."
         />
       ) : (
-        <ExploreGallery photos={photos} likedIds={likedIds} loggedIn={!!me} spotlightFirstOnGeneral />
+        <ExploreGallery
+          photos={photos}
+          likedIds={likedIds}
+          spotlightId={spotlightId}
+          loggedIn={!!me}
+          spotlightFirstOnGeneral
+        />
       )}
     </section>
   );
