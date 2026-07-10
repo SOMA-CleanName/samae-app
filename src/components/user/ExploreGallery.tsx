@@ -121,6 +121,21 @@ export function ExploreGallery({
     setGeneralOnboard(true);
   }, [spotlightId, loggedIn, query]);
 
+  // 온보딩은 유저당 1회 — 한 번 보면(TUTORIAL_SEEN_KEY) 광고/카테고리 대표 강조 유입이어도 다시 안 뜬다.
+  // (localStorage 는 클라이언트에서만 읽히므로 마운트 후 판정)
+  const [tutorialSeen, setTutorialSeen] = useState(false);
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(TUTORIAL_SEEN_KEY) === "1") setTutorialSeen(true);
+    } catch {
+      /* 스토리지 접근 불가 → 노출 허용 */
+    }
+  }, []);
+  // 이미 본 유저면 스포트라이트(광고/대표) 온보딩도 시작 전에 즉시 종료 상태로 내린다.
+  useEffect(() => {
+    if (tutorialSeen && spotlightId) setObPhase("done");
+  }, [tutorialSeen, spotlightId]);
+
   // 뷰포트가 데스크탑(넓은 화면)인지 — 데스크탑은 좌상단 첫 사진 스포트라이트가
   // 구석의 작은 카드로 어색해, 강조 없이 가운데 인트로로 전환.
   const [isDesktop, setIsDesktop] = useState(false);
@@ -177,7 +192,7 @@ export function ExploreGallery({
   // 레이아웃 준비 + (광고 모드면) 사진 로딩 후 한 번만 시작 — 한 박자 보여준 뒤
   // enter → 4초 강제 → ready. obPhase 는 deps 에서 제외(타이머 보존).
   useEffect(() => {
-    if (obStarted.current || !obTriggered || !columnsReady || !heroReady) return;
+    if (obStarted.current || !obTriggered || tutorialSeen || !columnsReady || !heroReady) return;
     obStarted.current = true;
     const enterT = setTimeout(() => setObPhase("enter"), 350); // 로딩된 화면을 잠깐 보여줌
     const readyT = setTimeout(() => setObPhase("ready"), 350 + OB_FORCED_MS + 60);
@@ -185,7 +200,7 @@ export function ExploreGallery({
       clearTimeout(enterT);
       clearTimeout(readyT);
     };
-  }, [obTriggered, columnsReady, heroReady]);
+  }, [obTriggered, tutorialSeen, columnsReady, heroReady]);
 
   // 온보딩 중 스크롤 잠금 — 활성화되면 잠그고, 종료(또는 언마운트) 시 자동 복구.
   // 실제 스크롤 루트는 <html>(layout 의 h-full) 이라 documentElement 까지 잠가야 먹힘.
