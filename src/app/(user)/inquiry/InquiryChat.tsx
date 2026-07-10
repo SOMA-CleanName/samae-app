@@ -77,7 +77,7 @@ const STEPS: Step[] = [
     key: "gender",
     q: (
       <>
-        <Em>성별</Em>을 알려주세요.
+        문의자분 <Em>성별</Em>을 알려주세요.
       </>
     ),
     type: "options",
@@ -205,9 +205,9 @@ function formatPhoneInput(raw: string) {
   if (d.length < 8) return `${d.slice(0, 3)}-${d.slice(3)}`;
   return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
 }
-// 카톡 ID — 소문자만 허용: 대문자는 자동 소문자화, 허용 외 문자(하이픈·공백 등)는 제거
+// 카톡 ID — 소문자만 허용: 대문자는 자동 소문자화, 허용 외 문자(하이픈·공백 등)는 제거, 20자 캡
 function formatKakaoInput(raw: string) {
-  return raw.toLowerCase().replace(/[^a-z0-9._]/g, "");
+  return raw.toLowerCase().replace(/[^a-z0-9._]/g, "").slice(0, 20);
 }
 
 // 입력창 흔들림 — 미완성 제출 시 "여기 입력해주세요" 시선 유도
@@ -235,7 +235,7 @@ function validateContact(type: ContactType, raw: string): { valid: boolean; erro
     return { valid: true, error: null };
   }
   if (type === "kakao") {
-    if (!KAKAO_RE.test(v)) return { valid: false, error: "영문 소문자·숫자·_·. 4~20자로 입력해주세요." };
+    if (!KAKAO_RE.test(v)) return { valid: false, error: "4자 이상 입력해주세요." };
     return { valid: true, error: null };
   }
   if (!EMAIL_RE.test(v))
@@ -292,8 +292,9 @@ export function InquiryChat({
     : inquiryStorageKey(photoId, photographerId);
   const answeredCount = STEPS.filter((s) => answers[s.key] !== undefined).length;
   const done = state.ok;
-  // 100% 기준 = 질문 5개 + 연락처 제출 1개 (제출까지 완료해야 100%)
-  const percent = Math.round(((answeredCount + (done ? 1 : 0)) / (STEPS.length + 1)) * 100);
+  // 진행률 = 답변한 질문 수 / 전체 질문 수. 연락처는 '결승선'이라 질문 카운트에 미포함.
+  const totalQ = STEPS.length;
+  const answeredQ = Math.min(answeredCount, totalQ);
 
   // 질문 노출 후 선지는 0.6초 뒤에 펼침 — 질문을 먼저 읽게 하되 너무 늦지 않게.
   // 스크롤은 '질문 상단 고정' 정책이 담당 — 여기선 바닥에 붙이지 않는다(밀림/스냅 제거).
@@ -500,16 +501,41 @@ export function InquiryChat({
         </div>
         <div className="px-4 pb-3 pt-2">
           <div className="mb-1.5 flex items-baseline justify-between">
-            <span className="text-sm font-semibold text-muted">답변 진행률</span>
-            <span className="text-lg font-extrabold tabular-nums leading-none text-brand">
-              {percent}%
+            <span className="text-sm font-semibold text-fg">
+              {contactStep ? "마지막 단계 · 연락처" : STEPS[answeredQ]?.short ?? "질문"}
+            </span>
+            <span className="text-sm font-bold tabular-nums text-brand">
+              {contactStep ? "거의 끝났어요!" : `${answeredQ} / ${totalQ}`}
             </span>
           </div>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-fg/[0.08]">
-            <div
-              className="h-full rounded-full bg-brand transition-[width] duration-500 ease-out"
-              style={{ width: `${percent}%` }}
-            />
+          {/* 연결된 도트 스텝퍼 — 완료=체크, 현재=핑(ping) 강조, 미완성=작은 점(크기 리듬) */}
+          <div className="flex items-center py-1">
+            {Array.from({ length: totalQ }).map((_, i) => {
+              const isDone = i < answeredQ;
+              const isCurrent = i === answeredQ && !contactStep && !done;
+              return (
+                <div key={i} className={`flex items-center ${i === 0 ? "" : "flex-1"}`}>
+                  {i > 0 && (
+                    <span
+                      className={`h-0.5 flex-1 rounded-full transition-colors duration-500 ${
+                        i <= answeredQ ? "bg-brand" : "bg-fg/15"
+                      }`}
+                    />
+                  )}
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                    {isDone ? (
+                      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-brand">
+                        <CheckIcon className="h-2.5 w-2.5 text-white" />
+                      </span>
+                    ) : isCurrent ? (
+                      <span className="h-4 w-4 rounded-full bg-brand ring-4 ring-brand/30" />
+                    ) : (
+                      <span className="h-2 w-2 rounded-full bg-fg/15" />
+                    )}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       </header>
@@ -848,45 +874,76 @@ function ContactBlock({
             ].join(" ")}
           />
           {/* 안내문 자리를 항상 확보 — 등장해도 버튼이 밀리지 않게 */}
-          <p className="mt-1.5 min-h-[18px] whitespace-nowrap text-[11px] font-medium leading-[18px] text-danger">
-            {displayedError ?? ""}
-          </p>
-
-          {/* 카톡 아이디 찾는 방법 — 아이디를 모르는 사용자 이탈 방어 */}
-          {type === "kakao" && (
-            <div className="mt-1">
+          {/* 에러 + 카톡 도움말 토글을 같은 예약 높이(min-h-[18px]) 줄에 —
+              연락수단별(전화/카톡/이메일) 입력 박스 높이를 동일하게 유지. 도움말은 탭 시에만 아래로 펼침. */}
+          {/* 에러 줄(높이는 에러 텍스트 18px 로만 결정) — 카톡 도움말 토글은 absolute 로 얹어
+              줄 높이에 영향 주지 않음 → 전화/카톡/이메일 입력 박스 높이가 항상 동일. */}
+          <div className="relative mt-1.5 min-h-[18px]">
+            <p
+              className={`truncate text-[11px] font-medium leading-[18px] text-danger ${
+                type === "kakao" ? "pr-28" : ""
+              }`}
+            >
+              {displayedError ?? ""}
+            </p>
+            {type === "kakao" && (
               <button
                 type="button"
                 onClick={() => setKakaoHelp((v) => !v)}
                 aria-expanded={kakaoHelp}
-                className="flex cursor-pointer items-center gap-1 text-[12px] font-medium text-muted transition-colors hover:text-fg"
+                className="absolute right-0 top-1/2 flex -translate-y-1/2 cursor-pointer items-center gap-1 text-[11px] font-medium leading-[18px] text-muted transition-colors hover:text-fg"
               >
-                <span className="grid h-4 w-4 place-items-center rounded-full border border-current text-[10px] font-bold leading-none">
+                <span className="grid h-3.5 w-3.5 place-items-center rounded-full border border-current text-[9px] font-bold leading-none">
                   ?
                 </span>
-                카톡 아이디 찾는 방법
+                아이디 찾는 방법
                 <ChevronDownIcon
-                  className={`h-3.5 w-3.5 transition-transform ${kakaoHelp ? "rotate-180" : ""}`}
+                  className={`h-3 w-3 transition-transform ${kakaoHelp ? "rotate-180" : ""}`}
                 />
               </button>
-              <Reveal open={kakaoHelp}>
-                <div className="mt-2 rounded-xl bg-surface-2 px-3 py-2.5 text-[12px] leading-relaxed text-fg/80">
-                  <ol className="list-decimal space-y-1 pl-4">
+            )}
+          </div>
+
+          {/* 카톡 아이디 찾는 방법 — 열렸을 때만 렌더(닫힘=0 높이 → 전화/이메일과 박스 높이 동일) */}
+          {type === "kakao" && kakaoHelp && (
+            <div className="mt-2 rounded-xl bg-surface-2 px-3 py-3 text-[12px] leading-relaxed text-fg/80">
+                  <ol className="space-y-3">
                     <li>
-                      카카오톡 → <b className="text-fg">내 프로필</b> → 우측 상단{" "}
-                      <b className="text-fg">톱니바퀴(설정)</b>
+                      <p className="mb-1.5">
+                        <b className="text-fg">1.</b> 카카오톡 <b className="text-fg">친구 탭</b> →
+                        우측 상단 <b className="text-fg">친구 추가(사람+)</b> 아이콘
+                      </p>
+                      <img
+                        src="/guide/kakao-id-1.jpg"
+                        alt="카카오톡 친구 탭 우측 상단의 친구 추가 아이콘 위치"
+                        loading="lazy"
+                        className="w-full rounded-lg border border-line"
+                      />
                     </li>
                     <li>
-                      <b className="text-fg">카카오톡 아이디</b> 확인 — 없으면{" "}
-                      <b className="text-fg">[만들기]</b>로 생성
+                      <p className="mb-1.5">
+                        <b className="text-fg">2.</b> 상단에서 <b className="text-fg">카카오톡 ID</b> 선택
+                      </p>
+                      <img
+                        src="/guide/kakao-id-2.jpg"
+                        alt="친구 추가 화면의 카카오톡 ID 메뉴"
+                        loading="lazy"
+                        className="w-full rounded-lg border border-line"
+                      />
                     </li>
-                    <li>그 아이디를 여기에 입력해주세요</li>
+                    <li>
+                      <p className="mb-1.5">
+                        <b className="text-fg">3.</b> 하단 <b className="text-fg">‘내 아이디’</b>에
+                        표시된 값이 내 카카오톡 아이디예요
+                      </p>
+                      <img
+                        src="/guide/kakao-id-3.jpg"
+                        alt="내 카카오톡 아이디가 표시되는 위치"
+                        loading="lazy"
+                        className="w-full rounded-lg border border-line"
+                      />
+                    </li>
                   </ol>
-                  <p className="mt-2 rounded-lg bg-brand/[0.07] px-2.5 py-2 text-fg/75">
-                    ⚠️ <b className="text-fg">ID 검색 허용</b>을 꼭 켜주세요. 꺼져 있으면 작가가 아이디로 찾을 수 없어요.
-                  </p>
-                </div>
-              </Reveal>
             </div>
           )}
 
@@ -1314,10 +1371,10 @@ function NoteField({
 
   return (
     <div className="grid grid-cols-1 gap-1.5">
+      <OptionButton onClick={() => setWriting(true)}>지금 작성할게요</OptionButton>
       <OptionButton active={value === skip} onClick={() => onPick(skip)}>
         {skip}
       </OptionButton>
-      <OptionButton onClick={() => setWriting(true)}>지금 작성할게요</OptionButton>
     </div>
   );
 }
