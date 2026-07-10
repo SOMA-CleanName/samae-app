@@ -43,10 +43,12 @@ export function AddToCartButton({
       aria-label={inCart ? "관심 해제" : "관심 추가"}
       className={[
         "grid cursor-pointer place-items-center rounded-full transition-colors",
-        // overlay(탐색 갤러리): 보이는 원·아이콘은 24px 그대로, 투명 ::before 로 탭 영역만 44px 로 확장
+        // overlay(탐색 갤러리): 보이는 원·아이콘은 24px 그대로, 투명 ::before 로 탭 영역만 44px 로 확장.
+        // 버튼은 부모가 absolute 로 배치 → 이미 positioned 라 relative 불필요.
+        // (relative 를 넣으면 부모의 absolute 배치를 덮어써 버튼이 흐름상 좌하단으로 떨어짐)
         row
           ? "h-9 w-9"
-          : "relative h-6 w-6 backdrop-blur-sm before:absolute before:-inset-2.5 before:content-['']",
+          : "h-6 w-6 backdrop-blur-sm before:absolute before:-inset-2.5 before:content-['']",
         inCart
           ? "bg-brand text-white"
           : row
