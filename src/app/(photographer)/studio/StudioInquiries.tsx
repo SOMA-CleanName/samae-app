@@ -479,19 +479,19 @@ function AwaitingDeposit({
 function ConfirmedDetail({ item }: { item: AcceptedInquiry }) {
   const contacts: [string, string | null][] = [
     ["전화", item.phone],
-    ["인스타 DM", item.instagram_id],
-    ["카카오", item.discord_id], // discord_id 컬럼을 카카오 저장에 재사용
-    ["기타", item.extra_contact],
+    ["카카오", item.kakao_id],
+    ["이메일", item.contact_email],
   ];
   return (
     <div className="rounded-xl border border-line bg-surface-2 p-4 text-body-sm">
       <p className="text-caption font-semibold text-success">입금이 확인됐어요 · 연락처 공개</p>
       <div className="mt-2 space-y-0.5">
+        {item.name && <Row label="이름" value={item.name} />}
         <Row label="목적" value={item.purpose} />
         <Row label="희망일" value={item.preferred_date} />
         {item.region && <Row label="지역" value={item.region} />}
         {item.gender && <Row label="성별" value={item.gender} />}
-        {item.party_size != null && <Row label="인원" value={`${item.party_size}명`} />}
+        {item.party_size != null && <Row label="인원" value={item.party_size} />}
       </div>
       {item.note && <p className="mt-2 whitespace-pre-line text-fg/80">{item.note}</p>}
       {item.ref_images.length > 0 && (

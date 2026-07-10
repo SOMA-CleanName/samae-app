@@ -49,10 +49,10 @@ type InquiryRow = {
   photographer_id: string;
   source_photo_id: string | null;
   phone: string | null;
-  instagram_id: string | null;
-  discord_id: string | null; // 카카오 아이디 재사용 컬럼
-  extra_contact: string | null;
-  party_size: number | null;
+  kakao_id: string | null;
+  contact_email: string | null;
+  name: string | null;
+  party_size: string | null;
   purpose: string;
   preferred_date: string;
   region: string;
@@ -80,7 +80,7 @@ export async function fetchMyInquiries(ids: string[]): Promise<MyInquiry[]> {
   const { data } = await admin
     .from("inquiries")
     .select(
-      "id, photographer_id, source_photo_id, phone, instagram_id, discord_id, extra_contact, party_size, purpose, preferred_date, region, note, ref_image_paths, status, created_at"
+      "id, photographer_id, source_photo_id, phone, kakao_id, contact_email, name, party_size, purpose, preferred_date, region, note, ref_image_paths, status, created_at"
     )
     .in("id", ids)
     .order("created_at", { ascending: false });
@@ -104,9 +104,9 @@ export async function fetchMyInquiries(ids: string[]): Promise<MyInquiry[]> {
       status: r.status,
       photoThumb: r.source_photo_id ? thumbByPhoto.get(r.source_photo_id) ?? null : null,
       phone: r.phone,
-      instagram: r.instagram_id,
-      kakao: r.discord_id,
-      extraContact: r.extra_contact,
+      kakao: r.kakao_id,
+      email: r.contact_email,
+      name: r.name,
       partySize: r.party_size,
       purpose: r.purpose,
       preferredDate: r.preferred_date,

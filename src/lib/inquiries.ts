@@ -6,17 +6,17 @@ import { createAdminClient } from "@/lib/supabase/admin";
 export type AcceptedInquiry = {
   id: string;
   display_name: string | null;
+  // 이름/닉네임 — 연락처 게이트 밖(입금 확인 전에도 노출)
+  name: string | null;
   // 연락 수단 — 입금 확인(confirmed) 전에는 null 로 가려진다(리드 언락)
   phone: string | null;
-  instagram_id: string | null;
-  discord_id: string | null;
+  kakao_id: string | null;
   contact_email: string | null;
-  extra_contact: string | null;
   purpose: string;
   preferred_date: string;
   region: string;
   gender: string | null;
-  party_size: number | null;
+  party_size: string | null;
   ref_images: string[];
   note: string | null;
   created_at: string; // 접수 시각(불변) — 카드 시각 표시 기준
@@ -63,7 +63,7 @@ export async function listMyAcceptedInquiries(): Promise<AcceptedInquiry[]> {
   const { data } = await admin
     .from("inquiries")
     .select(
-      "id, status, phone, instagram_id, discord_id, contact_email, extra_contact, purpose, preferred_date, region, gender, party_size, ref_image_paths, note, created_at, accepted_at, deposit_amount_krw, profile:profiles!inquiries_profile_id_fkey(display_name)"
+      "id, status, name, phone, kakao_id, contact_email, purpose, preferred_date, region, gender, party_size, ref_image_paths, note, created_at, accepted_at, deposit_amount_krw, profile:profiles!inquiries_profile_id_fkey(display_name)"
     )
     .eq("photographer_id", me.photographer.id)
     .in("status", ["accepted", "confirmed", "shot", "refund_requested"])
@@ -77,17 +77,17 @@ export async function listMyAcceptedInquiries(): Promise<AcceptedInquiry[]> {
     return {
       id: row.id as string,
       display_name: (profile?.display_name as string | null | undefined) ?? null,
+      // 이름은 연락처 게이트 밖 — 입금 확인 전에도 노출
+      name: (row.name as string | null) ?? null,
       // 입금 확인 전에는 연락처 비공개
       phone: confirmed ? (row.phone as string | null) : null,
-      instagram_id: confirmed ? (row.instagram_id as string | null) : null,
-      discord_id: confirmed ? (row.discord_id as string | null) : null,
+      kakao_id: confirmed ? (row.kakao_id as string | null) : null,
       contact_email: confirmed ? (row.contact_email as string | null) : null,
-      extra_contact: confirmed ? (row.extra_contact as string | null) : null,
       purpose: row.purpose as string,
       preferred_date: row.preferred_date as string,
       region: (row.region as string | null) ?? "",
       gender: (row.gender as string | null) ?? null,
-      party_size: (row.party_size as number | null) ?? null,
+      party_size: (row.party_size as string | null) ?? null,
       ref_images: (row.ref_image_paths as string[] | null) ?? [],
       note: (row.note as string | null) ?? null,
       created_at: row.created_at as string,

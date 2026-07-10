@@ -24,17 +24,15 @@ const MAX_REF_IMAGES = 5;
 
 export type InquiryValues = {
   phone: string;
-  instagramId: string;
   kakaoId: string;
-  extraContact: string;
+  contactEmail: string;
   brief: InquiryBriefValues;
 };
 
 type ContactInfo = {
   phone: string | null;
-  instagramId: string | null;
   kakaoId: string | null;
-  extraContact: string | null;
+  contactEmail: string | null;
 };
 
 type BriefInfo = {
@@ -43,6 +41,8 @@ type BriefInfo = {
   preferredDate: string | null;
   region: string | null;
   note: string | null;
+  gender: string | null;
+  name: string | null;
   refImagePaths: string[];
 };
 
@@ -52,6 +52,8 @@ type InquiryBriefValues = {
   preferredDate: string;
   region: string;
   note: string;
+  gender: string;
+  name: string;
 };
 
 function validatePhone(phone: string | null) {
@@ -77,15 +79,22 @@ function fieldText(formData: FormData, key: string) {
 
 function validateContactInfo(formData: FormData): ContactInfo {
   const phone = validatePhone(fieldText(formData, "phone"));
-  const instagramId = normalizeInstagramId(fieldText(formData, "instagramId"));
   const kakaoId = fieldText(formData, "kakaoId");
-  const extraContact = fieldText(formData, "extraContact");
+  const contactEmail = validateEmail(fieldText(formData, "contactEmail"));
 
-  if (!phone && !instagramId && !kakaoId && !extraContact) {
+  if (!phone && !kakaoId && !contactEmail) {
     throw new Error("연락 가능한 수단을 하나 이상 입력해주세요.");
   }
 
-  return { phone, instagramId, kakaoId, extraContact };
+  return { phone, kakaoId, contactEmail };
+}
+
+function validateEmail(email: string | null) {
+  if (!email) return null;
+  if (!EMAIL_RE.test(email)) {
+    throw new Error("이메일 형식을 확인해주세요. 예: id@gmail.com");
+  }
+  return email;
 }
 
 function validateBriefInfo(formData: FormData): BriefInfo {
@@ -95,9 +104,8 @@ function validateBriefInfo(formData: FormData): BriefInfo {
 function readInquiryValues(formData: FormData): InquiryValues {
   return {
     phone: String(formData.get("phone") || ""),
-    instagramId: String(formData.get("instagramId") || ""),
     kakaoId: String(formData.get("kakaoId") || ""),
-    extraContact: String(formData.get("extraContact") || ""),
+    contactEmail: String(formData.get("contactEmail") || ""),
     brief: readBriefValues(formData),
   };
 }
@@ -109,6 +117,8 @@ function readBriefValues(formData: FormData) {
     preferredDate: String(formData.get("preferredDate") || ""),
     region: String(formData.get("region") || ""),
     note: String(formData.get("note") || ""),
+    gender: String(formData.get("gender") || ""),
+    name: String(formData.get("name") || ""),
   };
 }
 
@@ -120,14 +130,10 @@ function readBriefInfo(formData: FormData): BriefInfo {
     preferredDate: values.preferredDate.trim() || null,
     region: values.region.trim() || null,
     note: values.note.trim() || null,
+    gender: values.gender.trim() || null,
+    name: values.name.trim() || null,
     refImagePaths: [],
   };
-}
-
-function normalizeInstagramId(value: string | null) {
-  if (!value) return null;
-  const id = value.startsWith("@") ? value : `@${value}`;
-  return id.replace(/\s/g, "");
 }
 
 // 문의 폼 제출 — 연락 수단 검증을 통과하면 작가에게 알림을 보낸다.
@@ -159,9 +165,8 @@ export async function submitInquiry(
       .from("profiles")
       .update({
         phone: contact.phone,
-        instagram_id: contact.instagramId,
         kakao_id: contact.kakaoId,
-        extra_contact: contact.extraContact,
+        contact_email: contact.contactEmail,
       })
       .eq("id", me.id);
     if (error) return { ok: false, error: error.message, values };
@@ -194,9 +199,8 @@ export async function submitInquiry(
     });
 
     // Meta 전환 API — 서버측 Lead 전송(브라우저 픽셀 보완). 같은 eventID 로 중복 제거.
-    // 이메일은 전용 필드가 없어 '기타 연락처'가 이메일 형태면 사용. (FB_CAPI_TOKEN 없으면 무동작)
-    const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.extraContact ?? "") ? contact.extraContact : null;
-    await sendCapiLead({ inquiryId, phone: contact.phone, email });
+    // (FB_CAPI_TOKEN 없으면 무동작)
+    await sendCapiLead({ inquiryId, phone: contact.phone, email: contact.contactEmail });
   }
 
   return {
@@ -226,8 +230,8 @@ async function findRecentDuplicate(
 
   if (profileId) q = q.eq("profile_id", profileId);
   else if (contact.phone) q = q.eq("phone", contact.phone);
-  else if (contact.instagramId) q = q.eq("instagram_id", contact.instagramId);
-  else if (contact.kakaoId) q = q.eq("discord_id", contact.kakaoId);
+  else if (contact.kakaoId) q = q.eq("kakao_id", contact.kakaoId);
+  else if (contact.contactEmail) q = q.eq("contact_email", contact.contactEmail);
   else return null; // 식별 수단이 없으면 중복 판정 생략
 
   const { data } = await q;
@@ -255,16 +259,15 @@ async function createInquiry(
       photographer_id: photographerId,
       source_photo_id: photoId || null,
       phone: contact.phone,
-      instagram_id: contact.instagramId,
-      // discord_id 컬럼을 카카오 아이디 저장에 재사용(디스코드 채널 미사용)
-      discord_id: contact.kakaoId,
-      contact_email: null,
-      extra_contact: contact.extraContact,
-      party_size: parsePartySize(brief.partySize),
+      kakao_id: contact.kakaoId,
+      contact_email: contact.contactEmail,
+      party_size: brief.partySize,
       purpose: brief.purpose,
       preferred_date: brief.preferredDate,
       region: brief.region,
       note: brief.note,
+      gender: brief.gender,
+      name: brief.name,
       ref_image_paths: brief.refImagePaths,
       fbp: ad.fbp,
       fbc: ad.fbc,
@@ -302,16 +305,16 @@ async function notifyPhotographer(
   });
 }
 
-function inquiryNickname(displayName: string | null) {
-  // 연락처(인스타/기타)는 입금 확인 전 노출 금지 — 닉네임 fallback에도 쓰지 않는다.
-  return displayName || "비회원";
+function inquiryNickname(displayName: string | null, name: string | null) {
+  // 연락처(전화/카톡/이메일)는 입금 확인 전 노출 금지 — 닉네임엔 이름/닉네임만 사용.
+  return displayName || name || "비회원";
 }
 
-// 알림 본문에는 연락처(전화/인스타/기타)를 절대 담지 않는다.
+// 알림 본문에는 연락처(전화/카톡/이메일)를 절대 담지 않는다.
 // 연락처는 운영자 입금 확인(status='confirmed') 후 listMyAcceptedInquiries 경로로만 공개된다.
 function buildInquiryBody(displayName: string | null, _contact: ContactInfo, brief: BriefInfo) {
   const lines = [
-    `${inquiryNickname(displayName)} 님이 예약 문의를 하였습니다.`,
+    `${inquiryNickname(displayName, brief.name)} 님이 예약 문의를 하였습니다.`,
     brief.purpose && `목적: ${brief.purpose}`,
     brief.preferredDate && `희망 일정: ${brief.preferredDate}`,
     brief.region && `희망 지역: ${brief.region}`,
@@ -351,12 +354,6 @@ async function uploadReferenceImages(formData: FormData) {
   }
 
   return uploaded;
-}
-
-function parsePartySize(value: string | null) {
-  if (!value) return null;
-  const parsed = parseInt(value.replace(/[^0-9]/g, ""), 10);
-  return Number.isFinite(parsed) ? parsed : null;
 }
 
 // ── 장바구니 일괄 상담 신청 (운영진 라우팅) ───────────────────────
@@ -433,9 +430,8 @@ export async function submitMultiInquiry(
       .from("profiles")
       .update({
         phone: contact.phone,
-        instagram_id: contact.instagramId,
         kakao_id: contact.kakaoId,
-        extra_contact: contact.extraContact,
+        contact_email: contact.contactEmail,
       })
       .eq("id", me.id);
   }
@@ -482,10 +478,7 @@ export async function submitMultiInquiry(
   await rememberInquiryIds(createdIds);
 
   // Meta Lead 1회(첫 문의 기준 eventID)
-  const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contact.extraContact ?? "")
-    ? contact.extraContact
-    : null;
-  await sendCapiLead({ inquiryId: firstInquiryId, phone: contact.phone, email });
+  await sendCapiLead({ inquiryId: firstInquiryId, phone: contact.phone, email: contact.contactEmail });
 
   return {
     ok: true,
