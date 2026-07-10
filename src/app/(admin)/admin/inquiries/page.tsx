@@ -46,16 +46,15 @@ type DbRow = {
   purpose: string;
   preferred_date: string;
   region: string | null;
+  name: string | null;
   gender: string | null;
-  party_size: number | null;
+  party_size: string | null;
   note: string | null;
   deposit_amount_krw: number | null;
   deposit_confirmed_at: string | null;
   phone: string | null;
-  instagram_id: string | null;
-  discord_id: string | null;
+  kakao_id: string | null;
   contact_email: string | null;
-  extra_contact: string | null;
   ref_image_paths: string[] | null;
   photographer: { display_name: string | null } | { display_name: string | null }[] | null;
   profile: { display_name: string | null } | { display_name: string | null }[] | null;
@@ -76,7 +75,7 @@ export default async function AdminInquiriesPage({
     admin
       .from("inquiries")
       .select(
-        "id, status, created_at, photographer_id, purpose, preferred_date, region, gender, party_size, note, deposit_amount_krw, deposit_confirmed_at, phone, instagram_id, discord_id, contact_email, extra_contact, ref_image_paths, photographer:photographers(display_name), profile:profiles!inquiries_profile_id_fkey(display_name)"
+        "id, status, created_at, photographer_id, purpose, preferred_date, region, name, gender, party_size, note, deposit_amount_krw, deposit_confirmed_at, phone, kakao_id, contact_email, ref_image_paths, photographer:photographers(display_name), profile:profiles!inquiries_profile_id_fkey(display_name)"
       )
       .order("created_at", { ascending: false })
       .limit(300),
@@ -120,9 +119,8 @@ export default async function AdminInquiriesPage({
       const revealed = isRevealed(stage);
       const contacts = [
         ["전화", r.phone],
-        ["인스타 DM", r.instagram_id],
-        ["카카오", r.discord_id], // discord_id 컬럼을 카카오 저장에 재사용
-        ["기타", r.extra_contact],
+        ["카카오", r.kakao_id],
+        ["이메일", r.contact_email],
       ]
         .filter(([, v]) => v)
         .map(([label, value]) => ({ label: label as string, value: value as string }));
@@ -135,6 +133,7 @@ export default async function AdminInquiriesPage({
         purpose: r.purpose,
         preferredDate: r.preferred_date,
         region: r.region,
+        name: r.name,
         gender: r.gender,
         partySize: r.party_size,
         note: r.note,

@@ -7,10 +7,10 @@ export type MyInquiry = {
   status: string;
   photoThumb: string | null;
   phone: string | null;
-  instagram: string | null;
   kakao: string | null;
-  extraContact: string | null;
-  partySize: number | null;
+  email: string | null;
+  name: string | null;
+  partySize: string | null;
   purpose: string;
   preferredDate: string;
   region: string;

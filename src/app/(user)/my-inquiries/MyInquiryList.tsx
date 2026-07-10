@@ -62,7 +62,7 @@ function MyInquiryItem({ iq }: { iq: MyInquiry }) {
           <Cell label="희망일" value={iq.preferredDate} />
           <Cell
             label={iq.partySize ? "지역 · 인원" : "지역"}
-            value={iq.partySize ? `${iq.region} · ${iq.partySize}명` : iq.region}
+            value={iq.partySize ? `${iq.region} · ${iq.partySize}` : iq.region}
           />
           {iq.note ? <Cell label="메모" value={iq.note} full soft /> : null}
         </div>
@@ -126,15 +126,15 @@ function Cell({
   );
 }
 
-type ContactKind = "phone" | "instagram" | "kakao" | "etc";
+type ContactKind = "name" | "phone" | "kakao" | "email";
 
 function contactRows(iq: MyInquiry): { kind: ContactKind; value: string }[] {
   const rows: { kind: ContactKind; value: string }[] = [];
+  if (iq.name) rows.push({ kind: "name", value: iq.name });
   if (iq.phone) rows.push({ kind: "phone", value: iq.phone });
-  if (iq.instagram) rows.push({ kind: "instagram", value: iq.instagram });
   if (iq.kakao) rows.push({ kind: "kakao", value: iq.kakao });
-  if (iq.extraContact) rows.push({ kind: "etc", value: iq.extraContact });
-  if (rows.length === 0) rows.push({ kind: "etc", value: "-" });
+  if (iq.email) rows.push({ kind: "email", value: iq.email });
+  if (rows.length === 0) rows.push({ kind: "email", value: "-" });
   return rows;
 }
 
@@ -149,12 +149,11 @@ function ContactIcon({ kind }: { kind: ContactKind }) {
         />
       </svg>
     );
-  if (kind === "instagram")
+  if (kind === "name")
     return (
       <svg viewBox="0 0 24 24" className={cls} fill="none" stroke="currentColor" strokeWidth="1.8">
-        <rect x="3.5" y="3.5" width="17" height="17" rx="5" />
-        <circle cx="12" cy="12" r="3.8" />
-        <circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none" />
+        <circle cx="12" cy="8" r="3.5" />
+        <path d="M5 19c0-3.3 3.1-5.5 7-5.5s7 2.2 7 5.5" strokeLinecap="round" />
       </svg>
     );
   if (kind === "kakao")

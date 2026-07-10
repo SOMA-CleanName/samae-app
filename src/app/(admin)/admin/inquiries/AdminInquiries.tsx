@@ -21,8 +21,9 @@ export type InquiryRow = {
   purpose: string;
   preferredDate: string;
   region: string | null;
+  name: string | null;
   gender: string | null;
-  partySize: number | null;
+  partySize: string | null;
   note: string | null;
   depositAmount: number;
   photographerName: string;
@@ -149,8 +150,9 @@ export function AdminInquiries({ rows }: { rows: InquiryRow[] }) {
                   {[
                     ["희망일", r.preferredDate],
                     ["지역", r.region],
+                    ["이름", r.name],
                     ["성별", r.gender],
-                    ["인원", r.partySize != null ? `${r.partySize}명` : null],
+                    ["인원", r.partySize],
                   ]
                     .filter(([, v]) => v)
                     .map(([k, v]) => (

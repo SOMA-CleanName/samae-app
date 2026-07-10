@@ -14,8 +14,8 @@ const INITIAL_STATE: InquiryState = { ok: false };
 // soft-skip은 다른 선택지와 동등한 버튼. 언제든 "바로 문의" 경로 → 건너뛴 질문은 접이식 아코디언.
 // 제출 전까진 이전 답변 언제든 수정(답변 칩 유지 + 선택지 부드럽게 펼침).
 
-type StepKey = "purpose" | "preferredDate" | "region" | "partySize" | "note";
-type StepType = "options" | "date" | "note";
+type StepKey = "purpose" | "preferredDate" | "region" | "partySize" | "gender" | "note" | "name";
+type StepType = "options" | "date" | "note" | "text";
 
 type Step = {
   key: StepKey;
@@ -23,8 +23,9 @@ type Step = {
   type: StepType;
   options?: string[];
   cols?: 1 | 2; // options 레이아웃 (기본 2열)
+  placeholder?: string; // text 입력 placeholder
   skip: string; // 질문별 맞춤 soft-skip (다른 선택지와 동등 버튼)
-  short: string; // 아코디언 요약 라벨
+  short: string; // 요약 라벨
 };
 
 const STEPS: Step[] = [
@@ -73,6 +74,19 @@ const STEPS: Step[] = [
     short: "인원",
   },
   {
+    key: "gender",
+    q: (
+      <>
+        <Em>성별</Em>을 알려주세요.
+      </>
+    ),
+    type: "options",
+    options: ["남성", "여성"],
+    cols: 2,
+    skip: "밝히지 않을게요",
+    short: "성별",
+  },
+  {
     key: "note",
     q: (
       <>
@@ -82,6 +96,18 @@ const STEPS: Step[] = [
     type: "note",
     skip: "작가님과 상담 시 논의할게요",
     short: "문의사항",
+  },
+  {
+    key: "name",
+    q: (
+      <>
+        작가님이 어떻게 <Em>불러드리면</Em> 될까요?
+      </>
+    ),
+    type: "text",
+    placeholder: "성함 또는 닉네임",
+    skip: "이름 없이 문의할게요",
+    short: "이름",
   },
 ];
 
@@ -126,7 +152,7 @@ function loadSavedAnswers(key: string): Partial<Record<StepKey, string>> | null 
 }
 
 // ── 연락처 타입 / 유효성 (item9) ─────────────────────────────────
-type ContactType = "phone" | "instagram" | "email";
+type ContactType = "phone" | "kakao" | "email";
 const CONTACT_TYPES: {
   key: ContactType;
   label: string;
@@ -136,7 +162,7 @@ const CONTACT_TYPES: {
   empty: string; // 빈칸일 때 안내문
 }[] = [
   { key: "phone", label: "전화번호", short: "전화", placeholder: "010-1234-5678", inputMode: "tel", empty: "전화번호를 입력해주세요." },
-  { key: "instagram", label: "인스타 DM", short: "인스타", placeholder: "@samae_photo_official", inputMode: "text", empty: "인스타 아이디를 입력해주세요." },
+  { key: "kakao", label: "카카오톡 ID", short: "카톡", placeholder: "카카오톡 ID", inputMode: "text", empty: "카카오톡 ID를 입력해주세요." },
   { key: "email", label: "이메일", short: "이메일", placeholder: "photosame00@gmail.com", inputMode: "email", empty: "이메일 주소를 입력해주세요." },
 ];
 
@@ -152,12 +178,13 @@ function ContactIcon({ kind }: { kind: ContactType }) {
         />
       </svg>
     );
-  if (kind === "instagram")
+  if (kind === "kakao")
     return (
       <svg viewBox="0 0 24 24" className={cls} fill="none" stroke="currentColor" strokeWidth="1.8">
-        <rect x="3.5" y="3.5" width="17" height="17" rx="5" />
-        <circle cx="12" cy="12" r="3.8" />
-        <circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none" />
+        <path
+          d="M12 4.5C7 4.5 3 7.6 3 11.4c0 2.4 1.7 4.6 4.2 5.8-.2.7-.7 2.3-.8 2.7 0 .3.2.4.4.3.3-.2 2.5-1.7 3.5-2.4.5.1 1.1.1 1.7.1 5 0 9-3.1 9-6.9S17 4.5 12 4.5z"
+          strokeLinejoin="round"
+        />
       </svg>
     );
   return (
@@ -168,7 +195,8 @@ function ContactIcon({ kind }: { kind: ContactType }) {
   );
 }
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const IG_RE = /^[a-zA-Z0-9._]{1,30}$/;
+// 카카오톡 아이디 — 영문 소문자·숫자·마침표(.)·밑줄(_) 4~20자 (대문자·하이픈 불가)
+const KAKAO_RE = /^[a-z0-9._]{4,20}$/;
 
 // 전화번호 — "-" 없이 입력해도 자동으로 하이픈 삽입 (item5)
 function formatPhoneInput(raw: string) {
@@ -177,10 +205,9 @@ function formatPhoneInput(raw: string) {
   if (d.length < 8) return `${d.slice(0, 3)}-${d.slice(3)}`;
   return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
 }
-// 인스타 — "@" 없이 입력해도 자동으로 붙고, 허용 외 문자는 애초에 입력 차단(영문·숫자·_·.)
-function formatInstaInput(raw: string) {
-  const id = raw.replace(/^@+/, "").replace(/[^a-zA-Z0-9._]/g, "");
-  return id ? `@${id}` : "";
+// 카톡 ID — 소문자만 허용: 대문자는 자동 소문자화, 허용 외 문자(하이픈·공백 등)는 제거
+function formatKakaoInput(raw: string) {
+  return raw.toLowerCase().replace(/[^a-z0-9._]/g, "");
 }
 
 // 입력창 흔들림 — 미완성 제출 시 "여기 입력해주세요" 시선 유도
@@ -207,9 +234,8 @@ function validateContact(type: ContactType, raw: string): { valid: boolean; erro
       return { valid: false, error: "010으로 시작하는 11자리를 입력해주세요." };
     return { valid: true, error: null };
   }
-  if (type === "instagram") {
-    const id = v.replace(/^@/, "");
-    if (!IG_RE.test(id)) return { valid: false, error: "영문·숫자·_·.만 쓸 수 있어요." };
+  if (type === "kakao") {
+    if (!KAKAO_RE.test(v)) return { valid: false, error: "영문 소문자·숫자·_·. 4~20자로 입력해주세요." };
     return { valid: true, error: null };
   }
   if (!EMAIL_RE.test(v))
@@ -244,7 +270,6 @@ export function InquiryChat({
   const [optionsReady, setOptionsReady] = useState(false); // 질문 노출 후 1초 뒤 선지 노출
   const [contactStep, setContactStep] = useState(false);
   const [editing, setEditing] = useState<number | null>(null); // 재선택 중인 질문 index
-  const [skippedKeys, setSkippedKeys] = useState<StepKey[] | null>(null); // 바로 문의로 건너뛴 질문들
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const optionsEndRef = useRef<HTMLDivElement>(null); // 선지+건너뛰기 하단 — 생성 시 채팅창 바닥에 맞춤
@@ -407,16 +432,6 @@ export function InquiryChat({
     }
   }
 
-  function setAnswerByKey(key: StepKey, value: string) {
-    setAnswers((prev) => ({ ...prev, [key]: value }));
-  }
-
-  function skipToContact() {
-    setEditing(null);
-    setSkippedKeys(STEPS.filter((s) => answers[s.key] === undefined).map((s) => s.key));
-    revealContact();
-  }
-
   // 제출 — 채팅 답변 + 연락처를 FormData 로 변환해 기존 submitInquiry 재사용
   function submit(contactType: ContactType, contactValue: string) {
     const fd = new FormData();
@@ -432,9 +447,9 @@ export function InquiryChat({
         fd.set(s.key, "");
         continue;
       }
-      if (s.key === "partySize") {
-        const m = raw.match(/\d+/); // "3~6명" → 3, "그 이상"/"미정" → 없음
-        fd.set("partySize", m ? m[0] : "");
+      // partySize·gender·name 은 soft-skip 을 값으로 저장하지 않고 미입력(null)로 처리
+      if ((s.key === "partySize" || s.key === "gender" || s.key === "name") && raw === s.skip) {
+        fd.set(s.key, "");
         continue;
       }
       fd.set(s.key, displayAnswer(s.key, raw));
@@ -442,10 +457,10 @@ export function InquiryChat({
     if (contactType === "phone") {
       const d = contactValue.replace(/\D/g, "");
       fd.set("phone", `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`);
-    } else if (contactType === "instagram") {
-      fd.set("instagramId", contactValue.replace(/^@/, "").trim());
+    } else if (contactType === "kakao") {
+      fd.set("kakaoId", contactValue.trim());
     } else {
-      fd.set("extraContact", contactValue.trim());
+      fd.set("contactEmail", contactValue.trim());
     }
     startTransition(() => formAction(fd));
   }
@@ -460,11 +475,10 @@ export function InquiryChat({
     router.replace("/");
   }
   function goSave() {
-    // 플래그는 완료 시 이미 설정됨 → 로그인에서 '뒤로' 시 이 폼은 마운트되며 탐색으로 바운스
-    router.push("/login?next=/bookings");
+    // 완료 후 문의 내역으로 — 비로그인도 쿠키로 조회 가능(죽은 /bookings 대신 /my-inquiries).
+    // POST_INQUIRY_KEY 는 유지 → 내역에서 '뒤로' 시 빈 폼 대신 탐색으로 바운스.
+    router.push("/my-inquiries");
   }
-
-  const inAccordion = (key: StepKey) => skippedKeys?.includes(key) ?? false;
 
   return (
     <div className="fixed inset-0 z-50 mx-auto flex h-[100svh] max-w-xl flex-col bg-bg font-kr">
@@ -565,7 +579,7 @@ export function InquiryChat({
           // 답변 완료 또는 현재 노출 스텝을 한 블록으로 렌더 — 답변 시 선지 Reveal 이 즉시
           // 언마운트되지 않고 부드럽게 닫히게, 질문·답변칩은 ExpandIn 으로 등장 → 레이아웃 시프트 완화.
           // 자식 key(q/a/opts)로 answered 전환 시에도 Reveal 인스턴스가 보존돼 닫힘 애니가 재생된다.
-          if (!inAccordion(step.key) && (answered || (!contactStep && i === revealed))) {
+          if (answered || (!contactStep && i === revealed)) {
             return (
               <div key={step.key} className="space-y-1.5">
                 <ExpandIn key="q">
@@ -607,32 +621,8 @@ export function InquiryChat({
 
         {typing && <TypingBubble />}
 
-        {/* 바로 문의 남기기 (질문 단계 동안) */}
-        {!contactStep && !typing && revealed >= 0 && !done && (
-          <div className="flex justify-center pt-1">
-            <button
-              type="button"
-              onClick={skipToContact}
-              className="cursor-pointer rounded-full bg-fg/[0.05] px-4 py-1.5 text-xs font-medium text-muted transition-colors hover:bg-fg/10 hover:text-fg"
-            >
-              건너뛰고 바로 문의 남기기
-            </button>
-          </div>
-        )}
-
-        {/* 스크롤 기준 마커 — 선지 생성 시 이 지점을 채팅창 바닥에 맞춰, 선지 + '건너뛰고 바로
-            문의 남기기' 버튼까지 함께 보이도록 스크롤한다. */}
+        {/* 스크롤 기준 마커 — 선지 생성 시 이 지점을 채팅창 바닥에 맞춰 선지가 보이도록 스크롤한다. */}
         <div ref={optionsEndRef} aria-hidden />
-
-        {/* item7 — 건너뛴 질문: 접이식 아코디언 + 미답변 표시 */}
-        {contactStep && skippedKeys && skippedKeys.length > 0 && (
-          <SkippedSection
-            steps={STEPS.filter((s) => skippedKeys.includes(s.key))}
-            answers={answers}
-            onAnswer={setAnswerByKey}
-            disabled={done}
-          />
-        )}
 
         {/* 연락처 단계 (item9) */}
         {contactStep && (
@@ -742,6 +732,7 @@ function ContactBlock({
   const [val, setVal] = useState("");
   const [attempted, setAttempted] = useState(false);
   const [blockMsg, setBlockMsg] = useState<string | null>(null);
+  const [kakaoHelp, setKakaoHelp] = useState(false); // '카톡 아이디 찾는 방법' 펼침
   const inputRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const blockTimer = useRef<number | undefined>(undefined);
@@ -767,10 +758,10 @@ function ContactBlock({
     if (type === "phone") {
       if (/[^\d\s().-]/.test(raw)) flashBlock("숫자만 입력할 수 있어요.");
       setVal(formatPhoneInput(raw));
-    } else if (type === "instagram") {
-      if (/[^a-zA-Z0-9._]/.test(raw.replace(/^@+/, "")))
-        flashBlock("영문·숫자·_·.만 쓸 수 있어요.");
-      setVal(formatInstaInput(raw));
+    } else if (type === "kakao") {
+      // 대문자는 조용히 소문자화 → 안내는 진짜 못 쓰는 문자(하이픈·공백·한글 등)에만
+      if (/[^a-zA-Z0-9._]/.test(raw)) flashBlock("영문·숫자·_·.만 쓸 수 있어요.");
+      setVal(formatKakaoInput(raw));
     } else {
       setVal(raw);
     }
@@ -816,6 +807,7 @@ function ContactBlock({
                 setVal("");
                 setAttempted(false);
                 setBlockMsg(null);
+                setKakaoHelp(false);
               }}
               className={[
                 // 아이콘 + 짧은 라벨 세로 스택 — '인스타 DM' 처럼 긴 라벨로 줄바꿈되던 문제 해소
@@ -860,6 +852,44 @@ function ContactBlock({
             {displayedError ?? ""}
           </p>
 
+          {/* 카톡 아이디 찾는 방법 — 아이디를 모르는 사용자 이탈 방어 */}
+          {type === "kakao" && (
+            <div className="mt-1">
+              <button
+                type="button"
+                onClick={() => setKakaoHelp((v) => !v)}
+                aria-expanded={kakaoHelp}
+                className="flex cursor-pointer items-center gap-1 text-[12px] font-medium text-muted transition-colors hover:text-fg"
+              >
+                <span className="grid h-4 w-4 place-items-center rounded-full border border-current text-[10px] font-bold leading-none">
+                  ?
+                </span>
+                카톡 아이디 찾는 방법
+                <ChevronDownIcon
+                  className={`h-3.5 w-3.5 transition-transform ${kakaoHelp ? "rotate-180" : ""}`}
+                />
+              </button>
+              <Reveal open={kakaoHelp}>
+                <div className="mt-2 rounded-xl bg-surface-2 px-3 py-2.5 text-[12px] leading-relaxed text-fg/80">
+                  <ol className="list-decimal space-y-1 pl-4">
+                    <li>
+                      카카오톡 → <b className="text-fg">내 프로필</b> → 우측 상단{" "}
+                      <b className="text-fg">톱니바퀴(설정)</b>
+                    </li>
+                    <li>
+                      <b className="text-fg">카카오톡 아이디</b> 확인 — 없으면{" "}
+                      <b className="text-fg">[만들기]</b>로 생성
+                    </li>
+                    <li>그 아이디를 여기에 입력해주세요</li>
+                  </ol>
+                  <p className="mt-2 rounded-lg bg-brand/[0.07] px-2.5 py-2 text-fg/75">
+                    ⚠️ <b className="text-fg">ID 검색 허용</b>을 꼭 켜주세요. 꺼져 있으면 작가가 아이디로 찾을 수 없어요.
+                  </p>
+                </div>
+              </Reveal>
+            </div>
+          )}
+
           {serverError && <p className="mt-2 text-xs font-medium text-danger">{serverError}</p>}
 
           <button
@@ -899,101 +929,6 @@ function ContactBlock({
   );
 }
 
-// ── 건너뛴 질문 아코디언 (item7) ──────────────────────────────────
-function SkippedSection({
-  steps,
-  answers,
-  onAnswer,
-  disabled,
-}: {
-  steps: Step[];
-  answers: Partial<Record<StepKey, string>>;
-  onAnswer: (key: StepKey, value: string) => void;
-  disabled: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const [editKey, setEditKey] = useState<StepKey | null>(null);
-  const pending = steps.filter((s) => answers[s.key] === undefined).length;
-
-  return (
-    <div className="mr-auto w-full max-w-[92%] overflow-hidden rounded-2xl rounded-tl-md bg-surface-2">
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        className="flex w-full cursor-pointer items-center justify-between gap-2 px-3.5 py-3 text-left"
-      >
-        <span className="text-sm font-medium text-fg">미리 알려주면 작가님과 소통이 빨라져요</span>
-        <span className="flex shrink-0 items-center gap-1.5 text-xs text-muted">
-          {pending > 0 ? `${pending}개 미답변` : "입력 완료"}
-          <ChevronDownIcon className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
-        </span>
-      </button>
-      <Reveal open={open}>
-        <div className="space-y-1 px-2 pb-2">
-          {steps.map((s) => {
-            const answered = answers[s.key] !== undefined;
-            const isEditing = editKey === s.key;
-            return (
-              <div key={s.key} className={`rounded-xl ${isEditing ? "bg-brand/[0.06]" : ""}`}>
-                <div className="flex items-center justify-between gap-2 px-2 py-2">
-                  <span className={`text-sm ${isEditing ? "font-semibold text-brand-ink" : "text-fg"}`}>
-                    {s.short}
-                  </span>
-                  {answered ? (
-                    <span className="flex items-center gap-2">
-                      <span className="text-sm text-fg/80">{displayAnswer(s.key, answers[s.key]!)}</span>
-                      {!disabled && (
-                        <button
-                          type="button"
-                          onClick={() => setEditKey(isEditing ? null : s.key)}
-                          className="cursor-pointer text-[11px] text-faint transition-colors hover:text-muted"
-                        >
-                          수정
-                        </button>
-                      )}
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-2">
-                      <span className="flex items-center gap-1 text-xs text-faint">
-                        <span className="h-1.5 w-1.5 rounded-full bg-fg/25" />
-                        미답변
-                      </span>
-                      {!disabled && (
-                        <button
-                          type="button"
-                          onClick={() => setEditKey(isEditing ? null : s.key)}
-                          className="cursor-pointer rounded-full border border-line-strong bg-surface px-3 py-1 text-xs font-medium text-fg transition-colors hover:bg-surface-2"
-                        >
-                          {isEditing ? "닫기" : "고르기"}
-                        </button>
-                      )}
-                    </span>
-                  )}
-                </div>
-                {isEditing && (
-                  <ExpandIn>
-                    <div className="px-2 pb-2">
-                      <QuestionInput
-                        step={s}
-                        value={answers[s.key]}
-                        onSubmit={(v) => {
-                          onAnswer(s.key, v);
-                          setEditKey(null);
-                        }}
-                        onCancel={() => setEditKey(null)}
-                      />
-                    </div>
-                  </ExpandIn>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </Reveal>
-    </div>
-  );
-}
-
 // ── 질문별 맞춤 입력 (item2) ──────────────────────────────────────
 function QuestionInput({
   step,
@@ -1025,6 +960,9 @@ function QuestionInput({
       )}
       {step.type === "note" && (
         <NoteField skip={step.skip} value={value} onPick={onSubmit} />
+      )}
+      {step.type === "text" && (
+        <TextField skip={step.skip} placeholder={step.placeholder} value={value} onPick={onSubmit} />
       )}
       {onCancel && (
         <div className="flex justify-end">
@@ -1101,11 +1039,13 @@ function OptionGrid({
     <div className={`grid gap-2 ${cols === 1 ? "grid-cols-1" : "grid-cols-2"}`}>
       {items.map((opt, idx) => {
         const delay = (items.length - 1 - idx) * 40; // 맨 아래=0, 위로 갈수록 지연
+        // 2열인데 항목이 홀수라 마지막(건너뛰기)이 혼자 남으면 그 줄을 전체 너비로.
+        const spanFull = cols === 2 && items.length % 2 === 1 && idx === items.length - 1;
         return (
           // grid 래퍼 — 버튼이 셀을 꽉 채우게 유지하면서 래퍼에 등장 트랜지션 적용
           <div
             key={opt}
-            className="grid"
+            className={`grid ${spanFull ? "col-span-2" : ""}`}
             style={{
               opacity: shown ? 1 : 0,
               transform: shown ? "translateY(0)" : "translateY(10px)",
@@ -1324,6 +1264,16 @@ function NoteField({
   const isCustom = !!value && value !== skip;
   const [writing, setWriting] = useState(isCustom);
   const [t, setT] = useState(isCustom ? value! : "");
+  const endRef = useRef<HTMLDivElement>(null);
+
+  // '지금 작성' 진입 시 입력창+보내기 버튼까지 화면에 보이도록 스크롤
+  useEffect(() => {
+    if (!writing) return;
+    const id = window.setTimeout(() => {
+      endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }, 120);
+    return () => window.clearTimeout(id);
+  }, [writing]);
 
   if (writing) {
     return (
@@ -1357,6 +1307,7 @@ function NoteField({
             보내기
           </button>
         </div>
+        <div ref={endRef} aria-hidden />
       </div>
     );
   }
@@ -1367,6 +1318,48 @@ function NoteField({
         {skip}
       </OptionButton>
       <OptionButton onClick={() => setWriting(true)}>지금 작성할게요</OptionButton>
+    </div>
+  );
+}
+
+// 짧은 텍스트 입력(이름/닉네임) — 입력창 + soft-skip 버튼 + 보내기
+function TextField({
+  skip,
+  placeholder,
+  value,
+  onPick,
+}: {
+  skip: string;
+  placeholder?: string;
+  value?: string;
+  onPick: (v: string) => void;
+}) {
+  const isCustom = !!value && value !== skip;
+  const [t, setT] = useState(isCustom ? value! : "");
+  return (
+    <div className="space-y-2">
+      <input
+        type="text"
+        value={t}
+        onChange={(e) => setT(e.target.value)}
+        autoFocus
+        placeholder={placeholder ?? "입력해주세요"}
+        style={{ outline: "none" }}
+        className="h-11 w-full rounded-xl border border-line-strong bg-surface px-3.5 text-base text-fg transition-colors placeholder:text-faint focus:border-brand focus:ring-1 focus:ring-inset focus:ring-brand"
+      />
+      <div className="grid grid-cols-2 gap-1.5">
+        <OptionButton active={value === skip} onClick={() => onPick(skip)}>
+          {skip}
+        </OptionButton>
+        <button
+          type="button"
+          onClick={() => onPick(t.trim())}
+          disabled={!t.trim()}
+          className="cursor-pointer rounded-xl bg-brand px-3.5 py-3 text-[15px] font-medium text-white transition-transform active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          보내기
+        </button>
+      </div>
     </div>
   );
 }
