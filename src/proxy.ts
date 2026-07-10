@@ -45,8 +45,15 @@ function applyCategoryContext(request: NextRequest, response: NextResponse): Nex
   if (pathname === "/") {
     if (searchParams.has("q")) return response; // 검색 모드는 그대로
     if (searchParams.has("nocat")) {
-      response.cookies.delete(CATEGORY_COOKIE);
-      return response;
+      // 카테고리 컨텍스트 해제(쿠키 삭제) 후 깨끗한 홈(/)으로 리다이렉트 —
+      // 주소창에 ?nocat=1 이 남지 않고 samae.ai 로 끝난다. (쿠키가 지워져 다시 /c 로 안 튕김)
+      const url = request.nextUrl.clone();
+      url.pathname = "/";
+      url.search = "";
+      const redir = NextResponse.redirect(url);
+      response.cookies.getAll().forEach((c) => redir.cookies.set(c));
+      redir.cookies.delete(CATEGORY_COOKIE);
+      return redir;
     }
     const cat = searchParams.get("cat") || request.cookies.get(CATEGORY_COOKIE)?.value;
     if (cat) {
