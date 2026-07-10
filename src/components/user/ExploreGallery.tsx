@@ -371,6 +371,10 @@ export function ExploreGallery({
         {columns.map((col, ci) => (
           <div key={ci} className="flex min-w-0 flex-1 flex-col gap-2.5 sm:gap-4">
             {col.map((photo) => {
+              // 온보딩 중 강조(스포트라이트) 카드 — 이 카드에선 담기('+') 버튼을 숨긴다.
+              // (온보딩이 끝나면서 자동으로 담기 연출이 실행되므로 버튼 노출이 혼란스러움)
+              const isSpotlightCard =
+                !!spotlightTargetId && photo.id === spotlightTargetId && obActive;
               const card = (
                 <PhotoCard
                   photo={photo}
@@ -378,11 +382,12 @@ export function ExploreGallery({
                   showName={showName}
                   // 온보딩 디밍 중엔 브랜드 빨간 테두리가 비쳐 어색해 보여 숨김
                   accent={obActive || !SHOW_ACCENTS ? undefined : accentMap.get(photo.id)}
+                  hideCart={isSpotlightCard}
                 />
               );
               // 스포트라이트 카드 — 오버레이(z-100) 위로 띄워 제자리 그대로 밝게(온보딩 활성 중에만).
               // done 이후엔 일반 카드로 렌더돼 그리드에 그대로 남는다(도크엔 담긴 복제본).
-              if (spotlightTargetId && photo.id === spotlightTargetId && obActive) {
+              if (isSpotlightCard) {
                 return (
                   <div
                     key={photo.id}
@@ -553,11 +558,14 @@ function PhotoCard({
   showPrice,
   showName,
   accent,
+  hideCart = false,
 }: {
   photo: GalleryPhoto;
   showPrice: boolean;
   showName: boolean;
   accent?: AccentColor;
+  // 온보딩 강조 카드에선 담기 버튼을 숨김
+  hideCart?: boolean;
 }) {
   const tags = (photo.mood_tags ?? []).slice(0, 3).join(", ");
   const alt = tags ? `사진 · ${tags}` : "사진";
@@ -620,16 +628,18 @@ function PhotoCard({
         </span>
       )}
 
-      {/* 장바구니 담기 ('+') — 작가명/좋아요 대신 담기로 일원화 */}
-      <AddToCartButton
-        item={{
-          id: photo.id,
-          src: photo.thumb_url ?? photo.src_url,
-          w: photo.width,
-          h: photo.height,
-        }}
-        className="absolute right-2 top-2"
-      />
+      {/* 장바구니 담기 ('+') — 작가명/좋아요 대신 담기로 일원화. 온보딩 강조 카드에선 숨김. */}
+      {!hideCart && (
+        <AddToCartButton
+          item={{
+            id: photo.id,
+            src: photo.thumb_url ?? photo.src_url,
+            w: photo.width,
+            h: photo.height,
+          }}
+          className="absolute right-2 top-2"
+        />
+      )}
     </div>
   );
 }
