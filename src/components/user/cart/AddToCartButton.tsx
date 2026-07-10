@@ -40,7 +40,10 @@ export function AddToCartButton({
       aria-label={inCart ? "관심 해제" : "관심 추가"}
       className={[
         "grid cursor-pointer place-items-center rounded-full transition-colors",
-        row ? "h-9 w-9" : "h-6 w-6 backdrop-blur-sm",
+        // overlay(탐색 갤러리): 보이는 원·아이콘은 24px 그대로, 투명 ::before 로 탭 영역만 44px 로 확장
+        row
+          ? "h-9 w-9"
+          : "relative h-6 w-6 backdrop-blur-sm before:absolute before:-inset-2.5 before:content-['']",
         inCart
           ? "bg-brand text-white"
           : row
