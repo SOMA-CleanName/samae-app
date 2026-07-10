@@ -47,15 +47,25 @@ export default async function CategoryPage({
   const sp = await searchParams;
   // Next.js 16: 동적 라우트 param 은 자동 디코딩되지 않음 — 한글 slug 매칭 위해 직접 디코딩
   const decodedSlug = safeDecode(slug);
-  // 카테고리·로그인유저·광고사진은 서로 독립 → 병렬
-  const [category, me, adPhoto] = await Promise.all([
+  const [category, me] = await Promise.all([
     getPublishedCategory(decodedSlug),
     getCurrentUser(),
-    sp.ad ? fetchPhotoById(sp.ad) : Promise.resolve(null),
   ]);
   if (!category) notFound();
 
-  // 광고 유입 온보딩 — ?ad=<사진ID>가 있으면 좌상단 첫 카드로 고정
+  // 온보딩 강조 사진 = ?ad=<사진ID> 우선, 없으면 이 카테고리의 대표(광고 소재 맨 앞) →
+  // 광고 URL(?ad) 없이 /c/<slug> 로 그냥 들어와도 대표 사진이 강조/온보딩된다. (어드민 '광고 소재 채택'에서 대표 지정)
+  const spotlightPhotoId = sp.ad || category.adPhotoIds[0] || undefined;
+  const [adPhoto, base] = await Promise.all([
+    spotlightPhotoId ? fetchPhotoById(spotlightPhotoId) : Promise.resolve(null),
+    fetchCategoryFeed(
+      category.tags,
+      isUntaggedCategory(category.tags),
+      category.orderedPhotoIds
+    ),
+  ]);
+
+  // 강조 사진을 좌상단 첫 카드로 고정
   const adAsGallery: GalleryPhoto | null = adPhoto
     ? {
         id: adPhoto.id,
@@ -71,11 +81,6 @@ export default async function CategoryPage({
     : null;
 
   // 카테고리 매칭 사진 먼저 + 나머지 전체 → 스크롤로 결국 모든 사진 노출(상한 없음)
-  const base = await fetchCategoryFeed(
-    category.tags,
-    isUntaggedCategory(category.tags),
-    category.orderedPhotoIds
-  );
   const photos = adAsGallery
     ? [adAsGallery, ...base.filter((p) => p.id !== adAsGallery.id)]
     : base;

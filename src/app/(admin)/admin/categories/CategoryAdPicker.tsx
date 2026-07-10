@@ -8,7 +8,8 @@ import type { AdCandidatePhoto } from "@/lib/categories";
 import { SITE_URL } from "@/lib/site";
 
 // 카테고리 광고 소재 채택 — 매칭 사진 썸네일에서 광고로 쓸 사진을 고르고(A/B 다중),
-// 저장하면 각 사진별 광고 URL(/?ad=<id>&cat=<slug>)을 복사해 메타 광고에 쓴다.
+// 저장하면 각 사진별 광고 URL(/c/<slug>?ad=<id>)을 복사해 메타 광고에 쓴다.
+// 맨 앞(★대표) 사진은 광고 URL 없이 /c/<slug> 로 그냥 들어와도 온보딩에서 강조되는 대표 이미지.
 export function CategoryAdPicker({
   categoryId,
   slug,
@@ -21,11 +22,16 @@ export function CategoryAdPicker({
   adopted: string[];
 }) {
   const [selected, setSelected] = useState<string[]>(adopted);
+  const byId = new Map(candidates.map((c) => [c.id, c]));
 
   const toggle = (id: string) =>
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
-  const adUrl = (id: string) => `${SITE_URL}/?ad=${id}&cat=${encodeURIComponent(slug)}`;
+  // 맨 앞으로 옮기면 그 사진이 이 카테고리 대표(온보딩 강조)가 된다.
+  const setRepresentative = (id: string) =>
+    setSelected((prev) => [id, ...prev.filter((x) => x !== id)]);
+
+  const adUrl = (id: string) => `${SITE_URL}/c/${encodeURIComponent(slug)}?ad=${id}`;
 
   return (
     <form action={setCategoryAdPhotos} className="mt-3">
@@ -73,19 +79,48 @@ export function CategoryAdPicker({
         </div>
       )}
 
-      {/* 채택된 사진별 광고 URL (저장 후 메타 광고 도착 URL로 사용) */}
+      {/* 채택된 사진 — 맨 앞(★대표)이 온보딩 강조 이미지, 각 사진별 광고 URL은 저장 후 사용 */}
       {selected.length > 0 && (
         <div className="mt-3 rounded-lg border border-line bg-surface-2 p-2.5">
-          <p className="text-caption font-semibold text-fg">광고 URL (저장 후 사용)</p>
-          <ul className="mt-1.5 flex flex-col gap-1.5">
-            {selected.map((id) => (
-              <li key={id} className="flex items-center gap-2">
-                <code className="min-w-0 flex-1 truncate rounded bg-fg/[0.06] px-2 py-1 text-[11px] text-fg/80">
-                  {adUrl(id)}
-                </code>
-                <CopyButton text={adUrl(id)} />
-              </li>
-            ))}
+          <p className="text-caption font-semibold text-fg">
+            채택한 광고 소재 · <span className="text-brand">★ 대표</span>가{" "}
+            <code className="rounded bg-fg/[0.06] px-1 text-[11px]">/c/{slug}</code> 진입 시 온보딩 강조 이미지
+          </p>
+          <ul className="mt-2 flex flex-col gap-2">
+            {selected.map((id, i) => {
+              const p = byId.get(id);
+              const rep = i === 0;
+              return (
+                <li key={id} className="flex items-center gap-2">
+                  {p && (
+                    <img
+                      src={p.thumb_url ?? p.src_url}
+                      alt=""
+                      className={`h-10 w-10 shrink-0 rounded object-cover ${rep ? "ring-2 ring-brand" : "ring-1 ring-line"}`}
+                    />
+                  )}
+                  <div className="flex min-w-0 flex-1 flex-col gap-1">
+                    {rep ? (
+                      <span className="inline-flex w-fit items-center gap-1 rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white">
+                        ★ 대표 · 온보딩 강조
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setRepresentative(id)}
+                        className="w-fit cursor-pointer rounded-full border border-line-strong px-2 py-0.5 text-[11px] font-medium text-muted transition-colors hover:bg-fg/[0.04]"
+                      >
+                        대표로 지정
+                      </button>
+                    )}
+                    <code className="min-w-0 truncate rounded bg-fg/[0.06] px-2 py-1 text-[11px] text-fg/80">
+                      {adUrl(id)}
+                    </code>
+                  </div>
+                  <CopyButton text={adUrl(id)} />
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}
