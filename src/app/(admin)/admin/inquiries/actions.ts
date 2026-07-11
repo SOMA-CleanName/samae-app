@@ -69,6 +69,25 @@ export async function setInquiryStatus(formData: FormData) {
   revalidatePath("/admin/inquiries");
 }
 
+// 문의 건당 '작가에게서 숨기기'(운영 취소) — 어드민엔 남고 작가 목록에서만 제거.
+// 하드 삭제와 달리 되돌릴 수 있다. 숨길 때 작가에게 갔던 '새 문의' 알림도 함께 제거.
+export async function setInquiryHidden(formData: FormData) {
+  await assertAdmin();
+  const id = String(formData.get("id"));
+  const hidden = String(formData.get("hidden")) === "true";
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("inquiries")
+    .update({ hidden_from_photographer: hidden })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  // 숨김 처리 시 작가 알림 제거(잔여 '새 문의' 알림이 숨긴 문의를 가리키지 않게)
+  if (hidden) {
+    await admin.from("notifications").delete().eq("inquiry_id", id).eq("type", "booking");
+  }
+  revalidatePath("/admin/inquiries");
+}
+
 // 입금 확인 — accepted(입금대기) → confirmed(연락처 공개). 작가에게 알림.
 export async function confirmInquiryDeposit(formData: FormData) {
   const me = await assertAdmin();

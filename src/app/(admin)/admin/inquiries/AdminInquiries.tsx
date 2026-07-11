@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui";
 import { ChevronDownIcon, MapPinIcon } from "@/components/user/icons";
 import { cn } from "@/lib/cn";
 import { SelectCheckbox } from "@/components/admin/DeleteMode";
-import { confirmInquiryDeposit, revertInquiryDeposit, setInquiryStatus } from "./actions";
+import { confirmInquiryDeposit, revertInquiryDeposit, setInquiryStatus, setInquiryHidden } from "./actions";
 
 const fmt = new Intl.NumberFormat("ko-KR");
 
@@ -39,6 +39,7 @@ export type InquiryRow = {
   sourcePhotoId: string | null;
   sourcePhotoThumb: string | null;
   sourcePhotoRegion: string | null;
+  hidden: boolean; // 운영진이 작가에게서 숨김(취소)
 };
 
 const STAGE: Record<Stage, { label: string; tone: "warning" | "success" | "neutral" }> = {
@@ -131,6 +132,11 @@ export function AdminInquiries({ rows }: { rows: InquiryRow[] }) {
                 {r.channelKind === "organic" && (
                   <span className="shrink-0 rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-semibold text-success">
                     스토리
+                  </span>
+                )}
+                {r.hidden && (
+                  <span className="shrink-0 rounded-full bg-fg/[0.08] px-2 py-0.5 text-[11px] font-semibold text-faint">
+                    작가 숨김
                   </span>
                 )}
                 <span className="min-w-0 flex-1">
@@ -275,6 +281,22 @@ export function AdminInquiries({ rows }: { rows: InquiryRow[] }) {
                     </select>
                     <button className="cursor-pointer rounded-lg bg-fg px-3 py-1.5 text-caption font-semibold text-bg transition-opacity hover:opacity-90">
                       변경
+                    </button>
+                  </form>
+
+                  {/* 작가에게서 숨기기(취소) — 어드민엔 남고 작가 목록에서만 사라짐 */}
+                  <form action={setInquiryHidden} className="ml-auto">
+                    <input type="hidden" name="id" value={r.id} />
+                    <input type="hidden" name="hidden" value={r.hidden ? "false" : "true"} />
+                    <button
+                      className={cn(
+                        "cursor-pointer rounded-lg border px-3 py-1.5 text-caption font-medium transition-colors",
+                        r.hidden
+                          ? "border-line-strong text-muted hover:bg-fg/[0.04]"
+                          : "border-danger/40 text-danger hover:bg-danger/[0.06]"
+                      )}
+                    >
+                      {r.hidden ? "작가에게 되돌리기" : "작가에게서 숨기기"}
                     </button>
                   </form>
                 </div>
