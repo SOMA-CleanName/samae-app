@@ -11,6 +11,8 @@ function groupKey(path: string): string {
   if (matchPhoto(path)) return "__photos__";
   if (matchPhotographer(path)) return "__photographers__";
   if (/^\/c\//.test(path)) return "__category__";
+  // 단건 문의는 사진 id 별로 경로가 달라 폭발 → 하나로 묶음(장바구니·채팅은 단일 경로라 그대로)
+  if (/^\/inquiry\/photo\//.test(path)) return "/inquiry/photo";
   return path;
 }
 

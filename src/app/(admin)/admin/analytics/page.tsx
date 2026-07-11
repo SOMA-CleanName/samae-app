@@ -49,6 +49,7 @@ export default async function AnalyticsOverviewPage({
   const topPage = topByEvent(sessions, (e) => (e.type === "pageview" ? e.path : null), 1)[0];
   const scrollAll = sessions.flatMap((s) => s.events).filter((e) => e.type === "scroll");
   const avgScreens = scrollAll.length > 0 ? scrollAll.reduce((n, e) => n + Number(e.label || 0), 0) / scrollAll.length : 0;
+  const taggedInflow = sessions.filter((s) => s.acq.source || s.acq.medium || s.acq.campaign).length;
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-5">
@@ -80,6 +81,12 @@ export default async function AnalyticsOverviewPage({
           <h2 className="mt-9 text-body-sm font-medium text-muted">자세히 보기</h2>
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <NavCard
+              href={`/admin/analytics/ads${qs}`}
+              title="광고·유입"
+              big={`${fmt.format(taggedInflow)}세션`}
+              desc="UTM 태그 유입 · 랜딩·매체·캠페인·소재별 문의 전환율"
+            />
+            <NavCard
               href={`/admin/analytics/photos${qs}`}
               title="인기 사진"
               big={`${fmt.format(clickedPhotos.size)}개`}
@@ -105,9 +112,9 @@ export default async function AnalyticsOverviewPage({
             />
             <NavCard
               href={`/admin/analytics/engagement${qs}`}
-              title="참여·유입"
+              title="참여(스크롤)"
               big={`평균 ${avgScreens.toFixed(1)}화면`}
-              desc="무한스크롤 깊이 · 보기 옵션 · 광고 유입"
+              desc="무한스크롤을 어디까지 내려봤나"
             />
           </div>
         </>
