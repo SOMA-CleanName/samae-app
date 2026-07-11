@@ -184,6 +184,24 @@ export function AnalyticsTracker() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // 의미 이벤트 브리지 — 컴포넌트에서
+  //   window.dispatchEvent(new CustomEvent("samae:event", { detail: { label, target?, path? } }))
+  // 로 '성공 시점' 전환(문의 접수 등)을 자체 트래커 파이프(+Mixpanel)로 흘려보낸다.
+  // 클릭 위임 캡처로는 잡을 수 없는 서버액션 성공 결과를 세션 ID·UTM 과 함께 기록.
+  useEffect(() => {
+    function onSemantic(e: Event) {
+      const d = (e as CustomEvent).detail as { label?: string; target?: string; path?: string } | undefined;
+      if (!d?.label) return;
+      const path = d.path || window.location.pathname;
+      if (!isTracked(path)) return;
+      enqueue({ type: "click", path, label: d.label, target: d.target });
+      flush(false); // 전환은 유실 방지 위해 즉시 전송
+    }
+    window.addEventListener("samae:event", onSemantic as EventListener);
+    return () => window.removeEventListener("samae:event", onSemantic as EventListener);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // 전역 클릭 캡처 + 떠날 때 flush
   useEffect(() => {
     function onClick(e: MouseEvent) {
