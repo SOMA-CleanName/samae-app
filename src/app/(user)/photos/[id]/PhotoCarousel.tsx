@@ -168,7 +168,7 @@ export function PhotoCarousel({
       {/* 위치 인디케이터 — 6장 이상은 슬라이딩 윈도우 점이 중간에서 안 변하는 듯 보여
           '현재/전체' 카운터로 명확히. 5장 이하는 인스타식 점. */}
       {photos.length > MAX_DOTS ? (
-        <div className="pointer-events-none absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center justify-center rounded-full bg-black/40 px-2.5 pb-[5px] pt-[3px] text-xs font-semibold leading-none tabular-nums text-white">
+        <div className="pointer-events-none absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center justify-center whitespace-nowrap rounded-full bg-black/40 px-2.5 pb-[5px] pt-[3px] text-xs font-semibold leading-none tabular-nums text-white">
           {/* 바깥 div: flex items-center 로 세로 중앙. 폰트 상승부 여백으로 글리프가 살짝 아래 앉는 걸
               pt<pb(전체 높이 동일)로 1px 올려 광학적 중앙 보정. 안쪽은 하나의 inline span 으로 묶어
               ' / ' 공백 보존, 현재 숫자는 총 자릿수 폭 고정(우측정렬)해 슬래시 위치가 안 흔들리게 */}
