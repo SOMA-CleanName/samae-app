@@ -1,6 +1,8 @@
 import { AnalyticsChrome } from "../AnalyticsChrome";
 import { PageHeading, Stat, EmptyHint } from "../_ui";
 import { loadAnalytics, fmt, type Session } from "../_data";
+import { listPublishedCategories } from "@/lib/categories";
+import { cn } from "@/lib/cn";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +13,13 @@ export const dynamic = "force-dynamic";
 function cleanPath(p: string | null): string | null {
   if (!p) return null;
   return p.split(/[?#]/)[0] || p;
+}
+
+// 랜딩 경로에서 카테고리 slug 추출 — /c/<slug> 유입만 카테고리별로 집계.
+function categorySlug(landing: string | null): string | null {
+  const p = cleanPath(landing);
+  const m = p?.match(/^\/c\/([^/]+)/);
+  return m ? decodeURIComponent(m[1]) : null;
 }
 
 // 세션을 key 로 묶어 세션 수·전환 수 집계 → 세션 많은 순 정렬.
@@ -41,14 +50,41 @@ export default async function AnalyticsAdsPage({
   searchParams?: Promise<{ range?: string; seg?: string; persona?: string }>;
 }) {
   const sp = (await searchParams) ?? {};
-  const data = await loadAnalytics(sp.range, sp.seg, sp.persona);
+  const [data, cats] = await Promise.all([
+    loadAnalytics(sp.range, sp.seg, sp.persona),
+    listPublishedCategories(),
+  ]);
   const { sessions } = data;
+  const catName = new Map(cats.map((c) => [c.slug, c.name]));
 
   const total = sessions.length;
   const tagged = sessions.filter((s) => s.acq.source || s.acq.medium || s.acq.campaign);
   const paid = sessions.filter((s) => s.acq.medium && /paid/i.test(s.acq.medium));
   const organicSocial = sessions.filter((s) => s.acq.medium === "social");
   const taggedConv = tagged.filter((s) => s.converted).length;
+
+  // 유입 비율 — 5개 버킷(공개 카테고리 랜딩 N개 + 외부유입 1개). 전체 세션 대비 %.
+  // /c/<slug> 매칭 → 해당 카테고리, 그 외 랜딩(스토리·인스타·직접 등) → 외부유입.
+  const EXTERNAL = "외부유입 (스토리·인스타·직접)";
+  const bucketOf = (s: Session): string => {
+    const slug = categorySlug(s.acq.landing);
+    return slug && catName.has(slug) ? catName.get(slug)! : EXTERNAL;
+  };
+  const bucketOrder = [...cats.map((c) => c.name), EXTERNAL];
+  const bucketMap = new Map<string, { sessions: number; conv: number }>(
+    bucketOrder.map((n) => [n, { sessions: 0, conv: 0 }])
+  );
+  for (const s of sessions) {
+    const a = bucketMap.get(bucketOf(s))!;
+    a.sessions += 1;
+    if (s.converted) a.conv += 1;
+  }
+  // 세션 있는 버킷만, 세션 많은 순(외부유입은 항상 마지막에 고정 노출)
+  const shareRows = bucketOrder
+    .map((name) => ({ name, ...bucketMap.get(name)! }))
+    .filter((b) => b.sessions > 0 || b.name === EXTERNAL)
+    .sort((a, b) => (a.name === EXTERNAL ? 1 : b.name === EXTERNAL ? -1 : b.sessions - a.sessions));
+  const shareTotal = sessions.length || 1;
 
   const byLanding = aggBy(sessions, (s) => cleanPath(s.acq.landing));
   const byMedium = aggBy(sessions, (s) => mediumLabel(s.acq.medium));
@@ -83,9 +119,10 @@ export default async function AnalyticsAdsPage({
             />
           </div>
 
+          <ShareCard rows={shareRows} total={shareTotal} externalName={EXTERNAL} />
           <AcqCard
-            title="랜딩 페이지별 성과"
-            desc="광고·링크로 처음 도착한 페이지. 어떤 카테고리 랜딩(/c/...)이 문의를 잘 만드는지."
+            title="랜딩 페이지별 성과 (전체)"
+            desc="카테고리 외 모든 랜딩 포함. 광고·링크로 처음 도착한 페이지."
             rows={byLanding}
           />
           <AcqCard
@@ -99,6 +136,54 @@ export default async function AnalyticsAdsPage({
         </>
       )}
     </main>
+  );
+}
+
+// 유입 비율 — 5개 버킷(카테고리 랜딩 + 외부유입)의 '전체 대비 %'를 크게 강조.
+// 막대 = 전체 세션 중 점유율. 어떤 경로가 유입을 얼마나 차지하는지 한눈에.
+function ShareCard({
+  rows,
+  total,
+  externalName,
+}: {
+  rows: { name: string; sessions: number; conv: number }[];
+  total: number;
+  externalName: string;
+}) {
+  return (
+    <section className="mt-8">
+      <h3 className="text-body-sm font-semibold text-fg">유입 비율 (컨셉 랜딩 + 외부유입)</h3>
+      <p className="mb-3 mt-0.5 text-caption text-faint">
+        전체 유입을 컨셉 광고 랜딩(/c/…)과 외부유입(스토리·인스타·직접)으로 나눠 점유율(%)로 봐요. 막대는 전체 대비 비율,
+        괄호는 그 경로의 문의 전환율.
+      </p>
+      <ul className="space-y-2.5">
+        {rows.map((b) => {
+          const share = Math.round((b.sessions / total) * 100);
+          const conv = b.sessions > 0 ? Math.round((b.conv / b.sessions) * 100) : 0;
+          const isExternal = b.name === externalName;
+          return (
+            <li key={b.name} className="rounded-xl border border-line bg-surface px-3.5 py-3">
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="min-w-0 flex-1 truncate text-body-sm font-medium text-fg">{b.name}</span>
+                <span className="shrink-0 text-h3 font-bold tabular-nums text-fg">{share}%</span>
+              </div>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-fg/[0.06]">
+                <div
+                  className={cn("h-full rounded-full", isExternal ? "bg-success/60" : "bg-brand/60")}
+                  style={{ width: `${share}%` }}
+                />
+              </div>
+              <p className="mt-1.5 text-caption text-muted">
+                <b className="tabular-nums text-fg">{fmt.format(b.sessions)}</b> 세션 · 문의{" "}
+                <b className="tabular-nums text-fg">{fmt.format(b.conv)}</b>
+                <span className={conv > 0 ? "ml-1 font-semibold text-brand" : "ml-1 text-faint"}>(전환 {conv}%)</span>
+              </p>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 
