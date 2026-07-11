@@ -31,9 +31,10 @@ export type InquiryRow = {
   contacts: { label: string; value: string }[];
   contactLocked: boolean;
   refImages: string[];
-  // 유입 — 어디서(광고/직접) 뭐타고(어떤 사진) 들어왔나
-  fromAd: boolean; // fbc 있음 = 메타 광고 클릭 유입
-  tracked: boolean; // fbp 있음 = 픽셀 추적됨
+  // 유입 — 어디서(광고/스토리/직접) 뭐타고(어떤 사진) 들어왔나
+  channelLabel: string;
+  channelKind: "ad" | "organic" | "direct" | "unknown";
+  landingPath: string | null;
   isMember: boolean;
   sourcePhotoId: string | null;
   sourcePhotoThumb: string | null;
@@ -122,9 +123,14 @@ export function AdminInquiries({ rows }: { rows: InquiryRow[] }) {
                 className="flex min-w-0 flex-1 items-center gap-3 text-left"
               >
                 <Badge tone={st.tone} className="shrink-0">{st.label}</Badge>
-                {r.fromAd && (
+                {r.channelKind === "ad" && (
                   <span className="shrink-0 rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-semibold text-brand">
                     광고
+                  </span>
+                )}
+                {r.channelKind === "organic" && (
+                  <span className="shrink-0 rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-semibold text-success">
+                    스토리
                   </span>
                 )}
                 <span className="min-w-0 flex-1">
@@ -177,17 +183,21 @@ export function AdminInquiries({ rows }: { rows: InquiryRow[] }) {
 
                 {r.note && <p className="mt-3 text-body-sm leading-relaxed text-fg/80">{r.note}</p>}
 
-                {/* 유입 경로 — 어디서(광고/직접) 뭐타고(어떤 사진) 들어왔나 */}
+                {/* 유입 경로 — 어디서(광고/스토리/직접) 뭐타고(어떤 사진) 들어왔나 */}
                 <div className="mt-3">
                   <p className="text-caption font-medium text-muted">유입 경로</p>
                   <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                     <span
                       className={cn(
                         "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-caption font-medium",
-                        r.fromAd ? "bg-brand/10 text-brand" : "bg-fg/[0.06] text-fg/70"
+                        r.channelKind === "ad"
+                          ? "bg-brand/10 text-brand"
+                          : r.channelKind === "organic"
+                            ? "bg-success/10 text-success"
+                            : "bg-fg/[0.06] text-fg/70"
                       )}
                     >
-                      {r.fromAd ? "🎯 메타 광고 유입" : r.tracked ? "직접·오가닉 유입" : "유입 정보 없음"}
+                      {r.channelLabel}
                     </span>
                     <span className="inline-flex items-center rounded-full bg-fg/[0.06] px-2.5 py-1 text-caption text-fg/70">
                       {r.isMember ? "회원" : "비회원(게스트)"}
@@ -206,6 +216,11 @@ export function AdminInquiries({ rows }: { rows: InquiryRow[] }) {
                       </a>
                     )}
                   </div>
+                  {r.landingPath && (
+                    <p className="mt-1.5 truncate text-[11px] text-faint" title={r.landingPath}>
+                      랜딩: {r.landingPath}
+                    </p>
+                  )}
                 </div>
 
                 {/* 연락 수단 — 운영진은 응대 위해 항상 표시 */}

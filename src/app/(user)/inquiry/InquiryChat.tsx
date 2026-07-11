@@ -470,6 +470,19 @@ export function InquiryChat({
     } else {
       fd.set("contactEmail", contactValue.trim());
     }
+    // 유입 어트리뷰션 — AnalyticsTracker 가 sessionStorage 에 담아둔 utm/랜딩을 접수에 첨부.
+    // fbc(광고 클릭 ID)는 인스타가 오가닉 클릭에도 붙여 광고/스토리 구분이 안 되므로,
+    // 정확한 판별용으로 utm_medium(paid_social vs social) 을 함께 저장한다.
+    try {
+      const utm = JSON.parse(sessionStorage.getItem("samae_utm") || "{}") as Record<string, string>;
+      for (const k of ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"]) {
+        if (utm[k]) fd.set(k, String(utm[k]).slice(0, 200));
+      }
+      const lp = sessionStorage.getItem("samae_landing");
+      if (lp) fd.set("landing_path", lp.slice(0, 300));
+    } catch {
+      /* 무시 — 어트리뷰션 누락이 접수를 막지 않게 */
+    }
     startTransition(() => formAction(fd));
   }
 
