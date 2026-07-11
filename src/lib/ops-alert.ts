@@ -1,45 +1,77 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { inquiryChannel } from "@/lib/inquiry-channel";
 
 // 운영진 알림 (디스코드 웹훅) — 리드 모델의 시작점.
 // 새 문의가 들어오면 운영진 채널로 알려, 운영진이 작가에게 카톡으로 통보하도록 한다.
-// ⚠️ 고객 연락처(PII)는 절대 싣지 않는다 — 작가명/브리프 요약/문의 식별자만(연락처는 입금 확인 후 공개).
+// ⚠️ 이 채널은 운영진 전용 — 어드민 페이지에서 보는 정보(연락처·유입·브리프)를 그대로 싣는다.
+//    단, '작가에게 복사해 보낼 블록'만은 PII 미포함(연락처는 입금 확인 후 작가에게 공개).
 
 const OPS_WEBHOOK = process.env.DISCORD_OPS_WEBHOOK_URL;
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
 
-export async function notifyOpsNewInquiry(params: {
-  inquiryId: string;
-  photographerId: string;
-  purpose: string | null;
-  preferredDate: string | null;
-  region: string | null;
-}): Promise<void> {
+const one = <T,>(v: T | T[] | null | undefined): T | null =>
+  Array.isArray(v) ? v[0] ?? null : v ?? null;
+
+export async function notifyOpsNewInquiry(params: { inquiryId: string }): Promise<void> {
   if (!OPS_WEBHOOK) return; // 미설정이면 조용히 패스(로컬/미배포)
 
   try {
     const admin = createAdminClient();
-    const { data: ph } = await admin
-      .from("photographers")
-      .select("display_name")
-      .eq("id", params.photographerId)
+    const { data: q } = await admin
+      .from("inquiries")
+      .select(
+        "id, name, phone, kakao_id, contact_email, purpose, preferred_date, region, gender, party_size, note, source_photo_id, utm_source, utm_medium, utm_campaign, landing_path, fbc, photographer:photographers!inquiries_photographer_id_fkey(display_name), profile:profiles!inquiries_profile_id_fkey(display_name)"
+      )
+      .eq("id", params.inquiryId)
       .maybeSingle();
+    if (!q) return;
 
-    const who = ph?.display_name || "작가";
+    const who = one(q.photographer as { display_name?: string | null })?.display_name || "작가";
+    const member = one(q.profile as { display_name?: string | null })?.display_name || null;
     const ref = params.inquiryId.slice(0, 8); // 운영진 대조용 짧은 참조
-    const studioLink = SITE_URL ? `${SITE_URL}/studio` : "/studio";
+    const ch = inquiryChannel(q);
 
-    // 작가에게 그대로 복사해 보낼 메시지 (코드블록으로 감싸 복붙 쉽게). 연락처·사전정보 미포함.
+    const studioLink = SITE_URL ? `${SITE_URL}/studio` : "/studio";
+    // 어드민 문의 페이지 딥링크 — 해당 문의를 자동으로 펼치고 스크롤.
+    const adminLink = SITE_URL
+      ? `${SITE_URL}/admin/inquiries?open=${params.inquiryId}#inq-${params.inquiryId}`
+      : `/admin/inquiries?open=${params.inquiryId}`;
+
+    // 연락 수단 — 운영진 전용 섹션에만 노출
+    const contacts = [
+      q.phone ? `전화 ${q.phone}` : null,
+      q.kakao_id ? `카카오 ${q.kakao_id}` : null,
+      q.contact_email ? `이메일 ${q.contact_email}` : null,
+    ].filter(Boolean);
+
+    // 작가에게 그대로 복사해 보낼 메시지 (연락처·사전정보 미포함 — 입금 확인 후 공개).
     const forPhotographer =
       `${who} 작가님, 작가님의 사진을 마음에 들어한 고객이 문의를 남기셨어요!\n` +
       `확인하러 가기 👉 ${studioLink}`;
 
-    // 운영진용 컨텍스트(내부 참조) + 복붙 블록
-    const lines: string[] = [`📨 **새 문의** — ${who} 작가  (ID \`${ref}\`)`];
-    if (params.purpose) lines.push(`• 목적: ${params.purpose}`);
-    if (params.preferredDate) lines.push(`• 희망일: ${params.preferredDate}`);
-    if (params.region) lines.push(`• 지역: ${params.region}`);
+    const lines: string[] = [
+      `📨 **새 문의** — ${who} 작가  ·  ${ch.label}  (ID \`${ref}\`)`,
+      `👤 고객: ${q.name || member || "비회원(게스트)"}${member ? " · 회원" : " · 비회원"}`,
+      `📞 연락처: ${contacts.length ? contacts.join(" / ") : "없음"}`,
+    ];
+    // 브리프
+    const brief = [
+      q.purpose ? `목적 ${q.purpose}` : null,
+      q.preferred_date ? `희망일 ${q.preferred_date}` : null,
+      q.region ? `지역 ${q.region}` : null,
+      q.gender ? `성별 ${q.gender}` : null,
+      q.party_size ? `인원 ${q.party_size}` : null,
+    ].filter(Boolean);
+    if (brief.length) lines.push(`📋 ${brief.join(" · ")}`);
+    if (q.note) lines.push(`📝 메모: ${q.note}`);
+    // 유입 경로
+    if (q.landing_path) lines.push(`🔗 랜딩: ${q.landing_path}`);
+    if (q.source_photo_id && SITE_URL) lines.push(`🖼 문의한 사진: ${SITE_URL}/photos/${q.source_photo_id}`);
+    // 어드민 바로가기
+    lines.push(`🛠 **어드민에서 열기: ${adminLink}**`);
+    // 작가 복붙 블록
     lines.push("", "⬇️ 아래 메시지를 복사해 작가에게 보내세요", "```", forPhotographer, "```");
 
     await fetch(OPS_WEBHOOK, {

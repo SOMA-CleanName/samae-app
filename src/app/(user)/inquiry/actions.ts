@@ -212,14 +212,9 @@ export async function submitInquiry(
   if (isNew) {
     await notifyPhotographer(photographerId, inquiryId, me?.displayName ?? null, contact, brief);
 
-    // 운영진 디스코드 알림 — 리드 플로우 시작(운영진이 작가에게 카톡 통보). PII 미포함, 실패해도 접수는 성공.
-    await notifyOpsNewInquiry({
-      inquiryId,
-      photographerId,
-      purpose: brief.purpose,
-      preferredDate: brief.preferredDate,
-      region: brief.region,
-    });
+    // 운영진 디스코드 알림 — 리드 플로우 시작. 운영진 전용 채널이라 어드민 정보(연락처·유입·
+    // 브리프) + 어드민 딥링크 포함. 실패해도 접수는 성공.
+    await notifyOpsNewInquiry({ inquiryId });
 
     // Meta 전환 API — 서버측 Lead 전송(브라우저 픽셀 보완). 같은 eventID 로 중복 제거.
     // (FB_CAPI_TOKEN 없으면 무동작)

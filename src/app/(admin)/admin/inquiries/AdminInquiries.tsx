@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui";
 import { ChevronDownIcon, MapPinIcon } from "@/components/user/icons";
 import { cn } from "@/lib/cn";
@@ -100,6 +100,22 @@ function groupByDate(rows: InquiryRow[]) {
 export function AdminInquiries({ rows }: { rows: InquiryRow[] }) {
   const [open, setOpen] = useState<string | null>(null);
 
+  // 디스코드 알림의 딥링크(?open=<id>)로 진입 시 해당 문의를 자동으로 펼치고 스크롤.
+  useEffect(() => {
+    try {
+      const id = new URLSearchParams(window.location.search).get("open");
+      if (!id) return;
+      // 브라우저 전용 값(URL)을 마운트 후 1회 반영 — SSR 엔 window 가 없어 lazy init 불가.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setOpen(id);
+      requestAnimationFrame(() =>
+        document.getElementById(`inq-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })
+      );
+    } catch {
+      /* 무시 */
+    }
+  }, []);
+
   return (
     <div className="mt-4 flex flex-col gap-5">
       {groupByDate(rows).map((group) => (
@@ -114,7 +130,7 @@ export function AdminInquiries({ rows }: { rows: InquiryRow[] }) {
               const st = STAGE[r.stage];
               const isOpen = open === r.id;
               return (
-                <li key={r.id}>
+                <li key={r.id} id={`inq-${r.id}`} className="scroll-mt-20">
             {/* 요약 행 — 컴팩트 */}
             <div className="flex items-center gap-3 px-3 py-2.5 sm:px-4">
               <SelectCheckbox id={r.id} />
