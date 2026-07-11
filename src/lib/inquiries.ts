@@ -45,6 +45,7 @@ export async function listMyNewInquiries(): Promise<NewInquiry[]> {
     .select("id, created_at, deposit_amount_krw")
     .eq("photographer_id", me.photographer.id)
     .eq("status", "new")
+    .eq("hidden_from_photographer", false) // 운영진이 숨긴(취소) 문의 제외
     .order("created_at", { ascending: false });
 
   return (data ?? []).map((row) => ({
@@ -67,6 +68,7 @@ export async function listMyAcceptedInquiries(): Promise<AcceptedInquiry[]> {
     )
     .eq("photographer_id", me.photographer.id)
     .in("status", ["accepted", "confirmed", "shot", "refund_requested"])
+    .eq("hidden_from_photographer", false) // 운영진이 숨긴(취소) 문의 제외
     .not("accepted_at", "is", null)
     .order("accepted_at", { ascending: true });
 

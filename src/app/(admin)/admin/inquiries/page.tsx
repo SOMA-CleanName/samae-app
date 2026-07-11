@@ -58,6 +58,7 @@ type DbRow = {
   utm_medium: string | null;
   utm_campaign: string | null;
   landing_path: string | null;
+  hidden_from_photographer: boolean | null;
   photographer: { display_name: string | null } | { display_name: string | null }[] | null;
   profile: { display_name: string | null } | { display_name: string | null }[] | null;
 };
@@ -90,7 +91,7 @@ export default async function AdminInquiriesPage({
     admin
       .from("inquiries")
       .select(
-        "id, status, created_at, photographer_id, purpose, preferred_date, region, name, gender, party_size, note, deposit_amount_krw, deposit_confirmed_at, phone, kakao_id, contact_email, ref_image_paths, fbp, fbc, source_photo_id, utm_source, utm_medium, utm_campaign, landing_path, photographer:photographers(display_name), profile:profiles!inquiries_profile_id_fkey(display_name)"
+        "id, status, created_at, photographer_id, purpose, preferred_date, region, name, gender, party_size, note, deposit_amount_krw, deposit_confirmed_at, phone, kakao_id, contact_email, ref_image_paths, fbp, fbc, source_photo_id, utm_source, utm_medium, utm_campaign, landing_path, hidden_from_photographer, photographer:photographers(display_name), profile:profiles!inquiries_profile_id_fkey(display_name)"
       )
       .order("created_at", { ascending: false })
       .limit(300),
@@ -176,6 +177,7 @@ export default async function AdminInquiriesPage({
         sourcePhotoId: r.source_photo_id,
         sourcePhotoThumb: photo?.thumb ?? null,
         sourcePhotoRegion: photo?.region ?? null,
+        hidden: !!r.hidden_from_photographer,
       };
     })
     .filter((r) => matcher.match(r.stage));
