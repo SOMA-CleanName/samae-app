@@ -28,9 +28,16 @@ export type InquiryRow = {
   depositAmount: number;
   photographerName: string;
   customerName: string;
-  contacts: { label: string; value: string }[]; // 입금확인 후에만 채워짐
+  contacts: { label: string; value: string }[];
   contactLocked: boolean;
   refImages: string[];
+  // 유입 — 어디서(광고/직접) 뭐타고(어떤 사진) 들어왔나
+  fromAd: boolean; // fbc 있음 = 메타 광고 클릭 유입
+  tracked: boolean; // fbp 있음 = 픽셀 추적됨
+  isMember: boolean;
+  sourcePhotoId: string | null;
+  sourcePhotoThumb: string | null;
+  sourcePhotoRegion: string | null;
 };
 
 const STAGE: Record<Stage, { label: string; tone: "warning" | "success" | "neutral" }> = {
@@ -115,6 +122,11 @@ export function AdminInquiries({ rows }: { rows: InquiryRow[] }) {
                 className="flex min-w-0 flex-1 items-center gap-3 text-left"
               >
                 <Badge tone={st.tone} className="shrink-0">{st.label}</Badge>
+                {r.fromAd && (
+                  <span className="shrink-0 rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-semibold text-brand">
+                    광고
+                  </span>
+                )}
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-body-sm font-medium text-fg">
                     {r.photographerName} <span className="text-faint">←</span> {r.customerName}
@@ -165,19 +177,48 @@ export function AdminInquiries({ rows }: { rows: InquiryRow[] }) {
 
                 {r.note && <p className="mt-3 text-body-sm leading-relaxed text-fg/80">{r.note}</p>}
 
-                {/* 연락 수단 — 입금확인 후 공개 */}
+                {/* 유입 경로 — 어디서(광고/직접) 뭐타고(어떤 사진) 들어왔나 */}
+                <div className="mt-3">
+                  <p className="text-caption font-medium text-muted">유입 경로</p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                    <span
+                      className={cn(
+                        "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-caption font-medium",
+                        r.fromAd ? "bg-brand/10 text-brand" : "bg-fg/[0.06] text-fg/70"
+                      )}
+                    >
+                      {r.fromAd ? "🎯 메타 광고 유입" : r.tracked ? "직접·오가닉 유입" : "유입 정보 없음"}
+                    </span>
+                    <span className="inline-flex items-center rounded-full bg-fg/[0.06] px-2.5 py-1 text-caption text-fg/70">
+                      {r.isMember ? "회원" : "비회원(게스트)"}
+                    </span>
+                    {r.sourcePhotoId && (
+                      <a
+                        href={`/photos/${r.sourcePhotoId}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-full bg-fg/[0.06] py-1 pl-1 pr-2.5 text-caption text-fg/70 transition-colors hover:bg-fg/[0.1]"
+                      >
+                        {r.sourcePhotoThumb ? (
+                          <img src={r.sourcePhotoThumb} alt="" className="h-5 w-5 rounded-full object-cover" />
+                        ) : null}
+                        이 사진 보고 문의{r.sourcePhotoRegion ? ` · ${r.sourcePhotoRegion}` : ""}
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {/* 연락 수단 — 운영진은 응대 위해 항상 표시 */}
                 <div className="mt-3">
                   <p className="text-caption font-medium text-muted">연락 수단</p>
-                  {r.contactLocked ? (
-                    <p className="mt-1 text-caption text-faint">입금 확인 후 공개돼요.</p>
-                  ) : r.contacts.length === 0 ? (
+                  {r.contacts.length === 0 ? (
                     <p className="mt-1 text-caption text-faint">등록된 연락처 없음</p>
                   ) : (
                     <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-caption">
                       {r.contacts.map((c) => (
                         <span key={c.label}>
                           <span className="text-faint">{c.label}</span>{" "}
-                          <span className="font-medium text-fg">{c.value}</span>
+                          <span className="font-medium text-fg select-all">{c.value}</span>
                         </span>
                       ))}
                     </div>

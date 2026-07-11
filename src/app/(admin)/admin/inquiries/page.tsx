@@ -21,11 +21,6 @@ function stageOf(status: string): Stage {
   return "confirmed"; // 안전 폴백
 }
 
-// 연락처 공개 여부 — 입금확인 이후 단계(confirmed/shot/refund)면 공개
-function isRevealed(stage: Stage): boolean {
-  return stage === "confirmed" || stage === "shot" || stage === "refund";
-}
-
 const FILTERS: { key: string; label: string; match: (s: Stage) => boolean }[] = [
   { key: "", label: "전체", match: () => true },
   { key: "new", label: "접수", match: (s) => s === "new" },
@@ -56,6 +51,9 @@ type DbRow = {
   kakao_id: string | null;
   contact_email: string | null;
   ref_image_paths: string[] | null;
+  fbp: string | null;
+  fbc: string | null;
+  source_photo_id: string | null;
   photographer: { display_name: string | null } | { display_name: string | null }[] | null;
   profile: { display_name: string | null } | { display_name: string | null }[] | null;
 };
@@ -75,7 +73,7 @@ export default async function AdminInquiriesPage({
     admin
       .from("inquiries")
       .select(
-        "id, status, created_at, photographer_id, purpose, preferred_date, region, name, gender, party_size, note, deposit_amount_krw, deposit_confirmed_at, phone, kakao_id, contact_email, ref_image_paths, photographer:photographers(display_name), profile:profiles!inquiries_profile_id_fkey(display_name)"
+        "id, status, created_at, photographer_id, purpose, preferred_date, region, name, gender, party_size, note, deposit_amount_krw, deposit_confirmed_at, phone, kakao_id, contact_email, ref_image_paths, fbp, fbc, source_photo_id, photographer:photographers(display_name), profile:profiles!inquiries_profile_id_fkey(display_name)"
       )
       .order("created_at", { ascending: false })
       .limit(300),
@@ -83,6 +81,15 @@ export default async function AdminInquiriesPage({
   ]);
 
   const all = (data ?? []) as DbRow[];
+
+  // 문의가 걸린 사진(어떤 사진 보고 들어왔나) 썸네일·지역 해석
+  const photoIds = Array.from(new Set(all.map((r) => r.source_photo_id).filter(Boolean))) as string[];
+  const { data: photoRows } = photoIds.length
+    ? await admin.from("photos").select("id, thumb_url, src_url, region").in("id", photoIds)
+    : { data: [] as { id: string; thumb_url: string | null; src_url: string | null; region: string | null }[] };
+  const photoMap = new Map(
+    (photoRows ?? []).map((p) => [p.id, { thumb: p.thumb_url ?? p.src_url, region: p.region }])
+  );
 
   // 작가 필터 옵션 (문의가 있는 작가만, 이름순)
   const photographers = Array.from(
@@ -116,7 +123,6 @@ export default async function AdminInquiriesPage({
   const rows: InquiryRow[] = scoped
     .map((r): InquiryRow => {
       const stage = stageOf(r.status);
-      const revealed = isRevealed(stage);
       const contacts = [
         ["전화", r.phone],
         ["카카오", r.kakao_id],
@@ -124,6 +130,7 @@ export default async function AdminInquiriesPage({
       ]
         .filter(([, v]) => v)
         .map(([label, value]) => ({ label: label as string, value: value as string }));
+      const photo = r.source_photo_id ? photoMap.get(r.source_photo_id) : null;
       return {
         id: r.id,
         stage,
@@ -140,9 +147,17 @@ export default async function AdminInquiriesPage({
         depositAmount: r.deposit_amount_krw ?? 0,
         photographerName: one(r.photographer)?.display_name ?? "작가",
         customerName: one(r.profile)?.display_name ?? "비회원",
-        contactLocked: !revealed,
-        contacts: revealed ? contacts : [],
+        // 어드민(운영진)은 응대 위해 연락처 항상 표시 — 작가 공개(입금확인 후)와 별개
+        contactLocked: false,
+        contacts,
         refImages: r.ref_image_paths ?? [],
+        // 유입 — fbc(광고 클릭 ID) 있으면 메타 광고 유입, fbp만 있으면 픽셀 추적됨
+        fromAd: !!r.fbc,
+        tracked: !!r.fbp,
+        isMember: !!one(r.profile)?.display_name,
+        sourcePhotoId: r.source_photo_id,
+        sourcePhotoThumb: photo?.thumb ?? null,
+        sourcePhotoRegion: photo?.region ?? null,
       };
     })
     .filter((r) => matcher.match(r.stage));
