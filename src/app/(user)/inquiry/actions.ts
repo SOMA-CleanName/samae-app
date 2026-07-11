@@ -35,6 +35,28 @@ type ContactInfo = {
   contactEmail: string | null;
 };
 
+// 유입 어트리뷰션 — 클라이언트(InquiryChat)가 sessionStorage 값을 FormData 로 실어 보낸다.
+type Acquisition = {
+  utmSource: string | null;
+  utmMedium: string | null;
+  utmCampaign: string | null;
+  utmContent: string | null;
+  utmTerm: string | null;
+  landingPath: string | null;
+};
+
+function readAcquisition(formData: FormData): Acquisition {
+  const cap = (v: string | null, n: number) => (v ? v.slice(0, n) : null);
+  return {
+    utmSource: cap(fieldText(formData, "utm_source"), 200),
+    utmMedium: cap(fieldText(formData, "utm_medium"), 200),
+    utmCampaign: cap(fieldText(formData, "utm_campaign"), 200),
+    utmContent: cap(fieldText(formData, "utm_content"), 200),
+    utmTerm: cap(fieldText(formData, "utm_term"), 200),
+    landingPath: cap(fieldText(formData, "landing_path"), 300),
+  };
+}
+
 type BriefInfo = {
   partySize: string | null;
   purpose: string | null;
@@ -176,8 +198,9 @@ export async function submitInquiry(
 
   // 광고 식별자 — 접수 시점에만 읽을 수 있다(입금 확인은 운영자가 누르므로 그땐 없음).
   const ad = await readMetaAdCookies();
+  const acq = readAcquisition(formData);
 
-  const result = await createInquiry(me?.id ?? null, photographerId, photoId, contact, brief, ad);
+  const result = await createInquiry(me?.id ?? null, photographerId, photoId, contact, brief, ad, acq);
   if (!result) return { ok: false, error: "문의 저장에 실패했어요.", values };
   const { id: inquiryId, isNew } = result;
 
@@ -244,11 +267,12 @@ async function createInquiry(
   photoId: string,
   contact: ContactInfo,
   brief: BriefInfo,
-  ad: MetaAdCookies
+  ad: MetaAdCookies,
+  acq: Acquisition
 ): Promise<{ id: string; isNew: boolean } | null> {
   const admin = createAdminClient();
 
-  // 재사용된 리드는 최초 접수 때의 광고 식별자를 유지한다(first-touch).
+  // 재사용된 리드는 최초 접수 때의 광고 식별자·유입정보를 유지한다(first-touch).
   const dupId = await findRecentDuplicate(admin, profileId, photographerId, contact);
   if (dupId) return { id: dupId, isNew: false };
 
@@ -271,6 +295,12 @@ async function createInquiry(
       ref_image_paths: brief.refImagePaths,
       fbp: ad.fbp,
       fbc: ad.fbc,
+      utm_source: acq.utmSource,
+      utm_medium: acq.utmMedium,
+      utm_campaign: acq.utmCampaign,
+      utm_content: acq.utmContent,
+      utm_term: acq.utmTerm,
+      landing_path: acq.landingPath,
     })
     .select("id")
     .single();
@@ -455,15 +485,16 @@ export async function submitMultiInquiry(
     return { ok: false, error: "작가 정보를 찾지 못했어요.", values };
   }
 
-  // 광고 식별자 — 작가별 문의가 여러 건 생겨도 접수 1회분이므로 루프 밖에서 한 번만 읽는다.
+  // 광고 식별자·유입정보 — 작가별 문의가 여러 건 생겨도 접수 1회분이므로 루프 밖에서 한 번만 읽는다.
   const ad = await readMetaAdCookies();
+  const acq = readAcquisition(formData);
 
   let firstInquiryId: string | null = null;
   const createdIds: string[] = [];
   for (const [photographerId, repPhotoId] of repByPhotographer) {
     // 본인(작가)이 자기 사진에 보낸 건 건너뜀
     if (me?.photographer?.id === photographerId) continue;
-    const result = await createInquiry(me?.id ?? null, photographerId, repPhotoId, contact, brief, ad);
+    const result = await createInquiry(me?.id ?? null, photographerId, repPhotoId, contact, brief, ad, acq);
     if (!result) continue;
     createdIds.push(result.id);
     if (!firstInquiryId) firstInquiryId = result.id;
