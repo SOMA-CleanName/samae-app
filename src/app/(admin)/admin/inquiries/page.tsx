@@ -8,6 +8,7 @@ import { updatePlatformAccount, clearInquiries, deleteInquiriesSelected } from "
 import { AdminInquiries, type InquiryRow, type Stage } from "./AdminInquiries";
 import { PhotographerFilter } from "./PhotographerFilter";
 import { DeleteModeProvider, DeleteModeToolbar } from "@/components/admin/DeleteMode";
+import { inquiryChannel } from "@/lib/inquiry-channel";
 
 export const dynamic = "force-dynamic";
 
@@ -62,19 +63,6 @@ type DbRow = {
   photographer: { display_name: string | null } | { display_name: string | null }[] | null;
   profile: { display_name: string | null } | { display_name: string | null }[] | null;
 };
-
-// 유입 채널 판별 — utm_medium 이 정확한 신호(paid_social=유료광고 · social=오가닉 스토리).
-// utm 이 없으면 fbc 로 폴백하되 '광고'로 단정하지 않는다(인스타가 오가닉에도 fbclid 를 붙이므로).
-function channelOf(r: DbRow): { label: string; kind: "ad" | "organic" | "direct" | "unknown" } {
-  const m = r.utm_medium?.toLowerCase() ?? "";
-  const camp = r.utm_campaign ? ` · ${r.utm_campaign}` : "";
-  if (/paid/.test(m)) return { label: `🎯 메타 광고${camp}`, kind: "ad" };
-  if (m === "social") return { label: `📱 스토리·오가닉${camp}`, kind: "organic" };
-  if (m) return { label: `${r.utm_source ?? "유입"} · ${r.utm_medium}${camp}`, kind: "organic" };
-  if (r.utm_source) return { label: `${r.utm_source}${camp}`, kind: "organic" };
-  if (r.fbc) return { label: "인스타 유입 (경로 불명)", kind: "unknown" };
-  return { label: "직접 방문", kind: "direct" };
-}
 
 // 입금·문의 관리 — 단일 컴팩트 페이지. 가드는 (admin)/layout.
 export default async function AdminInquiriesPage({
@@ -170,8 +158,8 @@ export default async function AdminInquiriesPage({
         contacts,
         refImages: r.ref_image_paths ?? [],
         // 유입 채널 — utm_medium 기준 정확 판별(광고/스토리/직접). fbc 는 폴백일 뿐
-        channelLabel: channelOf(r).label,
-        channelKind: channelOf(r).kind,
+        channelLabel: inquiryChannel(r).label,
+        channelKind: inquiryChannel(r).kind,
         landingPath: r.landing_path,
         isMember: !!one(r.profile)?.display_name,
         sourcePhotoId: r.source_photo_id,
