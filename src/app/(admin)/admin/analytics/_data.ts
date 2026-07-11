@@ -108,11 +108,16 @@ const STATIC_PAGES: { test: RegExp; name: string }[] = [
 ];
 
 const CTA_NAMES: Record<string, string> = {
-  "cta:inquiry": "문의·예약하기 버튼",
+  "cta:inquiry": "문의하기 버튼(시도)",
+  "cta:inquiry_submitted": "문의 접수 완료(전환)",
   "cta:photo": "사진 카드 클릭",
   "cta:signup_kakao": "카카오로 시작하기",
   "cta:hook": "사진 상세 하단 CTA",
 };
+
+// 실제 문의 접수(제출 성공) 신호 — InquiryChat 이 제출 성공 시 dispatch.
+// 버튼 클릭(cta:inquiry=시도)과 구분되는 진짜 전환.
+export const CONVERSION_LABEL = "cta:inquiry_submitted";
 export function ctaName(label: string | null, target: string | null): string {
   if (label && CTA_NAMES[label]) return CTA_NAMES[label];
   if (label && label.startsWith("cta:")) return label.slice(4);
@@ -187,7 +192,7 @@ async function loadBase(rangeKey?: string): Promise<AnalyticsBase> {
 
   const sinceIso = new Date(Date.now() - range.days * 86400000).toISOString();
   const admin = createAdminClient();
-  const [{ data: evData }, { data: phRows }, { data: adminRows }, { data: inqRows }] = await Promise.all([
+  const [{ data: evData }, { data: phRows }, { data: adminRows }] = await Promise.all([
     admin
       .from("analytics_events")
       .select(
@@ -198,14 +203,12 @@ async function loadBase(rangeKey?: string): Promise<AnalyticsBase> {
       .limit(FETCH_CAP),
     admin.from("photographers").select("profile_id"),
     admin.from("profiles").select("id").eq("role", "admin"),
-    admin.from("inquiries").select("profile_id").not("profile_id", "is", null),
   ]);
 
   const excluded = new Set<string>([
     ...(phRows ?? []).map((r) => r.profile_id as string),
     ...(adminRows ?? []).map((r) => r.id as string),
   ]);
-  const inquirers = new Set<string>((inqRows ?? []).map((r) => r.profile_id as string));
 
   const events = ((evData ?? []) as Ev[])
     .filter((e) => !(e.profile_id && excluded.has(e.profile_id)))
@@ -296,7 +299,8 @@ async function loadBase(rangeKey?: string): Promise<AnalyticsBase> {
       s.pageviews += 1;
       s.lastPath = e.path;
     }
-    if ((e.type === "click" && (e.target ?? "").includes("/inquiry")) || (e.profile_id && inquirers.has(e.profile_id))) {
+    // 전환 = 실제 문의 접수 완료 이벤트만(버튼 클릭·과거 문의자 휴리스틱 제거 → 과대집계 해소)
+    if (e.type === "click" && e.label === CONVERSION_LABEL) {
       s.converted = true;
     }
   }

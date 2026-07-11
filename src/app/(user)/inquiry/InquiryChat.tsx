@@ -402,6 +402,13 @@ export function InquiryChat({
     if (leadFiredFor.current !== state.inquiryId) {
       leadFiredFor.current = state.inquiryId;
       window.fbq?.("track", "Lead", {}, { eventID: `inquiry_${state.inquiryId}` });
+      // 자체 분석 전환 신호 — 실제 접수 완료만 잡는다(버튼 클릭=시도와 구분).
+      // AnalyticsTracker 가 세션 ID·UTM 을 실어 /api/track 으로 전송 → 대시보드 전환 집계.
+      window.dispatchEvent(
+        new CustomEvent("samae:event", {
+          detail: { label: "cta:inquiry_submitted", target: multi ? "/inquiry/cart" : "/inquiry" },
+        })
+      );
       mpTrack("Submit Inquiry", {
         inquiry_id: state.inquiryId,
         source: multi ? "cart" : "photo",
