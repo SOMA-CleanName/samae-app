@@ -871,7 +871,7 @@ export function FloatingCart() {
                           type="button"
                           onClick={() => sharePhotos([...selectedIds])}
                           disabled={selectedIds.size === 0}
-                          className="cursor-pointer rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25 disabled:cursor-not-allowed disabled:bg-[#3a3a3a] disabled:text-white/35 disabled:hover:bg-[#3a3a3a]"
+                          className="shrink-0 cursor-pointer whitespace-nowrap rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25 disabled:cursor-not-allowed disabled:bg-[#3a3a3a] disabled:text-white/35 disabled:hover:bg-[#3a3a3a]"
                         >
                           공유
                         </button>
@@ -879,7 +879,7 @@ export function FloatingCart() {
                           type="button"
                           onClick={deleteSelected}
                           disabled={selectedIds.size === 0}
-                          className="cursor-pointer rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25 disabled:cursor-not-allowed disabled:bg-[#3a3a3a] disabled:text-white/35 disabled:hover:bg-[#3a3a3a]"
+                          className="shrink-0 cursor-pointer whitespace-nowrap rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25 disabled:cursor-not-allowed disabled:bg-[#3a3a3a] disabled:text-white/35 disabled:hover:bg-[#3a3a3a]"
                         >
                           삭제
                         </button>
