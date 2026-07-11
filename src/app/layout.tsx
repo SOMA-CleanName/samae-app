@@ -4,6 +4,7 @@ import "./globals.css";
 import { AnalyticsTracker } from "@/components/AnalyticsTracker";
 import { MixpanelTracker } from "@/components/MixpanelTracker";
 import { MetaPixel } from "@/components/MetaPixel";
+import { Analytics } from "@vercel/analytics/next";
 import { SITE_URL, SITE_NAME, SITE_TITLE, SITE_DESCRIPTION } from "@/lib/site";
 
 // 디스플레이용 세리프 (히어로 타이틀 등)
@@ -85,6 +86,8 @@ export default function RootLayout({
         <AnalyticsTracker />
         <MixpanelTracker />
         <MetaPixel />
+        {/* Vercel Web Analytics — 페이지뷰·방문자·웹바이탈 (Mixpanel 과 별개, 인프라 지표용) */}
+        <Analytics />
       </body>
     </html>
   );
