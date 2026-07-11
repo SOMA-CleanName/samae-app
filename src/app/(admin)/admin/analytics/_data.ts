@@ -21,8 +21,23 @@ export type Ev = {
   label: string | null;
   target: string | null;
   utm_source: string | null;
+  utm_medium: string | null;
   utm_campaign: string | null;
+  utm_content: string | null;
+  utm_term: string | null;
+  landing_path: string | null;
   created_at: string;
+};
+
+// 세션 단위 유입 정보 — utm/landing_path 는 세션 내 모든 행에 동일하게 붙으므로
+// 세션당 1벌만 보관(광고·유입 탭 집계용). 첫 이벤트 값을 채택.
+export type Acquisition = {
+  source: string | null;
+  medium: string | null;
+  campaign: string | null;
+  content: string | null;
+  term: string | null;
+  landing: string | null;
 };
 
 export type Session = {
@@ -34,6 +49,7 @@ export type Session = {
   lastTs: number;
   lastPath: string | null;
   converted: boolean;
+  acq: Acquisition;
 };
 
 type Segment = { key: string; label: string; desc: string; match: (s: Session) => boolean };
@@ -54,11 +70,12 @@ export const PERSONAS: Segment[] = [
 
 export const TABS = [
   { key: "overview", label: "개요", path: "/admin/analytics" },
+  { key: "ads", label: "광고·유입", path: "/admin/analytics/ads" },
   { key: "photos", label: "인기 사진", path: "/admin/analytics/photos" },
   { key: "pages", label: "페이지별", path: "/admin/analytics/pages" },
   { key: "photographers", label: "작가별", path: "/admin/analytics/photographers" },
   { key: "journeys", label: "전환 경로", path: "/admin/analytics/journeys" },
-  { key: "engagement", label: "참여·유입", path: "/admin/analytics/engagement" },
+  { key: "engagement", label: "참여(스크롤)", path: "/admin/analytics/engagement" },
 ];
 
 export function matchPhoto(p: string): string | null {
@@ -70,10 +87,15 @@ export function matchPhotographer(p: string): string | null {
   return m ? m[1] : null;
 }
 
+// 순서 중요 — 더 구체적인 규칙(문의 하위 경로)을 /inquiry 일반 규칙보다 먼저.
 const STATIC_PAGES: { test: RegExp; name: string }[] = [
   { test: /^\/login/, name: "로그인 페이지" },
   { test: /^\/signup/, name: "회원가입 페이지" },
-  { test: /^\/inquiry/, name: "문의·예약 페이지" },
+  { test: /^\/explore/, name: "사진 탐색(둘러보기)" },
+  { test: /^\/inquiry\/cart/, name: "문의 (장바구니)" },
+  { test: /^\/inquiry\/photo/, name: "문의 (단건 사진)" },
+  { test: /^\/inquiry/, name: "문의 (채팅)" },
+  { test: /^\/my-inquiries/, name: "내 문의 내역" },
   { test: /^\/favorites/, name: "찜 목록" },
   { test: /^\/apply/, name: "작가 신청 페이지" },
   { test: /^\/bookings\/[^/]+\/pay/, name: "결제 페이지" },
@@ -82,14 +104,14 @@ const STATIC_PAGES: { test: RegExp; name: string }[] = [
   { test: /^\/chat/, name: "채팅" },
   { test: /^\/notifications/, name: "알림" },
   { test: /^\/settings/, name: "설정" },
+  { test: /^\/privacy/, name: "개인정보 처리방침" },
 ];
 
 const CTA_NAMES: Record<string, string> = {
   "cta:inquiry": "문의·예약하기 버튼",
   "cta:photo": "사진 카드 클릭",
   "cta:signup_kakao": "카카오로 시작하기",
-  "toggle:price": "가격 표시 켜기/끄기",
-  "toggle:name": "작가명 표시 켜기/끄기",
+  "cta:hook": "사진 상세 하단 CTA",
 };
 export function ctaName(label: string | null, target: string | null): string {
   if (label && CTA_NAMES[label]) return CTA_NAMES[label];
@@ -168,7 +190,9 @@ async function loadBase(rangeKey?: string): Promise<AnalyticsBase> {
   const [{ data: evData }, { data: phRows }, { data: adminRows }, { data: inqRows }] = await Promise.all([
     admin
       .from("analytics_events")
-      .select("session_id, profile_id, type, path, label, target, utm_source, utm_campaign, created_at")
+      .select(
+        "session_id, profile_id, type, path, label, target, utm_source, utm_medium, utm_campaign, utm_content, utm_term, landing_path, created_at"
+      )
       .gte("created_at", sinceIso)
       .order("created_at", { ascending: false })
       .limit(FETCH_CAP),
@@ -243,10 +267,27 @@ async function loadBase(rangeKey?: string): Promise<AnalyticsBase> {
   for (const e of events) {
     let s = map.get(e.session_id);
     if (!s) {
-      s = { id: e.session_id, profileId: e.profile_id, events: [], pageviews: 0, firstTs: Infinity, lastTs: 0, lastPath: null, converted: false };
+      s = {
+        id: e.session_id,
+        profileId: e.profile_id,
+        events: [],
+        pageviews: 0,
+        firstTs: Infinity,
+        lastTs: 0,
+        lastPath: null,
+        converted: false,
+        acq: { source: null, medium: null, campaign: null, content: null, term: null, landing: null },
+      };
       map.set(e.session_id, s);
     }
     if (e.profile_id) s.profileId = e.profile_id;
+    // 유입 정보 — 세션 내 첫 값(??=)만 채택. 모든 행에 동일하지만 방어적으로.
+    s.acq.source ??= e.utm_source;
+    s.acq.medium ??= e.utm_medium;
+    s.acq.campaign ??= e.utm_campaign;
+    s.acq.content ??= e.utm_content;
+    s.acq.term ??= e.utm_term;
+    s.acq.landing ??= e.landing_path;
     s.events.push(e);
     const ts = Date.parse(e.created_at);
     s.firstTs = Math.min(s.firstTs, ts);
