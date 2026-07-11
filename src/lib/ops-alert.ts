@@ -2,14 +2,15 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { inquiryChannel } from "@/lib/inquiry-channel";
+import { SITE_URL } from "@/lib/site";
 
 // 운영진 알림 (디스코드 웹훅) — 리드 모델의 시작점.
 // 새 문의가 들어오면 운영진 채널로 알려, 운영진이 작가에게 카톡으로 통보하도록 한다.
 // ⚠️ 이 채널은 운영진 전용 — 어드민 페이지에서 보는 정보(연락처·유입·브리프)를 그대로 싣는다.
 //    단, '작가에게 복사해 보낼 블록'만은 PII 미포함(연락처는 입금 확인 후 작가에게 공개).
+// 링크는 정식 도메인 상수(lib/site)를 쓴다 — NEXT_PUBLIC_SITE_URL 은 비어있거나 localhost 라 부적합.
 
 const OPS_WEBHOOK = process.env.DISCORD_OPS_WEBHOOK_URL;
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "");
 
 const one = <T,>(v: T | T[] | null | undefined): T | null =>
   Array.isArray(v) ? v[0] ?? null : v ?? null;
