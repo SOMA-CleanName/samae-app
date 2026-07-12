@@ -252,6 +252,7 @@ function PhotoMasonry({
               >
                 <Link
                   href={`/photos/${p.id}`}
+                  scroll={false}
                   className="block transition-opacity hover:opacity-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                   onClick={() => rememberPhotoAspect(p.id, p.width, p.height)}
                 >

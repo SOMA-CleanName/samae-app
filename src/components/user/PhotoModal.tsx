@@ -9,14 +9,26 @@ export function PhotoModal({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const panelRef = useRef<HTMLDivElement>(null);
 
-  // 열려 있는 동안 뒤(목록) 스크롤을 잠가 위치를 그대로 보존.
-  // overflow:hidden 은 scrollY 를 초기화하지 않으므로 닫으면 원래 자리로 돌아온다.
+  // 뒤(목록) 스크롤 잠금 — position:fixed + top:-y 방식.
+  // overflow:hidden 은 body 스크롤을 0 으로 clamp 해 뒤 홈이 최상단으로 '튀는' 플래시를
+  // 유발한다. fixed + top:-y 는 홈을 현재 스크롤 위치에 그대로 얼려 튐이 없고,
+  // 닫을 때 그 위치로 정확히 복원한다(iOS 사파리에서도 안전).
   useEffect(() => {
-    const { style } = document.body;
-    const prevOverflow = style.overflow;
-    style.overflow = "hidden";
+    const y = window.scrollY;
+    const b = document.body.style;
+    const prev = { position: b.position, top: b.top, left: b.left, right: b.right, width: b.width };
+    b.position = "fixed";
+    b.top = `-${y}px`;
+    b.left = "0";
+    b.right = "0";
+    b.width = "100%";
     return () => {
-      style.overflow = prevOverflow;
+      b.position = prev.position;
+      b.top = prev.top;
+      b.left = prev.left;
+      b.right = prev.right;
+      b.width = prev.width;
+      window.scrollTo(0, y);
     };
   }, []);
 

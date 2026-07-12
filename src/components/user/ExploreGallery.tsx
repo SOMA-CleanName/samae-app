@@ -606,6 +606,7 @@ function PhotoCard({
       {!loaded && <div aria-hidden className="pointer-events-none absolute inset-0 shimmer" />}
       <Link
         href={`/photos/${photo.id}`}
+        scroll={false}
         className="block"
         data-track="cta:photo"
         onClick={() => rememberPhotoAspect(photo.id, photo.width, photo.height)}
