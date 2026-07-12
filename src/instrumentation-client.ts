@@ -12,8 +12,13 @@ Sentry.init({
   replaysSessionSampleRate: 1.0,
   replaysOnErrorSampleRate: 1.0,
   integrations: [
-    // PII 보호: 모든 텍스트·입력 마스킹. 이미지(공개 사진)는 흐름 파악 위해 노출.
-    Sentry.replayIntegration({ maskAllText: true, maskAllInputs: true, blockAllMedia: false }),
+    // PII 보호: 입력값 전체 + .mp-mask(연락처)만 마스킹. 사진·텍스트는 흐름 파악 위해 노출.
+    Sentry.replayIntegration({
+      maskAllText: false,
+      maskAllInputs: true,
+      blockAllMedia: false,
+      mask: [".mp-mask"],
+    }),
   ],
   environment: process.env.NEXT_PUBLIC_ENV || process.env.VERCEL_ENV || "development",
   debug: false,
