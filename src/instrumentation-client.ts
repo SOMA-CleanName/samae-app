@@ -7,8 +7,14 @@ Sentry.init({
   dsn,
   enabled: !!dsn,
   tracesSampleRate: 0,
-  replaysSessionSampleRate: 0,
-  replaysOnErrorSampleRate: 0,
+  // 세션 리플레이 — 전 세션 녹화(트래픽 적을 때) 후 'inquiry_submitted' 태그로 신청자 세션만
+  // 필터해 재생. 트래픽 늘면 낮출 것(무료 티어 ~50건/월). 에러 세션은 항상 녹화.
+  replaysSessionSampleRate: 1.0,
+  replaysOnErrorSampleRate: 1.0,
+  integrations: [
+    // PII 보호: 모든 텍스트·입력 마스킹. 이미지(공개 사진)는 흐름 파악 위해 노출.
+    Sentry.replayIntegration({ maskAllText: true, maskAllInputs: true, blockAllMedia: false }),
+  ],
   environment: process.env.NEXT_PUBLIC_ENV || process.env.VERCEL_ENV || "development",
   debug: false,
   // 우리 코드가 아닌 외부 주입 스크립트 노이즈 무시(실제 버그를 가리지 않게):
