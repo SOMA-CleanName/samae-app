@@ -892,7 +892,8 @@ function ContactBlock({
             inputMode={active.inputMode}
             autoFocus
             className={[
-              "h-11 w-full rounded-xl border bg-surface px-3 text-base text-fg outline-none transition-colors placeholder:text-faint",
+              // mp-mask: 세션 리플레이에서 이 입력(연락처=PII)만 마스킹. 나머지 화면은 공개.
+              "mp-mask h-11 w-full rounded-xl border bg-surface px-3 text-base text-fg outline-none transition-colors placeholder:text-faint",
               displayedError ? "border-danger" : "border-line-strong focus:border-brand",
             ].join(" ")}
           />
