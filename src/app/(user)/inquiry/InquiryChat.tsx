@@ -312,6 +312,8 @@ export function InquiryChat({
     }, REVEAL_MS);
   }
   function revealContact() {
+    // 모든 질문 답변 완료 → 연락처 입력 단계 도달(제출 직전 퍼널 스텝).
+    mpTrack("Inquiry Reached Contact", { mode: multi ? "cart" : "photo" });
     setTyping(true);
     window.setTimeout(() => {
       setTyping(false);
@@ -438,6 +440,16 @@ export function InquiryChat({
     // item9 — 맨 아래(현재) 질문에 답하면 진행 중이던 수정도 자동으로 닫힘
     if (editing !== null) setEditing(null);
     if (i === revealed) {
+      // 위저드 질문별 진행 이벤트(전진 답변만 — 수정은 위에서 return). 질문별 이탈 지점 파악용.
+      // 이름·문의사항(자유서술)은 PII 우려로 값 미전송, 선택지(목적·지역 등 수요 신호)만 값 포함.
+      const sensitive = key === "note" || key === "name";
+      mpTrack("Inquiry Step", {
+        step: key,
+        step_index: i + 1,
+        step_name: STEPS[i].short,
+        mode: multi ? "cart" : "photo",
+        ...(sensitive ? {} : { value }),
+      });
       if (i < STEPS.length - 1) advanceTo(i + 1);
       else revealContact();
     }
