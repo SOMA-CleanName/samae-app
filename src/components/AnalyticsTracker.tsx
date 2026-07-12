@@ -26,6 +26,30 @@ function isTracked(path: string): boolean {
   return !EXCLUDED.some((p) => path === p || path.startsWith(p + "/"));
 }
 
+// 경로 → 페이지 종류(Mixpanel Flows 용). 실제 ID(/photos/<id>) 노이즈 없이
+// 종류별로 묶어 'Page View by page_type' 로 유저 흐름을 볼 수 있게 한다.
+function pageType(path: string): string {
+  if (path === "/" || path === "") return "home";
+  if (/^\/explore/.test(path)) return "explore";
+  if (/^\/photos\//.test(path)) return "photo";
+  if (/^\/photographers\//.test(path)) return "photographer";
+  if (/^\/c\//.test(path)) return "category";
+  if (/^\/inquiry\/cart/.test(path)) return "inquiry_cart";
+  if (/^\/inquiry\/photo/.test(path)) return "inquiry_photo";
+  if (/^\/inquiry/.test(path)) return "inquiry";
+  if (/^\/favorites/.test(path)) return "favorites";
+  if (/^\/my-inquiries/.test(path)) return "my_inquiries";
+  if (/^\/bookings/.test(path)) return "bookings";
+  if (/^\/chat/.test(path)) return "chat";
+  if (/^\/notifications/.test(path)) return "notifications";
+  if (/^\/settings/.test(path)) return "settings";
+  if (/^\/apply/.test(path)) return "apply";
+  if (/^\/login/.test(path)) return "login";
+  if (/^\/signup/.test(path)) return "signup";
+  if (/^\/privacy/.test(path)) return "privacy";
+  return "other";
+}
+
 const SID_KEY = "samae_sid";
 const UTM_KEY = "samae_utm";
 const LP_KEY = "samae_landing";
@@ -138,7 +162,8 @@ export function AnalyticsTracker() {
   function enqueue(ev: Ev) {
     queue.current.push(ev);
     // Mixpanel 병행 전송 (자체 이벤트 타입 → Mixpanel 이벤트명 매핑)
-    if (ev.type === "pageview") mpTrack("Page View", { path: ev.path, referrer: ev.referrer ?? undefined });
+    if (ev.type === "pageview")
+      mpTrack("Page View", { path: ev.path, referrer: ev.referrer ?? undefined, page_type: pageType(ev.path) });
     else if (ev.type === "click") mpTrack("Click", { path: ev.path, label: ev.label, target: ev.target });
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => flush(false), 1000);
