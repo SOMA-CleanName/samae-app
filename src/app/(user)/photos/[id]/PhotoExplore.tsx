@@ -248,12 +248,30 @@ function PhotoMasonry({
               <div
                 key={p.id}
                 data-cart-card
+                data-pid={p.id}
                 className="group relative overflow-hidden bg-fg/[0.05]"
               >
                 <Link
                   href={`/photos/${p.id}`}
+                  scroll={false}
                   className="block transition-opacity hover:opacity-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
-                  onClick={() => rememberPhotoAspect(p.id, p.width, p.height)}
+                  onClick={(event) => {
+                    rememberPhotoAspect(p.id, p.width, p.height);
+                    try {
+                      const card = event.currentTarget.closest<HTMLElement>("[data-pid]");
+                      sessionStorage.setItem(
+                        `samae:detail-return:${window.location.pathname}`,
+                        JSON.stringify({
+                          pathname: window.location.pathname,
+                          y: Math.round(window.scrollY),
+                          photoId: p.id,
+                          viewportTop: card?.getBoundingClientRect().top ?? 0,
+                        })
+                      );
+                    } catch {
+                      /* 저장소 접근 불가 시 기본 뒤로가기로 동작 */
+                    }
+                  }}
                 >
                   <RecTileImage p={p} alt={altLabel} ratio={ratio} />
                 </Link>

@@ -35,6 +35,24 @@ export function FloatingNav({
   // usePathname 으로 판단해 라우트가 바뀌는 즉시(로딩 스켈레톤 단계부터) 사라진다.
   const onDetail = pathname.startsWith("/photos/");
   const visible = onDetail ? forced === true : forced ?? true;
+  const resetHomeFromDetail = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    // 뒤로가기는 기존 피드를 복원하지만, 상세에서 홈을 직접 누르면 새 방문으로 취급한다.
+    // 경로별 갤러리 캐시와 스크롤/복귀 앵커를 비워 서버가 새 seed로 피드를 다시 만든다.
+    for (const key of Object.keys(sessionStorage)) {
+      if (
+        key.startsWith("samae:gallery-session:") ||
+        key.startsWith("samae:scroll:") ||
+        key.startsWith("samae:scroll-anchor:")
+      ) {
+        sessionStorage.removeItem(key);
+      }
+    }
+    sessionStorage.removeItem("samae:home-feed-session:v1");
+    sessionStorage.removeItem("samae:photo-return");
+    // 전체 홈 컨텍스트로 새 문서를 요청해 Router Cache까지 우회하고 새 feed seed를 받는다.
+    window.location.assign(`/?nocat=1&fresh=${Date.now()}`);
+  };
   // 아래에서 위로 올라오는 슬라이드 (숨김 시 화면 아래로)
   const revealStyle = {
     // translate3d + will-change 로 별도 합성 레이어 승격 → iOS 사파리가 스크롤 중에도
@@ -66,7 +84,13 @@ export function FloatingNav({
                 icon={<ClipboardIcon className="h-5 w-5" />}
               />
             )}
-            <NavPill href="/" label="홈" active={homeActive} icon={<HomeIcon className="h-5 w-5" />} />
+            <NavPill
+              href="/"
+              label="홈"
+              active={homeActive}
+              icon={<HomeIcon className="h-5 w-5" />}
+              onClick={onDetail ? resetHomeFromDetail : undefined}
+            />
             <NavPill
               href="/explore"
               label="탐색"
@@ -101,16 +125,19 @@ function NavPill({
   label,
   active,
   icon,
+  onClick,
 }: {
   href: string;
   label: string;
   active: boolean;
   icon: React.ReactNode;
+  onClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
 }) {
   return (
     <Link
       href={href}
       scroll={false} // 탭 전환 시 최상단 강제 스크롤 방지 — 위치 복원은 ScrollMemory 가 담당
+      onClick={onClick}
       aria-current={active ? "page" : undefined}
       className={[
         // 탭 균등 너비 — 라벨 길이 달라도 같은 크기

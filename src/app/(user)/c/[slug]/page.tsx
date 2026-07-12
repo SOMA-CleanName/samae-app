@@ -5,6 +5,7 @@ import { getPublishedCategory, isUntaggedCategory } from "@/lib/categories";
 import { fetchCategoryFeed, fetchLikedPhotoIds, fetchPhotoById } from "@/lib/discovery";
 import type { GalleryPhoto } from "@/lib/discovery";
 import { ExploreGallery } from "@/components/user/ExploreGallery";
+import { ScrollMemory } from "@/components/user/ScrollMemory";
 import { FeedHero } from "@/components/user/FeedHero";
 import { EmptyState } from "@/components/ui";
 import { LayersIcon } from "@/components/user/icons";
@@ -90,6 +91,7 @@ export default async function CategoryPage({
 
   return (
     <section className="px-2.5 pb-2.5 pt-2.5 font-kr sm:px-4 sm:pt-4 sm:pb-4">
+      <ScrollMemory />
       <FeedHero />
 
       {/* 카테고리 추천 보는 중 + 전체 보기 해제(쿠키도 해제됨 → /?nocat=1) */}

@@ -10,6 +10,10 @@ const useIso = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 export function ScrollTop() {
   const pathname = usePathname();
   useIso(() => {
+    // 연관 사진에서 뒤로 돌아온 상세 화면은 저장된 위치를 복원해야 한다.
+    // 공통 PhotoReturnScroll이 처리하므로 최상단 가드와 경쟁하지 않는다.
+    if (sessionStorage.getItem(`samae:detail-return:${pathname}`)) return;
+
     // Next 라우터/스트리밍의 스크롤 복원이 layout effect 이후 "늦게" 덮어쓰기 때문에
     // 짧은 시간(GUARD_MS) 동안 최상단을 유지한다. 단, 사용자가 스크롤(휠/터치/키)하면
     // 즉시 중단해 의도적 스크롤은 방해하지 않는다.
