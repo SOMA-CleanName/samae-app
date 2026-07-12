@@ -13,6 +13,7 @@ import { useCart } from "@/components/user/cart/CartProvider";
 import { mpTrack } from "@/lib/mixpanel";
 import { EmptyState } from "@/components/ui";
 import { rememberPhotoAspect } from "@/lib/photo-aspect";
+import { rememberFeedScroll } from "@/lib/feed-lock";
 
 const fmt = new Intl.NumberFormat("ko-KR");
 const STEP = 48; // 스크롤마다 더 보여줄 사진 수(메모리에서 즉시 노출)
@@ -609,7 +610,10 @@ function PhotoCard({
         scroll={false}
         className="block"
         data-track="cta:photo"
-        onClick={() => rememberPhotoAspect(photo.id, photo.width, photo.height)}
+        onClick={() => {
+          rememberPhotoAspect(photo.id, photo.width, photo.height);
+          rememberFeedScroll(); // 클릭 시점 스크롤 위치 캡처 → 모달 열릴 때 홈을 그 위치에 고정
+        }}
       >
         {photo.width > 0 && photo.height > 0 ? (
           // next/image — 표시 폭(모바일 2열 ~45vw)에 맞춰 AVIF/WebP·반응형 srcset 생성.

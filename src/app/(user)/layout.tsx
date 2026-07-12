@@ -31,8 +31,9 @@ export default async function UserLayout({
   return (
     <CartProvider>
       <NavRevealProvider>
-        {/* 하단 플로팅 내비 높이만큼 여백 확보 */}
-        <main className="pb-28">{children}</main>
+        {/* 하단 플로팅 내비 높이만큼 여백 확보. id=feed-viewport: 모달 열릴 때 이 영역을
+            현재 스크롤 위치에 고정(feed-lock) → 창 스크롤이 모달을 스크롤하게 함 */}
+        <main id="feed-viewport" className="pb-28">{children}</main>
         {/* 사진 상세 인터셉트 모달 슬롯 — 소프트 내비 시에만 채워짐(그 외엔 default=null) */}
         {modal}
         <FloatingNav me={profileMe} hasInquiries={hasInquiries} />
