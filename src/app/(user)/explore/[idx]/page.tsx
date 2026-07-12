@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { EXPLORE_CATEGORIES } from "@/lib/explore-categories";
 import { seededShuffle, spaceByKey, dayKey } from "@/lib/seeded-shuffle";
 import { ExploreGallery } from "@/components/user/ExploreGallery";
+import { ScrollMemory } from "@/components/user/ScrollMemory";
 import { MpTrackOnce } from "@/components/MpTrackOnce";
 import type { GalleryPhoto } from "@/lib/discovery";
 
@@ -41,6 +42,7 @@ export default async function ExploreCategoryPage({
 
   return (
     <section className="px-2.5 pb-2.5 pt-2.5 font-kr sm:px-4 sm:pt-4 sm:pb-4">
+      <ScrollMemory />
       {/* 카테고리 탐색 진입 — 취향 시그널(수요 차원) */}
       <MpTrackOnce event="View Category" props={{ category: cat.name, result_count: ordered.length }} />
       <h1 className="mb-3 px-1 text-xl font-bold tracking-tight">{cat.name}</h1>

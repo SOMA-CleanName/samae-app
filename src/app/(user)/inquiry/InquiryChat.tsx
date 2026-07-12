@@ -691,9 +691,7 @@ export function InquiryChat({
             <SystemBubble>
               <Em>마지막 단계</Em>예요!
               <br />
-              작가님이 직접 연락드릴 수 있도록
-              <br />
-              <Em>연락받을 방법</Em> 하나만 남겨주세요.
+              작가님이 직접 연락드릴 수 있도록 <Em>연락받을 방법</Em> 하나만 남겨주세요.
             </SystemBubble>
             {!done && (
               <ContactBlock onSubmit={submit} pending={pending} serverError={state.error} />

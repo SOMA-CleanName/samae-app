@@ -4,6 +4,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 import type { GalleryPhoto } from "@/lib/discovery";
 import { cn } from "@/lib/cn";
 import { assignColumnAccents, type AccentColor } from "@/lib/seeded-shuffle";
@@ -18,6 +19,14 @@ const fmt = new Intl.NumberFormat("ko-KR");
 const STEP = 48; // 스크롤마다 더 보여줄 사진 수(메모리에서 즉시 노출)
 const TUTORIAL_SEEN_KEY = "samae:tutorial-seen"; // 일반 유저 첫 방문 튜토리얼 열람 여부
 const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
+
+type FeedSession = {
+  seed?: string;
+  items: GalleryPhoto[];
+  page: number;
+  visible: number;
+  exhausted: boolean;
+};
 
 function useColumnCount() {
   const [node, setNode] = useState<HTMLDivElement | null>(null);
@@ -84,11 +93,15 @@ export function ExploreGallery({
   feedSeed?: string;
   loadMore?: (seed: string, page: number) => Promise<GalleryPhoto[]>;
 }) {
+  const pathname = usePathname();
+  const feedSessionKey = `samae:gallery-session:v2:${pathname}${query ? `?q=${query}` : ""}`;
   // 서버가 준 첫 페이지에서 시작해, 무한 스크롤로 다음 페이지를 이어붙인다(누적).
   const [items, setItems] = useState(initialPhotos);
   const feedPage = useRef(0); // 마지막으로 받은 서버 페이지(0=초기)
   const feedExhausted = useRef(false);
   const feedLoading = useRef(false);
+  const [activeFeedSeed, setActiveFeedSeed] = useState(feedSeed);
+  const [feedSessionReady, setFeedSessionReady] = useState(false);
   const [showPrice, setShowPrice] = useState(false);
   const [showName, setShowName] = useState(false);
   const [visible, setVisible] = useState(STEP);
@@ -251,15 +264,50 @@ export function ExploreGallery({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [obPhase]);
 
-  // 풀(검색어/네비게이션) 바뀌면 노출 수 초기화
-  // 피드 프롭(내비/검색 전환)이 바뀌면 누적 리스트·페이지 상태 초기화
+  // 홈 피드는 상세 화면을 다녀와도 같은 순서·로드 페이지·노출 수를 복원한다.
+  // 서버가 재방문 때 새 seed를 내려줘도 세션의 seed를 계속 사용해야 다음 페이지가 이어진다.
   useEffect(() => {
+    try {
+        const raw = sessionStorage.getItem(feedSessionKey);
+        const cached = raw ? (JSON.parse(raw) as FeedSession) : null;
+        if (cached && Array.isArray(cached.items) && cached.items.length > 0) {
+          setItems(cached.items);
+          setVisible(Math.max(STEP, Math.min(cached.visible, cached.items.length)));
+          feedPage.current = Math.max(0, cached.page || 0);
+          feedExhausted.current = !!cached.exhausted;
+          feedLoading.current = false;
+          setActiveFeedSeed(cached.seed ?? feedSeed);
+          setFeedSessionReady(true);
+          return;
+        }
+      } catch {
+        sessionStorage.removeItem(feedSessionKey);
+    }
+
     setItems(initialPhotos);
     setVisible(STEP);
     feedPage.current = 0;
     feedExhausted.current = false;
     feedLoading.current = false;
-  }, [initialPhotos, query]);
+    setActiveFeedSeed(feedSeed);
+    setFeedSessionReady(true);
+  }, [initialPhotos, query, feedSeed, feedSessionKey]);
+
+  useEffect(() => {
+    if (!feedSessionReady) return;
+    const snapshot: FeedSession = {
+      seed: activeFeedSeed,
+      items,
+      page: feedPage.current,
+      visible,
+      exhausted: feedExhausted.current,
+    };
+    try {
+      sessionStorage.setItem(feedSessionKey, JSON.stringify(snapshot));
+    } catch {
+      // 저장 공간이 부족해도 현재 세션의 무한 스크롤은 계속 동작한다.
+    }
+  }, [activeFeedSeed, feedSessionKey, feedSessionReady, items, visible]);
 
   // 바닥 근처에서 더 노출 — 로드된 건 STEP 씩 노출, 끝에 닿으면 서버 다음 페이지를 이어받음(무한).
   // IntersectionObserver(주) + 스크롤/리사이즈(폴백).
@@ -277,11 +325,11 @@ export function ExploreGallery({
         return;
       }
       // 2) 노출이 로드된 끝에 도달 → 서버 다음 페이지(전체 피드에서만, 소진 전)
-      if (!loadMore || !feedSeed || feedExhausted.current || feedLoading.current) return;
+      if (!loadMore || !activeFeedSeed || feedExhausted.current || feedLoading.current) return;
       busy = true;
       feedLoading.current = true;
       try {
-        const more = await loadMore(feedSeed, feedPage.current + 1);
+        const more = await loadMore(activeFeedSeed, feedPage.current + 1);
         if (!more || more.length === 0) {
           feedExhausted.current = true; // 더 없음 → 종료
         } else {
@@ -320,7 +368,7 @@ export function ExploreGallery({
       window.removeEventListener("scroll", check);
       window.removeEventListener("resize", check);
     };
-  }, [visible, items.length, feedSeed, loadMore]);
+  }, [visible, items.length, activeFeedSeed, loadMore]);
 
   // 보기 옵션(가격·작가명) — 세션 유지 + SearchOptions 토글과 이벤트로 동기화
   useEffect(() => {
@@ -427,7 +475,7 @@ export function ExploreGallery({
       </div>
 
       {/* 점진 노출 센티넬 */}
-      {(visible < items.length || (!!loadMore && !!feedSeed)) && (
+      {(visible < items.length || (!!loadMore && !!activeFeedSeed)) && (
         <div ref={sentinel} className="h-1" />
       )}
 
@@ -606,9 +654,36 @@ function PhotoCard({
       {!loaded && <div aria-hidden className="pointer-events-none absolute inset-0 shimmer" />}
       <Link
         href={`/photos/${photo.id}`}
+        scroll={false}
         className="block"
         data-track="cta:photo"
-        onClick={() => rememberPhotoAspect(photo.id, photo.width, photo.height)}
+        onClick={(event) => {
+          rememberPhotoAspect(photo.id, photo.width, photo.height);
+          // 좌표만 저장하면 이미지/무한 피드 높이가 복구되기 전에 브라우저가 위로 clamp한다.
+          // 클릭한 카드와 당시 화면 내 위치를 함께 저장해 뒤로 왔을 때 같은 자리에 맞춘다.
+          try {
+            const card = event.currentTarget.closest<HTMLElement>("[data-pid]");
+            sessionStorage.setItem(
+              `samae:scroll-anchor:${window.location.pathname}`,
+              JSON.stringify({ id: photo.id, viewportTop: card?.getBoundingClientRect().top ?? 0 })
+            );
+            sessionStorage.setItem(
+              `samae:scroll:${window.location.pathname}`,
+              String(Math.round(window.scrollY))
+            );
+            sessionStorage.setItem(
+              "samae:photo-return",
+              JSON.stringify({
+                pathname: window.location.pathname,
+                y: Math.round(window.scrollY),
+                photoId: photo.id,
+                viewportTop: card?.getBoundingClientRect().top ?? 0,
+              })
+            );
+          } catch {
+            /* 저장소 접근 불가 시 기본 Next 뒤로가기로 동작 */
+          }
+        }}
       >
         {photo.width > 0 && photo.height > 0 ? (
           // next/image — 표시 폭(모바일 2열 ~45vw)에 맞춰 AVIF/WebP·반응형 srcset 생성.
