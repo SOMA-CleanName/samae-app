@@ -1,15 +1,18 @@
 // Sentry 클라이언트 init (브라우저). DSN 없으면 no-op. 에러만(트레이싱·리플레이 off).
 import * as Sentry from "@sentry/nextjs";
+import { isKoreaVisitor } from "@/lib/replay-gate";
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
+// 세션 리플레이는 한국 방문자만 — 해외 스토리 유입이 무료 쿼터를 잠식하는 걸 막는다.
+const recordReplay = isKoreaVisitor();
 
 Sentry.init({
   dsn,
   enabled: !!dsn,
   tracesSampleRate: 0,
-  // 세션 리플레이 — 전 세션 녹화(트래픽 적을 때) 후 'inquiry_submitted' 태그로 신청자 세션만
-  // 필터해 재생. 트래픽 늘면 낮출 것(무료 티어 ~50건/월). 에러 세션은 항상 녹화.
-  replaysSessionSampleRate: 1.0,
+  // 세션 리플레이 — 한국 방문자 세션만 녹화(해외 제외로 쿼터 절약). 신청자는 'inquiry_submitted'
+  // 태그로 필터. 트래픽 늘면 낮출 것(무료 티어 ~50건/월). 에러 세션은 국가 무관 항상 녹화.
+  replaysSessionSampleRate: recordReplay ? 1.0 : 0,
   replaysOnErrorSampleRate: 1.0,
   integrations: [
     // PII 보호: 입력값 전체 + .mp-mask(연락처)만 마스킹. 사진·텍스트는 흐름 파악 위해 노출.

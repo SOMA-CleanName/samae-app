@@ -1,6 +1,7 @@
 "use client";
 
 import mixpanel from "mixpanel-browser";
+import { isKoreaVisitor } from "@/lib/replay-gate";
 
 // Mixpanel 클라이언트 래퍼 (프로덕트 애널리틱스 — 퍼널·리텐션·코호트).
 // - 토큰(NEXT_PUBLIC_MIXPANEL_TOKEN) 없으면 전부 no-op (프리뷰/로컬 안전).
@@ -34,7 +35,8 @@ function ensure(): boolean {
       // 한 유저로 필터해 진입~이탈 전 과정을 재생한다. 트래픽 늘면 percent 를 낮출 것.
       // PII 보호: 기본값('*'=전체 마스킹) 대신 .mp-mask(연락처 입력)만 가리고 사진·텍스트는 노출.
       // 입력값은 rrweb 기본으로 마스킹되며, 연락처 input 엔 .mp-mask 를 별도로 달아 이중 보호.
-      record_sessions_percent: 100,
+      // 한국 방문자만 녹화(해외 스토리 유입은 쿼터 절약 위해 제외). 트래픽 늘면 percent 낮출 것.
+      record_sessions_percent: isKoreaVisitor() ? 100 : 0,
       record_mask_text_selector: ".mp-mask",
       record_block_selector: ".mp-block",
     });
