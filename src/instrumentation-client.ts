@@ -23,10 +23,16 @@ Sentry.init({
     /MetaMask/i,
     /ethereum/i,
     /Failed to connect to MetaMask/i,
+    // 안드로이드 인앱 브라우저(인스타 등)가 이탈 시 네이티브 브리지(postMessage) 호출 중
+    // 웹뷰가 이미 정리돼 나는 노이즈. 우리 코드 아님.
+    /Java object is gone/i,
+    /Error invoking postMessage/i,
+    /sendBeforeUnloadMessage/i,
   ],
   // 확장 프로그램·인젝션 스크립트에서 발생한 이벤트는 아예 수집 제외
   denyUrls: [
     /inpage\.js/i,
+    /navigation_performance_logger/i,
     /^chrome-extension:\/\//i,
     /^moz-extension:\/\//i,
     /extension:\/\//i,
