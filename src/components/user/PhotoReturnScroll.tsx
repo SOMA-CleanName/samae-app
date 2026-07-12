@@ -32,13 +32,14 @@ export function PhotoReturnScroll() {
     if (!saved || saved.pathname !== pathname) return;
     sessionStorage.removeItem(storageKey);
 
-    // 복원 위치가 확정되기 전에는 문서를 그리지 않는다. 이전 상세의 맨 위가
-    // 한 프레임 보였다가 아래로 이동하는 플래시를 완전히 차단한다.
+    // 복원 위치가 확정되기 전 잠깐만 문서를 가려, 이전 상세 맨 위가 보였다가 내려가는
+    // 플래시를 막는다. 단, 위치가 안정되는 즉시 공개해 뒤로가기 전환을 빠르게 한다.
     document.documentElement.style.visibility = "hidden";
     window.scrollTo(0, saved.y);
 
     let active = true;
     let revealed = false;
+    let settledFrames = 0;
     const started = performance.now();
     const reveal = () => {
       if (revealed) return;
@@ -46,9 +47,9 @@ export function PhotoReturnScroll() {
       document.documentElement.style.visibility = "";
     };
     const stop = () => {
-      // 뒤로가기 제스처의 잔여 touchmove가 복원 직후 들어올 수 있다.
-      // 안정화 전 입력은 공개 트리거로 취급하지 않는다.
-      if (performance.now() - started < 900) return;
+      // 뒤로가기 제스처의 잔여 입력만 짧게(250ms) 무시하고, 이후 사용자 스크롤은
+      // 즉시 복원 중단 + 공개(사용자가 스크롤하려는 걸 막지 않게).
+      if (performance.now() - started < 250) return;
       active = false;
       reveal();
     };
@@ -63,15 +64,13 @@ export function PhotoReturnScroll() {
         ? window.scrollY + card.getBoundingClientRect().top - saved!.viewportTop
         : saved!.y;
       window.scrollTo(0, target);
-      // Next 라우터가 커밋 뒤에도 늦게 scroll(0, 0)을 적용할 수 있으므로 카드가
-      // 보인다는 이유만으로 즉시 공개하지 않는다. 최소 900ms 동안 계속 목표 위치를
-      // 고정한 다음, 실제 좌표가 안정된 프레임에서만 화면을 공개한다.
-      const elapsed = performance.now() - started;
+      // 위치가 안정(문서가 충분히 길어져 target 도달)되면 '즉시' 공개 — 고정된 대기시간을
+      // 두지 않아 전환이 빠르다. 공개 후에도 잠시 더 재보정해, Next 의 늦은 scroll(0,0)·
+      // 이미지 로딩에 따른 이동을 다음 프레임에 바로잡는다(이미 보이는 상태라 눈에 안 띔).
       const settled = Math.abs(window.scrollY - target) <= 2;
-      if (!revealed && elapsed >= 900 && settled) {
-        requestAnimationFrame(reveal);
-      }
-      if (performance.now() - started < 3000) requestAnimationFrame(restore);
+      settledFrames = settled ? settledFrames + 1 : 0;
+      if (!revealed && settledFrames >= 2) reveal();
+      if (performance.now() - started < 1200) requestAnimationFrame(restore);
       else {
         active = false;
         reveal();
