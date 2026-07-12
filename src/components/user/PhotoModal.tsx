@@ -1,8 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { useRouter } from "next/navigation";
 import { lockFeed, unlockFeed } from "@/lib/feed-lock";
+
+// SSR 경고 없이 페인트 전에 실행 — 모달 마운트 즉시(브라우저 페인트 전에) 홈을 얼려
+// '메인 최상단이 잠깐 보이는' 플래시 프레임을 제거한다.
+const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 // 사진 상세를 홈/탐색 위에 덮는 오버레이 — 홈은 언마운트되지 않고 그 자리에 얼려둔다.
 // 불투명 일반 흐름 컨테이너라 창(window)이 이 모달을 스크롤한다 → 상세의 하단 내비 노출·
@@ -12,7 +16,8 @@ export function PhotoModal({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   // 열려 있는 동안 홈 피드를 얼림(참조 카운트 — 모달→모달 연속 전환 시 튐 방지).
-  useEffect(() => {
+  // 페인트 전에 얼려야 홈 최상단이 한 프레임도 보이지 않는다.
+  useIsoLayoutEffect(() => {
     lockFeed();
     return () => unlockFeed();
   }, []);
