@@ -9,8 +9,10 @@ import { readMyInquiryIds } from "@/lib/my-inquiries";
 // 하단 중앙 홈/탐색 플로팅 내비 + (로그인 시) 좌측 하단 계정 + 우측 하단 장바구니.
 export default async function UserLayout({
   children,
+  modal,
 }: {
   children: React.ReactNode;
+  modal: React.ReactNode;
 }) {
   const me = await getCurrentUser();
   // 비로그인도 '내 문의'가 있으면 내비에 노출 (쿠키 기반)
@@ -31,6 +33,8 @@ export default async function UserLayout({
       <NavRevealProvider>
         {/* 하단 플로팅 내비 높이만큼 여백 확보 */}
         <main className="pb-28">{children}</main>
+        {/* 사진 상세 인터셉트 모달 슬롯 — 소프트 내비 시에만 채워짐(그 외엔 default=null) */}
+        {modal}
         <FloatingNav me={profileMe} hasInquiries={hasInquiries} />
         <FloatingCart />
       </NavRevealProvider>
