@@ -30,6 +30,11 @@ function ensure(): boolean {
         input: false,
         capture_text_content: false,
       },
+      // 세션 리플레이 — 전량 녹화(트래픽 적을 때)해 두고, 나중에 'Submit Inquiry'(예약문의 신청)
+      // 한 유저로 필터해 진입~이탈 전 과정을 재생한다. 트래픽 늘면 percent 를 낮출 것.
+      // PII 보호: 모든 텍스트·입력값 마스킹(record_mask_text_selector:"*"). 이미지·레이아웃은 보임.
+      record_sessions_percent: 100,
+      record_mask_text_selector: "*",
     });
     ready = true;
   } catch {

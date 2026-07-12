@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeftIcon, CheckIcon, ChevronDownIcon } from "@/components/user/icons";
 import { mpTrack } from "@/lib/mixpanel";
+import * as Sentry from "@sentry/nextjs";
 import { submitInquiry, submitMultiInquiry, type InquiryState } from "./actions";
 
 const INITIAL_STATE: InquiryState = { ok: false };
@@ -409,6 +410,8 @@ export function InquiryChat({
           detail: { label: "cta:inquiry_submitted", target: multi ? "/inquiry/cart" : "/inquiry" },
         })
       );
+      // Sentry 세션 리플레이 필터용 태그 — 신청자 세션만 골라 진입~이탈 전 과정 재생.
+      Sentry.getCurrentScope().setTag("inquiry_submitted", "true");
       mpTrack("Submit Inquiry", {
         inquiry_id: state.inquiryId,
         source: multi ? "cart" : "photo",
