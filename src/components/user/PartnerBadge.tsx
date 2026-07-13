@@ -52,10 +52,10 @@ export function PartnerBadge({ className }: { className?: string }) {
       </button>
 
       {open && (
-        // 뱃지가 줄 왼쪽에 있어 left-0(오른쪽으로 펼침)이면 화면 밖으로 안 잘림. 폭은 뷰포트 내로 캡.
+        // 뱃지가 줄 오른쪽 끝이라 right-0(왼쪽으로 펼침)으로 화면 오른쪽 밖으로 안 잘리게. 폭은 뷰포트 내로 캡.
         <div
           role="tooltip"
-          className="absolute left-0 top-full z-30 mt-2 w-[min(17rem,calc(100vw-2rem))] break-keep rounded-2xl border border-line bg-bg p-3.5 text-left shadow-pop"
+          className="absolute right-0 top-full z-30 mt-2 w-[min(17rem,calc(100vw-2rem))] break-keep rounded-2xl border border-line bg-bg p-3.5 text-left shadow-pop"
         >
           <p className="flex items-center gap-1.5 text-body font-semibold text-fg">
             <ShieldCheckIcon className="h-4 w-4 text-brand" />
