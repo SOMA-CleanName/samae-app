@@ -24,6 +24,7 @@ import { DetailMoreInfo } from "./DetailMoreInfo";
 import { NavRevealOnScroll } from "@/components/user/NavReveal";
 import { OwnerPhotoBackButton } from "./OwnerPhotoBackButton";
 import { AutoFavorite } from "@/components/user/AutoFavorite";
+import { PartnerBadge } from "@/components/user/PartnerBadge";
 import { PixelViewContent } from "@/components/PixelViewContent";
 import { Button } from "@/components/ui";
 import type { Metadata } from "next";
@@ -178,11 +179,17 @@ export default async function PhotoDetail({
             </div>
           </div>
 
-          {/* 패키지 정보 — 사진 가격과 일치하는 작가 패키지의 촬영시간·보정본 장수 */}
-          {matchedPkg && (
-            <p className="mt-2 text-body-sm text-muted">
-              촬영 {formatDuration(matchedPkg.duration_min)} · 보정본 {matchedPkg.edited_count}장
-            </p>
+          {/* 패키지 정보(촬영시간·보정본 장수) + 사매 파트너 작가 뱃지 한 줄.
+              뱃지를 왼쪽에 둬 팝오버가 화면 오른쪽 밖으로 잘리지 않게 한다(본인 사진엔 뱃지 미노출). */}
+          {(matchedPkg || !isOwner) && (
+            <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+              {!isOwner && <PartnerBadge />}
+              {matchedPkg && (
+                <p className="text-body-sm text-muted">
+                  촬영 {formatDuration(matchedPkg.duration_min)} · 보정본 {matchedPkg.edited_count}장
+                </p>
+              )}
+            </div>
           )}
 
           {/* 예약·문의 CTA — 가장 위 (전환 최우선) */}
@@ -196,16 +203,18 @@ export default async function PhotoDetail({
             photographerId={ph.id}
             avatarUrl={ph.avatar_url}
             caption={caption || albumDescription}
-            partner={!isOwner}
           />
         </div>
       </div>
 
       {/* 하단 — 추천 사진. Suspense 로 분리해 상단(사진·CTA)을 먼저 렌더하고 추천은 스트리밍.
-          400장 조회+스코어링이 더 이상 첫 화면(LCP)을 막지 않는다. */}
-      <Suspense fallback={<RecsSkeleton />}>
-        <Recommendations photoId={photo.id} albumId={photo.album_id} tags={photo.mood_tags ?? []} />
-      </Suspense>
+          400장 조회+스코어링이 더 이상 첫 화면(LCP)을 막지 않는다.
+          위 정보 영역과 탐색 그리드를 구분선으로 분리(스켈레톤·로드 모두 section mt-6 → 일관 간격). */}
+      <div className="mt-8 border-t border-line">
+        <Suspense fallback={<RecsSkeleton />}>
+          <Recommendations photoId={photo.id} albumId={photo.album_id} tags={photo.mood_tags ?? []} />
+        </Suspense>
+      </div>
 
       {/* A11 혜택 hook — 스크롤 내리면 노출, 예약/장바구니 1회 후 숨김 */}
     </main>
