@@ -5,6 +5,7 @@ import {
   fetchAlbumPhotos,
   fetchAlbumDescription,
   fetchPhotographerById,
+  fetchPhotographerPackages,
   fetchPhotoLikeInfo,
   fetchSimilarPhotos,
   newFeedSeed,
@@ -23,6 +24,7 @@ import { DetailMoreInfo } from "./DetailMoreInfo";
 import { NavRevealOnScroll } from "@/components/user/NavReveal";
 import { OwnerPhotoBackButton } from "./OwnerPhotoBackButton";
 import { AutoFavorite } from "@/components/user/AutoFavorite";
+import { PartnerBadge } from "@/components/user/PartnerBadge";
 import { PixelViewContent } from "@/components/PixelViewContent";
 import { Button } from "@/components/ui";
 import type { Metadata } from "next";
@@ -30,6 +32,14 @@ import { photoMetadata, photoImageJsonLd } from "@/lib/seo";
 import { JsonLd } from "@/components/JsonLd";
 
 const fmt = new Intl.NumberFormat("ko-KR");
+
+// 분 → 사람이 읽기 쉬운 촬영시간 (60→"1시간", 90→"1시간 30분", 45→"45분")
+function formatDuration(min: number): string {
+  if (min < 60) return `${min}분`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m === 0 ? `${h}시간` : `${h}시간 ${m}분`;
+}
 
 // 페이지별 동적 메타 — 사진의 무드·지역·가격으로 고유 제목/설명, OG 이미지는 그 사진.
 export async function generateMetadata({
@@ -56,14 +66,19 @@ export default async function PhotoDetail({
 
   // 상단(즉시 노출)에 필요한 것만 병렬 조회. 추천(400장 조회+스코어링)은 첫 화면을
   // 막지 않도록 아래 <Suspense>에서 따로 스트리밍한다.
-  const [ph, me] = await Promise.all([
+  const [ph, me, packages] = await Promise.all([
     fetchPhotographerById(photo.photographer_id),
     getCurrentUser(),
+    fetchPhotographerPackages(photo.photographer_id),
   ]);
   if (!ph) notFound();
 
   const isOwner = me?.photographer?.id === ph.id;
   const location = photo.location_text || photo.region || null;
+  // 사진 가격은 작가 패키지 가격 중에서 선택되므로(포트폴리오 등록 UI), 같은 가격의 패키지를
+  // 찾아 촬영시간·보정본 장수를 함께 노출. 일치하는 패키지가 없으면(커스텀·비활성가) 가격만.
+  const matchedPkg =
+    photo.price_krw != null ? packages.find((p) => p.price_krw === photo.price_krw) ?? null : null;
 
   // 게시물(묶음)이면 같은 게시물 사진들을 스와이프용으로 (클릭한 사진부터) — 두 조회 병렬
   const [albumPhotos, albumDescription] = photo.album_id
@@ -163,6 +178,16 @@ export default async function PhotoDetail({
               </p>
             </div>
           </div>
+
+          {/* 패키지 정보 — 사진 가격과 일치하는 작가 패키지의 촬영시간·보정본 장수 */}
+          {matchedPkg && (
+            <p className="mt-2 text-body-sm text-muted">
+              촬영 {formatDuration(matchedPkg.duration_min)} · 보정본 {matchedPkg.edited_count}장
+            </p>
+          )}
+
+          {/* 사매가 직접 선별한 작가 — 전환 직전 신뢰 신호 (본인 사진엔 미노출) */}
+          {!isOwner && <PartnerBadge className="mt-3" />}
 
           {/* 예약·문의 CTA — 가장 위 (전환 최우선) */}
           <PhotoCtas isOwner={isOwner} photographerId={ph.id} photoId={photo.id} />
