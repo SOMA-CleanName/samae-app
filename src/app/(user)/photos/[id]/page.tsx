@@ -5,6 +5,7 @@ import {
   fetchAlbumPhotos,
   fetchAlbumDescription,
   fetchPhotographerById,
+  fetchPhotographerPackages,
   fetchPhotoLikeInfo,
   fetchSimilarPhotos,
   newFeedSeed,
@@ -23,6 +24,7 @@ import { DetailMoreInfo } from "./DetailMoreInfo";
 import { NavRevealOnScroll } from "@/components/user/NavReveal";
 import { OwnerPhotoBackButton } from "./OwnerPhotoBackButton";
 import { AutoFavorite } from "@/components/user/AutoFavorite";
+import { PartnerBadge } from "@/components/user/PartnerBadge";
 import { PixelViewContent } from "@/components/PixelViewContent";
 import { Button } from "@/components/ui";
 import type { Metadata } from "next";
@@ -30,6 +32,22 @@ import { photoMetadata, photoImageJsonLd } from "@/lib/seo";
 import { JsonLd } from "@/components/JsonLd";
 
 const fmt = new Intl.NumberFormat("ko-KR");
+
+// 사진 가격에 가장 가까운(가격 차 최소) 활성 패키지. 정확 일치 시 차=0. 패키지 없으면 null.
+function nearestPackage<T extends { price_krw: number }>(packages: T[], price: number): T | null {
+  if (packages.length === 0) return null;
+  return packages.reduce((best, p) =>
+    Math.abs(p.price_krw - price) < Math.abs(best.price_krw - price) ? p : best
+  );
+}
+
+// 분 → 사람이 읽기 쉬운 촬영시간 (60→"1시간", 90→"1시간 30분", 45→"45분")
+function formatDuration(min: number): string {
+  if (min < 60) return `${min}분`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m === 0 ? `${h}시간` : `${h}시간 ${m}분`;
+}
 
 // 페이지별 동적 메타 — 사진의 무드·지역·가격으로 고유 제목/설명, OG 이미지는 그 사진.
 export async function generateMetadata({
@@ -56,14 +74,19 @@ export default async function PhotoDetail({
 
   // 상단(즉시 노출)에 필요한 것만 병렬 조회. 추천(400장 조회+스코어링)은 첫 화면을
   // 막지 않도록 아래 <Suspense>에서 따로 스트리밍한다.
-  const [ph, me] = await Promise.all([
+  const [ph, me, packages] = await Promise.all([
     fetchPhotographerById(photo.photographer_id),
     getCurrentUser(),
+    fetchPhotographerPackages(photo.photographer_id),
   ]);
   if (!ph) notFound();
 
   const isOwner = me?.photographer?.id === ph.id;
   const location = photo.location_text || photo.region || null;
+  // 사진 가격은 작가 패키지 가격 중에서 선택되지만(포트폴리오 등록 UI) 이후 패키지 가격이 바뀌면
+  // 정확히 안 맞을 수 있어, '가격이 가장 가까운' 활성 패키지를 기준으로 촬영시간·보정본을 노출.
+  // (정확 일치 시 차=0이라 그 패키지, 작가에 활성 패키지가 없으면 null → 가격만)
+  const matchedPkg = photo.price_krw != null ? nearestPackage(packages, photo.price_krw) : null;
 
   // 게시물(묶음)이면 같은 게시물 사진들을 스와이프용으로 (클릭한 사진부터) — 두 조회 병렬
   const [albumPhotos, albumDescription] = photo.album_id
@@ -164,6 +187,19 @@ export default async function PhotoDetail({
             </div>
           </div>
 
+          {/* 촬영시간·보정본은 왼쪽, 사매 파트너 작가 뱃지는 오른쪽(ml-auto) 한 줄.
+              뱃지가 오른쪽 끝이라 팝오버는 왼쪽으로 펼침(PartnerBadge right-0)으로 잘림 방지(본인 사진엔 뱃지 미노출). */}
+          {(matchedPkg || !isOwner) && (
+            <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+              {matchedPkg && (
+                <p className="text-body-sm text-muted">
+                  촬영 {formatDuration(matchedPkg.duration_min)} · 보정본 {matchedPkg.edited_count}장
+                </p>
+              )}
+              {!isOwner && <PartnerBadge className="ml-auto" />}
+            </div>
+          )}
+
           {/* 예약·문의 CTA — 가장 위 (전환 최우선) */}
           <PhotoCtas isOwner={isOwner} photographerId={ph.id} photoId={photo.id} />
 
@@ -180,10 +216,14 @@ export default async function PhotoDetail({
       </div>
 
       {/* 하단 — 추천 사진. Suspense 로 분리해 상단(사진·CTA)을 먼저 렌더하고 추천은 스트리밍.
-          400장 조회+스코어링이 더 이상 첫 화면(LCP)을 막지 않는다. */}
-      <Suspense fallback={<RecsSkeleton />}>
-        <Recommendations photoId={photo.id} albumId={photo.album_id} tags={photo.mood_tags ?? []} />
-      </Suspense>
+          400장 조회+스코어링이 더 이상 첫 화면(LCP)을 막지 않는다.
+          구분선 대신 섹션 제목으로 위 정보 영역과 탐색 그리드를 분리(제목은 스켈레톤·로드 공통 노출). */}
+      <div className="mt-8">
+        <h2 className="text-base font-semibold text-fg">이런 사진은 어때요?</h2>
+        <Suspense fallback={<RecsSkeleton />}>
+          <Recommendations photoId={photo.id} albumId={photo.album_id} tags={photo.mood_tags ?? []} />
+        </Suspense>
+      </div>
 
       {/* A11 혜택 hook — 스크롤 내리면 노출, 예약/장바구니 1회 후 숨김 */}
     </main>

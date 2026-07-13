@@ -18,7 +18,7 @@ export function DetailMoreInfo({
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="mt-4 border-t border-line pt-3">
+    <div className="mt-5">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
