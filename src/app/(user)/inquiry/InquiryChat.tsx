@@ -15,7 +15,7 @@ const INITIAL_STATE: InquiryState = { ok: false };
 // soft-skip은 다른 선택지와 동등한 버튼. 언제든 "바로 문의" 경로 → 건너뛴 질문은 접이식 아코디언.
 // 제출 전까진 이전 답변 언제든 수정(답변 칩 유지 + 선택지 부드럽게 펼침).
 
-type StepKey = "purpose" | "preferredDate" | "region" | "partySize" | "gender" | "note";
+type StepKey = "purpose" | "preferredDate" | "region" | "partySize" | "note";
 type StepType = "options" | "date" | "note";
 
 type Step = {
@@ -72,19 +72,6 @@ const STEPS: Step[] = [
     cols: 1,
     skip: "미정",
     short: "인원",
-  },
-  {
-    key: "gender",
-    q: (
-      <>
-        문의자분 <Em>성별</Em>을 알려주세요.
-      </>
-    ),
-    type: "options",
-    options: ["남성", "여성"],
-    cols: 2,
-    skip: "밝히지 않을게요",
-    short: "성별",
   },
   {
     key: "note",
@@ -457,8 +444,8 @@ export function InquiryChat({
         fd.set(s.key, "");
         continue;
       }
-      // partySize·gender 는 soft-skip 을 값으로 저장하지 않고 미입력(null)로 처리
-      if ((s.key === "partySize" || s.key === "gender") && raw === s.skip) {
+      // partySize 는 soft-skip 을 값으로 저장하지 않고 미입력(null)로 처리
+      if (s.key === "partySize" && raw === s.skip) {
         fd.set(s.key, "");
         continue;
       }
