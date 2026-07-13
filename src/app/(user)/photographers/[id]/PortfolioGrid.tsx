@@ -181,7 +181,7 @@ function PortfolioModal({
 
           {/* 좋아요 (상세 페이지와 동일 동작) */}
           <div className="mt-4">
-            <ModalLikeButton photoId={post.coverId} photographerId={viewer.photographerId} />
+            <ModalLikeButton photoId={post.coverId} />
           </div>
 
           {/* 예약·문의 — 상세 페이지 CTA와 동일 분기 */}
@@ -195,13 +195,7 @@ function PortfolioModal({
 }
 
 // 모달용 좋아요 버튼 — 열릴 때 서버에서 상태 로드, 클릭 시 낙관적 토글
-function ModalLikeButton({
-  photoId,
-  photographerId,
-}: {
-  photoId: string;
-  photographerId: string;
-}) {
+function ModalLikeButton({ photoId }: { photoId: string }) {
   const [state, setState] = useState<{ liked: boolean; count: number; loggedIn: boolean } | null>(
     null
   );
@@ -219,18 +213,13 @@ function ModalLikeButton({
 
   async function onClick() {
     if (!state || pending) return;
-    // 비로그인 → 로그인으로
-    if (!state.loggedIn) {
-      window.location.href = `/login?next=${encodeURIComponent(`/photographers/${photographerId}`)}`;
-      return;
-    }
     setPending(true);
-    // 낙관적 반영
+    // 낙관적 반영 — 비로그인은 쿠키에 저장(공개 좋아요 수엔 안 잡히므로 count 유지)
     const optimisticLiked = !state.liked;
     setState({
       ...state,
       liked: optimisticLiked,
-      count: state.count + (optimisticLiked ? 1 : -1),
+      count: state.loggedIn ? state.count + (optimisticLiked ? 1 : -1) : state.count,
     });
     try {
       // 재검증 없는 옵티미스틱 토글 (페이지 리프레시 방지)

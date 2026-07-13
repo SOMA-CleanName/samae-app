@@ -13,9 +13,11 @@ type Tab = "photos" | "photographers";
 export function FavoritesTabs({
   likedPhotos,
   photographers,
+  loggedIn = true,
 }: {
   likedPhotos: GalleryPhoto[];
   photographers: PhotographerCard[];
+  loggedIn?: boolean;
 }) {
   const [tab, setTab] = useState<Tab>("photos");
 
@@ -69,7 +71,16 @@ export function FavoritesTabs({
       {/* 관심 작가 */}
       {tab === "photographers" &&
         (photographers.length === 0 ? (
-          <Empty>아직 관심 작가가 없어요. 작가 프로필에서 추가해보세요.</Empty>
+          !loggedIn ? (
+            <Empty>
+              관심 작가는 로그인 후 저장돼요.{" "}
+              <Link href="/login?next=/favorites" className="text-fg underline underline-offset-2">
+                로그인
+              </Link>
+            </Empty>
+          ) : (
+            <Empty>아직 관심 작가가 없어요. 작가 프로필에서 추가해보세요.</Empty>
+          )
         ) : (
           <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {photographers.map((p) => (
