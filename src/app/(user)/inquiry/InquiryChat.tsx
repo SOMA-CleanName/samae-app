@@ -549,8 +549,11 @@ export function InquiryChat({
         </div>
       </header>
 
-      {/* 채팅 본문 */}
-      <div className="flex-1 space-y-3 overflow-y-auto px-4 py-5">
+      {/* 채팅 본문 — flex-col + 상단 grow 스페이서로 콘텐츠를 아래 정렬(채팅식).
+          선지가 항상 채팅창 바닥에 붙으면서, 그 아래로는 스크롤 여백이 없어 더 내려가지지 않는다. */}
+      <div className="flex flex-1 flex-col space-y-3 overflow-y-auto px-4 py-5">
+        {/* 상단 여백 — 질문 단계에서 콘텐츠를 아래로 밀어 선지를 바닥에 붙임(콘텐츠가 넘치면 0으로 접힘) */}
+        {!contactStep && !done && <div aria-hidden className="min-h-0 flex-1" />}
         {/* 진입 사진 + 인사 (시스템) — 비율 유지(자르지 않음) */}
         <SystemBubble>
           {multi ? (
@@ -673,10 +676,6 @@ export function InquiryChat({
           </div>
         )}
 
-        {/* 하단 여백 스페이서 — 선지가 접힐 때 콘텐츠가 짧아져도 스크롤이 위로 튕기지(clamp) 않게
-            버퍼를 상시 확보(선지 최대 높이보다 큼). 연락처·완료 단계에선 불필요(빈공간만 크게
-            남음)해서 제외한다. */}
-        {!contactStep && !done && <div aria-hidden className="h-[65vh]" />}
         <div ref={bottomRef} />
       </div>
 
