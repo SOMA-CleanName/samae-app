@@ -62,10 +62,10 @@ export function PartnerBadge({ className }: { className?: string }) {
             사매 파트너 작가
           </p>
           <p className="mt-2 text-body-sm leading-relaxed text-muted">
-            사매가 직접 인터뷰하고 심사해 선별한 작가다.
+            사매가 직접 인터뷰하고 심사해 선별한 작가입니다.
           </p>
           <p className="mt-1.5 text-body-sm leading-relaxed text-muted">
-            안전하고 퀄리티 높은 촬영을 믿고 맡길 수 있다.
+            믿고 맡기세요.
           </p>
         </div>
       )}

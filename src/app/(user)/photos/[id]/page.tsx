@@ -179,16 +179,16 @@ export default async function PhotoDetail({
             </div>
           </div>
 
-          {/* 패키지 정보(촬영시간·보정본 장수) + 사매 파트너 작가 뱃지 한 줄 — 위 가격과 맞춰 오른쪽 정렬.
+          {/* 촬영시간·보정본은 왼쪽, 사매 파트너 작가 뱃지는 오른쪽(ml-auto) 한 줄.
               뱃지가 오른쪽 끝이라 팝오버는 왼쪽으로 펼침(PartnerBadge right-0)으로 잘림 방지(본인 사진엔 뱃지 미노출). */}
           {(matchedPkg || !isOwner) && (
-            <div className="mt-2 flex flex-wrap items-center justify-end gap-x-2 gap-y-1.5">
+            <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
               {matchedPkg && (
                 <p className="text-body-sm text-muted">
                   촬영 {formatDuration(matchedPkg.duration_min)} · 보정본 {matchedPkg.edited_count}장
                 </p>
               )}
-              {!isOwner && <PartnerBadge />}
+              {!isOwner && <PartnerBadge className="ml-auto" />}
             </div>
           )}
 
@@ -209,8 +209,9 @@ export default async function PhotoDetail({
 
       {/* 하단 — 추천 사진. Suspense 로 분리해 상단(사진·CTA)을 먼저 렌더하고 추천은 스트리밍.
           400장 조회+스코어링이 더 이상 첫 화면(LCP)을 막지 않는다.
-          위 정보 영역과 탐색 그리드를 구분선으로 분리(스켈레톤·로드 모두 section mt-6 → 일관 간격). */}
-      <div className="mt-4 border-t border-line">
+          구분선 대신 섹션 제목으로 위 정보 영역과 탐색 그리드를 분리(제목은 스켈레톤·로드 공통 노출). */}
+      <div className="mt-8">
+        <h2 className="text-base font-semibold text-fg">이런 사진은 어때요?</h2>
         <Suspense fallback={<RecsSkeleton />}>
           <Recommendations photoId={photo.id} albumId={photo.album_id} tags={photo.mood_tags ?? []} />
         </Suspense>
