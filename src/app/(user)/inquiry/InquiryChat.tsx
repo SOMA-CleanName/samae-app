@@ -15,8 +15,8 @@ const INITIAL_STATE: InquiryState = { ok: false };
 // soft-skip은 다른 선택지와 동등한 버튼. 언제든 "바로 문의" 경로 → 건너뛴 질문은 접이식 아코디언.
 // 제출 전까진 이전 답변 언제든 수정(답변 칩 유지 + 선택지 부드럽게 펼침).
 
-type StepKey = "purpose" | "preferredDate" | "region" | "partySize" | "gender" | "note" | "name";
-type StepType = "options" | "date" | "note" | "text";
+type StepKey = "purpose" | "preferredDate" | "region" | "partySize" | "gender" | "note";
+type StepType = "options" | "date" | "note";
 
 type Step = {
   key: StepKey;
@@ -24,7 +24,6 @@ type Step = {
   type: StepType;
   options?: string[];
   cols?: 1 | 2; // options 레이아웃 (기본 2열)
-  placeholder?: string; // text 입력 placeholder
   skip: string; // 질문별 맞춤 soft-skip (다른 선택지와 동등 버튼)
   short: string; // 요약 라벨
 };
@@ -97,18 +96,6 @@ const STEPS: Step[] = [
     type: "note",
     skip: "작가님과 상담 시 논의할게요",
     short: "문의사항",
-  },
-  {
-    key: "name",
-    q: (
-      <>
-        작가님이 어떻게 <Em>불러드리면</Em> 될까요?
-      </>
-    ),
-    type: "text",
-    placeholder: "성함 또는 닉네임",
-    skip: "이름 없이 문의할게요",
-    short: "이름",
   },
 ];
 
@@ -441,8 +428,8 @@ export function InquiryChat({
     if (editing !== null) setEditing(null);
     if (i === revealed) {
       // 위저드 질문별 진행 이벤트(전진 답변만 — 수정은 위에서 return). 질문별 이탈 지점 파악용.
-      // 이름·문의사항(자유서술)은 PII 우려로 값 미전송, 선택지(목적·지역 등 수요 신호)만 값 포함.
-      const sensitive = key === "note" || key === "name";
+      // 문의사항(자유서술)은 PII 우려로 값 미전송, 선택지(목적·지역 등 수요 신호)만 값 포함.
+      const sensitive = key === "note";
       mpTrack("Inquiry Step", {
         step: key,
         step_index: i + 1,
@@ -470,8 +457,8 @@ export function InquiryChat({
         fd.set(s.key, "");
         continue;
       }
-      // partySize·gender·name 은 soft-skip 을 값으로 저장하지 않고 미입력(null)로 처리
-      if ((s.key === "partySize" || s.key === "gender" || s.key === "name") && raw === s.skip) {
+      // partySize·gender 는 soft-skip 을 값으로 저장하지 않고 미입력(null)로 처리
+      if ((s.key === "partySize" || s.key === "gender") && raw === s.skip) {
         fd.set(s.key, "");
         continue;
       }
@@ -1052,9 +1039,6 @@ function QuestionInput({
       {step.type === "note" && (
         <NoteField skip={step.skip} value={value} onPick={onSubmit} />
       )}
-      {step.type === "text" && (
-        <TextField skip={step.skip} placeholder={step.placeholder} value={value} onPick={onSubmit} />
-      )}
       {onCancel && (
         <div className="flex justify-end">
           <button
@@ -1409,48 +1393,6 @@ function NoteField({
       <OptionButton active={value === skip} onClick={() => onPick(skip)}>
         {skip}
       </OptionButton>
-    </div>
-  );
-}
-
-// 짧은 텍스트 입력(이름/닉네임) — 입력창 + soft-skip 버튼 + 보내기
-function TextField({
-  skip,
-  placeholder,
-  value,
-  onPick,
-}: {
-  skip: string;
-  placeholder?: string;
-  value?: string;
-  onPick: (v: string) => void;
-}) {
-  const isCustom = !!value && value !== skip;
-  const [t, setT] = useState(isCustom ? value! : "");
-  return (
-    <div className="space-y-2">
-      <input
-        type="text"
-        value={t}
-        onChange={(e) => setT(e.target.value)}
-        autoFocus
-        placeholder={placeholder ?? "입력해주세요"}
-        style={{ outline: "none" }}
-        className="h-11 w-full rounded-xl border border-line-strong bg-surface px-3.5 text-base text-fg transition-colors placeholder:text-faint focus:border-brand focus:ring-1 focus:ring-inset focus:ring-brand"
-      />
-      <div className="grid grid-cols-2 gap-1.5">
-        <OptionButton active={value === skip} onClick={() => onPick(skip)}>
-          {skip}
-        </OptionButton>
-        <button
-          type="button"
-          onClick={() => onPick(t.trim())}
-          disabled={!t.trim()}
-          className="cursor-pointer rounded-xl bg-brand px-3.5 py-3 text-[15px] font-medium text-white transition-transform active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          보내기
-        </button>
-      </div>
     </div>
   );
 }
