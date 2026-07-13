@@ -33,6 +33,14 @@ import { JsonLd } from "@/components/JsonLd";
 
 const fmt = new Intl.NumberFormat("ko-KR");
 
+// 사진 가격에 가장 가까운(가격 차 최소) 활성 패키지. 정확 일치 시 차=0. 패키지 없으면 null.
+function nearestPackage<T extends { price_krw: number }>(packages: T[], price: number): T | null {
+  if (packages.length === 0) return null;
+  return packages.reduce((best, p) =>
+    Math.abs(p.price_krw - price) < Math.abs(best.price_krw - price) ? p : best
+  );
+}
+
 // 분 → 사람이 읽기 쉬운 촬영시간 (60→"1시간", 90→"1시간 30분", 45→"45분")
 function formatDuration(min: number): string {
   if (min < 60) return `${min}분`;
@@ -75,10 +83,10 @@ export default async function PhotoDetail({
 
   const isOwner = me?.photographer?.id === ph.id;
   const location = photo.location_text || photo.region || null;
-  // 사진 가격은 작가 패키지 가격 중에서 선택되므로(포트폴리오 등록 UI), 같은 가격의 패키지를
-  // 찾아 촬영시간·보정본 장수를 함께 노출. 일치하는 패키지가 없으면(커스텀·비활성가) 가격만.
-  const matchedPkg =
-    photo.price_krw != null ? packages.find((p) => p.price_krw === photo.price_krw) ?? null : null;
+  // 사진 가격은 작가 패키지 가격 중에서 선택되지만(포트폴리오 등록 UI) 이후 패키지 가격이 바뀌면
+  // 정확히 안 맞을 수 있어, '가격이 가장 가까운' 활성 패키지를 기준으로 촬영시간·보정본을 노출.
+  // (정확 일치 시 차=0이라 그 패키지, 작가에 활성 패키지가 없으면 null → 가격만)
+  const matchedPkg = photo.price_krw != null ? nearestPackage(packages, photo.price_krw) : null;
 
   // 게시물(묶음)이면 같은 게시물 사진들을 스와이프용으로 (클릭한 사진부터) — 두 조회 병렬
   const [albumPhotos, albumDescription] = photo.album_id
