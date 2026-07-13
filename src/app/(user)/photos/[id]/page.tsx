@@ -24,7 +24,6 @@ import { DetailMoreInfo } from "./DetailMoreInfo";
 import { NavRevealOnScroll } from "@/components/user/NavReveal";
 import { OwnerPhotoBackButton } from "./OwnerPhotoBackButton";
 import { AutoFavorite } from "@/components/user/AutoFavorite";
-import { PartnerBadge } from "@/components/user/PartnerBadge";
 import { PixelViewContent } from "@/components/PixelViewContent";
 import { Button } from "@/components/ui";
 import type { Metadata } from "next";
@@ -186,9 +185,6 @@ export default async function PhotoDetail({
             </p>
           )}
 
-          {/* 사매가 직접 선별한 작가 — 전환 직전 신뢰 신호 (본인 사진엔 미노출) */}
-          {!isOwner && <PartnerBadge className="mt-3" />}
-
           {/* 예약·문의 CTA — 가장 위 (전환 최우선) */}
           <PhotoCtas isOwner={isOwner} photographerId={ph.id} photoId={photo.id} />
 
@@ -200,6 +196,7 @@ export default async function PhotoDetail({
             photographerId={ph.id}
             avatarUrl={ph.avatar_url}
             caption={caption || albumDescription}
+            partner={!isOwner}
           />
         </div>
       </div>
