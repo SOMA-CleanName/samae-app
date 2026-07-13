@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { mpTrackServer } from "@/lib/mixpanel-server";
+import { readAnonFavPhotoIds, toggleAnonFavPhoto } from "@/lib/anon-favorites";
 
 // 찜/좋아요 토글 (작가=관심 작가, 사진=좋아요). 비로그인이면 로그인으로.
 export async function toggleFavorite(formData: FormData) {
@@ -18,7 +19,16 @@ export async function toggleFavorite(formData: FormData) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) redirect(`/login?next=${encodeURIComponent(next || path || "/favorites")}`);
+  // 비로그인 — 관심사진(photo)은 쿠키에 저장(브라우저 재방문에도 유지). 관심작가는 로그인 유도.
+  if (!user) {
+    if (targetType === "photo") {
+      await toggleAnonFavPhoto(targetId);
+      if (path) revalidatePath(path);
+      revalidatePath("/favorites");
+      return;
+    }
+    redirect(`/login?next=${encodeURIComponent(next || path || "/favorites")}`);
+  }
 
   const { data: existing } = await supabase
     .from("favorites")
@@ -48,7 +58,7 @@ export async function toggleFavorite(formData: FormData) {
 
 // 탐색 갤러리용 사진 좋아요 토글 — 옵티미스틱 UI 전용.
 // 홈(/)을 재검증하지 않아 좋아요 시 갤러리가 다시 셔플되지 않는다.
-// 비로그인이면 loggedIn:false 반환(클라이언트가 로그인으로 유도).
+// 비로그인이면 쿠키에 저장하고 loggedIn:false 반환(로그인 시 DB로 병합됨).
 export async function togglePhotoLike(
   photoId: string
 ): Promise<{ liked: boolean; loggedIn: boolean }> {
@@ -56,7 +66,10 @@ export async function togglePhotoLike(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { liked: false, loggedIn: false };
+  if (!user) {
+    const liked = await toggleAnonFavPhoto(photoId);
+    return { liked, loggedIn: false };
+  }
 
   const { data: existing } = await supabase
     .from("favorites")
@@ -128,6 +141,9 @@ export async function loadPhotoLike(
       .eq("target_id", photoId)
       .maybeSingle();
     liked = !!data;
+  } else {
+    // 비로그인 — 쿠키에 저장된 관심사진이면 좋아요 상태
+    liked = (await readAnonFavPhotoIds()).includes(photoId);
   }
   return { liked, count, loggedIn: !!user };
 }

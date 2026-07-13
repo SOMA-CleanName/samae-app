@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import { readAnonFavPhotoIds } from "@/lib/anon-favorites";
 
 // 탐색 갤러리 사진 1장
 export type GalleryPhoto = {
@@ -833,7 +834,12 @@ export async function fetchLikedPhotoIds(
   photoIds: string[],
   userId?: string
 ): Promise<string[]> {
-  if (!userId || photoIds.length === 0) return [];
+  if (photoIds.length === 0) return [];
+  // 비로그인 — 쿠키의 관심사진과 교집합
+  if (!userId) {
+    const anon = new Set(await readAnonFavPhotoIds());
+    return photoIds.filter((id) => anon.has(id));
+  }
   const supabase = await createClient();
   const { data } = await supabase
     .from("favorites")
@@ -930,6 +936,10 @@ export async function fetchPhotoLikeInfo(
       .eq("target_type", "photo")
       .in("target_id", ids);
     likedSet = new Set((data ?? []).map((f) => f.target_id as string));
+  } else {
+    // 비로그인 — 쿠키의 관심사진과 교집합
+    const anon = new Set(await readAnonFavPhotoIds());
+    likedSet = new Set(ids.filter((id) => anon.has(id)));
   }
 
   ids.forEach((id, i) => {
@@ -988,7 +998,23 @@ export async function fetchAlbumPhotos(
   }[];
 }
 
-// 내가 좋아요한 사진들 (좋아요 최신순) — 찜 화면 '좋아요한 사진' 탭
+// 사진 id 목록으로 갤러리 카드 조회 — 주어진 ids 순서 유지. (published/본인만 RLS)
+export async function fetchLikedPhotosByIds(ids: string[]): Promise<GalleryPhoto[]> {
+  if (ids.length === 0) return [];
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("photos")
+    .select(
+      "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, photographer:photographers!photos_photographer_id_fkey(id, display_name)"
+    )
+    .in("id", ids);
+
+  const rows = (data ?? []) as unknown as GalleryPhoto[];
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return ids.map((id) => byId.get(id)).filter((p): p is GalleryPhoto => !!p);
+}
+
+// 내가 좋아요한 사진들 (좋아요 최신순) — 찜 화면 '좋아요한 사진' 탭 (로그인)
 export async function fetchMyLikedPhotos(profileId: string): Promise<GalleryPhoto[]> {
   const supabase = await createClient();
   const { data: favs } = await supabase
@@ -999,19 +1025,7 @@ export async function fetchMyLikedPhotos(profileId: string): Promise<GalleryPhot
     .order("created_at", { ascending: false });
 
   const ids = (favs ?? []).map((f) => f.target_id as string);
-  if (ids.length === 0) return [];
-
-  const { data } = await supabase
-    .from("photos")
-    .select(
-      "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, photographer:photographers!photos_photographer_id_fkey(id, display_name)"
-    )
-    .in("id", ids);
-
-  // 좋아요 순서(ids) 유지
-  const rows = (data ?? []) as unknown as GalleryPhoto[];
-  const byId = new Map(rows.map((r) => [r.id, r]));
-  return ids.map((id) => byId.get(id)).filter((p): p is GalleryPhoto => !!p);
+  return fetchLikedPhotosByIds(ids);
 }
 
 // 작가 id로 공개 프로필 (승인된 작가만)
