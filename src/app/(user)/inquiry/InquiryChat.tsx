@@ -504,7 +504,7 @@ export function InquiryChat({
             <ArrowLeftIcon />
           </button>
           <div className="min-w-0 flex-1">
-            <p className="text-base font-semibold">무료 상담 신청</p>
+            <p className="text-base font-semibold">무료 견적 받기</p>
             <p className="text-sm text-muted">보통 1시간 내 답변드려요</p>
           </div>
         </div>
@@ -966,7 +966,7 @@ function ContactBlock({
               "disabled:cursor-not-allowed",
             ].join(" ")}
           >
-            {pending ? "신청 중…" : "무료 상담 신청하기"}
+            {pending ? "요청 중…" : "무료로 견적 받기"}
           </button>
 
           {/* 동의 간주 고지 — 버튼 클릭이 개인정보 수집·이용 동의를 갈음 */}
