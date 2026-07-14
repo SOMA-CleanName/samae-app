@@ -138,6 +138,7 @@ export default async function PhotoDetail({
       <PixelViewContent
         id={photo.id}
         photographerId={photo.photographer_id}
+        albumId={photo.album_id}
         category={photo.mood_tags ?? null}
         region={photo.region ?? photo.location_text ?? null}
         price={photo.price_krw ?? null}

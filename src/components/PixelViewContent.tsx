@@ -10,6 +10,7 @@ export function PixelViewContent({
   id,
   name,
   photographerId,
+  albumId,
   category,
   region,
   price,
@@ -18,6 +19,8 @@ export function PixelViewContent({
   id: string;
   name?: string;
   photographerId?: string;
+  // 게시물(앨범) id — 게시물 단위 조회 랭킹용(Mixpanel)
+  albumId?: string | null;
   // 무드태그(카테고리 대용) — 배열이면 첫 태그 또는 전체를 넘겨도 됨
   category?: string | string[] | null;
   region?: string | null;
@@ -36,10 +39,11 @@ export function PixelViewContent({
     mpTrack("View Photo", {
       photo_id: id,
       ...(photographerId ? { photographer_id: photographerId } : {}),
+      ...(albumId ? { album_id: albumId } : {}),
       ...(category != null ? { category: Array.isArray(category) ? category : [category] } : {}),
       ...(region ? { region } : {}),
       ...(price != null ? { price_krw: price } : {}),
     });
-  }, [id, name, photographerId, category, region, price, disabled]);
+  }, [id, name, photographerId, albumId, category, region, price, disabled]);
   return null;
 }
