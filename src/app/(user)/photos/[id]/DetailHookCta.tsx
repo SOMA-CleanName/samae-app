@@ -103,7 +103,7 @@ export function DetailHookCta({ href }: { href: string }) {
             data-track="cta:hook"
             className="mt-5 block w-full rounded-2xl bg-brand py-4 text-base font-bold text-white transition-opacity hover:opacity-90"
           >
-            무료 상담 신청하기
+            무료로 견적 받아보기
           </Link>
           <button
             type="button"

@@ -9,7 +9,7 @@ export default function Loading() {
           <div className="flex items-center gap-2 px-4 pt-3">
             <div className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-surface-2" />
             <div className="min-w-0 flex-1">
-              <p className="text-base font-semibold">무료 상담 신청</p>
+              <p className="text-base font-semibold">무료 견적 받기</p>
               <p className="text-sm text-muted">보통 1시간 내 답변드려요</p>
             </div>
           </div>

@@ -928,7 +928,7 @@ export function FloatingCart() {
                   {formFor !== null ? (
                     <form onSubmit={onSubmit} className="pointer-events-auto rounded-2xl bg-bg p-4 shadow-pop">
                       <p className="mb-2.5 text-sm font-semibold text-fg">
-                        {formFor === "selected" ? `선택한 ${selectedIds.size}장으로 상담 신청` : "이 사진으로 상담 신청"}
+                        {formFor === "selected" ? `선택한 ${selectedIds.size}장으로 견적 받기` : "이 사진으로 견적 받기"}
                         <button
                           type="button"
                           onClick={() => setFormFor(null)}
@@ -992,7 +992,7 @@ export function FloatingCart() {
                         disabled={!contact.trim() || !timing || !agreed || pending}
                         className="mt-3 h-12 w-full cursor-pointer rounded-xl bg-brand text-base font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                       >
-                        {pending ? "신청 중…" : "무료 상담 신청하기"}
+                        {pending ? "요청 중…" : "무료로 견적 받기"}
                       </button>
                     </form>
                   ) : selectMode ? null : focused && items.some((i) => i.id === focused) ? (
@@ -1001,7 +1001,7 @@ export function FloatingCart() {
                       onClick={() => leaveToInquiry(`/inquiry/photo/${focused}`)}
                       className="pointer-events-auto w-full cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
                     >
-                      이 사진으로 무료 상담 신청
+                      이 사진으로 무료 견적 받기
                     </button>
                   ) : (
                     // 전체·묶음 상담 CTA 제거 — 개별 사진 상담으로만 안내.
