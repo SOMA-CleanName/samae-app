@@ -254,7 +254,7 @@ function PhotoCtas({
       className="mt-4"
       data-track="cta:inquiry"
     >
-      무료로 상담 신청하기
+      무료로 견적 받아보기
     </Button>
   );
 }
