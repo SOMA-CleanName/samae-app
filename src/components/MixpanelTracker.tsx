@@ -7,16 +7,18 @@ import {
   mpEnabled,
   mpIdentify,
   mpPeople,
+  mpRegister,
   mpReset,
   mpTrack,
   mpDistinctId,
-  mpOptOut,
   mpOptIn,
 } from "@/lib/mixpanel";
 
 // Mixpanel 라이프사이클 — 로그인 유저 식별(identify) + 가입/로그인 이벤트 + role 속성.
-// 추가: 스태프(운영자·작가)는 추적 옵트아웃(퍼널·플로우 오염 방지),
-//       익명 방문자는 읽기 쉬운 표시이름($name)="{광고콘셉}-{짧은ID}" 부여.
+// 스태프(운영자·작가) 처리: opt-out(전체 차단)이 아니라 super 속성 is_staff=true 태그만 단다.
+//   → 이벤트는 계속 수집되므로 세션 리플레이엔 그대로 잡히고,
+//     퍼널·플로우 리포트에서 "is_staff ≠ true" 필터로 제외한다.
+// 익명 방문자는 읽기 쉬운 표시이름($name)="{광고콘셉}-{짧은ID}" 부여.
 // (Page View·Click·Scroll 등 자동 이벤트는 AnalyticsTracker 에서 함께 전송)
 
 const SIGNUP_WINDOW_MS = 5 * 60 * 1000; // created_at 이 최근 5분 이내면 '가입'으로 간주
@@ -60,13 +62,12 @@ async function setUserProps(supabase: SupabaseClient, userId: string) {
     ]);
     const role =
       profile?.role === "admin" ? "admin" : photographer ? "photographer" : "user";
-    if (role === "admin" || role === "photographer") {
-      // 스태프는 고객 행동 데이터가 아니므로 추적 중단 → 퍼널·플로우에 안 잡힘
-      mpOptOut();
-      return;
-    }
-    mpOptIn(); // 이전에 스태프였다면 복구
-    mpPeople({ role });
+    mpPeople({
+      role,
+      ...(photographer ? { photographer_status: photographer.status } : {}),
+    });
+    // 스태프는 추적을 끊지 않고(리플레이 유지) is_staff 태그만 → 퍼널·플로우는 리포트 필터로 제외
+    mpRegister({ is_staff: role === "admin" || role === "photographer" });
   } catch {
     /* 무시 */
   }
@@ -75,6 +76,10 @@ async function setUserProps(supabase: SupabaseClient, userId: string) {
 export function MixpanelTracker() {
   useEffect(() => {
     if (!mpEnabled()) return;
+    // 이전 배포에서 스태프로 opt-out 됐던 브라우저 복구(리플레이 위해 스태프도 추적 유지) +
+    // is_staff 기본값 false 등록(스태프면 setUserProps 에서 true 로 덮음).
+    mpOptIn();
+    mpRegister({ is_staff: false });
     const supabase = createClient();
 
     // 최초 세션 복원 시 — 이벤트 없이 식별만 (새로고침마다 로그인 카운트 방지)
@@ -85,7 +90,6 @@ export function MixpanelTracker() {
         setUserProps(supabase, u.id);
       } else {
         // 익명 방문자 — 읽기 쉬운 표시이름 부여 (utm 캡처 뒤 실행되도록 다음 틱)
-        mpOptIn();
         setTimeout(labelAnonymous, 0);
       }
     });
