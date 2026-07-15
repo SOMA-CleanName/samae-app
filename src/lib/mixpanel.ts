@@ -100,6 +100,36 @@ export function mpPeopleOnce(props: Record<string, unknown>): void {
   }
 }
 
+/** 현재 distinct_id (익명이면 "$device:xxx"). 읽기 쉬운 라벨 생성용. */
+export function mpDistinctId(): string {
+  if (!ensure()) return "";
+  try {
+    return mixpanel.get_distinct_id() || "";
+  } catch {
+    return "";
+  }
+}
+
+/** 스태프(운영자·작가) 추적 중단 — 이후 이벤트 미전송(브라우저에 영속). 퍼널·플로우 오염 방지. */
+export function mpOptOut(): void {
+  if (!ensure()) return;
+  try {
+    mixpanel.opt_out_tracking();
+  } catch {
+    /* 무시 */
+  }
+}
+
+/** 추적 재개 — 이전에 스태프로 옵트아웃됐던 브라우저를 일반 유저로 되돌릴 때만. */
+export function mpOptIn(): void {
+  if (!ensure()) return;
+  try {
+    if (mixpanel.has_opted_out_tracking?.()) mixpanel.opt_in_tracking();
+  } catch {
+    /* 무시 */
+  }
+}
+
 /** 로그아웃 — 익명 distinct_id 로 초기화(유저 혼입 방지). */
 export function mpReset(): void {
   if (!ready || !TOKEN) return;
