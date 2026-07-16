@@ -209,3 +209,19 @@ create trigger trg_explore_categories_updated
 - [ ] RLS 회귀 — 비공개 카테고리/멤버십이 비로그인·일반 유저에게 안 보이는지.
 - [ ] dev/prod 분리(`docs/19`) 미실행 상태 — 시드/테스트는 프로덕션 데이터 주의.
 ```
+
+---
+
+## 11. 개정 (2026-07-16) — 사진→카테고리 방식으로 전환
+
+초기 구현(§4.1 `ExplorePhotoPicker`)은 **카테고리에서 사진을 골라 담는** 방향이었으나,
+운영 편의를 위해 **사진에서 카테고리를 등록하는(사진→다중 카테고리)** 방향으로 전환.
+
+- **저장 모델 변경 없음** — `explore_category_photos`(다대다) 그대로 재사용. 검색 태그(`generated_tags`)와 분리된 전용 저장소.
+- **새 어드민 `/admin/explore/assign`** — 사진을 **포트폴리오(앨범)별로** 묶어 보고, 상단에서 '담을 카테고리'를 고른 뒤 사진을 탭해 담기/빼기. 포트폴리오 단위 일괄 담기/빼기 지원.
+  - `ExplorePhotoAssigner`(클라이언트) + 서버액션 `togglePhotoExploreCategory` / `addAlbumExploreCategory` / `removeAlbumExploreCategory` / `loadExploreAssignPage`.
+  - 읽기: `fetchExploreAssignPhotos`(앨범·작가 메타 포함) + `getExploreMembershipsForPhotos`.
+- **제거** — 카테고리→사진 피커(`ExplorePhotoPicker`)와 그 백엔드(`fetchExplorePhotoPool`·`setExploreCategoryPhotos`·`fetchPhotosByIds`).
+- **`/admin/explore`**(카테고리 관리)는 CRUD·공개·순서만 담당하고, 사진 할당은 `/assign` 으로 링크.
+- **`/explore` 프론트는 변경 없음** — 여전히 `explore_category_photos`(position 순)를 읽음.
+- 참고: 이번 전환으로 카테고리 내 사진 **수동 정렬(DnD)** 은 빠졌고, position 은 담은 순서(append)로 정해진다. 필요 시 후속에 정렬 도구 추가.

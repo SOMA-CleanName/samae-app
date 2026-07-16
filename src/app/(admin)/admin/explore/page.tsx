@@ -1,10 +1,5 @@
 import Link from "next/link";
-import {
-  listExploreCategoriesWithCounts,
-  getExploreCategoryPhotoIds,
-  fetchPhotosByIds,
-} from "@/lib/explore-db";
-import { ExplorePhotoPicker } from "./ExplorePhotoPicker";
+import { listExploreCategoriesWithCounts } from "@/lib/explore-db";
 import { Badge, EmptyState } from "@/components/ui";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { ConfirmForm } from "@/components/admin/ConfirmForm";
@@ -23,17 +18,24 @@ export const dynamic = "force-dynamic";
 // 광고 랜딩(/admin/categories)과 별개 체계다. (docs/20)
 export default async function AdminExplorePage() {
   const cats = await listExploreCategoriesWithCounts();
-  // 각 카테고리에 담긴 사진 썸네일(순서 유지) — 피커 담긴 존 프리로드. 풀은 클라이언트 lazy.
-  const pinnedByCat = await Promise.all(
-    cats.map(async (c) => fetchPhotosByIds(await getExploreCategoryPhotoIds(c.id)))
-  );
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-5">
-      <h1 className="text-h1 font-semibold">탐색 카테고리</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-h1 font-semibold">탐색 카테고리</h1>
+        <Link
+          href="/admin/explore/assign"
+          className="shrink-0 rounded-full bg-fg px-3.5 py-1.5 text-caption font-semibold text-bg transition-opacity hover:opacity-90"
+        >
+          사진에 카테고리 지정 →
+        </Link>
+      </div>
       <p className="mt-1 text-body-sm text-muted">
-        카테고리를 만들고 전체 사진에서 직접 골라 담아요(사진 담기는 각 카드에서). 공개하면 탐색(/explore)에
-        노출돼요.
+        카테고리를 만들고 순서·공개를 관리해요. 사진 담기는{" "}
+        <Link href="/admin/explore/assign" className="font-medium text-fg underline">
+          사진에 카테고리 지정
+        </Link>{" "}
+        에서 포트폴리오별로 해요. 공개하면 탐색(/explore)에 노출돼요.
       </p>
 
       {/* 생성 */}
@@ -104,9 +106,6 @@ export default async function AdminExplorePage() {
                   </ConfirmForm>
                 </div>
               </div>
-
-              {/* 사진 담기·순서 */}
-              <ExplorePhotoPicker categoryId={c.id} slug={c.slug} initialPinned={pinnedByCat[i]} />
 
               {/* 편집 (펼침) */}
               <details className="mt-3">
