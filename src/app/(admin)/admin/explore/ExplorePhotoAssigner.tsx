@@ -6,11 +6,8 @@ import {
   togglePhotoExploreCategory,
   addAlbumExploreCategory,
   removeAlbumExploreCategory,
-  loadExploreAssignPage,
 } from "./actions";
 import type { AssignPhotoWithCats } from "@/lib/explore-db";
-
-const PAGE = 48; // 서버 EXPLORE_POOL_PAGE 와 일치
 
 type Cat = { id: string; title: string };
 
@@ -25,9 +22,6 @@ export function ExplorePhotoAssigner({
 }) {
   const [activeCat, setActiveCat] = useState<string>(categories[0]?.id ?? "");
   const [photos, setPhotos] = useState<AssignPhotoWithCats[]>(initialPhotos);
-  const [offset, setOffset] = useState(initialPhotos.length);
-  const [hasMore, setHasMore] = useState(initialPhotos.length >= PAGE);
-  const [loading, setLoading] = useState(false);
   const catTitle = (id: string) => categories.find((c) => c.id === id)?.title ?? "";
 
   // 포트폴리오(앨범)별 그룹 — 등장 순서 유지. 앨범 없는 사진은 하나의 '개별 사진' 그룹.
@@ -91,18 +85,6 @@ export function ExplorePhotoAssigner({
       else await removeAlbumExploreCategory(albumId, activeCat);
     } catch {
       /* 실패해도 다음 로드 시 서버 상태로 복구됨 */
-    }
-  }
-
-  async function loadMore() {
-    setLoading(true);
-    try {
-      const more = await loadExploreAssignPage(offset);
-      setPhotos((prev) => [...prev, ...more]);
-      setOffset(offset + more.length);
-      setHasMore(more.length >= PAGE);
-    } finally {
-      setLoading(false);
     }
   }
 
@@ -206,16 +188,7 @@ export function ExplorePhotoAssigner({
         })}
       </div>
 
-      {hasMore && (
-        <button
-          type="button"
-          onClick={loadMore}
-          disabled={loading}
-          className="mt-4 w-full cursor-pointer rounded-lg border border-line-strong px-3 py-2 text-body-sm font-medium text-muted transition-colors hover:bg-fg/[0.04] disabled:opacity-50"
-        >
-          {loading ? "불러오는 중…" : "더 보기"}
-        </button>
-      )}
+      <p className="mt-4 text-center text-caption text-faint">전체 {photos.length}장</p>
     </div>
   );
 }

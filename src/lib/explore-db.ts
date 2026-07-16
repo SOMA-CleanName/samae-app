@@ -7,8 +7,6 @@ import type { GalleryPhoto } from "@/lib/discovery";
 const GALLERY_SELECT =
   "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name)";
 
-export const EXPLORE_POOL_PAGE = 48;
-
 // 탐색 편집형 카테고리(DB) — 광고 랜딩 categories 와 별개 체계. (docs/20)
 export type ExploreCategory = {
   id: string;
@@ -169,48 +167,53 @@ export type AssignPhoto = {
 // 할당 그리드 항목 — 사진 + 현재 소속 카테고리 id 들.
 export type AssignPhotoWithCats = AssignPhoto & { categoryIds: string[] };
 
-// 할당 그리드용 사진 — published, 최신순. RLS(승인작가·published) 태움. 앨범/작가 메타 포함.
-export async function fetchExploreAssignPhotos(
-  offset: number,
-  limit = EXPLORE_POOL_PAGE
-): Promise<AssignPhoto[]> {
+// 할당 그리드용 사진 — published 전체(최신순). RLS(승인작가·published) 태움.
+// PostgREST 페이지 상한(1000)을 넘겨도 range 로 순회해 모두 수집(어드민 전량 로드).
+export async function fetchAllExploreAssignPhotos(): Promise<AssignPhoto[]> {
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("photos")
-    .select(
-      "id, thumb_url, src_url, album_id, album:albums(title), photographer:photographers!photos_photographer_id_fkey!inner(display_name)"
-    )
-    .eq("visibility", "published")
-    .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1);
-  return (data ?? []).map((r) => {
-    const rr = r as Record<string, unknown>;
-    const album = rr.album as { title: string | null } | null;
-    const photographer = rr.photographer as { display_name: string | null } | null;
-    return {
-      id: rr.id as string,
-      thumb_url: rr.thumb_url as string | null,
-      src_url: rr.src_url as string,
-      album_id: rr.album_id as string | null,
-      album_title: album?.title ?? null,
-      photographer_name: photographer?.display_name ?? null,
-    };
-  });
+  const PAGE = 1000;
+  const out: AssignPhoto[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data } = await supabase
+      .from("photos")
+      .select(
+        "id, thumb_url, src_url, album_id, album:albums(title), photographer:photographers!photos_photographer_id_fkey!inner(display_name)"
+      )
+      .eq("visibility", "published")
+      .order("created_at", { ascending: false })
+      .range(from, from + PAGE - 1);
+    const batch = (data ?? []).map((r) => {
+      const rr = r as Record<string, unknown>;
+      const album = rr.album as { title: string | null } | null;
+      const photographer = rr.photographer as { display_name: string | null } | null;
+      return {
+        id: rr.id as string,
+        thumb_url: rr.thumb_url as string | null,
+        src_url: rr.src_url as string,
+        album_id: rr.album_id as string | null,
+        album_title: album?.title ?? null,
+        photographer_name: photographer?.display_name ?? null,
+      };
+    });
+    out.push(...batch);
+    if (batch.length < PAGE) break;
+  }
+  return out;
 }
 
-// 여러 사진의 카테고리 소속 → { photoId: [categoryId...] }
-export async function getExploreMembershipsForPhotos(
-  photoIds: string[]
-): Promise<Record<string, string[]>> {
-  const out: Record<string, string[]> = {};
-  if (photoIds.length === 0) return out;
+// 전체 멤버십 → { photoId: [categoryId...] }. 조인 테이블은 담긴 것만 있어 작다.
+export async function getAllExploreMemberships(): Promise<Record<string, string[]>> {
   const admin = createAdminClient();
-  const { data } = await admin
-    .from("explore_category_photos")
-    .select("photo_id, category_id")
-    .in("photo_id", photoIds);
-  for (const r of (data ?? []) as Array<{ photo_id: string; category_id: string }>) {
-    (out[r.photo_id] ??= []).push(r.category_id);
+  const out: Record<string, string[]> = {};
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data } = await admin
+      .from("explore_category_photos")
+      .select("photo_id, category_id")
+      .range(from, from + PAGE - 1);
+    const batch = (data ?? []) as Array<{ photo_id: string; category_id: string }>;
+    for (const r of batch) (out[r.photo_id] ??= []).push(r.category_id);
+    if (batch.length < PAGE) break;
   }
   return out;
 }

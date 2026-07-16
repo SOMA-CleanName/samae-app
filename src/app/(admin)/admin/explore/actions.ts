@@ -5,13 +5,10 @@ import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { archiveAndDelete } from "@/lib/soft-delete";
 import {
-  fetchExploreAssignPhotos,
-  getExploreMembershipsForPhotos,
   addPhotoToCategory,
   removePhotoFromCategory,
   addAlbumPhotosToCategory,
   removeAlbumPhotosFromCategory,
-  type AssignPhotoWithCats,
 } from "@/lib/explore-db";
 
 async function assertAdmin() {
@@ -155,14 +152,6 @@ export async function removeAlbumExploreCategory(
   await removeAlbumPhotosFromCategory(albumId, categoryId);
   revalidatePath("/admin/explore/assign");
   revalidatePath("/explore");
-}
-
-// 할당 그리드 다음 페이지 (클라이언트 호출)
-export async function loadExploreAssignPage(offset: number): Promise<AssignPhotoWithCats[]> {
-  await assertAdmin();
-  const photos = await fetchExploreAssignPhotos(Math.max(0, offset));
-  const mem = await getExploreMembershipsForPhotos(photos.map((p) => p.id));
-  return photos.map((p) => ({ ...p, categoryIds: mem[p.id] ?? [] }));
 }
 
 // 삭제 (소프트딜리트 — 아카이브 후 제거, 멤버십은 FK cascade 로 정리)
