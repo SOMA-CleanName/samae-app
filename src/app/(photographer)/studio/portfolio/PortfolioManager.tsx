@@ -64,7 +64,7 @@ export function PortfolioManager({ packages }: { packages: PackageOption[] }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="rounded-full bg-fg px-4 py-2 text-sm font-semibold text-bg hover:opacity-90"
+        className="inline-flex h-9 shrink-0 items-center whitespace-nowrap rounded-full bg-fg px-4 text-sm font-semibold text-bg transition-opacity hover:opacity-90"
       >
         + 추가
       </button>

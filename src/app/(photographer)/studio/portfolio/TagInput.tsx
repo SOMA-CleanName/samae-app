@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 // 태그 입력 — 칩 방식. Enter/쉼표로 추가, 빈 입력에서 Backspace로 마지막 삭제, 최대 max개.
 // 제어형: value/onChange 사용. 폼 제출형: name 주면 쉼표 join한 hidden input 렌더.
@@ -19,6 +19,8 @@ export function TagInput({
 }) {
   const [tags, setTags] = useState<string[]>(() => defaultTags.slice(0, max));
   const [draft, setDraft] = useState("");
+  // 한글 IME 조합 중인지 — 조합 확정용 Enter/글자를 태그 추가로 오인하지 않도록
+  const composing = useRef(false);
 
   function commit(next: string[]) {
     setTags(next);
@@ -38,6 +40,8 @@ export function TagInput({
   }
 
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    // IME 조합 중 Enter/, 는 글자 확정용 — 태그 추가로 처리하지 않는다.
+    if (composing.current || e.nativeEvent.isComposing) return;
     if (e.key === "Enter" || e.key === ",") {
       e.preventDefault();
       addTag(draft);
@@ -50,7 +54,7 @@ export function TagInput({
 
   return (
     <div>
-      <div className="flex flex-wrap items-center gap-1.5 rounded-lg border border-fg/15 bg-surface px-2 py-1.5 focus-within:border-fg/40">
+      <div className="field-wrap flex flex-wrap items-center gap-1.5 rounded-lg border border-fg/15 bg-surface px-2 py-1.5">
         {tags.map((t, i) => (
           <span
             key={t}
@@ -71,14 +75,21 @@ export function TagInput({
           <input
             value={draft}
             onChange={(e) => {
-              // 쉼표 입력 순간에도 칩으로 확정
-              if (e.target.value.includes(",")) addTag(e.target.value);
+              // 쉼표 입력 순간에도 칩으로 확정 (조합 중엔 그대로 두고 확정 시 처리)
+              if (!composing.current && e.target.value.includes(",")) addTag(e.target.value);
               else setDraft(e.target.value);
+            }}
+            onCompositionStart={() => {
+              composing.current = true;
+            }}
+            onCompositionEnd={(e) => {
+              composing.current = false;
+              setDraft(e.currentTarget.value);
             }}
             onKeyDown={onKeyDown}
             onBlur={() => addTag(draft)}
             placeholder={tags.length === 0 ? placeholder : ""}
-            className="min-w-[7rem] flex-1 bg-transparent px-1 py-0.5 text-sm text-fg outline-none placeholder:text-fg/35"
+            className="min-w-[7rem] flex-1 bg-transparent px-1 py-0.5 text-sm text-fg outline-none placeholder:text-fg/45"
           />
         )}
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { TagInput } from "./TagInput";
 import { HelpTip } from "./HelpTip";
 import { SortableGrid, SortableItem } from "@/components/ui/SortableGrid";
@@ -31,7 +31,6 @@ export function PortfolioUploader({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>([]);
   const [dragOver, setDragOver] = useState(false);
 
   const [description, setDescription] = useState("");
@@ -41,11 +40,9 @@ export function PortfolioUploader({
   const [publish, setPublish] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const urls = files.map((f) => URL.createObjectURL(f));
-    setPreviews(urls);
-    return () => urls.forEach((u) => URL.revokeObjectURL(u));
-  }, [files]);
+  // 미리보기 URL — files 에서 파생(useMemo). 이전 URL 은 정리 effect 에서 revoke.
+  const previews = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
+  useEffect(() => () => previews.forEach((u) => URL.revokeObjectURL(u)), [previews]);
 
   function addFiles(list: FileList | null) {
     const imgs = Array.from(list ?? []).filter((f) => f.type.startsWith("image/"));
@@ -108,9 +105,9 @@ export function PortfolioUploader({
             dragOver ? "border-fg/50 bg-fg/[0.04]" : "border-fg/20 hover:border-fg/35 hover:bg-fg/[0.02]"
           }`}
         >
-          <span className="grid h-12 w-12 place-items-center rounded-full bg-fg/[0.06] text-2xl">🖼</span>
+          <span className="grid h-12 w-12 place-items-center rounded-full bg-fg/[0.06] text-2xl">📷</span>
           <span className="text-sm font-medium">사진을 끌어다 놓거나 클릭해 선택</span>
-          <span className="text-xs text-fg/45">JPG·PNG · 장당 15MB 이하 · 여러 장 = 한 피드</span>
+          <span className="text-xs text-fg/55">JPG·PNG · 장당 15MB 이하 · 여러 장 = 한 피드</span>
         </button>
       ) : (
         <>
@@ -186,7 +183,7 @@ export function PortfolioUploader({
 
       {/* 공통 정보 — 항상 노출 */}
       <div className="mt-4 flex flex-col gap-3 border-t border-fg/10 pt-4">
-        <label className="flex flex-col gap-1 text-xs text-fg/55">
+        <label className="flex flex-col gap-1 text-xs text-fg/60">
           설명
           <textarea
             value={description}
@@ -194,11 +191,11 @@ export function PortfolioUploader({
             rows={3}
             maxLength={1000}
             placeholder="이 촬영에 대한 설명을 적어주세요."
-            className="resize-none rounded-lg border border-fg/15 bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-fg/40"
+            className="resize-none rounded-lg border border-fg/15 bg-surface px-3 py-2 text-sm text-fg outline-none placeholder:text-fg/45 focus:border-fg/40"
           />
         </label>
-        <div className="grid grid-cols-2 gap-3">
-          <label className="flex flex-col gap-1 text-xs text-fg/55">
+        <div className="flex flex-col gap-3">
+          <label className="flex flex-col gap-1 text-xs text-fg/60">
             <span className="flex items-center gap-1">
               가격
               <HelpTip label="가격 안내">
@@ -221,13 +218,13 @@ export function PortfolioUploader({
             ) : (
               <a
                 href="/studio/packages"
-                className="flex h-[38px] items-center rounded-lg border border-dashed border-fg/20 px-3 text-sm text-fg/45 hover:border-fg/35 hover:text-fg/70"
+                className="flex h-[38px] items-center gap-1 whitespace-nowrap rounded-lg border border-dashed border-fg/25 px-3 text-sm text-fg/60 hover:border-fg/40 hover:text-fg"
               >
-                패키지를 먼저 등록하세요 →
+                패키지를 먼저 등록하세요 <span aria-hidden>→</span>
               </a>
             )}
           </label>
-          <label className="flex flex-col gap-1 text-xs text-fg/55">
+          <label className="flex flex-col gap-1 text-xs text-fg/60">
             <span className="flex items-center gap-1">
               장소
               <HelpTip label="장소 안내">
@@ -239,11 +236,11 @@ export function PortfolioUploader({
               onChange={(e) => setLocation(e.target.value)}
               maxLength={120}
               placeholder="예: 성수동 카페, 골목 어귀"
-              className="rounded-lg border border-fg/15 bg-surface px-3 py-2 text-sm text-fg outline-none focus:border-fg/40"
+              className="rounded-lg border border-fg/15 bg-surface px-3 py-2 text-sm text-fg outline-none placeholder:text-fg/45 focus:border-fg/40"
             />
           </label>
         </div>
-        <div className="flex flex-col gap-1 text-xs text-fg/55">
+        <div className="flex flex-col gap-1 text-xs text-fg/60">
           <span className="flex items-center gap-1">
             태그
             <HelpTip label="태그 안내">

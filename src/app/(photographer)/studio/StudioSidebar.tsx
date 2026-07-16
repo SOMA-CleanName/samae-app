@@ -17,7 +17,8 @@ export function StudioSidebar() {
 
   const ops: Item[] = [
     { href: "/studio", label: "문의" },
-    { href: "/studio/reviews", label: "후기" },
+    // 후기 탭 숨김(되돌리려면 아래 주석 해제):
+    // { href: "/studio/reviews", label: "후기" },
   ];
   // 리드 모델 전환으로 인앱 예약/정산 기반 항목은 숨김(되돌리려면 hidden 제거):
   //   { href: "/studio/availability", label: "일정" },
