@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { getPublishedCategory, isUntaggedCategory } from "@/lib/categories";
 import { fetchCategoryFeed, fetchLikedPhotoIds, fetchPhotoById } from "@/lib/discovery";
@@ -100,12 +99,17 @@ export default async function CategoryPage({
           <span className="h-1.5 w-1.5 rounded-full bg-brand" />
           {category.name} 추천 보는 중
         </span>
-        <Link
+        {/* 카테고리 컨텍스트(쿠키) 해제는 반드시 풀 페이지 이동이어야 브라우저가
+            미들웨어의 Set-Cookie(쿠키 삭제)를 확실히 반영한다. Next <Link> 클라이언트
+            네비는 리다이렉트의 Set-Cookie 가 커밋되지 않아 쿠키가 남고 → 다시 /c/ 로
+            튕기며 무한스크롤 없는 페이지에 갇힌다. 그래서 일반 <a> 로 강제 풀 로드. */}
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- 쿠키 삭제 반영 위해 의도적 풀 로드 */}
+        <a
           href="/?nocat=1"
           className="rounded-full px-2.5 py-1 text-caption font-medium text-muted transition-colors hover:bg-fg/[0.05] hover:text-fg"
         >
           전체 보기 ✕
-        </Link>
+        </a>
       </div>
 
       {photos.length === 0 ? (
