@@ -43,7 +43,10 @@ export default async function ExploreCategoryPage({
     <section className="px-2.5 pb-2.5 pt-2.5 font-kr sm:px-4 sm:pt-4 sm:pb-4">
       <ScrollMemory />
       {/* 카테고리 탐색 진입 — 취향 시그널(수요 차원) */}
-      <MpTrackOnce event="View Category" props={{ category: cat.title, result_count: photos.length }} />
+      <MpTrackOnce
+        event="View Category"
+        props={{ category: cat.title, slug: cat.slug, result_count: photos.length }}
+      />
       <h1 className="mb-3 px-1 text-xl font-bold tracking-tight">{cat.title}</h1>
       <ExploreGallery photos={photos} loggedIn={!!me} />
     </section>
