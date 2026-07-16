@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listExploreCategoriesWithCounts } from "@/lib/explore-db";
+import { ExplorePreviewPicker } from "./ExplorePreviewPicker";
 import { Badge, EmptyState } from "@/components/ui";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { ConfirmForm } from "@/components/admin/ConfirmForm";
@@ -106,6 +107,13 @@ export default async function AdminExplorePage() {
                   </ConfirmForm>
                 </div>
               </div>
+
+              {/* 미리보기 사진(홈 스트립) — 담긴 사진 중에서 골라 순서 */}
+              <ExplorePreviewPicker
+                categoryId={c.id}
+                slug={c.slug}
+                previewPhotoIds={c.previewPhotoIds}
+              />
 
               {/* 편집 (펼침) */}
               <details className="mt-3">

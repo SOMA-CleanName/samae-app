@@ -15,9 +15,10 @@ export type ExploreCategory = {
   subtitle: string;
   published: boolean;
   sort: number;
+  previewPhotoIds: string[]; // /explore 홈 스트립에 노출할 사진 id (순서). 비면 position 순 앞 N장
 };
 
-const EXPLORE_COLUMNS = "id, slug, title, subtitle, published, sort";
+const EXPLORE_COLUMNS = "id, slug, title, subtitle, published, sort, preview_photo_ids";
 
 function mapRow(r: Record<string, unknown>): ExploreCategory {
   return {
@@ -27,6 +28,7 @@ function mapRow(r: Record<string, unknown>): ExploreCategory {
     subtitle: (r.subtitle as string) ?? "",
     published: !!r.published,
     sort: (r.sort as number) ?? 0,
+    previewPhotoIds: (r.preview_photo_ids as string[]) ?? [],
   };
 }
 
@@ -159,12 +161,20 @@ export async function listPublishedExploreSections(
   }
 
   return cats.map((c) => {
-    const photos = mem
-      .filter((m) => m.category_id === c.id) // 이미 position 오름차순
+    // 담긴 사진(position 순)
+    const byPosition = mem
+      .filter((m) => m.category_id === c.id)
       .map((m) => photoById.get(m.photo_id))
-      .filter((p): p is GalleryPhoto => !!p)
-      .slice(0, perCat);
-    return { category: c, photos };
+      .filter((p): p is GalleryPhoto => !!p);
+    // 미리보기 지정이 있으면 그 순서로, 없으면 position 순. (지정이 전부 무효면 position 순 폴백)
+    let photos = byPosition;
+    if (c.previewPhotoIds.length > 0) {
+      const preview = c.previewPhotoIds
+        .map((id) => photoById.get(id))
+        .filter((p): p is GalleryPhoto => !!p);
+      if (preview.length > 0) photos = preview;
+    }
+    return { category: c, photos: photos.slice(0, perCat) };
   });
 }
 
