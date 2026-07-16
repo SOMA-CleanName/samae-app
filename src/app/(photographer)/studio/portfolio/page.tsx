@@ -1,4 +1,3 @@
-/* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
@@ -154,7 +153,7 @@ function GroupCard({ g }: { g: Group }) {
               <form action={setAlbumVisibility}>
                 <input type="hidden" name="album_id" value={g.albumId} />
                 <input type="hidden" name="visibility" value={anyPublished ? "draft" : "published"} />
-                <button className="rounded-full border border-fg/20 px-3 py-1 text-xs text-fg/70 hover:bg-fg/[0.04]">
+                <button className="inline-flex h-7 items-center whitespace-nowrap rounded-full border border-fg/20 px-3 text-xs font-medium text-fg/70 transition-colors hover:bg-fg/[0.04]">
                   {anyPublished ? "게시물 비공개" : "게시물 공개"}
                 </button>
               </form>

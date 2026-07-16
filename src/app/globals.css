@@ -176,6 +176,25 @@ img {
   border-radius: 4px;
 }
 
+/* 폼 컨트롤: offset·고정 radius 아웃라인이 둥근 테두리와 어긋나 보인다.
+   대신 요소의 실제 border-radius 를 따라가는(box-shadow) 중립 포커스 링으로 대체. */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--fg) 14%, transparent);
+}
+
+/* 태그 입력처럼 wrapper 가 필드 역할을 하는 경우: 안쪽 input 자체 링은 끄고
+   wrapper 가 다른 필드와 동일한 border(40%)+ring 을 갖도록 한다. */
+.field-wrap:focus-within {
+  border-color: color-mix(in srgb, var(--fg) 40%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--fg) 14%, transparent);
+}
+.field-wrap input:focus-visible {
+  box-shadow: none;
+}
+
 /* 텍스트 선택 — 브랜드 틴트 */
 ::selection {
   background: var(--brand-soft);

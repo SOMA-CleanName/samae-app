@@ -2,7 +2,10 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { inquiryChannel } from "@/lib/inquiry-channel";
+import { getPhotographerPayoutAccount } from "@/lib/payments";
 import { SITE_URL } from "@/lib/site";
+
+const won = (n: number) => new Intl.NumberFormat("ko-KR").format(n);
 
 // 운영진 알림 (디스코드 웹훅) — 리드 모델의 시작점.
 // 새 문의가 들어오면 운영진 채널로 알려, 운영진이 작가에게 카톡으로 통보하도록 한다.
@@ -83,6 +86,62 @@ export async function notifyOpsNewInquiry(params: { inquiryId: string }): Promis
     });
   } catch {
     // 디스코드 실패가 문의 접수를 막지 않게 무시
+  }
+}
+
+// 작가 '입금완료' 신고 — 입금 대기(accepted) 리드에서 작가가 입금완료 버튼을 누르면 호출.
+// 운영진이 대조·처리할 수 있게: 어떤 작가·어떤 건·금액·입금자명(작가 수취계좌 예금주)·어드민 딥링크를 싣는다.
+// 실제 입금확인(accepted→confirmed)은 운영진이 계좌 입금내역과 대조 후 어드민에서 수동 처리.
+export async function notifyOpsDepositReported(params: { inquiryId: string }): Promise<void> {
+  if (!OPS_WEBHOOK) return; // 미설정이면 조용히 패스(로컬/미배포)
+
+  try {
+    const admin = createAdminClient();
+    const { data: q } = await admin
+      .from("inquiries")
+      .select(
+        "id, purpose, preferred_date, region, party_size, deposit_amount_krw, photographer_id, photographer:photographers!inquiries_photographer_id_fkey(display_name)"
+      )
+      .eq("id", params.inquiryId)
+      .maybeSingle();
+    if (!q) return;
+
+    const who = one(q.photographer as { display_name?: string | null })?.display_name || "작가";
+    const ref = params.inquiryId.slice(0, 8); // 운영진 대조용 짧은 참조
+    const amount = (q.deposit_amount_krw as number | null) ?? 0;
+
+    // 입금자명 대조용 — 작가 수취계좌 예금주명(미설정이면 안내)
+    const account = await getPhotographerPayoutAccount(q.photographer_id as string);
+    const holder = account?.holder?.trim() || "미설정";
+
+    // 어드민 문의 페이지 딥링크 — 해당 문의를 자동으로 펼치고 스크롤(입금확인 처리).
+    const adminLink = SITE_URL
+      ? `${SITE_URL}/admin/inquiries?open=${params.inquiryId}#inq-${params.inquiryId}`
+      : `/admin/inquiries?open=${params.inquiryId}`;
+
+    const brief = [
+      q.purpose ? `목적 ${q.purpose}` : null,
+      q.preferred_date ? `희망일 ${q.preferred_date}` : null,
+      q.region ? `지역 ${q.region}` : null,
+      q.party_size ? `인원 ${q.party_size}` : null,
+    ].filter(Boolean);
+
+    const lines: string[] = [
+      `💰 **입금완료 신고** — ${who} 작가  (문의 \`${ref}\`)`,
+      `💳 금액: **₩${won(amount)}**  ·  입금자명(예금주): **${holder}**`,
+    ];
+    if (brief.length) lines.push(`📋 ${brief.join(" · ")}`);
+    lines.push(`🛠 **어드민에서 확인·입금확인 처리: ${adminLink}**`);
+    lines.push(`_계좌 입금내역의 입금자명이 위 예금주와 일치하면 ‘입금확인’으로 변경하세요._`);
+
+    await fetch(OPS_WEBHOOK, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: lines.join("\n") }),
+      redirect: "manual",
+    });
+  } catch {
+    // 디스코드 실패가 신고 처리를 막지 않게 무시
   }
 }
 

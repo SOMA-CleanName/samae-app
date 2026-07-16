@@ -19,7 +19,7 @@ export function EditTrigger({
       }
       className={
         className ??
-        "rounded-full border border-fg/20 px-3 py-1 text-xs font-medium text-fg/70 transition-colors hover:bg-fg/[0.04]"
+        "inline-flex h-7 items-center whitespace-nowrap rounded-full border border-fg/20 px-3 text-xs font-medium text-fg/70 transition-colors hover:bg-fg/[0.04]"
       }
     >
       편집

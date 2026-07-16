@@ -12,7 +12,7 @@ export function DeletePostButton({ albumId, count }: { albumId: string; count: n
       }}
     >
       <input type="hidden" name="album_id" value={albumId} />
-      <button className="rounded-full px-3 py-1 text-xs text-brand hover:bg-brand/[0.06]">
+      <button className="inline-flex h-7 items-center whitespace-nowrap rounded-full px-3 text-xs font-medium text-brand transition-colors hover:bg-brand/[0.06]">
         게시물 삭제
       </button>
     </form>
