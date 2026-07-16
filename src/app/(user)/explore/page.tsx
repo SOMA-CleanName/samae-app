@@ -1,10 +1,10 @@
-import Link from "next/link";
 import { cookies } from "next/headers";
 import { listPublishedExploreSections } from "@/lib/explore-db";
 import { getPublishedCategory } from "@/lib/categories";
 import { CATEGORY_COOKIE } from "@/lib/category-constants";
 import { ChevronRightIcon } from "@/components/user/icons";
 import { ExploreStrip } from "./ExploreStrip";
+import { TrackedCategoryLink } from "./TrackedCategoryLink";
 import { ScrollMemory } from "@/components/user/ScrollMemory";
 import { MpTrackOnce } from "@/components/MpTrackOnce";
 
@@ -37,8 +37,15 @@ export default async function ExplorePage() {
             준비 중이에요. 곧 큐레이션한 카테고리를 보여드릴게요.
           </p>
         ) : (
-          sections.map(({ category, photos }) => (
-            <Link key={category.id} href={`/explore/${category.slug}`} className="group block">
+          sections.map(({ category, photos }, i) => (
+            <TrackedCategoryLink
+              key={category.id}
+              href={`/explore/${category.slug}`}
+              category={category.title}
+              slug={category.slug}
+              rank={i + 1}
+              className="group block"
+            >
               <div className="mb-2.5 flex items-center justify-between gap-2">
                 <h2 className="text-lg font-semibold tracking-tight">{category.title}</h2>
                 <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-fg/[0.06] text-muted transition-colors group-hover:bg-fg/10 group-hover:text-fg">
@@ -47,7 +54,7 @@ export default async function ExplorePage() {
               </div>
               {/* 저스티파이드 행 — 사진 원본 비율 그대로, 한 줄 폭 꽉 채움 */}
               <ExploreStrip photos={photos} />
-            </Link>
+            </TrackedCategoryLink>
           ))
         )}
       </div>
