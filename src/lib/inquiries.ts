@@ -23,18 +23,30 @@ export type AcceptedInquiry = {
   accepted_at: string;
   // 입금 플로우
   confirmed: boolean; // 운영자 입금 확인 여부
+  deposit_reported: boolean; // 작가가 '입금완료' 신고했는지(운영진 확인 대기)
   deposit_amount_krw: number;
+  source_photo: { url: string; width: number; height: number } | null; // 고객이 신청한 그 사진
 };
 
-// 잠긴 리드 — 사전정보·연락처·닉네임은 입금 확인 전 일절 미노출.
-// 클라이언트로도 보내지 않는다(네트워크 응답 유출 방지). 카드엔 받은 시각·해제 금액만 쓴다.
+// 잠긴 리드 — 연락처(전화·카톡·이메일)만 게이트. 브리프(목적·날짜·지역·인원·메모·참고사진)와
+// 고객이 신청한 사진은 구매 전에도 노출해 작가가 리드 가치를 보고 해제하도록 한다.
+// 연락처 컬럼은 select 하지 않아 네트워크 응답에도 실리지 않는다.
 export type NewInquiry = {
   id: string;
   created_at: string;
   deposit_amount_krw: number;
+  name: string | null;
+  display_name: string | null;
+  purpose: string;
+  preferred_date: string;
+  region: string;
+  party_size: string | null;
+  note: string | null;
+  ref_images: string[];
+  source_photo: { url: string; width: number; height: number } | null; // 고객이 신청한 그 사진
 };
 
-// 작가가 받은(수락 전) 문의 — 식별/시각/금액만. 브리프는 반환하지 않는다. 최신순.
+// 작가가 받은(수락 전) 문의 — 브리프 + 신청 사진 포함(연락처 제외). 최신순.
 export async function listMyNewInquiries(): Promise<NewInquiry[]> {
   const me = await getCurrentUser();
   if (!me?.photographer) return [];
@@ -42,17 +54,36 @@ export async function listMyNewInquiries(): Promise<NewInquiry[]> {
   const admin = createAdminClient();
   const { data } = await admin
     .from("inquiries")
-    .select("id, created_at, deposit_amount_krw")
+    .select(
+      "id, created_at, deposit_amount_krw, name, purpose, preferred_date, region, party_size, ref_image_paths, note, profile:profiles!inquiries_profile_id_fkey(display_name), source_photo:photos!inquiries_source_photo_id_fkey(src_url, thumb_url, width, height)"
+    )
     .eq("photographer_id", me.photographer.id)
     .eq("status", "new")
     .eq("hidden_from_photographer", false) // 운영진이 숨긴(취소) 문의 제외
     .order("created_at", { ascending: false });
 
-  return (data ?? []).map((row) => ({
-    id: row.id as string,
-    created_at: row.created_at as string,
-    deposit_amount_krw: (row.deposit_amount_krw as number | null) ?? 0,
-  }));
+  return (data ?? []).map((row) => {
+    const profile = Array.isArray(row.profile) ? row.profile[0] : row.profile;
+    const p = (Array.isArray(row.source_photo) ? row.source_photo[0] : row.source_photo) as
+      | { src_url?: string | null; thumb_url?: string | null; width?: number | null; height?: number | null }
+      | null
+      | undefined;
+    const url = p?.thumb_url ?? p?.src_url ?? null;
+    return {
+      id: row.id as string,
+      created_at: row.created_at as string,
+      deposit_amount_krw: (row.deposit_amount_krw as number | null) ?? 0,
+      name: (row.name as string | null) ?? null,
+      display_name: (profile?.display_name as string | null | undefined) ?? null,
+      purpose: row.purpose as string,
+      preferred_date: row.preferred_date as string,
+      region: (row.region as string | null) ?? "",
+      party_size: (row.party_size as string | null) ?? null,
+      note: (row.note as string | null) ?? null,
+      ref_images: (row.ref_image_paths as string[] | null) ?? [],
+      source_photo: url ? { url, width: p?.width ?? 0, height: p?.height ?? 0 } : null,
+    };
+  });
 }
 
 // 작가가 수락한 문의 목록 — 입금대기(accepted) + 입금확인(confirmed). 수락 순.
@@ -64,7 +95,7 @@ export async function listMyAcceptedInquiries(): Promise<AcceptedInquiry[]> {
   const { data } = await admin
     .from("inquiries")
     .select(
-      "id, status, name, phone, kakao_id, contact_email, purpose, preferred_date, region, gender, party_size, ref_image_paths, note, created_at, accepted_at, deposit_amount_krw, profile:profiles!inquiries_profile_id_fkey(display_name)"
+      "id, status, name, phone, kakao_id, contact_email, purpose, preferred_date, region, gender, party_size, ref_image_paths, note, created_at, accepted_at, deposit_reported_at, deposit_amount_krw, profile:profiles!inquiries_profile_id_fkey(display_name), source_photo:photos!inquiries_source_photo_id_fkey(src_url, thumb_url, width, height)"
     )
     .eq("photographer_id", me.photographer.id)
     .in("status", ["accepted", "confirmed", "shot", "refund_requested"])
@@ -74,6 +105,11 @@ export async function listMyAcceptedInquiries(): Promise<AcceptedInquiry[]> {
 
   return (data ?? []).map((row) => {
     const profile = Array.isArray(row.profile) ? row.profile[0] : row.profile;
+    const p = (Array.isArray(row.source_photo) ? row.source_photo[0] : row.source_photo) as
+      | { src_url?: string | null; thumb_url?: string | null; width?: number | null; height?: number | null }
+      | null
+      | undefined;
+    const photoUrl = p?.thumb_url ?? p?.src_url ?? null;
     // accepted(입금대기) 외에는 모두 연락처 공개 단계(confirmed/shot/refund_requested)
     const confirmed = row.status !== "accepted";
     return {
@@ -95,7 +131,9 @@ export async function listMyAcceptedInquiries(): Promise<AcceptedInquiry[]> {
       created_at: row.created_at as string,
       accepted_at: row.accepted_at as string,
       confirmed,
+      deposit_reported: row.deposit_reported_at != null,
       deposit_amount_krw: (row.deposit_amount_krw as number | null) ?? 0,
+      source_photo: photoUrl ? { url: photoUrl, width: p?.width ?? 0, height: p?.height ?? 0 } : null,
     };
   });
 }

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { mpTrackServer } from "@/lib/mixpanel-server";
+import { notifyOpsDepositReported } from "@/lib/ops-alert";
 
 // 최저가·가격 상한 (350만원)
 const MAX_PRICE_KRW = 100_000_000; // 사실상 무제한(안전값 1억)
@@ -221,6 +222,31 @@ export async function cancelInquiryUnlock(id: string): Promise<{ ok: boolean }> 
     .eq("photographer_id", me.photographer.id) // 본인 문의만
     .eq("status", "accepted"); // 입금대기만 — confirmed 는 되돌릴 수 없음
   if (error) throw new Error(error.message);
+
+  revalidatePath("/studio");
+  return { ok: true };
+}
+
+// 입금완료 신고 — 입금 대기(accepted) 리드에서 작가가 '입금완료'를 누르면 호출.
+// 신고 시각을 기록하고 운영진 디스코드로 알림(작가·건·금액·예금주명·어드민 링크)을 보낸다.
+// 실제 입금확인(→confirmed)은 운영진이 계좌 대조 후 어드민에서 수동 처리.
+export async function reportDepositPaid(id: string): Promise<{ ok: boolean }> {
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가 권한이 필요합니다.");
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("inquiries")
+    .update({ deposit_reported_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("photographer_id", me.photographer.id) // 본인 문의만
+    .eq("status", "accepted") // 입금대기만 — confirmed 이후엔 신고 불필요
+    .select("id")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return { ok: false }; // 본인 입금대기 건이 아님
+
+  await notifyOpsDepositReported({ inquiryId: id });
 
   revalidatePath("/studio");
   return { ok: true };
