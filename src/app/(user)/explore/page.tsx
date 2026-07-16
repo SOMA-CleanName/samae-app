@@ -1,5 +1,8 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { listPublishedExploreSections } from "@/lib/explore-db";
+import { getPublishedCategory } from "@/lib/categories";
+import { CATEGORY_COOKIE } from "@/lib/category-constants";
 import { ChevronRightIcon } from "@/components/user/icons";
 import { ExploreStrip } from "./ExploreStrip";
 import { ScrollMemory } from "@/components/user/ScrollMemory";
@@ -10,9 +13,17 @@ export const dynamic = "force-dynamic";
 // 탐색 페이지 — 운영이 어드민에서 큐레이션한 카테고리별 가로 미리보기(편집형).
 // 섹션 전체(이름·더보기·사진) 클릭 → 해당 카테고리 탐색 페이지(/explore/[slug]).
 // 순서·멤버십은 운영이 정한 값(explore_categories · explore_category_photos). (docs/20)
+// 광고(/c/<slug>) 진입 시 samae_cat 쿠키로 그 광고에 지정된 카테고리만 순서대로 노출.
 export default async function ExplorePage() {
+  // 광고 진입 컨텍스트 — 지정돼 있으면 그 광고의 explore_section_ids 로 교체.
+  const adSlug = (await cookies()).get(CATEGORY_COOKIE)?.value;
+  const adCat = adSlug ? await getPublishedCategory(adSlug) : null;
+  const orderedIds = adCat?.exploreSectionIds;
+
   // 담긴 사진 4장 미만 카테고리는 스트립이 빈약하므로 숨김(공개했어도).
-  const sections = (await listPublishedExploreSections(10)).filter((s) => s.photos.length >= 4);
+  const sections = (await listPublishedExploreSections(10, orderedIds)).filter(
+    (s) => s.photos.length >= 4
+  );
 
   return (
     <section className="font-kr">

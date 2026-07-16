@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listCategoriesWithCounts, fetchAdCandidates, isUntaggedCategory } from "@/lib/categories";
+import { listExploreCategoriesWithCounts } from "@/lib/explore-db";
 import { listAllTags } from "@/lib/tags";
 import { Badge, EmptyState } from "@/components/ui";
 import { SubmitButton } from "@/components/ui/SubmitButton";
@@ -8,6 +9,7 @@ import { LayersIcon } from "@/components/user/icons";
 import { CategoryFields } from "./CategoryFields";
 import { CategoryAdPicker } from "./CategoryAdPicker";
 import { CategoryPhotoOrder } from "./CategoryPhotoOrder";
+import { CategoryExploreSections } from "./CategoryExploreSections";
 import {
   createCategory,
   updateCategory,
@@ -19,9 +21,18 @@ export const dynamic = "force-dynamic";
 
 // 카테고리 관리 — 운영자가 카테고리를 만들고, 매칭 사진 수를 보고, 페이지를 공개한다.
 export default async function AdminCategoriesPage() {
-  const [cats, allTags] = await Promise.all([listCategoriesWithCounts(), listAllTags()]);
+  const [cats, allTags, exploreCats] = await Promise.all([
+    listCategoriesWithCounts(),
+    listAllTags(),
+    listExploreCategoriesWithCounts(),
+  ]);
   // 각 카테고리의 광고 소재 채택 후보 썸네일 (병렬)
   const candidatesByCat = await Promise.all(cats.map((c) => fetchAdCandidates(c)));
+  const exploreOptions = exploreCats.map((c) => ({
+    id: c.id,
+    title: c.title,
+    published: c.published,
+  }));
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-5">
@@ -120,6 +131,22 @@ export default async function AdminCategoriesPage() {
                   slug={c.slug}
                   candidates={candidatesByCat[i]}
                   ordered={c.orderedPhotoIds}
+                />
+              </details>
+
+              {/* 탐색 탭 노출 카테고리 (펼침) — 이 광고 진입 시 /explore 에 보여줄 것 */}
+              <details className="mt-3" open={c.exploreSectionIds.length > 0}>
+                <summary className="cursor-pointer text-caption font-medium text-fg">
+                  🧭 탐색 탭 노출 카테고리
+                  {c.exploreSectionIds.length > 0 && (
+                    <span className="ml-1 text-brand">· {c.exploreSectionIds.length}개 지정</span>
+                  )}
+                </summary>
+                <CategoryExploreSections
+                  categoryId={c.id}
+                  slug={c.slug}
+                  options={exploreOptions}
+                  selected={c.exploreSectionIds}
                 />
               </details>
 

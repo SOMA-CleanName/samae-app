@@ -104,16 +104,31 @@ export async function fetchExploreCategoryGalleryPhotos(
 }
 
 // /explore 홈 — 공개 카테고리 각각 앞 perCat 장(position 순). 3쿼리로 배치.
+// orderedIds 가 주어지면(광고 진입) 그 id 들만, 그 순서대로 노출(공개된 것만).
+// 없으면 전체 공개 카테고리를 sort 순으로.
 export async function listPublishedExploreSections(
-  perCat: number
+  perCat: number,
+  orderedIds?: string[]
 ): Promise<Array<{ category: ExploreCategory; photos: GalleryPhoto[] }>> {
   const supabase = await createClient();
-  const { data: catData } = await supabase
-    .from("explore_categories")
-    .select(EXPLORE_COLUMNS)
-    .eq("published", true)
-    .order("sort", { ascending: true });
-  const cats = (catData ?? []).map(mapRow);
+  let cats: ExploreCategory[];
+  if (orderedIds && orderedIds.length > 0) {
+    const { data: catData } = await supabase
+      .from("explore_categories")
+      .select(EXPLORE_COLUMNS)
+      .eq("published", true)
+      .in("id", orderedIds);
+    const byId = new Map((catData ?? []).map((r) => [r.id as string, mapRow(r)]));
+    // 지정 순서 유지(비공개/삭제된 건 건너뜀)
+    cats = orderedIds.map((id) => byId.get(id)).filter((c): c is ExploreCategory => !!c);
+  } else {
+    const { data: catData } = await supabase
+      .from("explore_categories")
+      .select(EXPLORE_COLUMNS)
+      .eq("published", true)
+      .order("sort", { ascending: true });
+    cats = (catData ?? []).map(mapRow);
+  }
   if (cats.length === 0) return [];
 
   // 멤버십(순서) — 관리 데이터라 admin 으로 한 번에. 사진 가시성은 아래 RLS 조회가 판단.

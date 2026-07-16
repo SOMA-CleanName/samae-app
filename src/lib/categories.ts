@@ -15,10 +15,11 @@ export type Category = {
   sort: number;
   adPhotoIds: string[]; // 광고 소재로 채택한 사진 id (A/B 여러 장 가능)
   orderedPhotoIds: string[]; // 첫 진입 시 상단에 이 순서대로 노출할 사진 id (수동 고정 순서)
+  exploreSectionIds: string[]; // 이 광고 진입 시 탐색 탭에 보여줄 explore_categories id (순서)
 };
 
 const CATEGORY_COLUMNS =
-  "id, slug, name, description, tags, published, sort, ad_photo_ids, ordered_photo_ids";
+  "id, slug, name, description, tags, published, sort, ad_photo_ids, ordered_photo_ids, explore_section_ids";
 
 function mapRow(r: Record<string, unknown>): Category {
   return {
@@ -31,6 +32,7 @@ function mapRow(r: Record<string, unknown>): Category {
     sort: (r.sort as number) ?? 0,
     adPhotoIds: (r.ad_photo_ids as string[]) ?? [],
     orderedPhotoIds: (r.ordered_photo_ids as string[]) ?? [],
+    exploreSectionIds: (r.explore_section_ids as string[]) ?? [],
   };
 }
 
