@@ -84,7 +84,7 @@ export function ExplorePreviewPicker({
 
         <div className="flex items-center justify-between gap-2">
           <p className="text-caption text-muted">
-            홈 스트립 노출 순서 · 지정 <b className="text-fg">{picked.length}</b>장
+            지정 <b className="text-fg">{picked.length}</b>장을 스트립 앞에 고정 · 나머지는 담긴 순서로 채움
             {picked.length === 0 && " (비우면 담긴 순서 앞부터)"}
           </p>
           <SaveButton />

@@ -166,13 +166,16 @@ export async function listPublishedExploreSections(
       .filter((m) => m.category_id === c.id)
       .map((m) => photoById.get(m.photo_id))
       .filter((p): p is GalleryPhoto => !!p);
-    // 미리보기 지정이 있으면 그 순서로, 없으면 position 순. (지정이 전부 무효면 position 순 폴백)
+    // 미리보기 지정이 있으면 그 사진들을 앞에 두고, 나머지 담긴 사진으로 채운다.
+    // (지정만 쓰면 2장만 골랐을 때 스트립이 빈약해지므로 — 항상 담긴 만큼 채워 노출)
     let photos = byPosition;
     if (c.previewPhotoIds.length > 0) {
+      const previewIds = new Set(c.previewPhotoIds);
       const preview = c.previewPhotoIds
         .map((id) => photoById.get(id))
         .filter((p): p is GalleryPhoto => !!p);
-      if (preview.length > 0) photos = preview;
+      const rest = byPosition.filter((p) => !previewIds.has(p.id));
+      photos = [...preview, ...rest];
     }
     return { category: c, photos: photos.slice(0, perCat) };
   });
