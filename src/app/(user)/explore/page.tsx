@@ -20,9 +20,9 @@ export default async function ExplorePage() {
   const adCat = adSlug ? await getPublishedCategory(adSlug) : null;
   const orderedIds = adCat?.exploreSectionIds;
 
-  // 담긴 사진 4장 미만 카테고리는 스트립이 빈약하므로 숨김(공개했어도).
+  // 담긴 사진 3장 미만 카테고리는 스트립이 빈약하므로 숨김(공개했어도).
   const sections = (await listPublishedExploreSections(10, orderedIds)).filter(
-    (s) => s.photos.length >= 4
+    (s) => s.photos.length >= 3
   );
 
   return (
