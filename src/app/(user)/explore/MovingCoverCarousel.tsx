@@ -15,6 +15,8 @@ export type CoverCat = {
 };
 
 const STEP_MS = 2600;
+// 카드 폭(컨테이너 대비 %) — 100 미만이면 양옆 이웃 카드가 (100-SLIDE_W)/2 씩 삐져나온다.
+const SLIDE_W = 80;
 
 // 무빙 커버 캐러셀 — 카테고리별로 사진 몇 장을 크로스페이드하고, 다 돌면 다음 카테고리로 슬라이드.
 // 사용자가 좌우로 스와이프/드래그해 카테고리를 직접 넘길 수 있다(조작 중엔 자동넘김 잠깐 멈춤).
@@ -40,15 +42,17 @@ export function MovingCoverCarousel({ cats }: { cats: CoverCat[] }) {
   const startX = useRef<number | null>(null);
   const dragged = useRef(false);
 
+  // step 이 바뀔 때마다 리셋되는 타이머 — 게이지 채움(STEP_MS)과 넘김을 항상 동기화한다.
+  // 스와이프 후엔 pausedUntil 만큼 더 기다린다(탭은 정지 없이 정상 진행).
   useEffect(() => {
     if (steps.length <= 1) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const id = setInterval(() => {
-      if (Date.now() < pausedUntil.current) return;
+    const wait = Math.max(STEP_MS, pausedUntil.current - Date.now());
+    const id = setTimeout(() => {
       setStep((s) => (s + 1) % steps.length);
-    }, STEP_MS);
-    return () => clearInterval(id);
-  }, [steps.length]);
+    }, wait);
+    return () => clearTimeout(id);
+  }, [step, steps.length]);
 
   if (cats.length === 0) return null;
   const cur = steps[step] ?? { ci: 0, si: 0 };
@@ -62,7 +66,20 @@ export function MovingCoverCarousel({ cats }: { cats: CoverCat[] }) {
   };
 
   return (
-    <Link
+    <div className="mt-4">
+      {/* 위치 도트 — 이미지 바깥 위쪽. 현재 위치는 브랜드 레드, 나머지는 회색 */}
+      <div className="mb-2 flex justify-center gap-1.5">
+        {cats.map((cc, i) => (
+          <span
+            key={cc.slug}
+            className={cn(
+              "h-2 w-2 rounded-full transition-colors duration-300",
+              i === cur.ci ? "bg-brand" : "bg-fg/20"
+            )}
+          />
+        ))}
+      </div>
+      <Link
       href={`/explore/${active.slug}`}
       style={{ touchAction: "pan-y" }}
       onPointerDown={(e) => {
@@ -95,80 +112,90 @@ export function MovingCoverCarousel({ cats }: { cats: CoverCat[] }) {
           source: "cover",
         });
       }}
-      className={`${styles.reveal} group relative mt-4 block aspect-[4/5] cursor-grab select-none overflow-hidden rounded-2xl bg-fg/[0.06] active:cursor-grabbing`}
+      className={`${styles.reveal} group relative block aspect-[4/5] cursor-grab select-none overflow-hidden active:cursor-grabbing`}
     >
-      {/* 슬라이드 트랙 — 카테고리 패널을 가로로 늘어놓고 translateX 로 이동 */}
+      {/* 슬라이드 트랙 — 카드를 80% 폭으로 늘어놓고 활성 카드를 중앙에 오도록 translateX.
+          양옆 이웃 카드가 10%씩 삐져나와 회색·블러로 보인다(coverflow). */}
       <div
-        className="absolute inset-0 flex h-full transition-transform duration-700 ease-[cubic-bezier(.6,.05,.2,1)]"
-        style={{
-          width: `${cats.length * 100}%`,
-          transform: `translateX(-${(cur.ci * 100) / cats.length}%)`,
-        }}
+        className="absolute inset-0 flex transition-transform duration-700 ease-[cubic-bezier(.6,.05,.2,1)]"
+        style={{ transform: `translateX(${10 - cur.ci * SLIDE_W}%)` }}
       >
         {cats.map((c, ci) => {
-          const activeShot = ci === cur.ci ? cur.si : 0;
+          const isActive = ci === cur.ci;
+          const activeShot = isActive ? cur.si : 0;
           return (
-            <div key={c.slug} className="relative h-full" style={{ width: `${100 / cats.length}%` }}>
-              {c.shots.map((sh, i) => (
-                <Image
-                  key={sh.id}
-                  src={sh.url}
-                  alt=""
-                  fill
-                  quality={90}
-                  priority={ci === 0 && i === 0}
-                  draggable={false}
-                  sizes="(max-width: 640px) 100vw, 430px"
-                  className={cn(
-                    "object-cover transition-opacity duration-[900ms]",
-                    i === activeShot ? "opacity-100" : "opacity-0"
-                  )}
-                />
-              ))}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
-              <div className="absolute inset-x-4 bottom-7 text-white">
-                {c.subtitle && (
-                  <p className="mb-1.5 font-display text-body-sm italic text-white/85">{c.subtitle}</p>
+            <div key={c.slug} className="h-full flex-none px-1.5" style={{ width: `${SLIDE_W}%` }}>
+              <div
+                className={cn(
+                  "relative h-full w-full overflow-hidden bg-fg/[0.06] transition-all duration-700 ease-[cubic-bezier(.6,.05,.2,1)]",
+                  isActive
+                    ? "scale-100 opacity-100"
+                    : "scale-[0.92] opacity-80 grayscale blur-[2px] brightness-90"
                 )}
-                <h2 className="text-2xl font-extrabold leading-tight tracking-tight [text-wrap:balance]">
-                  {c.title}
-                </h2>
+              >
+                {c.shots.map((sh, i) => (
+                  <Image
+                    key={sh.id}
+                    src={sh.url}
+                    alt=""
+                    fill
+                    quality={90}
+                    priority={ci === 0 && i === 0}
+                    draggable={false}
+                    sizes="(max-width: 640px) 80vw, 360px"
+                    className={cn(
+                      "object-cover transition-opacity duration-[900ms]",
+                      i === activeShot ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                ))}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+
+
+                <div className="absolute inset-x-4 bottom-6 text-white">
+                  {c.subtitle && (
+                    <p className="mb-1 font-display text-body-sm italic text-white/85">{c.subtitle}</p>
+                  )}
+                  <h2 className="text-xl font-extrabold leading-tight tracking-tight [text-wrap:balance]">
+                    {c.title}
+                  </h2>
+                </div>
+
+                {/* 사진 진행 세그먼트 바 — 탭하면 해당 사진으로 점프(칸이 채워짐). 활성 카드에서만 채워진다. */}
+                <div className="absolute inset-x-3 bottom-3 flex gap-1">
+                  {c.shots.map((sh, i) => (
+                    <span
+                      key={sh.id}
+                      role="button"
+                      aria-label={`${i + 1}번째 사진 보기`}
+                      onPointerDown={(e) => {
+                        // click 은 모바일에서 첫 탭이 스와이프로 오인돼 삼켜질 수 있어 pointerdown 에서 바로 점프.
+                        e.stopPropagation();
+                        pausedUntil.current = 0; // 탭은 정지 없이 정상 진행(게이지 채워지면 다음으로)
+                        setStep((catStart[ci] ?? 0) + i);
+                      }}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      className="flex-1 cursor-pointer py-2.5 -my-2.5"
+                    >
+                      <span className="block h-[3px] overflow-hidden rounded-full bg-white/30">
+                        {isActive && i < cur.si ? (
+                          <span className="block h-full w-full bg-white" />
+                        ) : isActive && i === cur.si ? (
+                          <span key={step} className={styles.fill} style={{ animationDuration: `${STEP_MS}ms` }} />
+                        ) : null}
+                      </span>
+                    </span>
+                  ))}
+                </div>
               </div>
             </div>
           );
         })}
       </div>
-
-      {/* 상단 라벨(고정) */}
-      <span className="absolute left-3.5 top-3.5 rounded-full bg-white px-3 py-1 font-display text-caption italic font-semibold text-[#150c0a]">
-        This Week · 커버
-      </span>
-
-      {/* 카테고리 진행 도트(고정) */}
-      <div className="absolute right-3.5 top-4 flex gap-1.5">
-        {cats.map((c, ci) => (
-          <span
-            key={c.slug}
-            className={cn(
-              "h-1.5 rounded-full bg-white transition-all duration-300",
-              ci === cur.ci ? "w-4 opacity-100" : "w-1.5 opacity-45"
-            )}
-          />
-        ))}
-      </div>
-
-      {/* 사진 진행 세그먼트 바(고정) — 현재 카테고리 사진 수만큼 나눠 채워지고, 다 차면 다음 카테고리로 */}
-      <div className="absolute inset-x-3.5 bottom-3.5 flex gap-1">
-        {active.shots.map((sh, i) => (
-          <span key={sh.id} className="h-[3px] flex-1 overflow-hidden rounded-full bg-white/30">
-            {i < cur.si ? (
-              <span className="block h-full w-full bg-white" />
-            ) : i === cur.si ? (
-              <span key={step} className={styles.fill} style={{ animationDuration: `${STEP_MS}ms` }} />
-            ) : null}
-          </span>
-        ))}
-      </div>
-    </Link>
+      </Link>
+    </div>
   );
 }

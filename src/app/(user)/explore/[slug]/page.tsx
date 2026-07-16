@@ -9,6 +9,7 @@ import { seededShuffle } from "@/lib/seeded-shuffle";
 import { ExploreGallery } from "@/components/user/ExploreGallery";
 import { ScrollMemory } from "@/components/user/ScrollMemory";
 import { MpTrackOnce } from "@/components/MpTrackOnce";
+import { CategoryBackButton } from "./CategoryBackButton";
 
 export const dynamic = "force-dynamic";
 
@@ -47,7 +48,9 @@ export default async function ExploreCategoryPage({
         event="View Category"
         props={{ category: cat.title, slug: cat.slug, result_count: photos.length }}
       />
-      <h1 className="mb-3 px-1 text-xl font-bold tracking-tight">{cat.title}</h1>
+      {/* 좌상단 고정 뒤로가기 — 스크롤해도 계속 떠 있음. 제목은 pl 로 버튼을 비켜 감. */}
+      <CategoryBackButton />
+      <h1 className="mb-3 pl-11 pr-1 text-xl font-bold tracking-tight">{cat.title}</h1>
       <ExploreGallery photos={photos} loggedIn={!!me} />
     </section>
   );

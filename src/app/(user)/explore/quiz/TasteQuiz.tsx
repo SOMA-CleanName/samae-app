@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { mpTrack } from "@/lib/mixpanel";
 import { curateByTaste, saveTaste, type CuratedPhoto } from "./actions";
 
@@ -21,6 +21,18 @@ export function TasteQuiz({ photos }: { photos: QuizPhoto[] }) {
   const [pending, startT] = useTransition();
   const startRef = useRef({ x: 0, y: 0 });
 
+  // 테스트를 끝내면(결과) 탐색 스크롤 저장값을 지운다 →
+  // 결과에서 뒤로가기(또는 사진→뒤로)로 탐색으로 돌아가면 최상단에서 시작.
+  useEffect(() => {
+    if (!result) return;
+    try {
+      sessionStorage.removeItem("samae:scroll:/explore");
+      sessionStorage.removeItem("samae:scroll-anchor:/explore");
+    } catch {
+      /* 스토리지 접근 불가 시 무시 */
+    }
+  }, [result]);
+
   const topTagsOf = (arr: QuizPhoto[]) => {
     const counts = new Map<string, number>();
     for (const p of arr) for (const t of p.tags) counts.set(t, (counts.get(t) ?? 0) + 1);
@@ -30,7 +42,9 @@ export function TasteQuiz({ photos }: { photos: QuizPhoto[] }) {
   const finish = (likedArr: QuizPhoto[]) => {
     const tags = topTagsOf(likedArr);
     startT(async () => {
-      const [res] = await Promise.all([curateByTaste(tags), saveTaste(tags)]);
+      // 큐레이션만 미리 보여주고, 취향 적용(saveTaste)은 '홈에서 내 취향 보기'를 눌러야만 한다.
+      // → 결과에서 그냥 뒤로 나가면 취향이 적용되지 않음.
+      const res = await curateByTaste(tags);
       setResult({ tags, photos: res });
       mpTrack("Complete Taste Quiz", { tags, liked: likedArr.length, swiped: photos.length });
     });
@@ -61,12 +75,12 @@ export function TasteQuiz({ photos }: { photos: QuizPhoto[] }) {
   // ── 결과 ──
   if (result) {
     return (
-      <div className="mt-5">
-        <p className="font-display text-body-sm italic text-brand">너의 취향</p>
+      <div className="min-h-0 flex-1 overflow-y-auto pt-4 pb-8">
+        <p className="text-body font-bold text-brand">당신의 무드</p>
         {result.tags.length > 0 ? (
           <div className="mt-2 flex flex-wrap gap-2">
             {result.tags.map((t) => (
-              <span key={t} className="rounded-full bg-brand-soft px-3 py-1.5 text-body-sm font-semibold text-brand-ink">
+              <span key={t} className="rounded-full bg-brand-soft px-2 py-0.5 text-body-sm font-semibold text-brand-ink">
                 #{t}
               </span>
             ))}
@@ -75,14 +89,24 @@ export function TasteQuiz({ photos }: { photos: QuizPhoto[] }) {
           <p className="mt-2 text-body-sm text-muted">좋아요한 사진이 적어서 취향을 못 잡았어요. 다시 해볼까요?</p>
         )}
 
-        <h2 className="mt-6 text-xl font-bold tracking-tight">이런 스냅 어때요?</h2>
+        <div className="mt-6 flex items-center justify-between gap-2">
+          <h2 className="text-xl font-bold tracking-tight">이런 스냅 어때요?</h2>
+          <button
+            type="button"
+            onClick={reset}
+            className="shrink-0 rounded-full border border-line-strong px-4 py-1.5 text-body-sm font-semibold text-fg transition-colors hover:bg-fg/[0.04]"
+          >
+            내 무드 다시 탐색하기
+          </button>
+        </div>
         {result.photos.length > 0 ? (
           <div className="mt-3 grid grid-cols-2 gap-2.5">
             {result.photos.map((p) => (
               <Link
                 key={p.id}
                 href={`/photos/${p.id}`}
-                className="group relative aspect-[3/4] overflow-hidden rounded-2xl bg-fg/[0.06]"
+                replace
+                className="group relative aspect-[3/4] overflow-hidden bg-fg/[0.06]"
               >
                 <Image
                   src={p.url}
@@ -98,20 +122,32 @@ export function TasteQuiz({ photos }: { photos: QuizPhoto[] }) {
           <p className="mt-3 text-body-sm text-muted">딱 맞는 스냅이 아직 적어요. 다른 취향으로 다시 해볼까요?</p>
         )}
 
-        <div className="mt-6 flex gap-2.5">
+        <div className="mt-8 flex justify-center">
           <button
             type="button"
-            onClick={reset}
-            className="flex-1 rounded-full border border-line-strong py-3 text-body-sm font-semibold text-fg transition-colors hover:bg-fg/[0.04]"
+            disabled={pending}
+            onClick={() => {
+              // 이 버튼을 눌러야만 취향을 실제로 적용(saveTaste)하고 홈으로.
+              // 홈 피드 캐시를 비워 새 취향순 피드가 실제로 반영되게 + 풀 로드.
+              startT(async () => {
+                await saveTaste(result.tags);
+                try {
+                  Object.keys(sessionStorage)
+                    .filter((k) => k.startsWith("samae:gallery-session:"))
+                    .forEach((k) => sessionStorage.removeItem(k));
+                } catch {
+                  /* 무시 */
+                }
+                window.location.href = "/";
+              });
+            }}
+            className="inline-flex items-center gap-1.5 rounded-full bg-brand px-7 py-3 text-body-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
           >
-            다시 하기
+            내 취향 사진 더 보러가기
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 6l6 6-6 6" />
+            </svg>
           </button>
-          <Link
-            href="/"
-            className="flex flex-[1.6] items-center justify-center gap-1.5 rounded-full bg-brand py-3 text-body-sm font-semibold text-white transition-opacity hover:opacity-90"
-          >
-            ✨ 홈에서 내 취향 보기
-          </Link>
         </div>
       </div>
     );
@@ -120,7 +156,7 @@ export function TasteQuiz({ photos }: { photos: QuizPhoto[] }) {
   // 큐레이션 대기
   if (pending) {
     return (
-      <div className="flex flex-col items-center justify-center py-24">
+      <div className="flex flex-1 flex-col items-center justify-center">
         <span className="h-6 w-6 animate-spin rounded-full border-2 border-fg/20 border-t-fg" />
         <p className="mt-3 text-body-sm text-muted">취향 분석 중…</p>
       </div>
@@ -134,8 +170,8 @@ export function TasteQuiz({ photos }: { photos: QuizPhoto[] }) {
   );
 
   return (
-    <div className="mt-5 flex flex-col items-center">
-      <div className="w-full max-w-[340px] text-center">
+    <div className="flex min-h-0 flex-1 flex-col items-center pt-4">
+      <div className="w-full max-w-[340px] shrink-0 text-center">
         <p className="font-display text-body-sm italic text-brand">30초 취향 테스트</p>
         <h1 className="mt-1 text-2xl font-bold tracking-tight">끌리면 오른쪽, 아니면 왼쪽</h1>
         <p className="mt-1.5 text-body-sm text-muted">
@@ -145,8 +181,8 @@ export function TasteQuiz({ photos }: { photos: QuizPhoto[] }) {
         </p>
       </div>
 
-      {/* 덱 */}
-      <div className="relative mt-5 aspect-[3/4] w-full max-w-[340px] select-none">
+      {/* 덱 — 남는 높이에 맞춰 유연하게(스크롤 없이 한 화면에) */}
+      <div className="relative mt-4 min-h-0 w-full max-w-[340px] flex-1 select-none">
         {idxs.map((idx) => {
           const photo = photos[idx];
           const isFlung = flung?.index === idx;
@@ -244,7 +280,7 @@ export function TasteQuiz({ photos }: { photos: QuizPhoto[] }) {
       </div>
 
       {/* 버튼 */}
-      <div className="mt-6 flex items-center gap-6">
+      <div className="mt-5 flex shrink-0 items-center gap-6">
         <button
           type="button"
           onClick={() => decide("pass")}
@@ -268,7 +304,7 @@ export function TasteQuiz({ photos }: { photos: QuizPhoto[] }) {
       </div>
 
       {/* 진행 — 다 넘기면 자동 결과 */}
-      <div className="mt-5 flex w-full max-w-[340px] flex-col items-center gap-2">
+      <div className="mt-4 flex w-full max-w-[340px] shrink-0 flex-col items-center gap-2 pb-4">
         <div className="h-1 w-full overflow-hidden rounded-full bg-fg/10">
           <div
             className="h-full rounded-full bg-brand transition-[width] duration-300"

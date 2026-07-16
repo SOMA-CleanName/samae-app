@@ -78,12 +78,34 @@ export function FloatingNav({
               label="홈"
               active={homeActive}
               icon={<HomeIcon className="h-5 w-5" />}
+              onClick={(e) => {
+                // 이미 홈(또는 카테고리 컨텍스트)에서 다시 누르면 이동 대신
+                // 현재 사진만 재셔플 + 최상단으로 (ExploreGallery 가 처리).
+                if (homeActive) {
+                  e.preventDefault();
+                  window.dispatchEvent(new Event("samae:home-reshuffle"));
+                }
+              }}
             />
             <NavPill
               href="/explore"
               label="탐색"
               active={exploreActive}
               icon={<SearchIcon className="h-5 w-5" />}
+              onClick={(e) => {
+                // 저장된 스크롤 위치를 지워 다른 경로에서 오면 탐색 최상단으로.
+                try {
+                  sessionStorage.removeItem("samae:scroll:/explore");
+                  sessionStorage.removeItem("samae:scroll-anchor:/explore");
+                } catch {
+                  /* 스토리지 접근 불가 시 무시 */
+                }
+                // 이미 탐색이면 한 번 더 누를 때 새로고침(리로드) → 커버·썸네일 새 랜덤 + 최상단.
+                if (exploreActive) {
+                  e.preventDefault();
+                  window.location.reload();
+                }
+              }}
             />
           </div>
         </div>

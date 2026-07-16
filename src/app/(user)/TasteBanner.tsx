@@ -1,18 +1,24 @@
 "use client";
 
 import { useTransition } from "react";
-import { useRouter } from "next/navigation";
 import { clearTaste } from "./explore/quiz/actions";
 
 // 홈 상단 — 취향 적용 중임을 알리고 초기화 제공. (취향 쿠키가 있을 때만 렌더)
 export function TasteBanner({ tags }: { tags: string[] }) {
-  const router = useRouter();
   const [pending, start] = useTransition();
 
+  // 초기화 — 취향 쿠키 삭제 + 홈 피드 캐시(취향 반영분) 비우고 풀 리로드 → 홈 완전 초기화.
   const reset = () =>
     start(async () => {
       await clearTaste();
-      router.refresh();
+      try {
+        Object.keys(sessionStorage)
+          .filter((k) => k.startsWith("samae:gallery-session:"))
+          .forEach((k) => sessionStorage.removeItem(k));
+      } catch {
+        /* 무시 */
+      }
+      window.location.href = "/";
     });
 
   return (
