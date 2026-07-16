@@ -9,9 +9,9 @@ import { inquiryChannel } from "@/lib/inquiry-channel";
 //          채널별 유입(순방문 세션) + 유입 퍼널(방문→사진조회→문의페이지→접수).
 //          (Mixpanel 무료 플랜은 Query API 를 막아서 402 → 우리 데이터로 대체)
 //   [하단] inquiries 테이블 — 접수(채널별) · 전환 퍼널(접수→수락→입금확정) · 매출.
-// 웹훅은 기존 운영 알림과 동일 변수(DISCORD_OPS_WEBHOOK_URL) 재사용.
-
-const OPS_WEBHOOK = process.env.DISCORD_OPS_WEBHOOK_URL;
+// 리포트 전용 웹훅 — 미설정이면 통합 OPS 채널(DISCORD_OPS_WEBHOOK_URL)로 폴백(하위호환).
+// 채널을 나누려면 디스코드에서 리포트 채널 웹훅을 만들어 DISCORD_DIGEST_WEBHOOK_URL 만 채우면 된다.
+const OPS_WEBHOOK = process.env.DISCORD_DIGEST_WEBHOOK_URL || process.env.DISCORD_OPS_WEBHOOK_URL;
 const KST = 9 * 60 * 60 * 1000; // Vercel 은 UTC 로 도니 KST 경계를 직접 계산
 const DAY = 24 * 60 * 60 * 1000;
 const FUNNEL_WINDOW_DAYS = 30; // 상단 퍼널·채널 유입 집계 창(저트래픽이라 30일로 표본 확보)

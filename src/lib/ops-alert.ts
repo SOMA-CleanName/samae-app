@@ -13,13 +13,19 @@ const won = (n: number) => new Intl.NumberFormat("ko-KR").format(n);
 //    단, '작가에게 복사해 보낼 블록'만은 PII 미포함(연락처는 입금 확인 후 작가에게 공개).
 // 링크는 정식 도메인 상수(lib/site)를 쓴다 — NEXT_PUBLIC_SITE_URL 은 비어있거나 localhost 라 부적합.
 
-const OPS_WEBHOOK = process.env.DISCORD_OPS_WEBHOOK_URL;
+// 성격별 채널 웹훅 — 각각 미설정이면 통합 OPS 채널(DISCORD_OPS_WEBHOOK_URL)로 폴백(하위호환).
+// 채널을 나누려면 디스코드에서 채널별 웹훅을 만들어 해당 env 만 채우면 된다.
+const OPS_FALLBACK = process.env.DISCORD_OPS_WEBHOOK_URL;
+const INQUIRY_WEBHOOK = process.env.DISCORD_INQUIRY_WEBHOOK_URL || OPS_FALLBACK; // 새 문의 · 장바구니 문의
+const DEPOSIT_WEBHOOK = process.env.DISCORD_DEPOSIT_WEBHOOK_URL || OPS_FALLBACK; // 입금완료 신고
+const APPLICATION_WEBHOOK = process.env.DISCORD_APPLICATION_WEBHOOK_URL || OPS_FALLBACK; // 작가 신청
 
 const one = <T,>(v: T | T[] | null | undefined): T | null =>
   Array.isArray(v) ? v[0] ?? null : v ?? null;
 
 export async function notifyOpsNewInquiry(params: { inquiryId: string }): Promise<void> {
-  if (!OPS_WEBHOOK) return; // 미설정이면 조용히 패스(로컬/미배포)
+  const webhook = INQUIRY_WEBHOOK;
+  if (!webhook) return; // 미설정이면 조용히 패스(로컬/미배포)
 
   try {
     const admin = createAdminClient();
@@ -78,7 +84,7 @@ export async function notifyOpsNewInquiry(params: { inquiryId: string }): Promis
     // 작가 복붙 블록
     lines.push("", "⬇️ 아래 메시지를 복사해 작가에게 보내세요", "```", forPhotographer, "```");
 
-    await fetch(OPS_WEBHOOK, {
+    await fetch(webhook, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content: lines.join("\n") }),
@@ -93,7 +99,8 @@ export async function notifyOpsNewInquiry(params: { inquiryId: string }): Promis
 // 운영진이 대조·처리할 수 있게: 어떤 작가·어떤 건·금액·입금자명(작가 수취계좌 예금주)·어드민 딥링크를 싣는다.
 // 실제 입금확인(accepted→confirmed)은 운영진이 계좌 입금내역과 대조 후 어드민에서 수동 처리.
 export async function notifyOpsDepositReported(params: { inquiryId: string }): Promise<void> {
-  if (!OPS_WEBHOOK) return; // 미설정이면 조용히 패스(로컬/미배포)
+  const webhook = DEPOSIT_WEBHOOK;
+  if (!webhook) return; // 미설정이면 조용히 패스(로컬/미배포)
 
   try {
     const admin = createAdminClient();
@@ -134,7 +141,7 @@ export async function notifyOpsDepositReported(params: { inquiryId: string }): P
     lines.push(`🛠 **어드민에서 확인·입금확인 처리: ${adminLink}**`);
     lines.push(`_계좌 입금내역의 입금자명이 위 예금주와 일치하면 ‘입금확인’으로 변경하세요._`);
 
-    await fetch(OPS_WEBHOOK, {
+    await fetch(webhook, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content: lines.join("\n") }),
@@ -153,7 +160,8 @@ export async function notifyOpsCartInquiry(params: {
   timing?: string | null;
   region?: string | null;
 }): Promise<void> {
-  if (!OPS_WEBHOOK) return;
+  const webhook = INQUIRY_WEBHOOK;
+  if (!webhook) return;
   try {
     const admin = createAdminClient();
     const { data: photos } = await admin
@@ -180,7 +188,7 @@ export async function notifyOpsCartInquiry(params: {
       "고객이 담아둔 사진들이에요. 해당 작가들에게 연결해주세요.",
     ].filter((l): l is string => Boolean(l));
 
-    await fetch(OPS_WEBHOOK, {
+    await fetch(webhook, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content: lines.join("\n") }),
@@ -200,7 +208,8 @@ export async function notifyOpsNewApplication(params: {
   phone: string;
   bio: string | null;
 }): Promise<void> {
-  if (!OPS_WEBHOOK) return; // 미설정이면 조용히 패스(로컬/미배포)
+  const webhook = APPLICATION_WEBHOOK;
+  if (!webhook) return; // 미설정이면 조용히 패스(로컬/미배포)
 
   try {
     const ref = params.applicationId.slice(0, 8); // 운영진 대조용 짧은 참조
@@ -212,7 +221,7 @@ export async function notifyOpsNewApplication(params: {
     if (params.bio) lines.push(`• 소개: ${params.bio}`);
     lines.push("", "작가가 카카오 채널로도 신청 메시지를 보낼 거예요. 채널 확인 후 진행해주세요.");
 
-    await fetch(OPS_WEBHOOK, {
+    await fetch(webhook, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content: lines.join("\n") }),
