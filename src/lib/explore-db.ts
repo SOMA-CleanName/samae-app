@@ -2,14 +2,10 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { searchPhotosByTag } from "@/lib/discovery";
 import type { GalleryPhoto } from "@/lib/discovery";
 
 const GALLERY_SELECT =
   "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name)";
-
-// 어드민 피커 썸네일 최소 필드
-export type PoolPhoto = { id: string; thumb_url: string | null; src_url: string };
 
 export const EXPLORE_POOL_PAGE = 48;
 
@@ -159,42 +155,142 @@ export async function listPublishedExploreSections(
   });
 }
 
-// id 목록으로 썸네일 조회 — 담긴 사진이 검색 윈도우 밖이어도 존을 채우기 위함.
-// 순서는 입력 ids 를 따른다(쿼리 반환 순서 무시).
-export async function fetchPhotosByIds(ids: string[]): Promise<PoolPhoto[]> {
-  if (ids.length === 0) return [];
-  const admin = createAdminClient();
-  const { data } = await admin
-    .from("photos")
-    .select("id, thumb_url, src_url")
-    .in("id", ids);
-  const byId = new Map((data ?? []).map((r) => [r.id as string, r as PoolPhoto]));
-  return ids.map((id) => byId.get(id)).filter((p): p is PoolPhoto => !!p);
-}
+// ── 사진→카테고리 할당(어드민) ────────────────
+// 사진을 포트폴리오(앨범)별로 묶어 보고, 사진마다 카테고리를 토글한다.
+export type AssignPhoto = {
+  id: string;
+  thumb_url: string | null;
+  src_url: string;
+  album_id: string | null;
+  album_title: string | null;
+  photographer_name: string | null;
+};
 
-// 어드민 피커 풀 — 태그 검색(있으면) 또는 최신 브라우즈(없으면), offset 페이지네이션.
-// RLS(anon = 승인 작가·published) 를 그대로 태워 미승인/비공개는 제외한다.
-export async function fetchExplorePhotoPool(q: string, offset: number): Promise<PoolPhoto[]> {
-  const query = q.trim();
-  if (query) {
-    // 사이트 검색과 동일한 태그 스코어 매칭. 전체 결과에서 offset 윈도우만 잘라 페이지네이션.
-    const results = await searchPhotosByTag(query);
-    return results
-      .slice(offset, offset + EXPLORE_POOL_PAGE)
-      .map((p) => ({ id: p.id, thumb_url: p.thumb_url, src_url: p.src_url }));
-  }
+// 할당 그리드 항목 — 사진 + 현재 소속 카테고리 id 들.
+export type AssignPhotoWithCats = AssignPhoto & { categoryIds: string[] };
+
+// 할당 그리드용 사진 — published, 최신순. RLS(승인작가·published) 태움. 앨범/작가 메타 포함.
+export async function fetchExploreAssignPhotos(
+  offset: number,
+  limit = EXPLORE_POOL_PAGE
+): Promise<AssignPhoto[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("photos")
     .select(
-      "id, thumb_url, src_url, photographer:photographers!photos_photographer_id_fkey!inner(id)"
+      "id, thumb_url, src_url, album_id, album:albums(title), photographer:photographers!photos_photographer_id_fkey!inner(display_name)"
     )
     .eq("visibility", "published")
     .order("created_at", { ascending: false })
-    .range(offset, offset + EXPLORE_POOL_PAGE - 1);
-  return (data ?? []).map((r) => ({
-    id: r.id as string,
-    thumb_url: r.thumb_url as string | null,
-    src_url: r.src_url as string,
-  }));
+    .range(offset, offset + limit - 1);
+  return (data ?? []).map((r) => {
+    const rr = r as Record<string, unknown>;
+    const album = rr.album as { title: string | null } | null;
+    const photographer = rr.photographer as { display_name: string | null } | null;
+    return {
+      id: rr.id as string,
+      thumb_url: rr.thumb_url as string | null,
+      src_url: rr.src_url as string,
+      album_id: rr.album_id as string | null,
+      album_title: album?.title ?? null,
+      photographer_name: photographer?.display_name ?? null,
+    };
+  });
+}
+
+// 여러 사진의 카테고리 소속 → { photoId: [categoryId...] }
+export async function getExploreMembershipsForPhotos(
+  photoIds: string[]
+): Promise<Record<string, string[]>> {
+  const out: Record<string, string[]> = {};
+  if (photoIds.length === 0) return out;
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("explore_category_photos")
+    .select("photo_id, category_id")
+    .in("photo_id", photoIds);
+  for (const r of (data ?? []) as Array<{ photo_id: string; category_id: string }>) {
+    (out[r.photo_id] ??= []).push(r.category_id);
+  }
+  return out;
+}
+
+// 카테고리 내 다음 position(맨 뒤에 추가) — 없으면 0.
+async function nextExplorePosition(
+  admin: ReturnType<typeof createAdminClient>,
+  categoryId: string
+): Promise<number> {
+  const { data } = await admin
+    .from("explore_category_photos")
+    .select("position")
+    .eq("category_id", categoryId)
+    .order("position", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return ((data?.position as number) ?? -1) + 1;
+}
+
+// 사진 1장을 카테고리에 추가(맨 뒤) — 이미 있으면 무시.
+export async function addPhotoToCategory(photoId: string, categoryId: string): Promise<void> {
+  const admin = createAdminClient();
+  const position = await nextExplorePosition(admin, categoryId);
+  await admin
+    .from("explore_category_photos")
+    .upsert(
+      { category_id: categoryId, photo_id: photoId, position },
+      { onConflict: "category_id,photo_id", ignoreDuplicates: true }
+    );
+}
+
+// 사진 1장을 카테고리에서 제거.
+export async function removePhotoFromCategory(photoId: string, categoryId: string): Promise<void> {
+  const admin = createAdminClient();
+  await admin
+    .from("explore_category_photos")
+    .delete()
+    .eq("category_id", categoryId)
+    .eq("photo_id", photoId);
+}
+
+// 앨범(포트폴리오)의 published 사진 전체를 카테고리에 추가 — 이미 담긴 건 건너뜀. 추가된 수 반환.
+export async function addAlbumPhotosToCategory(
+  albumId: string,
+  categoryId: string
+): Promise<number> {
+  const admin = createAdminClient();
+  const { data: photos } = await admin
+    .from("photos")
+    .select("id")
+    .eq("album_id", albumId)
+    .eq("visibility", "published");
+  const ids = (photos ?? []).map((p) => p.id as string);
+  if (ids.length === 0) return 0;
+  const { data: existing } = await admin
+    .from("explore_category_photos")
+    .select("photo_id")
+    .eq("category_id", categoryId)
+    .in("photo_id", ids);
+  const have = new Set((existing ?? []).map((e) => e.photo_id as string));
+  const toAdd = ids.filter((id) => !have.has(id));
+  if (toAdd.length === 0) return 0;
+  let pos = await nextExplorePosition(admin, categoryId);
+  const rows = toAdd.map((photo_id) => ({ category_id: categoryId, photo_id, position: pos++ }));
+  await admin.from("explore_category_photos").insert(rows);
+  return toAdd.length;
+}
+
+// 앨범(포트폴리오)의 사진 전체를 카테고리에서 제거.
+export async function removeAlbumPhotosFromCategory(
+  albumId: string,
+  categoryId: string
+): Promise<void> {
+  const admin = createAdminClient();
+  const { data: photos } = await admin.from("photos").select("id").eq("album_id", albumId);
+  const ids = (photos ?? []).map((p) => p.id as string);
+  if (ids.length === 0) return;
+  await admin
+    .from("explore_category_photos")
+    .delete()
+    .eq("category_id", categoryId)
+    .in("photo_id", ids);
 }

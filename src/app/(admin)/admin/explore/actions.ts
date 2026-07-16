@@ -4,7 +4,15 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { archiveAndDelete } from "@/lib/soft-delete";
-import { fetchExplorePhotoPool, type PoolPhoto } from "@/lib/explore-db";
+import {
+  fetchExploreAssignPhotos,
+  getExploreMembershipsForPhotos,
+  addPhotoToCategory,
+  removePhotoFromCategory,
+  addAlbumPhotosToCategory,
+  removeAlbumPhotosFromCategory,
+  type AssignPhotoWithCats,
+} from "@/lib/explore-db";
 
 async function assertAdmin() {
   const me = await getCurrentUser();
@@ -112,39 +120,49 @@ export async function moveExploreCategory(formData: FormData) {
   revalidatePath("/explore");
 }
 
-// 피커 풀 조회 (클라이언트에서 호출) — 태그 검색/브라우즈 다음 페이지.
-export async function searchExplorePool(q: string, offset: number): Promise<PoolPhoto[]> {
+// ── 사진→카테고리 할당(사진 단위) ──
+// 사진 1장의 카테고리 소속 토글. on=true 추가 / false 제거.
+export async function togglePhotoExploreCategory(
+  photoId: string,
+  categoryId: string,
+  on: boolean
+): Promise<void> {
   await assertAdmin();
-  return fetchExplorePhotoPool(q, Math.max(0, offset));
+  if (on) await addPhotoToCategory(photoId, categoryId);
+  else await removePhotoFromCategory(photoId, categoryId);
+  revalidatePath("/admin/explore/assign");
+  revalidatePath("/explore");
 }
 
-// 카테고리에 담긴 사진 + 순서 저장 — 조인 테이블을 전량 교체(delete → insert position=index).
-export async function setExploreCategoryPhotos(formData: FormData) {
+// 앨범(포트폴리오) 전체를 카테고리에 일괄 추가. 추가된 사진 수 반환.
+export async function addAlbumExploreCategory(
+  albumId: string,
+  categoryId: string
+): Promise<number> {
   await assertAdmin();
-  const id = String(formData.get("id"));
-  const slug = String(formData.get("slug") ?? "");
-  const ids = [
-    ...new Set(
-      String(formData.get("photoIds") ?? "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-    ),
-  ];
-  const admin = createAdminClient();
-  const { error: delErr } = await admin
-    .from("explore_category_photos")
-    .delete()
-    .eq("category_id", id);
-  if (delErr) throw new Error(delErr.message);
-  if (ids.length > 0) {
-    const rows = ids.map((photo_id, i) => ({ category_id: id, photo_id, position: i }));
-    const { error: insErr } = await admin.from("explore_category_photos").insert(rows);
-    if (insErr) throw new Error(insErr.message);
-  }
-  revalidatePath("/admin/explore");
+  const n = await addAlbumPhotosToCategory(albumId, categoryId);
+  revalidatePath("/admin/explore/assign");
   revalidatePath("/explore");
-  if (slug) revalidatePath(`/explore/${slug}`);
+  return n;
+}
+
+// 앨범(포트폴리오) 전체를 카테고리에서 일괄 제거.
+export async function removeAlbumExploreCategory(
+  albumId: string,
+  categoryId: string
+): Promise<void> {
+  await assertAdmin();
+  await removeAlbumPhotosFromCategory(albumId, categoryId);
+  revalidatePath("/admin/explore/assign");
+  revalidatePath("/explore");
+}
+
+// 할당 그리드 다음 페이지 (클라이언트 호출)
+export async function loadExploreAssignPage(offset: number): Promise<AssignPhotoWithCats[]> {
+  await assertAdmin();
+  const photos = await fetchExploreAssignPhotos(Math.max(0, offset));
+  const mem = await getExploreMembershipsForPhotos(photos.map((p) => p.id));
+  return photos.map((p) => ({ ...p, categoryIds: mem[p.id] ?? [] }));
 }
 
 // 삭제 (소프트딜리트 — 아카이브 후 제거, 멤버십은 FK cascade 로 정리)
