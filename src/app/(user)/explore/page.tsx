@@ -1,5 +1,3 @@
-import Image from "next/image";
-import Link from "next/link";
 import { cookies } from "next/headers";
 import {
   listPublishedExploreSections,
@@ -12,6 +10,7 @@ import { ScrollMemory } from "@/components/user/ScrollMemory";
 import { MpTrackOnce } from "@/components/MpTrackOnce";
 import { MovingCoverCarousel, type CoverCat } from "./MovingCoverCarousel";
 import { CategoryGrid, type GridItem } from "./CategoryGrid";
+import { RecentSnapsRail } from "./RecentSnapsRail";
 import { TasteTestCard } from "./TasteTestCard";
 import { LiveViewers } from "./LiveViewers";
 import styles from "./explore.module.css";
@@ -64,10 +63,8 @@ export default async function ExplorePage() {
       <ScrollMemory />
 
       <div className="px-2.5 pb-4 pt-3 sm:px-4 sm:pt-4">
-        <div className="flex items-start justify-between gap-3 px-1">
-          <h1 className="text-display font-extrabold leading-[1.05] tracking-tight [text-wrap:balance]">
-            오늘의 큐레이션
-          </h1>
+        <div className="flex items-center justify-between gap-3 px-1">
+          <h1 className="text-2xl font-bold tracking-tight">오늘의 큐레이션</h1>
           {sections.length > 0 && <LiveViewers />}
         </div>
 
@@ -79,7 +76,7 @@ export default async function ExplorePage() {
           <>
             {/* 트렌딩 태그 티커 */}
             {trending.length > 0 && (
-              <div className={`${styles.ticker} mt-3`}>
+              <div className={`${styles.ticker} mt-4`}>
                 <div className={styles.track}>
                   {[...trending, ...trending].map((t, i) => (
                     <span
@@ -98,7 +95,7 @@ export default async function ExplorePage() {
             {coverCats.length > 0 && <MovingCoverCarousel cats={coverCats} />}
 
             {/* 인기순 카테고리 타일 (5개 → 더보기) */}
-            <div className="mt-6">
+            <div className="mt-8">
               <div className="mb-3 flex items-baseline gap-2 px-1">
                 <span className="font-display text-body-sm italic text-brand">01</span>
                 <h2 className="text-title font-bold tracking-tight">지금 뜨는 취향</h2>
@@ -106,31 +103,14 @@ export default async function ExplorePage() {
               <CategoryGrid items={gridItems} />
             </div>
 
-            {/* 새로 올라온 스냅 (최신순 가로 레일) */}
+            {/* 새로 올라온 스냅 (게시물 사진 순환 가로 레일) */}
             {recent.length > 0 && (
               <div className="mt-8">
                 <div className="mb-3 flex items-baseline gap-2 px-1">
                   <span className="font-display text-body-sm italic text-brand">02</span>
                   <h2 className="text-title font-bold tracking-tight">새로 올라온 스냅</h2>
                 </div>
-                <div className="-mx-2.5 flex gap-2.5 overflow-x-auto px-2.5 pb-1 sm:-mx-4 sm:px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  {recent.map((p) => (
-                    <Link
-                      key={p.id}
-                      href={`/photos/${p.id}`}
-                      className="group relative aspect-[3/4] w-36 shrink-0 overflow-hidden rounded-2xl bg-fg/[0.06]"
-                    >
-                      <Image
-                        src={p.src_url}
-                        alt=""
-                        fill
-                        quality={80}
-                        sizes="144px"
-                        className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-                      />
-                    </Link>
-                  ))}
-                </div>
+                <RecentSnapsRail posts={recent} />
               </div>
             )}
 

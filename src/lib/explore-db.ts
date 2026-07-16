@@ -195,11 +195,14 @@ export async function listPublishedExploreSections(
   });
 }
 
-export type RecentSnap = { id: string; src_url: string };
+// 게시물(앨범) 1건 — id=대표(커버) 사진 id(링크용), shots=앨범 사진 sort_order 순(최대 5장, 순환용).
+export type RecentPost = { id: string; shots: { id: string; url: string }[] };
 
-// 새로 올라온 스냅 — 최신 공개 게시물(앨범)당 대표사진 1장. 같은 촬영의 중복 노출을 막는다.
-// 대표 = 앨범 내 sort_order 최소(커버). 대형 앨범이 최근을 독식하지 않게 넉넉히 당겨 게시물 단위로 추린다.
-export async function listRecentPhotos(limit = 12): Promise<RecentSnap[]> {
+const SNAP_MAX_SHOTS = 5;
+
+// 새로 올라온 스냅 — 최신 공개 게시물(앨범)당 사진들을 sort_order 순으로. 카드가 이 순서로 순환한다.
+// 대형 앨범이 최근을 독식하지 않게 넉넉히 당겨 게시물 단위로 추린다.
+export async function listRecentPhotos(limit = 12): Promise<RecentPost[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("photos")
@@ -218,19 +221,26 @@ export async function listRecentPhotos(limit = 12): Promise<RecentSnap[]> {
     created_at: string;
   }>;
 
-  // 게시물(앨범) 단위 그룹핑 — 대표는 sort_order 최소, 그룹 최신도는 첫 등장(=최신) created_at.
-  const groups = new Map<string, { rep: (typeof rows)[number]; recency: string }>();
+  // 게시물(앨범) 단위 그룹핑 — 사진 모으고, 최신도는 첫 등장(=최신) created_at.
+  const groups = new Map<string, { photos: (typeof rows)[number][]; recency: string }>();
   for (const p of rows) {
     const key = p.album_id ?? `photo:${p.id}`;
     const g = groups.get(key);
-    if (!g) groups.set(key, { rep: p, recency: p.created_at });
-    else if ((p.sort_order ?? 0) < (g.rep.sort_order ?? 0)) g.rep = p;
+    if (!g) groups.set(key, { photos: [p], recency: p.created_at });
+    else g.photos.push(p);
   }
 
   return [...groups.values()]
     .sort((a, b) => (a.recency < b.recency ? 1 : -1))
     .slice(0, limit)
-    .map((g) => ({ id: g.rep.id, src_url: g.rep.src_url }));
+    .map((g) => {
+      const shots = g.photos
+        .slice()
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) // 커버(최소)부터
+        .slice(0, SNAP_MAX_SHOTS)
+        .map((p) => ({ id: p.id, url: p.src_url }));
+      return { id: shots[0]?.id ?? g.photos[0].id, shots };
+    });
 }
 
 // 인기순 카테고리 id — 실지표(조회수 + 문의)로 점수 매겨 정렬.
