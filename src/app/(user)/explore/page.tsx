@@ -1,61 +1,144 @@
+import Image from "next/image";
+import Link from "next/link";
 import { cookies } from "next/headers";
-import { listPublishedExploreSections } from "@/lib/explore-db";
+import {
+  listPublishedExploreSections,
+  rankExploreCategoriesByPopularity,
+  listRecentPhotos,
+} from "@/lib/explore-db";
 import { getPublishedCategory } from "@/lib/categories";
 import { CATEGORY_COOKIE } from "@/lib/category-constants";
-import { ChevronRightIcon } from "@/components/user/icons";
-import { ExploreStrip } from "./ExploreStrip";
-import { TrackedCategoryLink } from "./TrackedCategoryLink";
 import { ScrollMemory } from "@/components/user/ScrollMemory";
 import { MpTrackOnce } from "@/components/MpTrackOnce";
+import { MovingCoverCarousel, type CoverCat } from "./MovingCoverCarousel";
+import { CategoryGrid, type GridItem } from "./CategoryGrid";
+import { TasteTestCard } from "./TasteTestCard";
+import { LiveViewers } from "./LiveViewers";
+import styles from "./explore.module.css";
 
 export const dynamic = "force-dynamic";
 
-// 탐색 페이지 — 운영이 어드민에서 큐레이션한 카테고리별 가로 미리보기(편집형).
-// 섹션 전체(이름·더보기·사진) 클릭 → 해당 카테고리 탐색 페이지(/explore/[slug]).
-// 순서·멤버십은 운영이 정한 값(explore_categories · explore_category_photos). (docs/20)
-// 광고(/c/<slug>) 진입 시 samae_cat 쿠키로 그 광고에 지정된 카테고리만 순서대로 노출.
+// 탐색 페이지 — 운영이 큐레이션한 카테고리(explore_categories)를 "매거진형"으로 노출.
+// 무빙 커버 캐러셀 + 트렌딩 태그 티커 + 인기순 카테고리 타일(5개→더보기).
+// 정렬: 광고(/c/<slug>) 진입 시 그 광고의 지정 순서, 아니면 실지표(조회·문의) 인기순.
 export default async function ExplorePage() {
-  // 광고 진입 컨텍스트 — 지정돼 있으면 그 광고의 explore_section_ids 로 교체.
   const adSlug = (await cookies()).get(CATEGORY_COOKIE)?.value;
   const adCat = adSlug ? await getPublishedCategory(adSlug) : null;
-  const orderedIds = adCat?.exploreSectionIds;
+  // 광고 진입이면 그 순서, 아니면 인기 점수순.
+  const orderedIds = adCat?.exploreSectionIds ?? (await rankExploreCategoriesByPopularity());
 
-  // 담긴 사진 3장 미만 카테고리는 스트립이 빈약하므로 숨김(공개했어도).
+  // 담긴 사진 3장 미만 카테고리는 빈약하므로 숨김(무빙 커버도 3컷 필요).
   const sections = (await listPublishedExploreSections(10, orderedIds)).filter(
     (s) => s.photos.length >= 3
   );
 
+  // 새로 올라온 스냅 (최신 공개 사진)
+  const recent = await listRecentPhotos(12);
+
+  // 커버 캐러셀 — 인기 상위 5개 카테고리를 각 3장씩(고화질 src_url) 순환.
+  const coverCats: CoverCat[] = sections.slice(0, 5).map((s) => ({
+    slug: s.category.slug,
+    title: s.category.title,
+    subtitle: s.category.subtitle,
+    shots: s.photos.slice(0, 3).map((p) => ({ id: p.id, url: p.src_url })),
+  }));
+
+  // 카테고리 그리드 아이템 (대표 사진 고화질)
+  const gridItems: GridItem[] = sections.map((s) => ({
+    slug: s.category.slug,
+    title: s.category.title,
+    subtitle: s.category.subtitle,
+    url: s.photos[0].src_url,
+  }));
+
+  // 트렌딩 태그 — 노출 사진들의 mood_tags 집계(실데이터). 없으면 티커 숨김.
+  const trending = [
+    ...new Set(sections.flatMap((s) => s.photos.flatMap((p) => p.mood_tags ?? []))),
+  ]
+    .filter(Boolean)
+    .slice(0, 12);
+
   return (
     <section className="font-kr">
-      {/* 탐색 피드 진입 — 발견 퍼널 상단 */}
       <MpTrackOnce event="View Explore Feed" props={{ section_count: sections.length }} />
       <ScrollMemory />
-      <div className="space-y-7 px-2.5 pb-2.5 pt-2.5 sm:px-4 sm:pt-4 sm:pb-4">
-        <h1 className="text-xl font-bold tracking-tight">탐색</h1>
+
+      <div className="px-2.5 pb-4 pt-3 sm:px-4 sm:pt-4">
+        <div className="flex items-start justify-between gap-3 px-1">
+          <h1 className="text-display font-extrabold leading-[1.05] tracking-tight [text-wrap:balance]">
+            오늘의 큐레이션
+          </h1>
+          {sections.length > 0 && <LiveViewers />}
+        </div>
+
         {sections.length === 0 ? (
           <p className="py-16 text-center text-body-sm text-muted">
             준비 중이에요. 곧 큐레이션한 카테고리를 보여드릴게요.
           </p>
         ) : (
-          sections.map(({ category, photos }, i) => (
-            <TrackedCategoryLink
-              key={category.id}
-              href={`/explore/${category.slug}`}
-              category={category.title}
-              slug={category.slug}
-              rank={i + 1}
-              className="group block"
-            >
-              <div className="mb-2.5 flex items-center justify-between gap-2">
-                <h2 className="text-lg font-semibold tracking-tight">{category.title}</h2>
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-fg/[0.06] text-muted transition-colors group-hover:bg-fg/10 group-hover:text-fg">
-                  <ChevronRightIcon className="h-4 w-4" />
-                </span>
+          <>
+            {/* 트렌딩 태그 티커 */}
+            {trending.length > 0 && (
+              <div className={`${styles.ticker} mt-3`}>
+                <div className={styles.track}>
+                  {[...trending, ...trending].map((t, i) => (
+                    <span
+                      key={`${t}-${i}`}
+                      className="inline-flex items-center rounded-full border border-line bg-surface px-3 py-1.5 text-caption font-medium text-muted"
+                    >
+                      <span className="mr-0.5 font-display italic text-brand-ink">#</span>
+                      {t}
+                    </span>
+                  ))}
+                </div>
               </div>
-              {/* 저스티파이드 행 — 사진 원본 비율 그대로, 한 줄 폭 꽉 채움 */}
-              <ExploreStrip photos={photos} />
-            </TrackedCategoryLink>
-          ))
+            )}
+
+            {/* 무빙 커버 캐러셀 */}
+            {coverCats.length > 0 && <MovingCoverCarousel cats={coverCats} />}
+
+            {/* 인기순 카테고리 타일 (5개 → 더보기) */}
+            <div className="mt-6">
+              <div className="mb-3 flex items-baseline gap-2 px-1">
+                <span className="font-display text-body-sm italic text-brand">01</span>
+                <h2 className="text-title font-bold tracking-tight">지금 뜨는 취향</h2>
+              </div>
+              <CategoryGrid items={gridItems} />
+            </div>
+
+            {/* 새로 올라온 스냅 (최신순 가로 레일) */}
+            {recent.length > 0 && (
+              <div className="mt-8">
+                <div className="mb-3 flex items-baseline gap-2 px-1">
+                  <span className="font-display text-body-sm italic text-brand">02</span>
+                  <h2 className="text-title font-bold tracking-tight">새로 올라온 스냅</h2>
+                </div>
+                <div className="-mx-2.5 flex gap-2.5 overflow-x-auto px-2.5 pb-1 sm:-mx-4 sm:px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {recent.map((p) => (
+                    <Link
+                      key={p.id}
+                      href={`/photos/${p.id}`}
+                      className="group relative aspect-[3/4] w-36 shrink-0 overflow-hidden rounded-2xl bg-fg/[0.06]"
+                    >
+                      <Image
+                        src={p.src_url}
+                        alt=""
+                        fill
+                        quality={80}
+                        sizes="144px"
+                        className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                      />
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 취향 테스트 (진입 CTA) */}
+            <div className="mt-8">
+              <TasteTestCard />
+            </div>
+          </>
         )}
       </div>
     </section>

@@ -11,6 +11,7 @@ export function TrackedCategoryLink({
   slug,
   rank,
   className,
+  style,
   children,
 }: {
   href: string;
@@ -18,12 +19,14 @@ export function TrackedCategoryLink({
   slug: string;
   rank: number;
   className?: string;
+  style?: React.CSSProperties;
   children: React.ReactNode;
 }) {
   return (
     <Link
       href={href}
       className={className}
+      style={style}
       onClick={() => mpTrack("Click Explore Category", { category, slug, rank })}
     >
       {children}
