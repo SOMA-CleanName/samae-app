@@ -9,7 +9,10 @@ import {
   removePhotoFromCategory,
   addAlbumPhotosToCategory,
   removeAlbumPhotosFromCategory,
+  fetchExploreCategoryGalleryPhotos,
 } from "@/lib/explore-db";
+
+export type PreviewCandidate = { id: string; thumb_url: string | null; src_url: string };
 
 async function assertAdmin() {
   const me = await getCurrentUser();
@@ -152,6 +155,40 @@ export async function removeAlbumExploreCategory(
   await removeAlbumPhotosFromCategory(albumId, categoryId);
   revalidatePath("/admin/explore/assign");
   revalidatePath("/explore");
+}
+
+// ── 미리보기 사진(홈 스트립) ──
+// 카테고리의 담긴 사진(멤버) 썸네일 — 미리보기 피커 후보. 펼칠 때 클라이언트가 lazy 로드.
+export async function loadExploreCategoryMembers(
+  categoryId: string
+): Promise<PreviewCandidate[]> {
+  await assertAdmin();
+  const photos = await fetchExploreCategoryGalleryPhotos(categoryId);
+  return photos.map((p) => ({ id: p.id, thumb_url: p.thumb_url, src_url: p.src_url }));
+}
+
+// 미리보기 사진 저장 — /explore 홈 스트립에 이 순서대로 노출.
+export async function setExplorePreviewPhotos(formData: FormData) {
+  await assertAdmin();
+  const id = String(formData.get("id"));
+  const slug = String(formData.get("slug") ?? "");
+  const ids = [
+    ...new Set(
+      String(formData.get("photoIds") ?? "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    ),
+  ];
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("explore_categories")
+    .update({ preview_photo_ids: ids })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/explore");
+  revalidatePath("/explore");
+  if (slug) revalidatePath(`/explore/${slug}`);
 }
 
 // 삭제 (소프트딜리트 — 아카이브 후 제거, 멤버십은 FK cascade 로 정리)
