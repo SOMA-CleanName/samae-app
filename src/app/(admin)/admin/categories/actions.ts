@@ -103,6 +103,30 @@ export async function setCategoryPhotoOrder(formData: FormData) {
   if (slug) revalidatePath(`/c/${slug}`);
 }
 
+// 탐색 탭 노출 카테고리 저장 — 이 광고 진입 시 /explore 에 이 순서대로 노출할 explore_categories id
+export async function setCategoryExploreSections(formData: FormData) {
+  await assertAdmin();
+  const id = String(formData.get("id"));
+  const slug = String(formData.get("slug") ?? "");
+  const ids = [
+    ...new Set(
+      String(formData.get("exploreIds") ?? "")
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    ),
+  ];
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("categories")
+    .update({ explore_section_ids: ids })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/categories");
+  revalidatePath("/explore");
+  if (slug) revalidatePath(`/c/${slug}`);
+}
+
 // 공개/비공개 토글
 export async function toggleCategoryPublished(formData: FormData) {
   await assertAdmin();
