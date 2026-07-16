@@ -116,6 +116,10 @@ export default async function ExplorePage() {
 
             {/* 취향 테스트 (진입 CTA) */}
             <div className="mt-8">
+              <div className="mb-3 flex items-baseline gap-2 px-1">
+                <span className="font-display text-body-sm italic text-brand">03</span>
+                <h2 className="text-title font-bold tracking-tight">취향 테스트</h2>
+              </div>
               <TasteTestCard />
             </div>
           </>

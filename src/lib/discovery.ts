@@ -218,14 +218,24 @@ type FeedRow = {
 export async function fetchSeededFeedPage(
   seed: string,
   page: number,
-  pageSize = 48
+  pageSize = 48,
+  tags?: string[]
 ): Promise<GalleryPhoto[] | null> {
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("feed_photos_seeded", {
-    p_seed: seed,
-    p_offset: page * pageSize,
-    p_limit: pageSize,
-  });
+  // 취향 태그가 있으면 취향 랭킹 RPC(feed_photos_taste), 없으면 순수 시드(feed_photos_seeded).
+  const hasTaste = Array.isArray(tags) && tags.length > 0;
+  const { data, error } = hasTaste
+    ? await supabase.rpc("feed_photos_taste", {
+        p_seed: seed,
+        p_tags: tags,
+        p_offset: page * pageSize,
+        p_limit: pageSize,
+      })
+    : await supabase.rpc("feed_photos_seeded", {
+        p_seed: seed,
+        p_offset: page * pageSize,
+        p_limit: pageSize,
+      });
   if (error) return null;
   return ((data ?? []) as FeedRow[]).map((r) => ({
     id: r.id,

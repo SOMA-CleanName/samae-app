@@ -243,6 +243,82 @@ export async function listRecentPhotos(limit = 12): Promise<RecentPost[]> {
     });
 }
 
+// Fisher-Yates 셔플 (원본 불변). 취향 테스트 방문마다 다른 구성용.
+function shuffleArr<T>(arr: T[]): T[] {
+  const a = arr.slice();
+  for (let k = a.length - 1; k > 0; k--) {
+    const j = Math.floor(Math.random() * (k + 1));
+    [a[k], a[j]] = [a[j], a[k]];
+  }
+  return a;
+}
+
+// 취향 테스트용 사진 — 태그 다양성을 최대화해 최대 max 장. (비슷한 컷·한쪽 태그 쏠림 억제)
+export type QuizPhoto = { id: string; url: string; tags: string[] };
+
+export async function listDiverseQuizPhotos(max = 100): Promise<QuizPhoto[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("photos")
+    // mood_tags 있는 것만(취향 신호). !inner 로 미승인 작가 제외.
+    .select(
+      "id, src_url, thumb_url, album_id, mood_tags, photographer:photographers!photos_photographer_id_fkey!inner(id)"
+    )
+    .eq("visibility", "published")
+    .not("mood_tags", "eq", "{}")
+    .order("created_at", { ascending: false })
+    .limit(1000);
+
+  const rows = (data ?? []) as unknown as Array<{
+    id: string;
+    src_url: string;
+    thumb_url: string | null;
+    album_id: string | null;
+    mood_tags: string[] | null;
+  }>;
+
+  // 게시물(앨범)당 1장만 후보로 — 같은 촬영 사진 배제, 최대한 다양하게. + 셔플(방문마다 다르게)
+  const seenAlbum = new Set<string>();
+  const eligible = rows.filter((r) => {
+    if (!(r.mood_tags?.length)) return false;
+    const k = r.album_id ?? `p:${r.id}`;
+    if (seenAlbum.has(k)) return false;
+    seenAlbum.add(k);
+    return true;
+  });
+  const pool = shuffleArr(eligible);
+
+  // 태그 → 사진들. 태그별로 한 장씩 라운드로빈해 최대한 다양한 태그가 고루 섞이게(태그 순서도 셔플).
+  const tagMap = new Map<string, typeof pool>();
+  for (const p of pool) {
+    for (const t of p.mood_tags ?? []) {
+      const arr = tagMap.get(t) ?? [];
+      arr.push(p);
+      tagMap.set(t, arr);
+    }
+  }
+  const tags = shuffleArr([...tagMap.keys()]);
+  const picked = new Set<string>();
+  const out: typeof pool = [];
+  let added = true;
+  while (out.length < max && added) {
+    added = false;
+    for (const t of tags) {
+      if (out.length >= max) break;
+      const next = (tagMap.get(t) ?? []).find((p) => !picked.has(p.id));
+      if (next) {
+        picked.add(next.id);
+        out.push(next);
+        added = true;
+      }
+    }
+  }
+
+  return shuffleArr(out)
+    .slice(0, max)
+    .map((p) => ({ id: p.id, url: p.src_url, tags: p.mood_tags ?? [] }));
+}
+
 // 인기순 카테고리 id — 실지표(조회수 + 문의)로 점수 매겨 정렬.
 // view = analytics_events(pageview) 중 /explore/{slug} 카운트.
 // 문의 = inquiries.source_photo_id 가 그 카테고리에 담긴 사진인 건수.
