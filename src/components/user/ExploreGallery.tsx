@@ -66,7 +66,6 @@ function buildColumns(photos: GalleryPhoto[], colCount: number): GalleryPhoto[][
   return cols;
 }
 
-
 // 탐색 갤러리 — 서버가 셔플된 풀을 내려주고, 클라이언트는 메모리에서 점진 노출(네트워크 없음).
 // JS 컬럼 버킷으로 기존 사진은 절대 재배치되지 않음.
 export function ExploreGallery({

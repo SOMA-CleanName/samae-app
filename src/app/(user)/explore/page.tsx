@@ -13,6 +13,8 @@ import { CategoryGrid, type GridItem } from "./CategoryGrid";
 import { RecentSnapsRail } from "./RecentSnapsRail";
 import { TasteTestCard } from "./TasteTestCard";
 import { LiveViewers } from "./LiveViewers";
+import { ExploreTabBar, type ExploreTab } from "./ExploreTabBar";
+import { TasteCtaButton } from "./TasteCtaButton";
 import styles from "./explore.module.css";
 
 export const dynamic = "force-dynamic";
@@ -32,22 +34,22 @@ export default async function ExplorePage() {
   );
 
   // 새로 올라온 스냅 (최신 공개 사진)
-  const recent = await listRecentPhotos(12);
+  const recent = await listRecentPhotos(24);
 
-  // 커버 캐러셀 — 인기 상위 5개 카테고리를 각 3장씩(고화질 src_url) 순환.
-  const coverCats: CoverCat[] = sections.slice(0, 5).map((s) => ({
+  // 커버 캐러셀 — 취향 필터가 없으면 존재하는 모든 카테고리(≥3장)를 각 3장씩(고화질 src_url) 순환.
+  const coverCats: CoverCat[] = sections.map((s) => ({
     slug: s.category.slug,
     title: s.category.title,
     subtitle: s.category.subtitle,
     shots: s.photos.slice(0, 3).map((p) => ({ id: p.id, url: p.src_url })),
   }));
 
-  // 카테고리 그리드 아이템 (대표 사진 고화질)
+  // 카테고리 그리드 아이템 — 썸네일은 해당 카테고리 사진 중 랜덤(force-dynamic 이라 요청마다 변주).
   const gridItems: GridItem[] = sections.map((s) => ({
     slug: s.category.slug,
     title: s.category.title,
     subtitle: s.category.subtitle,
-    url: s.photos[0].src_url,
+    url: s.photos[Math.floor(Math.random() * s.photos.length)].src_url,
   }));
 
   // 트렌딩 태그 — 노출 사진들의 mood_tags 집계(실데이터). 없으면 티커 숨김.
@@ -56,6 +58,13 @@ export default async function ExplorePage() {
   ]
     .filter(Boolean)
     .slice(0, 12);
+
+  // 중간 메뉴바 탭 — 실제로 렌더되는 섹션만(스크롤 이동 대상).
+  const tabs: ExploreTab[] = [
+    { id: "sec-hot", label: "지금 뜨는 무드" },
+    ...(recent.length > 0 ? [{ id: "sec-recent", label: "새로 올라온 스냅" }] : []),
+    { id: "sec-taste", label: "내 취향 테스트" },
+  ];
 
   return (
     <section className="font-kr">
@@ -94,18 +103,23 @@ export default async function ExplorePage() {
             {/* 무빙 커버 캐러셀 */}
             {coverCats.length > 0 && <MovingCoverCarousel cats={coverCats} />}
 
+            {/* 중간 메뉴바 — 커버(히어로) 아래. 스크롤하면 상단 고정 + '사매' 헤더 노출.
+                (sticky 가 섹션 전체 구간 동안 고정되려면 래퍼로 감싸지 말 것) */}
+            <ExploreTabBar tabs={tabs} />
+
             {/* 인기순 카테고리 타일 (5개 → 더보기) */}
-            <div className="mt-8">
+            <div id="sec-hot" className="mt-6 scroll-mt-24">
               <div className="mb-3 flex items-baseline gap-2 px-1">
                 <span className="font-display text-body-sm italic text-brand">01</span>
-                <h2 className="text-title font-bold tracking-tight">지금 뜨는 취향</h2>
+                <h2 className="text-title font-bold tracking-tight">지금 뜨는 무드</h2>
+                <TasteCtaButton />
               </div>
               <CategoryGrid items={gridItems} />
             </div>
 
             {/* 새로 올라온 스냅 (게시물 사진 순환 가로 레일) */}
             {recent.length > 0 && (
-              <div className="mt-8">
+              <div id="sec-recent" data-pid="sec-recent" className="mt-16 scroll-mt-24">
                 <div className="mb-3 flex items-baseline gap-2 px-1">
                   <span className="font-display text-body-sm italic text-brand">02</span>
                   <h2 className="text-title font-bold tracking-tight">새로 올라온 스냅</h2>
@@ -115,13 +129,16 @@ export default async function ExplorePage() {
             )}
 
             {/* 취향 테스트 (진입 CTA) */}
-            <div className="mt-8">
+            <div id="sec-taste" className="mt-16 scroll-mt-24">
               <div className="mb-3 flex items-baseline gap-2 px-1">
                 <span className="font-display text-body-sm italic text-brand">03</span>
-                <h2 className="text-title font-bold tracking-tight">취향 테스트</h2>
+                <h2 className="text-title font-bold tracking-tight">내 취향 테스트</h2>
               </div>
               <TasteTestCard />
             </div>
+
+            {/* 하단 스크롤 여유 — 취향 테스트 아래가 좁지 않게 + 마지막 탭 활성 구간 확보 */}
+            <div aria-hidden className="h-48" />
           </>
         )}
       </div>

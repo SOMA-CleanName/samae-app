@@ -78,12 +78,42 @@ export function FloatingNav({
               label="홈"
               active={homeActive}
               icon={<HomeIcon className="h-5 w-5" />}
+              onClick={(e) => {
+                // 이미 홈(또는 카테고리 컨텍스트)에서 다시 누르면 취향 피드 새로고침.
+                // 피드 캐시를 비우고 리로드 → 서버가 새 시드로 취향순 피드를 다시 내려줌 + 최상단.
+                if (homeActive) {
+                  e.preventDefault();
+                  try {
+                    Object.keys(sessionStorage)
+                      .filter((k) => k.startsWith("samae:gallery-session:"))
+                      .forEach((k) => sessionStorage.removeItem(k));
+                    sessionStorage.removeItem(`samae:scroll:${pathname}`);
+                  } catch {
+                    /* 스토리지 접근 불가 시 무시 */
+                  }
+                  window.location.reload();
+                }
+              }}
             />
             <NavPill
               href="/explore"
               label="탐색"
               active={exploreActive}
               icon={<SearchIcon className="h-5 w-5" />}
+              onClick={(e) => {
+                // 저장된 스크롤 위치를 지워 다른 경로에서 오면 탐색 최상단으로.
+                try {
+                  sessionStorage.removeItem("samae:scroll:/explore");
+                  sessionStorage.removeItem("samae:scroll-anchor:/explore");
+                } catch {
+                  /* 스토리지 접근 불가 시 무시 */
+                }
+                // 이미 탐색이면 한 번 더 누를 때 새로고침(리로드) → 커버·썸네일 새 랜덤 + 최상단.
+                if (exploreActive) {
+                  e.preventDefault();
+                  window.location.reload();
+                }
+              }}
             />
           </div>
         </div>

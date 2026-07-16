@@ -3,13 +3,14 @@
 import { useRouter } from "next/navigation";
 import { ArrowLeftIcon } from "@/components/user/icons";
 
-// 투명 뒤로가기 버튼 — 뷰포트에 고정(fixed)해 스크롤을 내려도 좌상단에 계속 떠 있게 한다.
-export function PhotoTopBar() {
+// 카테고리(태그) 페이지 뒤로가기 — 뷰포트에 고정(fixed)해 스크롤해도 좌상단에 계속 떠 있게 한다.
+// 히스토리가 있으면 뒤로, 없으면 탐색 탭으로.
+export function CategoryBackButton() {
   const router = useRouter();
 
   function onBack() {
     if (typeof window !== "undefined" && window.history.length > 1) router.back();
-    else router.push("/");
+    else router.push("/explore");
   }
 
   return (

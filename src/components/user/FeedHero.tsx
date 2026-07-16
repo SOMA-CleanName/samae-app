@@ -9,7 +9,7 @@ export function FeedHero() {
         <span className="text-caption font-medium tracking-wide text-muted">사진으로 고르는 촬영</span>
       </div>
       {/* 헤드라인 — 2줄 에디토리얼, 핵심어 브랜드 강조. 폰트 뷰포트 유동(clamp) + 줄바꿈 금지 → 모든 기기에서 딱 2줄. */}
-      <h1 className="mt-3.5 whitespace-nowrap text-[clamp(1.2rem,6vw,2.6rem)] font-semibold leading-[1.15] tracking-tight text-fg sm:leading-[1.12]">
+      <h1 className="mt-3.5 whitespace-nowrap text-[clamp(1.2rem,6vw,2.6rem)] font-semibold leading-[1.4] tracking-normal text-fg sm:leading-[1.35]">
         원하는 사진을 고르고,
         <br />
         <span className="text-brand">그 작가</span>에게 촬영을 문의하세요.
