@@ -149,22 +149,36 @@ export async function listPublishedExploreSections(
     position: number;
   }>;
 
-  const allIds = [...new Set(mem.map((m) => m.photo_id))];
+  // 카테고리당 필요한 사진 id 만 추린다 — 전량 조회(.in 수천 개)는 URL 초과로 fetch 실패한다.
+  // 필요분 = 미리보기 지정(앞 perCat) + position 순 앞 perCat(폴백용). 합쳐도 카테고리당 최대 2·perCat.
+  const posByCat = new Map<string, string[]>();
+  for (const c of cats) {
+    posByCat.set(
+      c.id,
+      mem.filter((m) => m.category_id === c.id).map((m) => m.photo_id).slice(0, perCat)
+    );
+  }
+  const neededIds = [
+    ...new Set(
+      cats.flatMap((c) => [...c.previewPhotoIds.slice(0, perCat), ...(posByCat.get(c.id) ?? [])])
+    ),
+  ];
+
+  // 안전하게 청크(100개)로 나눠 조회 — 긴 .in URL 회피.
   const photoById = new Map<string, GalleryPhoto>();
-  if (allIds.length > 0) {
+  for (let i = 0; i < neededIds.length; i += 100) {
     const { data: photoData } = await supabase
       .from("photos")
       .select(GALLERY_SELECT)
-      .in("id", allIds)
+      .in("id", neededIds.slice(i, i + 100))
       .eq("visibility", "published");
     for (const p of (photoData ?? []) as unknown as GalleryPhoto[]) photoById.set(p.id, p);
   }
 
   return cats.map((c) => {
-    // 담긴 사진(position 순)
-    const byPosition = mem
-      .filter((m) => m.category_id === c.id)
-      .map((m) => photoById.get(m.photo_id))
+    // position 순 (폴백/기본)
+    const byPosition = (posByCat.get(c.id) ?? [])
+      .map((id) => photoById.get(id))
       .filter((p): p is GalleryPhoto => !!p);
     // 미리보기 지정이 있으면 그 사진들을 앞에 두고, 나머지 담긴 사진으로 채운다.
     // (지정만 쓰면 2장만 골랐을 때 스트립이 빈약해지므로 — 항상 담긴 만큼 채워 노출)
@@ -179,6 +193,199 @@ export async function listPublishedExploreSections(
     }
     return { category: c, photos: photos.slice(0, perCat) };
   });
+}
+
+// 게시물(앨범) 1건 — id=대표(커버) 사진 id(링크용), shots=앨범 사진 sort_order 순(최대 5장, 순환용).
+export type RecentPost = { id: string; shots: { id: string; url: string }[] };
+
+const SNAP_MAX_SHOTS = 5;
+
+// 새로 올라온 스냅 — 최신 공개 게시물(앨범)당 사진들을 sort_order 순으로. 카드가 이 순서로 순환한다.
+// 대형 앨범이 최근을 독식하지 않게 넉넉히 당겨 게시물 단위로 추린다.
+export async function listRecentPhotos(limit = 12): Promise<RecentPost[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("photos")
+    // 작가명 노출 안 하므로 가벼운 컬럼만. !inner 로 미승인 작가 사진은 RLS 로 제외.
+    .select(
+      "id, src_url, album_id, sort_order, created_at, photographer:photographers!photos_photographer_id_fkey!inner(id)"
+    )
+    .eq("visibility", "published")
+    .order("created_at", { ascending: false })
+    .limit(500);
+  const rows = (data ?? []) as unknown as Array<{
+    id: string;
+    src_url: string;
+    album_id: string | null;
+    sort_order: number | null;
+    created_at: string;
+  }>;
+
+  // 게시물(앨범) 단위 그룹핑 — 사진 모으고, 최신도는 첫 등장(=최신) created_at.
+  const groups = new Map<string, { photos: (typeof rows)[number][]; recency: string }>();
+  for (const p of rows) {
+    const key = p.album_id ?? `photo:${p.id}`;
+    const g = groups.get(key);
+    if (!g) groups.set(key, { photos: [p], recency: p.created_at });
+    else g.photos.push(p);
+  }
+
+  return [...groups.values()]
+    .sort((a, b) => (a.recency < b.recency ? 1 : -1))
+    .slice(0, limit)
+    .map((g) => {
+      const shots = g.photos
+        .slice()
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) // 커버(최소)부터
+        .slice(0, SNAP_MAX_SHOTS)
+        .map((p) => ({ id: p.id, url: p.src_url }));
+      return { id: shots[0]?.id ?? g.photos[0].id, shots };
+    });
+}
+
+// Fisher-Yates 셔플 (원본 불변). 취향 테스트 방문마다 다른 구성용.
+function shuffleArr<T>(arr: T[]): T[] {
+  const a = arr.slice();
+  for (let k = a.length - 1; k > 0; k--) {
+    const j = Math.floor(Math.random() * (k + 1));
+    [a[k], a[j]] = [a[j], a[k]];
+  }
+  return a;
+}
+
+// 취향 테스트용 사진 — 태그 다양성을 최대화해 최대 max 장. (비슷한 컷·한쪽 태그 쏠림 억제)
+export type QuizPhoto = { id: string; url: string; tags: string[] };
+
+export async function listDiverseQuizPhotos(max = 100): Promise<QuizPhoto[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("photos")
+    // mood_tags 있는 것만(취향 신호). !inner 로 미승인 작가 제외.
+    .select(
+      "id, src_url, thumb_url, album_id, mood_tags, photographer:photographers!photos_photographer_id_fkey!inner(id)"
+    )
+    .eq("visibility", "published")
+    .not("mood_tags", "eq", "{}")
+    .order("created_at", { ascending: false })
+    .limit(1000);
+
+  const rows = (data ?? []) as unknown as Array<{
+    id: string;
+    src_url: string;
+    thumb_url: string | null;
+    album_id: string | null;
+    mood_tags: string[] | null;
+  }>;
+
+  // 게시물(앨범)당 1장만 후보로 — 같은 촬영 사진 배제, 최대한 다양하게. + 셔플(방문마다 다르게)
+  const seenAlbum = new Set<string>();
+  const eligible = rows.filter((r) => {
+    if (!(r.mood_tags?.length)) return false;
+    const k = r.album_id ?? `p:${r.id}`;
+    if (seenAlbum.has(k)) return false;
+    seenAlbum.add(k);
+    return true;
+  });
+  const pool = shuffleArr(eligible);
+
+  // 태그 → 사진들. 태그별로 한 장씩 라운드로빈해 최대한 다양한 태그가 고루 섞이게(태그 순서도 셔플).
+  const tagMap = new Map<string, typeof pool>();
+  for (const p of pool) {
+    for (const t of p.mood_tags ?? []) {
+      const arr = tagMap.get(t) ?? [];
+      arr.push(p);
+      tagMap.set(t, arr);
+    }
+  }
+  const tags = shuffleArr([...tagMap.keys()]);
+  const picked = new Set<string>();
+  const out: typeof pool = [];
+  let added = true;
+  while (out.length < max && added) {
+    added = false;
+    for (const t of tags) {
+      if (out.length >= max) break;
+      const next = (tagMap.get(t) ?? []).find((p) => !picked.has(p.id));
+      if (next) {
+        picked.add(next.id);
+        out.push(next);
+        added = true;
+      }
+    }
+  }
+
+  return shuffleArr(out)
+    .slice(0, max)
+    .map((p) => ({ id: p.id, url: p.src_url, tags: p.mood_tags ?? [] }));
+}
+
+// 인기순 카테고리 id — 실지표(조회수 + 문의)로 점수 매겨 정렬.
+// view = analytics_events(pageview) 중 /explore/{slug} 카운트.
+// 문의 = inquiries.source_photo_id 가 그 카테고리에 담긴 사진인 건수.
+// 점수 = 조회수 + 문의수·가중 + 문의전환율·가중 (튜닝 가능). 동점은 admin sort 순 유지(안정 정렬).
+export async function rankExploreCategoriesByPopularity(windowDays = 60): Promise<string[]> {
+  const admin = createAdminClient();
+  const { data: catData } = await admin
+    .from("explore_categories")
+    .select("id, slug")
+    .eq("published", true)
+    .order("sort", { ascending: true });
+  const cats = (catData ?? []).map((r) => ({ id: r.id as string, slug: r.slug as string }));
+  if (cats.length === 0) return [];
+
+  const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
+
+  // 카테고리별 조회수 — /explore/{slug} pageview
+  const { data: pv } = await admin
+    .from("analytics_events")
+    .select("path")
+    .eq("type", "pageview")
+    .like("path", "/explore/%")
+    .gte("created_at", since)
+    .limit(100000);
+  const viewsBySlug = new Map<string, number>();
+  for (const r of pv ?? []) {
+    const m = ((r.path as string) || "").match(/^\/explore\/([^/?#]+)/);
+    if (m) viewsBySlug.set(m[1], (viewsBySlug.get(m[1]) ?? 0) + 1);
+  }
+
+  // 멤버십(사진→카테고리) + 문의(source_photo_id) → 카테고리별 문의수
+  const { data: memData } = await admin
+    .from("explore_category_photos")
+    .select("category_id, photo_id")
+    .in(
+      "category_id",
+      cats.map((c) => c.id)
+    );
+  const catsByPhoto = new Map<string, string[]>();
+  for (const m of memData ?? []) {
+    const pid = m.photo_id as string;
+    const arr = catsByPhoto.get(pid) ?? [];
+    arr.push(m.category_id as string);
+    catsByPhoto.set(pid, arr);
+  }
+  const { data: inqData } = await admin
+    .from("inquiries")
+    .select("source_photo_id")
+    .not("source_photo_id", "is", null)
+    .gte("created_at", since);
+  const inqByCat = new Map<string, number>();
+  for (const q of inqData ?? []) {
+    for (const cid of catsByPhoto.get(q.source_photo_id as string) ?? []) {
+      inqByCat.set(cid, (inqByCat.get(cid) ?? 0) + 1);
+    }
+  }
+
+  const scored = cats.map((c, i) => {
+    const views = viewsBySlug.get(c.slug) ?? 0;
+    const inq = inqByCat.get(c.id) ?? 0;
+    const ratio = views > 0 ? inq / views : 0;
+    const score = views + inq * 30 + ratio * 200; // 튜닝 포인트
+    return { id: c.id, score, order: i };
+  });
+  // 점수 내림차순, 동점은 admin sort 순
+  scored.sort((a, b) => b.score - a.score || a.order - b.order);
+  return scored.map((s) => s.id);
 }
 
 // ── 사진→카테고리 할당(어드민) ────────────────

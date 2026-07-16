@@ -6,12 +6,15 @@ import {
   fetchSeededFeedPage,
   newFeedSeed,
 } from "@/lib/discovery";
+import { cookies } from "next/headers";
 import { loadMorePhotos } from "./feed-actions";
 import { logSearch } from "@/lib/search-log";
 import { getCurrentUser } from "@/lib/auth";
+import { TASTE_COOKIE } from "@/lib/category-constants";
 import { ExploreGallery } from "@/components/user/ExploreGallery";
 import { ScrollMemory } from "@/components/user/ScrollMemory";
 import { FeedHero } from "@/components/user/FeedHero";
+import { TasteBanner } from "./TasteBanner";
 import { JsonLd } from "@/components/JsonLd";
 import { siteJsonLd } from "@/lib/seo";
 import type { GalleryPhoto } from "@/lib/discovery";
@@ -52,11 +55,16 @@ export default async function ExploreHome({
   const isAllFeed = !query && !adAsGallery;
   const feedSeed = isAllFeed ? newFeedSeed() : undefined;
 
+  // 취향 쿠키(samae_taste) — 있으면 전체 피드를 취향순으로 랭킹.
+  const tasteRaw = (await cookies()).get(TASTE_COOKIE)?.value;
+  const taste = tasteRaw ? tasteRaw.split(",").map((t) => t.trim()).filter(Boolean) : [];
+
   let photos: GalleryPhoto[];
   if (isAllFeed && feedSeed) {
     // 마이그레이션 전(RPC 없음)이면 page0 가 null → 기존 방식 폴백(스크롤은 상한에서 멈춤)
     photos =
-      (await fetchSeededFeedPage(feedSeed, 0)) ?? (await fetchPublishedPhotos({})).slice(0, FEED_CAP);
+      (await fetchSeededFeedPage(feedSeed, 0, 48, taste.length ? taste : undefined)) ??
+      (await fetchPublishedPhotos({})).slice(0, FEED_CAP);
   } else {
     const basePhotos = query ? await searchPhotosByTag(query) : await fetchPublishedPhotos({});
     if (query) await logSearch(query, basePhotos.length, me?.id);
@@ -80,6 +88,9 @@ export default async function ExploreHome({
       <ScrollMemory />
       {/* 홈 최상단 히어로 (검색 모드 아닐 때만) */}
       {!query && <FeedHero />}
+
+      {/* 취향 적용 배너 (전체 피드 + 취향 쿠키 있을 때) */}
+      {isAllFeed && taste.length > 0 && <TasteBanner tags={taste} />}
 
       <ExploreGallery
         photos={photos}
