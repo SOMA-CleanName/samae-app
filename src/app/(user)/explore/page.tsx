@@ -119,7 +119,7 @@ export default async function ExplorePage() {
 
             {/* 새로 올라온 스냅 (게시물 사진 순환 가로 레일) */}
             {recent.length > 0 && (
-              <div id="sec-recent" className="mt-16 scroll-mt-24">
+              <div id="sec-recent" data-pid="sec-recent" className="mt-16 scroll-mt-24">
                 <div className="mb-3 flex items-baseline gap-2 px-1">
                   <span className="font-display text-body-sm italic text-brand">02</span>
                   <h2 className="text-title font-bold tracking-tight">새로 올라온 스냅</h2>

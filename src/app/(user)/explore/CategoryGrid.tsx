@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { ChevronDownIcon } from "@/components/user/icons";
 import { TrackedCategoryLink } from "./TrackedCategoryLink";
 import styles from "./explore.module.css";
 
@@ -15,6 +14,8 @@ export function CategoryGrid({ items }: { items: GridItem[] }) {
   const [expanded, setExpanded] = useState(false);
   const shown = expanded ? items : items.slice(0, INITIAL);
   const rest = items.length - INITIAL;
+  // 접힘: 다음 2장을 절반만(peek) 보여 더보기 유도
+  const peek = expanded ? [] : items.slice(INITIAL, INITIAL + 2);
 
   return (
     <>
@@ -25,24 +26,43 @@ export function CategoryGrid({ items }: { items: GridItem[] }) {
             item={it}
             big={i === 0}
             index={i}
-            // 접힌 상태: 마지막 줄(더보기 근처) 타일은 사진마다 어둡게 → 더보기 유도
-            dim={!expanded && rest > 0 && i >= shown.length - 2}
-            // 초기 5개는 스태거, '무드 더 보기'로 추가되는 타일(index>=5)은 딜레이 0으로 한 번에 올라옴
-            revealDelay={expanded && i >= INITIAL ? 0 : Math.min(i, 6) * 55}
+            // 펼침: 이미 걸쳐 보이던 2장(index 5·6)은 애니 없이, 그 다음 줄(7+)부터 한 번에 등장
+            reveal={expanded ? i >= INITIAL + 2 : true}
+            revealDelay={expanded ? 0 : Math.min(i, 6) * 55}
           />
         ))}
       </div>
+
+      {/* 접힘: 다음 2장을 절반만(peek) + 하단 어둡게 페이드 */}
+      {peek.length > 0 && (
+        <div className="relative mt-2.5 h-24 overflow-hidden">
+          <div className="grid grid-cols-2 gap-2.5">
+            {peek.map((it, i) => (
+              <Tile key={it.slug} item={it} big={false} index={INITIAL + i} revealDelay={0} />
+            ))}
+          </div>
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-bg via-bg/70 to-transparent" />
+        </div>
+      )}
 
       {rest > 0 && (
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
-          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-full border border-line bg-surface py-3 text-body font-medium text-fg transition-colors hover:bg-surface-2"
+          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-full border border-line bg-surface py-2 text-body font-medium text-fg transition-colors hover:bg-surface-2"
         >
           {expanded ? "접기" : "무드 더 보기"}
-          <ChevronDownIcon
-            className={`h-4 w-4 transition-transform ${expanded ? "rotate-180" : ""}`}
-          />
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={3}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={`h-4 w-4 text-brand transition-transform ${expanded ? "rotate-180" : ""}`}
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
         </button>
       )}
     </>
@@ -55,12 +75,14 @@ function Tile({
   index,
   dim = false,
   revealDelay = 0,
+  reveal = true,
 }: {
   item: GridItem;
   big: boolean;
   index: number;
   dim?: boolean;
   revealDelay?: number;
+  reveal?: boolean;
 }) {
   return (
     <TrackedCategoryLink
@@ -68,8 +90,8 @@ function Tile({
       category={item.title}
       slug={item.slug}
       rank={index + 1}
-      style={{ animationDelay: `${revealDelay}ms` }}
-      className={`${styles.reveal} group relative flex flex-col justify-end overflow-hidden rounded-2xl bg-fg/[0.06] p-3.5 text-white ${
+      style={reveal ? { animationDelay: `${revealDelay}ms` } : undefined}
+      className={`${reveal ? styles.reveal : ""} group relative flex flex-col justify-end overflow-hidden rounded-2xl bg-fg/[0.06] p-3.5 text-white ${
         big ? "col-span-2 aspect-[16/9]" : "aspect-square"
       }`}
     >

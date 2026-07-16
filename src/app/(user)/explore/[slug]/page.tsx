@@ -42,7 +42,8 @@ export default async function ExploreCategoryPage({
 
   return (
     <section className="px-2.5 pb-2.5 pt-2.5 font-kr sm:px-4 sm:pt-4 sm:pb-4">
-      <ScrollMemory />
+      {/* 탭으로 새로 들어오면 저장된 스크롤 무시하고 최상단부터(사진 상세 복귀는 제외) */}
+      <ScrollMemory freshTop />
       {/* 카테고리 탐색 진입 — 취향 시그널(수요 차원) */}
       <MpTrackOnce
         event="View Category"

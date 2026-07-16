@@ -79,11 +79,19 @@ export function FloatingNav({
               active={homeActive}
               icon={<HomeIcon className="h-5 w-5" />}
               onClick={(e) => {
-                // 이미 홈(또는 카테고리 컨텍스트)에서 다시 누르면 이동 대신
-                // 현재 사진만 재셔플 + 최상단으로 (ExploreGallery 가 처리).
+                // 이미 홈(또는 카테고리 컨텍스트)에서 다시 누르면 취향 피드 새로고침.
+                // 피드 캐시를 비우고 리로드 → 서버가 새 시드로 취향순 피드를 다시 내려줌 + 최상단.
                 if (homeActive) {
                   e.preventDefault();
-                  window.dispatchEvent(new Event("samae:home-reshuffle"));
+                  try {
+                    Object.keys(sessionStorage)
+                      .filter((k) => k.startsWith("samae:gallery-session:"))
+                      .forEach((k) => sessionStorage.removeItem(k));
+                    sessionStorage.removeItem(`samae:scroll:${pathname}`);
+                  } catch {
+                    /* 스토리지 접근 불가 시 무시 */
+                  }
+                  window.location.reload();
                 }
               }}
             />

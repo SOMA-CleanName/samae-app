@@ -66,18 +66,6 @@ function buildColumns(photos: GalleryPhoto[], colCount: number): GalleryPhoto[][
   return cols;
 }
 
-// Fisher-Yates — 현재 로드된 사진만 무작위로 재배열한다.
-// (취향/카테고리 컨텍스트로 이미 필터된 items 안에서만 섞으므로 컨텍스트는 그대로 유지)
-function shuffleArray<T>(arr: T[]): T[] {
-  const a = arr.slice();
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-
 // 탐색 갤러리 — 서버가 셔플된 풀을 내려주고, 클라이언트는 메모리에서 점진 노출(네트워크 없음).
 // JS 컬럼 버킷으로 기존 사진은 절대 재배치되지 않음.
 export function ExploreGallery({
@@ -380,18 +368,6 @@ export function ExploreGallery({
       window.removeEventListener("resize", check);
     };
   }, [visible, items.length, activeFeedSeed, loadMore]);
-
-  // 홈 버튼을 이미 홈(또는 카테고리 컨텍스트)에서 한 번 더 누르면 —
-  // 현재 로드된 사진만 랜덤으로 다시 섞고 최상단으로 이동한다(취향/카테고리 컨텍스트는 유지).
-  useEffect(() => {
-    function onReshuffle() {
-      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-      setItems((prev) => (prev.length > 1 ? shuffleArray(prev) : prev));
-      setVisible(STEP);
-    }
-    window.addEventListener("samae:home-reshuffle", onReshuffle);
-    return () => window.removeEventListener("samae:home-reshuffle", onReshuffle);
-  }, []);
 
   // 보기 옵션(가격·작가명) — 세션 유지 + SearchOptions 토글과 이벤트로 동기화
   useEffect(() => {

@@ -5,9 +5,6 @@ import { cn } from "@/lib/cn";
 
 export type ExploreTab = { id: string; label: string };
 
-// 상단 고정 바(브랜드 헤더 + 탭) 높이 — 스크롤 스파이/이동 보정값.
-const STICKY_OFFSET = 92;
-
 // 탐색 중간 메뉴바 — 히어로(커버) 아래에 놓이고, 스크롤로 상단에 닿으면 sticky 로 고정된다.
 // 고정되면 위에 '사매' 브랜드 헤더가 슬라이드 인. 탭을 누르면 해당 섹션으로 스크롤 이동.
 export function ExploreTabBar({ tabs }: { tabs: ExploreTab[] }) {
@@ -26,29 +23,22 @@ export function ExploreTabBar({ tabs }: { tabs: ExploreTab[] }) {
     return () => io.disconnect();
   }, []);
 
-  // 스크롤 스파이 — 기준선(상단 고정 바 아래)을 지난 마지막 섹션을 활성 탭으로.
-  // 단, 마지막 섹션은 아래 여백이 짧아 기준선까지 못 올라올 수 있으므로,
-  // 그 헤딩이 화면 상단 절반(≈45%)에 들어오거나 페이지 맨 밑일 때만 활성으로 승격한다.
+  // 스크롤 스파이 — 헤딩이 화면 상단 42% 안으로 들어온 마지막 섹션을 활성 탭으로.
+  // (기준선을 화면 중간쯤으로 낮춰, 섹션이 화면을 채우기 시작하면 그 탭이 켜지게)
   useEffect(() => {
     if (tabs.length === 0) return;
-    const baseLine = STICKY_OFFSET + 12; // 상단 고정 바 바로 아래 기준선
 
     function onScroll() {
-      const vh = window.innerHeight;
+      const line = window.innerHeight * 0.42; // 헤딩이 상단 42% 안이면 그 섹션 활성
       let current = tabs[0].id;
       for (const t of tabs) {
         const el = document.getElementById(t.id);
-        if (el && el.getBoundingClientRect().top <= baseLine) current = t.id;
+        if (el && el.getBoundingClientRect().top <= line) current = t.id;
       }
-      // 마지막 섹션 승격 — 헤딩이 상단 45% 안으로 들어오거나 맨 밑일 때만.
-      const last = tabs[tabs.length - 1];
-      const lastEl = document.getElementById(last.id);
-      if (lastEl) {
-        const top = lastEl.getBoundingClientRect().top;
-        const atBottom =
-          window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 8;
-        if (top <= vh * 0.45 || atBottom) current = last.id;
-      }
+      // 맨 밑이면 마지막 섹션(꼬리가 짧아 기준선까지 못 올 수 있음)
+      const atBottom =
+        window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 8;
+      if (atBottom) current = tabs[tabs.length - 1].id;
       setActive(current);
     }
 

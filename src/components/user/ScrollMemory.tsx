@@ -7,13 +7,12 @@
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 
-export function ScrollMemory() {
+export function ScrollMemory({ freshTop = false }: { freshTop?: boolean } = {}) {
   const pathname = usePathname();
   const lastKnownY = useRef(0);
   useEffect(() => {
     const key = `samae:scroll:${pathname}`;
     const anchorKey = `samae:scroll-anchor:${pathname}`;
-    const saved = Number(sessionStorage.getItem(key) || "0");
     let anchor: { id: string; viewportTop: number } | null = null;
     try {
       const raw = sessionStorage.getItem(anchorKey);
@@ -22,6 +21,8 @@ export function ScrollMemory() {
     } catch {
       sessionStorage.removeItem(anchorKey);
     }
+    // freshTop: 사진 상세에서 돌아온 게(anchor) 아니면, 저장 위치 무시하고 최상단부터 시작.
+    const saved = freshTop && !anchor ? 0 : Number(sessionStorage.getItem(key) || "0");
     lastKnownY.current = saved;
 
     // 복원 — 피드 세션과 이미지 레이아웃이 돌아올 시간을 고려해 최대 2초간 재시도.
@@ -68,6 +69,6 @@ export function ScrollMemory() {
       window.removeEventListener("keydown", stop);
       window.removeEventListener("scroll", onScroll);
     };
-  }, [pathname]);
+  }, [pathname, freshTop]);
   return null;
 }
