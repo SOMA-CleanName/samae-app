@@ -2,6 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { resolveCoverForPurpose } from "@/lib/taste-purposes";
 import type { GalleryPhoto } from "@/lib/discovery";
 
 const GALLERY_SELECT =
@@ -562,9 +563,13 @@ export async function listMoodDeckForPurpose(purposeKey: string): Promise<MoodCa
     title: string;
     cover_by_purpose: Record<string, string> | null;
   }>;
-  // 이 목적에 대표 사진이 지정된 무드만
+  // 이 목적의 대표 사진(폴백 포함 — 미지정이면 다른 목적 대표를 가져옴, 커플↔웨딩 우선)
   const withCover = rows
-    .map((r) => ({ id: r.id, title: r.title, photoId: (r.cover_by_purpose ?? {})[purposeKey] }))
+    .map((r) => ({
+      id: r.id,
+      title: r.title,
+      photoId: resolveCoverForPurpose(r.cover_by_purpose ?? {}, purposeKey),
+    }))
     .filter((r): r is { id: string; title: string; photoId: string } => !!r.photoId);
   if (withCover.length === 0) return [];
   const { data: photos } = await supabase
