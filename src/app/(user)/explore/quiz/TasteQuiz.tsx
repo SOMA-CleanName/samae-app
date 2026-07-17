@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { mpTrack } from "@/lib/mixpanel";
 import { PURPOSE_OPTIONS } from "@/lib/taste-purposes";
-import type { QuizDeckPhoto, TasteCat } from "@/lib/explore-db";
-import { loadQuizDeck, finishTaste, applyTasteV2 } from "./actions";
+import type { QuizDeckPhoto, MoodCard, TasteCat } from "@/lib/explore-db";
+import { loadMoodDeck, finishTaste, applyTasteV2 } from "./actions";
 
 const THRESHOLD = 90; // 스와이프 확정 거리(px)
 const RESULT_KEY = "samae:taste-result"; // 결과 저장 키(사진 상세→뒤로 시 결과 복원용)
@@ -20,9 +20,9 @@ type ResultState = { purposeKey: string; moods: TasteCat[]; photos: QuizDeckPhot
 export function TasteQuiz() {
   const [step, setStep] = useState<Step>("purpose");
   const [purposeKey, setPurposeKey] = useState<string>("");
-  const [deck, setDeck] = useState<QuizDeckPhoto[]>([]);
+  const [deck, setDeck] = useState<MoodCard[]>([]);
   const [i, setI] = useState(0);
-  const [liked, setLiked] = useState<QuizDeckPhoto[]>([]);
+  const [liked, setLiked] = useState<MoodCard[]>([]);
   const [drag, setDrag] = useState({ x: 0, y: 0, active: false });
   const [flung, setFlung] = useState<{ index: number; dir: "like" | "pass" } | null>(null);
   const [result, setResult] = useState<ResultState | null>(null);
@@ -55,7 +55,7 @@ export function TasteQuiz() {
   function startSwipe(key: string) {
     setPurposeKey(key);
     startT(async () => {
-      const d = await loadQuizDeck(key);
+      const d = await loadMoodDeck();
       setDeck(d);
       setI(0);
       setLiked([]);
@@ -65,11 +65,11 @@ export function TasteQuiz() {
     });
   }
 
-  function finish(likedArr: QuizDeckPhoto[]) {
+  function finish(likedArr: MoodCard[]) {
     startT(async () => {
       const res = await finishTaste(
         purposeKey,
-        likedArr.map((p) => p.id)
+        likedArr.map((m) => m.moodId)
       );
       const r: ResultState = { purposeKey, moods: res.moods, photos: res.photos };
       setResult(r);
@@ -249,11 +249,11 @@ export function TasteQuiz() {
     );
   }
 
-  // ── 2단계: 스와이프 덱 ──
-  if (deck.length < 4) {
+  // ── 2단계: 무드 대표사진 스와이프 덱 ──
+  if (deck.length < 2) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3">
-        <p className="text-body-sm text-muted">이 목적에 쓸 사진이 아직 부족해요.</p>
+        <p className="text-body-sm text-muted">무드 대표 사진이 아직 부족해요.</p>
         <button
           type="button"
           onClick={reset}
@@ -283,7 +283,7 @@ export function TasteQuiz() {
 
       <div className="relative mt-4 min-h-0 w-full max-w-[340px] flex-1 select-none">
         {idxs.map((idx) => {
-          const photo = deck[idx];
+          const card = deck[idx];
           const isFlung = flung?.index === idx;
           const isFront = !isFlung && idx === i;
 
@@ -311,7 +311,7 @@ export function TasteQuiz() {
 
           return (
             <div
-              key={photo.id}
+              key={card.moodId}
               onPointerDown={
                 isFront
                   ? (e) => {
@@ -355,7 +355,11 @@ export function TasteQuiz() {
                 (isFront ? "cursor-grab shadow-pop active:cursor-grabbing" : "shadow-card")
               }
             >
-              <Image src={photo.url} alt="" fill priority={isFront} quality={88} sizes="340px" className="object-cover" draggable={false} />
+              <Image src={card.coverUrl} alt="" fill priority={isFront} quality={88} sizes="340px" className="object-cover" draggable={false} />
+              {/* 무드 이름 — 사진 하단에 은은하게 */}
+              <span className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent px-4 pb-4 pt-10 text-lg font-bold text-white">
+                {card.title}
+              </span>
 
               {isFront && (
                 <>

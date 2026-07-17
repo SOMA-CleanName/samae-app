@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { listExploreCategoriesWithCounts } from "@/lib/explore-db";
 import { ExplorePreviewPicker } from "./ExplorePreviewPicker";
+import { ExploreCoverPicker } from "./ExploreCoverPicker";
 import { Badge, EmptyState } from "@/components/ui";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { ConfirmForm } from "@/components/admin/ConfirmForm";
@@ -116,6 +117,11 @@ export default async function AdminExplorePage() {
                 slug={c.slug}
                 previewPhotoIds={c.previewPhotoIds}
               />
+
+              {/* 무드 카테고리 대표 사진 — 취향 테스트 스와이프 카드용 */}
+              {c.kind === "mood" && (
+                <ExploreCoverPicker categoryId={c.id} coverPhotoId={c.coverPhotoId} />
+              )}
 
               {/* 편집 (펼침) */}
               <details className="mt-3">

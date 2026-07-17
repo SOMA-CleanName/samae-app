@@ -19,9 +19,11 @@ export type ExploreCategory = {
   sort: number;
   previewPhotoIds: string[]; // /explore 홈 스트립에 노출할 사진 id (순서). 비면 position 순 앞 N장
   kind: ExploreCategoryKind; // 취향 테스트 분류: 목적/무드/기타
+  coverPhotoId: string | null; // 취향 테스트 무드 스와이프용 대표 사진
 };
 
-const EXPLORE_COLUMNS = "id, slug, title, subtitle, published, sort, preview_photo_ids, kind";
+const EXPLORE_COLUMNS =
+  "id, slug, title, subtitle, published, sort, preview_photo_ids, kind, cover_photo_id";
 
 function mapRow(r: Record<string, unknown>): ExploreCategory {
   return {
@@ -33,6 +35,7 @@ function mapRow(r: Record<string, unknown>): ExploreCategory {
     sort: (r.sort as number) ?? 0,
     previewPhotoIds: (r.preview_photo_ids as string[]) ?? [],
     kind: ((r.kind as string) ?? "other") as ExploreCategoryKind,
+    coverPhotoId: (r.cover_photo_id as string | null) ?? null,
   };
 }
 
@@ -540,6 +543,60 @@ export async function removeAlbumPhotosFromCategory(
 // ── 취향 테스트 v2 (목적 칩 + 무드 스와이프) ──
 export type QuizDeckPhoto = { id: string; url: string };
 export type TasteCat = { id: string; title: string; slug: string };
+
+export type MoodCard = { moodId: string; title: string; coverUrl: string };
+
+// 취향 테스트 무드 덱 — 대표 사진(cover_photo_id)이 지정된 공개 무드 카테고리. 셔플.
+// 사용자가 이 대표 사진들을 하나씩 스와이프 → 좋아요한 무드가 취향.
+export async function listMoodDeck(): Promise<MoodCard[]> {
+  const supabase = await createClient();
+  const { data: cats } = await supabase
+    .from("explore_categories")
+    .select("id, title, cover_photo_id")
+    .eq("published", true)
+    .eq("kind", "mood")
+    .not("cover_photo_id", "is", null)
+    .order("sort", { ascending: true });
+  const rows = (cats ?? []) as Array<{ id: string; title: string; cover_photo_id: string }>;
+  if (rows.length === 0) return [];
+  const { data: photos } = await supabase
+    .from("photos")
+    .select("id, src_url, thumb_url")
+    .in(
+      "id",
+      rows.map((r) => r.cover_photo_id)
+    )
+    .eq("visibility", "published");
+  const byId = new Map(
+    (photos ?? []).map((p) => [
+      p.id as string,
+      p as { thumb_url: string | null; src_url: string },
+    ])
+  );
+  const cards = rows
+    .map((r): MoodCard | null => {
+      const p = byId.get(r.cover_photo_id);
+      return p ? { moodId: r.id, title: r.title, coverUrl: p.thumb_url ?? p.src_url } : null;
+    })
+    .filter((c): c is MoodCard => !!c);
+  return shuffleArr(cards);
+}
+
+// id 목록 → 공개 무드 카테고리 {id,title} (결과 화면 라벨용).
+export async function fetchMoodTitles(moodIds: string[]): Promise<TasteCat[]> {
+  const clean = [...new Set(moodIds.filter(Boolean))];
+  if (clean.length === 0) return [];
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("explore_categories")
+    .select("id, title, slug")
+    .in("id", clean);
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    title: r.title as string,
+    slug: r.slug as string,
+  }));
+}
 
 // 슬러그 목록 → 공개 카테고리 id 목록. (목적 고정 목록이 참조하는 탐색 카테고리 해석)
 export async function resolveCategoryIdsBySlugs(slugs: string[]): Promise<string[]> {

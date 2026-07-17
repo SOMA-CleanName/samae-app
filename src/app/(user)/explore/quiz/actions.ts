@@ -10,10 +10,11 @@ import {
 import { purposeByKey } from "@/lib/taste-purposes";
 import {
   resolveCategoryIdsBySlugs,
-  fetchQuizDeckForPurposes,
-  deriveMoodCategories,
+  listMoodDeck,
+  fetchMoodTitles,
   fetchTasteCurated,
   type QuizDeckPhoto,
+  type MoodCard,
   type TasteCat,
 } from "@/lib/explore-db";
 
@@ -28,33 +29,30 @@ async function purposeCategoryIds(purposeKey: string): Promise<string[]> {
   return resolveCategoryIdsBySlugs(p.categorySlugs);
 }
 
-// 1단계에서 고른 목적의 스와이프 덱(그 목적 카테고리 사진, 앨범당 1장, 셔플).
-export async function loadQuizDeck(purposeKey: string): Promise<QuizDeckPhoto[]> {
-  const ids = await purposeCategoryIds(purposeKey);
-  return fetchQuizDeckForPurposes(ids, 12);
+// 2단계 덱 — 무드 대표 사진들(하나씩 스와이프). 목적과 무관하게 동일한 무드 5개.
+export async function loadMoodDeck(): Promise<MoodCard[]> {
+  return listMoodDeck();
 }
 
-// 스와이프 종료 — 좋아요한 사진으로 무드 카테고리 산출 + 결과 큐레이션.
+// 스와이프 종료 — 좋아요한 무드(id) 그대로 취향. 목적∩무드로 결과 큐레이션.
 // (쿠키 저장은 안 함 — CTA(applyTasteV2)를 눌러야만 취향 적용)
 export async function finishTaste(
   purposeKey: string,
-  likedPhotoIds: string[]
+  likedMoodIds: string[]
 ): Promise<TasteResult> {
   const purposeIds = await purposeCategoryIds(purposeKey);
-  const liked = [...new Set(likedPhotoIds.filter(Boolean))];
-  const moods = await deriveMoodCategories(liked, 3);
-  const photos = await fetchTasteCurated(
-    purposeIds,
-    moods.map((m) => m.id),
-    12
-  );
+  const moodIds = [...new Set(likedMoodIds.filter(Boolean))];
+  const [moods, photos] = await Promise.all([
+    fetchMoodTitles(moodIds),
+    fetchTasteCurated(purposeIds, moodIds, 12),
+  ]);
   return { moods, photos };
 }
 
 // 취향 적용 — v2 쿠키 저장(익명 포함, 30일). 구 mood_tags 쿠키는 제거.
 export async function applyTasteV2(purposeKey: string, moodIds: string[]): Promise<void> {
   const purposeIds = await purposeCategoryIds(purposeKey);
-  const moods = [...new Set(moodIds.filter(Boolean))].slice(0, 3);
+  const moods = [...new Set(moodIds.filter(Boolean))];
   const store = await cookies();
   store.delete(TASTE_COOKIE); // 구 취향 제거(충돌 방지)
   if (purposeIds.length === 0 && moods.length === 0) {

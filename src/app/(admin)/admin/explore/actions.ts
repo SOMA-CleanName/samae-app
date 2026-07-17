@@ -174,6 +174,22 @@ export async function loadExploreCategoryMembers(
   return photos.map((p) => ({ id: p.id, thumb_url: p.thumb_url, src_url: p.src_url }));
 }
 
+// 대표 사진 저장 — 무드 카테고리의 취향 테스트 스와이프 카드에 쓰는 대표 1장.
+export async function setExploreCover(
+  categoryId: string,
+  photoId: string | null
+): Promise<void> {
+  await assertAdmin();
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("explore_categories")
+    .update({ cover_photo_id: photoId })
+    .eq("id", categoryId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/explore");
+  revalidatePath("/explore/quiz");
+}
+
 // 미리보기 사진 저장 — /explore 홈 스트립에 이 순서대로 노출.
 export async function setExplorePreviewPhotos(formData: FormData) {
   await assertAdmin();
