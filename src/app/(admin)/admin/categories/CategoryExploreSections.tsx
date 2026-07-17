@@ -68,7 +68,7 @@ export function CategoryExploreSections({
 
       {/* 선택된 순서 — 드래그로 배치 */}
       {picked.length > 0 && (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+        <DndContext id={`sections-${categoryId}`} sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
           <SortableContext items={picked} strategy={horizontalListSortingStrategy}>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {picked.map((id, i) => {

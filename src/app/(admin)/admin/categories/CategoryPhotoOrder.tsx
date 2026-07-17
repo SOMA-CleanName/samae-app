@@ -77,7 +77,7 @@ export function CategoryPhotoOrder({
           아래 사진을 탭해 고정 순서에 추가하세요.
         </p>
       ) : (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+        <DndContext id={`photoorder-${categoryId}`} sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
           <SortableContext items={pinned} strategy={rectSortingStrategy}>
             <div className="mt-1.5 grid grid-cols-4 gap-1.5 sm:grid-cols-6">
               {pinned.map((id, i) => {

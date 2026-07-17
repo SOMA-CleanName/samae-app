@@ -2,12 +2,15 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { resolveCoverForPurpose } from "@/lib/taste-purposes";
 import type { GalleryPhoto } from "@/lib/discovery";
 
 const GALLERY_SELECT =
   "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name)";
 
 // 탐색 편집형 카테고리(DB) — 광고 랜딩 categories 와 별개 체계. (docs/20)
+export type ExploreCategoryKind = "purpose" | "mood" | "other";
+
 export type ExploreCategory = {
   id: string;
   slug: string;
@@ -16,9 +19,12 @@ export type ExploreCategory = {
   published: boolean;
   sort: number;
   previewPhotoIds: string[]; // /explore 홈 스트립에 노출할 사진 id (순서). 비면 position 순 앞 N장
+  kind: ExploreCategoryKind; // 취향 테스트 분류: 목적/무드/기타
+  coverByPurpose: Record<string, string>; // 무드 카테고리의 목적별 대표 사진 {purposeKey: photoId}
 };
 
-const EXPLORE_COLUMNS = "id, slug, title, subtitle, published, sort, preview_photo_ids";
+const EXPLORE_COLUMNS =
+  "id, slug, title, subtitle, published, sort, preview_photo_ids, kind, cover_by_purpose";
 
 function mapRow(r: Record<string, unknown>): ExploreCategory {
   return {
@@ -29,6 +35,8 @@ function mapRow(r: Record<string, unknown>): ExploreCategory {
     published: !!r.published,
     sort: (r.sort as number) ?? 0,
     previewPhotoIds: (r.preview_photo_ids as string[]) ?? [],
+    kind: ((r.kind as string) ?? "other") as ExploreCategoryKind,
+    coverByPurpose: (r.cover_by_purpose as Record<string, string> | null) ?? {},
   };
 }
 
@@ -531,4 +539,275 @@ export async function removeAlbumPhotosFromCategory(
     .delete()
     .eq("category_id", categoryId)
     .in("photo_id", ids);
+}
+
+// ── 취향 테스트 v2 (목적 칩 + 무드 스와이프) ──
+export type QuizDeckPhoto = { id: string; url: string };
+export type TasteCat = { id: string; title: string; slug: string };
+
+export type MoodCard = { moodId: string; title: string; coverUrl: string };
+export type PoolPhotoLite = { id: string; thumb_url: string | null; src_url: string };
+
+// 취향 테스트 무드 덱 — 고른 목적(purposeKey)의 대표 사진이 지정된 공개 무드 카테고리. 셔플.
+// 목적별로 cover_by_purpose[purposeKey] 가 달라 스와이프 사진이 목적마다 다르게 뜬다.
+export async function listMoodDeckForPurpose(purposeKey: string): Promise<MoodCard[]> {
+  const supabase = await createClient();
+  const { data: cats } = await supabase
+    .from("explore_categories")
+    .select("id, title, cover_by_purpose")
+    .eq("published", true)
+    .eq("kind", "mood")
+    .order("sort", { ascending: true });
+  const rows = (cats ?? []) as Array<{
+    id: string;
+    title: string;
+    cover_by_purpose: Record<string, string> | null;
+  }>;
+  // 이 목적의 대표 사진(폴백 포함 — 미지정이면 다른 목적 대표를 가져옴, 커플↔웨딩 우선)
+  const withCover = rows
+    .map((r) => ({
+      id: r.id,
+      title: r.title,
+      photoId: resolveCoverForPurpose(r.cover_by_purpose ?? {}, purposeKey),
+    }))
+    .filter((r): r is { id: string; title: string; photoId: string } => !!r.photoId);
+  if (withCover.length === 0) return [];
+  const { data: photos } = await supabase
+    .from("photos")
+    .select("id, src_url, thumb_url")
+    .in(
+      "id",
+      withCover.map((r) => r.photoId)
+    )
+    .eq("visibility", "published");
+  const byId = new Map(
+    (photos ?? []).map((p) => [
+      p.id as string,
+      p as { thumb_url: string | null; src_url: string },
+    ])
+  );
+  const cards = withCover
+    .map((r): MoodCard | null => {
+      const p = byId.get(r.photoId);
+      return p ? { moodId: r.id, title: r.title, coverUrl: p.thumb_url ?? p.src_url } : null;
+    })
+    .filter((c): c is MoodCard => !!c);
+  return shuffleArr(cards);
+}
+
+// 어드민 — (무드 × 목적) 대표 사진 후보. 그 무드에 담긴 사진 ∩ 목적 참조 카테고리 사진.
+export async function fetchMoodPurposeCandidates(
+  moodCategoryId: string,
+  purposeCatIds: string[]
+): Promise<PoolPhotoLite[]> {
+  const admin = createAdminClient();
+  const { data: moodMem } = await admin
+    .from("explore_category_photos")
+    .select("photo_id")
+    .eq("category_id", moodCategoryId);
+  const moodIds = new Set((moodMem ?? []).map((m) => m.photo_id as string));
+  if (moodIds.size === 0) return [];
+  let ids = [...moodIds];
+  if (purposeCatIds.length > 0) {
+    const { data: purMem } = await admin
+      .from("explore_category_photos")
+      .select("photo_id")
+      .in("category_id", purposeCatIds);
+    const purSet = new Set((purMem ?? []).map((m) => m.photo_id as string));
+    const inter = ids.filter((id) => purSet.has(id));
+    if (inter.length > 0) ids = inter; // 교집합 있으면 그것만, 없으면 무드 전체(폴백)
+  }
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("photos")
+    .select("id, src_url, thumb_url")
+    .in("id", ids)
+    .eq("visibility", "published");
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    thumb_url: r.thumb_url as string | null,
+    src_url: r.src_url as string,
+  }));
+}
+
+// id 목록 → 공개 무드 카테고리 {id,title} (결과 화면 라벨용).
+export async function fetchMoodTitles(moodIds: string[]): Promise<TasteCat[]> {
+  const clean = [...new Set(moodIds.filter(Boolean))];
+  if (clean.length === 0) return [];
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("explore_categories")
+    .select("id, title, slug")
+    .in("id", clean);
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    title: r.title as string,
+    slug: r.slug as string,
+  }));
+}
+
+// 슬러그 목록 → 공개 카테고리 id 목록. (목적 고정 목록이 참조하는 탐색 카테고리 해석)
+export async function resolveCategoryIdsBySlugs(slugs: string[]): Promise<string[]> {
+  const clean = [...new Set(slugs.filter(Boolean))];
+  if (clean.length === 0) return [];
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("explore_categories")
+    .select("id")
+    .in("slug", clean);
+  return (data ?? []).map((r) => r.id as string);
+}
+
+// 고른 목적 카테고리의 멤버 사진 id (published) — 앨범 dedup 전 원본.
+async function purposeMemberPhotos(
+  purposeIds: string[]
+): Promise<Array<{ id: string; src_url: string; thumb_url: string | null; album_id: string | null }>> {
+  if (purposeIds.length === 0) return [];
+  const admin = createAdminClient();
+  const { data: mem } = await admin
+    .from("explore_category_photos")
+    .select("photo_id")
+    .in("category_id", purposeIds);
+  const ids = [...new Set((mem ?? []).map((m) => m.photo_id as string))];
+  if (ids.length === 0) return [];
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("photos")
+    .select(
+      "id, src_url, thumb_url, album_id, photographer:photographers!photos_photographer_id_fkey!inner(id)"
+    )
+    .in("id", ids)
+    .eq("visibility", "published");
+  return (data ?? []).map((r) => {
+    const rr = r as Record<string, unknown>;
+    return {
+      id: rr.id as string,
+      src_url: rr.src_url as string,
+      thumb_url: rr.thumb_url as string | null,
+      album_id: rr.album_id as string | null,
+    };
+  });
+}
+
+// 스와이프 덱 — 고른 목적의 멤버 사진, 앨범당 1장, 셔플, limit.
+export async function fetchQuizDeckForPurposes(
+  purposeIds: string[],
+  limit = 12
+): Promise<QuizDeckPhoto[]> {
+  const rows = await purposeMemberPhotos(purposeIds);
+  const seen = new Set<string>();
+  const eligible = rows.filter((r) => {
+    const k = r.album_id ?? `p:${r.id}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  return shuffleArr(eligible)
+    .slice(0, limit)
+    .map((r) => ({ id: r.id, url: r.thumb_url ?? r.src_url }));
+}
+
+// 좋아요한 사진들 → 무드 카테고리 랭킹(멤버십 겹침 수 desc). 최대 max개.
+export async function deriveMoodCategories(
+  likedPhotoIds: string[],
+  max = 3
+): Promise<TasteCat[]> {
+  if (likedPhotoIds.length === 0) return [];
+  const admin = createAdminClient();
+  const { data: mem } = await admin
+    .from("explore_category_photos")
+    .select("category_id")
+    .in("photo_id", likedPhotoIds);
+  const counts = new Map<string, number>();
+  for (const m of (mem ?? []) as Array<{ category_id: string }>) {
+    counts.set(m.category_id, (counts.get(m.category_id) ?? 0) + 1);
+  }
+  if (counts.size === 0) return [];
+  const { data: cats } = await admin
+    .from("explore_categories")
+    .select("id, title, slug, kind, published")
+    .in("id", [...counts.keys()])
+    .eq("kind", "mood")
+    .eq("published", true);
+  return (cats ?? [])
+    .map((c) => ({
+      id: c.id as string,
+      title: c.title as string,
+      slug: c.slug as string,
+      n: counts.get(c.id as string) ?? 0,
+    }))
+    .sort((a, b) => b.n - a.n)
+    .slice(0, max)
+    .map(({ id, title, slug }) => ({ id, title, slug }));
+}
+
+// 주어진 사진들이 taste 카테고리(purpose∪mood)에 몇 개 속하는지 점수. (홈 개인화 부스트용)
+export async function scoreTastePhotos(
+  photoIds: string[],
+  catIds: string[]
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (photoIds.length === 0 || catIds.length === 0) return out;
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("explore_category_photos")
+    .select("photo_id")
+    .in("photo_id", photoIds)
+    .in("category_id", catIds);
+  for (const r of (data ?? []) as Array<{ photo_id: string }>) {
+    out.set(r.photo_id, (out.get(r.photo_id) ?? 0) + 1);
+  }
+  return out;
+}
+
+// 취향 가중랜덤 정렬 — 시드 기반 지터(id+seed 해시)에서 점수만큼 앞으로 당김.
+// 딱딱한 블록(점수순 정렬)이 아니라 '앞에 올 확률만' 높여 뭉침 없이 섞이게 한다.
+export function boostByTaste<T extends { id: string }>(
+  photos: T[],
+  score: Map<string, number>,
+  seed: string,
+  weight = 0.35
+): T[] {
+  const rnd = (id: string): number => {
+    let h = 2166136261;
+    const s = id + seed;
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return ((h >>> 0) % 100000) / 100000;
+  };
+  const key = (p: T) => rnd(p.id) - (score.get(p.id) ?? 0) * weight;
+  return [...photos].sort((a, b) => key(a) - key(b));
+}
+
+// 결과 큐레이션 — 목적∩무드 사진(부족하면 목적만), 앨범당 1장, limit.
+export async function fetchTasteCurated(
+  purposeIds: string[],
+  moodIds: string[],
+  limit = 12
+): Promise<QuizDeckPhoto[]> {
+  const rows = await purposeMemberPhotos(purposeIds);
+  if (rows.length === 0) return [];
+  let pool = rows;
+  if (moodIds.length > 0) {
+    const admin = createAdminClient();
+    const { data: moodMem } = await admin
+      .from("explore_category_photos")
+      .select("photo_id")
+      .in("category_id", moodIds);
+    const moodSet = new Set((moodMem ?? []).map((m) => m.photo_id as string));
+    const inter = rows.filter((r) => moodSet.has(r.id));
+    if (inter.length >= 4) pool = inter; // 교집합이 충분할 때만 좁힘
+  }
+  const seen = new Set<string>();
+  const eligible = pool.filter((r) => {
+    const k = r.album_id ?? `p:${r.id}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  return shuffleArr(eligible)
+    .slice(0, limit)
+    .map((r) => ({ id: r.id, url: r.thumb_url ?? r.src_url }));
 }

@@ -10,7 +10,10 @@ import {
   addAlbumPhotosToCategory,
   removeAlbumPhotosFromCategory,
   fetchExploreCategoryGalleryPhotos,
+  resolveCategoryIdsBySlugs,
+  fetchMoodPurposeCandidates,
 } from "@/lib/explore-db";
+import { purposeByKey } from "@/lib/taste-purposes";
 
 export type PreviewCandidate = { id: string; thumb_url: string | null; src_url: string };
 
@@ -27,6 +30,11 @@ function slugify(raw: string): string {
     .replace(/\s+/g, "-")
     .slice(0, 40);
   return s || `cat-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+// 취향 테스트 분류 — 무드(취향 테스트가 씀)/기타. 목적은 탐색 카테고리가 아니라 코드 고정 목록.
+function parseKind(v: FormDataEntryValue | null): "mood" | "other" {
+  return String(v ?? "") === "mood" ? "mood" : "other";
 }
 
 // 카테고리 생성 — 새 카테고리는 목록 맨 뒤(sort = 최대+10), 비공개로 시작.
@@ -50,6 +58,7 @@ export async function createExploreCategory(formData: FormData) {
     title,
     slug,
     subtitle: String(formData.get("subtitle") ?? "").trim(),
+    kind: parseKind(formData.get("kind")),
     sort,
   });
   if (error) {
@@ -70,6 +79,7 @@ export async function updateExploreCategory(formData: FormData) {
       title: String(formData.get("title") ?? "").trim(),
       slug: slugify(String(formData.get("slug") ?? "")),
       subtitle: String(formData.get("subtitle") ?? "").trim(),
+      kind: parseKind(formData.get("kind")),
     })
     .eq("id", id);
   if (error) {
@@ -165,6 +175,43 @@ export async function loadExploreCategoryMembers(
   await assertAdmin();
   const photos = await fetchExploreCategoryGalleryPhotos(categoryId);
   return photos.map((p) => ({ id: p.id, thumb_url: p.thumb_url, src_url: p.src_url }));
+}
+
+// (무드 × 목적) 대표 사진 후보 — 그 무드에 담긴 사진 ∩ 목적 참조 카테고리 사진.
+export async function loadCoverCandidates(
+  moodCategoryId: string,
+  purposeKey: string
+): Promise<PreviewCandidate[]> {
+  await assertAdmin();
+  const p = purposeByKey(purposeKey);
+  if (!p) return [];
+  const purposeCatIds = await resolveCategoryIdsBySlugs(p.categorySlugs);
+  return fetchMoodPurposeCandidates(moodCategoryId, purposeCatIds);
+}
+
+// 목적별 대표 사진 저장 — cover_by_purpose[purposeKey] 갱신(무드 카테고리).
+export async function setExploreCover(
+  categoryId: string,
+  purposeKey: string,
+  photoId: string | null
+): Promise<void> {
+  await assertAdmin();
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("explore_categories")
+    .select("cover_by_purpose")
+    .eq("id", categoryId)
+    .maybeSingle();
+  const cur = { ...((data?.cover_by_purpose as Record<string, string>) ?? {}) };
+  if (photoId) cur[purposeKey] = photoId;
+  else delete cur[purposeKey];
+  const { error } = await admin
+    .from("explore_categories")
+    .update({ cover_by_purpose: cur })
+    .eq("id", categoryId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/explore");
+  revalidatePath("/explore/quiz");
 }
 
 // 미리보기 사진 저장 — /explore 홈 스트립에 이 순서대로 노출.
