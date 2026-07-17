@@ -92,7 +92,12 @@ export function ExplorePreviewPicker({
 
         {/* 지정된 미리보기 — 드래그로 순서 · ✕ 제거 */}
         {picked.length > 0 && (
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+          <DndContext
+            id={`preview-${categoryId}`}
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={onDragEnd}
+          >
             <SortableContext items={picked} strategy={rectSortingStrategy}>
               <div className="mt-2 grid grid-cols-4 gap-1.5 sm:grid-cols-6">
                 {picked.map((id, i) => {

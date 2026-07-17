@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import {
   DndContext,
   MouseSensor,
@@ -40,6 +40,7 @@ export function SortableGrid({
   append?: ReactNode; // 정렬 항목 뒤에 붙는 비정렬 노드(예: + 추가 버튼)
   children: (id: string) => ReactNode;
 }) {
+  const dndId = useId(); // SSR 안정 id — dnd-kit aria-describedby 하이드레이션 미스매치 방지
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 8 } }),
@@ -58,7 +59,7 @@ export function SortableGrid({
   // disabled 여도 DndContext/SortableContext 는 유지(SortableItem 의 useSortable 안전).
   // SortableContext disabled 로 드래그만 비활성화한다.
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+    <DndContext id={dndId} sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
       <SortableContext items={ids} strategy={rectSortingStrategy} disabled={!!disabled}>
         <div className={className}>
           {ids.map((id) => children(id))}
