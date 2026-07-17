@@ -7,7 +7,9 @@ import {
   TASTE_V2_COOKIE,
   serializeTasteV2,
 } from "@/lib/category-constants";
+import { purposeByKey } from "@/lib/taste-purposes";
 import {
+  resolveCategoryIdsBySlugs,
   fetchQuizDeckForPurposes,
   deriveMoodCategories,
   fetchTasteCurated,
@@ -18,23 +20,30 @@ import {
 export type { QuizDeckPhoto, TasteCat };
 export type TasteResult = { moods: TasteCat[]; photos: QuizDeckPhoto[] };
 
-// 1단계에서 고른 목적 카테고리의 스와이프 덱(앨범당 1장, 셔플).
-export async function loadQuizDeck(purposeIds: string[]): Promise<QuizDeckPhoto[]> {
-  const clean = [...new Set(purposeIds.filter(Boolean))].slice(0, 3);
-  return fetchQuizDeckForPurposes(clean, 12);
+// 고른 목적(고정 목록)이 참조하는 탐색 카테고리 id.
+async function purposeCategoryIds(purposeKey: string): Promise<string[]> {
+  const p = purposeByKey(purposeKey);
+  if (!p) return [];
+  return resolveCategoryIdsBySlugs(p.categorySlugs);
+}
+
+// 1단계에서 고른 목적의 스와이프 덱(그 목적 카테고리 사진, 앨범당 1장, 셔플).
+export async function loadQuizDeck(purposeKey: string): Promise<QuizDeckPhoto[]> {
+  const ids = await purposeCategoryIds(purposeKey);
+  return fetchQuizDeckForPurposes(ids, 12);
 }
 
 // 스와이프 종료 — 좋아요한 사진으로 무드 카테고리 산출 + 결과 큐레이션.
 // (쿠키 저장은 안 함 — CTA(applyTasteV2)를 눌러야만 취향 적용)
 export async function finishTaste(
-  purposeIds: string[],
+  purposeKey: string,
   likedPhotoIds: string[]
 ): Promise<TasteResult> {
-  const purposes = [...new Set(purposeIds.filter(Boolean))].slice(0, 3);
+  const purposeIds = await purposeCategoryIds(purposeKey);
   const liked = [...new Set(likedPhotoIds.filter(Boolean))];
   const moods = await deriveMoodCategories(liked, 3);
   const photos = await fetchTasteCurated(
-    purposes,
+    purposeIds,
     moods.map((m) => m.id),
     12
   );
@@ -42,16 +51,16 @@ export async function finishTaste(
 }
 
 // 취향 적용 — v2 쿠키 저장(익명 포함, 30일). 구 mood_tags 쿠키는 제거.
-export async function applyTasteV2(purposeIds: string[], moodIds: string[]): Promise<void> {
-  const purposes = [...new Set(purposeIds.filter(Boolean))].slice(0, 3);
+export async function applyTasteV2(purposeKey: string, moodIds: string[]): Promise<void> {
+  const purposeIds = await purposeCategoryIds(purposeKey);
   const moods = [...new Set(moodIds.filter(Boolean))].slice(0, 3);
   const store = await cookies();
   store.delete(TASTE_COOKIE); // 구 취향 제거(충돌 방지)
-  if (purposes.length === 0 && moods.length === 0) {
+  if (purposeIds.length === 0 && moods.length === 0) {
     store.delete(TASTE_V2_COOKIE);
     return;
   }
-  store.set(TASTE_V2_COOKIE, serializeTasteV2(purposes, moods), {
+  store.set(TASTE_V2_COOKIE, serializeTasteV2(purposeIds, moods), {
     maxAge: 60 * 60 * 24 * 30,
     path: "/",
     sameSite: "lax",

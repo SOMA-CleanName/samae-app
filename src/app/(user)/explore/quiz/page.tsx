@@ -1,15 +1,12 @@
 import Link from "next/link";
-import { listPurposeCategories } from "@/lib/explore-db";
 import { MpTrackOnce } from "@/components/MpTrackOnce";
 import { TasteQuiz } from "./TasteQuiz";
 
 export const dynamic = "force-dynamic";
 
-// 취향 테스트 v2 — 1단계: 촬영 목적(카테고리) 선택 / 2단계: 그 목적 사진 스와이프 →
+// 취향 테스트 v2 — 1단계: 촬영 목적(고정 3개) 선택 / 2단계: 그 목적 사진 스와이프 →
 // 좋아요한 사진의 무드 카테고리로 취향 산출 → 홈 피드 개인화. (개인화 진입점)
-export default async function TasteQuizPage() {
-  const purposeCategories = await listPurposeCategories();
-
+export default function TasteQuizPage() {
   return (
     <section className="fixed inset-0 z-30 flex flex-col overflow-hidden bg-bg px-2.5 pt-3 font-kr sm:px-4 sm:pt-4">
       <MpTrackOnce event="View Taste Quiz" />
@@ -25,7 +22,7 @@ export default async function TasteQuizPage() {
         </Link>
         <h1 className="text-lg font-bold tracking-tight">내 취향 찾기</h1>
       </div>
-      <TasteQuiz purposeCategories={purposeCategories} />
+      <TasteQuiz />
     </section>
   );
 }

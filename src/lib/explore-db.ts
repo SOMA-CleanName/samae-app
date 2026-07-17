@@ -541,20 +541,16 @@ export async function removeAlbumPhotosFromCategory(
 export type QuizDeckPhoto = { id: string; url: string };
 export type TasteCat = { id: string; title: string; slug: string };
 
-// 목적 카테고리(published, kind=purpose) — 퀴즈 1단계 칩.
-export async function listPurposeCategories(): Promise<TasteCat[]> {
-  const supabase = await createClient();
-  const { data } = await supabase
+// 슬러그 목록 → 공개 카테고리 id 목록. (목적 고정 목록이 참조하는 탐색 카테고리 해석)
+export async function resolveCategoryIdsBySlugs(slugs: string[]): Promise<string[]> {
+  const clean = [...new Set(slugs.filter(Boolean))];
+  if (clean.length === 0) return [];
+  const admin = createAdminClient();
+  const { data } = await admin
     .from("explore_categories")
-    .select("id, title, slug")
-    .eq("published", true)
-    .eq("kind", "purpose")
-    .order("sort", { ascending: true });
-  return (data ?? []).map((r) => ({
-    id: r.id as string,
-    title: r.title as string,
-    slug: r.slug as string,
-  }));
+    .select("id")
+    .in("slug", clean);
+  return (data ?? []).map((r) => r.id as string);
 }
 
 // 고른 목적 카테고리의 멤버 사진 id (published) — 앨범 dedup 전 원본.

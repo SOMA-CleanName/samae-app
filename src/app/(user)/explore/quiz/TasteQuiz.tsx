@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { mpTrack } from "@/lib/mixpanel";
+import { PURPOSE_OPTIONS } from "@/lib/taste-purposes";
 import {
   loadQuizDeck,
   finishTaste,
@@ -13,18 +14,17 @@ import {
 } from "./actions";
 
 const THRESHOLD = 90; // 스와이프 확정 거리(px)
-const MAX_PURPOSE = 2; // 목적 최대 선택 수
 const RESULT_KEY = "samae:taste-result"; // 결과 저장 키(사진 상세→뒤로 시 결과 복원용)
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 
 type Step = "purpose" | "swipe" | "result";
-type ResultState = { purposeIds: string[]; moods: TasteCat[]; photos: QuizDeckPhoto[] };
+type ResultState = { purposeKey: string; moods: TasteCat[]; photos: QuizDeckPhoto[] };
 
-// 취향 테스트 v2 — 1단계: 목적 카테고리 칩 선택 / 2단계: 그 목적의 사진 틴더 스와이프.
+// 취향 테스트 v2 — 1단계: 촬영 목적(고정 3개) 선택 / 2단계: 그 목적의 사진 틴더 스와이프.
 // 좋아요한 사진들이 속한 무드 카테고리로 취향 산출 → 큐레이션. (작가 mood_tags 미사용)
-export function TasteQuiz({ purposeCategories }: { purposeCategories: TasteCat[] }) {
+export function TasteQuiz() {
   const [step, setStep] = useState<Step>("purpose");
-  const [purposeIds, setPurposeIds] = useState<string[]>([]);
+  const [purposeKey, setPurposeKey] = useState<string>("");
   const [deck, setDeck] = useState<QuizDeckPhoto[]>([]);
   const [i, setI] = useState(0);
   const [liked, setLiked] = useState<QuizDeckPhoto[]>([]);
@@ -57,20 +57,10 @@ export function TasteQuiz({ purposeCategories }: { purposeCategories: TasteCat[]
     }
   }, [result]);
 
-  function togglePurpose(id: string) {
-    setPurposeIds((prev) =>
-      prev.includes(id)
-        ? prev.filter((x) => x !== id)
-        : prev.length >= MAX_PURPOSE
-          ? prev
-          : [...prev, id]
-    );
-  }
-
-  function startSwipe() {
-    if (purposeIds.length === 0) return;
+  function startSwipe(key: string) {
+    setPurposeKey(key);
     startT(async () => {
-      const d = await loadQuizDeck(purposeIds);
+      const d = await loadQuizDeck(key);
       setDeck(d);
       setI(0);
       setLiked([]);
@@ -83,10 +73,10 @@ export function TasteQuiz({ purposeCategories }: { purposeCategories: TasteCat[]
   function finish(likedArr: QuizDeckPhoto[]) {
     startT(async () => {
       const res = await finishTaste(
-        purposeIds,
+        purposeKey,
         likedArr.map((p) => p.id)
       );
-      const r: ResultState = { purposeIds, moods: res.moods, photos: res.photos };
+      const r: ResultState = { purposeKey, moods: res.moods, photos: res.photos };
       setResult(r);
       setStep("result");
       try {
@@ -95,7 +85,7 @@ export function TasteQuiz({ purposeCategories }: { purposeCategories: TasteCat[]
         /* 무시 */
       }
       mpTrack("Complete Taste Quiz", {
-        purposes: purposeIds.length,
+        purpose: purposeKey,
         moods: res.moods.map((m) => m.title),
         liked: likedArr.length,
         swiped: deck.length,
@@ -129,7 +119,7 @@ export function TasteQuiz({ purposeCategories }: { purposeCategories: TasteCat[]
     setLiked([]);
     setDrag({ x: 0, y: 0, active: false });
     setFlung(null);
-    setPurposeIds([]);
+    setPurposeKey("");
     setStep("purpose");
   }
 
@@ -187,7 +177,7 @@ export function TasteQuiz({ purposeCategories }: { purposeCategories: TasteCat[]
             onClick={() => {
               startT(async () => {
                 await applyTasteV2(
-                  result.purposeIds,
+                  result.purposeKey,
                   result.moods.map((m) => m.id)
                 );
                 try {
@@ -231,57 +221,34 @@ export function TasteQuiz({ purposeCategories }: { purposeCategories: TasteCat[]
     );
   }
 
-  // ── 1단계: 목적 선택 ──
+  // ── 1단계: 목적 선택 (고정 3개) ──
   if (step === "purpose") {
     return (
-      <div className="flex min-h-0 flex-1 flex-col pt-5">
-        <div className="w-full max-w-[420px] self-center text-center">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pt-6">
+        <div className="w-full max-w-[440px] self-center text-center">
           <p className="font-display text-body-sm italic text-brand">30초 취향 테스트</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight">무엇을 찍고 싶으세요?</h1>
-          <p className="mt-1.5 text-body-sm text-muted">
-            촬영 목적을 최대 {MAX_PURPOSE}개 골라주세요.
-          </p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight">어떤 스냅을 찾으세요?</h1>
+          <p className="mt-1.5 text-body-sm text-muted">하나를 골라주세요.</p>
         </div>
 
-        {purposeCategories.length === 0 ? (
-          <p className="mt-10 text-center text-body-sm text-muted">
-            아직 목적 카테고리가 없어요. 곧 준비할게요.
-          </p>
-        ) : (
-          <div className="mt-6 flex flex-wrap justify-center gap-2.5 px-2">
-            {purposeCategories.map((c) => {
-              const on = purposeIds.includes(c.id);
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => togglePurpose(c.id)}
-                  className={
-                    "rounded-full border px-4 py-2 text-body-sm font-semibold transition-colors " +
-                    (on
-                      ? "border-brand bg-brand text-white"
-                      : "border-line-strong bg-surface text-fg hover:bg-fg/[0.04]")
-                  }
-                >
-                  {c.title}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        <div className="mt-auto flex w-full max-w-[420px] shrink-0 flex-col items-center gap-2 self-center pb-6 pt-6">
-          <button
-            type="button"
-            disabled={purposeIds.length === 0 || pending}
-            onClick={startSwipe}
-            className="inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-brand px-8 py-3 text-body font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
-          >
-            {pending ? "사진 준비 중…" : "다음"}
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 6l6 6-6 6" />
-            </svg>
-          </button>
+        <div className="mx-auto mt-6 flex w-full max-w-[440px] flex-col gap-3 px-1 pb-8">
+          {PURPOSE_OPTIONS.map((p) => (
+            <button
+              key={p.key}
+              type="button"
+              disabled={pending}
+              onClick={() => startSwipe(p.key)}
+              className="group flex items-center justify-between gap-3 rounded-2xl border border-line-strong bg-surface px-5 py-4 text-left transition-colors hover:border-brand/50 hover:bg-brand-soft/40 disabled:opacity-50"
+            >
+              <span className="min-w-0">
+                <span className="block text-title font-bold text-fg">{p.label}</span>
+                <span className="mt-0.5 block text-body-sm text-muted">{p.subtext}</span>
+              </span>
+              <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0 text-faint transition-colors group-hover:text-brand" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 6l6 6-6 6" />
+              </svg>
+            </button>
+          ))}
         </div>
       </div>
     );

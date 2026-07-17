@@ -67,9 +67,7 @@ export default async function AdminExplorePage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-title font-semibold text-fg">{c.title}</p>
                     <Badge tone={c.published ? "success" : "neutral"}>{c.published ? "공개" : "비공개"}</Badge>
-                    {c.kind !== "other" && (
-                      <Badge tone="info">{c.kind === "purpose" ? "목적" : "무드"}</Badge>
-                    )}
+                    {c.kind === "mood" && <Badge tone="info">무드</Badge>}
                     <span className="text-caption text-faint">/explore/{c.slug}</span>
                   </div>
                   <p className="mt-1 text-caption text-muted">
@@ -217,11 +215,10 @@ function KindSelect({ defaultValue = "other" }: { defaultValue?: string }) {
       <span className="mb-1 block text-caption text-muted">종류 (취향 테스트)</span>
       <select
         name="kind"
-        defaultValue={defaultValue}
+        defaultValue={defaultValue === "mood" ? "mood" : "other"}
         className="w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-body-sm outline-none transition-colors focus:border-fg/40"
       >
-        <option value="purpose">목적 (웨딩·커플·프로필 등)</option>
-        <option value="mood">무드 (빈티지·밝은·시크 등)</option>
+        <option value="mood">무드 (빈티지·밝은·시크 등 — 취향 테스트가 씀)</option>
         <option value="other">기타 (테스트 미사용)</option>
       </select>
     </label>

@@ -29,10 +29,9 @@ function slugify(raw: string): string {
   return s || `cat-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-// 취향 테스트 분류 — 목적/무드/기타. 잘못된 값은 기타.
-function parseKind(v: FormDataEntryValue | null): "purpose" | "mood" | "other" {
-  const s = String(v ?? "");
-  return s === "purpose" || s === "mood" ? s : "other";
+// 취향 테스트 분류 — 무드(취향 테스트가 씀)/기타. 목적은 탐색 카테고리가 아니라 코드 고정 목록.
+function parseKind(v: FormDataEntryValue | null): "mood" | "other" {
+  return String(v ?? "") === "mood" ? "mood" : "other";
 }
 
 // 카테고리 생성 — 새 카테고리는 목록 맨 뒤(sort = 최대+10), 비공개로 시작.
