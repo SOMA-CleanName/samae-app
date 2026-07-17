@@ -17,8 +17,9 @@ import {
   type TasteCat,
 } from "@/lib/explore-db";
 
-export type { QuizDeckPhoto, TasteCat };
-export type TasteResult = { moods: TasteCat[]; photos: QuizDeckPhoto[] };
+// "use server" 파일은 async 함수만 export 가능 — 타입은 여기서 export 하지 않는다.
+// (클라이언트는 이 타입들을 @/lib/explore-db 에서 직접 import)
+type TasteResult = { moods: TasteCat[]; photos: QuizDeckPhoto[] };
 
 // 고른 목적(고정 목록)이 참조하는 탐색 카테고리 id.
 async function purposeCategoryIds(purposeKey: string): Promise<string[]> {

@@ -5,13 +5,8 @@ import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { mpTrack } from "@/lib/mixpanel";
 import { PURPOSE_OPTIONS } from "@/lib/taste-purposes";
-import {
-  loadQuizDeck,
-  finishTaste,
-  applyTasteV2,
-  type QuizDeckPhoto,
-  type TasteCat,
-} from "./actions";
+import type { QuizDeckPhoto, TasteCat } from "@/lib/explore-db";
+import { loadQuizDeck, finishTaste, applyTasteV2 } from "./actions";
 
 const THRESHOLD = 90; // 스와이프 확정 거리(px)
 const RESULT_KEY = "samae:taste-result"; // 결과 저장 키(사진 상세→뒤로 시 결과 복원용)
