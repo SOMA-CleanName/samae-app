@@ -55,7 +55,7 @@ export function TasteQuiz() {
   function startSwipe(key: string) {
     setPurposeKey(key);
     startT(async () => {
-      const d = await loadMoodDeck();
+      const d = await loadMoodDeck(key);
       setDeck(d);
       setI(0);
       setLiked([]);

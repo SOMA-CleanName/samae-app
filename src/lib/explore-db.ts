@@ -19,11 +19,11 @@ export type ExploreCategory = {
   sort: number;
   previewPhotoIds: string[]; // /explore 홈 스트립에 노출할 사진 id (순서). 비면 position 순 앞 N장
   kind: ExploreCategoryKind; // 취향 테스트 분류: 목적/무드/기타
-  coverPhotoId: string | null; // 취향 테스트 무드 스와이프용 대표 사진
+  coverByPurpose: Record<string, string>; // 무드 카테고리의 목적별 대표 사진 {purposeKey: photoId}
 };
 
 const EXPLORE_COLUMNS =
-  "id, slug, title, subtitle, published, sort, preview_photo_ids, kind, cover_photo_id";
+  "id, slug, title, subtitle, published, sort, preview_photo_ids, kind, cover_by_purpose";
 
 function mapRow(r: Record<string, unknown>): ExploreCategory {
   return {
@@ -35,7 +35,7 @@ function mapRow(r: Record<string, unknown>): ExploreCategory {
     sort: (r.sort as number) ?? 0,
     previewPhotoIds: (r.preview_photo_ids as string[]) ?? [],
     kind: ((r.kind as string) ?? "other") as ExploreCategoryKind,
-    coverPhotoId: (r.cover_photo_id as string | null) ?? null,
+    coverByPurpose: (r.cover_by_purpose as Record<string, string> | null) ?? {},
   };
 }
 
@@ -545,26 +545,34 @@ export type QuizDeckPhoto = { id: string; url: string };
 export type TasteCat = { id: string; title: string; slug: string };
 
 export type MoodCard = { moodId: string; title: string; coverUrl: string };
+export type PoolPhotoLite = { id: string; thumb_url: string | null; src_url: string };
 
-// 취향 테스트 무드 덱 — 대표 사진(cover_photo_id)이 지정된 공개 무드 카테고리. 셔플.
-// 사용자가 이 대표 사진들을 하나씩 스와이프 → 좋아요한 무드가 취향.
-export async function listMoodDeck(): Promise<MoodCard[]> {
+// 취향 테스트 무드 덱 — 고른 목적(purposeKey)의 대표 사진이 지정된 공개 무드 카테고리. 셔플.
+// 목적별로 cover_by_purpose[purposeKey] 가 달라 스와이프 사진이 목적마다 다르게 뜬다.
+export async function listMoodDeckForPurpose(purposeKey: string): Promise<MoodCard[]> {
   const supabase = await createClient();
   const { data: cats } = await supabase
     .from("explore_categories")
-    .select("id, title, cover_photo_id")
+    .select("id, title, cover_by_purpose")
     .eq("published", true)
     .eq("kind", "mood")
-    .not("cover_photo_id", "is", null)
     .order("sort", { ascending: true });
-  const rows = (cats ?? []) as Array<{ id: string; title: string; cover_photo_id: string }>;
-  if (rows.length === 0) return [];
+  const rows = (cats ?? []) as Array<{
+    id: string;
+    title: string;
+    cover_by_purpose: Record<string, string> | null;
+  }>;
+  // 이 목적에 대표 사진이 지정된 무드만
+  const withCover = rows
+    .map((r) => ({ id: r.id, title: r.title, photoId: (r.cover_by_purpose ?? {})[purposeKey] }))
+    .filter((r): r is { id: string; title: string; photoId: string } => !!r.photoId);
+  if (withCover.length === 0) return [];
   const { data: photos } = await supabase
     .from("photos")
     .select("id, src_url, thumb_url")
     .in(
       "id",
-      rows.map((r) => r.cover_photo_id)
+      withCover.map((r) => r.photoId)
     )
     .eq("visibility", "published");
   const byId = new Map(
@@ -573,13 +581,48 @@ export async function listMoodDeck(): Promise<MoodCard[]> {
       p as { thumb_url: string | null; src_url: string },
     ])
   );
-  const cards = rows
+  const cards = withCover
     .map((r): MoodCard | null => {
-      const p = byId.get(r.cover_photo_id);
+      const p = byId.get(r.photoId);
       return p ? { moodId: r.id, title: r.title, coverUrl: p.thumb_url ?? p.src_url } : null;
     })
     .filter((c): c is MoodCard => !!c);
   return shuffleArr(cards);
+}
+
+// 어드민 — (무드 × 목적) 대표 사진 후보. 그 무드에 담긴 사진 ∩ 목적 참조 카테고리 사진.
+export async function fetchMoodPurposeCandidates(
+  moodCategoryId: string,
+  purposeCatIds: string[]
+): Promise<PoolPhotoLite[]> {
+  const admin = createAdminClient();
+  const { data: moodMem } = await admin
+    .from("explore_category_photos")
+    .select("photo_id")
+    .eq("category_id", moodCategoryId);
+  const moodIds = new Set((moodMem ?? []).map((m) => m.photo_id as string));
+  if (moodIds.size === 0) return [];
+  let ids = [...moodIds];
+  if (purposeCatIds.length > 0) {
+    const { data: purMem } = await admin
+      .from("explore_category_photos")
+      .select("photo_id")
+      .in("category_id", purposeCatIds);
+    const purSet = new Set((purMem ?? []).map((m) => m.photo_id as string));
+    const inter = ids.filter((id) => purSet.has(id));
+    if (inter.length > 0) ids = inter; // 교집합 있으면 그것만, 없으면 무드 전체(폴백)
+  }
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("photos")
+    .select("id, src_url, thumb_url")
+    .in("id", ids)
+    .eq("visibility", "published");
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    thumb_url: r.thumb_url as string | null,
+    src_url: r.src_url as string,
+  }));
 }
 
 // id 목록 → 공개 무드 카테고리 {id,title} (결과 화면 라벨용).

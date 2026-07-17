@@ -120,7 +120,7 @@ export default async function AdminExplorePage() {
 
               {/* 무드 카테고리 대표 사진 — 취향 테스트 스와이프 카드용 */}
               {c.kind === "mood" && (
-                <ExploreCoverPicker categoryId={c.id} coverPhotoId={c.coverPhotoId} />
+                <ExploreCoverPicker categoryId={c.id} coverByPurpose={c.coverByPurpose} />
               )}
 
               {/* 편집 (펼침) */}

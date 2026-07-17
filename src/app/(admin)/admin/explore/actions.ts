@@ -10,7 +10,10 @@ import {
   addAlbumPhotosToCategory,
   removeAlbumPhotosFromCategory,
   fetchExploreCategoryGalleryPhotos,
+  resolveCategoryIdsBySlugs,
+  fetchMoodPurposeCandidates,
 } from "@/lib/explore-db";
+import { purposeByKey } from "@/lib/taste-purposes";
 
 export type PreviewCandidate = { id: string; thumb_url: string | null; src_url: string };
 
@@ -174,16 +177,37 @@ export async function loadExploreCategoryMembers(
   return photos.map((p) => ({ id: p.id, thumb_url: p.thumb_url, src_url: p.src_url }));
 }
 
-// 대표 사진 저장 — 무드 카테고리의 취향 테스트 스와이프 카드에 쓰는 대표 1장.
+// (무드 × 목적) 대표 사진 후보 — 그 무드에 담긴 사진 ∩ 목적 참조 카테고리 사진.
+export async function loadCoverCandidates(
+  moodCategoryId: string,
+  purposeKey: string
+): Promise<PreviewCandidate[]> {
+  await assertAdmin();
+  const p = purposeByKey(purposeKey);
+  if (!p) return [];
+  const purposeCatIds = await resolveCategoryIdsBySlugs(p.categorySlugs);
+  return fetchMoodPurposeCandidates(moodCategoryId, purposeCatIds);
+}
+
+// 목적별 대표 사진 저장 — cover_by_purpose[purposeKey] 갱신(무드 카테고리).
 export async function setExploreCover(
   categoryId: string,
+  purposeKey: string,
   photoId: string | null
 ): Promise<void> {
   await assertAdmin();
   const admin = createAdminClient();
+  const { data } = await admin
+    .from("explore_categories")
+    .select("cover_by_purpose")
+    .eq("id", categoryId)
+    .maybeSingle();
+  const cur = { ...((data?.cover_by_purpose as Record<string, string>) ?? {}) };
+  if (photoId) cur[purposeKey] = photoId;
+  else delete cur[purposeKey];
   const { error } = await admin
     .from("explore_categories")
-    .update({ cover_photo_id: photoId })
+    .update({ cover_by_purpose: cur })
     .eq("id", categoryId);
   if (error) throw new Error(error.message);
   revalidatePath("/admin/explore");

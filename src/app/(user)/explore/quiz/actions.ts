@@ -10,7 +10,7 @@ import {
 import { purposeByKey } from "@/lib/taste-purposes";
 import {
   resolveCategoryIdsBySlugs,
-  listMoodDeck,
+  listMoodDeckForPurpose,
   fetchMoodTitles,
   fetchTasteCurated,
   type QuizDeckPhoto,
@@ -29,9 +29,9 @@ async function purposeCategoryIds(purposeKey: string): Promise<string[]> {
   return resolveCategoryIdsBySlugs(p.categorySlugs);
 }
 
-// 2단계 덱 — 무드 대표 사진들(하나씩 스와이프). 목적과 무관하게 동일한 무드 5개.
-export async function loadMoodDeck(): Promise<MoodCard[]> {
-  return listMoodDeck();
+// 2단계 덱 — 고른 목적의 무드 대표 사진들(하나씩 스와이프). 목적마다 사진이 다르다.
+export async function loadMoodDeck(purposeKey: string): Promise<MoodCard[]> {
+  return listMoodDeckForPurpose(purposeKey);
 }
 
 // 스와이프 종료 — 좋아요한 무드(id) 그대로 취향. 목적∩무드로 결과 큐레이션.
