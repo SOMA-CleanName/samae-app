@@ -8,6 +8,8 @@ const GALLERY_SELECT =
   "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name)";
 
 // 탐색 편집형 카테고리(DB) — 광고 랜딩 categories 와 별개 체계. (docs/20)
+export type ExploreCategoryKind = "purpose" | "mood" | "other";
+
 export type ExploreCategory = {
   id: string;
   slug: string;
@@ -16,9 +18,10 @@ export type ExploreCategory = {
   published: boolean;
   sort: number;
   previewPhotoIds: string[]; // /explore 홈 스트립에 노출할 사진 id (순서). 비면 position 순 앞 N장
+  kind: ExploreCategoryKind; // 취향 테스트 분류: 목적/무드/기타
 };
 
-const EXPLORE_COLUMNS = "id, slug, title, subtitle, published, sort, preview_photo_ids";
+const EXPLORE_COLUMNS = "id, slug, title, subtitle, published, sort, preview_photo_ids, kind";
 
 function mapRow(r: Record<string, unknown>): ExploreCategory {
   return {
@@ -29,6 +32,7 @@ function mapRow(r: Record<string, unknown>): ExploreCategory {
     published: !!r.published,
     sort: (r.sort as number) ?? 0,
     previewPhotoIds: (r.preview_photo_ids as string[]) ?? [],
+    kind: ((r.kind as string) ?? "other") as ExploreCategoryKind,
   };
 }
 

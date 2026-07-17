@@ -45,6 +45,7 @@ export default async function AdminExplorePage() {
         <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
           <LabeledInput name="title" label="이름" placeholder="일본 감성" required />
           <LabeledInput name="slug" label="slug (URL, 비우면 자동)" placeholder="japan" />
+          <KindSelect />
           <div className="sm:col-span-2">
             <LabeledInput name="subtitle" label="부제 (선택)" placeholder="차분한 일본 무드 스냅" />
           </div>
@@ -66,6 +67,9 @@ export default async function AdminExplorePage() {
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="text-title font-semibold text-fg">{c.title}</p>
                     <Badge tone={c.published ? "success" : "neutral"}>{c.published ? "공개" : "비공개"}</Badge>
+                    {c.kind !== "other" && (
+                      <Badge tone="info">{c.kind === "purpose" ? "목적" : "무드"}</Badge>
+                    )}
                     <span className="text-caption text-faint">/explore/{c.slug}</span>
                   </div>
                   <p className="mt-1 text-caption text-muted">
@@ -122,6 +126,7 @@ export default async function AdminExplorePage() {
                   <input type="hidden" name="id" value={c.id} />
                   <LabeledInput name="title" label="이름" defaultValue={c.title} required />
                   <LabeledInput name="slug" label="slug" defaultValue={c.slug} />
+                  <KindSelect defaultValue={c.kind} />
                   <div className="sm:col-span-2">
                     <LabeledInput name="subtitle" label="부제" defaultValue={c.subtitle} />
                   </div>
@@ -201,6 +206,24 @@ function LabeledInput({
         required={required}
         className="w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-body-sm outline-none transition-colors focus:border-fg/40"
       />
+    </label>
+  );
+}
+
+// 취향 테스트 분류 — 목적/무드/기타
+function KindSelect({ defaultValue = "other" }: { defaultValue?: string }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-caption text-muted">종류 (취향 테스트)</span>
+      <select
+        name="kind"
+        defaultValue={defaultValue}
+        className="w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-body-sm outline-none transition-colors focus:border-fg/40"
+      >
+        <option value="purpose">목적 (웨딩·커플·프로필 등)</option>
+        <option value="mood">무드 (빈티지·밝은·시크 등)</option>
+        <option value="other">기타 (테스트 미사용)</option>
+      </select>
     </label>
   );
 }

@@ -29,6 +29,12 @@ function slugify(raw: string): string {
   return s || `cat-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+// 취향 테스트 분류 — 목적/무드/기타. 잘못된 값은 기타.
+function parseKind(v: FormDataEntryValue | null): "purpose" | "mood" | "other" {
+  const s = String(v ?? "");
+  return s === "purpose" || s === "mood" ? s : "other";
+}
+
 // 카테고리 생성 — 새 카테고리는 목록 맨 뒤(sort = 최대+10), 비공개로 시작.
 export async function createExploreCategory(formData: FormData) {
   await assertAdmin();
@@ -50,6 +56,7 @@ export async function createExploreCategory(formData: FormData) {
     title,
     slug,
     subtitle: String(formData.get("subtitle") ?? "").trim(),
+    kind: parseKind(formData.get("kind")),
     sort,
   });
   if (error) {
@@ -70,6 +77,7 @@ export async function updateExploreCategory(formData: FormData) {
       title: String(formData.get("title") ?? "").trim(),
       slug: slugify(String(formData.get("slug") ?? "")),
       subtitle: String(formData.get("subtitle") ?? "").trim(),
+      kind: parseKind(formData.get("kind")),
     })
     .eq("id", id);
   if (error) {
