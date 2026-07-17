@@ -48,6 +48,18 @@ export function purposeBoostWeight(key: string): number {
   return purposeByKey(key)?.boostWeight ?? 0.35;
 }
 
+// 이 목적 선택 시 홈에서 강하게 뒤로 미룰 다른 목적들.
+// (개인 → 웨딩·커플 사진은 한참 스크롤해야 나오게 — 제외는 아님)
+const PURPOSE_DEMOTE: Record<string, string[]> = {
+  personal: ["wedding", "couple"],
+};
+
+// 뒤로 밀 대상 목적들의 카테고리 슬러그.
+export function purposeDemoteSlugs(key: string): string[] {
+  const keys = PURPOSE_DEMOTE[key] ?? [];
+  return keys.flatMap((k) => purposeByKey(k)?.categorySlugs ?? []);
+}
+
 export function purposeByKey(key: string): PurposeOption | undefined {
   return PURPOSE_OPTIONS.find((p) => p.key === key);
 }

@@ -762,11 +762,14 @@ export async function scoreTastePhotos(
 
 // 취향 가중랜덤 정렬 — 시드 기반 지터(id+seed 해시)에서 점수만큼 앞으로 당김.
 // 딱딱한 블록(점수순 정렬)이 아니라 '앞에 올 확률만' 높여 뭉침 없이 섞이게 한다.
+// demote(예: 개인 선택 시 웨딩/커플) 점수가 있으면 큰 페널티로 뒤로 강하게 민다.
 export function boostByTaste<T extends { id: string }>(
   photos: T[],
   score: Map<string, number>,
   seed: string,
-  weight = 0.35
+  weight = 0.35,
+  demote?: Map<string, number>,
+  demotePenalty = 2.5
 ): T[] {
   const rnd = (id: string): number => {
     let h = 2166136261;
@@ -777,7 +780,9 @@ export function boostByTaste<T extends { id: string }>(
     }
     return ((h >>> 0) % 100000) / 100000;
   };
-  const key = (p: T) => rnd(p.id) - (score.get(p.id) ?? 0) * weight;
+  // rnd 는 [0,1). demotePenalty(2.5)가 rnd 를 압도해 demote 사진은 항상 뒤로.
+  const key = (p: T) =>
+    rnd(p.id) - (score.get(p.id) ?? 0) * weight + (demote?.get(p.id) ?? 0) * demotePenalty;
   return [...photos].sort((a, b) => key(a) - key(b));
 }
 

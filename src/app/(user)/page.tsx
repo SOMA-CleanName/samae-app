@@ -11,8 +11,8 @@ import { loadMorePhotos } from "./feed-actions";
 import { logSearch } from "@/lib/search-log";
 import { getCurrentUser } from "@/lib/auth";
 import { TASTE_V2_COOKIE, parseTasteV2 } from "@/lib/category-constants";
-import { purposeBoostWeight } from "@/lib/taste-purposes";
-import { scoreTastePhotos, boostByTaste } from "@/lib/explore-db";
+import { purposeBoostWeight, purposeDemoteSlugs } from "@/lib/taste-purposes";
+import { scoreTastePhotos, boostByTaste, resolveCategoryIdsBySlugs } from "@/lib/explore-db";
 import { ExploreGallery } from "@/components/user/ExploreGallery";
 import { ScrollMemory } from "@/components/user/ScrollMemory";
 import { FeedHero } from "@/components/user/FeedHero";
@@ -71,11 +71,14 @@ export default async function ExploreHome({
       (await fetchSeededFeedPage(feedSeed, 0, 48)) ??
       (await fetchPublishedPhotos({})).slice(0, FEED_CAP);
     if (tasteCatIds.length > 0) {
-      const score = await scoreTastePhotos(
-        base.map((p) => p.id),
-        tasteCatIds
-      );
-      photos = boostByTaste(base, score, feedSeed, purposeBoostWeight(purposeKey));
+      const ids = base.map((p) => p.id);
+      const score = await scoreTastePhotos(ids, tasteCatIds);
+      // 개인 선택 시 웨딩·커플은 강하게 뒤로(한참 스크롤해야 나옴)
+      const demoteSlugs = purposeDemoteSlugs(purposeKey);
+      const demote = demoteSlugs.length
+        ? await scoreTastePhotos(ids, await resolveCategoryIdsBySlugs(demoteSlugs))
+        : undefined;
+      photos = boostByTaste(base, score, feedSeed, purposeBoostWeight(purposeKey), demote);
     } else {
       photos = base;
     }
