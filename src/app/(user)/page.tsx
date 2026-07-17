@@ -10,7 +10,8 @@ import { cookies } from "next/headers";
 import { loadMorePhotos } from "./feed-actions";
 import { logSearch } from "@/lib/search-log";
 import { getCurrentUser } from "@/lib/auth";
-import { TASTE_COOKIE } from "@/lib/category-constants";
+import { TASTE_V2_COOKIE, parseTasteV2 } from "@/lib/category-constants";
+import { scoreTastePhotos, boostByTaste } from "@/lib/explore-db";
 import { ExploreGallery } from "@/components/user/ExploreGallery";
 import { ScrollMemory } from "@/components/user/ScrollMemory";
 import { FeedHero } from "@/components/user/FeedHero";
@@ -55,16 +56,25 @@ export default async function ExploreHome({
   const isAllFeed = !query && !adAsGallery;
   const feedSeed = isAllFeed ? newFeedSeed() : undefined;
 
-  // 취향 쿠키(samae_taste) — 있으면 전체 피드를 취향순으로 랭킹.
-  const tasteRaw = (await cookies()).get(TASTE_COOKIE)?.value;
-  const taste = tasteRaw ? tasteRaw.split(",").map((t) => t.trim()).filter(Boolean) : [];
+  // 취향 v2(samae_taste2) — 있으면 전체 피드를 목적/무드 카테고리 멤버십으로 가중랜덤(뭉침 없음).
+  const { purposeIds, moodIds } = parseTasteV2((await cookies()).get(TASTE_V2_COOKIE)?.value);
+  const tasteCatIds = [...purposeIds, ...moodIds];
 
   let photos: GalleryPhoto[];
   if (isAllFeed && feedSeed) {
-    // 마이그레이션 전(RPC 없음)이면 page0 가 null → 기존 방식 폴백(스크롤은 상한에서 멈춤)
-    photos =
-      (await fetchSeededFeedPage(feedSeed, 0, 48, taste.length ? taste : undefined)) ??
+    // 순수 시드 피드(랜덤·뭉침 없음)를 받아, 취향이 있으면 페이지 내에서 가중랜덤 부스트.
+    const base =
+      (await fetchSeededFeedPage(feedSeed, 0, 48)) ??
       (await fetchPublishedPhotos({})).slice(0, FEED_CAP);
+    if (tasteCatIds.length > 0) {
+      const score = await scoreTastePhotos(
+        base.map((p) => p.id),
+        tasteCatIds
+      );
+      photos = boostByTaste(base, score, feedSeed);
+    } else {
+      photos = base;
+    }
   } else {
     const basePhotos = query ? await searchPhotosByTag(query) : await fetchPublishedPhotos({});
     if (query) await logSearch(query, basePhotos.length, me?.id);
@@ -89,8 +99,8 @@ export default async function ExploreHome({
       {/* 홈 최상단 히어로 (검색 모드 아닐 때만) */}
       {!query && <FeedHero />}
 
-      {/* 취향 적용 배너 (전체 피드 + 취향 쿠키 있을 때) */}
-      {isAllFeed && taste.length > 0 && <TasteBanner tags={taste} />}
+      {/* 취향 적용 배너 (전체 피드 + 취향 v2 있을 때) */}
+      {isAllFeed && tasteCatIds.length > 0 && <TasteBanner />}
 
       <ExploreGallery
         photos={photos}

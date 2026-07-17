@@ -640,6 +640,46 @@ export async function deriveMoodCategories(
     .map(({ id, title, slug }) => ({ id, title, slug }));
 }
 
+// 주어진 사진들이 taste 카테고리(purpose∪mood)에 몇 개 속하는지 점수. (홈 개인화 부스트용)
+export async function scoreTastePhotos(
+  photoIds: string[],
+  catIds: string[]
+): Promise<Map<string, number>> {
+  const out = new Map<string, number>();
+  if (photoIds.length === 0 || catIds.length === 0) return out;
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("explore_category_photos")
+    .select("photo_id")
+    .in("photo_id", photoIds)
+    .in("category_id", catIds);
+  for (const r of (data ?? []) as Array<{ photo_id: string }>) {
+    out.set(r.photo_id, (out.get(r.photo_id) ?? 0) + 1);
+  }
+  return out;
+}
+
+// 취향 가중랜덤 정렬 — 시드 기반 지터(id+seed 해시)에서 점수만큼 앞으로 당김.
+// 딱딱한 블록(점수순 정렬)이 아니라 '앞에 올 확률만' 높여 뭉침 없이 섞이게 한다.
+export function boostByTaste<T extends { id: string }>(
+  photos: T[],
+  score: Map<string, number>,
+  seed: string,
+  weight = 0.35
+): T[] {
+  const rnd = (id: string): number => {
+    let h = 2166136261;
+    const s = id + seed;
+    for (let i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return ((h >>> 0) % 100000) / 100000;
+  };
+  const key = (p: T) => rnd(p.id) - (score.get(p.id) ?? 0) * weight;
+  return [...photos].sort((a, b) => key(a) - key(b));
+}
+
 // 결과 큐레이션 — 목적∩무드 사진(부족하면 목적만), 앨범당 1장, limit.
 export async function fetchTasteCurated(
   purposeIds: string[],
