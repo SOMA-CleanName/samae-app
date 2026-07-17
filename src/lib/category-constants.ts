@@ -8,25 +8,35 @@ export const CATEGORY_COOKIE = "samae_cat";
 // 값: 태그를 콤마로 이은 문자열. 퀴즈 완료 시 set, 초기화 시 clear.
 export const TASTE_COOKIE = "samae_taste";
 
-// 취향 테스트 v2 — 카테고리 기반(목적 + 무드). 값 형식: "p:<id>,<id>|m:<id>,<id>".
-// 홈 피드가 이 목적/무드 카테고리 멤버십으로 개인화한다.
+// 취향 테스트 v2 — 카테고리 기반(목적 + 무드). 값 형식: "k:<purposeKey>|p:<id>,<id>|m:<id>,<id>".
+// 홈 피드가 이 목적/무드 카테고리 멤버십으로 개인화한다. k=목적키(부스트 세기 판별용).
 export const TASTE_V2_COOKIE = "samae_taste2";
 
-// v2 쿠키 파싱/직렬화 — { purposeIds, moodIds }.
-export function parseTasteV2(raw: string | undefined): { purposeIds: string[]; moodIds: string[] } {
-  const out = { purposeIds: [] as string[], moodIds: [] as string[] };
+// v2 쿠키 파싱 — { purposeKey, purposeIds, moodIds }. (구 형식 k 없음도 호환)
+export function parseTasteV2(raw: string | undefined): {
+  purposeKey: string;
+  purposeIds: string[];
+  moodIds: string[];
+} {
+  const out = { purposeKey: "", purposeIds: [] as string[], moodIds: [] as string[] };
   if (!raw) return out;
   for (const part of raw.split("|")) {
-    const [k, v] = part.split(":");
-    const ids = (v ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-    if (k === "p") out.purposeIds = ids;
-    else if (k === "m") out.moodIds = ids;
+    const i = part.indexOf(":");
+    const k = part.slice(0, i);
+    const v = part.slice(i + 1);
+    if (k === "k") out.purposeKey = v.trim();
+    else if (k === "p") out.purposeIds = v.split(",").map((s) => s.trim()).filter(Boolean);
+    else if (k === "m") out.moodIds = v.split(",").map((s) => s.trim()).filter(Boolean);
   }
   return out;
 }
 
-export function serializeTasteV2(purposeIds: string[], moodIds: string[]): string {
-  return `p:${purposeIds.join(",")}|m:${moodIds.join(",")}`;
+export function serializeTasteV2(
+  purposeKey: string,
+  purposeIds: string[],
+  moodIds: string[]
+): string {
+  return `k:${purposeKey}|p:${purposeIds.join(",")}|m:${moodIds.join(",")}`;
 }
 
 // 임시: '태그 없는 사진'을 한 카테고리로 묶기 위한 센티넬 태그.

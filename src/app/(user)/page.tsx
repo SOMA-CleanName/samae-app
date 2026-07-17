@@ -11,6 +11,7 @@ import { loadMorePhotos } from "./feed-actions";
 import { logSearch } from "@/lib/search-log";
 import { getCurrentUser } from "@/lib/auth";
 import { TASTE_V2_COOKIE, parseTasteV2 } from "@/lib/category-constants";
+import { purposeBoostWeight } from "@/lib/taste-purposes";
 import { scoreTastePhotos, boostByTaste } from "@/lib/explore-db";
 import { ExploreGallery } from "@/components/user/ExploreGallery";
 import { ScrollMemory } from "@/components/user/ScrollMemory";
@@ -57,7 +58,10 @@ export default async function ExploreHome({
   const feedSeed = isAllFeed ? newFeedSeed() : undefined;
 
   // 취향 v2(samae_taste2) — 있으면 전체 피드를 목적/무드 카테고리 멤버십으로 가중랜덤(뭉침 없음).
-  const { purposeIds, moodIds } = parseTasteV2((await cookies()).get(TASTE_V2_COOKIE)?.value);
+  // 목적별 세기(개인=강, 웨딩·커플=약)로 부스트.
+  const { purposeKey, purposeIds, moodIds } = parseTasteV2(
+    (await cookies()).get(TASTE_V2_COOKIE)?.value
+  );
   const tasteCatIds = [...purposeIds, ...moodIds];
 
   let photos: GalleryPhoto[];
@@ -71,7 +75,7 @@ export default async function ExploreHome({
         base.map((p) => p.id),
         tasteCatIds
       );
-      photos = boostByTaste(base, score, feedSeed);
+      photos = boostByTaste(base, score, feedSeed, purposeBoostWeight(purposeKey));
     } else {
       photos = base;
     }

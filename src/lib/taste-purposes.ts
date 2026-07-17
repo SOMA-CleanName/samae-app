@@ -8,6 +8,7 @@ export type PurposeOption = {
   label: string;
   subtext: string;
   categorySlugs: string[]; // 이 목적으로 볼 사진의 출처(탐색 카테고리 슬러그)
+  boostWeight: number; // 홈 개인화 부스트 세기(클수록 그 목적 사진이 강하게 앞으로)
 };
 
 export const PURPOSE_OPTIONS: PurposeOption[] = [
@@ -24,20 +25,28 @@ export const PURPOSE_OPTIONS: PurposeOption[] = [
       "self-wedding",
       "dress",
     ],
+    boostWeight: 0.35, // 약하게 — 커플과 섞여도 OK
   },
   {
     key: "couple",
     label: "커플 스냅",
     subtext: "지금의 우리를, 이 시절 그대로 담고 싶어요",
     categorySlugs: ["couple", "date", "friends"],
+    boostWeight: 0.35, // 약하게 — 웨딩과 섞여도 OK
   },
   {
     key: "personal",
     label: "개인 스냅",
     subtext: "내가 원하는 무드로, 나를 화보처럼 담고 싶어요",
     categorySlugs: ["profile", "profile-image", "graduation", "school-uniform", "hanbok"],
+    boostWeight: 0.9, // 강하게 — 개인 사진이 확실히 앞으로, 웨딩/커플 밀림
   },
 ];
+
+// 목적별 부스트 세기 — 없으면 기본 0.35.
+export function purposeBoostWeight(key: string): number {
+  return purposeByKey(key)?.boostWeight ?? 0.35;
+}
 
 export function purposeByKey(key: string): PurposeOption | undefined {
   return PURPOSE_OPTIONS.find((p) => p.key === key);
