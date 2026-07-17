@@ -59,7 +59,7 @@ export async function applyTasteV2(purposeKey: string, moodIds: string[]): Promi
     store.delete(TASTE_V2_COOKIE);
     return;
   }
-  store.set(TASTE_V2_COOKIE, serializeTasteV2(purposeIds, moods), {
+  store.set(TASTE_V2_COOKIE, serializeTasteV2(purposeKey, purposeIds, moods), {
     maxAge: 60 * 60 * 24 * 30,
     path: "/",
     sameSite: "lax",
