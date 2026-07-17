@@ -536,3 +536,137 @@ export async function removeAlbumPhotosFromCategory(
     .eq("category_id", categoryId)
     .in("photo_id", ids);
 }
+
+// ── 취향 테스트 v2 (목적 칩 + 무드 스와이프) ──
+export type QuizDeckPhoto = { id: string; url: string };
+export type TasteCat = { id: string; title: string; slug: string };
+
+// 목적 카테고리(published, kind=purpose) — 퀴즈 1단계 칩.
+export async function listPurposeCategories(): Promise<TasteCat[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("explore_categories")
+    .select("id, title, slug")
+    .eq("published", true)
+    .eq("kind", "purpose")
+    .order("sort", { ascending: true });
+  return (data ?? []).map((r) => ({
+    id: r.id as string,
+    title: r.title as string,
+    slug: r.slug as string,
+  }));
+}
+
+// 고른 목적 카테고리의 멤버 사진 id (published) — 앨범 dedup 전 원본.
+async function purposeMemberPhotos(
+  purposeIds: string[]
+): Promise<Array<{ id: string; src_url: string; thumb_url: string | null; album_id: string | null }>> {
+  if (purposeIds.length === 0) return [];
+  const admin = createAdminClient();
+  const { data: mem } = await admin
+    .from("explore_category_photos")
+    .select("photo_id")
+    .in("category_id", purposeIds);
+  const ids = [...new Set((mem ?? []).map((m) => m.photo_id as string))];
+  if (ids.length === 0) return [];
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("photos")
+    .select(
+      "id, src_url, thumb_url, album_id, photographer:photographers!photos_photographer_id_fkey!inner(id)"
+    )
+    .in("id", ids)
+    .eq("visibility", "published");
+  return (data ?? []).map((r) => {
+    const rr = r as Record<string, unknown>;
+    return {
+      id: rr.id as string,
+      src_url: rr.src_url as string,
+      thumb_url: rr.thumb_url as string | null,
+      album_id: rr.album_id as string | null,
+    };
+  });
+}
+
+// 스와이프 덱 — 고른 목적의 멤버 사진, 앨범당 1장, 셔플, limit.
+export async function fetchQuizDeckForPurposes(
+  purposeIds: string[],
+  limit = 12
+): Promise<QuizDeckPhoto[]> {
+  const rows = await purposeMemberPhotos(purposeIds);
+  const seen = new Set<string>();
+  const eligible = rows.filter((r) => {
+    const k = r.album_id ?? `p:${r.id}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  return shuffleArr(eligible)
+    .slice(0, limit)
+    .map((r) => ({ id: r.id, url: r.thumb_url ?? r.src_url }));
+}
+
+// 좋아요한 사진들 → 무드 카테고리 랭킹(멤버십 겹침 수 desc). 최대 max개.
+export async function deriveMoodCategories(
+  likedPhotoIds: string[],
+  max = 3
+): Promise<TasteCat[]> {
+  if (likedPhotoIds.length === 0) return [];
+  const admin = createAdminClient();
+  const { data: mem } = await admin
+    .from("explore_category_photos")
+    .select("category_id")
+    .in("photo_id", likedPhotoIds);
+  const counts = new Map<string, number>();
+  for (const m of (mem ?? []) as Array<{ category_id: string }>) {
+    counts.set(m.category_id, (counts.get(m.category_id) ?? 0) + 1);
+  }
+  if (counts.size === 0) return [];
+  const { data: cats } = await admin
+    .from("explore_categories")
+    .select("id, title, slug, kind, published")
+    .in("id", [...counts.keys()])
+    .eq("kind", "mood")
+    .eq("published", true);
+  return (cats ?? [])
+    .map((c) => ({
+      id: c.id as string,
+      title: c.title as string,
+      slug: c.slug as string,
+      n: counts.get(c.id as string) ?? 0,
+    }))
+    .sort((a, b) => b.n - a.n)
+    .slice(0, max)
+    .map(({ id, title, slug }) => ({ id, title, slug }));
+}
+
+// 결과 큐레이션 — 목적∩무드 사진(부족하면 목적만), 앨범당 1장, limit.
+export async function fetchTasteCurated(
+  purposeIds: string[],
+  moodIds: string[],
+  limit = 12
+): Promise<QuizDeckPhoto[]> {
+  const rows = await purposeMemberPhotos(purposeIds);
+  if (rows.length === 0) return [];
+  let pool = rows;
+  if (moodIds.length > 0) {
+    const admin = createAdminClient();
+    const { data: moodMem } = await admin
+      .from("explore_category_photos")
+      .select("photo_id")
+      .in("category_id", moodIds);
+    const moodSet = new Set((moodMem ?? []).map((m) => m.photo_id as string));
+    const inter = rows.filter((r) => moodSet.has(r.id));
+    if (inter.length >= 4) pool = inter; // 교집합이 충분할 때만 좁힘
+  }
+  const seen = new Set<string>();
+  const eligible = pool.filter((r) => {
+    const k = r.album_id ?? `p:${r.id}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+  return shuffleArr(eligible)
+    .slice(0, limit)
+    .map((r) => ({ id: r.id, url: r.thumb_url ?? r.src_url }));
+}

@@ -2,69 +2,66 @@
 
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
-import { TASTE_COOKIE } from "@/lib/category-constants";
+import {
+  TASTE_COOKIE,
+  TASTE_V2_COOKIE,
+  serializeTasteV2,
+} from "@/lib/category-constants";
+import {
+  fetchQuizDeckForPurposes,
+  deriveMoodCategories,
+  fetchTasteCurated,
+  type QuizDeckPhoto,
+  type TasteCat,
+} from "@/lib/explore-db";
 
-export type CuratedPhoto = { id: string; url: string };
+export type { QuizDeckPhoto, TasteCat };
+export type TasteResult = { moods: TasteCat[]; photos: QuizDeckPhoto[] };
 
-// 취향 태그를 쿠키에 저장 — 홈 피드가 이걸 읽어 취향순으로 랭킹한다. (익명 포함, 30일)
-export async function saveTaste(tags: string[]): Promise<void> {
-  const clean = [...new Set(tags.filter(Boolean))].slice(0, 6);
+// 1단계에서 고른 목적 카테고리의 스와이프 덱(앨범당 1장, 셔플).
+export async function loadQuizDeck(purposeIds: string[]): Promise<QuizDeckPhoto[]> {
+  const clean = [...new Set(purposeIds.filter(Boolean))].slice(0, 3);
+  return fetchQuizDeckForPurposes(clean, 12);
+}
+
+// 스와이프 종료 — 좋아요한 사진으로 무드 카테고리 산출 + 결과 큐레이션.
+// (쿠키 저장은 안 함 — CTA(applyTasteV2)를 눌러야만 취향 적용)
+export async function finishTaste(
+  purposeIds: string[],
+  likedPhotoIds: string[]
+): Promise<TasteResult> {
+  const purposes = [...new Set(purposeIds.filter(Boolean))].slice(0, 3);
+  const liked = [...new Set(likedPhotoIds.filter(Boolean))];
+  const moods = await deriveMoodCategories(liked, 3);
+  const photos = await fetchTasteCurated(
+    purposes,
+    moods.map((m) => m.id),
+    12
+  );
+  return { moods, photos };
+}
+
+// 취향 적용 — v2 쿠키 저장(익명 포함, 30일). 구 mood_tags 쿠키는 제거.
+export async function applyTasteV2(purposeIds: string[], moodIds: string[]): Promise<void> {
+  const purposes = [...new Set(purposeIds.filter(Boolean))].slice(0, 3);
+  const moods = [...new Set(moodIds.filter(Boolean))].slice(0, 3);
   const store = await cookies();
-  if (clean.length === 0) {
-    store.delete(TASTE_COOKIE);
+  store.delete(TASTE_COOKIE); // 구 취향 제거(충돌 방지)
+  if (purposes.length === 0 && moods.length === 0) {
+    store.delete(TASTE_V2_COOKIE);
     return;
   }
-  store.set(TASTE_COOKIE, clean.join(","), {
+  store.set(TASTE_V2_COOKIE, serializeTasteV2(purposes, moods), {
     maxAge: 60 * 60 * 24 * 30,
     path: "/",
     sameSite: "lax",
   });
 }
 
-// 취향 초기화 — 쿠키 삭제 후 홈 재검증.
+// 취향 초기화 — v2/구 쿠키 모두 삭제 후 홈 재검증.
 export async function clearTaste(): Promise<void> {
-  (await cookies()).delete(TASTE_COOKIE);
+  const store = await cookies();
+  store.delete(TASTE_V2_COOKIE);
+  store.delete(TASTE_COOKIE);
   revalidatePath("/");
-}
-
-// 취향 태그로 맞춤 스냅 큐레이션 — mood_tags 가 고른 태그와 겹치는 공개 사진을,
-// 겹치는 태그 수(점수)로 랭크하고 게시물(앨범)당 1장으로 추려 반환.
-export async function curateByTaste(tags: string[]): Promise<CuratedPhoto[]> {
-  const clean = [...new Set(tags.filter(Boolean))].slice(0, 6);
-  if (clean.length === 0) return [];
-
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("photos")
-    .select(
-      "id, src_url, thumb_url, album_id, mood_tags, photographer:photographers!photos_photographer_id_fkey!inner(id)"
-    )
-    .eq("visibility", "published")
-    .overlaps("mood_tags", clean)
-    .limit(200);
-
-  const rows = (data ?? []) as unknown as Array<{
-    id: string;
-    src_url: string;
-    thumb_url: string | null;
-    album_id: string | null;
-    mood_tags: string[] | null;
-  }>;
-
-  // 게시물(앨범)당 최고점 1장 — 점수 = 겹치는 태그 수
-  const byAlbum = new Map<string, { id: string; url: string; score: number }>();
-  for (const p of rows) {
-    const score = (p.mood_tags ?? []).filter((t) => clean.includes(t)).length;
-    const key = p.album_id ?? `photo:${p.id}`;
-    const cur = byAlbum.get(key);
-    if (!cur || score > cur.score) {
-      byAlbum.set(key, { id: p.id, url: p.thumb_url ?? p.src_url, score });
-    }
-  }
-
-  return [...byAlbum.values()]
-    .sort((a, b) => b.score - a.score)
-    .slice(0, 12)
-    .map(({ id, url }) => ({ id, url }));
 }

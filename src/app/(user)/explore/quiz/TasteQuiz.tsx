@@ -4,74 +4,108 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { mpTrack } from "@/lib/mixpanel";
-import { curateByTaste, saveTaste, type CuratedPhoto } from "./actions";
+import {
+  loadQuizDeck,
+  finishTaste,
+  applyTasteV2,
+  type QuizDeckPhoto,
+  type TasteCat,
+} from "./actions";
 
-type QuizPhoto = { id: string; url: string; tags: string[] };
 const THRESHOLD = 90; // 스와이프 확정 거리(px)
+const MAX_PURPOSE = 2; // 목적 최대 선택 수
 const RESULT_KEY = "samae:taste-result"; // 결과 저장 키(사진 상세→뒤로 시 결과 복원용)
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
 
-// 취향 테스트 — 틴더식 스와이프. 오른쪽=좋다, 왼쪽=싫다. 덱을 다 넘기면 좋아요한 사진들의
-// mood_tags 로 취향 산출 → 큐레이션. 카드는 id 로 key 해 "뒤 카드가 앞으로" 자연스럽게 올라온다.
-export function TasteQuiz({ photos }: { photos: QuizPhoto[] }) {
+type Step = "purpose" | "swipe" | "result";
+type ResultState = { purposeIds: string[]; moods: TasteCat[]; photos: QuizDeckPhoto[] };
+
+// 취향 테스트 v2 — 1단계: 목적 카테고리 칩 선택 / 2단계: 그 목적의 사진 틴더 스와이프.
+// 좋아요한 사진들이 속한 무드 카테고리로 취향 산출 → 큐레이션. (작가 mood_tags 미사용)
+export function TasteQuiz({ purposeCategories }: { purposeCategories: TasteCat[] }) {
+  const [step, setStep] = useState<Step>("purpose");
+  const [purposeIds, setPurposeIds] = useState<string[]>([]);
+  const [deck, setDeck] = useState<QuizDeckPhoto[]>([]);
   const [i, setI] = useState(0);
-  const [liked, setLiked] = useState<QuizPhoto[]>([]);
+  const [liked, setLiked] = useState<QuizDeckPhoto[]>([]);
   const [drag, setDrag] = useState({ x: 0, y: 0, active: false });
   const [flung, setFlung] = useState<{ index: number; dir: "like" | "pass" } | null>(null);
-  const [result, setResult] = useState<{ tags: string[]; photos: CuratedPhoto[] } | null>(null);
+  const [result, setResult] = useState<ResultState | null>(null);
   const [pending, startT] = useTransition();
   const startRef = useRef({ x: 0, y: 0 });
-  const resultScrollRef = useRef<HTMLDivElement>(null); // 결과 화면 스크롤 컨테이너
+  const resultScrollRef = useRef<HTMLDivElement>(null);
 
-  // 사진 상세를 보고 뒤로 오면 저장된 결과를 복원 → '이런 스냅 어때요?' 화면으로 돌아온다.
+  // 사진 상세 갔다 뒤로 오면 저장된 결과 복원 → 결과 화면으로(result 있으면 결과 렌더).
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(RESULT_KEY);
+      // 마운트 후 복원해야 함 — lazy init 은 SSR(서버=null) 과 클라 불일치(hydration) 유발.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (raw) setResult(JSON.parse(raw));
     } catch {
       /* 무시 */
     }
   }, []);
 
-  // 테스트를 끝내면(결과) 탐색 스크롤 저장값을 지운다 →
-  // 결과에서 뒤로가기(또는 사진→뒤로)로 탐색으로 돌아가면 최상단에서 시작.
   useEffect(() => {
     if (!result) return;
     try {
       sessionStorage.removeItem("samae:scroll:/explore");
       sessionStorage.removeItem("samae:scroll-anchor:/explore");
     } catch {
-      /* 스토리지 접근 불가 시 무시 */
+      /* 무시 */
     }
   }, [result]);
 
-  const topTagsOf = (arr: QuizPhoto[]) => {
-    const counts = new Map<string, number>();
-    for (const p of arr) for (const t of p.tags) counts.set(t, (counts.get(t) ?? 0) + 1);
-    return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([t]) => t).slice(0, 4);
-  };
+  function togglePurpose(id: string) {
+    setPurposeIds((prev) =>
+      prev.includes(id)
+        ? prev.filter((x) => x !== id)
+        : prev.length >= MAX_PURPOSE
+          ? prev
+          : [...prev, id]
+    );
+  }
 
-  const finish = (likedArr: QuizPhoto[]) => {
-    const tags = topTagsOf(likedArr);
+  function startSwipe() {
+    if (purposeIds.length === 0) return;
     startT(async () => {
-      // 큐레이션만 미리 보여주고, 취향 적용(saveTaste)은 '홈에서 내 취향 보기'를 눌러야만 한다.
-      // → 결과에서 그냥 뒤로 나가면 취향이 적용되지 않음.
-      const res = await curateByTaste(tags);
-      const r = { tags, photos: res };
+      const d = await loadQuizDeck(purposeIds);
+      setDeck(d);
+      setI(0);
+      setLiked([]);
+      setFlung(null);
+      setDrag({ x: 0, y: 0, active: false });
+      setStep("swipe");
+    });
+  }
+
+  function finish(likedArr: QuizDeckPhoto[]) {
+    startT(async () => {
+      const res = await finishTaste(
+        purposeIds,
+        likedArr.map((p) => p.id)
+      );
+      const r: ResultState = { purposeIds, moods: res.moods, photos: res.photos };
       setResult(r);
-      // 결과 저장 — 결과에서 사진을 눌러 상세로 갔다가 뒤로 오면 이 결과를 복원한다.
+      setStep("result");
       try {
         sessionStorage.setItem(RESULT_KEY, JSON.stringify(r));
       } catch {
         /* 무시 */
       }
-      mpTrack("Complete Taste Quiz", { tags, liked: likedArr.length, swiped: photos.length });
+      mpTrack("Complete Taste Quiz", {
+        purposes: purposeIds.length,
+        moods: res.moods.map((m) => m.title),
+        liked: likedArr.length,
+        swiped: deck.length,
+      });
     });
-  };
+  }
 
   const decide = (dir: "like" | "pass") => {
-    if (flung || i >= photos.length) return;
-    const nextLiked = dir === "like" ? [...liked, photos[i]] : liked;
+    if (flung || i >= deck.length) return;
+    const nextLiked = dir === "like" ? [...liked, deck[i]] : liked;
     if (dir === "like") setLiked(nextLiked);
     setFlung({ index: i, dir });
     setDrag({ x: 0, y: 0, active: false });
@@ -79,52 +113,49 @@ export function TasteQuiz({ photos }: { photos: QuizPhoto[] }) {
     setI(nextI);
     window.setTimeout(() => {
       setFlung(null);
-      if (nextI >= photos.length) finish(nextLiked);
+      if (nextI >= deck.length) finish(nextLiked);
     }, 300);
   };
 
-  const reset = () => {
+  function reset() {
     try {
-      sessionStorage.removeItem(RESULT_KEY); // 다시 탐색 → 저장 결과 폐기, 덱부터 새로
+      sessionStorage.removeItem(RESULT_KEY);
     } catch {
       /* 무시 */
     }
+    setResult(null);
+    setDeck([]);
     setI(0);
     setLiked([]);
     setDrag({ x: 0, y: 0, active: false });
     setFlung(null);
-    setResult(null);
-  };
+    setPurposeIds([]);
+    setStep("purpose");
+  }
 
-  // ── 결과 ──
+  // ── 결과 ── (result 가 있으면 단계와 무관하게 결과 렌더)
   if (result) {
     return (
       <div ref={resultScrollRef} className="min-h-0 flex-1 overflow-y-auto pt-4 pb-8">
-        {result.tags.length > 0 ? (
+        {result.moods.length > 0 ? (
           <div className="mt-2 flex flex-wrap gap-2">
-            {result.tags.map((t) => (
-              <span key={t} className="rounded-full bg-brand-soft px-2 py-0.5 text-body-sm font-semibold text-brand-ink">
-                #{t}
+            {result.moods.map((m) => (
+              <span
+                key={m.id}
+                className="rounded-full bg-brand-soft px-2.5 py-0.5 text-body-sm font-semibold text-brand-ink"
+              >
+                {m.title}
               </span>
             ))}
           </div>
         ) : (
-          <p className="mt-2 text-body-sm text-muted">좋아요한 사진이 적어서 취향을 못 잡았어요. 다시 해볼까요?</p>
+          <p className="mt-2 text-body-sm text-muted">
+            좋아요한 사진이 적어서 무드를 못 잡았어요. 다시 해볼까요?
+          </p>
         )}
 
         <div className="mt-6 flex items-center gap-2.5">
           <h2 className="text-xl font-bold tracking-tight">이런 스냅 어때요?</h2>
-          <button
-            type="button"
-            onClick={() => {
-              const el = resultScrollRef.current;
-              if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-            }}
-            className="inline-flex shrink-0 items-center gap-1 self-end rounded-full bg-brand px-3.5 py-0.5 text-body-sm font-semibold text-white transition-opacity hover:opacity-90"
-          >
-            제 무드입니다
-            <span aria-hidden>→</span>
-          </button>
         </div>
         {result.photos.length > 0 ? (
           <div className="mt-3 grid grid-cols-2 gap-2.5">
@@ -145,7 +176,7 @@ export function TasteQuiz({ photos }: { photos: QuizPhoto[] }) {
             ))}
           </div>
         ) : (
-          <p className="mt-3 text-body-sm text-muted">딱 맞는 스냅이 아직 적어요. 다른 취향으로 다시 해볼까요?</p>
+          <p className="mt-3 text-body-sm text-muted">딱 맞는 스냅이 아직 적어요. 다시 해볼까요?</p>
         )}
 
         <div className="mt-8 flex flex-col items-center gap-3">
@@ -154,12 +185,11 @@ export function TasteQuiz({ photos }: { photos: QuizPhoto[] }) {
             type="button"
             disabled={pending}
             onClick={() => {
-              // 이 버튼을 눌러야만 취향을 실제로 적용(saveTaste)하고 홈으로.
-              // 홈 피드 캐시를 비워 새 취향순 피드가 실제로 반영되게 + 풀 로드.
-              // ?nocat=1 → proxy 가 카테고리 컨텍스트(쿠키) 해제 = 전체 보기로 전환.
-              // (광고로 /c/<slug> 진입해 컨텍스트가 남아있어도 취향 전체 피드로 넘어감)
               startT(async () => {
-                await saveTaste(result.tags);
+                await applyTasteV2(
+                  result.purposeIds,
+                  result.moods.map((m) => m.id)
+                );
                 try {
                   Object.keys(sessionStorage)
                     .filter((k) => k.startsWith("samae:gallery-session:"))
@@ -182,33 +212,105 @@ export function TasteQuiz({ photos }: { photos: QuizPhoto[] }) {
             onClick={reset}
             className="rounded-full border border-line-strong px-5 py-2 text-body-sm font-semibold text-fg transition-colors hover:bg-fg/[0.04]"
           >
-            내 무드 다시 탐색하기
+            다시 하기
           </button>
         </div>
       </div>
     );
   }
 
-  // 큐레이션 대기
-  if (pending) {
+  // ── 대기(덱 로드/분석) ──
+  if (pending && step !== "purpose") {
     return (
       <div className="flex flex-1 flex-col items-center justify-center">
         <span className="h-6 w-6 animate-spin rounded-full border-2 border-fg/20 border-t-fg" />
-        <p className="mt-3 text-body-sm text-muted">취향 분석 중…</p>
+        <p className="mt-3 text-body-sm text-muted">
+          {step === "swipe" ? "취향 분석 중…" : "사진 준비 중…"}
+        </p>
       </div>
     );
   }
 
-  // ── 스와이프 덱 ──
-  // 렌더 대상: 날아가는 카드(직전) + 앞(i) + 뒤(i+1). id 로 key 해 역할만 바뀌며 자연스럽게 전환.
+  // ── 1단계: 목적 선택 ──
+  if (step === "purpose") {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col pt-5">
+        <div className="w-full max-w-[420px] self-center text-center">
+          <p className="font-display text-body-sm italic text-brand">30초 취향 테스트</p>
+          <h1 className="mt-1 text-2xl font-bold tracking-tight">무엇을 찍고 싶으세요?</h1>
+          <p className="mt-1.5 text-body-sm text-muted">
+            촬영 목적을 최대 {MAX_PURPOSE}개 골라주세요.
+          </p>
+        </div>
+
+        {purposeCategories.length === 0 ? (
+          <p className="mt-10 text-center text-body-sm text-muted">
+            아직 목적 카테고리가 없어요. 곧 준비할게요.
+          </p>
+        ) : (
+          <div className="mt-6 flex flex-wrap justify-center gap-2.5 px-2">
+            {purposeCategories.map((c) => {
+              const on = purposeIds.includes(c.id);
+              return (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => togglePurpose(c.id)}
+                  className={
+                    "rounded-full border px-4 py-2 text-body-sm font-semibold transition-colors " +
+                    (on
+                      ? "border-brand bg-brand text-white"
+                      : "border-line-strong bg-surface text-fg hover:bg-fg/[0.04]")
+                  }
+                >
+                  {c.title}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="mt-auto flex w-full max-w-[420px] shrink-0 flex-col items-center gap-2 self-center pb-6 pt-6">
+          <button
+            type="button"
+            disabled={purposeIds.length === 0 || pending}
+            onClick={startSwipe}
+            className="inline-flex w-full items-center justify-center gap-1.5 rounded-full bg-brand px-8 py-3 text-body font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+          >
+            {pending ? "사진 준비 중…" : "다음"}
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── 2단계: 스와이프 덱 ──
+  if (deck.length < 4) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-3">
+        <p className="text-body-sm text-muted">이 목적에 쓸 사진이 아직 부족해요.</p>
+        <button
+          type="button"
+          onClick={reset}
+          className="rounded-full border border-line-strong px-5 py-2 text-body-sm font-semibold text-fg hover:bg-fg/[0.04]"
+        >
+          목적 다시 고르기
+        </button>
+      </div>
+    );
+  }
+
   const idxs = [...new Set([flung?.index ?? -1, i, i + 1])].filter(
-    (k) => k >= 0 && k < photos.length
+    (k) => k >= 0 && k < deck.length
   );
 
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center pt-4">
       <div className="w-full max-w-[340px] shrink-0 text-center">
-        <p className="font-display text-body-sm italic text-brand">30초 취향 테스트</p>
+        <p className="font-display text-body-sm italic text-brand">어떤 무드가 끌리나요?</p>
         <h1 className="mt-1 text-2xl font-bold tracking-tight">끌리면 오른쪽, 아니면 왼쪽</h1>
         <p className="mt-1.5 text-body-sm text-muted">
           카드를 밀거나 아래 버튼으로 골라주세요.
@@ -217,10 +319,9 @@ export function TasteQuiz({ photos }: { photos: QuizPhoto[] }) {
         </p>
       </div>
 
-      {/* 덱 — 남는 높이에 맞춰 유연하게(스크롤 없이 한 화면에) */}
       <div className="relative mt-4 min-h-0 w-full max-w-[340px] flex-1 select-none">
         {idxs.map((idx) => {
-          const photo = photos[idx];
+          const photo = deck[idx];
           const isFlung = flung?.index === idx;
           const isFront = !isFlung && idx === i;
 
@@ -315,7 +416,6 @@ export function TasteQuiz({ photos }: { photos: QuizPhoto[] }) {
         })}
       </div>
 
-      {/* 버튼 */}
       <div className="mt-5 flex shrink-0 items-center gap-6">
         <button
           type="button"
@@ -339,16 +439,15 @@ export function TasteQuiz({ photos }: { photos: QuizPhoto[] }) {
         </button>
       </div>
 
-      {/* 진행 — 다 넘기면 자동 결과 */}
       <div className="mt-4 flex w-full max-w-[340px] shrink-0 flex-col items-center gap-2 pb-4">
         <div className="h-1 w-full overflow-hidden rounded-full bg-fg/10">
           <div
             className="h-full rounded-full bg-brand transition-[width] duration-300"
-            style={{ width: `${(i / photos.length) * 100}%` }}
+            style={{ width: `${(i / deck.length) * 100}%` }}
           />
         </div>
         <p className="text-caption text-faint">
-          <b className="text-brand">{liked.length}</b> 좋아요 · {i}/{photos.length}
+          <b className="text-brand">{liked.length}</b> 좋아요 · {i}/{deck.length}
         </p>
       </div>
     </div>
