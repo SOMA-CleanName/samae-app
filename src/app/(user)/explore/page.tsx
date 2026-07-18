@@ -53,7 +53,7 @@ export default async function ExplorePage() {
 
   // 중간 메뉴바 탭 — 실제로 렌더되는 섹션만(스크롤 이동 대상).
   const tabs: ExploreTab[] = [
-    { id: "sec-hot", label: "지금 뜨는 무드" },
+    { id: "sec-hot", label: "추천 무드" },
     ...(popular.length > 0 ? [{ id: "sec-recent", label: "지금 인기 스냅" }] : []),
     { id: "sec-taste", label: "내 취향 테스트" },
   ];
@@ -86,7 +86,7 @@ export default async function ExplorePage() {
             <div id="sec-hot" className="mt-6 scroll-mt-24">
               <div className="mb-3 flex items-baseline gap-2 px-1">
                 <span className="font-display text-body-sm italic text-brand">01</span>
-                <h2 className="text-title font-bold tracking-tight">지금 뜨는 무드</h2>
+                <h2 className="text-title font-bold tracking-tight">추천 무드</h2>
                 <TasteCtaButton />
               </div>
               <CategoryGrid items={gridItems} />
