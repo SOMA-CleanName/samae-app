@@ -1004,7 +1004,7 @@ export function FloatingCart() {
                           meta.editedCount != null) && (
                           <div className="mb-3 rounded-2xl bg-black/45 px-4 py-3 text-left ring-1 ring-white/10 backdrop-blur-md">
                             {meta.priceKrw != null && (
-                              <p className="text-2xl font-extrabold leading-none tracking-tight text-white">
+                              <p className="text-xl font-extrabold leading-none tracking-tight text-white">
                                 ₩{wonFmt.format(meta.priceKrw)}
                               </p>
                             )}
