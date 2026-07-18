@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useCart, cartCardJitter, PEEK_CARD_W, type CartItem } from "./CartProvider";
 import { submitCartInquiry } from "@/app/(user)/inquiry/actions";
+import { loadCartPhotoMeta } from "@/app/(user)/actions";
 import { mpTrack } from "@/lib/mixpanel";
 
 // FLIP 은 페인트 전에 측정/적용해야 깜빡임이 없음(SSR 에선 useEffect 로 폴백)
@@ -22,6 +23,43 @@ const useIsoLayout = typeof window === "undefined" ? useEffect : useLayoutEffect
 // "그 사진들 자체"가 도크에서 빠져나와 화면 가득 펼쳐짐(복제본 없음). 닫으면 다시 도크로 모임.
 const POS_KEY = "samae:cart-pos";
 const CART_W = PEEK_CARD_W; // 64
+const wonFmt = new Intl.NumberFormat("ko-KR");
+
+// 분 → 사람이 읽기 쉬운 촬영시간 (60→"1시간", 90→"1시간 30분", 45→"45분")
+function formatDuration(min: number): string {
+  if (min < 60) return `${min}분`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m === 0 ? `${h}시간` : `${h}시간 ${m}분`;
+}
+
+// 확대뷰 메타 칩 아이콘 (위치·촬영시간·보정본)
+const META_ICON = "h-3.5 w-3.5 shrink-0 text-white/60";
+function MetaPinIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className={META_ICON} fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 21s-6-5-6-10a6 6 0 1 1 12 0c0 5-6 10-6 10z" strokeLinejoin="round" />
+      <circle cx="12" cy="11" r="2" />
+    </svg>
+  );
+}
+function MetaClockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className={META_ICON} fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7.5V12l3 1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function MetaPhotoIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className={META_ICON} fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="4" y="4" width="16" height="16" rx="2.5" />
+      <path d="M4 15l4-4 3 3 3-3 6 6" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="9" cy="9" r="1.3" />
+    </svg>
+  );
+}
 
 // 펼침용 흩뿌림 변형 — id 해시로 각도·셀 내 오프셋 결정(고정)
 function spreadJitter(id: string): { rot: number; fx: number; fy: number } {
@@ -63,6 +101,14 @@ export function FloatingCart() {
   const [vp, setVp] = useState<{ w: number; h: number } | null>(null);
   // 탭한 사진 id — 실제 카드 자체가 중앙으로 와서 확대(복제본 없음)
   const [focused, setFocused] = useState<string | null>(null);
+  // 확대뷰 메타(가격·위치·촬영시간·보정본) — 카트 아이템엔 없어 확대 시 서버 조회. photoId 로 stale 표시 방지.
+  const [meta, setMeta] = useState<{
+    photoId: string;
+    priceKrw: number | null;
+    location: string | null;
+    durationMin: number | null;
+    editedCount: number | null;
+  } | null>(null);
   const [focusScroll, setFocusScroll] = useState(0); // 확대 시점의 스크롤 오프셋(중앙 보정용)
   const [formFor, setFormFor] = useState<string | null>(null); // null / photoId(단일) / "selected"(선택 묶음)
   const [selectMode, setSelectMode] = useState(false);
@@ -77,7 +123,6 @@ export function FloatingCart() {
   const prevCount = useRef(0);
   const tipDone = useRef(false); // 한 번 노출 후 끝 — 재등장 방지
   const tipTimers = useRef<number[]>([]);
-  const [photoMenu, setPhotoMenu] = useState(false); // 확대 보기 더보기(⋯) 메뉴
   const [closing, setClosing] = useState(false); // 닫는 중 — 카드 트랜지션을 더 빠르게
   // 길게 누르기(롱프레스) 추적 — 타이머/발동여부/시작좌표
   const longPress = useRef<{ timer: number | null; fired: boolean; x: number; y: number }>({
@@ -89,6 +134,18 @@ export function FloatingCart() {
   const [state, formAction, pending] = useActionState(submitCartInquiry, { ok: false });
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const layerRef = useRef<HTMLDivElement>(null);
+
+  // 사진 확대 시 메타 조회(가격·위치·촬영시간·보정본). 결과는 photoId 일치할 때만 표시.
+  useEffect(() => {
+    if (!focused) return;
+    let alive = true;
+    loadCartPhotoMeta(focused).then((m) => {
+      if (alive && m) setMeta({ photoId: focused, ...m });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [focused]);
 
   const N = count;
 
@@ -180,7 +237,6 @@ export function FloatingCart() {
     // 사용자 뒤로: 브라우저가 가드 1개 소비 → 한 단계만 닫는다.
     h.browserPopped = true;
     if (focused) {
-      setPhotoMenu(false);
       setFocused(null);
     } else if (selectMode) {
       exitSelect();
@@ -650,7 +706,6 @@ export function FloatingCart() {
                       else if (focused === it.id) setFocused(null);
                       else {
                         setFocusScroll(layerRef.current?.scrollTop ?? 0);
-                        setPhotoMenu(false);
                         setFocused(it.id);
                       }
                     } else if (phase === "dock") {
@@ -756,23 +811,11 @@ export function FloatingCart() {
               {/* 상단(확대 중) — 좌: 닫기(그리드로) / 우: 공유 · 더보기(게시물 보기·삭제) */}
               {focused && (
                 <>
-                  {/* 메뉴 바깥 탭하면 메뉴만 닫힘 */}
-                  {photoMenu && (
-                    <button
-                      type="button"
-                      aria-hidden
-                      onClick={() => setPhotoMenu(false)}
-                      className="fixed inset-0 z-[61] cursor-default"
-                    />
-                  )}
                   <div className="fixed inset-x-0 top-0 z-[62] flex items-start justify-between px-5 pt-5">
                     {/* 닫기 — 그리드로 복귀 */}
                     <button
                       type="button"
-                      onClick={() => {
-                        setPhotoMenu(false);
-                        setFocused(null);
-                      }}
+                      onClick={() => setFocused(null)}
                       aria-label="닫기"
                       className="grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
                     >
@@ -781,63 +824,18 @@ export function FloatingCart() {
                       </svg>
                     </button>
 
-                    {/* 우측 — 공유 + 더보기 */}
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => focused && sharePhotos([focused])}
-                        aria-label="공유"
-                        className="grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
-                      >
-                        <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M12 16V4M12 4l-4 4M12 4l4 4" strokeLinecap="round" strokeLinejoin="round" />
-                          <path d="M5 12v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </button>
-
-                      <div className="relative">
-                        <button
-                          type="button"
-                          onClick={() => setPhotoMenu((v) => !v)}
-                          aria-label="더보기"
-                          aria-expanded={photoMenu}
-                          className="grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
-                        >
-                          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
-                            <circle cx="5" cy="12" r="1.6" />
-                            <circle cx="12" cy="12" r="1.6" />
-                            <circle cx="19" cy="12" r="1.6" />
-                          </svg>
-                        </button>
-                        {photoMenu && (
-                          <div className="absolute right-0 top-11 min-w-[140px] overflow-hidden rounded-xl bg-bg py-1 shadow-pop">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setPhotoMenu(false);
-                                if (focused) leaveToInquiry(`/photos/${focused}`);
-                              }}
-                              className="block w-full cursor-pointer px-4 py-2.5 text-left text-sm font-medium text-fg transition-colors hover:bg-fg/[0.06]"
-                            >
-                              게시물 보기
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const id = focused;
-                                setPhotoMenu(false);
-                                setFocused(null);
-                                setFormFor(null);
-                                if (id) removeOne(id);
-                              }}
-                              className="block w-full cursor-pointer px-4 py-2.5 text-left text-sm font-medium text-brand transition-colors hover:bg-brand/10"
-                            >
-                              삭제
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    {/* 우측 — 공유(2순위). 게시물보기·문의는 하단 동급 버튼으로, 삭제는 선택모드로 이동 */}
+                    <button
+                      type="button"
+                      onClick={() => focused && sharePhotos([focused])}
+                      aria-label="공유"
+                      className="grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
+                    >
+                      <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M12 16V4M12 4l-4 4M12 4l4 4" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M5 12v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
                   </div>
                 </>
               )}
@@ -996,13 +994,66 @@ export function FloatingCart() {
                       </button>
                     </form>
                   ) : selectMode ? null : focused && items.some((i) => i.id === focused) ? (
-                    <button
-                      type="button"
-                      onClick={() => leaveToInquiry(`/inquiry/photo/${focused}`)}
-                      className="pointer-events-auto w-full cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
-                    >
-                      이 사진으로 무료 견적 받기
-                    </button>
+                    <div className="pointer-events-auto">
+                      {/* 메타 패널 — 가격(크게) + 위치·촬영시간·보정본 아이콘 칩 (photoId 일치 시만 = stale 방지) */}
+                      {meta &&
+                        meta.photoId === focused &&
+                        (meta.priceKrw != null ||
+                          meta.location ||
+                          meta.durationMin != null ||
+                          meta.editedCount != null) && (
+                          <div className="mb-3 rounded-2xl bg-black/45 px-4 py-3 text-left ring-1 ring-white/10 backdrop-blur-md">
+                            {meta.priceKrw != null && (
+                              <p className="text-xl font-extrabold leading-none tracking-tight text-white">
+                                ₩{wonFmt.format(meta.priceKrw)}
+                              </p>
+                            )}
+                            {(meta.location || meta.durationMin != null || meta.editedCount != null) && (
+                              <div
+                                className={`flex flex-wrap items-center gap-x-3.5 gap-y-1.5 text-body-sm font-medium text-white/85 ${
+                                  meta.priceKrw != null ? "mt-2" : ""
+                                }`}
+                              >
+                                {meta.location && (
+                                  <span className="inline-flex items-center gap-1">
+                                    <MetaPinIcon />
+                                    {meta.location}
+                                  </span>
+                                )}
+                                {meta.durationMin != null && (
+                                  <span className="inline-flex items-center gap-1">
+                                    <MetaClockIcon />
+                                    {formatDuration(meta.durationMin)}
+                                  </span>
+                                )}
+                                {meta.editedCount != null && (
+                                  <span className="inline-flex items-center gap-1">
+                                    <MetaPhotoIcon />
+                                    보정본 {meta.editedCount}장
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      {/* 게시물 보기 · 견적 받기 = 동급(나란히). 견적만 브랜드색으로 전환 살짝 강조. */}
+                      <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => leaveToInquiry(`/photos/${focused}`)}
+                        className="flex-1 cursor-pointer rounded-2xl bg-white/15 py-4 text-base font-bold text-white shadow-pop backdrop-blur transition-colors hover:bg-white/25"
+                      >
+                        게시물 보기
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => leaveToInquiry(`/inquiry/photo/${focused}`)}
+                        className="flex-1 cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
+                      >
+                        무료 견적 받기
+                      </button>
+                      </div>
+                    </div>
                   ) : (
                     // 전체·묶음 상담 CTA 제거 — 개별 사진 상담으로만 안내.
                     <p className="text-center">
