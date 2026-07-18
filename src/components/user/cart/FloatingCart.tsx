@@ -13,6 +13,7 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { useCart, cartCardJitter, PEEK_CARD_W, type CartItem } from "./CartProvider";
 import { submitCartInquiry } from "@/app/(user)/inquiry/actions";
+import { loadCartPhotoMeta } from "@/app/(user)/actions";
 import { mpTrack } from "@/lib/mixpanel";
 
 // FLIP 은 페인트 전에 측정/적용해야 깜빡임이 없음(SSR 에선 useEffect 로 폴백)
@@ -22,6 +23,15 @@ const useIsoLayout = typeof window === "undefined" ? useEffect : useLayoutEffect
 // "그 사진들 자체"가 도크에서 빠져나와 화면 가득 펼쳐짐(복제본 없음). 닫으면 다시 도크로 모임.
 const POS_KEY = "samae:cart-pos";
 const CART_W = PEEK_CARD_W; // 64
+const wonFmt = new Intl.NumberFormat("ko-KR");
+
+// 분 → 사람이 읽기 쉬운 촬영시간 (60→"1시간", 90→"1시간 30분", 45→"45분")
+function formatDuration(min: number): string {
+  if (min < 60) return `${min}분`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m === 0 ? `${h}시간` : `${h}시간 ${m}분`;
+}
 
 // 펼침용 흩뿌림 변형 — id 해시로 각도·셀 내 오프셋 결정(고정)
 function spreadJitter(id: string): { rot: number; fx: number; fy: number } {
@@ -63,6 +73,14 @@ export function FloatingCart() {
   const [vp, setVp] = useState<{ w: number; h: number } | null>(null);
   // 탭한 사진 id — 실제 카드 자체가 중앙으로 와서 확대(복제본 없음)
   const [focused, setFocused] = useState<string | null>(null);
+  // 확대뷰 메타(가격·위치·촬영시간·보정본) — 카트 아이템엔 없어 확대 시 서버 조회. photoId 로 stale 표시 방지.
+  const [meta, setMeta] = useState<{
+    photoId: string;
+    priceKrw: number | null;
+    location: string | null;
+    durationMin: number | null;
+    editedCount: number | null;
+  } | null>(null);
   const [focusScroll, setFocusScroll] = useState(0); // 확대 시점의 스크롤 오프셋(중앙 보정용)
   const [formFor, setFormFor] = useState<string | null>(null); // null / photoId(단일) / "selected"(선택 묶음)
   const [selectMode, setSelectMode] = useState(false);
@@ -88,6 +106,18 @@ export function FloatingCart() {
   const [state, formAction, pending] = useActionState(submitCartInquiry, { ok: false });
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const layerRef = useRef<HTMLDivElement>(null);
+
+  // 사진 확대 시 메타 조회(가격·위치·촬영시간·보정본). 결과는 photoId 일치할 때만 표시.
+  useEffect(() => {
+    if (!focused) return;
+    let alive = true;
+    loadCartPhotoMeta(focused).then((m) => {
+      if (alive && m) setMeta({ photoId: focused, ...m });
+    });
+    return () => {
+      alive = false;
+    };
+  }, [focused]);
 
   const N = count;
 
@@ -936,8 +966,22 @@ export function FloatingCart() {
                       </button>
                     </form>
                   ) : selectMode ? null : focused && items.some((i) => i.id === focused) ? (
-                    // 게시물 보기 · 견적 받기 = 동급(나란히). 견적만 브랜드색으로 전환 살짝 강조.
-                    <div className="pointer-events-auto flex gap-2">
+                    <div className="pointer-events-auto">
+                      {/* 메타 — 가격 · 위치 · 촬영시간 · 보정본 (photoId 일치할 때만 = stale 방지) */}
+                      {meta && meta.photoId === focused && (
+                        <p className="mb-2.5 text-center text-body-sm font-semibold text-white/90 drop-shadow">
+                          {[
+                            meta.priceKrw != null ? `₩${wonFmt.format(meta.priceKrw)}` : null,
+                            meta.location,
+                            meta.durationMin != null ? `촬영 ${formatDuration(meta.durationMin)}` : null,
+                            meta.editedCount != null ? `보정본 ${meta.editedCount}장` : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ")}
+                        </p>
+                      )}
+                      {/* 게시물 보기 · 견적 받기 = 동급(나란히). 견적만 브랜드색으로 전환 살짝 강조. */}
+                      <div className="flex gap-2">
                       <button
                         type="button"
                         onClick={() => leaveToInquiry(`/photos/${focused}`)}
@@ -952,6 +996,7 @@ export function FloatingCart() {
                       >
                         무료 견적 받기
                       </button>
+                      </div>
                     </div>
                   ) : (
                     // 전체·묶음 상담 CTA 제거 — 개별 사진 상담으로만 안내.

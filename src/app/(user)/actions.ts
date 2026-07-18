@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { mpTrackServer } from "@/lib/mixpanel-server";
 import { readAnonFavPhotoIds, toggleAnonFavPhoto } from "@/lib/anon-favorites";
+import { fetchPhotographerPackages } from "@/lib/discovery";
 
 // 찜/좋아요 토글 (작가=관심 작가, 사진=좋아요). 비로그인이면 로그인으로.
 export async function toggleFavorite(formData: FormData) {
@@ -146,6 +147,40 @@ export async function loadPhotoLike(
     liked = (await readAnonFavPhotoIds()).includes(photoId);
   }
   return { liked, count, loggedIn: !!user };
+}
+
+// 담은 사진 확대뷰 메타 — 가격·위치 + 가격에 가장 가까운 활성 패키지의 촬영시간·보정본.
+// (카트 아이템엔 가격/패키지가 없어 확대 시 서버에서 조회. 사진 상세와 동일한 최근접 매칭)
+export async function loadCartPhotoMeta(photoId: string): Promise<{
+  priceKrw: number | null;
+  location: string | null;
+  durationMin: number | null;
+  editedCount: number | null;
+} | null> {
+  const supabase = await createClient();
+  const { data: photo } = await supabase
+    .from("photos")
+    .select("id, price_krw, region, location_text, photographer_id")
+    .eq("id", photoId)
+    .maybeSingle();
+  if (!photo) return null;
+
+  const priceKrw = (photo.price_krw as number | null) ?? null;
+  const location = (photo.location_text as string | null) || (photo.region as string | null) || null;
+
+  let durationMin: number | null = null;
+  let editedCount: number | null = null;
+  if (priceKrw != null) {
+    const packages = await fetchPhotographerPackages(photo.photographer_id as string);
+    if (packages.length > 0) {
+      const nearest = packages.reduce((best, p) =>
+        Math.abs(p.price_krw - priceKrw) < Math.abs(best.price_krw - priceKrw) ? p : best
+      );
+      durationMin = nearest.duration_min;
+      editedCount = nearest.edited_count;
+    }
+  }
+  return { priceKrw, location, durationMin, editedCount };
 }
 
 // (추천 피드는 discovery.fetchSimilarPhotos 로 이전 — 태그 유사도순 풀을 서버에서 한 번에 제공)
