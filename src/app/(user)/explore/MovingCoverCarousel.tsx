@@ -15,6 +15,8 @@ export type CoverCat = {
 };
 
 const STEP_MS = 2000;
+// 스와이프 직후 그 step 은 길게 머무름 — 게이지도 같은 길이로 채워져 '찼는데 안 넘어감'이 없다.
+const SWIPE_PAUSE_MS = 6000;
 // 카드 폭(컨테이너 대비 %) — 100 미만이면 양옆 이웃 카드가 (100-SLIDE_W)/2 씩 삐져나온다.
 const SLIDE_W = 80;
 
@@ -38,21 +40,22 @@ export function MovingCoverCarousel({ cats }: { cats: CoverCat[] }) {
   }, [cats]);
 
   const [step, setStep] = useState(0);
-  const pausedUntil = useRef(0);
+  // 현재 step 지속시간 — 게이지 채움과 자동넘김이 항상 같은 길이를 쓰게 하는 단일 소스.
+  const [stepDur, setStepDur] = useState(STEP_MS);
   const startX = useRef<number | null>(null);
   const dragged = useRef(false);
 
-  // step 이 바뀔 때마다 리셋되는 타이머 — 게이지 채움(STEP_MS)과 넘김을 항상 동기화한다.
-  // 스와이프 후엔 pausedUntil 만큼 더 기다린다(탭은 정지 없이 정상 진행).
+  // step 이 바뀔 때마다 리셋되는 타이머 — stepDur 로 게이지·넘김을 항상 동기화.
+  // 스와이프 직후엔 stepDur 이 길어(SWIPE_PAUSE_MS) 게이지도 그만큼 천천히 차므로 '찼는데 안 넘어감'이 없다.
   useEffect(() => {
     if (steps.length <= 1) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const wait = Math.max(STEP_MS, pausedUntil.current - Date.now());
     const id = setTimeout(() => {
       setStep((s) => (s + 1) % steps.length);
-    }, wait);
+      setStepDur(STEP_MS); // 다음 step 부터는 기본 속도로 복귀
+    }, stepDur);
     return () => clearTimeout(id);
-  }, [step, steps.length]);
+  }, [step, stepDur, steps.length]);
 
   if (cats.length === 0) return null;
   const cur = steps[step] ?? { ci: 0, si: 0 };
@@ -62,7 +65,7 @@ export function MovingCoverCarousel({ cats }: { cats: CoverCat[] }) {
     const n = cats.length;
     const target = (cur.ci + dir + n) % n;
     setStep(catStart[target] ?? 0);
-    pausedUntil.current = Date.now() + 6000; // 조작 후 6초 자동넘김 멈춤
+    setStepDur(SWIPE_PAUSE_MS); // 스와이프한 카테고리를 잠깐 더 보여줌(게이지도 같은 길이)
   };
 
   return (
@@ -159,7 +162,7 @@ export function MovingCoverCarousel({ cats }: { cats: CoverCat[] }) {
                       onPointerDown={(e) => {
                         // click 은 모바일에서 첫 탭이 스와이프로 오인돼 삼켜질 수 있어 pointerdown 에서 바로 점프.
                         e.stopPropagation();
-                        pausedUntil.current = 0; // 탭은 정지 없이 정상 진행(게이지 채워지면 다음으로)
+                        setStepDur(STEP_MS); // 탭은 정지 없이 기본 속도로 진행
                         setStep((catStart[ci] ?? 0) + i);
                       }}
                       onClick={(e) => {
@@ -172,7 +175,7 @@ export function MovingCoverCarousel({ cats }: { cats: CoverCat[] }) {
                         {isActive && i < cur.si ? (
                           <span className="block h-full w-full bg-white" />
                         ) : isActive && i === cur.si ? (
-                          <span key={step} className={styles.fill} style={{ animationDuration: `${STEP_MS}ms` }} />
+                          <span key={step} className={styles.fill} style={{ animationDuration: `${stepDur}ms` }} />
                         ) : null}
                       </span>
                     </span>
