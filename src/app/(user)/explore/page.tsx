@@ -31,8 +31,12 @@ export default async function ExplorePage() {
     (s) => s.photos.length >= 3
   );
 
-  // 지금 인기 스냅 (최근 1일 조회·문의·찜 신호로 랭킹한 게시물)
-  const popular = await listPopularPosts(24, 1);
+  // 지금 인기 스냅 (최근 1일 조회·문의·찜 신호로 랭킹) — 광고 유입이면 그 광고 카테고리 범위로,
+  // 아니면 전역. 광고 범위에 인기 스냅이 없으면 전역으로 폴백(섹션이 비지 않게).
+  let popular = await listPopularPosts(24, 1, adCat?.exploreSectionIds);
+  if (adCat?.exploreSectionIds?.length && popular.length === 0) {
+    popular = await listPopularPosts(24, 1);
+  }
 
   // 커버 캐러셀 — 취향 필터가 없으면 존재하는 모든 카테고리(≥3장)를 각 3장씩(고화질 src_url) 순환.
   const coverCats: CoverCat[] = sections.map((s) => ({

@@ -211,25 +211,54 @@ export type RecentPost = { id: string; shots: { id: string; url: string }[] };
 // 사진 풀은 anon 클라이언트로(RLS=승인·published), 신호 집계만 admin 으로 읽어 합산한다.
 // (반환은 RecentPost 와 동일 — 사진 id·url 공개 데이터뿐, 개인정보 노출 없음)
 // 신호가 없으면 점수 0 동점 → 최신순으로 자연 폴백(초기 데이터가 적어도 안전).
-export async function listPopularPosts(limit = 12, windowDays = 30): Promise<RecentPost[]> {
+export async function listPopularPosts(
+  limit = 12,
+  windowDays = 30,
+  scopeCategoryIds?: string[] // 광고 유입: 이 explore 카테고리들에 담긴 사진만 대상(비면 전역)
+): Promise<RecentPost[]> {
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("photos")
-    .select(
-      "id, src_url, album_id, sort_order, created_at, photographer:photographers!photos_photographer_id_fkey!inner(id, profile_id)"
-    )
-    .eq("visibility", "published")
-    .order("created_at", { ascending: false })
-    .limit(500);
+  const admin = createAdminClient();
+  const PHOTO_SELECT =
+    "id, src_url, album_id, sort_order, created_at, photographer:photographers!photos_photographer_id_fkey!inner(id, profile_id)";
   type PhotographerRef = { id: string; profile_id: string };
-  const rows = (data ?? []) as unknown as Array<{
+  type PhotoRow = {
     id: string;
     src_url: string;
     album_id: string | null;
     sort_order: number | null;
     created_at: string;
     photographer: PhotographerRef | PhotographerRef[];
-  }>;
+  };
+
+  let rows: PhotoRow[];
+  if (scopeCategoryIds && scopeCategoryIds.length > 0) {
+    // 광고 유입 — 그 광고의 explore 카테고리들에 담긴 사진만 풀로(없으면 빈 결과 → 호출부가 전역 폴백)
+    const { data: mem } = await admin
+      .from("explore_category_photos")
+      .select("photo_id")
+      .in("category_id", scopeCategoryIds)
+      .limit(100000);
+    const ids = [...new Set((mem ?? []).map((m) => m.photo_id as string))];
+    if (ids.length === 0) return [];
+    rows = [];
+    // 긴 .in URL 회피 — 100개씩 청크 조회(RLS 로 승인·published 만 통과)
+    for (let i = 0; i < ids.length; i += 100) {
+      const { data } = await supabase
+        .from("photos")
+        .select(PHOTO_SELECT)
+        .eq("visibility", "published")
+        .in("id", ids.slice(i, i + 100));
+      if (data) rows.push(...(data as unknown as PhotoRow[]));
+    }
+  } else {
+    const { data } = await supabase
+      .from("photos")
+      .select(PHOTO_SELECT)
+      .eq("visibility", "published")
+      .order("created_at", { ascending: false })
+      .limit(500);
+    rows = (data ?? []) as unknown as PhotoRow[];
+  }
   if (rows.length === 0) return [];
 
   // 사진 → 작가 계정(profile_id) 맵 — 작가 본인의 조회·찜·문의를 인기 신호에서 제외하기 위함
@@ -240,7 +269,6 @@ export async function listPopularPosts(limit = 12, windowDays = 30): Promise<Rec
   }
 
   const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
-  const admin = createAdminClient();
 
   // 신호 3종 + 운영자 계정 목록을 브로드 조회 (긴 .in URL 회피 — 카테고리 랭커와 동일 패턴)
   const [{ data: inq }, { data: fav }, { data: pv }, { data: admins }] = await Promise.all([
