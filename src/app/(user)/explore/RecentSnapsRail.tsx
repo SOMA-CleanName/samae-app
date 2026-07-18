@@ -8,6 +8,7 @@ import type { RecentPost } from "@/lib/explore-db";
 
 const STEP_MS = 2800;
 const ADVANCE_MS = 9600; // 가로 자동 넘김 주기(다음 카드로)
+const PREVIEW_SHOTS = 5; // 카드에서 순환할 미리보기 장수(뷰어는 전체 사진)
 
 type Rect = { left: number; top: number; width: number; height: number };
 
@@ -58,7 +59,9 @@ export function RecentSnapsRail({ posts }: { posts: RecentPost[] }) {
         className="flex gap-2.5 overflow-x-auto pb-1 pl-1 pr-2.5 sm:pr-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {posts.map((post, i) => {
-          const len = Math.max(1, post.shots.length);
+          // 카드는 앞쪽 미리보기 장만 순환(뷰어는 post.shots 전체를 보여줌)
+          const preview = post.shots.slice(0, PREVIEW_SHOTS);
+          const len = Math.max(1, preview.length);
           const active = (tick + i) % len;
           return (
             <button
@@ -76,7 +79,7 @@ export function RecentSnapsRail({ posts }: { posts: RecentPost[] }) {
             >
               {/* 사진 (앨범 순서대로 크로스페이드) */}
               <div className="absolute inset-0 transition-transform duration-500 group-hover:scale-[1.04]">
-                {post.shots.map((sh, si) => (
+                {preview.map((sh, si) => (
                   <Image
                     key={sh.id}
                     src={sh.url}
@@ -317,7 +320,7 @@ function SnapViewer({
               }}
               className="inline-flex items-center gap-1 rounded-full bg-brand px-4 py-1.5 text-body-sm font-semibold text-white shadow-lg transition-opacity hover:opacity-90"
             >
-              사진 방문하기
+              사진 정보 보기
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M9 6l6 6-6 6" />
               </svg>
