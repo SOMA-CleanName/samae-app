@@ -52,6 +52,16 @@ export function RecentSnapsRail({ posts }: { posts: RecentPost[] }) {
     };
   }, [viewer]);
 
+  // 기기 뒤로가기로 '탐색탭 이탈'이 아니라 '뷰어만 닫힘'이 되도록 — 열릴 때 history 항목을 push 하고
+  // popstate(뒤로가기)에서 뷰어를 닫는다. (뷰어는 오버레이라 원래 history 항목이 없어 뒤로가기가 페이지를 벗어났음)
+  useEffect(() => {
+    if (!viewer) return;
+    window.history.pushState({ snapViewer: true }, "");
+    const onPop = () => setViewer(null);
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [viewer]);
+
   return (
     <div className="relative -mr-2.5 sm:-mr-4">
       <div
@@ -110,7 +120,12 @@ export function RecentSnapsRail({ posts }: { posts: RecentPost[] }) {
       />
 
       {viewer && (
-        <SnapViewer post={viewer.post} rect={viewer.rect} start={viewer.start} onClose={() => setViewer(null)} />
+        <SnapViewer
+          post={viewer.post}
+          rect={viewer.rect}
+          start={viewer.start}
+          onClose={() => window.history.back()}
+        />
       )}
     </div>
   );
