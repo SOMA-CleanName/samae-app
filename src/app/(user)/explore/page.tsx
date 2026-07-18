@@ -15,7 +15,6 @@ import { TasteTestCard } from "./TasteTestCard";
 import { LiveViewers } from "./LiveViewers";
 import { ExploreTabBar, type ExploreTab } from "./ExploreTabBar";
 import { TasteCtaButton } from "./TasteCtaButton";
-import styles from "./explore.module.css";
 
 export const dynamic = "force-dynamic";
 
@@ -52,13 +51,6 @@ export default async function ExplorePage() {
     url: s.photos[Math.floor(Math.random() * s.photos.length)].src_url,
   }));
 
-  // 트렌딩 태그 — 노출 사진들의 mood_tags 집계(실데이터). 없으면 티커 숨김.
-  const trending = [
-    ...new Set(sections.flatMap((s) => s.photos.flatMap((p) => p.mood_tags ?? []))),
-  ]
-    .filter(Boolean)
-    .slice(0, 12);
-
   // 중간 메뉴바 탭 — 실제로 렌더되는 섹션만(스크롤 이동 대상).
   const tabs: ExploreTab[] = [
     { id: "sec-hot", label: "지금 뜨는 무드" },
@@ -83,23 +75,6 @@ export default async function ExplorePage() {
           </p>
         ) : (
           <>
-            {/* 트렌딩 태그 티커 */}
-            {trending.length > 0 && (
-              <div className={`${styles.ticker} mt-4`}>
-                <div className={styles.track}>
-                  {[...trending, ...trending].map((t, i) => (
-                    <span
-                      key={`${t}-${i}`}
-                      className="inline-flex items-center rounded-full border border-line bg-surface px-3 py-1.5 text-caption font-medium text-muted"
-                    >
-                      <span className="mr-0.5 font-display italic text-brand-ink">#</span>
-                      {t}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* 무빙 커버 캐러셀 */}
             {coverCats.length > 0 && <MovingCoverCarousel cats={coverCats} />}
 
