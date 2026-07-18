@@ -33,6 +33,34 @@ function formatDuration(min: number): string {
   return m === 0 ? `${h}시간` : `${h}시간 ${m}분`;
 }
 
+// 확대뷰 메타 칩 아이콘 (위치·촬영시간·보정본)
+const META_ICON = "h-3.5 w-3.5 shrink-0 text-white/60";
+function MetaPinIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className={META_ICON} fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M12 21s-6-5-6-10a6 6 0 1 1 12 0c0 5-6 10-6 10z" strokeLinejoin="round" />
+      <circle cx="12" cy="11" r="2" />
+    </svg>
+  );
+}
+function MetaClockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className={META_ICON} fill="none" stroke="currentColor" strokeWidth="2">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7.5V12l3 1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function MetaPhotoIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className={META_ICON} fill="none" stroke="currentColor" strokeWidth="2">
+      <rect x="4" y="4" width="16" height="16" rx="2.5" />
+      <path d="M4 15l4-4 3 3 3-3 6 6" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="9" cy="9" r="1.3" />
+    </svg>
+  );
+}
+
 // 펼침용 흩뿌림 변형 — id 해시로 각도·셀 내 오프셋 결정(고정)
 function spreadJitter(id: string): { rot: number; fx: number; fy: number } {
   let h = 0;
@@ -967,19 +995,47 @@ export function FloatingCart() {
                     </form>
                   ) : selectMode ? null : focused && items.some((i) => i.id === focused) ? (
                     <div className="pointer-events-auto">
-                      {/* 메타 — 가격 · 위치 · 촬영시간 · 보정본 (photoId 일치할 때만 = stale 방지) */}
-                      {meta && meta.photoId === focused && (
-                        <p className="mb-2.5 text-center text-body-sm font-semibold text-white/90 drop-shadow">
-                          {[
-                            meta.priceKrw != null ? `₩${wonFmt.format(meta.priceKrw)}` : null,
-                            meta.location,
-                            meta.durationMin != null ? `촬영 ${formatDuration(meta.durationMin)}` : null,
-                            meta.editedCount != null ? `보정본 ${meta.editedCount}장` : null,
-                          ]
-                            .filter(Boolean)
-                            .join(" · ")}
-                        </p>
-                      )}
+                      {/* 메타 패널 — 가격(크게) + 위치·촬영시간·보정본 아이콘 칩 (photoId 일치 시만 = stale 방지) */}
+                      {meta &&
+                        meta.photoId === focused &&
+                        (meta.priceKrw != null ||
+                          meta.location ||
+                          meta.durationMin != null ||
+                          meta.editedCount != null) && (
+                          <div className="mb-3 rounded-2xl bg-black/45 px-4 py-3 text-left ring-1 ring-white/10 backdrop-blur-md">
+                            {meta.priceKrw != null && (
+                              <p className="text-2xl font-extrabold leading-none tracking-tight text-white">
+                                ₩{wonFmt.format(meta.priceKrw)}
+                              </p>
+                            )}
+                            {(meta.location || meta.durationMin != null || meta.editedCount != null) && (
+                              <div
+                                className={`flex flex-wrap items-center gap-x-3.5 gap-y-1.5 text-body-sm font-medium text-white/85 ${
+                                  meta.priceKrw != null ? "mt-2" : ""
+                                }`}
+                              >
+                                {meta.location && (
+                                  <span className="inline-flex items-center gap-1">
+                                    <MetaPinIcon />
+                                    {meta.location}
+                                  </span>
+                                )}
+                                {meta.durationMin != null && (
+                                  <span className="inline-flex items-center gap-1">
+                                    <MetaClockIcon />
+                                    {formatDuration(meta.durationMin)}
+                                  </span>
+                                )}
+                                {meta.editedCount != null && (
+                                  <span className="inline-flex items-center gap-1">
+                                    <MetaPhotoIcon />
+                                    보정본 {meta.editedCount}장
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       {/* 게시물 보기 · 견적 받기 = 동급(나란히). 견적만 브랜드색으로 전환 살짝 강조. */}
                       <div className="flex gap-2">
                       <button
