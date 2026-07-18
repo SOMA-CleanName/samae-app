@@ -32,8 +32,8 @@ export default async function ExplorePage() {
     (s) => s.photos.length >= 3
   );
 
-  // 지금 인기 스냅 (조회·문의·찜 신호로 랭킹한 게시물)
-  const popular = await listPopularPosts(24);
+  // 지금 인기 스냅 (최근 1일 조회·문의·찜 신호로 랭킹한 게시물)
+  const popular = await listPopularPosts(24, 1);
 
   // 커버 캐러셀 — 취향 필터가 없으면 존재하는 모든 카테고리(≥3장)를 각 3장씩(고화질 src_url) 순환.
   const coverCats: CoverCat[] = sections.map((s) => ({
