@@ -14,7 +14,6 @@ import { RecentSnapsRail } from "./RecentSnapsRail";
 import { TasteTestCard } from "./TasteTestCard";
 import { LiveViewers } from "./LiveViewers";
 import { ExploreTabBar, type ExploreTab } from "./ExploreTabBar";
-import { TasteCtaButton } from "./TasteCtaButton";
 
 export const dynamic = "force-dynamic";
 
@@ -87,7 +86,6 @@ export default async function ExplorePage() {
               <div className="mb-3 flex items-baseline gap-2 px-1">
                 <span className="font-display text-body-sm italic text-brand">01</span>
                 <h2 className="text-title font-bold tracking-tight">추천 무드</h2>
-                <TasteCtaButton />
               </div>
               <CategoryGrid items={gridItems} />
             </div>
