@@ -38,7 +38,7 @@ export default function Loading() {
           ))}
         </div>
 
-        {/* 지금 뜨는 무드 — 타이틀 + CTA + 그리드 + 더보기 */}
+        {/* 추천 무드 — 타이틀 + CTA + 그리드 + 더보기 */}
         <div className="mt-6">
           <div className="mb-3 flex items-center gap-3 px-1">
             <div className={`h-6 w-28 rounded ${pulse}`} />
