@@ -1,22 +1,5 @@
 /* 탐색탭 리뉴얼 — 모션(디자인시스템 색은 Tailwind 토큰으로, 여기선 움직임만) */
 
-/* 트렌딩 티커 (마퀴) — 내용 2배 복제해 seamless 루프 */
-.ticker {
-  overflow: hidden;
-  -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
-  mask-image: linear-gradient(90deg, transparent, #000 7%, #000 93%, transparent);
-}
-.track {
-  display: inline-flex;
-  gap: 8px;
-  white-space: nowrap;
-  animation: exp-marquee 26s linear infinite;
-  will-change: transform;
-}
-@keyframes exp-marquee {
-  to { transform: translateX(-50%); }
-}
-
 /* 무빙 커버 — 3컷 크로스페이드(몽타주) */
 .shot {
   position: absolute;
@@ -83,7 +66,6 @@
 
 /* 모션 최소화 존중 */
 @media (prefers-reduced-motion: reduce) {
-  .track,
   .sweep,
   .scrub {
     animation: none;
