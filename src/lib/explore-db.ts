@@ -203,10 +203,9 @@ export async function listPublishedExploreSections(
   });
 }
 
-// 게시물(앨범) 1건 — id=대표(커버) 사진 id(링크용), shots=앨범 사진 sort_order 순(최대 5장, 순환용).
+// 게시물(앨범) 1건 — id=대표(커버) 사진 id(링크용), shots=앨범 사진 전체(sort_order 순).
+// 카드 미리보기는 앞쪽 몇 장만 순환하고, 탭해 열리는 뷰어에서 전체 사진을 본다.
 export type RecentPost = { id: string; shots: { id: string; url: string }[] };
-
-const SNAP_MAX_SHOTS = 5;
 
 // 지금 인기 스냅 — 게시물(앨범)을 최근 windowDays 간의 조회·문의·찜 신호로 랭킹.
 // 사진 풀은 anon 클라이언트로(RLS=승인·published), 신호 집계만 admin 으로 읽어 합산한다.
@@ -298,7 +297,6 @@ export async function listPopularPosts(limit = 12, windowDays = 30): Promise<Rec
       const shots = g.photos
         .slice()
         .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
-        .slice(0, SNAP_MAX_SHOTS)
         .map((p) => ({ id: p.id, url: p.src_url }));
       return { id: shots[0]?.id ?? g.photos[0].id, shots };
     });
