@@ -77,7 +77,6 @@ export function FloatingCart() {
   const prevCount = useRef(0);
   const tipDone = useRef(false); // 한 번 노출 후 끝 — 재등장 방지
   const tipTimers = useRef<number[]>([]);
-  const [photoMenu, setPhotoMenu] = useState(false); // 확대 보기 더보기(⋯) 메뉴
   const [closing, setClosing] = useState(false); // 닫는 중 — 카드 트랜지션을 더 빠르게
   // 길게 누르기(롱프레스) 추적 — 타이머/발동여부/시작좌표
   const longPress = useRef<{ timer: number | null; fired: boolean; x: number; y: number }>({
@@ -180,7 +179,6 @@ export function FloatingCart() {
     // 사용자 뒤로: 브라우저가 가드 1개 소비 → 한 단계만 닫는다.
     h.browserPopped = true;
     if (focused) {
-      setPhotoMenu(false);
       setFocused(null);
     } else if (selectMode) {
       exitSelect();
@@ -650,7 +648,6 @@ export function FloatingCart() {
                       else if (focused === it.id) setFocused(null);
                       else {
                         setFocusScroll(layerRef.current?.scrollTop ?? 0);
-                        setPhotoMenu(false);
                         setFocused(it.id);
                       }
                     } else if (phase === "dock") {
@@ -756,23 +753,11 @@ export function FloatingCart() {
               {/* 상단(확대 중) — 좌: 닫기(그리드로) / 우: 공유 · 더보기(게시물 보기·삭제) */}
               {focused && (
                 <>
-                  {/* 메뉴 바깥 탭하면 메뉴만 닫힘 */}
-                  {photoMenu && (
-                    <button
-                      type="button"
-                      aria-hidden
-                      onClick={() => setPhotoMenu(false)}
-                      className="fixed inset-0 z-[61] cursor-default"
-                    />
-                  )}
                   <div className="fixed inset-x-0 top-0 z-[62] flex items-start justify-between px-5 pt-5">
                     {/* 닫기 — 그리드로 복귀 */}
                     <button
                       type="button"
-                      onClick={() => {
-                        setPhotoMenu(false);
-                        setFocused(null);
-                      }}
+                      onClick={() => setFocused(null)}
                       aria-label="닫기"
                       className="grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
                     >
@@ -781,63 +766,18 @@ export function FloatingCart() {
                       </svg>
                     </button>
 
-                    {/* 우측 — 공유 + 더보기 */}
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => focused && sharePhotos([focused])}
-                        aria-label="공유"
-                        className="grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
-                      >
-                        <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2">
-                          <path d="M12 16V4M12 4l-4 4M12 4l4 4" strokeLinecap="round" strokeLinejoin="round" />
-                          <path d="M5 12v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" strokeLinecap="round" strokeLinejoin="round" />
-                        </svg>
-                      </button>
-
-                      <div className="relative">
-                        <button
-                          type="button"
-                          onClick={() => setPhotoMenu((v) => !v)}
-                          aria-label="더보기"
-                          aria-expanded={photoMenu}
-                          className="grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
-                        >
-                          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor">
-                            <circle cx="5" cy="12" r="1.6" />
-                            <circle cx="12" cy="12" r="1.6" />
-                            <circle cx="19" cy="12" r="1.6" />
-                          </svg>
-                        </button>
-                        {photoMenu && (
-                          <div className="absolute right-0 top-11 min-w-[140px] overflow-hidden rounded-xl bg-bg py-1 shadow-pop">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setPhotoMenu(false);
-                                if (focused) leaveToInquiry(`/photos/${focused}`);
-                              }}
-                              className="block w-full cursor-pointer px-4 py-2.5 text-left text-sm font-medium text-fg transition-colors hover:bg-fg/[0.06]"
-                            >
-                              게시물 보기
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const id = focused;
-                                setPhotoMenu(false);
-                                setFocused(null);
-                                setFormFor(null);
-                                if (id) removeOne(id);
-                              }}
-                              className="block w-full cursor-pointer px-4 py-2.5 text-left text-sm font-medium text-brand transition-colors hover:bg-brand/10"
-                            >
-                              삭제
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
+                    {/* 우측 — 공유(2순위). 게시물보기·문의는 하단 동급 버튼으로, 삭제는 선택모드로 이동 */}
+                    <button
+                      type="button"
+                      onClick={() => focused && sharePhotos([focused])}
+                      aria-label="공유"
+                      className="grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
+                    >
+                      <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M12 16V4M12 4l-4 4M12 4l4 4" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M5 12v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
                   </div>
                 </>
               )}
@@ -996,13 +936,23 @@ export function FloatingCart() {
                       </button>
                     </form>
                   ) : selectMode ? null : focused && items.some((i) => i.id === focused) ? (
-                    <button
-                      type="button"
-                      onClick={() => leaveToInquiry(`/inquiry/photo/${focused}`)}
-                      className="pointer-events-auto w-full cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
-                    >
-                      이 사진으로 무료 견적 받기
-                    </button>
+                    // 게시물 보기 · 견적 받기 = 동급(나란히). 견적만 브랜드색으로 전환 살짝 강조.
+                    <div className="pointer-events-auto flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => leaveToInquiry(`/photos/${focused}`)}
+                        className="flex-1 cursor-pointer rounded-2xl bg-white/15 py-4 text-base font-bold text-white shadow-pop backdrop-blur transition-colors hover:bg-white/25"
+                      >
+                        게시물 보기
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => leaveToInquiry(`/inquiry/photo/${focused}`)}
+                        className="flex-1 cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
+                      >
+                        무료 견적 받기
+                      </button>
+                    </div>
                   ) : (
                     // 전체·묶음 상담 CTA 제거 — 개별 사진 상담으로만 안내.
                     <p className="text-center">
