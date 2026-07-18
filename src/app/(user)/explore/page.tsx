@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import {
   listPublishedExploreSections,
   rankExploreCategoriesByPopularity,
-  listRecentPhotos,
+  listPopularPosts,
 } from "@/lib/explore-db";
 import { getPublishedCategory } from "@/lib/categories";
 import { CATEGORY_COOKIE } from "@/lib/category-constants";
@@ -32,8 +32,8 @@ export default async function ExplorePage() {
     (s) => s.photos.length >= 3
   );
 
-  // 새로 올라온 스냅 (최신 공개 사진)
-  const recent = await listRecentPhotos(24);
+  // 지금 인기 스냅 (조회·문의·찜 신호로 랭킹한 게시물)
+  const popular = await listPopularPosts(24);
 
   // 커버 캐러셀 — 취향 필터가 없으면 존재하는 모든 카테고리(≥3장)를 각 3장씩(고화질 src_url) 순환.
   const coverCats: CoverCat[] = sections.map((s) => ({
@@ -54,7 +54,7 @@ export default async function ExplorePage() {
   // 중간 메뉴바 탭 — 실제로 렌더되는 섹션만(스크롤 이동 대상).
   const tabs: ExploreTab[] = [
     { id: "sec-hot", label: "지금 뜨는 무드" },
-    ...(recent.length > 0 ? [{ id: "sec-recent", label: "새로 올라온 스냅" }] : []),
+    ...(popular.length > 0 ? [{ id: "sec-recent", label: "지금 인기 스냅" }] : []),
     { id: "sec-taste", label: "내 취향 테스트" },
   ];
 
@@ -92,14 +92,14 @@ export default async function ExplorePage() {
               <CategoryGrid items={gridItems} />
             </div>
 
-            {/* 새로 올라온 스냅 (게시물 사진 순환 가로 레일) */}
-            {recent.length > 0 && (
+            {/* 지금 인기 스냅 (게시물 사진 순환 가로 레일) */}
+            {popular.length > 0 && (
               <div id="sec-recent" data-pid="sec-recent" className="mt-16 scroll-mt-24">
                 <div className="mb-3 flex items-baseline gap-2 px-1">
                   <span className="font-display text-body-sm italic text-brand">02</span>
-                  <h2 className="text-title font-bold tracking-tight">새로 올라온 스냅</h2>
+                  <h2 className="text-title font-bold tracking-tight">지금 인기 스냅</h2>
                 </div>
-                <RecentSnapsRail posts={recent} />
+                <RecentSnapsRail posts={popular} />
               </div>
             )}
 

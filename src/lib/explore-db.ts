@@ -208,13 +208,14 @@ export type RecentPost = { id: string; shots: { id: string; url: string }[] };
 
 const SNAP_MAX_SHOTS = 5;
 
-// 새로 올라온 스냅 — 최신 공개 게시물(앨범)당 사진들을 sort_order 순으로. 카드가 이 순서로 순환한다.
-// 대형 앨범이 최근을 독식하지 않게 넉넉히 당겨 게시물 단위로 추린다.
-export async function listRecentPhotos(limit = 12): Promise<RecentPost[]> {
+// 지금 인기 스냅 — 게시물(앨범)을 최근 windowDays 간의 조회·문의·찜 신호로 랭킹.
+// 사진 풀은 anon 클라이언트로(RLS=승인·published), 신호 집계만 admin 으로 읽어 합산한다.
+// (반환은 RecentPost 와 동일 — 사진 id·url 공개 데이터뿐, 개인정보 노출 없음)
+// 신호가 없으면 점수 0 동점 → 최신순으로 자연 폴백(초기 데이터가 적어도 안전).
+export async function listPopularPosts(limit = 12, windowDays = 30): Promise<RecentPost[]> {
   const supabase = await createClient();
   const { data } = await supabase
     .from("photos")
-    // 작가명 노출 안 하므로 가벼운 컬럼만. !inner 로 미승인 작가 사진은 RLS 로 제외.
     .select(
       "id, src_url, album_id, sort_order, created_at, photographer:photographers!photos_photographer_id_fkey!inner(id)"
     )
@@ -228,23 +229,56 @@ export async function listRecentPhotos(limit = 12): Promise<RecentPost[]> {
     sort_order: number | null;
     created_at: string;
   }>;
+  if (rows.length === 0) return [];
 
-  // 게시물(앨범) 단위 그룹핑 — 사진 모으고, 최신도는 첫 등장(=최신) created_at.
-  const groups = new Map<string, { photos: (typeof rows)[number][]; recency: string }>();
+  const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
+  const admin = createAdminClient();
+
+  // 신호 3종을 창 기간 내에서 브로드 조회 후 사진 id 로 집계 (긴 .in URL 회피 — 카테고리 랭커와 동일 패턴)
+  const [{ data: inq }, { data: fav }, { data: pv }] = await Promise.all([
+    admin.from("inquiries").select("source_photo_id").not("source_photo_id", "is", null).gte("created_at", since),
+    admin.from("favorites").select("target_id").eq("target_type", "photo").gte("created_at", since).limit(100000),
+    admin.from("analytics_events").select("path").eq("type", "pageview").like("path", "/photos/%").gte("created_at", since).limit(100000),
+  ]);
+
+  const inqByPhoto = new Map<string, number>();
+  for (const q of inq ?? []) {
+    const id = q.source_photo_id as string;
+    inqByPhoto.set(id, (inqByPhoto.get(id) ?? 0) + 1);
+  }
+  const likeByPhoto = new Map<string, number>();
+  for (const f of fav ?? []) {
+    const id = f.target_id as string;
+    likeByPhoto.set(id, (likeByPhoto.get(id) ?? 0) + 1);
+  }
+  const viewByPhoto = new Map<string, number>();
+  for (const r of pv ?? []) {
+    const m = ((r.path as string) || "").match(/^\/photos\/([^/?#]+)/);
+    if (m) viewByPhoto.set(m[1], (viewByPhoto.get(m[1]) ?? 0) + 1);
+  }
+
+  // 게시물(앨범) 단위 그룹핑 + 사진별 점수 합산 (문의 최우선, 찜 중간, 조회 기본 — 튜닝 포인트)
+  const groups = new Map<string, { photos: typeof rows; recency: string; score: number }>();
   for (const p of rows) {
     const key = p.album_id ?? `photo:${p.id}`;
+    const s =
+      (viewByPhoto.get(p.id) ?? 0) + (inqByPhoto.get(p.id) ?? 0) * 30 + (likeByPhoto.get(p.id) ?? 0) * 8;
     const g = groups.get(key);
-    if (!g) groups.set(key, { photos: [p], recency: p.created_at });
-    else g.photos.push(p);
+    if (!g) groups.set(key, { photos: [p], recency: p.created_at, score: s });
+    else {
+      g.photos.push(p);
+      g.score += s;
+      if (p.created_at > g.recency) g.recency = p.created_at;
+    }
   }
 
   return [...groups.values()]
-    .sort((a, b) => (a.recency < b.recency ? 1 : -1))
+    .sort((a, b) => b.score - a.score || (a.recency < b.recency ? 1 : -1))
     .slice(0, limit)
     .map((g) => {
       const shots = g.photos
         .slice()
-        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)) // 커버(최소)부터
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
         .slice(0, SNAP_MAX_SHOTS)
         .map((p) => ({ id: p.id, url: p.src_url }));
       return { id: shots[0]?.id ?? g.photos[0].id, shots };
