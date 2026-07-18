@@ -31,7 +31,7 @@ export default async function ExplorePage() {
     (s) => s.photos.length >= 3
   );
 
-  // 지금 인기 스냅 (최근 1일 조회·문의·찜 신호로 랭킹) — 광고 유입이면 그 광고 카테고리 범위로,
+  // 사매 인기 스냅 (최근 1일 조회·문의·찜 신호로 랭킹) — 광고 유입이면 그 광고 카테고리 범위로,
   // 아니면 전역. 광고 범위에 인기 스냅이 없으면 전역으로 폴백(섹션이 비지 않게).
   let popular = await listPopularPosts(24, 1, adCat?.exploreSectionIds);
   if (adCat?.exploreSectionIds?.length && popular.length === 0) {
@@ -57,7 +57,7 @@ export default async function ExplorePage() {
   // 중간 메뉴바 탭 — 실제로 렌더되는 섹션만(스크롤 이동 대상).
   const tabs: ExploreTab[] = [
     { id: "sec-hot", label: "추천 무드" },
-    ...(popular.length > 0 ? [{ id: "sec-recent", label: "지금 인기 스냅" }] : []),
+    ...(popular.length > 0 ? [{ id: "sec-recent", label: "사매 인기 스냅" }] : []),
     { id: "sec-taste", label: "내 취향 테스트" },
   ];
 
@@ -94,12 +94,12 @@ export default async function ExplorePage() {
               <CategoryGrid items={gridItems} />
             </div>
 
-            {/* 지금 인기 스냅 (게시물 사진 순환 가로 레일) */}
+            {/* 사매 인기 스냅 (게시물 사진 순환 가로 레일) */}
             {popular.length > 0 && (
               <div id="sec-recent" data-pid="sec-recent" className="mt-16 scroll-mt-24">
                 <div className="mb-3 flex items-baseline gap-2 px-1">
                   <span className="font-display text-body-sm italic text-brand">02</span>
-                  <h2 className="text-title font-bold tracking-tight">지금 인기 스냅</h2>
+                  <h2 className="text-title font-bold tracking-tight">사매 인기 스냅</h2>
                 </div>
                 <RecentSnapsRail posts={popular} />
               </div>

@@ -207,7 +207,7 @@ export async function listPublishedExploreSections(
 // 카드 미리보기는 앞쪽 몇 장만 순환하고, 탭해 열리는 뷰어에서 전체 사진을 본다.
 export type RecentPost = { id: string; shots: { id: string; url: string }[] };
 
-// 지금 인기 스냅 — 게시물(앨범)을 최근 windowDays 간의 조회·문의·찜 신호로 랭킹.
+// 사매 인기 스냅 — 게시물(앨범)을 최근 windowDays 간의 조회·문의·찜 신호로 랭킹.
 // 사진 풀은 anon 클라이언트로(RLS=승인·published), 신호 집계만 admin 으로 읽어 합산한다.
 // (반환은 RecentPost 와 동일 — 사진 id·url 공개 데이터뿐, 개인정보 노출 없음)
 // 신호가 없으면 점수 0 동점 → 최신순으로 자연 폴백(초기 데이터가 적어도 안전).
