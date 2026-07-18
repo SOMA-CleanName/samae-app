@@ -630,6 +630,20 @@ export async function fetchMoodPurposeCandidates(
   }));
 }
 
+// 공개 무드 카테고리 전체 {id,title} (sort순). 페르소나 매칭 Stage2가
+// "이 목록 안에서만 무드를 고르도록" 런타임에 주입하는 카탈로그. (어드민이 무드를
+// 추가/변경해도 자동 동기화 — 하드코딩 금지)
+export async function listPublishedMoods(): Promise<Array<{ id: string; title: string }>> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("explore_categories")
+    .select("id, title")
+    .eq("published", true)
+    .eq("kind", "mood")
+    .order("sort", { ascending: true });
+  return (data ?? []).map((r) => ({ id: r.id as string, title: r.title as string }));
+}
+
 // id 목록 → 공개 무드 카테고리 {id,title} (결과 화면 라벨용).
 export async function fetchMoodTitles(moodIds: string[]): Promise<TasteCat[]> {
   const clean = [...new Set(moodIds.filter(Boolean))];
