@@ -217,44 +217,63 @@ export async function listPopularPosts(limit = 12, windowDays = 30): Promise<Rec
   const { data } = await supabase
     .from("photos")
     .select(
-      "id, src_url, album_id, sort_order, created_at, photographer:photographers!photos_photographer_id_fkey!inner(id)"
+      "id, src_url, album_id, sort_order, created_at, photographer:photographers!photos_photographer_id_fkey!inner(id, profile_id)"
     )
     .eq("visibility", "published")
     .order("created_at", { ascending: false })
     .limit(500);
+  type PhotographerRef = { id: string; profile_id: string };
   const rows = (data ?? []) as unknown as Array<{
     id: string;
     src_url: string;
     album_id: string | null;
     sort_order: number | null;
     created_at: string;
+    photographer: PhotographerRef | PhotographerRef[];
   }>;
   if (rows.length === 0) return [];
+
+  // 사진 → 작가 계정(profile_id) 맵 — 작가 본인의 조회·찜·문의를 인기 신호에서 제외하기 위함
+  const ownerByPhoto = new Map<string, string>();
+  for (const p of rows) {
+    const ph = Array.isArray(p.photographer) ? p.photographer[0] : p.photographer;
+    if (ph?.profile_id) ownerByPhoto.set(p.id, ph.profile_id);
+  }
 
   const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
   const admin = createAdminClient();
 
-  // 신호 3종을 창 기간 내에서 브로드 조회 후 사진 id 로 집계 (긴 .in URL 회피 — 카테고리 랭커와 동일 패턴)
-  const [{ data: inq }, { data: fav }, { data: pv }] = await Promise.all([
-    admin.from("inquiries").select("source_photo_id").not("source_photo_id", "is", null).gte("created_at", since),
-    admin.from("favorites").select("target_id").eq("target_type", "photo").gte("created_at", since).limit(100000),
-    admin.from("analytics_events").select("path").eq("type", "pageview").like("path", "/photos/%").gte("created_at", since).limit(100000),
+  // 신호 3종 + 운영자 계정 목록을 브로드 조회 (긴 .in URL 회피 — 카테고리 랭커와 동일 패턴)
+  const [{ data: inq }, { data: fav }, { data: pv }, { data: admins }] = await Promise.all([
+    admin.from("inquiries").select("source_photo_id, profile_id").not("source_photo_id", "is", null).gte("created_at", since),
+    admin.from("favorites").select("target_id, profile_id").eq("target_type", "photo").gte("created_at", since).limit(100000),
+    admin.from("analytics_events").select("path, profile_id").eq("type", "pageview").like("path", "/photos/%").gte("created_at", since).limit(100000),
+    admin.from("profiles").select("id").eq("role", "admin"),
   ]);
+  const adminSet = new Set((admins ?? []).map((a) => a.id as string));
+
+  // 작가 본인(자기 사진) 또는 운영자의 행동은 인기 신호에서 제외. 비로그인(profile_id=null)은 정상 집계.
+  const excluded = (actor: string | null, photoId: string) =>
+    actor != null && (adminSet.has(actor) || ownerByPhoto.get(photoId) === actor);
 
   const inqByPhoto = new Map<string, number>();
   for (const q of inq ?? []) {
     const id = q.source_photo_id as string;
+    if (excluded((q.profile_id as string | null) ?? null, id)) continue;
     inqByPhoto.set(id, (inqByPhoto.get(id) ?? 0) + 1);
   }
   const likeByPhoto = new Map<string, number>();
   for (const f of fav ?? []) {
     const id = f.target_id as string;
+    if (excluded((f.profile_id as string | null) ?? null, id)) continue;
     likeByPhoto.set(id, (likeByPhoto.get(id) ?? 0) + 1);
   }
   const viewByPhoto = new Map<string, number>();
   for (const r of pv ?? []) {
     const m = ((r.path as string) || "").match(/^\/photos\/([^/?#]+)/);
-    if (m) viewByPhoto.set(m[1], (viewByPhoto.get(m[1]) ?? 0) + 1);
+    if (!m) continue;
+    if (excluded((r.profile_id as string | null) ?? null, m[1])) continue;
+    viewByPhoto.set(m[1], (viewByPhoto.get(m[1]) ?? 0) + 1);
   }
 
   // 게시물(앨범) 단위 그룹핑 + 사진별 점수 합산 (문의 최우선, 찜 중간, 조회 기본 — 튜닝 포인트)
