@@ -14,7 +14,7 @@ export type CoverCat = {
   shots: { id: string; url: string }[];
 };
 
-const STEP_MS = 2600;
+const STEP_MS = 2000;
 // 카드 폭(컨테이너 대비 %) — 100 미만이면 양옆 이웃 카드가 (100-SLIDE_W)/2 씩 삐져나온다.
 const SLIDE_W = 80;
 
@@ -67,18 +67,6 @@ export function MovingCoverCarousel({ cats }: { cats: CoverCat[] }) {
 
   return (
     <div className="mt-4">
-      {/* 위치 도트 — 이미지 바깥 위쪽. 현재 위치는 브랜드 레드, 나머지는 회색 */}
-      <div className="mb-2 flex justify-center gap-1.5">
-        {cats.map((cc, i) => (
-          <span
-            key={cc.slug}
-            className={cn(
-              "h-2 w-2 rounded-full transition-colors duration-300",
-              i === cur.ci ? "bg-brand" : "bg-fg/20"
-            )}
-          />
-        ))}
-      </div>
       <Link
       href={`/explore/${active.slug}`}
       style={{ touchAction: "pan-y" }}
