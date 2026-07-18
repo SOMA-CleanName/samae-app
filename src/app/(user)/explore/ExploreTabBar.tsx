@@ -73,10 +73,9 @@ export function ExploreTabBar({ tabs }: { tabs: ExploreTab[] }) {
             stuck ? "h-11 opacity-100" : "h-0 opacity-0"
           )}
         >
-          <div className="flex h-11 items-center justify-center gap-1.5">
+          <div className="flex h-11 items-center justify-center">
             {/* samae 워드마크 로고 (FeedHero 와 동일 스타일) */}
             <span className="font-display text-lg italic leading-none text-brand">samae</span>
-            <span className="text-xs font-extrabold tracking-tight">사매</span>
           </div>
         </div>
 
