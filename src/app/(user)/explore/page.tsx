@@ -112,8 +112,9 @@ export default async function ExplorePage() {
               <TasteTestCard />
             </div>
 
-            {/* 하단 스크롤 여유 — 취향 테스트 아래가 좁지 않게 + 마지막 탭 활성 구간 확보 */}
-            <div aria-hidden className="h-48" />
+            {/* 하단 여백 — 취향 테스트(마지막 섹션)에서 스크롤이 적당히 끝나되 플로팅 내비에
+                가리지 않을 정도만. 마지막 탭 활성은 ExploreTabBar 의 atBottom 폴백이 담당. */}
+            <div aria-hidden className="h-20" />
           </>
         )}
       </div>
