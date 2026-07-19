@@ -3,7 +3,7 @@ import {
   searchPhotosByTag,
   fetchLikedPhotoIds,
   fetchPhotoById,
-  fetchSeededFeedPage,
+  fetchHomeFeedPage,
   newFeedSeed,
 } from "@/lib/discovery";
 import { cookies } from "next/headers";
@@ -11,8 +11,6 @@ import { loadMorePhotos } from "./feed-actions";
 import { logSearch } from "@/lib/search-log";
 import { getCurrentUser } from "@/lib/auth";
 import { TASTE_V2_COOKIE, parseTasteV2 } from "@/lib/category-constants";
-import { purposeBoostWeight, purposeDemoteSlugs } from "@/lib/taste-purposes";
-import { scoreTastePhotos, boostByTaste, resolveCategoryIdsBySlugs } from "@/lib/explore-db";
 import { ExploreGallery } from "@/components/user/ExploreGallery";
 import { ScrollMemory } from "@/components/user/ScrollMemory";
 import { FeedHero } from "@/components/user/FeedHero";
@@ -57,30 +55,17 @@ export default async function ExploreHome({
   const isAllFeed = !query && !adAsGallery;
   const feedSeed = isAllFeed ? newFeedSeed() : undefined;
 
-  // 취향 v2(samae_taste2) — 있으면 전체 피드를 목적/무드 카테고리 멤버십으로 가중랜덤(뭉침 없음).
-  // 목적별 세기(개인=강, 웨딩·커플=약)로 부스트.
-  const { purposeKey, purposeIds, moodIds } = parseTasteV2(
-    (await cookies()).get(TASTE_V2_COOKIE)?.value
-  );
+  // 취향 v2(samae_taste2) — 있으면 전체 피드를 전역 티어링으로 노출:
+  // 목적∩무드(가장 먼저) → 목적만 → 무드만 → 일반 시드 피드. (fetchHomeFeedPage 공용)
+  const { purposeIds, moodIds } = parseTasteV2((await cookies()).get(TASTE_V2_COOKIE)?.value);
   const tasteCatIds = [...purposeIds, ...moodIds];
 
   let photos: GalleryPhoto[];
   if (isAllFeed && feedSeed) {
-    // 순수 시드 피드(랜덤·뭉침 없음)를 받아, 취향이 있으면 페이지 내에서 가중랜덤 부스트.
-    const base =
-      (await fetchSeededFeedPage(feedSeed, 0, 48)) ??
-      (await fetchPublishedPhotos({})).slice(0, FEED_CAP);
-    if (tasteCatIds.length > 0) {
-      const ids = base.map((p) => p.id);
-      const score = await scoreTastePhotos(ids, tasteCatIds);
-      // 개인 선택 시 웨딩·커플은 강하게 뒤로(한참 스크롤해야 나옴)
-      const demoteSlugs = purposeDemoteSlugs(purposeKey);
-      const demote = demoteSlugs.length
-        ? await scoreTastePhotos(ids, await resolveCategoryIdsBySlugs(demoteSlugs))
-        : undefined;
-      photos = boostByTaste(base, score, feedSeed, purposeBoostWeight(purposeKey), demote);
-    } else {
-      photos = base;
+    photos = await fetchHomeFeedPage(feedSeed, 0, purposeIds, moodIds, 48);
+    // RPC 미적용/오류로 비면 기존 방식 폴백
+    if (photos.length === 0) {
+      photos = (await fetchPublishedPhotos({})).slice(0, FEED_CAP);
     }
   } else {
     const basePhotos = query ? await searchPhotosByTag(query) : await fetchPublishedPhotos({});

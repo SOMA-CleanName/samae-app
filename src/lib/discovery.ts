@@ -1,6 +1,8 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { seededShuffle } from "@/lib/seeded-shuffle";
 import { readAnonFavPhotoIds } from "@/lib/anon-favorites";
 
 // 탐색 갤러리 사진 1장
@@ -248,6 +250,108 @@ export async function fetchSeededFeedPage(
     price_krw: r.price_krw,
     photographer: { id: r.photographer_id, display_name: r.photographer_name },
   }));
+}
+
+// 순수 시드 피드 — 임의 오프셋(feed_photos_seeded). 오류/미적용 시 null.
+export async function fetchSeededFeedAt(
+  seed: string,
+  offset: number,
+  limit: number
+): Promise<GalleryPhoto[] | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("feed_photos_seeded", {
+    p_seed: seed,
+    p_offset: offset,
+    p_limit: limit,
+  });
+  if (error) return null;
+  return ((data ?? []) as FeedRow[]).map((r) => ({
+    id: r.id,
+    src_url: r.src_url,
+    thumb_url: r.thumb_url,
+    width: r.width,
+    height: r.height,
+    region: r.region,
+    mood_tags: r.mood_tags ?? [],
+    price_krw: r.price_krw,
+    photographer: { id: r.photographer_id, display_name: r.photographer_name },
+  }));
+}
+
+// 카테고리 멤버십 사진 id 집합 (관리자 클라 — 뷰어 무관 전체 멤버십)
+async function categoryMemberIds(catIds: string[]): Promise<Set<string>> {
+  if (catIds.length === 0) return new Set();
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("explore_category_photos")
+    .select("photo_id")
+    .in("category_id", catIds);
+  return new Set(((data ?? []) as { photo_id: string }[]).map((r) => r.photo_id));
+}
+
+// 취향 헤드 순서(id) — 티어: 목적∩무드 → 목적만 → 무드만.
+// 티어 내부는 (정렬 후) seed 셔플 → DB 반환순서와 무관하게 결정적(페이지 간 일관).
+// 사진 데이터는 여기서 조회하지 않음(호출부가 필요한 슬라이스만 조회).
+export async function fetchTasteHeadIds(
+  purposeIds: string[],
+  moodIds: string[],
+  seed: string,
+  cap = 200
+): Promise<string[]> {
+  if (purposeIds.length === 0 && moodIds.length === 0) return [];
+  const [purposeSet, moodSet] = await Promise.all([
+    categoryMemberIds(purposeIds),
+    categoryMemberIds(moodIds),
+  ]);
+  const both: string[] = [];
+  const purposeOnly: string[] = [];
+  const moodOnly: string[] = [];
+  for (const id of new Set([...purposeSet, ...moodSet])) {
+    const inP = purposeSet.has(id);
+    const inM = moodSet.has(id);
+    if (inP && inM) both.push(id);
+    else if (inP) purposeOnly.push(id);
+    else moodOnly.push(id);
+  }
+  const tier = (ids: string[]) => seededShuffle([...ids].sort(), seed);
+  return [...tier(both), ...tier(purposeOnly), ...tier(moodOnly)].slice(0, cap);
+}
+
+// 홈 피드 페이지 — 취향이 있으면 취향 헤드(티어)를 먼저, 소진되면 일반 시드 피드(헤드 중복 제외).
+// 취향 없으면 순수 시드 피드. 초기 렌더(page.tsx)와 무한스크롤(loadMorePhotos) 공용.
+export async function fetchHomeFeedPage(
+  seed: string,
+  page: number,
+  purposeIds: string[],
+  moodIds: string[],
+  pageSize = 48
+): Promise<GalleryPhoto[]> {
+  const headIds = await fetchTasteHeadIds(purposeIds, moodIds, seed);
+  const headLen = headIds.length;
+  const start = page * pageSize;
+  const out: GalleryPhoto[] = [];
+
+  // 1) 취향 헤드 슬라이스(해당 페이지에 걸치는 만큼만 사진 데이터 조회)
+  if (start < headLen) {
+    const sliceIds = headIds.slice(start, Math.min(start + pageSize, headLen));
+    out.push(...(await fetchLikedPhotosByIds(sliceIds)));
+  }
+
+  // 2) 부족분은 일반 시드 피드에서 채움(헤드 사진은 제외 → 중복 방지).
+  //    일반 오프셋 = 전역 start 에서 헤드 길이만큼 당김. 창은 연속이라 누락·중복 없음.
+  if (out.length < pageSize) {
+    const gStart = Math.max(0, start - headLen);
+    const gWidth = pageSize - out.length;
+    const general = (await fetchSeededFeedAt(seed, gStart, gWidth)) ?? [];
+    if (headLen > 0) {
+      const headSet = new Set(headIds);
+      out.push(...general.filter((p) => !headSet.has(p.id)));
+    } else {
+      out.push(...general);
+    }
+  }
+
+  return out;
 }
 
 // 카테고리 피드 — 카테고리 매칭 사진을 먼저, 그 다음 나머지 공개 사진 전체를 이어붙인다.
