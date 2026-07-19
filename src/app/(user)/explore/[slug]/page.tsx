@@ -1,10 +1,9 @@
 import { notFound } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
 import {
   getPublishedExploreCategory,
   fetchExploreCategoryGalleryPhotos,
 } from "@/lib/explore-db";
-import { newFeedSeed, fetchLikedPhotoIds } from "@/lib/discovery";
+import { newFeedSeed } from "@/lib/discovery";
 import { seededShuffle } from "@/lib/seeded-shuffle";
 import { MpTrackOnce } from "@/components/MpTrackOnce";
 import { CategoryImmersive } from "./CategoryImmersive";
@@ -31,16 +30,8 @@ export default async function ExploreCategoryPage({
   const cat = await getPublishedExploreCategory(safeDecode(slug));
   if (!cat) notFound();
 
-  const [me, ordered] = await Promise.all([
-    getCurrentUser(),
-    fetchExploreCategoryGalleryPhotos(cat.id),
-  ]);
+  const ordered = await fetchExploreCategoryGalleryPhotos(cat.id);
   const photos = seededShuffle(ordered, newFeedSeed());
-  // 좋아요 초기 상태(로그인=DB, 비로그인=쿠키) — 하트 채움 표시용
-  const likedIds = await fetchLikedPhotoIds(
-    photos.map((p) => p.id),
-    me?.id
-  );
 
   return (
     <>
@@ -49,7 +40,7 @@ export default async function ExploreCategoryPage({
         event="View Category"
         props={{ category: cat.title, slug: cat.slug, result_count: photos.length }}
       />
-      <CategoryImmersive photos={photos} title={cat.title} initialLiked={likedIds} />
+      <CategoryImmersive photos={photos} title={cat.title} />
     </>
   );
 }

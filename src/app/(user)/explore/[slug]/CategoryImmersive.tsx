@@ -8,8 +8,7 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
 import type { GalleryPhoto } from "@/lib/discovery";
 import { useCart } from "@/components/user/cart/CartProvider";
-import { togglePhotoLike, loadCartPhotoMeta } from "@/app/(user)/actions";
-import { HeartIcon } from "@/components/user/icons";
+import { loadCartPhotoMeta } from "@/app/(user)/actions";
 
 const won = new Intl.NumberFormat("ko-KR");
 
@@ -21,23 +20,26 @@ function formatDuration(min: number): string {
   return m === 0 ? `${h}시간` : `${h}시간 ${m}분`;
 }
 
+// 사진 상세와 동일한 문의 링크 (/inquiry?photographerId&photoId)
+function inquiryHref(photographerId: string, photoId: string) {
+  const params = new URLSearchParams({ photographerId, photoId });
+  return `/inquiry?${params.toString()}`;
+}
+
 // 카테고리 몰입 뷰 — 풀스크린 세로 스와이프(사진이 바로 크게) + 하단 필름스트립으로 빠른 이동.
-// 각 사진에 가격·위치·촬영시간·보정본 + 저장·담기·문의.
+// 각 사진에 가격·위치·촬영시간·보정본 + 담기 · '무료로 견적 받아보기'(문구는 사진 상세와 통일).
 export function CategoryImmersive({
   photos,
   title,
-  initialLiked = [],
 }: {
   photos: GalleryPhoto[];
   title: string;
-  initialLiked?: string[];
 }) {
   const router = useRouter();
   const feedRef = useRef<HTMLDivElement>(null);
-  const stripRef = useRef<HTMLDivElement>(null);
   const thumbRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const [idx, setIdx] = useState(0);
-  const [liked, setLiked] = useState<Set<string>>(new Set(initialLiked));
+  const [showGuide, setShowGuide] = useState(true);
   // 현재 슬라이드의 촬영시간·보정본(가격 최근접 패키지) — 슬라이드마다 지연 조회
   const [pkg, setPkg] = useState<{ photoId: string; durationMin: number | null; editedCount: number | null } | null>(null);
   const cart = useCart();
@@ -51,9 +53,10 @@ export function CategoryImmersive({
     if (!el) return;
     const i = Math.round(el.scrollTop / el.clientHeight);
     if (i !== idx) setIdx(Math.max(0, Math.min(photos.length - 1, i)));
+    if (el.scrollTop > 8) setShowGuide(false);
   }
 
-  // 현재 슬라이드 촬영시간·보정본 지연 조회 (카트 확대뷰와 동일 로직 재사용)
+  // 현재 슬라이드 촬영시간·보정본 지연 조회 (상세의 패키지 매핑과 동일 로직 재사용)
   useEffect(() => {
     if (!curId) return;
     let alive = true;
@@ -78,20 +81,6 @@ export function CategoryImmersive({
   function back() {
     if (typeof window !== "undefined" && window.history.length > 1) router.back();
     else router.push("/explore");
-  }
-
-  async function onLike(id: string) {
-    setLiked((s) => {
-      const n = new Set(s);
-      if (n.has(id)) n.delete(id);
-      else n.add(id);
-      return n;
-    });
-    try {
-      await togglePhotoLike(id);
-    } catch {
-      /* 낙관적 상태 유지 */
-    }
   }
 
   function toggleCart(p: GalleryPhoto) {
@@ -139,17 +128,16 @@ export function CategoryImmersive({
       >
         {photos.map((p, i) => {
           const inCart = cart.has(p.id);
-          const isLiked = liked.has(p.id);
           const location = p.region ?? null;
           return (
-            <div key={p.id} className="relative h-full w-full snap-start overflow-hidden">
+            <div key={p.id} data-cart-card data-pid={p.id} className="relative h-full w-full snap-start overflow-hidden">
               {/* 흐린 배경 채움 — 레터박스를 그 사진 색감으로 */}
               <div
                 aria-hidden
                 className="absolute inset-0 scale-110 bg-cover bg-center blur-2xl brightness-[.55]"
                 style={{ backgroundImage: `url(${p.thumb_url ?? p.src_url})` }}
               />
-              {/* 사진 — 안 잘리게 contain. 첫 3장만 우선 로드 */}
+              {/* 사진 — 안 잘리게 contain. 첫 2장만 우선 로드 */}
               <Image
                 src={p.src_url}
                 alt=""
@@ -176,18 +164,6 @@ export function CategoryImmersive({
                 <div className="mt-3.5 flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => onLike(p.id)}
-                    aria-pressed={isLiked}
-                    aria-label={isLiked ? "저장 취소" : "저장"}
-                    className={cn(
-                      "grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-full backdrop-blur transition-colors",
-                      isLiked ? "bg-brand text-white" : "bg-white/16 text-white hover:bg-white/25"
-                    )}
-                  >
-                    <HeartIcon className="h-5 w-5" filled={isLiked} />
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => toggleCart(p)}
                     className={cn(
                       "h-11 shrink-0 cursor-pointer rounded-full px-5 text-sm font-bold backdrop-blur transition-colors",
@@ -197,10 +173,10 @@ export function CategoryImmersive({
                     {inCart ? "담김" : "담기"}
                   </button>
                   <Link
-                    href={`/inquiry/photo/${p.id}`}
+                    href={inquiryHref(p.photographer.id, p.id)}
                     className="flex h-11 flex-1 items-center justify-center rounded-full bg-brand text-sm font-bold text-white shadow-lg transition-opacity hover:opacity-90"
                   >
-                    문의하기
+                    무료로 견적 받아보기
                   </Link>
                 </div>
               </div>
@@ -209,9 +185,25 @@ export function CategoryImmersive({
         })}
       </div>
 
+      {/* 첫 진입 가이드 — 위로 스와이프 안내. 한 번 스크롤하면 사라짐 */}
+      {photos.length > 1 && (
+        <div
+          className={cn(
+            "pointer-events-none absolute left-1/2 top-[54%] z-10 -translate-x-1/2 transition-opacity duration-500",
+            showGuide ? "opacity-100" : "opacity-0"
+          )}
+        >
+          <div className="flex items-center gap-1.5 rounded-full bg-black/45 px-3.5 py-2 backdrop-blur">
+            <svg viewBox="0 0 24 24" className="h-4 w-4 animate-bounce" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 19V5M6 11l6-6 6 6" />
+            </svg>
+            <span className="text-xs font-semibold drop-shadow">위로 밀어 더 보기</span>
+          </div>
+        </div>
+      )}
+
       {/* 하단 필름스트립 — 빠른 훑기·점프. 현재 컷 강조 */}
       <div
-        ref={stripRef}
         className="absolute inset-x-0 bottom-0 z-20 flex h-[66px] gap-1.5 overflow-x-auto bg-gradient-to-t from-black/70 via-black/25 to-transparent px-2.5 pb-2.5 pt-2 scrollbar-none"
       >
         {photos.map((p, i) => (
