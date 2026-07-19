@@ -108,13 +108,13 @@ export function ExploreGallery({
   const { cols: colCount, ready: columnsReady, setNode: setGridRef } = useColumnCount();
 
   // ── 온보딩 상태머신 ──────────────────────────────────────────
-  // idle → (그리드 준비 후) enter → 4초 강제 → ready → (클릭/X) leaving → done
+  // idle → (그리드 준비 후) enter → 강제 → ready → (클릭/X) leaving → done
   // 두 가지 트리거가 같은 머신·오버레이를 공유:
   //  · 광고 유입(spotlightId) — 지정 사진을 제자리 강조 + 배경 카드 흩어짐
   //  · 일반 첫 방문(generalOnboard) — 탐색 메인이면 좌상단 첫 사진을 강조,
   //    slug 페이지면 강조 없이 배경 전체를 어둡게+뿌옇게
-  const OB_FORCED_MS = 2000; // 약 2초 — 이 시간 뒤 스킵(닫기) 가능
-  const OB_AUTO_AFTER_READY_MS = 2100; // ready(약 2.4초) 후 → 약 4.5초에 자동 종료(읽을 시간 확보)
+  const OB_FORCED_MS = 1090; // 강제 구간 — enter(350)+60 더해 약 1.5초 뒤 스킵(닫기) 가능
+  const OB_AUTO_AFTER_READY_MS = 2100; // ready(약 1.5초) 후 → 약 3.6초에 자동 종료(읽을 시간 확보)
   const { add } = useCart(); // 온보딩 종료 시 강조 사진을 담기(관심사진)에 추가
   const [obPhase, setObPhase] = useState<"idle" | "enter" | "ready" | "adding" | "leaving" | "done">(
     spotlightId ? "idle" : "done"
@@ -202,7 +202,7 @@ export function ExploreGallery({
   }, [generalOnboard, obPhase]);
 
   // 레이아웃 준비 + (광고 모드면) 사진 로딩 후 한 번만 시작 — 한 박자 보여준 뒤
-  // enter → 4초 강제 → ready. obPhase 는 deps 에서 제외(타이머 보존).
+  // enter → 강제(약 1.5초) → ready. obPhase 는 deps 에서 제외(타이머 보존).
   useEffect(() => {
     if (obStarted.current || !obTriggered || tutorialSeen || !columnsReady || !heroReady) return;
     obStarted.current = true;
@@ -231,7 +231,7 @@ export function ExploreGallery({
   }, [obActive]);
 
   function dismissOnboard() {
-    if (obPhase !== "ready") return; // 2초 전엔 강제(닫기 불가)
+    if (obPhase !== "ready") return; // 약 1.5초 전엔 강제(닫기 불가)
     try {
       localStorage.setItem(TUTORIAL_SEEN_KEY, "1"); // 다시 보지 않음
     } catch {
@@ -254,7 +254,7 @@ export function ExploreGallery({
     setTimeout(() => setObPhase("done"), 720 + 520);
   }
 
-  // ready(약 2초) 후 0.6초 뒤 자동 종료 — 사용자가 직접 안 닫아도 약 3초면 내려간다.
+  // ready(약 1.5초) 후 2.1초 뒤 자동 종료 — 사용자가 직접 안 닫아도 약 3.6초면 내려간다.
   useEffect(() => {
     if (obPhase !== "ready") return;
     const t = setTimeout(() => dismissOnboard(), OB_AUTO_AFTER_READY_MS);
