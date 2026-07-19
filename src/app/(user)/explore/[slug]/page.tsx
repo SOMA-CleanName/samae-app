@@ -4,12 +4,10 @@ import {
   getPublishedExploreCategory,
   fetchExploreCategoryGalleryPhotos,
 } from "@/lib/explore-db";
-import { newFeedSeed } from "@/lib/discovery";
+import { newFeedSeed, fetchLikedPhotoIds } from "@/lib/discovery";
 import { seededShuffle } from "@/lib/seeded-shuffle";
-import { ExploreGallery } from "@/components/user/ExploreGallery";
-import { ScrollMemory } from "@/components/user/ScrollMemory";
 import { MpTrackOnce } from "@/components/MpTrackOnce";
-import { CategoryBackButton } from "./CategoryBackButton";
+import { CategoryImmersive } from "./CategoryImmersive";
 
 export const dynamic = "force-dynamic";
 
@@ -22,8 +20,8 @@ function safeDecode(s: string): string {
   }
 }
 
-// 탐색 카테고리 진입 — 담은 사진을 메인 피드처럼 랜덤(요청마다 셔플)으로 노출.
-// ExploreGallery 가 세션(sessionStorage)에 순서를 캐시하므로 한 세션 안에선 순서 유지.
+// 탐색 카테고리 진입 — 홈 그리드가 아니라 '풀스크린 몰입 + 하단 필름스트립'으로.
+// 요청마다 셔플(한 세션 순서는 CategoryImmersive 내부 상태로 유지되진 않으나 force-dynamic 이라 진입마다 변주).
 export default async function ExploreCategoryPage({
   params,
 }: {
@@ -37,22 +35,21 @@ export default async function ExploreCategoryPage({
     getCurrentUser(),
     fetchExploreCategoryGalleryPhotos(cat.id),
   ]);
-  // 메인과 같게 랜덤 — 요청마다 새 시드로 셔플. (position 순 노출 안 함)
   const photos = seededShuffle(ordered, newFeedSeed());
+  // 좋아요 초기 상태(로그인=DB, 비로그인=쿠키) — 하트 채움 표시용
+  const likedIds = await fetchLikedPhotoIds(
+    photos.map((p) => p.id),
+    me?.id
+  );
 
   return (
-    <section className="px-2.5 pb-2.5 pt-2.5 font-kr sm:px-4 sm:pt-4 sm:pb-4">
-      {/* 탭으로 새로 들어오면 저장된 스크롤 무시하고 최상단부터(사진 상세 복귀는 제외) */}
-      <ScrollMemory freshTop />
+    <>
       {/* 카테고리 탐색 진입 — 취향 시그널(수요 차원) */}
       <MpTrackOnce
         event="View Category"
         props={{ category: cat.title, slug: cat.slug, result_count: photos.length }}
       />
-      {/* 좌상단 고정 뒤로가기 — 스크롤해도 계속 떠 있음. 제목은 pl 로 버튼을 비켜 감. */}
-      <CategoryBackButton />
-      <h1 className="mb-3 pl-11 pr-1 text-xl font-bold tracking-tight">{cat.title}</h1>
-      <ExploreGallery photos={photos} loggedIn={!!me} />
-    </section>
+      <CategoryImmersive photos={photos} title={cat.title} initialLiked={likedIds} />
+    </>
   );
 }
