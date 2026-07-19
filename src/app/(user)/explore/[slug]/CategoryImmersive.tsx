@@ -9,6 +9,7 @@ import { cn } from "@/lib/cn";
 import type { GalleryPhoto } from "@/lib/discovery";
 import { useCart } from "@/components/user/cart/CartProvider";
 import { loadCartPhotoMeta } from "@/app/(user)/actions";
+import { mpTrack } from "@/lib/mixpanel";
 
 const won = new Intl.NumberFormat("ko-KR");
 
@@ -83,9 +84,17 @@ export function CategoryImmersive({
     else router.push("/explore");
   }
 
-  function toggleCart(p: GalleryPhoto) {
-    if (cart.has(p.id)) cart.remove(p.id);
-    else cart.add({ id: p.id, src: p.thumb_url ?? p.src_url, w: p.width, h: p.height });
+  // 담기 — 기존 '카트로 빨려들어가는' fly 애니메이션 재사용(출발점 = 현재 슬라이드[data-cart-card]).
+  function toggleCart(e: React.MouseEvent<HTMLButtonElement>, p: GalleryPhoto) {
+    if (cart.has(p.id)) {
+      mpTrack("Remove from Cart", { photo_id: p.id, source: "category-immersive" });
+      cart.remove(p.id);
+      return;
+    }
+    mpTrack("Add to Cart", { photo_id: p.id, source: "category-immersive" });
+    const card = e.currentTarget.closest<HTMLElement>("[data-cart-card]");
+    const srcEl = card ?? document.querySelector<HTMLElement>("[data-cart-card]");
+    cart.add({ id: p.id, src: p.thumb_url ?? p.src_url, w: p.width, h: p.height }, srcEl);
   }
 
   if (photos.length === 0) {
@@ -114,9 +123,6 @@ export function CategoryImmersive({
         </button>
         <div className="min-w-0">
           <p className="truncate text-sm font-extrabold tracking-tight">{title}</p>
-          <p className="text-[10px] font-semibold text-white/70 tabular-nums">
-            {idx + 1} / {photos.length}
-          </p>
         </div>
       </div>
 
@@ -164,7 +170,7 @@ export function CategoryImmersive({
                 <div className="mt-3.5 flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => toggleCart(p)}
+                    onClick={(e) => toggleCart(e, p)}
                     className={cn(
                       "h-11 shrink-0 cursor-pointer rounded-full px-5 text-sm font-bold backdrop-blur transition-colors",
                       inCart ? "bg-white text-black" : "bg-white/16 text-white hover:bg-white/25"
