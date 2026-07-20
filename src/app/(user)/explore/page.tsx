@@ -66,7 +66,7 @@ export default async function ExplorePage() {
       <MpTrackOnce event="View Explore Feed" props={{ section_count: sections.length }} />
       <ScrollMemory />
 
-      <div className="px-2.5 pb-4 pt-3 sm:px-4 sm:pt-4">
+      <div className="mx-auto w-full max-w-4xl px-2.5 pb-4 pt-3 sm:px-4 sm:pt-4">
         <div className="flex items-center justify-between gap-3 px-1">
           <h1 className="text-2xl font-bold tracking-tight">오늘의 큐레이션</h1>
           {sections.length > 0 && <LiveViewers />}
@@ -78,8 +78,12 @@ export default async function ExplorePage() {
           </p>
         ) : (
           <>
-            {/* 무빙 커버 캐러셀 */}
-            {coverCats.length > 0 && <MovingCoverCarousel cats={coverCats} />}
+            {/* 무빙 커버 캐러셀 — 데스크톱에선 세로 히어로가 거대해지지 않게 중앙 캡 */}
+            {coverCats.length > 0 && (
+              <div className="mx-auto w-full max-w-md">
+                <MovingCoverCarousel cats={coverCats} />
+              </div>
+            )}
 
             {/* 중간 메뉴바 — 커버(히어로) 아래. 스크롤하면 상단 고정 + '사매' 헤더 노출.
                 (sticky 가 섹션 전체 구간 동안 고정되려면 래퍼로 감싸지 말 것) */}

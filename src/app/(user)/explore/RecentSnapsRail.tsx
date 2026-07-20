@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
+import { mpTrack } from "@/lib/mixpanel";
 import type { RecentPost } from "@/lib/explore-db";
 
 const STEP_MS = 2800;
@@ -78,6 +79,13 @@ export function RecentSnapsRail({ posts }: { posts: RecentPost[] }) {
               key={post.id}
               type="button"
               onClick={(e) => {
+                mpTrack("Click Snap", {
+                  post_id: post.id,
+                  photo_id: preview[active]?.id ?? post.shots[0]?.id,
+                  rank: i + 1,
+                  shots: post.shots.length,
+                  source: "explore_popular",
+                });
                 const r = e.currentTarget.getBoundingClientRect();
                 setViewer({
                   post,
@@ -321,6 +329,7 @@ function SnapViewer({
             <Link
               href={`/photos/${cur.id}`}
               onClick={() => {
+                mpTrack("Click Photo", { photo_id: cur.id, source: "snap_viewer" });
                 // 사진 상세에서 뒤로 오면 '새로 올라온 스냅' 섹션이 상단 근처로 복원되도록
                 // PhotoReturnScroll(레이아웃 상주, Router Cache 로 remount 안 돼도 동작)이 쓰는 키에 저장.
                 // 요소(data-pid="sec-recent") 기준이라 잠금 중 window.scrollY 이슈와 무관.
