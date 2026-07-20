@@ -10,6 +10,7 @@ export function TrackedCategoryLink({
   category,
   slug,
   rank,
+  source,
   className,
   style,
   children,
@@ -18,6 +19,7 @@ export function TrackedCategoryLink({
   category: string;
   slug: string;
   rank: number;
+  source?: string; // 어디서 눌렀는지 (grid · grid_peek · cover)
   className?: string;
   style?: React.CSSProperties;
   children: React.ReactNode;
@@ -27,7 +29,14 @@ export function TrackedCategoryLink({
       href={href}
       className={className}
       style={style}
-      onClick={() => mpTrack("Click Explore Category", { category, slug, rank })}
+      onClick={() =>
+        mpTrack("Click Explore Category", {
+          category,
+          slug,
+          rank,
+          ...(source ? { source } : {}),
+        })
+      }
     >
       {children}
     </Link>

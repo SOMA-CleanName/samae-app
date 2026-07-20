@@ -144,10 +144,13 @@ export function TasteQuiz() {
         </div>
         {result.photos.length > 0 ? (
           <div className="mt-3 grid grid-cols-2 gap-2.5">
-            {result.photos.map((p) => (
+            {result.photos.map((p, i) => (
               <Link
                 key={p.id}
                 href={`/photos/${p.id}`}
+                onClick={() =>
+                  mpTrack("Click Photo", { photo_id: p.id, rank: i + 1, source: "taste_result" })
+                }
                 className="group relative aspect-[3/4] overflow-hidden bg-fg/[0.06]"
               >
                 <Image

@@ -26,6 +26,7 @@ export function CategoryGrid({ items }: { items: GridItem[] }) {
             item={it}
             big={i === 0}
             index={i}
+            source="grid"
             // 펼침: 이미 걸쳐 보이던 2장(index 5·6)은 애니 없이, 그 다음 줄(7+)부터 한 번에 등장
             reveal={expanded ? i >= INITIAL + 2 : true}
             revealDelay={expanded ? 0 : Math.min(i, 6) * 55}
@@ -36,9 +37,9 @@ export function CategoryGrid({ items }: { items: GridItem[] }) {
       {/* 접힘: 다음 2장을 절반만(peek) + 하단 어둡게 페이드 */}
       {peek.length > 0 && (
         <div className="relative mt-2.5 h-24 overflow-hidden">
-          <div className="grid grid-cols-2 gap-2.5">
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
             {peek.map((it, i) => (
-              <Tile key={it.slug} item={it} big={false} index={INITIAL + i} revealDelay={0} />
+              <Tile key={it.slug} item={it} big={false} index={INITIAL + i} source="grid_peek" revealDelay={0} />
             ))}
           </div>
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-bg via-bg/70 to-transparent" />
@@ -73,6 +74,7 @@ function Tile({
   item,
   big,
   index,
+  source,
   dim = false,
   revealDelay = 0,
   reveal = true,
@@ -80,6 +82,7 @@ function Tile({
   item: GridItem;
   big: boolean;
   index: number;
+  source?: string;
   dim?: boolean;
   revealDelay?: number;
   reveal?: boolean;
@@ -90,6 +93,7 @@ function Tile({
       category={item.title}
       slug={item.slug}
       rank={index + 1}
+      source={source}
       style={reveal ? { animationDelay: `${revealDelay}ms` } : undefined}
       className={`${reveal ? styles.reveal : ""} group relative flex flex-col justify-end overflow-hidden rounded-2xl bg-fg/[0.06] p-3.5 text-white ${
         big ? "col-span-2 aspect-[16/9]" : "aspect-square"
