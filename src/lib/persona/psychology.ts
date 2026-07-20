@@ -6,7 +6,7 @@ import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import type { IgProfile } from "@/lib/persona/types";
 import { computeMetrics, formatMetrics } from "@/lib/persona/metrics";
 import { PersonaSchema, type Persona } from "@/lib/persona/schema";
-import { fetchImageBlocks } from "@/lib/persona/images";
+import { fetchImageBlocks, type PersonaImageBlock } from "@/lib/persona/images";
 
 const MAX_IMAGES = 3;
 
@@ -104,6 +104,37 @@ export async function generatePersona(
     res = await call(false);
   }
   if (!res.parsed_output) throw new Error(`페르소나 파싱 실패 (${profile.username}, stop_reason: ${res.stop_reason})`);
+  return res.parsed_output;
+}
+
+/** Stage1 (업로드 fallback) — 직접 올린 사진만으로 심리 프로파일.
+ *  스크래핑 데이터(캡션·지표)가 없으므로 이미지 신호에 의존. 근거 빈약을 스키마가 흡수. */
+export async function generatePersonaFromImages(
+  client: Anthropic,
+  model: string,
+  images: PersonaImageBlock[]
+): Promise<Persona> {
+  if (images.length === 0) throw new Error("분석할 사진이 없어요.");
+  const res = await client.messages.parse({
+    model,
+    max_tokens: 3000,
+    thinking: { type: "disabled" },
+    system: PERSONA_SYSTEM,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: `직접 업로드한 사진 ${images.length}장으로 이 사람의 촬영 취향·자기표현 성향을 읽어주세요. 캡션·게시 지표 없이 이미지의 톤·색·구도·피사체·분위기만으로 신중하게 추론하고, 단서가 약한 항목은 중앙값 근처로 두세요.`,
+          },
+          ...images,
+        ],
+      },
+    ],
+    output_config: { format: zodOutputFormat(PersonaSchema) },
+  });
+  if (!res.parsed_output) throw new Error(`페르소나 파싱 실패 (업로드, stop_reason: ${res.stop_reason})`);
   return res.parsed_output;
 }
 

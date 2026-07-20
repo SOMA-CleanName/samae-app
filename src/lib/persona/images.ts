@@ -9,6 +9,19 @@ type ImageMediaType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
 const ALLOWED_MEDIA = new Set<string>(["image/jpeg", "image/png", "image/gif", "image/webp"]);
 const MAX_IMAGE_BYTES = 4_800_000; // Claude 이미지 한도(5MB) 여유
 
+// Claude 멀티모달 이미지 블록 타입 (스크래핑·업로드 공용)
+export type PersonaImageBlock = {
+  type: "image";
+  source: { type: "base64"; media_type: ImageMediaType; data: string };
+};
+
+// 업로드 fallback — 클라이언트가 보낸 base64를 이미지 블록으로 변환.
+export function imageBlockFromBase64(mediaType: string, base64: string): PersonaImageBlock | null {
+  const mt = mediaType.split(";")[0].trim().toLowerCase();
+  if (!ALLOWED_MEDIA.has(mt) || !base64) return null;
+  return { type: "image", source: { type: "base64", media_type: mt as ImageMediaType, data: base64 } };
+}
+
 // 매직바이트로 이미지 타입 추정 (Content-Type이 부정확할 때 폴백)
 function sniffMediaType(buf: Buffer): ImageMediaType | null {
   if (buf.length < 12) return null;
@@ -51,12 +64,12 @@ async function fetchImageAsBlock(url: string) {
 }
 
 /** 계정당 최대 maxImages개 이미지를 서버에서 받아 base64 블록으로 반환 */
-export async function fetchImageBlocks(p: IgProfile, maxImages: number) {
+export async function fetchImageBlocks(p: IgProfile, maxImages: number): Promise<PersonaImageBlock[]> {
   const urls = p.posts
     .map((post) => post.imageUrl)
     .filter((u): u is string => !!u)
     .slice(0, maxImages);
 
   const blocks = await Promise.all(urls.map(fetchImageAsBlock));
-  return blocks.filter((b): b is NonNullable<typeof b> => b !== null);
+  return blocks.filter((b): b is PersonaImageBlock => b !== null);
 }

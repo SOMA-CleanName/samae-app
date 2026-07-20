@@ -4,9 +4,10 @@ import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
 import { scrapeProfile } from "@/lib/persona/scrape";
 import { computeMetrics, formatMetrics } from "@/lib/persona/metrics";
-import { generatePersona } from "@/lib/persona/psychology";
+import { generatePersona, generatePersonaFromImages } from "@/lib/persona/psychology";
 import { generateShootPersona } from "@/lib/persona/shoot-persona";
 import { listPublishedMoods } from "@/lib/explore-db";
+import type { PersonaImageBlock } from "@/lib/persona/images";
 import type { IgProfile } from "@/lib/persona/types";
 import type { Persona } from "@/lib/persona/schema";
 import type { ShootPersona } from "@/lib/persona/shoot-schema";
@@ -44,4 +45,23 @@ export async function analyzePersona(username: string): Promise<PersonaAnalysis>
   const shoot = await generateShootPersona(client, model, persona, metricsText, moods);
 
   return { profile, persona, shoot };
+}
+
+// 업로드 fallback — 스크래핑 없이 직접 올린 사진만으로 분석.
+export async function analyzePersonaFromImages(
+  images: PersonaImageBlock[]
+): Promise<Omit<PersonaAnalysis, "profile">> {
+  const client = new Anthropic();
+  const model = process.env.ANTHROPIC_MODEL || "claude-opus-4-8";
+
+  const persona = await generatePersonaFromImages(client, model, images);
+  const moods = await listPublishedMoods();
+  const shoot = await generateShootPersona(
+    client,
+    model,
+    persona,
+    "(직접 업로드한 사진 기반 — 인스타 정량 지표 없음)",
+    moods
+  );
+  return { persona, shoot };
 }
