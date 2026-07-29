@@ -210,8 +210,8 @@ export default async function StudioDetailPage({ params }: { params: Promise<{ i
           <div className="mt-2 border-t border-line pt-2">
             <p className="text-caption text-faint">정산 계좌</p>
             {payout ? (
-              <p className="mt-1 text-body-sm text-fg">
-                {payout.bank} · {maskAccount(payout.number)} · {payout.holder}
+              <p className="mt-1 text-body-sm text-fg tabular-nums">
+                {payout.bank} · {payout.number} · {payout.holder}
               </p>
             ) : (
               <p className="mt-1 text-body-sm text-faint">등록 안 됨</p>
@@ -364,11 +364,6 @@ export default async function StudioDetailPage({ params }: { params: Promise<{ i
 }
 
 const INQ_LABEL: Record<string, string> = { new: "신규", contacted: "연락함", converted: "전환", closed: "종료" };
-
-function maskAccount(n: string): string {
-  if (n.length <= 4) return n;
-  return n.slice(0, 3) + "****" + n.slice(-3);
-}
 
 function Section({ title, children, className }: { title: string; children: React.ReactNode; className?: string }) {
   return (
