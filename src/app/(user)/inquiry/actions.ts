@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { notifyOpsNewInquiry, notifyOpsCartInquiry } from "@/lib/ops-alert";
-import { sendCapiLead, readMetaAdCookies, type MetaAdCookies } from "@/lib/meta-capi";
+import { readMetaAdCookies, type MetaAdCookies } from "@/lib/meta-capi";
 import { rememberInquiryIds } from "@/lib/my-inquiries";
 
 export type InquiryState = {
@@ -13,7 +13,7 @@ export type InquiryState = {
   message?: string;
   error?: string;
   values?: InquiryValues;
-  // Meta 픽셀 Lead 이벤트 중복 제거용 — 클라이언트가 eventID 로 사용
+  // 접수된 문의 id — 클라이언트가 Mixpanel 전환 기록·중복 발화 가드에 사용
   inquiryId?: string;
 };
 
@@ -208,17 +208,13 @@ export async function submitInquiry(
   await rememberInquiryIds([inquiryId]);
 
   // 연타·재제출로 기존 리드를 재사용한 경우엔 알림을 다시 보내지 않는다.
-  // Lead 픽셀 이벤트는 동일 inquiryId(eventID)로 Meta 가 자동 중복 제거.
+  // (Meta Lead 전환은 문의 완료가 아니라 '무료로 견적 받아보기' CTA 클릭에서 발화)
   if (isNew) {
     await notifyPhotographer(photographerId, inquiryId, me?.displayName ?? null, contact, brief);
 
     // 운영진 디스코드 알림 — 리드 플로우 시작. 운영진 전용 채널이라 어드민 정보(연락처·유입·
     // 브리프) + 어드민 딥링크 포함. 실패해도 접수는 성공.
     await notifyOpsNewInquiry({ inquiryId });
-
-    // Meta 전환 API — 서버측 Lead 전송(브라우저 픽셀 보완). 같은 eventID 로 중복 제거.
-    // (FB_CAPI_TOKEN 없으면 무동작)
-    await sendCapiLead({ inquiryId, phone: contact.phone, email: contact.contactEmail });
   }
 
   return {
@@ -386,7 +382,7 @@ export type CartInquiryState = { ok: boolean; error?: string; leadId?: string };
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// 담은 사진들 + 연락처를 운영진에게 일괄 전달. DB 문의행 없이 ops 알림 + Meta Lead.
+// 담은 사진들 + 연락처를 운영진에게 일괄 전달. DB 문의행 없이 ops 알림만.
 export async function submitCartInquiry(
   _prev: CartInquiryState,
   formData: FormData
@@ -409,12 +405,6 @@ export async function submitCartInquiry(
 
   // 운영진 디스코드 알림 (작가 라우팅용 — 연락처 + 한정자 포함)
   await notifyOpsCartInquiry({ contact, photoIds, timing, region });
-
-  // Meta 전환 API — 서버측 Lead (클라 픽셀과 같은 eventID 로 중복 제거)
-  const email = EMAIL_RE.test(contact) ? contact : null;
-  const digits = contact.replace(/\D/g, "");
-  const phone = digits.length === 11 && digits.startsWith("01") ? contact : null;
-  await sendCapiLead({ inquiryId: leadId, phone, email });
 
   return { ok: true, leadId };
 }
@@ -502,9 +492,6 @@ export async function submitMultiInquiry(
 
   // 비로그인 '내 문의' 내역용 — 생성된 문의 id 전부 쿠키에 보관
   await rememberInquiryIds(createdIds);
-
-  // Meta Lead 1회(첫 문의 기준 eventID)
-  await sendCapiLead({ inquiryId: firstInquiryId, phone: contact.phone, email: contact.contactEmail });
 
   return {
     ok: true,

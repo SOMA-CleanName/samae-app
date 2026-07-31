@@ -180,6 +180,7 @@ export function CategoryImmersive({
                   </button>
                   <Link
                     href={inquiryHref(p.photographer.id, p.id)}
+                    data-quote-lead=""
                     className="flex h-11 flex-1 items-center justify-center rounded-full bg-brand text-sm font-bold text-white shadow-lg transition-opacity hover:opacity-90"
                   >
                     무료로 견적 받아보기

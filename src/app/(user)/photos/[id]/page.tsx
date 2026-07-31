@@ -245,6 +245,7 @@ function PhotoCtas({
     return <OwnerPhotoBackButton />;
   }
   // 주 전환 CTA — 혜택형 카피로 클릭 욕구 자극(로그인 무관, /inquiry 에서 처리)
+  // data-quote-lead: Meta 픽셀 Lead 전환 지점(MetaPixel 위임 캡처, 브라우저당 1회)
   return (
     <Button
       href={inquiryHref(photographerId, photoId)}
@@ -253,6 +254,7 @@ function PhotoCtas({
       fullWidth
       className="mt-4"
       data-track="cta:inquiry"
+      data-quote-lead=""
     >
       무료로 견적 받아보기
     </Button>
