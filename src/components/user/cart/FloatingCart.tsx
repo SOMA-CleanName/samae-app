@@ -302,13 +302,13 @@ export function FloatingCart() {
     }
   }, [phase, N]);
 
-  // 성공 → Lead 픽셀(중복 제거 eventID)
+  // 성공 → Mixpanel 전환 기록 1회.
+  // Meta 픽셀 Lead 는 여기가 아니라 '무료로 견적 받아보기' CTA 클릭에서 발화(meta-lead.ts).
   const fired = useRef(false);
   useEffect(() => {
     if (!state.ok || fired.current) return;
     fired.current = true;
     if (state.leadId) {
-      window.fbq?.("track", "Lead", {}, { eventID: `inquiry_${state.leadId}` });
       mpTrack("Submit Inquiry", { inquiry_id: state.leadId, source: "cart", item_count: N });
     }
     // N(장바구니 수)은 제출 시점 값을 그대로 기록하면 됨 — fired 가드로 1회만 발화.
@@ -988,6 +988,7 @@ export function FloatingCart() {
                       <button
                         type="submit"
                         disabled={!contact.trim() || !timing || !agreed || pending}
+                        data-quote-lead=""
                         className="mt-3 h-12 w-full cursor-pointer rounded-xl bg-brand text-base font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         {pending ? "요청 중…" : "무료로 견적 받기"}
@@ -1045,9 +1046,12 @@ export function FloatingCart() {
                       >
                         게시물 보기
                       </button>
+                      {/* data-quote-lead: 사진 상세 '무료로 견적 받아보기'와 같은 Meta Lead 전환
+                          (MetaPixel 위임 캡처, localStorage 가드로 브라우저당 1회 공유) */}
                       <button
                         type="button"
                         onClick={() => leaveToInquiry(`/inquiry/photo/${focused}`)}
+                        data-quote-lead=""
                         className="flex-1 cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
                       >
                         무료 견적 받기

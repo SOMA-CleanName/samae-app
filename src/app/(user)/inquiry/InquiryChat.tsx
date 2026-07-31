@@ -372,13 +372,13 @@ export function InquiryChat({
     if (contactStep || done) bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [contactStep, done]);
 
-  // 성공 — Lead 픽셀 발화(중복 제거 eventID)
+  // 성공 — 자체 분석·Mixpanel 전환 기록 (문의당 1회).
+  // Meta 픽셀 Lead 는 여기가 아니라 '무료로 견적 받아보기' CTA 클릭에서 발화(meta-lead.ts).
   const leadFiredFor = useRef<string | null>(null);
   useEffect(() => {
     if (!state.ok || !state.inquiryId) return;
     if (leadFiredFor.current !== state.inquiryId) {
       leadFiredFor.current = state.inquiryId;
-      window.fbq?.("track", "Lead", {}, { eventID: `inquiry_${state.inquiryId}` });
       // 자체 분석 전환 신호 — 실제 접수 완료만 잡는다(버튼 클릭=시도와 구분).
       // AnalyticsTracker 가 세션 ID·UTM 을 실어 /api/track 으로 전송 → 대시보드 전환 집계.
       window.dispatchEvent(

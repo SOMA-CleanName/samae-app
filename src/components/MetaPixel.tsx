@@ -3,11 +3,13 @@
 import Script from "next/script";
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
+import { trackQuoteLead } from "@/lib/meta-lead";
 
 // Meta(페이스북) 픽셀 — 광고 전환 추적.
 // App Router 는 <head> 직접 삽입 대신 next/script 로 주입한다.
 // SPA 라우팅이라 최초 진입 PageView 는 인라인 스크립트가 보내고,
 // 이후 페이지 이동마다 fbq PageView 를 다시 전송한다.
+// 전환(Lead)은 '무료로 견적 받아보기' CTA 클릭 — data-quote-lead 위임 캡처로 잡는다.
 const PIXEL_ID = process.env.NEXT_PUBLIC_FB_PIXEL_ID;
 
 declare global {
@@ -29,6 +31,19 @@ export function MetaPixel() {
     }
     window.fbq?.("track", "PageView");
   }, [pathname]);
+
+  // '무료로 견적 받아보기' CTA(data-quote-lead) 클릭 → Lead 전환 발화.
+  // 버튼이 서버 컴포넌트에도 있어 개별 onClick 대신 전역 위임 캡처로 잡는다.
+  // 픽셀 미로딩 환경(로컬·프리뷰)에선 리스너를 달지 않아 중복 가드도 오염되지 않는다.
+  useEffect(() => {
+    if (!PIXEL_ID) return;
+    function onClick(e: MouseEvent) {
+      const el = (e.target as HTMLElement | null)?.closest?.("[data-quote-lead]");
+      if (el) trackQuoteLead();
+    }
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, []);
 
   // 픽셀 ID 미설정 시 아무것도 로드하지 않음 (로컬·프리뷰에서 오염 방지)
   if (!PIXEL_ID) return null;

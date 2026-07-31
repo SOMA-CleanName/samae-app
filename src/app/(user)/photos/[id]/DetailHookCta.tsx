@@ -101,6 +101,7 @@ export function DetailHookCta({ href }: { href: string }) {
             href={href}
             onClick={onConvert}
             data-track="cta:hook"
+            data-quote-lead=""
             className="mt-5 block w-full rounded-2xl bg-brand py-4 text-base font-bold text-white transition-opacity hover:opacity-90"
           >
             무료로 견적 받아보기
