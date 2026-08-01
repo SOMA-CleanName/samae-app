@@ -1,18 +1,9 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import {
-  startTransition,
-  useActionState,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
-import Link from "next/link";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useCart, cartCardJitter, PEEK_CARD_W, type CartItem } from "./CartProvider";
-import { submitCartInquiry } from "@/app/(user)/inquiry/actions";
 import { loadCartPhotoMeta } from "@/app/(user)/actions";
 import { mpTrack } from "@/lib/mixpanel";
 
@@ -110,13 +101,8 @@ export function FloatingCart() {
     editedCount: number | null;
   } | null>(null);
   const [focusScroll, setFocusScroll] = useState(0); // 확대 시점의 스크롤 오프셋(중앙 보정용)
-  const [formFor, setFormFor] = useState<string | null>(null); // null / photoId(단일) / "selected"(선택 묶음)
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [contact, setContact] = useState("");
-  const [timing, setTiming] = useState(""); // 촬영 희망 시기(한정자, 필수)
-  const [region, setRegion] = useState(""); // 희망 지역(선택)
-  const [agreed, setAgreed] = useState(false);
   const [leaving, setLeaving] = useState<Set<string>>(new Set());
   const [shareToast, setShareToast] = useState(false);
   const [cartTip, setCartTip] = useState(false); // 첫 담기 시 도크 용도 툴팁(1회)
@@ -131,7 +117,6 @@ export function FloatingCart() {
     x: 0,
     y: 0,
   });
-  const [state, formAction, pending] = useActionState(submitCartInquiry, { ok: false });
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const layerRef = useRef<HTMLDivElement>(null);
 
@@ -297,23 +282,9 @@ export function FloatingCart() {
   useEffect(() => {
     if (phase !== "dock" && N === 0) {
       setFocused(null);
-      setFormFor(null);
       setPhase("dock");
     }
   }, [phase, N]);
-
-  // 성공 → Mixpanel 전환 기록 1회.
-  // Meta 픽셀 Lead 는 여기가 아니라 '무료로 견적 받아보기' CTA 클릭에서 발화(meta-lead.ts).
-  const fired = useRef(false);
-  useEffect(() => {
-    if (!state.ok || fired.current) return;
-    fired.current = true;
-    if (state.leadId) {
-      mpTrack("Submit Inquiry", { inquiry_id: state.leadId, source: "cart", item_count: N });
-    }
-    // N(장바구니 수)은 제출 시점 값을 그대로 기록하면 됨 — fired 가드로 1회만 발화.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.ok, state.leadId]);
 
   const clampTop = (t: number) => Math.min(Math.max(80, t), window.innerHeight - 150);
   const clampRight = (r: number) => Math.min(Math.max(0, r), window.innerWidth - CART_W);
@@ -367,7 +338,6 @@ export function FloatingCart() {
   // 닫힘: 펼침 → 중앙 스택 → 도크 복귀 (열 때보다 빠르게 — 머무름·트랜지션 단축)
   function close() {
     setFocused(null);
-    setFormFor(null);
     setSelectMode(false);
     setSelectedIds(new Set());
     setClosing(true);
@@ -378,7 +348,6 @@ export function FloatingCart() {
   function exitSelect() {
     setSelectMode(false);
     setSelectedIds(new Set());
-    setFormFor(null);
   }
   // 빈 곳(사진 외 여백) 탭 — 선택 모드면 선택만 해제, 확대 중이면 그리드로, 그 외엔 닫힘
   function dismissOverlay() {
@@ -389,7 +358,6 @@ export function FloatingCart() {
   // 상담 페이지로 이동 — 찜 모달을 즉시 닫고(도크) 이동
   function leaveToInquiry(href: string) {
     setFocused(null);
-    setFormFor(null);
     setSelectMode(false);
     setSelectedIds(new Set());
     setPhase("dock");
@@ -477,21 +445,6 @@ export function FloatingCart() {
       longPress.current.timer = null;
     }
   }
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!contact.trim() || !timing || !agreed) return;
-    const ids =
-      formFor === "selected" ? [...selectedIds] : formFor && formFor !== "all" ? [formFor] : items.map((i) => i.id);
-    const fd = new FormData();
-    fd.set("contact", contact);
-    fd.set("timing", timing);
-    fd.set("region", region);
-    fd.set("photoIds", ids.join(","));
-    startTransition(() => formAction(fd));
-  }
-
-  const TIMINGS = ["1개월 내", "1~3개월", "3개월+", "미정"];
-
   // ── 펼침 레이아웃(메이슨리) — 열별로 높이를 누적해 채운다. 그리드와 달리 셀 높이를
   //    고정하지 않아, 가로로 긴 사진 아래에 빈틈이 안 생기고 각 사진은 원본 비율을 유지한다. ──
   const { cards, contentH, cardW, SCROLL } = ((): {
@@ -799,286 +752,203 @@ export function FloatingCart() {
 
       {phase === "spread" && (
         <>
-          {state.ok ? (
-            <div className="fixed inset-0 z-[68] grid place-items-center px-6 text-center">
-              <div>
-                <p className="text-xl font-bold text-white">신청 완료!</p>
-                <p className="mt-2 text-sm text-white/70">담아둔 사진을 보고 작가님이 곧 연락드릴 거예요.</p>
-              </div>
-            </div>
-          ) : (
+          {/* 상단(확대 중) — 좌: 닫기(그리드로) / 우: 공유 · 더보기(게시물 보기·삭제) */}
+          {focused && (
             <>
-              {/* 상단(확대 중) — 좌: 닫기(그리드로) / 우: 공유 · 더보기(게시물 보기·삭제) */}
-              {focused && (
+              <div className="fixed inset-x-0 top-0 z-[62] flex items-start justify-between px-5 pt-5">
+                {/* 닫기 — 그리드로 복귀 */}
+                <button
+                  type="button"
+                  onClick={() => setFocused(null)}
+                  aria-label="닫기"
+                  className="grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
+                >
+                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+
+                {/* 우측 — 공유(2순위). 게시물보기·문의는 하단 동급 버튼으로, 삭제는 선택모드로 이동 */}
+                <button
+                  type="button"
+                  onClick={() => focused && sharePhotos([focused])}
+                  aria-label="공유"
+                  className="grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
+                >
+                  <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 16V4M12 4l-4 4M12 4l4 4" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M5 12v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
+            </>
+          )}
+
+          {/* 상단 — 확대 중이 아닐 때. 일반: 뒤로 / 찜 수(중앙) / 선택. 선택모드: 취소 / N장 선택 / 삭제 */}
+          {!focused && (
+            <div className="pointer-events-none fixed inset-x-0 top-0 z-[62] flex items-center justify-between px-5 pt-5">
+              {selectMode ? (
                 <>
-                  <div className="fixed inset-x-0 top-0 z-[62] flex items-start justify-between px-5 pt-5">
-                    {/* 닫기 — 그리드로 복귀 */}
+                  {/* 양옆 flex-1 균형 → 선택 개수 표시가 화면 정중앙에 놓임 */}
+                  <div className="flex flex-1 justify-start">
                     <button
                       type="button"
-                      onClick={() => setFocused(null)}
-                      aria-label="닫기"
-                      className="grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
+                      onClick={exitSelect}
+                      className="pointer-events-auto cursor-pointer rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
+                    >
+                      취소
+                    </button>
+                  </div>
+                  <p className="whitespace-nowrap text-sm text-white/75">
+                    {selectedIds.size > 0 ? (
+                      <>
+                        <span className="font-bold text-white">{selectedIds.size}</span>장 선택
+                      </>
+                    ) : (
+                      "사진을 선택하세요"
+                    )}
+                  </p>
+                  <div className="pointer-events-auto flex flex-1 items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => sharePhotos([...selectedIds])}
+                      disabled={selectedIds.size === 0}
+                      className="shrink-0 cursor-pointer whitespace-nowrap rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25 disabled:cursor-not-allowed disabled:bg-[#3a3a3a] disabled:text-white/35 disabled:hover:bg-[#3a3a3a]"
+                    >
+                      공유
+                    </button>
+                    <button
+                      type="button"
+                      onClick={deleteSelected}
+                      disabled={selectedIds.size === 0}
+                      className="shrink-0 cursor-pointer whitespace-nowrap rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25 disabled:cursor-not-allowed disabled:bg-[#3a3a3a] disabled:text-white/35 disabled:hover:bg-[#3a3a3a]"
+                    >
+                      삭제
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* 양옆 flex-1 균형 → '관심 사진' 이 화면 정중앙에 놓임 */}
+                  <div className="flex flex-1 justify-start">
+                    <button
+                      type="button"
+                      onClick={close}
+                      aria-label="뒤로"
+                      className="pointer-events-auto grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
                     >
                       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M15 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round" />
                       </svg>
                     </button>
-
-                    {/* 우측 — 공유(2순위). 게시물보기·문의는 하단 동급 버튼으로, 삭제는 선택모드로 이동 */}
+                  </div>
+                  {/* '관심 사진' 은 가로·세로 정중앙, 개수는 absolute 로 아래에(타이틀 안 밀림) */}
+                  <div className="relative">
+                    <p className="text-sm font-semibold text-white">관심 사진</p>
+                    <span className="pointer-events-none absolute left-1/2 top-full mt-0.5 -translate-x-1/2 whitespace-nowrap text-xs text-white/60">
+                      {N}장
+                    </span>
+                  </div>
+                  <div className="flex flex-1 justify-end">
                     <button
                       type="button"
-                      onClick={() => focused && sharePhotos([focused])}
-                      aria-label="공유"
-                      className="grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
+                      onClick={() => setSelectMode(true)}
+                      className="pointer-events-auto cursor-pointer rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
                     >
-                      <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M12 16V4M12 4l-4 4M12 4l4 4" strokeLinecap="round" strokeLinejoin="round" />
-                        <path d="M5 12v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6" strokeLinecap="round" strokeLinejoin="round" />
-                      </svg>
+                      선택
                     </button>
                   </div>
                 </>
               )}
+            </div>
+          )}
 
-              {/* 상단 — 확대 중이 아닐 때. 일반: 뒤로 / 찜 수(중앙) / 선택. 선택모드: 취소 / N장 선택 / 삭제 */}
-              {!focused && (
-                <div className="pointer-events-none fixed inset-x-0 top-0 z-[62] flex items-center justify-between px-5 pt-5">
-                  {selectMode ? (
-                    <>
-                      {/* 양옆 flex-1 균형 → 선택 개수 표시가 화면 정중앙에 놓임 */}
-                      <div className="flex flex-1 justify-start">
-                        <button
-                          type="button"
-                          onClick={exitSelect}
-                          className="pointer-events-auto cursor-pointer rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
-                        >
-                          취소
-                        </button>
-                      </div>
-                      <p className="whitespace-nowrap text-sm text-white/75">
-                        {selectedIds.size > 0 ? (
-                          <>
-                            <span className="font-bold text-white">{selectedIds.size}</span>장 선택
-                          </>
-                        ) : (
-                          "사진을 선택하세요"
+          {/* 하단 — 개별 사진(확대) 상담만 유지. 전체·묶음 상담 CTA 제거, 선택 모드는 공유·삭제 전용.
+              컨테이너는 pointer-events-none, 실제 버튼/폼만 auto → 빈 영역 탭이 그대로 '닫기'로 전달됨. */}
+          <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[62] px-4 pb-6 pt-3">
+            <div className="mx-auto max-w-md">
+              {selectMode ? null : focused && items.some((i) => i.id === focused) ? (
+                <div className="pointer-events-auto">
+                  {/* 메타 패널 — 가격(크게) + 위치·촬영시간·보정본 아이콘 칩 (photoId 일치 시만 = stale 방지) */}
+                  {meta &&
+                    meta.photoId === focused &&
+                    (meta.priceKrw != null ||
+                      meta.location ||
+                      meta.durationMin != null ||
+                      meta.editedCount != null) && (
+                      <div className="mb-3 rounded-2xl bg-black/45 px-4 py-3 text-left ring-1 ring-white/10 backdrop-blur-md">
+                        {meta.priceKrw != null && (
+                          <p className="text-xl font-extrabold leading-none tracking-tight text-white">
+                            ₩{wonFmt.format(meta.priceKrw)}
+                          </p>
                         )}
-                      </p>
-                      <div className="pointer-events-auto flex flex-1 items-center justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={() => sharePhotos([...selectedIds])}
-                          disabled={selectedIds.size === 0}
-                          className="shrink-0 cursor-pointer whitespace-nowrap rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25 disabled:cursor-not-allowed disabled:bg-[#3a3a3a] disabled:text-white/35 disabled:hover:bg-[#3a3a3a]"
-                        >
-                          공유
-                        </button>
-                        <button
-                          type="button"
-                          onClick={deleteSelected}
-                          disabled={selectedIds.size === 0}
-                          className="shrink-0 cursor-pointer whitespace-nowrap rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25 disabled:cursor-not-allowed disabled:bg-[#3a3a3a] disabled:text-white/35 disabled:hover:bg-[#3a3a3a]"
-                        >
-                          삭제
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      {/* 양옆 flex-1 균형 → '관심 사진' 이 화면 정중앙에 놓임 */}
-                      <div className="flex flex-1 justify-start">
-                        <button
-                          type="button"
-                          onClick={close}
-                          aria-label="뒤로"
-                          className="pointer-events-auto grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
-                        >
-                          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-                            <path d="M15 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                        </button>
-                      </div>
-                      {/* '관심 사진' 은 가로·세로 정중앙, 개수는 absolute 로 아래에(타이틀 안 밀림) */}
-                      <div className="relative">
-                        <p className="text-sm font-semibold text-white">관심 사진</p>
-                        <span className="pointer-events-none absolute left-1/2 top-full mt-0.5 -translate-x-1/2 whitespace-nowrap text-xs text-white/60">
-                          {N}장
-                        </span>
-                      </div>
-                      <div className="flex flex-1 justify-end">
-                        <button
-                          type="button"
-                          onClick={() => setSelectMode(true)}
-                          className="pointer-events-auto cursor-pointer rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
-                        >
-                          선택
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-
-              {/* 하단 — 개별 사진(확대) 상담만 유지. 전체·묶음 상담 CTA 제거, 선택 모드는 공유·삭제 전용.
-                  컨테이너는 pointer-events-none, 실제 버튼/폼만 auto → 빈 영역 탭이 그대로 '닫기'로 전달됨. */}
-              <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[62] px-4 pb-6 pt-3">
-                <div className="mx-auto max-w-md">
-                  {formFor !== null ? (
-                    <form onSubmit={onSubmit} className="pointer-events-auto rounded-2xl bg-bg p-4 shadow-pop">
-                      <p className="mb-2.5 text-sm font-semibold text-fg">
-                        {formFor === "selected" ? `선택한 ${selectedIds.size}장으로 견적 받기` : "이 사진으로 견적 받기"}
-                        <button
-                          type="button"
-                          onClick={() => setFormFor(null)}
-                          className="float-right cursor-pointer text-xs font-medium text-muted hover:text-fg"
-                        >
-                          취소
-                        </button>
-                      </p>
-                      <input
-                        type="text"
-                        value={contact}
-                        onChange={(e) => setContact(e.target.value)}
-                        placeholder="전화번호 · 카카오 ID · 인스타 등"
-                        autoFocus
-                        className="h-11 w-full rounded-xl border border-line-strong bg-surface px-3 text-base outline-none transition-colors placeholder:text-fg/30 focus:border-brand"
-                      />
-                      {/* 한정자 — 희망 시기(필수, 한 번 탭) */}
-                      <p className="mt-3 text-xs font-medium text-muted">촬영 희망 시기</p>
-                      <div className="mt-1.5 flex flex-wrap gap-1.5">
-                        {TIMINGS.map((t) => (
-                          <button
-                            key={t}
-                            type="button"
-                            onClick={() => setTiming(t)}
-                            className={`cursor-pointer rounded-full border px-3 py-1.5 text-sm transition-colors ${
-                              timing === t
-                                ? "border-brand bg-brand text-white"
-                                : "border-line-strong bg-surface text-fg/70 hover:border-brand/50"
+                        {(meta.location || meta.durationMin != null || meta.editedCount != null) && (
+                          <div
+                            className={`flex flex-wrap items-center gap-x-3.5 gap-y-1.5 text-body-sm font-medium text-white/85 ${
+                              meta.priceKrw != null ? "mt-2" : ""
                             }`}
                           >
-                            {t}
-                          </button>
-                        ))}
-                      </div>
-                      {/* 한정자 — 지역(선택) */}
-                      <input
-                        type="text"
-                        value={region}
-                        onChange={(e) => setRegion(e.target.value)}
-                        placeholder="희망 지역 (선택) · 예: 서울, 부산, 온라인"
-                        className="mt-2.5 h-11 w-full rounded-xl border border-line-strong bg-surface px-3 text-base outline-none transition-colors placeholder:text-fg/30 focus:border-brand"
-                      />
-                      <label className="mt-2.5 flex cursor-pointer items-start gap-2 text-xs text-muted">
-                        <input
-                          type="checkbox"
-                          checked={agreed}
-                          onChange={(e) => setAgreed(e.target.checked)}
-                          className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
-                        />
-                        <span>
-                          연락처 전달 및 상담을 위한{" "}
-                          <Link href="/privacy" target="_blank" className="underline underline-offset-2 hover:text-fg">
-                            개인정보 수집·이용
-                          </Link>
-                          에 동의합니다.
-                        </span>
-                      </label>
-                      {state.error && <p className="mt-2 text-xs font-medium text-brand">{state.error}</p>}
-                      <button
-                        type="submit"
-                        disabled={!contact.trim() || !timing || !agreed || pending}
-                        data-quote-lead=""
-                        className="mt-3 h-12 w-full cursor-pointer rounded-xl bg-brand text-base font-bold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                      >
-                        {pending ? "요청 중…" : "무료로 견적 받기"}
-                      </button>
-                    </form>
-                  ) : selectMode ? null : focused && items.some((i) => i.id === focused) ? (
-                    <div className="pointer-events-auto">
-                      {/* 메타 패널 — 가격(크게) + 위치·촬영시간·보정본 아이콘 칩 (photoId 일치 시만 = stale 방지) */}
-                      {meta &&
-                        meta.photoId === focused &&
-                        (meta.priceKrw != null ||
-                          meta.location ||
-                          meta.durationMin != null ||
-                          meta.editedCount != null) && (
-                          <div className="mb-3 rounded-2xl bg-black/45 px-4 py-3 text-left ring-1 ring-white/10 backdrop-blur-md">
-                            {meta.priceKrw != null && (
-                              <p className="text-xl font-extrabold leading-none tracking-tight text-white">
-                                ₩{wonFmt.format(meta.priceKrw)}
-                              </p>
+                            {meta.location && (
+                              <span className="inline-flex items-center gap-1">
+                                <MetaPinIcon />
+                                {meta.location}
+                              </span>
                             )}
-                            {(meta.location || meta.durationMin != null || meta.editedCount != null) && (
-                              <div
-                                className={`flex flex-wrap items-center gap-x-3.5 gap-y-1.5 text-body-sm font-medium text-white/85 ${
-                                  meta.priceKrw != null ? "mt-2" : ""
-                                }`}
-                              >
-                                {meta.location && (
-                                  <span className="inline-flex items-center gap-1">
-                                    <MetaPinIcon />
-                                    {meta.location}
-                                  </span>
-                                )}
-                                {meta.durationMin != null && (
-                                  <span className="inline-flex items-center gap-1">
-                                    <MetaClockIcon />
-                                    {formatDuration(meta.durationMin)}
-                                  </span>
-                                )}
-                                {meta.editedCount != null && (
-                                  <span className="inline-flex items-center gap-1">
-                                    <MetaPhotoIcon />
-                                    보정본 {meta.editedCount}장
-                                  </span>
-                                )}
-                              </div>
+                            {meta.durationMin != null && (
+                              <span className="inline-flex items-center gap-1">
+                                <MetaClockIcon />
+                                {formatDuration(meta.durationMin)}
+                              </span>
+                            )}
+                            {meta.editedCount != null && (
+                              <span className="inline-flex items-center gap-1">
+                                <MetaPhotoIcon />
+                                보정본 {meta.editedCount}장
+                              </span>
                             )}
                           </div>
                         )}
-                      {/* 게시물 보기 · 견적 받기 = 동급(나란히). 견적만 브랜드색으로 전환 살짝 강조. */}
-                      <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => leaveToInquiry(`/photos/${focused}`)}
-                        className="flex-1 cursor-pointer rounded-2xl bg-white/15 py-4 text-base font-bold text-white shadow-pop backdrop-blur transition-colors hover:bg-white/25"
-                      >
-                        게시물 보기
-                      </button>
-                      {/* data-quote-lead: 사진 상세 '무료로 견적 받아보기'와 같은 Meta Lead 전환
-                          (MetaPixel 위임 캡처, localStorage 가드로 브라우저당 1회 공유) */}
-                      <button
-                        type="button"
-                        onClick={() => leaveToInquiry(`/inquiry/photo/${focused}`)}
-                        data-quote-lead=""
-                        className="flex-1 cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
-                      >
-                        무료 견적 받기
-                      </button>
                       </div>
-                    </div>
-                  ) : (
-                    // 전체·묶음 상담 CTA 제거 — 개별 사진 상담으로만 안내.
-                    <p className="text-center">
-                      <span className="inline-block rounded-full bg-black/65 px-4 py-2.5 text-sm font-semibold text-white shadow-pop backdrop-blur-sm">
-                        사진을 탭하면 상담을 신청할 수 있어요
-                      </span>
-                    </p>
-                  )}
+                    )}
+                  {/* 게시물 보기 · 견적 받기 = 동급(나란히). 견적만 브랜드색으로 전환 살짝 강조. */}
+                  <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => leaveToInquiry(`/photos/${focused}`)}
+                    className="flex-1 cursor-pointer rounded-2xl bg-white/15 py-4 text-base font-bold text-white shadow-pop backdrop-blur transition-colors hover:bg-white/25"
+                  >
+                    게시물 보기
+                  </button>
+                  {/* data-quote-lead: 사진 상세 '무료로 견적 받아보기'와 같은 Meta Lead 전환
+                      (MetaPixel 위임 캡처, localStorage 가드로 브라우저당 1회 공유) */}
+                  <button
+                    type="button"
+                    onClick={() => leaveToInquiry(`/inquiry/photo/${focused}`)}
+                    data-quote-lead=""
+                    className="flex-1 cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
+                  >
+                    무료 견적 받기
+                  </button>
+                  </div>
                 </div>
-              </div>
-
-              {/* 공유 클립보드 복사 토스트(네이티브 공유 미지원 시) */}
-              {shareToast && (
-                <div className="pointer-events-none fixed inset-x-0 bottom-[150px] z-[70] flex justify-center px-6">
-                  <span className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-black shadow-pop">
-                    링크가 복사됐어요
+              ) : (
+                // 전체·묶음 상담 CTA 제거 — 개별 사진 상담으로만 안내.
+                <p className="text-center">
+                  <span className="inline-block rounded-full bg-black/65 px-4 py-2.5 text-sm font-semibold text-white shadow-pop backdrop-blur-sm">
+                    사진을 탭하면 상담을 신청할 수 있어요
                   </span>
-                </div>
+                </p>
               )}
+            </div>
+          </div>
 
-            </>
+          {/* 공유 클립보드 복사 토스트(네이티브 공유 미지원 시) */}
+          {shareToast && (
+            <div className="pointer-events-none fixed inset-x-0 bottom-[150px] z-[70] flex justify-center px-6">
+              <span className="rounded-full bg-white px-4 py-2 text-sm font-semibold text-black shadow-pop">
+                링크가 복사됐어요
+              </span>
+            </div>
           )}
         </>
       )}
