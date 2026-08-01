@@ -1,3 +1,5 @@
+import { mpTrack } from "@/lib/mixpanel";
+
 // '무료로 견적 받아보기' CTA 클릭 = Meta 픽셀 전환(Lead).
 // 문의 완료 시점이 아니라 CTA 클릭 시점에 전환을 잡는다(광고 최적화 신호량 확보).
 // 브라우저당 1회만 발화 — localStorage 가드로 재클릭·재방문 중복 전환을 막고,
@@ -6,7 +8,11 @@ const FIRED_KEY = "samae_quote_lead";
 
 export function trackQuoteLead(): void {
   try {
-    if (localStorage.getItem(FIRED_KEY)) return; // 이미 전환한 브라우저 — 1회 제한
+    const firstClick = !localStorage.getItem(FIRED_KEY);
+    // Mixpanel 은 매 클릭 기록(재클릭 행동도 분석 대상) — Meta 전환 여부는 속성으로 구분.
+    // Meta Lead 와 같은 시점·같은 기준이라 광고 지표와 퍼널을 나란히 비교할 수 있다.
+    mpTrack("Click Quote CTA", { path: window.location.pathname, meta_lead: firstClick });
+    if (!firstClick) return; // 이미 전환한 브라우저 — Meta 는 1회 제한
     const eventID = `quote_${crypto.randomUUID()}`;
     localStorage.setItem(FIRED_KEY, eventID);
     window.fbq?.("track", "Lead", {}, { eventID });

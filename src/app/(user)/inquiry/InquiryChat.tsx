@@ -415,9 +415,11 @@ export function InquiryChat({
     if (editing !== null) setEditing(null);
     if (i === revealed) {
       // 위저드 질문별 진행 이벤트(전진 답변만 — 수정은 위에서 return). 질문별 이탈 지점 파악용.
+      // 스텝마다 이벤트명을 분리("Inquiry Step (step1)"…) — Mixpanel 퍼널을 속성 필터 없이
+      // 이벤트명만으로 단계별 구성할 수 있게 한다.
       // 문의사항(자유서술)은 PII 우려로 값 미전송, 선택지(목적·지역 등 수요 신호)만 값 포함.
       const sensitive = key === "note";
-      mpTrack("Inquiry Step", {
+      mpTrack(`Inquiry Step (step${i + 1})`, {
         step: key,
         step_index: i + 1,
         step_name: STEPS[i].short,

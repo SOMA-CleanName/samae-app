@@ -32,11 +32,11 @@ export function MetaPixel() {
     window.fbq?.("track", "PageView");
   }, [pathname]);
 
-  // '무료로 견적 받아보기' CTA(data-quote-lead) 클릭 → Lead 전환 발화.
+  // '무료로 견적 받아보기' CTA(data-quote-lead) 클릭 → Lead 전환 + Mixpanel 기록.
   // 버튼이 서버 컴포넌트에도 있어 개별 onClick 대신 전역 위임 캡처로 잡는다.
-  // 픽셀 미로딩 환경(로컬·프리뷰)에선 리스너를 달지 않아 중복 가드도 오염되지 않는다.
+  // 픽셀 미로딩 환경(로컬·프리뷰)에서도 리스너는 달아 Mixpanel 계측은 유지 —
+  // fbq·CAPI 는 픽셀/토큰이 없으면 각자 무동작이라 안전하다.
   useEffect(() => {
-    if (!PIXEL_ID) return;
     function onClick(e: MouseEvent) {
       const el = (e.target as HTMLElement | null)?.closest?.("[data-quote-lead]");
       if (el) trackQuoteLead();
