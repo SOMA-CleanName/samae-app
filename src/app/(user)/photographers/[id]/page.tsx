@@ -200,13 +200,20 @@ function ProfileCta({
   // 주 전환 CTA — 브랜드 레드로 강조(로그인 여부 무관, /inquiry 에서 처리)
   if (!me) {
     return (
-      <Button href={inquiryHref(photographerId)} variant="brand" size="lg" fullWidth>
+      <Button href={inquiryHref(photographerId)} variant="brand" size="lg" fullWidth className="rounded-lg">
         예약·문의하기
       </Button>
     );
   }
   return (
-    <Button href={inquiryHref(photographerId)} variant="brand" size="lg" fullWidth data-track="cta:inquiry">
+    <Button
+      href={inquiryHref(photographerId)}
+      variant="brand"
+      size="lg"
+      fullWidth
+      className="rounded-lg"
+      data-track="cta:inquiry"
+    >
       예약·문의하기
     </Button>
   );

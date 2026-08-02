@@ -56,9 +56,9 @@ export default async function ExplorePage() {
 
   // 중간 메뉴바 탭 — 실제로 렌더되는 섹션만(스크롤 이동 대상).
   const tabs: ExploreTab[] = [
+    { id: "sec-taste", label: "내 취향 테스트" },
     { id: "sec-hot", label: "추천 무드" },
     ...(popular.length > 0 ? [{ id: "sec-recent", label: "사매 인기 스냅" }] : []),
-    { id: "sec-taste", label: "내 취향 테스트" },
   ];
 
   return (
@@ -89,10 +89,19 @@ export default async function ExplorePage() {
                 (sticky 가 섹션 전체 구간 동안 고정되려면 래퍼로 감싸지 말 것) */}
             <ExploreTabBar tabs={tabs} />
 
-            {/* 인기순 카테고리 타일 (5개 → 더보기) */}
-            <div id="sec-hot" className="mt-6 scroll-mt-24">
+            {/* 취향 테스트 (진입 CTA) — 메뉴바 바로 아래 첫 섹션 */}
+            <div id="sec-taste" className="mt-6 scroll-mt-24">
               <div className="mb-3 flex items-baseline gap-2 px-1">
                 <span className="font-display text-body-sm italic text-brand">01</span>
+                <h2 className="text-title font-bold tracking-tight">내 취향 테스트</h2>
+              </div>
+              <TasteTestCard />
+            </div>
+
+            {/* 인기순 카테고리 타일 (5개 → 더보기) */}
+            <div id="sec-hot" className="mt-16 scroll-mt-24">
+              <div className="mb-3 flex items-baseline gap-2 px-1">
+                <span className="font-display text-body-sm italic text-brand">02</span>
                 <h2 className="text-title font-bold tracking-tight">추천 무드</h2>
               </div>
               <CategoryGrid items={gridItems} />
@@ -102,24 +111,15 @@ export default async function ExplorePage() {
             {popular.length > 0 && (
               <div id="sec-recent" data-pid="sec-recent" className="mt-16 scroll-mt-24">
                 <div className="mb-3 flex items-baseline gap-2 px-1">
-                  <span className="font-display text-body-sm italic text-brand">02</span>
+                  <span className="font-display text-body-sm italic text-brand">03</span>
                   <h2 className="text-title font-bold tracking-tight">사매 인기 스냅</h2>
                 </div>
                 <RecentSnapsRail posts={popular} />
               </div>
             )}
 
-            {/* 취향 테스트 (진입 CTA) */}
-            <div id="sec-taste" className="mt-16 scroll-mt-24">
-              <div className="mb-3 flex items-baseline gap-2 px-1">
-                <span className="font-display text-body-sm italic text-brand">03</span>
-                <h2 className="text-title font-bold tracking-tight">내 취향 테스트</h2>
-              </div>
-              <TasteTestCard />
-            </div>
-
-            {/* 하단 여백 — 취향 테스트(마지막 섹션)에서 스크롤이 적당히 끝나되 플로팅 내비에
-                가리지 않을 정도만. 마지막 탭 활성은 ExploreTabBar 의 atBottom 폴백이 담당. */}
+            {/* 하단 여백 — 마지막 섹션이 플로팅 내비에 가리지 않을 정도만 확보.
+                마지막 탭 활성은 ExploreTabBar 의 atBottom 폴백이 담당. */}
             <div aria-hidden className="h-20" />
           </>
         )}

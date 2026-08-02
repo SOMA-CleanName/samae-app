@@ -25,7 +25,7 @@ export default function Loading() {
         {/* 대화 영역 — 사진 미리보기 + 작가 버블 + 입력 카드 자리 */}
         <div className="flex-1 space-y-3 overflow-y-auto px-4 py-5">
           {/* 문의 사진 미리보기 */}
-          <div className="aspect-[4/5] w-full animate-pulse rounded-xl bg-surface-2" />
+          <div className="mx-auto h-64 w-48 max-w-full animate-pulse rounded-xl bg-surface-2" />
 
           {/* 작가(왼쪽) 버블 */}
           <div className="mr-auto w-full max-w-[92%] space-y-2 rounded-2xl rounded-tl-md bg-surface-2 p-3.5">

@@ -157,7 +157,7 @@ export default async function PhotoDetail({
 
         {/* 사진 정보 — 가격·CTA 먼저 보이고, 작가·글·태그는 접기 */}
         <div className="mt-4 md:mt-0 md:min-w-0 md:flex-1">
-          {/* 공유·담기(좌) · 가격(우) 한 행 */}
+          {/* 공유·담기(좌) · 촬영시간·보정본(우) 한 행 */}
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-1.5">
               <ShareButton photoId={photo.id} />
@@ -171,33 +171,24 @@ export default async function PhotoDetail({
                 }}
               />
             </div>
-            <div className="flex min-w-0 items-center gap-2">
-              <p className="min-w-0 text-right">
-                {photo.price_krw != null && (
+            {matchedPkg && (
+              <p className="ml-auto text-right text-body font-medium text-fg">
+                촬영 {formatDuration(matchedPkg.duration_min)} · 보정본 {matchedPkg.edited_count}장
+              </p>
+            )}
+          </div>
+
+          {/* 사매 파트너 작가 뱃지는 왼쪽, 가격은 오른쪽 아래 행. 장소는 상품 정보 안에서 노출한다. */}
+          {(photo.price_krw != null || !isOwner) && (
+            <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+              {!isOwner && <PartnerBadge popoverAlign="left" />}
+              {photo.price_krw != null && (
+                <p className="ml-auto min-w-0 text-right">
                   <span className="text-title font-semibold tracking-tight">
                     ₩{fmt.format(photo.price_krw)}
                   </span>
-                )}
-                {location && (
-                  <span className="text-body text-muted">
-                    {photo.price_krw != null ? " · " : ""}
-                    {location}
-                  </span>
-                )}
-              </p>
-            </div>
-          </div>
-
-          {/* 촬영시간·보정본은 왼쪽, 사매 파트너 작가 뱃지는 오른쪽(ml-auto) 한 줄.
-              뱃지가 오른쪽 끝이라 팝오버는 왼쪽으로 펼침(PartnerBadge right-0)으로 잘림 방지(본인 사진엔 뱃지 미노출). */}
-          {(matchedPkg || !isOwner) && (
-            <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
-              {matchedPkg && (
-                <p className="text-body-sm text-muted">
-                  촬영 {formatDuration(matchedPkg.duration_min)} · 보정본 {matchedPkg.edited_count}장
                 </p>
               )}
-              {!isOwner && <PartnerBadge className="ml-auto" />}
             </div>
           )}
 
@@ -212,6 +203,14 @@ export default async function PhotoDetail({
             photographerId={ph.id}
             avatarUrl={ph.avatar_url}
             caption={caption || albumDescription}
+            packageInfo={{
+              name: matchedPkg?.name ?? null,
+              description: matchedPkg?.description ?? null,
+              price: photo.price_krw,
+              duration: matchedPkg ? formatDuration(matchedPkg.duration_min) : null,
+              editedCount: matchedPkg?.edited_count ?? null,
+              location,
+            }}
           />
         </div>
       </div>
@@ -253,6 +252,7 @@ function PhotoCtas({
       size="lg"
       fullWidth
       className="mt-4"
+      style={{ borderRadius: "8px" }}
       data-track="cta:inquiry"
       data-quote-lead=""
     >
@@ -287,4 +287,3 @@ async function Recommendations({
     />
   );
 }
-

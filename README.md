@@ -40,6 +40,7 @@ npm run dev                  # http://localhost:3000
 | 05 | [예약 생애주기](docs/05-booking-lifecycle.md) | 예약↔결제↔정산↔전달 상태머신 |
 | 06 | [결제·정산](docs/06-payment-settlement.md) | 한국 마켓플레이스 정산·규제·PG 선정 |
 | 07 | [개발 로드맵](docs/07-roadmap.md) | 단계별 계획·산출물·완료 기준 |
+| 21 | [사용자 전환 화면 UI 개선](docs/21-user-conversion-ui-refinement.md) | 탐색·문의·사진 상세·작가 상세 UI의 현재 구현과 확인 항목 |
 
 ## 한눈에 보는 스택
 

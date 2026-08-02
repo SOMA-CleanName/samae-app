@@ -6,7 +6,13 @@ import { mpTrack } from "@/lib/mixpanel";
 
 // 사매 파트너 작가 뱃지 — 사매에 노출되는 작가는 모두 카카오 채널로 직접 인터뷰·선별한 승인 작가.
 // 클릭하면 '왜 믿을 수 있는지' 안내 팝오버를 띄운다(전환 직전 신뢰 신호).
-export function PartnerBadge({ className }: { className?: string }) {
+export function PartnerBadge({
+  className,
+  popoverAlign = "right",
+}: {
+  className?: string;
+  popoverAlign?: "left" | "right";
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -52,10 +58,13 @@ export function PartnerBadge({ className }: { className?: string }) {
       </button>
 
       {open && (
-        // 뱃지가 줄 오른쪽 끝이라 right-0(왼쪽으로 펼침)으로 화면 오른쪽 밖으로 안 잘리게. 폭은 뷰포트 내로 캡.
+        // 배치 위치에 따라 펼치는 방향을 바꾸고, 폭은 뷰포트 안으로 제한한다.
         <div
           role="tooltip"
-          className="absolute right-0 top-full z-30 mt-2 w-[min(17rem,calc(100vw-2rem))] break-keep rounded-2xl border border-line bg-bg p-3.5 text-left shadow-pop"
+          className={cn(
+            "absolute top-full z-30 mt-2 w-[min(17rem,calc(100vw-2rem))] break-keep rounded-2xl border border-line bg-bg p-3.5 text-left shadow-pop",
+            popoverAlign === "left" ? "left-0" : "right-0"
+          )}
         >
           <p className="flex items-center gap-1.5 text-body font-semibold text-fg">
             <ShieldCheckIcon className="h-4 w-4 text-brand" />

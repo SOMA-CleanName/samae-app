@@ -18,6 +18,7 @@ const STEP_MS = 2000;
 const HOLD_MS = 180; // 이 이상 누르고 있으면 '꾹 눌러 일시정지'
 const MOVE_PX = 8; // 이만큼 움직이면 드래그(스와이프 후보)로 판정
 const SWIPE_PX = 40; // 이만큼 가로로 밀면 카테고리 전환
+const SLIDE_MS = 700;
 // 카드 폭(컨테이너 대비 %) — 100 미만이면 양옆 이웃 카드가 (100-SLIDE_W)/2 씩 삐져나온다.
 const SLIDE_W = 80;
 
@@ -49,6 +50,23 @@ export function MovingCoverCarousel({ cats }: { cats: CoverCat[] }) {
   const pausedRef = useRef(false);
   const remaining = useRef(STEP_MS); // 현재 step 남은 시간(일시정지 재개용)
   const stepStart = useRef(0);
+  const previousCat = useRef(0);
+  // 양끝 복제 카드를 포함한 트랙 인덱스. 실제 첫 카테고리는 1번에 놓인다.
+  const [visualCat, setVisualCat] = useState(cats.length > 1 ? 1 : 0);
+  const [slideTransition, setSlideTransition] = useState(true);
+
+  const cur = steps[step] ?? { ci: 0, si: 0 };
+  const loopCats = useMemo(
+    () =>
+      cats.length > 1
+        ? [
+            { cat: cats[cats.length - 1], ci: cats.length - 1, slot: "before" },
+            ...cats.map((cat, ci) => ({ cat, ci, slot: `real-${ci}` })),
+            { cat: cats[0], ci: 0, slot: "after" },
+          ]
+        : cats.map((cat, ci) => ({ cat, ci, slot: `real-${ci}` })),
+    [cats]
+  );
 
   // 자동넘김 — 항상 2초. 꾹 누름(paused)이면 멈추고, 떼면 남은 시간부터 이어서 진행.
   useEffect(() => {
@@ -72,8 +90,36 @@ export function MovingCoverCarousel({ cats }: { cats: CoverCat[] }) {
   // 언마운트 시 홀드 타이머 정리
   useEffect(() => () => window.clearTimeout(holdTimer.current), []);
 
+  // 마지막↔첫 카드 전환은 양끝 복제 카드까지 이동한 뒤, 같은 모습의 실제 카드로 즉시 스냅한다.
+  useEffect(() => {
+    if (cats.length <= 1) {
+      previousCat.current = cur.ci;
+      return;
+    }
+
+    const previous = previousCat.current;
+    previousCat.current = cur.ci;
+    const wrappedForward = previous === cats.length - 1 && cur.ci === 0;
+    const wrappedBackward = previous === 0 && cur.ci === cats.length - 1;
+    let resetId: number | undefined;
+    const frameId = window.requestAnimationFrame(() => {
+      setSlideTransition(true);
+      setVisualCat(wrappedForward ? cats.length + 1 : wrappedBackward ? 0 : cur.ci + 1);
+
+      if (!wrappedForward && !wrappedBackward) return;
+      resetId = window.setTimeout(() => {
+        setSlideTransition(false);
+        setVisualCat(cur.ci + 1);
+        window.requestAnimationFrame(() => window.requestAnimationFrame(() => setSlideTransition(true)));
+      }, SLIDE_MS);
+    });
+    return () => {
+      window.cancelAnimationFrame(frameId);
+      if (resetId !== undefined) window.clearTimeout(resetId);
+    };
+  }, [cats.length, cur.ci]);
+
   if (cats.length === 0) return null;
-  const cur = steps[step] ?? { ci: 0, si: 0 };
 
   // step 이동 시엔 항상 남은 시간을 처음(STEP_MS)으로 리셋
   const goTo = (index: number) => {
@@ -147,14 +193,17 @@ export function MovingCoverCarousel({ cats }: { cats: CoverCat[] }) {
         {/* 슬라이드 트랙 — 카드를 80% 폭으로 늘어놓고 활성 카드를 중앙에 오도록 translateX.
             양옆 이웃 카드가 10%씩 삐져나와 회색·블러로 보인다(coverflow). */}
         <div
-          className="absolute inset-0 flex transition-transform duration-700 ease-[cubic-bezier(.6,.05,.2,1)]"
-          style={{ transform: `translateX(${10 - cur.ci * SLIDE_W}%)` }}
+          className={cn(
+            "absolute inset-0 flex ease-[cubic-bezier(.6,.05,.2,1)]",
+            slideTransition && "transition-transform duration-700"
+          )}
+          style={{ transform: `translateX(${10 - visualCat * SLIDE_W}%)` }}
         >
-          {cats.map((c, ci) => {
+          {loopCats.map(({ cat: c, ci, slot }) => {
             const isActive = ci === cur.ci;
             const activeShot = isActive ? cur.si : 0;
             return (
-              <div key={c.slug} className="h-full flex-none px-1.5" style={{ width: `${SLIDE_W}%` }}>
+              <div key={`${c.slug}-${slot}`} className="h-full flex-none px-1.5" style={{ width: `${SLIDE_W}%` }}>
                 <div
                   className={cn(
                     "relative h-full w-full overflow-hidden bg-fg/[0.06] transition-all duration-700 ease-[cubic-bezier(.6,.05,.2,1)]",
