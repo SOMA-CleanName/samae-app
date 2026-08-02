@@ -252,7 +252,7 @@ function PhotoCtas({
       size="lg"
       fullWidth
       className="mt-4"
-      style={{ borderRadius: "8px" }}
+      style={{ borderRadius: "16px" }}
       data-track="cta:inquiry"
       data-quote-lead=""
     >
