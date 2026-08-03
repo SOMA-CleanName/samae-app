@@ -34,8 +34,8 @@ const STEPS: Step[] = [
     key: "purpose",
     q: "어떤 사진 촬영을 원하시나요?",
     type: "options",
-    options: ["커플·우정 스냅", "웨딩·본식", "개인·프로필", "가족", "행사·기타"],
-    skip: "아직 고민 중이에요",
+    options: ["커플·우정 스냅", "웨딩", "개인·프로필", "단체·행사"],
+    skip: "그 외 목적",
     short: "촬영 종류",
     ev: "Inquiry Q1 Purpose",
   },
@@ -136,21 +136,20 @@ function loadSavedAnswers(key: string): Partial<Record<StepKey, string>> | null 
 }
 
 // ── 연락처 타입 / 유효성 (item9) ─────────────────────────────────
-type ContactType = "phone" | "kakao" | "email";
+type ContactType = "phone" | "kakao";
 const CONTACT_TYPES: {
   key: ContactType;
   label: string;
   short: string; // 아이콘 아래 짧은 라벨
   placeholder: string;
-  inputMode: "tel" | "text" | "email";
+  inputMode: "tel" | "text";
   empty: string; // 빈칸일 때 안내문
 }[] = [
   { key: "phone", label: "전화번호", short: "전화", placeholder: "010-1234-5678", inputMode: "tel", empty: "전화번호를 입력해주세요." },
   { key: "kakao", label: "카카오톡 ID", short: "카톡", placeholder: "카카오톡 ID", inputMode: "text", empty: "카카오톡 ID를 입력해주세요." },
-  { key: "email", label: "이메일", short: "이메일", placeholder: "photosame00@gmail.com", inputMode: "email", empty: "이메일 주소를 입력해주세요." },
 ];
 
-// 연락처 방식 아이콘 (전화 / 인스타 / 이메일)
+// 연락처 방식 아이콘 (전화 / 카카오톡)
 function ContactIcon({ kind }: { kind: ContactType }) {
   const cls = "h-5 w-5";
   if (kind === "phone")
@@ -162,23 +161,15 @@ function ContactIcon({ kind }: { kind: ContactType }) {
         />
       </svg>
     );
-  if (kind === "kakao")
-    return (
-      <svg viewBox="0 0 24 24" className={cls} fill="none" stroke="currentColor" strokeWidth="1.8">
-        <path
-          d="M12 4.5C7 4.5 3 7.6 3 11.4c0 2.4 1.7 4.6 4.2 5.8-.2.7-.7 2.3-.8 2.7 0 .3.2.4.4.3.3-.2 2.5-1.7 3.5-2.4.5.1 1.1.1 1.7.1 5 0 9-3.1 9-6.9S17 4.5 12 4.5z"
-          strokeLinejoin="round"
-        />
-      </svg>
-    );
   return (
     <svg viewBox="0 0 24 24" className={cls} fill="none" stroke="currentColor" strokeWidth="1.8">
-      <rect x="3" y="5" width="18" height="14" rx="2.5" />
-      <path d="M4 7l8 5.5L20 7" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M12 4.5C7 4.5 3 7.6 3 11.4c0 2.4 1.7 4.6 4.2 5.8-.2.7-.7 2.3-.8 2.7 0 .3.2.4.4.3.3-.2 2.5-1.7 3.5-2.4.5.1 1.1.1 1.7.1 5 0 9-3.1 9-6.9S17 4.5 12 4.5z"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // 카카오톡 아이디 — 영문 소문자·숫자·마침표(.)·밑줄(_) 4~20자 (대문자·하이픈 불가)
 const KAKAO_RE = /^[a-z0-9._]{4,20}$/;
 
@@ -218,12 +209,7 @@ function validateContact(type: ContactType, raw: string): { valid: boolean; erro
       return { valid: false, error: "010으로 시작하는 11자리를 입력해주세요." };
     return { valid: true, error: null };
   }
-  if (type === "kakao") {
-    if (!KAKAO_RE.test(v)) return { valid: false, error: "4자 이상 입력해주세요." };
-    return { valid: true, error: null };
-  }
-  if (!EMAIL_RE.test(v))
-    return { valid: false, error: "올바른 이메일 형식이 아니에요. 예: id@gmail.com" };
+  if (!KAKAO_RE.test(v)) return { valid: false, error: "4자 이상 입력해주세요." };
   return { valid: true, error: null };
 }
 
@@ -254,7 +240,9 @@ export function InquiryChat({
   const [optionsReady, setOptionsReady] = useState(false); // 질문 노출 후 1초 뒤 선지 노출
   const [contactStep, setContactStep] = useState(false);
   const [editing, setEditing] = useState<number | null>(null); // 재선택 중인 질문 index
+  const [submittedContactType, setSubmittedContactType] = useState<ContactType | null>(null);
 
+  const chatRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const optionsEndRef = useRef<HTMLDivElement>(null); // 선지+건너뛰기 하단 — 생성 시 채팅창 바닥에 맞춤
   const started = useRef(false);
@@ -446,12 +434,16 @@ export function InquiryChat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 스크롤은 오직 '선지가 생성될 때'만 — 선지의 맨 아래가 채팅창 바닥에 붙도록(block:"end").
-  // 답변(선지 접힘)·타이핑·질문 등장 시엔 스크롤하지 않아 기존 채팅이 그대로 있는다.
+  // 첫 질문은 대화의 시작이 화면 상단에서 보이게 유지한다.
+  // 이후 질문부터는 새 선지의 하단을 채팅창 바닥에 맞춰 진행 흐름을 따라간다.
   useEffect(() => {
     if (!optionsReady) return;
+    if (revealed === 0 && answeredCount === 0) {
+      chatRef.current?.scrollTo({ top: 0, behavior: "auto" });
+      return;
+    }
     optionsEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [optionsReady]);
+  }, [answeredCount, optionsReady, revealed]);
 
   // 연락처·완료 단계 진입 시엔 폼/모달이 보이게 하단으로.
   useEffect(() => {
@@ -519,6 +511,8 @@ export function InquiryChat({
 
   // 제출 — 채팅 답변 + 연락처를 FormData 로 변환해 기존 submitInquiry 재사용
   function submit(contactType: ContactType, contactValue: string) {
+    // 접수 완료 안내에서 실제로 선택한 연락 채널에 맞는 문구를 보여준다.
+    setSubmittedContactType(contactType);
     const fd = new FormData();
     if (multi) {
       fd.set("photoIds", (photoIds ?? []).join(","));
@@ -542,10 +536,8 @@ export function InquiryChat({
     if (contactType === "phone") {
       const d = contactValue.replace(/\D/g, "");
       fd.set("phone", `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`);
-    } else if (contactType === "kakao") {
-      fd.set("kakaoId", contactValue.trim());
     } else {
-      fd.set("contactEmail", contactValue.trim());
+      fd.set("kakaoId", contactValue.trim());
     }
     // 유입 어트리뷰션 — AnalyticsTracker 가 sessionStorage 에 담아둔 utm/랜딩을 접수에 첨부.
     // fbc(광고 클릭 ID)는 인스타가 오가닉 클릭에도 붙여 광고/스토리 구분이 안 되므로,
@@ -637,11 +629,8 @@ export function InquiryChat({
         </div>
       </header>
 
-      {/* 채팅 본문 — flex-col + 상단 grow 스페이서로 콘텐츠를 아래 정렬(채팅식).
-          선지가 항상 채팅창 바닥에 붙으면서, 그 아래로는 스크롤 여백이 없어 더 내려가지지 않는다. */}
-      <div className="flex flex-1 flex-col space-y-3 overflow-y-auto px-4 py-5">
-        {/* 상단 여백 — 질문 단계에서 콘텐츠를 아래로 밀어 선지를 바닥에 붙임(콘텐츠가 넘치면 0으로 접힘) */}
-        {!contactStep && !done && <div aria-hidden className="min-h-0 flex-1" />}
+      {/* 채팅 본문 — 첫 대화는 상단에서 시작하고, 후속 질문만 현재 진행 위치로 자동 스크롤한다. */}
+      <div ref={chatRef} className="flex flex-1 flex-col space-y-3 overflow-y-auto px-4 py-5">
         {/* 진입 사진 + 인사 (시스템) — 비율 유지(자르지 않음) */}
         <SystemBubble>
           {multi ? (
@@ -658,7 +647,13 @@ export function InquiryChat({
               </div>
             )
           ) : (
-            photoSrc && <img src={photoSrc} alt="문의한 사진" className="mb-2 w-full rounded-xl" />
+            photoSrc && (
+              <img
+                src={photoSrc}
+                alt="문의한 사진"
+                className="mx-auto mb-2 block max-h-[min(42svh,20rem)] w-auto max-w-full rounded-xl object-contain"
+              />
+            )
           )}
           짧게 몇 가지만 알려주시면
           <br />
@@ -768,7 +763,13 @@ export function InquiryChat({
       </div>
 
       {/* item3 — 완료 모달 (닫기 불가) */}
-      {done && <DoneModal onExplore={goExplore} onSave={goSave} />}
+      {done && (
+        <DoneModal
+          contactType={submittedContactType}
+          onExplore={goExplore}
+          onSave={goSave}
+        />
+      )}
     </div>
   );
 
@@ -782,14 +783,39 @@ export function InquiryChat({
 }
 
 // ── 완료 모달 (item3) ─────────────────────────────────────────────
-function DoneModal({ onExplore, onSave }: { onExplore: () => void; onSave: () => void }) {
+function DoneModal({
+  contactType,
+  onExplore,
+  onSave,
+}: {
+  contactType: ContactType | null;
+  onExplore: () => void;
+  onSave: () => void;
+}) {
   // 마운트 시 팝인 — 완료를 여정의 Peak 로
   const [shown, setShown] = useState(false);
   useEffect(() => {
     const r = requestAnimationFrame(() => setShown(true));
     return () => cancelAnimationFrame(r);
   }, []);
-  const nextSteps = ["작가님이 신청을 확인해요", "보통 1시간 내 연락드려요", "채팅에서 일정·컨셉을 협의해요"];
+  const contactMessage =
+    contactType === "kakao" ? (
+      <>
+        입력한 카톡 아이디로 작가님이 고객님께
+        <br />
+        카톡 메시지를 보냅니다.
+      </>
+    ) : (
+      <>
+        입력한 전화번호로 작가님이 고객님께
+        <br />
+        메시지를 보냅니다.
+      </>
+    );
+  const nextSteps = [
+    "보통 1시간 내 연락드려요",
+    "채팅에서 일정·컨셉을 협의해요",
+  ];
   return (
     <div className="fixed inset-0 z-[70] grid place-items-center bg-black/50 p-6 font-kr">
       <div
@@ -806,7 +832,7 @@ function DoneModal({ onExplore, onSave }: { onExplore: () => void; onSave: () =>
         </div>
         <p className="text-xl font-bold">신청 접수 완료!</p>
         <p className="mt-2 text-sm leading-relaxed text-muted">
-          곧 작가님으로부터 연락이 도착합니다.
+          {contactMessage}
         </p>
 
         {/* 다음 일 타임라인 — '끝'이 아니라 '다음'을 보여줘 안심 */}
@@ -923,7 +949,7 @@ function ContactBlock({
   return (
     <>
     <div className="ml-auto w-full max-w-[88%] rounded-2xl rounded-tr-md bg-brand/[0.07] p-3">
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         {CONTACT_TYPES.map((t) => {
           const on = type === t.key;
           return (
@@ -1234,7 +1260,7 @@ function DateField({
   onPick: (v: string) => void;
 }) {
   const [sheet, setSheet] = useState(false);
-  const quick = ["이번 주말", "2주 이내", "한 달 이내"];
+  const quick = ["2주 이내", "한 달 이내"];
   const pickedDate = value && isISODate(value) ? value : "";
 
   return (

@@ -38,8 +38,14 @@ export default function Loading() {
           ))}
         </div>
 
-        {/* 추천 무드 — 타이틀 + CTA + 그리드 + 더보기 */}
+        {/* 내 취향 테스트 — 메뉴바 바로 아래 첫 섹션 */}
         <div className="mt-6">
+          <div className={`mb-3 ml-1 h-6 w-32 rounded ${pulse}`} />
+          <div className={`h-44 w-full rounded-2xl ${pulse}`} />
+        </div>
+
+        {/* 추천 무드 — 타이틀 + CTA + 그리드 + 더보기 */}
+        <div className="mt-16">
           <div className="mb-3 flex items-center gap-3 px-1">
             <div className={`h-6 w-28 rounded ${pulse}`} />
             <div className={`h-5 w-36 rounded-full ${pulse}`} />
@@ -61,12 +67,6 @@ export default function Loading() {
               <div key={i} className={`aspect-[3/4] w-[54vw] max-w-72 shrink-0 ${pulse}`} />
             ))}
           </div>
-        </div>
-
-        {/* 내 취향 테스트 — 타이틀 + 카드 */}
-        <div className="mt-16">
-          <div className={`mb-3 ml-1 h-6 w-32 rounded ${pulse}`} />
-          <div className={`h-44 w-full rounded-2xl ${pulse}`} />
         </div>
 
         {/* 하단 여백 */}
