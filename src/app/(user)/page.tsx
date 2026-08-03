@@ -14,6 +14,7 @@ import { TASTE_V2_COOKIE, parseTasteV2 } from "@/lib/category-constants";
 import { ExploreGallery } from "@/components/user/ExploreGallery";
 import { ScrollMemory } from "@/components/user/ScrollMemory";
 import { FeedHero } from "@/components/user/FeedHero";
+import { TasteTestNudge } from "@/components/user/TasteTestNudge";
 import { TasteBanner } from "./TasteBanner";
 import { JsonLd } from "@/components/JsonLd";
 import { siteJsonLd } from "@/lib/seo";
@@ -93,6 +94,9 @@ export default async function ExploreHome({
 
       {/* 취향 적용 배너 (전체 피드 + 취향 v2 있을 때) */}
       {isAllFeed && tasteCatIds.length > 0 && <TasteBanner />}
+
+      {/* 취향 미설정 사용자 — 홈 피드를 5초간 둘러본 뒤 하단 내비 위에서 테스트 안내 */}
+      {isAllFeed && tasteCatIds.length === 0 && <TasteTestNudge />}
 
       <ExploreGallery
         photos={photos}

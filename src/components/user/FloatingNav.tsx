@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Avatar } from "@/components/ui";
@@ -20,12 +20,35 @@ export function FloatingNav({
 }) {
   const pathname = usePathname();
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [previewExplore, setPreviewExplore] = useState(false);
   const { forced } = useNavReveal();
 
+  useEffect(() => {
+    let resetTimer: number | null = null;
+    const previewTasteTestNavigation = () => {
+      setPreviewExplore(true);
+      if (resetTimer !== null) window.clearTimeout(resetTimer);
+      resetTimer = window.setTimeout(() => setPreviewExplore(false), 900);
+    };
+    window.addEventListener("samae:taste-test-navigation", previewTasteTestNavigation);
+    return () => {
+      window.removeEventListener("samae:taste-test-navigation", previewTasteTestNavigation);
+      if (resetTimer !== null) window.clearTimeout(resetTimer);
+    };
+  }, []);
+
   // 홈 = 메인 피드(카테고리 컨텍스트는 쿠키로 복원), 탐색 = /explore
-  const homeActive = pathname === "/" || pathname.startsWith("/c/");
-  const exploreActive = pathname.startsWith("/explore");
+  const homeActive = !previewExplore && (pathname === "/" || pathname.startsWith("/c/"));
+  const exploreActive = previewExplore || pathname.startsWith("/explore");
   const inquiriesActive = pathname.startsWith("/my-inquiries");
+  const activeNavIndex = inquiriesActive && hasInquiries
+    ? 0
+    : homeActive
+      ? hasInquiries ? 1 : 0
+      : exploreActive
+        ? hasInquiries ? 2 : 1
+        : -1;
+  const indicatorIndex = Math.max(activeNavIndex, 0);
 
   // 문의·채팅 같은 풀스크린 몰입 플로우에선 내비를 아예 렌더하지 않음 — 전환·애니메이션 중
   // 그 위(z-50)로 잠깐 새어 보이던 문제 방지.
@@ -61,7 +84,16 @@ export function FloatingNav({
         style={{ pointerEvents: visible ? "auto" : "none" }}
       >
         <div style={revealStyle}>
-          <div className="flex items-center gap-1 rounded-full bg-bg/95 p-1 shadow-lg ring-1 ring-line backdrop-blur">
+          <div className="relative flex items-center gap-1 rounded-full bg-bg/95 p-1 shadow-lg ring-1 ring-line backdrop-blur">
+            <span
+              aria-hidden
+              className="absolute bottom-1 left-1 top-1 w-[5.5rem] rounded-full bg-brand shadow-sm transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+              style={{
+                opacity: activeNavIndex >= 0 ? 1 : 0,
+                transform: `translate3d(calc(${indicatorIndex * 100}% + ${indicatorIndex * 0.25}rem), 0, 0)`,
+                willChange: "transform, opacity",
+              }}
+            />
             {/* '문의' — 문의 내역이 있을 때만(쿠키·비로그인 포함). 맨 앞에 노출 */}
             {hasInquiries && (
               <NavPill
@@ -159,8 +191,8 @@ function NavPill({
       aria-current={active ? "page" : undefined}
       className={[
         // 탭 균등 너비 — 라벨 길이 달라도 같은 크기
-        "flex min-w-[5.5rem] items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors",
-        active ? "bg-brand text-white" : "text-fg/65 hover:bg-brand/[0.08] hover:text-brand",
+        "relative z-10 flex w-[5.5rem] items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors duration-300",
+        active ? "text-white" : "text-fg/65 hover:text-brand",
       ].join(" ")}
     >
       {icon}
