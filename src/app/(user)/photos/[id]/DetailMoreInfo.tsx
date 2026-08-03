@@ -69,11 +69,11 @@ export function DetailMoreInfo({
                   {packageInfo.name ?? "촬영 패키지"}
                 </p>
               </div>
-              {packageInfo.price != null && (
-                <p className="shrink-0 text-title font-bold tracking-tight text-fg">
-                  ₩{packageInfo.price.toLocaleString("ko-KR")}
-                </p>
-              )}
+              <p className="shrink-0 text-title font-bold tracking-tight text-fg">
+                {packageInfo.price != null
+                  ? `₩${packageInfo.price.toLocaleString("ko-KR")}`
+                  : "가격 · 장소 협의"}
+              </p>
             </div>
 
             <dl className="mt-4 grid grid-cols-2 gap-2">

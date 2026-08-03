@@ -182,13 +182,15 @@ export default async function PhotoDetail({
           {(photo.price_krw != null || !isOwner) && (
             <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
               {!isOwner && <PartnerBadge popoverAlign="left" />}
-              {photo.price_krw != null && (
-                <p className="ml-auto min-w-0 text-right">
+              <p className="ml-auto min-w-0 text-right">
+                {photo.price_krw != null ? (
                   <span className="text-title font-semibold tracking-tight">
                     ₩{fmt.format(photo.price_krw)}
                   </span>
-                </p>
-              )}
+                ) : (
+                  <span className="text-title font-semibold tracking-tight text-fg">가격 · 장소 협의</span>
+                )}
+              </p>
             </div>
           )}
 
