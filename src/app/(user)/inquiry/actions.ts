@@ -4,7 +4,7 @@ import { randomUUID } from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
-import { notifyOpsNewInquiry, notifyOpsCartInquiry } from "@/lib/ops-alert";
+import { notifyOpsNewInquiry } from "@/lib/ops-alert";
 import { readMetaAdCookies, type MetaAdCookies } from "@/lib/meta-capi";
 import { rememberInquiryIds } from "@/lib/my-inquiries";
 
@@ -377,37 +377,7 @@ async function uploadReferenceImages(formData: FormData) {
   return uploaded;
 }
 
-// ── 장바구니 일괄 상담 신청 (운영진 라우팅) ───────────────────────
-export type CartInquiryState = { ok: boolean; error?: string; leadId?: string };
-
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-// 담은 사진들 + 연락처를 운영진에게 일괄 전달. DB 문의행 없이 ops 알림만.
-export async function submitCartInquiry(
-  _prev: CartInquiryState,
-  formData: FormData
-): Promise<CartInquiryState> {
-  const contact = String(formData.get("contact") || "").trim();
-  const timing = String(formData.get("timing") || "").trim() || null;
-  const region = String(formData.get("region") || "").trim() || null;
-  const photoIds = [
-    ...new Set(
-      String(formData.get("photoIds") || "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-    ),
-  ];
-  if (!contact) return { ok: false, error: "연락받을 연락처를 입력해주세요." };
-  if (photoIds.length === 0) return { ok: false, error: "담은 사진이 없어요." };
-
-  const leadId = randomUUID();
-
-  // 운영진 디스코드 알림 (작가 라우팅용 — 연락처 + 한정자 포함)
-  await notifyOpsCartInquiry({ contact, photoIds, timing, region });
-
-  return { ok: true, leadId };
-}
 
 // ── 찜 여러 장 묶음 상담(채팅) — 작가별로 같은 내용 각각 전송, 같은 작가는 하나만 ──
 export async function submitMultiInquiry(

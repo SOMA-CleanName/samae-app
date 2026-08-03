@@ -5,7 +5,7 @@ import { startTransition, useActionState, useEffect, useRef, useState } from "re
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeftIcon, CheckIcon, ChevronDownIcon } from "@/components/user/icons";
-import { mpTrack } from "@/lib/mixpanel";
+import { mpTrack, mpTrackBeacon } from "@/lib/mixpanel";
 import * as Sentry from "@sentry/nextjs";
 import { submitInquiry, submitMultiInquiry, type InquiryState } from "./actions";
 
@@ -26,6 +26,7 @@ type Step = {
   cols?: 1 | 2; // options 레이아웃 (기본 2열)
   skip: string; // 질문별 맞춤 soft-skip (다른 선택지와 동등 버튼)
   short: string; // 요약 라벨
+  ev: string; // Mixpanel 이벤트 접두어 — 질문마다 고유 이름("... Viewed" / "... Answered")
 };
 
 const STEPS: Step[] = [
@@ -36,6 +37,7 @@ const STEPS: Step[] = [
     options: ["커플·우정 스냅", "웨딩", "개인·프로필", "단체·행사"],
     skip: "그 외 목적",
     short: "촬영 종류",
+    ev: "Inquiry Q1 Purpose",
   },
   {
     key: "preferredDate",
@@ -47,6 +49,7 @@ const STEPS: Step[] = [
     type: "date",
     skip: "날짜는 미정이에요",
     short: "희망일",
+    ev: "Inquiry Q2 Date",
   },
   {
     key: "region",
@@ -59,6 +62,7 @@ const STEPS: Step[] = [
     options: ["서울", "경기·인천", "부산·경남", "대구·경북", "대전·충청", "광주·전라", "제주"],
     skip: "협의 후 결정",
     short: "지역",
+    ev: "Inquiry Q3 Region",
   },
   {
     key: "partySize",
@@ -72,6 +76,7 @@ const STEPS: Step[] = [
     cols: 1,
     skip: "미정",
     short: "인원",
+    ev: "Inquiry Q4 Party Size",
   },
   {
     key: "note",
@@ -83,8 +88,12 @@ const STEPS: Step[] = [
     type: "note",
     skip: "작가님과 상담 시 논의할게요",
     short: "문의사항",
+    ev: "Inquiry Q5 Note",
   },
 ];
+
+// 연락처(마지막 단계) — 질문 이벤트와 같은 규칙의 고유 이름. 퍼널 마지막 스텝.
+const CONTACT_EV = "Inquiry Q6 Contact";
 
 // 키워드 강조 — 볼드 + 브랜드 컬러
 function Em({ children }: { children: React.ReactNode }) {
@@ -238,13 +247,15 @@ export function InquiryChat({
   const optionsEndRef = useRef<HTMLDivElement>(null); // 선지+건너뛰기 하단 — 생성 시 채팅창 바닥에 맞춤
   const started = useRef(false);
 
+  const mode = multi ? "cart" : "photo";
+
   // 문의 위저드 진입 — 마운트당 1회 (문의 시작 → 제출 전환율 측정)
   const startFired = useRef(false);
   useEffect(() => {
     if (startFired.current) return;
     startFired.current = true;
     mpTrack("Start Inquiry", {
-      source: multi ? "cart" : "photo",
+      source: mode,
       photographer_id: photographerId,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -274,8 +285,6 @@ export function InquiryChat({
     }, REVEAL_MS);
   }
   function revealContact() {
-    // 모든 질문 답변 완료 → 연락처 입력 단계 도달(제출 직전 퍼널 스텝).
-    mpTrack("Inquiry Reached Contact", { mode: multi ? "cart" : "photo" });
     setTyping(true);
     window.setTimeout(() => {
       setTyping(false);
@@ -348,6 +357,83 @@ export function InquiryChat({
     }
   }, [done, storageKey]);
 
+  // ── 질문별 퍼널 계측 ────────────────────────────────────────────
+  // 질문마다 고유 이벤트("Inquiry Q3 Region Viewed" / "... Answered")를 쏴서 Mixpanel 퍼널을
+  // 스텝별로 그대로 쌓을 수 있게 한다. Viewed 끼리 이어붙이면 '어느 질문에서 이탈했는가'가 바로 나옴.
+  const viewedRef = useRef<Set<StepKey | "contact">>(new Set());
+  useEffect(() => {
+    if (revealed < 0 || contactStep || done) return;
+    const step = STEPS[revealed];
+    if (!step || viewedRef.current.has(step.key)) return;
+    viewedRef.current.add(step.key);
+    mpTrack(`${step.ev} Viewed`, {
+      step: step.key,
+      step_index: revealed + 1,
+      step_name: step.short,
+      mode,
+    });
+  }, [revealed, contactStep, done, mode]);
+
+  // 연락처 단계 도달 — 저장본 복원으로 바로 진입한 경우까지 잡히게 effect 에서 발화.
+  useEffect(() => {
+    if (!contactStep || viewedRef.current.has("contact")) return;
+    viewedRef.current.add("contact");
+    mpTrack(`${CONTACT_EV} Viewed`, { step: "contact", step_index: STEPS.length + 1, step_name: "연락처", mode });
+  }, [contactStep, mode]);
+
+  // 서버 검증 실패 — 제출까지 왔는데 접수가 안 된 이탈(퍼널 마지막 구멍).
+  // 같은 문구가 반복돼도 세도록 state 객체 동일성으로 중복만 막는다(제출마다 새 객체).
+  const failedStateRef = useRef<InquiryState | null>(null);
+  useEffect(() => {
+    if (!state.error || failedStateRef.current === state) return;
+    failedStateRef.current = state;
+    mpTrack("Inquiry Submit Failed", { reason: "server", message: state.error.slice(0, 100), mode });
+  }, [state, mode]);
+
+  // 이탈 스냅샷 — 언로드/언마운트 시점에 '마지막으로 머문 질문'을 읽기 위한 최신값 보관.
+  const snapRef = useRef({ stepEv: "", stepKey: "", stepName: "", stepIndex: 0, answered: 0, done: false });
+  useEffect(() => {
+    // 첫 질문 노출 전(revealed < 0)엔 스냅샷을 비워 둔다 — 진입 직후 바운스가 이탈로 잡히지 않게.
+    const cur = contactStep || revealed < 0 ? null : STEPS[revealed];
+    snapRef.current = {
+      stepEv: contactStep ? CONTACT_EV : (cur?.ev ?? ""),
+      stepKey: contactStep ? "contact" : (cur?.key ?? ""),
+      stepName: contactStep ? "연락처" : (cur?.short ?? ""),
+      stepIndex: contactStep ? STEPS.length + 1 : revealed + 1,
+      answered: answeredCount,
+      done,
+    };
+  });
+
+  // 이탈 — 제출 없이 떠난 순간을 '마지막 질문' 과 함께 1회 기록.
+  // 언로드 중엔 XHR 이 유실되므로 sendBeacon 으로 보낸다(뒤로가기·탭닫기·앱전환 모두 커버).
+  const abandonedRef = useRef(false);
+  function trackAbandon(via: "back" | "pagehide" | "unmount") {
+    const s = snapRef.current;
+    if (abandonedRef.current || s.done || !s.stepKey) return;
+    abandonedRef.current = true;
+    mpTrackBeacon("Inquiry Abandoned", {
+      last_step: s.stepKey,
+      last_step_name: s.stepName,
+      last_step_index: s.stepIndex,
+      last_step_event: `${s.stepEv} Viewed`, // 퍼널에서 이탈 스텝을 바로 찾을 수 있게
+      answered_count: s.answered,
+      mode,
+      via,
+      photographer_id: photographerId,
+    });
+  }
+  useEffect(() => {
+    const onHide = () => trackAbandon("pagehide");
+    window.addEventListener("pagehide", onHide);
+    return () => {
+      window.removeEventListener("pagehide", onHide);
+      trackAbandon("unmount");
+    };
+    // 마운트당 1회 — 실제 값은 snapRef(최신 스냅샷)에서 읽는다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // 첫 질문은 대화의 시작이 화면 상단에서 보이게 유지한다.
   // 이후 질문부터는 새 선지의 하단을 채팅창 바닥에 맞춰 진행 흐름을 따라간다.
   useEffect(() => {
@@ -406,14 +492,16 @@ export function InquiryChat({
     // item9 — 맨 아래(현재) 질문에 답하면 진행 중이던 수정도 자동으로 닫힘
     if (editing !== null) setEditing(null);
     if (i === revealed) {
-      // 위저드 질문별 진행 이벤트(전진 답변만 — 수정은 위에서 return). 질문별 이탈 지점 파악용.
-      // 문의사항(자유서술)은 PII 우려로 값 미전송, 선택지(목적·지역 등 수요 신호)만 값 포함.
+      // 질문별 답변 이벤트(전진 답변만 — 수정은 위에서 return). Viewed 대비 Answered 로
+      // 질문 단위 이탈률이 바로 나온다. 문의사항(자유서술)은 PII 우려로 값 미전송,
+      // 선택지(목적·지역 등 수요 신호)만 값 포함.
       const sensitive = key === "note";
-      mpTrack("Inquiry Step", {
+      mpTrack(`${STEPS[i].ev} Answered`, {
         step: key,
         step_index: i + 1,
         step_name: STEPS[i].short,
-        mode: multi ? "cart" : "photo",
+        mode,
+        skipped: value === STEPS[i].skip, // soft-skip 도 '답변' — 실제 응답률과 구분
         ...(sensitive ? {} : { value }),
       });
       if (i < STEPS.length - 1) advanceTo(i + 1);
@@ -666,7 +754,7 @@ export function InquiryChat({
               작가님이 직접 연락드릴 수 있도록 <Em>연락받을 방법</Em> 하나만 남겨주세요.
             </SystemBubble>
             {!done && (
-              <ContactBlock onSubmit={submit} pending={pending} serverError={state.error} />
+              <ContactBlock onSubmit={submit} pending={pending} serverError={state.error} mode={mode} />
             )}
           </div>
         )}
@@ -686,6 +774,8 @@ export function InquiryChat({
   );
 
   function onBack() {
+    // 뒤로가기 = 명시적 이탈 — 어느 질문에서 나갔는지 남기고 이동(언마운트 중복은 가드로 방지).
+    trackAbandon("back");
     // item1 — detail→inquiry→detail 흐름에서 history 중복을 만들지 않도록 back 우선.
     if (typeof window !== "undefined" && window.history.length > 1) router.back();
     else router.push(photoId ? `/photos/${photoId}` : "/");
@@ -781,10 +871,12 @@ function ContactBlock({
   onSubmit,
   pending,
   serverError,
+  mode,
 }: {
   onSubmit: (type: ContactType, value: string) => void;
   pending: boolean;
   serverError?: string;
+  mode: string;
 }) {
   const [type, setType] = useState<ContactType | null>(null);
   const [val, setVal] = useState("");
@@ -840,6 +932,12 @@ function ContactBlock({
   function handleSubmit() {
     setAttempted(true);
     if (!type || !check.valid) {
+      // 제출 버튼까지 눌렀지만 연락처 형식 오류 — 마지막 단계의 숨은 이탈 원인
+      mpTrack("Inquiry Submit Failed", {
+        reason: "invalid_contact",
+        contact_type: type ?? "none",
+        mode,
+      });
       // 연락처 미완성 — 입력창으로 시선 유도(포커스 + 흔들림)
       inputRef.current?.focus();
       shakeEl(inputRef.current);
@@ -861,6 +959,8 @@ function ContactBlock({
               aria-pressed={on}
               aria-label={t.label}
               onClick={() => {
+                // 연락 수단 선택 — 연락처 단계 안에서의 진행 신호(도달만 하고 고르지도 않은 이탈과 구분)
+                if (type !== t.key) mpTrack(`${CONTACT_EV} Type Selected`, { contact_type: t.key, mode });
                 setType(t.key);
                 setVal("");
                 setAttempted(false);

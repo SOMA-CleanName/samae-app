@@ -60,6 +60,19 @@ export function mpTrack(event: string, props?: Record<string, unknown>): void {
   }
 }
 
+/**
+ * 페이지 이탈 직전용 전송 — sendBeacon 으로 즉시 발화(언로드 중 XHR 은 유실됨).
+ * '이탈 시점' 이벤트(예: Inquiry Abandoned)처럼 마지막 순간에 남겨야 하는 것에만 쓴다.
+ */
+export function mpTrackBeacon(event: string, props?: Record<string, unknown>): void {
+  if (!ensure()) return;
+  try {
+    mixpanel.track(event, props, { transport: "sendBeacon" });
+  } catch {
+    /* 무시 */
+  }
+}
+
 /** UTM·랜딩경로 등 세션 공통 속성 등록(이후 모든 이벤트에 자동 첨부). */
 export function mpRegister(props: Record<string, unknown>): void {
   if (!ensure()) return;
