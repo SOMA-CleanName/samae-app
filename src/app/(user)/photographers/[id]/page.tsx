@@ -200,7 +200,13 @@ function ProfileCta({
   // 주 전환 CTA — 브랜드 레드로 강조(로그인 여부 무관, /inquiry 에서 처리)
   if (!me) {
     return (
-      <Button href={inquiryHref(photographerId)} variant="brand" size="lg" fullWidth className="rounded-lg">
+      <Button
+        href={inquiryHref(photographerId)}
+        variant="brand"
+        size="lg"
+        fullWidth
+        style={{ borderRadius: "16px" }}
+      >
         예약·문의하기
       </Button>
     );
@@ -211,7 +217,7 @@ function ProfileCta({
       variant="brand"
       size="lg"
       fullWidth
-      className="rounded-lg"
+      style={{ borderRadius: "16px" }}
       data-track="cta:inquiry"
     >
       예약·문의하기
