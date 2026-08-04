@@ -20,7 +20,12 @@ export const dynamic = "force-dynamic";
 // 탐색 페이지 — 운영이 큐레이션한 카테고리(explore_categories)를 "매거진형"으로 노출.
 // 무빙 커버 캐러셀 + 트렌딩 태그 티커 + 인기순 카테고리 타일(5개→더보기).
 // 정렬: 광고(/c/<slug>) 진입 시 그 광고의 지정 순서, 아니면 실지표(조회·문의) 인기순.
-export default async function ExplorePage() {
+export default async function ExplorePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ focus?: string }>;
+}) {
+  const { focus } = await searchParams;
   const adSlug = (await cookies()).get(CATEGORY_COOKIE)?.value;
   const adCat = adSlug ? await getPublishedCategory(adSlug) : null;
   // 광고 진입이면 그 순서, 아니면 인기 점수순.
@@ -64,7 +69,12 @@ export default async function ExplorePage() {
   return (
     <section className="font-kr">
       <MpTrackOnce event="View Explore Feed" props={{ section_count: sections.length }} />
-      <ScrollMemory />
+      <ScrollMemory
+        targetId={focus === "taste" ? "sec-taste" : undefined}
+        targetViewportTop={focus === "taste" ? 96 : 0}
+        targetBlock={focus === "taste" ? "center" : "start"}
+        animateTarget={focus === "taste"}
+      />
 
       <div className="mx-auto w-full max-w-4xl px-2.5 pb-4 pt-3 sm:px-4 sm:pt-4">
         <div className="flex items-center justify-between gap-3 px-1">
@@ -90,12 +100,12 @@ export default async function ExplorePage() {
             <ExploreTabBar tabs={tabs} />
 
             {/* 취향 테스트 (진입 CTA) — 메뉴바 바로 아래 첫 섹션 */}
-            <div id="sec-taste" className="mt-6 scroll-mt-24">
+            <div id="sec-taste" data-pid="sec-taste" className="mt-6 scroll-mt-24">
               <div className="mb-3 flex items-baseline gap-2 px-1">
                 <span className="font-display text-body-sm italic text-brand">01</span>
                 <h2 className="text-title font-bold tracking-tight">내 취향 테스트</h2>
               </div>
-              <TasteTestCard />
+              <TasteTestCard highlight={focus === "taste"} />
             </div>
 
             {/* 인기순 카테고리 타일 (5개 → 더보기) */}

@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Avatar } from "@/components/ui";
 import { HomeIcon, SearchIcon, ClipboardIcon } from "@/components/user/icons";
 import { ProfileSheet, type ProfileMe } from "./ProfileSheet";
 import { useNavReveal } from "./NavReveal";
+
+const EXPLORE_HINT_DURATION_MS = 3_000;
 
 // 하단 플로팅 내비 — 기존 하단바/레일 대체.
 // 가운데: 홈/탐색 pill. (로그인 시) 좌측 하단: 계정 아바타 → ProfileSheet. 우측 하단: 장바구니(FloatingCart).
@@ -20,12 +22,48 @@ export function FloatingNav({
 }) {
   const pathname = usePathname();
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [previewExplore, setPreviewExplore] = useState(false);
+  const [exploreHintVisible, setExploreHintVisible] = useState(false);
   const { forced } = useNavReveal();
 
+  useEffect(() => {
+    let resetTimer: number | null = null;
+    let hintTimer: number | null = null;
+    const previewTasteTestNavigation = () => {
+      setPreviewExplore(true);
+      if (resetTimer !== null) window.clearTimeout(resetTimer);
+      resetTimer = window.setTimeout(() => setPreviewExplore(false), 900);
+    };
+    const showExploreHint = () => {
+      if (hintTimer !== null) window.clearTimeout(hintTimer);
+      setExploreHintVisible(true);
+      hintTimer = window.setTimeout(
+        () => setExploreHintVisible(false),
+        EXPLORE_HINT_DURATION_MS
+      );
+    };
+    window.addEventListener("samae:taste-test-navigation", previewTasteTestNavigation);
+    window.addEventListener("samae:taste-test-dismissed", showExploreHint);
+    return () => {
+      window.removeEventListener("samae:taste-test-navigation", previewTasteTestNavigation);
+      window.removeEventListener("samae:taste-test-dismissed", showExploreHint);
+      if (resetTimer !== null) window.clearTimeout(resetTimer);
+      if (hintTimer !== null) window.clearTimeout(hintTimer);
+    };
+  }, []);
+
   // 홈 = 메인 피드(카테고리 컨텍스트는 쿠키로 복원), 탐색 = /explore
-  const homeActive = pathname === "/" || pathname.startsWith("/c/");
-  const exploreActive = pathname.startsWith("/explore");
+  const homeActive = !previewExplore && (pathname === "/" || pathname.startsWith("/c/"));
+  const exploreActive = previewExplore || pathname.startsWith("/explore");
   const inquiriesActive = pathname.startsWith("/my-inquiries");
+  const activeNavIndex = inquiriesActive && hasInquiries
+    ? 0
+    : homeActive
+      ? hasInquiries ? 1 : 0
+      : exploreActive
+        ? hasInquiries ? 2 : 1
+        : -1;
+  const indicatorIndex = Math.max(activeNavIndex, 0);
 
   // 문의·채팅 같은 풀스크린 몰입 플로우에선 내비를 아예 렌더하지 않음 — 전환·애니메이션 중
   // 그 위(z-50)로 잠깐 새어 보이던 문제 방지.
@@ -55,13 +93,48 @@ export function FloatingNav({
 
   return (
     <>
+      {exploreHintVisible ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="samae-explore-hint pointer-events-none fixed bottom-20 right-2.5 z-[41] w-max rounded-lg border border-line-strong bg-surface/95 px-3.5 py-2.5 text-right shadow-pop backdrop-blur-xl"
+          style={{ maxWidth: "min(18rem, calc(100vw - 1.25rem))" }}
+        >
+          <p className="text-caption font-semibold leading-relaxed text-fg">
+            탐색 탭에{" "}
+            <strong className="font-bold text-brand">무료 취향 테스트가 준비</strong>
+            되어 있어요.
+            <br />
+            <span className="font-normal text-muted">천천히 둘러보세요.</span>
+          </p>
+          <span
+            aria-hidden
+            className="absolute -bottom-1.5 h-3 w-3 rotate-45 border-b border-r border-line-strong bg-surface"
+            style={{
+              right: hasInquiries
+                ? "clamp(1.5rem, calc(50vw - 6.75rem), calc(100% - 1.5rem))"
+                : "clamp(1.5rem, calc(50vw - 3.875rem), calc(100% - 1.5rem))",
+            }}
+          />
+        </div>
+      ) : null}
+
       {/* 가운데 홈/탐색 pill — 바깥 nav 의 레이아웃 박스도 숨김 시 터치 통과시킴 */}
       <nav
         className="fixed bottom-5 left-1/2 z-40 -translate-x-1/2"
         style={{ pointerEvents: visible ? "auto" : "none" }}
       >
         <div style={revealStyle}>
-          <div className="flex items-center gap-1 rounded-full bg-bg/95 p-1 shadow-lg ring-1 ring-line backdrop-blur">
+          <div className="relative flex items-center gap-1 rounded-full bg-bg/95 p-1 shadow-lg ring-1 ring-line backdrop-blur">
+            <span
+              aria-hidden
+              className="absolute bottom-1 left-1 top-1 w-[5.5rem] rounded-full bg-brand shadow-sm transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+              style={{
+                opacity: activeNavIndex >= 0 ? 1 : 0,
+                transform: `translate3d(calc(${indicatorIndex * 100}% + ${indicatorIndex * 0.25}rem), 0, 0)`,
+                willChange: "transform, opacity",
+              }}
+            />
             {/* '문의' — 문의 내역이 있을 때만(쿠키·비로그인 포함). 맨 앞에 노출 */}
             {hasInquiries && (
               <NavPill
@@ -99,6 +172,7 @@ export function FloatingNav({
               href="/explore"
               label="탐색"
               active={exploreActive}
+              attention={exploreHintVisible}
               icon={<SearchIcon className="h-5 w-5" />}
               onClick={(e) => {
                 // 저장된 스크롤 위치를 지워 다른 경로에서 오면 탐색 최상단으로.
@@ -134,6 +208,53 @@ export function FloatingNav({
       )}
 
       {me && <ProfileSheet me={me} open={sheetOpen} onClose={() => setSheetOpen(false)} />}
+
+      <style jsx global>{`
+        @keyframes samae-explore-hint-rise {
+          0% {
+            opacity: 0;
+            transform: translate3d(0, 12px, 0) scale(0.96);
+          }
+          16%, 78% {
+            opacity: 1;
+            transform: translate3d(0, 0, 0) scale(1);
+          }
+          100% {
+            opacity: 0;
+            transform: translate3d(0, -5px, 0) scale(0.98);
+          }
+        }
+
+        @keyframes samae-explore-tab-glow {
+          0%, 42%, 100% {
+            background-color: transparent;
+            box-shadow: 0 0 0 0 rgba(255, 61, 46, 0);
+          }
+          20%, 68% {
+            background-color: rgba(255, 61, 46, 0.12);
+            box-shadow:
+              0 0 0 3px rgba(255, 61, 46, 0.26),
+              0 0 18px 5px rgba(255, 61, 46, 0.42);
+          }
+        }
+
+        .samae-explore-hint {
+          animation: samae-explore-hint-rise 3000ms cubic-bezier(0.22, 1, 0.36, 1) both;
+          will-change: transform, opacity;
+        }
+
+        .samae-explore-tab-attention {
+          animation: samae-explore-tab-glow 3000ms ease-in-out both;
+          will-change: box-shadow, background-color;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .samae-explore-hint,
+          .samae-explore-tab-attention {
+            animation: none;
+          }
+        }
+      `}</style>
     </>
   );
 }
@@ -142,12 +263,14 @@ function NavPill({
   href,
   label,
   active,
+  attention = false,
   icon,
   onClick,
 }: {
   href: string;
   label: string;
   active: boolean;
+  attention?: boolean;
   icon: React.ReactNode;
   onClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
 }) {
@@ -159,8 +282,9 @@ function NavPill({
       aria-current={active ? "page" : undefined}
       className={[
         // 탭 균등 너비 — 라벨 길이 달라도 같은 크기
-        "flex min-w-[5.5rem] items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors",
-        active ? "bg-brand text-white" : "text-fg/65 hover:bg-brand/[0.08] hover:text-brand",
+        "relative z-10 flex w-[5.5rem] items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors duration-300",
+        active ? "text-white" : "text-fg/65 hover:text-brand",
+        attention ? "samae-explore-tab-attention text-brand" : "",
       ].join(" ")}
     >
       {icon}

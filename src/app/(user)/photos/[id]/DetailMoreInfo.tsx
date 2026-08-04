@@ -32,6 +32,7 @@ export function DetailMoreInfo({
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
+        aria-controls="photo-detail-more-info"
         className="flex w-full cursor-pointer items-center justify-between gap-4 px-4 py-4 text-left transition-colors hover:bg-surface-2"
       >
         <span>
@@ -40,13 +41,25 @@ export function DetailMoreInfo({
         </span>
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-fg/[0.06] text-muted">
           <ChevronRightIcon
-            className={`h-4 w-4 transition-transform ${open ? "rotate-90" : ""}`}
+            className={`h-4 w-4 transition-transform duration-300 ${open ? "rotate-90" : ""}`}
           />
         </span>
       </button>
 
-      {open && (
-        <div className="border-t border-line px-3 pb-4 pt-3">
+      <div
+        id="photo-detail-more-info"
+        aria-hidden={!open}
+        inert={!open}
+        className={`grid overflow-hidden transition-[grid-template-rows,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
+          open ? "grid-rows-[1fr] opacity-100" : "pointer-events-none grid-rows-[0fr] opacity-0"
+        }`}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div
+            className={`border-t border-line px-3 pb-4 pt-3 transition-transform duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${
+              open ? "translate-y-0" : "-translate-y-3"
+            }`}
+          >
           {/* 작가 홈 — 패키지보다 먼저 신뢰할 대상을 확인 */}
           <Link
             href={`/photographers/${photographerId}`}
@@ -61,7 +74,7 @@ export function DetailMoreInfo({
           </Link>
 
           {/* 패키지 — 가격을 중심으로 조건을 한눈에 비교할 수 있는 카드 */}
-          <div className="mt-3 rounded-2xl bg-fg/[0.04] p-4">
+          <div className="mt-3 rounded-2xl border border-brand/35 bg-fg/[0.04] p-4">
             <div className="flex items-end justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-[11px] font-medium text-brand">패키지 정보</p>
@@ -116,8 +129,9 @@ export function DetailMoreInfo({
               <p className="mt-2 whitespace-pre-wrap text-body leading-relaxed text-fg/80">{caption}</p>
             </div>
           )}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

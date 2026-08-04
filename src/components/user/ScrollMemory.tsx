@@ -7,16 +7,32 @@
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 
-export function ScrollMemory({ freshTop = false }: { freshTop?: boolean } = {}) {
+export function ScrollMemory({
+  freshTop = false,
+  targetId,
+  targetViewportTop = 0,
+  targetBlock = "start",
+  animateTarget = false,
+}: {
+  freshTop?: boolean;
+  targetId?: string;
+  targetViewportTop?: number;
+  targetBlock?: "start" | "center";
+  animateTarget?: boolean;
+} = {}) {
   const pathname = usePathname();
   const lastKnownY = useRef(0);
   useEffect(() => {
     const key = `samae:scroll:${pathname}`;
     const anchorKey = `samae:scroll-anchor:${pathname}`;
-    let anchor: { id: string; viewportTop: number } | null = null;
+    let anchor: { id: string; viewportTop: number } | null = targetId
+      ? { id: targetId, viewportTop: targetViewportTop }
+      : null;
     try {
-      const raw = sessionStorage.getItem(anchorKey);
-      anchor = raw ? (JSON.parse(raw) as { id: string; viewportTop: number }) : null;
+      if (!anchor) {
+        const raw = sessionStorage.getItem(anchorKey);
+        anchor = raw ? (JSON.parse(raw) as { id: string; viewportTop: number }) : null;
+      }
       sessionStorage.removeItem(anchorKey); // 상세에서 돌아오는 이번 복원에만 사용
     } catch {
       sessionStorage.removeItem(anchorKey);
@@ -30,26 +46,81 @@ export function ScrollMemory({ freshTop = false }: { freshTop?: boolean } = {}) 
     // 항상 복원(saved=0 → 최상단): NavPill 의 scroll={false} 로 이전 탭의 스크롤이 남아
     // 첫 방문 시 '약간 내려간 위치'로 보이던 문제 방지.
     let restoring = true;
-    const stop = () => (restoring = false);
-    if (restoring) {
+    let animationFrame: number | null = null;
+    let revealTimer: number | null = null;
+    const anchorNode = () =>
+      anchor
+        ? document.querySelector<HTMLElement>(`[data-pid="${CSS.escape(anchor.id)}"]`)
+        : null;
+    const anchorTarget = () => {
+      const rect = anchorNode()?.getBoundingClientRect();
+      if (!rect) return null;
+      return targetBlock === "center"
+        ? window.scrollY + rect.top - (window.innerHeight - rect.height) / 2
+        : window.scrollY + rect.top - anchor!.viewportTop;
+    };
+    const finishAnimatedTarget = () => {
+      restoring = false;
+      lastKnownY.current = Math.round(window.scrollY);
+      sessionStorage.setItem(key, String(lastKnownY.current));
+      window.dispatchEvent(new Event("samae:taste-test-arrived"));
+    };
+    const stop = () => {
+      restoring = false;
+      if (animationFrame !== null) cancelAnimationFrame(animationFrame);
+      if (revealTimer !== null) window.clearTimeout(revealTimer);
+      lastKnownY.current = Math.round(window.scrollY);
+    };
+
+    if (anchor && animateTarget) {
+      // 먼저 탐색 화면 최상단을 보여준 뒤 목적지까지 직접 보간해 내려간다.
+      window.scrollTo(0, 0);
+      lastKnownY.current = 0;
+      revealTimer = window.setTimeout(() => {
+        const destination = anchorTarget();
+        if (destination === null) {
+          finishAnimatedTarget();
+          return;
+        }
+
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+          window.scrollTo(0, destination);
+          finishAnimatedTarget();
+          return;
+        }
+
+        const from = window.scrollY;
+        const startedAt = performance.now();
+        const duration = 1_100;
+        const animate = (now: number) => {
+          if (!restoring) return;
+          const progress = Math.min((now - startedAt) / duration, 1);
+          const eased =
+            progress < 0.5
+              ? 4 * progress * progress * progress
+              : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+          const currentDestination = anchorTarget() ?? destination;
+          window.scrollTo(0, from + (currentDestination - from) * eased);
+          if (progress < 1) animationFrame = requestAnimationFrame(animate);
+          else finishAnimatedTarget();
+        };
+        animationFrame = requestAnimationFrame(animate);
+      }, 550);
+    } else if (restoring) {
       const start = performance.now();
       const tick = () => {
         if (!restoring) return;
-        const anchorNode = anchor
-          ? document.querySelector<HTMLElement>(`[data-pid="${CSS.escape(anchor.id)}"]`)
-          : null;
-        const target = anchorNode
-          ? window.scrollY + anchorNode.getBoundingClientRect().top - anchor!.viewportTop
-          : saved;
+        const target = anchorTarget() ?? saved;
         window.scrollTo(0, target);
         if (performance.now() - start < 2000) requestAnimationFrame(tick);
         else restoring = false;
       };
-      window.addEventListener("wheel", stop, { passive: true });
-      window.addEventListener("touchmove", stop, { passive: true });
-      window.addEventListener("keydown", stop);
       requestAnimationFrame(tick);
     }
+
+    window.addEventListener("wheel", stop, { passive: true });
+    window.addEventListener("touchmove", stop, { passive: true });
+    window.addEventListener("keydown", stop);
 
     // 저장 — 복원 중(클램프될 수 있음)엔 덮어쓰지 않는다.
     const onScroll = () => {
@@ -62,13 +133,13 @@ export function ScrollMemory({ freshTop = false }: { freshTop?: boolean } = {}) 
     return () => {
       // Next가 화면 전환 중 먼저 scrollY를 0으로 만든 뒤 cleanup을 실행할 수 있다.
       // 마지막으로 관찰한 실제 목록 위치를 저장해 0으로 덮어쓰지 않는다.
+      stop();
       sessionStorage.setItem(key, String(lastKnownY.current));
-      restoring = false;
       window.removeEventListener("wheel", stop);
       window.removeEventListener("touchmove", stop);
       window.removeEventListener("keydown", stop);
       window.removeEventListener("scroll", onScroll);
     };
-  }, [pathname, freshTop]);
+  }, [pathname, freshTop, targetId, targetViewportTop, targetBlock, animateTarget]);
   return null;
 }
