@@ -11,6 +11,11 @@ import { loadMorePhotos } from "./feed-actions";
 import { logSearch } from "@/lib/search-log";
 import { getCurrentUser } from "@/lib/auth";
 import { TASTE_V2_COOKIE, parseTasteV2 } from "@/lib/category-constants";
+import {
+  TASTE_TEST_NUDGE_COOKIE,
+  TASTE_TEST_NUDGE_PERSISTENCE_ENABLED,
+  TASTE_TEST_NUDGE_PREVIEW_ENABLED,
+} from "@/lib/taste-test-nudge";
 import { ExploreGallery } from "@/components/user/ExploreGallery";
 import { ScrollMemory } from "@/components/user/ScrollMemory";
 import { FeedHero } from "@/components/user/FeedHero";
@@ -58,8 +63,12 @@ export default async function ExploreHome({
 
   // 취향 v2(samae_taste2) — 있으면 전체 피드를 전역 티어링으로 노출:
   // 목적∩무드(가장 먼저) → 목적만 → 무드만 → 일반 시드 피드. (fetchHomeFeedPage 공용)
-  const { purposeIds, moodIds } = parseTasteV2((await cookies()).get(TASTE_V2_COOKIE)?.value);
+  const cookieStore = await cookies();
+  const { purposeIds, moodIds } = parseTasteV2(cookieStore.get(TASTE_V2_COOKIE)?.value);
   const tasteCatIds = [...purposeIds, ...moodIds];
+  const tasteNudgeHidden =
+    TASTE_TEST_NUDGE_PERSISTENCE_ENABLED &&
+    cookieStore.get(TASTE_TEST_NUDGE_COOKIE)?.value === "1";
 
   let photos: GalleryPhoto[];
   if (isAllFeed && feedSeed) {
@@ -96,7 +105,9 @@ export default async function ExploreHome({
       {isAllFeed && tasteCatIds.length > 0 && <TasteBanner />}
 
       {/* 취향 미설정 사용자 — 홈 피드를 5초간 둘러본 뒤 하단 내비 위에서 테스트 안내 */}
-      {isAllFeed && tasteCatIds.length === 0 && <TasteTestNudge />}
+      {isAllFeed &&
+        (TASTE_TEST_NUDGE_PREVIEW_ENABLED ||
+          (tasteCatIds.length === 0 && !tasteNudgeHidden)) && <TasteTestNudge />}
 
       <ExploreGallery
         photos={photos}

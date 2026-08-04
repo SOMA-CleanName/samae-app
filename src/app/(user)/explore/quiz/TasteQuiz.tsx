@@ -7,6 +7,7 @@ import { mpTrack } from "@/lib/mixpanel";
 import { PURPOSE_OPTIONS } from "@/lib/taste-purposes";
 import type { QuizDeckPhoto, MoodCard, TasteCat } from "@/lib/explore-db";
 import { loadMoodDeck, finishTaste, applyTasteV2 } from "./actions";
+import { rememberTasteTestNudgeHidden } from "@/lib/taste-test-nudge";
 
 const THRESHOLD = 90; // 스와이프 확정 거리(px)
 const RESULT_KEY = "samae:taste-result"; // 결과 저장 키(사진 상세→뒤로 시 결과 복원용)
@@ -79,6 +80,7 @@ export function TasteQuiz() {
       } catch {
         /* 무시 */
       }
+      rememberTasteTestNudgeHidden();
       mpTrack("Complete Taste Quiz", {
         purpose: purposeKey,
         moods: res.moods.map((m) => m.title),

@@ -2,51 +2,101 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  dismissTasteTestNudgeForSession,
+  hasHiddenTasteTestNudge,
+  rememberTasteTestNudgeHidden,
+} from "@/lib/taste-test-nudge";
 
-const SHOW_DELAY_MS = 5_000;
-const MIN_SCROLL_Y = 120;
-const DISMISSED_KEY = "samae:taste-test-nudge-dismissed";
+const FAST_REVEAL_DELAY_MS = 3_000;
+const MAX_REVEAL_DELAY_MS = 4_000;
+const MIN_SCROLL_DISTANCE = 200;
+const SCROLL_KEYS = new Set(["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " "]);
 
 // 홈 피드를 둘러보기 시작한 사용자에게만 노출하는 취향 테스트 안내.
-// 하단 플로팅 내비를 가리지 않도록 그 위에 떠 있고, 닫으면 현재 탭 세션에서는 다시 띄우지 않는다.
+// 하단 플로팅 내비를 가리지 않도록 그 위에 떠 있고, 닫거나 이동하거나 테스트를 완료하면 다시 띄우지 않는다.
 export function TasteTestNudge() {
   const router = useRouter();
   const [visible, setVisible] = useState(false);
   const [navigating, setNavigating] = useState(false);
 
   useEffect(() => {
-    try {
-      if (sessionStorage.getItem(DISMISSED_KEY) === "1") return;
-    } catch {
-      /* 스토리지 접근 불가 시 현재 페이지에서만 동작 */
-    }
+    if (hasHiddenTasteTestNudge()) return;
 
-    let showTimer: number | null = null;
-    const onScroll = () => {
-      if (showTimer !== null || window.scrollY < MIN_SCROLL_Y) return;
-      showTimer = window.setTimeout(() => setVisible(true), SHOW_DELAY_MS);
+    let scrollStartedAt: number | null = null;
+    let scrollStartY = window.scrollY;
+    let maxScrollDistance = 0;
+    let fastRevealTimer: number | null = null;
+    let maxRevealTimer: number | null = null;
+    let revealed = false;
+
+    const clearTimers = () => {
+      if (fastRevealTimer !== null) window.clearTimeout(fastRevealTimer);
+      if (maxRevealTimer !== null) window.clearTimeout(maxRevealTimer);
     };
 
+    const reveal = () => {
+      if (revealed) return;
+      revealed = true;
+      clearTimers();
+      setVisible(true);
+    };
+
+    const checkFastReveal = () => {
+      if (
+        scrollStartedAt !== null &&
+        performance.now() - scrollStartedAt >= FAST_REVEAL_DELAY_MS &&
+        maxScrollDistance >= MIN_SCROLL_DISTANCE
+      ) {
+        reveal();
+      }
+    };
+
+    const startScrollTiming = () => {
+      if (scrollStartedAt !== null) return;
+      scrollStartedAt = performance.now();
+      scrollStartY = window.scrollY;
+      fastRevealTimer = window.setTimeout(checkFastReveal, FAST_REVEAL_DELAY_MS);
+      maxRevealTimer = window.setTimeout(reveal, MAX_REVEAL_DELAY_MS);
+    };
+
+    const onScroll = () => {
+      if (scrollStartedAt === null || revealed) return;
+      maxScrollDistance = Math.max(maxScrollDistance, Math.abs(window.scrollY - scrollStartY));
+      checkFastReveal();
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (SCROLL_KEYS.has(event.key)) startScrollTiming();
+    };
+
+    window.addEventListener("wheel", startScrollTiming, { passive: true });
+    window.addEventListener("touchmove", startScrollTiming, { passive: true });
+    window.addEventListener("keydown", onKeyDown);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => {
+      window.removeEventListener("wheel", startScrollTiming);
+      window.removeEventListener("touchmove", startScrollTiming);
+      window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("scroll", onScroll);
-      if (showTimer !== null) window.clearTimeout(showTimer);
+      clearTimers();
     };
   }, []);
 
   function dismiss() {
     setVisible(false);
-    try {
-      sessionStorage.setItem(DISMISSED_KEY, "1");
-    } catch {
-      /* 스토리지 접근 불가 시 현재 마운트 동안만 닫힘 */
-    }
+    dismissTasteTestNudgeForSession();
+    rememberTasteTestNudgeHidden();
+    window.setTimeout(
+      () => window.dispatchEvent(new Event("samae:taste-test-dismissed")),
+      400
+    );
   }
 
   function goToTasteTest() {
     if (navigating) return;
     setNavigating(true);
     setVisible(false);
+    rememberTasteTestNudgeHidden();
     window.dispatchEvent(new Event("samae:taste-test-navigation"));
     window.setTimeout(() => router.push("/explore?focus=taste"), 520);
   }
