@@ -310,6 +310,101 @@ export async function setExploreCoverForTarget(
   return error ? { error: error.message } : {};
 }
 
+// ── 탐색탭 렌더 데이터 ──────────────────────────────────────────────
+
+type PhotoLite = { id: string; src_url: string; thumb_url: string | null };
+
+async function fetchPhotoLites(ids: string[]): Promise<Map<string, PhotoLite>> {
+  const out = new Map<string, PhotoLite>();
+  if (ids.length === 0) return out;
+  const admin = createAdminClient();
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data } = await admin
+      .from("photos")
+      .select("id, src_url, thumb_url")
+      .in("id", ids.slice(i, i + 100))
+      .eq("visibility", "published");
+    for (const p of (data ?? []) as PhotoLite[]) out.set(p.id, p);
+  }
+  return out;
+}
+
+export type CurationSlide = {
+  slug: string; // 타겟 slug — /c/<slug> 로 연결
+  title: string;
+  subtitle: string;
+  shots: Array<{ id: string; url: string }>;
+};
+
+/**
+ * '오늘의 큐레이션' 슬라이드 — 타겟당 운영자가 지정한 3장.
+ * 지정이 모자라면 그 타겟에 담긴 사진(상속 포함)으로 채운다.
+ */
+export async function loadCurationSlides(
+  targets: Array<{ id: string; slug: string; name: string; description: string; curationPhotoIds: string[] }>
+): Promise<CurationSlide[]> {
+  if (targets.length === 0) return [];
+
+  // 1차 — 지정된 사진을 한 번에 조회
+  const picked = new Map<string, string[]>();
+  for (const t of targets) picked.set(t.id, t.curationPhotoIds.slice(0, CURATION_SLOTS));
+  const lites = await fetchPhotoLites([...picked.values()].flat());
+
+  // 2차 — 3장이 안 되는 타겟만 담긴 사진으로 보충
+  const slides: CurationSlide[] = [];
+  for (const t of targets) {
+    let ids = (picked.get(t.id) ?? []).filter((id) => lites.has(id));
+    if (ids.length < CURATION_SLOTS) {
+      const all = await resolveTargetPhotoIds(t.id);
+      const extraIds = all.filter((id) => !ids.includes(id)).slice(0, CURATION_SLOTS - ids.length);
+      const extra = await fetchPhotoLites(extraIds);
+      for (const [id, p] of extra) lites.set(id, p);
+      ids = [...ids, ...extraIds.filter((id) => extra.has(id))];
+    }
+    if (ids.length === 0) continue; // 보여줄 게 없으면 슬라이드에서 제외
+    slides.push({
+      slug: t.slug,
+      title: t.name,
+      subtitle: t.description,
+      shots: ids.map((id) => ({ id, url: lites.get(id)!.src_url })),
+    });
+  }
+  return slides;
+}
+
+export type MoodGridItem = { slug: string; title: string; subtitle: string; url: string };
+
+/**
+ * '추천 무드' 타일 — 타겟에 연결된 탐색 카테고리 + 타겟별 대표 사진.
+ * 대표사진 우선순위: 타겟별 지정 → 미리보기 지정 1번 → 담긴 첫 장(상속 포함).
+ * 담긴 사진이 아예 없는 무드는 타일에서 뺀다(빈 타일 방지).
+ */
+export async function loadMoodItemsForTarget(targetCategoryId: string): Promise<MoodGridItem[]> {
+  const cats = await listExploreCategoriesForTarget(targetCategoryId);
+  if (cats.length === 0) return [];
+
+  const coverIds = new Map<string, string>();
+  for (const c of cats) {
+    const id = coverPhotoIdForTarget(c, targetCategoryId);
+    if (id) coverIds.set(c.id, id);
+  }
+  // 지정이 없는 무드만 담긴 사진에서 첫 장을 가져온다.
+  for (const c of cats) {
+    if (coverIds.has(c.id)) continue;
+    const ids = await resolveExplorePhotoIds(c.id);
+    if (ids[0]) coverIds.set(c.id, ids[0]);
+  }
+
+  const lites = await fetchPhotoLites([...coverIds.values()]);
+  const items: MoodGridItem[] = [];
+  for (const c of cats) {
+    const photo = lites.get(coverIds.get(c.id) ?? "");
+    if (!photo) continue;
+    items.push({ slug: c.slug, title: c.title, subtitle: c.subtitle, url: photo.src_url });
+  }
+  return items;
+}
+
 /** 운영자 — 타겟의 '오늘의 큐레이션' 사진(최대 3장) 지정. */
 export const CURATION_SLOTS = 3;
 

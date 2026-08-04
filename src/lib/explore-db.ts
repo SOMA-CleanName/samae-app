@@ -3,6 +3,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { resolveCoverForPurpose } from "@/lib/taste-purposes";
+import { resolveExplorePhotoIds } from "@/lib/target-categories";
 import type { GalleryPhoto } from "@/lib/discovery";
 
 const GALLERY_SELECT =
@@ -67,14 +68,10 @@ export async function listExploreCategoriesWithCounts(): Promise<
 }
 
 // 카테고리에 담긴 사진 id (position 순).
+// 멤버십 = (작가가 포트폴리오 단위로 고른 상속분) ∪ (운영자 수동 추가) − (운영자 수동 제외).
+// 해석 로직은 target-categories 한 곳에만 둔다(어드민·탐색·상세가 같은 답을 보게).
 export async function getExploreCategoryPhotoIds(categoryId: string): Promise<string[]> {
-  const admin = createAdminClient();
-  const { data } = await admin
-    .from("explore_category_photos")
-    .select("photo_id")
-    .eq("category_id", categoryId)
-    .order("position", { ascending: true });
-  return (data ?? []).map((r) => r.photo_id as string);
+  return resolveExplorePhotoIds(categoryId);
 }
 
 // ── 프론트(사용자) 읽기 — RLS(published·승인작가) 를 태워 안전하게 노출 ──
@@ -143,28 +140,78 @@ export async function listPublishedExploreSections(
 
   // 멤버십(순서) — 관리 데이터라 admin 으로 한 번에. 사진 가시성은 아래 RLS 조회가 판단.
   const admin = createAdminClient();
-  const { data: memData } = await admin
-    .from("explore_category_photos")
-    .select("category_id, photo_id, position")
-    .in(
-      "category_id",
-      cats.map((c) => c.id)
-    )
-    .order("position", { ascending: true });
-  const mem = (memData ?? []) as Array<{
+  const [{ data: memData }, { data: albumLinks }] = await Promise.all([
+    admin
+      .from("explore_category_photos")
+      .select("category_id, photo_id, position, excluded")
+      .in(
+        "category_id",
+        cats.map((c) => c.id)
+      )
+      .order("position", { ascending: true }),
+    // 작가가 포트폴리오 단위로 고른 상속분 — 카테고리별 앨범
+    admin
+      .from("album_explore_categories")
+      .select("album_id, explore_category_id")
+      .in(
+        "explore_category_id",
+        cats.map((c) => c.id)
+      ),
+  ]);
+  const all = (memData ?? []) as Array<{
     category_id: string;
     photo_id: string;
     position: number;
+    excluded: boolean;
   }>;
+  const mem = all.filter((m) => !m.excluded); // 수동 추가만 (제외는 아래서 뺀다)
+  const excludedByCat = new Map<string, Set<string>>();
+  for (const m of all) {
+    if (!m.excluded) continue;
+    const s = excludedByCat.get(m.category_id) ?? new Set<string>();
+    s.add(m.photo_id);
+    excludedByCat.set(m.category_id, s);
+  }
+
+  // 상속분 — 앨범 → 공개 사진(최신순)을 한 번에 읽어 카테고리별로 나눈다.
+  const albumsByCat = new Map<string, string[]>();
+  for (const l of albumLinks ?? []) {
+    const cid = l.explore_category_id as string;
+    albumsByCat.set(cid, [...(albumsByCat.get(cid) ?? []), l.album_id as string]);
+  }
+  const allAlbumIds = [...new Set([...albumsByCat.values()].flat())];
+  const photosByAlbum = new Map<string, string[]>();
+  for (let i = 0; i < allAlbumIds.length; i += 100) {
+    const { data } = await admin
+      .from("photos")
+      .select("id, album_id")
+      .in("album_id", allAlbumIds.slice(i, i + 100))
+      .eq("visibility", "published")
+      .order("created_at", { ascending: false });
+    for (const p of data ?? []) {
+      const aid = p.album_id as string;
+      photosByAlbum.set(aid, [...(photosByAlbum.get(aid) ?? []), p.id as string]);
+    }
+  }
+  const inheritedByCat = new Map<string, string[]>();
+  for (const c of cats) {
+    const ids = (albumsByCat.get(c.id) ?? []).flatMap((aid) => photosByAlbum.get(aid) ?? []);
+    inheritedByCat.set(c.id, ids);
+  }
 
   // 카테고리당 필요한 사진 id 만 추린다 — 전량 조회(.in 수천 개)는 URL 초과로 fetch 실패한다.
-  // 필요분 = 미리보기 지정(앞 perCat) + position 순 앞 perCat(폴백용). 합쳐도 카테고리당 최대 2·perCat.
+  // 필요분 = 미리보기 지정(앞 perCat) + (수동추가 → 상속) 앞 perCat. 합쳐도 카테고리당 최대 2·perCat.
   const posByCat = new Map<string, string[]>();
   for (const c of cats) {
-    posByCat.set(
-      c.id,
-      mem.filter((m) => m.category_id === c.id).map((m) => m.photo_id).slice(0, perCat)
+    const excluded = excludedByCat.get(c.id) ?? new Set<string>();
+    const manual = mem
+      .filter((m) => m.category_id === c.id && !excluded.has(m.photo_id))
+      .map((m) => m.photo_id);
+    const seen = new Set(manual);
+    const inherited = (inheritedByCat.get(c.id) ?? []).filter(
+      (id) => !excluded.has(id) && !seen.has(id)
     );
+    posByCat.set(c.id, [...manual, ...inherited].slice(0, perCat));
   }
   const neededIds = [
     ...new Set(

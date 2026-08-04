@@ -4,7 +4,8 @@ import {
   rankExploreCategoriesByPopularity,
   listPopularPosts,
 } from "@/lib/explore-db";
-import { getPublishedCategory } from "@/lib/categories";
+import { getPublishedCategory, listPublishedCategories } from "@/lib/categories";
+import { loadCurationSlides, loadMoodItemsForTarget } from "@/lib/target-categories";
 import { CATEGORY_COOKIE } from "@/lib/category-constants";
 import { ScrollMemory } from "@/components/user/ScrollMemory";
 import { MpTrackOnce } from "@/components/MpTrackOnce";
@@ -17,9 +18,11 @@ import { ExploreTabBar, type ExploreTab } from "./ExploreTabBar";
 
 export const dynamic = "force-dynamic";
 
-// 탐색 페이지 — 운영이 큐레이션한 카테고리(explore_categories)를 "매거진형"으로 노출.
-// 무빙 커버 캐러셀 + 트렌딩 태그 티커 + 인기순 카테고리 타일(5개→더보기).
-// 정렬: 광고(/c/<slug>) 진입 시 그 광고의 지정 순서, 아니면 실지표(조회·문의) 인기순.
+// 탐색 페이지 — 타겟 카테고리(촬영 종류) 기준으로 오늘의 큐레이션 + 추천 무드를 노출.
+//  · 오늘의 큐레이션 = 타겟당 운영자가 지정한 3장 (내 타겟만, 컨텍스트 없으면 전체 순환)
+//  · 추천 무드      = 그 타겟에 연결된 탐색 카테고리 + 타겟별 대표 사진
+// 내 타겟은 광고 진입(/c/<slug>) 시 심기는 samae_cat 쿠키로 판별한다.
+// ?focus=taste 로 들어오면 취향 테스트 섹션을 강조·스크롤한다.
 export default async function ExplorePage({
   searchParams,
 }: {
@@ -28,13 +31,25 @@ export default async function ExplorePage({
   const { focus } = await searchParams;
   const adSlug = (await cookies()).get(CATEGORY_COOKIE)?.value;
   const adCat = adSlug ? await getPublishedCategory(adSlug) : null;
-  // 광고 진입이면 그 순서, 아니면 인기 점수순.
-  const orderedIds = adCat?.exploreSectionIds ?? (await rankExploreCategoriesByPopularity());
 
-  // 담긴 사진 3장 미만 카테고리는 빈약하므로 숨김(무빙 커버도 3컷 필요).
-  const sections = (await listPublishedExploreSections(10, orderedIds)).filter(
-    (s) => s.photos.length >= 3
-  );
+  // 오늘의 큐레이션 — 내 타겟 1개. 컨텍스트가 없으면(직접·검색 유입) 전체 타겟을 순환.
+  const curationTargets = adCat ? [adCat] : await listPublishedCategories();
+  const coverCats: CoverCat[] = await loadCurationSlides(curationTargets);
+
+  // 추천 무드 — 내 타겟에 연결된 무드. 타겟이 없으면 전체 공개 무드를 인기순으로.
+  const gridItems: GridItem[] = adCat
+    ? await loadMoodItemsForTarget(adCat.id)
+    : (
+        await listPublishedExploreSections(10, await rankExploreCategoriesByPopularity())
+      )
+        .filter((s) => s.photos.length >= 1)
+        .map((s) => ({
+          slug: s.category.slug,
+          title: s.category.title,
+          subtitle: s.category.subtitle,
+          // 미리보기 지정 1번 → 담긴 첫 장 (요청마다 바뀌지 않게 고정)
+          url: s.photos[0].src_url,
+        }));
 
   // 사매 인기 스냅 (최근 1일 조회·문의·찜 신호로 랭킹) — 광고 유입이면 그 광고 카테고리 범위로,
   // 아니면 전역. 광고 범위에 인기 스냅이 없으면 전역으로 폴백(섹션이 비지 않게).
@@ -42,22 +57,6 @@ export default async function ExplorePage({
   if (adCat?.exploreSectionIds?.length && popular.length === 0) {
     popular = await listPopularPosts(24, 1);
   }
-
-  // 커버 캐러셀 — 취향 필터가 없으면 존재하는 모든 카테고리(≥3장)를 각 3장씩(고화질 src_url) 순환.
-  const coverCats: CoverCat[] = sections.map((s) => ({
-    slug: s.category.slug,
-    title: s.category.title,
-    subtitle: s.category.subtitle,
-    shots: s.photos.slice(0, 3).map((p) => ({ id: p.id, url: p.src_url })),
-  }));
-
-  // 카테고리 그리드 아이템 — 썸네일은 해당 카테고리 사진 중 랜덤(force-dynamic 이라 요청마다 변주).
-  const gridItems: GridItem[] = sections.map((s) => ({
-    slug: s.category.slug,
-    title: s.category.title,
-    subtitle: s.category.subtitle,
-    url: s.photos[Math.floor(Math.random() * s.photos.length)].src_url,
-  }));
 
   // 중간 메뉴바 탭 — 실제로 렌더되는 섹션만(스크롤 이동 대상).
   const tabs: ExploreTab[] = [
@@ -68,7 +67,10 @@ export default async function ExplorePage({
 
   return (
     <section className="font-kr">
-      <MpTrackOnce event="View Explore Feed" props={{ section_count: sections.length }} />
+      <MpTrackOnce
+        event="View Explore Feed"
+        props={{ mood_count: gridItems.length, target: adCat?.slug ?? null }}
+      />
       <ScrollMemory
         targetId={focus === "taste" ? "sec-taste" : undefined}
         targetViewportTop={focus === "taste" ? 96 : 0}
@@ -79,10 +81,10 @@ export default async function ExplorePage({
       <div className="mx-auto w-full max-w-4xl px-2.5 pb-4 pt-3 sm:px-4 sm:pt-4">
         <div className="flex items-center justify-between gap-3 px-1">
           <h1 className="text-2xl font-bold tracking-tight">오늘의 큐레이션</h1>
-          {sections.length > 0 && <LiveViewers />}
+          {coverCats.length > 0 && <LiveViewers />}
         </div>
 
-        {sections.length === 0 ? (
+        {coverCats.length === 0 && gridItems.length === 0 ? (
           <p className="py-16 text-center text-body-sm text-muted">
             준비 중이에요. 곧 큐레이션한 카테고리를 보여드릴게요.
           </p>
@@ -91,7 +93,7 @@ export default async function ExplorePage({
             {/* 무빙 커버 캐러셀 — 데스크톱에선 세로 히어로가 거대해지지 않게 중앙 캡 */}
             {coverCats.length > 0 && (
               <div className="mx-auto w-full max-w-md">
-                <MovingCoverCarousel cats={coverCats} />
+                <MovingCoverCarousel cats={coverCats} hrefBase="/c" />
               </div>
             )}
 
