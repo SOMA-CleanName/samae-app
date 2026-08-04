@@ -95,7 +95,15 @@ export default async function PhotographerProfile({
 
   return (
     <main className="mx-auto max-w-6xl px-2.5 py-2.5 font-kr sm:px-4 sm:py-4">
-      <ProfileBackButton />
+      {/* 상단 바 — 좌측 뒤로가기 + 가운데 작가 이름(작게) */}
+      <div className="relative flex items-center">
+        <ProfileBackButton />
+        {ph.display_name && (
+          <p className="pointer-events-none absolute inset-x-0 text-center text-body-sm font-semibold text-fg">
+            {ph.display_name}
+          </p>
+        )}
+      </div>
       <div className="md:flex md:items-start md:gap-10">
         {/* 좌: 프로필 정보 (가로 레이아웃 — 데스크톱은 sticky 사이드바) */}
         <aside className="md:w-72 md:shrink-0 md:sticky md:top-6 md:self-start">

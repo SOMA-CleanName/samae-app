@@ -9,8 +9,6 @@ import { HeartIcon, LayersIcon, XIcon } from "@/components/user/icons";
 import { PhotoCarousel } from "../../photos/[id]/PhotoCarousel";
 import { togglePhotoLike, loadPhotoLike } from "../../actions";
 
-const fmt = new Intl.NumberFormat("ko-KR");
-
 type TilePhoto = { id: string; src_url: string; thumb_url: string | null };
 
 export type PortfolioPost = {
@@ -53,13 +51,16 @@ export function PortfolioGrid({
 
   return (
     <>
-      <div className="mt-3 grid grid-cols-3 gap-2 sm:gap-3">
+      {/* 인스타그램식 풀블리드 그리드 — 가격·장소 오버레이 미노출.
+          모바일(단일 컬럼 레이아웃)에선 음수 마진으로 화면 좌우 끝까지,
+          타일 사이엔 1px 경계선만(3n번째 우측·마지막 줄 하단은 제외). */}
+      <div className="-mx-2.5 mt-3 grid grid-cols-3 sm:-mx-4 md:mx-0">
         {posts.map((post) => (
           <Link
             key={post.key}
             href={`/photos/${post.coverId}`}
             onClick={(e) => onTileClick(e, post)}
-            className="group relative block aspect-square overflow-hidden rounded bg-fg/[0.05]"
+            className="group relative block aspect-square overflow-hidden border-b border-r border-line bg-fg/[0.05] [&:nth-child(3n)]:border-r-0 [&:nth-last-child(-n+3)]:border-b-0"
           >
             <Image
               src={post.cover_src ?? post.cover_thumb}
@@ -74,18 +75,6 @@ export function PortfolioGrid({
               <span className="absolute right-1.5 top-1.5 grid h-5 w-5 place-items-center rounded-full bg-black/50 text-white">
                 <LayersIcon className="h-3 w-3" />
               </span>
-            )}
-            {(post.price_krw != null || post.location_text) && (
-              <div className="absolute inset-x-0 bottom-0 flex flex-col gap-0.5 bg-gradient-to-t from-black/65 to-transparent p-1.5">
-                {post.price_krw != null && (
-                  <span className="text-[11px] font-semibold text-white">
-                    ₩{fmt.format(post.price_krw)}
-                  </span>
-                )}
-                {post.location_text && (
-                  <span className="truncate text-[10px] text-white/85">{post.location_text}</span>
-                )}
-              </div>
             )}
           </Link>
         ))}
@@ -150,14 +139,8 @@ function PortfolioModal({
           </div>
         </div>
 
-        {/* 정보·액션 (우) — 상세 페이지에서 하던 것 그대로 */}
+        {/* 정보·액션 (우) — 가격·장소는 미노출(협의 중심), 설명·태그·좋아요·CTA만 */}
         <div className="flex shrink-0 flex-col overflow-y-auto p-5 md:w-80 md:border-l md:border-line">
-          {post.price_krw != null && (
-            <p className="text-title font-semibold tracking-tight">₩{fmt.format(post.price_krw)}</p>
-          )}
-          {post.location_text && (
-            <p className="mt-1 text-body-sm text-muted">{post.location_text}</p>
-          )}
           {post.count > 1 && <p className="mt-1 text-caption text-faint">사진 {post.count}장</p>}
 
           {/* 게시물(앨범) 설명글 — 상세 페이지와 동일하게 노출 */}

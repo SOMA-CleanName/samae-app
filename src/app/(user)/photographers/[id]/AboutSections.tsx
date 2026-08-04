@@ -140,8 +140,10 @@ function Section({ section: s }: { section: AboutSection }) {
     case "image_full": {
       const img = s.content.image;
       const portrait = !!img?.width && !!img?.height && img.width < img.height;
+      // 모바일은 모든 사진 좌우 8% 여백 — 풀폭이면 화면 전체를 덮어버린다.
+      // 데스크톱은 세로형만 16.66% 인셋(가로형은 풀폭).
       return (
-        <figure className={cn(portrait && "@2xl:px-[16.66%]")}>
+        <figure className={cn("px-[8%]", portrait ? "@2xl:px-[16.66%]" : "@2xl:px-0")}>
           <SectionImage image={img} sizes="(max-width: 768px) 100vw, 768px" />
           {s.content.caption?.trim() && (
             <figcaption className="mt-3 text-center text-caption tracking-wide text-faint">
@@ -155,8 +157,9 @@ function Section({ section: s }: { section: AboutSection }) {
     case "image_pair": {
       const [a, b] = s.content.images ?? [null, null];
       // 좌 큰 장 / 우 작은 장을 아래로 끌어내린 지그재그 — 모바일에서도 좌우 어긋남 유지
+      // (모바일은 컬라주 전체에 좌우 8% 여백)
       return (
-        <div className="@2xl:grid @2xl:grid-cols-12">
+        <div className="px-[8%] @2xl:grid @2xl:grid-cols-12 @2xl:px-0">
           <div className="w-4/5 @2xl:col-span-5 @2xl:w-full">
             <SectionImage image={a} sizes="(max-width: 768px) 80vw, 320px" />
           </div>
@@ -173,7 +176,13 @@ function Section({ section: s }: { section: AboutSection }) {
       const imageFirst = s.content.imageSide !== "right";
       return (
         <div className="grid gap-8 @2xl:grid-cols-12 @2xl:items-center">
-          <div className={cn("@2xl:col-span-5", !imageFirst && "@2xl:order-2 @2xl:col-start-8")}>
+          {/* 모바일은 사진 좌우 8% 여백(데스크톱 2단에선 칸 폭 그대로) */}
+          <div
+            className={cn(
+              "px-[8%] @2xl:col-span-5 @2xl:px-0",
+              !imageFirst && "@2xl:order-2 @2xl:col-start-8"
+            )}
+          >
             <SectionImage image={s.content.image} sizes="(max-width: 768px) 100vw, 380px" />
           </div>
           <p
