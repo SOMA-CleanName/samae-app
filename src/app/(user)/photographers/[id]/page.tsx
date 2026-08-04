@@ -8,7 +8,9 @@ import {
 } from "@/lib/discovery";
 import { getCurrentUser } from "@/lib/auth";
 import { fetchPhotographerHighlights } from "@/lib/highlights";
+import { fetchPhotographerAboutSections } from "@/lib/about";
 import { type PortfolioPost } from "./PortfolioGrid";
+import { AboutSections } from "./AboutSections";
 import { ProfileTabs } from "./ProfileTabs";
 import { HighlightsBar } from "./HighlightsBar";
 import { ProfileBackButton } from "./ProfileBackButton";
@@ -37,10 +39,11 @@ export default async function PhotographerProfile({
   const ph = await fetchPhotographerById(id);
   if (!ph) notFound();
 
-  const [photos, packages, highlights, me] = await Promise.all([
+  const [photos, packages, highlights, aboutSections, me] = await Promise.all([
     fetchPhotographerPhotos(ph.id),
     fetchPhotographerPackages(ph.id),
     fetchPhotographerHighlights(ph.id),
+    fetchPhotographerAboutSections(ph.id),
     getCurrentUser(),
   ]);
 
@@ -139,6 +142,9 @@ export default async function PhotographerProfile({
             </div>
           )}
           <ProfileTabs
+            aboutSlot={
+              aboutSections.length > 0 ? <AboutSections sections={aboutSections} /> : undefined
+            }
             posts={posts}
             packages={packages}
             viewer={{ isOwner, photographerId: ph.id }}

@@ -15,6 +15,7 @@ import {
   SortableContext,
   useSortable,
   rectSortingStrategy,
+  verticalListSortingStrategy,
   arrayMove,
   sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable";
@@ -30,6 +31,7 @@ export function SortableGrid({
   onReorder,
   className,
   disabled,
+  vertical,
   append,
   children,
 }: {
@@ -37,6 +39,7 @@ export function SortableGrid({
   onReorder: (ids: string[]) => void;
   className?: string;
   disabled?: boolean;
+  vertical?: boolean; // 높이가 제각각인 세로 리스트(섹션 편집기 등)는 수직 전략 사용
   append?: ReactNode; // 정렬 항목 뒤에 붙는 비정렬 노드(예: + 추가 버튼)
   children: (id: string) => ReactNode;
 }) {
@@ -60,7 +63,11 @@ export function SortableGrid({
   // SortableContext disabled 로 드래그만 비활성화한다.
   return (
     <DndContext id={dndId} sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-      <SortableContext items={ids} strategy={rectSortingStrategy} disabled={!!disabled}>
+      <SortableContext
+        items={ids}
+        strategy={vertical ? verticalListSortingStrategy : rectSortingStrategy}
+        disabled={!!disabled}
+      >
         <div className={className}>
           {ids.map((id) => children(id))}
           {append}
@@ -75,16 +82,23 @@ export function SortableGrid({
 export function SortableItem({
   id,
   className,
+  instantDrop,
   children,
 }: {
   id: string;
   className?: string;
+  // 드롭 직후 복귀 애니메이션 생략 — id 는 그대로 두고 내용만 스왑하는 목록(SwapPair 등)에서
+  // "제자리로 돌아갔다가 내용이 바뀌는" 어색한 모션을 없앤다(내용 교체와 같은 프레임에 확정).
+  instantDrop?: boolean;
   children: (state: { isDragging: boolean }) => ReactNode;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging, isSorting } =
+    useSortable({ id });
+  // Translate 만 적용 — Transform 은 대상 슬롯 크기에 맞춘 scale 까지 포함해서
+  // 높이가 다른 항목을 드래그하면 카드가 찌그러져 보인다.
   const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
+    transform: CSS.Translate.toString(transform),
+    transition: instantDrop && !isSorting ? undefined : transition,
     zIndex: isDragging ? 50 : undefined,
   };
   return (
