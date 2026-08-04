@@ -17,17 +17,23 @@ export type ProfilePkg = {
 
 const fmt = new Intl.NumberFormat("ko-KR");
 
-// 작가 프로필 본문 — 포트폴리오 / 촬영 패키지를 탭으로 전환해 본다.
+// 작가 프로필 본문 — 소개 / 포트폴리오 / 촬영 패키지를 탭으로 전환해 본다.
+// 소개(무드) 섹션은 서버에서 렌더한 노드를 aboutSlot 으로 받는다. 섹션 없으면 탭 자체를 숨김.
 export function ProfileTabs({
+  aboutSlot,
   posts,
   packages,
   viewer,
 }: {
+  aboutSlot?: React.ReactNode;
   posts: PortfolioPost[];
   packages: ProfilePkg[];
   viewer: { isOwner: boolean; photographerId: string };
 }) {
-  const [tab, setTab] = useState<"portfolio" | "packages">("portfolio");
+  const hasAbout = !!aboutSlot;
+  const [tab, setTab] = useState<"about" | "portfolio" | "packages">(
+    hasAbout ? "about" : "portfolio"
+  );
   const pkgViewFired = useRef(false);
 
   // 작가 프로필 조회 — 본인 조회는 noise 라 제외. 마운트당 1회.
@@ -48,6 +54,11 @@ export function ProfileTabs({
     <div>
       {/* 탭 바 */}
       <div className="flex gap-6 border-b border-line">
+        {hasAbout && (
+          <TabButton active={tab === "about"} onClick={() => setTab("about")}>
+            소개
+          </TabButton>
+        )}
         <TabButton active={tab === "portfolio"} onClick={() => setTab("portfolio")}>
           포트폴리오
         </TabButton>
@@ -72,7 +83,9 @@ export function ProfileTabs({
 
       {/* 탭 내용 */}
       <div className="mt-5">
-        {tab === "portfolio" ? (
+        {tab === "about" ? (
+          aboutSlot
+        ) : tab === "portfolio" ? (
           posts.length > 0 ? (
             <PortfolioGrid posts={posts} viewer={viewer} />
           ) : (

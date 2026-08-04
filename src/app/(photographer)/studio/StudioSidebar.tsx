@@ -26,6 +26,7 @@ export function StudioSidebar() {
   //   { href: "/studio/settlements", label: "수수료" },
   const settings: Item[] = [
     { href: "/studio/profile", label: "프로필" },
+    { href: "/studio/about", label: "소개 페이지" },
     { href: "/studio/packages", label: "패키지" },
     { href: "/studio/portfolio", label: "포트폴리오" },
     { href: "/studio/highlights", label: "하이라이트" },
