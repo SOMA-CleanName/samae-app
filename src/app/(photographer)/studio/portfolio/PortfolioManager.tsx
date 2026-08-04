@@ -2,9 +2,10 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createPost } from "./actions";
+import { createPost, setPostCategories } from "./actions";
 import { downscaleImage } from "./downscale";
 import { PortfolioUploader, type UploadPayload, type PackageOption } from "./PortfolioUploader";
+import type { TargetOption } from "./CategoryPicker";
 import { HelpTip } from "./HelpTip";
 
 type Status =
@@ -15,7 +16,13 @@ type Status =
 
 // 포트폴리오 추가 매니저 — 모달은 입력만 받고, 업로드는 여기서 수행한다.
 // 모달을 닫아도 업로드가 계속되며 진행/완료를 우하단 토스트로 보여준다.
-export function PortfolioManager({ packages }: { packages: PackageOption[] }) {
+export function PortfolioManager({
+  packages,
+  targets,
+}: {
+  packages: PackageOption[];
+  targets: TargetOption[];
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
@@ -32,6 +39,9 @@ export function PortfolioManager({ packages }: { packages: PackageOption[] }) {
     setStatus({ kind: "uploading", done: 0, total: p.files.length });
     try {
       const { id: albumId } = await createPost(p.description); // 한 피드로 묶음
+      // 카테고리(타겟 1 + 무드 N)는 사진 업로드 전에 붙인다 — 중간에 실패해도 분류는 남게.
+      const cat = await setPostCategories(albumId, p.targetId, p.exploreIds);
+      if (cat.error) throw new Error(cat.error);
       for (let i = 0; i < p.files.length; i++) {
         // 업로드 전 리사이즈+JPEG 변환 (4.5MB 제한 회피 · HEIC 정규화)
         const file = await downscaleImage(p.files[i]);
@@ -96,7 +106,7 @@ export function PortfolioManager({ packages }: { packages: PackageOption[] }) {
               </button>
             </div>
             <div className="mt-4">
-              <PortfolioUploader onStart={start} packages={packages} />
+              <PortfolioUploader onStart={start} packages={packages} targets={targets} />
             </div>
           </div>
         </div>

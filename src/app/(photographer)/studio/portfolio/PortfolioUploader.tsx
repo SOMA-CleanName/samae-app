@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { TagInput } from "./TagInput";
 import { HelpTip } from "./HelpTip";
 import { SortableGrid, SortableItem } from "@/components/ui/SortableGrid";
+import { CategoryPicker, categorySelectionError, type TargetOption } from "./CategoryPicker";
 
 // 가격 선택지로 쓰는 작가 패키지 (활성 패키지만)
 export type PackageOption = { id: string; name: string; price_krw: number };
@@ -17,6 +18,8 @@ export type UploadPayload = {
   location: string;
   moods: string;
   publish: boolean;
+  targetId: string; // 촬영 종류(타겟 카테고리) — 필수
+  exploreIds: string[]; // 그 타겟에 속한 무드(탐색 카테고리) — 1개 이상
 };
 
 const fmt = new Intl.NumberFormat("ko-KR");
@@ -25,9 +28,11 @@ const fmt = new Intl.NumberFormat("ko-KR");
 export function PortfolioUploader({
   onStart,
   packages,
+  targets,
 }: {
   onStart: (p: UploadPayload) => void;
   packages: PackageOption[];
+  targets: TargetOption[];
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>([]);
@@ -39,6 +44,9 @@ export function PortfolioUploader({
   const [moodTags, setMoodTags] = useState<string[]>([]);
   const [publish, setPublish] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // 피드 단위 카테고리 — 타겟 1개 + 그 타겟의 무드 여러 개(필수)
+  const [targetId, setTargetId] = useState<string | null>(null);
+  const [exploreIds, setExploreIds] = useState<string[]>([]);
 
   // 미리보기 URL — files 에서 파생(useMemo). 이전 URL 은 정리 effect 에서 revoke.
   const previews = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
@@ -69,7 +77,21 @@ export function PortfolioUploader({
       setError("사진을 1장 이상 선택하세요.");
       return;
     }
-    onStart({ files, description, price, location, moods: moodTags.join(", "), publish });
+    const catErr = categorySelectionError(targetId, exploreIds);
+    if (catErr) {
+      setError(catErr);
+      return;
+    }
+    onStart({
+      files,
+      description,
+      price,
+      location,
+      moods: moodTags.join(", "),
+      publish,
+      targetId: targetId!,
+      exploreIds,
+    });
   }
 
   return (
@@ -183,6 +205,17 @@ export function PortfolioUploader({
 
       {/* 공통 정보 — 항상 노출 */}
       <div className="mt-4 flex flex-col gap-3 border-t border-fg/10 pt-4">
+        {/* 카테고리 — 이 피드가 탐색탭 어디에 노출될지 결정(필수) */}
+        <CategoryPicker
+          targets={targets}
+          targetId={targetId}
+          exploreIds={exploreIds}
+          onChange={(next) => {
+            setTargetId(next.targetId);
+            setExploreIds(next.exploreIds);
+            setError(null);
+          }}
+        />
         <label className="flex flex-col gap-1 text-xs text-fg/60">
           설명
           <textarea

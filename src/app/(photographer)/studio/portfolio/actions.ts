@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { archiveAndDelete } from "@/lib/soft-delete";
 import { mpTrackServer } from "@/lib/mixpanel-server";
+import { saveAlbumCategories } from "@/lib/target-categories";
 
 // 피드 생성 — 같이 올린 사진들을 한 피드로 묶는다. album id 반환.
 // (1장만 올려도 피드 1개. 프로필 그리드에선 대표 1장만 보이고 클릭 시 스와이프)
@@ -30,6 +31,34 @@ export async function createPost(description?: string): Promise<{ id: string }> 
   );
 
   return { id: data.id as string };
+}
+
+// 피드(포트폴리오) 단위 카테고리 저장 — 타겟 1개 + 그 타겟에 속한 탐색(무드) 여러 개.
+// 사진 단위가 아니라 피드 단위. 이 선택이 탐색탭 노출 멤버십의 기본 소스가 된다.
+export async function setPostCategories(
+  albumId: string,
+  targetCategoryId: string,
+  exploreCategoryIds: string[]
+): Promise<{ error?: string }> {
+  const me = await getCurrentUser();
+  if (!me?.photographer) return { error: "작가만 사용할 수 있습니다." };
+  if (!targetCategoryId) return { error: "촬영 종류를 선택해주세요." };
+
+  // 소유 확인 — 남의 앨범에 카테고리를 붙이지 못하게(admin 클라이언트로 저장하므로 필수)
+  const supabase = await createClient();
+  const { data: album } = await supabase
+    .from("albums")
+    .select("id")
+    .eq("id", albumId)
+    .eq("photographer_id", me.photographer.id)
+    .maybeSingle();
+  if (!album) return { error: "내 포트폴리오가 아니에요." };
+
+  const res = await saveAlbumCategories(albumId, targetCategoryId, exploreCategoryIds);
+  if (res.error) return res;
+
+  revalidatePath("/studio/portfolio");
+  return {};
 }
 
 // 사진 공개/비공개 전환 (RLS: 본인 작가 사진만)

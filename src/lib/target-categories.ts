@@ -63,6 +63,113 @@ export async function listExploreCategoriesForTarget(
   return ids.map((id) => byId.get(id)).filter((c): c is ExploreCategoryLite => !!c);
 }
 
+/**
+ * 작가·운영자 선택 UI 용 — 공개 타겟 + 각 타겟에 연결된 공개 탐색 카테고리.
+ * (타겟 4개 × 탐색 수십 개 규모라 한 번에 읽어 메모리에서 조립한다)
+ */
+export type TargetWithExplores = {
+  id: string;
+  slug: string;
+  name: string;
+  explores: Array<{ id: string; title: string }>;
+};
+
+export async function listTargetsWithExplores(): Promise<TargetWithExplores[]> {
+  const admin = createAdminClient();
+  const [{ data: targets }, { data: links }, { data: explores }] = await Promise.all([
+    admin
+      .from("categories")
+      .select("id, slug, name")
+      .eq("published", true)
+      .order("sort", { ascending: true }),
+    admin
+      .from("target_explore_categories")
+      .select("target_category_id, explore_category_id, position")
+      .order("position", { ascending: true }),
+    admin.from("explore_categories").select("id, title").eq("published", true),
+  ]);
+
+  const titleById = new Map((explores ?? []).map((e) => [e.id as string, e.title as string]));
+  const byTarget = new Map<string, Array<{ id: string; title: string }>>();
+  for (const l of links ?? []) {
+    const title = titleById.get(l.explore_category_id as string);
+    if (!title) continue; // 비공개·삭제된 탐색 카테고리는 제외
+    const arr = byTarget.get(l.target_category_id as string) ?? [];
+    arr.push({ id: l.explore_category_id as string, title });
+    byTarget.set(l.target_category_id as string, arr);
+  }
+
+  return (targets ?? []).map((t) => ({
+    id: t.id as string,
+    slug: t.slug as string,
+    name: t.name as string,
+    explores: byTarget.get(t.id as string) ?? [],
+  }));
+}
+
+/** 앨범(포트폴리오)들의 현재 카테고리 선택 — 편집 폼 기본값. */
+export async function loadAlbumCategorySelections(
+  albumIds: string[]
+): Promise<Map<string, { targetId: string | null; exploreIds: string[] }>> {
+  const out = new Map<string, { targetId: string | null; exploreIds: string[] }>();
+  if (albumIds.length === 0) return out;
+  const admin = createAdminClient();
+  const [{ data: albums }, { data: links }] = await Promise.all([
+    admin.from("albums").select("id, target_category_id").in("id", albumIds),
+    admin
+      .from("album_explore_categories")
+      .select("album_id, explore_category_id")
+      .in("album_id", albumIds),
+  ]);
+  for (const a of albums ?? []) {
+    out.set(a.id as string, {
+      targetId: (a.target_category_id as string | null) ?? null,
+      exploreIds: [],
+    });
+  }
+  for (const l of links ?? []) {
+    const cur = out.get(l.album_id as string);
+    if (cur) cur.exploreIds.push(l.explore_category_id as string);
+  }
+  return out;
+}
+
+/**
+ * 앨범의 카테고리 선택 저장 — 타겟 1개 + 그 타겟에 연결된 탐색 여러 개.
+ * 권한 검증은 호출부(서버액션)에서. 탐색이 그 타겟에 속하는지는 여기서 거른다.
+ */
+export async function saveAlbumCategories(
+  albumId: string,
+  targetCategoryId: string,
+  exploreCategoryIds: string[]
+): Promise<{ error?: string }> {
+  const admin = createAdminClient();
+  const { data: links } = await admin
+    .from("target_explore_categories")
+    .select("explore_category_id")
+    .eq("target_category_id", targetCategoryId);
+  const allowed = new Set((links ?? []).map((l) => l.explore_category_id as string));
+  const picked = [...new Set(exploreCategoryIds)].filter((id) => allowed.has(id));
+  if (picked.length === 0) return { error: "탐색 카테고리를 1개 이상 선택해주세요." };
+
+  const { error: upErr } = await admin
+    .from("albums")
+    .update({ target_category_id: targetCategoryId })
+    .eq("id", albumId);
+  if (upErr) return { error: upErr.message };
+
+  const { error: delErr } = await admin
+    .from("album_explore_categories")
+    .delete()
+    .eq("album_id", albumId);
+  if (delErr) return { error: delErr.message };
+
+  const { error } = await admin
+    .from("album_explore_categories")
+    .insert(picked.map((id) => ({ album_id: albumId, explore_category_id: id })));
+  return error ? { error: error.message } : {};
+}
+
 /** 탐색 카테고리가 속한 타겟 id 목록 (작가 UI 검증용). */
 export async function listTargetIdsForExplore(exploreCategoryId: string): Promise<string[]> {
   const admin = createAdminClient();
