@@ -163,6 +163,23 @@ export async function togglePhotoTargetCategory(
   revalidatePath("/explore");
 }
 
+// 포트폴리오(앨범) 전체의 타겟 지정 — 작가 선택을 운영자가 덮어쓴다.
+// 타겟은 앨범당 1개라 사진 행을 만들지 않고 앨범 속성을 바꾼다(= 이후 추가되는 사진도 자동 포함).
+export async function setAlbumTargetCategory(
+  albumId: string,
+  targetCategoryId: string | null
+): Promise<void> {
+  await assertAdmin();
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("albums")
+    .update({ target_category_id: targetCategoryId })
+    .eq("id", albumId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/explore/assign");
+  revalidatePath("/explore");
+}
+
 // 앨범(포트폴리오) 전체를 카테고리에 일괄 추가. 추가된 사진 수 반환.
 export async function addAlbumExploreCategory(
   albumId: string,

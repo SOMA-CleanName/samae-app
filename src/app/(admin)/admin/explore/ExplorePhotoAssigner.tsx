@@ -2,8 +2,10 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   togglePhotoExploreCategory,
+  setAlbumTargetCategory,
   togglePhotoTargetCategory,
   addAlbumExploreCategory,
   removeAlbumExploreCategory,
@@ -26,6 +28,7 @@ export function ExplorePhotoAssigner({
   initialTargetMemberships?: Record<string, string[]>;
 }) {
   // 담기 대상 축 — 탐색 무드 / 타겟(촬영 종류). 같은 사진 그리드에서 축만 바꾼다.
+  const router = useRouter();
   const [scope, setScope] = useState<"explore" | "target">("explore");
   const catList = scope === "target" ? targetCategories : categories;
   const [activeCat, setActiveCat] = useState<string>(categories[0]?.id ?? "");
@@ -105,8 +108,31 @@ export function ExplorePhotoAssigner({
   }
 
   async function toggleAlbum(albumId: string, items: AssignPhotoWithCats[], addAll: boolean) {
-    if (!activeCat || scope === "target") return; // 타겟은 포트폴리오 선택이 원본 — 일괄 담기 없음
+    if (!activeCat) return;
     const ids = items.map((i) => i.id);
+
+    // 타겟 축 — 앨범당 타겟 1개. 사진 행이 아니라 앨범의 타겟을 바꾼다(작가 선택 덮어쓰기).
+    // 담기 = 이 타겟으로 지정(다른 타겟이었으면 이동), 빼기 = 지정 해제.
+    if (scope === "target") {
+      setTargetCats((prev) => {
+        const next = { ...prev };
+        for (const id of ids) {
+          const cur = next[id] ?? [];
+          next[id] = addAll
+            ? [...new Set([...cur, activeCat])]
+            : cur.filter((c) => c !== activeCat);
+        }
+        return next;
+      });
+      try {
+        await setAlbumTargetCategory(albumId, addAll ? activeCat : null);
+        router.refresh(); // 이전 타겟에서 빠진 것까지 서버 상태로 재동기화
+      } catch {
+        /* 실패해도 다음 로드 시 서버 상태로 복구됨 */
+      }
+      return;
+    }
+
     // 낙관적 — 로드된 사진 전체 반영
     setPhotos((prev) =>
       prev.map((p) =>
@@ -201,7 +227,13 @@ export function ExplorePhotoAssigner({
                     onClick={() => toggleAlbum(g.albumId!, g.items, !allIn)}
                     className="shrink-0 cursor-pointer rounded-full border border-line-strong px-3 py-1 text-caption font-medium text-fg transition-colors hover:bg-fg/[0.05]"
                   >
-                    {allIn ? "포트폴리오 전체 빼기" : "포트폴리오 전체 담기"}
+                    {scope === "target"
+                      ? allIn
+                        ? "타겟 지정 해제"
+                        : "이 타겟으로 지정"
+                      : allIn
+                        ? "포트폴리오 전체 빼기"
+                        : "포트폴리오 전체 담기"}
                   </button>
                 )}
               </div>
