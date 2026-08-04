@@ -22,10 +22,11 @@ export type ExploreCategory = {
   previewPhotoIds: string[]; // /explore 홈 스트립에 노출할 사진 id (순서). 비면 position 순 앞 N장
   kind: ExploreCategoryKind; // 취향 테스트 분류: 목적/무드/기타
   coverByPurpose: Record<string, string>; // 무드 카테고리의 목적별 대표 사진 {purposeKey: photoId}
+  coverByTarget: Record<string, string>; // 타겟별 추천무드 대표 사진 {targetCategoryId: photoId}
 };
 
 const EXPLORE_COLUMNS =
-  "id, slug, title, subtitle, published, sort, preview_photo_ids, kind, cover_by_purpose";
+  "id, slug, title, subtitle, published, sort, preview_photo_ids, kind, cover_by_purpose, cover_by_target";
 
 function mapRow(r: Record<string, unknown>): ExploreCategory {
   return {
@@ -38,6 +39,7 @@ function mapRow(r: Record<string, unknown>): ExploreCategory {
     previewPhotoIds: (r.preview_photo_ids as string[]) ?? [],
     kind: ((r.kind as string) ?? "other") as ExploreCategoryKind,
     coverByPurpose: (r.cover_by_purpose as Record<string, string> | null) ?? {},
+    coverByTarget: (r.cover_by_target as Record<string, string> | null) ?? {},
   };
 }
 
@@ -573,16 +575,56 @@ export async function fetchAllExploreAssignPhotos(): Promise<AssignPhoto[]> {
 // 전체 멤버십 → { photoId: [categoryId...] }. 조인 테이블은 담긴 것만 있어 작다.
 export async function getAllExploreMemberships(): Promise<Record<string, string[]>> {
   const admin = createAdminClient();
-  const out: Record<string, string[]> = {};
+  const manual: Record<string, Set<string>> = {};
+  const excluded: Record<string, Set<string>> = {};
   const PAGE = 1000;
   for (let from = 0; ; from += PAGE) {
     const { data } = await admin
       .from("explore_category_photos")
-      .select("photo_id, category_id")
+      .select("photo_id, category_id, excluded")
       .range(from, from + PAGE - 1);
-    const batch = (data ?? []) as Array<{ photo_id: string; category_id: string }>;
-    for (const r of batch) (out[r.photo_id] ??= []).push(r.category_id);
+    const batch = (data ?? []) as Array<{
+      photo_id: string;
+      category_id: string;
+      excluded: boolean;
+    }>;
+    for (const r of batch) {
+      const bucket = r.excluded ? excluded : manual;
+      (bucket[r.photo_id] ??= new Set()).add(r.category_id);
+    }
     if (batch.length < PAGE) break;
+  }
+
+  // 상속분 — 앨범↔무드 연결 × 그 앨범의 사진
+  const { data: links } = await admin
+    .from("album_explore_categories")
+    .select("album_id, explore_category_id");
+  const catsByAlbum = new Map<string, string[]>();
+  for (const l of links ?? []) {
+    const aid = l.album_id as string;
+    catsByAlbum.set(aid, [...(catsByAlbum.get(aid) ?? []), l.explore_category_id as string]);
+  }
+  const inherited: Record<string, Set<string>> = {};
+  const albumIds = [...catsByAlbum.keys()];
+  for (let i = 0; i < albumIds.length; i += 100) {
+    const { data } = await admin
+      .from("photos")
+      .select("id, album_id")
+      .in("album_id", albumIds.slice(i, i + 100));
+    for (const p of data ?? []) {
+      const cats = catsByAlbum.get(p.album_id as string) ?? [];
+      if (cats.length === 0) continue;
+      const set = (inherited[p.id as string] ??= new Set());
+      for (const c of cats) set.add(c);
+    }
+  }
+
+  const out: Record<string, string[]> = {};
+  const photoIds = new Set([...Object.keys(manual), ...Object.keys(inherited)]);
+  for (const pid of photoIds) {
+    const eff = new Set([...(manual[pid] ?? []), ...(inherited[pid] ?? [])]);
+    for (const c of excluded[pid] ?? []) eff.delete(c);
+    if (eff.size > 0) out[pid] = [...eff];
   }
   return out;
 }
@@ -606,17 +648,46 @@ async function nextExplorePosition(
 export async function addPhotoToCategory(photoId: string, categoryId: string): Promise<void> {
   const admin = createAdminClient();
   const position = await nextExplorePosition(admin, categoryId);
+  // 제외 표시가 남아 있으면 함께 풀린다(제외 → 담기).
   await admin
     .from("explore_category_photos")
     .upsert(
-      { category_id: categoryId, photo_id: photoId, position },
-      { onConflict: "category_id,photo_id", ignoreDuplicates: true }
+      { category_id: categoryId, photo_id: photoId, position, source: "manual", excluded: false },
+      { onConflict: "category_id,photo_id" }
     );
 }
 
 // 사진 1장을 카테고리에서 제거.
 export async function removePhotoFromCategory(photoId: string, categoryId: string): Promise<void> {
   const admin = createAdminClient();
+  // 작가 포트폴리오로 상속된 사진은 행을 지워도 다시 들어온다 → '제외' 표시를 남긴다.
+  const { data: photo } = await admin
+    .from("photos")
+    .select("album_id")
+    .eq("id", photoId)
+    .maybeSingle();
+  const albumId = (photo?.album_id as string | null) ?? null;
+  let inherited = false;
+  if (albumId) {
+    const { data: link } = await admin
+      .from("album_explore_categories")
+      .select("album_id")
+      .eq("album_id", albumId)
+      .eq("explore_category_id", categoryId)
+      .maybeSingle();
+    inherited = !!link;
+  }
+
+  if (inherited) {
+    const position = await nextExplorePosition(admin, categoryId);
+    await admin
+      .from("explore_category_photos")
+      .upsert(
+        { category_id: categoryId, photo_id: photoId, position, source: "manual", excluded: true },
+        { onConflict: "category_id,photo_id" }
+      );
+    return;
+  }
   await admin
     .from("explore_category_photos")
     .delete()

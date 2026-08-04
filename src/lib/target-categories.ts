@@ -270,6 +270,113 @@ export async function resolveTargetPhotoIds(targetCategoryId: string): Promise<s
   return applyOverrides(inherited, (overrides ?? []) as Override[]);
 }
 
+// ── 사진 단위 예외 (타겟) ───────────────────────────────────────────
+
+/** 타겟 카테고리에 사진 1장 수동 추가(제외 표시가 있으면 함께 해제). */
+export async function addPhotoToTarget(photoId: string, targetCategoryId: string): Promise<void> {
+  const admin = createAdminClient();
+  await admin
+    .from("target_category_photos")
+    .upsert(
+      { category_id: targetCategoryId, photo_id: photoId, excluded: false },
+      { onConflict: "category_id,photo_id" }
+    );
+}
+
+/**
+ * 타겟 카테고리에서 사진 1장 빼기.
+ * 포트폴리오 상속분이면 행을 지워도 다시 들어오므로 '제외' 표시를 남긴다.
+ */
+export async function removePhotoFromTarget(
+  photoId: string,
+  targetCategoryId: string
+): Promise<void> {
+  const admin = createAdminClient();
+  const { data: photo } = await admin
+    .from("photos")
+    .select("album_id")
+    .eq("id", photoId)
+    .maybeSingle();
+  const albumId = (photo?.album_id as string | null) ?? null;
+  let inherited = false;
+  if (albumId) {
+    const { data: album } = await admin
+      .from("albums")
+      .select("target_category_id")
+      .eq("id", albumId)
+      .maybeSingle();
+    inherited = (album?.target_category_id as string | null) === targetCategoryId;
+  }
+
+  if (inherited) {
+    await admin
+      .from("target_category_photos")
+      .upsert(
+        { category_id: targetCategoryId, photo_id: photoId, excluded: true },
+        { onConflict: "category_id,photo_id" }
+      );
+    return;
+  }
+  await admin
+    .from("target_category_photos")
+    .delete()
+    .eq("category_id", targetCategoryId)
+    .eq("photo_id", photoId);
+}
+
+/** 할당 화면용 — 사진별 실효 타겟 소속(상속 ∪ 수동 − 제외). */
+export async function getAllTargetMemberships(): Promise<Record<string, string[]>> {
+  const admin = createAdminClient();
+  const manual: Record<string, Set<string>> = {};
+  const excluded: Record<string, Set<string>> = {};
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data } = await admin
+      .from("target_category_photos")
+      .select("photo_id, category_id, excluded")
+      .range(from, from + PAGE - 1);
+    const batch = (data ?? []) as Array<{
+      photo_id: string;
+      category_id: string;
+      excluded: boolean;
+    }>;
+    for (const r of batch) {
+      const bucket = r.excluded ? excluded : manual;
+      (bucket[r.photo_id] ??= new Set()).add(r.category_id);
+    }
+    if (batch.length < PAGE) break;
+  }
+
+  // 상속분 — 앨범의 타겟 × 그 앨범 사진
+  const { data: albums } = await admin
+    .from("albums")
+    .select("id, target_category_id")
+    .not("target_category_id", "is", null);
+  const targetByAlbum = new Map(
+    (albums ?? []).map((a) => [a.id as string, a.target_category_id as string])
+  );
+  const inherited: Record<string, Set<string>> = {};
+  const albumIds = [...targetByAlbum.keys()];
+  for (let i = 0; i < albumIds.length; i += 100) {
+    const { data } = await admin
+      .from("photos")
+      .select("id, album_id")
+      .in("album_id", albumIds.slice(i, i + 100));
+    for (const p of data ?? []) {
+      const t = targetByAlbum.get(p.album_id as string);
+      if (t) (inherited[p.id as string] ??= new Set()).add(t);
+    }
+  }
+
+  const out: Record<string, string[]> = {};
+  for (const pid of new Set([...Object.keys(manual), ...Object.keys(inherited)])) {
+    const eff = new Set([...(manual[pid] ?? []), ...(inherited[pid] ?? [])]);
+    for (const c of excluded[pid] ?? []) eff.delete(c);
+    if (eff.size > 0) out[pid] = [...eff];
+  }
+  return out;
+}
+
 // ── 대표 사진 / 큐레이션 ────────────────────────────────────────────
 
 /**
@@ -403,6 +510,33 @@ export async function loadMoodItemsForTarget(targetCategoryId: string): Promise<
     items.push({ slug: c.slug, title: c.title, subtitle: c.subtitle, url: photo.src_url });
   }
   return items;
+}
+
+/**
+ * 어드민 지정 화면용 후보 — 그 타겟에 담긴 사진(상속 ∪ 수동 − 제외) 앞부분.
+ * 이미 고른 사진은 후보 밖이라도 항상 포함해 체크 상태가 유지되게 한다.
+ */
+export async function loadTargetPhotoCandidates(
+  targetCategoryId: string,
+  keepIds: string[] = [],
+  limit = 300
+): Promise<PhotoLite[]> {
+  const ids = (await resolveTargetPhotoIds(targetCategoryId)).slice(0, limit);
+  const merged = [...new Set([...keepIds, ...ids])];
+  const lites = await fetchPhotoLites(merged);
+  return merged.map((id) => lites.get(id)).filter((p): p is PhotoLite => !!p);
+}
+
+/** 어드민 — 탐색 카테고리에 담긴 사진 후보(대표사진 지정용). */
+export async function loadExplorePhotoCandidates(
+  exploreCategoryId: string,
+  keepIds: string[] = [],
+  limit = 300
+): Promise<PhotoLite[]> {
+  const ids = (await resolveExplorePhotoIds(exploreCategoryId)).slice(0, limit);
+  const merged = [...new Set([...keepIds, ...ids])];
+  const lites = await fetchPhotoLites(merged);
+  return merged.map((id) => lites.get(id)).filter((p): p is PhotoLite => !!p);
 }
 
 /** 운영자 — 타겟의 '오늘의 큐레이션' 사진(최대 3장) 지정. */

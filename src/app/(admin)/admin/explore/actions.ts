@@ -3,6 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  setExploreCoverForTarget,
+  loadExplorePhotoCandidates,
+  addPhotoToTarget,
+  removePhotoFromTarget,
+} from "@/lib/target-categories";
 import { archiveAndDelete } from "@/lib/soft-delete";
 import {
   addPhotoToCategory,
@@ -144,6 +150,19 @@ export async function togglePhotoExploreCategory(
   revalidatePath("/explore");
 }
 
+// 사진 1장의 타겟(촬영 종류) 소속 토글. 상속분을 빼면 '제외' 표시가 남는다.
+export async function togglePhotoTargetCategory(
+  photoId: string,
+  targetCategoryId: string,
+  on: boolean
+): Promise<void> {
+  await assertAdmin();
+  if (on) await addPhotoToTarget(photoId, targetCategoryId);
+  else await removePhotoFromTarget(photoId, targetCategoryId);
+  revalidatePath("/admin/explore/assign");
+  revalidatePath("/explore");
+}
+
 // 앨범(포트폴리오) 전체를 카테고리에 일괄 추가. 추가된 사진 수 반환.
 export async function addAlbumExploreCategory(
   albumId: string,
@@ -212,6 +231,28 @@ export async function setExploreCover(
   if (error) throw new Error(error.message);
   revalidatePath("/admin/explore");
   revalidatePath("/explore/quiz");
+}
+
+// 타겟별 대표 사진 — 추천 무드 타일에 걸리는 컷(타겟마다 다르게 걸 수 있다).
+export async function setExploreCoverTarget(
+  categoryId: string,
+  targetCategoryId: string,
+  photoId: string | null
+): Promise<void> {
+  await assertAdmin();
+  const res = await setExploreCoverForTarget(categoryId, targetCategoryId, photoId);
+  if (res.error) throw new Error(res.error);
+  revalidatePath("/admin/explore");
+  revalidatePath("/explore");
+}
+
+// 타겟별 대표 사진 후보 — 그 무드에 담긴 사진(포트폴리오 상속 ∪ 수동 − 제외).
+export async function loadTargetCoverCandidates(
+  categoryId: string
+): Promise<PreviewCandidate[]> {
+  await assertAdmin();
+  const list = await loadExplorePhotoCandidates(categoryId);
+  return list.map((p) => ({ id: p.id, thumb_url: p.thumb_url, src_url: p.src_url }));
 }
 
 // 미리보기 사진 저장 — /explore 홈 스트립에 이 순서대로 노출.
