@@ -250,6 +250,19 @@ export async function setExploreCover(
   revalidatePath("/explore/quiz");
 }
 
+// 작가 요청 무드 처리 완료 — 목록에서 내린다(요청 문자열만 비움, 담긴 사진엔 영향 없음).
+export async function clearAlbumMoodRequests(albumId: string): Promise<void> {
+  await assertAdmin();
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("albums")
+    .update({ requested_moods: [] })
+    .eq("id", albumId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/explore");
+  revalidatePath("/admin/explore/assign");
+}
+
 // 타겟별 대표 사진 — 추천 무드 타일에 걸리는 컷(타겟마다 다르게 걸 수 있다).
 export async function setExploreCoverTarget(
   categoryId: string,

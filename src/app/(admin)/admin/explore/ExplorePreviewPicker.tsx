@@ -25,7 +25,7 @@ import {
   type PreviewCandidate,
 } from "./actions";
 
-// 홈 스트립 미리보기 사진 — 카테고리 담긴 사진 중에서 골라 순서 배치.
+// 홈 스트립 피드 상단 고정 순서 — 카테고리 담긴 사진 중에서 골라 순서 배치.
 // 비우면 담긴 순서(position) 앞 N장이 기본. 펼칠 때 멤버를 lazy 로드.
 export function ExplorePreviewPicker({
   categoryId,
@@ -73,7 +73,7 @@ export function ExplorePreviewPicker({
   return (
     <details className="mt-3" onToggle={onToggle}>
       <summary className="cursor-pointer text-caption font-medium text-fg">
-        🖼 미리보기 사진 (홈 스트립)
+        🖼 피드 상단 고정 순서 (홈 스트립)
         {picked.length > 0 && <span className="ml-1 text-brand">· {picked.length}장 지정</span>}
       </summary>
 

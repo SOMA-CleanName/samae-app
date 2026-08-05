@@ -10,21 +10,31 @@ import {
   listTargetsWithExplores,
   getAllTargetMemberships,
   loadAlbumFlags,
+  getExploreMembershipSources,
+  getTargetMembershipSources,
 } from "@/lib/target-categories";
 
 export const dynamic = "force-dynamic";
 
 // 사진→카테고리 할당 — 포트폴리오별로 사진을 보고, 타깃 카테고리에 담기/빼기. (docs/20)
 // 전체 published 사진을 한 번에 로드(더보기 없음).
-export default async function AdminExploreAssignPage() {
-  const [cats, photos, mem, targets, targetMem, albumFlags] = await Promise.all([
-    listExploreCategoriesWithCounts(),
-    fetchAllExploreAssignPhotos(),
-    getAllExploreMemberships(),
-    listTargetsWithExplores(),
-    getAllTargetMemberships(),
-    loadAlbumFlags(),
-  ]);
+export default async function AdminExploreAssignPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ cat?: string; album?: string }>;
+}) {
+  const { cat: initialCat, album: focusAlbum } = await searchParams;
+  const [cats, photos, mem, targets, targetMem, albumFlags, exploreSrc, targetSrc] =
+    await Promise.all([
+      listExploreCategoriesWithCounts(),
+      fetchAllExploreAssignPhotos(),
+      getAllExploreMemberships(),
+      listTargetsWithExplores(),
+      getAllTargetMemberships(),
+      loadAlbumFlags(),
+      getExploreMembershipSources(),
+      getTargetMembershipSources(),
+    ]);
   const initial: AssignPhotoWithCats[] = photos.map((p) => ({
     ...p,
     categoryIds: mem[p.id] ?? [],
@@ -42,7 +52,9 @@ export default async function AdminExploreAssignPage() {
         </Link>
       </div>
       <p className="mt-1 mb-4 text-body-sm text-muted">
-        담을 카테고리를 고르고 사진을 탭해 담기/빼기. 포트폴리오(앨범) 단위 일괄 담기도 돼요.
+        담을 카테고리를 고르고 사진을 탭해 담기/빼기. 사진 아래 배지가 출처예요 —{" "}
+        <b className="text-fg">작가</b>(포트폴리오에서 고름) · <b className="text-fg">운영자</b>(직접
+        담음) · <b className="text-fg">제외됨</b>(작가 선택을 덮어씀).
       </p>
 
       <ExplorePhotoAssigner
@@ -51,6 +63,10 @@ export default async function AdminExploreAssignPage() {
         initialPhotos={initial}
         initialTargetMemberships={targetMem}
         albumFlags={albumFlags}
+        exploreSources={exploreSrc}
+        targetSources={targetSrc}
+        initialCategoryId={initialCat}
+        focusAlbumId={focusAlbum}
       />
     </main>
   );

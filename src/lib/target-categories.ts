@@ -428,6 +428,109 @@ export async function removePhotoFromTarget(
     .eq("photo_id", photoId);
 }
 
+/**
+ * 할당 화면용 — 사진이 그 카테고리에 '왜' 들어있는지까지.
+ *  inherited: 작가가 포트폴리오에서 고름 / manual: 운영자가 손으로 담음 / excluded: 운영자가 뺌
+ * 화면에서 출처를 구분해 보여주고, 작가 선택을 덮어쓸 때 경고하기 위해 쓴다.
+ */
+export type MembershipSource = {
+  inherited: string[];
+  manual: string[];
+  excluded: string[];
+};
+
+export async function getExploreMembershipSources(): Promise<Record<string, MembershipSource>> {
+  const admin = createAdminClient();
+  const out: Record<string, MembershipSource> = {};
+  const bucket = (pid: string) =>
+    (out[pid] ??= { inherited: [], manual: [], excluded: [] });
+
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data } = await admin
+      .from("explore_category_photos")
+      .select("photo_id, category_id, excluded")
+      .range(from, from + PAGE - 1);
+    const batch = (data ?? []) as Array<{
+      photo_id: string;
+      category_id: string;
+      excluded: boolean;
+    }>;
+    for (const r of batch) {
+      const b = bucket(r.photo_id);
+      (r.excluded ? b.excluded : b.manual).push(r.category_id);
+    }
+    if (batch.length < PAGE) break;
+  }
+
+  const { data: links } = await admin
+    .from("album_explore_categories")
+    .select("album_id, explore_category_id");
+  const catsByAlbum = new Map<string, string[]>();
+  for (const l of links ?? []) {
+    const aid = l.album_id as string;
+    catsByAlbum.set(aid, [...(catsByAlbum.get(aid) ?? []), l.explore_category_id as string]);
+  }
+  const albumIds = [...catsByAlbum.keys()];
+  for (let i = 0; i < albumIds.length; i += 100) {
+    const { data } = await admin
+      .from("photos")
+      .select("id, album_id")
+      .in("album_id", albumIds.slice(i, i + 100));
+    for (const p of data ?? []) {
+      const cats = catsByAlbum.get(p.album_id as string) ?? [];
+      if (cats.length > 0) bucket(p.id as string).inherited.push(...cats);
+    }
+  }
+  return out;
+}
+
+/** 타겟 축의 출처 — 앨범의 target_category_id 상속 + target_category_photos 예외. */
+export async function getTargetMembershipSources(): Promise<Record<string, MembershipSource>> {
+  const admin = createAdminClient();
+  const out: Record<string, MembershipSource> = {};
+  const bucket = (pid: string) =>
+    (out[pid] ??= { inherited: [], manual: [], excluded: [] });
+
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data } = await admin
+      .from("target_category_photos")
+      .select("photo_id, category_id, excluded")
+      .range(from, from + PAGE - 1);
+    const batch = (data ?? []) as Array<{
+      photo_id: string;
+      category_id: string;
+      excluded: boolean;
+    }>;
+    for (const r of batch) {
+      const b = bucket(r.photo_id);
+      (r.excluded ? b.excluded : b.manual).push(r.category_id);
+    }
+    if (batch.length < PAGE) break;
+  }
+
+  const { data: albums } = await admin
+    .from("albums")
+    .select("id, target_category_id")
+    .not("target_category_id", "is", null);
+  const targetByAlbum = new Map(
+    (albums ?? []).map((a) => [a.id as string, a.target_category_id as string])
+  );
+  const albumIds = [...targetByAlbum.keys()];
+  for (let i = 0; i < albumIds.length; i += 100) {
+    const { data } = await admin
+      .from("photos")
+      .select("id, album_id")
+      .in("album_id", albumIds.slice(i, i + 100));
+    for (const p of data ?? []) {
+      const t = targetByAlbum.get(p.album_id as string);
+      if (t) bucket(p.id as string).inherited.push(t);
+    }
+  }
+  return out;
+}
+
 /** 할당 화면용 — 사진별 실효 타겟 소속(상속 ∪ 수동 − 제외). */
 export async function getAllTargetMemberships(): Promise<Record<string, string[]>> {
   const admin = createAdminClient();

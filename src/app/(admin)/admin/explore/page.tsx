@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { listExploreCategoriesWithCounts } from "@/lib/explore-db";
-import { listTargetsWithExplores } from "@/lib/target-categories";
+import { listTargetsWithExplores, listAlbumMoodRequests } from "@/lib/target-categories";
 import { ExplorePreviewPicker } from "./ExplorePreviewPicker";
 import { ExploreCoverPicker } from "./ExploreCoverPicker";
 import { ExploreTargetCoverPicker } from "./ExploreTargetCoverPicker";
+import { MoodRequestList } from "./MoodRequestList";
 import { Badge, EmptyState } from "@/components/ui";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { ConfirmForm } from "@/components/admin/ConfirmForm";
@@ -21,9 +22,10 @@ export const dynamic = "force-dynamic";
 // 탐색 편집형 카테고리 관리 — 운영이 만들고, 사진을 손으로 담고(청크 3), 순서·공개를 제어.
 // 광고 랜딩(/admin/categories)과 별개 체계다. (docs/20)
 export default async function AdminExplorePage() {
-  const [cats, targetsAll] = await Promise.all([
+  const [cats, targetsAll, moodRequests] = await Promise.all([
     listExploreCategoriesWithCounts(),
     listTargetsWithExplores(),
+    listAlbumMoodRequests(),
   ]);
   // 무드 → 그 무드가 연결된 타겟들(대표 사진을 타겟별로 걸기 위해 역인덱스)
   const targetsByExplore = new Map<string, Array<{ id: string; name: string }>>();
@@ -51,6 +53,11 @@ export default async function AdminExplorePage() {
         </Link>{" "}
         에서 포트폴리오별로 해요. 공개하면 탐색(/explore)에 노출돼요.
       </p>
+
+      {/* 작가 요청 무드 — 처리 대기 */}
+      <div className="mt-5">
+        <MoodRequestList requests={moodRequests} />
+      </div>
 
       {/* 생성 */}
       <form action={createExploreCategory} className="mt-5 rounded-2xl border border-line bg-surface p-4">
