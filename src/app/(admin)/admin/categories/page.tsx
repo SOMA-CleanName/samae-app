@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { listCategoriesWithCounts, fetchAdCandidates, isUntaggedCategory } from "@/lib/categories";
-import { loadTargetPhotoCandidates } from "@/lib/target-categories";
 import { listExploreCategoriesWithCounts } from "@/lib/explore-db";
 import { listAllTags } from "@/lib/tags";
 import { Badge, EmptyState } from "@/components/ui";
@@ -11,7 +10,6 @@ import { CategoryFields } from "./CategoryFields";
 import { CategoryAdPicker } from "./CategoryAdPicker";
 import { CategoryPhotoOrder } from "./CategoryPhotoOrder";
 import { CategoryExploreSections } from "./CategoryExploreSections";
-import { CategoryCurationPicker } from "./CategoryCurationPicker";
 import {
   createCategory,
   updateCategory,
@@ -30,10 +28,6 @@ export default async function AdminCategoriesPage() {
   ]);
   // 각 카테고리의 광고 소재 채택 후보 썸네일 (병렬)
   const candidatesByCat = await Promise.all(cats.map((c) => fetchAdCandidates(c)));
-  // 큐레이션 후보 — 그 타겟에 담긴 사진(포트폴리오 상속 ∪ 수동 − 제외)
-  const curationCandidates = await Promise.all(
-    cats.map((c) => loadTargetPhotoCandidates(c.id, c.curationPhotoIds))
-  );
   const exploreOptions = exploreCats.map((c) => ({
     id: c.id,
     title: c.title,
@@ -140,21 +134,6 @@ export default async function AdminCategoriesPage() {
                 />
               </details>
 
-              {/* 오늘의 큐레이션 (펼침) — 탐색탭 상단 캐러셀 3장 */}
-              <details className="mt-3" open={c.curationPhotoIds.length > 0}>
-                <summary className="cursor-pointer text-caption font-medium text-fg">
-                  ✨ 오늘의 큐레이션
-                  {c.curationPhotoIds.length > 0 && (
-                    <span className="ml-1 text-brand">· {c.curationPhotoIds.length}장 지정</span>
-                  )}
-                </summary>
-                <CategoryCurationPicker
-                  categoryId={c.id}
-                  slug={c.slug}
-                  candidates={curationCandidates[i]}
-                  selected={c.curationPhotoIds}
-                />
-              </details>
 
               {/* 이 타겟에 속한 탐색 카테고리(추천 무드) — 순서대로 노출 */}
               <details className="mt-3" open={c.exploreSectionIds.length > 0}>

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { archiveAndDelete } from "@/lib/soft-delete";
-import { setTargetExploreCategories, setTargetCurationPhotos, CURATION_SLOTS } from "@/lib/target-categories";
+import { setTargetExploreCategories } from "@/lib/target-categories";
 
 async function assertAdmin() {
   const me = await getCurrentUser();
@@ -132,26 +132,6 @@ export async function setCategoryExploreSections(formData: FormData) {
   if (slug) revalidatePath(`/c/${slug}`);
 }
 
-// '오늘의 큐레이션' 사진 지정 — 타겟당 최대 3장, 탐색탭 상단 캐러셀에 그대로 노출된다.
-export async function setCategoryCurationPhotos(formData: FormData) {
-  await assertAdmin();
-  const id = String(formData.get("id"));
-  const slug = String(formData.get("slug") ?? "");
-  const ids = [
-    ...new Set(
-      String(formData.get("photoIds") ?? "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-    ),
-  ].slice(0, CURATION_SLOTS);
-
-  const res = await setTargetCurationPhotos(id, ids);
-  if (res.error) throw new Error(res.error);
-  revalidatePath("/admin/categories");
-  revalidatePath("/explore");
-  if (slug) revalidatePath(`/c/${slug}`);
-}
 
 // 공개/비공개 토글
 export async function toggleCategoryPublished(formData: FormData) {
