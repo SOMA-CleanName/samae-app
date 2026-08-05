@@ -107,15 +107,25 @@ export async function listTargetsWithExplores(): Promise<TargetWithExplores[]> {
   }));
 }
 
+export type AlbumCategoryState = {
+  targetId: string | null;
+  exploreIds: string[];
+  requestedMoods: string[]; // 작가가 직접 적은 희망 무드(운영자 검토 대기)
+  adConsent: boolean; // 사매 광고 소재 사용 동의
+};
+
 /** 앨범(포트폴리오)들의 현재 카테고리 선택 — 편집 폼 기본값. */
 export async function loadAlbumCategorySelections(
   albumIds: string[]
-): Promise<Map<string, { targetId: string | null; exploreIds: string[] }>> {
-  const out = new Map<string, { targetId: string | null; exploreIds: string[] }>();
+): Promise<Map<string, AlbumCategoryState>> {
+  const out = new Map<string, AlbumCategoryState>();
   if (albumIds.length === 0) return out;
   const admin = createAdminClient();
   const [{ data: albums }, { data: links }] = await Promise.all([
-    admin.from("albums").select("id, target_category_id").in("id", albumIds),
+    admin
+      .from("albums")
+      .select("id, target_category_id, requested_moods, ad_consent")
+      .in("id", albumIds),
     admin
       .from("album_explore_categories")
       .select("album_id, explore_category_id")
@@ -125,6 +135,8 @@ export async function loadAlbumCategorySelections(
     out.set(a.id as string, {
       targetId: (a.target_category_id as string | null) ?? null,
       exploreIds: [],
+      requestedMoods: (a.requested_moods as string[] | null) ?? [],
+      adConsent: !!a.ad_consent,
     });
   }
   for (const l of links ?? []) {
@@ -134,14 +146,19 @@ export async function loadAlbumCategorySelections(
   return out;
 }
 
+export const MAX_REQUESTED_MOODS = 5;
+const REQUESTED_MOOD_MAX_LEN = 20;
+
 /**
- * 앨범의 카테고리 선택 저장 — 타겟 1개 + 그 타겟에 연결된 탐색 여러 개.
+ * 앨범의 카테고리 선택 저장 — 타겟 1개(필수) + 그 타겟에 연결된 탐색 여러 개(선택).
  * 권한 검증은 호출부(서버액션)에서. 탐색이 그 타겟에 속하는지는 여기서 거른다.
+ * 요청 무드는 카테고리를 만들지 않고 문자열로만 남긴다(운영자 검토용).
  */
 export async function saveAlbumCategories(
   albumId: string,
   targetCategoryId: string,
-  exploreCategoryIds: string[]
+  exploreCategoryIds: string[],
+  opts?: { requestedMoods?: string[]; adConsent?: boolean }
 ): Promise<{ error?: string }> {
   const admin = createAdminClient();
   const { data: links } = await admin
@@ -150,11 +167,24 @@ export async function saveAlbumCategories(
     .eq("target_category_id", targetCategoryId);
   const allowed = new Set((links ?? []).map((l) => l.explore_category_id as string));
   const picked = [...new Set(exploreCategoryIds)].filter((id) => allowed.has(id));
-  if (picked.length === 0) return { error: "탐색 카테고리를 1개 이상 선택해주세요." };
+
+  const requested = [
+    ...new Set(
+      (opts?.requestedMoods ?? [])
+        .map((m) => m.trim().slice(0, REQUESTED_MOOD_MAX_LEN))
+        .filter(Boolean)
+    ),
+  ].slice(0, MAX_REQUESTED_MOODS);
+  const adConsent = !!opts?.adConsent;
 
   const { error: upErr } = await admin
     .from("albums")
-    .update({ target_category_id: targetCategoryId })
+    .update({
+      target_category_id: targetCategoryId,
+      requested_moods: requested,
+      ad_consent: adConsent,
+      ad_consent_at: adConsent ? new Date().toISOString() : null,
+    })
     .eq("id", albumId);
   if (upErr) return { error: upErr.message };
 
@@ -164,10 +194,61 @@ export async function saveAlbumCategories(
     .eq("album_id", albumId);
   if (delErr) return { error: delErr.message };
 
+  if (picked.length === 0) return {}; // 무드는 선택 — 안 고르면 연결 없이 저장
+
   const { error } = await admin
     .from("album_explore_categories")
     .insert(picked.map((id) => ({ album_id: albumId, explore_category_id: id })));
   return error ? { error: error.message } : {};
+}
+
+/** 어드민 — 작가가 직접 적은 요청 무드가 있는 포트폴리오 목록(검토 대기). */
+export type AlbumMoodRequest = {
+  albumId: string;
+  title: string | null;
+  photographer: string | null;
+  moods: string[];
+  adConsent: boolean;
+};
+
+export async function listAlbumMoodRequests(): Promise<AlbumMoodRequest[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("albums")
+    .select("id, title, requested_moods, ad_consent, photographer:photographers(display_name)")
+    .neq("requested_moods", "{}")
+    .order("updated_at", { ascending: false });
+  return (data ?? []).map((a) => {
+    // PostgREST 조인은 배열로 오기도 한다(관계 카디널리티 추론) — 둘 다 받는다.
+    const raw = a.photographer as
+      | { display_name: string | null }
+      | Array<{ display_name: string | null }>
+      | null;
+    const ph = Array.isArray(raw) ? raw[0] ?? null : raw;
+    return {
+      albumId: a.id as string,
+      title: (a.title as string | null) ?? null,
+      photographer: ph?.display_name ?? null,
+      moods: (a.requested_moods as string[] | null) ?? [],
+      adConsent: !!a.ad_consent,
+    };
+  });
+}
+
+/** 어드민 할당 화면 — 앨범별 요청 무드·광고동의 (헤더 배지용). */
+export async function loadAlbumFlags(): Promise<
+  Record<string, { moods: string[]; adConsent: boolean }>
+> {
+  const admin = createAdminClient();
+  const { data } = await admin.from("albums").select("id, requested_moods, ad_consent");
+  const out: Record<string, { moods: string[]; adConsent: boolean }> = {};
+  for (const a of data ?? []) {
+    out[a.id as string] = {
+      moods: (a.requested_moods as string[] | null) ?? [],
+      adConsent: !!a.ad_consent,
+    };
+  }
+  return out;
 }
 
 /** 탐색 카테고리가 속한 타겟 id 목록 (작가 UI 검증용). */

@@ -7,7 +7,12 @@ import { updateFeedMeta, deletePhoto, setPostCategories } from "./actions";
 import { TagInput } from "./TagInput";
 import { HelpTip } from "./HelpTip";
 import type { PackageOption } from "./PortfolioUploader";
-import { CategoryPicker, categorySelectionError, type TargetOption } from "./CategoryPicker";
+import {
+  CategoryPicker,
+  categorySelectionError,
+  type CategorySelection,
+  type TargetOption,
+} from "./CategoryPicker";
 
 const fmt = new Intl.NumberFormat("ko-KR");
 
@@ -30,7 +35,7 @@ type Status =
 
 // 포트폴리오 편집 매니저 — 묶음(피드) 사진을 한 모달에서 함께 수정.
 // 모든 작업(교체·삭제·추가·저장)을 토스트로 보여주며, 모달을 닫아도 진행은 이어진다.
-export type AlbumCategorySelection = { targetId: string | null; exploreIds: string[] };
+export type AlbumCategorySelection = CategorySelection;
 
 export function PortfolioEditManager({
   photos,
@@ -48,7 +53,12 @@ export function PortfolioEditManager({
   const router = useRouter();
   const [target, setTarget] = useState<{ anchorId: string; albumId: string | null } | null>(null);
   // 편집 중인 피드의 카테고리 선택 — 모달을 열 때 현재 값으로 채운다.
-  const [cat, setCat] = useState<AlbumCategorySelection>({ targetId: null, exploreIds: [] });
+  const [cat, setCat] = useState<AlbumCategorySelection>({
+    targetId: null,
+    exploreIds: [],
+    requestedMoods: [],
+    adConsent: false,
+  });
   const [catError, setCatError] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>({ kind: "idle" });
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -62,7 +72,12 @@ export function PortfolioEditManager({
       const d = (e as CustomEvent).detail as { photoId: string; albumId: string | null };
       setTarget({ anchorId: d.photoId, albumId: d.albumId });
       const cur = d.albumId ? albumCategories[d.albumId] : undefined;
-      setCat({ targetId: cur?.targetId ?? null, exploreIds: cur?.exploreIds ?? [] });
+      setCat({
+        targetId: cur?.targetId ?? null,
+        exploreIds: cur?.exploreIds ?? [],
+        requestedMoods: cur?.requestedMoods ?? [],
+        adConsent: cur?.adConsent ?? false,
+      });
       setCatError(null);
     }
     window.addEventListener("samae:edit", onEdit);
@@ -155,7 +170,7 @@ export function PortfolioEditManager({
     if (albumId) formData.set("album_id", albumId);
     // 카테고리는 피드(앨범) 단위 — 앨범이 있는 피드만 필수로 검증한다.
     if (albumId) {
-      const err = categorySelectionError(cat.targetId, cat.exploreIds);
+      const err = categorySelectionError(cat.targetId);
       if (err) {
         setCatError(err);
         return; // 모달 유지 — 어디를 고쳐야 하는지 보이게
@@ -165,7 +180,10 @@ export function PortfolioEditManager({
     setStatus({ kind: "working", label: "저장 중…" });
     try {
       if (albumId && cat.targetId) {
-        const res = await setPostCategories(albumId, cat.targetId, cat.exploreIds);
+        const res = await setPostCategories(albumId, cat.targetId, cat.exploreIds, {
+          requestedMoods: cat.requestedMoods,
+          adConsent: cat.adConsent,
+        });
         if (res.error) throw new Error(res.error);
       }
       await updateFeedMeta(formData);
@@ -324,8 +342,7 @@ export function PortfolioEditManager({
                 <div className="flex flex-col gap-1.5 border-t border-fg/10 pt-3">
                   <CategoryPicker
                     targets={targets}
-                    targetId={cat.targetId}
-                    exploreIds={cat.exploreIds}
+                    value={cat}
                     onChange={(next) => {
                       setCat(next);
                       setCatError(null);

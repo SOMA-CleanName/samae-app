@@ -6,19 +6,24 @@ import {
   type AssignPhotoWithCats,
 } from "@/lib/explore-db";
 import { ExplorePhotoAssigner } from "../ExplorePhotoAssigner";
-import { listTargetsWithExplores, getAllTargetMemberships } from "@/lib/target-categories";
+import {
+  listTargetsWithExplores,
+  getAllTargetMemberships,
+  loadAlbumFlags,
+} from "@/lib/target-categories";
 
 export const dynamic = "force-dynamic";
 
 // 사진→카테고리 할당 — 포트폴리오별로 사진을 보고, 타깃 카테고리에 담기/빼기. (docs/20)
 // 전체 published 사진을 한 번에 로드(더보기 없음).
 export default async function AdminExploreAssignPage() {
-  const [cats, photos, mem, targets, targetMem] = await Promise.all([
+  const [cats, photos, mem, targets, targetMem, albumFlags] = await Promise.all([
     listExploreCategoriesWithCounts(),
     fetchAllExploreAssignPhotos(),
     getAllExploreMemberships(),
     listTargetsWithExplores(),
     getAllTargetMemberships(),
+    loadAlbumFlags(),
   ]);
   const initial: AssignPhotoWithCats[] = photos.map((p) => ({
     ...p,
@@ -45,6 +50,7 @@ export default async function AdminExploreAssignPage() {
         targetCategories={targets.map((t) => ({ id: t.id, title: t.name }))}
         initialPhotos={initial}
         initialTargetMemberships={targetMem}
+        albumFlags={albumFlags}
       />
     </main>
   );

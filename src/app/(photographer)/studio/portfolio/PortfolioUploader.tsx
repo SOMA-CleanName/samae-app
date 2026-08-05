@@ -5,7 +5,12 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { TagInput } from "./TagInput";
 import { HelpTip } from "./HelpTip";
 import { SortableGrid, SortableItem } from "@/components/ui/SortableGrid";
-import { CategoryPicker, categorySelectionError, type TargetOption } from "./CategoryPicker";
+import {
+  CategoryPicker,
+  categorySelectionError,
+  type CategorySelection,
+  type TargetOption,
+} from "./CategoryPicker";
 
 // 가격 선택지로 쓰는 작가 패키지 (활성 패키지만)
 export type PackageOption = { id: string; name: string; price_krw: number };
@@ -19,7 +24,9 @@ export type UploadPayload = {
   moods: string;
   publish: boolean;
   targetId: string; // 촬영 종류(타겟 카테고리) — 필수
-  exploreIds: string[]; // 그 타겟에 속한 무드(탐색 카테고리) — 1개 이상
+  exploreIds: string[]; // 그 타겟에 속한 무드(탐색 카테고리) — 선택
+  requestedMoods: string[]; // 목록에 없어 직접 적은 희망 무드(운영자 검토용)
+  adConsent: boolean; // 사매 광고 소재 사용 동의
 };
 
 const fmt = new Intl.NumberFormat("ko-KR");
@@ -44,9 +51,13 @@ export function PortfolioUploader({
   const [moodTags, setMoodTags] = useState<string[]>([]);
   const [publish, setPublish] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  // 피드 단위 카테고리 — 타겟 1개 + 그 타겟의 무드 여러 개(필수)
-  const [targetId, setTargetId] = useState<string | null>(null);
-  const [exploreIds, setExploreIds] = useState<string[]>([]);
+  // 피드 단위 카테고리 — 촬영 종류만 필수, 무드·요청무드·광고동의는 선택
+  const [cat, setCat] = useState<CategorySelection>({
+    targetId: null,
+    exploreIds: [],
+    requestedMoods: [],
+    adConsent: false,
+  });
 
   // 미리보기 URL — files 에서 파생(useMemo). 이전 URL 은 정리 effect 에서 revoke.
   const previews = useMemo(() => files.map((f) => URL.createObjectURL(f)), [files]);
@@ -77,7 +88,7 @@ export function PortfolioUploader({
       setError("사진을 1장 이상 선택하세요.");
       return;
     }
-    const catErr = categorySelectionError(targetId, exploreIds);
+    const catErr = categorySelectionError(cat.targetId);
     if (catErr) {
       setError(catErr);
       return;
@@ -89,8 +100,10 @@ export function PortfolioUploader({
       location,
       moods: moodTags.join(", "),
       publish,
-      targetId: targetId!,
-      exploreIds,
+      targetId: cat.targetId!,
+      exploreIds: cat.exploreIds,
+      requestedMoods: cat.requestedMoods,
+      adConsent: cat.adConsent,
     });
   }
 
@@ -208,11 +221,9 @@ export function PortfolioUploader({
         {/* 카테고리 — 이 피드가 탐색탭 어디에 노출될지 결정(필수) */}
         <CategoryPicker
           targets={targets}
-          targetId={targetId}
-          exploreIds={exploreIds}
+          value={cat}
           onChange={(next) => {
-            setTargetId(next.targetId);
-            setExploreIds(next.exploreIds);
+            setCat(next);
             setError(null);
           }}
         />

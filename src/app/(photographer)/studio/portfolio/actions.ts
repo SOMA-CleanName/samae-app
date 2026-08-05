@@ -38,7 +38,8 @@ export async function createPost(description?: string): Promise<{ id: string }> 
 export async function setPostCategories(
   albumId: string,
   targetCategoryId: string,
-  exploreCategoryIds: string[]
+  exploreCategoryIds: string[],
+  opts?: { requestedMoods?: string[]; adConsent?: boolean }
 ): Promise<{ error?: string }> {
   const me = await getCurrentUser();
   if (!me?.photographer) return { error: "작가만 사용할 수 있습니다." };
@@ -54,7 +55,7 @@ export async function setPostCategories(
     .maybeSingle();
   if (!album) return { error: "내 포트폴리오가 아니에요." };
 
-  const res = await saveAlbumCategories(albumId, targetCategoryId, exploreCategoryIds);
+  const res = await saveAlbumCategories(albumId, targetCategoryId, exploreCategoryIds, opts);
   if (res.error) return res;
 
   revalidatePath("/studio/portfolio");

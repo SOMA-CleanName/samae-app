@@ -40,7 +40,10 @@ export function PortfolioManager({
     try {
       const { id: albumId } = await createPost(p.description); // 한 피드로 묶음
       // 카테고리(타겟 1 + 무드 N)는 사진 업로드 전에 붙인다 — 중간에 실패해도 분류는 남게.
-      const cat = await setPostCategories(albumId, p.targetId, p.exploreIds);
+      const cat = await setPostCategories(albumId, p.targetId, p.exploreIds, {
+        requestedMoods: p.requestedMoods,
+        adConsent: p.adConsent,
+      });
       if (cat.error) throw new Error(cat.error);
       for (let i = 0; i < p.files.length; i++) {
         // 업로드 전 리사이즈+JPEG 변환 (4.5MB 제한 회피 · HEIC 정규화)

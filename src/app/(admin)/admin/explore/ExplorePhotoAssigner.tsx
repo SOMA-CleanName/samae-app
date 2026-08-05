@@ -21,11 +21,14 @@ export function ExplorePhotoAssigner({
   targetCategories = [],
   initialPhotos,
   initialTargetMemberships = {},
+  albumFlags = {},
 }: {
   categories: Cat[];
   targetCategories?: Cat[];
   initialPhotos: AssignPhotoWithCats[];
   initialTargetMemberships?: Record<string, string[]>;
+  // 앨범별 작가 요청 무드 · 광고 사용 동의 (헤더 배지)
+  albumFlags?: Record<string, { moods: string[]; adConsent: boolean }>;
 }) {
   // 담기 대상 축 — 탐색 무드 / 타겟(촬영 종류). 같은 사진 그리드에서 축만 바꾼다.
   const router = useRouter();
@@ -218,9 +221,25 @@ export function ExplorePhotoAssigner({
                     <span className="ml-1.5 text-caption font-normal text-muted">
                       {g.photographer ? `· ${g.photographer} ` : ""}· {g.items.length}장
                       {inCat > 0 && <span className="text-brand"> · {inCat} 담김</span>}
+                      {g.albumId && albumFlags[g.albumId]?.adConsent && (
+                        <span className="ml-1 text-success"> · 광고 사용 동의</span>
+                      )}
                     </span>
                   </p>
                 </div>
+                {g.albumId && (albumFlags[g.albumId]?.moods.length ?? 0) > 0 && (
+                  <div className="flex w-full flex-wrap items-center gap-1">
+                    <span className="text-caption text-muted">작가 요청 무드:</span>
+                    {albumFlags[g.albumId]!.moods.map((m) => (
+                      <span
+                        key={m}
+                        className="rounded-full border border-dashed border-brand/50 bg-brand/[0.06] px-2 py-0.5 text-[11px] font-medium text-brand"
+                      >
+                        {m}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {g.albumId && (
                   <button
                     type="button"
