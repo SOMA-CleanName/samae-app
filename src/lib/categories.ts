@@ -39,10 +39,13 @@ function mapRow(r: Record<string, unknown>): Category {
 }
 
 // 채택 후보/선택된 광고 사진 썸네일
+// adConsent: 그 사진이 속한 포트폴리오에 작가의 '광고 소재 사용 동의'가 있는지.
+// 동의 없는 사진은 광고로 쓰면 안 되므로 어드민에서 선택을 막는다.
 export type AdCandidatePhoto = {
   id: string;
   thumb_url: string | null;
   src_url: string;
+  adConsent: boolean;
 };
 
 // 운영자용 — 전체 카테고리 + 각 카테고리에 매칭되는 공개 사진 수
@@ -99,7 +102,7 @@ export async function fetchAdCandidates(
   category: Pick<Category, "tags" | "adPhotoIds">
 ): Promise<AdCandidatePhoto[]> {
   const admin = createAdminClient();
-  const select = "id, thumb_url, src_url";
+  const select = "id, thumb_url, src_url, album_id";
 
   const buildQuery = () => {
     const q = admin.from("photos").select(select).eq("visibility", "published");
@@ -110,12 +113,12 @@ export async function fetchAdCandidates(
 
   // 매칭 사진을 전부 노출 — PostgREST 페이지 크기(기본 1000행)를 넘겨도 range 로 순회해 모두 수집.
   const PAGE = 1000;
-  const candidates: AdCandidatePhoto[] = [];
+  const candidates: RawCandidate[] = [];
   for (let from = 0; ; from += PAGE) {
     const { data } = await buildQuery()
       .order("created_at", { ascending: false })
       .range(from, from + PAGE - 1);
-    const batch = (data ?? []) as AdCandidatePhoto[];
+    const batch = (data ?? []) as RawCandidate[];
     candidates.push(...batch);
     if (batch.length < PAGE) break;
   }
@@ -123,13 +126,33 @@ export async function fetchAdCandidates(
   const have = new Set(candidates.map((p) => p.id));
   const missingAdopted = category.adPhotoIds.filter((id) => !have.has(id));
 
+  let all = candidates;
   if (missingAdopted.length > 0) {
     const { data: extra } = await admin.from("photos").select(select).in("id", missingAdopted);
     // 채택된 사진을 맨 앞에 둬서 잘 보이게
-    return [...((extra ?? []) as AdCandidatePhoto[]), ...candidates];
+    all = [...((extra ?? []) as RawCandidate[]), ...candidates];
   }
-  return candidates;
+
+  // 포트폴리오(앨범) 단위 광고 동의 여부를 붙인다. 앨범 없는 옛 사진은 동의 없음으로 본다.
+  const albumIds = [...new Set(all.map((p) => p.album_id).filter(Boolean))] as string[];
+  const consentByAlbum = new Map<string, boolean>();
+  for (let i = 0; i < albumIds.length; i += 100) {
+    const { data } = await admin
+      .from("albums")
+      .select("id, ad_consent")
+      .in("id", albumIds.slice(i, i + 100));
+    for (const a of data ?? []) consentByAlbum.set(a.id as string, !!a.ad_consent);
+  }
+
+  return all.map((p) => ({
+    id: p.id,
+    thumb_url: p.thumb_url,
+    src_url: p.src_url,
+    adConsent: p.album_id ? consentByAlbum.get(p.album_id) ?? false : false,
+  }));
 }
+
+type RawCandidate = { id: string; thumb_url: string | null; src_url: string; album_id: string | null };
 
 // 공개 카테고리 목록 (탐색 상단 칩 등)
 export async function listPublishedCategories(): Promise<Category[]> {

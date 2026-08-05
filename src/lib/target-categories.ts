@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { AD_CONSENT_VERSION } from "@/lib/ad-consent";
 
 // 타겟 카테고리(categories) × 탐색 카테고리(explore_categories) 체계.
 //
@@ -158,7 +159,7 @@ export async function saveAlbumCategories(
   albumId: string,
   targetCategoryId: string,
   exploreCategoryIds: string[],
-  opts?: { requestedMoods?: string[]; adConsent?: boolean }
+  opts?: { requestedMoods?: string[]; adConsent?: boolean; actorProfileId?: string | null }
 ): Promise<{ error?: string }> {
   const admin = createAdminClient();
   const { data: links } = await admin
@@ -177,16 +178,38 @@ export async function saveAlbumCategories(
   ].slice(0, MAX_REQUESTED_MOODS);
   const adConsent = !!opts?.adConsent;
 
+  // 동의 상태가 '바뀐 경우에만' 시각·버전을 갱신하고 이력을 남긴다.
+  // (매 저장마다 시각을 덮어쓰면 '언제 동의했는지'가 사라진다)
+  const { data: prev } = await admin
+    .from("albums")
+    .select("ad_consent")
+    .eq("id", albumId)
+    .maybeSingle();
+  const changed = !!prev && !!prev.ad_consent !== adConsent;
+  const now = new Date().toISOString();
+
   const { error: upErr } = await admin
     .from("albums")
     .update({
       target_category_id: targetCategoryId,
       requested_moods: requested,
       ad_consent: adConsent,
-      ad_consent_at: adConsent ? new Date().toISOString() : null,
+      // 철회해도 마지막 동의 시각·버전은 남긴다(증적) — 현재 동의 여부는 ad_consent 로 판단.
+      ...(changed && adConsent
+        ? { ad_consent_at: now, ad_consent_version: AD_CONSENT_VERSION }
+        : {}),
     })
     .eq("id", albumId);
   if (upErr) return { error: upErr.message };
+
+  if (changed) {
+    await admin.from("album_ad_consent_logs").insert({
+      album_id: albumId,
+      consented: adConsent,
+      version: AD_CONSENT_VERSION,
+      actor: opts?.actorProfileId ?? null,
+    });
+  }
 
   const { error: delErr } = await admin
     .from("album_explore_categories")

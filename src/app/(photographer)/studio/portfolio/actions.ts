@@ -55,7 +55,10 @@ export async function setPostCategories(
     .maybeSingle();
   if (!album) return { error: "내 포트폴리오가 아니에요." };
 
-  const res = await saveAlbumCategories(albumId, targetCategoryId, exploreCategoryIds, opts);
+  const res = await saveAlbumCategories(albumId, targetCategoryId, exploreCategoryIds, {
+    ...opts,
+    actorProfileId: me.id,
+  });
   if (res.error) return res;
 
   revalidatePath("/studio/portfolio");

@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useRef, useState } from "react";
+import { AD_CONSENT_TERMS, AD_CONSENT_WARRANTY } from "@/lib/ad-consent";
 
 // 포트폴리오(피드) 1개당 카테고리 선택.
 //  · 촬영 종류(타겟) 1개 — 필수
@@ -196,21 +198,39 @@ export function CategoryPicker({
         </div>
       )}
 
-      {/* 사매 광고 소재 사용 동의 */}
-      <label className="flex cursor-pointer items-start gap-2 text-xs text-fg/70">
-        <input
-          type="checkbox"
-          checked={adConsent}
-          disabled={disabled}
-          onChange={(e) => onChange({ ...value, adConsent: e.target.checked })}
-          className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-brand"
-        />
-        <span>
-          이 포트폴리오 사진을 <b className="font-semibold text-fg">사매 광고 소재</b>로 사용하는 데
-          동의합니다.
-          <span className="ml-1 text-fg/45">(선택 · 언제든 편집에서 해제할 수 있어요)</span>
-        </span>
-      </label>
+      {/* 사매 광고 소재 사용 동의 — 범위를 먼저 보여주고 체크(초상권 보증 포함) */}
+      <div className="rounded-xl border border-fg/12 bg-fg/[0.02] p-3">
+        <p className="text-xs font-medium text-fg/70">
+          사매 광고 소재 사용 동의 <span className="font-normal text-fg/45">(선택)</span>
+        </p>
+        <ul className="mt-1.5 space-y-0.5">
+          {AD_CONSENT_TERMS.map((t) => (
+            <li key={t.label} className="flex gap-1.5 text-[11px] leading-relaxed text-fg/55">
+              <span className="shrink-0 font-medium text-fg/70">{t.label}</span>
+              <span>{t.body}</span>
+            </li>
+          ))}
+        </ul>
+        <label className="mt-2 flex cursor-pointer items-start gap-2 text-xs text-fg/75">
+          <input
+            type="checkbox"
+            checked={adConsent}
+            disabled={disabled}
+            onChange={(e) => onChange({ ...value, adConsent: e.target.checked })}
+            className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-brand"
+          />
+          <span>
+            {AD_CONSENT_WARRANTY}{" "}
+            <Link
+              href="/terms/ad-consent"
+              target="_blank"
+              className="underline underline-offset-2 hover:text-fg"
+            >
+              전문 보기
+            </Link>
+          </span>
+        </label>
+      </div>
     </div>
   );
 }

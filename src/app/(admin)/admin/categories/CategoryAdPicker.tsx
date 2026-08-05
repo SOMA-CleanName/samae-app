@@ -24,8 +24,14 @@ export function CategoryAdPicker({
   const [selected, setSelected] = useState<string[]>(adopted);
   const byId = new Map(candidates.map((c) => [c.id, c]));
 
+  // 작가가 '광고 소재 사용 동의'를 하지 않은 포트폴리오 사진은 채택할 수 없다.
+  // (이미 채택돼 있던 사진은 해제만 가능 — 동의가 철회된 경우를 걷어내기 위해)
   const toggle = (id: string) =>
-    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    setSelected((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (!byId.get(id)?.adConsent) return prev;
+      return [...prev, id];
+    });
 
   // 맨 앞으로 옮기면 그 사진이 이 카테고리 대표(온보딩 강조)가 된다.
   const setRepresentative = (id: string) =>
@@ -42,6 +48,9 @@ export function CategoryAdPicker({
         <p className="text-caption text-muted">
           광고 소재로 쓸 사진 선택 · 후보 {candidates.length}장 중 선택{" "}
           <b className="text-fg">{selected.length}</b>장
+          <span className="ml-1 text-faint">
+            (동의 {candidates.filter((c) => c.adConsent).length}장만 선택 가능)
+          </span>
         </p>
         <SaveButton />
       </div>
@@ -52,22 +61,37 @@ export function CategoryAdPicker({
         <div className="mt-2 grid max-h-[60vh] grid-cols-4 gap-1.5 overflow-y-auto rounded-lg border border-line p-1.5 sm:grid-cols-6 md:grid-cols-8">
           {candidates.map((p) => {
             const on = selected.includes(p.id);
+            const blocked = !p.adConsent && !on;
             return (
               <button
                 key={p.id}
                 type="button"
                 onClick={() => toggle(p.id)}
                 aria-pressed={on}
+                disabled={blocked}
+                title={blocked ? "작가가 광고 사용에 동의하지 않은 포트폴리오예요" : undefined}
                 className={`relative aspect-square overflow-hidden rounded-md ring-offset-2 ring-offset-surface transition-all ${
                   on ? "ring-2 ring-brand" : "ring-1 ring-line hover:ring-line-strong"
-                }`}
+                } ${blocked ? "cursor-not-allowed" : ""}`}
               >
                 <img
                   src={p.thumb_url ?? p.src_url}
                   alt=""
                   loading="lazy"
-                  className={`h-full w-full object-cover transition-opacity ${on ? "" : "opacity-90"}`}
+                  className={`h-full w-full object-cover transition-opacity ${
+                    blocked ? "opacity-25 grayscale" : on ? "" : "opacity-90"
+                  }`}
                 />
+                {blocked && (
+                  <span className="absolute inset-x-0 bottom-0 bg-black/55 py-0.5 text-center text-[9px] font-medium text-white">
+                    동의 없음
+                  </span>
+                )}
+                {on && !p.adConsent && (
+                  <span className="absolute inset-x-0 bottom-0 bg-danger/80 py-0.5 text-center text-[9px] font-medium text-white">
+                    동의 철회됨
+                  </span>
+                )}
                 {on && (
                   <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-brand text-[10px] font-bold text-white">
                     ✓
