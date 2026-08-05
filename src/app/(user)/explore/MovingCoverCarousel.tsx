@@ -25,7 +25,14 @@ const SLIDE_W = 80;
 // 무빙 커버 캐러셀 — 인스타 스토리식 조작:
 //  · 좌/우 탭 = 이전/다음 사진   · 꾹 누름 = 일시정지(떼면 남은 시간부터 재개)
 //  · 좌우 스와이프 = 이전/다음 카테고리   · 제목 탭 = 그 카테고리 열기
-export function MovingCoverCarousel({ cats }: { cats: CoverCat[] }) {
+// hrefBase: 슬라이드 제목이 여는 경로의 앞부분. 오늘의 큐레이션은 타겟(/c), 그 외는 탐색(/explore).
+export function MovingCoverCarousel({
+  cats,
+  hrefBase = "/explore",
+}: {
+  cats: CoverCat[];
+  hrefBase?: string;
+}) {
   // (카테고리, 사진) 타임라인으로 펼쳐 한 포인터로 진행. 카테고리 경계에서 슬라이드가 일어난다.
   const steps = useMemo(
     () => cats.flatMap((c, ci) => c.shots.map((_, si) => ({ ci, si }))),
@@ -232,7 +239,7 @@ export function MovingCoverCarousel({ cats }: { cats: CoverCat[] }) {
 
                   {/* 제목 = 이 카테고리 열기 (좌/우 탭 넘김과 구분: 포인터 이벤트 전파 차단) */}
                   <Link
-                    href={`/explore/${c.slug}`}
+                    href={`${hrefBase}/${c.slug}`}
                     onPointerDown={(e) => e.stopPropagation()}
                     onPointerUp={(e) => e.stopPropagation()}
                     onClick={() =>
@@ -240,7 +247,7 @@ export function MovingCoverCarousel({ cats }: { cats: CoverCat[] }) {
                         category: c.title,
                         slug: c.slug,
                         rank: ci + 1,
-                        source: "cover",
+                        source: hrefBase === "/c" ? "curation_cover" : "cover",
                       })
                     }
                     className="absolute inset-x-4 bottom-6 text-white"

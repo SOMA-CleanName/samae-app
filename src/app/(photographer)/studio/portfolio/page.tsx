@@ -10,6 +10,7 @@ import { DeletePostButton } from "./DeletePostButton";
 import { WalletIcon, MapPinIcon } from "@/components/user/icons";
 import { setAlbumVisibility } from "./actions";
 import { PhotoSortGrid } from "./PhotoSortGrid";
+import { listTargetsWithExplores, loadAlbumCategorySelections } from "@/lib/target-categories";
 
 type Photo = {
   id: string;
@@ -65,6 +66,13 @@ export default async function PortfolioPage() {
     for (const a of albums ?? []) descById.set(a.id as string, (a.description as string | null) ?? null);
   }
 
+  // 카테고리 선택 — 타겟(촬영 종류) + 각 타겟의 무드, 그리고 피드별 현재 선택값
+  const [targets, albumCatMap] = await Promise.all([
+    listTargetsWithExplores(),
+    loadAlbumCategorySelections(albumIds),
+  ]);
+  const albumCategories = Object.fromEntries(albumCatMap);
+
   // 등장 순서를 보존하며 album_id 로 묶기. 앨범 없는 사진은 각자 단일 그룹.
   const groups: Group[] = [];
   const byAlbum = new Map<string, Group>();
@@ -95,7 +103,7 @@ export default async function PortfolioPage() {
             게시물 단위로 묶여 있어요. 공개한 사진이 탐색에 노출됩니다. (공개 {publishedCount} / 전체 {photos.length}장)
           </p>
         </div>
-        <PortfolioManager packages={packages} />
+        <PortfolioManager packages={packages} targets={targets} />
       </div>
 
       {photos.length === 0 ? (
@@ -112,7 +120,13 @@ export default async function PortfolioPage() {
       )}
 
       {/* 편집 매니저 — 묶음(피드) 함께 수정 + 작업 토스트 (한 번만 마운트) */}
-      <PortfolioEditManager photos={photos} descriptions={Object.fromEntries(descById)} packages={packages} />
+      <PortfolioEditManager
+        photos={photos}
+        descriptions={Object.fromEntries(descById)}
+        packages={packages}
+        targets={targets}
+        albumCategories={albumCategories}
+      />
     </main>
   );
 }

@@ -2,8 +2,11 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   togglePhotoExploreCategory,
+  setAlbumTargetCategory,
+  togglePhotoTargetCategory,
   addAlbumExploreCategory,
   removeAlbumExploreCategory,
 } from "./actions";
@@ -15,14 +18,40 @@ type Cat = { id: string; title: string };
 // 사진은 포트폴리오(앨범)별로 묶여 보이고, 포트폴리오 단위 일괄 담기/빼기도 가능.
 export function ExplorePhotoAssigner({
   categories,
+  targetCategories = [],
   initialPhotos,
+  initialTargetMemberships = {},
+  albumFlags = {},
 }: {
   categories: Cat[];
+  targetCategories?: Cat[];
   initialPhotos: AssignPhotoWithCats[];
+  initialTargetMemberships?: Record<string, string[]>;
+  // 앨범별 작가 요청 무드 · 광고 사용 동의 (헤더 배지)
+  albumFlags?: Record<string, { moods: string[]; adConsent: boolean }>;
 }) {
+  // 담기 대상 축 — 탐색 무드 / 타겟(촬영 종류). 같은 사진 그리드에서 축만 바꾼다.
+  const router = useRouter();
+  const [scope, setScope] = useState<"explore" | "target">("explore");
+  const catList = scope === "target" ? targetCategories : categories;
   const [activeCat, setActiveCat] = useState<string>(categories[0]?.id ?? "");
   const [photos, setPhotos] = useState<AssignPhotoWithCats[]>(initialPhotos);
-  const catTitle = (id: string) => categories.find((c) => c.id === id)?.title ?? "";
+  // 타겟 소속은 별도 맵으로 관리(사진 그리드는 공유)
+  const [targetCats, setTargetCats] = useState<Record<string, string[]>>(initialTargetMemberships);
+  const catTitle = (id: string) =>
+    catList.find((c) => c.id === id)?.title ?? "";
+
+  function switchScope(next: "explore" | "target") {
+    setScope(next);
+    const first = (next === "target" ? targetCategories : categories)[0]?.id ?? "";
+    setActiveCat(first);
+  }
+
+  // 현재 축 기준으로 사진이 이 카테고리에 담겨 있는지
+  const isOn = (p: AssignPhotoWithCats) =>
+    scope === "target"
+      ? (targetCats[p.id] ?? []).includes(activeCat)
+      : p.categoryIds.includes(activeCat);
 
   // 포트폴리오(앨범)별 그룹 — 등장 순서 유지. 앨범 없는 사진은 하나의 '개별 사진' 그룹.
   const groups = useMemo(() => {
@@ -53,7 +82,24 @@ export function ExplorePhotoAssigner({
 
   async function togglePhoto(p: AssignPhotoWithCats) {
     if (!activeCat) return;
-    const on = !p.categoryIds.includes(activeCat);
+    const on = !isOn(p);
+
+    if (scope === "target") {
+      setTargetCats((prev) => {
+        const cur = prev[p.id] ?? [];
+        return { ...prev, [p.id]: on ? [...cur, activeCat] : cur.filter((c) => c !== activeCat) };
+      });
+      try {
+        await togglePhotoTargetCategory(p.id, activeCat, on);
+      } catch {
+        setTargetCats((prev) => {
+          const cur = prev[p.id] ?? [];
+          return { ...prev, [p.id]: on ? cur.filter((c) => c !== activeCat) : [...cur, activeCat] };
+        });
+      }
+      return;
+    }
+
     // 낙관적 업데이트
     setPhotoCats(p.id, (cats) => (on ? [...cats, activeCat] : cats.filter((c) => c !== activeCat)));
     try {
@@ -67,6 +113,29 @@ export function ExplorePhotoAssigner({
   async function toggleAlbum(albumId: string, items: AssignPhotoWithCats[], addAll: boolean) {
     if (!activeCat) return;
     const ids = items.map((i) => i.id);
+
+    // 타겟 축 — 앨범당 타겟 1개. 사진 행이 아니라 앨범의 타겟을 바꾼다(작가 선택 덮어쓰기).
+    // 담기 = 이 타겟으로 지정(다른 타겟이었으면 이동), 빼기 = 지정 해제.
+    if (scope === "target") {
+      setTargetCats((prev) => {
+        const next = { ...prev };
+        for (const id of ids) {
+          const cur = next[id] ?? [];
+          next[id] = addAll
+            ? [...new Set([...cur, activeCat])]
+            : cur.filter((c) => c !== activeCat);
+        }
+        return next;
+      });
+      try {
+        await setAlbumTargetCategory(albumId, addAll ? activeCat : null);
+        router.refresh(); // 이전 타겟에서 빠진 것까지 서버 상태로 재동기화
+      } catch {
+        /* 실패해도 다음 로드 시 서버 상태로 복구됨 */
+      }
+      return;
+    }
+
     // 낙관적 — 로드된 사진 전체 반영
     setPhotos((prev) =>
       prev.map((p) =>
@@ -102,6 +171,23 @@ export function ExplorePhotoAssigner({
     <div>
       {/* 타깃 카테고리 선택 — 스티키 */}
       <div className="sticky top-0 z-10 -mx-4 mb-3 border-b border-line bg-bg/90 px-4 py-2.5 backdrop-blur sm:-mx-5 sm:px-5">
+        {/* 축 전환 — 탐색 무드 / 타겟(촬영 종류) */}
+        {targetCategories.length > 0 && (
+          <div className="mb-2 flex gap-1.5">
+            {(["explore", "target"] as const).map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => switchScope(k)}
+                className={`h-7 rounded-full px-3 text-caption font-medium transition-colors ${
+                  scope === k ? "bg-fg text-bg" : "bg-fg/[0.06] text-fg/70 hover:bg-fg/[0.1]"
+                }`}
+              >
+                {k === "explore" ? "탐색 무드" : "타겟(촬영 종류)"}
+              </button>
+            ))}
+          </div>
+        )}
         <label className="flex flex-wrap items-center gap-2 text-body-sm">
           <span className="font-semibold text-fg">담을 카테고리</span>
           <select
@@ -109,19 +195,21 @@ export function ExplorePhotoAssigner({
             onChange={(e) => setActiveCat(e.target.value)}
             className="rounded-lg border border-line-strong bg-surface px-3 py-1.5 text-body-sm outline-none focus:border-fg/40"
           >
-            {categories.map((c) => (
+            {catList.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.title}
               </option>
             ))}
           </select>
-          <span className="text-caption text-muted">사진을 탭하면 이 카테고리에 담기/빼기</span>
+          <span className="text-caption text-muted">
+            사진을 탭하면 담기/빼기 · 작가가 고른 사진을 빼면 ‘제외’로 기록돼요
+          </span>
         </label>
       </div>
 
       <div className="space-y-6">
         {groups.map((g) => {
-          const inCat = g.items.filter((p) => p.categoryIds.includes(activeCat)).length;
+          const inCat = g.items.filter((p) => isOn(p)).length;
           const allIn = inCat === g.items.length;
           return (
             <div key={g.key}>
@@ -133,16 +221,38 @@ export function ExplorePhotoAssigner({
                     <span className="ml-1.5 text-caption font-normal text-muted">
                       {g.photographer ? `· ${g.photographer} ` : ""}· {g.items.length}장
                       {inCat > 0 && <span className="text-brand"> · {inCat} 담김</span>}
+                      {g.albumId && albumFlags[g.albumId]?.adConsent && (
+                        <span className="ml-1 text-success"> · 광고 사용 동의</span>
+                      )}
                     </span>
                   </p>
                 </div>
+                {g.albumId && (albumFlags[g.albumId]?.moods.length ?? 0) > 0 && (
+                  <div className="flex w-full flex-wrap items-center gap-1">
+                    <span className="text-caption text-muted">작가 요청 무드:</span>
+                    {albumFlags[g.albumId]!.moods.map((m) => (
+                      <span
+                        key={m}
+                        className="rounded-full border border-dashed border-brand/50 bg-brand/[0.06] px-2 py-0.5 text-[11px] font-medium text-brand"
+                      >
+                        {m}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 {g.albumId && (
                   <button
                     type="button"
                     onClick={() => toggleAlbum(g.albumId!, g.items, !allIn)}
                     className="shrink-0 cursor-pointer rounded-full border border-line-strong px-3 py-1 text-caption font-medium text-fg transition-colors hover:bg-fg/[0.05]"
                   >
-                    {allIn ? "포트폴리오 전체 빼기" : "포트폴리오 전체 담기"}
+                    {scope === "target"
+                      ? allIn
+                        ? "타겟 지정 해제"
+                        : "이 타겟으로 지정"
+                      : allIn
+                        ? "포트폴리오 전체 빼기"
+                        : "포트폴리오 전체 담기"}
                   </button>
                 )}
               </div>
@@ -150,7 +260,7 @@ export function ExplorePhotoAssigner({
               {/* 사진 그리드 */}
               <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-6 md:grid-cols-8">
                 {g.items.map((p) => {
-                  const on = p.categoryIds.includes(activeCat);
+                  const on = isOn(p);
                   return (
                     <button
                       key={p.id}

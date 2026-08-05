@@ -34,6 +34,10 @@ const nextConfig: NextConfig = {
         destination: "https://samae.ai/:path*",
         permanent: true,
       },
+      // 감성/컨셉(portrait) → 개인 스냅(snap) 통합. 옛 링크·북마크·samae_cat 쿠키 보유자 구제.
+      { source: "/c/portrait", destination: "/c/snap", permanent: true },
+      // 메타 광고 '컷툰_컨셉_슬라이드' 의 랜딩 URL 오타(/portait) — 지금까지 404 로 흘린 유입을 살린다.
+      { source: "/portait", destination: "/c/snap", permanent: false },
     ];
   },
 };

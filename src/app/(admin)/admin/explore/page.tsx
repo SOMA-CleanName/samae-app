@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { listExploreCategoriesWithCounts } from "@/lib/explore-db";
+import { listTargetsWithExplores } from "@/lib/target-categories";
 import { ExplorePreviewPicker } from "./ExplorePreviewPicker";
 import { ExploreCoverPicker } from "./ExploreCoverPicker";
+import { ExploreTargetCoverPicker } from "./ExploreTargetCoverPicker";
 import { Badge, EmptyState } from "@/components/ui";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { ConfirmForm } from "@/components/admin/ConfirmForm";
@@ -19,7 +21,17 @@ export const dynamic = "force-dynamic";
 // 탐색 편집형 카테고리 관리 — 운영이 만들고, 사진을 손으로 담고(청크 3), 순서·공개를 제어.
 // 광고 랜딩(/admin/categories)과 별개 체계다. (docs/20)
 export default async function AdminExplorePage() {
-  const cats = await listExploreCategoriesWithCounts();
+  const [cats, targetsAll] = await Promise.all([
+    listExploreCategoriesWithCounts(),
+    listTargetsWithExplores(),
+  ]);
+  // 무드 → 그 무드가 연결된 타겟들(대표 사진을 타겟별로 걸기 위해 역인덱스)
+  const targetsByExplore = new Map<string, Array<{ id: string; name: string }>>();
+  for (const t of targetsAll) {
+    for (const e of t.explores) {
+      targetsByExplore.set(e.id, [...(targetsByExplore.get(e.id) ?? []), { id: t.id, name: t.name }]);
+    }
+  }
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-5">
@@ -116,6 +128,13 @@ export default async function AdminExplorePage() {
                 categoryId={c.id}
                 slug={c.slug}
                 previewPhotoIds={c.previewPhotoIds}
+              />
+
+              {/* 추천 무드 대표 사진 — 타겟별 (탐색탭 타일) */}
+              <ExploreTargetCoverPicker
+                categoryId={c.id}
+                targets={targetsByExplore.get(c.id) ?? []}
+                coverByTarget={c.coverByTarget}
               />
 
               {/* 무드 카테고리 대표 사진 — 취향 테스트 스와이프 카드용 */}
