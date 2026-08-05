@@ -9,6 +9,8 @@ import {
   approveApplication,
   rejectApplication,
   deleteApplication,
+  updateLeadPrice,
+  updateDefaultLeadPrice,
 } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +22,8 @@ type Row = {
   regions: string[];
   mood_tags: string[];
   price_from_krw: number;
+  // 리드 단가 — null 이면 기본 단가를 따른다
+  lead_price_krw: number | null;
   review_count: number;
   status: string;
   created_at: string;
@@ -50,22 +54,24 @@ function when(iso: string): string {
 // 작가 승인 관리 — pending 우선. 가드는 (admin)/layout.
 export default async function AdminPhotographersPage() {
   const supabase = await createClient();
-  const [{ data }, { data: leadData }] = await Promise.all([
+  const [{ data }, { data: leadData }, { data: platform }] = await Promise.all([
     supabase
       .from("photographers")
-      .select("id, display_name, bio, regions, mood_tags, price_from_krw, review_count, status, created_at")
+      .select("id, display_name, bio, regions, mood_tags, price_from_krw, lead_price_krw, review_count, status, created_at")
       .order("created_at", { ascending: false }),
     supabase
       .from("photographer_applications")
       .select("id, profile_id, display_name, portfolio_url, phone, bio, status, created_at")
       .in("status", ["new", "contacted"])
       .order("created_at", { ascending: false }),
+    supabase.from("platform_account").select("default_lead_price_krw").eq("id", true).maybeSingle(),
   ]);
 
   const rows = (data ?? []) as Row[];
   const pending = rows.filter((r) => r.status === "pending");
   const others = rows.filter((r) => r.status !== "pending");
   const leads = (leadData ?? []) as Lead[];
+  const defaultLeadPrice = (platform?.default_lead_price_krw as number | null) ?? 6000;
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-5">
@@ -184,22 +190,47 @@ export default async function AdminPhotographersPage() {
         )}
       </section>
 
-      {/* 전체 작가 */}
+      {/* 전체 작가 — 리드 단가(작가가 리드 1건 해제 시 우리 계좌로 입금하는 금액) 관리 포함 */}
       <section className="mt-10">
         <h2 className="text-body-sm font-medium text-muted">전체 작가 {others.length}</h2>
+        <p className="mt-1 text-caption text-faint">
+          리드 단가는 작가마다 다르게 정할 수 있어요. 비워두면 기본 단가를 따라가고, 단가를 바꾸면 아직 해제하지
+          않은 리드에도 바로 적용돼요(입금 대기·입금 확인된 건은 그대로).
+        </p>
+
+        {/* 기본 단가 — 개별 단가가 없는 작가 전원에게 적용 */}
+        <form
+          action={updateDefaultLeadPrice}
+          className="mt-3 flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-surface px-4 py-3"
+        >
+          <label htmlFor="default-lead-price" className="text-body-sm font-medium text-fg">
+            기본 리드 단가
+          </label>
+          <PriceInput id="default-lead-price" defaultValue={String(defaultLeadPrice)} />
+          <PendingButton size="sm" variant="secondary">저장</PendingButton>
+        </form>
+
         {others.length === 0 ? (
           <p className="mt-3 text-body-sm text-faint">아직 없어요.</p>
         ) : (
           <ul className="mt-3 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
             {others.map((r) => (
-              <li key={r.id} className="flex items-center gap-3 px-4 py-3">
-                <Avatar name={r.display_name} size="sm" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-body-sm font-semibold text-fg">{r.display_name || "이름 없음"}</p>
-                  <p className="truncate text-caption text-faint">후기 {r.review_count}</p>
+              <li key={r.id} className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center">
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <Avatar name={r.display_name} size="sm" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-body-sm font-semibold text-fg">{r.display_name || "이름 없음"}</p>
+                    <p className="truncate text-caption text-faint">
+                      후기 {r.review_count} · 리드 단가 ₩{fmt.format(r.lead_price_krw ?? defaultLeadPrice)}
+                      {r.lead_price_krw === null && " (기본)"}
+                    </p>
+                  </div>
                 </div>
-                <StatusBadge status={r.status} />
-                <RowAction row={r} />
+                <div className="flex items-center gap-2 sm:shrink-0">
+                  <LeadPriceForm row={r} defaultLeadPrice={defaultLeadPrice} />
+                  <StatusBadge status={r.status} />
+                  <RowAction row={r} />
+                </div>
               </li>
             ))}
           </ul>
@@ -242,6 +273,53 @@ function TagRow({ row }: { row: Row }) {
         <span key={x} className="rounded-full bg-fg/[0.06] px-2.5 py-1 text-caption text-fg/70">#{x}</span>
       ))}
     </div>
+  );
+}
+
+// 원화 금액 입력 — 어드민 전용, 숫자만. placeholder 로 대체값(기본 단가)을 보여준다.
+function PriceInput({
+  id,
+  defaultValue,
+  placeholder,
+  ariaLabel,
+}: {
+  id?: string;
+  defaultValue?: string;
+  placeholder?: string;
+  ariaLabel?: string;
+}) {
+  return (
+    <div className="relative">
+      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-caption text-faint">₩</span>
+      <input
+        id={id}
+        name="price"
+        type="number"
+        min={0}
+        max={10000000}
+        step={1000}
+        inputMode="numeric"
+        defaultValue={defaultValue}
+        placeholder={placeholder}
+        aria-label={ariaLabel}
+        className="w-32 rounded-full border border-line-strong bg-bg py-1.5 pl-7 pr-3 text-body-sm text-fg placeholder:text-faint focus:border-fg/30 focus:outline-none"
+      />
+    </div>
+  );
+}
+
+// 작가별 리드 단가 — 비우고 저장하면 기본 단가로 되돌아간다(lead_price_krw = null)
+function LeadPriceForm({ row, defaultLeadPrice }: { row: Row; defaultLeadPrice: number }) {
+  return (
+    <form action={updateLeadPrice} className="flex items-center gap-1.5">
+      <input type="hidden" name="id" value={row.id} />
+      <PriceInput
+        defaultValue={row.lead_price_krw === null ? "" : String(row.lead_price_krw)}
+        placeholder={fmt.format(defaultLeadPrice)}
+        ariaLabel={`${row.display_name || "작가"} 리드 단가`}
+      />
+      <PendingButton size="sm" variant="ghost">저장</PendingButton>
+    </form>
   );
 }
 
