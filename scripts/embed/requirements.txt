@@ -1,0 +1,14 @@
+# 사진 임베딩 배치 (docs/22) 의존성 — Python 3.12 venv 기준.
+#
+#   /opt/homebrew/bin/python3.12 -m venv scripts/embed/.venv
+#   scripts/embed/.venv/bin/pip install -r scripts/embed/requirements.txt
+#
+# check_db.py 는 표준 라이브러리만 쓰므로 이 목록이 필요 없다(시스템 python3 로 실행).
+# SigLIP2 NaFlex 는 transformers 4.49 에서 추가됐다.
+
+torch>=2.2
+torchvision>=0.17   # Siglip2ImageProcessor 의 기본 백엔드. 없으면 PIL 폴백으로
+                    # 조용히 갈아타서 리사이즈 결과가 달라진다(평가↔백필 불일치 위험).
+transformers>=4.49
+pillow>=10.0
+numpy>=1.26
