@@ -21,10 +21,11 @@ export type ExploreCategoryLite = {
   coverByTarget: Record<string, string>;
   coverByPurpose: Record<string, string>;
   previewPhotoIds: string[];
+  curationPhotoIds: string[]; // 오늘의 큐레이션 3컷(운영자 지정). 비면 대표→담긴 순 자동
 };
 
 const EXPLORE_LITE_COLUMNS =
-  "id, slug, title, subtitle, kind, cover_by_target, cover_by_purpose, preview_photo_ids";
+  "id, slug, title, subtitle, kind, cover_by_target, cover_by_purpose, preview_photo_ids, curation_photo_ids";
 
 function mapExplore(r: Record<string, unknown>): ExploreCategoryLite {
   return {
@@ -36,6 +37,7 @@ function mapExplore(r: Record<string, unknown>): ExploreCategoryLite {
     coverByTarget: (r.cover_by_target as Record<string, string>) ?? {},
     coverByPurpose: (r.cover_by_purpose as Record<string, string>) ?? {},
     previewPhotoIds: (r.preview_photo_ids as string[]) ?? [],
+    curationPhotoIds: (r.curation_photo_ids as string[]) ?? [],
   };
 }
 
@@ -601,6 +603,19 @@ export function coverPhotoIdForTarget(
   return cat.previewPhotoIds[0] ?? fallbackPhotoId;
 }
 
+/** 운영자 — 무드의 '오늘의 큐레이션 3컷' 지정(순서 = 배열 순서). */
+export async function setExploreCurationPhotos(
+  exploreCategoryId: string,
+  photoIds: string[]
+): Promise<{ error?: string }> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("explore_categories")
+    .update({ curation_photo_ids: photoIds.slice(0, CURATION_SLOTS) })
+    .eq("id", exploreCategoryId);
+  return error ? { error: error.message } : {};
+}
+
 /** 운영자 — 탐색 카테고리의 '타겟별 대표 사진' 지정/해제. */
 export async function setExploreCoverForTarget(
   exploreCategoryId: string,
@@ -680,11 +695,14 @@ export async function loadCurationSlides(
   const idsPerCat = new Map<string, string[]>();
   for (const c of cats) {
     const all = await resolveExplorePhotoIds(c.id);
-    // 대표 사진을 맨 앞으로 — 미지정이면 '피드 상단 고정 순서' 1번, 그것도 없으면 담긴 순서
+    // 1순위 — 운영자가 고른 3컷(그 순서 그대로). 담겨 있지 않은 사진은 걸러낸다.
+    const picked = c.curationPhotoIds.filter((id) => all.includes(id));
+    // 2순위 — 타일 대표 사진을 맨 앞으로(캐러셀에서 본 컷 = 무드 진입 첫 장)
     const cover = coverPhotoIdForTarget(c, targetCategoryId);
-    const ordered =
-      cover && all.includes(cover) ? [cover, ...all.filter((id) => id !== cover)] : all;
-    idsPerCat.set(c.id, ordered.slice(0, CURATION_SLOTS));
+    const rest = all.filter((id) => !picked.includes(id));
+    const auto =
+      cover && rest.includes(cover) ? [cover, ...rest.filter((id) => id !== cover)] : rest;
+    idsPerCat.set(c.id, [...picked, ...auto].slice(0, CURATION_SLOTS));
   }
 
   const lites = await fetchPhotoLites([...idsPerCat.values()].flat());
