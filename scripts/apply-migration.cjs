@@ -18,7 +18,8 @@ function readDbUrl() {
     const m = line.match(/^(SUPABASE_DB_POOLER_URL|SUPABASE_DB_URL)=(.*)$/);
     if (m) found[m[1]] = m[2].trim().replace(/^["']|["']$/g, "");
   }
-  const url = found.SUPABASE_DB_POOLER_URL || found.SUPABASE_DB_URL;
+  const url =
+    process.env.SUPABASE_DB_POOLER_URL || found.SUPABASE_DB_POOLER_URL || found.SUPABASE_DB_URL;
   if (!url) throw new Error("SUPABASE_DB_URL 을 .env.local 에서 찾지 못했어요.");
   return url;
 }
