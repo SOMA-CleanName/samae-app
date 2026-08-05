@@ -1,8 +1,12 @@
 import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
 import {
   getPublishedExploreCategory,
   fetchExploreCategoryGalleryPhotos,
 } from "@/lib/explore-db";
+import { getPublishedCategory } from "@/lib/categories";
+import { coverPhotoIdForTarget } from "@/lib/target-categories";
+import { CATEGORY_COOKIE } from "@/lib/category-constants";
 import { newFeedSeed } from "@/lib/discovery";
 import { seededShuffle } from "@/lib/seeded-shuffle";
 import { MpTrackOnce } from "@/components/MpTrackOnce";
@@ -30,8 +34,17 @@ export default async function ExploreCategoryPage({
   const cat = await getPublishedExploreCategory(safeDecode(slug));
   if (!cat) notFound();
 
+  // 첫 장은 '추천 무드 대표 사진' — 타일에서 보고 누른 그 사진이 그대로 열리게 한다.
+  // 대표사진 우선순위는 타일과 동일: 타겟별 지정 → 미리보기 지정 1번 → (없으면 셔플 첫 장).
+  // 타겟은 광고 진입 시 심기는 samae_cat 쿠키로 판별.
+  const adSlug = (await cookies()).get(CATEGORY_COOKIE)?.value;
+  const adCat = adSlug ? await getPublishedCategory(adSlug) : null;
+  const coverId = coverPhotoIdForTarget(cat, adCat?.id ?? null);
+
   const ordered = await fetchExploreCategoryGalleryPhotos(cat.id);
-  const photos = seededShuffle(ordered, newFeedSeed());
+  const shuffled = seededShuffle(ordered, newFeedSeed());
+  const cover = coverId ? shuffled.find((p) => p.id === coverId) : undefined;
+  const photos = cover ? [cover, ...shuffled.filter((p) => p.id !== cover.id)] : shuffled;
 
   return (
     <>
