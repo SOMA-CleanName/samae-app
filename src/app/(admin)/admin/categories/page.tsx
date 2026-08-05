@@ -170,6 +170,35 @@ export default async function AdminCategoriesPage() {
                   options={exploreOptions}
                   selected={c.exploreSectionIds}
                 />
+                {/* 연결된 무드 바로가기 — 대표사진 지정·사진 담기를 여기서 출발 */}
+                {c.exploreSectionIds.length > 0 && (
+                  <div className="mt-3 rounded-lg bg-fg/[0.03] p-2.5">
+                    <p className="text-caption font-medium text-fg/70">연결된 무드 바로가기</p>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {c.exploreSectionIds.map((eid) => {
+                        const title = exploreOptions.find((o) => o.id === eid)?.title;
+                        if (!title) return null;
+                        return (
+                          <span key={eid} className="inline-flex overflow-hidden rounded-full ring-1 ring-line-strong">
+                            <Link
+                              href={`/admin/explore#cat-${eid}`}
+                              className="bg-surface px-2.5 py-1 text-caption font-medium text-fg transition-colors hover:bg-fg/[0.05]"
+                            >
+                              {title}
+                            </Link>
+                            <Link
+                              href={`/admin/explore/assign?cat=${eid}`}
+                              className="border-l border-line-strong bg-surface px-2 py-1 text-caption text-muted transition-colors hover:bg-fg/[0.05] hover:text-fg"
+                              title="이 무드에 사진 담기"
+                            >
+                              사진 담기 →
+                            </Link>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </details>
 
               {/* 편집 (펼침) */}

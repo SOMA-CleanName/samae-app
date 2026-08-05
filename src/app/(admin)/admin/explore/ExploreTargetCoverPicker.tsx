@@ -10,8 +10,9 @@ import {
 
 export type TargetLite = { id: string; name: string };
 
-// 추천 무드 대표 사진 — 타겟(촬영 종류)별로 다른 컷을 걸 수 있다.
-// 탐색탭 '추천 무드' 타일에 그대로 나가고, 미지정이면 미리보기 지정 → 담긴 첫 장 순으로 폴백.
+// 추천 무드 '타일' 대표 사진 — 타겟(촬영 종류)별로 다른 컷을 걸 수 있다.
+// 탐색탭 타일 + 그 무드로 진입했을 때의 첫 장이 이 사진이다.
+// 미지정이면 '피드 상단 고정 순서' 1번 → 담긴 첫 장 순으로 폴백.
 export function ExploreTargetCoverPicker({
   categoryId,
   targets,
@@ -68,7 +69,7 @@ export function ExploreTargetCoverPicker({
   return (
     <details className="mt-3" onToggle={(e) => e.currentTarget.open && void ensureCands()}>
       <summary className="cursor-pointer text-caption font-medium text-fg">
-        🖼 추천 무드 대표 사진
+        🖼 추천 무드 타일 대표 사진
         {setCount > 0 && <span className="ml-1 text-brand">· {setCount}개 타겟 지정됨</span>}
         {saving && <span className="ml-1 text-muted">저장 중…</span>}
       </summary>
@@ -93,6 +94,10 @@ export function ExploreTargetCoverPicker({
         })}
       </div>
 
+      <p className="mt-1.5 text-caption text-muted">
+        탐색탭 타일과 진입 첫 장에 쓰여요. 지정하지 않으면 ‘피드 상단 고정 순서’ 1번 사진이
+        대신 쓰입니다.
+      </p>
       {loading ? (
         <p className="mt-2 text-caption text-muted">후보 불러오는 중…</p>
       ) : (cands ?? []).length === 0 ? (
