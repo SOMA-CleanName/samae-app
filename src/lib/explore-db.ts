@@ -23,10 +23,11 @@ export type ExploreCategory = {
   kind: ExploreCategoryKind; // 취향 테스트 분류: 목적/무드/기타
   coverByPurpose: Record<string, string>; // 무드 카테고리의 목적별 대표 사진 {purposeKey: photoId}
   coverByTarget: Record<string, string>; // 타겟별 추천무드 대표 사진 {targetCategoryId: photoId}
+  curationPhotoIds: string[]; // 오늘의 큐레이션 3컷(운영자 지정)
 };
 
 const EXPLORE_COLUMNS =
-  "id, slug, title, subtitle, published, sort, preview_photo_ids, kind, cover_by_purpose, cover_by_target";
+  "id, slug, title, subtitle, published, sort, preview_photo_ids, kind, cover_by_purpose, cover_by_target, curation_photo_ids";
 
 function mapRow(r: Record<string, unknown>): ExploreCategory {
   return {
@@ -40,6 +41,7 @@ function mapRow(r: Record<string, unknown>): ExploreCategory {
     kind: ((r.kind as string) ?? "other") as ExploreCategoryKind,
     coverByPurpose: (r.cover_by_purpose as Record<string, string> | null) ?? {},
     coverByTarget: (r.cover_by_target as Record<string, string> | null) ?? {},
+    curationPhotoIds: (r.curation_photo_ids as string[] | null) ?? [],
   };
 }
 

@@ -4,7 +4,7 @@ import {
   rankExploreCategoriesByPopularity,
   listPopularPosts,
 } from "@/lib/explore-db";
-import { getPublishedCategory, listPublishedCategories } from "@/lib/categories";
+import { getPublishedCategory } from "@/lib/categories";
 import { loadCurationSlides, loadMoodItemsForTarget } from "@/lib/target-categories";
 import { CATEGORY_COOKIE } from "@/lib/category-constants";
 import { ScrollMemory } from "@/components/user/ScrollMemory";
@@ -32,9 +32,9 @@ export default async function ExplorePage({
   const adSlug = (await cookies()).get(CATEGORY_COOKIE)?.value;
   const adCat = adSlug ? await getPublishedCategory(adSlug) : null;
 
-  // 오늘의 큐레이션 — 내 타겟 1개. 컨텍스트가 없으면(직접·검색 유입) 전체 타겟을 순환.
-  const curationTargets = adCat ? [adCat] : await listPublishedCategories();
-  const coverCats: CoverCat[] = await loadCurationSlides(curationTargets);
+  // 오늘의 큐레이션 — 이번 세션의 타겟에 속한 무드들(슬라이드 1개 = 무드 1개, 3컷).
+  // 타겟 컨텍스트가 없으면(직접·검색 유입) 전체 공개 무드를 돈다.
+  const coverCats: CoverCat[] = await loadCurationSlides(adCat?.id ?? null);
 
   // 추천 무드 — 내 타겟에 연결된 무드. 타겟이 없으면 전체 공개 무드를 인기순으로.
   const gridItems: GridItem[] = adCat
@@ -93,7 +93,7 @@ export default async function ExplorePage({
             {/* 무빙 커버 캐러셀 — 데스크톱에선 세로 히어로가 거대해지지 않게 중앙 캡 */}
             {coverCats.length > 0 && (
               <div className="mx-auto w-full max-w-md">
-                <MovingCoverCarousel cats={coverCats} hrefBase="/c" />
+                <MovingCoverCarousel cats={coverCats} />
               </div>
             )}
 

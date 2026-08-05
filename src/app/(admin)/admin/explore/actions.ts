@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
+  setExploreCurationPhotos,
   setExploreCoverForTarget,
   loadExplorePhotoCandidates,
   addPhotoToTarget,
@@ -271,6 +272,18 @@ export async function setExploreCoverTarget(
 ): Promise<void> {
   await assertAdmin();
   const res = await setExploreCoverForTarget(categoryId, targetCategoryId, photoId);
+  if (res.error) throw new Error(res.error);
+  revalidatePath("/admin/explore");
+  revalidatePath("/explore");
+}
+
+// 오늘의 큐레이션 3컷 지정 — 캐러셀의 이 무드 슬라이드에 이 순서대로 나간다.
+export async function setExploreCuration(
+  categoryId: string,
+  photoIds: string[]
+): Promise<void> {
+  await assertAdmin();
+  const res = await setExploreCurationPhotos(categoryId, photoIds);
   if (res.error) throw new Error(res.error);
   revalidatePath("/admin/explore");
   revalidatePath("/explore");

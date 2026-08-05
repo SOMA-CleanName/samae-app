@@ -16,11 +16,10 @@ export type Category = {
   adPhotoIds: string[]; // 광고 소재로 채택한 사진 id (A/B 여러 장 가능)
   orderedPhotoIds: string[]; // 첫 진입 시 상단에 이 순서대로 노출할 사진 id (수동 고정 순서)
   exploreSectionIds: string[]; // (레거시) 배열 연결 — 읽기는 target_explore_categories 로 이관
-  curationPhotoIds: string[]; // '오늘의 큐레이션'에 쓸 사진 id (운영자 지정, 최대 3장)
 };
 
 const CATEGORY_COLUMNS =
-  "id, slug, name, description, tags, published, sort, ad_photo_ids, ordered_photo_ids, explore_section_ids, curation_photo_ids";
+  "id, slug, name, description, tags, published, sort, ad_photo_ids, ordered_photo_ids, explore_section_ids";
 
 function mapRow(r: Record<string, unknown>): Category {
   return {
@@ -34,7 +33,6 @@ function mapRow(r: Record<string, unknown>): Category {
     adPhotoIds: (r.ad_photo_ids as string[]) ?? [],
     orderedPhotoIds: (r.ordered_photo_ids as string[]) ?? [],
     exploreSectionIds: (r.explore_section_ids as string[]) ?? [],
-    curationPhotoIds: (r.curation_photo_ids as string[]) ?? [],
   };
 }
 

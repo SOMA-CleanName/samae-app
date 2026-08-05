@@ -5,6 +5,7 @@ import { ExplorePreviewPicker } from "./ExplorePreviewPicker";
 import { ExploreCoverPicker } from "./ExploreCoverPicker";
 import { ExploreTargetCoverPicker } from "./ExploreTargetCoverPicker";
 import { MoodRequestList } from "./MoodRequestList";
+import { ExploreCurationPicker } from "./ExploreCurationPicker";
 import { Badge, EmptyState } from "@/components/ui";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { ConfirmForm } from "@/components/admin/ConfirmForm";
@@ -136,6 +137,9 @@ export default async function AdminExplorePage() {
                 slug={c.slug}
                 previewPhotoIds={c.previewPhotoIds}
               />
+
+              {/* 오늘의 큐레이션 3컷 — 탐색탭 상단 캐러셀 */}
+              <ExploreCurationPicker categoryId={c.id} curationPhotoIds={c.curationPhotoIds} />
 
               {/* 추천 무드 대표 사진 — 타겟별 (탐색탭 타일) */}
               <ExploreTargetCoverPicker

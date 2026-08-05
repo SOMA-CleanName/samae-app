@@ -21,10 +21,11 @@ export type ExploreCategoryLite = {
   coverByTarget: Record<string, string>;
   coverByPurpose: Record<string, string>;
   previewPhotoIds: string[];
+  curationPhotoIds: string[]; // 오늘의 큐레이션 3컷(운영자 지정). 비면 대표→담긴 순 자동
 };
 
 const EXPLORE_LITE_COLUMNS =
-  "id, slug, title, subtitle, kind, cover_by_target, cover_by_purpose, preview_photo_ids";
+  "id, slug, title, subtitle, kind, cover_by_target, cover_by_purpose, preview_photo_ids, curation_photo_ids";
 
 function mapExplore(r: Record<string, unknown>): ExploreCategoryLite {
   return {
@@ -36,6 +37,7 @@ function mapExplore(r: Record<string, unknown>): ExploreCategoryLite {
     coverByTarget: (r.cover_by_target as Record<string, string>) ?? {},
     coverByPurpose: (r.cover_by_purpose as Record<string, string>) ?? {},
     previewPhotoIds: (r.preview_photo_ids as string[]) ?? [],
+    curationPhotoIds: (r.curation_photo_ids as string[]) ?? [],
   };
 }
 
@@ -601,6 +603,19 @@ export function coverPhotoIdForTarget(
   return cat.previewPhotoIds[0] ?? fallbackPhotoId;
 }
 
+/** 운영자 — 무드의 '오늘의 큐레이션 3컷' 지정(순서 = 배열 순서). */
+export async function setExploreCurationPhotos(
+  exploreCategoryId: string,
+  photoIds: string[]
+): Promise<{ error?: string }> {
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("explore_categories")
+    .update({ curation_photo_ids: photoIds.slice(0, CURATION_SLOTS) })
+    .eq("id", exploreCategoryId);
+  return error ? { error: error.message } : {};
+}
+
 /** 운영자 — 탐색 카테고리의 '타겟별 대표 사진' 지정/해제. */
 export async function setExploreCoverForTarget(
   exploreCategoryId: string,
@@ -644,43 +659,61 @@ async function fetchPhotoLites(ids: string[]): Promise<Map<string, PhotoLite>> {
 }
 
 export type CurationSlide = {
-  slug: string; // 타겟 slug — /c/<slug> 로 연결
+  slug: string; // 무드 slug — /explore/<slug> 로 연결
   title: string;
   subtitle: string;
   shots: Array<{ id: string; url: string }>;
 };
 
+/** 공개 무드 전체 (타겟 컨텍스트 없는 유입의 큐레이션 폴백). */
+async function listAllPublishedExploreLites(): Promise<ExploreCategoryLite[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("explore_categories")
+    .select(EXPLORE_LITE_COLUMNS)
+    .eq("published", true)
+    .order("sort", { ascending: true });
+  return (data ?? []).map(mapExplore);
+}
+
 /**
- * '오늘의 큐레이션' 슬라이드 — 타겟당 운영자가 지정한 3장.
- * 지정이 모자라면 그 타겟에 담긴 사진(상속 포함)으로 채운다.
+ * '오늘의 큐레이션' 슬라이드 — 이번 세션의 타겟에 속한 무드들.
+ * 슬라이드 1개 = 무드 1개, 3컷씩. 첫 컷은 그 무드의 타일 대표 사진(타겟별 지정)이라
+ * 캐러셀에서 본 사진과 무드로 들어갔을 때의 첫 장이 일치한다.
+ * 담긴 사진이 3장 미만인 무드는 캐러셀에서 뺀다(빈약한 슬라이드 방지).
  */
 export async function loadCurationSlides(
-  targets: Array<{ id: string; slug: string; name: string; description: string; curationPhotoIds: string[] }>
+  targetCategoryId: string | null
 ): Promise<CurationSlide[]> {
-  if (targets.length === 0) return [];
+  // 타겟 컨텍스트가 없으면(직접·검색 유입) 특정 타겟에 치우치지 않게 전체 공개 무드를 돈다.
+  const cats = targetCategoryId
+    ? await listExploreCategoriesForTarget(targetCategoryId)
+    : await listAllPublishedExploreLites();
+  if (cats.length === 0) return [];
 
-  // 1차 — 지정된 사진을 한 번에 조회
-  const picked = new Map<string, string[]>();
-  for (const t of targets) picked.set(t.id, t.curationPhotoIds.slice(0, CURATION_SLOTS));
-  const lites = await fetchPhotoLites([...picked.values()].flat());
-
-  // 2차 — 3장이 안 되는 타겟만 담긴 사진으로 보충
   const slides: CurationSlide[] = [];
-  for (const t of targets) {
-    let ids = (picked.get(t.id) ?? []).filter((id) => lites.has(id));
-    if (ids.length < CURATION_SLOTS) {
-      const all = await resolveTargetPhotoIds(t.id);
-      const extraIds = all.filter((id) => !ids.includes(id)).slice(0, CURATION_SLOTS - ids.length);
-      const extra = await fetchPhotoLites(extraIds);
-      for (const [id, p] of extra) lites.set(id, p);
-      ids = [...ids, ...extraIds.filter((id) => extra.has(id))];
-    }
-    if (ids.length === 0) continue; // 보여줄 게 없으면 슬라이드에서 제외
+  const idsPerCat = new Map<string, string[]>();
+  for (const c of cats) {
+    const all = await resolveExplorePhotoIds(c.id);
+    // 1순위 — 운영자가 고른 3컷(그 순서 그대로). 담겨 있지 않은 사진은 걸러낸다.
+    const picked = c.curationPhotoIds.filter((id) => all.includes(id));
+    // 2순위 — 타일 대표 사진을 맨 앞으로(캐러셀에서 본 컷 = 무드 진입 첫 장)
+    const cover = coverPhotoIdForTarget(c, targetCategoryId);
+    const rest = all.filter((id) => !picked.includes(id));
+    const auto =
+      cover && rest.includes(cover) ? [cover, ...rest.filter((id) => id !== cover)] : rest;
+    idsPerCat.set(c.id, [...picked, ...auto].slice(0, CURATION_SLOTS));
+  }
+
+  const lites = await fetchPhotoLites([...idsPerCat.values()].flat());
+  for (const c of cats) {
+    const shots = (idsPerCat.get(c.id) ?? []).filter((id) => lites.has(id));
+    if (shots.length < CURATION_SLOTS) continue;
     slides.push({
-      slug: t.slug,
-      title: t.name,
-      subtitle: t.description,
-      shots: ids.map((id) => ({ id, url: lites.get(id)!.src_url })),
+      slug: c.slug,
+      title: c.title,
+      subtitle: c.subtitle,
+      shots: shots.map((id) => ({ id, url: lites.get(id)!.src_url })),
     });
   }
   return slides;
@@ -719,21 +752,6 @@ export async function loadMoodItemsForTarget(targetCategoryId: string): Promise<
   return items;
 }
 
-/**
- * 어드민 지정 화면용 후보 — 그 타겟에 담긴 사진(상속 ∪ 수동 − 제외) 앞부분.
- * 이미 고른 사진은 후보 밖이라도 항상 포함해 체크 상태가 유지되게 한다.
- */
-export async function loadTargetPhotoCandidates(
-  targetCategoryId: string,
-  keepIds: string[] = [],
-  limit = 300
-): Promise<PhotoLite[]> {
-  const ids = (await resolveTargetPhotoIds(targetCategoryId)).slice(0, limit);
-  const merged = [...new Set([...keepIds, ...ids])];
-  const lites = await fetchPhotoLites(merged);
-  return merged.map((id) => lites.get(id)).filter((p): p is PhotoLite => !!p);
-}
-
 /** 어드민 — 탐색 카테고리에 담긴 사진 후보(대표사진 지정용). */
 export async function loadExplorePhotoCandidates(
   exploreCategoryId: string,
@@ -746,17 +764,5 @@ export async function loadExplorePhotoCandidates(
   return merged.map((id) => lites.get(id)).filter((p): p is PhotoLite => !!p);
 }
 
-/** 운영자 — 타겟의 '오늘의 큐레이션' 사진(최대 3장) 지정. */
+// 큐레이션 슬라이드 1개(무드)당 노출 컷 수.
 export const CURATION_SLOTS = 3;
-
-export async function setTargetCurationPhotos(
-  targetCategoryId: string,
-  photoIds: string[]
-): Promise<{ error?: string }> {
-  const admin = createAdminClient();
-  const { error } = await admin
-    .from("categories")
-    .update({ curation_photo_ids: photoIds.slice(0, CURATION_SLOTS) })
-    .eq("id", targetCategoryId);
-  return error ? { error: error.message } : {};
-}
