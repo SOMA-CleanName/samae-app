@@ -38,3 +38,10 @@ next-env.d.ts
 
 # windows bash 부산물
 *.stackdump
+
+# 임베딩 배치 (docs/22) — 파이썬 가상환경·표본 이미지·평가 산출물
+scripts/embed/.venv/
+scripts/embed/sample/
+scripts/embed/cache/
+scripts/embed/out/
+__pycache__/

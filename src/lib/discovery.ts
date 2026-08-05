@@ -1171,8 +1171,10 @@ export async function fetchPhotographerPhotos(photographerId: string) {
   return data ?? [];
 }
 
-// 유사 사진 — 현재 사진의 mood_tags 와 겹치는 태그 수가 많은 순(현재 사진/같은 게시물 제외).
-// 사진 상세 '추천' 피드용. 전체 풀을 한 번에 반환하고 클라이언트가 점진 노출.
+// 유사 사진 — 사진 상세 '추천' 피드용.
+// 기본 경로는 이미지 임베딩 근접검색(0069 RPC)이고, 임베딩이 아직 없는 사진은
+// 기존 mood_tags 겹침 방식으로 폴백한다. 설계 배경은 docs/22.
+// 전체 풀을 한 번에 반환하고 클라이언트가 점진 노출.
 export type SimilarPhoto = {
   id: string;
   src_url: string;
@@ -1187,8 +1189,47 @@ export async function fetchSimilarPhotos(opts: {
   tags: string[];
   limit?: number;
 }): Promise<SimilarPhoto[]> {
+  const byEmbedding = await similarByEmbedding(opts.photoId, opts.limit ?? 120);
+  if (byEmbedding.length > 0) return byEmbedding;
+  // 임베딩이 아직 없는 신규 업로드(백필 배치 전)나 RPC 실패 시,
+  // 추천이 통째로 비지 않도록 기존 태그 방식으로 떨어진다.
+  return similarByTags(opts);
+}
+
+// 벡터 근접검색. RPC 가 published/approved·현재 사진·같은 게시물을 이미 걸러
+// distance 오름차순으로 돌려주므로, 앱은 앨범 간격 배치만 얹는다.
+async function similarByEmbedding(photoId: string, limit: number): Promise<SimilarPhoto[]> {
   const supabase = await createClient();
-  const limit = opts.limit ?? 400;
+  const { data, error } = await supabase.rpc("similar_photos_by_embedding", {
+    p_photo_id: photoId,
+    p_limit: limit,
+  });
+  if (error || !data) return [];
+
+  type Row = SimilarPhoto & { album_id: string | null };
+  const rows = data as unknown as Row[];
+
+  // 시드의 게시물은 RPC 가 뺐지만, 다른 한 게시물이 상위를 연달아 채울 수는 있다.
+  // 같은 촬영본은 벡터가 붙어 있어 태그 방식보다 오히려 몰리기 쉽다.
+  // 유사도 순서를 최대한 보존하면서 인접 중복만 푼다.
+  return spaceByAlbum(rows, (p) => p.album_id ?? `single:${p.id}`).map((p) => ({
+    id: p.id,
+    src_url: p.src_url,
+    thumb_url: p.thumb_url,
+    width: p.width,
+    height: p.height,
+  }));
+}
+
+// 폴백 — 기존 mood_tags 겹침 방식. 현재 사진/같은 게시물 제외.
+async function similarByTags(opts: {
+  photoId: string;
+  albumId: string | null;
+  tags: string[];
+  limit?: number;
+}): Promise<SimilarPhoto[]> {
+  const supabase = await createClient();
+  const limit = 400;
   const { data } = await supabase
     .from("photos")
     // 승인 작가의 published 만(!inner + RLS). 현재 사진 제외.
