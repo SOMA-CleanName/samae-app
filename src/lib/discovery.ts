@@ -354,72 +354,59 @@ export async function fetchHomeFeedPage(
   return out;
 }
 
-// 카테고리 피드 — 카테고리 매칭 사진을 먼저, 그 다음 나머지 공개 사진 전체를 이어붙인다.
-// (카테고리 페이지/메인 카테고리 모드에서 무한스크롤로 결국 모든 사진이 나오도록.
-//  매칭 우선이라 상단은 카테고리 알고리즘, 하단은 그 외 전체.)
 const CATEGORY_SELECT =
   "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name)";
 
-export async function fetchCategoryFeed(
-  tags: string[],
-  untagged = false,
+// 타겟 카테고리(/c/<slug>) 피드 — 사진 선정 기준은 '타겟 멤버십'이다.
+//   멤버십 = 앨범 상속(작가가 포트폴리오에 고른 타겟) ∪ 운영자 수동 추가 − 운영자 제외
+//            (resolveTargetPhotoIds — src/lib/target-categories.ts)
+//
+// 무드 태그(mood_tags)는 보지 않는다. 태그 겹침(overlaps)은 '감성·빈티지·여행' 같은 범용
+// 태그 하나만 걸쳐도 매칭이라, 개인 스냅 피드에 웨딩·커플 사진이 섞여 들어왔다.
+//
+// 순서: 고정(ordered_photo_ids) → 멤버십 셔플 → 비멤버 공개 사진 셔플(꼬리).
+// 꼬리는 카테고리 사진을 다 본 뒤에도 스크롤이 이어지게 하는 용도라 유지한다.
+export async function fetchTargetCategoryFeed(
+  memberIds: string[],
   orderedIds: string[] = []
 ): Promise<GalleryPhoto[]> {
   const supabase = await createClient();
 
-  // 수동 '고정 순서'(orderedIds)를 맨 앞에 그 순서대로, 나머지 매칭은 셔플, 그 뒤 비매칭.
-  const withPinned = (matches: GalleryPhoto[], rest: GalleryPhoto[]): GalleryPhoto[] => {
-    if (orderedIds.length === 0) return [...shuffle(matches), ...shuffle(rest)];
-    const byId = new Map(matches.map((p) => [p.id, p]));
-    const seen = new Set<string>();
-    const pinned: GalleryPhoto[] = [];
-    for (const id of orderedIds) {
-      const p = byId.get(id);
-      if (p && !seen.has(id)) {
-        pinned.push(p);
-        seen.add(id);
-      }
-    }
-    const restMatches = matches.filter((p) => !seen.has(p.id));
-    return [...pinned, ...shuffle(restMatches), ...shuffle(rest)];
-  };
-
-  // untagged(캐치올) — 태그 없는 사진을 최신 풀에서 우선.
-  if (untagged) {
+  // 멤버 사진 — .in() URL 길이 방어로 200개씩 끊어 조회
+  const members: GalleryPhoto[] = [];
+  for (let i = 0; i < memberIds.length; i += 200) {
     const { data } = await supabase
       .from("photos")
       .select(CATEGORY_SELECT)
       .eq("visibility", "published")
-      .order("created_at", { ascending: false })
-      .limit(400);
-    const all = (data ?? []) as unknown as GalleryPhoto[];
-    const matches = all.filter((p) => (p.mood_tags ?? []).length === 0);
-    const rest = all.filter((p) => (p.mood_tags ?? []).length > 0);
-    return withPinned(matches, rest);
+      .in("id", memberIds.slice(i, i + 200));
+    members.push(...((data ?? []) as unknown as GalleryPhoto[]));
   }
 
-  // 매칭 사진 — DB에서 태그로 직접 필터(overlaps)해 '최신 400 풀' 밖의 오래된 매칭도 전부 포함.
-  // (기존엔 최신 400장만 받아 그 안에서만 매칭 → 오래된 매칭 사진이 누락됐음)
-  const { data: matchData } = await supabase
-    .from("photos")
-    .select(CATEGORY_SELECT)
-    .eq("visibility", "published")
-    .overlaps("mood_tags", tags)
-    .order("created_at", { ascending: false })
-    .limit(1000);
-  const matches = (matchData ?? []) as unknown as GalleryPhoto[];
-
-  // 나머지(비매칭) — 최신 풀에서 매칭 제외. 무한스크롤 뒤쪽 채움용.
-  const matchedIds = new Set(matches.map((p) => p.id));
+  // 꼬리(비멤버) — 최신 풀에서 멤버 제외. 무한스크롤 뒤쪽 채움용.
+  const memberSet = new Set(members.map((p) => p.id));
   const { data: restData } = await supabase
     .from("photos")
     .select(CATEGORY_SELECT)
     .eq("visibility", "published")
     .order("created_at", { ascending: false })
     .limit(400);
-  const rest = ((restData ?? []) as unknown as GalleryPhoto[]).filter((p) => !matchedIds.has(p.id));
+  const rest = ((restData ?? []) as unknown as GalleryPhoto[]).filter((p) => !memberSet.has(p.id));
 
-  return withPinned(matches, rest);
+  // 운영자 고정 순서를 맨 앞에 그 순서대로
+  const byId = new Map(members.map((p) => [p.id, p]));
+  const pinned: GalleryPhoto[] = [];
+  const seen = new Set<string>();
+  for (const id of orderedIds) {
+    const p = byId.get(id);
+    if (p && !seen.has(id)) {
+      pinned.push(p);
+      seen.add(id);
+    }
+  }
+  const restMembers = members.filter((p) => !seen.has(p.id));
+
+  return [...pinned, ...shuffle(restMembers), ...shuffle(rest)];
 }
 
 // 무드 태그로 공개 사진 검색 — 부분 일치(대소문자 무시), 결과는 메이슨리 사진.
