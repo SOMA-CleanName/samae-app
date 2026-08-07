@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { getPublishedCategory, isUntaggedCategory } from "@/lib/categories";
-import { fetchCategoryFeed, fetchLikedPhotoIds, fetchPhotoById } from "@/lib/discovery";
+import { getPublishedCategory } from "@/lib/categories";
+import { fetchTargetCategoryFeed, fetchLikedPhotoIds, fetchPhotoById } from "@/lib/discovery";
+import { resolveTargetPhotoIds } from "@/lib/target-categories";
 import type { GalleryPhoto } from "@/lib/discovery";
 import { ExploreGallery } from "@/components/user/ExploreGallery";
 import { ScrollMemory } from "@/components/user/ScrollMemory";
@@ -56,14 +57,12 @@ export default async function CategoryPage({
   // 온보딩 강조 사진 = ?ad=<사진ID> 우선, 없으면 이 카테고리의 대표(광고 소재 맨 앞) →
   // 광고 URL(?ad) 없이 /c/<slug> 로 그냥 들어와도 대표 사진이 강조/온보딩된다. (어드민 '광고 소재 채택'에서 대표 지정)
   const spotlightPhotoId = sp.ad || category.adPhotoIds[0] || undefined;
-  const [adPhoto, base] = await Promise.all([
+  // 사진 선정은 타겟 멤버십(앨범 상속 ∪ 수동추가 − 제외)으로만 한다 — 무드 태그 무관.
+  const [adPhoto, memberIds] = await Promise.all([
     spotlightPhotoId ? fetchPhotoById(spotlightPhotoId) : Promise.resolve(null),
-    fetchCategoryFeed(
-      category.tags,
-      isUntaggedCategory(category.tags),
-      category.orderedPhotoIds
-    ),
+    resolveTargetPhotoIds(category.id),
   ]);
+  const base = await fetchTargetCategoryFeed(memberIds, category.orderedPhotoIds);
 
   // 강조 사진을 좌상단 첫 카드로 고정
   const adAsGallery: GalleryPhoto | null = adPhoto

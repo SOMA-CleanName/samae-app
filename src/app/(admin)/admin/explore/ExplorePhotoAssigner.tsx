@@ -100,11 +100,22 @@ export function ExplorePhotoAssigner({
     });
   }
 
+  // 타겟 미지정 = 어떤 타겟에도 안 담긴 사진. /c/<slug> 는 타겟 멤버십으로만 사진을 고르므로
+  // 이 사진들은 어느 카테고리 페이지에도 안 뜬다 → 모아서 지정할 수 있게 필터를 둔다.
+  const [onlyNoTarget, setOnlyNoTarget] = useState(false);
+  const noTargetCount = useMemo(
+    () => photos.filter((p) => (targetCats[p.id] ?? []).length === 0).length,
+    [photos, targetCats]
+  );
+
   // 포트폴리오(앨범)별 그룹 — 등장 순서 유지. 앨범 없는 사진은 하나의 '개별 사진' 그룹.
   const groups = useMemo(() => {
     const order: string[] = [];
     const map = new Map<string, { key: string; albumId: string | null; title: string; photographer: string | null; items: AssignPhotoWithCats[] }>();
-    for (const p of photos) {
+    const list = onlyNoTarget
+      ? photos.filter((p) => (targetCats[p.id] ?? []).length === 0)
+      : photos;
+    for (const p of list) {
       const key = p.album_id ?? "__single__";
       if (!map.has(key)) {
         order.push(key);
@@ -119,7 +130,7 @@ export function ExplorePhotoAssigner({
       map.get(key)!.items.push(p);
     }
     return order.map((k) => map.get(k)!);
-  }, [photos]);
+  }, [photos, onlyNoTarget, targetCats]);
 
   function setPhotoCats(id: string, updater: (cats: string[]) => string[]) {
     setPhotos((prev) =>
@@ -226,9 +237,9 @@ export function ExplorePhotoAssigner({
     <div>
       {/* 타깃 카테고리 선택 — 스티키 */}
       <div className="sticky top-0 z-10 -mx-4 mb-3 border-b border-line bg-bg/90 px-4 py-2.5 backdrop-blur sm:-mx-5 sm:px-5">
-        {/* 축 전환 — 탐색 무드 / 타겟(촬영 종류) */}
+        {/* 축 전환 — 탐색 무드 / 타겟(촬영 종류) + 타겟 미지정 모아보기 */}
         {targetCategories.length > 0 && (
-          <div className="mb-2 flex gap-1.5">
+          <div className="mb-2 flex flex-wrap items-center gap-1.5">
             {(["explore", "target"] as const).map((k) => (
               <button
                 key={k}
@@ -241,6 +252,25 @@ export function ExplorePhotoAssigner({
                 {k === "explore" ? "탐색 무드" : "타겟(촬영 종류)"}
               </button>
             ))}
+            {/* 타겟 미지정만 — 켜면 타겟 축으로 전환해 바로 지정할 수 있게 한다. */}
+            <button
+              type="button"
+              onClick={() => {
+                const next = !onlyNoTarget;
+                setOnlyNoTarget(next);
+                if (next && scope !== "target") switchScope("target");
+              }}
+              aria-pressed={onlyNoTarget}
+              className={`ml-auto h-7 rounded-full px-3 text-caption font-medium transition-colors ${
+                onlyNoTarget
+                  ? "bg-warning text-bg"
+                  : noTargetCount > 0
+                    ? "bg-warning/15 text-warning hover:bg-warning/25"
+                    : "bg-fg/[0.06] text-fg/50 hover:bg-fg/[0.1]"
+              }`}
+            >
+              타겟 미지정 {noTargetCount}장{onlyNoTarget ? " ✕" : ""}
+            </button>
           </div>
         )}
         <label className="flex flex-wrap items-center gap-2 text-body-sm">
@@ -261,6 +291,12 @@ export function ExplorePhotoAssigner({
           </span>
         </label>
       </div>
+
+      {onlyNoTarget && groups.length === 0 && (
+        <p className="rounded-xl border border-line bg-surface p-4 text-body-sm text-muted">
+          모든 사진에 타겟이 지정돼 있어요. 👍
+        </p>
+      )}
 
       <div className="space-y-6">
         {groups.map((g) => {
