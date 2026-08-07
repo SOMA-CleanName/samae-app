@@ -133,3 +133,92 @@ export async function deleteApplication(formData: FormData) {
   if (error) throw new Error(error.message);
   revalidatePath("/admin/photographers");
 }
+
+// ── 리드 단가 ──
+// 작가가 리드 1건을 해제할 때 우리 계좌로 입금하는 금액. 작가마다 다르게 운영한다.
+// 접수 시 inquiries.deposit_amount_krw 로 스냅샷되므로(트리거, 0072),
+// 단가를 바꾸면 아직 미해제(status='new')인 리드도 새 단가를 따라가도록 함께 갱신한다.
+// 이미 해제 신청(accepted)·입금확인(confirmed)된 건은 금액이 확정된 것이라 건드리지 않는다.
+
+const MAX_LEAD_PRICE = 10_000_000;
+
+// "6,000" · "6000원" 같은 입력도 허용. 빈 값이면 null(= 기본 단가 사용).
+function parsePrice(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return null;
+  const digits = trimmed.replace(/[^\d]/g, "");
+  if (!digits) throw new Error("리드 단가는 숫자로 입력해주세요.");
+  const price = Number(digits);
+  if (!Number.isFinite(price) || price > MAX_LEAD_PRICE) {
+    throw new Error(`리드 단가는 0 ~ ${MAX_LEAD_PRICE.toLocaleString("ko-KR")}원 사이로 입력해주세요.`);
+  }
+  return price;
+}
+
+// 미해제 리드 금액 동기화 — 작가 단위
+async function syncPendingLeads(
+  admin: ReturnType<typeof createAdminClient>,
+  photographerIds: string[],
+  amount: number
+) {
+  if (photographerIds.length === 0) return;
+  const { error } = await admin
+    .from("inquiries")
+    .update({ deposit_amount_krw: amount })
+    .in("photographer_id", photographerIds)
+    .eq("status", "new");
+  if (error) throw new Error(error.message);
+}
+
+async function getDefaultLeadPrice(admin: ReturnType<typeof createAdminClient>): Promise<number> {
+  const { data } = await admin
+    .from("platform_account")
+    .select("default_lead_price_krw")
+    .eq("id", true)
+    .maybeSingle();
+  return (data?.default_lead_price_krw as number | null) ?? 6000;
+}
+
+// 작가별 단가 저장 — 빈 값이면 기본 단가를 따르도록 null 로 되돌린다.
+export async function updateLeadPrice(formData: FormData) {
+  await assertAdmin();
+  const id = String(formData.get("id"));
+  const price = parsePrice(String(formData.get("price") ?? ""));
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("photographers")
+    .update({ lead_price_krw: price })
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+
+  await syncPendingLeads(admin, [id], price ?? (await getDefaultLeadPrice(admin)));
+
+  revalidatePath("/admin/photographers");
+  revalidatePath("/studio");
+}
+
+// 기본 단가 저장 — 개별 단가가 없는(null) 작가 전원에게 적용된다.
+export async function updateDefaultLeadPrice(formData: FormData) {
+  await assertAdmin();
+  const price = parsePrice(String(formData.get("price") ?? ""));
+  if (price === null) throw new Error("기본 단가는 비워둘 수 없습니다.");
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("platform_account")
+    .update({ default_lead_price_krw: price })
+    .eq("id", true);
+  if (error) throw new Error(error.message);
+
+  // 개별 단가가 없는 작가들의 미해제 리드만 새 기본 단가로
+  const { data: followers, error: readErr } = await admin
+    .from("photographers")
+    .select("id")
+    .is("lead_price_krw", null);
+  if (readErr) throw new Error(readErr.message);
+  await syncPendingLeads(admin, (followers ?? []).map((p) => p.id as string), price);
+
+  revalidatePath("/admin/photographers");
+  revalidatePath("/studio");
+}
