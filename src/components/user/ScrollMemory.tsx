@@ -65,10 +65,14 @@ export function ScrollMemory({
       sessionStorage.setItem(key, String(lastKnownY.current));
       window.dispatchEvent(new Event("samae:taste-test-arrived"));
     };
-    const stop = () => {
+    const cancelRestore = () => {
       restoring = false;
       if (animationFrame !== null) cancelAnimationFrame(animationFrame);
       if (revealTimer !== null) window.clearTimeout(revealTimer);
+    };
+    // 사용자가 직접 스크롤해 복원을 중단시킨 경우 — 그 지점이 곧 기억할 위치.
+    const stop = () => {
+      cancelRestore();
       lastKnownY.current = Math.round(window.scrollY);
     };
 
@@ -122,9 +126,13 @@ export function ScrollMemory({
     window.addEventListener("touchmove", stop, { passive: true });
     window.addEventListener("keydown", stop);
 
+    // 배경 스크롤 잠금(도크·모달이 html overflow:hidden) 중에는 브라우저가 스크롤을 0 으로
+    // 클램프하며 scroll 이벤트를 쏠 수 있다 — 사용자가 목록을 옮긴 게 아니므로 기억하지 않는다.
+    const locked = () => document.documentElement.style.overflow === "hidden";
+
     // 저장 — 복원 중(클램프될 수 있음)엔 덮어쓰지 않는다.
     const onScroll = () => {
-      if (restoring) return;
+      if (restoring || locked()) return;
       lastKnownY.current = Math.round(window.scrollY);
       sessionStorage.setItem(key, String(lastKnownY.current));
     };
@@ -133,7 +141,11 @@ export function ScrollMemory({
     return () => {
       // Next가 화면 전환 중 먼저 scrollY를 0으로 만든 뒤 cleanup을 실행할 수 있다.
       // 마지막으로 관찰한 실제 목록 위치를 저장해 0으로 덮어쓰지 않는다.
-      stop();
+      // (stop() 은 현재 scrollY 로 덮어쓰므로 여기선 쓰지 않는다 — 그게 저장값을 0으로 날리던 원인.
+      //  실제로 최상단까지 스크롤한 경우는 onScroll 이 이미 0 을 기록해 둔다.)
+      cancelRestore();
+      const y = Math.round(window.scrollY);
+      if (y > 0 && !locked()) lastKnownY.current = y;
       sessionStorage.setItem(key, String(lastKnownY.current));
       window.removeEventListener("wheel", stop);
       window.removeEventListener("touchmove", stop);

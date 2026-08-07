@@ -119,6 +119,9 @@ export function FloatingCart() {
   });
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const layerRef = useRef<HTMLDivElement>(null);
+  // 도크를 펼치기 직전(배경 스크롤 잠그기 전)의 페이지 스크롤 위치.
+  // 잠금 중에는 window.scrollY 를 신뢰할 수 없어(브라우저에 따라 0 으로 클램프) 복귀 좌표로 이 값을 쓴다.
+  const pageScrollY = useRef(0);
 
   // 사진 확대 시 메타 조회(가격·위치·촬영시간·보정본). 결과는 photoId 일치할 때만 표시.
   useEffect(() => {
@@ -175,6 +178,7 @@ export function FloatingCart() {
     if (!open) return;
     const html = document.documentElement;
     const { body } = document;
+    pageScrollY.current = Math.round(window.scrollY); // 잠그기 전에 기억 (복귀 좌표)
     const prevHtml = html.style.overflow;
     const prevBody = body.style.overflow;
     html.style.overflow = "hidden";
@@ -355,8 +359,41 @@ export function FloatingCart() {
     else if (focused) setFocused(null);
     else close();
   }
+  // 도크에서 다른 페이지로 떠나기 전, 뒤에 있던 목록의 스크롤 위치를 저장한다.
+  // (피드 카드의 Link 가 하는 일과 동일 — 저장이 없으면 뒤로 왔을 때 목록이 최상단으로 리셋된다.)
+  //  · samae:photo-return  → PhotoReturnScroll(레이아웃 상주, Router Cache 로 remount 안 돼도 동작)
+  //  · samae:scroll(-anchor) → ScrollMemory(홈·탐색·카테고리 페이지)
+  // 잠금 중 window.scrollY 는 못 믿으므로 도크를 펼치기 직전 좌표(pageScrollY)를 기준으로 삼고,
+  // 카드의 화면 내 위치는 스크롤과 무관한 절대 좌표(scrollY + rect.top)에서 역산한다.
+  function rememberListScroll(photoId: string) {
+    try {
+      const pathname = window.location.pathname;
+      const y = Math.round(window.scrollY || pageScrollY.current);
+      // 도크에는 data-pid 가 없어 뒤 목록의 카드만 잡힌다. 다른 페이지에서 담은 사진이면 없을 수도 있다.
+      const card = document.querySelector<HTMLElement>(`[data-pid="${CSS.escape(photoId)}"]`);
+      const viewportTop = card
+        ? Math.round(window.scrollY + card.getBoundingClientRect().top - y)
+        : null;
+
+      sessionStorage.setItem(
+        "samae:photo-return",
+        JSON.stringify({ pathname, y, photoId: viewportTop === null ? "" : photoId, viewportTop: viewportTop ?? 0 })
+      );
+      sessionStorage.setItem(`samae:scroll:${pathname}`, String(y));
+      if (viewportTop === null) sessionStorage.removeItem(`samae:scroll-anchor:${pathname}`);
+      else
+        sessionStorage.setItem(
+          `samae:scroll-anchor:${pathname}`,
+          JSON.stringify({ id: photoId, viewportTop })
+        );
+    } catch {
+      /* 저장소 접근 불가 시 기본 Next 뒤로가기로 동작 */
+    }
+  }
+
   // 상담 페이지로 이동 — 찜 모달을 즉시 닫고(도크) 이동
   function leaveToInquiry(href: string) {
+    if (focused) rememberListScroll(focused);
     setFocused(null);
     setSelectMode(false);
     setSelectedIds(new Set());
