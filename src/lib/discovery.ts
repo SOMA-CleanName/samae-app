@@ -279,7 +279,7 @@ export async function fetchSeededFeedAt(
   }));
 }
 
-// 운영자가 피드에서 숨긴 사진 id — 소수라 한 번에 받아 집합으로 쓴다(부분 인덱스, 0074).
+// 운영자가 피드에서 숨긴 사진 id — 소수라 한 번에 받아 집합으로 쓴다(부분 인덱스, 0075).
 export async function fetchFeedHiddenIds(): Promise<Set<string>> {
   const admin = createAdminClient();
   const { data } = await admin.from("photos").select("id").eq("feed_hidden", true);

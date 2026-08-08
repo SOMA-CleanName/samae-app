@@ -12,7 +12,7 @@ async function assertAdmin() {
   }
 }
 
-// 사진 피드 숨김 토글 (0074).
+// 사진 피드 숨김 토글 (0075).
 // 숨기면 홈·카테고리(/c/<slug>)·탐색·검색·사진 상세 하단 추천에서 빠지고,
 // 사진 상세(/photos/<id>)·게시물 캐러셀·작가 포트폴리오에는 그대로 남는다.
 export async function setPhotoFeedHidden(photoId: string, hidden: boolean): Promise<void> {
