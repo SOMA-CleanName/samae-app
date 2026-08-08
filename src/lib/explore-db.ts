@@ -104,7 +104,8 @@ export async function fetchExploreCategoryGalleryPhotos(
     .from("photos")
     .select(GALLERY_SELECT)
     .in("id", ids)
-    .eq("visibility", "published");
+    .eq("visibility", "published")
+    .eq("feed_hidden", false); // 운영자 피드 숨김 제외
   const byId = new Map(
     ((data ?? []) as unknown as GalleryPhoto[]).map((p) => [p.id, p])
   );
@@ -191,6 +192,7 @@ export async function listPublishedExploreSections(
       .select("id, album_id")
       .in("album_id", allAlbumIds.slice(i, i + 100))
       .eq("visibility", "published")
+      .eq("feed_hidden", false) // 운영자 피드 숨김 제외
       .order("created_at", { ascending: false });
     for (const p of data ?? []) {
       const aid = p.album_id as string;
@@ -230,7 +232,8 @@ export async function listPublishedExploreSections(
       .from("photos")
       .select(GALLERY_SELECT)
       .in("id", neededIds.slice(i, i + 100))
-      .eq("visibility", "published");
+      .eq("visibility", "published")
+      .eq("feed_hidden", false); // 운영자 피드 숨김 제외
     for (const p of (photoData ?? []) as unknown as GalleryPhoto[]) photoById.set(p.id, p);
   }
 
@@ -298,6 +301,7 @@ export async function listPopularPosts(
         .from("photos")
         .select(PHOTO_SELECT)
         .eq("visibility", "published")
+        .eq("feed_hidden", false) // 운영자 피드 숨김 제외
         .in("id", ids.slice(i, i + 100));
       if (data) rows.push(...(data as unknown as PhotoRow[]));
     }
@@ -306,6 +310,7 @@ export async function listPopularPosts(
       .from("photos")
       .select(PHOTO_SELECT)
       .eq("visibility", "published")
+      .eq("feed_hidden", false) // 운영자 피드 숨김 제외
       .order("created_at", { ascending: false })
       .limit(500);
     rows = (data ?? []) as unknown as PhotoRow[];
@@ -403,6 +408,7 @@ export async function listDiverseQuizPhotos(max = 100): Promise<QuizPhoto[]> {
       "id, src_url, thumb_url, album_id, mood_tags, photographer:photographers!photos_photographer_id_fkey!inner(id)"
     )
     .eq("visibility", "published")
+    .eq("feed_hidden", false) // 운영자 피드 숨김 제외
     .not("mood_tags", "eq", "{}")
     .order("created_at", { ascending: false })
     .limit(1000);
@@ -778,7 +784,8 @@ export async function listMoodDeckForPurpose(purposeKey: string): Promise<MoodCa
       "id",
       withCover.map((r) => r.photoId)
     )
-    .eq("visibility", "published");
+    .eq("visibility", "published")
+    .eq("feed_hidden", false); // 운영자 피드 숨김 제외
   const byId = new Map(
     (photos ?? []).map((p) => [
       p.id as string,
@@ -890,7 +897,8 @@ async function purposeMemberPhotos(
       "id, src_url, thumb_url, album_id, photographer:photographers!photos_photographer_id_fkey!inner(id)"
     )
     .in("id", ids)
-    .eq("visibility", "published");
+    .eq("visibility", "published")
+    .eq("feed_hidden", false); // 운영자 피드 숨김 제외
   return (data ?? []).map((r) => {
     const rr = r as Record<string, unknown>;
     return {

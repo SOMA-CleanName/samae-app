@@ -324,6 +324,7 @@ async function publishedPhotoIdsOfAlbums(albumIds: string[]): Promise<string[]> 
       .select("id")
       .in("album_id", albumIds.slice(i, i + 100))
       .eq("visibility", "published")
+      .eq("feed_hidden", false) // 운영자 피드 숨김 제외(멤버십은 유지, 노출만 제외)
       .order("created_at", { ascending: false });
     out.push(...(data ?? []).map((p) => p.id as string));
   }
