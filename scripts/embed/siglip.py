@@ -64,3 +64,39 @@ def encode(processor, model, images, budget, device):
     if emb.shape[-1] != EMBED_DIM:
         raise RuntimeError(f"임베딩 차원이 {emb.shape[-1]} 이다. EMBED_DIM({EMBED_DIM}) 과 0068 을 확인할 것.")
     return emb / emb.norm(dim=-1, keepdim=True)
+
+
+# 텍스트 타워는 padding='max_length', max_length=64 로 고정한다. SigLIP 은 학습 때
+# 고정 길이로 패딩했으므로 'longest' 를 쓰면 문장 길이에 따라 결과가 달라진다.
+TEXT_MAX_LEN = 64
+
+
+def encode_text(processor, model, texts, device):
+    """문장 리스트 → L2 정규화된 (N, EMBED_DIM) 텐서. 이미지와 같은 공간에 놓인다."""
+    import torch
+
+    inputs = processor(text=texts, padding="max_length", max_length=TEXT_MAX_LEN,
+                       return_tensors="pt")
+    inputs = {k: v.to(device) for k, v in inputs.items()}
+    with torch.no_grad():
+        out = model.get_text_features(**inputs)
+    emb = out if hasattr(out, "shape") else out.pooler_output
+    return emb / emb.norm(dim=-1, keepdim=True)
+
+
+def sigmoid_params(model):
+    """(logit_scale, logit_bias) — SigLIP 의 확률 보정 상수.
+
+    CLIP 과 다르다. CLIP 은 후보들끼리 softmax 로 경쟁시키지만 SigLIP 은 sigmoid 손실로
+    학습돼 **태그마다 독립적으로** sigmoid(scale·cos + bias) 가 확률이 된다. 즉 후보
+    집합을 바꿔도 값이 흔들리지 않아 태깅에 알맞다. softmax 를 씌우면 안 된다.
+    """
+    import torch
+
+    scale = getattr(model, "logit_scale", None)
+    bias = getattr(model, "logit_bias", None)
+    if scale is None:
+        return 1.0, 0.0
+    with torch.no_grad():
+        return (float(torch.as_tensor(scale).exp()),
+                float(torch.as_tensor(bias)) if bias is not None else 0.0)
