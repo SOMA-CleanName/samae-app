@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { setPhotoFeedHidden, setAlbumFeedHidden } from "./actions";
 
 export type AdminPhoto = {
@@ -59,6 +59,27 @@ export function PhotoVisibilityGrid({ photos: initial }: { photos: AdminPhoto[] 
 
   const shownCount = groups.reduce((n, g) => n + g.items.length, 0);
 
+  // 크게 보기(슬라이드) — 열 때의 목록을 스냅샷으로 잡아둔다.
+  // 숨김을 토글하면 필터에 따라 목록에서 빠질 수 있는데, 스냅샷이면 순서·위치가 안 흔들린다.
+  const [viewer, setViewer] = useState<{ ids: string[]; idx: number } | null>(null);
+  const byId = useMemo(() => new Map(photos.map((p) => [p.id, p])), [photos]);
+  const current = viewer ? byId.get(viewer.ids[viewer.idx]) ?? null : null;
+
+  const openViewer = (photoId: string) => {
+    const ids = groups.flatMap((g) => g.items.map((i) => i.id));
+    const idx = ids.indexOf(photoId);
+    if (idx >= 0) setViewer({ ids, idx });
+  };
+  const step = useCallback(
+    (delta: number) =>
+      setViewer((v) => {
+        if (!v) return v;
+        const idx = Math.min(Math.max(v.idx + delta, 0), v.ids.length - 1);
+        return idx === v.idx ? v : { ...v, idx };
+      }),
+    []
+  );
+
   function markBusy(ids: string[], on: boolean) {
     setBusy((prev) => {
       const next = new Set(prev);
@@ -101,6 +122,47 @@ export function PhotoVisibilityGrid({ photos: initial }: { photos: AdminPhoto[] 
       markBusy([...ids], false);
     }
   }
+
+  // 키보드 — 스페이스: 숨김/해제, ←→(↑↓): 이전·다음, Esc: 닫기.
+  // 스페이스·방향키는 기본 스크롤을 막아야 사진이 튀지 않는다.
+  useEffect(() => {
+    if (!current) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === " " || e.code === "Space") {
+        e.preventDefault();
+        if (!busy.has(current.id)) toggleOne(current);
+      } else if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+        e.preventDefault();
+        step(1);
+      } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+        e.preventDefault();
+        step(-1);
+      } else if (e.key === "Escape") {
+        setViewer(null);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // toggleOne 은 매 렌더 새로 만들어지지만 최신 current/busy 를 봐야 하므로 의존성에 둔다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current, busy, step]);
+
+  // 뷰어가 열려 있는 동안 배경 스크롤 잠금 + 앞뒤 사진 미리 로드(방향키 넘김이 즉시 보이게)
+  useEffect(() => {
+    if (!viewer) return;
+    const prev = document.documentElement.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    for (const d of [1, -1]) {
+      const p = byId.get(viewer.ids[viewer.idx + d]);
+      if (p) {
+        const img = new Image();
+        img.src = p.src_url;
+      }
+    }
+    return () => {
+      document.documentElement.style.overflow = prev;
+    };
+  }, [viewer, byId]);
 
   const chip = (active: boolean) =>
     `h-7 rounded-full px-3 text-caption font-medium transition-colors ${
@@ -164,36 +226,139 @@ export function PhotoVisibilityGrid({ photos: initial }: { photos: AdminPhoto[] 
 
               <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-5 md:grid-cols-6">
                 {g.items.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => toggleOne(p)}
-                    aria-pressed={p.hidden}
-                    aria-label={p.hidden ? "피드 노출로 되돌리기" : "피드에서 숨기기"}
-                    className={`relative aspect-square overflow-hidden rounded-lg transition-opacity ${
-                      busy.has(p.id) ? "opacity-40" : ""
-                    }`}
-                  >
-                    <img
-                      src={p.thumb_url ?? p.src_url}
-                      alt=""
-                      loading="lazy"
-                      className={`h-full w-full object-cover transition-all ${
-                        p.hidden ? "grayscale brightness-50" : ""
+                  <div key={p.id} className="relative">
+                    <button
+                      type="button"
+                      onClick={() => toggleOne(p)}
+                      aria-pressed={p.hidden}
+                      aria-label={p.hidden ? "피드 노출로 되돌리기" : "피드에서 숨기기"}
+                      className={`relative block aspect-square w-full overflow-hidden rounded-lg transition-opacity ${
+                        busy.has(p.id) ? "opacity-40" : ""
                       }`}
-                    />
-                    {p.hidden && (
-                      <span className="absolute inset-x-1 bottom-1 rounded bg-warning px-1 py-0.5 text-center text-[11px] font-semibold text-bg">
-                        숨김
-                      </span>
-                    )}
-                  </button>
+                    >
+                      <img
+                        src={p.thumb_url ?? p.src_url}
+                        alt=""
+                        loading="lazy"
+                        className={`h-full w-full object-cover transition-all ${
+                          p.hidden ? "grayscale brightness-50" : ""
+                        }`}
+                      />
+                      {p.hidden && (
+                        <span className="absolute inset-x-1 bottom-1 rounded bg-warning px-1 py-0.5 text-center text-[11px] font-semibold text-bg">
+                          숨김
+                        </span>
+                      )}
+                    </button>
+                    {/* 크게 보기 — 탭(숨김 토글)과 겹치지 않게 모서리 버튼으로 분리 */}
+                    <button
+                      type="button"
+                      onClick={() => openViewer(p.id)}
+                      aria-label="크게 보기"
+                      className="absolute right-1 top-1 rounded-md bg-black/55 px-1.5 py-0.5 text-[11px] font-semibold text-white backdrop-blur-sm transition-colors hover:bg-black/75"
+                    >
+                      ⤢
+                    </button>
+                  </div>
                 ))}
               </div>
             </div>
           );
         })}
       </div>
+
+      {/* 크게 보기 — 스페이스로 숨김/해제, ←→ 로 이동, Esc 로 닫기 */}
+      {viewer && current && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="사진 크게 보기"
+          className="fixed inset-0 z-50 flex flex-col bg-black/95"
+          onClick={() => setViewer(null)}
+        >
+          {/* 상단 — 위치·작가·닫기 */}
+          <div
+            className="flex items-center gap-3 px-4 py-3 text-white"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className="text-body-sm font-semibold tabular-nums">
+              {viewer.idx + 1} / {viewer.ids.length}
+            </span>
+            <span className="min-w-0 truncate text-caption text-white/70">
+              {current.photographer ?? "작가 미상"}
+              {current.albumTitle ? ` · ${current.albumTitle}` : ""}
+            </span>
+            <button
+              type="button"
+              onClick={() => setViewer(null)}
+              className="ml-auto rounded-full bg-white/15 px-3 py-1 text-caption font-medium text-white transition-colors hover:bg-white/25"
+            >
+              닫기 (Esc)
+            </button>
+          </div>
+
+          {/* 사진 — 좌우 클릭 영역으로도 이동 */}
+          <div className="relative flex min-h-0 flex-1 items-center justify-center px-4">
+            <img
+              src={current.src_url}
+              alt=""
+              onClick={(e) => e.stopPropagation()}
+              className={`max-h-full max-w-full object-contain transition-all ${
+                current.hidden ? "opacity-45 grayscale" : ""
+              } ${busy.has(current.id) ? "opacity-40" : ""}`}
+            />
+            {current.hidden && (
+              <span className="pointer-events-none absolute top-3 rounded-full bg-warning px-3 py-1 text-body-sm font-bold text-bg">
+                피드에서 숨김
+              </span>
+            )}
+            {viewer.idx > 0 && (
+              <button
+                type="button"
+                aria-label="이전 사진"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  step(-1);
+                }}
+                className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-white/15 px-3 py-4 text-lg text-white transition-colors hover:bg-white/25"
+              >
+                ‹
+              </button>
+            )}
+            {viewer.idx < viewer.ids.length - 1 && (
+              <button
+                type="button"
+                aria-label="다음 사진"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  step(1);
+                }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/15 px-3 py-4 text-lg text-white transition-colors hover:bg-white/25"
+              >
+                ›
+              </button>
+            )}
+          </div>
+
+          {/* 하단 — 숨김 토글 + 키 안내 */}
+          <div
+            className="flex flex-wrap items-center justify-center gap-3 px-4 py-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              onClick={() => toggleOne(current)}
+              disabled={busy.has(current.id)}
+              className={`rounded-full px-5 py-2 text-body-sm font-bold transition-opacity disabled:opacity-50 ${
+                current.hidden ? "bg-white text-black" : "bg-warning text-bg"
+              }`}
+            >
+              {current.hidden ? "노출로 되돌리기 (Space)" : "피드에서 숨기기 (Space)"}
+            </button>
+            <span className="text-caption text-white/60">← → 이동 · Space 숨김/해제 · Esc 닫기</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
