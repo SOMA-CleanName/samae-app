@@ -39,10 +39,16 @@ function poolerCandidates(connStr) {
     "ap-northeast-2", "ap-northeast-1", "ap-southeast-1", "us-east-1",
     "us-west-1", "eu-central-1", "eu-west-1", "ap-south-1", "us-east-2", "sa-east-1",
   ];
-  return regions.map(
-    (r) =>
-      `postgresql://${encodeURIComponent("postgres." + ref)}:${u.password}` +
-      `@aws-0-${r}.pooler.supabase.com:5432/postgres`
+  // 접두사가 두 가지다. 예전 프로젝트는 aws-0, 최근 프로젝트는 aws-1 을 쓴다.
+  // aws-0 만 시도하면 최근 프로젝트에서 "Tenant or user not found" 로 전부 실패한다.
+  // (2026-08-08 확인: 이 프로젝트는 aws-1-ap-northeast-2)
+  const prefixes = ["aws-1", "aws-0"];
+  return regions.flatMap((r) =>
+    prefixes.map(
+      (p) =>
+        `postgresql://${encodeURIComponent("postgres." + ref)}:${u.password}` +
+        `@${p}-${r}.pooler.supabase.com:5432/postgres`
+    )
   );
 }
 
