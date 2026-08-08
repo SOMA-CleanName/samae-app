@@ -184,6 +184,7 @@ export async function fetchPublishedPhotos(opts: {
       "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name)"
     )
     .eq("visibility", "published")
+    .eq("feed_hidden", false) // 운영자 피드 숨김 제외
     .order("created_at", { ascending: false })
     // 클라이언트는 상한(FEED_CAP)까지만 받으므로 풀은 셔플 다양성에 충분한 만큼만.
     .limit(opts.limit ?? 400);
@@ -278,15 +279,26 @@ export async function fetchSeededFeedAt(
   }));
 }
 
+// 운영자가 피드에서 숨긴 사진 id — 소수라 한 번에 받아 집합으로 쓴다(부분 인덱스, 0074).
+export async function fetchFeedHiddenIds(): Promise<Set<string>> {
+  const admin = createAdminClient();
+  const { data } = await admin.from("photos").select("id").eq("feed_hidden", true);
+  return new Set(((data ?? []) as { id: string }[]).map((r) => r.id));
+}
+
 // 카테고리 멤버십 사진 id 집합 (관리자 클라 — 뷰어 무관 전체 멤버십)
+// 운영자 피드 숨김은 여기서 뺀다 — 멤버십 자체는 두고 노출 면에서만 제외.
 async function categoryMemberIds(catIds: string[]): Promise<Set<string>> {
   if (catIds.length === 0) return new Set();
   const admin = createAdminClient();
-  const { data } = await admin
-    .from("explore_category_photos")
-    .select("photo_id")
-    .in("category_id", catIds);
-  return new Set(((data ?? []) as { photo_id: string }[]).map((r) => r.photo_id));
+  const [{ data }, hidden] = await Promise.all([
+    admin.from("explore_category_photos").select("photo_id").in("category_id", catIds),
+    fetchFeedHiddenIds(),
+  ]);
+  const ids = ((data ?? []) as { photo_id: string }[])
+    .map((r) => r.photo_id)
+    .filter((id) => !hidden.has(id));
+  return new Set(ids);
 }
 
 // 취향 헤드 순서(id) — 티어: 목적∩무드 → 목적만 → 무드만.
@@ -379,6 +391,7 @@ export async function fetchTargetCategoryFeed(
       .from("photos")
       .select(CATEGORY_SELECT)
       .eq("visibility", "published")
+      .eq("feed_hidden", false) // 운영자 피드 숨김 제외
       .in("id", memberIds.slice(i, i + 200));
     members.push(...((data ?? []) as unknown as GalleryPhoto[]));
   }
@@ -389,6 +402,7 @@ export async function fetchTargetCategoryFeed(
     .from("photos")
     .select(CATEGORY_SELECT)
     .eq("visibility", "published")
+    .eq("feed_hidden", false) // 운영자 피드 숨김 제외
     .order("created_at", { ascending: false })
     .limit(400);
   const rest = ((restData ?? []) as unknown as GalleryPhoto[]).filter((p) => !memberSet.has(p.id));
@@ -917,6 +931,7 @@ async function fetchAllSearchablePhotos(
         "id, src_url, thumb_url, width, height, region, location_text, mood_tags, generated_tags, price_krw, album_id, photographer_id, album:albums(id, title, description, location_text), photographer:photographers!photos_photographer_id_fkey!inner(id, display_name, regions, mood_tags)"
       )
       .eq("visibility", "published")
+      .eq("feed_hidden", false) // 운영자 피드 숨김 제외
       .order("created_at", { ascending: false })
       .range(from, from + pageSize - 1);
 
@@ -1224,6 +1239,7 @@ async function similarByTags(opts: {
       "id, src_url, thumb_url, width, height, mood_tags, album_id, photographer:photographers!photos_photographer_id_fkey!inner(id)"
     )
     .eq("visibility", "published")
+    .eq("feed_hidden", false) // 운영자 피드 숨김 제외
     .neq("id", opts.photoId)
     .order("created_at", { ascending: false })
     .limit(limit);
