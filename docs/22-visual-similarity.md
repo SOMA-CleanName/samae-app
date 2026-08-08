@@ -281,12 +281,16 @@ perform set_config('hnsw.ef_search', greatest(v_pool, 100)::text, true);
 
 후보 풀 크기(`v_pool`)에서 계산하므로 `p_limit` 을 키워도 따로 손볼 필요가 없다.
 
+> **현재 유효한 함수 정의는 `0069` 가 아니다 (2026-08-08).** PR #268 의 `0074_photo_feed_hidden.sql` 이 `create or replace` 로 다시 만들며 후보 풀에 `and not p.feed_hidden` 을 추가했다(위 `v_pool` 과 같은 이유로 바깥이 아니라 풀 안이다). 이 절의 `set_config`·`search_path` 처리는 그대로다. **이 함수를 손볼 때는 그 파일에서 출발할 것.**
+
 관련 코드:
 
 - `supabase/migrations/0068_photo_embeddings.sql`
-- `supabase/migrations/0069_similar_photos_rpc.sql`
+- `supabase/migrations/0069_similar_photos_rpc.sql` — RPC 최초 정의
+- `supabase/migrations/0074_photo_feed_hidden.sql` — **현재 유효한 RPC 정의** (PR #268 이 숨김 조건 추가)
+- `supabase/migrations/0074_photo_auto_mood_tags.sql` — 무드 태그 컬럼(§7.5). 위와 번호가 겹친다
 - `supabase/migrations/0047_photo_generated_tags.sql` — 배치 큐 패턴의 원본
-- `supabase/migrations/0065_feed_photos_taste.sql` — `search_path` 고정 사례
+- `supabase/migrations/0065_feed_photos_taste.sql` — `search_path` 고정 사례 (단 이 RPC 자체는 호출부가 없다 — §7.5)
 
 ---
 
@@ -360,6 +364,8 @@ scripts/embed/.venv/bin/python scripts/embed/eval_models.py --budget 1024
 
 - `similarByEmbedding` — `0069` RPC. 기본 경로
 - `similarByTags` — 기존 `mood_tags` 겹침. 폴백으로 보존
+
+> 2026-08-08 에 PR #268 이 RPC 에 운영자 피드 숨김 제외를 추가했으나 **앱 코드는 그대로다** — RPC 안에서 걸러지므로 앱이 알 필요가 없다. (§6.3)
 
 관련 코드:
 
@@ -639,42 +645,17 @@ SigLIP 유사도는 좁은 띠에 몰려 있고 톤은 넓게 퍼진다. **그�
 - `scripts/embed/tone.py` — CIELAB 22차원 톤 디스크립터. 모델 불필요, 300장에 1초
 - `scripts/embed/eval_tone.py` — α 비교 하네스. `--standalone` 은 이미지를 박아 공유용 단일 파일로 만든다
 
-### 7.7 곁가지 발견 — 취향 테스트 '목적' 슬러그 절반이 존재하지 않는다
+### 7.7 곁가지 발견 — 취향 테스트 '목적' 축 오배선 → **[docs/23](23-taste-purpose-mapping.md)**
 
-8단계 측정 중에 나온 **별개 버그**다. 이 문서 범위(시각 유사도) 밖이라 여기서 고치지 않지만, 발견 경위와 실측을 남긴다. **취향 피드 품질에는 자동 태그보다 이쪽이 훨씬 직접적이다.**
+§7.5 의 8단계 측정 중에 나온 **별개 건**이다. 시각 유사도와 무관해 문서를 나눴다. 여기서는 발견 사실만 남긴다.
 
-이 repo 에는 카테고리 체계가 둘이다.
+**증상**: 취향 테스트에서 "커플 스냅" 을 고르면 홈 피드 후보 256장 중 **142장이 웨딩 앨범 사진**이다(정확도 35%). 웨딩·개인 목적은 86~98% 로 정상이다.
 
-| 체계 | 테이블 | 내용 | 멤버십 |
-|---|---|---|---|
-| **타겟** (촬영 종류) | `categories` (4행) | wedding · couple · snap · etc | 앨범 상속 ∪ 수동추가 − 제외 |
-| **탐색** | `explore_categories` (26행) | `kind='mood'` 5 + `other` 21 | `explore_category_photos` 직접 배정 |
+**원인**: 목적 축이 촬영 종류를 타겟 멤버십이 아니라 탐색 카테고리 슬러그로 판단하는데, 커플이 참조하는 `couple`·`friends` 가 실재하지 않아 `date`(데이트) 하나만 남는다. `resolveCategoryIdsBySlugs` 가 `.in()` 이라 **없는 슬러그를 조용히 버린다.**
 
-`taste-purposes.ts` 의 목적 3개(웨딩·커플·개인)는 **타겟 축과 같은 개념**인데, 구현은 `resolveCategoryIdsBySlugs()` 로 **탐색 카테고리** 슬러그를 찾는다. 그리고 15개 참조 중 **8개가 존재하지 않는다.**
+**이 문서와 이어지는 점** — 이 건이 §7.5 의 결론을 바꾸지는 않는다. 취향 피드 머리는 어차피 200/200 으로 차므로(§7.5) 자동 무드 태그로 멤버를 늘려도 증상이 개선되지 않는다. **취향 피드 품질에 실제로 효과가 있는 것은 자동 태그가 아니라 이쪽이다.**
 
-| 목적 | 해석됨 | 존재하지 않아 버려짐 | 실제 후보 |
-|---|---|---|---|
-| 웨딩 스냅 | studio-wedding · outdoor-wedding · casual-wedding · dress | `wedding` `wedding-ceremony` `self-wedding` | 302장 |
-| **커플 스냅** | `date` **하나뿐** | `couple` `friends` | 256장 |
-| 개인 스냅 | profile-image · school-uniform | `profile` `graduation` `hanbok` | 576장 |
-
-`wedding` 과 `couple` 은 **`categories`(타겟) 테이블에는 있다.** 두 체계의 슬러그를 혼동한 흔적이다.
-
-**조용히 실패한다.** `resolveCategoryIdsBySlugs` 가 `.in("slug", clean)` 이라 없는 슬러그는 그냥 안 맞히고 끝난다 — 에러도 경고도 로그도 없다. 화면이 비지도 않는다(머리는 어차피 200장이 찬다). **엉뚱한 200장이 채워질 뿐이라 발견이 늦는다.** §6.3 의 `ef_search` 와 같은 성격의 함정이다.
-
-고치는 방향 두 가지.
-
-- **A. 슬러그만 맞추기** — `taste-purposes.ts` 배열만 수정. 작지만 같은 실수가 재발할 구조는 그대로다
-- **B. 타겟 축으로 옮기기** — 목적 = 촬영 종류이므로 `resolveTargetPhotoIds()` 를 쓴다. PR #267 이 `/c/<slug>` 에 한 것과 같은 수정이고, `categories` 4개와 목적 3개가 거의 1:1 대응한다. 앨범 상속이라 신규 사진도 자동 반영된다
-
-**B 를 권한다.** 어느 쪽이든 **없는 슬러그가 조용히 버려지지 않도록 경고를 남기는 것**은 함께 해야 한다.
-
-관련 코드:
-
-- `src/lib/taste-purposes.ts` — 목적 정의(슬러그 배열이 여기 있다)
-- `src/lib/explore-db.ts` — `resolveCategoryIdsBySlugs` · `listMoodDeckForPurpose` · `listPublishedMoods`
-- `src/lib/target-categories.ts` — `resolveTargetPhotoIds` (B안이 쓸 것)
-- `src/lib/discovery.ts` — `fetchTasteHeadIds` · `fetchHomeFeedPage`
+원인·실측·수정안·검증 방법은 전부 [docs/23](23-taste-purpose-mapping.md) 에 있다. 감사 스크립트는 `scripts/audit-taste-purposes.cjs`.
 
 ---
 
@@ -801,9 +782,11 @@ node scripts/migrate.cjs 0074_photo_tone_descriptors    # 예시
 
 `node` 가 없으면 Supabase 대시보드 **SQL Editor** 에 `.sql` 내용을 붙여 넣는다. 어느 쪽이든 파일은 `supabase/migrations/` 에 커밋해 재현 가능하게 남긴다. **대시보드에서 손으로 실행한 변경은 반드시 같은 내용의 마이그레이션 파일을 남길 것.**
 
-#### 인자 없이 실행하지 말 것 (2026-08-07 확인)
+#### 인자 없이 실행하지 말 것 (2026-08-07 확인 · 08-08 갱신)
 
-`_migrations` 추적 테이블이 **`0047` 에서 멈춰 있다.** 파일 81개 중 50개만 기록돼 있고, **`0048`~`0073` 총 31개는 프로덕션에 적용됐지만 기록이 없다.** 한동안 팀 전체가 SQL Editor 로만 적용해온 결과다.
+`_migrations` 추적 테이블이 **`0047` 에서 멈춰 있다.** `0048` 이후로 **32개가 프로덕션에 적용됐지만 기록이 없다.** 한동안 팀 전체가 SQL Editor 로만 적용해온 결과다.
+
+> `0048` 이후 기록된 것은 `0074_photo_auto_mood_tags.sql` 하나뿐이다. `migrate.cjs` 접속을 고친 뒤(§11) 정규 경로로 적용한 첫 파일이라 자동으로 기록됐다. **접속 문제가 해결됐으니 앞으로 정규 경로를 쓰면 이 격차는 더 벌어지지 않는다.**
 
 인자 없이 실행하면 그 31개를 "미적용" 으로 보고 전부 다시 돌린다. 실제 위험도는 이렇다.
 
@@ -825,9 +808,11 @@ node scripts/migrate.cjs 0074_photo_tone_descriptors    # 예시
 node scripts/migrate.cjs 0068     # ✗ 세 파일이 전부 실행된다
 ```
 
-이 repo 는 번호가 겹쳐 있다 — `0068` 3개, `0069` 3개, 그 밖에 `0040`·`0041`·`0045`·`0055` 가 2개씩. 브랜치들이 동시에 같은 번호를 집었고 git 은 파일명이 달라 충돌로 보지 않는다.
+이 repo 는 번호가 겹쳐 있다 — `0068` 3개, `0069` 3개, `0074` 2개, 그 밖에 `0040`·`0041`·`0045`·`0055` 가 2개씩. 브랜치들이 동시에 같은 번호를 집었고 git 은 파일명이 달라 충돌로 보지 않는다.
 
-이미 적용된 것들이라 번호를 되돌리는 것은 위험하고 실익도 없다. **다음 번호는 `0074` 부터 쓰고, 인자에는 번호가 아니라 파일명 앞부분을 충분히 길게 준다.**
+> **`0074` 는 이 경고를 쓴 바로 다음 PR 에서 또 겹쳤다 (2026-08-08).** `0074_photo_auto_mood_tags.sql`(§7.5)과 `0074_photo_feed_hidden.sql`(PR #268)이 같은 날 들어왔다. 서로 다른 브랜치에서 동시에 작업하면 **번호 규칙만으로는 막을 수 없다.** 브랜치를 딸 때 `origin/main` 의 최신 번호를 확인하고, PR 을 올릴 때 한 번 더 보는 수밖에 없다.
+
+이미 적용된 것들이라 번호를 되돌리는 것은 위험하고 실익도 없다. **다음 번호는 `0075` 부터 쓰고, 인자에는 번호가 아니라 파일명 앞부분을 충분히 길게 준다.**
 
 ### 10.3 백필 전 스냅샷
 
@@ -879,6 +864,7 @@ Supabase 일일 백업에는 **Storage 객체(사진 원본)가 포함되지 않
 | 2026-08-07 | `main` (production) | 주간 백필 1회차 — `embed_photos.py --apply` (§7.4 의 수동 운영) | **커버리지 1,763/1,763 · 대기 0 · 실패 0.** 대상 181장, 소요 29초. 스냅샷은 뜨지 않음 — 대상 3개 컬럼이 전부 `null` 이라 덮어쓸 데이터가 없고 롤백이 `update … set embedded_at = null` 한 줄 |
 | 2026-08-08 | `main` (production) | `0074` 적용 (`auto_mood_*` 컬럼 3개 + 인덱스 2개) — **`node scripts/migrate.cjs` 정규 경로 최초 사용** | 성공. `_migrations` 에도 기록됨. 기존 컬럼·`generated_tags`·`explore_category_photos` 무변경 |
 | 2026-08-08 | `main` (production) | 무드 태그 생성 — `mood_tags.py --apply` (`mood-v1`, 어휘 45개) | **1,763/1,763 · 대기 0 · 실패 0**, 소요 91초. 사진당 5.0개 · 총 8,857건. **읽는 코드는 없음 — 사용자 화면 무변경**(§7.5) |
+| 2026-08-08 | `main` (production) | **(타 PR #268)** `0074_photo_feed_hidden` — `similar_photos_by_embedding` 갱신 | 우리 변경 아님. 후보 풀에 `not feed_hidden` 추가(§6.3). 현재 숨김 0장 · `_migrations` 미기록 |
 
 > 확장 설치는 대시보드에서 먼저 실행했고, 같은 문장을 `0068` 에 `if not exists` 로 포함시켜 재현성을 확보했다. 빈 DB 에서 마이그레이션을 처음부터 돌려도 동일한 상태가 된다.
 
