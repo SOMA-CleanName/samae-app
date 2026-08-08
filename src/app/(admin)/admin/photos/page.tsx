@@ -3,7 +3,7 @@ import { PhotoVisibilityGrid, type AdminPhoto } from "./PhotoVisibilityGrid";
 
 export const dynamic = "force-dynamic";
 
-// 사진 노출 관리 — 운영자가 '둘러보기 면에 안 띄울 사진'을 고른다. (0074 feed_hidden)
+// 사진 노출 관리 — 운영자가 '둘러보기 면에 안 띄울 사진'을 고른다. (0075 feed_hidden)
 //  숨김 → 홈 · /c/<slug> 카테고리 · 탐색 · 검색 · 사진 상세 하단 추천에서 제외
 //  유지 → 사진 상세(/photos/<id>) · 게시물 캐러셀 · 작가 포트폴리오 · 사이트맵
 type Row = {
