@@ -7,6 +7,7 @@ type PhotoReturn = {
   pathname: string;
   y: number;
   photoId: string;
+  instanceId?: string;
   viewportTop: number;
 };
 
@@ -75,7 +76,9 @@ export function PhotoReturnScroll() {
     const restore = () => {
       if (!active) return;
       const card = document.querySelector<HTMLElement>(
-        `[data-pid="${CSS.escape(saved!.photoId)}"]`
+        saved!.instanceId
+          ? `[data-feed-instance="${CSS.escape(saved!.instanceId)}"]`
+          : `[data-pid="${CSS.escape(saved!.photoId)}"]`
       );
       if (card && card !== observedCard) {
         if (observedCard) observer?.unobserve(observedCard);
@@ -109,7 +112,9 @@ export function PhotoReturnScroll() {
     });
     const grid = document.querySelector<HTMLElement>("[data-feed-grid]");
     const initialCard = document.querySelector<HTMLElement>(
-      `[data-pid="${CSS.escape(saved.photoId)}"]`
+      saved.instanceId
+        ? `[data-feed-instance="${CSS.escape(saved.instanceId)}"]`
+        : `[data-pid="${CSS.escape(saved.photoId)}"]`
     );
     if (grid) observer.observe(grid);
     if (initialCard) {
