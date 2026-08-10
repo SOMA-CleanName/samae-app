@@ -31,9 +31,16 @@ export function PhotoReturnScroll() {
     } catch {
       sessionStorage.removeItem(storageKey);
     }
-    if (!saved || saved.pathname !== pathname) return;
+    if (!saved || saved.pathname !== pathname) {
+      // 복원 도중 새로고침/탭 종료로 cleanup 이 실행되지 않은 경우의 잔여 플래그를 회수한다.
+      if (sessionStorage.getItem(RESTORING_KEY)) {
+        sessionStorage.removeItem(RESTORING_KEY);
+        window.dispatchEvent(new Event(RESTORED_EVENT));
+      }
+      return;
+    }
     sessionStorage.removeItem(storageKey);
-    sessionStorage.setItem(RESTORING_KEY, "1");
+    sessionStorage.setItem(RESTORING_KEY, String(Date.now()));
 
     // 복원 위치가 확정되기 전 잠깐만 문서를 가려, 이전 상세 맨 위가 보였다가 내려가는
     // 플래시를 막는다. 단, 위치가 안정되는 즉시 공개해 뒤로가기 전환을 빠르게 한다.

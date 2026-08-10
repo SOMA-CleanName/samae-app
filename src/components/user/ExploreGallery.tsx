@@ -24,7 +24,20 @@ const FEED_RESTORED_EVENT = "samae:feed-return-restored";
 const FEED_SESSION_PREFIX = "samae:gallery-session:";
 const FEED_SESSION_SCHEMA = "personalized-v1";
 const FEED_SESSION_MIGRATION_KEY = "samae:feed-session-migrated:personalized-v1";
+const FEED_RESTORE_MAX_AGE_MS = 5_000;
 const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
+
+function isFeedReturnRestoring(): boolean {
+  const raw = sessionStorage.getItem(FEED_RESTORING_KEY);
+  if (!raw) return false;
+  const startedAt = Number(raw);
+  // 예전 "1" 플래그 또는 비정상 종료 뒤 남은 값은 무한 스크롤을 영구 차단하지 않게 회수한다.
+  if (!Number.isFinite(startedAt) || Date.now() - startedAt > FEED_RESTORE_MAX_AGE_MS) {
+    sessionStorage.removeItem(FEED_RESTORING_KEY);
+    return false;
+  }
+  return true;
+}
 
 const pendingFeedPages = new Map<string, Promise<GalleryPhoto[]>>();
 
@@ -348,7 +361,8 @@ export function ExploreGallery({
         setItems(cached.items);
         setVisible(Math.max(STEP, Math.min(cached.visible, cached.items.length)));
         feedPage.current = Math.max(0, cached.page || 0);
-        feedExhausted.current = !!cached.exhausted;
+        // 이전 요청의 일시 오류가 exhausted 로 저장됐을 수 있으므로 재진입 시 한 번은 다시 확인한다.
+        feedExhausted.current = loadMore ? false : !!cached.exhausted;
         feedLoading.current = false;
         setActiveFeedSeed(cached.seed ?? feedSeed);
         setClickedPhotoIds(Array.isArray(cached.clickedPhotoIds) ? cached.clickedPhotoIds.slice(-8) : []);
@@ -393,11 +407,13 @@ export function ExploreGallery({
     if (!el) return;
 
     let busy = false; // 이 사이클당 1회만 진행 — 폭주/중복 방지
+    let retryTimer: number | null = null;
+    let disposed = false;
     const advance = async () => {
       if (busy) return;
       // 사진 상세에서 돌아오는 동안에는 센티넬이 잠깐 화면 가까이에 있어도
       // 페이지를 추가하지 않는다. 복원이 끝난 뒤 아래 이벤트로 다시 검사한다.
-      if (sessionStorage.getItem(FEED_RESTORING_KEY) === "1") return;
+      if (isFeedReturnRestoring()) return;
       // 1) 이미 로드된 것 중 아직 안 보인 게 있으면 그것부터 노출
       if (visible < items.length) {
         busy = true;
@@ -455,7 +471,13 @@ export function ExploreGallery({
           setVisible((v) => v + STEP);
         }
       } catch {
-        feedExhausted.current = true;
+        // 네트워크·서버 액션의 일시 오류는 피드 소진이 아니다. 잠시 뒤 같은 페이지를 재시도한다.
+        retryTimer = window.setTimeout(() => {
+          if (!disposed) {
+            busy = false;
+            advance();
+          }
+        }, 1_500);
       } finally {
         feedLoading.current = false;
       }
@@ -479,6 +501,8 @@ export function ExploreGallery({
     check();
 
     return () => {
+      disposed = true;
+      if (retryTimer !== null) window.clearTimeout(retryTimer);
       io.disconnect();
       window.removeEventListener("scroll", check);
       window.removeEventListener("resize", check);
