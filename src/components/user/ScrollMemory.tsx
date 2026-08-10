@@ -7,6 +7,9 @@
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 
+const PHOTO_RETURN_RESTORING_KEY = "samae:feed-return-restoring";
+const PHOTO_RETURN_RESTORED_EVENT = "samae:feed-return-restored";
+
 export function ScrollMemory({
   freshTop = false,
   targetId,
@@ -25,6 +28,10 @@ export function ScrollMemory({
   useEffect(() => {
     const key = `samae:scroll:${pathname}`;
     const anchorKey = `samae:scroll-anchor:${pathname}`;
+    // 사진 상세 복귀는 PhotoReturnScroll 한 곳만 좌표를 제어한다. 두 복원기가
+    // 동시에 scrollTo를 반복하면 중간 좌표가 다음 저장값이 되어 반복할수록 누적 오차가 난다.
+    const photoReturnOwnsRestore =
+      sessionStorage.getItem(PHOTO_RETURN_RESTORING_KEY) === "1";
     let anchor: { id: string; viewportTop: number } | null = targetId
       ? { id: targetId, viewportTop: targetViewportTop }
       : null;
@@ -76,7 +83,9 @@ export function ScrollMemory({
       lastKnownY.current = Math.round(window.scrollY);
     };
 
-    if (anchor && animateTarget) {
+    if (photoReturnOwnsRestore) {
+      // PhotoReturnScroll의 완료 이벤트 전까지는 복원도 저장도 하지 않는다.
+    } else if (anchor && animateTarget) {
       // 먼저 탐색 화면 최상단을 보여준 뒤 목적지까지 직접 보간해 내려간다.
       window.scrollTo(0, 0);
       lastKnownY.current = 0;
@@ -136,7 +145,14 @@ export function ScrollMemory({
       lastKnownY.current = Math.round(window.scrollY);
       sessionStorage.setItem(key, String(lastKnownY.current));
     };
+    const onPhotoReturnRestored = () => {
+      if (!photoReturnOwnsRestore) return;
+      restoring = false;
+      lastKnownY.current = Math.round(window.scrollY);
+      sessionStorage.setItem(key, String(lastKnownY.current));
+    };
     window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener(PHOTO_RETURN_RESTORED_EVENT, onPhotoReturnRestored);
 
     return () => {
       // Next가 화면 전환 중 먼저 scrollY를 0으로 만든 뒤 cleanup을 실행할 수 있다.
@@ -151,6 +167,7 @@ export function ScrollMemory({
       window.removeEventListener("touchmove", stop);
       window.removeEventListener("keydown", stop);
       window.removeEventListener("scroll", onScroll);
+      window.removeEventListener(PHOTO_RETURN_RESTORED_EVENT, onPhotoReturnRestored);
     };
   }, [pathname, freshTop, targetId, targetViewportTop, targetBlock, animateTarget]);
   return null;

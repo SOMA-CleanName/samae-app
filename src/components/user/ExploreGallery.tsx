@@ -7,7 +7,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import type { GalleryPhoto } from "@/lib/discovery";
 import { cn } from "@/lib/cn";
-import { assignColumnAccents, type AccentColor } from "@/lib/seeded-shuffle";
+import { assignColumnAccents, seededShuffle, type AccentColor } from "@/lib/seeded-shuffle";
 import { SearchIcon } from "@/components/user/icons";
 import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
 import { useCart } from "@/components/user/cart/CartProvider";
@@ -17,8 +17,35 @@ import { rememberPhotoAspect } from "@/lib/photo-aspect";
 
 const fmt = new Intl.NumberFormat("ko-KR");
 const STEP = 48; // 스크롤마다 더 보여줄 사진 수(메모리에서 즉시 노출)
+const PERSONALIZED_STEP = 36; // 동적 개인화 상한 — 실제 장수는 서버가 12~36장으로 결정
 const TUTORIAL_SEEN_KEY = "samae:tutorial-seen"; // 일반 유저 첫 방문 튜토리얼 열람 여부
+const FEED_RESTORING_KEY = "samae:feed-return-restoring";
+const FEED_RESTORED_EVENT = "samae:feed-return-restored";
+const FEED_SESSION_PREFIX = "samae:gallery-session:";
+const FEED_SESSION_SCHEMA = "personalized-v1";
+const FEED_SESSION_MIGRATION_KEY = "samae:feed-session-migrated:personalized-v1";
 const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
+
+const pendingFeedPages = new Map<string, Promise<GalleryPhoto[]>>();
+
+function loadFeedPageOnce(
+  loadMore: NonNullable<Parameters<typeof ExploreGallery>[0]["loadMore"]>,
+  seed: string,
+  page: number,
+  clickedPhotoIds: string[],
+  seenPhotoIds: string[]
+) {
+  const key = `${seed}:${page}`;
+  const pending = pendingFeedPages.get(key);
+  if (pending) return pending;
+  const request = loadMore(seed, page, clickedPhotoIds, seenPhotoIds);
+  pendingFeedPages.set(key, request);
+  request.then(
+    () => pendingFeedPages.delete(key),
+    () => pendingFeedPages.delete(key)
+  );
+  return request;
+}
 
 type FeedSession = {
   seed?: string;
@@ -26,6 +53,7 @@ type FeedSession = {
   page: number;
   visible: number;
   exhausted: boolean;
+  clickedPhotoIds?: string[];
 };
 
 function useColumnCount() {
@@ -77,6 +105,7 @@ export function ExploreGallery({
   spotlightFirstOnGeneral = false,
   feedSeed,
   loadMore,
+  loadPersonalized,
 }: {
   photos: GalleryPhoto[];
   query?: string;
@@ -90,22 +119,50 @@ export function ExploreGallery({
   spotlightFirstOnGeneral?: boolean;
   // 시드 기반 무한 스크롤(전체 피드 전용) — 둘 다 있으면 바닥에서 서버 페이지를 이어받음.
   feedSeed?: string;
-  loadMore?: (seed: string, page: number) => Promise<GalleryPhoto[]>;
+  loadMore?: (
+    seed: string,
+    page: number,
+    clickedPhotoIds?: string[],
+    seenPhotoIds?: string[]
+  ) => Promise<GalleryPhoto[]>;
+  loadPersonalized?: (
+    clickedPhotoIds: string[],
+    excludedPhotoIds: string[]
+  ) => Promise<GalleryPhoto[]>;
 }) {
   const pathname = usePathname();
-  const feedSessionKey = `samae:gallery-session:v2:${pathname}${query ? `?q=${query}` : ""}`;
+  const feedSessionSuffix = `${pathname}${query ? `?q=${query}` : ""}`;
+  const feedSessionKey = `${FEED_SESSION_PREFIX}${FEED_SESSION_SCHEMA}:${feedSessionSuffix}`;
   // 서버가 준 첫 페이지에서 시작해, 무한 스크롤로 다음 페이지를 이어붙인다(누적).
   const [items, setItems] = useState(initialPhotos);
   const feedPage = useRef(0); // 마지막으로 받은 서버 페이지(0=초기)
   const feedExhausted = useRef(false);
   const feedLoading = useRef(false);
   const [activeFeedSeed, setActiveFeedSeed] = useState(feedSeed);
+  const [clickedPhotoIds, setClickedPhotoIds] = useState<string[]>([]);
   const [feedSessionReady, setFeedSessionReady] = useState(false);
   const [showPrice, setShowPrice] = useState(false);
   const [showName, setShowName] = useState(false);
   const [visible, setVisible] = useState(STEP);
   const sentinel = useRef<HTMLDivElement>(null);
   const { cols: colCount, ready: columnsReady, setNode: setGridRef } = useColumnCount();
+
+  function recordPhotoClick(photoId: string) {
+    const next = clickedPhotoIds.includes(photoId)
+      ? clickedPhotoIds
+      : [...clickedPhotoIds, photoId].slice(-8);
+    setClickedPhotoIds(next);
+    // 링크 이동으로 effect가 실행되기 전에 컴포넌트가 언마운트될 수 있어 클릭 즉시 저장한다.
+    try {
+      const raw = sessionStorage.getItem(feedSessionKey);
+      const cached = raw ? (JSON.parse(raw) as FeedSession) : null;
+      if (cached) {
+        sessionStorage.setItem(feedSessionKey, JSON.stringify({ ...cached, clickedPhotoIds: next }));
+      }
+    } catch {
+      // 저장소 접근 불가 시 현재 마운트 동안의 상태만 사용한다.
+    }
+  }
 
   // ── 온보딩 상태머신 ──────────────────────────────────────────
   // idle → (그리드 준비 후) enter → 강제 → ready → (클릭/X) leaving → done
@@ -265,22 +322,41 @@ export function ExploreGallery({
 
   // 홈 피드는 상세 화면을 다녀와도 같은 순서·로드 페이지·노출 수를 복원한다.
   // 서버가 재방문 때 새 seed를 내려줘도 세션의 seed를 계속 사용해야 다음 페이지가 이어진다.
-  useEffect(() => {
+  useIsoLayoutEffect(() => {
     try {
-        const raw = sessionStorage.getItem(feedSessionKey);
-        const cached = raw ? (JSON.parse(raw) as FeedSession) : null;
-        if (cached && Array.isArray(cached.items) && cached.items.length > 0) {
-          setItems(cached.items);
-          setVisible(Math.max(STEP, Math.min(cached.visible, cached.items.length)));
-          feedPage.current = Math.max(0, cached.page || 0);
-          feedExhausted.current = !!cached.exhausted;
-          feedLoading.current = false;
-          setActiveFeedSeed(cached.seed ?? feedSeed);
-          setFeedSessionReady(true);
-          return;
+      // 정식 개인화 스키마 최초 1회만 임시 v2~v6 캐시와 연결된 스크롤 좌표를 정리한다.
+      // 이후 테스트 초기화를 위해 버전을 계속 올리지 않는다.
+      if (sessionStorage.getItem(FEED_SESSION_MIGRATION_KEY) !== "1") {
+        for (let index = sessionStorage.length - 1; index >= 0; index--) {
+          const key = sessionStorage.key(index);
+          if (
+            key?.startsWith(FEED_SESSION_PREFIX) ||
+            key?.startsWith("samae:scroll:") ||
+            key?.startsWith("samae:scroll-anchor:")
+          ) {
+            sessionStorage.removeItem(key);
+          }
         }
-      } catch {
-        sessionStorage.removeItem(feedSessionKey);
+        sessionStorage.removeItem("samae:photo-return");
+        sessionStorage.removeItem(FEED_RESTORING_KEY);
+        sessionStorage.setItem(FEED_SESSION_MIGRATION_KEY, "1");
+        window.scrollTo(0, 0);
+      }
+      const raw = sessionStorage.getItem(feedSessionKey);
+      const cached = raw ? (JSON.parse(raw) as FeedSession) : null;
+      if (cached && Array.isArray(cached.items) && cached.items.length > 0) {
+        setItems(cached.items);
+        setVisible(Math.max(STEP, Math.min(cached.visible, cached.items.length)));
+        feedPage.current = Math.max(0, cached.page || 0);
+        feedExhausted.current = !!cached.exhausted;
+        feedLoading.current = false;
+        setActiveFeedSeed(cached.seed ?? feedSeed);
+        setClickedPhotoIds(Array.isArray(cached.clickedPhotoIds) ? cached.clickedPhotoIds.slice(-8) : []);
+        setFeedSessionReady(true);
+        return;
+      }
+    } catch {
+      sessionStorage.removeItem(feedSessionKey);
     }
 
     setItems(initialPhotos);
@@ -289,6 +365,7 @@ export function ExploreGallery({
     feedExhausted.current = false;
     feedLoading.current = false;
     setActiveFeedSeed(feedSeed);
+    setClickedPhotoIds([]);
     setFeedSessionReady(true);
   }, [initialPhotos, query, feedSeed, feedSessionKey]);
 
@@ -300,13 +377,14 @@ export function ExploreGallery({
       page: feedPage.current,
       visible,
       exhausted: feedExhausted.current,
+      clickedPhotoIds,
     };
     try {
       sessionStorage.setItem(feedSessionKey, JSON.stringify(snapshot));
     } catch {
       // 저장 공간이 부족해도 현재 세션의 무한 스크롤은 계속 동작한다.
     }
-  }, [activeFeedSeed, feedSessionKey, feedSessionReady, items, visible]);
+  }, [activeFeedSeed, clickedPhotoIds, feedSessionKey, feedSessionReady, items, visible]);
 
   // 바닥 근처에서 더 노출 — 로드된 건 STEP 씩 노출, 끝에 닿으면 서버 다음 페이지를 이어받음(무한).
   // IntersectionObserver(주) + 스크롤/리사이즈(폴백).
@@ -317,10 +395,41 @@ export function ExploreGallery({
     let busy = false; // 이 사이클당 1회만 진행 — 폭주/중복 방지
     const advance = async () => {
       if (busy) return;
+      // 사진 상세에서 돌아오는 동안에는 센티넬이 잠깐 화면 가까이에 있어도
+      // 페이지를 추가하지 않는다. 복원이 끝난 뒤 아래 이벤트로 다시 검사한다.
+      if (sessionStorage.getItem(FEED_RESTORING_KEY) === "1") return;
       // 1) 이미 로드된 것 중 아직 안 보인 게 있으면 그것부터 노출
       if (visible < items.length) {
         busy = true;
-        setVisible((v) => Math.min(items.length, v + STEP));
+        const end = Math.min(items.length, visible + STEP);
+        if (loadPersonalized && activeFeedSeed && clickedPhotoIds.length > 0) {
+          feedLoading.current = true;
+          try {
+            const recommendations = await loadPersonalized(
+              clickedPhotoIds,
+              items.map((photo) => photo.id)
+            );
+            if (recommendations.length > 0) {
+              const batchSize = end - visible;
+              const positions = seededShuffle(
+                Array.from({ length: batchSize }, (_, index) => index),
+                `${activeFeedSeed}:cached-personalized:${visible}`
+              ).slice(0, Math.min(PERSONALIZED_STEP, recommendations.length));
+              setItems((previous) => {
+                const next = [...previous];
+                positions.forEach((position, index) => {
+                  next[visible + position] = recommendations[index];
+                });
+                return next;
+              });
+            }
+          } catch {
+            // 개인화 실패 시 준비돼 있던 일반 사진은 그대로 노출한다.
+          } finally {
+            feedLoading.current = false;
+          }
+        }
+        setVisible(end);
         return;
       }
       // 2) 노출이 로드된 끝에 도달 → 서버 다음 페이지(전체 피드에서만, 소진 전)
@@ -328,7 +437,13 @@ export function ExploreGallery({
       busy = true;
       feedLoading.current = true;
       try {
-        const more = await loadMore(activeFeedSeed, feedPage.current + 1);
+        const more = await loadFeedPageOnce(
+          loadMore,
+          activeFeedSeed,
+          feedPage.current + 1,
+          clickedPhotoIds,
+          items.slice(-240).map((photo) => photo.id)
+        );
         if (!more || more.length === 0) {
           feedExhausted.current = true; // 더 없음 → 종료
         } else {
@@ -360,14 +475,16 @@ export function ExploreGallery({
     };
     window.addEventListener("scroll", check, { passive: true });
     window.addEventListener("resize", check);
+    window.addEventListener(FEED_RESTORED_EVENT, check);
     check();
 
     return () => {
       io.disconnect();
       window.removeEventListener("scroll", check);
       window.removeEventListener("resize", check);
+      window.removeEventListener(FEED_RESTORED_EVENT, check);
     };
-  }, [visible, items.length, activeFeedSeed, loadMore]);
+  }, [visible, items, activeFeedSeed, clickedPhotoIds, loadMore, loadPersonalized]);
 
   // 보기 옵션(가격·작가명) — 세션 유지 + SearchOptions 토글과 이벤트로 동기화
   useEffect(() => {
@@ -425,9 +542,10 @@ export function ExploreGallery({
       {/* 메이슨리 갤러리 — JS 컬럼 버킷(추가 시 기존 사진 위치 고정) */}
       <div
         ref={setGridRef}
+        data-feed-grid
         className={cn(
           "flex gap-2.5 transition-opacity sm:gap-4",
-          columnsReady ? "opacity-100" : "opacity-0"
+          columnsReady && feedSessionReady ? "opacity-100" : "opacity-0"
         )}
       >
         {columns.map((col, ci) => (
@@ -440,6 +558,7 @@ export function ExploreGallery({
               const card = (
                 <PhotoCard
                   photo={photo}
+                  onOpen={() => recordPhotoClick(photo.id)}
                   showPrice={showPrice}
                   showName={showName}
                   // 온보딩 디밍 중엔 브랜드 빨간 테두리가 비쳐 어색해 보여 숨김
@@ -619,12 +738,14 @@ export function ExploreGallery({
 // 브랜드 테두리(accent)는 노출 순서 기준 일정 간격으로만 부여 → 연속으로 몰리지 않음(상위에서 계산)
 function PhotoCard({
   photo,
+  onOpen,
   showPrice,
   showName,
   accent,
   hideCart = false,
 }: {
   photo: GalleryPhoto;
+  onOpen?: () => void;
   showPrice: boolean;
   showName: boolean;
   accent?: AccentColor;
@@ -657,7 +778,11 @@ function PhotoCard({
         className="block"
         data-track="cta:photo"
         onClick={(event) => {
+          onOpen?.();
           rememberPhotoAspect(photo.id, photo.width, photo.height);
+          const opensInSameTab =
+            event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey;
+          if (!opensInSameTab) return;
           // 좌표만 저장하면 이미지/무한 피드 높이가 복구되기 전에 브라우저가 위로 clamp한다.
           // 클릭한 카드와 당시 화면 내 위치를 함께 저장해 뒤로 왔을 때 같은 자리에 맞춘다.
           try {
@@ -679,6 +804,7 @@ function PhotoCard({
                 viewportTop: card?.getBoundingClientRect().top ?? 0,
               })
             );
+            sessionStorage.setItem(FEED_RESTORING_KEY, "1");
           } catch {
             /* 저장소 접근 불가 시 기본 Next 뒤로가기로 동작 */
           }
