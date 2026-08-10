@@ -24,7 +24,20 @@ const FEED_RESTORED_EVENT = "samae:feed-return-restored";
 const FEED_SESSION_PREFIX = "samae:gallery-session:";
 const FEED_SESSION_SCHEMA = "personalized-v1";
 const FEED_SESSION_MIGRATION_KEY = "samae:feed-session-migrated:personalized-v1";
+const FEED_RESTORE_MAX_AGE_MS = 5_000;
 const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
+
+function isFeedReturnRestoring(): boolean {
+  const raw = sessionStorage.getItem(FEED_RESTORING_KEY);
+  if (!raw) return false;
+  const startedAt = Number(raw);
+  // 예전 "1" 플래그 또는 비정상 종료 뒤 남은 값은 무한 스크롤을 영구 차단하지 않게 회수한다.
+  if (!Number.isFinite(startedAt) || Date.now() - startedAt > FEED_RESTORE_MAX_AGE_MS) {
+    sessionStorage.removeItem(FEED_RESTORING_KEY);
+    return false;
+  }
+  return true;
+}
 
 const pendingFeedPages = new Map<string, Promise<GalleryPhoto[]>>();
 
@@ -47,6 +60,10 @@ function loadFeedPageOnce(
   return request;
 }
 
+function cycleSeed(seed: string, cycle: number): string {
+  return cycle === 0 ? seed : `${seed}:cycle:${cycle}`;
+}
+
 type FeedSession = {
   seed?: string;
   items: GalleryPhoto[];
@@ -54,7 +71,10 @@ type FeedSession = {
   visible: number;
   exhausted: boolean;
   clickedPhotoIds?: string[];
+  cycle?: number;
 };
+
+type PositionedPhoto = { id: string; photo: GalleryPhoto; feedIndex: number };
 
 function useColumnCount() {
   const [node, setNode] = useState<HTMLDivElement | null>(null);
@@ -81,14 +101,14 @@ function useColumnCount() {
 
 // 높이 균형 그리디 분배 — 각 사진을 가장 짧은 컬럼에 넣는다.
 // 순서가 고정이면 prefix-stable: 뒤에 더 추가돼도 앞 사진들의 컬럼/위치가 안 바뀜(재정렬 없음).
-function buildColumns(photos: GalleryPhoto[], colCount: number): GalleryPhoto[][] {
-  const cols: GalleryPhoto[][] = Array.from({ length: colCount }, () => []);
+function buildColumns(photos: GalleryPhoto[], colCount: number): PositionedPhoto[][] {
+  const cols: PositionedPhoto[][] = Array.from({ length: colCount }, () => []);
   const heights = new Array(colCount).fill(0);
-  for (const p of photos) {
+  for (const [feedIndex, p] of photos.entries()) {
     const ratio = p.width > 0 && p.height > 0 ? p.height / p.width : 1; // 단위 폭당 상대 높이
     let min = 0;
     for (let c = 1; c < colCount; c++) if (heights[c] < heights[min]) min = c;
-    cols[min].push(p);
+    cols[min].push({ id: p.id, photo: p, feedIndex });
     heights[min] += ratio;
   }
   return cols;
@@ -136,6 +156,7 @@ export function ExploreGallery({
   // 서버가 준 첫 페이지에서 시작해, 무한 스크롤로 다음 페이지를 이어붙인다(누적).
   const [items, setItems] = useState(initialPhotos);
   const feedPage = useRef(0); // 마지막으로 받은 서버 페이지(0=초기)
+  const feedCycle = useRef(0); // 전체 풀을 몇 번 소진했는지(0=첫 노출, 1+=새 순서 반복)
   const feedExhausted = useRef(false);
   const feedLoading = useRef(false);
   const [activeFeedSeed, setActiveFeedSeed] = useState(feedSeed);
@@ -348,7 +369,9 @@ export function ExploreGallery({
         setItems(cached.items);
         setVisible(Math.max(STEP, Math.min(cached.visible, cached.items.length)));
         feedPage.current = Math.max(0, cached.page || 0);
-        feedExhausted.current = !!cached.exhausted;
+        feedCycle.current = Math.max(0, cached.cycle || 0);
+        // 이전 요청의 일시 오류가 exhausted 로 저장됐을 수 있으므로 재진입 시 한 번은 다시 확인한다.
+        feedExhausted.current = loadMore ? false : !!cached.exhausted;
         feedLoading.current = false;
         setActiveFeedSeed(cached.seed ?? feedSeed);
         setClickedPhotoIds(Array.isArray(cached.clickedPhotoIds) ? cached.clickedPhotoIds.slice(-8) : []);
@@ -362,6 +385,7 @@ export function ExploreGallery({
     setItems(initialPhotos);
     setVisible(STEP);
     feedPage.current = 0;
+    feedCycle.current = 0;
     feedExhausted.current = false;
     feedLoading.current = false;
     setActiveFeedSeed(feedSeed);
@@ -378,6 +402,7 @@ export function ExploreGallery({
       visible,
       exhausted: feedExhausted.current,
       clickedPhotoIds,
+      cycle: feedCycle.current,
     };
     try {
       sessionStorage.setItem(feedSessionKey, JSON.stringify(snapshot));
@@ -393,11 +418,13 @@ export function ExploreGallery({
     if (!el) return;
 
     let busy = false; // 이 사이클당 1회만 진행 — 폭주/중복 방지
+    let retryTimer: number | null = null;
+    let disposed = false;
     const advance = async () => {
       if (busy) return;
       // 사진 상세에서 돌아오는 동안에는 센티넬이 잠깐 화면 가까이에 있어도
       // 페이지를 추가하지 않는다. 복원이 끝난 뒤 아래 이벤트로 다시 검사한다.
-      if (sessionStorage.getItem(FEED_RESTORING_KEY) === "1") return;
+      if (isFeedReturnRestoring()) return;
       // 1) 이미 로드된 것 중 아직 안 보인 게 있으면 그것부터 노출
       if (visible < items.length) {
         busy = true;
@@ -437,25 +464,48 @@ export function ExploreGallery({
       busy = true;
       feedLoading.current = true;
       try {
-        const more = await loadFeedPageOnce(
+        let nextPage = feedPage.current + 1;
+        let requestSeed = cycleSeed(activeFeedSeed, feedCycle.current);
+        let more = await loadFeedPageOnce(
           loadMore,
-          activeFeedSeed,
-          feedPage.current + 1,
+          requestSeed,
+          nextPage,
           clickedPhotoIds,
           items.slice(-240).map((photo) => photo.id)
         );
         if (!more || more.length === 0) {
-          feedExhausted.current = true; // 더 없음 → 종료
-        } else {
-          feedPage.current += 1;
-          setItems((prev) => {
-            const seen = new Set(prev.map((p) => p.id));
-            return [...prev, ...more.filter((p) => !seen.has(p.id))];
-          });
-          setVisible((v) => v + STEP);
+          // 전체 공개 풀을 다 봤으면 새 시드 순서로 첫 페이지부터 이어 붙인다.
+          feedCycle.current += 1;
+          feedPage.current = -1; // 재시도되더라도 새 사이클의 page 0부터 시작
+          nextPage = 0;
+          requestSeed = cycleSeed(activeFeedSeed, feedCycle.current);
+          more = await loadFeedPageOnce(
+            loadMore,
+            requestSeed,
+            nextPage,
+            clickedPhotoIds,
+            items.slice(-240).map((photo) => photo.id)
+          );
         }
+        if (!more || more.length === 0) {
+          feedExhausted.current = true; // 공개 사진 자체가 없는 예외 상황
+          return;
+        }
+        feedPage.current = nextPage;
+        setItems((prev) => {
+          if (feedCycle.current > 0) return [...prev, ...more];
+          const seen = new Set(prev.map((p) => p.id));
+          return [...prev, ...more.filter((p) => !seen.has(p.id))];
+        });
+        setVisible((v) => v + STEP);
       } catch {
-        feedExhausted.current = true;
+        // 네트워크·서버 액션의 일시 오류는 피드 소진이 아니다. 잠시 뒤 같은 페이지를 재시도한다.
+        retryTimer = window.setTimeout(() => {
+          if (!disposed) {
+            busy = false;
+            advance();
+          }
+        }, 1_500);
       } finally {
         feedLoading.current = false;
       }
@@ -479,6 +529,8 @@ export function ExploreGallery({
     check();
 
     return () => {
+      disposed = true;
+      if (retryTimer !== null) window.clearTimeout(retryTimer);
       io.disconnect();
       window.removeEventListener("scroll", check);
       window.removeEventListener("resize", check);
@@ -550,7 +602,8 @@ export function ExploreGallery({
       >
         {columns.map((col, ci) => (
           <div key={ci} className="flex min-w-0 flex-1 flex-col gap-2.5 sm:gap-4">
-            {col.map((photo) => {
+            {col.map(({ photo, feedIndex }) => {
+              const feedInstanceId = `${photo.id}:${feedIndex}`;
               // 온보딩 중 강조(스포트라이트) 카드 — 이 카드에선 담기('+') 버튼을 숨긴다.
               // (온보딩이 끝나면서 자동으로 담기 연출이 실행되므로 버튼 노출이 혼란스러움)
               const isSpotlightCard =
@@ -558,6 +611,7 @@ export function ExploreGallery({
               const card = (
                 <PhotoCard
                   photo={photo}
+                  feedInstanceId={feedInstanceId}
                   onOpen={() => recordPhotoClick(photo.id)}
                   showPrice={showPrice}
                   showName={showName}
@@ -571,7 +625,7 @@ export function ExploreGallery({
               if (isSpotlightCard) {
                 return (
                   <div
-                    key={photo.id}
+                    key={feedInstanceId}
                     className={cn(
                       "transition-all duration-[560ms] ease-[cubic-bezier(.5,0,.2,1)]",
                       // 소개(enter/ready) 중에만 카드를 띄움. 담기(adding)·나가기(leaving) 땐 z 를 낮춰
@@ -586,7 +640,7 @@ export function ExploreGallery({
                 );
               }
               // 나머지 카드 — 흩어지지 않고 제자리 유지(오버레이의 블러+딤으로만 살짝 가려짐).
-              return <div key={photo.id}>{card}</div>;
+              return <div key={feedInstanceId}>{card}</div>;
             })}
           </div>
         ))}
@@ -738,6 +792,7 @@ export function ExploreGallery({
 // 브랜드 테두리(accent)는 노출 순서 기준 일정 간격으로만 부여 → 연속으로 몰리지 않음(상위에서 계산)
 function PhotoCard({
   photo,
+  feedInstanceId,
   onOpen,
   showPrice,
   showName,
@@ -745,6 +800,7 @@ function PhotoCard({
   hideCart = false,
 }: {
   photo: GalleryPhoto;
+  feedInstanceId: string;
   onOpen?: () => void;
   showPrice: boolean;
   showName: boolean;
@@ -763,6 +819,7 @@ function PhotoCard({
     <div
       data-cart-card
       data-pid={photo.id}
+      data-feed-instance={feedInstanceId}
       className={cn(
         // 저빈도 악센트 테두리 — border(안쪽)라 사진만 살짝 줄고 바깥 크기는 열 폭 그대로
         // (ring 바깥쪽이면 옆으로 삐져나와 더 커 보였음). 기본은 테두리 없음.
@@ -789,7 +846,7 @@ function PhotoCard({
             const card = event.currentTarget.closest<HTMLElement>("[data-pid]");
             sessionStorage.setItem(
               `samae:scroll-anchor:${window.location.pathname}`,
-              JSON.stringify({ id: photo.id, viewportTop: card?.getBoundingClientRect().top ?? 0 })
+              JSON.stringify({ id: photo.id, instanceId: feedInstanceId, viewportTop: card?.getBoundingClientRect().top ?? 0 })
             );
             sessionStorage.setItem(
               `samae:scroll:${window.location.pathname}`,
@@ -801,10 +858,11 @@ function PhotoCard({
                 pathname: window.location.pathname,
                 y: Math.round(window.scrollY),
                 photoId: photo.id,
+                instanceId: feedInstanceId,
                 viewportTop: card?.getBoundingClientRect().top ?? 0,
               })
             );
-            sessionStorage.setItem(FEED_RESTORING_KEY, "1");
+            sessionStorage.setItem(FEED_RESTORING_KEY, String(Date.now()));
           } catch {
             /* 저장소 접근 불가 시 기본 Next 뒤로가기로 동작 */
           }

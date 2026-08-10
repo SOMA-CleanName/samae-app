@@ -378,12 +378,16 @@ export async function fetchPersonalizedHomeFeedPage(
   pageSize = 48
 ): Promise<GalleryPhoto[]> {
   const base = await fetchHomeFeedPage(seed, page, purposeIds, moodIds, pageSize);
+  // 마지막 빈 페이지/자투리 페이지에서는 유사도 RPC를 호출하지 않고 즉시 사이클 전환시킨다.
+  if (base.length < 8) return base;
   const recommendations = await fetchPersonalizedRecommendations(
     clickedPhotoIds,
     [...seenPhotoIds, ...base.map((photo) => photo.id)],
     36
   );
-  if (page === 0 || recommendations.length === 0 || base.length < 8) return base;
+  // 최초 진입(page 0, 클릭 없음)은 일반 피드 그대로. 반복 사이클의 page 0은 클릭 신호가
+  // 이미 있으므로 다른 페이지와 동일하게 개인화를 섞는다.
+  if ((page === 0 && clickedPhotoIds.length === 0) || recommendations.length === 0) return base;
 
   const positions = seededShuffle(
     Array.from({ length: pageSize }, (_, index) => index),

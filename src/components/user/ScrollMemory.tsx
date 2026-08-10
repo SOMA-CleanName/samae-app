@@ -32,13 +32,13 @@ export function ScrollMemory({
     // 동시에 scrollTo를 반복하면 중간 좌표가 다음 저장값이 되어 반복할수록 누적 오차가 난다.
     const photoReturnOwnsRestore =
       sessionStorage.getItem(PHOTO_RETURN_RESTORING_KEY) === "1";
-    let anchor: { id: string; viewportTop: number } | null = targetId
+    let anchor: { id: string; instanceId?: string; viewportTop: number } | null = targetId
       ? { id: targetId, viewportTop: targetViewportTop }
       : null;
     try {
       if (!anchor) {
         const raw = sessionStorage.getItem(anchorKey);
-        anchor = raw ? (JSON.parse(raw) as { id: string; viewportTop: number }) : null;
+        anchor = raw ? (JSON.parse(raw) as { id: string; instanceId?: string; viewportTop: number }) : null;
       }
       sessionStorage.removeItem(anchorKey); // 상세에서 돌아오는 이번 복원에만 사용
     } catch {
@@ -57,7 +57,11 @@ export function ScrollMemory({
     let revealTimer: number | null = null;
     const anchorNode = () =>
       anchor
-        ? document.querySelector<HTMLElement>(`[data-pid="${CSS.escape(anchor.id)}"]`)
+        ? document.querySelector<HTMLElement>(
+            anchor.instanceId
+              ? `[data-feed-instance="${CSS.escape(anchor.instanceId)}"]`
+              : `[data-pid="${CSS.escape(anchor.id)}"]`
+          )
         : null;
     const anchorTarget = () => {
       const rect = anchorNode()?.getBoundingClientRect();
