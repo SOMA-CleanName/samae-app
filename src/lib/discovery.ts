@@ -366,6 +366,135 @@ export async function fetchHomeFeedPage(
   return out;
 }
 
+// 홈에서 클릭한 사진을 취향 신호로 사용한다. 클릭 수와 스타일 일관성에 따라 12~36장을
+// 임베딩 유사 사진으로 교체해 탐색 다양성을 유지하고, 위치는 페이지별 시드로 불규칙하게 섞는다.
+export async function fetchPersonalizedHomeFeedPage(
+  seed: string,
+  page: number,
+  purposeIds: string[],
+  moodIds: string[],
+  clickedPhotoIds: string[],
+  seenPhotoIds: string[],
+  pageSize = 48
+): Promise<GalleryPhoto[]> {
+  const base = await fetchHomeFeedPage(seed, page, purposeIds, moodIds, pageSize);
+  const recommendations = await fetchPersonalizedRecommendations(
+    clickedPhotoIds,
+    [...seenPhotoIds, ...base.map((photo) => photo.id)],
+    36
+  );
+  if (page === 0 || recommendations.length === 0 || base.length < 8) return base;
+
+  const positions = seededShuffle(
+    Array.from({ length: pageSize }, (_, index) => index),
+    `${seed}:personalized:${page}`
+  )
+    .slice(0, recommendations.length)
+    .sort((a, b) => a - b);
+  const recommendationAt = new Map(positions.map((position, index) => [position, recommendations[index]]));
+  const general = base.slice(0, Math.max(0, pageSize - recommendations.length));
+  const mixed: GalleryPhoto[] = [];
+  let generalIndex = 0;
+  for (let index = 0; index < general.length + recommendations.length; index++) {
+    const recommendation = recommendationAt.get(index);
+    mixed.push(recommendation ?? general[generalIndex++]);
+  }
+  return mixed.filter(Boolean);
+}
+
+export async function fetchPersonalizedRecommendations(
+  clickedPhotoIds: string[],
+  excludedPhotoIds: string[],
+  maxLimit = 36
+): Promise<GalleryPhoto[]> {
+  const anchors = [...new Set(clickedPhotoIds)].slice(-3).reverse();
+  if (anchors.length === 0) return [];
+
+  const supabase = await createClient();
+  const { data: anchorRows } = await supabase
+    .from("photos")
+    .select("id, album_id, mood_tags")
+    .in("id", anchors);
+  const anchorById = new Map(
+    ((anchorRows ?? []) as { id: string; album_id: string | null; mood_tags: string[] | null }[])
+      .map((row) => [row.id, row])
+  );
+
+  const similarLists = await Promise.all(
+    anchors.map(async (id) => {
+      const anchor = anchorById.get(id);
+      if (!anchor) return [];
+      return fetchSimilarPhotos({
+        photoId: id,
+        albumId: anchor.album_id,
+        tags: anchor.mood_tags ?? [],
+        limit: 120,
+      });
+    })
+  );
+
+  // 클릭 수 기본값: 1장=12, 2장=16, 3장 이상=20.
+  // 각 클릭 사진의 상위 근접 이웃이 많이 겹치면 같은 스타일을 반복 선택한 것으로 보고
+  // 24→30→36장까지 강화한다. 임베딩이 없는 사진은 태그 폴백 이웃으로 같은 계산을 한다.
+  const baseTarget = anchors.length === 1 ? 12 : anchors.length === 2 ? 16 : 20;
+  const styleConsistency = averageNeighborOverlap(similarLists, 60);
+  const boostedTarget =
+    styleConsistency >= 0.55 ? 36
+    : styleConsistency >= 0.4 ? 30
+    : styleConsistency >= 0.25 ? 24
+    : styleConsistency >= 0.12 ? 20
+    : baseTarget;
+  const target = Math.min(maxLimit, Math.max(baseTarget, boostedTarget));
+
+  const excluded = new Set([...excludedPhotoIds, ...clickedPhotoIds]);
+  const pickedIds: string[] = [];
+  // 여러 사진을 눌렀다면 각 기준 사진의 후보를 한 장씩 번갈아 선택한다.
+  for (let rank = 0; pickedIds.length < target; rank++) {
+    let foundAtRank = false;
+    for (const list of similarLists) {
+      const candidate = list[rank];
+      if (!candidate) continue;
+      foundAtRank = true;
+      if (excluded.has(candidate.id)) continue;
+      excluded.add(candidate.id);
+      pickedIds.push(candidate.id);
+      if (pickedIds.length === target) break;
+    }
+    if (!foundAtRank) break;
+  }
+  if (pickedIds.length === 0) return [];
+
+  const recommendations = await fetchLikedPhotosByIds(pickedIds);
+  if (process.env.NODE_ENV !== "production") {
+    console.info("[home-personalization]", {
+      anchors,
+      styleConsistency: Number(styleConsistency.toFixed(3)),
+      target,
+      inserted: recommendations.length,
+      recommendationIds: recommendations.map((photo) => photo.id),
+    });
+  }
+  return recommendations;
+}
+
+function averageNeighborOverlap(lists: SimilarPhoto[][], sampleSize: number): number {
+  if (lists.length < 2) return 0;
+  const sets = lists.map((list) => new Set(list.slice(0, sampleSize).map((photo) => photo.id)));
+  let total = 0;
+  let pairs = 0;
+  for (let left = 0; left < sets.length; left++) {
+    for (let right = left + 1; right < sets.length; right++) {
+      const denominator = Math.min(sets[left].size, sets[right].size);
+      if (denominator === 0) continue;
+      let intersection = 0;
+      for (const id of sets[left]) if (sets[right].has(id)) intersection++;
+      total += intersection / denominator;
+      pairs++;
+    }
+  }
+  return pairs > 0 ? total / pairs : 0;
+}
+
 const CATEGORY_SELECT =
   "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name)";
 
