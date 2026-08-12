@@ -283,13 +283,14 @@ perform set_config('hnsw.ef_search', greatest(v_pool, 100)::text, true);
 
 후보 풀 크기(`v_pool`)에서 계산하므로 `p_limit` 을 키워도 따로 손볼 필요가 없다.
 
-> **현재 유효한 함수 정의는 `0069` 가 아니다 (2026-08-08).** PR #268 의 `0074_photo_feed_hidden.sql` 이 `create or replace` 로 다시 만들며 후보 풀에 `and not p.feed_hidden` 을 추가했다(위 `v_pool` 과 같은 이유로 바깥이 아니라 풀 안이다). 이 절의 `set_config`·`search_path` 처리는 그대로다. **이 함수를 손볼 때는 그 파일에서 출발할 것.**
+> **현재 유효한 함수 정의는 `0069` 나 `0074` 가 아니다 (2026-08-12).** `0076_photo_feed_demotion.sql` 이 `create or replace` 로 다시 만들었다. `feed_hidden` 사진을 후보 풀에서 제거하지 않고 결과에 상태를 함께 반환해, 앱이 이를 **노출 낮춤 후보**로 순위 조정한다. 이 절의 `set_config`·`search_path` 처리는 그대로다. **이 함수를 손볼 때는 가장 최근 정의인 `0076` 에서 출발할 것.**
 
 관련 코드:
 
 - `supabase/migrations/0068_photo_embeddings.sql`
 - `supabase/migrations/0069_similar_photos_rpc.sql` — RPC 최초 정의
-- `supabase/migrations/0074_photo_feed_hidden.sql` — **현재 유효한 RPC 정의** (PR #268 이 숨김 조건 추가)
+- `supabase/migrations/0074_photo_feed_hidden.sql` — PR #268 당시 숨김 조건을 추가한 이전 정의
+- `supabase/migrations/0076_photo_feed_demotion.sql` — **현재 유효한 RPC 정의** (`feed_hidden` 상태를 반환하고 완전 제외를 제거)
 - `supabase/migrations/0074_photo_auto_mood_tags.sql` — 무드 태그 컬럼(§7.5). 위와 번호가 겹친다
 - `supabase/migrations/0047_photo_generated_tags.sql` — 배치 큐 패턴의 원본
 - `supabase/migrations/0065_feed_photos_taste.sql` — `search_path` 고정 사례 (단 이 RPC 자체는 호출부가 없다 — §7.5)
@@ -367,7 +368,7 @@ scripts/embed/.venv/bin/python scripts/embed/eval_models.py --budget 1024
 - `similarByEmbedding` — `0069` RPC. 기본 경로
 - `similarByTags` — 기존 `mood_tags` 겹침. 폴백으로 보존
 
-> 2026-08-08 에 PR #268 이 RPC 에 운영자 피드 숨김 제외를 추가했으나 **앱 코드는 그대로다** — RPC 안에서 걸러지므로 앱이 알 필요가 없다. (§6.3)
+> 2026-08-12 부터 운영자 선택 사진은 완전히 제외되지 않는다. RPC 와 태그 폴백 모두 `feed_hidden` 상태를 앱에 전달하고, 앱은 일반 유사 사진 뒤에 노출 낮춤 유사 사진을 배치한다. 최근 클릭 스타일이 반복될수록 노출 낮춤 사진도 자연 유사도 순위 쪽으로 단계적으로 승격된다. (§6.3)
 
 관련 코드:
 
@@ -928,7 +929,7 @@ Supabase 일일 백업에는 **Storage 객체(사진 원본)가 포함되지 않
 
 `0068` 3개 · `0069` 3개 · `0074` 2개. 이 중 `0068_photo_embeddings`·`0069_similar_photos_rpc`·`0074_photo_auto_mood_tags` 가 이 과제 몫이다.
 
-특히 **`similar_photos_by_embedding` 의 정의가 두 파일에 흩어져 있다** — 최초 정의는 `0069`, 현재 유효한 것은 `0074_photo_feed_hidden`(§6.3). 다음 사람이 `0069` 만 보고 고치면 `feed_hidden` 조건이 사라진다.
+특히 **`similar_photos_by_embedding` 의 정의가 여러 파일에 흩어져 있다** — 최초 정의는 `0069`, 완전 제외를 넣은 이전 정의는 `0074_photo_feed_hidden`, 현재 유효한 것은 `0076_photo_feed_demotion` 이다(§6.3). 다음 사람이 예전 파일만 보고 고치면 노출 낮춤 상태 반환과 소프트 랭킹이 깨진다.
 
 > **대응**: 이 함수를 손볼 때는 `grep -rn "similar_photos_by_embedding" supabase/migrations/` 로 **전부 찾은 뒤** 가장 나중 것에서 출발한다.
 
@@ -983,4 +984,4 @@ node scripts/migrate.cjs      # 인자 없이
 1. **`_migrations` 백필** (§12.2) — 지금 가장 위험한 항목. 팀 합의 후 실행
 2. **주간 백필 실행 여부 확인** (§12.1 ①) — `check_db.py` 의 대기 장수
 3. `auto_mood_tags` 를 쓸 계획이면 **`--all` 재계산 먼저** (§12.1 ③)
-4. `similar_photos_by_embedding` 을 고칠 일이 있으면 **`0074_photo_feed_hidden` 에서 출발** (§12.1 ④)
+4. `similar_photos_by_embedding` 을 고칠 일이 있으면 **`0076_photo_feed_demotion` 에서 출발** (§12.1 ④)
