@@ -7,7 +7,7 @@ import Image from "next/image";
 import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
 import { rememberPhotoAspect } from "@/lib/photo-aspect";
 import type { GalleryPhoto } from "@/lib/discovery";
-import { recordFeedClick } from "@/lib/feed-click-history";
+import { readFeedClicks, recordFeedClick } from "@/lib/feed-click-history";
 
 export type ExplorePhoto = {
   id: string;
@@ -25,12 +25,14 @@ export function PhotoExplore({
   initialRecs,
   feedSeed,
   loadMore,
+  rerank,
   excludeId,
 }: {
   initialRecs: ExplorePhoto[];
   // 시드 무한 스크롤(전체 피드) — 큐레이션 추천 뒤에 이어붙임. 둘 다 있으면 무한.
   feedSeed?: string;
   loadMore?: (seed: string, page: number) => Promise<GalleryPhoto[]>;
+  rerank?: (clickedPhotoIds: string[]) => Promise<ExplorePhoto[]>;
   excludeId?: string; // 현재 사진 — 이어붙일 때 제외
 }) {
   return (
@@ -41,6 +43,7 @@ export function PhotoExplore({
         initial={initialRecs}
         feedSeed={feedSeed}
         loadMore={loadMore}
+        rerank={rerank}
         excludeId={excludeId}
       />
     </section>
@@ -52,11 +55,13 @@ function RecsFeed({
   initial,
   feedSeed,
   loadMore,
+  rerank,
   excludeId,
 }: {
   initial: ExplorePhoto[];
   feedSeed?: string;
   loadMore?: (seed: string, page: number) => Promise<GalleryPhoto[]>;
+  rerank?: (clickedPhotoIds: string[]) => Promise<ExplorePhoto[]>;
   excludeId?: string;
 }) {
   const [items, setItems] = useState(initial);
@@ -65,6 +70,23 @@ function RecsFeed({
   const feedPage = useRef(0);
   const feedExhausted = useRef(false);
   const feedLoading = useRef(false);
+
+  useEffect(() => {
+    const clicks = readFeedClicks();
+    if (!rerank || clicks.length === 0) return;
+    let active = true;
+    rerank(clicks).then((ranked) => {
+      if (!active || ranked.length === 0) return;
+      const seen = new Set<string>();
+      setItems([...ranked, ...initial].filter((photo) => {
+        if (photo.id === excludeId || seen.has(photo.id)) return false;
+        seen.add(photo.id);
+        return true;
+      }));
+      setVisible(STEP);
+    }).catch(() => undefined);
+    return () => { active = false; };
+  }, [excludeId, initial, rerank]);
 
   // 바닥 근처 → 로드된 것부터 노출, 끝에 닿으면 시드 피드 다음 페이지를 이어붙임(중복·현재 사진 제외).
   // (다른 사진으로 이동하면 key 로 리마운트되어 상태가 초기화됨 — 별도 리셋 effect 불필요)

@@ -66,3 +66,13 @@ export function nextFeedPhase(phase: FeedPhase, cycle: number): {
     ? { phase: "demoted", cycle }
     : { phase: "normal", cycle: cycle + 1 };
 }
+
+export function composeDetailRecommendations<T extends DemotionCandidate>(
+  normalSimilar: T[],
+  demotedSimilar: T[],
+  unrelated: T[],
+  stage: PromotionStage
+): T[] {
+  const similar = mergeDemotedSimilar(normalSimilar, demotedSimilar, stage);
+  return uniqueWithinCycle([...similar, ...unrelated], new Set(), similar.length + unrelated.length);
+}

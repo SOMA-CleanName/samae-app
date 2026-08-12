@@ -4,6 +4,7 @@ import {
   mergeDemotedSimilar,
   mapSimilarityRows,
   nextFeedPhase,
+  composeDetailRecommendations,
   promotionStage,
   uniqueWithinCycle,
   type DemotionCandidate,
@@ -73,4 +74,13 @@ test("similarity RPC feed_hidden state maps to application demoted state", () =>
 test("home feed phase advances normal to demoted to the next normal cycle", () => {
   assert.deepEqual(nextFeedPhase("normal", 2), { phase: "demoted", cycle: 2 });
   assert.deepEqual(nextFeedPhase("demoted", 2), { phase: "normal", cycle: 3 });
+});
+
+test("detail recommendation keeps demoted similar before unrelated photos for one anchor", () => {
+  const unrelated = [{ id: "u0", naturalRank: 99, demoted: false }];
+  assert.deepEqual(
+    composeDetailRecommendations(normal.slice(0, 3), demoted.slice(0, 1), unrelated, 1)
+      .map((item) => item.id),
+    ["n0", "n1", "n2", "d0", "u0"]
+  );
 });

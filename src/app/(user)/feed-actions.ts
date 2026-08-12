@@ -1,7 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { fetchDemotedHomeFeedPage, fetchPersonalizedHomeFeedPage, fetchPersonalizedRecommendations } from "@/lib/discovery";
+import { fetchDemotedHomeFeedPage, fetchPersonalizedHomeFeedPage, fetchPersonalizedRecommendations, fetchRankedDetailRecommendations } from "@/lib/discovery";
 import type { GalleryPhoto } from "@/lib/discovery";
 import { TASTE_V2_COOKIE, parseTasteV2 } from "@/lib/category-constants";
 
@@ -39,4 +39,10 @@ export async function loadDemotedHomePhotos(
   page: number
 ): Promise<GalleryPhoto[]> {
   return fetchDemotedHomeFeedPage(seed, page, 48);
+}
+
+export async function loadRankedDetailPhotos(
+  clickedPhotoIds: string[]
+) {
+  return fetchRankedDetailRecommendations(clickedPhotoIds, 120);
 }

@@ -3,8 +3,7 @@ import { PhotoVisibilityGrid, type AdminPhoto } from "./PhotoVisibilityGrid";
 
 export const dynamic = "force-dynamic";
 
-// 사진 노출 관리 — 운영자가 '둘러보기 면에 안 띄울 사진'을 고른다. (0075 feed_hidden)
-//  숨김 → 홈 · /c/<slug> 카테고리 · 탐색 · 검색 · 사진 상세 하단 추천에서 제외
+// 사진 노출 관리 — 운영자가 기본 추천 우선순위를 낮출 사진을 고른다. (0075 feed_hidden)
 //  유지 → 사진 상세(/photos/<id>) · 게시물 캐러셀 · 작가 포트폴리오 · 사이트맵
 type Row = {
   id: string;
@@ -49,11 +48,11 @@ export default async function AdminPhotosPage() {
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-5">
-      <h1 className="text-h1 font-semibold">사진 노출</h1>
+      <h1 className="text-h1 font-semibold">사진 노출 낮춤</h1>
       <p className="mt-1 text-body-sm text-muted">
-        둘러보기 면에 띄우지 않을 사진을 고르세요. 숨기면 <b className="text-fg">홈 · 카테고리 · 탐색
-        · 검색 · 사진 상세 하단 추천</b>에서 빠집니다. 사진 상세 페이지와 작가 포트폴리오에는 그대로
-        남아요(링크를 받은 사람은 볼 수 있어요).
+        기본 추천 우선순위를 낮출 사진을 고르세요. 홈에서는 일반 사진 뒤에 나오며, 같은 스타일을
+        반복해서 고른 사용자에게는 유사도에 따라 다시 위로 올라올 수 있어요. 검색과 편집형 탐색에서는
+        계속 제외됩니다.
       </p>
 
       <PhotoVisibilityGrid photos={photos} />

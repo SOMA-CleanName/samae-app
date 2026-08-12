@@ -432,7 +432,7 @@ export async function fetchPersonalizedRecommendations(
   excludedPhotoIds: string[],
   maxLimit = 36
 ): Promise<GalleryPhoto[]> {
-  const anchors = [...new Set(clickedPhotoIds)].slice(-3).reverse();
+  const anchors = [...new Set(clickedPhotoIds)].slice(-4).reverse();
   if (anchors.length === 0) return [];
 
   const supabase = await createClient();
@@ -503,6 +503,39 @@ export async function fetchPersonalizedRecommendations(
     });
   }
   return recommendations;
+}
+
+export async function fetchRankedDetailRecommendations(
+  clickedPhotoIds: string[],
+  maxLimit = 120
+): Promise<SimilarPhoto[]> {
+  const anchors = [...new Set(clickedPhotoIds)].slice(-4).reverse();
+  if (anchors.length === 0) return [];
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("photos")
+    .select("id, album_id, mood_tags")
+    .in("id", anchors);
+  const byId = new Map(
+    ((data ?? []) as { id: string; album_id: string | null; mood_tags: string[] | null }[])
+      .map((row) => [row.id, row])
+  );
+  const lists = await Promise.all(
+    anchors.map((id) => {
+      const row = byId.get(id);
+      return row
+        ? fetchSimilarPhotosRaw({
+            photoId: id,
+            albumId: row.album_id,
+            tags: row.mood_tags ?? [],
+            limit: maxLimit,
+          })
+        : Promise.resolve([]);
+    })
+  );
+  const consistency = averageNeighborOverlap(lists, 60);
+  const primary = lists[0] ?? [];
+  return orderSimilarWithDemotion(primary, anchors.length, consistency).slice(0, maxLimit);
 }
 
 function averageNeighborOverlap(lists: SimilarPhoto[][], sampleSize: number): number {
