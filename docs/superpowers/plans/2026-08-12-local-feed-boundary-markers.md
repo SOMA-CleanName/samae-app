@@ -47,3 +47,22 @@
 - [ ] **Step 4: Split the visible photo list** at boundary positions and render each masonry segment followed by its local-only divider copy.
 - [ ] **Step 5: Run** the boundary tests, existing feed tests, `npx tsc --noEmit`, targeted ESLint, and `npm run build`.
 - [ ] **Step 6: Commit** implementation and tests with `feat: 로컬 피드 끝 표시 추가`.
+
+### Task 3: Short feed-debug cycle
+
+**Files:**
+- Modify: `src/app/(user)/page.tsx`
+- Modify: `src/components/user/ExploreGallery.tsx`
+- Modify: `src/lib/feed-boundary.ts`
+- Modify: `src/lib/feed-boundary.test.ts`
+
+**Interfaces:**
+- Produces: `limitDebugFeedPage(phase, page, photos)` and the `feedDebug` gallery prop.
+
+- [ ] **Step 1: Write failing tests** proving normal page 0 keeps 48 photos, demoted page 0 keeps 24 photos, and later pages are empty.
+- [ ] **Step 2: Run the boundary test** and verify failure because `limitDebugFeedPage` is missing.
+- [ ] **Step 3: Implement the pure limiter** and re-run the test to green.
+- [ ] **Step 4: Parse `feedDebug=1`** only in development and pass it to `ExploreGallery`.
+- [ ] **Step 5: Separate debug cache keys**, apply the limiter to phase requests, and render current phase, cycle, and loaded count.
+- [ ] **Step 6: Run related tests, type checking, targeted ESLint, and the production build.**
+- [ ] **Step 7: Commit** with `feat: 로컬 피드 단축 테스트 모드 추가`.
