@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { addFeedBoundary, splitAtFeedBoundaries, type FeedBoundary } from "./feed-boundary.ts";
+import {
+  addFeedBoundary,
+  limitDebugFeedPage,
+  splitAtFeedBoundaries,
+  type FeedBoundary,
+} from "./feed-boundary.ts";
 
 test("adding the same phase boundary twice keeps one marker", () => {
   const boundary: FeedBoundary = {
@@ -37,4 +42,13 @@ test("a restored boundary beyond the currently visible prefix waits for its phot
   assert.deepEqual(splitAtFeedBoundaries(["a", "b"], [boundary]), [
     { items: ["a", "b"] },
   ]);
+});
+
+test("debug feed keeps one 48-photo normal page and one 24-photo demoted page", () => {
+  const photos = Array.from({ length: 60 }, (_, index) => index);
+
+  assert.equal(limitDebugFeedPage("normal", 0, photos).length, 48);
+  assert.deepEqual(limitDebugFeedPage("normal", 1, photos), []);
+  assert.equal(limitDebugFeedPage("demoted", 0, photos).length, 24);
+  assert.deepEqual(limitDebugFeedPage("demoted", 1, photos), []);
 });

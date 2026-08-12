@@ -18,6 +18,7 @@ import { appendFeedClick, readFeedClicks, recordFeedClick } from "@/lib/feed-cli
 import { nextFeedPhase, type FeedPhase } from "@/lib/feed-demotion";
 import {
   addFeedBoundary,
+  limitDebugFeedPage,
   splitAtFeedBoundaries,
   type FeedBoundary,
 } from "@/lib/feed-boundary";
@@ -142,6 +143,7 @@ export function ExploreGallery({
   loadMore,
   loadPersonalized,
   loadDemoted,
+  feedDebug = false,
 }: {
   photos: GalleryPhoto[];
   query?: string;
@@ -166,9 +168,10 @@ export function ExploreGallery({
     excludedPhotoIds: string[]
   ) => Promise<GalleryPhoto[]>;
   loadDemoted?: (seed: string, page: number) => Promise<GalleryPhoto[]>;
+  feedDebug?: boolean;
 }) {
   const pathname = usePathname();
-  const feedSessionSuffix = `${pathname}${query ? `?q=${query}` : ""}`;
+  const feedSessionSuffix = `${pathname}${query ? `?q=${query}` : ""}${feedDebug ? ":feed-debug" : ""}`;
   const feedSessionKey = `${FEED_SESSION_PREFIX}${FEED_SESSION_SCHEMA}:${feedSessionSuffix}`;
   // 서버가 준 첫 페이지에서 시작해, 무한 스크롤로 다음 페이지를 이어붙인다(누적).
   const [items, setItems] = useState(initialPhotos);
@@ -181,6 +184,10 @@ export function ExploreGallery({
   const [activeFeedSeed, setActiveFeedSeed] = useState(feedSeed);
   const [clickedPhotoIds, setClickedPhotoIds] = useState<string[]>([]);
   const [boundaries, setBoundaries] = useState<FeedBoundary[]>([]);
+  const [feedDebugStatus, setFeedDebugStatus] = useState<{
+    phase: FeedPhase;
+    cycle: number;
+  }>({ phase: "normal", cycle: 0 });
   const [feedSessionReady, setFeedSessionReady] = useState(false);
   const [showPrice, setShowPrice] = useState(false);
   const [showName, setShowName] = useState(false);
@@ -389,6 +396,7 @@ export function ExploreGallery({
         feedPage.current = Math.max(0, cached.page || 0);
         feedCycle.current = Math.max(0, cached.cycle || 0);
         feedPhase.current = cached.phase === "demoted" ? "demoted" : "normal";
+        setFeedDebugStatus({ phase: feedPhase.current, cycle: feedCycle.current });
         cycleSeenIds.current = new Set(
           Array.isArray(cached.cycleSeenIds) ? cached.cycleSeenIds : cached.items.map((photo) => photo.id)
         );
@@ -414,6 +422,7 @@ export function ExploreGallery({
     feedPage.current = 0;
     feedCycle.current = 0;
     feedPhase.current = "normal";
+    setFeedDebugStatus({ phase: "normal", cycle: 0 });
     cycleSeenIds.current = new Set(initialPhotos.map((photo) => photo.id));
     setBoundaries([]);
     feedExhausted.current = false;
@@ -499,18 +508,24 @@ export function ExploreGallery({
       try {
         let nextPage = feedPage.current + 1;
         let requestSeed = cycleSeed(activeFeedSeed, feedCycle.current);
-        const requestPage = () =>
-          feedPhase.current === "normal"
-            ? loadFeedPageOnce(
-                loadMore,
-                requestSeed,
-                nextPage,
-                clickedPhotoIds,
-                [...cycleSeenIds.current]
-              )
-            : loadDemoted
-              ? loadDemoted(requestSeed, nextPage)
-              : Promise.resolve([]);
+        const requestPage = async () => {
+          if (feedDebug && nextPage > 0) return [];
+          const pagePhotos =
+            feedPhase.current === "normal"
+              ? await loadFeedPageOnce(
+                  loadMore,
+                  requestSeed,
+                  nextPage,
+                  clickedPhotoIds,
+                  [...cycleSeenIds.current]
+                )
+              : loadDemoted
+                ? await loadDemoted(requestSeed, nextPage)
+                : [];
+          return feedDebug
+            ? limitDebugFeedPage(feedPhase.current, nextPage, pagePhotos)
+            : pagePhotos;
+        };
         let more = await requestPage();
         if (!more || more.length === 0) {
           if (SHOW_LOCAL_FEED_BOUNDARIES) {
@@ -530,15 +545,19 @@ export function ExploreGallery({
           const next = nextFeedPhase(feedPhase.current, feedCycle.current);
           feedPhase.current = next.phase;
           feedCycle.current = next.cycle;
+          setFeedDebugStatus(next);
           if (next.phase === "normal") cycleSeenIds.current = new Set();
           feedPage.current = -1;
           nextPage = 0;
           requestSeed = cycleSeed(activeFeedSeed, feedCycle.current);
-          more = feedPhase.current === "normal"
+          const firstPhasePage = feedPhase.current === "normal"
             ? await loadFeedPageOnce(loadMore, requestSeed, 0, clickedPhotoIds, [])
             : loadDemoted
               ? await loadDemoted(requestSeed, 0)
               : [];
+          more = feedDebug
+            ? limitDebugFeedPage(feedPhase.current, 0, firstPhasePage)
+            : firstPhasePage;
         }
         if (!more || more.length === 0) {
           feedExhausted.current = true; // 공개 사진 자체가 없는 예외 상황
@@ -589,7 +608,7 @@ export function ExploreGallery({
       window.removeEventListener("resize", check);
       window.removeEventListener(FEED_RESTORED_EVENT, check);
     };
-  }, [visible, items, activeFeedSeed, clickedPhotoIds, loadMore, loadPersonalized, loadDemoted]);
+  }, [visible, items, activeFeedSeed, clickedPhotoIds, loadMore, loadPersonalized, loadDemoted, feedDebug]);
 
   // 보기 옵션(가격·작가명) — 세션 유지 + SearchOptions 토글과 이벤트로 동기화
   useEffect(() => {
@@ -656,6 +675,11 @@ export function ExploreGallery({
 
   return (
     <>
+      {feedDebug && (
+        <div className="sticky top-3 z-40 mx-auto mb-3 w-fit rounded-full border border-amber-400/60 bg-amber-50/95 px-4 py-2 text-xs font-semibold text-amber-900 shadow-sm backdrop-blur">
+          DEBUG · {feedDebugStatus.phase === "normal" ? "일반 사진" : "노출 낮춤"} · {feedDebugStatus.cycle + 1}회차 · 누적 {items.length}장
+        </div>
+      )}
       {/* 메이슨리 갤러리 — JS 컬럼 버킷(추가 시 기존 사진 위치 고정) */}
       <div
         ref={setGridRef}

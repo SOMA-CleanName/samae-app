@@ -27,7 +27,7 @@ import type { GalleryPhoto } from "@/lib/discovery";
 
 export const dynamic = "force-dynamic";
 
-type SearchParams = { q?: string; ad?: string; cat?: string; nocat?: string };
+type SearchParams = { q?: string; ad?: string; cat?: string; nocat?: string; feedDebug?: string };
 
 export default async function ExploreHome({
   searchParams,
@@ -59,6 +59,8 @@ export default async function ExploreHome({
   // 전체 피드(검색·광고 아님)는 시드 기반 무한 스크롤(0050 RPC). seed 는 요청마다 생성 →
   // 방문마다 순서 변주 + ExploreGallery 가 같은 seed 로 다음 페이지를 이어받아 무제한 노출.
   const isAllFeed = !query && !adAsGallery;
+  const feedDebug =
+    process.env.NODE_ENV === "development" && isAllFeed && sp.feedDebug === "1";
   const feedSeed = isAllFeed ? newFeedSeed() : undefined;
 
   // 취향 v2(samae_taste2) — 있으면 전체 피드를 전역 티어링으로 노출:
@@ -120,6 +122,7 @@ export default async function ExploreHome({
         loadMore={loadMorePhotos}
         loadPersonalized={loadPersonalizedPhotos}
         loadDemoted={loadDemotedHomePhotos}
+        feedDebug={feedDebug}
       />
     </section>
   );

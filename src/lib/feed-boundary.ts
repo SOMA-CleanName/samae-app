@@ -44,3 +44,12 @@ export function splitAtFeedBoundaries<T>(
 
   return segments;
 }
+
+export function limitDebugFeedPage<T>(
+  phase: "normal" | "demoted",
+  page: number,
+  items: T[]
+): T[] {
+  if (page > 0) return [];
+  return items.slice(0, phase === "normal" ? 48 : 24);
+}
