@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   mergeDemotedSimilar,
+  mapSimilarityRows,
   promotionStage,
   uniqueWithinCycle,
   type DemotionCandidate,
@@ -55,4 +56,15 @@ test("cycle filtering removes clicked, seen, and duplicate ids only from the sup
   );
   assert.deepEqual(result.map((item) => item.id), [normal[0].id, demoted[0].id]);
   assert.deepEqual(uniqueWithinCycle([normal[1]], new Set(), 10).map((item) => item.id), [normal[1].id]);
+});
+
+test("similarity RPC feed_hidden state maps to application demoted state", () => {
+  const rows = mapSimilarityRows([
+    { id: "a", feed_hidden: true, distance: 0.1 },
+    { id: "b", feed_hidden: false, distance: 0.2 },
+  ]);
+  assert.deepEqual(rows, [
+    { id: "a", demoted: true, naturalRank: 0, distance: 0.1 },
+    { id: "b", demoted: false, naturalRank: 1, distance: 0.2 },
+  ]);
 });

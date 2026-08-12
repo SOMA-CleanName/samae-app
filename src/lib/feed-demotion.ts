@@ -45,3 +45,14 @@ export function uniqueWithinCycle<T extends { id: string }>(
   }
   return result;
 }
+
+export function mapSimilarityRows<T extends { id: string; feed_hidden: boolean }>(
+  rows: T[]
+): Array<Omit<T, "feed_hidden"> & DemotionCandidate> {
+  return rows.map(({ feed_hidden, ...row }, naturalRank) => ({
+    ...row,
+    id: row.id,
+    demoted: feed_hidden,
+    naturalRank,
+  }));
+}

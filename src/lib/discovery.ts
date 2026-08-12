@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { seededShuffle } from "@/lib/seeded-shuffle";
 import { readAnonFavPhotoIds } from "@/lib/anon-favorites";
+import { mapSimilarityRows, mergeDemotedSimilar, promotionStage } from "@/lib/feed-demotion";
 
 // 탐색 갤러리 사진 1장
 export type GalleryPhoto = {
@@ -428,7 +429,7 @@ export async function fetchPersonalizedRecommendations(
     anchors.map(async (id) => {
       const anchor = anchorById.get(id);
       if (!anchor) return [];
-      return fetchSimilarPhotos({
+      return fetchSimilarPhotosRaw({
         photoId: id,
         albumId: anchor.album_id,
         tags: anchor.mood_tags ?? [],
@@ -442,6 +443,9 @@ export async function fetchPersonalizedRecommendations(
   // 24→30→36장까지 강화한다. 임베딩이 없는 사진은 태그 폴백 이웃으로 같은 계산을 한다.
   const baseTarget = anchors.length === 1 ? 12 : anchors.length === 2 ? 16 : 20;
   const styleConsistency = averageNeighborOverlap(similarLists, 60);
+  const rankedSimilarLists = similarLists.map((list) =>
+    orderSimilarWithDemotion(list, anchors.length, styleConsistency)
+  );
   const boostedTarget =
     styleConsistency >= 0.55 ? 36
     : styleConsistency >= 0.4 ? 30
@@ -455,7 +459,7 @@ export async function fetchPersonalizedRecommendations(
   // 여러 사진을 눌렀다면 각 기준 사진의 후보를 한 장씩 번갈아 선택한다.
   for (let rank = 0; pickedIds.length < target; rank++) {
     let foundAtRank = false;
-    for (const list of similarLists) {
+    for (const list of rankedSimilarLists) {
       const candidate = list[rank];
       if (!candidate) continue;
       foundAtRank = true;
@@ -1316,9 +1320,20 @@ export type SimilarPhoto = {
   thumb_url: string | null;
   width: number;
   height: number;
+  demoted: boolean;
+  naturalRank: number;
 };
 
 export async function fetchSimilarPhotos(opts: {
+  photoId: string;
+  albumId: string | null;
+  tags: string[];
+  limit?: number;
+}): Promise<SimilarPhoto[]> {
+  return orderSimilarWithDemotion(await fetchSimilarPhotosRaw(opts), 1, 0);
+}
+
+async function fetchSimilarPhotosRaw(opts: {
   photoId: string;
   albumId: string | null;
   tags: string[];
@@ -1331,6 +1346,16 @@ export async function fetchSimilarPhotos(opts: {
   return similarByTags(opts);
 }
 
+function orderSimilarWithDemotion(
+  photos: SimilarPhoto[],
+  anchorCount: number,
+  styleConsistency: number
+): SimilarPhoto[] {
+  const normal = photos.filter((photo) => !photo.demoted);
+  const demoted = photos.filter((photo) => photo.demoted);
+  return mergeDemotedSimilar(normal, demoted, promotionStage(anchorCount, styleConsistency));
+}
+
 // 벡터 근접검색. RPC 가 published/approved·현재 사진·같은 게시물을 이미 걸러
 // distance 오름차순으로 돌려주므로, 앱은 앨범 간격 배치만 얹는다.
 async function similarByEmbedding(photoId: string, limit: number): Promise<SimilarPhoto[]> {
@@ -1341,8 +1366,12 @@ async function similarByEmbedding(photoId: string, limit: number): Promise<Simil
   });
   if (error || !data) return [];
 
-  type Row = SimilarPhoto & { album_id: string | null };
-  const rows = data as unknown as Row[];
+  type Row = Omit<SimilarPhoto, "demoted" | "naturalRank"> & {
+    album_id: string | null;
+    distance: number;
+    feed_hidden: boolean;
+  };
+  const rows = mapSimilarityRows(data as unknown as Row[]);
 
   // 시드의 게시물은 RPC 가 뺐지만, 다른 한 게시물이 상위를 연달아 채울 수는 있다.
   // 같은 촬영본은 벡터가 붙어 있어 태그 방식보다 오히려 몰리기 쉽다.
@@ -1353,6 +1382,8 @@ async function similarByEmbedding(photoId: string, limit: number): Promise<Simil
     thumb_url: p.thumb_url,
     width: p.width,
     height: p.height,
+    demoted: p.demoted,
+    naturalRank: p.naturalRank,
   }));
 }
 
@@ -1369,27 +1400,31 @@ async function similarByTags(opts: {
     .from("photos")
     // 승인 작가의 published 만(!inner + RLS). 현재 사진 제외.
     .select(
-      "id, src_url, thumb_url, width, height, mood_tags, album_id, photographer:photographers!photos_photographer_id_fkey!inner(id)"
+      "id, src_url, thumb_url, width, height, mood_tags, album_id, feed_hidden, photographer:photographers!photos_photographer_id_fkey!inner(id)"
     )
     .eq("visibility", "published")
-    .eq("feed_hidden", false) // 운영자 피드 숨김 제외
     .neq("id", opts.photoId)
     .order("created_at", { ascending: false })
     .limit(limit);
 
-  type Row = SimilarPhoto & { mood_tags: string[] | null; album_id: string | null };
-  const rows = (data ?? []) as unknown as Row[];
+  type Row = Omit<SimilarPhoto, "demoted" | "naturalRank"> & {
+    mood_tags: string[] | null;
+    album_id: string | null;
+    feed_hidden: boolean;
+  };
+  type MappedRow = Omit<Row, "feed_hidden"> & { demoted: boolean; naturalRank: number };
+  const rows: MappedRow[] = mapSimilarityRows((data ?? []) as unknown as Row[]);
   const tagSet = new Set((opts.tags ?? []).map((t) => t.toLowerCase()));
 
   // 같은 게시물(앨범) 사진 제외 (null 앨범은 유지)
   const candidates = rows.filter((p) => !(opts.albumId && p.album_id === opts.albumId));
 
   // 태그 겹침 점수 계산
-  const score = (p: Row) =>
+  const score = (p: MappedRow) =>
     tagSet.size === 0 ? 0 : (p.mood_tags ?? []).filter((t) => tagSet.has(t.toLowerCase())).length;
 
   // 점수별 묶기 (점수 높은 묶음이 위로)
-  const byScore = new Map<number, Row[]>();
+  const byScore = new Map<number, MappedRow[]>();
   for (const p of candidates) {
     const s = score(p);
     (byScore.get(s) ?? byScore.set(s, []).get(s)!).push(p);
@@ -1397,11 +1432,11 @@ async function similarByTags(opts: {
 
   // 점수 묶음 안에서 앨범별 라운드로빈 → 같은 게시물 사진이 줄지어 뜨지 않게 분산.
   // 유사도(점수)는 그대로 상위 유지하되, 동점은 여러 게시물이 번갈아 섞이도록.
-  const ordered: Row[] = [];
+  const ordered: MappedRow[] = [];
   for (const s of [...byScore.keys()].sort((a, b) => b - a)) {
     const items = byScore.get(s)!;
     // 앨범(단일 사진은 각자)별로 묶고, 앨범 순서·앨범 내 순서를 셔플
-    const albums = new Map<string, Row[]>();
+    const albums = new Map<string, MappedRow[]>();
     for (const p of items) {
       const key = p.album_id ?? `single:${p.id}`;
       (albums.get(key) ?? albums.set(key, []).get(key)!).push(p);
@@ -1430,6 +1465,8 @@ async function similarByTags(opts: {
     thumb_url: p.thumb_url,
     width: p.width,
     height: p.height,
+    demoted: p.demoted,
+    naturalRank: p.naturalRank,
   }));
 }
 
