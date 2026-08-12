@@ -7,6 +7,7 @@ import Image from "next/image";
 import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
 import { rememberPhotoAspect } from "@/lib/photo-aspect";
 import type { GalleryPhoto } from "@/lib/discovery";
+import { recordFeedClick } from "@/lib/feed-click-history";
 
 export type ExplorePhoto = {
   id: string;
@@ -256,6 +257,7 @@ function PhotoMasonry({
                   scroll={false}
                   className="block transition-opacity hover:opacity-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                   onClick={(event) => {
+                    recordFeedClick(p.id);
                     rememberPhotoAspect(p.id, p.width, p.height);
                     try {
                       const card = event.currentTarget.closest<HTMLElement>("[data-pid]");

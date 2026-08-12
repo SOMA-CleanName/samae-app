@@ -14,6 +14,7 @@ import { useCart } from "@/components/user/cart/CartProvider";
 import { mpTrack } from "@/lib/mixpanel";
 import { EmptyState } from "@/components/ui";
 import { rememberPhotoAspect } from "@/lib/photo-aspect";
+import { appendFeedClick, readFeedClicks, recordFeedClick } from "@/lib/feed-click-history";
 
 const fmt = new Intl.NumberFormat("ko-KR");
 const STEP = 48; // 스크롤마다 더 보여줄 사진 수(메모리에서 즉시 노출)
@@ -169,9 +170,7 @@ export function ExploreGallery({
   const { cols: colCount, ready: columnsReady, setNode: setGridRef } = useColumnCount();
 
   function recordPhotoClick(photoId: string) {
-    const next = clickedPhotoIds.includes(photoId)
-      ? clickedPhotoIds
-      : [...clickedPhotoIds, photoId].slice(-8);
+    const next = recordFeedClick(photoId);
     setClickedPhotoIds(next);
     // 링크 이동으로 effect가 실행되기 전에 컴포넌트가 언마운트될 수 있어 클릭 즉시 저장한다.
     try {
@@ -374,7 +373,11 @@ export function ExploreGallery({
         feedExhausted.current = loadMore ? false : !!cached.exhausted;
         feedLoading.current = false;
         setActiveFeedSeed(cached.seed ?? feedSeed);
-        setClickedPhotoIds(Array.isArray(cached.clickedPhotoIds) ? cached.clickedPhotoIds.slice(-8) : []);
+        setClickedPhotoIds(
+          Array.isArray(cached.clickedPhotoIds)
+            ? cached.clickedPhotoIds.reduce((ids, id) => appendFeedClick(ids, id), readFeedClicks())
+            : readFeedClicks()
+        );
         setFeedSessionReady(true);
         return;
       }
@@ -389,7 +392,7 @@ export function ExploreGallery({
     feedExhausted.current = false;
     feedLoading.current = false;
     setActiveFeedSeed(feedSeed);
-    setClickedPhotoIds([]);
+    setClickedPhotoIds(readFeedClicks());
     setFeedSessionReady(true);
   }, [initialPhotos, query, feedSeed, feedSessionKey]);
 
