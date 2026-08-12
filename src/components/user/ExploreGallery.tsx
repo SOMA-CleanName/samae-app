@@ -675,9 +675,9 @@ export function ExploreGallery({
 
   return (
     <>
-      {feedDebug && (
+      {SHOW_LOCAL_FEED_BOUNDARIES && (
         <div className="sticky top-3 z-40 mx-auto mb-3 w-fit rounded-full border border-amber-400/60 bg-amber-50/95 px-4 py-2 text-xs font-semibold text-amber-900 shadow-sm backdrop-blur">
-          DEBUG · {feedDebugStatus.phase === "normal" ? "일반 사진" : "노출 낮춤"} · {feedDebugStatus.cycle + 1}회차 · 누적 {items.length}장
+          {feedDebug ? "DEBUG" : "LOCAL"} · {feedDebugStatus.phase === "normal" ? "일반 사진" : "노출 낮춤"} · {feedDebugStatus.cycle + 1}회차 · 누적 {items.length}장
         </div>
       )}
       {/* 메이슨리 갤러리 — JS 컬럼 버킷(추가 시 기존 사진 위치 고정) */}
