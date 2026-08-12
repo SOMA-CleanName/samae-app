@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -16,6 +16,11 @@ import { EmptyState } from "@/components/ui";
 import { rememberPhotoAspect } from "@/lib/photo-aspect";
 import { appendFeedClick, readFeedClicks, recordFeedClick } from "@/lib/feed-click-history";
 import { nextFeedPhase, type FeedPhase } from "@/lib/feed-demotion";
+import {
+  addFeedBoundary,
+  splitAtFeedBoundaries,
+  type FeedBoundary,
+} from "@/lib/feed-boundary";
 
 const fmt = new Intl.NumberFormat("ko-KR");
 const STEP = 48; // 스크롤마다 더 보여줄 사진 수(메모리에서 즉시 노출)
@@ -27,6 +32,7 @@ const FEED_SESSION_PREFIX = "samae:gallery-session:";
 const FEED_SESSION_SCHEMA = "personalized-v1";
 const FEED_SESSION_MIGRATION_KEY = "samae:feed-session-migrated:personalized-v1";
 const FEED_RESTORE_MAX_AGE_MS = 5_000;
+const SHOW_LOCAL_FEED_BOUNDARIES = process.env.NODE_ENV === "development";
 const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 function isFeedReturnRestoring(): boolean {
@@ -76,6 +82,7 @@ type FeedSession = {
   cycle?: number;
   phase?: FeedPhase;
   cycleSeenIds?: string[];
+  boundaries?: FeedBoundary[];
 };
 
 type PositionedPhoto = { id: string; photo: GalleryPhoto; feedIndex: number };
@@ -105,14 +112,18 @@ function useColumnCount() {
 
 // 높이 균형 그리디 분배 — 각 사진을 가장 짧은 컬럼에 넣는다.
 // 순서가 고정이면 prefix-stable: 뒤에 더 추가돼도 앞 사진들의 컬럼/위치가 안 바뀜(재정렬 없음).
-function buildColumns(photos: GalleryPhoto[], colCount: number): PositionedPhoto[][] {
+function buildColumns(
+  photos: GalleryPhoto[],
+  colCount: number,
+  feedIndexOffset = 0
+): PositionedPhoto[][] {
   const cols: PositionedPhoto[][] = Array.from({ length: colCount }, () => []);
   const heights = new Array(colCount).fill(0);
   for (const [feedIndex, p] of photos.entries()) {
     const ratio = p.width > 0 && p.height > 0 ? p.height / p.width : 1; // 단위 폭당 상대 높이
     let min = 0;
     for (let c = 1; c < colCount; c++) if (heights[c] < heights[min]) min = c;
-    cols[min].push({ id: p.id, photo: p, feedIndex });
+    cols[min].push({ id: p.id, photo: p, feedIndex: feedIndex + feedIndexOffset });
     heights[min] += ratio;
   }
   return cols;
@@ -169,6 +180,7 @@ export function ExploreGallery({
   const feedLoading = useRef(false);
   const [activeFeedSeed, setActiveFeedSeed] = useState(feedSeed);
   const [clickedPhotoIds, setClickedPhotoIds] = useState<string[]>([]);
+  const [boundaries, setBoundaries] = useState<FeedBoundary[]>([]);
   const [feedSessionReady, setFeedSessionReady] = useState(false);
   const [showPrice, setShowPrice] = useState(false);
   const [showName, setShowName] = useState(false);
@@ -380,6 +392,7 @@ export function ExploreGallery({
         cycleSeenIds.current = new Set(
           Array.isArray(cached.cycleSeenIds) ? cached.cycleSeenIds : cached.items.map((photo) => photo.id)
         );
+        setBoundaries(Array.isArray(cached.boundaries) ? cached.boundaries : []);
         // 이전 요청의 일시 오류가 exhausted 로 저장됐을 수 있으므로 재진입 시 한 번은 다시 확인한다.
         feedExhausted.current = loadMore ? false : !!cached.exhausted;
         feedLoading.current = false;
@@ -402,6 +415,7 @@ export function ExploreGallery({
     feedCycle.current = 0;
     feedPhase.current = "normal";
     cycleSeenIds.current = new Set(initialPhotos.map((photo) => photo.id));
+    setBoundaries([]);
     feedExhausted.current = false;
     feedLoading.current = false;
     setActiveFeedSeed(feedSeed);
@@ -421,13 +435,14 @@ export function ExploreGallery({
       cycle: feedCycle.current,
       phase: feedPhase.current,
       cycleSeenIds: [...cycleSeenIds.current],
+      boundaries,
     };
     try {
       sessionStorage.setItem(feedSessionKey, JSON.stringify(snapshot));
     } catch {
       // 저장 공간이 부족해도 현재 세션의 무한 스크롤은 계속 동작한다.
     }
-  }, [activeFeedSeed, clickedPhotoIds, feedSessionKey, feedSessionReady, items, visible]);
+  }, [activeFeedSeed, boundaries, clickedPhotoIds, feedSessionKey, feedSessionReady, items, visible]);
 
   // 바닥 근처에서 더 노출 — 로드된 건 STEP 씩 노출, 끝에 닿으면 서버 다음 페이지를 이어받음(무한).
   // IntersectionObserver(주) + 스크롤/리사이즈(폴백).
@@ -498,6 +513,20 @@ export function ExploreGallery({
               : Promise.resolve([]);
         let more = await requestPage();
         if (!more || more.length === 0) {
+          if (SHOW_LOCAL_FEED_BOUNDARIES) {
+            const endingPhase = feedPhase.current;
+            const endingCycle = feedCycle.current;
+            setBoundaries((current) =>
+              addFeedBoundary(current, {
+                id:
+                  endingPhase === "normal"
+                    ? `cycle-${endingCycle}-normal-end`
+                    : `cycle-${endingCycle}-end`,
+                kind: endingPhase === "normal" ? "normal-end" : "cycle-end",
+                afterItemCount: items.length,
+              })
+            );
+          }
           const next = nextFeedPhase(feedPhase.current, feedCycle.current);
           feedPhase.current = next.phase;
           feedCycle.current = next.cycle;
@@ -580,14 +609,26 @@ export function ExploreGallery({
     };
   }, []);
 
-  const columns = useMemo(
-    () => buildColumns(items.slice(0, visible), colCount),
-    [items, visible, colCount]
-  );
+  const feedSegments = useMemo(() => {
+    const segments = splitAtFeedBoundaries(
+      items.slice(0, visible),
+      SHOW_LOCAL_FEED_BOUNDARIES ? boundaries : []
+    );
+    return segments.map((segment, segmentIndex) => {
+      const feedIndexOffset = segments
+        .slice(0, segmentIndex)
+        .reduce((count, previous) => count + previous.items.length, 0);
+      const columns = buildColumns(segment.items, colCount, feedIndexOffset);
+      return { ...segment, columns };
+    });
+  }, [boundaries, colCount, items, visible]);
 
   // 테두리 — 컬럼별로 어긋나게 배치(한쪽 쏠림 방지) + 가끔 검정
   const SHOW_ACCENTS = false; // 탐색 카드 악센트 테두리 임시 OFF (true 로 복구)
-  const accentMap = useMemo(() => assignColumnAccents(columns), [columns]);
+  const accentMap = useMemo(
+    () => assignColumnAccents(feedSegments.flatMap((segment) => segment.columns)),
+    [feedSegments]
+  );
 
   if (items.length === 0) {
     return (
@@ -620,11 +661,14 @@ export function ExploreGallery({
         ref={setGridRef}
         data-feed-grid
         className={cn(
-          "flex gap-2.5 transition-opacity sm:gap-4",
+          "transition-opacity",
           columnsReady && feedSessionReady ? "opacity-100" : "opacity-0"
         )}
       >
-        {columns.map((col, ci) => (
+        {feedSegments.map((segment, segmentIndex) => (
+          <Fragment key={segment.boundary?.id ?? `tail-${segmentIndex}`}>
+            <div className="flex gap-2.5 sm:gap-4">
+              {segment.columns.map((col, ci) => (
           <div key={ci} className="flex min-w-0 flex-1 flex-col gap-2.5 sm:gap-4">
             {col.map(({ photo, feedIndex }) => {
               const feedInstanceId = `${photo.id}:${feedIndex}`;
@@ -667,6 +711,20 @@ export function ExploreGallery({
               return <div key={feedInstanceId}>{card}</div>;
             })}
           </div>
+              ))}
+            </div>
+            {segment.boundary && (
+              <div className="my-8 flex items-center gap-3 text-xs font-medium text-muted-foreground sm:my-12 sm:text-sm">
+                <span className="h-px flex-1 bg-border" />
+                <span className="shrink-0 rounded-full border border-border bg-bg px-4 py-2">
+                  {segment.boundary.kind === "normal-end"
+                    ? "일반 사진 끝 · 이제 노출 낮춤 사진이 이어집니다"
+                    : "전체 사진 끝 · 여기부터 사진이 반복됩니다"}
+                </span>
+                <span className="h-px flex-1 bg-border" />
+              </div>
+            )}
+          </Fragment>
         ))}
       </div>
 
