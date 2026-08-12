@@ -280,6 +280,26 @@ export async function fetchSeededFeedAt(
   }));
 }
 
+// 운영자가 노출을 낮춘 사진 전용 꼬리. 일반 사진을 모두 본 뒤에만 페이지 단위로 호출한다.
+export async function fetchDemotedHomeFeedPage(
+  seed: string,
+  page: number,
+  pageSize = 48
+): Promise<GalleryPhoto[]> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("photos")
+    .select(
+      "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name, status)"
+    )
+    .eq("visibility", "published")
+    .eq("feed_hidden", true)
+    .eq("photographer.status", "approved")
+    .order("id", { ascending: true })
+    .range(page * pageSize, page * pageSize + pageSize - 1);
+  return seededShuffle((data ?? []) as unknown as GalleryPhoto[], `${seed}:demoted:${page}`);
+}
+
 // 운영자가 피드에서 숨긴 사진 id — 소수라 한 번에 받아 집합으로 쓴다(부분 인덱스, 0075).
 export async function fetchFeedHiddenIds(): Promise<Set<string>> {
   const admin = createAdminClient();

@@ -15,6 +15,7 @@ import { mpTrack } from "@/lib/mixpanel";
 import { EmptyState } from "@/components/ui";
 import { rememberPhotoAspect } from "@/lib/photo-aspect";
 import { appendFeedClick, readFeedClicks, recordFeedClick } from "@/lib/feed-click-history";
+import { nextFeedPhase, type FeedPhase } from "@/lib/feed-demotion";
 
 const fmt = new Intl.NumberFormat("ko-KR");
 const STEP = 48; // 스크롤마다 더 보여줄 사진 수(메모리에서 즉시 노출)
@@ -73,6 +74,8 @@ type FeedSession = {
   exhausted: boolean;
   clickedPhotoIds?: string[];
   cycle?: number;
+  phase?: FeedPhase;
+  cycleSeenIds?: string[];
 };
 
 type PositionedPhoto = { id: string; photo: GalleryPhoto; feedIndex: number };
@@ -127,6 +130,7 @@ export function ExploreGallery({
   feedSeed,
   loadMore,
   loadPersonalized,
+  loadDemoted,
 }: {
   photos: GalleryPhoto[];
   query?: string;
@@ -150,6 +154,7 @@ export function ExploreGallery({
     clickedPhotoIds: string[],
     excludedPhotoIds: string[]
   ) => Promise<GalleryPhoto[]>;
+  loadDemoted?: (seed: string, page: number) => Promise<GalleryPhoto[]>;
 }) {
   const pathname = usePathname();
   const feedSessionSuffix = `${pathname}${query ? `?q=${query}` : ""}`;
@@ -158,6 +163,8 @@ export function ExploreGallery({
   const [items, setItems] = useState(initialPhotos);
   const feedPage = useRef(0); // 마지막으로 받은 서버 페이지(0=초기)
   const feedCycle = useRef(0); // 전체 풀을 몇 번 소진했는지(0=첫 노출, 1+=새 순서 반복)
+  const feedPhase = useRef<FeedPhase>("normal");
+  const cycleSeenIds = useRef(new Set(initialPhotos.map((photo) => photo.id)));
   const feedExhausted = useRef(false);
   const feedLoading = useRef(false);
   const [activeFeedSeed, setActiveFeedSeed] = useState(feedSeed);
@@ -369,6 +376,10 @@ export function ExploreGallery({
         setVisible(Math.max(STEP, Math.min(cached.visible, cached.items.length)));
         feedPage.current = Math.max(0, cached.page || 0);
         feedCycle.current = Math.max(0, cached.cycle || 0);
+        feedPhase.current = cached.phase === "demoted" ? "demoted" : "normal";
+        cycleSeenIds.current = new Set(
+          Array.isArray(cached.cycleSeenIds) ? cached.cycleSeenIds : cached.items.map((photo) => photo.id)
+        );
         // 이전 요청의 일시 오류가 exhausted 로 저장됐을 수 있으므로 재진입 시 한 번은 다시 확인한다.
         feedExhausted.current = loadMore ? false : !!cached.exhausted;
         feedLoading.current = false;
@@ -389,6 +400,8 @@ export function ExploreGallery({
     setVisible(STEP);
     feedPage.current = 0;
     feedCycle.current = 0;
+    feedPhase.current = "normal";
+    cycleSeenIds.current = new Set(initialPhotos.map((photo) => photo.id));
     feedExhausted.current = false;
     feedLoading.current = false;
     setActiveFeedSeed(feedSeed);
@@ -406,6 +419,8 @@ export function ExploreGallery({
       exhausted: feedExhausted.current,
       clickedPhotoIds,
       cycle: feedCycle.current,
+      phase: feedPhase.current,
+      cycleSeenIds: [...cycleSeenIds.current],
     };
     try {
       sessionStorage.setItem(feedSessionKey, JSON.stringify(snapshot));
@@ -469,26 +484,32 @@ export function ExploreGallery({
       try {
         let nextPage = feedPage.current + 1;
         let requestSeed = cycleSeed(activeFeedSeed, feedCycle.current);
-        let more = await loadFeedPageOnce(
-          loadMore,
-          requestSeed,
-          nextPage,
-          clickedPhotoIds,
-          items.slice(-240).map((photo) => photo.id)
-        );
+        const requestPage = () =>
+          feedPhase.current === "normal"
+            ? loadFeedPageOnce(
+                loadMore,
+                requestSeed,
+                nextPage,
+                clickedPhotoIds,
+                [...cycleSeenIds.current]
+              )
+            : loadDemoted
+              ? loadDemoted(requestSeed, nextPage)
+              : Promise.resolve([]);
+        let more = await requestPage();
         if (!more || more.length === 0) {
-          // 전체 공개 풀을 다 봤으면 새 시드 순서로 첫 페이지부터 이어 붙인다.
-          feedCycle.current += 1;
-          feedPage.current = -1; // 재시도되더라도 새 사이클의 page 0부터 시작
+          const next = nextFeedPhase(feedPhase.current, feedCycle.current);
+          feedPhase.current = next.phase;
+          feedCycle.current = next.cycle;
+          if (next.phase === "normal") cycleSeenIds.current = new Set();
+          feedPage.current = -1;
           nextPage = 0;
           requestSeed = cycleSeed(activeFeedSeed, feedCycle.current);
-          more = await loadFeedPageOnce(
-            loadMore,
-            requestSeed,
-            nextPage,
-            clickedPhotoIds,
-            items.slice(-240).map((photo) => photo.id)
-          );
+          more = feedPhase.current === "normal"
+            ? await loadFeedPageOnce(loadMore, requestSeed, 0, clickedPhotoIds, [])
+            : loadDemoted
+              ? await loadDemoted(requestSeed, 0)
+              : [];
         }
         if (!more || more.length === 0) {
           feedExhausted.current = true; // 공개 사진 자체가 없는 예외 상황
@@ -496,9 +517,9 @@ export function ExploreGallery({
         }
         feedPage.current = nextPage;
         setItems((prev) => {
-          if (feedCycle.current > 0) return [...prev, ...more];
-          const seen = new Set(prev.map((p) => p.id));
-          return [...prev, ...more.filter((p) => !seen.has(p.id))];
+          const fresh = more.filter((photo) => !cycleSeenIds.current.has(photo.id));
+          fresh.forEach((photo) => cycleSeenIds.current.add(photo.id));
+          return [...prev, ...fresh];
         });
         setVisible((v) => v + STEP);
       } catch {
@@ -539,7 +560,7 @@ export function ExploreGallery({
       window.removeEventListener("resize", check);
       window.removeEventListener(FEED_RESTORED_EVENT, check);
     };
-  }, [visible, items, activeFeedSeed, clickedPhotoIds, loadMore, loadPersonalized]);
+  }, [visible, items, activeFeedSeed, clickedPhotoIds, loadMore, loadPersonalized, loadDemoted]);
 
   // 보기 옵션(가격·작가명) — 세션 유지 + SearchOptions 토글과 이벤트로 동기화
   useEffect(() => {

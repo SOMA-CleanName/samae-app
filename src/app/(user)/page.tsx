@@ -7,7 +7,7 @@ import {
   newFeedSeed,
 } from "@/lib/discovery";
 import { cookies } from "next/headers";
-import { loadMorePhotos, loadPersonalizedPhotos } from "./feed-actions";
+import { loadDemotedHomePhotos, loadMorePhotos, loadPersonalizedPhotos } from "./feed-actions";
 import { logSearch } from "@/lib/search-log";
 import { getCurrentUser } from "@/lib/auth";
 import { TASTE_V2_COOKIE, parseTasteV2 } from "@/lib/category-constants";
@@ -119,6 +119,7 @@ export default async function ExploreHome({
         feedSeed={feedSeed}
         loadMore={loadMorePhotos}
         loadPersonalized={loadPersonalizedPhotos}
+        loadDemoted={loadDemotedHomePhotos}
       />
     </section>
   );

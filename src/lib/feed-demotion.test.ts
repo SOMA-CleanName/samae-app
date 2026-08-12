@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   mergeDemotedSimilar,
   mapSimilarityRows,
+  nextFeedPhase,
   promotionStage,
   uniqueWithinCycle,
   type DemotionCandidate,
@@ -67,4 +68,9 @@ test("similarity RPC feed_hidden state maps to application demoted state", () =>
     { id: "a", demoted: true, naturalRank: 0, distance: 0.1 },
     { id: "b", demoted: false, naturalRank: 1, distance: 0.2 },
   ]);
+});
+
+test("home feed phase advances normal to demoted to the next normal cycle", () => {
+  assert.deepEqual(nextFeedPhase("normal", 2), { phase: "demoted", cycle: 2 });
+  assert.deepEqual(nextFeedPhase("demoted", 2), { phase: "normal", cycle: 3 });
 });

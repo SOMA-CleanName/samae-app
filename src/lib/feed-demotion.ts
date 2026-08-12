@@ -1,4 +1,5 @@
 export type PromotionStage = 1 | 2 | 3 | 4;
+export type FeedPhase = "normal" | "demoted";
 
 export type DemotionCandidate = {
   id: string;
@@ -55,4 +56,13 @@ export function mapSimilarityRows<T extends { id: string; feed_hidden: boolean }
     demoted: feed_hidden,
     naturalRank,
   }));
+}
+
+export function nextFeedPhase(phase: FeedPhase, cycle: number): {
+  phase: FeedPhase;
+  cycle: number;
+} {
+  return phase === "normal"
+    ? { phase: "demoted", cycle }
+    : { phase: "normal", cycle: cycle + 1 };
 }
