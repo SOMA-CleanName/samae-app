@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { seededShuffle } from "@/lib/seeded-shuffle";
 import { readAnonFavPhotoIds } from "@/lib/anon-favorites";
-import { mapSimilarityRows, mergeDemotedSimilar, promotionStage } from "@/lib/feed-demotion";
+import { mapSimilarityRows, mergeDemotedSimilar, promotionStage, rebalancePortraitShare } from "@/lib/feed-demotion";
 
 // 탐색 갤러리 사진 1장
 export type GalleryPhoto = {
@@ -1375,6 +1375,7 @@ export type SimilarPhoto = {
   height: number;
   demoted: boolean;
   naturalRank: number;
+  distance?: number;
 };
 
 export async function fetchSimilarPhotos(opts: {
@@ -1383,7 +1384,10 @@ export async function fetchSimilarPhotos(opts: {
   tags: string[];
   limit?: number;
 }): Promise<SimilarPhoto[]> {
-  return orderSimilarWithDemotion(await fetchSimilarPhotosRaw(opts), 1, 0);
+  return orderSimilarWithDemotion(await fetchSimilarPhotosRaw(opts), 1, 0).slice(
+    0,
+    opts.limit ?? 120
+  );
 }
 
 async function fetchSimilarPhotosRaw(opts: {
@@ -1392,7 +1396,9 @@ async function fetchSimilarPhotosRaw(opts: {
   tags: string[];
   limit?: number;
 }): Promise<SimilarPhoto[]> {
-  const byEmbedding = await similarByEmbedding(opts.photoId, opts.limit ?? 120);
+  // 방향 편향이 강한 top-120만으로는 세로 후보가 부족하므로 RPC 최대치 300장을
+  // 재정렬 후보로 받고, 각 호출부가 필요한 장수만 마지막에 자른다.
+  const byEmbedding = await similarByEmbedding(opts.photoId, 300);
   if (byEmbedding.length > 0) return byEmbedding;
   // 임베딩이 아직 없는 신규 업로드(백필 배치 전)나 RPC 실패 시,
   // 추천이 통째로 비지 않도록 기존 태그 방식으로 떨어진다.
@@ -1404,9 +1410,25 @@ function orderSimilarWithDemotion(
   anchorCount: number,
   styleConsistency: number
 ): SimilarPhoto[] {
-  const normal = photos.filter((photo) => !photo.demoted);
-  const demoted = photos.filter((photo) => photo.demoted);
-  return mergeDemotedSimilar(normal, demoted, promotionStage(anchorCount, styleConsistency));
+  const stage = promotionStage(anchorCount, styleConsistency);
+  const distances = photos
+    .map((photo) => photo.distance)
+    .filter((distance): distance is number => Number.isFinite(distance));
+  const bestDistance = distances.length > 0 ? Math.min(...distances) : undefined;
+  const normal = rebalancePortraitShare(
+    photos.filter((photo) => !photo.demoted),
+    0.75,
+    0.015,
+    bestDistance
+  );
+  const demoted = rebalancePortraitShare(
+    photos.filter((photo) => photo.demoted),
+    0.75,
+    0.015,
+    bestDistance
+  );
+  const merged = mergeDemotedSimilar(normal, demoted, stage);
+  return stage === 4 ? rebalancePortraitShare(merged, 0.75, 0.015, bestDistance) : merged;
 }
 
 // 벡터 근접검색. RPC 가 published/approved·현재 사진·같은 게시물을 이미 걸러
@@ -1437,6 +1459,7 @@ async function similarByEmbedding(photoId: string, limit: number): Promise<Simil
     height: p.height,
     demoted: p.demoted,
     naturalRank: p.naturalRank,
+    distance: p.distance,
   }));
 }
 

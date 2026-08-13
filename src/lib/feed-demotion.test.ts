@@ -6,6 +6,7 @@ import {
   nextFeedPhase,
   composeDetailRecommendations,
   promotionStage,
+  rebalancePortraitShare,
   uniqueWithinCycle,
   type DemotionCandidate,
 } from "./feed-demotion.ts";
@@ -82,5 +83,92 @@ test("detail recommendation keeps demoted similar before unrelated photos for on
     composeDetailRecommendations(normal.slice(0, 3), demoted.slice(0, 1), unrelated, 1)
       .map((item) => item.id),
     ["n0", "n1", "n2", "d0", "u0"]
+  );
+});
+
+test("portrait rebalancing keeps extremely similar candidates near the top while dispersing orientation", () => {
+  const candidates = [
+    { id: "l0", width: 1600, height: 900, distance: 0.1 },
+    { id: "l1", width: 1600, height: 900, distance: 0.114 },
+    { id: "l2", width: 1600, height: 900, distance: 0.13 },
+    { id: "p0", width: 900, height: 1600, distance: 0.14 },
+    { id: "p1", width: 900, height: 1600, distance: 0.15 },
+    { id: "p2", width: 900, height: 1600, distance: 0.16 },
+    { id: "p3", width: 900, height: 1600, distance: 0.17 },
+    { id: "p4", width: 900, height: 1600, distance: 0.18 },
+  ];
+
+  assert.deepEqual(
+    rebalancePortraitShare(candidates).map((candidate) => candidate.id),
+    ["l0", "p0", "p1", "p2", "l1", "p3", "p4", "l2"]
+  );
+});
+
+test("portrait rebalancing disperses a protected landscape cluster across the first viewport", () => {
+  const protectedLandscapes = Array.from({ length: 6 }, (_, index) => ({
+    id: `l${index}`,
+    width: 1600,
+    height: 1067,
+    distance: 0.1 + index * 0.002,
+  }));
+  const portraits = Array.from({ length: 18 }, (_, index) => ({
+    id: `p${index}`,
+    width: 1600,
+    height: 2400,
+    distance: 0.14 + index * 0.002,
+  }));
+
+  const result = rebalancePortraitShare([...protectedLandscapes, ...portraits]);
+
+  assert.deepEqual(
+    result.slice(0, 8).map((candidate) => candidate.id[0]),
+    ["l", "p", "p", "p", "l", "p", "p", "p"]
+  );
+  assert.deepEqual(
+    protectedLandscapes.map((candidate) => result.findIndex((item) => item.id === candidate.id)),
+    [0, 4, 8, 12, 16, 20]
+  );
+});
+
+test("portrait rebalancing keeps stable order within portrait and other candidates", () => {
+  const candidates = [
+    { id: "l0", width: 1600, height: 900 },
+    { id: "p0", width: 900, height: 1600 },
+    { id: "l1", width: 1600, height: 900 },
+    { id: "p1", width: 900, height: 1600 },
+    { id: "p2", width: 900, height: 1600 },
+    { id: "p3", width: 900, height: 1600 },
+  ];
+
+  assert.deepEqual(
+    rebalancePortraitShare(candidates).map((candidate) => candidate.id),
+    ["p0", "p1", "p2", "l0", "p3", "l1"]
+  );
+});
+
+test("portrait rebalancing returns every candidate when portrait supply is short", () => {
+  const candidates = [
+    { id: "l0", width: 1600, height: 900 },
+    { id: "p0", width: 900, height: 1600 },
+    { id: "l1", width: 1600, height: 900 },
+  ];
+
+  assert.deepEqual(
+    rebalancePortraitShare(candidates).map((candidate) => candidate.id),
+    ["p0", "l0", "l1"]
+  );
+});
+
+test("portrait rebalancing uses the shared best distance instead of protecting a weak subgroup", () => {
+  const candidates = [
+    { id: "l0", width: 1600, height: 900, distance: 0.2 },
+    { id: "p0", width: 900, height: 1600, distance: 0.21 },
+    { id: "p1", width: 900, height: 1600, distance: 0.22 },
+    { id: "p2", width: 900, height: 1600, distance: 0.23 },
+  ];
+
+  assert.deepEqual(
+    rebalancePortraitShare(candidates, 0.75, 0.015, 0.1).map((candidate) => candidate.id),
+    ["p0", "p1", "p2", "l0"]
   );
 });
