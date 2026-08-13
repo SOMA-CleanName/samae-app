@@ -14,7 +14,7 @@ import { useCart } from "@/components/user/cart/CartProvider";
 import { mpTrack } from "@/lib/mixpanel";
 import { EmptyState } from "@/components/ui";
 import { rememberPhotoAspect } from "@/lib/photo-aspect";
-import { appendFeedClick, readFeedClicks, recordFeedClick } from "@/lib/feed-click-history";
+import { appendFeedClick, clearFeedClicks, readFeedClicks, recordFeedClick } from "@/lib/feed-click-history";
 import { nextFeedPhase, type FeedPhase } from "@/lib/feed-demotion";
 import {
   addFeedBoundary,
@@ -181,6 +181,7 @@ export function ExploreGallery({
   const cycleSeenIds = useRef(new Set(initialPhotos.map((photo) => photo.id)));
   const feedExhausted = useRef(false);
   const feedLoading = useRef(false);
+  const lastDebugRefreshKey = useRef("");
   const [activeFeedSeed, setActiveFeedSeed] = useState(feedSeed);
   const [clickedPhotoIds, setClickedPhotoIds] = useState<string[]>([]);
   const [boundaries, setBoundaries] = useState<FeedBoundary[]>([]);
@@ -453,6 +454,33 @@ export function ExploreGallery({
     }
   }, [activeFeedSeed, boundaries, clickedPhotoIds, feedSessionKey, feedSessionReady, items, visible]);
 
+  // 단축 모드는 다음 일반 페이지를 요청하지 않으므로, 상세에서 돌아온 직후 현재 48장의
+  // 일부를 최신 추천으로 바꿔 승격 변화를 바로 관찰한다. 일반 홈의 다음 배치 로직에는 영향 없음.
+  useEffect(() => {
+    if (!feedDebug || !feedSessionReady || !loadPersonalized || clickedPhotoIds.length === 0) return;
+    const refreshKey = clickedPhotoIds.join(":");
+    if (lastDebugRefreshKey.current === refreshKey) return;
+    lastDebugRefreshKey.current = refreshKey;
+    let disposed = false;
+    void loadPersonalized(clickedPhotoIds, items.map((photo) => photo.id)).then((recommendations) => {
+      if (disposed || recommendations.length === 0) return;
+      const positions = seededShuffle(
+        Array.from({ length: Math.min(STEP, items.length) }, (_, index) => index),
+        `feed-debug:${refreshKey}`
+      ).slice(0, Math.min(recommendations.length, items.length));
+      setItems((previous) => {
+        const next = [...previous];
+        positions.forEach((position, index) => {
+          next[position] = recommendations[index];
+        });
+        return next;
+      });
+    });
+    return () => {
+      disposed = true;
+    };
+  }, [clickedPhotoIds, feedDebug, feedSessionReady, items, loadPersonalized]);
+
   // 바닥 근처에서 더 노출 — 로드된 건 STEP 씩 노출, 끝에 닿으면 서버 다음 페이지를 이어받음(무한).
   // IntersectionObserver(주) + 스크롤/리사이즈(폴백).
   useEffect(() => {
@@ -648,6 +676,28 @@ export function ExploreGallery({
     () => assignColumnAccents(feedSegments.flatMap((segment) => segment.columns)),
     [feedSegments]
   );
+  const recommendationDebugPhotos = useMemo(
+    () => items.slice(0, visible).filter((photo) => photo.recommendationDebug),
+    [items, visible]
+  );
+  const recommendationDebug = recommendationDebugPhotos.at(-1)?.recommendationDebug;
+  const demotedDebugPhotos = recommendationDebugPhotos.filter(
+    (photo) => photo.recommendationDebug?.demoted
+  );
+
+  function resetRecommendationDebug() {
+    clearFeedClicks();
+    try {
+      sessionStorage.removeItem(feedSessionKey);
+      sessionStorage.removeItem(`samae:scroll:${pathname}`);
+      sessionStorage.removeItem(`samae:scroll-anchor:${pathname}`);
+      sessionStorage.removeItem("samae:photo-return");
+      sessionStorage.removeItem(FEED_RESTORING_KEY);
+    } catch {
+      // 저장소 접근 불가 시 URL 재진입으로 메모리 상태만 초기화한다.
+    }
+    window.location.assign("/?feedDebug=1");
+  }
 
   if (items.length === 0) {
     return (
@@ -680,6 +730,41 @@ export function ExploreGallery({
           {feedDebug ? "DEBUG" : "LOCAL"} · {feedDebugStatus.phase === "normal" ? "일반 사진" : "노출 낮춤"} · {feedDebugStatus.cycle + 1}회차 · 누적 {items.length}장
         </div>
       )}
+      {feedDebug && (
+        <aside className="sticky top-14 z-40 mx-auto mb-4 w-[min(94vw,42rem)] rounded-2xl border border-fg/15 bg-bg/95 p-3 text-xs text-fg shadow-lg backdrop-blur">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap gap-x-3 gap-y-1 font-semibold">
+              <span>클릭 {clickedPhotoIds.length}장</span>
+              <span>승격 {recommendationDebug?.promotionStage ?? 1}단계</span>
+              <span>일관성 {recommendationDebug?.styleConsistency.toFixed(3) ?? "-"}</span>
+              <span>표시 추천 {recommendationDebugPhotos.length}장</span>
+              <span>노출 낮춤 {demotedDebugPhotos.length}장</span>
+            </div>
+            <button
+              type="button"
+              onClick={resetRecommendationDebug}
+              className="rounded-full border border-fg/20 px-3 py-1.5 font-semibold hover:bg-fg/5"
+            >
+              추천 이력 초기화
+            </button>
+          </div>
+          <details className="mt-2">
+            <summary className="cursor-pointer text-muted-foreground">노출 낮춤 추천 ID와 순위 보기</summary>
+            <div className="mt-2 max-h-28 overflow-auto rounded-lg bg-fg/5 p-2 font-mono text-[10px] leading-5">
+              {demotedDebugPhotos.length > 0
+                ? demotedDebugPhotos.map((photo) => {
+                    const debug = photo.recommendationDebug!;
+                    return (
+                      <div key={`${photo.id}:${debug.insertedRank}`}>
+                        {photo.id.slice(0, 8)} · 자연 {debug.naturalRank + 1}위 → 추천 {debug.insertedRank + 1}위
+                      </div>
+                    );
+                  })
+                : "아직 화면에 삽입된 노출 낮춤 추천이 없습니다."}
+            </div>
+          </details>
+        </aside>
+      )}
       {/* 메이슨리 갤러리 — JS 컬럼 버킷(추가 시 기존 사진 위치 고정) */}
       <div
         ref={setGridRef}
@@ -710,6 +795,7 @@ export function ExploreGallery({
                   // 온보딩 디밍 중엔 브랜드 빨간 테두리가 비쳐 어색해 보여 숨김
                   accent={obActive || !SHOW_ACCENTS ? undefined : accentMap.get(photo.id)}
                   hideCart={isSpotlightCard}
+                  recommendationDebug={feedDebug ? photo.recommendationDebug : undefined}
                 />
               );
               // 스포트라이트 카드 — 오버레이(z-100) 위로 띄워 제자리 그대로 밝게(온보딩 활성 중에만).
@@ -904,6 +990,7 @@ function PhotoCard({
   showName,
   accent,
   hideCart = false,
+  recommendationDebug,
 }: {
   photo: GalleryPhoto;
   feedInstanceId: string;
@@ -913,6 +1000,7 @@ function PhotoCard({
   accent?: AccentColor;
   // 온보딩 강조 카드에선 담기 버튼을 숨김
   hideCart?: boolean;
+  recommendationDebug?: GalleryPhoto["recommendationDebug"];
 }) {
   const tags = (photo.mood_tags ?? []).slice(0, 3).join(", ");
   const alt = tags ? `사진 · ${tags}` : "사진";
@@ -1007,6 +1095,19 @@ function PhotoCard({
         <span className="pointer-events-none absolute left-2 top-2 rounded-full bg-fg/85 px-2 py-0.5 text-xs font-semibold text-bg">
           ₩{fmt.format(photo.price_krw)}
         </span>
+      )}
+      {recommendationDebug && (
+        <div className="pointer-events-none absolute bottom-2 left-2 right-2 flex flex-wrap gap-1 text-[10px] font-bold text-white">
+          <span className={cn(
+            "rounded-full px-2 py-1 shadow",
+            recommendationDebug.demoted ? "bg-red-600/90" : "bg-sky-700/90"
+          )}>
+            {recommendationDebug.demoted ? "노출 낮춤 추천" : "일반 추천"}
+          </span>
+          <span className="rounded-full bg-black/75 px-2 py-1 shadow">
+            자연 {recommendationDebug.naturalRank + 1}위 → 현재 {recommendationDebug.insertedRank + 1}위
+          </span>
+        </div>
       )}
 
       {/* 장바구니 담기 ('+') — 작가명/좋아요 대신 담기로 일원화. 온보딩 강조 카드에선 숨김. */}

@@ -7,11 +7,39 @@ export type DemotionCandidate = {
   demoted: boolean;
 };
 
+export type RecommendationDebug = {
+  demoted: boolean;
+  naturalRank: number;
+  insertedRank: number;
+  promotionStage: PromotionStage;
+  styleConsistency: number;
+  anchorCount: number;
+};
+
 export function promotionStage(anchorCount: number, styleConsistency: number): PromotionStage {
   if (anchorCount >= 4 && styleConsistency >= 0.25) return 4;
   if (anchorCount >= 3 && styleConsistency >= 0.18) return 3;
   if (anchorCount >= 2 && styleConsistency >= 0.12) return 2;
   return 1;
+}
+
+export function attachRecommendationDebug<T extends DemotionCandidate>(
+  ranked: T[],
+  anchorCount: number,
+  styleConsistency: number
+): Array<T & { recommendationDebug: RecommendationDebug }> {
+  const stage = promotionStage(anchorCount, styleConsistency);
+  return ranked.map((candidate, insertedRank) => ({
+    ...candidate,
+    recommendationDebug: {
+      demoted: candidate.demoted,
+      naturalRank: candidate.naturalRank,
+      insertedRank,
+      promotionStage: stage,
+      styleConsistency,
+      anchorCount,
+    },
+  }));
 }
 
 export function mergeDemotedSimilar<T extends DemotionCandidate>(

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  attachRecommendationDebug,
   mergeDemotedSimilar,
   mapSimilarityRows,
   nextFeedPhase,
@@ -83,4 +84,36 @@ test("detail recommendation keeps demoted similar before unrelated photos for on
       .map((item) => item.id),
     ["n0", "n1", "n2", "d0", "u0"]
   );
+});
+
+test("recommendation debug records natural and inserted rank without changing order", () => {
+  const ranked = [
+    { id: "normal", naturalRank: 3, demoted: false },
+    { id: "demoted", naturalRank: 1, demoted: true },
+  ];
+
+  assert.deepEqual(attachRecommendationDebug(ranked, 2, 0.2), [
+    {
+      ...ranked[0],
+      recommendationDebug: {
+        demoted: false,
+        naturalRank: 3,
+        insertedRank: 0,
+        promotionStage: 2,
+        styleConsistency: 0.2,
+        anchorCount: 2,
+      },
+    },
+    {
+      ...ranked[1],
+      recommendationDebug: {
+        demoted: true,
+        naturalRank: 1,
+        insertedRank: 1,
+        promotionStage: 2,
+        styleConsistency: 0.2,
+        anchorCount: 2,
+      },
+    },
+  ]);
 });

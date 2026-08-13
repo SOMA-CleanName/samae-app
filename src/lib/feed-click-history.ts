@@ -28,3 +28,13 @@ export function recordFeedClick(photoId: string): string[] {
   }
   return next;
 }
+
+export function clearFeedClicks(
+  storage: Pick<Storage, "removeItem"> | { removeItem(key: string): void } = sessionStorage
+): void {
+  try {
+    storage.removeItem(FEED_CLICK_HISTORY_KEY);
+  } catch {
+    // 저장소 접근 불가 시 현재 페이지의 상태 초기화만 수행한다.
+  }
+}

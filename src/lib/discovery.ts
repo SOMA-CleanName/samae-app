@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { seededShuffle } from "@/lib/seeded-shuffle";
 import { readAnonFavPhotoIds } from "@/lib/anon-favorites";
-import { mapSimilarityRows, mergeDemotedSimilar, promotionStage } from "@/lib/feed-demotion";
+import { attachRecommendationDebug, mapSimilarityRows, mergeDemotedSimilar, promotionStage, type RecommendationDebug } from "@/lib/feed-demotion";
 
 // 탐색 갤러리 사진 1장
 export type GalleryPhoto = {
@@ -17,6 +17,7 @@ export type GalleryPhoto = {
   mood_tags: string[];
   price_krw: number | null;
   photographer: { id: string; display_name: string | null };
+  recommendationDebug?: RecommendationDebug;
 };
 
 type SearchablePhoto = GalleryPhoto & {
@@ -493,16 +494,33 @@ export async function fetchPersonalizedRecommendations(
   if (pickedIds.length === 0) return [];
 
   const recommendations = await fetchLikedPhotosByIds(pickedIds);
+  const debugById = process.env.NODE_ENV !== "production"
+    ? new Map(
+        attachRecommendationDebug(
+          rankedSimilarLists.flatMap((list) => list),
+          anchors.length,
+          styleConsistency
+        ).map((photo) => [photo.id, photo.recommendationDebug])
+      )
+    : null;
+  const decoratedRecommendations = debugById
+    ? recommendations.map((photo, insertedRank) => {
+        const debug = debugById.get(photo.id);
+        return debug
+          ? { ...photo, recommendationDebug: { ...debug, insertedRank } }
+          : photo;
+      })
+    : recommendations;
   if (process.env.NODE_ENV !== "production") {
     console.info("[home-personalization]", {
       anchors,
       styleConsistency: Number(styleConsistency.toFixed(3)),
       target,
-      inserted: recommendations.length,
-      recommendationIds: recommendations.map((photo) => photo.id),
+      inserted: decoratedRecommendations.length,
+      recommendationIds: decoratedRecommendations.map((photo) => photo.id),
     });
   }
-  return recommendations;
+  return decoratedRecommendations;
 }
 
 export async function fetchRankedDetailRecommendations(
