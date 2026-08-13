@@ -238,7 +238,7 @@ samae:feed-click-history:v1
 
 ## 12. 테스트와 검증
 
-현재 유지되는 자동 테스트는 다음 17개다.
+현재 유지되는 자동 테스트는 다음 25개다.
 
 ### 노출 낮춤 순위 9개
 
@@ -266,6 +266,17 @@ samae:feed-click-history:v1
 - 세로 후보 부족 시 전체 후보 보존
 - 일반·노출 낮춤 그룹이 공용 최상위 거리를 사용하는지 확인
 
+### 클릭·관심 개인화 8개
+
+- 관심 이력 저장값 검증과 중복 제거
+- 최초 담기 시각 유지와 재담기 중복 방지
+- 29,999ms 해제 시 관심 신호 취소
+- 30,000ms 해제 시 학습된 관심 신호 유지
+- 기존 장바구니 사진의 성숙한 관심 이력 이관
+- 클릭 1·관심 2 가중치의 `6, 9, 12...` 추천량
+- 신호별 ID 중복 제거와 최대 36장 제한
+- 최근 관심 우선·클릭 중복 제거 기준 사진 선택
+
 검증 명령:
 
 ```bash
@@ -276,7 +287,7 @@ npx tsc --noEmit
 npm run build
 ```
 
-2026-08-13 방향 보정 정리 시 테스트 17개와 타입 검사, 대상 ESLint, Vercel 배포 검증이 통과했다.
+2026-08-13 관심 신호 반영 시 테스트 25개와 타입 검사, 대상 ESLint가 통과했다.
 
 `ExploreGallery.tsx` 전체 ESLint에는 이번 변경 전부터 존재하던 `react-hooks/set-state-in-effect` 오류 4개와 미사용 경고 2개가 남아 있다. 이번 추천 로직에서 새로 만든 오류는 아니며 별도 정리 대상이다.
 
@@ -455,7 +466,7 @@ S > 0이면 R = min(36, 3 × (S + 1))
 
 ### 구현 계획
 
-#### 작업 1: 관심 이력과 추천량 순수 함수
+#### 작업 1: 관심 이력과 추천량 순수 함수 ✅
 
 파일:
 
@@ -476,7 +487,7 @@ export function selectPersonalizationAnchors(clickedIds: string[], interestedIds
 
 테스트를 먼저 작성해 29,999ms 해제는 이력을 제거하고 30,000ms 해제는 유지하는 실패를 확인한다. 같은 사진의 클릭과 관심은 추천량 가중치에는 각각 1과 2로 합산하지만 기준 사진에는 한 번만 들어가는지 검증한다. 이후 최소 구현으로 테스트를 통과시킨다.
 
-#### 작업 2: 장바구니와 추천용 관심 이력 연결
+#### 작업 2: 장바구니와 추천용 관심 이력 연결 ✅
 
 파일:
 
@@ -484,7 +495,7 @@ export function selectPersonalizationAnchors(clickedIds: string[], interestedIds
 
 `CartContextValue`에 `interestPhotoIds: string[]`와 `hydrated: boolean`을 추가한다. 최초 복원에서 `samae:feed-interest-history:v1`을 읽고 기존 장바구니 ID를 이관한다. `add`, `remove`, `clear`가 작업 1의 순수 함수를 사용하도록 연결하고 관심 이력 변경을 별도 로컬 저장소에 저장한다. 재담기는 기존 이력의 `addedAt`을 유지한다.
 
-#### 작업 3: 홈 개인화 경계 연결
+#### 작업 3: 홈 개인화 경계 연결 ✅
 
 파일:
 
@@ -494,7 +505,7 @@ export function selectPersonalizationAnchors(clickedIds: string[], interestedIds
 
 서버 액션 호출 순서를 `(clickedPhotoIds, interestedPhotoIds, seenPhotoIds)`로 통일한다. 캐시된 다음 48장 교체와 새 서버 페이지 로딩 모두 관심 이력을 전달한다. 관심 복원이 끝나기 전에는 개인화 요청을 시작하지 않는다. 서버는 작업 1의 추천량과 기준 사진 함수를 사용하고 기존 스타일 일치도 기반 추천량 증폭만 제거한다. 스타일 일치도 자체와 노출 낮춤 승격은 유지한다.
 
-#### 작업 4: 회귀 검증
+#### 작업 4: 회귀 검증 ✅
 
 다음 명령으로 관심 이력, 클릭 이력, 노출 낮춤, 타입, 대상 린트를 검증한다.
 
@@ -513,3 +524,5 @@ npx eslint \
 ```
 
 로컬 3000에서 관심 추가 직후 추천 ID가 반영되는지, 30초 미만 해제 시 관심 ID가 사라지는지, 30초 이상 해제 시 장바구니에서만 빠지는지 확인한다.
+
+순수 함수의 29,999ms/30,000ms 경계, 추천량, 중복·최대값 검증과 홈·상세 HTTP 200 확인을 완료했다. 로컬 `next build`는 개발 서버를 내린 상태에서도 `Creating an optimized production build`에서 90초 이상 출력 없이 정지해 중단했다. 배포 전에는 Vercel CI 빌드 결과를 별도로 확인한다.
