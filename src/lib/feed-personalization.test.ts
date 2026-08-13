@@ -3,10 +3,26 @@ import test from "node:test";
 import {
   addFeedInterestSignal,
   migrateCartInterests,
+  parseFeedInterestSignals,
   personalizedRecommendationTarget,
   removeFeedInterestSignal,
   selectPersonalizationAnchors,
 } from "./feed-personalization.ts";
+
+test("interest storage parsing keeps only the first valid signal per photo", () => {
+  assert.deepEqual(
+    parseFeedInterestSignals(JSON.stringify([
+      { id: "photo-a", addedAt: 1_000 },
+      { id: "photo-a", addedAt: 9_000 },
+      { id: "", addedAt: 2_000 },
+      { id: "photo-b", addedAt: "bad" },
+      null,
+    ])),
+    [{ id: "photo-a", addedAt: 1_000 }]
+  );
+  assert.deepEqual(parseFeedInterestSignals("not-json"), []);
+  assert.deepEqual(parseFeedInterestSignals(null), []);
+});
 
 test("interest add records the first timestamp without duplicating or refreshing it", () => {
   const added = addFeedInterestSignal([], "photo-a", 1_000);

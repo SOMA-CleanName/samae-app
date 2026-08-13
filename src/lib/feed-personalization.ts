@@ -6,6 +6,32 @@ export type FeedInterestSignal = {
   addedAt: number;
 };
 
+export function parseFeedInterestSignals(raw: string | null): FeedInterestSignal[] {
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    const seen = new Set<string>();
+    const signals: FeedInterestSignal[] = [];
+    for (const value of parsed) {
+      if (!value || typeof value !== "object") continue;
+      const { id, addedAt } = value as { id?: unknown; addedAt?: unknown };
+      if (
+        typeof id !== "string" ||
+        id.length === 0 ||
+        typeof addedAt !== "number" ||
+        !Number.isFinite(addedAt) ||
+        seen.has(id)
+      ) continue;
+      seen.add(id);
+      signals.push({ id, addedAt });
+    }
+    return signals;
+  } catch {
+    return [];
+  }
+}
+
 export function addFeedInterestSignal(
   signals: FeedInterestSignal[],
   id: string,
