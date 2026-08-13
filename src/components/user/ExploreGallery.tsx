@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -14,14 +14,8 @@ import { useCart } from "@/components/user/cart/CartProvider";
 import { mpTrack } from "@/lib/mixpanel";
 import { EmptyState } from "@/components/ui";
 import { rememberPhotoAspect } from "@/lib/photo-aspect";
-import { appendFeedClick, clearFeedClicks, readFeedClicks, recordFeedClick } from "@/lib/feed-click-history";
+import { appendFeedClick, readFeedClicks, recordFeedClick } from "@/lib/feed-click-history";
 import { nextFeedPhase, type FeedPhase } from "@/lib/feed-demotion";
-import {
-  addFeedBoundary,
-  limitDebugFeedPage,
-  splitAtFeedBoundaries,
-  type FeedBoundary,
-} from "@/lib/feed-boundary";
 
 const fmt = new Intl.NumberFormat("ko-KR");
 const STEP = 48; // 스크롤마다 더 보여줄 사진 수(메모리에서 즉시 노출)
@@ -33,7 +27,6 @@ const FEED_SESSION_PREFIX = "samae:gallery-session:";
 const FEED_SESSION_SCHEMA = "personalized-v1";
 const FEED_SESSION_MIGRATION_KEY = "samae:feed-session-migrated:personalized-v1";
 const FEED_RESTORE_MAX_AGE_MS = 5_000;
-const SHOW_LOCAL_FEED_BOUNDARIES = process.env.NODE_ENV === "development";
 const useIsoLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 function isFeedReturnRestoring(): boolean {
@@ -83,7 +76,6 @@ type FeedSession = {
   cycle?: number;
   phase?: FeedPhase;
   cycleSeenIds?: string[];
-  boundaries?: FeedBoundary[];
 };
 
 type PositionedPhoto = { id: string; photo: GalleryPhoto; feedIndex: number };
@@ -113,18 +105,14 @@ function useColumnCount() {
 
 // 높이 균형 그리디 분배 — 각 사진을 가장 짧은 컬럼에 넣는다.
 // 순서가 고정이면 prefix-stable: 뒤에 더 추가돼도 앞 사진들의 컬럼/위치가 안 바뀜(재정렬 없음).
-function buildColumns(
-  photos: GalleryPhoto[],
-  colCount: number,
-  feedIndexOffset = 0
-): PositionedPhoto[][] {
+function buildColumns(photos: GalleryPhoto[], colCount: number): PositionedPhoto[][] {
   const cols: PositionedPhoto[][] = Array.from({ length: colCount }, () => []);
   const heights = new Array(colCount).fill(0);
   for (const [feedIndex, p] of photos.entries()) {
     const ratio = p.width > 0 && p.height > 0 ? p.height / p.width : 1; // 단위 폭당 상대 높이
     let min = 0;
     for (let c = 1; c < colCount; c++) if (heights[c] < heights[min]) min = c;
-    cols[min].push({ id: p.id, photo: p, feedIndex: feedIndex + feedIndexOffset });
+    cols[min].push({ id: p.id, photo: p, feedIndex });
     heights[min] += ratio;
   }
   return cols;
@@ -143,7 +131,6 @@ export function ExploreGallery({
   loadMore,
   loadPersonalized,
   loadDemoted,
-  feedDebug = false,
 }: {
   photos: GalleryPhoto[];
   query?: string;
@@ -168,10 +155,9 @@ export function ExploreGallery({
     excludedPhotoIds: string[]
   ) => Promise<GalleryPhoto[]>;
   loadDemoted?: (seed: string, page: number) => Promise<GalleryPhoto[]>;
-  feedDebug?: boolean;
 }) {
   const pathname = usePathname();
-  const feedSessionSuffix = `${pathname}${query ? `?q=${query}` : ""}${feedDebug ? ":feed-debug" : ""}`;
+  const feedSessionSuffix = `${pathname}${query ? `?q=${query}` : ""}`;
   const feedSessionKey = `${FEED_SESSION_PREFIX}${FEED_SESSION_SCHEMA}:${feedSessionSuffix}`;
   // 서버가 준 첫 페이지에서 시작해, 무한 스크롤로 다음 페이지를 이어붙인다(누적).
   const [items, setItems] = useState(initialPhotos);
@@ -181,14 +167,8 @@ export function ExploreGallery({
   const cycleSeenIds = useRef(new Set(initialPhotos.map((photo) => photo.id)));
   const feedExhausted = useRef(false);
   const feedLoading = useRef(false);
-  const lastDebugRefreshKey = useRef("");
   const [activeFeedSeed, setActiveFeedSeed] = useState(feedSeed);
   const [clickedPhotoIds, setClickedPhotoIds] = useState<string[]>([]);
-  const [boundaries, setBoundaries] = useState<FeedBoundary[]>([]);
-  const [feedDebugStatus, setFeedDebugStatus] = useState<{
-    phase: FeedPhase;
-    cycle: number;
-  }>({ phase: "normal", cycle: 0 });
   const [feedSessionReady, setFeedSessionReady] = useState(false);
   const [showPrice, setShowPrice] = useState(false);
   const [showName, setShowName] = useState(false);
@@ -397,11 +377,9 @@ export function ExploreGallery({
         feedPage.current = Math.max(0, cached.page || 0);
         feedCycle.current = Math.max(0, cached.cycle || 0);
         feedPhase.current = cached.phase === "demoted" ? "demoted" : "normal";
-        setFeedDebugStatus({ phase: feedPhase.current, cycle: feedCycle.current });
         cycleSeenIds.current = new Set(
           Array.isArray(cached.cycleSeenIds) ? cached.cycleSeenIds : cached.items.map((photo) => photo.id)
         );
-        setBoundaries(Array.isArray(cached.boundaries) ? cached.boundaries : []);
         // 이전 요청의 일시 오류가 exhausted 로 저장됐을 수 있으므로 재진입 시 한 번은 다시 확인한다.
         feedExhausted.current = loadMore ? false : !!cached.exhausted;
         feedLoading.current = false;
@@ -423,9 +401,7 @@ export function ExploreGallery({
     feedPage.current = 0;
     feedCycle.current = 0;
     feedPhase.current = "normal";
-    setFeedDebugStatus({ phase: "normal", cycle: 0 });
     cycleSeenIds.current = new Set(initialPhotos.map((photo) => photo.id));
-    setBoundaries([]);
     feedExhausted.current = false;
     feedLoading.current = false;
     setActiveFeedSeed(feedSeed);
@@ -445,41 +421,13 @@ export function ExploreGallery({
       cycle: feedCycle.current,
       phase: feedPhase.current,
       cycleSeenIds: [...cycleSeenIds.current],
-      boundaries,
     };
     try {
       sessionStorage.setItem(feedSessionKey, JSON.stringify(snapshot));
     } catch {
       // 저장 공간이 부족해도 현재 세션의 무한 스크롤은 계속 동작한다.
     }
-  }, [activeFeedSeed, boundaries, clickedPhotoIds, feedSessionKey, feedSessionReady, items, visible]);
-
-  // 단축 모드는 다음 일반 페이지를 요청하지 않으므로, 상세에서 돌아온 직후 현재 48장의
-  // 일부를 최신 추천으로 바꿔 승격 변화를 바로 관찰한다. 일반 홈의 다음 배치 로직에는 영향 없음.
-  useEffect(() => {
-    if (!feedDebug || !feedSessionReady || !loadPersonalized || clickedPhotoIds.length === 0) return;
-    const refreshKey = clickedPhotoIds.join(":");
-    if (lastDebugRefreshKey.current === refreshKey) return;
-    lastDebugRefreshKey.current = refreshKey;
-    let disposed = false;
-    void loadPersonalized(clickedPhotoIds, items.map((photo) => photo.id)).then((recommendations) => {
-      if (disposed || recommendations.length === 0) return;
-      const positions = seededShuffle(
-        Array.from({ length: Math.min(STEP, items.length) }, (_, index) => index),
-        `feed-debug:${refreshKey}`
-      ).slice(0, Math.min(recommendations.length, items.length));
-      setItems((previous) => {
-        const next = [...previous];
-        positions.forEach((position, index) => {
-          next[position] = recommendations[index];
-        });
-        return next;
-      });
-    });
-    return () => {
-      disposed = true;
-    };
-  }, [clickedPhotoIds, feedDebug, feedSessionReady, items, loadPersonalized]);
+  }, [activeFeedSeed, clickedPhotoIds, feedSessionKey, feedSessionReady, items, visible]);
 
   // 바닥 근처에서 더 노출 — 로드된 건 STEP 씩 노출, 끝에 닿으면 서버 다음 페이지를 이어받음(무한).
   // IntersectionObserver(주) + 스크롤/리사이즈(폴백).
@@ -536,56 +484,32 @@ export function ExploreGallery({
       try {
         let nextPage = feedPage.current + 1;
         let requestSeed = cycleSeed(activeFeedSeed, feedCycle.current);
-        const requestPage = async () => {
-          if (feedDebug && nextPage > 0) return [];
-          const pagePhotos =
-            feedPhase.current === "normal"
-              ? await loadFeedPageOnce(
-                  loadMore,
-                  requestSeed,
-                  nextPage,
-                  clickedPhotoIds,
-                  [...cycleSeenIds.current]
-                )
-              : loadDemoted
-                ? await loadDemoted(requestSeed, nextPage)
-                : [];
-          return feedDebug
-            ? limitDebugFeedPage(feedPhase.current, nextPage, pagePhotos)
-            : pagePhotos;
-        };
+        const requestPage = () =>
+          feedPhase.current === "normal"
+            ? loadFeedPageOnce(
+                loadMore,
+                requestSeed,
+                nextPage,
+                clickedPhotoIds,
+                [...cycleSeenIds.current]
+              )
+            : loadDemoted
+              ? loadDemoted(requestSeed, nextPage)
+              : Promise.resolve([]);
         let more = await requestPage();
         if (!more || more.length === 0) {
-          if (SHOW_LOCAL_FEED_BOUNDARIES) {
-            const endingPhase = feedPhase.current;
-            const endingCycle = feedCycle.current;
-            setBoundaries((current) =>
-              addFeedBoundary(current, {
-                id:
-                  endingPhase === "normal"
-                    ? `cycle-${endingCycle}-normal-end`
-                    : `cycle-${endingCycle}-end`,
-                kind: endingPhase === "normal" ? "normal-end" : "cycle-end",
-                afterItemCount: items.length,
-              })
-            );
-          }
           const next = nextFeedPhase(feedPhase.current, feedCycle.current);
           feedPhase.current = next.phase;
           feedCycle.current = next.cycle;
-          setFeedDebugStatus(next);
           if (next.phase === "normal") cycleSeenIds.current = new Set();
           feedPage.current = -1;
           nextPage = 0;
           requestSeed = cycleSeed(activeFeedSeed, feedCycle.current);
-          const firstPhasePage = feedPhase.current === "normal"
+          more = feedPhase.current === "normal"
             ? await loadFeedPageOnce(loadMore, requestSeed, 0, clickedPhotoIds, [])
             : loadDemoted
               ? await loadDemoted(requestSeed, 0)
               : [];
-          more = feedDebug
-            ? limitDebugFeedPage(feedPhase.current, 0, firstPhasePage)
-            : firstPhasePage;
         }
         if (!more || more.length === 0) {
           feedExhausted.current = true; // 공개 사진 자체가 없는 예외 상황
@@ -636,7 +560,7 @@ export function ExploreGallery({
       window.removeEventListener("resize", check);
       window.removeEventListener(FEED_RESTORED_EVENT, check);
     };
-  }, [visible, items, activeFeedSeed, clickedPhotoIds, loadMore, loadPersonalized, loadDemoted, feedDebug]);
+  }, [visible, items, activeFeedSeed, clickedPhotoIds, loadMore, loadPersonalized, loadDemoted]);
 
   // 보기 옵션(가격·작가명) — 세션 유지 + SearchOptions 토글과 이벤트로 동기화
   useEffect(() => {
@@ -656,48 +580,14 @@ export function ExploreGallery({
     };
   }, []);
 
-  const feedSegments = useMemo(() => {
-    const segments = splitAtFeedBoundaries(
-      items.slice(0, visible),
-      SHOW_LOCAL_FEED_BOUNDARIES ? boundaries : []
-    );
-    return segments.map((segment, segmentIndex) => {
-      const feedIndexOffset = segments
-        .slice(0, segmentIndex)
-        .reduce((count, previous) => count + previous.items.length, 0);
-      const columns = buildColumns(segment.items, colCount, feedIndexOffset);
-      return { ...segment, columns };
-    });
-  }, [boundaries, colCount, items, visible]);
+  const columns = useMemo(
+    () => buildColumns(items.slice(0, visible), colCount),
+    [items, visible, colCount]
+  );
 
   // 테두리 — 컬럼별로 어긋나게 배치(한쪽 쏠림 방지) + 가끔 검정
   const SHOW_ACCENTS = false; // 탐색 카드 악센트 테두리 임시 OFF (true 로 복구)
-  const accentMap = useMemo(
-    () => assignColumnAccents(feedSegments.flatMap((segment) => segment.columns)),
-    [feedSegments]
-  );
-  const recommendationDebugPhotos = useMemo(
-    () => items.slice(0, visible).filter((photo) => photo.recommendationDebug),
-    [items, visible]
-  );
-  const recommendationDebug = recommendationDebugPhotos.at(-1)?.recommendationDebug;
-  const demotedDebugPhotos = recommendationDebugPhotos.filter(
-    (photo) => photo.recommendationDebug?.demoted
-  );
-
-  function resetRecommendationDebug() {
-    clearFeedClicks();
-    try {
-      sessionStorage.removeItem(feedSessionKey);
-      sessionStorage.removeItem(`samae:scroll:${pathname}`);
-      sessionStorage.removeItem(`samae:scroll-anchor:${pathname}`);
-      sessionStorage.removeItem("samae:photo-return");
-      sessionStorage.removeItem(FEED_RESTORING_KEY);
-    } catch {
-      // 저장소 접근 불가 시 URL 재진입으로 메모리 상태만 초기화한다.
-    }
-    window.location.assign("/?feedDebug=1");
-  }
+  const accentMap = useMemo(() => assignColumnAccents(columns), [columns]);
 
   if (items.length === 0) {
     return (
@@ -725,59 +615,16 @@ export function ExploreGallery({
 
   return (
     <>
-      {SHOW_LOCAL_FEED_BOUNDARIES && (
-        <div className="sticky top-3 z-40 mx-auto mb-3 w-fit rounded-full border border-amber-400/60 bg-amber-50/95 px-4 py-2 text-xs font-semibold text-amber-900 shadow-sm backdrop-blur">
-          {feedDebug ? "DEBUG" : "LOCAL"} · {feedDebugStatus.phase === "normal" ? "일반 사진" : "노출 낮춤"} · {feedDebugStatus.cycle + 1}회차 · 누적 {items.length}장
-        </div>
-      )}
-      {feedDebug && (
-        <aside className="sticky top-14 z-40 mx-auto mb-4 w-[min(94vw,42rem)] rounded-2xl border border-fg/15 bg-bg/95 p-3 text-xs text-fg shadow-lg backdrop-blur">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap gap-x-3 gap-y-1 font-semibold">
-              <span>클릭 {clickedPhotoIds.length}장</span>
-              <span>승격 {recommendationDebug?.promotionStage ?? 1}단계</span>
-              <span>일관성 {recommendationDebug?.styleConsistency.toFixed(3) ?? "-"}</span>
-              <span>표시 추천 {recommendationDebugPhotos.length}장</span>
-              <span>노출 낮춤 {demotedDebugPhotos.length}장</span>
-            </div>
-            <button
-              type="button"
-              onClick={resetRecommendationDebug}
-              className="rounded-full border border-fg/20 px-3 py-1.5 font-semibold hover:bg-fg/5"
-            >
-              추천 이력 초기화
-            </button>
-          </div>
-          <details className="mt-2">
-            <summary className="cursor-pointer text-muted-foreground">노출 낮춤 추천 ID와 순위 보기</summary>
-            <div className="mt-2 max-h-28 overflow-auto rounded-lg bg-fg/5 p-2 font-mono text-[10px] leading-5">
-              {demotedDebugPhotos.length > 0
-                ? demotedDebugPhotos.map((photo) => {
-                    const debug = photo.recommendationDebug!;
-                    return (
-                      <div key={`${photo.id}:${debug.insertedRank}`}>
-                        {photo.id.slice(0, 8)} · 자연 {debug.naturalRank + 1}위 → 추천 {debug.insertedRank + 1}위
-                      </div>
-                    );
-                  })
-                : "아직 화면에 삽입된 노출 낮춤 추천이 없습니다."}
-            </div>
-          </details>
-        </aside>
-      )}
       {/* 메이슨리 갤러리 — JS 컬럼 버킷(추가 시 기존 사진 위치 고정) */}
       <div
         ref={setGridRef}
         data-feed-grid
         className={cn(
-          "transition-opacity",
+          "flex gap-2.5 transition-opacity sm:gap-4",
           columnsReady && feedSessionReady ? "opacity-100" : "opacity-0"
         )}
       >
-        {feedSegments.map((segment, segmentIndex) => (
-          <Fragment key={segment.boundary?.id ?? `tail-${segmentIndex}`}>
-            <div className="flex gap-2.5 sm:gap-4">
-              {segment.columns.map((col, ci) => (
+        {columns.map((col, ci) => (
           <div key={ci} className="flex min-w-0 flex-1 flex-col gap-2.5 sm:gap-4">
             {col.map(({ photo, feedIndex }) => {
               const feedInstanceId = `${photo.id}:${feedIndex}`;
@@ -795,7 +642,6 @@ export function ExploreGallery({
                   // 온보딩 디밍 중엔 브랜드 빨간 테두리가 비쳐 어색해 보여 숨김
                   accent={obActive || !SHOW_ACCENTS ? undefined : accentMap.get(photo.id)}
                   hideCart={isSpotlightCard}
-                  recommendationDebug={feedDebug ? photo.recommendationDebug : undefined}
                 />
               );
               // 스포트라이트 카드 — 오버레이(z-100) 위로 띄워 제자리 그대로 밝게(온보딩 활성 중에만).
@@ -821,20 +667,6 @@ export function ExploreGallery({
               return <div key={feedInstanceId}>{card}</div>;
             })}
           </div>
-              ))}
-            </div>
-            {segment.boundary && (
-              <div className="my-8 flex items-center gap-3 text-xs font-medium text-muted-foreground sm:my-12 sm:text-sm">
-                <span className="h-px flex-1 bg-border" />
-                <span className="shrink-0 rounded-full border border-border bg-bg px-4 py-2">
-                  {segment.boundary.kind === "normal-end"
-                    ? "일반 사진 끝 · 이제 노출 낮춤 사진이 이어집니다"
-                    : "전체 사진 끝 · 여기부터 사진이 반복됩니다"}
-                </span>
-                <span className="h-px flex-1 bg-border" />
-              </div>
-            )}
-          </Fragment>
         ))}
       </div>
 
@@ -990,7 +822,6 @@ function PhotoCard({
   showName,
   accent,
   hideCart = false,
-  recommendationDebug,
 }: {
   photo: GalleryPhoto;
   feedInstanceId: string;
@@ -1000,7 +831,6 @@ function PhotoCard({
   accent?: AccentColor;
   // 온보딩 강조 카드에선 담기 버튼을 숨김
   hideCart?: boolean;
-  recommendationDebug?: GalleryPhoto["recommendationDebug"];
 }) {
   const tags = (photo.mood_tags ?? []).slice(0, 3).join(", ");
   const alt = tags ? `사진 · ${tags}` : "사진";
@@ -1095,19 +925,6 @@ function PhotoCard({
         <span className="pointer-events-none absolute left-2 top-2 rounded-full bg-fg/85 px-2 py-0.5 text-xs font-semibold text-bg">
           ₩{fmt.format(photo.price_krw)}
         </span>
-      )}
-      {recommendationDebug && (
-        <div className="pointer-events-none absolute bottom-2 left-2 right-2 flex flex-wrap gap-1 text-[10px] font-bold text-white">
-          <span className={cn(
-            "rounded-full px-2 py-1 shadow",
-            recommendationDebug.demoted ? "bg-red-600/90" : "bg-sky-700/90"
-          )}>
-            {recommendationDebug.demoted ? "노출 낮춤 추천" : "일반 추천"}
-          </span>
-          <span className="rounded-full bg-black/75 px-2 py-1 shadow">
-            자연 {recommendationDebug.naturalRank + 1}위 → 현재 {recommendationDebug.insertedRank + 1}위
-          </span>
-        </div>
       )}
 
       {/* 장바구니 담기 ('+') — 작가명/좋아요 대신 담기로 일원화. 온보딩 강조 카드에선 숨김. */}
