@@ -2,7 +2,7 @@
 
 > 최종 구현 기준: 2026-08-13 · `dev` 브랜치
 >
-> 설계 원문은 `docs/superpowers/specs/2026-08-12-feed-demotion-ranking-design.md`, 구현 계획은 `docs/superpowers/plans/2026-08-12-feed-demotion-ranking.md`에 있다. 이 문서는 두 문서와 실제 코드를 대조한 현재 동작·운영 인수인계 문서다.
+> 기존 Superpowers 설계·구현 계획과 실제 코드를 대조해 하나로 통합한 현재 동작·운영 인수인계 문서다. 통합이 끝난 원본 `plans`·`specs` 파일은 2026-08-13에 삭제했다.
 
 ---
 
