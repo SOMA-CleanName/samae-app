@@ -12,9 +12,7 @@ async function assertAdmin() {
   }
 }
 
-// 사진 피드 숨김 토글 (0075).
-// 숨기면 홈·카테고리(/c/<slug>)·탐색·검색·사진 상세 하단 추천에서 빠지고,
-// 사진 상세(/photos/<id>)·게시물 캐러셀·작가 포트폴리오에는 그대로 남는다.
+// 사진 노출 낮춤 토글 (DB 컬럼명 feed_hidden 은 기존 데이터 호환을 위해 유지).
 export async function setPhotoFeedHidden(photoId: string, hidden: boolean): Promise<void> {
   await assertAdmin();
   const admin = createAdminClient();
@@ -29,7 +27,7 @@ export async function setPhotoFeedHidden(photoId: string, hidden: boolean): Prom
   revalidatePath("/explore");
 }
 
-// 포트폴리오(앨범) 단위 일괄 숨김/해제 — 한 게시물을 통째로 내릴 때.
+// 포트폴리오(앨범) 단위 일괄 낮춤/복구.
 export async function setAlbumFeedHidden(albumId: string, hidden: boolean): Promise<number> {
   await assertAdmin();
   const admin = createAdminClient();

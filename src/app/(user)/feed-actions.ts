@@ -1,7 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { fetchPersonalizedHomeFeedPage, fetchPersonalizedRecommendations } from "@/lib/discovery";
+import { fetchDemotedHomeFeedPage, fetchPersonalizedHomeFeedPage, fetchPersonalizedRecommendations, fetchRankedDetailRecommendations } from "@/lib/discovery";
 import type { GalleryPhoto } from "@/lib/discovery";
 import { TASTE_V2_COOKIE, parseTasteV2 } from "@/lib/category-constants";
 
@@ -32,4 +32,17 @@ export async function loadPersonalizedPhotos(
   excludedPhotoIds: string[]
 ): Promise<GalleryPhoto[]> {
   return fetchPersonalizedRecommendations(clickedPhotoIds, excludedPhotoIds, 36);
+}
+
+export async function loadDemotedHomePhotos(
+  seed: string,
+  page: number
+): Promise<GalleryPhoto[]> {
+  return fetchDemotedHomeFeedPage(seed, page, 48);
+}
+
+export async function loadRankedDetailPhotos(
+  clickedPhotoIds: string[]
+) {
+  return fetchRankedDetailRecommendations(clickedPhotoIds, 120);
 }

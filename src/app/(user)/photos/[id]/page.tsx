@@ -14,6 +14,7 @@ import { loadMorePhotos } from "../../feed-actions";
 import { getCurrentUser } from "@/lib/auth";
 import { PhotoCarousel } from "./PhotoCarousel";
 import { PhotoExplore } from "./PhotoExplore";
+import { loadRankedDetailPhotos } from "../../feed-actions";
 import { RecsSkeleton } from "@/components/user/skeletons";
 import { ScrollTop } from "@/components/user/ScrollTop";
 import { RememberFrameAspect } from "./RememberFrameAspect";
@@ -285,6 +286,7 @@ async function Recommendations({
       initialRecs={recs.slice(0, 120)}
       feedSeed={newFeedSeed()}
       loadMore={loadMorePhotos}
+      rerank={loadRankedDetailPhotos}
       excludeId={photoId}
     />
   );
