@@ -86,7 +86,7 @@ test("detail recommendation keeps demoted similar before unrelated photos for on
   );
 });
 
-test("portrait rebalancing preserves extremely similar candidates before applying the target share", () => {
+test("portrait rebalancing keeps extremely similar candidates near the top while dispersing orientation", () => {
   const candidates = [
     { id: "l0", width: 1600, height: 900, distance: 0.1 },
     { id: "l1", width: 1600, height: 900, distance: 0.114 },
@@ -100,7 +100,33 @@ test("portrait rebalancing preserves extremely similar candidates before applyin
 
   assert.deepEqual(
     rebalancePortraitShare(candidates).map((candidate) => candidate.id),
-    ["l0", "l1", "p0", "p1", "p2", "p3", "p4", "l2"]
+    ["l0", "p0", "p1", "p2", "l1", "p3", "p4", "l2"]
+  );
+});
+
+test("portrait rebalancing disperses a protected landscape cluster across the first viewport", () => {
+  const protectedLandscapes = Array.from({ length: 6 }, (_, index) => ({
+    id: `l${index}`,
+    width: 1600,
+    height: 1067,
+    distance: 0.1 + index * 0.002,
+  }));
+  const portraits = Array.from({ length: 18 }, (_, index) => ({
+    id: `p${index}`,
+    width: 1600,
+    height: 2400,
+    distance: 0.14 + index * 0.002,
+  }));
+
+  const result = rebalancePortraitShare([...protectedLandscapes, ...portraits]);
+
+  assert.deepEqual(
+    result.slice(0, 8).map((candidate) => candidate.id[0]),
+    ["l", "p", "p", "p", "l", "p", "p", "p"]
+  );
+  assert.deepEqual(
+    protectedLandscapes.map((candidate) => result.findIndex((item) => item.id === candidate.id)),
+    [0, 4, 8, 12, 16, 20]
   );
 });
 

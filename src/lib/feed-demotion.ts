@@ -43,15 +43,30 @@ export function rebalancePortraitShare<T extends OrientationCandidate>(
       );
   const protectedSet = new Set(protectedCandidates);
   const remaining = candidates.filter((candidate) => !protectedSet.has(candidate));
-  const portraits = remaining.filter(isPortrait);
-  const others = remaining.filter((candidate) => !isPortrait(candidate));
-  const result = [...protectedCandidates];
+  // 최유사 1장은 순위를 고정하되, 나머지 보호 후보는 같은 방향 큐의 선두에 둔다.
+  // 보호 후보가 한 방향으로 몰려도 첫 화면 전체를 차지하지 않으면서 상단 포함은 유지한다.
+  const leadCandidate = protectedCandidates[0];
+  const protectedTail = protectedCandidates.slice(1);
+  const portraits = [
+    ...protectedTail.filter(isPortrait),
+    ...remaining.filter(isPortrait),
+  ];
+  const others = [
+    ...protectedTail.filter((candidate) => !isPortrait(candidate)),
+    ...remaining.filter((candidate) => !isPortrait(candidate)),
+  ];
+  const result = leadCandidate ? [leadCandidate] : [];
   let portraitIndex = 0;
   let otherIndex = 0;
-  let portraitCount = protectedCandidates.filter(isPortrait).length;
+  let portraitCount = leadCandidate && isPortrait(leadCandidate) ? 1 : 0;
+  const leadIsOther = !!leadCandidate && !isPortrait(leadCandidate);
 
   while (portraitIndex < portraits.length || otherIndex < others.length) {
-    const targetPortraitCount = Math.ceil((result.length + 1) * targetShare);
+    // 첫 고정 후보가 가로/정방형이면 그 한 장을 포함한 4장 단위에서 75%를 맞춘다.
+    // 세로 후보이거나 고정 후보가 없으면 기존처럼 세로 슬롯부터 시작한다.
+    const targetPortraitCount = leadIsOther
+      ? Math.floor((result.length + 1) * targetShare)
+      : Math.ceil((result.length + 1) * targetShare);
     const shouldTakePortrait = portraitCount < targetPortraitCount && portraitIndex < portraits.length;
     if (shouldTakePortrait || otherIndex >= others.length) {
       result.push(portraits[portraitIndex++]);
