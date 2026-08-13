@@ -76,7 +76,7 @@ samae:feed-click-history:v1
 4. 서버는 클릭 앵커별 유사 후보를 최대 120장씩 조회한다.
 5. 추천 장수와 노출 낮춤 승격 단계를 계산한다.
 6. 현재 48장, 현재 사이클에서 이미 본 ID, 클릭 앵커를 제외한다.
-7. 일반 사진 일부를 개인화 추천 12~36장으로 교체한다.
+7. 일반 사진 일부를 개인화 추천 6~36장으로 교체한다.
 8. 교체 위치는 페이지 시드로 셔플해 한 구간에 규칙적으로 몰리지 않게 한다.
 
 홈에서 추천되는 장수는 고정 12장이 아니라 클릭 수와 스타일 일관성에 따라 바뀐다.
@@ -351,7 +351,7 @@ npm run build
 - 일반 후보와 노출 낮춤 후보를 각각 보정한 뒤 기존 1~4단계 노출 낮춤 승격 정책으로 병합한다.
 - 태그 폴백은 연속 거리 값이 없으므로 보호 구간 없이 세로 75% 목표만 적용한다.
 - 홈 개인화와 사진 상세 추천에 같은 정책을 적용한다.
-- 임베딩 RPC 후보 풀은 120장에서 최대 300장으로 넓히되, 상세 반환 120장과 홈 삽입 12~36장 한도는 유지한다.
+- 임베딩 RPC 후보 풀은 120장에서 최대 300장으로 넓히되, 상세 반환 120장과 홈 삽입 6~36장 한도는 유지한다.
 
 `+0.015` 근거는 가로 기준 20장의 top-120 거리 분포다. 기준 사진당 보호 후보는 평균 2.6장이었다. `+0.030`은 7.2장, `+0.050`은 19.9장을 보호해 방향 편향 완화 효과가 지나치게 약해진다.
 
@@ -372,7 +372,7 @@ top-120 후보만 재정렬하면 가로 기준 top-30의 세로 비율은 24.5%
 
 ### 목표
 
-홈 피드의 다음 48장에 섞이는 유사 사진 수를 사용자의 명시적인 행동 강도에 따라 결정한다. 사진 열람 클릭과 관심 사진 담기를 서로 다른 신호로 보관해 관심 해제가 클릭 이력을 훼손하지 않도록 한다.
+홈 피드의 다음 48장에 섞이는 유사 사진 수를 사용자의 명시적인 행동 강도에 따라 결정한다. 사진 열람 클릭, 현재 장바구니, 추천용 관심 이력을 서로 분리한다. 관심 해제는 부정 취향이 아니라 장바구니 정리일 수 있으므로 감점 신호로 사용하지 않는다.
 
 사진 상세 하단 추천은 현재처럼 클릭 이력만 사용한다. 이번 변경 범위는 홈 피드 개인화다.
 
@@ -381,9 +381,11 @@ top-120 후보만 재정렬하면 가로 기준 top-30의 세로 비율은 24.5%
 | 신호 | 저장소 | 가중치 | 해제 동작 |
 |---|---|---:|---|
 | 사진 열람 클릭 | `sessionStorage`의 `samae:feed-click-history:v1` | 1 | 세션이 끝날 때까지 유지 |
-| 관심 사진 담기 | `localStorage`의 `samae:cart` | 2 | 관심 해제 즉시 가중치 제거 |
+| 추천용 관심 이력 | `localStorage`의 `samae:feed-interest-history:v1` | 2 | 담은 뒤 30초 미만에 해제한 경우만 제거 |
 
 같은 사진이 클릭 이력과 관심 목록에 모두 있으면 가중치를 합산한다. 예를 들어 사진 한 장을 열고 관심에 담으면 `1 + 2 = 3`이다. 다만 유사도 기준 사진 ID는 중복 없이 한 번만 사용한다.
+
+관심 담기 시각을 함께 저장한다. 담은 지 30초 미만에 해제하면 실수 취소로 보고 추천용 관심 이력에서도 제거한다. 30초 이상 지난 뒤 해제하면 장바구니에서만 제거하고 추천용 관심 이력은 유지한다. 이 해제는 유사 사진에 감점을 만들지 않는다. 이미 학습된 사진을 다시 담아도 가중치를 중복 추가하거나 최초 담기 시각을 갱신하지 않는다.
 
 ### 추천량 계산
 
@@ -402,7 +404,7 @@ S > 0이면 R = min(36, 3 × (S + 1))
 | 클릭 1장 | 1 | 6장 |
 | 클릭 2장 | 2 | 9장 |
 | 클릭 3장 | 3 | 12장 |
-| 관심만 1장 | 2 | 9장 |
+| 관심 이력만 1장 | 2 | 9장 |
 | 클릭 1장 + 같은 사진 관심 | 3 | 12장 |
 | 클릭 2장 + 그중 1장 관심 | 4 | 15장 |
 | 유효 신호 11 이상 | 11+ | 최대 36장 |
@@ -411,37 +413,103 @@ S > 0이면 R = min(36, 3 × (S + 1))
 
 ### 홈 피드 데이터 흐름
 
-1. `CartProvider`는 관심 목록과 함께 로컬 저장소 복원이 끝났는지를 제공한다.
-2. `ExploreGallery`는 공용 클릭 이력과 현재 관심 사진 ID를 별도 상태로 유지한다.
-3. 홈의 다음 페이지를 요청할 때 `clickedPhotoIds`, `interestedPhotoIds`, `seenPhotoIds`를 구분해 서버 액션에 전달한다.
-4. 서버는 클릭과 관심 ID의 합집합에서 중복을 제거해 유사도 기준 사진을 만든다.
-5. 홈 추천 기준 사진은 관심 신호를 우선하되 최대 최근 4개의 고유 ID만 사용한다. 관심 사진 사이와 클릭 사진 사이의 기존 순서는 보존한다.
-6. 여러 기준 사진의 추천 후보는 지금처럼 한 장씩 번갈아 선택한다. 관심 가중치 2는 추천량에만 적용하고 한 관심 사진의 후보를 두 번씩 뽑지는 않는다.
-7. 관심 추가·해제 중 이미 시작된 요청은 요청 시점의 스냅샷을 사용하고, 다음 48장 요청부터 최신 관심 목록을 적용한다.
+1. `CartProvider`는 장바구니와 추천용 관심 이력을 각각 복원하고, 관심 이력 ID와 복원 완료 상태를 제공한다.
+2. 기존 장바구니에 있지만 추천용 이력이 없는 사진은 이전 버전에서 충분히 오래 담겨 있던 사진으로 간주해 `addedAt: 0`으로 한 번 이관한다.
+3. 관심 추가 시 고유한 `{ id, addedAt }` 이력을 만든다. 이미 이력이 있으면 기존 값을 유지한다.
+4. 개별 해제와 전체 비우기는 각각의 담기 경과 시간을 확인한다. 30초 미만인 항목만 추천용 이력에서 제거한다.
+5. `ExploreGallery`는 공용 클릭 이력과 추천용 관심 이력 ID를 별도 신호로 사용한다.
+6. 홈의 다음 페이지를 요청할 때 `clickedPhotoIds`, `interestedPhotoIds`, `seenPhotoIds`를 구분해 서버 액션에 전달한다.
+7. 서버는 클릭과 관심 ID의 합집합에서 중복을 제거해 유사도 기준 사진을 만든다.
+8. 홈 추천 기준 사진은 관심 신호를 우선하되 최대 최근 4개의 고유 ID만 사용한다. 관심 사진 사이와 클릭 사진 사이의 기존 순서는 보존한다.
+9. 여러 기준 사진의 추천 후보는 지금처럼 한 장씩 번갈아 선택한다. 관심 가중치 2는 추천량에만 적용하고 한 관심 사진의 후보를 두 번씩 뽑지는 않는다.
+10. 관심 추가·해제 중 이미 시작된 요청은 요청 시점의 스냅샷을 사용하고, 다음 48장 요청부터 최신 관심 이력을 적용한다.
 
 초기 48장은 현재 정책대로 일반 홈 피드를 유지한다. 클릭이나 관심 신호로 계산한 유사 사진은 다음 48장 로딩부터 섞인다.
 
 ### 실패 처리
 
-- 장바구니 `localStorage` 복원이 끝나기 전에는 관심 목록을 빈 값으로 확정해 개인화 요청하지 않는다.
+- 장바구니와 추천용 관심 이력의 `localStorage` 복원이 끝나기 전에는 관심 목록을 빈 값으로 확정해 개인화 요청하지 않는다.
 - 저장소 접근이 불가능하면 관심 신호만 비활성화하고 클릭 기반 개인화는 유지한다.
 - 관심 사진이 삭제·비공개·미승인 상태라 유사 후보를 가져올 수 없으면 해당 ID만 기준 사진에서 제외한다.
 - 추천 후보가 계산된 목표 수보다 적으면 가능한 후보만 섞고 일반 사진으로 나머지 48장을 채운다.
 
 ### 구현 경계
 
-- `src/components/user/cart/CartProvider.tsx`: 관심 목록 복원 완료 상태 제공
+- `src/components/user/cart/CartProvider.tsx`: 장바구니와 추천용 관심 이력의 복원·추가·30초 취소 처리
 - `src/components/user/ExploreGallery.tsx`: 클릭·관심 ID를 분리해 홈 서버 액션으로 전달
 - `src/app/(user)/feed-actions.ts`: 관심 ID를 별도 인자로 받는 서버 액션 경계
 - `src/lib/discovery.ts`: 가중 추천량 계산, 홈 기준 사진 구성, 추천 후보 선택
-- `src/lib/feed-personalization.ts`: 추천량과 기준 사진 선택을 담당하는 순수 함수
-- `src/lib/feed-personalization.test.ts`: 가중치, 중복 합산, 관심 해제, 최대 36장, 기준 사진 우선순위 테스트
+- `src/lib/feed-personalization.ts`: 추천량·기준 사진 선택·30초 관심 취소를 담당하는 순수 함수
+- `src/lib/feed-personalization.test.ts`: 가중치, 중복 합산, 30초 경계, 기존 이력 재담기, 최대 36장, 기준 사진 우선순위 테스트
 
 ### 승인 기준
 
 1. 클릭만 했을 때 추천량이 `6, 9, 12, 15...`로 증가한다.
 2. 관심 사진 한 장은 추천량 계산에서 클릭 두 장과 동일하다.
 3. 같은 사진의 클릭과 관심은 가중치 3으로 합산되지만 유사도 기준 ID는 한 번만 조회한다.
-4. 관심 해제 후 다음 로딩부터 +2 가중치가 사라진다.
-5. 추천량은 어떤 조합에서도 36장을 넘지 않는다.
-6. 상세 추천의 클릭 기반 재정렬과 노출 낮춤 승격 정책은 유지된다.
+4. 관심을 담은 지 30초 미만에 해제하면 다음 로딩부터 +2 가중치가 사라진다.
+5. 관심을 담은 지 30초 이상 지난 뒤 해제하면 장바구니에서만 빠지고 +2 가중치는 유지된다.
+6. 관심 해제는 어떤 경우에도 부정 유사도 점수를 만들지 않는다.
+7. 추천량은 어떤 조합에서도 36장을 넘지 않는다.
+8. 상세 추천의 클릭 기반 재정렬과 노출 낮춤 승격 정책은 유지된다.
+
+### 구현 계획
+
+#### 작업 1: 관심 이력과 추천량 순수 함수
+
+파일:
+
+- 생성 `src/lib/feed-personalization.ts`
+- 생성 `src/lib/feed-personalization.test.ts`
+
+인터페이스:
+
+```ts
+export type FeedInterestSignal = { id: string; addedAt: number };
+export const INTEREST_UNDO_WINDOW_MS = 30_000;
+export function addFeedInterestSignal(signals: FeedInterestSignal[], id: string, addedAt: number): FeedInterestSignal[];
+export function removeFeedInterestSignal(signals: FeedInterestSignal[], id: string, removedAt: number): FeedInterestSignal[];
+export function migrateCartInterests(signals: FeedInterestSignal[], cartIds: string[]): FeedInterestSignal[];
+export function personalizedRecommendationTarget(clickedIds: string[], interestedIds: string[], max: number): number;
+export function selectPersonalizationAnchors(clickedIds: string[], interestedIds: string[], max: number): string[];
+```
+
+테스트를 먼저 작성해 29,999ms 해제는 이력을 제거하고 30,000ms 해제는 유지하는 실패를 확인한다. 같은 사진의 클릭과 관심은 추천량 가중치에는 각각 1과 2로 합산하지만 기준 사진에는 한 번만 들어가는지 검증한다. 이후 최소 구현으로 테스트를 통과시킨다.
+
+#### 작업 2: 장바구니와 추천용 관심 이력 연결
+
+파일:
+
+- 수정 `src/components/user/cart/CartProvider.tsx`
+
+`CartContextValue`에 `interestPhotoIds: string[]`와 `hydrated: boolean`을 추가한다. 최초 복원에서 `samae:feed-interest-history:v1`을 읽고 기존 장바구니 ID를 이관한다. `add`, `remove`, `clear`가 작업 1의 순수 함수를 사용하도록 연결하고 관심 이력 변경을 별도 로컬 저장소에 저장한다. 재담기는 기존 이력의 `addedAt`을 유지한다.
+
+#### 작업 3: 홈 개인화 경계 연결
+
+파일:
+
+- 수정 `src/components/user/ExploreGallery.tsx`
+- 수정 `src/app/(user)/feed-actions.ts`
+- 수정 `src/lib/discovery.ts`
+
+서버 액션 호출 순서를 `(clickedPhotoIds, interestedPhotoIds, seenPhotoIds)`로 통일한다. 캐시된 다음 48장 교체와 새 서버 페이지 로딩 모두 관심 이력을 전달한다. 관심 복원이 끝나기 전에는 개인화 요청을 시작하지 않는다. 서버는 작업 1의 추천량과 기준 사진 함수를 사용하고 기존 스타일 일치도 기반 추천량 증폭만 제거한다. 스타일 일치도 자체와 노출 낮춤 승격은 유지한다.
+
+#### 작업 4: 회귀 검증
+
+다음 명령으로 관심 이력, 클릭 이력, 노출 낮춤, 타입, 대상 린트를 검증한다.
+
+```bash
+node --experimental-strip-types --test \
+  src/lib/feed-personalization.test.ts \
+  src/lib/feed-click-history.test.ts \
+  src/lib/feed-demotion.test.ts
+npx tsc --noEmit
+npx eslint \
+  src/lib/feed-personalization.ts \
+  src/lib/feed-personalization.test.ts \
+  src/lib/discovery.ts \
+  src/app/\(user\)/feed-actions.ts \
+  src/components/user/cart/CartProvider.tsx
+```
+
+로컬 3000에서 관심 추가 직후 추천 ID가 반영되는지, 30초 미만 해제 시 관심 ID가 사라지는지, 30초 이상 해제 시 장바구니에서만 빠지는지 확인한다.
