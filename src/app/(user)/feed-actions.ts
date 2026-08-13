@@ -13,6 +13,7 @@ export async function loadMorePhotos(
   seed: string,
   page: number,
   clickedPhotoIds: string[] = [],
+  interestedPhotoIds: string[] = [],
   seenPhotoIds: string[] = []
 ): Promise<GalleryPhoto[]> {
   const { purposeIds, moodIds } = parseTasteV2((await cookies()).get(TASTE_V2_COOKIE)?.value);
@@ -22,6 +23,7 @@ export async function loadMorePhotos(
     purposeIds,
     moodIds,
     clickedPhotoIds,
+    interestedPhotoIds,
     seenPhotoIds,
     48
   );
@@ -29,9 +31,10 @@ export async function loadMorePhotos(
 
 export async function loadPersonalizedPhotos(
   clickedPhotoIds: string[],
+  interestedPhotoIds: string[],
   excludedPhotoIds: string[]
 ): Promise<GalleryPhoto[]> {
-  return fetchPersonalizedRecommendations(clickedPhotoIds, excludedPhotoIds, 36);
+  return fetchPersonalizedRecommendations(clickedPhotoIds, interestedPhotoIds, excludedPhotoIds, 36);
 }
 
 export async function loadDemotedHomePhotos(
