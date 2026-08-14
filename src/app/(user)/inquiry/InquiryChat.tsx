@@ -15,8 +15,8 @@ const INITIAL_STATE: InquiryState = { ok: false };
 // soft-skip은 다른 선택지와 동등한 버튼. 언제든 "바로 문의" 경로 → 건너뛴 질문은 접이식 아코디언.
 // 제출 전까진 이전 답변 언제든 수정(답변 칩 유지 + 선택지 부드럽게 펼침).
 
-type StepKey = "purpose" | "preferredDate" | "region" | "partySize" | "note";
-type StepType = "options" | "date" | "note";
+type StepKey = "purpose" | "preferredDate" | "region" | "partySize";
+type StepType = "options" | "date";
 
 type Step = {
   key: StepKey;
@@ -78,22 +78,28 @@ const STEPS: Step[] = [
     short: "인원",
     ev: "Inquiry Q4 Party Size",
   },
-  {
-    key: "note",
-    q: (
-      <>
-        촬영 관련 <Em>문의사항</Em>을 알려주세요!
-      </>
-    ),
-    type: "note",
-    skip: "작가님과 상담 시 논의할게요",
-    short: "문의사항",
-    ev: "Inquiry Q5 Note",
-  },
 ];
 
 // 연락처(마지막 단계) — 질문 이벤트와 같은 규칙의 고유 이름. 퍼널 마지막 스텝.
+//
+// ⚠️ Q번호는 '순서'가 아니라 '고유 ID' 다. 절대 당겨쓰지 말 것.
+// v2에서 Q5 Note(문의사항)를 제거했지만 연락처는 Q6 그대로 둔다 — 이름을 Q5로 당기면
+// 기존 Mixpanel 퍼널 리포트가 끊기고, 같은 이름이 시점에 따라 다른 뜻이 돼 복구가 불가능해진다.
+// 지금은 Q5 Note 이벤트만 조용히 0이 되므로, 저장된 퍼널에서 Q5 스텝만 빼면 v1·v2가 이어진다.
 const CONTACT_EV = "Inquiry Q6 Contact";
+
+// 퍼널 세대 구분 — 문항 구성이 바뀔 때마다 올린다. 모든 문의 이벤트에 실려서
+// "문항을 줄여 완료율이 올랐는가" 를 세대별로 끊어 볼 수 있게 한다.
+//   v1 = 5문항(목적·희망일·지역·인원·문의사항) + 연락처
+//   v2 = 4문항(목적·희망일·지역·인원) + 연락처
+const FLOW_VERSION = "v2";
+
+// 이벤트 공통 prop — step_index 는 '이 버전 안에서의 위치' 라서 total_steps 와 같이 읽어야 한다.
+// (연락처 step_index 는 v1에서 6, v2에서 5. 안정 키가 필요하면 step/last_step 을 쓸 것.)
+const FLOW_PROPS = {
+  inquiry_flow_version: FLOW_VERSION,
+  total_steps: STEPS.length + 1, // 질문 + 연락처
+} as const;
 
 // 키워드 강조 — 볼드 + 브랜드 컬러
 function Em({ children }: { children: React.ReactNode }) {
@@ -255,6 +261,7 @@ export function InquiryChat({
     if (startFired.current) return;
     startFired.current = true;
     mpTrack("Start Inquiry", {
+      ...FLOW_PROPS,
       source: mode,
       photographer_id: photographerId,
     });
@@ -367,6 +374,7 @@ export function InquiryChat({
     if (!step || viewedRef.current.has(step.key)) return;
     viewedRef.current.add(step.key);
     mpTrack(`${step.ev} Viewed`, {
+      ...FLOW_PROPS,
       step: step.key,
       step_index: revealed + 1,
       step_name: step.short,
@@ -378,7 +386,13 @@ export function InquiryChat({
   useEffect(() => {
     if (!contactStep || viewedRef.current.has("contact")) return;
     viewedRef.current.add("contact");
-    mpTrack(`${CONTACT_EV} Viewed`, { step: "contact", step_index: STEPS.length + 1, step_name: "연락처", mode });
+    mpTrack(`${CONTACT_EV} Viewed`, {
+      ...FLOW_PROPS,
+      step: "contact",
+      step_index: STEPS.length + 1,
+      step_name: "연락처",
+      mode,
+    });
   }, [contactStep, mode]);
 
   // 서버 검증 실패 — 제출까지 왔는데 접수가 안 된 이탈(퍼널 마지막 구멍).
@@ -387,7 +401,12 @@ export function InquiryChat({
   useEffect(() => {
     if (!state.error || failedStateRef.current === state) return;
     failedStateRef.current = state;
-    mpTrack("Inquiry Submit Failed", { reason: "server", message: state.error.slice(0, 100), mode });
+    mpTrack("Inquiry Submit Failed", {
+      ...FLOW_PROPS,
+      reason: "server",
+      message: state.error.slice(0, 100),
+      mode,
+    });
   }, [state, mode]);
 
   // 이탈 스냅샷 — 언로드/언마운트 시점에 '마지막으로 머문 질문'을 읽기 위한 최신값 보관.
@@ -413,6 +432,7 @@ export function InquiryChat({
     if (abandonedRef.current || s.done || !s.stepKey) return;
     abandonedRef.current = true;
     mpTrackBeacon("Inquiry Abandoned", {
+      ...FLOW_PROPS,
       last_step: s.stepKey,
       last_step_name: s.stepName,
       last_step_index: s.stepIndex,
@@ -467,11 +487,12 @@ export function InquiryChat({
       // Sentry 세션 리플레이 필터용 태그 — 신청자 세션만 골라 진입~이탈 전 과정 재생.
       Sentry.getCurrentScope().setTag("inquiry_submitted", "true");
       mpTrack("Submit Inquiry", {
+        ...FLOW_PROPS,
         inquiry_id: state.inquiryId,
         source: multi ? "cart" : "photo",
         photographer_id: photographerId,
         item_count: multi ? photoIds?.length ?? 1 : 1,
-        // 위저드 답변(수요 차원 — 촬영목적·지역·인원·희망일). note(자유서술)는 제외.
+        // 위저드 답변(수요 차원 — 촬영목적·지역·인원·희망일).
         purpose: answers.purpose,
         region: answers.region,
         party_size: answers.partySize,
@@ -493,16 +514,15 @@ export function InquiryChat({
     if (editing !== null) setEditing(null);
     if (i === revealed) {
       // 질문별 답변 이벤트(전진 답변만 — 수정은 위에서 return). Viewed 대비 Answered 로
-      // 질문 단위 이탈률이 바로 나온다. 문의사항(자유서술)은 PII 우려로 값 미전송,
-      // 선택지(목적·지역 등 수요 신호)만 값 포함.
-      const sensitive = key === "note";
+      // 질문 단위 이탈률이 바로 나온다. 남은 질문은 모두 선택지(목적·지역 등 수요 신호)라 값 포함.
       mpTrack(`${STEPS[i].ev} Answered`, {
+        ...FLOW_PROPS,
         step: key,
         step_index: i + 1,
         step_name: STEPS[i].short,
         mode,
         skipped: value === STEPS[i].skip, // soft-skip 도 '답변' — 실제 응답률과 구분
-        ...(sensitive ? {} : { value }),
+        value,
       });
       if (i < STEPS.length - 1) advanceTo(i + 1);
       else revealContact();
@@ -625,6 +645,31 @@ export function InquiryChat({
                 </div>
               );
             })}
+            {/* 레버5 — 연락처 노드를 처음부터 노출해 '예고 없는 6번째 단계' 서프라이즈 제거.
+                질문 중엔 작은 점(예정), 연락처 단계에선 ping, 완료 시 체크. */}
+            {(() => {
+              const allAnswered = answeredQ >= totalQ;
+              return (
+                <div className="flex flex-1 items-center">
+                  <span
+                    className={`h-0.5 flex-1 rounded-full transition-colors duration-500 ${
+                      allAnswered ? "bg-brand" : "bg-fg/15"
+                    }`}
+                  />
+                  <span className="flex h-4 w-4 shrink-0 items-center justify-center">
+                    {done ? (
+                      <span className="flex h-4 w-4 items-center justify-center rounded-full bg-brand">
+                        <CheckIcon className="h-2.5 w-2.5 text-white" />
+                      </span>
+                    ) : contactStep ? (
+                      <span className="h-4 w-4 rounded-full bg-brand ring-4 ring-brand/30" />
+                    ) : (
+                      <span className="h-2 w-2 rounded-full bg-fg/15" />
+                    )}
+                  </span>
+                </div>
+              );
+            })()}
           </div>
         </div>
       </header>
@@ -655,7 +700,7 @@ export function InquiryChat({
               />
             )
           )}
-          짧게 몇 가지만 알려주시면
+          짧게 <Em>몇 가지 질문</Em>과 <Em>연락받을 방법</Em>만 알려주시면
           <br />
           {multi ? (
             <>
@@ -749,9 +794,9 @@ export function InquiryChat({
         {contactStep && (
           <div className="space-y-2">
             <SystemBubble>
-              <Em>마지막 단계</Em>예요!
+              <Em>거의 다 왔어요!</Em>
               <br />
-              작가님이 직접 연락드릴 수 있도록 <Em>연락받을 방법</Em> 하나만 남겨주세요.
+              작성하신 내용으로 <Em>무료 견적</Em>, 어디로 받아보실래요?
             </SystemBubble>
             {!done && (
               <ContactBlock onSubmit={submit} pending={pending} serverError={state.error} mode={mode} />
@@ -934,6 +979,7 @@ function ContactBlock({
     if (!type || !check.valid) {
       // 제출 버튼까지 눌렀지만 연락처 형식 오류 — 마지막 단계의 숨은 이탈 원인
       mpTrack("Inquiry Submit Failed", {
+        ...FLOW_PROPS,
         reason: "invalid_contact",
         contact_type: type ?? "none",
         mode,
@@ -960,7 +1006,8 @@ function ContactBlock({
               aria-label={t.label}
               onClick={() => {
                 // 연락 수단 선택 — 연락처 단계 안에서의 진행 신호(도달만 하고 고르지도 않은 이탈과 구분)
-                if (type !== t.key) mpTrack(`${CONTACT_EV} Type Selected`, { contact_type: t.key, mode });
+                if (type !== t.key)
+                  mpTrack(`${CONTACT_EV} Type Selected`, { ...FLOW_PROPS, contact_type: t.key, mode });
                 setType(t.key);
                 setVal("");
                 setAttempted(false);
@@ -1147,9 +1194,6 @@ function QuestionInput({
       )}
       {step.type === "date" && (
         <DateField skip={step.skip} value={value} onPick={onSubmit} />
-      )}
-      {step.type === "note" && (
-        <NoteField skip={step.skip} value={value} onPick={onSubmit} />
       )}
       {onCancel && (
         <div className="flex justify-end">
@@ -1434,77 +1478,6 @@ function Calendar({ value, onSelect }: { value: string; onSelect: (iso: string) 
           );
         })}
       </div>
-    </div>
-  );
-}
-
-// 문의사항 — 두 버튼(상담 시 논의 / 지금 작성). "지금 작성" → 텍스트 (item8)
-function NoteField({
-  skip,
-  value,
-  onPick,
-}: {
-  skip: string;
-  value?: string;
-  onPick: (v: string) => void;
-}) {
-  const isCustom = !!value && value !== skip;
-  const [writing, setWriting] = useState(isCustom);
-  const [t, setT] = useState(isCustom ? value! : "");
-  const endRef = useRef<HTMLDivElement>(null);
-
-  // '지금 작성' 진입 시 입력창+보내기 버튼까지 화면에 보이도록 스크롤
-  useEffect(() => {
-    if (!writing) return;
-    const id = window.setTimeout(() => {
-      endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-    }, 120);
-    return () => window.clearTimeout(id);
-  }, [writing]);
-
-  if (writing) {
-    return (
-      <div className="space-y-2">
-        <textarea
-          value={t}
-          onChange={(e) => setT(e.target.value)}
-          rows={3}
-          autoFocus
-          placeholder="예: 원하는 분위기, 의상, 시간대, 예산 등 자유롭게 적어주세요"
-          // 글로벌 :focus-visible 아웃라인(2px offset)이 unlayered라 유틸보다 우선순위가 높아 안 죽음 →
-          // Reveal overflow-hidden 에 우측 잘리던 원인. 인라인 style 로 확실히 차단하고,
-          // 포커스 표시는 박스 '안쪽'(border+inset ring)으로 대체.
-          style={{ outline: "none" }}
-          className="w-full resize-none rounded-xl border border-line-strong bg-surface px-3.5 py-2.5 text-base text-fg transition-colors placeholder:text-faint focus:border-brand focus:ring-1 focus:ring-inset focus:ring-brand"
-        />
-        <div className="flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => setWriting(false)}
-            className="cursor-pointer text-xs font-medium text-muted underline-offset-2 transition-colors hover:text-fg hover:underline"
-          >
-            뒤로
-          </button>
-          <button
-            type="button"
-            onClick={() => onPick(t.trim())}
-            disabled={!t.trim()}
-            className="h-9 cursor-pointer rounded-xl bg-brand px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            보내기
-          </button>
-        </div>
-        <div ref={endRef} aria-hidden />
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid grid-cols-1 gap-1.5">
-      <OptionButton onClick={() => setWriting(true)}>지금 작성할게요</OptionButton>
-      <OptionButton active={value === skip} onClick={() => onPick(skip)}>
-        {skip}
-      </OptionButton>
     </div>
   );
 }
