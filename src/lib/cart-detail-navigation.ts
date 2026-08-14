@@ -1,0 +1,28 @@
+export type CartNavigationDirection = "next" | "previous";
+
+export function circularPhotoId(
+  ids: string[],
+  currentId: string,
+  direction: CartNavigationDirection
+): string | null {
+  if (ids.length < 2) return null;
+
+  const currentIndex = ids.indexOf(currentId);
+  if (currentIndex < 0) return ids[0] ?? null;
+
+  const delta = direction === "next" ? 1 : -1;
+  return ids[(currentIndex + delta + ids.length) % ids.length] ?? null;
+}
+
+export function verticalSwipeDirection(
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number,
+  threshold = 56
+): CartNavigationDirection | null {
+  const dx = endX - startX;
+  const dy = endY - startY;
+  if (Math.abs(dy) < threshold || Math.abs(dy) <= Math.abs(dx)) return null;
+  return dy < 0 ? "next" : "previous";
+}
