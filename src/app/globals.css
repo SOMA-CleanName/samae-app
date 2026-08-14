@@ -302,7 +302,7 @@ select:focus-visible {
   16%, 70% { opacity: 1; transform: translate(-50%, 0); }
 }
 .cart-swipe-hint {
-  animation: cart-swipe-hint 2000ms ease-in-out both;
+  animation: cart-swipe-hint 3000ms ease-in-out both;
 }
 .cart-swipe-chevron {
   animation: cart-swipe-chevron 1300ms ease-out both;
@@ -310,7 +310,7 @@ select:focus-visible {
 }
 @media (prefers-reduced-motion: reduce) {
   .cart-swipe-hint {
-    animation: cart-swipe-hint-fade 2000ms ease-in-out both;
+    animation: cart-swipe-hint-fade 3000ms ease-in-out both;
   }
   .cart-swipe-chevron {
     animation: none;

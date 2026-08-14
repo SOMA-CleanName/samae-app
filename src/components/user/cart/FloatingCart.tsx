@@ -27,7 +27,7 @@ const FOCUS_REDUCED_TRANSITION_MS = 140;
 const FOCUS_WHEEL_IDLE_MS = 180;
 const SWIPE_HINT_KEY = "samae:cart-swipe-hint:v1";
 const SWIPE_HINT_DELAY_MS = 500;
-const SWIPE_HINT_VISIBLE_MS = 2000;
+const SWIPE_HINT_VISIBLE_MS = 3000;
 const SWIPE_HINT_ARROWS = [0, 1, 2] as const;
 const wonFmt = new Intl.NumberFormat("ko-KR");
 
@@ -1114,7 +1114,7 @@ export function FloatingCart() {
           {focused && showSwipeHint && (
             <div
               aria-hidden
-              className="cart-swipe-hint pointer-events-none fixed bottom-[31%] left-1/2 z-[64] flex flex-col items-center"
+              className="cart-swipe-hint pointer-events-none fixed bottom-[24%] left-1/2 z-[64] flex flex-col items-center"
             >
               <div className="relative mb-1 h-12 w-7">
                 {SWIPE_HINT_ARROWS.map((index) => (
