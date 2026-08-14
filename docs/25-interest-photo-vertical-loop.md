@@ -336,3 +336,53 @@ Expected: exit 0.
 git add docs/25-interest-photo-vertical-loop.md
 git commit -m "docs: 관심 사진 세로 탐색 검증 기록"
 ```
+
+---
+
+## 8. 구현 및 검증 결과 (2026-08-14)
+
+### 구현 완료
+
+- `src/lib/cart-detail-navigation.ts`
+  - 다음·이전 사진의 양방향 순환 계산
+  - 56px 세로 우세 스와이프 판정
+  - 휠 `deltaMode` 정규화와 가로 우세 입력 제외
+  - 관심 목록 변경 시 유효한 포커스 사진 복구
+  - 최초 안내 노출 조건
+- `src/components/user/cart/FloatingCart.tsx`
+  - 기존 카드 두 장을 재사용하는 320ms 세로 전환
+  - 스와이프 직후 합성 클릭 억제
+  - 마지막 관성 이벤트 이후 풀리는 휠 시퀀스 잠금
+  - 전환 중 공유·게시물·견적 CTA 잠금
+  - 관심 사진 삭제 시 남은 최신 사진으로 복구
+  - 활성 카드만 키보드 포커스 허용
+  - `ArrowDown`·`ArrowUp` 탐색과 `Enter`·`Space` 버튼 동작
+  - 다음 카드로 전환한 뒤 키보드 포커스 복원
+  - 브라우저당 최초 한 번 표시되는 세로 탐색 안내
+- `src/app/globals.css`
+  - 회색 안내 바 페이드
+  - 흰색 화살표 세 개의 120ms 간격 상향 모션
+  - `prefers-reduced-motion`에서 위치 이동 없는 페이드 폴백
+
+### 자동 검증
+
+```text
+관련 Node 테스트: 36개 통과, 실패 0
+TypeScript: npx tsc --noEmit 통과
+대상 ESLint: 통과
+git diff --check: 통과
+localhost:3000: HTTP 200
+Next.js 개발 서버: 변경 후 컴파일 성공
+```
+
+독립 코드 리뷰에서 처음 확인된 포커스 ID 삭제, 전환 중 이전 CTA, 긴 휠 관성, 숨은 카드 키보드 포커스 문제를 `78c87be`에서 보완했다. 재검토 결과 남은 Critical·Important 이슈는 없다.
+
+### 남은 수동 확인
+
+Browser 플러그인은 설치돼 있었지만 현재 세션에서 연결 가능한 브라우저 목록이 비어 있어 자동 상호작용·스크린샷 검증은 실행하지 못했다. 로컬 3000에서 다음 항목은 실제 기기로 최종 확인한다.
+
+1. iOS Safari와 Android Chrome에서 위·아래 포인터 캡처가 끊기지 않는지
+2. macOS 트랙패드의 긴 관성 입력이 한 번에 한 장만 넘기는지
+3. 마지막 → 첫 사진과 첫 사진 → 마지막 사진 전환이 자연스러운지
+4. 안내 바와 화살표가 최초 한 번 나타났다가 약 2초 안에 사라지는지
+5. reduced-motion과 화면 낭독기에서 포커스 복원이 자연스러운지
