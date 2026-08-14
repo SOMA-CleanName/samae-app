@@ -7,7 +7,7 @@ import { mpTrackServer } from "@/lib/mixpanel-server";
 import { archiveAllAndDelete, archiveAndDelete } from "@/lib/soft-delete";
 import { verifyResetPassword } from "@/lib/admin-reset";
 
-const VALID = ["new", "accepted", "confirmed", "shot", "refund_requested"];
+const VALID = ["new", "accepted", "confirmed", "shot", "refund_requested", "expired"];
 
 async function assertAdmin() {
   const me = await getCurrentUser();
@@ -64,7 +64,17 @@ export async function setInquiryStatus(formData: FormData) {
   if (!VALID.includes(status)) throw new Error("잘못된 상태");
 
   const admin = createAdminClient();
-  const { error } = await admin.from("inquiries").update({ status }).eq("id", id);
+  const now = new Date().toISOString();
+  // 만료는 expired_at 과 짝 — 수동으로 만료시키거나 되돌릴 때도 시각을 맞춰준다.
+  // new 로 되돌리면 new_since 도 갱신해 만료 7일을 다시 준다(안 그러면 다음 스윕에 바로 재만료).
+  const { error } = await admin
+    .from("inquiries")
+    .update({
+      status,
+      expired_at: status === "expired" ? now : null,
+      ...(status === "new" ? { new_since: now } : {}),
+    })
+    .eq("id", id);
   if (error) throw new Error(error.message);
   revalidatePath("/admin/inquiries");
 }

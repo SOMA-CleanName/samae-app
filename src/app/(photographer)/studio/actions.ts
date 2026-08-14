@@ -217,7 +217,8 @@ export async function cancelInquiryUnlock(id: string): Promise<{ ok: boolean }> 
   const admin = createAdminClient();
   const { error } = await admin
     .from("inquiries")
-    .update({ status: "new", accepted_at: null })
+    // new_since 갱신 — 취소 시점부터 만료 7일이 다시 시작된다
+    .update({ status: "new", accepted_at: null, new_since: new Date().toISOString() })
     .eq("id", id)
     .eq("photographer_id", me.photographer.id) // 본인 문의만
     .eq("status", "accepted"); // 입금대기만 — confirmed 는 되돌릴 수 없음

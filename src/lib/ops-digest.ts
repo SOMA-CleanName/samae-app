@@ -190,7 +190,8 @@ export async function sendDigest(
   primary.forEach((r) => (primCh[chOf(r)] += 1));
 
   const total30 = rows.length;
-  const accepted30 = rows.filter((r) => r.status !== "new").length;
+  // 만료(expired)는 미해제로 끝난 건이라 '수락'에서 제외
+  const accepted30 = rows.filter((r) => r.status !== "new" && r.status !== "expired").length;
   const confirmed30 = rows.filter((r) => r.deposit_confirmed_at).length;
 
   const agg: Record<Ch, { t: number; c: number }> = {
