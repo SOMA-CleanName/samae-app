@@ -413,6 +413,69 @@ git add docs/25-interest-photo-vertical-loop.md src/lib/cart-detail-navigation.t
 git commit -m "fix: 관심 사진 빈 메타 협의 표시"
 ```
 
+### Task 6: 로컬 빈 메타 확인 페이지
+
+**Files:**
+
+- Create: `src/lib/cart-meta-dev.ts`
+- Create: `src/lib/cart-meta-dev.test.ts`
+- Create: `src/app/(user)/dev/cart-meta/page.tsx`
+- Modify: `docs/25-interest-photo-vertical-loop.md`
+
+**Interfaces:**
+
+- Produces: `groupCartMetaSamples(rows: CartMetaSample[], limit?: number): CartMetaSampleGroups`
+- Consumes: 공개 `photos` 행의 `price_krw`, `location_text`, `region`, 이미지 크기와 URL
+- Consumes: 기존 `AddToCartButton`, 사용자 레이아웃의 `CartProvider`와 `FloatingCart`
+
+- [x] **Step 1: 세 그룹 분류 실패 테스트 작성**
+
+`src/lib/cart-meta-dev.test.ts`에 장소만·가격만·둘 다 없음 분류, `location_text` 우선 및 `region` 폴백, 그룹별 4장 제한 테스트를 작성한다.
+
+- [x] **Step 2: RED 확인**
+
+Run: `node --test src/lib/cart-meta-dev.test.ts`
+
+Expected: `cart-meta-dev.ts`가 없어 FAIL.
+
+- [x] **Step 3: 최소 분류 함수 구현**
+
+`groupCartMetaSamples`는 장소를 `location_text?.trim() || region?.trim() || null`로 정규화하고 가격 존재 여부와 조합해 `locationOnly`, `priceOnly`, `neither` 배열을 만든다. 실제 장소와 가격이 모두 있는 행은 세 QA 그룹에서 제외한다.
+
+- [x] **Step 4: 개발 전용 서버 페이지 구현**
+
+`src/app/(user)/dev/cart-meta/page.tsx`는 `NODE_ENV !== "development"`이면 `notFound()`를 호출한다. 개발 환경에서는 `createAdminClient()`로 현재 공개 사진의 `id`, 이미지 URL·크기, 가격·장소 필드를 페이지 단위로 읽고 `groupCartMetaSamples`에 전달한다.
+
+세 그룹은 각각 최대 4장의 카드로 표시한다. 카드에는 실제 값과 예상 문구를 표시하고, `/photos/{id}` 링크와 다음 `CartItem`을 사용하는 `AddToCartButton`을 둔다.
+
+```ts
+{
+  id: photo.id,
+  src: photo.thumb_url ?? photo.src_url,
+  w: photo.width,
+  h: photo.height,
+}
+```
+
+- [x] **Step 5: 자동 검사와 로컬 응답 확인**
+
+Run: `node --test src/lib/*.test.ts`
+
+Run: `npx tsc --noEmit`
+
+Run: `npx eslint src/lib/cart-meta-dev.ts src/lib/cart-meta-dev.test.ts 'src/app/(user)/dev/cart-meta/page.tsx'`
+
+Run: `curl -I http://localhost:3000/dev/cart-meta`
+
+Expected: tests PASS, TypeScript와 ESLint exit 0, 로컬 페이지 HTTP 200.
+
+- [x] **Step 6: 커밋**
+
+```bash
+git add docs/25-interest-photo-vertical-loop.md src/lib/cart-meta-dev.ts src/lib/cart-meta-dev.test.ts 'src/app/(user)/dev/cart-meta/page.tsx'
+git commit -m "test: 로컬 빈 메타 확인 페이지 추가"
+```
+
 ---
 
 ## 8. 구현 및 검증 결과 (2026-08-14)
@@ -441,16 +504,22 @@ git commit -m "fix: 관심 사진 빈 메타 협의 표시"
   - 회색 안내 바 페이드
   - 흰색 화살표 세 개의 120ms 간격 상향 모션
   - `prefers-reduced-motion`에서 위치 이동 없는 페이드 폴백
+- `src/app/(user)/dev/cart-meta/page.tsx`
+  - 개발 환경에서만 노출되는 가격·장소 누락 QA 페이지
+  - 세 조건별 실제 공개 사진 4장과 관심사진 담기·원본 상세 링크
+- `src/lib/cart-meta-dev.ts`
+  - 화면과 같은 장소 폴백을 사용하는 QA 샘플 분류와 그룹별 제한
 
 ### 자동 검증
 
 ```text
-관련 Node 테스트: 40개 통과, 실패 0
+관련 Node 테스트: 43개 통과, 실패 0
 TypeScript: npx tsc --noEmit 통과
 대상 ESLint: 통과
 git diff --check: 통과
 localhost:3000: HTTP 200
 Next.js 개발 서버: 변경 후 컴파일 성공
+localhost:3000/dev/cart-meta: HTTP 200, 세 그룹별 4장·총 12개 사진 링크 확인
 ```
 
 독립 코드 리뷰에서 처음 확인된 포커스 ID 삭제, 전환 중 이전 CTA, 긴 휠 관성, 숨은 카드 키보드 포커스 문제를 `78c87be`에서 보완했다. 재검토 결과 남은 Critical·Important 이슈는 없다.
