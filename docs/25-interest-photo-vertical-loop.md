@@ -258,12 +258,12 @@ git commit -m "feat: 관심 사진 상세 세로 순환 탐색"
 
 - [ ] **Step 1: 안내 노출 상태를 상세 진입과 연결**
 
-사진이 두 장 이상이고 저장소 키가 없을 때 상세 진입 500ms 뒤 `showSwipeHint=true`로 바꾸고 키를 저장한다. 2초 뒤 상태를 지운다. 저장소 접근이 실패하면 ref로 현재 페이지에서 중복 노출을 막는다. 포인터 다운·휠·닫기 시 타이머와 안내를 즉시 정리한다.
+사진이 두 장 이상이고 저장소 키가 없을 때 상세 진입 500ms 뒤 `showSwipeHint=true`로 바꾸고 키를 저장한다. 3초 뒤 상태를 지운다. 저장소 접근이 실패하면 ref로 현재 페이지에서 중복 노출을 막는다. 포인터 다운·휠·닫기 시 타이머와 안내를 즉시 정리한다.
 
 - [ ] **Step 2: 승인된 문구와 장식 마크업 추가**
 
 ```tsx
-<div aria-hidden className="cart-swipe-hint pointer-events-none fixed ...">
+<div aria-hidden className="cart-swipe-hint pointer-events-none fixed w-[calc(100vw-32px)] ...">
   <div className="relative h-12 w-7">
     {[0, 1, 2].map((index) => (
       <svg key={index} className="cart-swipe-chevron absolute ..." style={{ animationDelay: `${index * 120}ms` }}>
@@ -271,11 +271,13 @@ git commit -m "feat: 관심 사진 상세 세로 순환 탐색"
       </svg>
     ))}
   </div>
-  <p className="rounded-xl bg-[#5c5c5c]/90 px-4 py-2.5 text-sm font-semibold text-white">
+  <p className="w-fit max-w-full break-keep rounded-xl bg-[#5c5c5c]/90 px-4 py-2.5 text-center text-sm font-semibold text-white">
     위로 밀면 다음 관심사진이 보입니다
   </p>
 </div>
 ```
+
+부모 안내 영역은 화면 너비에서 좌우 16px씩을 뺀 폭을 사용한다. 문구는 `w-fit max-w-full`로 충분한 화면에서는 한 줄 너비를 유지하고, 그 너비를 넘는 좁은 화면에서는 `break-keep text-center`로 단어 단위 줄바꿈과 중앙 정렬을 적용한다.
 
 - [ ] **Step 3: 진입·화살표·퇴장 키프레임 추가**
 

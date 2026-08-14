@@ -1114,7 +1114,7 @@ export function FloatingCart() {
           {focused && showSwipeHint && (
             <div
               aria-hidden
-              className="cart-swipe-hint pointer-events-none fixed bottom-[24%] left-1/2 z-[64] flex flex-col items-center"
+              className="cart-swipe-hint pointer-events-none fixed bottom-[24%] left-1/2 z-[64] flex w-[calc(100vw-32px)] flex-col items-center"
             >
               <div className="relative mb-1 h-12 w-7">
                 {SWIPE_HINT_ARROWS.map((index) => (
@@ -1131,7 +1131,7 @@ export function FloatingCart() {
                   </svg>
                 ))}
               </div>
-              <p className="whitespace-nowrap rounded-xl border border-white/10 bg-[#5c5c5c]/90 px-4 py-2.5 text-sm font-semibold text-white shadow-pop backdrop-blur-sm">
+              <p className="w-fit max-w-full break-keep rounded-xl border border-white/10 bg-[#5c5c5c]/90 px-4 py-2.5 text-center text-sm font-semibold text-white shadow-pop backdrop-blur-sm">
                 위로 밀면 다음 관심사진이 보입니다
               </p>
             </div>
