@@ -7,6 +7,7 @@ import { useCart, cartCardJitter, PEEK_CARD_W, type CartItem } from "./CartProvi
 import { loadCartPhotoMeta } from "@/app/(user)/actions";
 import { mpTrack } from "@/lib/mixpanel";
 import {
+  cartMetaLabels,
   circularPhotoId,
   reconciledFocusedPhotoId,
   shouldShowCartSwipeHint,
@@ -870,6 +871,14 @@ export function FloatingCart() {
     );
   }, [newestId, count, phase, consumeFlyFrom, cards]);
 
+  const focusedMeta = meta?.photoId === focused ? meta : null;
+  const focusedMetaLabels = focusedMeta
+    ? cartMetaLabels(
+        focusedMeta.priceKrw != null ? `₩${wonFmt.format(focusedMeta.priceKrw)}` : null,
+        focusedMeta.location
+      )
+    : null;
+
   if (!vp || N === 0 || hideOnRoute) return null;
 
   return (
@@ -1266,46 +1275,37 @@ export function FloatingCart() {
                   }}
                 >
                   {/* 메타 패널 — 가격(크게) + 위치·촬영시간·보정본 아이콘 칩 (photoId 일치 시만 = stale 방지) */}
-                  {meta &&
-                    meta.photoId === focused &&
-                    (meta.priceKrw != null ||
-                      meta.location ||
-                      meta.durationMin != null ||
-                      meta.editedCount != null) && (
-                      <div className="mb-3 rounded-2xl bg-black/45 px-4 py-3 text-left ring-1 ring-white/10 backdrop-blur-md">
-                        {meta.priceKrw != null && (
-                          <p className="text-xl font-extrabold leading-none tracking-tight text-white">
-                            ₩{wonFmt.format(meta.priceKrw)}
-                          </p>
-                        )}
-                        {(meta.location || meta.durationMin != null || meta.editedCount != null) && (
-                          <div
-                            className={`flex flex-wrap items-center gap-x-3.5 gap-y-1.5 text-body-sm font-medium text-white/85 ${
-                              meta.priceKrw != null ? "mt-2" : ""
-                            }`}
-                          >
-                            {meta.location && (
-                              <span className="inline-flex items-center gap-1">
-                                <MetaPinIcon />
-                                {meta.location}
-                              </span>
-                            )}
-                            {meta.durationMin != null && (
-                              <span className="inline-flex items-center gap-1">
-                                <MetaClockIcon />
-                                {formatDuration(meta.durationMin)}
-                              </span>
-                            )}
-                            {meta.editedCount != null && (
-                              <span className="inline-flex items-center gap-1">
-                                <MetaPhotoIcon />
-                                보정본 {meta.editedCount}장
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
+                  {focusedMeta && focusedMetaLabels && (
+                    <div className="mb-3 rounded-2xl bg-black/45 px-4 py-3 text-left ring-1 ring-white/10 backdrop-blur-md">
+                      <p className="text-xl font-extrabold leading-none tracking-tight text-white">
+                        {focusedMetaLabels.primaryText}
+                      </p>
+                      {(focusedMetaLabels.locationText ||
+                        focusedMeta.durationMin != null ||
+                        focusedMeta.editedCount != null) && (
+                        <div className="mt-2 flex flex-wrap items-center gap-x-3.5 gap-y-1.5 text-body-sm font-medium text-white/85">
+                          {focusedMetaLabels.locationText && (
+                            <span className="inline-flex items-center gap-1">
+                              <MetaPinIcon />
+                              {focusedMetaLabels.locationText}
+                            </span>
+                          )}
+                          {focusedMeta.durationMin != null && (
+                            <span className="inline-flex items-center gap-1">
+                              <MetaClockIcon />
+                              {formatDuration(focusedMeta.durationMin)}
+                            </span>
+                          )}
+                          {focusedMeta.editedCount != null && (
+                            <span className="inline-flex items-center gap-1">
+                              <MetaPhotoIcon />
+                              보정본 {focusedMeta.editedCount}장
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
                   {/* 게시물 보기 · 견적 받기 = 동급(나란히). 견적만 브랜드색으로 전환 살짝 강조. */}
                   <div className="flex gap-2">
                   <button

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  cartMetaLabels,
   circularPhotoId,
   reconciledFocusedPhotoId,
   shouldShowCartSwipeHint,
@@ -64,4 +65,32 @@ test("wheel navigation normalizes pixel and line deltas", () => {
 test("wheel navigation ignores small and horizontally dominant movement", () => {
   assert.equal(wheelNavigationDirection(0, 10, 0), null);
   assert.equal(wheelNavigationDirection(40, 30, 0), null);
+});
+
+test("missing price and location use one negotiation headline", () => {
+  assert.deepEqual(cartMetaLabels(null, null), {
+    primaryText: "가격, 장소 협의",
+    locationText: null,
+  });
+});
+
+test("missing price keeps the real location", () => {
+  assert.deepEqual(cartMetaLabels(null, "잠실야구장"), {
+    primaryText: "가격 협의",
+    locationText: "잠실야구장",
+  });
+});
+
+test("missing location keeps the real price", () => {
+  assert.deepEqual(cartMetaLabels("₩220,000", null), {
+    primaryText: "₩220,000",
+    locationText: "장소 협의",
+  });
+});
+
+test("provided price and location remain unchanged", () => {
+  assert.deepEqual(cartMetaLabels("₩220,000", "잠실야구장"), {
+    primaryText: "₩220,000",
+    locationText: "잠실야구장",
+  });
 });

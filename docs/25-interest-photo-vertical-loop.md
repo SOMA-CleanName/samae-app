@@ -344,6 +344,64 @@ git add docs/25-interest-photo-vertical-loop.md
 git commit -m "docs: 관심 사진 세로 탐색 검증 기록"
 ```
 
+### Task 5: 빈 가격·장소 협의 표시
+
+**Files:**
+
+- Modify: `src/lib/cart-detail-navigation.ts`
+- Test: `src/lib/cart-detail-navigation.test.ts`
+- Modify: `src/components/user/cart/FloatingCart.tsx`
+
+**Interfaces:**
+
+- Produces: `cartMetaLabels(priceText: string | null, location: string | null): { primaryText: string; locationText: string | null }`
+- Consumes: `loadCartPhotoMeta`가 반환한 가격·장소와 기존 `wonFmt` 가격 포맷
+
+- [x] **Step 1: 네 가지 가격·장소 조합 테스트 작성**
+
+`cartMetaLabels`가 실제 가격·장소를 보존하고, 둘 다 없으면 `가격, 장소 협의`, 가격만 없으면 `가격 협의`, 장소만 없으면 `장소 협의`를 반환하는 테스트를 `src/lib/cart-detail-navigation.test.ts`에 추가한다.
+
+- [x] **Step 2: 실패 확인**
+
+Run: `node --test src/lib/cart-detail-navigation.test.ts`
+
+Expected: `cartMetaLabels`가 아직 export되지 않아 FAIL.
+
+- [x] **Step 3: 최소 표시 계산 구현**
+
+```ts
+export function cartMetaLabels(priceText: string | null, location: string | null) {
+  const normalizedPrice = priceText?.trim() || null;
+  const normalizedLocation = location?.trim() || null;
+  if (!normalizedPrice && !normalizedLocation) {
+    return { primaryText: "가격, 장소 협의", locationText: null };
+  }
+  return {
+    primaryText: normalizedPrice ?? "가격 협의",
+    locationText: normalizedLocation ?? "장소 협의",
+  };
+}
+```
+
+- [x] **Step 4: 관심사진 상세 메타 패널 연결**
+
+`meta.photoId === focused`인 조회 완료 상태에서는 메타 패널을 항상 렌더링한다. 큰 첫 줄은 `cartMetaLabels`의 `primaryText`, 장소 아이콘 줄은 `locationText`를 사용하고 촬영시간·보정본 표시는 그대로 유지한다.
+
+- [x] **Step 5: 회귀 검사와 커밋**
+
+Run: `node --test src/lib/*.test.ts`
+
+Run: `npx tsc --noEmit`
+
+Run: `npx eslint src/lib/cart-detail-navigation.ts src/lib/cart-detail-navigation.test.ts src/components/user/cart/FloatingCart.tsx`
+
+Expected: all tests PASS, TypeScript and ESLint exit 0.
+
+```bash
+git add docs/25-interest-photo-vertical-loop.md src/lib/cart-detail-navigation.ts src/lib/cart-detail-navigation.test.ts src/components/user/cart/FloatingCart.tsx
+git commit -m "fix: 관심 사진 빈 메타 협의 표시"
+```
+
 ---
 
 ## 8. 구현 및 검증 결과 (2026-08-14)
@@ -356,6 +414,7 @@ git commit -m "docs: 관심 사진 세로 탐색 검증 기록"
   - 휠 `deltaMode` 정규화와 가로 우세 입력 제외
   - 관심 목록 변경 시 유효한 포커스 사진 복구
   - 최초 안내 노출 조건
+  - 가격·장소 누락 조합별 협의 문구 계산
 - `src/components/user/cart/FloatingCart.tsx`
   - 기존 카드 두 장을 재사용하는 320ms 세로 전환
   - 스와이프 직후 합성 클릭 억제
@@ -366,6 +425,7 @@ git commit -m "docs: 관심 사진 세로 탐색 검증 기록"
   - `ArrowDown`·`ArrowUp` 탐색과 `Enter`·`Space` 버튼 동작
   - 다음 카드로 전환한 뒤 키보드 포커스 복원
   - 브라우저당 최초 한 번 표시되는 세로 탐색 안내
+  - 가격·장소가 누락된 사진에도 협의 문구 메타 패널 표시
 - `src/app/globals.css`
   - 회색 안내 바 페이드
   - 흰색 화살표 세 개의 120ms 간격 상향 모션
@@ -374,7 +434,7 @@ git commit -m "docs: 관심 사진 세로 탐색 검증 기록"
 ### 자동 검증
 
 ```text
-관련 Node 테스트: 36개 통과, 실패 0
+관련 Node 테스트: 40개 통과, 실패 0
 TypeScript: npx tsc --noEmit 통과
 대상 ESLint: 통과
 git diff --check: 통과

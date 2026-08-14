@@ -31,6 +31,18 @@ export function shouldShowCartSwipeHint(photoCount: number, hasSeen: boolean): b
   return photoCount > 1 && !hasSeen;
 }
 
+export function cartMetaLabels(priceText: string | null, location: string | null) {
+  const normalizedPrice = priceText?.trim() || null;
+  const normalizedLocation = location?.trim() || null;
+  if (!normalizedPrice && !normalizedLocation) {
+    return { primaryText: "가격, 장소 협의", locationText: null };
+  }
+  return {
+    primaryText: normalizedPrice ?? "가격 협의",
+    locationText: normalizedLocation ?? "장소 협의",
+  };
+}
+
 export function reconciledFocusedPhotoId(ids: string[], focusedId: string): string | null {
   if (ids.includes(focusedId)) return focusedId;
   return ids[0] ?? null;
