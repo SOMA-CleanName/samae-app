@@ -285,3 +285,36 @@ select:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .cart-tip-in { animation: none; }
 }
+
+/* 관심 사진 상세 최초 안내 — 문구는 잠깐 머물고, 화살표는 위로 차례로 흩어진다. */
+@keyframes cart-swipe-hint {
+  0% { opacity: 0; transform: translate(-50%, 10px); }
+  16%, 70% { opacity: 1; transform: translate(-50%, 0); }
+  100% { opacity: 0; transform: translate(-50%, -8px); }
+}
+@keyframes cart-swipe-chevron {
+  0%, 10% { opacity: 0; transform: translate(-50%, 16px); }
+  30% { opacity: 1; }
+  76%, 100% { opacity: 0; transform: translate(-50%, -22px); }
+}
+@keyframes cart-swipe-hint-fade {
+  0%, 100% { opacity: 0; transform: translate(-50%, 0); }
+  16%, 70% { opacity: 1; transform: translate(-50%, 0); }
+}
+.cart-swipe-hint {
+  animation: cart-swipe-hint 2000ms ease-in-out both;
+}
+.cart-swipe-chevron {
+  animation: cart-swipe-chevron 1300ms ease-out both;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.35));
+}
+@media (prefers-reduced-motion: reduce) {
+  .cart-swipe-hint {
+    animation: cart-swipe-hint-fade 2000ms ease-in-out both;
+  }
+  .cart-swipe-chevron {
+    animation: none;
+    opacity: 0.85;
+    transform: translateX(-50%);
+  }
+}

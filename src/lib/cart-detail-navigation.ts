@@ -26,3 +26,7 @@ export function verticalSwipeDirection(
   if (Math.abs(dy) < threshold || Math.abs(dy) <= Math.abs(dx)) return null;
   return dy < 0 ? "next" : "previous";
 }
+
+export function shouldShowCartSwipeHint(photoCount: number, hasSeen: boolean): boolean {
+  return photoCount > 1 && !hasSeen;
+}

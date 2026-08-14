@@ -8,6 +8,7 @@ import { loadCartPhotoMeta } from "@/app/(user)/actions";
 import { mpTrack } from "@/lib/mixpanel";
 import {
   circularPhotoId,
+  shouldShowCartSwipeHint,
   verticalSwipeDirection,
   type CartNavigationDirection,
 } from "@/lib/cart-detail-navigation";
@@ -22,6 +23,10 @@ const CART_W = PEEK_CARD_W; // 64
 const FOCUS_TRANSITION_MS = 320;
 const FOCUS_REDUCED_TRANSITION_MS = 140;
 const FOCUS_WHEEL_LOCK_MS = 420;
+const SWIPE_HINT_KEY = "samae:cart-swipe-hint:v1";
+const SWIPE_HINT_DELAY_MS = 500;
+const SWIPE_HINT_VISIBLE_MS = 2000;
+const SWIPE_HINT_ARROWS = [0, 1, 2] as const;
 const wonFmt = new Intl.NumberFormat("ko-KR");
 
 // 분 → 사람이 읽기 쉬운 촬영시간 (60→"1시간", 90→"1시간 30분", 45→"45분")
@@ -108,6 +113,7 @@ export function FloatingCart() {
   // 탭한 사진 id — 실제 카드 자체가 중앙으로 와서 확대(복제본 없음)
   const [focused, setFocused] = useState<string | null>(null);
   const [focusTransition, setFocusTransition] = useState<FocusTransition | null>(null);
+  const [showSwipeHint, setShowSwipeHint] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches
   );
@@ -144,6 +150,9 @@ export function FloatingCart() {
   const focusTransitionTimer = useRef<number | null>(null);
   const wheelUnlockTimer = useRef<number | null>(null);
   const suppressFocusClickUntil = useRef(0);
+  const swipeHintShowTimer = useRef<number | null>(null);
+  const swipeHintHideTimer = useRef<number | null>(null);
+  const swipeHintSeenThisPage = useRef(false);
   // 도크를 펼치기 직전(배경 스크롤 잠그기 전)의 페이지 스크롤 위치.
   // 잠금 중에는 window.scrollY 를 신뢰할 수 없어(브라우저에 따라 0 으로 클램프) 복귀 좌표로 이 값을 쓴다.
   const pageScrollY = useRef(0);
@@ -161,6 +170,8 @@ export function FloatingCart() {
       if (focusTransitionFrame.current != null) cancelAnimationFrame(focusTransitionFrame.current);
       if (focusTransitionTimer.current != null) window.clearTimeout(focusTransitionTimer.current);
       if (wheelUnlockTimer.current != null) window.clearTimeout(wheelUnlockTimer.current);
+      if (swipeHintShowTimer.current != null) window.clearTimeout(swipeHintShowTimer.current);
+      if (swipeHintHideTimer.current != null) window.clearTimeout(swipeHintHideTimer.current);
     },
     []
   );
@@ -178,6 +189,57 @@ export function FloatingCart() {
   }, [focused]);
 
   const N = count;
+
+  function clearSwipeHintTimers() {
+    if (swipeHintShowTimer.current != null) {
+      window.clearTimeout(swipeHintShowTimer.current);
+      swipeHintShowTimer.current = null;
+    }
+    if (swipeHintHideTimer.current != null) {
+      window.clearTimeout(swipeHintHideTimer.current);
+      swipeHintHideTimer.current = null;
+    }
+  }
+
+  function dismissSwipeHint(markSeen = false) {
+    clearSwipeHintTimers();
+    setShowSwipeHint(false);
+    if (!markSeen) return;
+    swipeHintSeenThisPage.current = true;
+    try {
+      localStorage.setItem(SWIPE_HINT_KEY, "1");
+    } catch {
+      /* 저장소가 막혀도 현재 페이지에서는 다시 보이지 않는다. */
+    }
+  }
+
+  useEffect(() => {
+    if (!focused) return;
+    let hasSeen = swipeHintSeenThisPage.current;
+    try {
+      hasSeen ||= localStorage.getItem(SWIPE_HINT_KEY) === "1";
+    } catch {
+      /* 현재 페이지 ref 값으로만 판단한다. */
+    }
+    if (!shouldShowCartSwipeHint(navigationIds.length, hasSeen)) return;
+
+    swipeHintShowTimer.current = window.setTimeout(() => {
+      swipeHintShowTimer.current = null;
+      swipeHintSeenThisPage.current = true;
+      try {
+        localStorage.setItem(SWIPE_HINT_KEY, "1");
+      } catch {
+        /* 저장소가 막혀도 현재 페이지에서는 다시 보이지 않는다. */
+      }
+      setShowSwipeHint(true);
+      swipeHintHideTimer.current = window.setTimeout(() => {
+        swipeHintHideTimer.current = null;
+        setShowSwipeHint(false);
+      }, SWIPE_HINT_VISIBLE_MS);
+    }, SWIPE_HINT_DELAY_MS);
+
+    return clearSwipeHintTimers;
+  }, [focused, navigationIds.length]);
 
   function cancelFocusTransition() {
     if (focusTransitionFrame.current != null) {
@@ -228,6 +290,7 @@ export function FloatingCart() {
   function focusPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     if (!focused || navigationIds.length < 2 || focusTransitionLocked.current) return;
     if (e.pointerType === "mouse" && e.button !== 0) return;
+    dismissSwipeHint(true);
     focusGesture.current = {
       active: true,
       pointerId: e.pointerId,
@@ -260,6 +323,7 @@ export function FloatingCart() {
     if (!focused || navigationIds.length < 2 || Math.abs(e.deltaY) < 20) return;
     e.preventDefault();
     if (wheelUnlockTimer.current != null || focusTransitionLocked.current) return;
+    dismissSwipeHint(true);
     const moved = beginFocusTransition(e.deltaY > 0 ? "next" : "previous");
     if (!moved) return;
     wheelUnlockTimer.current = window.setTimeout(() => {
@@ -367,6 +431,7 @@ export function FloatingCart() {
     // 사용자 뒤로: 브라우저가 가드 1개 소비 → 한 단계만 닫는다.
     h.browserPopped = true;
     if (focused) {
+      dismissSwipeHint();
       cancelFocusTransition();
       setFocused(null);
     } else if (selectMode) {
@@ -486,6 +551,7 @@ export function FloatingCart() {
   }
   // 닫힘: 펼침 → 중앙 스택 → 도크 복귀 (열 때보다 빠르게 — 머무름·트랜지션 단축)
   function close() {
+    dismissSwipeHint();
     cancelFocusTransition();
     setFocused(null);
     setSelectMode(false);
@@ -503,6 +569,7 @@ export function FloatingCart() {
   function dismissOverlay() {
     if (selectMode) exitSelect();
     else if (focused) {
+      dismissSwipeHint();
       cancelFocusTransition();
       setFocused(null);
     }
@@ -543,6 +610,7 @@ export function FloatingCart() {
   // 상담 페이지로 이동 — 찜 모달을 즉시 닫고(도크) 이동
   function leaveToInquiry(href: string) {
     if (focused) rememberListScroll(focused);
+    dismissSwipeHint();
     cancelFocusTransition();
     setFocused(null);
     setSelectMode(false);
@@ -869,6 +937,7 @@ export function FloatingCart() {
                     if (phase === "spread") {
                       if (selectMode) toggleSelect(it.id);
                       else if (focused === it.id) {
+                        dismissSwipeHint();
                         cancelFocusTransition();
                         setFocused(null);
                       }
@@ -983,6 +1052,32 @@ export function FloatingCart() {
 
       {phase === "spread" && (
         <>
+          {focused && showSwipeHint && (
+            <div
+              aria-hidden
+              className="cart-swipe-hint pointer-events-none fixed bottom-[31%] left-1/2 z-[64] flex flex-col items-center"
+            >
+              <div className="relative mb-1 h-12 w-7">
+                {SWIPE_HINT_ARROWS.map((index) => (
+                  <svg
+                    key={index}
+                    viewBox="0 0 24 24"
+                    className="cart-swipe-chevron absolute bottom-0 left-1/2 h-6 w-6 text-white"
+                    style={{ animationDelay: `${index * 120}ms`, bottom: `${index * 9}px` }}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.4"
+                  >
+                    <path d="M5 15l7-7 7 7" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                ))}
+              </div>
+              <p className="whitespace-nowrap rounded-xl border border-white/10 bg-[#5c5c5c]/90 px-4 py-2.5 text-sm font-semibold text-white shadow-pop backdrop-blur-sm">
+                위로 밀면 다음 관심사진이 보입니다
+              </p>
+            </div>
+          )}
+
           {/* 상단(확대 중) — 좌: 닫기(그리드로) / 우: 공유 · 더보기(게시물 보기·삭제) */}
           {focused && (
             <>
@@ -991,6 +1086,7 @@ export function FloatingCart() {
                 <button
                   type="button"
                   onClick={() => {
+                    dismissSwipeHint();
                     cancelFocusTransition();
                     setFocused(null);
                   }}

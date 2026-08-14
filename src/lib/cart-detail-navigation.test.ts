@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { circularPhotoId, verticalSwipeDirection } from "./cart-detail-navigation.ts";
+import {
+  circularPhotoId,
+  shouldShowCartSwipeHint,
+  verticalSwipeDirection,
+} from "./cart-detail-navigation.ts";
 
 test("next and previous move to adjacent photos", () => {
   const ids = ["a", "b", "c"];
@@ -35,4 +39,10 @@ test("vertical swipe ignores short and horizontally dominant movement", () => {
   assert.equal(verticalSwipeDirection(10, 100, 10, 45), null);
   assert.equal(verticalSwipeDirection(10, 100, 50, 60), null);
   assert.equal(verticalSwipeDirection(10, 100, 80, 40), null);
+});
+
+test("swipe hint appears only for multiple photos before it has been seen", () => {
+  assert.equal(shouldShowCartSwipeHint(2, false), true);
+  assert.equal(shouldShowCartSwipeHint(1, false), false);
+  assert.equal(shouldShowCartSwipeHint(3, true), false);
 });
