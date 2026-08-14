@@ -19,6 +19,7 @@ function stageOf(status: string): Stage {
   if (status === "confirmed") return "confirmed";
   if (status === "shot") return "shot";
   if (status === "refund_requested") return "refund";
+  if (status === "expired") return "expired";
   return "confirmed"; // 안전 폴백
 }
 
@@ -29,6 +30,7 @@ const FILTERS: { key: string; label: string; match: (s: Stage) => boolean }[] = 
   { key: "confirmed", label: "입금확인", match: (s) => s === "confirmed" },
   { key: "shot", label: "촬영완료", match: (s) => s === "shot" },
   { key: "refund", label: "환불신청", match: (s) => s === "refund" },
+  { key: "expired", label: "만료", match: (s) => s === "expired" },
 ];
 
 const one = <T,>(v: T | T[] | null | undefined): T | null =>

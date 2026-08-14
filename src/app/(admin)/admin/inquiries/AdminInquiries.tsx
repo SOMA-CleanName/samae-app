@@ -10,7 +10,7 @@ import { confirmInquiryDeposit, revertInquiryDeposit, setInquiryStatus, setInqui
 
 const fmt = new Intl.NumberFormat("ko-KR");
 
-export type Stage = "new" | "await" | "confirmed" | "shot" | "refund";
+export type Stage = "new" | "await" | "confirmed" | "shot" | "refund" | "expired";
 
 export type InquiryRow = {
   id: string;
@@ -48,6 +48,7 @@ const STAGE: Record<Stage, { label: string; tone: "warning" | "success" | "neutr
   confirmed: { label: "입금확인", tone: "success" },
   shot: { label: "촬영완료", tone: "neutral" },
   refund: { label: "환불신청", tone: "warning" },
+  expired: { label: "만료", tone: "neutral" },
 };
 
 const STATUS_OPTIONS = [
@@ -56,6 +57,7 @@ const STATUS_OPTIONS = [
   { v: "confirmed", l: "입금확인" },
   { v: "shot", l: "촬영완료" },
   { v: "refund_requested", l: "환불신청" },
+  { v: "expired", l: "만료" },
 ];
 
 function dt(iso: string) {
