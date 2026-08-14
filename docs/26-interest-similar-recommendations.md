@@ -107,3 +107,65 @@
 - 추천 화면에 별도의 필터·정렬·새로고침 버튼을 추가하지 않는다.
 - 추천 결과를 로컬 저장소에 영구 저장하지 않는다.
 - 임베딩 생성 방식과 데이터베이스 RPC를 변경하지 않는다.
+
+## 9. 구현 결과 (2026-08-14)
+
+### 반영 파일
+
+- `src/lib/interest-similar-recommendations.ts`
+  - 관심사진 4장 임계값
+  - 3초 접힘 시간
+  - 관심사진 요청 키 생성
+  - 서버 추천 응답의 중복 제거와 폴라로이드 카드 변환
+- `src/lib/interest-similar-recommendations.test.ts`
+  - 3장·4장 경계
+  - 중복 ID와 순서 보존
+  - 관심사진 4장 기준 추천 27장
+  - 중복 추천 카드 제거와 썸네일 폴백
+- `src/app/(user)/feed-actions.ts`
+  - 현재 관심사진만 앵커와 제외 대상으로 사용하는 `loadInterestSimilarPhotos`
+- `src/components/user/cart/InterestSimilarEntry.tsx`
+  - 오른쪽 펼침 패널
+  - 3초 뒤 아이콘으로 접히는 너비·문구 전환
+  - 로딩 상태와 모션 감소 대응
+- `src/components/user/cart/FloatingCart.tsx`
+  - 현재 관심사진 4장 이상일 때만 진입 버튼 노출
+  - 선택·개별 상세 상태에서 버튼 숨김
+  - 요청 중복 방지와 오래된 응답 무시
+  - 관심사진/추천사진 상태 분리
+  - 기존 폴라로이드 레이아웃 재사용
+  - 추천 화면 헤더·뒤로가기·빈 결과·오류·재시도
+  - 추천 카드 상세 이동과 홈 클릭 이력 기록
+
+### 검증 결과
+
+```text
+node --test src/lib/*.test.ts
+47 passed, 0 failed
+
+npx tsc --noEmit
+passed
+
+npx eslint \
+  src/components/user/cart/FloatingCart.tsx \
+  src/components/user/cart/InterestSimilarEntry.tsx \
+  src/lib/interest-similar-recommendations.ts \
+  src/lib/interest-similar-recommendations.test.ts \
+  'src/app/(user)/feed-actions.ts'
+passed
+
+git diff --check
+passed
+
+http://localhost:3000
+HTTP 200, Next.js development compilation passed
+```
+
+브라우저 플러그인 런타임에는 연결 가능한 브라우저 세션이 없어 자동 스크린샷과 클릭 검증을 수행하지 못했다. 로컬 3000에서 다음 수동 확인이 남아 있다.
+
+1. 관심사진 3장에서는 진입 버튼이 없고 4장부터 나타나는지 확인한다.
+2. 전체 문구가 약 3초 유지된 뒤 오른쪽으로 접혀 아이콘만 남는지 확인한다.
+3. `취향 기반 추천` 보조 문구가 없는지 확인한다.
+4. 아이콘을 누르면 `비슷한 사진` 헤더와 추천 카드가 나타나는지 확인한다.
+5. 추천 결과에 현재 관심사진이 섞이지 않는지 확인한다.
+6. 화면 및 브라우저 뒤로가기가 기존 관심사진 배치로 복귀하는지 확인한다.
