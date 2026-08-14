@@ -84,16 +84,16 @@ export function CategoryImmersive({
     else router.push("/explore");
   }
 
-  // 담기 — 기존 '카트로 빨려들어가는' fly 애니메이션 재사용(출발점 = 현재 슬라이드[data-cart-card]).
-  function toggleCart(e: React.MouseEvent<HTMLButtonElement>, p: GalleryPhoto) {
+  // 담기 — 기존 '카트로 빨려들어가는' fly 애니메이션 재사용.
+  // 버튼이 슬라이드 밖(하단 고정 바)이라 closest() 로는 못 찾음 → 현재 슬라이드를 data-pid 로 조회.
+  function toggleCart(p: GalleryPhoto) {
     if (cart.has(p.id)) {
       mpTrack("Remove from Cart", { photo_id: p.id, source: "category-immersive" });
       cart.remove(p.id);
       return;
     }
     mpTrack("Add to Cart", { photo_id: p.id, source: "category-immersive" });
-    const card = e.currentTarget.closest<HTMLElement>("[data-cart-card]");
-    const srcEl = card ?? document.querySelector<HTMLElement>("[data-cart-card]");
+    const srcEl = feedRef.current?.querySelector<HTMLElement>(`[data-pid="${CSS.escape(p.id)}"]`) ?? null;
     cart.add({ id: p.id, src: p.thumb_url ?? p.src_url, w: p.width, h: p.height }, srcEl);
   }
 
@@ -126,70 +126,34 @@ export function CategoryImmersive({
         </div>
       </div>
 
-      {/* 몰입 피드 — 세로 스냅. 하단 필름스트립(66px) 만큼 비움 */}
+      {/* 몰입 피드 — 세로 스냅. 하단 필름스트립(66px) 만큼 비움.
+          슬라이드의 snap-always(scroll-snap-stop) — 한 번 세게 밀어도 한 장씩만 넘어가게 강제 */}
       <div
         ref={feedRef}
         onScroll={onScroll}
         className="absolute inset-x-0 top-0 bottom-[66px] snap-y snap-mandatory overflow-y-auto overscroll-contain scrollbar-none"
       >
-        {photos.map((p, i) => {
-          const inCart = cart.has(p.id);
-          const location = p.region ?? null;
-          return (
-            <div key={p.id} data-cart-card data-pid={p.id} className="relative h-full w-full snap-start overflow-hidden">
-              {/* 흐린 배경 채움 — 레터박스를 그 사진 색감으로 */}
-              <div
-                aria-hidden
-                className="absolute inset-0 scale-110 bg-cover bg-center blur-2xl brightness-[.55]"
-                style={{ backgroundImage: `url(${p.thumb_url ?? p.src_url})` }}
-              />
-              {/* 사진 — 안 잘리게 contain. 첫 2장만 우선 로드 */}
-              <Image
-                src={p.src_url}
-                alt=""
-                fill
-                priority={i < 2}
-                sizes="(max-width: 640px) 100vw, 640px"
-                draggable={false}
-                className="relative object-contain [-webkit-user-drag:none]"
-              />
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-
-              {/* 정보 + 액션 */}
-              <div className="absolute inset-x-4 bottom-4 z-10">
-                {p.price_krw != null && (
-                  <p className="text-xl font-extrabold leading-none tracking-tight drop-shadow">
-                    ₩{won.format(p.price_krw)}
-                  </p>
-                )}
-                <p className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-body-sm font-medium text-white/90 drop-shadow">
-                  {location && <span>📍 {location}</span>}
-                  {i === idx && showPkg && pkg?.durationMin != null && <span>⏱ {formatDuration(pkg.durationMin)}</span>}
-                  {i === idx && showPkg && pkg?.editedCount != null && <span>🖼 보정본 {pkg.editedCount}장</span>}
-                </p>
-                <div className="mt-3.5 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={(e) => toggleCart(e, p)}
-                    className={cn(
-                      "h-11 shrink-0 cursor-pointer rounded-full px-5 text-sm font-bold backdrop-blur transition-colors",
-                      inCart ? "bg-white text-black" : "bg-white/16 text-white hover:bg-white/25"
-                    )}
-                  >
-                    {inCart ? "담김" : "담기"}
-                  </button>
-                  <Link
-                    href={inquiryHref(p.photographer.id, p.id)}
-                    data-quote-lead=""
-                    className="flex h-11 flex-1 items-center justify-center rounded-full bg-brand text-sm font-bold text-white shadow-lg transition-opacity hover:opacity-90"
-                  >
-                    무료로 견적 받아보기
-                  </Link>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+        {photos.map((p, i) => (
+          <div key={p.id} data-cart-card data-pid={p.id} className="relative h-full w-full snap-start snap-always overflow-hidden">
+            {/* 흐린 배경 채움 — 레터박스를 그 사진 색감으로 */}
+            <div
+              aria-hidden
+              className="absolute inset-0 scale-110 bg-cover bg-center blur-2xl brightness-[.55]"
+              style={{ backgroundImage: `url(${p.thumb_url ?? p.src_url})` }}
+            />
+            {/* 사진 — 안 잘리게 contain. 첫 2장만 우선 로드 */}
+            <Image
+              src={p.src_url}
+              alt=""
+              fill
+              priority={i < 2}
+              sizes="(max-width: 640px) 100vw, 640px"
+              draggable={false}
+              className="relative object-contain [-webkit-user-drag:none]"
+            />
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+          </div>
+        ))}
       </div>
 
       {/* 첫 진입 가이드 — 위로 스와이프 안내. 한 번 스크롤하면 사라짐 */}
@@ -208,6 +172,40 @@ export function CategoryImmersive({
           </div>
         </div>
       )}
+
+      {/* 정보 + 액션 — 스와이프와 무관하게 필름스트립 바로 위에 고정. 내용만 현재 컷으로 교체.
+          컨테이너는 pointer-events-none 이라 텍스트 영역 위에서도 세로 스와이프가 그대로 먹음. */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-[66px] z-20 px-4 pb-4">
+        {cur.price_krw != null && (
+          <p className="text-xl font-extrabold leading-none tracking-tight drop-shadow">
+            ₩{won.format(cur.price_krw)}
+          </p>
+        )}
+        <p className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-body-sm font-medium text-white/90 drop-shadow">
+          {cur.region && <span>📍 {cur.region}</span>}
+          {showPkg && pkg?.durationMin != null && <span>⏱ {formatDuration(pkg.durationMin)}</span>}
+          {showPkg && pkg?.editedCount != null && <span>🖼 보정본 {pkg.editedCount}장</span>}
+        </p>
+        <div className="mt-3.5 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => toggleCart(cur)}
+            className={cn(
+              "pointer-events-auto h-11 shrink-0 cursor-pointer rounded-full px-5 text-sm font-bold backdrop-blur transition-colors",
+              cart.has(cur.id) ? "bg-white text-black" : "bg-white/16 text-white hover:bg-white/25"
+            )}
+          >
+            {cart.has(cur.id) ? "담김" : "담기"}
+          </button>
+          <Link
+            href={inquiryHref(cur.photographer.id, cur.id)}
+            data-quote-lead=""
+            className="pointer-events-auto flex h-11 flex-1 items-center justify-center rounded-full bg-brand text-sm font-bold text-white shadow-lg transition-opacity hover:opacity-90"
+          >
+            무료로 견적 받아보기
+          </Link>
+        </div>
+      </div>
 
       {/* 하단 필름스트립 — 빠른 훑기·점프. 현재 컷 강조 */}
       <div
