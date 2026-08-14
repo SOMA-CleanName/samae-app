@@ -23,12 +23,14 @@ export function inquiryStatusLabel(status: string): { label: string; tone: "wait
   switch (status) {
     case "accepted":
       return { label: "작가 확인함", tone: "active" };
-    case "contacted":
+    case "confirmed":
       return { label: "연락 진행 중", tone: "active" };
-    case "converted":
-      return { label: "예약 전환", tone: "done" };
-    case "closed":
-      return { label: "종료", tone: "done" };
+    case "shot":
+      return { label: "촬영 완료", tone: "done" };
+    case "refund_requested":
+      return { label: "환불 신청", tone: "active" };
+    case "expired":
+      return { label: "만료됨", tone: "done" };
     default:
       return { label: "접수됨", tone: "wait" }; // new
   }
