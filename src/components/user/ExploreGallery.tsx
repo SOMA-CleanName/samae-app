@@ -19,7 +19,7 @@ import { nextFeedPhase, type FeedPhase } from "@/lib/feed-demotion";
 
 const fmt = new Intl.NumberFormat("ko-KR");
 const STEP = 48; // 스크롤마다 더 보여줄 사진 수(메모리에서 즉시 노출)
-const PERSONALIZED_STEP = 36; // 동적 개인화 상한 — 실제 장수는 서버가 12~36장으로 결정
+const PERSONALIZED_STEP = 36; // 동적 개인화 상한 — 실제 장수는 서버가 6~36장으로 결정
 const TUTORIAL_SEEN_KEY = "samae:tutorial-seen"; // 일반 유저 첫 방문 튜토리얼 열람 여부
 const FEED_RESTORING_KEY = "samae:feed-return-restoring";
 const FEED_RESTORED_EVENT = "samae:feed-return-restored";
@@ -48,12 +48,13 @@ function loadFeedPageOnce(
   seed: string,
   page: number,
   clickedPhotoIds: string[],
+  interestedPhotoIds: string[],
   seenPhotoIds: string[]
 ) {
   const key = `${seed}:${page}`;
   const pending = pendingFeedPages.get(key);
   if (pending) return pending;
-  const request = loadMore(seed, page, clickedPhotoIds, seenPhotoIds);
+  const request = loadMore(seed, page, clickedPhotoIds, interestedPhotoIds, seenPhotoIds);
   pendingFeedPages.set(key, request);
   request.then(
     () => pendingFeedPages.delete(key),
@@ -148,10 +149,12 @@ export function ExploreGallery({
     seed: string,
     page: number,
     clickedPhotoIds?: string[],
+    interestedPhotoIds?: string[],
     seenPhotoIds?: string[]
   ) => Promise<GalleryPhoto[]>;
   loadPersonalized?: (
     clickedPhotoIds: string[],
+    interestedPhotoIds: string[],
     excludedPhotoIds: string[]
   ) => Promise<GalleryPhoto[]>;
   loadDemoted?: (seed: string, page: number) => Promise<GalleryPhoto[]>;
@@ -199,7 +202,11 @@ export function ExploreGallery({
   //    slug 페이지면 강조 없이 배경 전체를 어둡게+뿌옇게
   const OB_FORCED_MS = 1090; // 강제 구간 — enter(350)+60 더해 약 1.5초 뒤 스킵(닫기) 가능
   const OB_AUTO_AFTER_READY_MS = 2100; // ready(약 1.5초) 후 → 약 3.6초에 자동 종료(읽을 시간 확보)
-  const { add } = useCart(); // 온보딩 종료 시 강조 사진을 담기(관심사진)에 추가
+  const {
+    add,
+    interestPhotoIds,
+    hydrated: cartHydrated,
+  } = useCart(); // 온보딩 담기와 홈 개인화 관심 신호를 같은 저장소에서 사용
   const [obPhase, setObPhase] = useState<"idle" | "enter" | "ready" | "adding" | "leaving" | "done">(
     spotlightId ? "idle" : "done"
   );
@@ -443,15 +450,22 @@ export function ExploreGallery({
       // 사진 상세에서 돌아오는 동안에는 센티넬이 잠깐 화면 가까이에 있어도
       // 페이지를 추가하지 않는다. 복원이 끝난 뒤 아래 이벤트로 다시 검사한다.
       if (isFeedReturnRestoring()) return;
+      // 관심 이력을 아직 복원하지 못한 빈 배열을 실제 취향으로 오인하지 않게 잠시 기다린다.
+      if (!cartHydrated) return;
       // 1) 이미 로드된 것 중 아직 안 보인 게 있으면 그것부터 노출
       if (visible < items.length) {
         busy = true;
         const end = Math.min(items.length, visible + STEP);
-        if (loadPersonalized && activeFeedSeed && clickedPhotoIds.length > 0) {
+        if (
+          loadPersonalized &&
+          activeFeedSeed &&
+          (clickedPhotoIds.length > 0 || interestPhotoIds.length > 0)
+        ) {
           feedLoading.current = true;
           try {
             const recommendations = await loadPersonalized(
               clickedPhotoIds,
+              interestPhotoIds,
               items.map((photo) => photo.id)
             );
             if (recommendations.length > 0) {
@@ -491,6 +505,7 @@ export function ExploreGallery({
                 requestSeed,
                 nextPage,
                 clickedPhotoIds,
+                interestPhotoIds,
                 [...cycleSeenIds.current]
               )
             : loadDemoted
@@ -506,7 +521,7 @@ export function ExploreGallery({
           nextPage = 0;
           requestSeed = cycleSeed(activeFeedSeed, feedCycle.current);
           more = feedPhase.current === "normal"
-            ? await loadFeedPageOnce(loadMore, requestSeed, 0, clickedPhotoIds, [])
+            ? await loadFeedPageOnce(loadMore, requestSeed, 0, clickedPhotoIds, interestPhotoIds, [])
             : loadDemoted
               ? await loadDemoted(requestSeed, 0)
               : [];
@@ -560,7 +575,17 @@ export function ExploreGallery({
       window.removeEventListener("resize", check);
       window.removeEventListener(FEED_RESTORED_EVENT, check);
     };
-  }, [visible, items, activeFeedSeed, clickedPhotoIds, loadMore, loadPersonalized, loadDemoted]);
+  }, [
+    visible,
+    items,
+    activeFeedSeed,
+    clickedPhotoIds,
+    interestPhotoIds,
+    cartHydrated,
+    loadMore,
+    loadPersonalized,
+    loadDemoted,
+  ]);
 
   // 보기 옵션(가격·작가명) — 세션 유지 + SearchOptions 토글과 이벤트로 동기화
   useEffect(() => {
