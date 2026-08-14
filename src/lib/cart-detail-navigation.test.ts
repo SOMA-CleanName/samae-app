@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   circularPhotoId,
+  reconciledFocusedPhotoId,
   shouldShowCartSwipeHint,
   verticalSwipeDirection,
+  wheelNavigationDirection,
 } from "./cart-detail-navigation.ts";
 
 test("next and previous move to adjacent photos", () => {
@@ -45,4 +47,21 @@ test("swipe hint appears only for multiple photos before it has been seen", () =
   assert.equal(shouldShowCartSwipeHint(2, false), true);
   assert.equal(shouldShowCartSwipeHint(1, false), false);
   assert.equal(shouldShowCartSwipeHint(3, true), false);
+});
+
+test("focused photo reconciliation preserves valid ids and recovers removed ids", () => {
+  assert.equal(reconciledFocusedPhotoId(["a", "b"], "b"), "b");
+  assert.equal(reconciledFocusedPhotoId(["a", "b"], "removed"), "a");
+  assert.equal(reconciledFocusedPhotoId([], "removed"), null);
+});
+
+test("wheel navigation normalizes pixel and line deltas", () => {
+  assert.equal(wheelNavigationDirection(0, 24, 0), "next");
+  assert.equal(wheelNavigationDirection(0, -24, 0), "previous");
+  assert.equal(wheelNavigationDirection(0, 2, 1), "next");
+});
+
+test("wheel navigation ignores small and horizontally dominant movement", () => {
+  assert.equal(wheelNavigationDirection(0, 10, 0), null);
+  assert.equal(wheelNavigationDirection(40, 30, 0), null);
 });

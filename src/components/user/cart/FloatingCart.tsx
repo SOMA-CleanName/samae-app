@@ -8,8 +8,10 @@ import { loadCartPhotoMeta } from "@/app/(user)/actions";
 import { mpTrack } from "@/lib/mixpanel";
 import {
   circularPhotoId,
+  reconciledFocusedPhotoId,
   shouldShowCartSwipeHint,
   verticalSwipeDirection,
+  wheelNavigationDirection,
   type CartNavigationDirection,
 } from "@/lib/cart-detail-navigation";
 
@@ -22,7 +24,7 @@ const POS_KEY = "samae:cart-pos";
 const CART_W = PEEK_CARD_W; // 64
 const FOCUS_TRANSITION_MS = 320;
 const FOCUS_REDUCED_TRANSITION_MS = 140;
-const FOCUS_WHEEL_LOCK_MS = 420;
+const FOCUS_WHEEL_IDLE_MS = 180;
 const SWIPE_HINT_KEY = "samae:cart-swipe-hint:v1";
 const SWIPE_HINT_DELAY_MS = 500;
 const SWIPE_HINT_VISIBLE_MS = 2000;
@@ -147,8 +149,10 @@ export function FloatingCart() {
   const focusGesture = useRef({ active: false, pointerId: -1, startX: 0, startY: 0 });
   const focusTransitionLocked = useRef(false);
   const focusTransitionFrame = useRef<number | null>(null);
+  const focusRestoreFrame = useRef<number | null>(null);
   const focusTransitionTimer = useRef<number | null>(null);
   const wheelUnlockTimer = useRef<number | null>(null);
+  const wheelSequenceLocked = useRef(false);
   const suppressFocusClickUntil = useRef(0);
   const swipeHintShowTimer = useRef<number | null>(null);
   const swipeHintHideTimer = useRef<number | null>(null);
@@ -168,6 +172,7 @@ export function FloatingCart() {
   useEffect(
     () => () => {
       if (focusTransitionFrame.current != null) cancelAnimationFrame(focusTransitionFrame.current);
+      if (focusRestoreFrame.current != null) cancelAnimationFrame(focusRestoreFrame.current);
       if (focusTransitionTimer.current != null) window.clearTimeout(focusTransitionTimer.current);
       if (wheelUnlockTimer.current != null) window.clearTimeout(wheelUnlockTimer.current);
       if (swipeHintShowTimer.current != null) window.clearTimeout(swipeHintShowTimer.current);
@@ -246,16 +251,21 @@ export function FloatingCart() {
       cancelAnimationFrame(focusTransitionFrame.current);
       focusTransitionFrame.current = null;
     }
+    if (focusRestoreFrame.current != null) {
+      cancelAnimationFrame(focusRestoreFrame.current);
+      focusRestoreFrame.current = null;
+    }
     if (focusTransitionTimer.current != null) {
       window.clearTimeout(focusTransitionTimer.current);
       focusTransitionTimer.current = null;
     }
     focusTransitionLocked.current = false;
+    wheelSequenceLocked.current = false;
     setFocusTransition(null);
   }
 
   const beginFocusTransition = useCallback(
-    (direction: CartNavigationDirection) => {
+    (direction: CartNavigationDirection, restoreFocus = false) => {
       if (!focused || navigationIds.length < 2 || focusTransitionLocked.current) return false;
       const toId = circularPhotoId(navigationIds, focused, direction);
       if (!toId || toId === focused) return false;
@@ -277,6 +287,12 @@ export function FloatingCart() {
               setFocused(toId);
               setFocusTransition(null);
               focusTransitionLocked.current = false;
+              if (restoreFocus) {
+                focusRestoreFrame.current = requestAnimationFrame(() => {
+                  focusRestoreFrame.current = null;
+                  cardRefs.current.get(toId)?.focus({ preventScroll: true });
+                });
+              }
             },
             reducedMotion ? FOCUS_REDUCED_TRANSITION_MS : FOCUS_TRANSITION_MS
           );
@@ -290,7 +306,7 @@ export function FloatingCart() {
   function focusPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     if (!focused || navigationIds.length < 2 || focusTransitionLocked.current) return;
     if (e.pointerType === "mouse" && e.button !== 0) return;
-    dismissSwipeHint(true);
+    dismissSwipeHint();
     focusGesture.current = {
       active: true,
       pointerId: e.pointerId,
@@ -312,6 +328,7 @@ export function FloatingCart() {
       e.clientY
     );
     if (!direction || !beginFocusTransition(direction)) return;
+    dismissSwipeHint(true);
     suppressFocusClickUntil.current = performance.now() + 450;
   }
 
@@ -319,16 +336,39 @@ export function FloatingCart() {
     if (focusGesture.current.pointerId === e.pointerId) focusGesture.current.active = false;
   }
 
+  function cardKeyDown(e: React.KeyboardEvent<HTMLDivElement>, id: string) {
+    if (focused === id && navigationIds.length > 1 && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+      e.preventDefault();
+      const moved = beginFocusTransition(e.key === "ArrowDown" ? "next" : "previous", true);
+      if (moved) dismissSwipeHint(true);
+      return;
+    }
+    if (!focusTransition && (e.key === "Enter" || e.key === " ")) {
+      e.preventDefault();
+      e.currentTarget.click();
+    }
+  }
+
   function focusWheel(e: React.WheelEvent<HTMLDivElement>) {
-    if (!focused || navigationIds.length < 2 || Math.abs(e.deltaY) < 20) return;
+    if (!focused || navigationIds.length < 2) return;
+    const direction = wheelNavigationDirection(e.deltaX, e.deltaY, e.deltaMode);
+    if (!direction) return;
     e.preventDefault();
-    if (wheelUnlockTimer.current != null || focusTransitionLocked.current) return;
-    dismissSwipeHint(true);
-    const moved = beginFocusTransition(e.deltaY > 0 ? "next" : "previous");
-    if (!moved) return;
+    if (wheelUnlockTimer.current != null) window.clearTimeout(wheelUnlockTimer.current);
     wheelUnlockTimer.current = window.setTimeout(() => {
       wheelUnlockTimer.current = null;
-    }, FOCUS_WHEEL_LOCK_MS);
+      wheelSequenceLocked.current = false;
+    }, FOCUS_WHEEL_IDLE_MS);
+    if (wheelSequenceLocked.current || focusTransitionLocked.current) {
+      wheelSequenceLocked.current = true;
+      return;
+    }
+    wheelSequenceLocked.current = true;
+    if (!beginFocusTransition(direction)) {
+      wheelSequenceLocked.current = false;
+      return;
+    }
+    dismissSwipeHint(true);
   }
 
   function layerClick(e: React.MouseEvent<HTMLDivElement>) {
@@ -500,6 +540,22 @@ export function FloatingCart() {
     return () => window.clearTimeout(timer);
   }, [phase, N]);
 
+  // 상세를 보는 동안 관심 목록이 바뀌어도 빈 화면이 되지 않게 남은 최신 사진으로 복구한다.
+  useEffect(() => {
+    if (!focused) return;
+    const reconciled = reconciledFocusedPhotoId(navigationIds, focused);
+    const transitionStillValid =
+      !focusTransition ||
+      (navigationIds.includes(focusTransition.fromId) && navigationIds.includes(focusTransition.toId));
+    if (reconciled === focused && transitionStillValid) return;
+
+    const timer = window.setTimeout(() => {
+      cancelFocusTransition();
+      setFocused(reconciled);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [focusTransition, focused, navigationIds]);
+
   const clampTop = (t: number) => Math.min(Math.max(80, t), window.innerHeight - 150);
   const clampRight = (r: number) => Math.min(Math.max(0, r), window.innerWidth - CART_W);
 
@@ -609,6 +665,7 @@ export function FloatingCart() {
 
   // 상담 페이지로 이동 — 찜 모달을 즉시 닫고(도크) 이동
   function leaveToInquiry(href: string) {
+    if (focusTransition) return;
     if (focused) rememberListScroll(focused);
     dismissSwipeHint();
     cancelFocusTransition();
@@ -918,10 +975,12 @@ export function FloatingCart() {
                     else cardRefs.current.delete(it.id);
                   }}
                   role="button"
-                  tabIndex={0}
+                  tabIndex={anyFocused ? (isFocused && !focusTransition ? 0 : -1) : op > 0 ? 0 : -1}
+                  aria-hidden={anyFocused && (!isFocused || focusTransition != null) ? true : undefined}
                   onPointerDown={(e) => cardPointerDown(e, it.id)}
                   onPointerMove={cardPointerMove}
                   onPointerUp={cardPointerUp}
+                  onKeyDown={(e) => cardKeyDown(e, it.id)}
                   // 롱프레스 시 브라우저 기본 메뉴(이미지 공유·다운로드·복사) 차단 —
                   // iOS 콜아웃은 globals.css로, Android/데스크톱 contextmenu는 JS로 막아야 함.
                   // 선택 모드만 발동되도록 기본 동작 제거.
@@ -1102,8 +1161,9 @@ export function FloatingCart() {
                 <button
                   type="button"
                   onClick={() => focused && sharePhotos([focused])}
+                  disabled={focusTransition != null}
                   aria-label="공유"
-                  className="grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
+                  className="grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25 disabled:cursor-default disabled:opacity-0"
                 >
                   <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M12 16V4M12 4l-4 4M12 4l4 4" strokeLinecap="round" strokeLinejoin="round" />
@@ -1198,7 +1258,13 @@ export function FloatingCart() {
           <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[62] px-4 pb-6 pt-3">
             <div className="mx-auto max-w-md">
               {selectMode ? null : focused && items.some((i) => i.id === focused) ? (
-                <div className="pointer-events-auto">
+                <div
+                  className="transition-opacity duration-150"
+                  style={{
+                    opacity: focusTransition ? 0 : 1,
+                    pointerEvents: focusTransition ? "none" : "auto",
+                  }}
+                >
                   {/* 메타 패널 — 가격(크게) + 위치·촬영시간·보정본 아이콘 칩 (photoId 일치 시만 = stale 방지) */}
                   {meta &&
                     meta.photoId === focused &&
@@ -1245,6 +1311,7 @@ export function FloatingCart() {
                   <button
                     type="button"
                     onClick={() => leaveToInquiry(`/photos/${focused}`)}
+                    disabled={focusTransition != null}
                     className="flex-1 cursor-pointer rounded-2xl bg-white/15 py-4 text-base font-bold text-white shadow-pop backdrop-blur transition-colors hover:bg-white/25"
                   >
                     게시물 보기
@@ -1254,6 +1321,7 @@ export function FloatingCart() {
                   <button
                     type="button"
                     onClick={() => leaveToInquiry(`/inquiry/photo/${focused}`)}
+                    disabled={focusTransition != null}
                     data-quote-lead=""
                     className="flex-1 cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
                   >

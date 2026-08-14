@@ -30,3 +30,20 @@ export function verticalSwipeDirection(
 export function shouldShowCartSwipeHint(photoCount: number, hasSeen: boolean): boolean {
   return photoCount > 1 && !hasSeen;
 }
+
+export function reconciledFocusedPhotoId(ids: string[], focusedId: string): string | null {
+  if (ids.includes(focusedId)) return focusedId;
+  return ids[0] ?? null;
+}
+
+export function wheelNavigationDirection(
+  deltaX: number,
+  deltaY: number,
+  deltaMode: number
+): CartNavigationDirection | null {
+  const unit = deltaMode === 1 ? 16 : deltaMode === 2 ? 800 : 1;
+  const normalizedX = deltaX * unit;
+  const normalizedY = deltaY * unit;
+  if (Math.abs(normalizedY) < 20 || Math.abs(normalizedY) <= Math.abs(normalizedX)) return null;
+  return normalizedY > 0 ? "next" : "previous";
+}
