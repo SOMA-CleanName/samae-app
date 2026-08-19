@@ -42,6 +42,7 @@ npm run dev                  # http://localhost:3000
 | 07 | [개발 로드맵](docs/07-roadmap.md) | 단계별 계획·산출물·완료 기준 |
 | 21 | [사용자 전환 화면 UI 개선](docs/21-user-conversion-ui-refinement.md) | 탐색·문의·사진 상세·작가 상세 UI의 현재 구현과 확인 항목 |
 | 22 | [시각 유사도 추천](docs/22-visual-similarity.md) | SigLIP 2 임베딩 + pgvector 기반 "이런 사진은 어때요?" 개편 |
+| 28 | [임베딩 배치 자동화](docs/28-embedding-batch-automation.md) | 맥미니 launchd 로 매일 06:00 신규 사진 임베딩 |
 
 ## 한눈에 보는 스택
 

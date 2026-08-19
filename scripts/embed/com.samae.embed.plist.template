@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  임베딩 배치 launchd 정의 (docs/22 §7.4)
+  __REPO__ 는 macmini-setup.sh 가 실제 저장소 경로로 치환한다.
+  설치 위치: ~/Library/LaunchAgents/com.samae.embed.plist
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.samae.embed</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__REPO__/scripts/embed/run-embed.sh</string>
+  </array>
+
+  <!-- 매일 06:00. 사용자 트래픽이 가장 적은 시간대. -->
+  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>6</integer>
+    <key>Minute</key><integer>0</integer>
+  </dict>
+
+  <!-- 06:00 에 기계가 잠들어 있었으면 깨어난 직후 한 번 실행한다.
+       pmset 으로 슬립을 꺼두는 것이 우선이지만, 정전·재부팅 뒤 공백을 메운다. -->
+  <key>StartOnMount</key>
+  <false/>
+  <key>RunAtLoad</key>
+  <false/>
+
+  <key>StandardOutPath</key>
+  <string>__REPO__/scripts/embed/logs/launchd.out.log</string>
+  <key>StandardErrorPath</key>
+  <string>__REPO__/scripts/embed/logs/launchd.err.log</string>
+
+  <key>WorkingDirectory</key>
+  <string>__REPO__</string>
+
+  <!-- brew 파이썬과 curl 을 찾도록. launchd 는 로그인 셸 PATH 를 물려받지 않는다. -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+</dict>
+</plist>
