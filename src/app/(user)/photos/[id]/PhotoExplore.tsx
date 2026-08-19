@@ -71,6 +71,15 @@ function RecsFeed({
   const feedExhausted = useRef(false);
   const feedLoading = useRef(false);
 
+  // 개인화 추천은 시드 유사 추천 **뒤에** 이어붙인다.
+  //
+  // 앞에 붙이면 첫 화면(STEP=30장)이 전부 개인화로 채워져 시드 기준 추천은
+  // 120장 뒤로 밀려 사실상 도달하지 못한다. 그러면 "이런 사진은 어때요?" 가
+  // 지금 보는 사진과 무관한 목록이 되고, 클릭 이력이 그대로면 **어떤 사진을
+  // 열어도 같은 추천**이 나온다.
+  //
+  // 순서를 뒤집어 첫 화면은 시드 유사도가 지키고, 스크롤을 내리면 개인화가
+  // 이어지게 한다(docs/24 개인화 의도는 그대로 유지).
   useEffect(() => {
     const clicks = readFeedClicks();
     if (!rerank || clicks.length === 0) return;
@@ -78,12 +87,13 @@ function RecsFeed({
     rerank(clicks).then((ranked) => {
       if (!active || ranked.length === 0) return;
       const seen = new Set<string>();
-      setItems([...ranked, ...initial].filter((photo) => {
+      setItems([...initial, ...ranked].filter((photo) => {
         if (photo.id === excludeId || seen.has(photo.id)) return false;
         seen.add(photo.id);
         return true;
       }));
-      setVisible(STEP);
+      // 첫 화면은 이미 시드 추천으로 채워져 있으므로 노출 개수를 되돌리지 않는다.
+      // setVisible(STEP) 을 부르면 스크롤해 둔 사용자의 위치가 위로 튕긴다.
     }).catch(() => undefined);
     return () => { active = false; };
   }, [excludeId, initial, rerank]);
