@@ -45,3 +45,8 @@ scripts/embed/sample/
 scripts/embed/cache/
 scripts/embed/out/
 __pycache__/
+scripts/embed/logs/
+scripts/embed/com.samae.embed.plist
+
+# 발표 준비용 개인 작업 문서 — 공개 저장소에 올리지 않는다
+docs/27-ai-presentation-prep.md
