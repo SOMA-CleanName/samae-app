@@ -1,8 +1,15 @@
 "use server";
 
 import { cookies } from "next/headers";
-import { fetchDemotedHomeFeedPage, fetchPersonalizedHomeFeedPage, fetchPersonalizedRecommendations, fetchRankedDetailRecommendations } from "@/lib/discovery";
-import type { GalleryPhoto } from "@/lib/discovery";
+import {
+  fetchDemotedHomeFeedPage,
+  fetchInterestSimilarGroups,
+  fetchPersonalizedHomeFeedPage,
+  fetchPersonalizedRecommendations,
+  fetchRankedDetailRecommendations,
+} from "@/lib/discovery";
+import type { GalleryPhoto, InterestSimilarGroup } from "@/lib/discovery";
+import { INTEREST_RECOMMENDATION_MIN_COUNT } from "@/lib/interest-similar-recommendations";
 import { TASTE_V2_COOKIE, parseTasteV2 } from "@/lib/category-constants";
 
 // 홈 피드 무한 스크롤 — 클라이언트(ExploreGallery)가 바닥 근처에서 호출.
@@ -35,6 +42,16 @@ export async function loadPersonalizedPhotos(
   excludedPhotoIds: string[]
 ): Promise<GalleryPhoto[]> {
   return fetchPersonalizedRecommendations(clickedPhotoIds, interestedPhotoIds, excludedPhotoIds, 36);
+}
+
+// 관심사진 화면의 '비슷한 사진' — 앵커별 묶음으로 돌려준다.
+// 합치지 않는 이유는 discovery.fetchInterestSimilarGroups 주석 참조.
+export async function loadInterestSimilarGroups(
+  interestPhotoIds: string[]
+): Promise<InterestSimilarGroup[]> {
+  const currentInterestIds = [...new Set(interestPhotoIds.filter(Boolean))];
+  if (currentInterestIds.length < INTEREST_RECOMMENDATION_MIN_COUNT) return [];
+  return fetchInterestSimilarGroups(currentInterestIds, 100);
 }
 
 export async function loadDemotedHomePhotos(
