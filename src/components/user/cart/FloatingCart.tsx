@@ -5,8 +5,9 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useRouter, usePathname } from "next/navigation";
 import { useCart, cartCardJitter, PEEK_CARD_W, type CartItem } from "./CartProvider";
 import { InterestSimilarEntry } from "./InterestSimilarEntry";
+import { InterestSimilarRows } from "./InterestSimilarRows";
 import { loadCartPhotoMeta } from "@/app/(user)/actions";
-import { loadInterestSimilarPhotos } from "@/app/(user)/feed-actions";
+import { loadInterestSimilarGroups } from "@/app/(user)/feed-actions";
 import { mpTrack } from "@/lib/mixpanel";
 import {
   cartMetaLabels,
@@ -20,8 +21,12 @@ import {
 import {
   INTEREST_RECOMMENDATION_COLLAPSE_MS,
   canOpenInterestRecommendations,
+  countInterestRecommendationCards,
+  interestEntryIntroSeen,
+  markInterestEntryIntroSeen,
   interestRecommendationRequestKey,
-  toInterestRecommendationCards,
+  toInterestRecommendationRows,
+  type InterestRecommendationRow,
 } from "@/lib/interest-similar-recommendations";
 import { recordFeedClick } from "@/lib/feed-click-history";
 
@@ -111,11 +116,13 @@ type FocusTransition = {
 type SimilarRequestState =
   | { status: "idle" }
   | { status: "loading"; key: string }
-  | { status: "ready"; key: string; items: CartItem[] }
+  // 앵커별 줄 단위로 들고 있는다. 한 배열로 합치면 화면에서 무드가 섞여
+  // "무엇과 비슷한지" 를 알 수 없게 된다(docs/26 §2).
+  | { status: "ready"; key: string; rows: InterestRecommendationRow[] }
   | { status: "error"; key: string };
 
 export function FloatingCart() {
-  const { items, count, remove, consumeFlyFrom } = useCart();
+  const { items, count, add, remove, consumeFlyFrom } = useCart();
   const router = useRouter();
   const pathname = usePathname();
   // 문의·채팅 같은 풀스크린 몰입 플로우에선 도크를 숨김 — 도크가 그 위에 떠서 하단 버튼
@@ -149,8 +156,14 @@ export function FloatingCart() {
   const [leaving, setLeaving] = useState<Set<string>>(new Set());
   const [shareToast, setShareToast] = useState(false);
   const [cartTip, setCartTip] = useState(false); // 첫 담기 시 도크 용도 툴팁(1회)
+  // 진입 버튼 펼침 안내는 **브라우저 세션당 한 번만** 재생한다. 매번 펼치면
+  // 이미 아는 사용자에게는 소음이고, 관심사진 화면을 자주 여닫을수록 거슬린다.
+  // sessionStorage 라 탭을 닫았다 다시 열면(= 웹을 다시 실행하면) 한 번 더 안내한다.
   const [recommendationEntryCollapsed, setRecommendationEntryCollapsed] = useState(false);
   const [similarMode, setSimilarMode] = useState(false);
+  // 추천 줄에서 확대해 보고 있는 카드. 헤더 뒤로가기가 '확대 → 줄 → 관심사진'
+  // 순서로 한 단계씩 물러나야 해서 이 계층이 들고 있다.
+  const [zoomedRecommendation, setZoomedRecommendation] = useState<CartItem | null>(null);
   const [similarState, setSimilarState] = useState<SimilarRequestState>({ status: "idle" });
   const prevCount = useRef(0);
   const tipDone = useRef(false); // 한 번 노출 후 끝 — 재등장 방지
@@ -226,8 +239,10 @@ export function FloatingCart() {
   }, [focused]);
 
   const N = count;
-  const recommendationItems = similarState.status === "ready" ? similarState.items : [];
-  const displayItems = similarMode ? recommendationItems : items;
+  const recommendationRows = similarState.status === "ready" ? similarState.rows : [];
+  // 추천은 별도 줄 레이아웃(InterestSimilarRows)이 그리므로 폴라로이드 배치 계산은
+  // 관심사진만 다룬다. 두 화면의 배치를 섞지 않는 편이 양쪽 모두 단순해진다.
+  const displayItems = items;
   const displayCount = displayItems.length;
 
   function clearSwipeHintTimers() {
@@ -248,6 +263,7 @@ export function FloatingCart() {
   }
 
   function exitSimilarMode() {
+    setZoomedRecommendation(null);
     setSimilarMode(false);
     requestAnimationFrame(() => {
       if (layerRef.current) layerRef.current.scrollTop = 0;
@@ -271,17 +287,18 @@ export function FloatingCart() {
     const generation = ++similarRequestGeneration.current;
     setSimilarState({ status: "loading", key });
     try {
-      const photos = await loadInterestSimilarPhotos(currentInterestIds);
+      const groups = await loadInterestSimilarGroups(currentInterestIds);
       if (
         generation !== similarRequestGeneration.current ||
         currentInterestKeyRef.current !== key
       ) return;
-      const recommendationCards = toInterestRecommendationCards(photos);
-      setSimilarState({ status: "ready", key, items: recommendationCards });
+      const rows = toInterestRecommendationRows(groups);
+      setSimilarState({ status: "ready", key, rows });
       setSimilarMode(true);
       mpTrack("Load Similar Interest Photos", {
         interest_count: currentInterestIds.length,
-        result_count: recommendationCards.length,
+        result_count: countInterestRecommendationCards(rows),
+        anchor_count: rows.length,
         status: "success",
       });
       requestAnimationFrame(() => {
@@ -700,15 +717,18 @@ export function FloatingCart() {
     mpTrack("View Cart", { item_count: items.length });
     if (cartTip || !tipDone.current) dismissTip(); // 도크 열면 툴팁 종료(재등장 방지)
     clearRecommendationEntryTimer();
-    setRecommendationEntryCollapsed(false);
     const showRecommendationEntry = canOpenInterestRecommendations(currentInterestIds);
+    // 이번 세션에서 이미 안내했으면 처음부터 접힌 아이콘으로 시작한다.
+    const introDone = interestEntryIntroSeen();
+    setRecommendationEntryCollapsed(introDone);
     if (showRecommendationEntry) {
       mpTrack("View Similar Interest Entry", { interest_count: currentInterestIds.length });
     }
     setPhase("center");
     window.setTimeout(() => {
       setPhase("spread");
-      if (!showRecommendationEntry) return;
+      if (!showRecommendationEntry || introDone) return;
+      markInterestEntryIntroSeen();
       recommendationEntryTimer.current = window.setTimeout(() => {
         recommendationEntryTimer.current = null;
         setRecommendationEntryCollapsed(true);
@@ -721,6 +741,7 @@ export function FloatingCart() {
     clearRecommendationEntryTimer();
     cancelFocusTransition();
     similarRequestGeneration.current += 1;
+    setZoomedRecommendation(null);
     setSimilarMode(false);
     setSimilarState({ status: "idle" });
     setFocused(null);
@@ -780,6 +801,10 @@ export function FloatingCart() {
   // 상담 페이지로 이동 — 찜 모달을 즉시 닫고(도크) 이동
   function leaveToInquiry(href: string) {
     if (focusTransition) return;
+    // 여기서 클릭 이력을 기록하지 않는다. 관심사진에 담는 순간 '추천용 관심
+    // 이력'(가중치 2)이 이미 쌓였고, 그것을 다시 열어보는 것은 같은 행동의
+    // 연장이다. 클릭(1)을 더하면 한 번의 행동이 3점이 되어 클릭·관심을 분리한
+    // 설계가 무너진다. (docs/24 §17)
     if (focused) rememberListScroll(focused);
     dismissSwipeHint();
     cancelFocusTransition();
@@ -797,6 +822,7 @@ export function FloatingCart() {
     recordFeedClick(photoId);
     clearRecommendationEntryTimer();
     similarRequestGeneration.current += 1;
+    setZoomedRecommendation(null);
     setSimilarMode(false);
     setSimilarState({ status: "idle" });
     setPhase("dock");
@@ -917,7 +943,7 @@ export function FloatingCart() {
     const colBottom: number[] = new Array(effCols).fill(topPad); // 각 열의 현재 바닥 y
     const place: { cx: number; cy: number; photoH: number }[] = new Array(displayCount);
     for (const { it, i } of displayItems
-      .map((it, i) => ({ it, i, g: similarMode ? i : displayCount - 1 - i }))
+      .map((it, i) => ({ it, i, g: displayCount - 1 - i }))
       .sort((a, b) => a.g - b.g)) {
       const ratio = it.w > 0 && it.h > 0 ? it.h / it.w : 1;
       const photoH = Math.min(Math.max(40, Math.round(photoW * ratio)), maxPhotoH);
@@ -937,7 +963,7 @@ export function FloatingCart() {
 
     const cards = displayItems.map((it, i) => {
       // 관심사진은 최신 순서, 추천사진은 유사도 순서가 좌상단부터 시작한다.
-      const g = similarMode ? i : displayCount - 1 - i;
+      const g = displayCount - 1 - i;
       const p = place[i];
       const j = spreadJitter(it.id);
       const x = p.cx + j.fx * Math.min(10, colW * 0.04);
@@ -1035,7 +1061,24 @@ export function FloatingCart() {
           phase === "spread" && SCROLL ? "overflow-y-auto overscroll-contain" : ""
         } ${focused ? "[touch-action:none]" : ""} ${open ? "" : "pointer-events-none"}`}
       >
-        <div className="relative w-full" style={{ height: phase === "spread" && SCROLL ? contentH : "100%" }}>
+        {/* 추천 모드 — 폴라로이드 배치 대신 앵커별 줄. 관심사진 카드는 렌더하지 않는다
+            (뒤로 가면 그대로 복귀하므로 상태는 유지된다). */}
+        {similarMode && similarState.status === "ready" && recommendationRows.length > 0 && (
+          <div className="w-full pb-28 pt-16">
+            <InterestSimilarRows
+              rows={recommendationRows}
+              onAdd={add}
+              isAdded={(id) => items.some((item) => item.id === id)}
+              zoomed={zoomedRecommendation}
+              onZoomChange={setZoomedRecommendation}
+            />
+          </div>
+        )}
+
+        <div
+          className={`relative w-full ${similarMode ? "hidden" : ""}`}
+          style={{ height: phase === "spread" && SCROLL ? contentH : "100%" }}
+        >
           {cards.map(({ it, x, y, rot, photoW, photoH, side, bottom, z, g }) => {
             const isLeaving = leaving.has(it.id);
             const j = cartCardJitter(it.id);
@@ -1278,7 +1321,7 @@ export function FloatingCart() {
             </div>
           )}
 
-          {similarMode && similarState.status === "ready" && displayCount === 0 && (
+          {similarMode && similarState.status === "ready" && recommendationRows.length === 0 && (
             <div className="pointer-events-none fixed inset-0 z-[61] grid place-items-center px-6 text-center">
               <div className="pointer-events-auto rounded-2xl border border-white/10 bg-black/55 px-6 py-5 text-white shadow-pop backdrop-blur-md">
                 <p className="text-sm font-semibold">아직 보여드릴 비슷한 사진이 없어요</p>
@@ -1404,8 +1447,12 @@ export function FloatingCart() {
                   <div className="flex flex-1 justify-start">
                     <button
                       type="button"
-                      onClick={exitSimilarMode}
-                      aria-label="관심사진으로 돌아가기"
+                      // 확대 중에는 한 단계만 물러난다. 그냥 exitSimilarMode 를 부르면
+                      // 줄 화면을 건너뛰고 관심사진까지 가버려 보던 자리를 잃는다.
+                      onClick={() =>
+                        zoomedRecommendation ? setZoomedRecommendation(null) : exitSimilarMode()
+                      }
+                      aria-label={zoomedRecommendation ? "사진 닫기" : "관심사진으로 돌아가기"}
                       className="pointer-events-auto grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
                     >
                       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1413,12 +1460,7 @@ export function FloatingCart() {
                       </svg>
                     </button>
                   </div>
-                  <div className="relative">
-                    <p className="text-sm font-semibold text-white">비슷한 사진</p>
-                    <span className="pointer-events-none absolute left-1/2 top-full mt-0.5 -translate-x-1/2 whitespace-nowrap text-xs text-white/60">
-                      {displayCount}장
-                    </span>
-                  </div>
+                  <p className="text-sm font-semibold text-white">비슷한 사진</p>
                   <div className="flex flex-1" />
                 </>
               ) : (
@@ -1461,7 +1503,7 @@ export function FloatingCart() {
               컨테이너는 pointer-events-none, 실제 버튼/폼만 auto → 빈 영역 탭이 그대로 '닫기'로 전달됨. */}
           <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[62] px-4 pb-6 pt-3">
             <div className="mx-auto max-w-md">
-              {selectMode || (similarMode && displayCount === 0) ? null : focused && items.some((i) => i.id === focused) ? (
+              {selectMode || (similarMode && recommendationRows.length === 0) ? null : focused && items.some((i) => i.id === focused) ? (
                 <div
                   className="transition-opacity duration-150"
                   style={{
@@ -1528,7 +1570,7 @@ export function FloatingCart() {
                 // 전체·묶음 상담 CTA 제거 — 개별 사진 상담으로만 안내.
                 <p className="text-center">
                   <span className="inline-block rounded-full bg-black/65 px-4 py-2.5 text-sm font-semibold text-white shadow-pop backdrop-blur-sm">
-                    사진을 탭하면 상담을 신청할 수 있어요
+                    마음에 드는 사진을 담아보세요
                   </span>
                 </p>
               )}

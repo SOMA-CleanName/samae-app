@@ -506,6 +506,92 @@ export async function fetchPersonalizedRecommendations(
   return recommendations;
 }
 
+// 관심사진 화면의 '비슷한 사진' — 앵커별로 묶어서 돌려준다.
+//
+// fetchPersonalizedRecommendations 와 후보 계산은 같지만 **합치지 않는다.**
+// 홈 피드는 한 줄로 흘러가므로 섞는 게 맞지만, 이 화면은 "무엇과 비슷한지"를
+// 사용자에게 보여줘야 한다. 4개 앵커의 이웃을 섞으면 화면 안에서 무드가 깨지고
+// 근거도 사라진다(docs/26 §2).
+export type InterestSimilarGroup = {
+  anchor: GalleryPhoto;
+  photos: GalleryPhoto[];
+};
+
+// 한 번의 .in() 에 넣는 id 수 상한. 줄당 100장 × 앵커 4개면 400개가 넘는데,
+// PostgREST 는 이 목록을 URL 쿼리로 보내므로 한 번에 다 넣으면 URL 길이 제한에 걸린다.
+const ID_FETCH_CHUNK = 150;
+
+async function fetchPhotosByIdsChunked(ids: string[]): Promise<GalleryPhoto[]> {
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += ID_FETCH_CHUNK) chunks.push(ids.slice(i, i + ID_FETCH_CHUNK));
+  const pages = await Promise.all(chunks.map((chunk) => fetchLikedPhotosByIds(chunk)));
+  return pages.flat();
+}
+
+export async function fetchInterestSimilarGroups(
+  interestedPhotoIds: string[],
+  perAnchor = 100
+): Promise<InterestSimilarGroup[]> {
+  const anchors = selectPersonalizationAnchors([], interestedPhotoIds, 4);
+  if (anchors.length === 0) return [];
+
+  const supabase = await createClient();
+  const { data: anchorRows } = await supabase
+    .from("photos")
+    .select("id, album_id, mood_tags")
+    .in("id", anchors);
+  const anchorById = new Map(
+    ((anchorRows ?? []) as { id: string; album_id: string | null; mood_tags: string[] | null }[])
+      .map((row) => [row.id, row])
+  );
+
+  const similarLists = await Promise.all(
+    anchors.map(async (id) => {
+      const anchor = anchorById.get(id);
+      if (!anchor) return [];
+      return fetchSimilarPhotosRaw({
+        photoId: id,
+        albumId: anchor.album_id,
+        tags: anchor.mood_tags ?? [],
+        limit: 120,
+      });
+    })
+  );
+
+  // 노출 낮춤 승격·방향 다양성 보정은 홈 피드와 같은 정책을 그대로 쓴다.
+  const styleConsistency = averageNeighborOverlap(similarLists, 60);
+  const ranked = similarLists.map((list) =>
+    orderSimilarWithDemotion(list, anchors.length, styleConsistency)
+  );
+
+  // 줄이 달라도 같은 사진이 두 번 보이지 않게 한다. 앞선 줄이 우선권을 갖는다.
+  // 관심사진 자신도 결과에서 뺀다.
+  const taken = new Set<string>(interestedPhotoIds);
+  const picks = ranked.map((list) => {
+    const out: string[] = [];
+    for (const photo of list) {
+      if (out.length >= perAnchor) break;
+      if (taken.has(photo.id)) continue;
+      taken.add(photo.id);
+      out.push(photo.id);
+    }
+    return out;
+  });
+
+  // 앵커 + 모든 줄의 사진을 한 번에 조회한다. 수백 장이라 청크로 나눠 병렬 조회한다.
+  const allIds = [...anchors, ...picks.flat()];
+  const byId = new Map((await fetchPhotosByIdsChunked(allIds)).map((p) => [p.id, p]));
+
+  return anchors
+    .map((anchorId, index) => {
+      const anchor = byId.get(anchorId);
+      const photos = picks[index].map((id) => byId.get(id)).filter((p): p is GalleryPhoto => !!p);
+      // 앵커를 못 읽었거나 결과가 없는 줄은 내보내지 않는다 — 빈 줄은 화면에서 의미가 없다.
+      return anchor && photos.length > 0 ? { anchor, photos } : null;
+    })
+    .filter((group): group is InterestSimilarGroup => group !== null);
+}
+
 export async function fetchRankedDetailRecommendations(
   clickedPhotoIds: string[],
   maxLimit = 120
