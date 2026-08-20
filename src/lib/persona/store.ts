@@ -51,6 +51,7 @@ export async function findCached(username: string): Promise<StoredPersonaResult 
       .from(TABLE)
       .select("id, persona, shoot, photo_ids")
       .eq("username_hash", usernameHash(username))
+      .eq("pipeline_version", PIPELINE_VERSION)
       .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: false })
       .limit(1)
@@ -92,8 +93,15 @@ export async function findById(id: string): Promise<StoredPersonaResult | null> 
 }
 
 /** 결과 저장. 실패해도 throw 하지 않고 null 을 준다(분석 흐름을 막지 않기 위해). */
-/** 홈 피드 재정렬이 참조할 결과 행 id 쿠키. 벡터 자체가 아니라 uuid 만 나간다 (0080 주석 참고). */
+/** 홈 피드 재정렬이 참조할 결과 행 id 쿠키. 벡터 자체가 아니라 uuid 만 나간다 (0081 주석 참고). */
 export const PERSONA_RESULT_COOKIE = "samae_persona_rid";
+
+/** 파이프라인 버전 — 산출물 형태가 바뀌는 배포마다 1 올릴 것.
+ *  캐시(findCached)는 같은 버전만 히트한다. 안 올리면 업그레이드 배포 후에도
+ *  기존 사용자에게 72h 동안 구버전 결과가 나간다 (2026-08-20 실사용에서 확인).
+ *  공유 링크(findById)는 버전 불문 — 이미 공유된 결과는 계속 열려야 한다.
+ *  v2: 병합 호출 + 임베딩 추천 + 근거 사진 + 하이브리드 피드 */
+export const PIPELINE_VERSION = 2;
 
 export async function saveResult(args: {
   username: string | null;
@@ -118,6 +126,7 @@ export async function saveResult(args: {
       ip_hash: args.ip ? ipHash(args.ip) : null,
       // pgvector 는 '[..]' 문자열 리터럴을 받는다
       embedding: args.embedding && args.embedding.length === 1152 ? JSON.stringify(args.embedding) : null,
+      pipeline_version: PIPELINE_VERSION,
       expires_at: new Date(Date.now() + TTL_HOURS * 3600_000).toISOString(),
     });
     if (error) return null;
