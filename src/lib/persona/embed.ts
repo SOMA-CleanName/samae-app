@@ -36,7 +36,13 @@ export async function embedImages(imagesB64: string[]): Promise<EmbedResult | nu
   try {
     const res = await fetch(`${url}/embed`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        // 서비스가 공개 인터넷(Funnel)에 노출된 경우의 인증
+        ...(process.env.PERSONA_SERVICE_TOKEN
+          ? { "x-samae-token": process.env.PERSONA_SERVICE_TOKEN }
+          : {}),
+      },
       body: JSON.stringify({ images: imagesB64 }),
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
