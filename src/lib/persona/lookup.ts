@@ -12,6 +12,7 @@
 // 그것도 안 되면 unavailable — 클라이언트는 카드 없이 기존 흐름으로 폴백한다.
 // 이 조회는 편의 기능이지 필수 관문이 아니다.
 import "server-only";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export type IgProfilePreview = {
   username: string;
@@ -27,8 +28,10 @@ export type IgProfilePreview = {
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
 
-// 같은 아이디를 타이핑 중에 여러 번 조회하게 되므로 짧게 캐시한다.
-// (인스타 쪽 레이트리밋을 아끼는 목적 — 서버 인스턴스당 메모리 캐시면 충분)
+// 2단 캐시 — 인스타 호출은 전부 단일 유출구 IP 로 나가므로(맥미니 프록시 포함)
+// 호출량 절감이 곧 레이트리밋 방어다 (2026-08-20 실사례 — 0083 주석 참고).
+//   1층: 인스턴스 메모리(빠름, 타이핑 중 반복 흡수)
+//   2층: DB 공유 캐시(persona_lookup_cache) — Vercel 인스턴스 간 공유, found 24h · not_found 6h
 const cache = new Map<string, { at: number; value: LookupResult }>();
 // 30분 — 프로필은 자주 안 바뀌고, 인스타 쪽 호출을 줄이는 게 레이트리밋 방어다
 // (2026-08-20 테스트 폭주로 주거용 IP 까지 일시 제한을 실제로 맞았다)
@@ -48,6 +51,40 @@ async function fetchAvatar(url: string): Promise<string | null> {
     return `data:${type};base64,${buf.toString("base64")}`;
   } catch {
     return null;
+  }
+}
+
+const DB_TTL_FOUND_MS = 24 * 3600_000;
+const DB_TTL_NOT_FOUND_MS = 6 * 3600_000;
+
+async function dbCacheGet(username: string): Promise<LookupResult | null> {
+  try {
+    const { data } = await createAdminClient()
+      .from("persona_lookup_cache")
+      .select("result")
+      .eq("username", username)
+      .gt("expires_at", new Date().toISOString())
+      .maybeSingle();
+    return (data?.result as LookupResult) ?? null;
+  } catch {
+    return null; // 캐시 실패는 미스로
+  }
+}
+
+async function dbCacheSet(username: string, value: LookupResult): Promise<void> {
+  if (value.status === "unavailable") return; // 일시 장애는 저장하지 않는다
+  try {
+    await createAdminClient()
+      .from("persona_lookup_cache")
+      .upsert({
+        username,
+        result: value,
+        expires_at: new Date(
+          Date.now() + (value.status === "found" ? DB_TTL_FOUND_MS : DB_TTL_NOT_FOUND_MS)
+        ).toISOString(),
+      });
+  } catch {
+    /* 저장 실패 무시 — 다음 조회가 다시 채운다 */
   }
 }
 
@@ -85,6 +122,13 @@ export async function lookupProfile(usernameRaw: string): Promise<LookupResult> 
 
   const hit = cache.get(username);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.value;
+
+  // 2층: DB 공유 캐시 — 다른 인스턴스·다른 사용자가 이미 조회한 아이디면 인스타를 안 때린다
+  const shared = await dbCacheGet(username);
+  if (shared) {
+    cache.set(username, { at: Date.now(), value: shared });
+    return shared;
+  }
 
   let value: LookupResult = { status: "unavailable" };
   try {
@@ -160,6 +204,7 @@ export async function lookupProfile(usernameRaw: string): Promise<LookupResult> 
       if (oldest !== undefined) cache.delete(oldest);
     }
     cache.set(username, { at: Date.now(), value });
+    void dbCacheSet(username, value); // 응답을 막지 않고 공유 캐시에 기록
   }
   return value;
 }
