@@ -252,7 +252,7 @@ COPY_SYSTEM = """당신은 촬영 서비스의 카피라이터입니다. 아래�
 - moodReasons: 주어진 무드 각각에 대해 signal(팩트의 근거사진 번호·유사도를 자연어로) +
   why(그래서 어울리는 이유) 각 1문장, 해요체
 - evidence: 판단 근거 3개, 각 1문장 해요체
-- locations: 어울리는 촬영 장소 2~3곳 (명사구, 실제 있을 법한 장소 유형 — 상호명·지어낸 합성어 금지)
+- locations: 국내에서 촬영할 만한 장소 유형 2~3곳 (한국어 명사구 — 해외 지명·상호명·지어낸 합성어 금지)
 - bigFive 점수는 주어진 지표를 참고하고, 신호가 약하면 45~60 중앙값
 - 반드시 JSON 스키마로만 출력"""
 
@@ -263,7 +263,9 @@ def persona_copy(facts: dict):
         "model": COPY_MODEL,
         "stream": False,
         "format": COPY_SCHEMA,
-        "options": {"temperature": 0.8, "num_ctx": 4096, "num_predict": 900},
+        # 0.8 → 0.65 (2026-08-20): 온도가 높으면 psychHook 이 가끔 비문이 된다.
+        # 사용자별 캐시라 다양성보다 문장 안정이 중요하다.
+        "options": {"temperature": 0.65, "num_ctx": 4096, "num_predict": 900},
         "messages": [
             {"role": "system", "content": COPY_SYSTEM},
             {"role": "user", "content": json.dumps(facts, ensure_ascii=False)},

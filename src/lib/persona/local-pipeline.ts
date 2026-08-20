@@ -49,12 +49,15 @@ const clamp = (n: unknown, lo: number, hi: number, dflt: number): number => {
   return Math.min(hi, Math.max(lo, v));
 };
 
-/** 4b 작문 잔글자 청소 — 한자("사진 便 1·2")·번호 앞 기호("사진 -6")가 드물게 섞인다 (실측). */
+/** 4b 작문 잔글자 청소 — 한자("사진 便 1·2")·라틴 잡토큰("사진 tqdm 7")·번호 앞 기호가
+ *  드물게 섞인다 (전부 실측). 한국어 카피에 라틴 단어가 정상적으로 낄 일은 없다. */
 const tidy = (s: string | undefined | null): string =>
   (s ?? "")
     .replace(/[㐀-䶿一-鿿]/g, "")
+    .replace(/\b[a-zA-Z]{2,}\b/g, "")
     .replace(/(\s)-(\d)/g, "$1$2")
     .replace(/\s{2,}/g, " ")
+    .replace(/\s+([.,·])/g, "$1")
     .trim();
 
 /** 벡터 + 프로필 → 기존과 동일한 (persona, shoot) 형태.
@@ -122,8 +125,10 @@ export async function analyzeLocally(
   const copy = await generateCopy(facts);
 
   // ── 기존 타입으로 조립 (작문 출력은 신뢰하지 않고 전부 클램프·검증) ──
-  const validTitles = new Set(moods.map((m) => m.title));
   const reasonByTitle = new Map(copy.moodReasons?.map((r) => [r.moodTitle, r]) ?? []);
+  // signal 은 코드가 조립한다 — 4b 가 무드별 근거사진 번호를 섞어 쓰고(실측: 두 무드가
+  // 같은 번호) 잡토큰을 흘린다. 유일하게 '팩트 그 자체'인 문장은 팩트에서 직접 만드는 게 정직하다.
+  const toneLine = palette.length > 0 ? ` ${toneFacts(palette)}이 그 분위기를 받쳐줘요.` : "";
 
   const persona: Persona = {
     oneLiner: tidy(copy.oneLiner) || "자기만의 결이 또렷한 사람",
@@ -154,13 +159,14 @@ export async function analyzeLocally(
       ? (purpose as "wedding" | "couple" | "personal")
       : "personal",
     moodIds: moods.map((m) => m.id),
-    moodReasons: moods.map((m) => {
+    moodReasons: moods.map((m, rank) => {
       const r = reasonByTitle.get(m.title);
       return {
         moodTitle: m.title,
         signal:
-          (validTitles.has(m.title) && tidy(r?.signal)) ||
-          `피드 사진 ${m.photoIndexes.join("·")}번이 이 무드와 가장 가깝게 읽혀요`,
+          rank === 0
+            ? `피드 사진 ${m.photoIndexes.join("·")}번이 이 무드와 가장 가깝게 읽혀요.${toneLine}`
+            : `피드 사진 ${m.photoIndexes.join("·")}번이 그다음으로 이 무드에 가깝게 읽혀요.`,
         why: tidy(r?.why) || "당신이 이미 고르고 있는 룩이라 자연스럽게 어울려요",
         photoIndexes: m.photoIndexes,
       };
