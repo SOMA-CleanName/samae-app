@@ -111,22 +111,23 @@ export default function PersonaExperience({ defaultUsername = "" }: { defaultUse
     e.preventDefault();
     if (pending) return;
     if (!username.trim()) {
-      // 비활성 버튼 대신 인라인 에러 + 포커스 이동
       setEmpty(true);
       inputRef.current?.focus();
       return;
     }
-    // 확인 카드가 이미 결론을 낸 경우 서버(Apify)를 태우지 않는다.
-    // 미존재 → 인라인 경고가 떠 있음. 비공개 → 업로드 안내 카드가 떠 있음.
-    if (preview?.status === "not_found") {
-      inputRef.current?.focus();
+    // 실행은 '검색으로 확인된 계정'만 — 오타·비공개·조회불가로 Apify+LLM 을 태우지 않는다.
+    if (preview?.status === "found") {
+      if (preview.profile.isPrivate) {
+        fileRef.current?.click(); // 비공개 → 업로드 경로
+        return;
+      }
+      const u = preview.profile.username;
+      setUsername(u);
+      run("instagram", () => runPersonaAnalysis(u));
       return;
     }
-    if (preview?.status === "found" && preview.profile.isPrivate) {
-      fileRef.current?.click();
-      return;
-    }
-    run("instagram", () => runPersonaAnalysis(username));
+    // 조회 중이거나 미존재·조회불가 — 해당 안내가 이미 화면에 있다. 포커스만 돌려준다.
+    inputRef.current?.focus();
   }
 
   function submitImages() {
@@ -294,14 +295,13 @@ export default function PersonaExperience({ defaultUsername = "" }: { defaultUse
           </p>
         )}
 
-        {/* 버튼은 '입력이 있고, 공개 계정 카드가 없을 때'만.
-            · 입력 전: 누를 이유가 없는 CTA 는 화면에 없는 게 맞다 (인풋에 집중)
-            · 공개 카드 표시 중: 카드가 유일한 CTA (같은 일을 하는 버튼 중복 제거)
-            Enter 제출은 항상 동작 — 빈 입력 Enter 는 인라인 에러로 안내한다. */}
-        {handle.length > 0 && !(preview?.status === "found" && !preview.profile.isPrivate && !looking) && (
-          <Button type="submit" variant="brand" size="lg" fullWidth>
-            내 촬영 페르소나 알아보기
-          </Button>
+        {/* 하단 버튼 없음 — 실행은 '검색된 계정 카드'로만 한다.
+            확인 안 된 아이디로 Apify+LLM 을 태우는 경로를 아예 없앤 것.
+            Enter 는 카드가 있을 때만 카드와 같은 동작(submitUsername 참고). */}
+        {!looking && preview?.status === "unavailable" && handle.length >= 3 && (
+          <p className="text-caption text-muted" role="status">
+            지금 인스타 계정 확인이 원활하지 않아요. 잠시 후 다시 시도해 주세요.
+          </p>
         )}
       </form>
 

@@ -30,7 +30,9 @@ const UA =
 // 같은 아이디를 타이핑 중에 여러 번 조회하게 되므로 짧게 캐시한다.
 // (인스타 쪽 레이트리밋을 아끼는 목적 — 서버 인스턴스당 메모리 캐시면 충분)
 const cache = new Map<string, { at: number; value: LookupResult }>();
-const CACHE_TTL_MS = 5 * 60_000;
+// 30분 — 프로필은 자주 안 바뀌고, 인스타 쪽 호출을 줄이는 게 레이트리밋 방어다
+// (2026-08-20 테스트 폭주로 주거용 IP 까지 일시 제한을 실제로 맞았다)
+const CACHE_TTL_MS = 30 * 60_000;
 const CACHE_MAX = 500;
 
 async function fetchAvatar(url: string): Promise<string | null> {
