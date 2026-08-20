@@ -16,6 +16,16 @@ warn() { printf '  ⚠️  %s\n' "$1"; }
 die()  { printf '  ❌ %s\n' "$1"; exit 1; }
 
 echo "저장소: $ROOT"
+
+# ⚠️ TCC 함정 (2026-08-21 실측): launchd 는 ~/Documents·~/Desktop·~/Downloads 안의
+# 파일을 읽지 못한다 (macOS 폴더 보호 — "Operation not permitted" 로 조용히 죽는다).
+# 개발 저장소가 Documents 에 있으면, 런타임용 clone 을 보호 밖(~/srv 등)에 두고
+# 거기서 이 스크립트를 돌려야 한다.
+case "$ROOT" in
+  "$HOME/Documents/"*|"$HOME/Desktop/"*|"$HOME/Downloads/"*)
+    die "이 경로는 launchd 가 읽지 못합니다(TCC). 예: git clone <repo> ~/srv/samae-app 후 거기서 실행" ;;
+esac
+
 echo
 echo "① Python 3.12"
 if [ ! -x "$PY" ]; then
@@ -62,6 +72,18 @@ sed "s|__REPO__|$ROOT|g" "$ROOT/scripts/embed/com.samae.embed.plist.template" > 
 launchctl unload "$AGENT" 2>/dev/null
 launchctl load "$AGENT" || die "launchctl load 실패"
 ok "$AGENT"
+
+echo
+echo "⑦ 페르소나 상주 서비스 (serve.py — 프로덕션이 Funnel 로 부른다)"
+SERVE_AGENT="$HOME/Library/LaunchAgents/com.samae.serve.plist"
+if grep -q '^PERSONA_SERVICE_TOKEN=' "$ROOT/.env.local"; then
+  sed "s|__REPO__|$ROOT|g" "$ROOT/scripts/embed/com.samae.serve.plist.template" > "$SERVE_AGENT"
+  launchctl unload "$SERVE_AGENT" 2>/dev/null
+  launchctl load "$SERVE_AGENT" || die "com.samae.serve load 실패"
+  ok "$SERVE_AGENT (로그인 시 자동시작 + 죽으면 재시작)"
+else
+  warn "PERSONA_SERVICE_TOKEN 이 .env.local 에 없어 상주 서비스는 건너뜁니다"
+fi
 
 echo
 echo "───────────────────────────────────────────────"

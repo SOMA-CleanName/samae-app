@@ -58,15 +58,28 @@ plist 를 템플릿으로 둔 이유는 **저장소 경로가 기계마다 다�
 
 ## 4. 설치 (맥미니에서 한 번)
 
-```bash
-git clone https://github.com/SOMA-CleanName/samae-app.git
-cd samae-app && git checkout dev
+> ⚠️ **TCC 함정 (2026-08-21 실측)**: launchd 는 `~/Documents`·`~/Desktop`·`~/Downloads` 안의
+> 파일을 읽지 못한다 (macOS 폴더 보호 — 에이전트가 "Operation not permitted" 로 조용히 죽는다).
+> **런타임 clone 은 반드시 보호 폴더 밖**(예: `~/srv/samae-app`)에 둘 것. 개발 저장소가
+> Documents 에 있어도 런타임은 별도 clone 으로 분리한다. 스크립트가 바뀌면 런타임 쪽에서
+> `git pull` 한 번이 동기화의 전부다. setup 스크립트가 보호 경로에서 실행되면 거부한다.
 
-# .env.local 을 옮겨 넣는다 (NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY 필요)
+```bash
+git clone https://github.com/SOMA-CleanName/samae-app.git ~/srv/samae-app
+cd ~/srv/samae-app
+
+# .env.local 을 옮겨 넣는다 (NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY 필요.
+#  페르소나 상주 서비스까지 띄우려면 PERSONA_SERVICE_TOKEN·PERSONA_EMBED_URL 도)
 
 bash scripts/embed/macmini-setup.sh
 sudo pmset -a sleep 0 disksleep 0      # 안내에 따라 직접 실행
 ```
+
+setup ⑦단계가 `.env.local` 에 `PERSONA_SERVICE_TOKEN` 이 있으면 **페르소나 상주 서비스**
+(`com.samae.serve` — serve.py: SigLIP 임베딩·인스타 조회 프록시·qwen3 작문)도 함께 등록한다.
+로그인 시 자동시작 + 죽으면 10초 간격 재시작(KeepAlive). 프로덕션(samae.ai)이 Tailscale
+Funnel 로 이 서비스를 부르므로, 죽어 있으면 페르소나가 claude 폴백(과금)으로 돈다.
+ollama 는 `brew services start ollama` 로 자동시작을 건다 (docs/23 §7).
 
 설치 스크립트가 하는 일은 순서대로 Python 3.12 확인 → venv → 패키지 → `.env.local` 검사 → 모델 캐시 예열(4.4GB) → launchd 등록이다. **sudo 가 필요한 슬립 설정은 자동으로 하지 않고 명령만 안내한다.**
 
@@ -120,4 +133,4 @@ python3 scripts/embed/check_db.py        # "임베딩 대기" 줄
 | 일시(KST) | 내용 | 결과 |
 |---|---|---|
 | 2026-08-19 | 맥북에서 `run-embed.sh` 동작 검증 | 밀려 있던 **44장 처리 · 41초 · 실패 0**. 커버리지 1,807/1,807 (대기 0) |
-| — | 맥미니 설치 | 대기 |
+| 2026-08-21 | 맥미니 설치 (런타임 `~/srv/samae-app`) | launchd 등록 + 수동 1회 검증(대기 0장 no-op). **Documents 경로 1차 시도는 TCC 로 실패** → §4 함정 문서화 + setup 가드 추가. 상주 서비스(com.samae.serve)·ollama 자동시작 동시 등록 |
