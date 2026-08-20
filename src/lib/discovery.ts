@@ -4,7 +4,11 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { seededShuffle } from "@/lib/seeded-shuffle";
 import { readAnonFavPhotoIds } from "@/lib/anon-favorites";
-import { mapSimilarityRows, mergeDemotedSimilar, promotionStage } from "@/lib/feed-demotion";
+import { mapSimilarityRows, mergeDemotedSimilar, promotionStage, rebalancePortraitShare } from "@/lib/feed-demotion";
+import {
+  personalizedRecommendationTarget,
+  selectPersonalizationAnchors,
+} from "@/lib/feed-personalization";
 
 // 탐색 갤러리 사진 1장
 export type GalleryPhoto = {
@@ -387,14 +391,15 @@ export async function fetchHomeFeedPage(
   return out;
 }
 
-// 홈에서 클릭한 사진을 취향 신호로 사용한다. 클릭 수와 스타일 일관성에 따라 12~36장을
-// 임베딩 유사 사진으로 교체해 탐색 다양성을 유지하고, 위치는 페이지별 시드로 불규칙하게 섞는다.
+// 홈에서 클릭·관심 이력을 분리된 취향 신호로 사용한다. 클릭은 1, 관심은 2로 계산해
+// 6~36장을 임베딩 유사 사진으로 교체하고, 위치는 페이지별 시드로 불규칙하게 섞는다.
 export async function fetchPersonalizedHomeFeedPage(
   seed: string,
   page: number,
   purposeIds: string[],
   moodIds: string[],
   clickedPhotoIds: string[],
+  interestedPhotoIds: string[],
   seenPhotoIds: string[],
   pageSize = 48
 ): Promise<GalleryPhoto[]> {
@@ -403,12 +408,16 @@ export async function fetchPersonalizedHomeFeedPage(
   if (base.length < 8) return base;
   const recommendations = await fetchPersonalizedRecommendations(
     clickedPhotoIds,
+    interestedPhotoIds,
     [...seenPhotoIds, ...base.map((photo) => photo.id)],
     36
   );
-  // 최초 진입(page 0, 클릭 없음)은 일반 피드 그대로. 반복 사이클의 page 0은 클릭 신호가
+  // 최초 진입(page 0, 신호 없음)은 일반 피드 그대로. 반복 사이클의 page 0은 취향 신호가
   // 이미 있으므로 다른 페이지와 동일하게 개인화를 섞는다.
-  if ((page === 0 && clickedPhotoIds.length === 0) || recommendations.length === 0) return base;
+  if (
+    (page === 0 && clickedPhotoIds.length === 0 && interestedPhotoIds.length === 0) ||
+    recommendations.length === 0
+  ) return base;
 
   const positions = seededShuffle(
     Array.from({ length: pageSize }, (_, index) => index),
@@ -429,10 +438,11 @@ export async function fetchPersonalizedHomeFeedPage(
 
 export async function fetchPersonalizedRecommendations(
   clickedPhotoIds: string[],
+  interestedPhotoIds: string[],
   excludedPhotoIds: string[],
   maxLimit = 36
 ): Promise<GalleryPhoto[]> {
-  const anchors = [...new Set(clickedPhotoIds)].slice(-4).reverse();
+  const anchors = selectPersonalizationAnchors(clickedPhotoIds, interestedPhotoIds, 4);
   if (anchors.length === 0) return [];
 
   const supabase = await createClient();
@@ -458,23 +468,13 @@ export async function fetchPersonalizedRecommendations(
     })
   );
 
-  // 클릭 수 기본값: 1장=12, 2장=16, 3장 이상=20.
-  // 각 클릭 사진의 상위 근접 이웃이 많이 겹치면 같은 스타일을 반복 선택한 것으로 보고
-  // 24→30→36장까지 강화한다. 임베딩이 없는 사진은 태그 폴백 이웃으로 같은 계산을 한다.
-  const baseTarget = anchors.length === 1 ? 12 : anchors.length === 2 ? 16 : 20;
   const styleConsistency = averageNeighborOverlap(similarLists, 60);
   const rankedSimilarLists = similarLists.map((list) =>
     orderSimilarWithDemotion(list, anchors.length, styleConsistency)
   );
-  const boostedTarget =
-    styleConsistency >= 0.55 ? 36
-    : styleConsistency >= 0.4 ? 30
-    : styleConsistency >= 0.25 ? 24
-    : styleConsistency >= 0.12 ? 20
-    : baseTarget;
-  const target = Math.min(maxLimit, Math.max(baseTarget, boostedTarget));
+  const target = personalizedRecommendationTarget(clickedPhotoIds, interestedPhotoIds, maxLimit);
 
-  const excluded = new Set([...excludedPhotoIds, ...clickedPhotoIds]);
+  const excluded = new Set([...excludedPhotoIds, ...clickedPhotoIds, ...interestedPhotoIds]);
   const pickedIds: string[] = [];
   // 여러 사진을 눌렀다면 각 기준 사진의 후보를 한 장씩 번갈아 선택한다.
   for (let rank = 0; pickedIds.length < target; rank++) {
@@ -496,6 +496,7 @@ export async function fetchPersonalizedRecommendations(
   if (process.env.NODE_ENV !== "production") {
     console.info("[home-personalization]", {
       anchors,
+      interestedPhotoIds,
       styleConsistency: Number(styleConsistency.toFixed(3)),
       target,
       inserted: recommendations.length,
@@ -503,6 +504,92 @@ export async function fetchPersonalizedRecommendations(
     });
   }
   return recommendations;
+}
+
+// 관심사진 화면의 '비슷한 사진' — 앵커별로 묶어서 돌려준다.
+//
+// fetchPersonalizedRecommendations 와 후보 계산은 같지만 **합치지 않는다.**
+// 홈 피드는 한 줄로 흘러가므로 섞는 게 맞지만, 이 화면은 "무엇과 비슷한지"를
+// 사용자에게 보여줘야 한다. 4개 앵커의 이웃을 섞으면 화면 안에서 무드가 깨지고
+// 근거도 사라진다(docs/26 §2).
+export type InterestSimilarGroup = {
+  anchor: GalleryPhoto;
+  photos: GalleryPhoto[];
+};
+
+// 한 번의 .in() 에 넣는 id 수 상한. 줄당 100장 × 앵커 4개면 400개가 넘는데,
+// PostgREST 는 이 목록을 URL 쿼리로 보내므로 한 번에 다 넣으면 URL 길이 제한에 걸린다.
+const ID_FETCH_CHUNK = 150;
+
+async function fetchPhotosByIdsChunked(ids: string[]): Promise<GalleryPhoto[]> {
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += ID_FETCH_CHUNK) chunks.push(ids.slice(i, i + ID_FETCH_CHUNK));
+  const pages = await Promise.all(chunks.map((chunk) => fetchLikedPhotosByIds(chunk)));
+  return pages.flat();
+}
+
+export async function fetchInterestSimilarGroups(
+  interestedPhotoIds: string[],
+  perAnchor = 100
+): Promise<InterestSimilarGroup[]> {
+  const anchors = selectPersonalizationAnchors([], interestedPhotoIds, 4);
+  if (anchors.length === 0) return [];
+
+  const supabase = await createClient();
+  const { data: anchorRows } = await supabase
+    .from("photos")
+    .select("id, album_id, mood_tags")
+    .in("id", anchors);
+  const anchorById = new Map(
+    ((anchorRows ?? []) as { id: string; album_id: string | null; mood_tags: string[] | null }[])
+      .map((row) => [row.id, row])
+  );
+
+  const similarLists = await Promise.all(
+    anchors.map(async (id) => {
+      const anchor = anchorById.get(id);
+      if (!anchor) return [];
+      return fetchSimilarPhotosRaw({
+        photoId: id,
+        albumId: anchor.album_id,
+        tags: anchor.mood_tags ?? [],
+        limit: 120,
+      });
+    })
+  );
+
+  // 노출 낮춤 승격·방향 다양성 보정은 홈 피드와 같은 정책을 그대로 쓴다.
+  const styleConsistency = averageNeighborOverlap(similarLists, 60);
+  const ranked = similarLists.map((list) =>
+    orderSimilarWithDemotion(list, anchors.length, styleConsistency)
+  );
+
+  // 줄이 달라도 같은 사진이 두 번 보이지 않게 한다. 앞선 줄이 우선권을 갖는다.
+  // 관심사진 자신도 결과에서 뺀다.
+  const taken = new Set<string>(interestedPhotoIds);
+  const picks = ranked.map((list) => {
+    const out: string[] = [];
+    for (const photo of list) {
+      if (out.length >= perAnchor) break;
+      if (taken.has(photo.id)) continue;
+      taken.add(photo.id);
+      out.push(photo.id);
+    }
+    return out;
+  });
+
+  // 앵커 + 모든 줄의 사진을 한 번에 조회한다. 수백 장이라 청크로 나눠 병렬 조회한다.
+  const allIds = [...anchors, ...picks.flat()];
+  const byId = new Map((await fetchPhotosByIdsChunked(allIds)).map((p) => [p.id, p]));
+
+  return anchors
+    .map((anchorId, index) => {
+      const anchor = byId.get(anchorId);
+      const photos = picks[index].map((id) => byId.get(id)).filter((p): p is GalleryPhoto => !!p);
+      // 앵커를 못 읽었거나 결과가 없는 줄은 내보내지 않는다 — 빈 줄은 화면에서 의미가 없다.
+      return anchor && photos.length > 0 ? { anchor, photos } : null;
+    })
+    .filter((group): group is InterestSimilarGroup => group !== null);
 }
 
 export async function fetchRankedDetailRecommendations(
@@ -1375,6 +1462,7 @@ export type SimilarPhoto = {
   height: number;
   demoted: boolean;
   naturalRank: number;
+  distance?: number;
 };
 
 export async function fetchSimilarPhotos(opts: {
@@ -1383,7 +1471,10 @@ export async function fetchSimilarPhotos(opts: {
   tags: string[];
   limit?: number;
 }): Promise<SimilarPhoto[]> {
-  return orderSimilarWithDemotion(await fetchSimilarPhotosRaw(opts), 1, 0);
+  return orderSimilarWithDemotion(await fetchSimilarPhotosRaw(opts), 1, 0).slice(
+    0,
+    opts.limit ?? 120
+  );
 }
 
 async function fetchSimilarPhotosRaw(opts: {
@@ -1392,7 +1483,9 @@ async function fetchSimilarPhotosRaw(opts: {
   tags: string[];
   limit?: number;
 }): Promise<SimilarPhoto[]> {
-  const byEmbedding = await similarByEmbedding(opts.photoId, opts.limit ?? 120);
+  // 방향 편향이 강한 top-120만으로는 세로 후보가 부족하므로 RPC 최대치 300장을
+  // 재정렬 후보로 받고, 각 호출부가 필요한 장수만 마지막에 자른다.
+  const byEmbedding = await similarByEmbedding(opts.photoId, 300);
   if (byEmbedding.length > 0) return byEmbedding;
   // 임베딩이 아직 없는 신규 업로드(백필 배치 전)나 RPC 실패 시,
   // 추천이 통째로 비지 않도록 기존 태그 방식으로 떨어진다.
@@ -1404,9 +1497,25 @@ function orderSimilarWithDemotion(
   anchorCount: number,
   styleConsistency: number
 ): SimilarPhoto[] {
-  const normal = photos.filter((photo) => !photo.demoted);
-  const demoted = photos.filter((photo) => photo.demoted);
-  return mergeDemotedSimilar(normal, demoted, promotionStage(anchorCount, styleConsistency));
+  const stage = promotionStage(anchorCount, styleConsistency);
+  const distances = photos
+    .map((photo) => photo.distance)
+    .filter((distance): distance is number => Number.isFinite(distance));
+  const bestDistance = distances.length > 0 ? Math.min(...distances) : undefined;
+  const normal = rebalancePortraitShare(
+    photos.filter((photo) => !photo.demoted),
+    0.75,
+    0.015,
+    bestDistance
+  );
+  const demoted = rebalancePortraitShare(
+    photos.filter((photo) => photo.demoted),
+    0.75,
+    0.015,
+    bestDistance
+  );
+  const merged = mergeDemotedSimilar(normal, demoted, stage);
+  return stage === 4 ? rebalancePortraitShare(merged, 0.75, 0.015, bestDistance) : merged;
 }
 
 // 벡터 근접검색. RPC 가 published/approved·현재 사진·같은 게시물을 이미 걸러
@@ -1437,6 +1546,7 @@ async function similarByEmbedding(photoId: string, limit: number): Promise<Simil
     height: p.height,
     demoted: p.demoted,
     naturalRank: p.naturalRank,
+    distance: p.distance,
   }));
 }
 

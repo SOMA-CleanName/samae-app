@@ -1,6 +1,14 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import {
+  FEED_INTEREST_HISTORY_KEY,
+  addFeedInterestSignal,
+  migrateCartInterests,
+  parseFeedInterestSignals,
+  removeFeedInterestSignal,
+  type FeedInterestSignal,
+} from "@/lib/feed-personalization";
 
 // 장바구니 — 완전 비로그인 기준이라 localStorage 에만 저장.
 // 담을 때 사진이 하단 우측 장바구니로 "빨려들어가는" 모션이 핵심.
@@ -9,6 +17,8 @@ export type CartItem = { id: string; src: string; w: number; h: number; seq?: nu
 
 type CartContextValue = {
   items: CartItem[];
+  interestPhotoIds: string[];
+  hydrated: boolean;
   has: (id: string) => boolean;
   add: (item: CartItem, sourceEl?: HTMLElement | null) => void;
   remove: (id: string) => void;
@@ -31,6 +41,7 @@ export function useCart() {
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [interestSignals, setInterestSignals] = useState<FeedInterestSignal[]>([]);
   const [hydrated, setHydrated] = useState(false);
   const targetRef = useRef<HTMLElement | null>(null);
   // 담은 직후 카드가 출발 사진 자리에서 제자리로 날아오게(FLIP) — id별 출발 rect 보관
@@ -38,28 +49,38 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   // 최초 로드
   useEffect(() => {
+    let loadedItems: CartItem[] = [];
+    let loadedSignals: FeedInterestSignal[] = [];
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as CartItem[];
         // 레거시(seq 없음) 마이그레이션 — 배열 순서로 고정 순번 부여
-        setItems(parsed.map((p, i) => ({ ...p, seq: typeof p.seq === "number" ? p.seq : i })));
+        loadedItems = parsed.map((p, i) => ({ ...p, seq: typeof p.seq === "number" ? p.seq : i }));
       }
+      const storedSignals = parseFeedInterestSignals(localStorage.getItem(FEED_INTEREST_HISTORY_KEY));
+      loadedSignals = migrateCartInterests(storedSignals, loadedItems.map((item) => item.id));
     } catch {
       /* 손상된 값 무시 */
     }
-    setHydrated(true);
+    const timer = window.setTimeout(() => {
+      setItems(loadedItems);
+      setInterestSignals(loadedSignals);
+      setHydrated(true);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, []);
 
-  // 변경 시 저장
+  // 장바구니와 추천용 관심 이력은 목적이 달라 별도 키에 저장한다.
   useEffect(() => {
     if (!hydrated) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      localStorage.setItem(FEED_INTEREST_HISTORY_KEY, JSON.stringify(interestSignals));
     } catch {
       /* 용량 초과 등 무시 */
     }
-  }, [items, hydrated]);
+  }, [items, interestSignals, hydrated]);
 
   const registerTarget = useCallback((el: HTMLElement | null) => {
     targetRef.current = el;
@@ -88,6 +109,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
         const r = sourceEl.getBoundingClientRect();
         if (r.width > 0) flyFromRef.current.set(item.id, r);
       }
+      setInterestSignals((prev) => addFeedInterestSignal(prev, item.id, Date.now()));
       pushItem(item);
     },
     [pushItem]
@@ -100,14 +122,38 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const remove = useCallback((id: string) => {
+    const removedAt = Date.now();
     setItems((prev) => prev.filter((p) => p.id !== id));
+    setInterestSignals((prev) => removeFeedInterestSignal(prev, id, removedAt));
   }, []);
-  const clear = useCallback(() => setItems([]), []);
+  const clear = useCallback(() => {
+    const removedAt = Date.now();
+    const removedIds = items.map((item) => item.id);
+    setItems([]);
+    setInterestSignals((prev) =>
+      removedIds.reduce(
+        (signals, id) => removeFeedInterestSignal(signals, id, removedAt),
+        prev
+      )
+    );
+  }, [items]);
   const has = useCallback((id: string) => items.some((p) => p.id === id), [items]);
+  const interestPhotoIds = interestSignals.map((signal) => signal.id);
 
   return (
     <CartContext.Provider
-      value={{ items, has, add, remove, clear, count: items.length, registerTarget, consumeFlyFrom }}
+      value={{
+        items,
+        interestPhotoIds,
+        hydrated,
+        has,
+        add,
+        remove,
+        clear,
+        count: items.length,
+        registerTarget,
+        consumeFlyFrom,
+      }}
     >
       {children}
     </CartContext.Provider>
@@ -129,4 +175,3 @@ export function cartCardJitter(id: string): { rot: number; dx: number; dy: numbe
     dy: ((h >> 9) % 9) - 4, // -4 ~ 4px
   };
 }
-
