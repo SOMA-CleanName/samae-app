@@ -126,7 +126,12 @@ export default function PersonaExperience({ defaultUsername = "" }: { defaultUse
       run("instagram", () => runPersonaAnalysis(u));
       return;
     }
-    // 조회 중이거나 미존재·조회불가 — 해당 안내가 이미 화면에 있다. 포커스만 돌려준다.
+    // 조회불가(열화 모드) — 확인 없이 직접 실행. 오타면 스크래핑 단계에서 걸러진다.
+    if (preview?.status === "unavailable") {
+      run("instagram", () => runPersonaAnalysis(username));
+      return;
+    }
+    // 조회 중·미존재 — 해당 안내가 이미 화면에 있다. 포커스만 돌려준다.
     inputRef.current?.focus();
   }
 
@@ -298,10 +303,18 @@ export default function PersonaExperience({ defaultUsername = "" }: { defaultUse
         {/* 하단 버튼 없음 — 실행은 '검색된 계정 카드'로만 한다.
             확인 안 된 아이디로 Apify+LLM 을 태우는 경로를 아예 없앤 것.
             Enter 는 카드가 있을 때만 카드와 같은 동작(submitUsername 참고). */}
+        {/* 열화 모드 — 계정 확인(인스타 조회)이 막힌 동안에만 직접 실행 경로를 연다.
+            분석 자체(Apify)는 자체 프록시 풀이라 우리 IP 제한과 무관하게 동작한다.
+            즉 조회가 죽어도 기능은 살아야 하고, 이 버튼이 그 생명줄이다. */}
         {!looking && preview?.status === "unavailable" && handle.length >= 3 && (
-          <p className="text-caption text-muted" role="status">
-            지금 인스타 계정 확인이 원활하지 않아요. 잠시 후 다시 시도해 주세요.
-          </p>
+          <div className="space-y-2.5 rounded-xl border border-line bg-surface p-4" role="status">
+            <p className="text-body-sm text-muted">
+              지금 계정 미리보기가 원활하지 않아요. 아이디가 정확하다면 바로 분석할 수 있어요.
+            </p>
+            <Button type="submit" variant="brand" size="md" fullWidth>
+              @{handle} 계정으로 바로 분석하기
+            </Button>
+          </div>
         )}
       </form>
 
