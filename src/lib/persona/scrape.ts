@@ -7,14 +7,14 @@ const APIFY_ACTOR = "apify~instagram-profile-scraper";
 const APIFY_URL = (token: string) =>
   `https://api.apify.com/v2/acts/${APIFY_ACTOR}/run-sync-get-dataset-items?token=${token}`;
 
-function useMock(): boolean {
+function shouldUseMock(): boolean {
   return process.env.IG_MOCK === "true" || !process.env.APIFY_TOKEN;
 }
 
 /** 계정 스크래핑 (여러 개 지원, 실패 시 개별 처리) */
 export async function scrapeProfiles(usernames: string[]): Promise<IgProfile[]> {
   const clean = usernames.map((u) => u.replace(/^@/, "").trim().toLowerCase());
-  if (useMock()) return clean.map(mockProfile);
+  if (shouldUseMock()) return clean.map(mockProfile);
 
   const token = process.env.APIFY_TOKEN!;
   const res = await fetch(APIFY_URL(token), {

@@ -7,6 +7,12 @@ export const metadata: Metadata = {
 };
 
 // 이벤트 전용 몰입형 진입 — 인스타 아이디 → 촬영 페르소나 분석.
-export default function PersonaEventPage() {
-  return <PersonaExperience />;
+// ?u=아이디 로 열면 입력이 미리 채워진다 (광고·DM 딥링크용 — 확인 카드까지 자동으로 뜬다).
+export default async function PersonaEventPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ u?: string }>;
+}) {
+  const { u } = await searchParams;
+  return <PersonaExperience defaultUsername={u ?? ""} />;
 }

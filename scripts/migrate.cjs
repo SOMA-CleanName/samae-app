@@ -65,8 +65,15 @@ async function connectAny() {
     } catch (e) {
       lastErr = e;
       try { await client.end(); } catch {}
-      // DNS 실패·리전 불일치(Tenant not found)면 다음 후보로, 실제 인증 실패면 즉시 중단
-      if (!/ENOTFOUND|EAI_AGAIN|ETIMEDOUT|Tenant or user not found/i.test(e.message)) throw e;
+      // DNS 실패·경로 없음·리전 불일치(Tenant not found)면 다음 후보로, 실제 인증 실패면 즉시 중단.
+      // EHOSTUNREACH/ENETUNREACH 는 직접 연결(db.<ref>.supabase.co)이 IPv6 전용이라
+      // IPv6 경로가 없는 회선에서 나온다. 이게 빠져 있어 pooler 후보로 넘어가지 못했다(2026-08-19).
+      if (
+        !/ENOTFOUND|EAI_AGAIN|ETIMEDOUT|EHOSTUNREACH|ENETUNREACH|ECONNREFUSED|Tenant or user not found/i.test(
+          e.message
+        )
+      )
+        throw e;
     }
   }
   throw lastErr;

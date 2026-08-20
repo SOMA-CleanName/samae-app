@@ -1,8 +1,10 @@
 import type { ComponentProps, ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
+// 모바일은 text-base(16px) — iOS 사파리는 입력 폰트가 16px 미만이면 포커스할 때
+// 화면을 강제로 확대한다. 데스크톱(sm↑)에서만 디자인대로 14px 로 줄인다.
 const FIELD_BASE =
-  "w-full rounded-xl border bg-surface text-fg text-sm placeholder:text-faint " +
+  "w-full rounded-xl border bg-surface text-fg text-base sm:text-sm placeholder:text-faint " +
   "outline-none transition-colors " +
   "focus:border-fg/40 focus:ring-2 focus:ring-fg/10 " +
   "disabled:cursor-not-allowed disabled:opacity-60 " +

@@ -7,6 +7,9 @@ const MoodReason = z.object({
   moodTitle: z.string().describe("고른 무드 카테고리의 title (입력으로 준 목록의 title 그대로)"),
   signal: z.string().describe("피드에서 관찰된 실제 신호 (예: '게시물 78%가 따뜻한 자연광·필름 톤')"),
   why: z.string().describe("그래서 이 무드가 어울리는 이유 (심리+미감 결합, 단정 금지)"),
+  // 이 무드의 근거가 된 사진 번호(1-base). 결과 화면이 해당 썸네일을 근거 옆에 붙인다.
+  // optional — 병합 호출 이전에 저장된 결과에는 없다.
+  photoIndexes: z.array(z.number()).optional().describe("근거가 된 사진 번호 1~3개 (프롬프트에 매긴 번호)"),
 });
 
 export const ShootPersonaSchema = z.object({
