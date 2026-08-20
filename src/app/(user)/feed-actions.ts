@@ -1,6 +1,7 @@
 "use server";
 
 import { cookies } from "next/headers";
+import { rerankByPersonaVector } from "@/lib/persona/feed-rerank";
 import { fetchDemotedHomeFeedPage, fetchPersonalizedHomeFeedPage, fetchPersonalizedRecommendations, fetchRankedDetailRecommendations } from "@/lib/discovery";
 import type { GalleryPhoto } from "@/lib/discovery";
 import { TASTE_V2_COOKIE, parseTasteV2 } from "@/lib/category-constants";
@@ -16,7 +17,7 @@ export async function loadMorePhotos(
   seenPhotoIds: string[] = []
 ): Promise<GalleryPhoto[]> {
   const { purposeIds, moodIds } = parseTasteV2((await cookies()).get(TASTE_V2_COOKIE)?.value);
-  return fetchPersonalizedHomeFeedPage(
+  const photos = await fetchPersonalizedHomeFeedPage(
     seed,
     page,
     purposeIds,
@@ -25,6 +26,8 @@ export async function loadMorePhotos(
     seenPhotoIds,
     48
   );
+  // 페르소나 방문자면 페이지 안 순서를 시각 유사도순으로 (0080, 실패 무해)
+  return rerankByPersonaVector(photos);
 }
 
 export async function loadPersonalizedPhotos(

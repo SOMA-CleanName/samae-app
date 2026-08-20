@@ -92,6 +92,9 @@ export async function findById(id: string): Promise<StoredPersonaResult | null> 
 }
 
 /** 결과 저장. 실패해도 throw 하지 않고 null 을 준다(분석 흐름을 막지 않기 위해). */
+/** 홈 피드 재정렬이 참조할 결과 행 id 쿠키. 벡터 자체가 아니라 uuid 만 나간다 (0080 주석 참고). */
+export const PERSONA_RESULT_COOKIE = "samae_persona_rid";
+
 export async function saveResult(args: {
   username: string | null;
   method: "instagram" | "upload";
@@ -99,6 +102,8 @@ export async function saveResult(args: {
   shoot: ShootPersona;
   photoIds: string[];
   ip: string | null;
+  /** 분석 표본 평균 벡터(1152d, L2 정규화). 임베딩 서비스 미가동이면 null — 재정렬만 생략된다. */
+  embedding?: number[] | null;
 }): Promise<string | null> {
   try {
     const db = createAdminClient();
@@ -111,6 +116,8 @@ export async function saveResult(args: {
       shoot: args.shoot,
       photo_ids: args.photoIds,
       ip_hash: args.ip ? ipHash(args.ip) : null,
+      // pgvector 는 '[..]' 문자열 리터럴을 받는다
+      embedding: args.embedding && args.embedding.length === 1152 ? JSON.stringify(args.embedding) : null,
       expires_at: new Date(Date.now() + TTL_HOURS * 3600_000).toISOString(),
     });
     if (error) return null;

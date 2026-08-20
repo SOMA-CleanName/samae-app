@@ -44,21 +44,25 @@ export type PersonaAnalysis = {
   /** 사용자 사진과 시각적으로 닮은 사매 사진. 임베딩 서비스가 없으면 빈 배열이고,
    *  그때는 호출부가 기존 무드 큐레이션으로 폴백한다. */
   similar: SimilarPhoto[];
+  /** 분석 표본 평균 벡터 — persona_results 에 저장돼 홈 피드 재정렬(0080)에 쓰인다 */
+  meanVec: number[] | null;
   /** 분석에 쓴 표본 사진의 초소형 썸네일(data URL, photoIndexes 와 1-base 로 대응).
    *  결과 화면 '근거' 옆에 붙는다. DB 저장 안 함. */
   sampleThumbs: string[];
 };
 
-/** 사용자 사진 → 벡터 → '닮은 사매 사진'.
- *  실패하면 빈 배열 — 추천이 없어도 분석 결과는 보여줘야 한다. */
-async function findSimilar(imgs: PersonaImageBlock[]): Promise<SimilarPhoto[]> {
+/** 사용자 사진 → 벡터 → '닮은 사매 사진' + 평균 벡터(피드 재정렬용 저장).
+ *  실패하면 빈 값 — 추천·재정렬이 없어도 분석 결과는 보여줘야 한다. */
+async function findSimilar(
+  imgs: PersonaImageBlock[]
+): Promise<{ similar: SimilarPhoto[]; meanVec: number[] | null }> {
   try {
     const embedded = await embedImages(imgs.map((b) => b.source.data));
-    if (!embedded) return [];
-    return await findSimilarPhotos(embedded.vectors, 9);
+    if (!embedded) return { similar: [], meanVec: null };
+    return { similar: await findSimilarPhotos(embedded.vectors, 9), meanVec: embedded.mean };
   } catch (e) {
     console.warn("[persona] 유사 사진 탐색 실패:", e instanceof Error ? e.message : e);
-    return [];
+    return { similar: [], meanVec: null };
   }
 }
 
@@ -108,7 +112,7 @@ export async function analyzePersona(username: string): Promise<PersonaAnalysis>
   );
   const tLlm = Date.now();
 
-  const [similar, palette, sampleThumbs] = await sideWork;
+  const [{ similar, meanVec }, palette, sampleThumbs] = await sideWork;
   console.log(
     `[persona] 사진 ${tImgs - t0}ms · LLM ${tLlm - tImgs}ms · 부수작업 ${Date.now() - tLlm}ms(대기)`
   );
@@ -118,6 +122,7 @@ export async function analyzePersona(username: string): Promise<PersonaAnalysis>
     persona,
     shoot: palette.length >= 3 ? { ...shoot, colorPalette: palette } : shoot,
     similar,
+    meanVec,
     sampleThumbs,
   };
 }
@@ -138,10 +143,10 @@ export async function analyzePersonaFromImages(
     images,
     moods
   );
-  const [finalShoot, similar, sampleThumbs] = await Promise.all([
+  const [finalShoot, { similar, meanVec }, sampleThumbs] = await Promise.all([
     withRealPalette(shoot, images),
     findSimilar(images),
     blockThumbnails(images),
   ]);
-  return { persona, shoot: finalShoot, similar, sampleThumbs };
+  return { persona, shoot: finalShoot, similar, meanVec, sampleThumbs };
 }
