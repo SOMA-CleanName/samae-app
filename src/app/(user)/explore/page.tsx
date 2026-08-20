@@ -7,6 +7,7 @@ import {
 import { getPublishedCategory } from "@/lib/categories";
 import { loadCurationSlides, loadMoodItemsForTarget } from "@/lib/target-categories";
 import { CATEGORY_COOKIE } from "@/lib/category-constants";
+import { memoTtl } from "@/lib/server-memo";
 import { ScrollMemory } from "@/components/user/ScrollMemory";
 import { MpTrackOnce } from "@/components/MpTrackOnce";
 import { MovingCoverCarousel, type CoverCat } from "./MovingCoverCarousel";
@@ -33,31 +34,37 @@ export default async function ExplorePage({
   const adSlug = (await cookies()).get(CATEGORY_COOKIE)?.value;
   const adCat = adSlug ? await getPublishedCategory(adSlug) : null;
 
-  // 오늘의 큐레이션 — 이번 세션의 타겟에 속한 무드들(슬라이드 1개 = 무드 1개, 3컷).
-  // 타겟 컨텍스트가 없으면(직접·검색 유입) 전체 공개 무드를 돈다.
-  const coverCats: CoverCat[] = await loadCurationSlides(adCat?.id ?? null);
+  // 세 로더는 서로 독립인데 순차 await 로 돌아 TTFB 1.8~2.2s 를 만들고 있었다(실측).
+  // 병렬화 + 60s 인메모리 메모 — 이 데이터는 운영자 큐레이션·일간 랭킹이라
+  // 요청마다 다시 계산할 이유가 없다. (개인화 없음 — 키는 광고 타겟뿐)
+  const ctx = adCat?.id ?? "all";
+  const [coverCats, gridItems, popular]: [CoverCat[], GridItem[], Awaited<ReturnType<typeof listPopularPosts>>] =
+    await Promise.all([
+      // 오늘의 큐레이션 — 이번 세션의 타겟에 속한 무드들(슬라이드 1개 = 무드 1개, 3컷)
+      memoTtl(`explore:cover:${ctx}`, 60_000, () => loadCurationSlides(adCat?.id ?? null)),
 
-  // 추천 무드 — 내 타겟에 연결된 무드. 타겟이 없으면 전체 공개 무드를 인기순으로.
-  const gridItems: GridItem[] = adCat
-    ? await loadMoodItemsForTarget(adCat.id)
-    : (
-        await listPublishedExploreSections(10, await rankExploreCategoriesByPopularity())
-      )
-        .filter((s) => s.photos.length >= 1)
-        .map((s) => ({
-          slug: s.category.slug,
-          title: s.category.title,
-          subtitle: s.category.subtitle,
-          // 미리보기 지정 1번 → 담긴 첫 장 (요청마다 바뀌지 않게 고정)
-          url: s.photos[0].src_url,
-        }));
+      // 추천 무드 — 내 타겟에 연결된 무드. 타겟이 없으면 전체 공개 무드를 인기순으로
+      memoTtl(`explore:grid:${ctx}`, 60_000, async () =>
+        adCat
+          ? loadMoodItemsForTarget(adCat.id)
+          : (await listPublishedExploreSections(10, await rankExploreCategoriesByPopularity()))
+              .filter((s) => s.photos.length >= 1)
+              .map((s) => ({
+                slug: s.category.slug,
+                title: s.category.title,
+                subtitle: s.category.subtitle,
+                // 미리보기 지정 1번 → 담긴 첫 장 (요청마다 바뀌지 않게 고정)
+                url: s.photos[0].src_url,
+              }))
+      ),
 
-  // 사매 인기 스냅 (최근 1일 조회·문의·찜 신호로 랭킹) — 광고 유입이면 그 광고 카테고리 범위로,
-  // 아니면 전역. 광고 범위에 인기 스냅이 없으면 전역으로 폴백(섹션이 비지 않게).
-  let popular = await listPopularPosts(24, 1, adCat?.exploreSectionIds);
-  if (adCat?.exploreSectionIds?.length && popular.length === 0) {
-    popular = await listPopularPosts(24, 1);
-  }
+      // 사매 인기 스냅 — 광고 유입이면 그 범위, 비면 전역 폴백(섹션이 비지 않게)
+      memoTtl(`explore:popular:${ctx}`, 60_000, async () => {
+        const scoped = await listPopularPosts(24, 1, adCat?.exploreSectionIds);
+        if (adCat?.exploreSectionIds?.length && scoped.length === 0) return listPopularPosts(24, 1);
+        return scoped;
+      }),
+    ]);
 
   // 중간 메뉴바 탭 — 실제로 렌더되는 섹션만(스크롤 이동 대상).
   const tabs: ExploreTab[] = [
