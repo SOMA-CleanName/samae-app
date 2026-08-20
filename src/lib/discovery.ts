@@ -1520,6 +1520,11 @@ function orderSimilarWithDemotion(
 
 // 벡터 근접검색. RPC 가 published/approved·현재 사진·같은 게시물을 이미 걸러
 // distance 오름차순으로 돌려주므로, 앱은 앨범 간격 배치만 얹는다.
+//
+// distance 는 2026-08-20 부터 **혼합 거리**다 — SigLIP 90% + 색감(톤) 10%
+// (0078 · docs/22 §7.6). α 는 RPC 기본값이라 앱은 넘기지 않는다. 되돌릴 때만
+// p_alpha: 1.0 을 넘기면 이전 동작이 된다.
+// 값의 의미(작을수록 유사)와 범위는 그대로라 아래 재정렬 로직은 영향받지 않는다.
 async function similarByEmbedding(photoId: string, limit: number): Promise<SimilarPhoto[]> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("similar_photos_by_embedding", {

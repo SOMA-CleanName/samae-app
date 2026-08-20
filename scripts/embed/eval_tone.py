@@ -3,9 +3,10 @@
 
     유사도 = α × (SigLIP 코사인) + (1−α) × (톤 코사인)
 
-α=1.0 이 현재 배포된 동작이다. 값을 낮출수록 톤을 본다. 이 스크립트는 여러 α 의
-top-10 을 같은 시드에 대해 나란히 렌더해, **톤을 섞어서 실제로 나아지는지**를
-사람이 판단할 수 있게 한다.
+**현재 배포된 동작은 α=0.9 다**(2026-08-20 도입 · docs/22 §7.6). α=1.0 은 그 이전
+동작이며, 아래 '유지율' 지표의 기준선으로 계속 쓴다. 값을 낮출수록 톤을 본다.
+이 스크립트는 여러 α 의 top-10 을 같은 시드에 대해 나란히 렌더해, **톤을 섞어서
+실제로 나아지는지**를 사람이 판단할 수 있게 한다.
 
     scripts/embed/.venv/bin/python scripts/embed/eval_tone.py
     scripts/embed/.venv/bin/python scripts/embed/eval_tone.py --alphas 1.0,0.9,0.8,0.7
@@ -217,7 +218,7 @@ def render(meta, per_alpha, base_order, base_info, seeds, k, banned, excluded, s
         f"<style>{css}</style>",
         "<h1>톤 가중치 α 비교 — 유사도 = α×SigLIP + (1−α)×톤</h1>",
         f"<div class='meta'>표본 {len(meta)}장 · 시드 {len(seeds)}개 · top-{k} · "
-        "<b>α=1.0 이 현재 배포된 동작</b> · "
+        "<b>α=0.9 가 현재 운영값</b> · α=1.0 은 도입 전 동작(유지율 기준선) · "
         + ("<b style='color:#6cc'>같은 게시물 제외</b>(0069 RPC 와 동일) · "
            if excluded else "<span style='color:#e5533d'>빨강 = 시드와 같은 게시물</span> · ")
         + "<span style='color:#f0b429'>노랑 = α=1.0 에는 없던 사진</span> · "
@@ -261,7 +262,9 @@ def render(meta, per_alpha, base_order, base_info, seeds, k, banned, excluded, s
             order = topk(sims, si, k, banned[si])
             cells = [cell(si, j, r, sims, base_rank, base_sims, seed_album, base_top)
                      for r, j in enumerate(order, 1)]
-            mark = "<b>α=1.0</b><br>(현재)" if alpha == 1.0 else f"<b>α={alpha:g}</b>"
+            mark = (f"<b>α={alpha:g}</b><br>(현재)" if alpha == 0.9
+                    else "<b>α=1.0</b><br>(도입 전)" if alpha == 1.0
+                    else f"<b>α={alpha:g}</b>")
             rows.append(f"<div class='arow'><div class='alpha'>{mark}</div>"
                         f"<div class='strip'>{''.join(cells)}</div></div>")
 
@@ -293,7 +296,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default=siglip.MODEL_ID)
     ap.add_argument("--budget", type=int, default=256, help="max_num_patches (docs/22 §4.4)")
-    ap.add_argument("--alphas", default="1.0,0.9,0.8,0.7,0.5", help="쉼표 구분. 1.0 = 현재 동작")
+    ap.add_argument("--alphas", default="1.0,0.9,0.8,0.7,0.5",
+                    help="쉼표 구분. 0.9 = 현재 운영값 · 1.0 = 도입 전 동작(유지율 기준선)")
     ap.add_argument("--seeds", type=int, default=12, help="시드 수 (α 마다 한 줄씩 붙어 길어진다)")
     ap.add_argument("--top-k", type=int, default=10)
     ap.add_argument("--no-balance", dest="balance", action="store_false",

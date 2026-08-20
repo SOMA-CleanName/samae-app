@@ -46,7 +46,14 @@ notify() {  # $1 = 메시지
     exit 1
   fi
   cd "$ROOT" || exit 1
-  "$VENV" scripts/embed/embed_photos.py --apply
+  "$VENV" scripts/embed/embed_photos.py --apply || exit 1
+
+  # 톤 벡터(7단계 · docs/22 §7.6)는 임베딩이 채워진 뒤에만 의미가 있다.
+  # tone_backfill 은 tone_vec 이 비고 embedding 이 있는 사진만 보므로,
+  # 위 단계에서 새로 채워진 사진이 그대로 이어서 처리된다.
+  echo
+  echo "--- 톤 백필 ---"
+  "$VENV" scripts/embed/tone_backfill.py --apply
 } >>"$LOG" 2>&1
 STATUS=$?
 
