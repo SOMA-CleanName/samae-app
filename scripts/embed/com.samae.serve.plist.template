@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  페르소나 상주 서비스(serve.py — SigLIP 임베딩·인스타 조회 프록시·qwen3 작문) launchd 정의.
+  프로덕션(samae.ai)이 Tailscale Funnel 로 이 서비스를 부른다 — 죽어 있으면 claude 폴백(과금).
+  __REPO__ 는 설치 시 실제 저장소 경로로 치환한다 (macmini-setup.sh 참고).
+  설치 위치: ~/Library/LaunchAgents/com.samae.serve.plist
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.samae.serve</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/bin/bash</string>
+    <string>__REPO__/scripts/embed/run-serve.sh</string>
+  </array>
+
+  <!-- 로그인 시 시작 + 죽으면 즉시 재시작 (모델 재로드 ~10초) -->
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <!-- 크래시 루프 방지 — 재시작 간 최소 10초 -->
+  <key>ThrottleInterval</key>
+  <integer>10</integer>
+
+  <key>StandardOutPath</key>
+  <string>__REPO__/scripts/embed/logs/serve.log</string>
+  <key>StandardErrorPath</key>
+  <string>__REPO__/scripts/embed/logs/serve.log</string>
+
+  <key>WorkingDirectory</key>
+  <string>__REPO__</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+  </dict>
+</dict>
+</plist>

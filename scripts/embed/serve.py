@@ -262,6 +262,8 @@ def persona_copy(facts: dict):
     body = json.dumps({
         "model": COPY_MODEL,
         "stream": False,
+        # 기본 5분 언로드면 뜸한 시간대마다 첫 사용자가 콜드 로드(~3s)를 문다
+        "keep_alive": "3h",
         "format": COPY_SCHEMA,
         # 0.8 → 0.65 (2026-08-20): 온도가 높으면 psychHook 이 가끔 비문이 된다.
         # 사용자별 캐시라 다양성보다 문장 안정이 중요하다.
