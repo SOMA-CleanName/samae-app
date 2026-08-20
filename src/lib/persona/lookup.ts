@@ -7,8 +7,9 @@
 //
 // 수단: instagram.com 의 비로그인 web_profile_info 엔드포인트.
 // 2026-08-20 맥미니(주거용 IP)에서 실측 — 비로그인으로 정상 응답한다.
-// 데이터센터 IP(Vercel)에서는 막힐 가능성이 높다 → 그때는 unavailable 을 주고,
-// 클라이언트는 확인 카드 없이 기존 흐름(바로 분석)으로 폴백한다.
+// 데이터센터 IP(Vercel)에서는 막힌다(실배포에서 확인) → 그때는 맥미니 프록시
+// (PERSONA_EMBED_URL 의 /iglookup, 토큰 인증)로 한 번 더 시도하고,
+// 그것도 안 되면 unavailable — 클라이언트는 카드 없이 기존 흐름으로 폴백한다.
 // 이 조회는 편의 기능이지 필수 관문이 아니다.
 import "server-only";
 
@@ -45,6 +46,27 @@ async function fetchAvatar(url: string): Promise<string | null> {
     return `data:${type};base64,${buf.toString("base64")}`;
   } catch {
     return null;
+  }
+}
+
+/** 맥미니 임베딩 서비스의 /iglookup 프록시 — 주거용 IP 라 인스타 조회가 통과한다.
+ *  PERSONA_EMBED_URL 미설정이거나 실패하면 unavailable. */
+async function lookupViaProxy(username: string): Promise<LookupResult> {
+  const base = process.env.PERSONA_EMBED_URL?.trim().replace(/\/$/, "");
+  if (!base) return { status: "unavailable" };
+  try {
+    const res = await fetch(`${base}/iglookup?u=${encodeURIComponent(username)}`, {
+      headers: process.env.PERSONA_SERVICE_TOKEN
+        ? { "x-samae-token": process.env.PERSONA_SERVICE_TOKEN }
+        : undefined,
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return { status: "unavailable" };
+    const j = (await res.json()) as LookupResult;
+    if (j.status === "found" || j.status === "not_found") return j;
+    return { status: "unavailable" };
+  } catch {
+    return { status: "unavailable" };
   }
 }
 
@@ -122,6 +144,11 @@ export async function lookupProfile(usernameRaw: string): Promise<LookupResult> 
     // 그 외(429·403 등 차단)는 unavailable 유지
   } catch {
     /* 타임아웃·네트워크 — unavailable 유지 */
+  }
+
+  // 직접 조회가 막혔으면(데이터센터 IP 등) 맥미니 프록시로 한 번 더
+  if (value.status === "unavailable") {
+    value = await lookupViaProxy(username);
   }
 
   // unavailable(일시 차단·타임아웃)은 캐시하지 않는다 — 5분간 고착되면 안 된다

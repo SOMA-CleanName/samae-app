@@ -16,6 +16,16 @@
   GET  /health          → {ok, device, model, loaded_sec}
   POST /embed           → {"images": ["<base64 jpeg>", ...]}
                           {vectors: [[1152]...], mean: [1152], count, infer_ms}
+  GET  /iglookup?u=아이디 → 인스타 프로필 사전조회 프록시 (아래 참고)
+
+/iglookup 이 여기 있는 이유:
+  Vercel(데이터센터 IP)에서는 인스타 비로그인 조회가 막힌다. 맥미니(주거용 IP)는 통과하므로
+  프로덕션의 계정 확인 카드가 이 프록시를 경유한다. lookup.ts 는 직접 조회가 실패할 때만
+  여기로 폴백한다.
+
+인증:
+  PERSONA_SERVICE_TOKEN 환경변수가 설정돼 있으면 모든 요청에 x-samae-token 헤더를 요구한다.
+  Funnel 등으로 공개 인터넷에 노출할 때는 반드시 설정할 것.
 """
 
 import base64
@@ -32,6 +42,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import siglip  # noqa: E402
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8077
+SERVICE_TOKEN = os.environ.get("PERSONA_SERVICE_TOKEN", "")
 PATCH_BUDGET = int(os.environ.get("SIGLIP_PATCH_BUDGET", "256"))
 MAX_IMAGES = 16  # 한 요청에서 받아줄 최대 장수 — 그 이상은 사용자가 아니라 남용이다
 
@@ -122,8 +133,70 @@ def embed(images_b64):
     return job["result"], job["infer_ms"]
 
 
+import re as _re
+import urllib.request as _rq
+
+_IG_UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+          "(KHTML, like Gecko) Chrome/126.0 Safari/537.36")
+
+
+def ig_lookup(username: str):
+    """인스타 비로그인 프로필 조회 — lookup.ts 와 동일한 헤더 세트(Sec-Fetch 필수)."""
+    if not _re.fullmatch(r"[a-z0-9._]{1,30}", username):
+        return {"status": "not_found"}
+    url = f"https://www.instagram.com/api/v1/users/web_profile_info/?username={username}"
+    req = _rq.Request(url, headers={
+        "User-Agent": _IG_UA,
+        "x-ig-app-id": "936619743392459",
+        "Accept": "*/*",
+        "Referer": "https://www.instagram.com/",
+        # undici 와 같은 이유 — 이 3종이 없으면 SecFetch Policy violation(400)
+        "Sec-Fetch-Site": "same-origin",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Dest": "empty",
+    })
+    try:
+        with _rq.urlopen(req, timeout=6) as r:
+            u = (json.load(r).get("data") or {}).get("user")
+    except _rq.HTTPError as e:
+        return {"status": "not_found"} if e.code == 404 else {"status": "unavailable"}
+    except Exception:
+        return {"status": "unavailable"}
+    if not u or not u.get("username"):
+        return {"status": "not_found"}
+
+    avatar = None
+    pic = u.get("profile_pic_url")
+    if pic:
+        try:
+            with _rq.urlopen(_rq.Request(pic, headers={"User-Agent": _IG_UA}), timeout=5) as r:
+                raw = r.read()
+                ctype = (r.headers.get("Content-Type") or "image/jpeg").split(";")[0]
+            if 0 < len(raw) <= 400_000:
+                avatar = f"data:{ctype};base64,{base64.b64encode(raw).decode()}"
+        except Exception:
+            pass
+    return {
+        "status": "found",
+        "profile": {
+            "username": u["username"],
+            "fullName": u.get("full_name") or "",
+            "isPrivate": bool(u.get("is_private")),
+            "isVerified": bool(u.get("is_verified")),
+            "followers": (u.get("edge_followed_by") or {}).get("count", 0),
+            "posts": (u.get("edge_owner_to_timeline_media") or {}).get("count", 0),
+            "avatar": avatar,
+        },
+    }
+
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
+
+    def _auth_ok(self) -> bool:
+        if not SERVICE_TOKEN:
+            return True  # 토큰 미설정 = 로컬 전용 가정
+        return self.headers.get("x-samae-token", "") == SERVICE_TOKEN
 
     def _send(self, code, payload):
         body = json.dumps(payload).encode()
@@ -137,6 +210,15 @@ class Handler(BaseHTTPRequestHandler):
         pass  # 기본 액세스 로그는 시끄럽다
 
     def do_GET(self):
+        if not self._auth_ok():
+            self._send(401, {"error": "unauthorized"})
+            return
+        if self.path.startswith("/iglookup"):
+            from urllib.parse import urlparse, parse_qs
+            q = parse_qs(urlparse(self.path).query)
+            username = (q.get("u") or [""])[0].strip().lstrip("@").lower()
+            self._send(200, ig_lookup(username))
+            return
         if self.path.startswith("/health"):
             self._send(200, {
                 "ok": _state["model"] is not None,
@@ -150,6 +232,9 @@ class Handler(BaseHTTPRequestHandler):
             self._send(404, {"error": "not found"})
 
     def do_POST(self):
+        if not self._auth_ok():
+            self._send(401, {"error": "unauthorized"})
+            return
         if not self.path.startswith("/embed"):
             self._send(404, {"error": "not found"})
             return
