@@ -294,11 +294,11 @@ export default function PersonaExperience({ defaultUsername = "" }: { defaultUse
           </p>
         )}
 
-        {/* 빈 입력이라고 버튼을 비활성화하면 '왜 안 눌리는지' 알 방법이 없다.
-            항상 누를 수 있게 두고, 누르면 이유를 말해준다.
-            단, 공개 계정 확인 카드가 떠 있을 때는 숨긴다 — 카드와 이 버튼이 같은 일을 해서
-            "뭘 눌러야 하지?" 를 만들기 때문. 그때는 카드가 유일한 CTA 다 (Enter 도 동작). */}
-        {!(preview?.status === "found" && !preview.profile.isPrivate && !looking) && (
+        {/* 버튼은 '입력이 있고, 공개 계정 카드가 없을 때'만.
+            · 입력 전: 누를 이유가 없는 CTA 는 화면에 없는 게 맞다 (인풋에 집중)
+            · 공개 카드 표시 중: 카드가 유일한 CTA (같은 일을 하는 버튼 중복 제거)
+            Enter 제출은 항상 동작 — 빈 입력 Enter 는 인라인 에러로 안내한다. */}
+        {handle.length > 0 && !(preview?.status === "found" && !preview.profile.isPrivate && !looking) && (
           <Button type="submit" variant="brand" size="lg" fullWidth>
             내 촬영 페르소나 알아보기
           </Button>
