@@ -96,7 +96,20 @@ username ─► Apify 스크래핑 (~8s, 캐시 72h)
 - 인터랙티브 UI 검증: `scripts/persona-ui-probe.mts` (CDP). **주의: 헤드리스+dev 모드는
   하이드레이션이 안 되는 경우가 있다 — 반드시 `next start` 프로덕션 모드로 검증할 것.**
 
-## 7. 관련 파일
+## 7. 백엔드 스위치 — PERSONA_LLM (2026-08-20 추가)
+
+| 값 | 판단 | 작문 | 건당 비용 | 생성 시간 |
+|---|---|---|---|---|
+| `claude`(기본) | haiku 비전 | haiku | ~$0.01 | ~16s |
+| `local` | **SigLIP 중심벡터** | 맥미니 qwen3 4b(텍스트 전용) | **$0** | ~10~13s |
+
+- 중심벡터 검증: leave-out 1위 적중 **5/5** (`scripts/persona-centroid-eval.mts`) — 판단은 임베딩 공간에서 직접 재는 게 LLM 보다 날카롭다
+- 근거 사진(photoIndexes)도 코사인으로 계산 — 수학적으로 정직
+- 작은 작문 모델의 함정 2개를 실측으로 잡음: ① 프롬프트 예시 문구를 그대로 복사 ② **보지 못한 사진의 장면을 지어냄** → 예시 제거 + "사진 내용 묘사 금지, 번호·유사도·실측 톤 팩트만" 규칙 + 코드가 팔레트에서 톤 팩트를 계산해 주입
+- local 실패(임베딩·작문 서비스 다운) 시 **claude 자동 폴백** — 스위치가 서비스를 죽이지 않는다
+- 관련: `local-pipeline.ts` · `centroids.ts` · serve.py `/persona_copy`
+
+## 8. 관련 파일
 
 - 입구 조회: `lookup.ts` · 오케스트레이터: `src/lib/persona/analyze.ts` (단계별 지연 로그 `[persona]` 포함)
 - LLM: `combined.ts` · 텍스트 조립: `psychology.ts`

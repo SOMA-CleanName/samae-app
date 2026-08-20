@@ -17,6 +17,8 @@
   POST /embed           → {"images": ["<base64 jpeg>", ...]}
                           {vectors: [[1152]...], mean: [1152], count, infer_ms}
   GET  /iglookup?u=아이디 → 인스타 프로필 사전조회 프록시 (아래 참고)
+  POST /persona_copy    → 구조화된 팩트 → 로컬 LLM(ollama qwen3:4b) 이 결과 문장 작성
+                          (판단은 이미 SigLIP 중심벡터가 끝냈다 — 여기선 작문만)
 
 /iglookup 이 여기 있는 이유:
   Vercel(데이터센터 IP)에서는 인스타 비로그인 조회가 막힌다. 맥미니(주거용 IP)는 통과하므로
@@ -190,6 +192,85 @@ def ig_lookup(username: str):
     }
 
 
+OLLAMA = os.environ.get("OLLAMA_HOST_URL", "http://127.0.0.1:11434")
+COPY_MODEL = os.environ.get("PERSONA_COPY_MODEL", "qwen3:4b-instruct")
+
+# 작문 출력 스키마 — 판단 필드(moodIds·photoIndexes)는 없다. 그건 SigLIP 몫.
+COPY_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "shootPersonaLabel": {"type": "string"},
+        "oneLiner": {"type": "string"},
+        "psychHook": {"type": "string"},
+        "bigFive": {
+            "type": "object",
+            "properties": {k: {"type": "integer", "minimum": 0, "maximum": 100}
+                           for k in ["openness", "conscientiousness", "extraversion",
+                                     "agreeableness", "emotionalStability"]},
+            "required": ["openness", "conscientiousness", "extraversion",
+                         "agreeableness", "emotionalStability"],
+        },
+        "attachmentLabel": {"type": "string"},
+        "attachmentReason": {"type": "string"},
+        "moodReasons": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"moodTitle": {"type": "string"},
+                               "signal": {"type": "string"},
+                               "why": {"type": "string"}},
+                "required": ["moodTitle", "signal", "why"],
+            },
+        },
+        "evidence": {"type": "array", "items": {"type": "string"}},
+        "locations": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["shootPersonaLabel", "oneLiner", "psychHook", "bigFive",
+                 "attachmentLabel", "attachmentReason", "moodReasons", "evidence", "locations"],
+}
+
+COPY_SYSTEM = """당신은 촬영 서비스의 카피라이터입니다. 아래에 주어지는 '팩트'만 근거로 결과 문장을 씁니다.
+팩트에 없는 내용을 지어내지 마세요. 무드·근거사진 번호는 이미 확정돼 있습니다 — 당신은 그것을 자연스러운 한국어로 풀어쓸 뿐입니다.
+
+⚠️ 당신은 사진을 보지 못했습니다. 사진 속 장소·사물·인물·장면을 묘사하지 마세요
+("카페", "한강", "창가" 같은 구체 명사 금지). 근거(signal)는 사진 번호 + 무드와의
+유사도 강도 + '실측_톤' 팩트로만 말하세요.
+(좋은 예: "사진 2·5·7이 이 무드와 가장 가깝게 읽히고, 따뜻한 계열의 중간 밝기 톤이 그 결을 받쳐줘요")
+
+말투(모든 필드 공통): 해요체 존댓말로 끝맺습니다("~해요", "~돼요", "~어울려요").
+명사형 종결("~함", "~임", "~됨") 금지. 상대는 '당신'. '너·네' 금지.
+
+- shootPersonaLabel: 이 사람만의 촬영 페르소나 별칭, 20자 이내. 선택된 무드의 분위기를
+  구체적 이미지(빛·장소·질감)와 엮어 새로 지으세요. 어디서 본 문구를 재사용하지 마세요.
+- oneLiner: 어떤 사람인지 한 줄 (활동 나열 말고 성격·태도, "~사람"으로 끝나도 좋아요)
+- psychHook: 2문장 이내, '나를 이렇게 봐주네' 싶은 따뜻한 톤
+- moodReasons: 주어진 무드 각각에 대해 signal(팩트의 근거사진 번호·유사도를 자연어로) +
+  why(그래서 어울리는 이유) 각 1문장, 해요체
+- evidence: 판단 근거 3개, 각 1문장 해요체
+- locations: 어울리는 촬영 장소 2~3곳 (명사구)
+- bigFive 점수는 주어진 지표를 참고하고, 신호가 약하면 45~60 중앙값
+- 반드시 JSON 스키마로만 출력"""
+
+
+def persona_copy(facts: dict):
+    """팩트 → ollama 작문. 실패 시 None (호출부 폴백)."""
+    body = json.dumps({
+        "model": COPY_MODEL,
+        "stream": False,
+        "format": COPY_SCHEMA,
+        "options": {"temperature": 0.8, "num_ctx": 4096, "num_predict": 900},
+        "messages": [
+            {"role": "system", "content": COPY_SYSTEM},
+            {"role": "user", "content": json.dumps(facts, ensure_ascii=False)},
+        ],
+    }).encode()
+    req = _rq.Request(f"{OLLAMA}/api/chat", data=body,
+                      headers={"Content-Type": "application/json"})
+    with _rq.urlopen(req, timeout=60) as r:
+        out = json.load(r)
+    return json.loads(out["message"]["content"])
+
+
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
@@ -234,6 +315,16 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if not self._auth_ok():
             self._send(401, {"error": "unauthorized"})
+            return
+        if self.path.startswith("/persona_copy"):
+            try:
+                n = int(self.headers.get("Content-Length", "0"))
+                facts = json.loads(self.rfile.read(n) or b"{}")
+                t = time.perf_counter()
+                copy = persona_copy(facts)
+                self._send(200, {"copy": copy, "gen_ms": round((time.perf_counter() - t) * 1000)})
+            except Exception as e:
+                self._send(500, {"error": f"copy 실패: {e}"})
             return
         if not self.path.startswith("/embed"):
             self._send(404, {"error": "not found"})
