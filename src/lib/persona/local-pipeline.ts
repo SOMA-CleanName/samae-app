@@ -49,6 +49,14 @@ const clamp = (n: unknown, lo: number, hi: number, dflt: number): number => {
   return Math.min(hi, Math.max(lo, v));
 };
 
+/** 4b 작문 잔글자 청소 — 한자("사진 便 1·2")·번호 앞 기호("사진 -6")가 드물게 섞인다 (실측). */
+const tidy = (s: string | undefined | null): string =>
+  (s ?? "")
+    .replace(/[㐀-䶿一-鿿]/g, "")
+    .replace(/(\s)-(\d)/g, "$1$2")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
 /** 벡터 + 프로필 → 기존과 동일한 (persona, shoot) 형태.
  *  판단은 전부 여기서(코드) 끝내고, 작문 모델에는 결정된 팩트만 준다. */
 /** 팔레트 hex → 작문에 줄 '실측 톤 팩트'.
@@ -118,7 +126,7 @@ export async function analyzeLocally(
   const reasonByTitle = new Map(copy.moodReasons?.map((r) => [r.moodTitle, r]) ?? []);
 
   const persona: Persona = {
-    oneLiner: copy.oneLiner || "자기만의 결이 또렷한 사람",
+    oneLiner: tidy(copy.oneLiner) || "자기만의 결이 또렷한 사람",
     bigFive: {
       openness: { score: clamp(copy.bigFive?.openness, 0, 100, 55), note: "" },
       conscientiousness: { score: clamp(copy.bigFive?.conscientiousness, 0, 100, 55), note: "" },
@@ -128,18 +136,18 @@ export async function analyzeLocally(
     },
     attachment: {
       style: "secure",
-      label: copy.attachmentLabel || "안정 애착",
-      reason: copy.attachmentReason || "표현이 고르고 안정적이에요",
+      label: tidy(copy.attachmentLabel) || "안정 애착",
+      reason: tidy(copy.attachmentReason) || "표현이 고르고 안정적이에요",
     },
     loveStyle: "",
     values: [],
     lifestyle: "",
     socialTendency: "",
-    evidence: (copy.evidence ?? []).slice(0, 4),
+    evidence: (copy.evidence ?? []).map(tidy).filter(Boolean).slice(0, 4),
   };
 
   const shoot: ShootPersona = {
-    shootPersonaLabel: copy.shootPersonaLabel || "나만의 무드를 아는 사람",
+    shootPersonaLabel: tidy(copy.shootPersonaLabel) || "나만의 무드를 아는 사람",
     purposeKey: (["wedding", "couple", "personal"] as const).includes(
       purpose as "wedding" | "couple" | "personal"
     )
@@ -151,17 +159,16 @@ export async function analyzeLocally(
       return {
         moodTitle: m.title,
         signal:
-          // 4b 가 가끔 "사진 -6" 처럼 잔글자를 붙인다 — 번호 앞 불필요 기호 제거
-          (validTitles.has(m.title) && r?.signal?.replace(/(\s)-(\d)/g, "$1$2")) ||
+          (validTitles.has(m.title) && tidy(r?.signal)) ||
           `피드 사진 ${m.photoIndexes.join("·")}번이 이 무드와 가장 가깝게 읽혀요`,
-        why: r?.why || "당신이 이미 고르고 있는 룩이라 자연스럽게 어울려요",
+        why: tidy(r?.why) || "당신이 이미 고르고 있는 룩이라 자연스럽게 어울려요",
         photoIndexes: m.photoIndexes,
       };
     }),
     colorPalette: [], // 서버가 픽셀에서 추출해 덮어쓴다 (기존과 동일)
     shootTypes: [],
-    locations: (copy.locations ?? []).slice(0, 3),
-    psychHook: copy.psychHook || "당신의 피드에는 이미 당신다운 톤이 흐르고 있어요.",
+    locations: (copy.locations ?? []).map(tidy).filter(Boolean).slice(0, 3),
+    psychHook: tidy(copy.psychHook) || "당신의 피드에는 이미 당신다운 톤이 흐르고 있어요.",
   };
 
   return { persona, shoot };
