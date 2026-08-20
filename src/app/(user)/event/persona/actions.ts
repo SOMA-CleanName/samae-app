@@ -10,7 +10,7 @@ import {
 } from "@/lib/explore-db";
 import { analyzePersona, analyzePersonaFromImages, PersonaScrapeError } from "@/lib/persona/analyze";
 import { imageBlockFromBase64 } from "@/lib/persona/images";
-import { findCached, saveResult, isRateLimited } from "@/lib/persona/store";
+import { findCached, saveResult, isRateLimited, PERSONA_RESULT_COOKIE } from "@/lib/persona/store";
 import { fetchLikedPhotosByIds } from "@/lib/discovery";
 import { lookupProfile, type LookupResult } from "@/lib/persona/lookup";
 import type { Persona } from "@/lib/persona/schema";
@@ -21,6 +21,17 @@ import type { PersonaActionResult, PersonaSuccess, RecoPhoto } from "./view-type
 /** 아이디 입력 중 프로필 확인 카드용 사전 조회 — 분석 비용이 들지 않는다. */
 export async function lookupInstagramProfile(username: string): Promise<LookupResult> {
   return lookupProfile(username);
+}
+
+/** 결과 행 id 쿠키 — 홈 피드가 저장된 벡터로 페이지를 재정렬한다 (0080). 벡터 자체는 안 나간다. */
+async function setResultCookie(shareId: string | null): Promise<void> {
+  if (!shareId) return;
+  (await cookies()).set(PERSONA_RESULT_COOKIE, shareId, {
+    maxAge: 60 * 60 * 72, // 결과 TTL 과 동일 — 만료된 벡터를 가리키지 않게
+    path: "/",
+    sameSite: "lax",
+    httpOnly: true,
+  });
 }
 
 /** 클라이언트 IP — Vercel 은 x-forwarded-for 첫 항목이 실제 클라이언트다. */
@@ -53,6 +64,9 @@ async function finalize(
   // taste v2 쿠키 세팅 → 이후 홈 피드가 자동 개인화 (취향 퀴즈와 동일 규칙)
   const store = await cookies();
   store.delete(TASTE_COOKIE);
+  // 결과 행 id 쿠키(재정렬용)는 캐시 히트처럼 shareId 를 이미 아는 경우 여기서,
+  // 신선 분석은 저장 직후 setResultCookie 가 심는다.
+  if (shareId) await setResultCookie(shareId);
   if (purposeIds.length > 0 || shoot.moodIds.length > 0) {
     store.set(TASTE_V2_COOKIE, serializeTasteV2(shoot.purposeKey, purposeIds, shoot.moodIds), {
       maxAge: 60 * 60 * 24 * 30,
@@ -128,7 +142,7 @@ export async function runPersonaAnalysis(usernameRaw: string): Promise<PersonaAc
   }
 
   try {
-    const { profile, persona, shoot, similar, sampleThumbs } = await analyzePersona(username);
+    const { profile, persona, shoot, similar, meanVec, sampleThumbs } = await analyzePersona(username);
     const result = await finalize(
       persona,
       shoot,
@@ -138,6 +152,7 @@ export async function runPersonaAnalysis(usernameRaw: string): Promise<PersonaAc
       similar,
       sampleThumbs
     );
+    // 저장은 마무리 뒤 — 폴백(무드 큐레이션)이어도 실제 보여준 사진 id 가 저장된다
     const shareId = await saveResult({
       username,
       method: "instagram",
@@ -145,7 +160,9 @@ export async function runPersonaAnalysis(usernameRaw: string): Promise<PersonaAc
       shoot,
       photoIds: result.photos.map((p) => p.id),
       ip,
+      embedding: meanVec,
     });
+    await setResultCookie(shareId);
     return { ...result, shareId };
   } catch (e) {
     if (e instanceof PersonaScrapeError) {
@@ -185,9 +202,9 @@ export async function analyzeFromImages(
   }
 
   try {
-    const { persona, shoot, similar, sampleThumbs } = await analyzePersonaFromImages(blocks);
+    const { persona, shoot, similar, meanVec, sampleThumbs } = await analyzePersonaFromImages(blocks);
     const result = await finalize(persona, shoot, "", null, null, similar, sampleThumbs);
-    // 업로드 경로는 캐시 키(아이디)가 없다 — 공유용으로만 저장한다.
+    // 업로드 경로는 캐시 키(아이디)가 없다 — 공유·재정렬용으로만 저장한다.
     const shareId = await saveResult({
       username: null,
       method: "upload",
@@ -195,7 +212,9 @@ export async function analyzeFromImages(
       shoot,
       photoIds: result.photos.map((p) => p.id),
       ip,
+      embedding: meanVec,
     });
+    await setResultCookie(shareId);
     return { ...result, shareId };
   } catch (e) {
     console.error("[persona] 업로드 분석 실패:", e);

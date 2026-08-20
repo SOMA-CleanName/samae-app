@@ -11,6 +11,7 @@ import { loadDemotedHomePhotos, loadMorePhotos, loadPersonalizedPhotos } from ".
 import { logSearch } from "@/lib/search-log";
 import { getCurrentUser } from "@/lib/auth";
 import { TASTE_V2_COOKIE, parseTasteV2 } from "@/lib/category-constants";
+import { rerankByPersonaVector } from "@/lib/persona/feed-rerank";
 import {
   TASTE_TEST_NUDGE_COOKIE,
   TASTE_TEST_NUDGE_PERSISTENCE_ENABLED,
@@ -77,6 +78,8 @@ export default async function ExploreHome({
     if (photos.length === 0) {
       photos = (await fetchPublishedPhotos({})).slice(0, FEED_CAP);
     }
+    // 페르소나 분석을 거친 방문자면 페이지 안 순서를 시각 유사도순으로 (0080, 실패 무해)
+    photos = await rerankByPersonaVector(photos);
   } else {
     const basePhotos = query ? await searchPhotosByTag(query) : await fetchPublishedPhotos({});
     if (query) await logSearch(query, basePhotos.length, me?.id);
