@@ -13,6 +13,7 @@ import { MovingCoverCarousel, type CoverCat } from "./MovingCoverCarousel";
 import { CategoryGrid, type GridItem } from "./CategoryGrid";
 import { RecentSnapsRail } from "./RecentSnapsRail";
 import { TasteTestCard } from "./TasteTestCard";
+import { PersonaTestCard } from "./PersonaTestCard";
 import { LiveViewers } from "./LiveViewers";
 import { ExploreTabBar, type ExploreTab } from "./ExploreTabBar";
 
@@ -61,6 +62,7 @@ export default async function ExplorePage({
   // 중간 메뉴바 탭 — 실제로 렌더되는 섹션만(스크롤 이동 대상).
   const tabs: ExploreTab[] = [
     { id: "sec-taste", label: "내 취향 테스트" },
+    { id: "sec-persona", label: "촬영 페르소나" },
     { id: "sec-hot", label: "추천 무드" },
     ...(popular.length > 0 ? [{ id: "sec-recent", label: "사매 인기 스냅" }] : []),
   ];
@@ -110,10 +112,19 @@ export default async function ExplorePage({
               <TasteTestCard highlight={focus === "taste"} />
             </div>
 
+            {/* 촬영 페르소나 (진입 CTA) — 취향 테스트와 결과물은 같지만 공유 루프가 붙어 있다 */}
+            <div id="sec-persona" data-pid="sec-persona" className="mt-16 scroll-mt-24">
+              <div className="mb-3 flex items-baseline gap-2 px-1">
+                <span className="font-display text-body-sm italic text-brand">02</span>
+                <h2 className="text-title font-bold tracking-tight">촬영 페르소나</h2>
+              </div>
+              <PersonaTestCard />
+            </div>
+
             {/* 인기순 카테고리 타일 (5개 → 더보기) */}
             <div id="sec-hot" className="mt-16 scroll-mt-24">
               <div className="mb-3 flex items-baseline gap-2 px-1">
-                <span className="font-display text-body-sm italic text-brand">02</span>
+                <span className="font-display text-body-sm italic text-brand">03</span>
                 <h2 className="text-title font-bold tracking-tight">추천 무드</h2>
               </div>
               <CategoryGrid items={gridItems} />
@@ -123,7 +134,7 @@ export default async function ExplorePage({
             {popular.length > 0 && (
               <div id="sec-recent" data-pid="sec-recent" className="mt-16 scroll-mt-24">
                 <div className="mb-3 flex items-baseline gap-2 px-1">
-                  <span className="font-display text-body-sm italic text-brand">03</span>
+                  <span className="font-display text-body-sm italic text-brand">04</span>
                   <h2 className="text-title font-bold tracking-tight">사매 인기 스냅</h2>
                 </div>
                 <RecentSnapsRail posts={popular} />
