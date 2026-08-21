@@ -304,6 +304,12 @@ class Handler(BaseHTTPRequestHandler):
             self._send(401, {"error": "unauthorized"})
             return
         if self.path.startswith("/iglookup"):
+            # 킬 스위치 (2026-08-21): 이 기계의 주거용 IP 는 팀 인스타 계정이 로그인하는
+            # 네트워크와 같다. 익명 조회 폭주가 IP 단위 봇 신호로 잡혀 계정 자동화 의심
+            # 제한으로 번질 수 있어(실사례), 필요 시 인스타를 아예 안 때리게 끈다.
+            if os.environ.get("PERSONA_IGLOOKUP_OFF"):
+                self._send(200, {"status": "unavailable"})
+                return
             from urllib.parse import urlparse, parse_qs
             q = parse_qs(urlparse(self.path).query)
             username = (q.get("u") or [""])[0].strip().lstrip("@").lower()
