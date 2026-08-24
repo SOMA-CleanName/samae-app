@@ -1520,6 +1520,10 @@ function orderSimilarWithDemotion(
 
 // 벡터 근접검색. RPC 가 published/approved·현재 사진·같은 게시물을 이미 걸러
 // distance 오름차순으로 돌려주므로, 앱은 앨범 간격 배치만 얹는다.
+//
+// distance 는 **순수 SigLIP 코사인 거리**다. 0078 이 색감(톤) 10% 혼합을 도입했지만
+// 0080 이 3인자 함수를 걷어내 현재 운영 함수(2인자)는 tone_vec 을 읽지 않는다.
+// 톤 벡터는 0077 로 저장만 해 둔 상태이며, 다시 켜려면 RPC 만 교체하면 된다.
 async function similarByEmbedding(photoId: string, limit: number): Promise<SimilarPhoto[]> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("similar_photos_by_embedding", {

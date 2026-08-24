@@ -50,3 +50,6 @@ scripts/embed/com.samae.embed.plist
 
 # 발표 준비용 개인 작업 문서 — 공개 저장소에 올리지 않는다
 docs/27-ai-presentation-prep.md
+
+# 참고 논문 PDF — 라이선스·용량 문제로 커밋하지 않는다
+docs/assets/
