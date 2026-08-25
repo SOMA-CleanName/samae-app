@@ -50,6 +50,39 @@ function pageType(path: string): string {
   return "other";
 }
 
+// ── Mixpanel 페이지 진입 이벤트 설계 (2026-08) ──────────────────
+// 원칙: 페이지당 진입 이벤트 1개, 이벤트 이름만으로 동선이 읽히게.
+//  · 페이지 컴포넌트가 전용 진입 이벤트를 직접 쏘는 종류(아래 MANUAL_VIEW)는
+//    자동 발화를 생략해 중복을 없앤다.
+//  · 전용 이벤트가 없는 종류만 여기서 종류별 이름(AUTO_VIEW)으로 발화한다.
+//  · 단일 이름 "Page View" 는 Flows·퍼널에서 페이지 구분이 안 돼 Mixpanel 전송 폐기.
+//    자체 /api/track 파이프는 기존대로 모든 pageview 를 원본 보존한다.
+// ⚠️ 페이지에 전용 진입 이벤트를 새로 달면 MANUAL_VIEW 에도 추가할 것(중복 방지).
+const MANUAL_VIEW = new Set([
+  "explore", // View Explore Feed
+  "photo", // View Photo
+  "photographer", // View Photographer
+  "category", // View Category
+  "favorites", // View Favorites
+  "bookings", // View Bookings · View Booking Detail
+  "chat", // View Chat List · Open Chat
+  "notifications", // View Notifications
+  "apply", // Start Apply Photographer
+  // inquiry 계열은 위저드 이벤트(Q1 Viewed…)가 진입 마커 — 로드 이벤트를 두면
+  // 광고 검수 봇이 다시 퍼널에 잡히므로 의도적으로 자동 발화 없음.
+  "inquiry",
+  "inquiry_photo",
+  "inquiry_cart",
+]);
+const AUTO_VIEW: Record<string, string> = {
+  home: "View Home",
+  login: "View Login",
+  signup: "View Signup",
+  my_inquiries: "View My Inquiries",
+  settings: "View Settings",
+};
+// privacy·other 등 나머지 종류는 Mixpanel 로 보내지 않는다(노이즈).
+
 const SID_KEY = "samae_sid";
 const UTM_KEY = "samae_utm";
 const LP_KEY = "samae_landing";
@@ -125,7 +158,7 @@ export function AnalyticsTracker() {
     if (screens >= 1) {
       const capped = Math.min(screens, 99);
       queue.current.push({ type: "scroll", path, label: String(capped) });
-      mpTrack("Scroll Depth", { path, screens: capped });
+      mpTrack("Scroll Depth", { path, screens: capped, page_type: pageType(path) });
     }
   }
 
@@ -162,9 +195,26 @@ export function AnalyticsTracker() {
   function enqueue(ev: Ev) {
     queue.current.push(ev);
     // Mixpanel 병행 전송 (자체 이벤트 타입 → Mixpanel 이벤트명 매핑)
-    if (ev.type === "pageview")
-      mpTrack("Page View", { path: ev.path, referrer: ev.referrer ?? undefined, page_type: pageType(ev.path) });
-    else if (ev.type === "click") mpTrack("Click", { path: ev.path, label: ev.label, target: ev.target });
+    if (ev.type === "pageview") {
+      const pt = pageType(ev.path);
+      const name = AUTO_VIEW[pt];
+      if (name && !MANUAL_VIEW.has(pt)) {
+        mpTrack(name, {
+          path: ev.path,
+          page_type: pt,
+          referrer_path: ev.referrer ?? undefined,
+          referrer_page_type: ev.referrer ? pageType(ev.referrer) : undefined,
+        });
+      }
+    } else if (ev.type === "click" && ev.label) {
+      // 라벨 없는 클릭(이름 없는 아이콘 등)은 Mixpanel 에선 노이즈라 자체 파이프에만 남긴다.
+      mpTrack("Click", {
+        path: ev.path,
+        label: ev.label,
+        target: ev.target,
+        page_type: pageType(ev.path),
+      });
+    }
     if (timer.current) clearTimeout(timer.current);
     timer.current = setTimeout(() => flush(false), 1000);
   }
