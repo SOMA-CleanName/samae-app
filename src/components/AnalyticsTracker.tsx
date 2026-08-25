@@ -59,10 +59,9 @@ function pageType(path: string): string {
 //    자체 /api/track 파이프는 기존대로 모든 pageview 를 원본 보존한다.
 // ⚠️ 페이지에 전용 진입 이벤트를 새로 달면 MANUAL_VIEW 에도 추가할 것(중복 방지).
 const MANUAL_VIEW = new Set([
-  "explore", // View Explore Feed
+  "explore", // View Explore Feed (/explore) · View Category (/explore/<slug>)
   "photo", // View Photo
   "photographer", // View Photographer
-  "category", // View Category
   "favorites", // View Favorites
   "bookings", // View Bookings · View Booking Detail
   "chat", // View Chat List · Open Chat
@@ -76,6 +75,7 @@ const MANUAL_VIEW = new Set([
 ]);
 const AUTO_VIEW: Record<string, string> = {
   home: "View Home",
+  category: "View Category Landing", // /c/<slug> — 광고 타겟 랜딩(유료 유입 착지점)
   login: "View Login",
   signup: "View Signup",
   my_inquiries: "View My Inquiries",

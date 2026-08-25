@@ -492,6 +492,7 @@ export function InquiryChat({
         inquiry_id: state.inquiryId,
         source: multi ? "cart" : "photo",
         photographer_id: photographerId,
+        ...(multi ? {} : { photo_id: photoId }),
         item_count: multi ? photoIds?.length ?? 1 : 1,
         // 위저드 답변(수요 차원 — 촬영목적·지역·인원·희망일).
         purpose: answers.purpose,
