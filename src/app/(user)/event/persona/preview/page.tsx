@@ -70,7 +70,6 @@ const MOCK: PersonaSuccess = {
   photos: Array.from({ length: 9 }, (_, i) => ({
     id: `p${i}`,
     url: `https://picsum.photos/seed/samae${i}/600/800`,
-    moodTags: i % 3 === 0 ? ["필름", "자연광"] : i % 3 === 1 ? ["내추럴"] : undefined,
     similarity: 0.88 - i * 0.03,
     seedIdx: i % 6,
   })),
@@ -116,7 +115,9 @@ async function RunOnce({ username, model, mock }: { username: string; model?: st
           한줄: r.persona.oneLiner,
           애착: `${r.persona.attachment.label} — ${r.persona.attachment.reason}`,
           판단근거: r.persona.evidence,
-          무드: r.shoot.moodReasons.map((m) => `${m.moodTitle} · ${m.signal} → ${m.why}`),
+          무드: r.shoot.moodReasons.map(
+            (m) => `${m.moodTitle} [사진 ${(m.photoIndexes ?? []).join("·") || "-"}] · ${m.signal} → ${m.why}`
+          ),
           로케이션: r.shoot.locations,
           팔레트: r.shoot.colorPalette,
           팔레트근거: r.shoot.paletteReason,
