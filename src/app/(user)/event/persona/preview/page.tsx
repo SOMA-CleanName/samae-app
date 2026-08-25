@@ -51,20 +51,30 @@ const MOCK: PersonaSuccess = {
         moodTitle: "필름-빈티지",
         signal: "필름 그레인과 빛바랜 뮤트 톤",
         why: "아날로그 질감이 이미 익숙해서 필름 무드가 자연스러워요",
+        photoIndexes: [1, 3],
       },
       {
         moodTitle: "내추럴",
         signal: "연출 없는 자연광과 넉넉한 여백",
         why: "꾸미지 않은 순간을 담아와서 내추럴 무드가 어울려요",
+        photoIndexes: [2, 5],
       },
     ],
+    paletteReason: "창가 노을과 원목 가구에서 반복된 색이에요",
     shootTypes: ["프로필", "데일리 스냅"],
     locations: ["한적한 골목", "창가가 큰 카페", "이른 아침 공원"],
   } as PersonaSuccess["shoot"],
+  // 근거 필드까지 실데이터 형태 그대로 — "왜 이 사진인가"가 데모에서 보여야 한다.
+  // (유사도는 실제 파이프라인의 1-코사인거리 범위인 0.6~0.9 대로)
   photos: Array.from({ length: 9 }, (_, i) => ({
     id: `p${i}`,
     url: `https://picsum.photos/seed/samae${i}/600/800`,
+    moodTags: i % 3 === 0 ? ["필름", "자연광"] : i % 3 === 1 ? ["내추럴"] : undefined,
+    similarity: 0.88 - i * 0.03,
+    seedIdx: i % 6,
   })),
+  // 분석 표본 썸네일 — 무드 카드 근거·"내 이 사진과 닮아서" 칩에 쓰인다
+  sampleThumbs: Array.from({ length: 6 }, (_, i) => `https://picsum.photos/seed/myfeed${i}/200/200`),
 };
 
 /** ?view=run&u=<아이디> — 실제 분석을 서버에서 한 번 돌려 결과를 그대로 보여준다.
@@ -108,7 +118,12 @@ async function RunOnce({ username, model, mock }: { username: string; model?: st
           무드: r.shoot.moodReasons.map((m) => `${m.moodTitle} · ${m.signal} → ${m.why}`),
           로케이션: r.shoot.locations,
           팔레트: r.shoot.colorPalette,
+          팔레트근거: r.shoot.paletteReason,
           닮은사진: r.similar.length,
+          // 추천 근거 배선 확인 — 거리(→유사도)·무드태그·씨앗 인덱스가 실제로 흐르는지
+          추천근거: r.similar
+            .slice(0, 3)
+            .map((p) => ({ 거리: p.distance, 태그: p.mood_tags?.slice(0, 2) ?? null, 씨앗: p.seedIdx ?? null })),
         },
         null,
         2

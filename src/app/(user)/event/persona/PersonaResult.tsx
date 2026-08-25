@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { mpTrack } from "@/lib/mixpanel";
 import { Button } from "@/components/ui";
-import type { PersonaSuccess } from "./view-types";
+import type { PersonaSuccess, RecoPhoto } from "./view-types";
 import { PersonaMotion, reveal, pop, grow } from "./motion";
 
 // 결과 화면 — "공유하고 싶은 리포트 카드" (2026-08-25 전면 재설계).
@@ -106,17 +106,24 @@ function CardTitle({ children }: { children: React.ReactNode }) {
 }
 
 // 추천 사진 1장. 첫 장(big)은 넓게, 나머지는 3열 그리드.
+// "왜 이 사진인가"는 파이프라인의 실측값으로만 말한다 — 유사도(1-코사인거리)·
+// 사진의 무드 태그·씨앗이 된 내 피드 사진. 값이 없으면(폴백·구버전) 조용히 생략.
 function PersonaPhoto({
   photo,
   rank,
   purposeKey,
   big = false,
+  seedThumb,
 }: {
-  photo: { id: string; url: string };
+  photo: RecoPhoto;
   rank: number;
   purposeKey: string;
   big?: boolean;
+  /** 이 사진을 뽑은 내 피드 사진 썸네일 — "내 이 사진과 닮아서" 근거 칩 */
+  seedThumb?: string;
 }) {
+  // 과장 금지 — 실측 유사도가 절반 이상일 때만 수치로 말한다
+  const pct = photo.similarity !== undefined && photo.similarity >= 0.5 ? Math.round(photo.similarity * 100) : null;
   return (
     <Link
       href={`/photos/${photo.id}`}
@@ -135,13 +142,38 @@ function PersonaPhoto({
         fetchPriority={big ? "high" : undefined}
         className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
       />
-      {/* 첫 장은 '왜 이게 맨 위인가'를 말해준다 — 랭킹이라는 걸 알면 그리드도 순서로 읽힌다 */}
+      {/* 첫 장은 '왜 이게 맨 위인가'를 말해준다 — 랭킹 + 실측 유사도 + 이 사진의 무드 태그 */}
       {big && (
+        <div aria-hidden className="absolute left-2.5 right-2.5 top-2.5 flex flex-wrap items-start gap-1">
+          <span className="rounded-full bg-black/55 px-2.5 py-1 text-caption font-medium text-white backdrop-blur-sm">
+            피드와 가장 닮은 1장
+            {pct !== null && <span className="tabular-nums"> · 무드 일치 {pct}%</span>}
+          </span>
+          {(photo.moodTags ?? []).slice(0, 2).map((t) => (
+            <span key={t} className="rounded-full bg-black/45 px-2 py-1 text-caption text-white/90 backdrop-blur-sm">
+              #{t}
+            </span>
+          ))}
+        </div>
+      )}
+      {/* 씨앗 근거 — 인과의 반대쪽 끝, 내 피드의 바로 그 사진 */}
+      {big && seedThumb && (
         <span
           aria-hidden
-          className="absolute left-2.5 top-2.5 rounded-full bg-black/55 px-2.5 py-1 text-caption font-medium text-white backdrop-blur-sm"
+          className="absolute bottom-2.5 left-2.5 flex items-center gap-1.5 rounded-full bg-black/55 py-1 pl-1 pr-2.5 text-caption text-white backdrop-blur-sm"
         >
-          피드와 가장 닮은 1장
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={seedThumb} alt="" width={24} height={24} className="h-6 w-6 rounded-full object-cover" />
+          내 이 사진과 닮아서 골랐어요
+        </span>
+      )}
+      {/* 그리드에도 실측 유사도만 은은하게 — 값이 없으면 아무것도 안 붙는다 */}
+      {!big && pct !== null && (
+        <span
+          aria-hidden
+          className="absolute left-1.5 top-1.5 rounded-full bg-black/50 px-1.5 py-0.5 text-caption tabular-nums text-white backdrop-blur-sm"
+        >
+          {pct}%
         </span>
       )}
       {/* 탭하면 이동한다는 걸 모바일에서도 알 수 있게 — 호버 없이 항상 보이는 칩 */}
@@ -178,6 +210,9 @@ export default function PersonaResult({
   const theme = heroTheme(palette);
   const keywords = (shoot.keywords ?? []).slice(0, 3); // v3 필드 — 구버전 결과에는 없다
   const evidence = persona.evidence.slice(0, 4);
+  // 인과 사슬 표기에 쓰는 파이프라인 팩트 — 없으면(공유·구버전) 표기가 조용히 일반형으로 준다
+  const sampleCount = result.sampleThumbs?.length ?? 0;
+  const moodNames = shoot.moodReasons.slice(0, 3).map((m) => m.moodTitle).join(" · ");
 
   // 결과 페이지 링크를 공유한다 — 친구가 열면 같은 결과를 보고 자기 분석으로 넘어간다.
   // (저장 실패로 shareId 가 없으면 카드 이미지만 제공)
@@ -261,7 +296,7 @@ export default function PersonaResult({
           ))}
         </div>
 
-        {/* 팔레트 스와치 — 이 결과의 지문. 장식이므로 스크린리더에서 감춘다 */}
+        {/* 팔레트 스와치 — 이 결과의 지문. 출처(픽셀 추출)를 함께 말해야 지어낸 색이 아님이 보인다 */}
         <ul aria-hidden className="mt-6 flex items-center gap-1.5">
           {palette.map((c, i) => (
             <li
@@ -272,21 +307,39 @@ export default function PersonaResult({
             />
           ))}
           <li className="ml-auto text-caption tabular-nums" style={{ color: theme.soft }}>
-            my feed palette
+            {sampleCount > 0 ? `피드 사진 ${sampleCount}장에서 추출` : "내 피드에서 추출한 색"}
           </li>
         </ul>
+        {/* 팔레트 근거 — 이 색들이 어떤 장면에서 왔는지 (v3 생성. 구버전 결과는 생략) */}
+        {shoot.paletteReason && (
+          <p className="mt-2 text-caption leading-relaxed" style={{ color: theme.soft }}>
+            {shoot.paletteReason}
+          </p>
+        )}
       </section>
 
       {/* ── 2. 닮은 사진 카드 — 이 기능의 결과물(상품)이라 성격보다 먼저 ── */}
       {photos.length > 0 && (
         <Card order={1}>
           <CardTitle>당신의 피드와 닮은 사진</CardTitle>
-          <p className="mt-1.5 text-body-sm leading-relaxed text-muted">
-            색·빛·구도가 가까운 순서예요. 누르면 작가와 가격이 보여요.
+          {/* 인과 연결 문장 — "피드를 읽었다 → 이 무드다 → 그래서 이 사진들"을 여기서 잇는다.
+              보조 설명이 아니라 이 카드의 본문이므로 muted 가 아닌 본문 대비. */}
+          <p className="mt-1.5 text-pretty text-body-sm leading-relaxed">
+            {sampleCount > 0 ? `피드 사진 ${sampleCount}장의 색·빛·구도를 읽고` : "피드의 색·빛·구도를 읽고"}
+            {moodNames ? `, '${moodNames}' 무드와 가장 가까운 작가 사진을 골랐어요.` : " 가장 가까운 작가 사진을 골랐어요."}
           </p>
+          <p className="mt-0.5 text-caption text-muted">누르면 작가와 가격이 보여요.</p>
 
           {/* 첫 장은 크게, 나머지는 3열 — 사진 구간이 화면 4개 분량이 되면 아무도 안 내려간다 */}
-          <PersonaPhoto photo={photos[0]} rank={1} purposeKey={shoot.purposeKey} big />
+          <PersonaPhoto
+            photo={photos[0]}
+            rank={1}
+            purposeKey={shoot.purposeKey}
+            big
+            seedThumb={
+              photos[0].seedIdx !== undefined ? result.sampleThumbs?.[photos[0].seedIdx] : undefined
+            }
+          />
           {photos.length > 1 && (
             <div className="mt-1.5 grid grid-cols-3 gap-1.5">
               {photos.slice(1, 7).map((p, i) => (
@@ -378,18 +431,22 @@ export default function PersonaResult({
                 <p className="mt-2 text-title font-bold leading-snug">{m.moodTitle}</p>
               </div>
               {thumbs.length > 0 && (
-                <div className="flex shrink-0 -space-x-2 pt-1">
-                  {thumbs.map((src, j) => (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      key={j}
-                      src={src}
-                      alt={`근거가 된 내 피드 사진 ${j + 1}`}
-                      width={40}
-                      height={40}
-                      className="h-10 w-10 rounded-lg border-2 border-surface object-cover shadow-card"
-                    />
-                  ))}
+                // "이 무드라서 이 사진" 관계가 읽히도록 썸네일에 캡션을 붙인다
+                <div className="flex shrink-0 flex-col items-end gap-1 pt-1">
+                  <div className="flex -space-x-2">
+                    {thumbs.map((src, j) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        key={j}
+                        src={src}
+                        alt={`이 무드의 근거가 된 내 피드 사진 ${j + 1}`}
+                        width={40}
+                        height={40}
+                        className="h-10 w-10 rounded-lg border-2 border-surface object-cover shadow-card"
+                      />
+                    ))}
+                  </div>
+                  <span className="text-caption text-muted">이 무드의 근거</span>
                 </div>
               )}
             </div>
@@ -397,7 +454,8 @@ export default function PersonaResult({
             {/* 결론이 본문 — 왜 이 무드인가에 대한 답 한 문장 */}
             <p className="mt-2.5 text-pretty text-body leading-relaxed">{m.why}</p>
 
-            {/* 관찰 신호 — v3 는 명사구 한 줄. 구버전의 긴 문장도 같은 자리에서 그냥 흐른다 */}
+            {/* 관찰 신호 — 어느 사진에서 본 것인지 번호로 잇는다 (썸네일과 같은 photoIndexes).
+                v3 는 명사구 한 줄, 구버전의 긴 문장도 같은 자리에서 그냥 흐른다 */}
             <p className="mt-3 flex items-start gap-1.5 text-caption leading-relaxed text-muted">
               <svg
                 viewBox="0 0 24 24"
@@ -412,7 +470,13 @@ export default function PersonaResult({
                 <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
                 <circle cx="12" cy="12" r="3" />
               </svg>
-              <span>피드에서 본 신호 · {m.signal}</span>
+              <span>
+                {(m.photoIndexes ?? []).length > 0
+                  ? `내 피드 ${(m.photoIndexes ?? []).slice(0, 3).join("·")}번 사진에서 본 신호`
+                  : "피드에서 본 신호"}
+                {" · "}
+                {m.signal}
+              </span>
             </p>
           </Card>
         );
