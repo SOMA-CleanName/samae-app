@@ -7,6 +7,7 @@ import Link from "next/link";
 import { ArrowLeftIcon, CheckIcon, ChevronDownIcon } from "@/components/user/icons";
 import { mpTrack, mpTrackBeacon } from "@/lib/mixpanel";
 import * as Sentry from "@sentry/nextjs";
+import { CORE_STEPS, type QuestionSegment } from "@/lib/inquiry-bot";
 import { submitInquiry, submitMultiInquiry, type InquiryState } from "./actions";
 
 const INITIAL_STATE: InquiryState = { ok: false };
@@ -29,56 +30,23 @@ type Step = {
   ev: string; // Mixpanel 이벤트 접두어 — 질문마다 고유 이름("... Viewed" / "... Answered")
 };
 
-const STEPS: Step[] = [
-  {
-    key: "purpose",
-    q: "어떤 사진 촬영을 원하시나요?",
-    type: "options",
-    options: ["커플·우정 스냅", "웨딩", "개인·프로필", "단체·행사"],
-    skip: "그 외 목적",
-    short: "촬영 종류",
-    ev: "Inquiry Q1 Purpose",
-  },
-  {
-    key: "preferredDate",
-    q: (
-      <>
-        촬영 <Em>희망일</Em>을 선택해주세요.
-      </>
-    ),
-    type: "date",
-    skip: "날짜는 미정이에요",
-    short: "희망일",
-    ev: "Inquiry Q2 Date",
-  },
-  {
-    key: "region",
-    q: (
-      <>
-        <Em>지역</Em>을 선택해주세요.
-      </>
-    ),
-    type: "options",
-    options: ["서울", "경기·인천", "부산·경남", "대구·경북", "대전·충청", "광주·전라", "제주"],
-    skip: "협의 후 결정",
-    short: "지역",
-    ev: "Inquiry Q3 Region",
-  },
-  {
-    key: "partySize",
-    q: (
-      <>
-        <Em>몇 분</Em>이 함께 찍으시나요?
-      </>
-    ),
-    type: "options",
-    options: ["1명", "2명", "3~6명", "그 이상"],
-    cols: 1,
-    skip: "미정",
-    short: "인원",
-    ev: "Inquiry Q4 Party Size",
-  },
-];
+// 질문 데이터는 챗봇(/inquiry/bot)과 공유하는 inquiry-bot.ts 로 분리 —
+// 문구 조각(QuestionSegment)을 여기서 <Em> 강조 JSX 로 렌더해 기존과 동일하게 표시한다.
+function renderQuestion(segments: QuestionSegment[]): React.ReactNode {
+  if (segments.length === 1 && !segments[0].em) return segments[0].text;
+  return segments.map((s, i) => (s.em ? <Em key={i}>{s.text}</Em> : s.text));
+}
+
+const STEPS: Step[] = CORE_STEPS.map((s) => ({
+  key: s.key as StepKey,
+  q: renderQuestion(s.question),
+  type: s.type as StepType,
+  options: s.options,
+  cols: s.cols,
+  skip: s.skip,
+  short: s.short,
+  ev: s.ev,
+}));
 
 // 연락처(마지막 단계) — 질문 이벤트와 같은 규칙의 고유 이름. 퍼널 마지막 스텝.
 //
