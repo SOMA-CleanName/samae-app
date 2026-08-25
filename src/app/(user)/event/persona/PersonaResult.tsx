@@ -101,6 +101,40 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
+// AI 장문은 수정할 수 없으니 **표시**로 끊는다 — 문장마다 줄을 바꾸면
+// 한 덩어리 문단보다 스캔이 훨씬 빠르다 (모바일 22자/줄 기준).
+function splitSentences(text: string): string[] {
+  return text
+    .split(/(?<=[.!?…])\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+// 상세 접기 — '한 줄 핵심(크게) → 상세(작게·접기)' 위계의 접기 쪽.
+// 네이티브 details 라 상태·계측 없이 표시만 바뀐다.
+function Disclosure({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <details className="group mt-3">
+      <summary className="flex min-h-9 cursor-pointer list-none items-center gap-1 py-1 text-caption font-medium text-muted transition-colors duration-200 hover:text-fg [&::-webkit-details-marker]:hidden">
+        {label}
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={2}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="h-3.5 w-3.5 transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none"
+          aria-hidden
+        >
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </summary>
+      <div className="mt-1.5">{children}</div>
+    </details>
+  );
+}
+
 export default function PersonaResult({
   result,
   onRestart,
@@ -190,9 +224,15 @@ export default function PersonaResult({
             ))}
           </ul>
 
-          <p style={reveal(3)} className="mx-auto mt-7 max-w-md text-pretty text-body leading-relaxed text-muted">
-            {shoot.psychHook}
-          </p>
+          {/* 후킹 카피 — 이 화면의 첫 본문. muted 한 덩어리로 깔면 안 읽혀서
+              문장마다 줄을 바꾸고 본문 대비(fg)로 올린다. */}
+          <div style={reveal(3)} className="mx-auto mt-7 max-w-md space-y-1.5">
+            {splitSentences(shoot.psychHook).map((s, i) => (
+              <p key={i} className="text-pretty text-body leading-relaxed text-fg/85">
+                {s}
+              </p>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -201,11 +241,9 @@ export default function PersonaResult({
           텍스트 리포트를 먼저 깔면 스크롤 중에 이탈하고, 이 기능의 결과물(사진)에 닿지 못한다. */}
       {photos.length > 0 && (
         <section className="mx-auto max-w-lg px-6 pb-12">
-          <SectionTitle>당신의 사진과 닮은 사매 사진</SectionTitle>
-          <p className="mt-1.5 text-body-sm text-muted">
-            피드와 색·빛·구도가 가장 가까운 순서예요.
-            <br />
-            사진을 누르면 작가와 가격을 볼 수 있어요.
+          <SectionTitle>당신의 피드와 닮은 사진</SectionTitle>
+          <p className="mt-1.5 text-body-sm leading-relaxed text-muted">
+            색·빛·구도가 가까운 순서예요. 누르면 작가와 가격이 보여요.
           </p>
 
           {/* 첫 장은 크게 — 작은 타일 9개보다 큰 한 장이 먼저 눈에 박힌다.
@@ -238,54 +276,13 @@ export default function PersonaResult({
         </section>
       )}
 
-      {/* ── 왜 이 무드인지 ── */}
-      {shoot.moodReasons.length > 0 && (
-        <section className="mx-auto max-w-lg px-6 pb-12">
-          <SectionTitle>왜 이 무드가 어울릴까</SectionTitle>
-          <div className="mt-3 space-y-3">
-            {shoot.moodReasons.map((m, i) => {
-              // LLM 이 근거로 지목한 '바로 그 사진' 썸네일 — 판단이 검증 가능해진다.
-              // (photoIndexes 는 1-base · 공유 링크로 열면 sampleThumbs 가 없어 자연히 생략)
-              const evidence = (m.photoIndexes ?? [])
-                .map((n) => result.sampleThumbs?.[n - 1])
-                .filter((t): t is string => !!t);
-              return (
-                // 관찰(signal)과 결론(why)을 한 문단에 붙이면 뭉쳐서 안 읽힌다.
-                // 사진에서 본 것 → 그래서 이 무드, 라는 논리가 보이도록 분리한다.
-                <div key={i} className="rounded-2xl border border-line bg-surface p-4 shadow-card">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-title font-semibold">{m.moodTitle}</p>
-                    {evidence.length > 0 && (
-                      <div className="flex shrink-0 -space-x-2">
-                        {evidence.map((src, j) => (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            key={j}
-                            src={src}
-                            alt={`근거가 된 내 피드 사진 ${j + 1}`}
-                            width={40}
-                            height={40}
-                            className="h-10 w-10 rounded-lg border-2 border-surface object-cover shadow-card"
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <p className="mt-2 border-l-2 border-brand/40 pl-3 text-body-sm leading-relaxed text-muted">
-                    {m.signal}
-                  </p>
-                  <p className="mt-2 text-body-sm leading-relaxed">{m.why}</p>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* ── 당신은 이런 사람 ── */}
+      {/* ── 당신은 이런 사람 ──
+          무드 근거보다 먼저 둔다 — '나'에 대한 결론을 읽고 나야
+          '그래서 이 무드'라는 다음 섹션이 근거로 읽힌다. */}
       <section className="mx-auto max-w-lg px-6 pb-12">
         <SectionTitle>당신은 이런 사람</SectionTitle>
-        <p className="mt-2.5 text-h2 font-bold leading-snug">{persona.oneLiner}</p>
+        {/* 한 줄 핵심 — 이 섹션에서 크게 읽히는 건 이 문장 하나면 된다 */}
+        <p className="mt-2.5 text-pretty text-h2 font-bold leading-snug">{persona.oneLiner}</p>
 
         <div className="mt-6 space-y-2.5">
           {Object.entries(persona.bigFive).map(([k, v], i) => (
@@ -313,20 +310,78 @@ export default function PersonaResult({
           ))}
         </div>
 
+        {/* 애착유형 — 라벨은 칩으로 세우고 이유는 본문 대비로 한 줄.
+            근거 목록은 길어서 기본 접힘 (읽고 싶은 사람만 편다). */}
         <div className="mt-6 rounded-2xl border border-line bg-surface p-4 shadow-card">
-          <p className="text-body-sm">
-            <span className="font-semibold text-brand">{persona.attachment.label}</span>
-            <span className="text-muted"> · {persona.attachment.reason}</span>
-          </p>
-          <ul className="mt-3 space-y-1.5">
-            {persona.evidence.slice(0, 4).map((e, i) => (
-              <li key={i} className="text-body-sm leading-relaxed text-muted">
-                — {e}
-              </li>
-            ))}
-          </ul>
+          <span className="inline-flex rounded-full bg-brand-soft px-2.5 py-1 text-caption font-semibold text-brand-ink">
+            {persona.attachment.label}
+          </span>
+          <p className="mt-2.5 text-body-sm leading-relaxed">{persona.attachment.reason}</p>
+          {persona.evidence.length > 0 && (
+            <Disclosure label={`판단 근거 ${Math.min(persona.evidence.length, 4)}가지 보기`}>
+              <ul className="space-y-2">
+                {persona.evidence.slice(0, 4).map((e, i) => (
+                  <li key={i} className="flex gap-2 text-body-sm leading-relaxed text-muted">
+                    <span aria-hidden className="mt-[0.5em] h-1 w-1 shrink-0 rounded-full bg-brand" />
+                    <span>{e}</span>
+                  </li>
+                ))}
+              </ul>
+            </Disclosure>
+          )}
         </div>
       </section>
+
+      {/* ── 왜 이 무드인지 ── '당신은 이런 사람' 뒤에 온다 (결론 → 근거 순서) */}
+      {shoot.moodReasons.length > 0 && (
+        <section className="mx-auto max-w-lg px-6 pb-12">
+          <SectionTitle>왜 이 무드가 어울릴까</SectionTitle>
+          <div className="mt-3 space-y-3">
+            {shoot.moodReasons.map((m, i) => {
+              // LLM 이 근거로 지목한 '바로 그 사진' 썸네일 — 판단이 검증 가능해진다.
+              // (photoIndexes 는 1-base · 공유 링크로 열면 sampleThumbs 가 없어 자연히 생략)
+              const evidence = (m.photoIndexes ?? [])
+                .map((n) => result.sampleThumbs?.[n - 1])
+                .filter((t): t is string => !!t);
+              return (
+                // 카드마다 핵심은 결론(why) 하나 — 본문 대비로 크게.
+                // 관찰(signal)은 상세라 기본 접힘. 문단 두 개를 나란히 깔면 덩어리로 안 읽힌다.
+                <div key={i} className="rounded-2xl border border-line bg-surface p-4 shadow-card">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="flex items-baseline gap-2 text-title font-semibold leading-snug">
+                      <span aria-hidden className="text-caption font-semibold tabular-nums text-brand">
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                      {m.moodTitle}
+                    </p>
+                    {evidence.length > 0 && (
+                      <div className="flex shrink-0 -space-x-2">
+                        {evidence.map((src, j) => (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            key={j}
+                            src={src}
+                            alt={`근거가 된 내 피드 사진 ${j + 1}`}
+                            width={40}
+                            height={40}
+                            className="h-10 w-10 rounded-lg border-2 border-surface object-cover shadow-card"
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <p className="mt-2.5 text-pretty text-body leading-relaxed">{m.why}</p>
+                  <Disclosure label="피드에서 본 신호">
+                    <p className="rounded-xl bg-surface-2 px-3 py-2.5 text-body-sm leading-relaxed text-muted">
+                      {m.signal}
+                    </p>
+                  </Disclosure>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* ── 전환 CTA ── */}
       {/* 셸의 main 이 이미 pb-28 을 갖고 있어 여기서 더 띄우면 빈 공간만 커진다 */}
@@ -366,7 +421,7 @@ export default function PersonaResult({
             )
           }
         >
-          {copied ? "링크를 복사했어요 — 친구에게 붙여넣어 보세요!" : result.shareId ? "결과 링크 공유하기" : "결과 공유 카드 만들기"}
+          {copied ? "링크를 복사했어요" : result.shareId ? "결과 링크 공유하기" : "결과 공유 카드 만들기"}
         </Button>
         {shared ? (
           <Button
