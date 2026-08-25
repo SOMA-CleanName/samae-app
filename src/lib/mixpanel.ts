@@ -14,6 +14,13 @@ let ready = false;
 function ensure(): boolean {
   if (ready) return true;
   if (typeof window === "undefined" || !TOKEN) return false;
+  // 개발·프리뷰 호스트 가드 — .env.local 에 토큰이 있어도 localhost/Vercel 프리뷰
+  // 트래픽이 프로덕션 지표에 섞이지 않게 한다. (2026-08 스캔에서 localhost 이벤트
+  // 2,900여 개가 프로덕션 Mixpanel 에 유입된 것 확인)
+  const host = window.location.hostname;
+  if (host === "localhost" || host === "127.0.0.1" || host.endsWith(".vercel.app")) {
+    return false;
+  }
   try {
     mixpanel.init(TOKEN, {
       persistence: "localStorage",
