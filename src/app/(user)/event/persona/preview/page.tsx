@@ -137,12 +137,13 @@ async function RunOnce({ username, model, mock }: { username: string; model?: st
 export default async function PersonaPreviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string; u?: string; model?: string; mock?: string }>;
+  searchParams: Promise<{ view?: string; u?: string; model?: string; mock?: string; shared?: string }>;
 }) {
   if (process.env.NODE_ENV === "production") notFound();
-  const { view, u, model, mock } = await searchParams;
+  const { view, u, model, mock, shared } = await searchParams;
   if (view === "loading") return <PersonaLoading method="instagram" username="samae_official" />;
   if (view === "run")
     return <RunOnce username={u || "samae_test_user"} model={model} mock={mock === "1"} />;
-  return <PersonaResult result={MOCK} shared />;
+  // ?shared=0 → 내 결과 변형(1인칭 카피·재시작 CTA)도 목업으로 검증 가능
+  return <PersonaResult result={MOCK} shared={shared !== "0"} />;
 }

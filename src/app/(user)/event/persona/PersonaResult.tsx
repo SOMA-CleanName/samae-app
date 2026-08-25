@@ -103,6 +103,7 @@ function PersonaPhoto({
   wide = false,
   seedThumb,
   alt,
+  shared = false,
 }: {
   photo: RecoPhoto;
   rank: number;
@@ -110,6 +111,8 @@ function PersonaPhoto({
   wide?: boolean;
   /** 이 사진을 뽑은 내 피드 사진 썸네일 — "내 이 사진과 닮아서" 근거 칩 */
   seedThumb?: string;
+  /** 공유 뷰 — 근거 칩 문구를 3인칭 시점으로 (결과 주인이 아닌 사람이 보는 화면) */
+  shared?: boolean;
   /** 사진별 고유 대체 텍스트 (예: "필름-빈티지 무드 추천 사진 2위") */
   alt?: string;
 }) {
@@ -148,14 +151,15 @@ function PersonaPhoto({
         </span>
       )}
       {/* 씨앗 근거 — 인과의 반대쪽 끝, 내 피드의 바로 그 사진 */}
+      {/* 폭 제한 + 말줄임 — 우측 "사진 보러가기" 칩(≈7rem)과 좁은 화면(390px)에서 겹치지 않게 */}
       {wide && seedThumb && (
         <span
           aria-hidden
-          className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-full bg-black/55 py-1 pl-1 pr-2.5 text-caption text-white backdrop-blur-sm"
+          className="absolute bottom-2 left-2 flex max-w-[calc(100%-7.5rem)] items-center gap-1.5 rounded-full bg-black/55 py-1 pl-1 pr-2.5 text-caption text-white backdrop-blur-sm"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={seedThumb} alt="" width={24} height={24} className="h-6 w-6 rounded-full object-cover" />
-          내 이 사진과 닮아서 골랐어요
+          <img src={seedThumb} alt="" width={24} height={24} className="h-6 w-6 shrink-0 rounded-full object-cover" />
+          <span className="truncate">{shared ? "이 피드 사진과 닮아서 골랐어요" : "내 이 사진과 닮아서 골랐어요"}</span>
         </span>
       )}
       {/* 타일에도 실측 유사도만 은은하게 — 값이 없으면 아무것도 안 붙는다 */}
@@ -263,10 +267,14 @@ export default function PersonaResult({
           </span>
         </div>
 
-        {/* 라벨 — 카드에서 가장 큰 활자. 생성 단계에서 8~14자로 제한해 두 줄을 넘지 않는다 */}
+        {/* 라벨 — 카드에서 가장 큰 활자. 계약은 8~16자지만 모델이 넘길 때가 있어(실측 17~18자)
+            길면 활자를 줄여 모바일에서 3줄로 밀리지 않게 한다 */}
         <h1
           style={{ ...reveal(1), color: theme.ink }}
-          className="mt-6 text-balance text-[2.1rem] font-extrabold leading-[1.18] tracking-tight"
+          className={
+            "mt-6 text-balance font-extrabold leading-[1.18] tracking-tight " +
+            ([...shoot.shootPersonaLabel].length > 16 ? "text-[1.75rem]" : "text-[2.1rem]")
+          }
         >
           {shoot.shootPersonaLabel}
         </h1>
@@ -437,7 +445,8 @@ export default function PersonaResult({
                 {thumbs.length > 0
                   ? `${shared ? "이" : "내"} 피드 ${(m.photoIndexes ?? []).slice(0, 3).join("·")}번 사진에서 본 신호`
                   : "피드에서 본 신호"}
-                {" · "}
+                {/* 절 구분은 "—" — 사진 번호 구분(1·3)의 "·"와 겹쳐 읽히지 않게 */}
+                {" — "}
                 {m.signal}
               </span>
             </p>
@@ -463,6 +472,7 @@ export default function PersonaResult({
                         purposeKey={shoot.purposeKey}
                         wide={j === 0}
                         alt={`${m.moodTitle} 무드 추천 사진 ${rank}위 — 누르면 상세로 이동`}
+                        shared={shared}
                         seedThumb={
                           j === 0 && p.seedIdx !== undefined
                             ? result.sampleThumbs?.[p.seedIdx]

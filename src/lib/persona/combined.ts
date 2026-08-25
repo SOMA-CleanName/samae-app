@@ -40,7 +40,7 @@ const SlimPersonaSchema = z.object({
   oneLiner: z
     .string()
     .describe(
-      "'어떤 사람인지' 관통하는 한 줄. **10~20자(넘으면 실패)**, 명사형 종결·마침표 없음·쉼표로 절 잇기 금지. " +
+      "'어떤 사람인지' 관통하는 한 줄. **10~22자(넘으면 실패)**, 명사형 종결·마침표 없음·쉼표로 절 잇기 금지. " +
         "수식어는 1개만 (직업·활동이 아니라 성격·태도. 예: '고요한 순간을 골라내는 사람')"
     ),
   bigFive: z.object({
@@ -78,7 +78,10 @@ const SlimPersonaSchema = z.object({
 const SlimShootSchema = z.object({
   shootPersonaLabel: z
     .string()
-    .describe("촬영 페르소나 라벨. 8~14자 명사형 (예: '빛을 모으는 필름 산책자')"),
+    .describe(
+      "촬영 페르소나 라벨. **8~16자 명사형** (예: '빛을 모으는 필름 산책자'). " +
+        "**'자연 속'·'~빛 아래' 같은 배경 수식을 앞에 붙이지 말 것** — 관형절 하나 + 명사 하나면 끝"
+    ),
   keywords: z
     .array(z.string())
     .min(3)
@@ -162,6 +165,35 @@ const RelaxedSchema = z.object({
   }),
 });
 
+// SYSTEM·스키마에 적힌 예시 문구 — 여기 있는 문장이 출력에 그대로 나오면 복제다.
+// 예시를 고치면 이 목록도 같이 고칠 것. (8자 미만 짧은 예시는 오탐이 많아 제외)
+const EXAMPLE_PHRASES = [
+  "자기만의 리듬이 단단한 사람",
+  "고요한 순간을 골라내는 사람",
+  "고요함을 담는 사람",
+  "거리를 두면서도 온기를 잃지 않아요",
+  "빛을 모으는 필름 산책자",
+  "잔잔함이 밴 장면들이라 여백 많은 이 무드가 어울려요",
+  "창가 노을과 원목 가구에서 반복된 색이에요",
+  "따뜻한 색온도와 필름 그레인",
+  "창가 자연광의 정적인 컷이 반복돼요",
+  "밤거리 조명과 안개 낀 바다에서 온 색이에요",
+];
+
+/** 출력 필드에 예시 문구가 그대로 들어갔는지 — 복제된 문구 목록을 돌려준다 */
+function findExampleCopies(out: z.infer<typeof RelaxedSchema>): string[] {
+  const texts = [
+    out.persona.oneLiner,
+    out.persona.attachment.reason,
+    ...out.persona.evidence,
+    out.shoot.shootPersonaLabel,
+    out.shoot.psychHook,
+    out.shoot.paletteReason ?? "",
+    ...out.shoot.moodReasons.flatMap((r) => [r.signal, r.why]),
+  ];
+  return EXAMPLE_PHRASES.filter((ex) => texts.some((t) => t.includes(ex)));
+}
+
 /** 정식 파싱 실패 시 — 응답 원문을 완화 스키마로 한 번 더 읽는다 (LLM 재호출 없음) */
 function parseRelaxed(raw: string): z.infer<typeof RelaxedSchema> | null {
   try {
@@ -187,6 +219,7 @@ const SYSTEM = `당신은 SNS 사진과 데이터를 읽어 (1) 그 사람의 �
   4) **우호성(신호 약함)**: 따뜻한 반응·긍정 감정 → 약한 상향. 단독 근거 금지.
   5) **정서안정성(가장 불확실)**: 부정 감정어가 잦음 → 하향. 신호가 매우 약하니 데이터가 빈약하면 중앙값(45~60).
 - **팔로잉/팔로워 비율로 성격을 추론하지 마세요** — 실증 근거가 약합니다.
+- **애착 유형은 여러 장에서 반복된 강한 신호가 있을 때만 secure 밖으로 나가세요.** 게시 지표가 없거나(사진 업로드만 받은 경우) 신호가 약하면 secure 로 판단합니다 — 근거가 빈약한 불안·회피 진단은 금지. (같은 피드를 다시 봐도 같은 유형이 나와야 합니다)
 - 사진 한 장·필터 하나로 특성을 확정하지 마세요. "확실히 ~한 사람"이 아니라 **"~한 결이 느껴져요"** 같은 경향 어조.
 
 ## 2부 · 촬영 페르소나·무드 (shoot)
@@ -220,7 +253,7 @@ const SYSTEM = `당신은 SNS 사진과 데이터를 읽어 (1) 그 사람의 �
 ### 출력 길이 계약 (초과는 실패 — 이 결과는 모바일 카드 UI 에 그대로 얹힙니다)
 | 필드 | 제한 |
 |---|---|
-| shootPersonaLabel | 명사형 8~14자 |
+| shootPersonaLabel | 명사형 8~16자 |
 | keywords | 공백 없는 한 단어 명사 3개, 각 2~5자 |
 | oneLiner | 명사형 종결 10~22자, 마침표·쉼표로 절 잇기 금지 |
 | psychHook | 정확히 2문장(마침표 정확히 2개), 각 45자 이내, 세 번째 문장 금지 |
@@ -321,26 +354,54 @@ export async function generateCombinedPersona(
       output_config: { format: zodOutputFormat(CombinedSchema) },
     });
 
-  let res;
-  try {
-    res = await call(true);
-  } catch (err) {
-    // 이미지 때문에 실패했을 수 있으니(용량·형식) 텍스트로 재시도 — 품질은 떨어져도 결과는 나온다
-    console.warn("[persona] 병합 호출 실패, 텍스트로 재시도:", err instanceof Error ? err.message : err);
-    res = await call(false);
-  }
+  const attempt = async (): Promise<z.infer<typeof RelaxedSchema>> => {
+    let res;
+    try {
+      res = await call(true);
+    } catch (err) {
+      // 이미지 때문에 실패했을 수 있으니(용량·형식) 텍스트로 재시도 — 품질은 떨어져도 결과는 나온다
+      console.warn("[persona] 병합 호출 실패, 텍스트로 재시도:", err instanceof Error ? err.message : err);
+      res = await call(false);
+    }
+    // 정식 파싱 실패 → 같은 응답을 완화 스키마로 강등 재파싱 (재호출 없음, 전면 실패 방지)
+    let parsed: z.infer<typeof RelaxedSchema> | null = res.parsed_output;
+    if (!parsed) {
+      const textBlock = res.content.find((b) => b.type === "text");
+      const rawText = textBlock && "text" in textBlock ? textBlock.text : null;
+      parsed = rawText ? parseRelaxed(rawText) : null;
+      if (parsed) console.warn("[persona] 정식 파싱 실패 → 완화 스키마로 강등 통과");
+    }
+    if (!parsed) throw new Error(`페르소나 파싱 실패 (stop_reason: ${res.stop_reason})`);
+    return parsed;
+  };
 
-  // 정식 파싱 실패 → 같은 응답을 완화 스키마로 강등 재파싱 (재호출 없음, 전면 실패 방지)
-  let output: z.infer<typeof RelaxedSchema> | null = res.parsed_output;
-  if (!output) {
-    const textBlock = res.content.find((b) => b.type === "text");
-    const rawText = textBlock && "text" in textBlock ? textBlock.text : null;
-    output = rawText ? parseRelaxed(rawText) : null;
-    if (output) console.warn("[persona] 정식 파싱 실패 → 완화 스키마로 강등 통과");
+  let output = await attempt();
+
+  // 예시문 복제 가드 — 재사용 금지 조항(SYSTEM)만으로는 12회 중 2회 예시가 글자
+  // 그대로 복제됐다(QA 실측). 결정론적으로 검출해 그때만 1회 재생성한다.
+  const copies = findExampleCopies(output);
+  if (copies.length) {
+    console.warn(`[persona] 예시문 복제 감지 (${copies.join(" / ")}) → 1회 재생성`);
+    try {
+      const second = await attempt();
+      if (findExampleCopies(second).length === 0) output = second;
+      else console.warn("[persona] 재생성에도 예시 복제 잔존 — 재생성 결과를 그대로 사용");
+    } catch {
+      // 재생성 실패 — 복제가 있어도 첫 결과가 전면 실패보다 낫다
+    }
   }
-  if (!output) throw new Error(`페르소나 파싱 실패 (stop_reason: ${res.stop_reason})`);
 
   const { persona: slim, shoot } = output;
+
+  // 애착 라벨은 코드에서 고정 — QA 실측에서 모델이 '불안정 애착' 같은 부정 프레이밍
+  // 라벨을 그대로 노출했다. 유형 판단(style)만 모델의 몫, 사용자에게 보일 말은 우리가 고른다.
+  const ATTACHMENT_LABELS: Record<string, string> = {
+    secure: "안정 애착",
+    anxious: "다가가고 싶은 애착",
+    avoidant: "거리를 지키는 애착",
+    fearful: "조심스러운 애착",
+  };
+  slim.attachment.label = ATTACHMENT_LABELS[slim.attachment.style] ?? slim.attachment.label;
 
   // 서버측 검증 — 목록 밖 무드는 걸러내고 moodReasons 도 유효한 것만 유지
   const validIds = new Set(moodCatalog.map((m) => m.id));

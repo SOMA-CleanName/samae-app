@@ -115,7 +115,9 @@ export function paletteTheme(palette: string[]): PaletteTheme {
   let best = pickInk(bg0, p1);
   // AA 미달이면 배경 밝기를 잉크 반대 방향으로 0.04 씩 — 어두운 잉크면 밝게, 밝은 잉크면 어둡게.
   // pickInk 가 실제 워시 코너면까지 재므로, 루프가 끝나면 카드 전면이 AA 를 만족한다.
-  for (let i = 0; i < 24 && best.softC < 4.5; i++) {
+  // 목표를 4.6 으로 잡는 이유: 코너 색이 정수 hex 로 반올림되며 경계(±0.05)에서
+  // 4.5 를 아슬하게 밑도는 케이스가 전수 검사에서 0.11% 확인됨 — 마진으로 흡수.
+  for (let i = 0; i < 24 && best.softC < 4.6; i++) {
     const hsl = hexToHsl(bg0);
     if (!hsl) break;
     bg0 = hslToHex(hsl.h, hsl.s, Math.min(0.97, Math.max(0.03, hsl.l + (best.dark ? 0.04 : -0.04))));
