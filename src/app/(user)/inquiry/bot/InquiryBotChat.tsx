@@ -4,7 +4,7 @@
 import { startTransition, useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeftIcon, CheckIcon } from "@/components/user/icons";
+import { ArrowLeftIcon, CheckIcon, SendIcon } from "@/components/user/icons";
 import { mpTrack, mpTrackBeacon } from "@/lib/mixpanel";
 import * as Sentry from "@sentry/nextjs";
 import {
@@ -27,6 +27,7 @@ import {
 import {
   CORE_SLOT_KEYS,
   answersToSlots,
+  createUtteranceQueue,
   slotsToAnswers,
   type AskingKey,
   type BotApiRequest,
@@ -75,6 +76,9 @@ type FlowProps = typeof FLOW_PROPS | typeof LLM_FLOW_PROPS;
 const CONTACT_EV = "Inquiry Q6 Contact";
 
 const REVEAL_MS = 600; // 봇 타이핑 인디케이터 시간
+
+// E3: 버블 등장 모션 — transform/opacity 만 사용 (레이아웃 리플로우 없음)
+const ITEM_ANIM = "animate-[samaeBubbleIn_180ms_ease-out]";
 
 // 키워드 강조 — 볼드 + 브랜드 컬러 (위저드와 동일 톤)
 function Em({ children }: { children: React.ReactNode }) {
@@ -218,8 +222,7 @@ export function InquiryBotChat({
   const [asking, setAsking] = useState<AskingKey>("none");
   const [handedOff, setHandedOff] = useState(false); // 작가 개입 → 봇 정지
 
-  // 레퍼런스 이미지 — 업로드된 public URL(프로드)과 첨부 수(드라이런은 미리보기만이라 URL 없음)
-  const [refImageUrls, setRefImageUrls] = useState<string[]>([]);
+  // 레퍼런스 이미지 첨부 수 — 드라이런은 미리보기만이라 URL 없음 (URL 은 refImageUrlsRef)
   const [refImageCount, setRefImageCount] = useState(0);
   // 전송 대기 첨부 — 첨부만으로 보내지 않고, 텍스트와 함께 전송 버튼으로 한 턴에 나간다
   const [pendingImages, setPendingImages] = useState<{ id: number; file: File; url: string }[]>([]);
@@ -228,8 +231,26 @@ export function InquiryBotChat({
   // 완료된 문의 재진입 — 연락처 스텝 대신 완료 화면 (localStorage done 레코드에서 복원)
   const [restoredDone, setRestoredDone] = useState<DoneRecord | null>(null);
 
+  // 비동기 클로저에서 최신 상태를 읽기 위한 미러 ref (큐 재호출·제출 시 업로드 대기용)
+  const llmMessagesRef = useRef<BotChatMessage[]>([]);
+  useEffect(() => {
+    llmMessagesRef.current = llmMessages;
+  }, [llmMessages]);
+  const slotsRef = useRef<LlmSlots>({});
+  useEffect(() => {
+    slotsRef.current = slots;
+  }, [slots]);
+  const refImageUrlsRef = useRef<string[]>([]); // 제출 시점 최신 업로드 URL (setState 비동기 무관)
+  const uploadPromisesRef = useRef<Promise<void>[]>([]); // D2: 제출 전 진행 중 업로드 await
+  // B1: 봇 응답 대기 중 발화 큐 — 입력을 잠그지 않고, 응답 도착 즉시 자동 재호출
+  const utteranceQueueRef = useRef(createUtteranceQueue());
+  // B3: 내 발화 직후 무조건 바닥 스크롤 마크 (읽는 effect 는 핸들러들 아래에 위치)
+  const forceScrollRef = useRef(false);
+
   const storageKey = botStorageKey(photoId, photographerId);
   const doneKey = botDoneKey(photoId, photographerId);
+  // A3: started 작가 알림 dedupe 마크 — 사진·작가 키당 1회
+  const notifiedKey = `samae:inquiry:bot:notified:${photoId || photographerId}`;
   const contactStep = stepIndex >= STEPS.length;
   const done = state.ok || devDone || restoredDone !== null;
   // 로그인 게이트 CTA 활성 — 입력바·칩 대신 카카오 로그인 버튼 (봇 인사·타임라인은 정상 표시)
@@ -333,6 +354,50 @@ export function InquiryBotChat({
     }, REVEAL_MS);
   }
 
+  // A2: 첫 인사는 LLM 왕복 없이 로컬 고정 — 크롤러 방문 LLM 비용·게이트 우회 비용·
+  // "첫 인사가 API 를 기다리는" 지연을 한 번에 제거. 첫 사용자 발화부터 LLM 이 이어받는다.
+  function startLocalGreeting(initialSlots: LlmSlots) {
+    const curAnswers = slotsToAnswers(initialSlots);
+    const greetingText = `안녕하세요! ${photographerName}님에게 보내는 문의를 도와드릴게요.\n편하게 입력하셔도 되고, 아래 선택지를 눌러도 좋아요.`;
+    push({
+      kind: "bot",
+      node: (
+        <>
+          안녕하세요! <Em>{photographerName}</Em>님에게 보내는 문의를 도와드릴게요.
+          <br />
+          편하게 입력하셔도 되고, 아래 선택지를 눌러도 좋아요.
+        </>
+      ),
+    });
+    const resumeAt = nextStepIndex(STEPS, curAnswers);
+    if (resumeAt >= STEPS.length) {
+      // 저장된 답변으로 이미 코어 완주 — 곧장 요약·연락처 단계로
+      setLlmMessages([{ role: "bot", text: greetingText }]);
+      postContactPhase();
+      return;
+    }
+    const step = STEPS[resumeAt];
+    const questionText = step.question.map((s) => s.text).join("");
+    setTyping(true);
+    window.setTimeout(() => {
+      setTyping(false);
+      push({ kind: "bot", node: renderQuestion(step.question) });
+      setLlmMessages([
+        { role: "bot", text: greetingText },
+        { role: "bot", text: questionText },
+      ]);
+      setAsking(step.key as AskingKey);
+      setQuickReplies(
+        step.type === "options"
+          ? [...(step.options ?? []), step.skip]
+          : step.type === "date"
+            ? ["2주 이내", "한 달 이내", step.skip]
+            : [step.skip]
+      );
+      fireViewed(step, resumeAt);
+    }, REVEAL_MS);
+  }
+
   // ── LLM 대화 코어 ──────────────────────────────────────────────
 
   // API 왕복 — 봇 답변 버블·슬롯 병합·quickReplies·계측. 실패 시 버튼 플로우 폴백.
@@ -344,6 +409,12 @@ export function InquiryBotChat({
   ) {
     setTyping(true);
     try {
+      let startedNotified = false;
+      try {
+        startedNotified = localStorage.getItem(notifiedKey) === "1";
+      } catch {
+        /* 무시 */
+      }
       const payload: BotApiRequest = {
         photographerId,
         photoId,
@@ -353,21 +424,31 @@ export function InquiryBotChat({
         photoContext: { moodTags: photoMoodTags, priceKrw: photoPriceKrw ?? null },
         images: opts?.images?.length ? opts.images.map((dataUrl) => ({ dataUrl })) : undefined,
         totalImages: opts?.totalImages,
+        startedNotified,
       };
-      // 일시 오류 1회는 재시도 — 한 번의 실패로 대화 전체가 버튼 폴백으로 강등되지 않게
+      // A4: 재시도는 네트워크 오류·5xx 만 — 4xx(인증·상한 위반)는 재시도해도 같은 결과라 금지
       let res: Response | null = null;
-      for (let attempt = 0; attempt < 2 && !(res && res.ok); attempt++) {
+      for (let attempt = 0; attempt < 2; attempt++) {
         try {
           res = await fetch("/api/inquiry-bot", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
           });
+          if (res.ok || res.status < 500) break;
         } catch {
           res = null; // 네트워크 오류 — 재시도 대상
         }
       }
       if (!res || !res.ok) throw new Error(`inquiry-bot api ${res ? res.status : "network"}`);
+      // 첫 실제 발화 처리 성공 — started 알림 dedupe 마크 (사진·작가 키당 1회)
+      if (history.some((m) => m.role === "user")) {
+        try {
+          localStorage.setItem(notifiedKey, "1");
+        } catch {
+          /* 무시 */
+        }
+      }
       const data = (await res.json()) as BotApiResponse;
       setTyping(false);
       if (data.handedOff) {
@@ -382,10 +463,18 @@ export function InquiryBotChat({
       push({ kind: "bot", node: <span className="whitespace-pre-line">{data.reply}</span> });
       setAsking(data.asking);
       if (data.done) {
+        utteranceQueueRef.current.clear();
         setQuickReplies([]);
         postContactPhase();
       } else {
         setQuickReplies(data.quickReplies);
+        // B1: 응답 대기 중 쌓인 발화 — 이미 말풍선·이력에 들어있으므로 최신 이력으로 즉시 재호출
+        if (utteranceQueueRef.current.size() > 0) {
+          utteranceQueueRef.current.drain();
+          window.setTimeout(() => {
+            void callBot(llmMessagesRef.current, slotsRef.current);
+          }, 60); // 상태 커밋(ref 미러) 이후 실행
+        }
       }
     } catch (e) {
       setTyping(false);
@@ -415,24 +504,40 @@ export function InquiryBotChat({
         value,
       });
     }
+    // D1: 작가 커스텀 질문 답변 — 새로 채워진 custom 키별 이벤트 (신설 이름, Q1~Q4·Q6 은 불변)
+    const prevCustom = prev.custom ?? {};
+    for (const [questionKey, value] of Object.entries(next.custom ?? {})) {
+      if (prevCustom[questionKey] || !value) continue;
+      mpTrack("Inquiry Custom Answered", {
+        ...flowPropsRef.current,
+        question_key: questionKey.slice(0, 50),
+        skipped: value === "없음",
+        value: String(value).slice(0, 100),
+      });
+    }
     if (nextAsking !== "none" && nextAsking !== "custom") {
       const i = STEPS.findIndex((s) => s.key === nextAsking);
       if (i >= 0) fireViewed(STEPS[i], i);
     } else if (nextAsking === "custom" && !viewedRef.current.has("custom")) {
       viewedRef.current.add("custom");
-      mpTrack("Inquiry QC1 Custom Viewed", { ...flowPropsRef.current, step: "custom" });
+      mpTrack("Inquiry Custom Viewed", { ...flowPropsRef.current, step: "custom" });
     }
   }
 
   // 사용자 발화 (타이핑·quickReply 칩 공용) — 말풍선 게시 후 API 왕복
   function sendUtterance(text: string) {
     fireStartInquiry();
+    forceScrollRef.current = true; // 내 발화 직후는 무조건 바닥으로
     push({ kind: "user", text });
-    const history: BotChatMessage[] = [...llmMessages, { role: "user", text }];
-    setLlmMessages(history);
-    if (handedOff || typing) return; // 작가가 이어받았거나 봇 응답 대기 중 — 말풍선만 남긴다
+    setLlmMessages((prev) => [...prev, { role: "user", text }]);
+    if (handedOff) return; // 작가가 이어받음 — 말풍선만 남긴다
+    if (typing) {
+      // B1: 봇 응답 대기 중 발화는 유실하지 않고 큐 — 응답 도착 즉시 자동 재호출
+      utteranceQueueRef.current.enqueue(text);
+      return;
+    }
     setQuickReplies([]);
-    void callBot(history, slots);
+    void callBot([...llmMessagesRef.current, { role: "user", text }], slots);
   }
 
   // 레퍼런스 이미지 첨부 — 첨부만으로 전송되지 않는다: 입력바 위 썸네일 스트립에 대기시키고,
@@ -459,19 +564,32 @@ export function InquiryBotChat({
     });
   }
 
-  // 프로드 전용 스토리지 업로드 — 실패해도 note 에 첨부 수만 남는다 (URL 없이)
+  // 프로드 전용 스토리지 업로드 — 실패하면 정직하게 안내하고 note 에는 첨부 수만 남는다.
+  // D2: promise 를 추적해 제출 시 진행 중 업로드를 기다린다 (URL 누락 레이스 방지).
+  const uploadFailNoticedRef = useRef(false);
   function uploadReferenceImage(file: File) {
-    void (async () => {
+    const task = (async () => {
       try {
         const fd = new FormData();
         fd.set("file", file);
         const res = await fetch("/api/inquiry-bot/upload", { method: "POST", body: fd });
         const data = (await res.json()) as { url?: string };
-        if (res.ok && data.url) setRefImageUrls((prev) => [...prev, data.url!]);
+        if (res.ok && data.url) {
+          refImageUrlsRef.current.push(data.url);
+          return;
+        }
+        throw new Error("upload failed");
       } catch {
-        /* 무시 */
+        if (!uploadFailNoticedRef.current) {
+          uploadFailNoticedRef.current = true;
+          push({
+            kind: "bot",
+            node: <>이미지 전송이 잘 안 됐어요. 문의에는 첨부하신 사실만 함께 전달돼요.</>,
+          });
+        }
       }
     })();
+    uploadPromisesRef.current.push(task);
   }
 
   // 이미지들 + 캡션을 한 턴으로 전송 — 말풍선 그리드 게시 후 vision 반응(최대 3장 묶어 한 번)
@@ -480,14 +598,15 @@ export function InquiryBotChat({
     if (imgs.length === 0 || done || contactStep) return;
     setPendingImages([]);
     fireStartInquiry();
+    forceScrollRef.current = true; // 내 발화 직후는 무조건 바닥으로
     push({ kind: "userImages", srcs: imgs.map((p) => p.url), caption: caption || undefined });
     setRefImageCount((n) => n + imgs.length);
     mpTrack("Inquiry Reference Image Attached", { ...flowPropsRef.current, count: imgs.length });
     const text = caption
       ? `${caption}\n(레퍼런스 이미지 ${imgs.length}장 첨부)`
       : `(레퍼런스 이미지 ${imgs.length}장을 보냈어요)`;
-    const history: BotChatMessage[] = [...llmMessages, { role: "user", text }];
-    setLlmMessages(history);
+    const history: BotChatMessage[] = [...llmMessagesRef.current, { role: "user", text }];
+    setLlmMessages((prev) => [...prev, { role: "user", text }]);
     if (!DRY_RUN) for (const p of imgs) uploadReferenceImage(p.file);
     if (!llmMode || handedOff || typing) return; // 봇 반응 없이 이미지만 남긴다
     setQuickReplies([]);
@@ -507,6 +626,7 @@ export function InquiryBotChat({
   }
 
   // API 실패 폴백 — 기존 버튼 상태 머신 플로우로 전환 (수집된 슬롯은 이어받는다)
+  const fallbackNoticeRef = useRef(false); // B6: 폴백 자유 입력 안내 1회 가드
   function enterFallback(curAnswers: BotAnswers, hadConversation: boolean) {
     setLlmMode(false);
     setQuickReplies([]);
@@ -564,7 +684,7 @@ export function InquiryBotChat({
               <>
                 문의가 접수됐어요. <Em>{photographerName}</Em>님 답변을 기다리고 있어요.
                 <br />
-                답변이 오면 입력하신 연락처로 알려드릴게요.
+                보통 <Em>24시간 내</Em> 답해드려요. 답변이 오면 입력하신 연락처로 알려드릴게요.
                 {prevDone.dryRun && (
                   <span className="mt-1.5 block w-fit rounded-md bg-fg/[0.07] px-1.5 py-0.5 text-[10px] font-semibold text-muted">
                     개발 모드 — 실제 전송 안 됨
@@ -585,13 +705,14 @@ export function InquiryBotChat({
         setAnswers(slotsToAnswers(initialSlots));
         setSlots(initialSlots);
       }
-      void callBot([], initialSlots);
+      // A2: 첫 인사는 로컬 — 마운트만으로는 LLM 을 호출하지 않는다
+      startLocalGreeting(initialSlots);
     }, 0);
-    // started.current 가드로 1회만 실행되는 진입 effect — callBot 등은 deps 불필요.
+    // started.current 가드로 1회만 실행되는 진입 effect — startLocalGreeting 등은 deps 불필요.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey]);
 
-  // 완료 화면의 "새 문의 시작" — 완료 레코드·답변 저장본을 지우고 처음부터
+  // 완료 화면의 "새 문의 시작" — 완료 레코드·답변 저장본을 지우고 풀 리로드 없이 상태 리셋
   function startNewInquiry() {
     try {
       localStorage.removeItem(doneKey);
@@ -599,7 +720,28 @@ export function InquiryBotChat({
     } catch {
       /* 무시 */
     }
-    window.location.reload();
+    setItems([]);
+    setAnswers({});
+    setSlots({});
+    setLlmMessages([]);
+    setQuickReplies([]);
+    setAsking("none");
+    setStepIndex(-1);
+    setRestoredDone(null);
+    setDevDone(false);
+    setRefImageCount(0);
+    setPendingImages([]);
+    setHandedOff(false);
+    setLlmMode(true);
+    setFreeText("");
+    refImageUrlsRef.current = [];
+    uploadPromisesRef.current = [];
+    utteranceQueueRef.current.clear();
+    viewedRef.current = new Set();
+    startFired.current = false;
+    fallbackNoticeRef.current = false;
+    uploadFailNoticedRef.current = false;
+    window.setTimeout(() => startLocalGreeting({}), 0);
   }
 
   // 입력 변경 시 사진별로 저장 (제출 완료 전까지 — 위저드 패턴)
@@ -614,18 +756,38 @@ export function InquiryBotChat({
     }
   }, [answers, done, storageKey]);
 
-  // 새 버블·타이핑 시 항상 최하단으로 (채팅방 관성)
+  // B2: 모바일 키보드 — visualViewport 높이로 컨테이너를 줄여 입력바가 키보드 위에 오게.
+  // (루트 layout 의 viewport interactiveWidget 설정은 팀 영역이라 침범하지 않고 페이지 범위 대응)
+  const [viewportH, setViewportH] = useState<number | null>(null);
   useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const onResize = () => {
+      const keyboardOpen = vv.height < window.innerHeight - 60;
+      setViewportH(keyboardOpen ? Math.round(vv.height) : null);
+      // 키보드 등장으로 가려진 최신 메시지 재노출
+      const el = scrollRef.current;
+      if (el) el.scrollTo({ top: el.scrollHeight });
+    };
+    vv.addEventListener("resize", onResize);
+    return () => vv.removeEventListener("resize", onResize);
+  }, []);
+
+  // B3: "새 메시지 ↓" 필 상태 — 스크롤 effect 는 ref 수정 지점들 아래(제출부 근처)에 있다
+  const [showNewMsgPill, setShowNewMsgPill] = useState(false);
+
+  function scrollToBottom() {
     const el = scrollRef.current;
-    if (!el) return;
-    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [items, typing, done, pending]);
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    setShowNewMsgPill(false);
+  }
 
   // 선택지 답변 — 사용자 버블 게시 + 계측 + 다음 질문(또는 요약·연락처)으로
   function onPick(value: string) {
     const step = currentStep;
     if (!step || typing) return;
     fireStartInquiry();
+    forceScrollRef.current = true; // 내 발화 직후는 무조건 바닥으로
     push({ kind: "user", text: displayAnswer(step, value) });
     setAnswers((prev) => answerStep(prev, step.key, value));
     mpTrack(`${step.ev} Answered`, {
@@ -664,11 +826,24 @@ export function InquiryBotChat({
       onPick(v);
       return;
     }
+    forceScrollRef.current = true;
     push({ kind: "user", text: v });
+    // B6: 폴백 모드 자유 입력이 조용히 무시되지 않게 — 1회 안내 (반복 노이즈 방지)
+    if (!fallbackNoticeRef.current) {
+      fallbackNoticeRef.current = true;
+      push({
+        kind: "bot",
+        node: (
+          <>
+            남겨주신 내용은 작가님께 함께 전달돼요. 지금은 아래 <Em>선택지</Em>로 이어갈게요.
+          </>
+        ),
+      });
+    }
   }
 
   // 제출 — 답변·연락처를 FormData 로 변환해 기존 submitInquiry 서버 액션 그대로 재사용
-  function submit(contactType: ContactType, contactValue: string) {
+  async function submit(contactType: ContactType, contactValue: string) {
     fireStartInquiry(); // 복원 직후 바로 제출하는 경로에서도 Start 선행 보장
     // 드라이런 — 실제 전송 없이 성공 플로우만 재현 (프로덕션 동작 무영향)
     if (DRY_RUN) {
@@ -704,20 +879,39 @@ export function InquiryBotChat({
     } catch {
       attribution = undefined; // 어트리뷰션 누락이 접수를 막지 않게
     }
+    // D2: 진행 중인 레퍼런스 업로드를 기다려 note 의 URL 누락 레이스 방지
+    if (uploadPromisesRef.current.length > 0) {
+      await Promise.allSettled(uploadPromisesRef.current);
+    }
     // persist 어댑터(legacy 모드) — C3에서 conversations/messages 저장으로 교체되는 자리.
     // 폴백 모드의 답변(answers)이 진실이므로 코어 슬롯은 answers 에서 재구성한다.
     const fd = buildLegacyInquiryFormData(STEPS, {
       photographerId,
       photoId,
       slots: { ...answersToSlots(answers), custom: slots.custom },
-      transcript: llmMessages,
+      transcript: llmMessagesRef.current,
       contact: { type: contactType, value: contactValue },
-      referenceImageUrls: refImageUrls,
+      referenceImageUrls: refImageUrlsRef.current,
       referenceImageCount: refImageCount,
       attribution,
     });
     startTransition(() => formAction(fd));
   }
+
+  // B3: 자동 스크롤 조건화 — 바닥 근처(120px)일 때만 자동, 위에 있으면 "새 메시지 ↓" 필.
+  // 단 내 발화 직후(forceScrollRef — 위 핸들러들이 세팅)는 무조건 바닥으로.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    if (nearBottom || forceScrollRef.current) {
+      forceScrollRef.current = false;
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+      setShowNewMsgPill(false);
+    } else {
+      setShowNewMsgPill(true);
+    }
+  }, [items, typing, done, pending]);
 
   // 서버 검증 실패 — 제출까지 왔는데 접수가 안 된 이탈 (위저드와 동일 계측)
   const failedStateRef = useRef<InquiryState | null>(null);
@@ -836,14 +1030,20 @@ export function InquiryBotChat({
   }
 
   return (
-    <div className="fixed inset-0 z-50 mx-auto flex h-[100svh] max-w-xl flex-col bg-bg font-kr">
-      {/* 고정 헤더 — 작가명 + 문의 사진 썸네일 (채팅방 상단 고정) */}
+    // B2: 키보드가 열리면 visualViewport 높이로 줄여 입력바를 키보드 위에 유지
+    <div
+      className="fixed inset-0 z-30 mx-auto flex h-[100svh] max-w-xl flex-col bg-bg font-kr"
+      style={viewportH ? { height: viewportH } : undefined}
+    >
+      {/* E3: 버블 등장·타이핑 도트 keyframes (페이지 범위 — 전역 CSS 침범 없음) */}
+      <style>{`@keyframes samaeBubbleIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}`}</style>
+      {/* 고정 헤더 — 작가명 + 진행 카운터 (채팅방 상단 고정) */}
       <header className="flex items-center gap-2.5 border-b border-line px-3 py-2.5">
         <button
           type="button"
           onClick={onBack}
           aria-label="뒤로"
-          className="grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-full text-fg transition-colors hover:bg-fg/[0.06]"
+          className="grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-full text-fg transition-colors hover:bg-fg/[0.06]"
         >
           <ArrowLeftIcon />
         </button>
@@ -859,24 +1059,23 @@ export function InquiryBotChat({
           </span>
         )}
         <div className="min-w-0 flex-1">
-          <p className="truncate text-base font-semibold">{photographerName}</p>
-          {/* 슬롯 진행 상태 — 수집된 항목을 은은하게 체크 표시 */}
+          <p className="flex items-center gap-1.5 truncate text-base font-semibold">
+            <span className="truncate">{photographerName}</span>
+            {/* B5: 봇 정체 표기 — 작가 본인이 아니라 자동 도우미가 응답 중임을 상시 노출 */}
+            {!handedOff && (
+              <span className="shrink-0 rounded bg-surface-2 px-1.5 py-0.5 text-[9px] font-semibold leading-none text-muted">
+                자동 응답
+              </span>
+            )}
+          </p>
+          {/* E4: 진행 표시 — 체크 나열 대신 간결한 카운터 */}
           {handedOff ? (
             <p className="truncate text-xs font-medium text-brand">작가님이 대화를 이어받았어요</p>
           ) : (
             <p className="truncate text-xs text-muted">
-              {STEPS.filter((s) => !s.custom).map((s, i) => {
-                const filled = answers[s.key] !== undefined;
-                return (
-                  <span key={s.key} className={filled ? "text-brand" : undefined}>
-                    {i > 0 && <span className="text-faint"> · </span>}
-                    {s.short}
-                    {filled && (
-                      <CheckIcon className="ml-0.5 inline-block h-3 w-3 align-[-1px]" />
-                    )}
-                  </span>
-                );
-              })}
+              {answeredCount(STEPS, answers) > 0
+                ? `${answeredCount(STEPS, answers)}/${STEPS.length} 답변 완료`
+                : "기본 정보를 여쭤보고 작가님께 전달해드려요"}
             </p>
           )}
         </div>
@@ -892,17 +1091,22 @@ export function InquiryBotChat({
             시뮬레이션
           </button>
         )}
-        {photoSrc && (
-          <img
-            src={photoSrc}
-            alt="문의한 사진"
-            className="h-10 w-10 shrink-0 rounded-lg border border-line object-cover"
-          />
-        )}
+        {/* E4: 헤더 사진 썸네일 제거 — 타임라인 상단 사진 카드와 중복이었음 */}
       </header>
 
-      {/* 채팅 타임라인 */}
-      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-5">
+      {/* 채팅 타임라인 — role=log 로 신규 메시지를 보조기기에 공손하게 알림 */}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+      <div
+        ref={scrollRef}
+        role="log"
+        aria-live="polite"
+        onScroll={() => {
+          const el = scrollRef.current;
+          if (!el) return;
+          if (el.scrollHeight - el.scrollTop - el.clientHeight < 120) setShowNewMsgPill(false);
+        }}
+        className="flex-1 space-y-3 overflow-y-auto px-4 py-5"
+      >
         {/* 문의 시작 사진 카드 — 어떤 사진으로 문의를 시작했는지 대화 맨 위에 남긴다 */}
         {photoSrc && (
           <div className="mr-auto max-w-[70%]">
@@ -914,10 +1118,15 @@ export function InquiryBotChat({
           </div>
         )}
 
+        {/* B5: 봇 정체 캡션 — 첫 인사 위에서 발화 주체를 분명히 */}
+        <p className="text-center text-[11px] text-muted">
+          사매 문의 도우미 · {photographerName}님 대신 기본 정보를 여쭤봐요
+        </p>
+
         {items.map((item) => {
           if (item.kind === "user") {
             return (
-              <div key={item.id} className="ml-auto w-fit max-w-[85%]">
+              <div key={item.id} className={`ml-auto w-fit max-w-[85%] ${ITEM_ANIM}`}>
                 <div className="rounded-2xl rounded-tr-md bg-brand px-3.5 py-2.5 text-[16px] font-medium text-white">
                   {item.text}
                 </div>
@@ -927,7 +1136,7 @@ export function InquiryBotChat({
           if (item.kind === "userImages") {
             const many = item.srcs.length > 1;
             return (
-              <div key={item.id} className="ml-auto w-fit max-w-[78%] space-y-1.5">
+              <div key={item.id} className={`ml-auto w-fit max-w-[78%] space-y-1.5 ${ITEM_ANIM}`}>
                 <div className={many ? "grid grid-cols-2 gap-1.5" : undefined}>
                   {item.srcs.map((src, i) => (
                     <img
@@ -953,7 +1162,7 @@ export function InquiryBotChat({
           if (item.kind === "photographer") {
             // 작가 발화 — 봇 버블과 같은 좌측 정렬이지만 브랜드 톤으로 구분 + '작가' 라벨
             return (
-              <div key={item.id} className="flex items-start gap-2">
+              <div key={item.id} className={`flex items-start gap-2 ${ITEM_ANIM}`}>
                 {photographerAvatar ? (
                   <img src={photographerAvatar} alt="" className="mt-0.5 h-8 w-8 shrink-0 rounded-full object-cover" />
                 ) : (
@@ -973,7 +1182,7 @@ export function InquiryBotChat({
           if (item.kind === "handoff") {
             // 봇 정지 배지 — 이 시점부터 봇은 어떤 발화에도 응답하지 않는다
             return (
-              <div key={item.id} className="flex justify-center py-1">
+              <div key={item.id} className={`flex justify-center py-1 ${ITEM_ANIM}`}>
                 <span className="rounded-full bg-surface-2 px-3 py-1.5 text-[11px] font-medium text-muted">
                   작가님이 대화를 이어받았어요 · 자동 도우미는 여기서 멈춰요
                 </span>
@@ -982,16 +1191,14 @@ export function InquiryBotChat({
           }
           if (item.kind === "summary") {
             return (
-              <SummaryCard
-                key={item.id}
-                photoSrc={photoSrc}
-                rows={buildSummaryRows(STEPS, answers)}
-              />
+              <div key={item.id} className={ITEM_ANIM}>
+                <SummaryCard photoSrc={photoSrc} rows={buildSummaryRows(STEPS, answers)} />
+              </div>
             );
           }
           if (item.kind === "notice") {
             return (
-              <div key={item.id} className="space-y-2">
+              <div key={item.id} className={`space-y-2 ${ITEM_ANIM}`}>
                 <BotBubble avatar={photographerAvatar} name={photographerName}>
                   {item.node}
                 </BotBubble>
@@ -1023,9 +1230,11 @@ export function InquiryBotChat({
             );
           }
           return (
-            <BotBubble key={item.id} avatar={photographerAvatar} name={photographerName}>
-              {item.node}
-            </BotBubble>
+            <div key={item.id} className={ITEM_ANIM}>
+              <BotBubble avatar={photographerAvatar} name={photographerName}>
+                {item.node}
+              </BotBubble>
+            </div>
           );
         })}
 
@@ -1043,19 +1252,32 @@ export function InquiryBotChat({
         )}
       </div>
 
+      {/* B3: 위로 스크롤해 읽는 중 새 메시지 도착 — 강제 스크롤 대신 필 버튼 */}
+      {showNewMsgPill && (
+        <button
+          type="button"
+          onClick={scrollToBottom}
+          className="absolute bottom-3 left-1/2 -translate-x-1/2 cursor-pointer rounded-full border border-line bg-surface px-3.5 py-2 text-xs font-semibold text-fg shadow-sm transition-transform active:scale-[0.97]"
+        >
+          새 메시지 ↓
+        </button>
+      )}
+      </div>
+
       {/* LLM quick reply — 입력창 바로 위의 '보조' 칩 한 줄 (가로 스크롤).
           자유 입력이 주인공이라는 위계: 작게, 은은하게, 탭하면 그 텍스트가 사용자 발화가 된다 */}
       {llmMode && !loginGate && !handedOff && !typing && !done && !contactStep && quickReplies.length > 0 && (
         <div
-          className="flex gap-1.5 overflow-x-auto px-3 pt-2 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          role="group"
           aria-label="추천 답변 — 탭해도 되고 직접 입력해도 돼요"
+          className="flex gap-1.5 overflow-x-auto px-3 pt-2 pb-0.5 [mask-image:linear-gradient(to_right,black_calc(100%-28px),transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {quickReplies.map((q) => (
             <button
               key={q}
               type="button"
               onClick={() => sendUtterance(q)}
-              className="shrink-0 cursor-pointer whitespace-nowrap rounded-full bg-surface-2 px-3 py-1.5 text-[13px] font-medium text-fg/80 ring-1 ring-line transition-transform active:scale-[0.97] active:bg-surface"
+              className="min-h-[40px] shrink-0 cursor-pointer whitespace-nowrap rounded-full bg-surface-2 px-3.5 py-2 text-[13px] font-medium text-fg/80 ring-1 ring-line transition-transform active:scale-[0.97] active:bg-surface"
             >
               {q}
             </button>
@@ -1077,13 +1299,15 @@ export function InquiryBotChat({
                 type="button"
                 onClick={() => removePendingImage(p.id)}
                 aria-label="첨부 제거"
-                className="absolute right-0 top-0 grid h-5 w-5 cursor-pointer place-items-center rounded-full bg-fg text-[10px] leading-none text-bg"
+                className="absolute right-0 top-0 grid h-5 w-5 cursor-pointer place-items-center rounded-full bg-fg text-bg before:absolute before:-inset-3 before:content-['']"
               >
-                ✕
+                <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
+                </svg>
               </button>
             </div>
           ))}
-          <p className="shrink-0 text-[11px] text-faint">메시지와 함께 전송돼요</p>
+          <p className="shrink-0 text-[11px] text-muted">메시지와 함께 전송돼요</p>
         </div>
       )}
 
@@ -1163,6 +1387,7 @@ export function InquiryBotChat({
           value={freeText}
           onChange={(e) => setFreeText(e.target.value)}
           disabled={done}
+          aria-label="메시지 입력"
           placeholder={
             done ? "문의가 전달되었어요" : handedOff ? "작가님께 메시지를 남겨보세요" : "하고 싶은 말을 남겨보세요"
           }
@@ -1174,9 +1399,8 @@ export function InquiryBotChat({
           aria-label="보내기"
           className="grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-full bg-brand text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M5 12h13M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          {/* E4: 실채팅(ChatRoom)과 같은 전송 아이콘으로 통일 */}
+          <SendIcon className="h-5 w-5" />
         </button>
       </form>
       )}
@@ -1213,16 +1437,25 @@ function BotBubble({
 }
 
 function TypingBubble({ avatar, name }: { avatar: string | null; name: string }) {
+  // 장식용 인디케이터 — 보조기기에는 읽히지 않게 (role=log 안이라 소음 방지)
   return (
-    <BotBubble avatar={avatar} name={name}>
-      <span className="flex items-center gap-1 py-1">
-        <Dot /> <Dot /> <Dot />
-      </span>
-    </BotBubble>
+    <div aria-hidden="true">
+      <BotBubble avatar={avatar} name={name}>
+        <span className="flex items-center gap-1 py-1">
+          <Dot delay={0} /> <Dot delay={160} /> <Dot delay={320} />
+        </span>
+      </BotBubble>
+    </div>
   );
 }
-function Dot() {
-  return <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-fg/40" />;
+function Dot({ delay }: { delay: number }) {
+  // E3: stagger — 도트가 순차로 깜빡여 '생각 중' 리듬을 만든다
+  return (
+    <span
+      className="h-1.5 w-1.5 animate-pulse rounded-full bg-fg/40"
+      style={{ animationDelay: `${delay}ms` }}
+    />
+  );
 }
 
 // ── 요약 카드 — 사진·목적·날짜·지역·인원 정리 (C3에서 type='summary_card' 메시지로 승격) ──
@@ -1253,7 +1486,8 @@ function SummaryCard({
           {rows.map((r) => (
             <div key={r.key} className="flex items-baseline gap-2 text-sm">
               <dt className="w-16 shrink-0 text-muted">{r.label}</dt>
-              <dd className={`min-w-0 flex-1 truncate font-medium ${r.skipped ? "text-muted" : "text-fg"}`}>
+              {/* E4: truncate 제거 — 커스텀 답변·긴 값도 잘리지 않고 줄바꿈 (break-keep) */}
+              <dd className={`min-w-0 flex-1 break-keep font-medium ${r.skipped ? "text-muted" : "text-fg"}`}>
                 {r.value}
               </dd>
             </div>
@@ -1449,7 +1683,7 @@ function ContactCard({
             onBlur={() => setAttempted(true)}
             placeholder={active.placeholder}
             inputMode={active.inputMode}
-            autoFocus
+            // B2: autoFocus 제거 — 모바일에서 카드 노출과 동시에 키보드가 화면을 덮는 문제
             className={[
               // mp-mask: 세션 리플레이에서 이 입력(연락처=PII)만 마스킹
               "mp-mask h-11 w-full rounded-xl border bg-surface px-3 text-base text-fg outline-none transition-colors placeholder:text-faint",

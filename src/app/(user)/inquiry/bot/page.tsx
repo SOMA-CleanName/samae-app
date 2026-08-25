@@ -66,7 +66,8 @@ export default async function InquiryBotPage({
   const photoSrc = photo ? photo.thumb_url ?? photo.src_url : null;
 
   return (
-    <main className="bg-bg">
+    // E2: 루트 레이아웃의 main 과 중첩(landmark 중복)되지 않게 div 사용
+    <div className="bg-bg">
       <InquiryBotChat
         photographerId={photographerId}
         photographerName={photographer.display_name}
@@ -79,6 +80,6 @@ export default async function InquiryBotPage({
         userPhone={userPhone}
         loginGateUrl={loginGateUrl}
       />
-    </main>
+    </div>
   );
 }

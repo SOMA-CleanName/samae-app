@@ -51,6 +51,31 @@ export function shouldNotifyStarted(messages: BotChatMessage[], alreadyNotified:
   return messages.filter((m) => m.role === "user").length === 1;
 }
 
+// ── 발화 큐 (B1) ─────────────────────────────────────────────────
+// 봇 응답 대기 중 사용자가 보낸 발화를 잃지 않기 위한 큐.
+// UI 는 typing 중 발화를 enqueue 하고, 응답 도착 즉시 drain 해 최신 이력으로 재호출한다.
+export type UtteranceQueue = {
+  enqueue: (text: string) => void;
+  size: () => number;
+  /** 쌓인 발화를 모두 꺼내고 큐를 비운다 */
+  drain: () => string[];
+  clear: () => void;
+};
+
+export function createUtteranceQueue(): UtteranceQueue {
+  const items: string[] = [];
+  return {
+    enqueue: (text) => {
+      items.push(text);
+    },
+    size: () => items.length,
+    drain: () => items.splice(0, items.length),
+    clear: () => {
+      items.length = 0;
+    },
+  };
+}
+
 // ── 슬롯 ─────────────────────────────────────────────────────────
 export const CORE_SLOT_KEYS = ["purpose", "preferredDate", "region", "partySize"] as const;
 

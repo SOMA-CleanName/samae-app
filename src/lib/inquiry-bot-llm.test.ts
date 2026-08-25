@@ -5,6 +5,7 @@ import {
   botTurnSchema,
   buildSystemPrompt,
   coreSlotsFilled,
+  createUtteranceQueue,
   hasPhotographerIntervened,
   sanitizeBotTurn,
   shouldNotifyStarted,
@@ -157,6 +158,21 @@ test("shouldNotifyStarted — 사용자 첫 실제 발화에서만, dedupe 마�
   assert.equal(shouldNotifyStarted([bot("q1"), user("a1"), bot("q2"), user("a2")], false), false);
   // localStorage dedupe 마크
   assert.equal(shouldNotifyStarted([bot("인사"), user("첫 발화")], true), false);
+});
+
+// ── 발화 큐 (B1) ─────────────────────────────────────────────────
+test("createUtteranceQueue — 대기 중 발화 적재·drain 후 비워짐", () => {
+  const q = createUtteranceQueue();
+  assert.equal(q.size(), 0);
+  q.enqueue("첫 발화");
+  q.enqueue("두 번째 발화");
+  assert.equal(q.size(), 2);
+  assert.deepEqual(q.drain(), ["첫 발화", "두 번째 발화"]);
+  assert.equal(q.size(), 0);
+  assert.deepEqual(q.drain(), []); // 재-drain 은 빈 배열
+  q.enqueue("다시");
+  q.clear();
+  assert.equal(q.size(), 0);
 });
 
 // ── C1: done 클램프 시 완료 멘트 교체 / C3: 리터럴 \n 정규화 ─────
