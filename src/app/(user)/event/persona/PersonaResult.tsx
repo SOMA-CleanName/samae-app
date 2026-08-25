@@ -7,14 +7,16 @@ import { Button } from "@/components/ui";
 import type { PersonaSuccess } from "./view-types";
 import { PersonaMotion, reveal, pop, grow } from "./motion";
 
-// 결과 화면 — 이 기능의 유일한 공유 자산이다.
+// 결과 화면 — "공유하고 싶은 리포트 카드" (2026-08-25 전면 재설계).
 //
 // 디자인 원칙:
-// 1) 사매 시스템 안에 있는다. 토큰만 쓰고(테마 자동 추종), 다크 독립 섬을 만들지 않는다.
-// 2) 기억점은 '다크 테마'가 아니라 **내 피드에서 뽑은 팔레트**다. 사람마다 다른 색이
-//    히어로 워시와 스와치로 깔려서, 같은 레이아웃인데 결과마다 다른 인상을 준다.
-// 3) 팔레트 색은 **장식에만** 쓴다. 사용자 사진에서 뽑은 색이라 밝을 수도 어두울 수도 있어
-//    텍스트·게이지에 쓰면 대비가 무너진다. 텍스트는 항상 토큰 색.
+// 1) 스크롤형 나열이 아니라 **카드 한 장 한 장이 완결된 뷰**다. 어느 카드를 캡처해도
+//    그 자체로 인스타에 올릴 수 있어야 한다 — 카드마다 구획·위계·samae 표식을 갖춘다.
+// 2) 기억점은 **내 피드에서 뽑은 팔레트**다. 히어로 카드는 도미넌트 색을 배경 전체로
+//    쓰고(워시가 아니라 테마), 잉크 색은 명도로 자동 선택해 대비를 지킨다.
+// 3) 팔레트를 텍스트에 쓰는 건 히어로 카드 안에서만 — 나머지 카드는 전부 토큰 색.
+// 4) 카피는 생성 단계에서 이미 짧다(combined.ts v3 글자수 제한). 구버전 저장 결과의
+//    긴 문장도 깨지지 않고 흐르게만 잡아둔다 (접이식 불필요).
 
 const BIG5_LABEL: Record<string, string> = {
   openness: "개방성",
@@ -34,7 +36,76 @@ function cardHref(r: PersonaSuccess): string {
   return `/event/persona/share?${params.toString()}`;
 }
 
-// 추천 사진 1장. 첫 장(big)은 넓게, 나머지는 2열 그리드.
+// AI 카피는 문장마다 줄을 바꿔 얹는다 — 한 덩어리 문단보다 카피 톤이 산다.
+function splitSentences(text: string): string[] {
+  return text
+    .split(/(?<=[.!?…])\s+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+// ── 팔레트 → 히어로 카드 테마 ──────────────────────────────
+// 사용자 사진에서 뽑은 색이라 밝기를 예측할 수 없다. 도미넌트 색의 상대 휘도로
+// 잉크(글자색)를 고른다. 여기 리터럴 색은 하드코딩 팔레트가 아니라
+// "동적 배경 위 대비 보장"을 위한 잉크 페어다 (팔레트 동적 사용 예외 범위).
+function heroTheme(palette: string[]) {
+  const p0 = palette[0] ?? "#241a18";
+  const p1 = palette[1] ?? p0;
+  const chan = (h: string, i: number) => parseInt(h.slice(i, i + 2), 16) / 255;
+  const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
+  let lum = 0.5;
+  try {
+    lum = 0.2126 * lin(chan(p0, 1)) + 0.7152 * lin(chan(p0, 3)) + 0.0722 * lin(chan(p0, 5));
+  } catch {
+    /* 팔레트가 hex 가 아니면 중간값 유지 */
+  }
+  const dark = lum > 0.35; // 밝은 배경 → 어두운 잉크
+  const ink = dark ? "rgba(22,17,13,0.96)" : "rgba(255,252,248,0.98)";
+  const soft = dark ? "rgba(22,17,13,0.68)" : "rgba(255,252,248,0.75)";
+  const line = dark ? "rgba(22,17,13,0.22)" : "rgba(255,252,248,0.30)";
+  return {
+    ink,
+    soft,
+    line,
+    bg: {
+      backgroundColor: p0,
+      backgroundImage: `radial-gradient(130% 95% at 88% 100%, ${p1}40 0%, transparent 62%)`,
+    } as React.CSSProperties,
+  };
+}
+
+// 카드 공통 껍데기 — 모든 카드가 같은 반경·경계·그림자를 가져야 '리포트 한 벌'로 읽힌다.
+function Card({
+  order,
+  className = "",
+  children,
+}: {
+  /** 등장 스태거 순서 */
+  order: number;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section
+      style={reveal(order)}
+      className={`overflow-hidden rounded-3xl border border-line bg-surface p-5 shadow-card ${className}`}
+    >
+      {children}
+    </section>
+  );
+}
+
+// 카드 소제목 — 브랜드색 짧은 획 + 캡션. 카드가 바뀌어도 같은 리듬으로 반복된다.
+function CardTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 className="flex items-center gap-2 text-caption font-semibold uppercase tracking-wider text-muted">
+      <span aria-hidden className="h-px w-4 shrink-0 bg-brand" />
+      {children}
+    </h2>
+  );
+}
+
+// 추천 사진 1장. 첫 장(big)은 넓게, 나머지는 3열 그리드.
 function PersonaPhoto({
   photo,
   rank,
@@ -90,51 +161,6 @@ function PersonaPhoto({
   );
 }
 
-// 섹션 소제목 — eyebrow 만 반복하면 스크롤 중에 구획이 흐릿해진다.
-// 브랜드색 짧은 획을 앞세워 '여기서 화제가 바뀐다'는 신호를 준다.
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return (
-    <h2 className="flex items-center gap-2 text-caption font-semibold uppercase tracking-wider text-muted">
-      <span aria-hidden className="h-px w-4 shrink-0 bg-brand" />
-      {children}
-    </h2>
-  );
-}
-
-// AI 장문은 수정할 수 없으니 **표시**로 끊는다 — 문장마다 줄을 바꾸면
-// 한 덩어리 문단보다 스캔이 훨씬 빠르다 (모바일 22자/줄 기준).
-function splitSentences(text: string): string[] {
-  return text
-    .split(/(?<=[.!?…])\s+/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
-
-// 상세 접기 — '한 줄 핵심(크게) → 상세(작게·접기)' 위계의 접기 쪽.
-// 네이티브 details 라 상태·계측 없이 표시만 바뀐다.
-function Disclosure({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <details className="group mt-3">
-      <summary className="flex min-h-9 cursor-pointer list-none items-center gap-1 py-1 text-caption font-medium text-muted transition-colors duration-200 hover:text-fg [&::-webkit-details-marker]:hidden">
-        {label}
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="h-3.5 w-3.5 transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none"
-          aria-hidden
-        >
-          <path d="m6 9 6 6 6-6" />
-        </svg>
-      </summary>
-      <div className="mt-1.5">{children}</div>
-    </details>
-  );
-}
-
 export default function PersonaResult({
   result,
   onRestart,
@@ -149,6 +175,9 @@ export default function PersonaResult({
   const { persona, shoot, photos } = result;
   const [copied, setCopied] = useState(false);
   const palette = shoot.colorPalette.length ? shoot.colorPalette.slice(0, 5) : ["#ff3d2e", "#241a18", "#f3f1ec"];
+  const theme = heroTheme(palette);
+  const keywords = (shoot.keywords ?? []).slice(0, 3); // v3 필드 — 구버전 결과에는 없다
+  const evidence = persona.evidence.slice(0, 4);
 
   // 결과 페이지 링크를 공유한다 — 친구가 열면 같은 결과를 보고 자기 분석으로 넘어간다.
   // (저장 실패로 shareId 가 없으면 카드 이미지만 제공)
@@ -179,78 +208,85 @@ export default function PersonaResult({
   }
 
   return (
-    <div className="font-kr">
-      {/* ── 히어로 ── */}
-      <section className="relative overflow-hidden px-6 pb-12 pt-16 text-center">
-        {/* 내 팔레트에서 뽑은 워시 — 장식 전용이라 대비에 영향 없음.
-            도미넌트(0)를 위에서, 보조색(1)을 오른쪽 아래에서 아주 옅게 겹쳐
-            단색 그라데이션보다 '내 피드 색감'이라는 인상을 준다. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-72"
-          style={{
-            background:
-              `radial-gradient(110% 80% at 50% 0%, ${palette[0]}2e 0%, transparent 70%),` +
-              `radial-gradient(70% 60% at 85% 75%, ${palette[1] ?? palette[0]}1a 0%, transparent 70%)`,
-          }}
-        />
-
-        <div className="relative mx-auto max-w-lg">
-          <p style={reveal(0)} className="font-display text-body-sm italic text-brand">
-            samae · 내 촬영 페르소나
-          </p>
-
-          {/* 라벨은 한글이다 — Fraunces italic 을 씌우면 합성 이탤릭이라 지저분해진다.
-              (Fraunces 는 위 eyebrow 의 'samae' 에만) */}
-          <h1
-            style={reveal(1)}
-            className="mt-3 text-balance text-[1.9rem] font-extrabold leading-[1.25] tracking-tight sm:text-[2.3rem]"
+    <div className="mx-auto max-w-lg space-y-3 px-5 pb-4 pt-6 font-kr">
+      {/* ── 1. 히어로 카드 — 내 팔레트가 곧 테마. 이 한 장이 공유의 얼굴이다 ── */}
+      <section
+        style={{ ...reveal(0), ...theme.bg }}
+        className="overflow-hidden rounded-3xl p-6 pb-5 shadow-card"
+      >
+        <div style={reveal(0)} className="flex items-baseline justify-between">
+          <span className="font-display text-body italic" style={{ color: theme.ink }}>
+            samae
+          </span>
+          <span
+            className="text-caption font-medium uppercase tracking-[0.18em]"
+            style={{ color: theme.soft }}
           >
-            {shoot.shootPersonaLabel}
-          </h1>
+            Shoot Persona
+          </span>
+        </div>
 
-          {/* 팔레트 — 이 결과의 지문. 장식이므로 스크린리더에서는 감춘다.
-              도미넌트(첫 칩)는 한 치수 크게, 나머지는 도장 찍듯 차례로 팝. */}
-          <ul aria-hidden style={reveal(2)} className="mt-6 flex items-center justify-center gap-2">
-            {palette.map((c, i) => (
+        {/* 라벨 — 카드에서 가장 큰 활자. 생성 단계에서 8~14자로 제한해 두 줄을 넘지 않는다 */}
+        <h1
+          style={{ ...reveal(1), color: theme.ink }}
+          className="mt-6 text-balance text-[2.1rem] font-extrabold leading-[1.18] tracking-tight"
+        >
+          {shoot.shootPersonaLabel}
+        </h1>
+
+        {/* 키워드 칩 — 나를 요약하는 세 단어 (v3. 구버전 결과에는 없어 조용히 생략) */}
+        {keywords.length > 0 && (
+          <ul style={reveal(2)} className="mt-4 flex flex-wrap gap-1.5">
+            {keywords.map((k) => (
               <li
-                key={`${c}-${i}`}
-                title={c}
-                className={
-                  "rounded-full shadow-card ring-1 ring-fg/10 " + (i === 0 ? "h-10 w-10" : "h-8 w-8")
-                }
-                style={{ background: c, ...pop(i, 260) }}
-              />
+                key={k}
+                className="rounded-full border px-3 py-1 text-caption font-semibold"
+                style={{ borderColor: theme.line, color: theme.ink }}
+              >
+                {k}
+              </li>
             ))}
           </ul>
+        )}
 
-          {/* 후킹 카피 — 이 화면의 첫 본문. muted 한 덩어리로 깔면 안 읽혀서
-              문장마다 줄을 바꾸고 본문 대비(fg)로 올린다. */}
-          <div style={reveal(3)} className="mx-auto mt-7 max-w-md space-y-1.5">
-            {splitSentences(shoot.psychHook).map((s, i) => (
-              <p key={i} className="text-pretty text-body leading-relaxed text-fg/85">
-                {s}
-              </p>
-            ))}
-          </div>
+        {/* 훅 카피 — 문장 단위 줄바꿈. 캡처했을 때 카피처럼 읽히는 부분 */}
+        <div
+          style={{ ...reveal(3), borderColor: theme.line }}
+          className="mt-5 space-y-1 border-t pt-4"
+        >
+          {splitSentences(shoot.psychHook).map((s, i) => (
+            <p key={i} className="text-pretty text-body leading-relaxed" style={{ color: theme.ink }}>
+              {s}
+            </p>
+          ))}
         </div>
+
+        {/* 팔레트 스와치 — 이 결과의 지문. 장식이므로 스크린리더에서 감춘다 */}
+        <ul aria-hidden className="mt-6 flex items-center gap-1.5">
+          {palette.map((c, i) => (
+            <li
+              key={`${c}-${i}`}
+              title={c}
+              className={"rounded-full " + (i === 0 ? "h-7 w-7" : "h-5 w-5")}
+              style={{ background: c, boxShadow: `inset 0 0 0 1px ${theme.line}`, ...pop(i, 380) }}
+            />
+          ))}
+          <li className="ml-auto text-caption tabular-nums" style={{ color: theme.soft }}>
+            my feed palette
+          </li>
+        </ul>
       </section>
 
-      {/* ── 어울리는 사진 ── 히어로 바로 다음.
-          사람들은 '내 성격 분석표'보다 **사진**을 먼저 보고 싶어한다.
-          텍스트 리포트를 먼저 깔면 스크롤 중에 이탈하고, 이 기능의 결과물(사진)에 닿지 못한다. */}
+      {/* ── 2. 닮은 사진 카드 — 이 기능의 결과물(상품)이라 성격보다 먼저 ── */}
       {photos.length > 0 && (
-        <section className="mx-auto max-w-lg px-6 pb-12">
-          <SectionTitle>당신의 피드와 닮은 사진</SectionTitle>
+        <Card order={1}>
+          <CardTitle>당신의 피드와 닮은 사진</CardTitle>
           <p className="mt-1.5 text-body-sm leading-relaxed text-muted">
             색·빛·구도가 가까운 순서예요. 누르면 작가와 가격이 보여요.
           </p>
 
-          {/* 첫 장은 크게 — 작은 타일 9개보다 큰 한 장이 먼저 눈에 박힌다.
-              나머지는 3열로 압축한다. 2열로 8장을 깔면 사진 구간만 화면 4개 분량이 되어
-              뒤의 설명·CTA 까지 아무도 안 내려간다. */}
+          {/* 첫 장은 크게, 나머지는 3열 — 사진 구간이 화면 4개 분량이 되면 아무도 안 내려간다 */}
           <PersonaPhoto photo={photos[0]} rank={1} purposeKey={shoot.purposeKey} big />
-
           {photos.length > 1 && (
             <div className="mt-1.5 grid grid-cols-3 gap-1.5">
               {photos.slice(1, 7).map((p, i) => (
@@ -260,31 +296,27 @@ export default function PersonaResult({
           )}
 
           {shoot.locations.length > 0 && (
-            // 문장 한 줄보다 칩이 '가서 찍을 수 있는 곳'처럼 읽힌다
-            <div className="mt-4 flex flex-wrap items-center justify-center gap-1.5">
+            <div className="mt-4 flex flex-wrap items-center gap-1.5">
               <span className="text-caption text-muted">어울리는 로케이션</span>
               {shoot.locations.slice(0, 3).map((loc) => (
                 <span
                   key={loc}
-                  className="rounded-full border border-line bg-surface px-3 py-1 text-caption font-medium text-fg/80"
+                  className="rounded-full border border-line bg-bg px-3 py-1 text-caption font-medium"
                 >
                   {loc}
                 </span>
               ))}
             </div>
           )}
-        </section>
+        </Card>
       )}
 
-      {/* ── 당신은 이런 사람 ──
-          무드 근거보다 먼저 둔다 — '나'에 대한 결론을 읽고 나야
-          '그래서 이 무드'라는 다음 섹션이 근거로 읽힌다. */}
-      <section className="mx-auto max-w-lg px-6 pb-12">
-        <SectionTitle>당신은 이런 사람</SectionTitle>
-        {/* 한 줄 핵심 — 이 섹션에서 크게 읽히는 건 이 문장 하나면 된다 */}
-        <p className="mt-2.5 text-pretty text-h2 font-bold leading-snug">{persona.oneLiner}</p>
+      {/* ── 3. 성격 카드 — 결론(나)을 먼저, 무드 근거는 다음 카드에서 ── */}
+      <Card order={2}>
+        <CardTitle>당신은 이런 사람</CardTitle>
+        <p className="mt-2.5 text-pretty text-[1.375rem] font-bold leading-snug">{persona.oneLiner}</p>
 
-        <div className="mt-6 space-y-2.5">
+        <div className="mt-5 space-y-2.5">
           {Object.entries(persona.bigFive).map(([k, v], i) => (
             <div key={k} className="flex items-center gap-3">
               <span className="w-14 shrink-0 text-caption text-muted">{BIG5_LABEL[k] ?? k}</span>
@@ -310,82 +342,85 @@ export default function PersonaResult({
           ))}
         </div>
 
-        {/* 애착유형 — 라벨은 칩으로 세우고 이유는 본문 대비로 한 줄.
-            근거 목록은 길어서 기본 접힘 (읽고 싶은 사람만 편다). */}
-        <div className="mt-6 rounded-2xl border border-line bg-surface p-4 shadow-card">
-          <span className="inline-flex rounded-full bg-brand-soft px-2.5 py-1 text-caption font-semibold text-brand-ink">
-            {persona.attachment.label}
-          </span>
-          <p className="mt-2.5 text-body-sm leading-relaxed">{persona.attachment.reason}</p>
-          {persona.evidence.length > 0 && (
-            <Disclosure label={`판단 근거 ${Math.min(persona.evidence.length, 4)}가지 보기`}>
-              <ul className="space-y-2">
-                {persona.evidence.slice(0, 4).map((e, i) => (
-                  <li key={i} className="flex gap-2 text-body-sm leading-relaxed text-muted">
-                    <span aria-hidden className="mt-[0.5em] h-1 w-1 shrink-0 rounded-full bg-brand" />
-                    <span>{e}</span>
-                  </li>
-                ))}
-              </ul>
-            </Disclosure>
+        {/* 애착유형 + 근거 — 카피가 짧아져(각 1문장·26자대) 접지 않고 다 보여준다 */}
+        <div className="mt-5 border-t border-line pt-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex rounded-full bg-brand-soft px-2.5 py-1 text-caption font-semibold text-brand-ink">
+              {persona.attachment.label}
+            </span>
+            <p className="text-body-sm leading-relaxed">{persona.attachment.reason}</p>
+          </div>
+          {evidence.length > 0 && (
+            <ul className="mt-3 space-y-1.5">
+              {evidence.map((e, i) => (
+                <li key={i} className="flex gap-2 text-body-sm leading-relaxed text-fg/80">
+                  <span aria-hidden className="mt-[0.55em] h-1 w-1 shrink-0 rounded-full bg-brand" />
+                  <span>{e}</span>
+                </li>
+              ))}
+            </ul>
           )}
         </div>
-      </section>
+      </Card>
 
-      {/* ── 왜 이 무드인지 ── '당신은 이런 사람' 뒤에 온다 (결론 → 근거 순서) */}
-      {shoot.moodReasons.length > 0 && (
-        <section className="mx-auto max-w-lg px-6 pb-12">
-          <SectionTitle>왜 이 무드가 어울릴까</SectionTitle>
-          <div className="mt-3 space-y-3">
-            {shoot.moodReasons.map((m, i) => {
-              // LLM 이 근거로 지목한 '바로 그 사진' 썸네일 — 판단이 검증 가능해진다.
-              // (photoIndexes 는 1-base · 공유 링크로 열면 sampleThumbs 가 없어 자연히 생략)
-              const evidence = (m.photoIndexes ?? [])
-                .map((n) => result.sampleThumbs?.[n - 1])
-                .filter((t): t is string => !!t);
-              return (
-                // 카드마다 핵심은 결론(why) 하나 — 본문 대비로 크게.
-                // 관찰(signal)은 상세라 기본 접힘. 문단 두 개를 나란히 깔면 덩어리로 안 읽힌다.
-                <div key={i} className="rounded-2xl border border-line bg-surface p-4 shadow-card">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="flex items-baseline gap-2 text-title font-semibold leading-snug">
-                      <span aria-hidden className="text-caption font-semibold tabular-nums text-brand">
-                        {String(i + 1).padStart(2, "0")}
-                      </span>
-                      {m.moodTitle}
-                    </p>
-                    {evidence.length > 0 && (
-                      <div className="flex shrink-0 -space-x-2">
-                        {evidence.map((src, j) => (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            key={j}
-                            src={src}
-                            alt={`근거가 된 내 피드 사진 ${j + 1}`}
-                            width={40}
-                            height={40}
-                            className="h-10 w-10 rounded-lg border-2 border-surface object-cover shadow-card"
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <p className="mt-2.5 text-pretty text-body leading-relaxed">{m.why}</p>
-                  <Disclosure label="피드에서 본 신호">
-                    <p className="rounded-xl bg-surface-2 px-3 py-2.5 text-body-sm leading-relaxed text-muted">
-                      {m.signal}
-                    </p>
-                  </Disclosure>
+      {/* ── 4. 무드 카드 — 무드당 한 장. 결론 문장 하나 + 관찰 신호 한 줄이면 충분하다 ── */}
+      {shoot.moodReasons.map((m, i) => {
+        // LLM 이 근거로 지목한 '바로 그 사진' 썸네일 — 판단이 검증 가능해진다.
+        // (photoIndexes 는 1-base · 공유 링크로 열면 sampleThumbs 가 없어 자연히 생략)
+        const thumbs = (m.photoIndexes ?? [])
+          .map((n) => result.sampleThumbs?.[n - 1])
+          .filter((t): t is string => !!t);
+        return (
+          <Card key={i} order={3 + i}>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <CardTitle>추천 무드 {String(i + 1).padStart(2, "0")}</CardTitle>
+                <p className="mt-2 text-title font-bold leading-snug">{m.moodTitle}</p>
+              </div>
+              {thumbs.length > 0 && (
+                <div className="flex shrink-0 -space-x-2 pt-1">
+                  {thumbs.map((src, j) => (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      key={j}
+                      src={src}
+                      alt={`근거가 된 내 피드 사진 ${j + 1}`}
+                      width={40}
+                      height={40}
+                      className="h-10 w-10 rounded-lg border-2 border-surface object-cover shadow-card"
+                    />
+                  ))}
                 </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
+              )}
+            </div>
 
-      {/* ── 전환 CTA ── */}
+            {/* 결론이 본문 — 왜 이 무드인가에 대한 답 한 문장 */}
+            <p className="mt-2.5 text-pretty text-body leading-relaxed">{m.why}</p>
+
+            {/* 관찰 신호 — v3 는 명사구 한 줄. 구버전의 긴 문장도 같은 자리에서 그냥 흐른다 */}
+            <p className="mt-3 flex items-start gap-1.5 text-caption leading-relaxed text-muted">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="mt-px h-3.5 w-3.5 shrink-0"
+                aria-hidden
+              >
+                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+              <span>피드에서 본 신호 · {m.signal}</span>
+            </p>
+          </Card>
+        );
+      })}
+
+      {/* ── 5. 전환 CTA ── */}
       {/* 셸의 main 이 이미 pb-28 을 갖고 있어 여기서 더 띄우면 빈 공간만 커진다 */}
-      <section className="mx-auto max-w-lg space-y-2.5 px-6 pb-4">
+      <section style={reveal(5)} className="space-y-2.5 pt-1">
         <Button
           href="/"
           variant="brand"
