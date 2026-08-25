@@ -21,6 +21,9 @@ export type GalleryPhoto = {
   mood_tags: string[];
   price_krw: number | null;
   photographer: { id: string; display_name: string | null };
+  // 개인화 추천으로 피드에 혼입된 사진 표시 — 클릭·노출 계측에서
+  // "추천 vs 일반" 효율을 분해하기 위한 플래그 (fetchPersonalizedRecommendations 에서만 true)
+  recommended?: boolean;
 };
 
 type SearchablePhoto = GalleryPhoto & {
@@ -492,7 +495,10 @@ export async function fetchPersonalizedRecommendations(
   }
   if (pickedIds.length === 0) return [];
 
-  const recommendations = await fetchLikedPhotosByIds(pickedIds);
+  const recommendations = (await fetchLikedPhotosByIds(pickedIds)).map((photo) => ({
+    ...photo,
+    recommended: true,
+  }));
   if (process.env.NODE_ENV !== "production") {
     console.info("[home-personalization]", {
       anchors,
