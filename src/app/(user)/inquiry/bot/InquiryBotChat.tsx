@@ -103,10 +103,27 @@ function loadSavedAnswers(key: string): BotAnswers | null {
   return null;
 }
 
+// 레퍼런스 이미지 → 축소 data URL (vision 전송용 — 원본 대신 800px jpeg 로 비용·전송량 절약)
+async function downscaleToDataUrl(file: File, maxWidth: number): Promise<string> {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, maxWidth / bitmap.width);
+  const w = Math.max(1, Math.round(bitmap.width * scale));
+  const h = Math.max(1, Math.round(bitmap.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("canvas 2d context 없음");
+  ctx.drawImage(bitmap, 0, 0, w, h);
+  bitmap.close();
+  return canvas.toDataURL("image/jpeg", 0.8);
+}
+
 // 채팅 타임라인 항목 — C3에서 messages 테이블 행으로 승격되는 자리
 type ChatItemInput =
   | { kind: "bot"; node: React.ReactNode }
   | { kind: "user"; text: string }
+  | { kind: "userImage"; src: string } // 레퍼런스 이미지 (드라이런=objectURL, 프로드=업로드 URL 미리보기도 동일)
   | { kind: "photographer"; text: string } // 작가 발화 (개입 데모 — C3에서 실제 메시지로)
   | { kind: "handoff" } // "작가님이 대화를 이어받았어요" 배지
   | { kind: "summary" }
@@ -245,7 +262,12 @@ export function InquiryBotChat({
   // ── LLM 대화 코어 ──────────────────────────────────────────────
 
   // API 왕복 — 봇 답변 버블·슬롯 병합·quickReplies·계측. 실패 시 버튼 플로우 폴백.
-  async function callBot(history: BotChatMessage[], curSlots: LlmSlots) {
+  // opts.imageDataUrl: 이번 턴 레퍼런스 이미지(vision 반응) — 이 턴의 실패는 폴백하지 않는다.
+  async function callBot(
+    history: BotChatMessage[],
+    curSlots: LlmSlots,
+    opts?: { imageDataUrl?: string }
+  ) {
     setTyping(true);
     try {
       const payload: BotApiRequest = {
@@ -255,6 +277,7 @@ export function InquiryBotChat({
         messages: history,
         slots: curSlots,
         photoContext: { moodTags: photoMoodTags, priceKrw: photoPriceKrw ?? null },
+        image: opts?.imageDataUrl ? { dataUrl: opts.imageDataUrl } : undefined,
       };
       // 일시 오류 1회는 재시도 — 한 번의 실패로 대화 전체가 버튼 폴백으로 강등되지 않게
       let res: Response | null = null;
@@ -291,6 +314,11 @@ export function InquiryBotChat({
       }
     } catch (e) {
       setTyping(false);
+      // 이미지 반응 턴 실패는 흐름 무영향 — 부드러운 확인 버블만 남기고 봇 정상 유지
+      if (opts?.imageDataUrl) {
+        push({ kind: "bot", node: <>레퍼런스 이미지 잘 받았어요! 작가님께 함께 전달드릴게요.</> });
+        return;
+      }
       if (process.env.NODE_ENV !== "production") console.error("[inquiry-bot] fallback:", e);
       enterFallback(slotsToAnswers(curSlots), history.length > 0);
     }
@@ -330,6 +358,44 @@ export function InquiryBotChat({
     if (handedOff || typing) return; // 작가가 이어받았거나 봇 응답 대기 중 — 말풍선만 남긴다
     setQuickReplies([]);
     void callBot(history, slots);
+  }
+
+  // 레퍼런스 이미지 첨부 — 말풍선에 즉시 미리보기, 프로드만 스토리지 업로드, 봇은 vision 한 줄 반응.
+  // dev 드라이런: 업로드 생략(objectURL 미리보기만) — 프로드 버킷 오염 방지.
+  const fileRef = useRef<HTMLInputElement>(null);
+  async function onPickImage(file: File) {
+    if (!file.type.startsWith("image/") || done || contactStep) return;
+    fireStartInquiry();
+    push({ kind: "userImage", src: URL.createObjectURL(file) });
+    setRefImageCount((n) => n + 1);
+    mpTrack("Inquiry Reference Image Attached", { ...flowPropsRef.current });
+    const history: BotChatMessage[] = [
+      ...llmMessages,
+      { role: "user", text: "(레퍼런스 이미지를 보냈어요)" },
+    ];
+    setLlmMessages(history);
+    if (!DRY_RUN) {
+      // 업로드는 봇 반응과 병렬 — 실패해도 note 에 첨부 수만 남는다 (URL 없이)
+      void (async () => {
+        try {
+          const fd = new FormData();
+          fd.set("file", file);
+          const res = await fetch("/api/inquiry-bot/upload", { method: "POST", body: fd });
+          const data = (await res.json()) as { url?: string };
+          if (res.ok && data.url) setRefImageUrls((prev) => [...prev, data.url!]);
+        } catch {
+          /* 무시 */
+        }
+      })();
+    }
+    if (!llmMode || handedOff || typing) return; // 봇 반응 없이 이미지만 남긴다
+    setQuickReplies([]);
+    try {
+      const dataUrl = await downscaleToDataUrl(file, 800);
+      void callBot(history, slots, { imageDataUrl: dataUrl });
+    } catch {
+      void callBot(history, slots); // 축소 실패 — 텍스트 플레이스홀더로만 진행
+    }
   }
 
   // API 실패 폴백 — 기존 버튼 상태 머신 플로우로 전환 (수집된 슬롯은 이어받는다)
@@ -700,6 +766,17 @@ export function InquiryBotChat({
               </div>
             );
           }
+          if (item.kind === "userImage") {
+            return (
+              <div key={item.id} className="ml-auto w-fit max-w-[70%]">
+                <img
+                  src={item.src}
+                  alt="레퍼런스 이미지"
+                  className="max-h-[32svh] w-auto max-w-full rounded-xl rounded-tr-md border border-line object-contain"
+                />
+              </div>
+            );
+          }
           if (item.kind === "photographer") {
             // 작가 발화 — 봇 버블과 같은 좌측 정렬이지만 브랜드 톤으로 구분 + '작가' 라벨
             return (
@@ -825,6 +902,31 @@ export function InquiryBotChat({
         onSubmit={sendFreeText}
         className="flex items-center gap-2 border-t border-line px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
       >
+        {/* 레퍼런스 이미지 첨부 — 원하는 느낌의 사진을 대화에 바로 올린다 */}
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            e.target.value = ""; // 같은 파일 재선택 허용
+            if (f) void onPickImage(f);
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          disabled={done || contactStep}
+          aria-label="레퍼런스 이미지 첨부"
+          className="grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-full text-muted transition-colors hover:bg-fg/[0.06] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <rect x="3" y="5" width="18" height="14" rx="2.5" />
+            <circle cx="9" cy="10" r="1.6" />
+            <path d="M4 17.5l5-4.5 4 3.5 3.5-3 3.5 3" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
         <input
           type="text"
           value={freeText}
