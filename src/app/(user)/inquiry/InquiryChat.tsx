@@ -255,9 +255,11 @@ export function InquiryChat({
 
   const mode = multi ? "cart" : "photo";
 
-  // 문의 위저드 진입 — 마운트당 1회 (문의 시작 → 제출 전환율 측정)
+  // 문의 시작 이벤트 — 페이지 로드가 아니라 '첫 실제 상호작용(답변·제출)' 시점에 발화.
+  // 로드 시 발화하면 광고 검수 봇·크롤러가 전부 잡힘 (2026-08 스캔에서 Start Inquiry
+  // 580건 중 297건이 0초 데스크톱 봇 세션으로 확인됨).
   const startFired = useRef(false);
-  useEffect(() => {
+  function fireStartInquiry() {
     if (startFired.current) return;
     startFired.current = true;
     mpTrack("Start Inquiry", {
@@ -265,8 +267,7 @@ export function InquiryChat({
       source: mode,
       photographer_id: photographerId,
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }
 
   const storageKey = multi
     ? `samae:inquiry:cart:${(photoIds ?? []).slice(0, 3).join("_")}`
@@ -491,6 +492,7 @@ export function InquiryChat({
         inquiry_id: state.inquiryId,
         source: multi ? "cart" : "photo",
         photographer_id: photographerId,
+        ...(multi ? {} : { photo_id: photoId }),
         item_count: multi ? photoIds?.length ?? 1 : 1,
         // 위저드 답변(수요 차원 — 촬영목적·지역·인원·희망일).
         purpose: answers.purpose,
@@ -504,6 +506,7 @@ export function InquiryChat({
   }, [state.ok, state.inquiryId]);
 
   function onAnswer(i: number, value: string) {
+    fireStartInquiry();
     const key = STEPS[i].key;
     setAnswers((prev) => ({ ...prev, [key]: value }));
     if (editing === i) {
@@ -531,6 +534,8 @@ export function InquiryChat({
 
   // 제출 — 채팅 답변 + 연락처를 FormData 로 변환해 기존 submitInquiry 재사용
   function submit(contactType: ContactType, contactValue: string) {
+    // 저장된 답변 복원 후 바로 제출하는 경로에서도 Start 가 반드시 선행되게 안전망.
+    fireStartInquiry();
     // 접수 완료 안내에서 실제로 선택한 연락 채널에 맞는 문구를 보여준다.
     setSubmittedContactType(contactType);
     const fd = new FormData();
