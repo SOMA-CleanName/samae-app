@@ -34,6 +34,10 @@ import { submitInquiry, type InquiryState } from "../actions";
 
 const INITIAL_STATE: InquiryState = { ok: false };
 
+// 드라이런 가드 — 프로덕션이 아니면 submitInquiry 서버 액션을 호출하지 않고 성공 UI만 표시.
+// 개발 중 실수로 실제 문의가 접수(작가 SMS 발송)되는 것을 차단한다.
+const DRY_RUN = process.env.NODE_ENV !== "production";
+
 // C1은 공통 4문항만 — C2에서 서버가 내려주는 작가 커스텀 질문을 buildFlow(custom)로 주입
 const STEPS: BotStep[] = buildFlow();
 
@@ -114,9 +118,12 @@ export function InquiryBotChat({
   const started = useRef(false);
   const viewedRef = useRef<Set<string>>(new Set());
 
+  // 드라이런 성공 상태 — DRY_RUN 제출 시 서버 액션 없이 완료 UI로 전환
+  const [devDone, setDevDone] = useState(false);
+
   const storageKey = botStorageKey(photoId, photographerId);
   const contactStep = stepIndex >= STEPS.length;
-  const done = state.ok;
+  const done = state.ok || devDone;
   const currentStep = !contactStep && stepIndex >= 0 ? STEPS[stepIndex] : null;
 
   function push(item: ChatItemInput) {
@@ -286,6 +293,29 @@ export function InquiryBotChat({
   // 제출 — 답변·연락처를 FormData 로 변환해 기존 submitInquiry 서버 액션 그대로 재사용
   function submit(contactType: ContactType, contactValue: string) {
     fireStartInquiry(); // 복원 직후 바로 제출하는 경로에서도 Start 선행 보장
+    // 드라이런 — 실제 전송 없이 성공 플로우만 재현 (프로덕션 동작 무영향)
+    if (DRY_RUN) {
+      setDevDone(true);
+      try {
+        localStorage.removeItem(storageKey);
+      } catch {
+        /* 무시 */
+      }
+      push({
+        kind: "notice",
+        node: (
+          <>
+            문의가 <Em>{photographerName}</Em>님께 전달됐어요.
+            <br />
+            보통 <Em>24시간 내</Em> 답해드려요. 답변이 오면 입력하신 연락처로 알려드릴게요.
+            <span className="mt-1.5 block w-fit rounded-md bg-fg/[0.07] px-1.5 py-0.5 text-[10px] font-semibold text-muted">
+              개발 모드 — 실제 전송 안 됨
+            </span>
+          </>
+        ),
+      });
+      return;
+    }
     const fd = new FormData();
     fd.set("photographerId", photographerId);
     fd.set("photoId", photoId);
