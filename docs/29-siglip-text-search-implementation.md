@@ -193,18 +193,29 @@ git commit -m "feat: SigLIP2 검색어 벡터 검색 연결"
 
 **Files:**
 - Create: `src/components/user/SearchPill.tsx`
+- Create: `src/lib/search-navigation.ts`
+- Create: `src/lib/search-navigation.test.ts`
 - Modify: `src/app/(user)/page.tsx`
 - Modify: `src/components/user/ExploreGallery.tsx`
 
 **Interfaces:**
 - Consumes: `searchPhotosBySiglip(query, 80)`
 - Produces: `<SearchPill initial?: string />`
+- Produces: `searchHref(rawQuery: string): string`
 
-- [ ] **Step 1: 현재 문자열 검색 호출을 SigLIP2 검색으로 교체**
+- [ ] **Step 1: 검색 URL 실패 테스트와 최소 구현**
+
+`searchHref("  푸른 숲속 커플 사진  ")`이 인코딩된 `/?q=`를, 공백만 있는 값은 `/`를 반환하는 테스트를 먼저 실패시킨 뒤 구현한다.
+
+Run: `node --experimental-strip-types --test src/lib/search-navigation.test.ts`
+
+Expected: 2개 테스트 통과
+
+- [ ] **Step 2: 현재 문자열 검색 호출을 SigLIP2 검색으로 교체**
 
 `src/app/(user)/page.tsx`에서 `searchPhotosByTag` import를 제거하고 검색 분기에서 `searchPhotosBySiglip(query, 80)`을 호출한다. 일반 홈 피드 분기는 변경하지 않는다.
 
-- [ ] **Step 2: 검색창 컴포넌트 복원**
+- [ ] **Step 3: 검색창 컴포넌트 복원**
 
 ```tsx
 export function SearchPill({ initial = "" }: { initial?: string }) {
@@ -221,17 +232,17 @@ export function SearchPill({ initial = "" }: { initial?: string }) {
 
 입력에는 `aria-label="사진 분위기 검색"`, 플레이스홀더 `원하는 사진 분위기를 검색해보세요`를 사용한다.
 
-- [ ] **Step 3: 지정된 두 위치에만 검색창 배치**
+- [ ] **Step 4: 지정된 두 위치에만 검색창 배치**
 
 - 일반 홈: `<FeedHero />` 바로 다음
 - 검색 결과: 히어로 대신 페이지 최상단
 - 카테고리 `/c/*`, 탐색 `/explore`, 상세 `/photos/*`에는 추가하지 않음
 
-- [ ] **Step 4: 빈 결과 안내 문구 수정**
+- [ ] **Step 5: 빈 결과 안내 문구 수정**
 
 검색 결과가 없을 때 `다른 장면이나 분위기로 검색해보세요. (예: 푸른 숲속 커플, 비 오는 날 필름 감성)`를 표시한다.
 
-- [ ] **Step 5: 정적 검증**
+- [ ] **Step 6: 정적 검증**
 
 Run: `npx eslint src/components/user/SearchPill.tsx 'src/app/(user)/page.tsx' src/components/user/ExploreGallery.tsx src/lib/siglip-text-search.ts src/lib/siglip-text-search-core.ts`
 
@@ -241,10 +252,10 @@ Run: `npx tsc --noEmit`
 
 Expected: exit code 0
 
-- [ ] **Step 6: Task 3 커밋**
+- [ ] **Step 7: Task 3 커밋**
 
 ```bash
-git add src/components/user/SearchPill.tsx 'src/app/(user)/page.tsx' src/components/user/ExploreGallery.tsx
+git add src/components/user/SearchPill.tsx src/lib/search-navigation.ts src/lib/search-navigation.test.ts 'src/app/(user)/page.tsx' src/components/user/ExploreGallery.tsx
 git commit -m "feat: 홈 SigLIP2 사진 검색창 복원"
 ```
 

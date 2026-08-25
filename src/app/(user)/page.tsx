@@ -1,11 +1,11 @@
 import {
   fetchPublishedPhotos,
-  searchPhotosByTag,
   fetchLikedPhotoIds,
   fetchPhotoById,
   fetchHomeFeedPage,
   newFeedSeed,
 } from "@/lib/discovery";
+import { searchPhotosBySiglip } from "@/lib/siglip-text-search";
 import { cookies } from "next/headers";
 import { loadDemotedHomePhotos, loadMorePhotos, loadPersonalizedPhotos } from "./feed-actions";
 import { logSearch } from "@/lib/search-log";
@@ -20,6 +20,7 @@ import {
 import { ExploreGallery } from "@/components/user/ExploreGallery";
 import { ScrollMemory } from "@/components/user/ScrollMemory";
 import { FeedHero } from "@/components/user/FeedHero";
+import { SearchPill } from "@/components/user/SearchPill";
 import { TasteTestNudge } from "@/components/user/TasteTestNudge";
 import { TasteBanner } from "./TasteBanner";
 import { JsonLd } from "@/components/JsonLd";
@@ -81,7 +82,9 @@ export default async function ExploreHome({
     // 페르소나 분석을 거친 방문자면 페이지 안 순서를 시각 유사도순으로 (0080, 실패 무해)
     photos = await rerankByPersonaVector(photos);
   } else {
-    const basePhotos = query ? await searchPhotosByTag(query) : await fetchPublishedPhotos({});
+    const basePhotos = query
+      ? await searchPhotosBySiglip(query, 80)
+      : await fetchPublishedPhotos({});
     if (query) await logSearch(query, basePhotos.length, me?.id);
     const merged = adAsGallery
       ? [adAsGallery, ...basePhotos.filter((p) => p.id !== adAsGallery.id)]
@@ -103,6 +106,16 @@ export default async function ExploreHome({
       <ScrollMemory />
       {/* 홈 최상단 히어로 (검색 모드 아닐 때만) */}
       {!query && <FeedHero />}
+
+      {/* 검색창은 홈 히어로 바로 아래와 검색 결과 상단에만 노출한다. */}
+      <div className={`mx-auto max-w-screen-2xl px-1 ${query ? "pb-6 pt-1 sm:pb-8 sm:pt-2" : "pb-6 sm:pb-9"}`}>
+        <SearchPill key={query ?? "home"} initial={query ?? ""} />
+        {!query && (
+          <p className="mt-2 px-3 text-caption text-muted">
+            예: 푸른 숲속 커플, 비 오는 날 필름 감성
+          </p>
+        )}
+      </div>
 
       {/* 취향 적용 배너 (전체 피드 + 취향 v2 있을 때) */}
       {isAllFeed && tasteCatIds.length > 0 && <TasteBanner />}
