@@ -71,7 +71,7 @@ export function PersonaLoading({
     <div className="mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-md flex-col justify-center px-6 py-12 font-kr">
       <div
         style={reveal(0)}
-        className="relative overflow-hidden rounded-2xl border border-line bg-surface p-6 shadow-card"
+        className="relative overflow-hidden rounded-3xl border border-line bg-surface p-6 shadow-card"
       >
         {/* 결과 화면의 팔레트 워시를 예고하는 은은한 브랜드 워시 — 국면이 이어져 보이게 */}
         <div

@@ -86,11 +86,10 @@ async function finalize(
       persona,
       shoot,
       // "왜 이 사진인가" 근거는 **실제 파이프라인 값만** 싣는다 (지어내지 않는다).
-      // 캐시 복원(distance 0 더미)·태그 없는 사진은 해당 필드가 조용히 빠지고 UI 도 생략한다.
+      // 캐시 복원(distance 0 더미)은 해당 필드가 조용히 빠지고 UI 도 생략한다.
       photos: similar.map((p) => ({
         id: p.id,
         url: p.thumb_url ?? p.src_url,
-        ...(p.mood_tags && p.mood_tags.length > 0 ? { moodTags: p.mood_tags.slice(0, 3) } : {}),
         ...(p.distance > 0 && p.distance < 1 ? { similarity: 1 - p.distance } : {}),
         ...(p.seedIdx !== undefined ? { seedIdx: p.seedIdx } : {}),
       })),
@@ -132,7 +131,7 @@ export async function runPersonaAnalysis(usernameRaw: string): Promise<PersonaAc
       id: p.id,
       src_url: p.src_url,
       thumb_url: p.thumb_url ?? null,
-      mood_tags: p.mood_tags ?? null, // 무드 태그 칩은 복원돼도 사실이다
+      mood_tags: null,
       album_id: null,
       photographer_id: null,
       distance: 0, // 더미 — 실측 유사도가 아니므로 finalize 가 similarity 를 싣지 않는다

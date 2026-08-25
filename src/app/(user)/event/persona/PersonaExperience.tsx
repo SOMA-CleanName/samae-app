@@ -248,7 +248,7 @@ export default function PersonaExperience({ defaultUsername = "" }: { defaultUse
               run("instagram", () => runPersonaAnalysis(u));
             }}
             style={reveal(0)}
-            className="group flex w-full cursor-pointer items-center gap-3 rounded-2xl border-2 border-brand bg-surface p-3 text-left shadow-card transition-colors hover:bg-brand-soft/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+            className="group flex w-full cursor-pointer items-center gap-3 rounded-3xl border-2 border-brand bg-surface p-3 text-left shadow-card transition-colors hover:bg-brand-soft/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
             aria-label={`${preview.profile.username} 계정으로 분석 시작`}
           >
             {preview.profile.avatar ? (
@@ -268,7 +268,22 @@ export default function PersonaExperience({ defaultUsername = "" }: { defaultUse
             <span className="min-w-0 flex-1">
               <span className="block truncate text-body-sm font-semibold">
                 {preview.profile.fullName || preview.profile.username}
-                {preview.profile.isVerified && <span className="ml-1 text-info" aria-label="인증됨">✓</span>}
+                {preview.profile.isVerified && (
+                  // 텍스트 글리프(✓)는 폰트 따라 모양·굵기가 튄다 — SVG 로 고정
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth={3}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="ml-1 inline-block h-3.5 w-3.5 align-[-0.125em] text-info"
+                    role="img"
+                    aria-label="인증됨"
+                  >
+                    <path d="m5 13 4 4L19 7" />
+                  </svg>
+                )}
               </span>
               <span className="block truncate text-caption text-muted">
                 @{preview.profile.username} · 게시물 {compact.format(preview.profile.posts)} · 팔로워{" "}
@@ -287,7 +302,7 @@ export default function PersonaExperience({ defaultUsername = "" }: { defaultUse
           </button>
         )}
         {!looking && preview?.status === "found" && preview.profile.isPrivate && (
-          <div style={reveal(0)} className="rounded-2xl border border-line bg-surface p-4 shadow-card">
+          <div style={reveal(0)} className="rounded-3xl border border-line bg-surface p-4 shadow-card">
             <div className="flex items-center gap-3">
               {preview.profile.avatar && (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -329,7 +344,7 @@ export default function PersonaExperience({ defaultUsername = "" }: { defaultUse
             분석 자체(Apify)는 자체 프록시 풀이라 우리 IP 제한과 무관하게 동작한다.
             즉 조회가 죽어도 기능은 살아야 하고, 이 버튼이 그 생명줄이다. */}
         {!looking && preview?.status === "unavailable" && handle.length >= 3 && (
-          <div style={reveal(0)} className="space-y-2.5 rounded-xl border border-line bg-surface p-4 shadow-card" role="status">
+          <div style={reveal(0)} className="space-y-2.5 rounded-3xl border border-line bg-surface p-4 shadow-card" role="status">
             <p className="text-body-sm text-muted">
               지금 계정 미리보기가 원활하지 않아요. 아이디가 정확하다면 바로 분석할 수 있어요.
             </p>
@@ -351,7 +366,7 @@ export default function PersonaExperience({ defaultUsername = "" }: { defaultUse
         className="sr-only"
       />
       {files.length > 0 && (
-        <div style={reveal(0)} className="mt-4 space-y-2.5 rounded-xl border border-line bg-surface p-4 shadow-card">
+        <div style={reveal(0)} className="mt-4 space-y-2.5 rounded-3xl border border-line bg-surface p-4 shadow-card">
           {/* 어떤 사진이 올라갔는지 눈으로 확인 — 텍스트 카운트만으론 잘못 고른 걸 모른다 */}
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
             {filePreviews.map((src, i) => (
@@ -387,7 +402,7 @@ export default function PersonaExperience({ defaultUsername = "" }: { defaultUse
         <div
           role="alert"
           style={reveal(0)}
-          className="mt-4 rounded-xl border border-line bg-surface p-4 shadow-card"
+          className="mt-4 rounded-3xl border border-line bg-surface p-4 shadow-card"
         >
           <p className="text-body-sm text-fg">{error.message}</p>
 

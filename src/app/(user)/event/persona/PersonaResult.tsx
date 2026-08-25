@@ -5,6 +5,7 @@ import { useState } from "react";
 import { mpTrack } from "@/lib/mixpanel";
 import { Button } from "@/components/ui";
 import type { PersonaSuccess, RecoPhoto } from "./view-types";
+import { paletteTheme } from "@/lib/persona/palette-theme";
 import { PersonaMotion, reveal, pop, grow } from "./motion";
 
 // 결과 화면 — "공유하고 싶은 리포트 카드" (2026-08-25 전면 재설계).
@@ -42,74 +43,6 @@ function splitSentences(text: string): string[] {
     .split(/(?<=[.!?…])\s+/)
     .map((s) => s.trim())
     .filter(Boolean);
-}
-
-// ── 팔레트 → 히어로 카드 테마 ──────────────────────────────
-// 사용자 사진에서 뽑은 색이라 밝기·채도를 예측할 수 없다.
-// 배경은 **톤다운(뮤트)** 색을 쓴다 — 원색을 그대로 깔면 쨍해서 텍스트가 눌린다.
-// 스와치(팔레트 표시)는 원색 유지: 지문은 정직하게, 무대만 차분하게.
-// 여기 리터럴 색은 하드코딩 팔레트가 아니라 "동적 배경 위 대비 보장"용 잉크 페어다.
-
-function hexToHsl(hex: string): { h: number; s: number; l: number } | null {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
-  if (!m) return null;
-  const n = parseInt(m[1], 16);
-  const r = ((n >> 16) & 255) / 255;
-  const g = ((n >> 8) & 255) / 255;
-  const b = (n & 255) / 255;
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  const l = (max + min) / 2;
-  const d = max - min;
-  if (d === 0) return { h: 0, s: 0, l };
-  const s = d / (1 - Math.abs(2 * l - 1));
-  const h6 = max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
-  return { h: h6 * 60, s, l };
-}
-
-function hslToHex(h: number, s: number, l: number): string {
-  const c = (1 - Math.abs(2 * l - 1)) * s;
-  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
-  const m = l - c / 2;
-  const [r, g, b] =
-    h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
-  const to = (v: number) => Math.round((v + m) * 255).toString(16).padStart(2, "0");
-  return `#${to(r)}${to(g)}${to(b)}`;
-}
-
-/** 원색 → 뮤트 톤. 채도는 38% 로 클램프, 밝기는 극단만 중앙으로 당긴다
- *  (어두운 색 → 딥뮤트, 밝은 색 → 파스텔. 예: #c8453a → #b15851) */
-function muteHex(hex: string): string {
-  const hsl = hexToHsl(hex);
-  if (!hsl) return hex;
-  return hslToHex(hsl.h, Math.min(hsl.s, 0.38), Math.min(Math.max(hsl.l, 0.26), 0.86));
-}
-
-function heroTheme(palette: string[]) {
-  const mp0 = muteHex(palette[0] ?? "#241a18");
-  const mp1 = muteHex(palette[1] ?? mp0);
-  const chan = (h: string, i: number) => parseInt(h.slice(i, i + 2), 16) / 255;
-  const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
-  let lum = 0.5;
-  try {
-    // 잉크는 변환(뮤트) 후 색 기준으로 고른다 — 배경에 실제로 깔리는 색이니까
-    lum = 0.2126 * lin(chan(mp0, 1)) + 0.7152 * lin(chan(mp0, 3)) + 0.0722 * lin(chan(mp0, 5));
-  } catch {
-    /* 팔레트가 hex 가 아니면 중간값 유지 */
-  }
-  const dark = lum > 0.35; // 밝은 배경 → 어두운 잉크
-  const ink = dark ? "rgba(22,17,13,0.96)" : "rgba(255,252,248,0.98)";
-  const soft = dark ? "rgba(22,17,13,0.68)" : "rgba(255,252,248,0.75)";
-  const line = dark ? "rgba(22,17,13,0.22)" : "rgba(255,252,248,0.30)";
-  return {
-    ink,
-    soft,
-    line,
-    bg: {
-      backgroundColor: mp0,
-      backgroundImage: `radial-gradient(130% 95% at 88% 100%, ${mp1}59 0%, transparent 62%)`,
-    } as React.CSSProperties,
-  };
 }
 
 // 무드 why 문장 안에서 키워드(성격 카드와의 공통 언어)를 강조한다 —
@@ -169,6 +102,7 @@ function PersonaPhoto({
   purposeKey,
   wide = false,
   seedThumb,
+  alt,
 }: {
   photo: RecoPhoto;
   rank: number;
@@ -176,6 +110,8 @@ function PersonaPhoto({
   wide?: boolean;
   /** 이 사진을 뽑은 내 피드 사진 썸네일 — "내 이 사진과 닮아서" 근거 칩 */
   seedThumb?: string;
+  /** 사진별 고유 대체 텍스트 (예: "필름-빈티지 무드 추천 사진 2위") */
+  alt?: string;
 }) {
   // 과장 금지 — 실측 유사도가 절반 이상일 때만 수치로 말한다
   const pct = photo.similarity !== undefined && photo.similarity >= 0.5 ? Math.round(photo.similarity * 100) : null;
@@ -191,13 +127,14 @@ function PersonaPhoto({
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={photo.url}
-        alt="추천 사진 — 누르면 상세로 이동"
+        alt={alt ?? `추천 사진 ${rank}위 — 누르면 상세로 이동`}
         // 전체 1위 사진은 화면에 일찍 보이므로 지연 로딩하지 않는다 (LCP)
         loading={rank === 1 ? "eager" : "lazy"}
         fetchPriority={rank === 1 ? "high" : undefined}
         className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
       />
-      {/* 실측 유사도 배지 — 전체 1위는 랭킹까지 말해준다 */}
+      {/* 배지 — 측정한 사진에만 수치("피드 유사 N%")를, 1위는 랭킹 라벨을.
+          유사도가 없는 사진에 측정을 주장하지 않는다 */}
       {wide && (rank === 1 || pct !== null) && (
         <span
           aria-hidden
@@ -205,9 +142,9 @@ function PersonaPhoto({
         >
           {rank === 1
             ? pct !== null
-              ? `피드와 가장 닮은 1장 · ${pct}%`
-              : "피드와 가장 닮은 1장"
-            : `무드 일치 ${pct}%`}
+              ? `피드와 가장 닮은 1장 · 피드 유사 ${pct}%`
+              : "추천 1순위"
+            : `피드 유사 ${pct}%`}
         </span>
       )}
       {/* 씨앗 근거 — 인과의 반대쪽 끝, 내 피드의 바로 그 사진 */}
@@ -227,7 +164,7 @@ function PersonaPhoto({
           aria-hidden
           className="absolute left-1.5 top-1.5 rounded-full bg-black/50 px-1.5 py-0.5 text-caption tabular-nums text-white backdrop-blur-sm"
         >
-          {pct}%
+          피드 유사 {pct}%
         </span>
       )}
       {/* 탭하면 이동한다는 걸 모바일에서도 알 수 있게 — 호버 없이 항상 보이는 칩 */}
@@ -261,15 +198,23 @@ export default function PersonaResult({
   const { persona, shoot, photos } = result;
   const [copied, setCopied] = useState(false);
   const palette = shoot.colorPalette.length ? shoot.colorPalette.slice(0, 5) : ["#ff3d2e", "#241a18", "#f3f1ec"];
-  const theme = heroTheme(palette);
+  // 뮤트 변환 + 대비 보정(AA 4.5:1 전수 검증)을 마친 테마 — OG 카드와 같은 변환을 쓴다
+  const theme = paletteTheme(palette);
+  const heroBg: React.CSSProperties = {
+    backgroundColor: theme.bg0,
+    backgroundImage: `radial-gradient(130% 95% at 88% 100%, ${theme.bg1}59 0%, transparent 62%)`,
+  };
   const keywords = (shoot.keywords ?? []).slice(0, 3); // v3 필드 — 구버전 결과에는 없다
   const evidence = persona.evidence.slice(0, 4);
   // 인과 사슬 표기에 쓰는 파이프라인 팩트 — 없으면(공유·구버전) 표기가 조용히 일반형으로 준다
   const sampleCount = result.sampleThumbs?.length ?? 0;
   // 추천 사진을 무드 카드에 나눠 싣는다 — 유사도 순위(rank)는 전체 순서 그대로 유지.
-  // 무드가 2개면 카드당 3장(총 6장), 3개면 3장씩 9장. 무드가 없으면(구버전 엣지) 폴백 카드.
-  const perMood = 3;
+  // 무드 1개면 그 카드가 6장을 흡수(추천 유실 방지), 2~3개면 카드당 3장.
+  const moodCount = shoot.moodReasons.length;
+  const perMood = moodCount === 1 ? 6 : 3;
   const photosFor = (i: number) => photos.slice(i * perMood, i * perMood + perMood);
+  // 무드 수가 변해도 등장 순서가 이어지도록 뒤쪽 요소의 reveal 인덱스를 동적으로
+  const tailOrder = 2 + Math.max(moodCount, photos.length > 0 && moodCount === 0 ? 1 : 0);
 
   // 결과 페이지 링크를 공유한다 — 친구가 열면 같은 결과를 보고 자기 분석으로 넘어간다.
   // (저장 실패로 shareId 가 없으면 카드 이미지만 제공)
@@ -300,10 +245,10 @@ export default function PersonaResult({
   }
 
   return (
-    <div className="mx-auto max-w-lg space-y-3 px-5 pb-4 pt-6 font-kr">
+    <div className="mx-auto max-w-lg space-y-4 px-5 pb-4 pt-6 font-kr">
       {/* ── 1. 히어로 카드 — 내 팔레트가 곧 테마. 이 한 장이 공유의 얼굴이다 ── */}
       <section
-        style={{ ...reveal(0), ...theme.bg }}
+        style={{ ...reveal(0), ...heroBg }}
         className="overflow-hidden rounded-3xl p-6 pb-5 shadow-card"
       >
         <div style={reveal(0)} className="flex items-baseline justify-between">
@@ -329,9 +274,9 @@ export default function PersonaResult({
         {/* 키워드 칩 — 나를 요약하는 세 단어 (v3. 구버전 결과에는 없어 조용히 생략) */}
         {keywords.length > 0 && (
           <ul style={reveal(2)} className="mt-4 flex flex-wrap gap-1.5">
-            {keywords.map((k) => (
+            {keywords.map((k, i) => (
               <li
-                key={k}
+                key={`${k}-${i}`}
                 className="rounded-full border px-3 py-1 text-caption font-semibold"
                 style={{ borderColor: theme.line, color: theme.ink }}
               >
@@ -347,7 +292,7 @@ export default function PersonaResult({
           className="mt-5 space-y-1 border-t pt-4"
         >
           {splitSentences(shoot.psychHook).map((s, i) => (
-            <p key={i} className="text-pretty text-body leading-relaxed" style={{ color: theme.ink }}>
+            <p key={i} className="text-pretty text-[1.0625rem] leading-relaxed" style={{ color: theme.ink }}>
               {s}
             </p>
           ))}
@@ -364,7 +309,11 @@ export default function PersonaResult({
             />
           ))}
           <li className="ml-auto text-caption tabular-nums" style={{ color: theme.soft }}>
-            {sampleCount > 0 ? `피드 사진 ${sampleCount}장에서 추출` : "내 피드에서 추출한 색"}
+            {sampleCount > 0
+              ? `피드 사진 ${sampleCount}장에서 추출`
+              : shared
+                ? "피드에서 추출한 색"
+                : "내 피드에서 추출한 색"}
           </li>
         </ul>
         {/* 팔레트 근거 — 이 색들이 어떤 장면에서 왔는지 (v3 생성. 구버전 결과는 생략) */}
@@ -378,21 +327,11 @@ export default function PersonaResult({
       {/* ── 2. 성격 카드 — "나"의 결론이 먼저 와야 뒤의 무드·사진이 근거로 읽힌다 ── */}
       <Card order={1}>
         <CardTitle>당신은 이런 사람</CardTitle>
-        <p className="mt-2.5 text-pretty text-[1.375rem] font-bold leading-snug">{persona.oneLiner}</p>
-
-        {/* 키워드 에코 — 무드 카드의 why 가 이 단어를 그대로 인용한다 (성격↔무드 공통 언어) */}
-        {keywords.length > 0 && (
-          <div className="mt-3 flex flex-wrap gap-1.5">
-            {keywords.map((k) => (
-              <span
-                key={k}
-                className="rounded-full bg-brand-soft px-2.5 py-1 text-caption font-semibold text-brand-ink"
-              >
-                {k}
-              </span>
-            ))}
-          </div>
-        )}
+        {/* 키워드가 문장에 들어 있으면 볼드 에코 — 칩 3중 반복(히어로·성격·무드) 대신
+            문장 안에서 공통 언어가 이어진다. 무드 카드의 why 가 같은 단어를 인용한다 */}
+        <p className="mt-2.5 text-pretty text-[1.375rem] font-bold leading-snug">
+          {emphasizeKeyword(persona.oneLiner, keywords)}
+        </p>
 
         <div className="mt-5 space-y-2.5">
           {Object.entries(persona.bigFive).map(([k, v], i) => (
@@ -478,8 +417,9 @@ export default function PersonaResult({
               )}
             </div>
 
-            {/* ① 관찰 — 어느 사진에서 무엇을 봤는지 (썸네일과 같은 photoIndexes 로 연결) */}
-            <p className="mt-3 flex items-start gap-1.5 text-caption leading-relaxed text-muted">
+            {/* ① 관찰 — 인과의 출발점이라 본문 대비로 (caption·muted 는 제일 작아서 안 읽혔다).
+                사진 번호는 썸네일이 실제로 있을 때만 언급한다 (없는 참조 방지) */}
+            <p className="mt-3 flex items-start gap-1.5 text-body-sm leading-relaxed text-fg/75">
               <svg
                 viewBox="0 0 24 24"
                 fill="none"
@@ -487,15 +427,15 @@ export default function PersonaResult({
                 strokeWidth={2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="mt-px h-3.5 w-3.5 shrink-0"
+                className="mt-[3px] h-3.5 w-3.5 shrink-0"
                 aria-hidden
               >
                 <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
                 <circle cx="12" cy="12" r="3" />
               </svg>
               <span>
-                {(m.photoIndexes ?? []).length > 0
-                  ? `내 피드 ${(m.photoIndexes ?? []).slice(0, 3).join("·")}번 사진에서 본 신호`
+                {thumbs.length > 0
+                  ? `${shared ? "이" : "내"} 피드 ${(m.photoIndexes ?? []).slice(0, 3).join("·")}번 사진에서 본 신호`
                   : "피드에서 본 신호"}
                 {" · "}
                 {m.signal}
@@ -522,6 +462,7 @@ export default function PersonaResult({
                         rank={rank}
                         purposeKey={shoot.purposeKey}
                         wide={j === 0}
+                        alt={`${m.moodTitle} 무드 추천 사진 ${rank}위 — 누르면 상세로 이동`}
                         seedThumb={
                           j === 0 && p.seedIdx !== undefined
                             ? result.sampleThumbs?.[p.seedIdx]
@@ -552,24 +493,37 @@ export default function PersonaResult({
         </Card>
       )}
 
-      {/* 어울리는 로케이션 — 카드보다 가벼운 스트립 */}
+      {/* 어울리는 로케이션 — 칩 대신 정적 텍스트 한 줄 (칩은 눌릴 것처럼 보인다) */}
       {shoot.locations.length > 0 && (
-        <div style={reveal(4)} className="flex flex-wrap items-center gap-1.5 px-1 pt-1">
-          <span className="text-caption text-muted">어울리는 로케이션</span>
-          {shoot.locations.slice(0, 3).map((loc) => (
-            <span key={loc} className="rounded-full border border-line bg-surface px-3 py-1 text-caption font-medium">
-              {loc}
-            </span>
-          ))}
-        </div>
+        <p style={reveal(tailOrder)} className="px-1 pt-1 text-caption leading-relaxed text-muted">
+          어울리는 로케이션 · {shoot.locations.slice(0, 3).join(" · ")}
+        </p>
       )}
 
-      {/* ── 5. 전환 CTA ── */}
+      {/* ── 전환 CTA — brand-soft 카드로 감싸 클로징 무대를 만든다 ── */}
       {/* 셸의 main 이 이미 pb-28 을 갖고 있어 여기서 더 띄우면 빈 공간만 커진다 */}
-      <section style={reveal(5)} className="space-y-2.5 pt-1">
+      <section
+        style={reveal(tailOrder + 1)}
+        className="space-y-2.5 rounded-3xl bg-brand-soft p-5"
+      >
+        <p className="text-body-sm font-semibold text-brand-ink">이 무드, 사매 작가들이 찍어드려요</p>
+        {/* 공유로 들어온 사람의 다음 행동은 '나도 해보기' — 그걸 1순위로 승격 */}
+        {shared && (
+          <Button
+            href="/event/persona"
+            variant="brand"
+            size="lg"
+            fullWidth
+            onClick={() => mpTrack("Click Persona Try Mine", { purpose_key: shoot.purposeKey })}
+          >
+            나도 내 페르소나 알아보기
+          </Button>
+        )}
+        {/* 내 결과 화면에서는 taste 쿠키가 심어져 홈 피드가 이 무드로 재정렬된다 — 약속이 진짜.
+            공유 화면은 쿠키가 없으므로 문구를 정직하게 줄인다 */}
         <Button
           href="/"
-          variant="brand"
+          variant={shared ? "secondary" : "brand"}
           size="lg"
           fullWidth
           onClick={() =>
@@ -579,7 +533,7 @@ export default function PersonaResult({
             })
           }
         >
-          이 무드로 사진 더 보기
+          {shared ? "사매에서 사진 더 보기" : "이 무드로 사진 더 보기"}
         </Button>
         <Button
           type="button"
@@ -604,31 +558,19 @@ export default function PersonaResult({
         >
           {copied ? "링크를 복사했어요" : result.shareId ? "결과 링크 공유하기" : "결과 공유 카드 만들기"}
         </Button>
-        {shared ? (
+        {!shared && onRestart && (
           <Button
-            href="/event/persona"
+            type="button"
             variant="ghost"
             size="md"
             fullWidth
-            onClick={() => mpTrack("Click Persona Try Mine", { purpose_key: shoot.purposeKey })}
+            onClick={() => {
+              mpTrack("Restart Persona", { purpose_key: shoot.purposeKey });
+              onRestart();
+            }}
           >
-            나도 내 페르소나 알아보기 →
+            다른 아이디로 다시 하기
           </Button>
-        ) : (
-          onRestart && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="md"
-              fullWidth
-              onClick={() => {
-                mpTrack("Restart Persona", { purpose_key: shoot.purposeKey });
-                onRestart();
-              }}
-            >
-              다른 아이디로 다시 하기
-            </Button>
-          )
         )}
       </section>
 

@@ -27,8 +27,12 @@ export function grow(i: number, baseDelayMs = 200): React.CSSProperties {
 }
 
 export function PersonaMotion() {
+  // styled-jsx 는 키프레임을 클라이언트에서 주입해 SSR HTML 에 없다 —
+  // 공유 링크 착지처럼 서버 HTML 을 먼저 보는 화면에서 하이드레이션 순간
+  // 전체가 깜빡였다(키프레임이 없으면 from-only 애니메이션이 즉시 최종 상태로 붙었다가
+  // 주입 후 처음부터 다시 돈다). 일반 <style> 은 서버 렌더 HTML 에 그대로 포함된다.
   return (
-    <style jsx global>{`
+    <style>{`
       @keyframes persona-reveal {
         from {
           opacity: 0;
