@@ -28,10 +28,18 @@ import type { PersonaImageBlock } from "@/lib/persona/images";
 // 그런데 기존 스키마는 결과 화면이 읽지도 않는 값을 잔뜩 만들고 있었다 —
 // loveStyle · values · lifestyle · socialTendency · shootTypes · bigFive 의 note 5개.
 // 아무도 안 보는 문장을 만드느라 사용자를 기다리게 할 이유가 없다.
+// ⚠️ 글자수 제한이 이 스키마의 핵심이다 (2026-08-25 재설계).
+// 결과는 모바일 카드 UI 에 그대로 얹힌다 — 장문 문단은 화면에서 덩어리로 죽는다.
+// "짧게 쓰라"는 문장 지시는 값싼 모델이 흘리므로, 필드마다 구체적 글자수·형식을 박는다.
 const SlimTrait = z.object({ score: z.number().describe("0~100 점수") });
 
 const SlimPersonaSchema = z.object({
-  oneLiner: z.string().describe("이 사람이 '어떤 사람'인지 관통하는 한 줄 (직업/활동이 아니라 성격·태도)"),
+  oneLiner: z
+    .string()
+    .describe(
+      "'어떤 사람인지' 관통하는 한 줄. 10~22자, 명사형 종결·마침표 없음 " +
+        "(직업·활동이 아니라 성격·태도. 예: '고요한 순간을 골라내는 사람')"
+    ),
   bigFive: z.object({
     openness: SlimTrait.describe("개방성: 새로움·다양함·경험 추구"),
     conscientiousness: SlimTrait.describe("성실성: 계획성·꾸준함·자기관리"),
@@ -42,11 +50,16 @@ const SlimPersonaSchema = z.object({
   attachment: z.object({
     style: z.enum(["secure", "anxious", "avoidant", "fearful"]),
     label: z.string().describe("한국어 라벨. 예: '안정 애착'"),
-    reason: z.string().describe("그렇게 본 근거 한 문장"),
+    reason: z.string().describe("그렇게 본 근거. 해요체 완결 1문장 30자 이내 (명사 나열 금지)"),
   }),
   evidence: z
     .array(z.string())
-    .describe("판단 근거 3~4개. 사진에서 실제로 관찰한 것을 구체적으로"),
+    .min(3)
+    .max(4)
+    .describe(
+      "판단 근거 3~4개. 각각 사진·데이터에서 실제 관찰한 것 **정확히 1문장, 26자 이내** " +
+        "(예: '창가 자연광의 정적인 컷이 반복돼요'). 관찰 뒤에 해석 문장을 잇지 말 것"
+    ),
 });
 
 // 개수를 스키마로 못 박는다.
@@ -54,7 +67,17 @@ const SlimPersonaSchema = z.object({
 // 실측(haiku-4.5)에서 프로필에 따라 근거가 3.0 → 2.0 개로 떨어졌다.
 // 스키마 제약은 프롬프트와 달리 디코딩 단계에서 강제된다.
 const SlimShootSchema = z.object({
-  shootPersonaLabel: ShootPersonaSchema.shape.shootPersonaLabel,
+  shootPersonaLabel: z
+    .string()
+    .describe("촬영 페르소나 라벨. 8~14자 명사형 (예: '빛을 모으는 필름 산책자')"),
+  keywords: z
+    .array(z.string())
+    .min(3)
+    .max(3)
+    .describe(
+      "당신을 요약하는 키워드 정확히 3개. **공백 없는 한 단어 명사, 각 2~5자** " +
+        "(예: '새벽빛', '기록', '여백'). '차분한 회색톤' 같은 수식어구·문장·조사 금지"
+    ),
   purposeKey: ShootPersonaSchema.shape.purposeKey,
   moodIds: z
     .array(z.string())
@@ -68,11 +91,16 @@ const SlimShootSchema = z.object({
         signal: z
           .string()
           .describe(
-            "사진에서 **직접 관찰한 시각 특성**을 반드시 하나 이상 명시할 것 " +
-              "(색온도·채도·계조·그레인·역광·하이키/로우키·흑백·명암대비·여백 중). " +
-              "해요체 1문장. 예: '6장 중 5장이 텅스텐 조명 아래 주황빛 색온도에 필름 그레인이 뚜렷해요'"
+            "사진에서 **직접 관찰한 시각 특성**의 명사구 요약. 10~20자, 문장 금지 " +
+              "(색온도·채도·계조·그레인·명암대비·여백·피사체 중 1개 이상. " +
+              "예: '따뜻한 색온도와 필름 그레인')"
           ),
-        why: z.string().describe("그래서 이 무드가 어울리는 이유. 해요체 1문장, 단정 금지"),
+        why: z
+          .string()
+          .describe(
+            "그래서 이 무드가 어울리는 이유. '~해서 ~가 어울려요' 꼴 해요체 **정확히 1문장, 40자 이내**, 단정 금지 " +
+              "(예: '아날로그 질감이 이미 익숙해서 필름 무드가 자연스러워요'). 두 문장 잇기 금지"
+          ),
         photoIndexes: z
           .array(z.number().int().min(1))
           .min(1)
@@ -83,7 +111,12 @@ const SlimShootSchema = z.object({
     .min(2)
     .max(3)
     .describe("moodIds 와 개수·순서를 맞출 것"),
-  psychHook: ShootPersonaSchema.shape.psychHook,
+  psychHook: z
+    .string()
+    .describe(
+      "심리를 짚는 감성 카피 정확히 2문장, 각 30자 이내. 캡처해서 인스타에 옮기고 싶은 문장으로. " +
+        "평가·단정 금지 (예: '당신은 빛이 머무는 자리를 알아보는 사람이에요. 사진은 그 시선을 남기는 가장 조용한 방법이고요.')"
+    ),
   locations: ShootPersonaSchema.shape.locations,
 });
 
@@ -135,10 +168,25 @@ const SYSTEM = `당신은 SNS 사진과 데이터를 읽어 (1) 그 사람의 �
   - O: "6장 중 5장이 텅스텐 조명 아래 주황빛 색온도예요. 필름 그레인도 뚜렷해요"
   - X: "감성적인 취향", "일상을 소중히 여기는 태도" (사진을 안 봐도 쓸 수 있는 말)
 
-### 톤 (모든 출력 필드 공통)
+### 출력 길이 계약 (초과는 실패 — 이 결과는 모바일 카드 UI 에 그대로 얹힙니다)
+| 필드 | 제한 |
+|---|---|
+| shootPersonaLabel | 명사형 8~14자 |
+| keywords | 공백 없는 한 단어 명사 3개, 각 2~5자 |
+| oneLiner | 명사형 종결 10~22자, 마침표 없음 |
+| psychHook | 정확히 2문장, 각 30자 이내 |
+| attachment.reason | 해요체 1문장 30자 이내 |
+| evidence 각 항목 | 정확히 1문장 26자 이내 |
+| moodReasons.signal | 명사구 10~20자, 문장 금지 |
+| moodReasons.why | 해요체 1문장 40자 이내 |
+
+**어떤 필드에도 문장 두 개를 이어붙이지 마세요** (psychHook 제외). 마침표는 문장당 하나. 글자수를 넘길 것 같으면 수식어를 버리고 짧게 끝내세요.
+
+### 톤 (모든 출력 필드 공통 — 이 규칙이 결과 품질을 결정합니다)
 - **해요체 존댓말. 상대는 '당신'. '너·네·그대' 금지.** (예: "당신의 피드에는 ~가 반복돼요" O / "네 사진은~" X)
-- **짧게.** psychHook 은 2문장 이내, signal·why·attachment.reason 은 각 1문장, evidence 항목도 각 1문장. 같은 말을 늘여 쓰지 마세요.
-- psychHook 은 성향을 정확히 짚어 '나를 이렇게 봐주네' 싶게 하되, 평가·단정·부정 프레이밍 금지. 촬영을 제안하는 따뜻한 톤.
+- **감성 카피 톤**: 설명하지 말고 짚으세요. 캡처해서 인스타에 옮기고 싶은, 짧고 단정한 문장. 수식어를 겹치지 말고(형용사 최대 1개씩) 구체적 이미지 하나로 말하세요.
+- 같은 단어를 여러 필드에서 반복하지 마세요. psychHook·oneLiner·keywords 가 서로 다른 면을 비추면 결과가 풍성해 보입니다.
+- psychHook 은 성향을 정확히 짚어 '나를 이렇게 봐주네' 싶게 하되, 평가·단정·부정 프레이밍 금지.
 - 반드시 한국어, 주어진 JSON 스키마로만 출력. **스키마에 없는 필드는 만들지 마세요.**`;
 
 /** 심리 + 촬영 페르소나를 한 번의 비전 호출로 생성. 무드는 서버측에서 유효 id 만 남긴다. */

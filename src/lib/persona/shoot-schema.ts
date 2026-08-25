@@ -15,6 +15,10 @@ const MoodReason = z.object({
 export const ShootPersonaSchema = z.object({
   shootPersonaLabel: z.string().describe("촬영 페르소나 라벨 1개. 예: '감성 필름 도심 산책러'"),
 
+  // v3(카드형 카피, 2026-08-25)에서 추가 — 히어로 카드의 키워드 칩.
+  // optional: 이전에 저장된 결과(공유 링크는 버전 불문 열린다)에는 없다 → UI 폴백.
+  keywords: z.array(z.string()).optional().describe("당신을 요약하는 키워드 3개 (각 2~5자 명사)"),
+
   purposeKey: z
     .enum(["wedding", "couple", "personal"])
     .describe("촬영 목적. 커플 2인 반복↑→couple, 웨딩/드레스 신호→wedding, 셀피·단독 인물↑→personal(기본값)"),
