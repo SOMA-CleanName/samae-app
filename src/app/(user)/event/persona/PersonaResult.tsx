@@ -5,6 +5,7 @@ import { useState } from "react";
 import { mpTrack } from "@/lib/mixpanel";
 import { Button } from "@/components/ui";
 import type { PersonaSuccess } from "./view-types";
+import { PersonaMotion, reveal, pop, grow } from "./motion";
 
 // 결과 화면 — 이 기능의 유일한 공유 자산이다.
 //
@@ -63,6 +64,15 @@ function PersonaPhoto({
         fetchPriority={big ? "high" : undefined}
         className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
       />
+      {/* 첫 장은 '왜 이게 맨 위인가'를 말해준다 — 랭킹이라는 걸 알면 그리드도 순서로 읽힌다 */}
+      {big && (
+        <span
+          aria-hidden
+          className="absolute left-2.5 top-2.5 rounded-full bg-black/55 px-2.5 py-1 text-caption font-medium text-white backdrop-blur-sm"
+        >
+          피드와 가장 닮은 1장
+        </span>
+      )}
       {/* 탭하면 이동한다는 걸 모바일에서도 알 수 있게 — 호버 없이 항상 보이는 칩 */}
       <span
         aria-hidden
@@ -80,9 +90,15 @@ function PersonaPhoto({
   );
 }
 
-// 등장 순서를 주는 헬퍼 — 스크롤 없이 첫 화면에서 팔레트→라벨→문장이 차례로 들어온다.
-function reveal(i: number) {
-  return { animation: "persona-reveal 560ms cubic-bezier(0.22,1,0.36,1) both", animationDelay: `${i * 90}ms` };
+// 섹션 소제목 — eyebrow 만 반복하면 스크롤 중에 구획이 흐릿해진다.
+// 브랜드색 짧은 획을 앞세워 '여기서 화제가 바뀐다'는 신호를 준다.
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 className="flex items-center gap-2 text-caption font-semibold uppercase tracking-wider text-muted">
+      <span aria-hidden className="h-px w-4 shrink-0 bg-brand" />
+      {children}
+    </h2>
+  );
 }
 
 export default function PersonaResult({
@@ -132,12 +148,16 @@ export default function PersonaResult({
     <div className="font-kr">
       {/* ── 히어로 ── */}
       <section className="relative overflow-hidden px-6 pb-12 pt-16 text-center">
-        {/* 내 팔레트에서 뽑은 워시 — 장식 전용이라 대비에 영향 없음 */}
+        {/* 내 팔레트에서 뽑은 워시 — 장식 전용이라 대비에 영향 없음.
+            도미넌트(0)를 위에서, 보조색(1)을 오른쪽 아래에서 아주 옅게 겹쳐
+            단색 그라데이션보다 '내 피드 색감'이라는 인상을 준다. */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 top-0 h-72"
           style={{
-            background: `radial-gradient(110% 80% at 50% 0%, ${palette[0]}2e 0%, transparent 70%)`,
+            background:
+              `radial-gradient(110% 80% at 50% 0%, ${palette[0]}2e 0%, transparent 70%),` +
+              `radial-gradient(70% 60% at 85% 75%, ${palette[1] ?? palette[0]}1a 0%, transparent 70%)`,
           }}
         />
 
@@ -155,14 +175,17 @@ export default function PersonaResult({
             {shoot.shootPersonaLabel}
           </h1>
 
-          {/* 팔레트 — 이 결과의 지문. 장식이므로 스크린리더에서는 감춘다 */}
+          {/* 팔레트 — 이 결과의 지문. 장식이므로 스크린리더에서는 감춘다.
+              도미넌트(첫 칩)는 한 치수 크게, 나머지는 도장 찍듯 차례로 팝. */}
           <ul aria-hidden style={reveal(2)} className="mt-6 flex items-center justify-center gap-2">
             {palette.map((c, i) => (
               <li
                 key={`${c}-${i}`}
                 title={c}
-                className="h-8 w-8 rounded-full ring-1 ring-fg/10"
-                style={{ background: c }}
+                className={
+                  "rounded-full shadow-card ring-1 ring-fg/10 " + (i === 0 ? "h-10 w-10" : "h-8 w-8")
+                }
+                style={{ background: c, ...pop(i, 260) }}
               />
             ))}
           </ul>
@@ -178,9 +201,7 @@ export default function PersonaResult({
           텍스트 리포트를 먼저 깔면 스크롤 중에 이탈하고, 이 기능의 결과물(사진)에 닿지 못한다. */}
       {photos.length > 0 && (
         <section className="mx-auto max-w-lg px-6 pb-12">
-          <h2 className="text-caption font-semibold uppercase tracking-wider text-muted">
-            당신의 사진과 닮은 사매 사진
-          </h2>
+          <SectionTitle>당신의 사진과 닮은 사매 사진</SectionTitle>
           <p className="mt-1.5 text-body-sm text-muted">
             피드와 색·빛·구도가 가장 가까운 순서예요.
             <br />
@@ -201,9 +222,18 @@ export default function PersonaResult({
           )}
 
           {shoot.locations.length > 0 && (
-            <p className="mt-4 text-center text-body-sm text-muted">
-              어울리는 로케이션 · {shoot.locations.slice(0, 3).join(" · ")}
-            </p>
+            // 문장 한 줄보다 칩이 '가서 찍을 수 있는 곳'처럼 읽힌다
+            <div className="mt-4 flex flex-wrap items-center justify-center gap-1.5">
+              <span className="text-caption text-muted">어울리는 로케이션</span>
+              {shoot.locations.slice(0, 3).map((loc) => (
+                <span
+                  key={loc}
+                  className="rounded-full border border-line bg-surface px-3 py-1 text-caption font-medium text-fg/80"
+                >
+                  {loc}
+                </span>
+              ))}
+            </div>
           )}
         </section>
       )}
@@ -211,7 +241,7 @@ export default function PersonaResult({
       {/* ── 왜 이 무드인지 ── */}
       {shoot.moodReasons.length > 0 && (
         <section className="mx-auto max-w-lg px-6 pb-12">
-          <h2 className="text-caption font-semibold uppercase tracking-wider text-muted">왜 이 무드가 어울릴까</h2>
+          <SectionTitle>왜 이 무드가 어울릴까</SectionTitle>
           <div className="mt-3 space-y-3">
             {shoot.moodReasons.map((m, i) => {
               // LLM 이 근거로 지목한 '바로 그 사진' 썸네일 — 판단이 검증 가능해진다.
@@ -222,7 +252,7 @@ export default function PersonaResult({
               return (
                 // 관찰(signal)과 결론(why)을 한 문단에 붙이면 뭉쳐서 안 읽힌다.
                 // 사진에서 본 것 → 그래서 이 무드, 라는 논리가 보이도록 분리한다.
-                <div key={i} className="rounded-2xl border border-line bg-surface p-4">
+                <div key={i} className="rounded-2xl border border-line bg-surface p-4 shadow-card">
                   <div className="flex items-center justify-between gap-3">
                     <p className="text-title font-semibold">{m.moodTitle}</p>
                     {evidence.length > 0 && (
@@ -254,11 +284,11 @@ export default function PersonaResult({
 
       {/* ── 당신은 이런 사람 ── */}
       <section className="mx-auto max-w-lg px-6 pb-12">
-        <h2 className="text-caption font-semibold uppercase tracking-wider text-muted">당신은 이런 사람</h2>
+        <SectionTitle>당신은 이런 사람</SectionTitle>
         <p className="mt-2.5 text-h2 font-bold leading-snug">{persona.oneLiner}</p>
 
         <div className="mt-6 space-y-2.5">
-          {Object.entries(persona.bigFive).map(([k, v]) => (
+          {Object.entries(persona.bigFive).map(([k, v], i) => (
             <div key={k} className="flex items-center gap-3">
               <span className="w-14 shrink-0 text-caption text-muted">{BIG5_LABEL[k] ?? k}</span>
               <div
@@ -269,8 +299,12 @@ export default function PersonaResult({
                 aria-valuenow={v.score}
                 aria-label={BIG5_LABEL[k] ?? k}
               >
-                {/* 게이지는 브랜드색 고정 — 팔레트를 쓰면 밝은 색일 때 안 보인다 */}
-                <div className="h-full rounded-full bg-brand" style={{ width: `${v.score}%` }} />
+                {/* 게이지는 브랜드색 고정 — 팔레트를 쓰면 밝은 색일 때 안 보인다.
+                    width 는 값 그대로 두고 scaleX 로 차오르게 (reduced-motion 이면 즉시 최종 상태) */}
+                <div
+                  className="h-full origin-left rounded-full bg-brand"
+                  style={{ width: `${v.score}%`, ...grow(i) }}
+                />
               </div>
               <span className="w-7 shrink-0 text-right text-caption tabular-nums text-muted">
                 {v.score}
@@ -279,7 +313,7 @@ export default function PersonaResult({
           ))}
         </div>
 
-        <div className="mt-6 rounded-2xl border border-line bg-surface p-4">
+        <div className="mt-6 rounded-2xl border border-line bg-surface p-4 shadow-card">
           <p className="text-body-sm">
             <span className="font-semibold text-brand">{persona.attachment.label}</span>
             <span className="text-muted"> · {persona.attachment.reason}</span>
@@ -311,7 +345,27 @@ export default function PersonaResult({
         >
           이 무드로 사진 더 보기
         </Button>
-        <Button type="button" variant="secondary" size="lg" fullWidth onClick={share} aria-live="polite">
+        <Button
+          type="button"
+          variant="secondary"
+          size="lg"
+          fullWidth
+          onClick={share}
+          aria-live="polite"
+          leftIcon={
+            copied ? (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 text-success" aria-hidden>
+                <path d="m5 13 4 4L19 7" />
+              </svg>
+            ) : (
+              // 공유(내보내기) 아이콘 — 텍스트만 있을 때보다 버튼의 역할이 한눈에 잡힌다
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4" aria-hidden>
+                <path d="M12 15V4m0 0 4 4m-4-4L8 8" />
+                <path d="M5 13v5a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-5" />
+              </svg>
+            )
+          }
+        >
           {copied ? "링크를 복사했어요 — 친구에게 붙여넣어 보세요!" : result.shareId ? "결과 링크 공유하기" : "결과 공유 카드 만들기"}
         </Button>
         {shared ? (
@@ -342,23 +396,7 @@ export default function PersonaResult({
         )}
       </section>
 
-      <style jsx global>{`
-        @keyframes persona-reveal {
-          from {
-            opacity: 0;
-            transform: translateY(12px);
-          }
-          to {
-            opacity: 1;
-            transform: none;
-          }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          [style*="persona-reveal"] {
-            animation: none !important;
-          }
-        }
-      `}</style>
+      <PersonaMotion />
     </div>
   );
 }
