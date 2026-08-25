@@ -117,6 +117,12 @@ const SlimShootSchema = z.object({
       "심리를 짚는 감성 카피 정확히 2문장, 각 30자 이내. 캡처해서 인스타에 옮기고 싶은 문장으로. " +
         "평가·단정 금지 (예: '당신은 빛이 머무는 자리를 알아보는 사람이에요. 사진은 그 시선을 남기는 가장 조용한 방법이고요.')"
     ),
+  paletteReason: z
+    .string()
+    .describe(
+      "대표 색 팔레트가 피드의 **어떤 장면**에서 왔는지 해요체 1문장 26자 이내 " +
+        "(예: '창가 노을과 원목 가구에서 반복된 색이에요'). 실제로 본 장면만, 색이름 나열 금지"
+    ),
   locations: ShootPersonaSchema.shape.locations,
 });
 
@@ -179,6 +185,7 @@ const SYSTEM = `당신은 SNS 사진과 데이터를 읽어 (1) 그 사람의 �
 | evidence 각 항목 | 정확히 1문장 26자 이내 |
 | moodReasons.signal | 명사구 10~20자, 문장 금지 |
 | moodReasons.why | 해요체 1문장 40자 이내 |
+| paletteReason | 해요체 1문장 26자 이내 |
 
 **어떤 필드에도 문장 두 개를 이어붙이지 마세요** (psychHook 제외). 마침표는 문장당 하나. 글자수를 넘길 것 같으면 수식어를 버리고 짧게 끝내세요.
 
