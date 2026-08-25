@@ -173,6 +173,7 @@ export function InquiryBotChat({
   photoMoodTags,
   photoPriceKrw,
   userPhone,
+  loginGateUrl,
 }: {
   photographerId: string;
   photographerName: string;
@@ -183,6 +184,13 @@ export function InquiryBotChat({
   photoPriceKrw?: number | null;
   /** profiles.phone — 있으면 연락처 스텝을 스킵하고 등록 연락처 한 줄로 대체 */
   userPhone?: string | null;
+  /**
+   * 로그인 게이트 CTA — 비로그인 + 게이트 활성이면 /login?next= URL.
+   * 채팅방 진입·봇 인사까지는 허용하고, 입력바 자리를 카카오 CTA 로 대체한다.
+   * TODO(변형안): 첫 1턴(사용자 답 1회)까지 비로그인 허용 후 두 번째 발화 시점에 CTA 전환 —
+   *   sendUtterance 진입부에서 llmMessages 의 user 발화 수를 세어 게이트를 지연 발동하면 된다.
+   */
+  loginGateUrl?: string | null;
 }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(submitInquiry, INITIAL_STATE);
@@ -224,6 +232,8 @@ export function InquiryBotChat({
   const doneKey = botDoneKey(photoId, photographerId);
   const contactStep = stepIndex >= STEPS.length;
   const done = state.ok || devDone || restoredDone !== null;
+  // 로그인 게이트 CTA 활성 — 입력바·칩 대신 카카오 로그인 버튼 (봇 인사·타임라인은 정상 표시)
+  const loginGate = !!loginGateUrl && !done;
   const currentStep = !contactStep && stepIndex >= 0 ? STEPS[stepIndex] : null;
 
   // 계측 속성 — 모드에 따라 flow_version/mode 만 갈린다 (이벤트명은 동일 유지)
@@ -236,6 +246,26 @@ export function InquiryBotChat({
 
   function push(item: ChatItemInput) {
     setItems((prev) => [...prev, { ...item, id: ++idRef.current }]);
+  }
+
+  // 게이트 CTA 계측 — 로그인 이탈률 측정 (노출 1회 / 클릭)
+  const wallViewedRef = useRef(false);
+  useEffect(() => {
+    if (!loginGate || wallViewedRef.current) return;
+    wallViewedRef.current = true;
+    mpTrack("Inquiry Login Wall Viewed", {
+      ...flowPropsRef.current,
+      photographer_id: photographerId,
+    });
+  }, [loginGate, photographerId]);
+
+  function onLoginCta() {
+    if (!loginGateUrl) return;
+    mpTrack("Inquiry Login Wall Clicked", {
+      ...flowPropsRef.current,
+      photographer_id: photographerId,
+    });
+    router.push(loginGateUrl);
   }
 
   // 문의 시작 이벤트 — 페이지 로드가 아니라 '첫 실제 답변·제출' 시점에 발화 (위저드와 동일 규칙,
@@ -851,7 +881,7 @@ export function InquiryBotChat({
           )}
         </div>
         {/* dev 전용 — 작가 개입 시뮬레이션: photographer 발화 추가 후 봇 정지를 화면에서 확인 */}
-        {DRY_RUN && llmMode && !handedOff && !done && (
+        {DRY_RUN && llmMode && !handedOff && !done && !loginGate && (
           <button
             type="button"
             onClick={simulateHandoff}
@@ -1015,7 +1045,7 @@ export function InquiryBotChat({
 
       {/* LLM quick reply — 입력창 바로 위의 '보조' 칩 한 줄 (가로 스크롤).
           자유 입력이 주인공이라는 위계: 작게, 은은하게, 탭하면 그 텍스트가 사용자 발화가 된다 */}
-      {llmMode && !handedOff && !typing && !done && !contactStep && quickReplies.length > 0 && (
+      {llmMode && !loginGate && !handedOff && !typing && !done && !contactStep && quickReplies.length > 0 && (
         <div
           className="flex gap-1.5 overflow-x-auto px-3 pt-2 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           aria-label="추천 답변 — 탭해도 되고 직접 입력해도 돼요"
@@ -1034,7 +1064,7 @@ export function InquiryBotChat({
       )}
 
       {/* 첨부 대기 썸네일 스트립 — 개별 제거 가능, 텍스트와 함께 전송 버튼으로 나간다 */}
-      {pendingImages.length > 0 && !done && (
+      {pendingImages.length > 0 && !done && !loginGate && (
         <div className="flex items-center gap-2 overflow-x-auto px-3 pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {pendingImages.map((p) => (
             <div key={p.id} className="relative shrink-0 pt-1.5 pr-1.5">
@@ -1058,7 +1088,7 @@ export function InquiryBotChat({
       )}
 
       {/* 선택지 탭 (폴백 상태 머신) — 입력바 위 quick reply (소프트스킵 포함 동등 버튼) */}
-      {currentStep && !typing && !done && (
+      {currentStep && !typing && !done && !loginGate && (
         <div className="border-t border-line/60 px-3 py-2.5">
           {currentStep.type === "date" ? (
             <DateChips skip={currentStep.skip} onPick={onPick} />
@@ -1079,7 +1109,25 @@ export function InquiryBotChat({
         </div>
       )}
 
-      {/* 자유 입력바 — 말풍선으로 남고 봇은 흐름 유지 */}
+      {/* 로그인 게이트 CTA — 입력바 자리를 카카오 버튼으로 대체 (방의 가치를 본 뒤 로그인 유도) */}
+      {loginGate ? (
+        <div className="border-t border-line px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+          <button
+            type="button"
+            onClick={onLoginCta}
+            className="flex h-12 w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#FEE500] text-[15px] font-semibold text-[#191919] transition-transform active:scale-[0.99] hover:brightness-95"
+          >
+            {/* 카카오 말풍선 심볼 */}
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden>
+              <path d="M12 3C6.75 3 2.5 6.36 2.5 10.5c0 2.64 1.73 4.96 4.35 6.29-.19.7-.7 2.55-.8 2.95-.13.5.18.49.38.36.16-.11 2.48-1.68 3.48-2.36.68.1 1.38.16 2.09.16 5.25 0 9.5-3.36 9.5-7.4S17.25 3 12 3z" />
+            </svg>
+            카카오로 1초 로그인하고 대화 시작
+          </button>
+          <p className="mt-2 text-center text-[11px] leading-relaxed text-muted">
+            로그인하면 문의 내역과 작가님 답변 알림을 받을 수 있어요
+          </p>
+        </div>
+      ) : (
       <form
         onSubmit={sendFreeText}
         className="flex items-center gap-2 border-t border-line px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
@@ -1131,6 +1179,7 @@ export function InquiryBotChat({
           </svg>
         </button>
       </form>
+      )}
     </div>
   );
 }

@@ -6,7 +6,9 @@ import { InquiryBotChat } from "./InquiryBotChat";
 
 export const dynamic = "force-dynamic";
 
-// 로그인 게이트 — 새 플로우: 채팅 시작 = 가입/로그인 (작가 답장 SMS 재소환용 연락처 확보의 전제).
+// 로그인 게이트 — 선 리다이렉트가 아니라 **인챗 CTA** 방식:
+// 비로그인이어도 채팅방(헤더·사진·봇 인사·첫 질문)에는 진입시켜 방의 가치를 먼저 보여주고,
+// 입력바 자리의 카카오 CTA 로 로그인을 유도한다 (/login?next= 복귀 동선, gate 파라미터 보존).
 // INQUIRY_BOT_LOGIN_GATE 로 강제: "on"=항상, "off"=끔. 미설정이면 프로덕션만 on
 // (dev 는 기본 off — 데모·개발 편의, 서버 재시작 없이 동작 유지).
 const LOGIN_GATE_ON =
@@ -36,13 +38,16 @@ export default async function InquiryBotPage({
   if (!photographer) notFound();
   if (me?.photographer?.id === photographerId) redirect("/studio");
 
-  // 비로그인 → 기존 카카오 로그인 플로우(/login?next=)로 — 로그인 후 이 채팅방으로 복귀.
+  // 비로그인 + 게이트 활성 → 리다이렉트하지 않고 로그인 CTA URL 을 내려보낸다.
+  // 클라이언트는 입력바 자리에 카카오 CTA 를 렌더 (진입 시점의 대화 상태는 localStorage 키가
+  // photoId/photographerId 기반이라 로그인 전후 동일 — 복귀 후 그대로 이어진다).
   // 카카오 일반 앱은 전화번호를 주지 않으므로, 연락처는 챗봇의 연락처 스텝에서 1회 수집한다
   // (profiles.phone 컬럼 존재 확인 — 저장 배선은 C3 persistBotConversation 본구현에서).
+  let loginGateUrl: string | null = null;
   if ((LOGIN_GATE_ON || gateForced) && !me) {
     // gate=1 을 next 에도 유지 — 로그인 후 복귀했을 때 같은 조건으로 재검증(이미 로그인이라 통과)
     const next = `/inquiry/bot?photographerId=${photographerId}${photoId ? `&photoId=${photoId}` : ""}${gateForced ? "&gate=1" : ""}`;
-    redirect(`/login?next=${encodeURIComponent(next)}`);
+    loginGateUrl = `/login?next=${encodeURIComponent(next)}`;
   }
 
   // 등록 연락처 — 있으면 챗봇 연락처 스텝을 스킵하고 "등록된 연락처로 알림" 한 줄로 대체
@@ -72,6 +77,7 @@ export default async function InquiryBotPage({
         photoMoodTags={photo?.mood_tags ?? []}
         photoPriceKrw={photo?.price_krw ?? null}
         userPhone={userPhone}
+        loginGateUrl={loginGateUrl}
       />
     </main>
   );
