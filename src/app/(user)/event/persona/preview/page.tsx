@@ -40,7 +40,8 @@ const MOCK: PersonaSuccess = {
   } as PersonaSuccess["persona"],
   shoot: {
     shootPersonaLabel: "빛을 모으는 필름 산책자",
-    keywords: ["새벽빛", "기록", "여백"],
+    // 키워드는 성격↔무드를 잇는 공통 언어 — 아래 moodReasons.why 가 그대로 인용한다
+    keywords: ["잔잔함", "새벽빛", "여백"],
     psychHook:
       "당신은 빛이 머무는 자리를 알아보는 사람이에요. 사진은 그 시선을 남기는 가장 조용한 방법이고요.",
     colorPalette: ["#c8453a", "#d9a441", "#33564f", "#efece5", "#2c2320"],
@@ -50,13 +51,13 @@ const MOCK: PersonaSuccess = {
       {
         moodTitle: "필름-빈티지",
         signal: "필름 그레인과 빛바랜 뮤트 톤",
-        why: "아날로그 질감이 이미 익숙해서 필름 무드가 자연스러워요",
+        why: "잔잔함이 밴 장면들이라 필름의 낮은 채도가 잘 어울려요",
         photoIndexes: [1, 3],
       },
       {
         moodTitle: "내추럴",
         signal: "연출 없는 자연광과 넉넉한 여백",
-        why: "꾸미지 않은 순간을 담아와서 내추럴 무드가 어울려요",
+        why: "새벽빛 같은 자연광이 익숙해서 꾸미지 않은 무드가 어울려요",
         photoIndexes: [2, 5],
       },
     ],

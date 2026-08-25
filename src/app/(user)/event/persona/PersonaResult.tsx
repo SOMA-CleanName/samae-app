@@ -45,17 +45,55 @@ function splitSentences(text: string): string[] {
 }
 
 // ── 팔레트 → 히어로 카드 테마 ──────────────────────────────
-// 사용자 사진에서 뽑은 색이라 밝기를 예측할 수 없다. 도미넌트 색의 상대 휘도로
-// 잉크(글자색)를 고른다. 여기 리터럴 색은 하드코딩 팔레트가 아니라
-// "동적 배경 위 대비 보장"을 위한 잉크 페어다 (팔레트 동적 사용 예외 범위).
+// 사용자 사진에서 뽑은 색이라 밝기·채도를 예측할 수 없다.
+// 배경은 **톤다운(뮤트)** 색을 쓴다 — 원색을 그대로 깔면 쨍해서 텍스트가 눌린다.
+// 스와치(팔레트 표시)는 원색 유지: 지문은 정직하게, 무대만 차분하게.
+// 여기 리터럴 색은 하드코딩 팔레트가 아니라 "동적 배경 위 대비 보장"용 잉크 페어다.
+
+function hexToHsl(hex: string): { h: number; s: number; l: number } | null {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  const r = ((n >> 16) & 255) / 255;
+  const g = ((n >> 8) & 255) / 255;
+  const b = (n & 255) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const d = max - min;
+  if (d === 0) return { h: 0, s: 0, l };
+  const s = d / (1 - Math.abs(2 * l - 1));
+  const h6 = max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return { h: h6 * 60, s, l };
+}
+
+function hslToHex(h: number, s: number, l: number): string {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  const [r, g, b] =
+    h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+  const to = (v: number) => Math.round((v + m) * 255).toString(16).padStart(2, "0");
+  return `#${to(r)}${to(g)}${to(b)}`;
+}
+
+/** 원색 → 뮤트 톤. 채도는 38% 로 클램프, 밝기는 극단만 중앙으로 당긴다
+ *  (어두운 색 → 딥뮤트, 밝은 색 → 파스텔. 예: #c8453a → #b15851) */
+function muteHex(hex: string): string {
+  const hsl = hexToHsl(hex);
+  if (!hsl) return hex;
+  return hslToHex(hsl.h, Math.min(hsl.s, 0.38), Math.min(Math.max(hsl.l, 0.26), 0.86));
+}
+
 function heroTheme(palette: string[]) {
-  const p0 = palette[0] ?? "#241a18";
-  const p1 = palette[1] ?? p0;
+  const mp0 = muteHex(palette[0] ?? "#241a18");
+  const mp1 = muteHex(palette[1] ?? mp0);
   const chan = (h: string, i: number) => parseInt(h.slice(i, i + 2), 16) / 255;
   const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4));
   let lum = 0.5;
   try {
-    lum = 0.2126 * lin(chan(p0, 1)) + 0.7152 * lin(chan(p0, 3)) + 0.0722 * lin(chan(p0, 5));
+    // 잉크는 변환(뮤트) 후 색 기준으로 고른다 — 배경에 실제로 깔리는 색이니까
+    lum = 0.2126 * lin(chan(mp0, 1)) + 0.7152 * lin(chan(mp0, 3)) + 0.0722 * lin(chan(mp0, 5));
   } catch {
     /* 팔레트가 hex 가 아니면 중간값 유지 */
   }
@@ -68,10 +106,26 @@ function heroTheme(palette: string[]) {
     soft,
     line,
     bg: {
-      backgroundColor: p0,
-      backgroundImage: `radial-gradient(130% 95% at 88% 100%, ${p1}40 0%, transparent 62%)`,
+      backgroundColor: mp0,
+      backgroundImage: `radial-gradient(130% 95% at 88% 100%, ${mp1}59 0%, transparent 62%)`,
     } as React.CSSProperties,
   };
+}
+
+// 무드 why 문장 안에서 키워드(성격 카드와의 공통 언어)를 강조한다 —
+// "성격 → 무드"가 같은 단어로 이어진다는 걸 눈으로 보여주는 장치.
+// 구버전(키워드 없음)이거나 모델이 인용을 빼먹으면 그냥 평문으로 흐른다.
+function emphasizeKeyword(text: string, keywords: string[]): React.ReactNode {
+  const hit = keywords.find((k) => k && text.includes(k));
+  if (!hit) return text;
+  const i = text.indexOf(hit);
+  return (
+    <>
+      {text.slice(0, i)}
+      <strong className="font-bold text-brand-ink">{hit}</strong>
+      {text.slice(i + hit.length)}
+    </>
+  );
 }
 
 // 카드 공통 껍데기 — 모든 카드가 같은 반경·경계·그림자를 가져야 '리포트 한 벌'로 읽힌다.
@@ -105,20 +159,21 @@ function CardTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-// 추천 사진 1장. 첫 장(big)은 넓게, 나머지는 3열 그리드.
+// 추천 사진 1장 — 무드 카드 안에서 wide(2칸 가로) 또는 tile(1칸)로 배치된다.
 // "왜 이 사진인가"는 파이프라인의 실측값으로만 말한다 — 유사도(1-코사인거리)·
-// 사진의 무드 태그·씨앗이 된 내 피드 사진. 값이 없으면(폴백·구버전) 조용히 생략.
+// 씨앗이 된 내 피드 사진. 값이 없으면(폴백·구버전) 조용히 생략.
+// (무드 태그 칩은 뺐다 — 사진이 무드 카드 안에 있으니 카드 자체가 그 맥락이다)
 function PersonaPhoto({
   photo,
   rank,
   purposeKey,
-  big = false,
+  wide = false,
   seedThumb,
 }: {
   photo: RecoPhoto;
   rank: number;
   purposeKey: string;
-  big?: boolean;
+  wide?: boolean;
   /** 이 사진을 뽑은 내 피드 사진 썸네일 — "내 이 사진과 닮아서" 근거 칩 */
   seedThumb?: string;
 }) {
@@ -129,46 +184,45 @@ function PersonaPhoto({
       href={`/photos/${photo.id}`}
       onClick={() => mpTrack("Click Persona Photo", { photo_id: photo.id, rank, purpose_key: purposeKey })}
       className={
-        "group relative block cursor-pointer overflow-hidden bg-surface-2 " +
-        (big ? "mt-3 aspect-[4/5] rounded-2xl" : "aspect-[3/4] rounded-xl")
+        "group relative block cursor-pointer overflow-hidden bg-surface-2 rounded-xl " +
+        (wide ? "col-span-2 aspect-[16/10]" : "aspect-[4/3]")
       }
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={photo.url}
         alt="추천 사진 — 누르면 상세로 이동"
-        // 첫 장은 화면에 바로 보이므로 지연 로딩하지 않는다 (LCP)
-        loading={big ? "eager" : "lazy"}
-        fetchPriority={big ? "high" : undefined}
+        // 전체 1위 사진은 화면에 일찍 보이므로 지연 로딩하지 않는다 (LCP)
+        loading={rank === 1 ? "eager" : "lazy"}
+        fetchPriority={rank === 1 ? "high" : undefined}
         className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03] motion-reduce:transition-none motion-reduce:group-hover:scale-100"
       />
-      {/* 첫 장은 '왜 이게 맨 위인가'를 말해준다 — 랭킹 + 실측 유사도 + 이 사진의 무드 태그 */}
-      {big && (
-        <div aria-hidden className="absolute left-2.5 right-2.5 top-2.5 flex flex-wrap items-start gap-1">
-          <span className="rounded-full bg-black/55 px-2.5 py-1 text-caption font-medium text-white backdrop-blur-sm">
-            피드와 가장 닮은 1장
-            {pct !== null && <span className="tabular-nums"> · 무드 일치 {pct}%</span>}
-          </span>
-          {(photo.moodTags ?? []).slice(0, 2).map((t) => (
-            <span key={t} className="rounded-full bg-black/45 px-2 py-1 text-caption text-white/90 backdrop-blur-sm">
-              #{t}
-            </span>
-          ))}
-        </div>
-      )}
-      {/* 씨앗 근거 — 인과의 반대쪽 끝, 내 피드의 바로 그 사진 */}
-      {big && seedThumb && (
+      {/* 실측 유사도 배지 — 전체 1위는 랭킹까지 말해준다 */}
+      {wide && (rank === 1 || pct !== null) && (
         <span
           aria-hidden
-          className="absolute bottom-2.5 left-2.5 flex items-center gap-1.5 rounded-full bg-black/55 py-1 pl-1 pr-2.5 text-caption text-white backdrop-blur-sm"
+          className="absolute left-2 top-2 rounded-full bg-black/55 px-2.5 py-1 text-caption font-medium text-white backdrop-blur-sm tabular-nums"
+        >
+          {rank === 1
+            ? pct !== null
+              ? `피드와 가장 닮은 1장 · ${pct}%`
+              : "피드와 가장 닮은 1장"
+            : `무드 일치 ${pct}%`}
+        </span>
+      )}
+      {/* 씨앗 근거 — 인과의 반대쪽 끝, 내 피드의 바로 그 사진 */}
+      {wide && seedThumb && (
+        <span
+          aria-hidden
+          className="absolute bottom-2 left-2 flex items-center gap-1.5 rounded-full bg-black/55 py-1 pl-1 pr-2.5 text-caption text-white backdrop-blur-sm"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={seedThumb} alt="" width={24} height={24} className="h-6 w-6 rounded-full object-cover" />
           내 이 사진과 닮아서 골랐어요
         </span>
       )}
-      {/* 그리드에도 실측 유사도만 은은하게 — 값이 없으면 아무것도 안 붙는다 */}
-      {!big && pct !== null && (
+      {/* 타일에도 실측 유사도만 은은하게 — 값이 없으면 아무것도 안 붙는다 */}
+      {!wide && pct !== null && (
         <span
           aria-hidden
           className="absolute left-1.5 top-1.5 rounded-full bg-black/50 px-1.5 py-0.5 text-caption tabular-nums text-white backdrop-blur-sm"
@@ -181,11 +235,11 @@ function PersonaPhoto({
         aria-hidden
         className={
           "absolute flex items-center gap-1 rounded-full bg-black/55 text-white backdrop-blur-sm " +
-          (big ? "bottom-2.5 right-2.5 px-2.5 py-1 text-caption" : "bottom-1.5 right-1.5 p-1")
+          (wide ? "bottom-2 right-2 px-2.5 py-1 text-caption" : "bottom-1.5 right-1.5 p-1")
         }
       >
-        {big && <span>사진 보러가기</span>}
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" className={big ? "h-3.5 w-3.5" : "h-3 w-3"}>
+        {wide && <span>사진 보러가기</span>}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" className={wide ? "h-3.5 w-3.5" : "h-3 w-3"}>
           <path d="M7 17 17 7M9 7h8v8" />
         </svg>
       </span>
@@ -212,7 +266,10 @@ export default function PersonaResult({
   const evidence = persona.evidence.slice(0, 4);
   // 인과 사슬 표기에 쓰는 파이프라인 팩트 — 없으면(공유·구버전) 표기가 조용히 일반형으로 준다
   const sampleCount = result.sampleThumbs?.length ?? 0;
-  const moodNames = shoot.moodReasons.slice(0, 3).map((m) => m.moodTitle).join(" · ");
+  // 추천 사진을 무드 카드에 나눠 싣는다 — 유사도 순위(rank)는 전체 순서 그대로 유지.
+  // 무드가 2개면 카드당 3장(총 6장), 3개면 3장씩 9장. 무드가 없으면(구버전 엣지) 폴백 카드.
+  const perMood = 3;
+  const photosFor = (i: number) => photos.slice(i * perMood, i * perMood + perMood);
 
   // 결과 페이지 링크를 공유한다 — 친구가 열면 같은 결과를 보고 자기 분석으로 넘어간다.
   // (저장 실패로 shareId 가 없으면 카드 이미지만 제공)
@@ -318,56 +375,24 @@ export default function PersonaResult({
         )}
       </section>
 
-      {/* ── 2. 닮은 사진 카드 — 이 기능의 결과물(상품)이라 성격보다 먼저 ── */}
-      {photos.length > 0 && (
-        <Card order={1}>
-          <CardTitle>당신의 피드와 닮은 사진</CardTitle>
-          {/* 인과 연결 문장 — "피드를 읽었다 → 이 무드다 → 그래서 이 사진들"을 여기서 잇는다.
-              보조 설명이 아니라 이 카드의 본문이므로 muted 가 아닌 본문 대비. */}
-          <p className="mt-1.5 text-pretty text-body-sm leading-relaxed">
-            {sampleCount > 0 ? `피드 사진 ${sampleCount}장의 색·빛·구도를 읽고` : "피드의 색·빛·구도를 읽고"}
-            {moodNames ? `, '${moodNames}' 무드와 가장 가까운 작가 사진을 골랐어요.` : " 가장 가까운 작가 사진을 골랐어요."}
-          </p>
-          <p className="mt-0.5 text-caption text-muted">누르면 작가와 가격이 보여요.</p>
-
-          {/* 첫 장은 크게, 나머지는 3열 — 사진 구간이 화면 4개 분량이 되면 아무도 안 내려간다 */}
-          <PersonaPhoto
-            photo={photos[0]}
-            rank={1}
-            purposeKey={shoot.purposeKey}
-            big
-            seedThumb={
-              photos[0].seedIdx !== undefined ? result.sampleThumbs?.[photos[0].seedIdx] : undefined
-            }
-          />
-          {photos.length > 1 && (
-            <div className="mt-1.5 grid grid-cols-3 gap-1.5">
-              {photos.slice(1, 7).map((p, i) => (
-                <PersonaPhoto key={p.id} photo={p} rank={i + 2} purposeKey={shoot.purposeKey} />
-              ))}
-            </div>
-          )}
-
-          {shoot.locations.length > 0 && (
-            <div className="mt-4 flex flex-wrap items-center gap-1.5">
-              <span className="text-caption text-muted">어울리는 로케이션</span>
-              {shoot.locations.slice(0, 3).map((loc) => (
-                <span
-                  key={loc}
-                  className="rounded-full border border-line bg-bg px-3 py-1 text-caption font-medium"
-                >
-                  {loc}
-                </span>
-              ))}
-            </div>
-          )}
-        </Card>
-      )}
-
-      {/* ── 3. 성격 카드 — 결론(나)을 먼저, 무드 근거는 다음 카드에서 ── */}
-      <Card order={2}>
+      {/* ── 2. 성격 카드 — "나"의 결론이 먼저 와야 뒤의 무드·사진이 근거로 읽힌다 ── */}
+      <Card order={1}>
         <CardTitle>당신은 이런 사람</CardTitle>
         <p className="mt-2.5 text-pretty text-[1.375rem] font-bold leading-snug">{persona.oneLiner}</p>
+
+        {/* 키워드 에코 — 무드 카드의 why 가 이 단어를 그대로 인용한다 (성격↔무드 공통 언어) */}
+        {keywords.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-1.5">
+            {keywords.map((k) => (
+              <span
+                key={k}
+                className="rounded-full bg-brand-soft px-2.5 py-1 text-caption font-semibold text-brand-ink"
+              >
+                {k}
+              </span>
+            ))}
+          </div>
+        )}
 
         <div className="mt-5 space-y-2.5">
           {Object.entries(persona.bigFive).map(([k, v], i) => (
@@ -416,15 +441,17 @@ export default function PersonaResult({
         </div>
       </Card>
 
-      {/* ── 4. 무드 카드 — 무드당 한 장. 결론 문장 하나 + 관찰 신호 한 줄이면 충분하다 ── */}
+      {/* ── 3. 무드 카드 — 한 카드 안에서 서사가 완결된다:
+             무드 이름 → 내 피드에서 본 신호 → 그래서(키워드 인용) → 그래서 이 사진들 ── */}
       {shoot.moodReasons.map((m, i) => {
         // LLM 이 근거로 지목한 '바로 그 사진' 썸네일 — 판단이 검증 가능해진다.
         // (photoIndexes 는 1-base · 공유 링크로 열면 sampleThumbs 가 없어 자연히 생략)
         const thumbs = (m.photoIndexes ?? [])
           .map((n) => result.sampleThumbs?.[n - 1])
           .filter((t): t is string => !!t);
+        const moodPhotos = photosFor(i);
         return (
-          <Card key={i} order={3 + i}>
+          <Card key={i} order={2 + i}>
             <div className="flex items-start justify-between gap-3">
               <div>
                 <CardTitle>추천 무드 {String(i + 1).padStart(2, "0")}</CardTitle>
@@ -451,11 +478,7 @@ export default function PersonaResult({
               )}
             </div>
 
-            {/* 결론이 본문 — 왜 이 무드인가에 대한 답 한 문장 */}
-            <p className="mt-2.5 text-pretty text-body leading-relaxed">{m.why}</p>
-
-            {/* 관찰 신호 — 어느 사진에서 본 것인지 번호로 잇는다 (썸네일과 같은 photoIndexes).
-                v3 는 명사구 한 줄, 구버전의 긴 문장도 같은 자리에서 그냥 흐른다 */}
+            {/* ① 관찰 — 어느 사진에서 무엇을 봤는지 (썸네일과 같은 photoIndexes 로 연결) */}
             <p className="mt-3 flex items-start gap-1.5 text-caption leading-relaxed text-muted">
               <svg
                 viewBox="0 0 24 24"
@@ -478,9 +501,68 @@ export default function PersonaResult({
                 {m.signal}
               </span>
             </p>
+
+            {/* ② 결론 — 성격 카드의 키워드를 그대로 인용해 "내 성격 → 이 무드"를 잇는다 */}
+            <p className="mt-2 text-pretty text-body leading-relaxed">{emphasizeKeyword(m.why, keywords)}</p>
+
+            {/* ③ 그래서 이 사진들 — 이 무드와 가장 가까운 사매 작가 사진 */}
+            {moodPhotos.length > 0 && (
+              <>
+                <p className="mt-4 flex items-center justify-between text-caption font-medium text-muted">
+                  <span>그래서 어울리는 사매 사진</span>
+                  {i === 0 && <span className="font-normal">누르면 작가·가격이 보여요</span>}
+                </p>
+                <div className="mt-2 grid grid-cols-2 gap-1.5">
+                  {moodPhotos.map((p, j) => {
+                    const rank = i * perMood + j + 1; // 전체 유사도 순위 그대로 (mpTrack rank 유지)
+                    return (
+                      <PersonaPhoto
+                        key={p.id}
+                        photo={p}
+                        rank={rank}
+                        purposeKey={shoot.purposeKey}
+                        wide={j === 0}
+                        seedThumb={
+                          j === 0 && p.seedIdx !== undefined
+                            ? result.sampleThumbs?.[p.seedIdx]
+                            : undefined
+                        }
+                      />
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </Card>
         );
       })}
+
+      {/* 무드 근거가 아예 없는 구버전 결과 — 사진만이라도 보여주는 폴백 카드 */}
+      {shoot.moodReasons.length === 0 && photos.length > 0 && (
+        <Card order={2}>
+          <CardTitle>당신의 피드와 닮은 사진</CardTitle>
+          <p className="mt-1.5 text-body-sm leading-relaxed text-muted">
+            색·빛·구도가 가까운 순서예요. 누르면 작가와 가격이 보여요.
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-1.5">
+            {photos.slice(0, 5).map((p, j) => (
+              <PersonaPhoto key={p.id} photo={p} rank={j + 1} purposeKey={shoot.purposeKey} wide={j === 0} />
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* 어울리는 로케이션 — 카드보다 가벼운 스트립 */}
+      {shoot.locations.length > 0 && (
+        <div style={reveal(4)} className="flex flex-wrap items-center gap-1.5 px-1 pt-1">
+          <span className="text-caption text-muted">어울리는 로케이션</span>
+          {shoot.locations.slice(0, 3).map((loc) => (
+            <span key={loc} className="rounded-full border border-line bg-surface px-3 py-1 text-caption font-medium">
+              {loc}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* ── 5. 전환 CTA ── */}
       {/* 셸의 main 이 이미 pb-28 을 갖고 있어 여기서 더 띄우면 빈 공간만 커진다 */}
