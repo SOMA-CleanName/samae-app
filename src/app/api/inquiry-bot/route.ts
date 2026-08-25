@@ -34,11 +34,13 @@ const ENTER_EVENT = "(사용자가 문의 채팅방에 입장했습니다. 인�
 
 // 레퍼런스 이미지 data URL 상한 — 클라이언트가 800px 로 축소해 보내므로 넉넉한 방어선
 const MAX_IMAGE_DATAURL_CHARS = 2_500_000; // ≈ 1.8MB 원본
+const MAX_VISION_IMAGES = 3; // vision 에 넘기는 최대 장수 — 초과분은 개수만 언급
 
 function toLangChainMessages(
   messages: BotChatMessage[],
   slots: LlmSlots,
-  imageDataUrl?: string
+  imageDataUrls: string[] = [],
+  totalImages = 0
 ): BaseMessage[] {
   const out: BaseMessage[] = [];
   for (const m of messages) {
@@ -49,16 +51,21 @@ function toLangChainMessages(
   if (out.length === 0 || !(out[0] instanceof HumanMessage)) {
     out.unshift(new HumanMessage(ENTER_EVENT));
   }
-  // 이번 턴 레퍼런스 이미지 — haiku vision 반응 + slots.custom["레퍼런스"] 기록 유도
-  if (imageDataUrl) {
+  // 이번 턴 레퍼런스 이미지들 — haiku vision 묶음 반응 + slots.custom["레퍼런스"] 기록 유도
+  if (imageDataUrls.length > 0) {
+    const total = Math.max(totalImages, imageDataUrls.length);
+    const extra =
+      total > imageDataUrls.length
+        ? ` (총 ${total}장 중 ${imageDataUrls.length}장만 전달됨 — 나머지는 개수만 언급)`
+        : "";
     out.push(
       new HumanMessage({
         content: [
           {
             type: "text",
-            text: "(사용자가 레퍼런스 이미지를 첨부했습니다. 분위기·톤을 한 문장으로 짚어주고 slots.custom 의 \"레퍼런스\" 키에 특징을 저장한 뒤 남은 질문을 이어가세요.)",
+            text: `(사용자가 레퍼런스 이미지 ${total}장을 첨부했습니다.${extra} 공통 분위기·톤을 묶어 한 문장으로 짚어주고 slots.custom 의 "레퍼런스" 키에 특징을 저장한 뒤, 직전 사용자 발화의 캡션 내용에 답하며 남은 질문을 이어가세요.)`,
           },
-          { type: "image_url", image_url: { url: imageDataUrl } },
+          ...imageDataUrls.map((url) => ({ type: "image_url" as const, image_url: { url } })),
         ],
       })
     );
@@ -103,13 +110,18 @@ export async function POST(req: Request) {
         .slice(-MAX_HISTORY)
     : [];
   const slots: LlmSlots = body.slots && typeof body.slots === "object" ? body.slots : {};
-  // 레퍼런스 이미지 — data URL 형식·크기 검증 (아니면 조용히 무시, 흐름 무영향)
-  const imageDataUrl =
-    typeof body.image?.dataUrl === "string" &&
-    body.image.dataUrl.startsWith("data:image/") &&
-    body.image.dataUrl.length <= MAX_IMAGE_DATAURL_CHARS
-      ? body.image.dataUrl
-      : undefined;
+  // 레퍼런스 이미지들 — data URL 형식·크기 검증 후 최대 3장 (아니면 조용히 무시, 흐름 무영향)
+  const imageDataUrls = (Array.isArray(body.images) ? body.images : [])
+    .map((i) => i?.dataUrl)
+    .filter(
+      (u): u is string =>
+        typeof u === "string" && u.startsWith("data:image/") && u.length <= MAX_IMAGE_DATAURL_CHARS
+    )
+    .slice(0, MAX_VISION_IMAGES);
+  const totalImages =
+    typeof body.totalImages === "number" && body.totalImages > 0
+      ? Math.floor(body.totalImages)
+      : imageDataUrls.length;
 
   // ── 작가 개입 = 봇 정지. LLM 호출 자체를 하지 않는다 ──
   if (hasPhotographerIntervened(messages)) {
@@ -130,7 +142,10 @@ export async function POST(req: Request) {
       temperature: 0.2, // 접수 봇 — 창의성보다 일관된 슬롯 수집
     });
     const structured = model.withStructuredOutput(botTurnSchema, { name: "bot_turn" });
-    const lcMessages = [new SystemMessage(system), ...toLangChainMessages(messages, slots, imageDataUrl)];
+    const lcMessages = [
+      new SystemMessage(system),
+      ...toLangChainMessages(messages, slots, imageDataUrls, totalImages),
+    ];
     // 구조화 출력은 확률적으로 파싱에 실패할 수 있다 — 서버에서 1회 재시도 후에만 502.
     // (한 번의 일시 실패가 클라이언트를 버튼 폴백으로 강등시켰던 실사고 재발 방지)
     let turn;

@@ -103,6 +103,40 @@ function loadSavedAnswers(key: string): BotAnswers | null {
   return null;
 }
 
+// 제출 완료 상태 저장 — 완료된 문의로 재진입하면 연락처 스텝 대신 완료 화면을 보여준다.
+// ⚠️ 이 레코드가 없던 것이 "완료 후에도 연락처 입력이 반복"되던 버그의 원인:
+// 완료 '사실'을 저장하지 않고 답변만 지워서, 답변이 남아있거나 다시 완주한 세션에서
+// 봇이 done 턴을 재생성해 연락처 카드가 또 노출됐다.
+type DoneRecord = { at: number; dryRun: boolean; answers: BotAnswers };
+function botDoneKey(photoId: string, photographerId: string) {
+  return `samae:inquiry:bot:done:${photoId || photographerId}`;
+}
+function loadDoneRecord(key: string): DoneRecord | null {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as DoneRecord;
+    if (parsed && typeof parsed === "object" && typeof parsed.at === "number") return parsed;
+  } catch {
+    /* 무시 */
+  }
+  return null;
+}
+function saveDoneRecord(key: string, record: Omit<DoneRecord, "at">) {
+  try {
+    localStorage.setItem(key, JSON.stringify({ ...record, at: Date.now() } satisfies DoneRecord));
+  } catch {
+    /* 무시 */
+  }
+}
+
+// 등록 연락처 마스킹 — 010-****-1234
+function maskPhone(p: string) {
+  const d = p.replace(/\D/g, "");
+  if (d.length < 8) return p;
+  return `${d.slice(0, 3)}-****-${d.slice(-4)}`;
+}
+
 // 레퍼런스 이미지 → 축소 data URL (vision 전송용 — 원본 대신 800px jpeg 로 비용·전송량 절약)
 async function downscaleToDataUrl(file: File, maxWidth: number): Promise<string> {
   const bitmap = await createImageBitmap(file);
@@ -123,7 +157,7 @@ async function downscaleToDataUrl(file: File, maxWidth: number): Promise<string>
 type ChatItemInput =
   | { kind: "bot"; node: React.ReactNode }
   | { kind: "user"; text: string }
-  | { kind: "userImage"; src: string } // 레퍼런스 이미지 (드라이런=objectURL, 프로드=업로드 URL 미리보기도 동일)
+  | { kind: "userImages"; srcs: string[]; caption?: string } // 레퍼런스 이미지 묶음 + 캡션 (objectURL 미리보기)
   | { kind: "photographer"; text: string } // 작가 발화 (개입 데모 — C3에서 실제 메시지로)
   | { kind: "handoff" } // "작가님이 대화를 이어받았어요" 배지
   | { kind: "summary" }
@@ -138,6 +172,7 @@ export function InquiryBotChat({
   photoSrc,
   photoMoodTags,
   photoPriceKrw,
+  userPhone,
 }: {
   photographerId: string;
   photographerName: string;
@@ -146,6 +181,8 @@ export function InquiryBotChat({
   photoSrc: string | null;
   photoMoodTags?: string[];
   photoPriceKrw?: number | null;
+  /** profiles.phone — 있으면 연락처 스텝을 스킵하고 등록 연락처 한 줄로 대체 */
+  userPhone?: string | null;
 }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(submitInquiry, INITIAL_STATE);
@@ -176,10 +213,17 @@ export function InquiryBotChat({
   // 레퍼런스 이미지 — 업로드된 public URL(프로드)과 첨부 수(드라이런은 미리보기만이라 URL 없음)
   const [refImageUrls, setRefImageUrls] = useState<string[]>([]);
   const [refImageCount, setRefImageCount] = useState(0);
+  // 전송 대기 첨부 — 첨부만으로 보내지 않고, 텍스트와 함께 전송 버튼으로 한 턴에 나간다
+  const [pendingImages, setPendingImages] = useState<{ id: number; file: File; url: string }[]>([]);
+  const pendingIdRef = useRef(0);
+
+  // 완료된 문의 재진입 — 연락처 스텝 대신 완료 화면 (localStorage done 레코드에서 복원)
+  const [restoredDone, setRestoredDone] = useState<DoneRecord | null>(null);
 
   const storageKey = botStorageKey(photoId, photographerId);
+  const doneKey = botDoneKey(photoId, photographerId);
   const contactStep = stepIndex >= STEPS.length;
-  const done = state.ok || devDone;
+  const done = state.ok || devDone || restoredDone !== null;
   const currentStep = !contactStep && stepIndex >= 0 ? STEPS[stepIndex] : null;
 
   // 계측 속성 — 모드에 따라 flow_version/mode 만 갈린다 (이벤트명은 동일 유지)
@@ -262,11 +306,11 @@ export function InquiryBotChat({
   // ── LLM 대화 코어 ──────────────────────────────────────────────
 
   // API 왕복 — 봇 답변 버블·슬롯 병합·quickReplies·계측. 실패 시 버튼 플로우 폴백.
-  // opts.imageDataUrl: 이번 턴 레퍼런스 이미지(vision 반응) — 이 턴의 실패는 폴백하지 않는다.
+  // opts.images: 이번 턴 레퍼런스 이미지들(vision 반응, 최대 3장) — 이 턴의 실패는 폴백하지 않는다.
   async function callBot(
     history: BotChatMessage[],
     curSlots: LlmSlots,
-    opts?: { imageDataUrl?: string }
+    opts?: { images?: string[]; totalImages?: number }
   ) {
     setTyping(true);
     try {
@@ -277,7 +321,8 @@ export function InquiryBotChat({
         messages: history,
         slots: curSlots,
         photoContext: { moodTags: photoMoodTags, priceKrw: photoPriceKrw ?? null },
-        image: opts?.imageDataUrl ? { dataUrl: opts.imageDataUrl } : undefined,
+        images: opts?.images?.length ? opts.images.map((dataUrl) => ({ dataUrl })) : undefined,
+        totalImages: opts?.totalImages,
       };
       // 일시 오류 1회는 재시도 — 한 번의 실패로 대화 전체가 버튼 폴백으로 강등되지 않게
       let res: Response | null = null;
@@ -315,7 +360,7 @@ export function InquiryBotChat({
     } catch (e) {
       setTyping(false);
       // 이미지 반응 턴 실패는 흐름 무영향 — 부드러운 확인 버블만 남기고 봇 정상 유지
-      if (opts?.imageDataUrl) {
+      if (opts?.images?.length) {
         push({ kind: "bot", node: <>레퍼런스 이미지 잘 받았어요! 작가님께 함께 전달드릴게요.</> });
         return;
       }
@@ -360,42 +405,75 @@ export function InquiryBotChat({
     void callBot(history, slots);
   }
 
-  // 레퍼런스 이미지 첨부 — 말풍선에 즉시 미리보기, 프로드만 스토리지 업로드, 봇은 vision 한 줄 반응.
-  // dev 드라이런: 업로드 생략(objectURL 미리보기만) — 프로드 버킷 오염 방지.
+  // 레퍼런스 이미지 첨부 — 첨부만으로 전송되지 않는다: 입력바 위 썸네일 스트립에 대기시키고,
+  // 텍스트(캡션)와 함께 전송 버튼을 눌렀을 때 한 턴으로 나간다.
+  // dev 드라이런: 스토리지 업로드 생략(objectURL 미리보기만) — 프로드 버킷 오염 방지.
   const fileRef = useRef<HTMLInputElement>(null);
-  async function onPickImage(file: File) {
-    if (!file.type.startsWith("image/") || done || contactStep) return;
+  const MAX_VISION_IMAGES = 3; // vision 에는 최대 3장 — 나머지는 개수만 언급
+
+  function addPendingImages(files: File[]) {
+    if (done || contactStep) return;
+    const imgs = files.filter((f) => f.type.startsWith("image/"));
+    if (imgs.length === 0) return;
+    setPendingImages((prev) => [
+      ...prev,
+      ...imgs.map((file) => ({ id: ++pendingIdRef.current, file, url: URL.createObjectURL(file) })),
+    ]);
+  }
+
+  function removePendingImage(id: number) {
+    setPendingImages((prev) => {
+      const target = prev.find((p) => p.id === id);
+      if (target) URL.revokeObjectURL(target.url);
+      return prev.filter((p) => p.id !== id);
+    });
+  }
+
+  // 프로드 전용 스토리지 업로드 — 실패해도 note 에 첨부 수만 남는다 (URL 없이)
+  function uploadReferenceImage(file: File) {
+    void (async () => {
+      try {
+        const fd = new FormData();
+        fd.set("file", file);
+        const res = await fetch("/api/inquiry-bot/upload", { method: "POST", body: fd });
+        const data = (await res.json()) as { url?: string };
+        if (res.ok && data.url) setRefImageUrls((prev) => [...prev, data.url!]);
+      } catch {
+        /* 무시 */
+      }
+    })();
+  }
+
+  // 이미지들 + 캡션을 한 턴으로 전송 — 말풍선 그리드 게시 후 vision 반응(최대 3장 묶어 한 번)
+  async function sendImagesTurn(caption: string) {
+    const imgs = pendingImages;
+    if (imgs.length === 0 || done || contactStep) return;
+    setPendingImages([]);
     fireStartInquiry();
-    push({ kind: "userImage", src: URL.createObjectURL(file) });
-    setRefImageCount((n) => n + 1);
-    mpTrack("Inquiry Reference Image Attached", { ...flowPropsRef.current });
-    const history: BotChatMessage[] = [
-      ...llmMessages,
-      { role: "user", text: "(레퍼런스 이미지를 보냈어요)" },
-    ];
+    push({ kind: "userImages", srcs: imgs.map((p) => p.url), caption: caption || undefined });
+    setRefImageCount((n) => n + imgs.length);
+    mpTrack("Inquiry Reference Image Attached", { ...flowPropsRef.current, count: imgs.length });
+    const text = caption
+      ? `${caption}\n(레퍼런스 이미지 ${imgs.length}장 첨부)`
+      : `(레퍼런스 이미지 ${imgs.length}장을 보냈어요)`;
+    const history: BotChatMessage[] = [...llmMessages, { role: "user", text }];
     setLlmMessages(history);
-    if (!DRY_RUN) {
-      // 업로드는 봇 반응과 병렬 — 실패해도 note 에 첨부 수만 남는다 (URL 없이)
-      void (async () => {
-        try {
-          const fd = new FormData();
-          fd.set("file", file);
-          const res = await fetch("/api/inquiry-bot/upload", { method: "POST", body: fd });
-          const data = (await res.json()) as { url?: string };
-          if (res.ok && data.url) setRefImageUrls((prev) => [...prev, data.url!]);
-        } catch {
-          /* 무시 */
-        }
-      })();
-    }
+    if (!DRY_RUN) for (const p of imgs) uploadReferenceImage(p.file);
     if (!llmMode || handedOff || typing) return; // 봇 반응 없이 이미지만 남긴다
     setQuickReplies([]);
+    let dataUrls: string[] = [];
     try {
-      const dataUrl = await downscaleToDataUrl(file, 800);
-      void callBot(history, slots, { imageDataUrl: dataUrl });
+      dataUrls = await Promise.all(
+        imgs.slice(0, MAX_VISION_IMAGES).map((p) => downscaleToDataUrl(p.file, 800))
+      );
     } catch {
-      void callBot(history, slots); // 축소 실패 — 텍스트 플레이스홀더로만 진행
+      dataUrls = []; // 축소 실패 — 텍스트 플레이스홀더로만 진행
     }
+    void callBot(
+      history,
+      slots,
+      dataUrls.length > 0 ? { images: dataUrls, totalImages: imgs.length } : undefined
+    );
   }
 
   // API 실패 폴백 — 기존 버튼 상태 머신 플로우로 전환 (수집된 슬롯은 이어받는다)
@@ -441,6 +519,34 @@ export function InquiryBotChat({
   useEffect(() => {
     if (started.current) return;
     started.current = true;
+    // 이미 완료된 문의 — 대화를 새로 시작하지 않고 완료 상태 화면으로 (연락처 반복 노출 버그 수정)
+    const prevDone = loadDoneRecord(doneKey);
+    if (prevDone) {
+      window.setTimeout(() => {
+        setAnswers(prevDone.answers ?? {});
+        setRestoredDone(prevDone);
+        setItems([
+          { id: ++idRef.current, kind: "summary" },
+          {
+            id: ++idRef.current,
+            kind: "notice",
+            node: (
+              <>
+                문의가 접수됐어요. <Em>{photographerName}</Em>님 답변을 기다리고 있어요.
+                <br />
+                답변이 오면 입력하신 연락처로 알려드릴게요.
+                {prevDone.dryRun && (
+                  <span className="mt-1.5 block w-fit rounded-md bg-fg/[0.07] px-1.5 py-0.5 text-[10px] font-semibold text-muted">
+                    개발 모드 — 실제 전송 안 됨
+                  </span>
+                )}
+              </>
+            ),
+          },
+        ]);
+      }, 0);
+      return;
+    }
     const saved = loadSavedAnswers(storageKey);
     const initialSlots = saved && Object.keys(saved).length > 0 ? answersToSlots(saved) : {};
     for (const k of Object.keys(initialSlots)) viewedRef.current.add(k); // Viewed 재발화 방지
@@ -454,6 +560,17 @@ export function InquiryBotChat({
     // started.current 가드로 1회만 실행되는 진입 effect — callBot 등은 deps 불필요.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey]);
+
+  // 완료 화면의 "새 문의 시작" — 완료 레코드·답변 저장본을 지우고 처음부터
+  function startNewInquiry() {
+    try {
+      localStorage.removeItem(doneKey);
+      localStorage.removeItem(storageKey);
+    } catch {
+      /* 무시 */
+    }
+    window.location.reload();
+  }
 
   // 입력 변경 시 사진별로 저장 (제출 완료 전까지 — 위저드 패턴)
   useEffect(() => {
@@ -500,7 +617,14 @@ export function InquiryBotChat({
   function sendFreeText(e: React.FormEvent) {
     e.preventDefault();
     const v = freeText.trim();
-    if (!v || done) return;
+    if (done) return;
+    // 대기 중인 첨부 이미지가 있으면 — 이미지들 + 캡션(텍스트)을 한 턴으로 전송
+    if (pendingImages.length > 0 && !contactStep) {
+      setFreeText("");
+      void sendImagesTurn(v);
+      return;
+    }
+    if (!v) return;
     setFreeText("");
     if (llmMode && !contactStep) {
       sendUtterance(v);
@@ -519,6 +643,8 @@ export function InquiryBotChat({
     // 드라이런 — 실제 전송 없이 성공 플로우만 재현 (프로덕션 동작 무영향)
     if (DRY_RUN) {
       setDevDone(true);
+      // 완료 상태 기억 — 재진입 시 연락처 스텝 대신 완료 화면 (드라이런 표식 유지)
+      saveDoneRecord(doneKey, { dryRun: true, answers });
       try {
         localStorage.removeItem(storageKey);
       } catch {
@@ -601,6 +727,8 @@ export function InquiryBotChat({
       party_size: answers.partySize,
       preferred_date: answers.preferredDate,
     });
+    // 완료 상태 기억 — 재진입 시 연락처 스텝 대신 완료 화면
+    saveDoneRecord(doneKey, { dryRun: false, answers });
     try {
       localStorage.removeItem(storageKey);
     } catch {
@@ -766,14 +894,29 @@ export function InquiryBotChat({
               </div>
             );
           }
-          if (item.kind === "userImage") {
+          if (item.kind === "userImages") {
+            const many = item.srcs.length > 1;
             return (
-              <div key={item.id} className="ml-auto w-fit max-w-[70%]">
-                <img
-                  src={item.src}
-                  alt="레퍼런스 이미지"
-                  className="max-h-[32svh] w-auto max-w-full rounded-xl rounded-tr-md border border-line object-contain"
-                />
+              <div key={item.id} className="ml-auto w-fit max-w-[78%] space-y-1.5">
+                <div className={many ? "grid grid-cols-2 gap-1.5" : undefined}>
+                  {item.srcs.map((src, i) => (
+                    <img
+                      key={i}
+                      src={src}
+                      alt={`레퍼런스 이미지 ${i + 1}`}
+                      className={
+                        many
+                          ? "aspect-square w-32 rounded-lg border border-line object-cover"
+                          : "max-h-[32svh] w-auto max-w-full rounded-xl rounded-tr-md border border-line object-contain"
+                      }
+                    />
+                  ))}
+                </div>
+                {item.caption && (
+                  <div className="ml-auto w-fit max-w-full rounded-2xl rounded-tr-md bg-brand px-3.5 py-2.5 text-[16px] font-medium text-white">
+                    {item.caption}
+                  </div>
+                )}
               </div>
             );
           }
@@ -823,7 +966,7 @@ export function InquiryBotChat({
                   {item.node}
                 </BotBubble>
                 {/* 완료 후 동선 — 채팅방을 닫지 않고도 다음 행동 제안 */}
-                <div className="ml-11 flex gap-2">
+                <div className="ml-11 flex flex-wrap gap-2">
                   <Link
                     href="/"
                     className="rounded-xl bg-brand px-3.5 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
@@ -836,6 +979,15 @@ export function InquiryBotChat({
                   >
                     문의 내역 보기
                   </Link>
+                  {restoredDone && (
+                    <button
+                      type="button"
+                      onClick={startNewInquiry}
+                      className="cursor-pointer rounded-xl border border-line px-3.5 py-2 text-sm font-semibold text-fg transition-colors hover:bg-surface-2"
+                    >
+                      새 문의 시작
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -851,7 +1003,13 @@ export function InquiryBotChat({
 
         {/* 연락처 단계 — 위저드 Q6 입력 규칙 재사용 (전화/카톡 탭 + 유효성) */}
         {contactStep && !done && (
-          <ContactCard onSubmit={submit} pending={pending} serverError={state.error} flowProps={flowProps} />
+          <ContactCard
+            onSubmit={submit}
+            pending={pending}
+            serverError={state.error}
+            flowProps={flowProps}
+            registeredPhone={userPhone ?? null}
+          />
         )}
       </div>
 
@@ -872,6 +1030,30 @@ export function InquiryBotChat({
               {q}
             </button>
           ))}
+        </div>
+      )}
+
+      {/* 첨부 대기 썸네일 스트립 — 개별 제거 가능, 텍스트와 함께 전송 버튼으로 나간다 */}
+      {pendingImages.length > 0 && !done && (
+        <div className="flex items-center gap-2 overflow-x-auto px-3 pt-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {pendingImages.map((p) => (
+            <div key={p.id} className="relative shrink-0 pt-1.5 pr-1.5">
+              <img
+                src={p.url}
+                alt="첨부 대기 이미지"
+                className="h-14 w-14 rounded-lg border border-line object-cover"
+              />
+              <button
+                type="button"
+                onClick={() => removePendingImage(p.id)}
+                aria-label="첨부 제거"
+                className="absolute right-0 top-0 grid h-5 w-5 cursor-pointer place-items-center rounded-full bg-fg text-[10px] leading-none text-bg"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+          <p className="shrink-0 text-[11px] text-faint">메시지와 함께 전송돼요</p>
         </div>
       )}
 
@@ -907,11 +1089,12 @@ export function InquiryBotChat({
           ref={fileRef}
           type="file"
           accept="image/*"
+          multiple
           className="hidden"
           onChange={(e) => {
-            const f = e.target.files?.[0];
+            const files = Array.from(e.target.files ?? []);
             e.target.value = ""; // 같은 파일 재선택 허용
-            if (f) void onPickImage(f);
+            if (files.length > 0) addPendingImages(files);
           }}
         />
         <button
@@ -939,7 +1122,7 @@ export function InquiryBotChat({
         />
         <button
           type="submit"
-          disabled={done || !freeText.trim()}
+          disabled={done || (!freeText.trim() && pendingImages.length === 0)}
           aria-label="보내기"
           className="grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-full bg-brand text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
         >
@@ -1094,16 +1277,55 @@ function ContactCard({
   pending,
   serverError,
   flowProps,
+  registeredPhone,
 }: {
   onSubmit: (type: ContactType, value: string) => void;
   pending: boolean;
   serverError?: string;
   flowProps: FlowProps;
+  /** profiles.phone — 있으면 입력 대신 "등록된 연락처로 알림" 한 줄 + (변경) */
+  registeredPhone?: string | null;
 }) {
   const [type, setType] = useState<ContactType | null>(null);
   const [val, setVal] = useState("");
   const [attempted, setAttempted] = useState(false);
+  // 등록 연락처가 있으면 기본은 그 번호 사용 — (변경) 을 눌러야 직접 입력 UI 노출
+  const [useRegistered, setUseRegistered] = useState(!!registeredPhone);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  if (useRegistered && registeredPhone) {
+    return (
+      <div className="ml-10 mr-auto w-full max-w-[85%] rounded-2xl border border-line bg-surface p-3.5">
+        <p className="text-sm leading-relaxed text-fg">
+          등록된 연락처 <b className="font-semibold text-brand">{maskPhone(registeredPhone)}</b> 로
+          알림드릴게요.{" "}
+          <button
+            type="button"
+            onClick={() => setUseRegistered(false)}
+            className="cursor-pointer text-xs font-medium text-muted underline underline-offset-2 hover:text-fg"
+          >
+            변경
+          </button>
+        </p>
+        {serverError && <p className="mt-2 text-xs font-medium text-danger">{serverError}</p>}
+        <button
+          type="button"
+          onClick={() => onSubmit("phone", registeredPhone)}
+          disabled={pending}
+          className="mt-3 h-11 w-full cursor-pointer rounded-xl bg-brand text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {pending ? "전달 중…" : "문의 보내기"}
+        </button>
+        <p className="mt-2 break-keep text-center text-[11px] leading-relaxed text-faint">
+          보내기를 누르면 연락처 전달 및 상담을 위한{" "}
+          <Link href="/privacy" target="_blank" className="underline underline-offset-2 hover:text-muted">
+            개인정보 수집·이용
+          </Link>
+          에 동의하는 것으로 간주됩니다.
+        </p>
+      </div>
+    );
+  }
 
   const active = CONTACT_TYPES.find((t) => t.key === type);
   const check = type ? validateContact(type, val) : { valid: false, error: null };
