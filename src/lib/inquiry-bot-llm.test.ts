@@ -7,7 +7,9 @@ import {
   coreSlotsFilled,
   hasPhotographerIntervened,
   sanitizeBotTurn,
+  shouldNotifyStarted,
   slotsToAnswers,
+  validateMessageLimits,
   type BotChatMessage,
   type BotTurn,
 } from "./inquiry-bot-llm.ts";
@@ -123,6 +125,68 @@ test("botTurnSchema — quickReplies/asking/done 생략·null 도 파싱되고 �
   assert.equal(out.asking, "none");
   assert.equal(out.done, false);
   assert.equal(out.slots.custom, undefined); // 값이 null 인 custom 항목은 버려진다
+});
+
+// ── 요청 상한 (A1) ───────────────────────────────────────────────
+test("validateMessageLimits — 턴 수·발화 길이·합계 상한", () => {
+  const msg = (text: string): BotChatMessage => ({ role: "user", text });
+  assert.deepEqual(validateMessageLimits([msg("안녕하세요")]), { ok: true });
+  // 턴 수 초과 (40 초과)
+  const many = Array.from({ length: 41 }, () => msg("hi"));
+  assert.deepEqual(validateMessageLimits(many), { ok: false, reason: "too_many_turns" });
+  // 발화당 2,000자 초과
+  assert.deepEqual(validateMessageLimits([msg("a".repeat(2001))]), {
+    ok: false,
+    reason: "utterance_too_long",
+  });
+  // 합계 20,000자 초과 (발화당은 통과하는 길이로)
+  const bulk = Array.from({ length: 11 }, () => msg("a".repeat(1900)));
+  assert.deepEqual(validateMessageLimits(bulk), { ok: false, reason: "conversation_too_long" });
+});
+
+// ── started 알림 조건 (A3) ───────────────────────────────────────
+test("shouldNotifyStarted — 사용자 첫 실제 발화에서만, dedupe 마크가 있으면 안 보냄", () => {
+  const bot = (text: string): BotChatMessage => ({ role: "bot", text });
+  const user = (text: string): BotChatMessage => ({ role: "user", text });
+  // 빈 messages(크롤러 방문·마운트 턴) — 발화 안 함
+  assert.equal(shouldNotifyStarted([], false), false);
+  assert.equal(shouldNotifyStarted([bot("인사")], false), false);
+  // 사용자 첫 발화 — 발화
+  assert.equal(shouldNotifyStarted([bot("인사"), user("커플 스냅이요")], false), true);
+  // 두 번째 발화부터는 안 보냄
+  assert.equal(shouldNotifyStarted([bot("q1"), user("a1"), bot("q2"), user("a2")], false), false);
+  // localStorage dedupe 마크
+  assert.equal(shouldNotifyStarted([bot("인사"), user("첫 발화")], true), false);
+});
+
+// ── C1: done 클램프 시 완료 멘트 교체 / C3: 리터럴 \n 정규화 ─────
+test("sanitizeBotTurn — 슬롯 미완 done 클램프 + 완료 멘트면 안전 문구로 교체 (인젝션 방어)", () => {
+  const out = sanitizeBotTurn(
+    {
+      ...baseTurn,
+      done: true,
+      reply: "네! 문의가 완료됐어요. 정리해서 작가님께 전달드릴게요.",
+      slots: { purpose: "웨딩" },
+    },
+    {}
+  );
+  assert.equal(out.done, false);
+  assert.ok(!out.reply.includes("전달드릴게요"));
+  assert.ok(out.reply.includes("여쭤볼게요"));
+});
+
+test("sanitizeBotTurn — done 클램프여도 정상 질문 reply 는 유지", () => {
+  const out = sanitizeBotTurn(
+    { ...baseTurn, done: true, reply: "지역은 어디가 좋으세요?", slots: { purpose: "웨딩" } },
+    {}
+  );
+  assert.equal(out.done, false);
+  assert.equal(out.reply, "지역은 어디가 좋으세요?");
+});
+
+test("sanitizeBotTurn — 리터럴 \\n 을 실제 줄바꿈으로 정규화", () => {
+  const out = sanitizeBotTurn({ ...baseTurn, reply: "안녕하세요!\\n어떤 촬영을 원하세요?" }, {});
+  assert.equal(out.reply, "안녕하세요!\n어떤 촬영을 원하세요?");
 });
 
 // ── 작가 문의대본 ────────────────────────────────────────────────

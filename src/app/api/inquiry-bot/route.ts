@@ -15,10 +15,13 @@ import {
   buildSystemPrompt,
   hasPhotographerIntervened,
   sanitizeBotTurn,
+  shouldNotifyStarted,
+  validateMessageLimits,
   type BotApiRequest,
   type BotChatMessage,
   type LlmSlots,
 } from "@/lib/inquiry-bot-llm";
+import { getCurrentUser } from "@/lib/auth";
 import { getPhotographerScript } from "@/lib/photographer-scripts";
 import { notifyPhotographer } from "@/lib/inquiry-bot-notify";
 
@@ -26,7 +29,6 @@ export const runtime = "nodejs";
 
 // haiku — 문의 접수는 슬롯 채우기 중심의 좁은 태스크라 소형 모델로 충분 (비용·지연 최소화)
 const MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
-const MAX_HISTORY = 40; // 폭주 방지 — 문의 대화가 이 길이를 넘을 일은 사실상 없음
 
 // 대화 시작 신호 — Anthropic 은 user 턴으로 시작해야 하므로, 봇이 먼저 인사하는
 // 우리 플로우에서는 입장 이벤트를 첫 user 턴으로 넣는다.
@@ -95,20 +97,29 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "invalid json" }, { status: 400 });
   }
 
+  // 프로덕션 인증 필수 — 익명 LLM 호출(비용·남용) 차단. dev 는 통과 (드라이런·데모 편의).
+  if (process.env.NODE_ENV === "production") {
+    const me = await getCurrentUser();
+    if (!me) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
   const photographerId = typeof body.photographerId === "string" ? body.photographerId : "";
   if (!photographerId) {
     return NextResponse.json({ error: "photographerId required" }, { status: 400 });
   }
   const messages: BotChatMessage[] = Array.isArray(body.messages)
-    ? body.messages
-        .filter(
-          (m): m is BotChatMessage =>
-            !!m &&
-            typeof m.text === "string" &&
-            (m.role === "user" || m.role === "bot" || m.role === "photographer")
-        )
-        .slice(-MAX_HISTORY)
+    ? body.messages.filter(
+        (m): m is BotChatMessage =>
+          !!m &&
+          typeof m.text === "string" &&
+          (m.role === "user" || m.role === "bot" || m.role === "photographer")
+      )
     : [];
+  // 환경 무관 상한 — 턴 수·발화 길이 초과는 자르지 않고 400 거부 (프롬프트 스터핑·폭주 차단)
+  const limits = validateMessageLimits(messages);
+  if (!limits.ok) {
+    return NextResponse.json({ error: limits.reason }, { status: 400 });
+  }
   const slots: LlmSlots = body.slots && typeof body.slots === "object" ? body.slots : {};
   // 레퍼런스 이미지들 — data URL 형식·크기 검증 후 최대 3장 (아니면 조용히 무시, 흐름 무영향)
   const imageDataUrls = (Array.isArray(body.images) ? body.images : [])
@@ -158,9 +169,10 @@ export async function POST(req: Request) {
     const clean = sanitizeBotTurn(turn, slots);
 
     // 작가 알림 — "새 손님이 챗봇 문의 진행 중/완료" 를 알려 채팅 이어받기를 유도 (리드 구조 폐지).
-    // dev 는 콘솔 로그만·실패해도 응답 정상 반환. TODO(C3): conversation 단위 dedupe.
-    const isFirstTurn = messages.length === 0;
-    if (clean.done || isFirstTurn) {
+    // started 는 크롤러·재방문마다 재발화되던 "빈 messages 첫 턴"이 아니라 사용자의 첫 실제
+    // 발화 시점에만 + 클라이언트 localStorage dedupe(startedNotified). TODO(C3): conversation dedupe.
+    const notifyStarted = shouldNotifyStarted(messages, body.startedNotified === true);
+    if (clean.done || notifyStarted) {
       const s = clean.slots;
       await notifyPhotographer({
         event: clean.done ? "bot_inquiry_completed" : "bot_inquiry_started",
