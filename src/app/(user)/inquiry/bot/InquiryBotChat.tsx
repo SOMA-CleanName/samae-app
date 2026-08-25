@@ -16,6 +16,7 @@ import {
   formatKakaoInput,
   formatPhoneInput,
   isISODate,
+  nextStepIndex,
   toInquiryFields,
   validateContact,
   CONTACT_TYPES,
@@ -24,13 +25,24 @@ import {
   type ContactType,
   type QuestionSegment,
 } from "@/lib/inquiry-bot";
+import {
+  CORE_SLOT_KEYS,
+  answersToSlots,
+  slotsToAnswers,
+  type AskingKey,
+  type BotApiRequest,
+  type BotApiResponse,
+  type BotChatMessage,
+  type LlmSlots,
+} from "@/lib/inquiry-bot-llm";
 import { submitInquiry, type InquiryState } from "../actions";
 
-// 채팅룸형 문의 챗봇 (C1) — 봇이 리드하는 진짜 채팅방 UI.
-// - 봇 버블이 질문을 던지고, 사용자는 입력바 위 선택지 탭으로 답한다 (소프트스킵 동등 버튼)
-// - 자유 텍스트는 그대로 말풍선으로 남기고 봇은 다음 질문 계속 (NLU 없음 — 규칙 기반)
+// 채팅룸형 문의 챗봇 — LLM 대화가 기본, 버튼 상태 머신은 폴백.
+// - 기본(LLM): 사용자가 자유 타이핑 → /api/inquiry-bot 왕복 → 봇 답변 + quickReplies 칩.
+//   작가 문의대본(photographer-scripts)에 따라 질문이 유도되고, 작가가 개입하면 봇 정지.
+// - 폴백(버튼): API 실패 시 기존 C1 상태 머신 플로우로 자동 전환 (아래 postQuestion/onPick 경로 보존)
 // - 전 질문 완료 → 요약 카드 게시 → 연락처(위저드 Q6 규칙 재사용) → 기존 submitInquiry 재사용
-// - C2: buildFlow(작가 커스텀 질문) 주입 / C3: conversations DB 연동·작가 개입 (이 파일은 로컬 상태만)
+// - C2: 대본 DB 이관·스튜디오 설정 / C3: conversations DB 연동·실제 작가 개입 (이 파일은 로컬 상태만)
 
 const INITIAL_STATE: InquiryState = { ok: false };
 
@@ -49,6 +61,15 @@ const FLOW_PROPS = {
   total_steps: STEPS.length + 1, // 질문 + 연락처
   mode: "chatbot",
 } as const;
+
+// LLM 모드 세대 — 같은 Q* 이벤트명에 mode/flow_version 만 바꿔 기존 퍼널에 연속으로 쌓는다
+const LLM_FLOW_PROPS = {
+  inquiry_flow_version: "v4-llm-bot",
+  total_steps: STEPS.length + 1,
+  mode: "chatbot-llm",
+} as const;
+
+type FlowProps = typeof FLOW_PROPS | typeof LLM_FLOW_PROPS;
 
 // 연락처 이벤트 — Q번호는 '고유 ID'. 위저드와 동일하게 Q6 유지 (InquiryChat 상단 주석 참고)
 const CONTACT_EV = "Inquiry Q6 Contact";
@@ -86,6 +107,8 @@ function loadSavedAnswers(key: string): BotAnswers | null {
 type ChatItemInput =
   | { kind: "bot"; node: React.ReactNode }
   | { kind: "user"; text: string }
+  | { kind: "photographer"; text: string } // 작가 발화 (개입 데모 — C3에서 실제 메시지로)
+  | { kind: "handoff" } // "작가님이 대화를 이어받았어요" 배지
   | { kind: "summary" }
   | { kind: "notice"; node: React.ReactNode };
 type ChatItem = ChatItemInput & { id: number };
@@ -96,12 +119,16 @@ export function InquiryBotChat({
   photographerAvatar,
   photoId,
   photoSrc,
+  photoMoodTags,
+  photoPriceKrw,
 }: {
   photographerId: string;
   photographerName: string;
   photographerAvatar: string | null;
   photoId: string;
   photoSrc: string | null;
+  photoMoodTags?: string[];
+  photoPriceKrw?: number | null;
 }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(submitInquiry, INITIAL_STATE);
@@ -121,10 +148,26 @@ export function InquiryBotChat({
   // 드라이런 성공 상태 — DRY_RUN 제출 시 서버 액션 없이 완료 UI로 전환
   const [devDone, setDevDone] = useState(false);
 
+  // ── LLM 대화 모드 상태 ──
+  const [llmMode, setLlmMode] = useState(true); // API 실패 시 false → 버튼 상태 머신 폴백
+  const [llmMessages, setLlmMessages] = useState<BotChatMessage[]>([]);
+  const [slots, setSlots] = useState<LlmSlots>({});
+  const [quickReplies, setQuickReplies] = useState<string[]>([]);
+  const [asking, setAsking] = useState<AskingKey>("none");
+  const [handedOff, setHandedOff] = useState(false); // 작가 개입 → 봇 정지
+
   const storageKey = botStorageKey(photoId, photographerId);
   const contactStep = stepIndex >= STEPS.length;
   const done = state.ok || devDone;
   const currentStep = !contactStep && stepIndex >= 0 ? STEPS[stepIndex] : null;
+
+  // 계측 속성 — 모드에 따라 flow_version/mode 만 갈린다 (이벤트명은 동일 유지)
+  const flowProps: FlowProps = llmMode ? LLM_FLOW_PROPS : FLOW_PROPS;
+  // 언마운트 클로저(trackAbandon 등)에서도 최신 모드 속성을 읽도록 ref 로 미러링
+  const flowPropsRef = useRef<FlowProps>(LLM_FLOW_PROPS);
+  useEffect(() => {
+    flowPropsRef.current = flowProps;
+  }, [flowProps]);
 
   function push(item: ChatItemInput) {
     setItems((prev) => [...prev, { ...item, id: ++idRef.current }]);
@@ -137,7 +180,7 @@ export function InquiryBotChat({
     if (startFired.current) return;
     startFired.current = true;
     mpTrack("Start Inquiry", {
-      ...FLOW_PROPS,
+      ...flowPropsRef.current,
       source: "photo",
       photographer_id: photographerId,
     });
@@ -148,7 +191,7 @@ export function InquiryBotChat({
     if (viewedRef.current.has(step.key)) return;
     viewedRef.current.add(step.key);
     mpTrack(`${step.ev} Viewed`, {
-      ...FLOW_PROPS,
+      ...flowPropsRef.current,
       step: step.key,
       step_index: i + 1,
       step_name: step.short,
@@ -186,7 +229,7 @@ export function InquiryBotChat({
       if (!viewedRef.current.has("contact")) {
         viewedRef.current.add("contact");
         mpTrack(`${CONTACT_EV} Viewed`, {
-          ...FLOW_PROPS,
+          ...flowPropsRef.current,
           step: "contact",
           step_index: STEPS.length + 1,
           step_name: "연락처",
@@ -195,46 +238,142 @@ export function InquiryBotChat({
     }, REVEAL_MS);
   }
 
-  // 진입 — 인사 버블 후 첫 질문. 저장된 답변이 있으면 Q&A 를 즉시 재구성하고 다음 질문부터 이어감.
-  useEffect(() => {
-    if (started.current) return;
-    started.current = true;
-    const greeting: ChatItem = {
-      id: ++idRef.current,
+  // ── LLM 대화 코어 ──────────────────────────────────────────────
+
+  // API 왕복 — 봇 답변 버블·슬롯 병합·quickReplies·계측. 실패 시 버튼 플로우 폴백.
+  async function callBot(history: BotChatMessage[], curSlots: LlmSlots) {
+    setTyping(true);
+    try {
+      const payload: BotApiRequest = {
+        photographerId,
+        photoId,
+        photographerName,
+        messages: history,
+        slots: curSlots,
+        photoContext: { moodTags: photoMoodTags, priceKrw: photoPriceKrw ?? null },
+      };
+      const res = await fetch("/api/inquiry-bot", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(`inquiry-bot api ${res.status}`);
+      const data = (await res.json()) as BotApiResponse;
+      setTyping(false);
+      if (data.handedOff) {
+        onHandedOff();
+        return;
+      }
+      trackLlmTurn(curSlots, data.slots, data.asking);
+      setSlots(data.slots);
+      setAnswers(slotsToAnswers(data.slots)); // 요약 카드·제출·localStorage 저장이 이 값을 공유
+      // 함수형 업데이트 — 응답 대기 중 사용자가 추가 발화해도 이력이 유실되지 않게
+      setLlmMessages((prev) => [...prev, { role: "bot", text: data.reply }]);
+      push({ kind: "bot", node: <span className="whitespace-pre-line">{data.reply}</span> });
+      setAsking(data.asking);
+      if (data.done) {
+        setQuickReplies([]);
+        postContactPhase();
+      } else {
+        setQuickReplies(data.quickReplies);
+      }
+    } catch (e) {
+      setTyping(false);
+      if (process.env.NODE_ENV !== "production") console.error("[inquiry-bot] fallback:", e);
+      enterFallback(slotsToAnswers(curSlots), history.length > 0);
+    }
+  }
+
+  // 슬롯 계측 — 새로 채워진 코어 슬롯은 Answered, 봇이 새 주제를 묻기 시작하면 Viewed
+  function trackLlmTurn(prev: LlmSlots, next: LlmSlots, nextAsking: AskingKey) {
+    for (const key of CORE_SLOT_KEYS) {
+      const value = next[key];
+      if (prev[key] || !value) continue;
+      const step = STEPS.find((s) => s.key === key);
+      if (!step) continue;
+      viewedRef.current.add(key); // 답이 나온 질문 — Viewed 재발화 방지
+      mpTrack(`${step.ev} Answered`, {
+        ...flowPropsRef.current,
+        step: key,
+        step_name: step.short,
+        skipped: value === step.skip,
+        value,
+      });
+    }
+    if (nextAsking !== "none" && nextAsking !== "custom") {
+      const i = STEPS.findIndex((s) => s.key === nextAsking);
+      if (i >= 0) fireViewed(STEPS[i], i);
+    } else if (nextAsking === "custom" && !viewedRef.current.has("custom")) {
+      viewedRef.current.add("custom");
+      mpTrack("Inquiry QC1 Custom Viewed", { ...flowPropsRef.current, step: "custom" });
+    }
+  }
+
+  // 사용자 발화 (타이핑·quickReply 칩 공용) — 말풍선 게시 후 API 왕복
+  function sendUtterance(text: string) {
+    fireStartInquiry();
+    push({ kind: "user", text });
+    const history: BotChatMessage[] = [...llmMessages, { role: "user", text }];
+    setLlmMessages(history);
+    if (handedOff || typing) return; // 작가가 이어받았거나 봇 응답 대기 중 — 말풍선만 남긴다
+    setQuickReplies([]);
+    void callBot(history, slots);
+  }
+
+  // API 실패 폴백 — 기존 버튼 상태 머신 플로우로 전환 (수집된 슬롯은 이어받는다)
+  function enterFallback(curAnswers: BotAnswers, hadConversation: boolean) {
+    setLlmMode(false);
+    setQuickReplies([]);
+    push({
       kind: "bot",
-      node: (
+      node: hadConversation ? (
+        <>연결이 잠시 원활하지 않네요. 이어서 <Em>선택지</Em>로 빠르게 진행할게요.</>
+      ) : (
         <>
           안녕하세요! <Em>{photographerName}</Em>님에게 보내는 문의를 도와드릴게요.
           <br />
           몇 가지만 여쭤보면 정리해서 작가님께 바로 전달해드려요.
         </>
       ),
-    };
+    });
+    const resumeAt = nextStepIndex(STEPS, curAnswers);
+    if (resumeAt >= STEPS.length) postContactPhase();
+    else postQuestion(resumeAt);
+  }
+
+  // 작가 개입 → 봇 정지 (서버도 photographer 메시지를 보면 LLM 호출을 거부한다)
+  function onHandedOff() {
+    setHandedOff(true);
+    setQuickReplies([]);
+    setAsking("none");
+    push({ kind: "handoff" });
+  }
+
+  // dev 전용 — 작가 개입 시뮬레이션: photographer 발화를 이력에 추가하고 봇이 멈추는 걸 확인
+  function simulateHandoff() {
+    if (handedOff || done) return;
+    const text = "안녕하세요, 작가입니다. 여기서부터는 제가 직접 안내드릴게요.";
+    push({ kind: "photographer", text });
+    setLlmMessages((prev) => [...prev, { role: "photographer", text }]);
+    onHandedOff();
+  }
+
+  // 진입 — LLM 모드로 시작: 저장된 답변(슬롯)을 이어받아 첫 봇 턴 요청.
+  // 실패하면 callBot 내부에서 버튼 플로우로 폴백된다.
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
     const saved = loadSavedAnswers(storageKey);
-    if (saved && Object.keys(saved).length > 0) {
-      const rebuilt: ChatItem[] = [greeting];
-      let i = 0;
-      for (; i < STEPS.length; i++) {
-        const v = saved[STEPS[i].key];
-        if (v === undefined) break;
-        viewedRef.current.add(STEPS[i].key); // 이미 답한 질문 — Viewed 재발화 방지
-        rebuilt.push({ id: ++idRef.current, kind: "bot", node: renderQuestion(STEPS[i].question) });
-        rebuilt.push({ id: ++idRef.current, kind: "user", text: displayAnswer(STEPS[i], v) });
-      }
-      const resumeAt = i;
-      window.setTimeout(() => {
-        setAnswers(saved);
-        setItems(rebuilt);
-        if (resumeAt >= STEPS.length) postContactPhase();
-        else postQuestion(resumeAt);
-      }, 0);
-      return;
-    }
+    const initialSlots = saved && Object.keys(saved).length > 0 ? answersToSlots(saved) : {};
+    for (const k of Object.keys(initialSlots)) viewedRef.current.add(k); // Viewed 재발화 방지
     window.setTimeout(() => {
-      setItems([greeting]);
-      postQuestion(0);
+      if (Object.keys(initialSlots).length > 0) {
+        setAnswers(slotsToAnswers(initialSlots));
+        setSlots(initialSlots);
+      }
+      void callBot([], initialSlots);
     }, 0);
-    // started.current 가드로 1회만 실행되는 진입 effect — postQuestion 등은 deps 불필요.
+    // started.current 가드로 1회만 실행되는 진입 effect — callBot 등은 deps 불필요.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storageKey]);
 
@@ -265,7 +404,7 @@ export function InquiryBotChat({
     push({ kind: "user", text: displayAnswer(step, value) });
     setAnswers((prev) => answerStep(prev, step.key, value));
     mpTrack(`${step.ev} Answered`, {
-      ...FLOW_PROPS,
+      ...flowPropsRef.current,
       step: step.key,
       step_index: stepIndex + 1,
       step_name: step.short,
@@ -276,13 +415,19 @@ export function InquiryBotChat({
     else postContactPhase();
   }
 
-  // 자유 텍스트 — 말풍선으로 남기고 봇은 현재 질문 유지 (설계 §1: NLU 하지 않음).
-  // 예외: 커스텀 자유 입력 질문(type='text', C2)은 입력 자체가 답변이 된다.
+  // 자유 텍스트 —
+  // LLM 모드: 발화 자체가 봇과의 대화 (API 왕복). 작가 개입 후엔 말풍선만 남는다.
+  // 폴백 모드: 말풍선으로 남기고 봇은 현재 질문 유지 (규칙 기반 — NLU 하지 않음).
+  //   예외: 커스텀 자유 입력 질문(type='text')은 입력 자체가 답변이 된다.
   function sendFreeText(e: React.FormEvent) {
     e.preventDefault();
     const v = freeText.trim();
     if (!v || done) return;
     setFreeText("");
+    if (llmMode && !contactStep) {
+      sendUtterance(v);
+      return;
+    }
     if (currentStep?.type === "text" && !typing) {
       onPick(v);
       return;
@@ -348,7 +493,7 @@ export function InquiryBotChat({
     if (!state.error || failedStateRef.current === state) return;
     failedStateRef.current = state;
     mpTrack("Inquiry Submit Failed", {
-      ...FLOW_PROPS,
+      ...flowPropsRef.current,
       reason: "server",
       message: state.error.slice(0, 100),
     });
@@ -368,7 +513,7 @@ export function InquiryBotChat({
     );
     Sentry.getCurrentScope().setTag("inquiry_submitted", "true");
     mpTrack("Submit Inquiry", {
-      ...FLOW_PROPS,
+      ...flowPropsRef.current,
       inquiry_id: state.inquiryId,
       source: "photo",
       photographer_id: photographerId,
@@ -403,12 +548,21 @@ export function InquiryBotChat({
   // 이탈 스냅샷 — 언로드/언마운트 시점에 '마지막으로 머문 질문'을 읽기 위한 최신값 보관 (위저드 패턴)
   const snapRef = useRef({ stepEv: "", stepKey: "", stepName: "", stepIndex: 0, answered: 0, done: false });
   useEffect(() => {
-    const cur = contactStep || stepIndex < 0 ? null : STEPS[stepIndex];
+    // LLM 모드에선 '봇이 지금 묻고 있는 주제(asking)'가 곧 마지막으로 머문 질문
+    const llmIdx = llmMode && !contactStep ? STEPS.findIndex((s) => s.key === asking) : -1;
+    const cur = contactStep
+      ? null
+      : llmMode
+        ? (llmIdx >= 0 ? STEPS[llmIdx] : null)
+        : stepIndex < 0
+          ? null
+          : STEPS[stepIndex];
+    const curIdx = llmMode ? llmIdx : stepIndex;
     snapRef.current = {
       stepEv: contactStep ? CONTACT_EV : (cur?.ev ?? ""),
-      stepKey: contactStep ? "contact" : (cur?.key ?? ""),
+      stepKey: contactStep ? "contact" : (cur?.key ?? (llmMode && asking === "custom" ? "custom" : "")),
       stepName: contactStep ? "연락처" : (cur?.short ?? ""),
-      stepIndex: contactStep ? STEPS.length + 1 : stepIndex + 1,
+      stepIndex: contactStep ? STEPS.length + 1 : curIdx + 1,
       answered: answeredCount(STEPS, answers),
       done,
     };
@@ -420,7 +574,7 @@ export function InquiryBotChat({
     if (abandonedRef.current || s.done || !s.stepKey) return;
     abandonedRef.current = true;
     mpTrackBeacon("Inquiry Abandoned", {
-      ...FLOW_PROPS,
+      ...flowPropsRef.current,
       last_step: s.stepKey,
       last_step_name: s.stepName,
       last_step_index: s.stepIndex,
@@ -472,8 +626,38 @@ export function InquiryBotChat({
         )}
         <div className="min-w-0 flex-1">
           <p className="truncate text-base font-semibold">{photographerName}</p>
-          <p className="truncate text-xs text-muted">자동 문의 도우미가 먼저 몇 가지 여쭤봐요</p>
+          {/* 슬롯 진행 상태 — 수집된 항목을 은은하게 체크 표시 */}
+          {handedOff ? (
+            <p className="truncate text-xs font-medium text-brand">작가님이 대화를 이어받았어요</p>
+          ) : (
+            <p className="truncate text-xs text-muted">
+              {STEPS.filter((s) => !s.custom).map((s, i) => {
+                const filled = answers[s.key] !== undefined;
+                return (
+                  <span key={s.key} className={filled ? "text-brand" : undefined}>
+                    {i > 0 && <span className="text-faint"> · </span>}
+                    {s.short}
+                    {filled && (
+                      <CheckIcon className="ml-0.5 inline-block h-3 w-3 align-[-1px]" />
+                    )}
+                  </span>
+                );
+              })}
+            </p>
+          )}
         </div>
+        {/* dev 전용 — 작가 개입 시뮬레이션: photographer 발화 추가 후 봇 정지를 화면에서 확인 */}
+        {DRY_RUN && llmMode && !handedOff && !done && (
+          <button
+            type="button"
+            onClick={simulateHandoff}
+            className="shrink-0 cursor-pointer rounded-lg border border-dashed border-line-strong px-2 py-1 text-[10px] font-semibold text-muted transition-colors hover:bg-surface-2"
+          >
+            작가 개입
+            <br />
+            시뮬레이션
+          </button>
+        )}
         {photoSrc && (
           <img
             src={photoSrc}
@@ -503,6 +687,36 @@ export function InquiryBotChat({
                 <div className="rounded-2xl rounded-tr-md bg-brand px-3.5 py-2.5 text-[16px] font-medium text-white">
                   {item.text}
                 </div>
+              </div>
+            );
+          }
+          if (item.kind === "photographer") {
+            // 작가 발화 — 봇 버블과 같은 좌측 정렬이지만 브랜드 톤으로 구분 + '작가' 라벨
+            return (
+              <div key={item.id} className="flex items-start gap-2">
+                {photographerAvatar ? (
+                  <img src={photographerAvatar} alt="" className="mt-0.5 h-8 w-8 shrink-0 rounded-full object-cover" />
+                ) : (
+                  <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand/15 text-xs font-semibold text-brand">
+                    {photographerName.slice(0, 1)}
+                  </span>
+                )}
+                <div className="mr-auto max-w-[82%]">
+                  <p className="mb-0.5 text-[11px] font-semibold text-brand">{photographerName} · 작가</p>
+                  <div className="rounded-2xl rounded-tl-md bg-brand/[0.08] px-3.5 py-2.5 text-[16px] leading-relaxed text-fg ring-1 ring-brand/20">
+                    {item.text}
+                  </div>
+                </div>
+              </div>
+            );
+          }
+          if (item.kind === "handoff") {
+            // 봇 정지 배지 — 이 시점부터 봇은 어떤 발화에도 응답하지 않는다
+            return (
+              <div key={item.id} className="flex justify-center py-1">
+                <span className="rounded-full bg-surface-2 px-3 py-1.5 text-[11px] font-medium text-muted">
+                  작가님이 대화를 이어받았어요 · 자동 도우미는 여기서 멈춰요
+                </span>
               </div>
             );
           }
@@ -550,11 +764,24 @@ export function InquiryBotChat({
 
         {/* 연락처 단계 — 위저드 Q6 입력 규칙 재사용 (전화/카톡 탭 + 유효성) */}
         {contactStep && !done && (
-          <ContactCard onSubmit={submit} pending={pending} serverError={state.error} />
+          <ContactCard onSubmit={submit} pending={pending} serverError={state.error} flowProps={flowProps} />
         )}
       </div>
 
-      {/* 선택지 탭 — 입력바 위 quick reply (소프트스킵 포함 동등 버튼) */}
+      {/* LLM quick reply 칩 — 탭하면 그 텍스트가 사용자 발화가 된다 */}
+      {llmMode && !handedOff && !typing && !done && !contactStep && quickReplies.length > 0 && (
+        <div className="border-t border-line/60 px-3 py-2.5">
+          <div className="flex flex-wrap gap-2">
+            {quickReplies.map((q) => (
+              <ChipButton key={q} onClick={() => sendUtterance(q)}>
+                {q}
+              </ChipButton>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 선택지 탭 (폴백 상태 머신) — 입력바 위 quick reply (소프트스킵 포함 동등 버튼) */}
       {currentStep && !typing && !done && (
         <div className="border-t border-line/60 px-3 py-2.5">
           {currentStep.type === "date" ? (
@@ -586,7 +813,9 @@ export function InquiryBotChat({
           value={freeText}
           onChange={(e) => setFreeText(e.target.value)}
           disabled={done}
-          placeholder={done ? "문의가 전달되었어요" : "하고 싶은 말을 남겨보세요"}
+          placeholder={
+            done ? "문의가 전달되었어요" : handedOff ? "작가님께 메시지를 남겨보세요" : "하고 싶은 말을 남겨보세요"
+          }
           className="h-10 min-w-0 flex-1 rounded-full bg-surface-2 px-4 text-[15px] text-fg outline-none transition-colors placeholder:text-faint focus:ring-1 focus:ring-brand/40 disabled:opacity-60"
         />
         <button
@@ -745,10 +974,12 @@ function ContactCard({
   onSubmit,
   pending,
   serverError,
+  flowProps,
 }: {
   onSubmit: (type: ContactType, value: string) => void;
   pending: boolean;
   serverError?: string;
+  flowProps: FlowProps;
 }) {
   const [type, setType] = useState<ContactType | null>(null);
   const [val, setVal] = useState("");
@@ -775,7 +1006,7 @@ function ContactCard({
     if (!type || !check.valid) {
       // 제출 버튼까지 눌렀지만 연락처 형식 오류 — 마지막 단계의 숨은 이탈 원인
       mpTrack("Inquiry Submit Failed", {
-        ...FLOW_PROPS,
+        ...flowProps,
         reason: "invalid_contact",
         contact_type: type ?? "none",
       });
@@ -798,7 +1029,7 @@ function ContactCard({
               onClick={() => {
                 // 연락 수단 선택 — 연락처 단계 안에서의 진행 신호 (위저드와 동일 이벤트)
                 if (type !== t.key)
-                  mpTrack(`${CONTACT_EV} Type Selected`, { ...FLOW_PROPS, contact_type: t.key });
+                  mpTrack(`${CONTACT_EV} Type Selected`, { ...flowProps, contact_type: t.key });
                 setType(t.key);
                 setVal("");
                 setAttempted(false);

@@ -36,6 +36,9 @@ export default async function InquiryBotPage({
         photographerAvatar={photographer.avatar_url}
         photoId={photoId}
         photoSrc={photoSrc}
+        // LLM 봇 사진 컨텍스트 — 시스템 프롬프트에 무드·가격 주입
+        photoMoodTags={photo?.mood_tags ?? []}
+        photoPriceKrw={photo?.price_krw ?? null}
       />
     </main>
   );
