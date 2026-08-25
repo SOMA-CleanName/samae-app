@@ -20,6 +20,7 @@ import {
   type LlmSlots,
 } from "@/lib/inquiry-bot-llm";
 import { getPhotographerScript } from "@/lib/photographer-scripts";
+import { notifyPhotographer } from "@/lib/inquiry-bot-notify";
 
 export const runtime = "nodejs";
 
@@ -111,7 +112,32 @@ export async function POST(req: Request) {
       console.warn("[inquiry-bot] structured output failed once, retrying:", first);
       turn = await structured.invoke(lcMessages);
     }
-    return NextResponse.json({ ...sanitizeBotTurn(turn, slots), handedOff: false });
+    const clean = sanitizeBotTurn(turn, slots);
+
+    // 작가 알림 — "새 손님이 챗봇 문의 진행 중/완료" 를 알려 채팅 이어받기를 유도 (리드 구조 폐지).
+    // dev 는 콘솔 로그만·실패해도 응답 정상 반환. TODO(C3): conversation 단위 dedupe.
+    const isFirstTurn = messages.length === 0;
+    if (clean.done || isFirstTurn) {
+      const s = clean.slots;
+      await notifyPhotographer({
+        event: clean.done ? "bot_inquiry_completed" : "bot_inquiry_started",
+        photographerId,
+        photographerName: body.photographerName,
+        photoId: body.photoId,
+        summary: clean.done
+          ? [
+              s.purpose && `목적=${s.purpose}`,
+              s.preferredDate && `희망일=${s.preferredDate}`,
+              s.region && `지역=${s.region}`,
+              s.partySize && `인원=${s.partySize}`,
+              s.custom && Object.keys(s.custom).length > 0 && `커스텀 ${Object.keys(s.custom).length}건`,
+            ]
+              .filter(Boolean)
+              .join(", ")
+          : undefined,
+      });
+    }
+    return NextResponse.json({ ...clean, handedOff: false });
   } catch (e) {
     // 클라이언트는 이 실패(재시도 포함 2회 연속)를 받으면 기존 버튼 상태 머신으로 폴백한다
     console.error("[inquiry-bot] LLM call failed:", e);

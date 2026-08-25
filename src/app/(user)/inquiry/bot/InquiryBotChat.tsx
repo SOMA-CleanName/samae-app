@@ -17,7 +17,6 @@ import {
   formatPhoneInput,
   isISODate,
   nextStepIndex,
-  toInquiryFields,
   validateContact,
   CONTACT_TYPES,
   type BotAnswers,
@@ -35,6 +34,7 @@ import {
   type BotChatMessage,
   type LlmSlots,
 } from "@/lib/inquiry-bot-llm";
+import { buildLegacyInquiryFormData } from "@/lib/inquiry-bot-persist";
 import { submitInquiry, type InquiryState } from "../actions";
 
 // 채팅룸형 문의 챗봇 — LLM 대화가 기본, 버튼 상태 머신은 폴백.
@@ -155,6 +155,10 @@ export function InquiryBotChat({
   const [quickReplies, setQuickReplies] = useState<string[]>([]);
   const [asking, setAsking] = useState<AskingKey>("none");
   const [handedOff, setHandedOff] = useState(false); // 작가 개입 → 봇 정지
+
+  // 레퍼런스 이미지 — 업로드된 public URL(프로드)과 첨부 수(드라이런은 미리보기만이라 URL 없음)
+  const [refImageUrls, setRefImageUrls] = useState<string[]>([]);
+  const [refImageCount, setRefImageCount] = useState(0);
 
   const storageKey = botStorageKey(photoId, photographerId);
   const contactStep = stepIndex >= STEPS.length;
@@ -469,29 +473,27 @@ export function InquiryBotChat({
       });
       return;
     }
-    const fd = new FormData();
-    fd.set("photographerId", photographerId);
-    fd.set("photoId", photoId);
-    // 답변 → 코어 필드 변환 — 위저드 submit과 동일 규칙 (partySize 스킵=미입력, 날짜=한국어 표기)
-    const fields = toInquiryFields(STEPS, answers);
-    for (const [k, v] of Object.entries(fields)) fd.set(k, v);
-    if (contactType === "phone") {
-      const d = contactValue.replace(/\D/g, "");
-      fd.set("phone", `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`);
-    } else {
-      fd.set("kakaoId", contactValue.trim());
-    }
-    // 유입 어트리뷰션 — AnalyticsTracker 가 sessionStorage 에 담아둔 utm/랜딩 첨부 (위저드와 동일)
+    // 유입 어트리뷰션 — AnalyticsTracker 가 sessionStorage 에 담아둔 utm/랜딩 (위저드와 동일)
+    let attribution: Record<string, string> | undefined;
     try {
-      const utm = JSON.parse(sessionStorage.getItem("samae_utm") || "{}") as Record<string, string>;
-      for (const k of ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term"]) {
-        if (utm[k]) fd.set(k, String(utm[k]).slice(0, 200));
-      }
+      attribution = JSON.parse(sessionStorage.getItem("samae_utm") || "{}") as Record<string, string>;
       const lp = sessionStorage.getItem("samae_landing");
-      if (lp) fd.set("landing_path", lp.slice(0, 300));
+      if (lp) attribution.landing_path = lp;
     } catch {
-      /* 무시 — 어트리뷰션 누락이 접수를 막지 않게 */
+      attribution = undefined; // 어트리뷰션 누락이 접수를 막지 않게
     }
+    // persist 어댑터(legacy 모드) — C3에서 conversations/messages 저장으로 교체되는 자리.
+    // 폴백 모드의 답변(answers)이 진실이므로 코어 슬롯은 answers 에서 재구성한다.
+    const fd = buildLegacyInquiryFormData(STEPS, {
+      photographerId,
+      photoId,
+      slots: { ...answersToSlots(answers), custom: slots.custom },
+      transcript: llmMessages,
+      contact: { type: contactType, value: contactValue },
+      referenceImageUrls: refImageUrls,
+      referenceImageCount: refImageCount,
+      attribution,
+    });
     startTransition(() => formAction(fd));
   }
 
