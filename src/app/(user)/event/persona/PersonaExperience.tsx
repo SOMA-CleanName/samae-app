@@ -9,6 +9,7 @@ import type { LookupResult } from "@/lib/persona/lookup";
 import type { PersonaActionResult, PersonaSuccess } from "./view-types";
 import PersonaResult from "./PersonaResult";
 import { PersonaLoading } from "./PersonaLoading";
+import { PersonaMotion, reveal } from "./motion";
 
 type Failure = Exclude<PersonaActionResult, { ok: true }>;
 
@@ -165,23 +166,37 @@ export default function PersonaExperience({ defaultUsername = "" }: { defaultUse
   return (
     // 셸의 <main> 이 이미 pb-28(7rem)을 갖고 있다 — 100dvh 면 그만큼 넘쳐 스크롤이 생긴다.
     <div className="mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-md flex-col justify-center px-6 py-12 font-kr">
-      <header>
-        <p className="font-display text-body-sm italic text-brand">samae · 촬영 페르소나</p>
+      <header className="relative">
+        {/* 결과 화면의 팔레트 워시와 같은 문법의 브랜드 워시 — 첫 화면부터 국면이 이어져 보이게 */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -inset-x-6 -top-12 h-64"
+          style={{
+            background: "radial-gradient(85% 75% at 30% 0%, var(--brand-soft) 0%, transparent 72%)",
+            opacity: 0.55,
+          }}
+        />
+        <p style={reveal(0)} className="relative font-display text-body-sm italic text-brand">
+          samae · 촬영 페르소나
+        </p>
         {/* 한글에 font-display(Fraunces)를 씌우면 합성 이탤릭이라 지저분하다.
             사매 규칙: 한글 제목은 볼드 산세리프, Fraunces italic 은 'samae' 로고와 짧은 강조에만. */}
-        <h1 className="mt-3 text-balance text-[2rem] font-extrabold leading-[1.25] tracking-tight sm:text-[2.4rem]">
+        <h1
+          style={reveal(1)}
+          className="relative mt-3 text-balance text-[2rem] font-extrabold leading-[1.25] tracking-tight sm:text-[2.4rem]"
+        >
           당신의 피드엔 이미
           <br />
           <span className="text-brand">당신의 무드</span>가 있어요.
         </h1>
-        <p className="mt-4 text-pretty text-body leading-relaxed text-muted">
+        <p style={reveal(2)} className="relative mt-4 text-pretty text-body leading-relaxed text-muted">
           아이디만 넣어 보세요.
           <br />
           피드의 색·빛·구도를 읽어 어울리는 촬영 무드와 닮은 사진을 찾아드려요.
         </p>
       </header>
 
-      <form onSubmit={submitUsername} className="mt-8 space-y-3">
+      <form onSubmit={submitUsername} style={reveal(3)} className="mt-8 space-y-3">
         <label htmlFor="persona-username" className="sr-only">
           인스타그램 아이디
         </label>
@@ -232,7 +247,8 @@ export default function PersonaExperience({ defaultUsername = "" }: { defaultUse
               setUsername(u);
               run("instagram", () => runPersonaAnalysis(u));
             }}
-            className="flex w-full cursor-pointer items-center gap-3 rounded-2xl border-2 border-brand bg-surface p-3 text-left shadow-card transition-colors hover:bg-brand-soft/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+            style={reveal(0)}
+            className="group flex w-full cursor-pointer items-center gap-3 rounded-2xl border-2 border-brand bg-surface p-3 text-left shadow-card transition-colors hover:bg-brand-soft/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
             aria-label={`${preview.profile.username} 계정으로 분석 시작`}
           >
             {preview.profile.avatar ? (
@@ -260,12 +276,18 @@ export default function PersonaExperience({ defaultUsername = "" }: { defaultUse
               </span>
             </span>
             <span className="shrink-0 rounded-full bg-brand px-3.5 py-1.5 text-caption font-semibold text-white">
-              이 계정으로 →
+              이 계정으로{" "}
+              <span
+                aria-hidden
+                className="inline-block transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none"
+              >
+                →
+              </span>
             </span>
           </button>
         )}
         {!looking && preview?.status === "found" && preview.profile.isPrivate && (
-          <div className="rounded-2xl border border-line bg-surface p-4">
+          <div style={reveal(0)} className="rounded-2xl border border-line bg-surface p-4 shadow-card">
             <div className="flex items-center gap-3">
               {preview.profile.avatar && (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -295,7 +317,7 @@ export default function PersonaExperience({ defaultUsername = "" }: { defaultUse
           </div>
         )}
         {!looking && preview?.status === "not_found" && (
-          <p className="text-caption text-danger" role="alert">
+          <p style={reveal(0)} className="text-caption text-danger" role="alert">
             @{handle} 계정을 찾지 못했어요. 아이디를 확인해 주세요.
           </p>
         )}
@@ -307,7 +329,7 @@ export default function PersonaExperience({ defaultUsername = "" }: { defaultUse
             분석 자체(Apify)는 자체 프록시 풀이라 우리 IP 제한과 무관하게 동작한다.
             즉 조회가 죽어도 기능은 살아야 하고, 이 버튼이 그 생명줄이다. */}
         {!looking && preview?.status === "unavailable" && handle.length >= 3 && (
-          <div className="space-y-2.5 rounded-xl border border-line bg-surface p-4" role="status">
+          <div style={reveal(0)} className="space-y-2.5 rounded-xl border border-line bg-surface p-4 shadow-card" role="status">
             <p className="text-body-sm text-muted">
               지금 계정 미리보기가 원활하지 않아요. 아이디가 정확하다면 바로 분석할 수 있어요.
             </p>
@@ -329,7 +351,7 @@ export default function PersonaExperience({ defaultUsername = "" }: { defaultUse
         className="sr-only"
       />
       {files.length > 0 && (
-        <div className="mt-4 space-y-2.5 rounded-xl border border-line bg-surface p-4">
+        <div style={reveal(0)} className="mt-4 space-y-2.5 rounded-xl border border-line bg-surface p-4 shadow-card">
           {/* 어떤 사진이 올라갔는지 눈으로 확인 — 텍스트 카운트만으론 잘못 고른 걸 모른다 */}
           <div className="flex items-center gap-2 overflow-x-auto scrollbar-none">
             {filePreviews.map((src, i) => (
@@ -364,7 +386,8 @@ export default function PersonaExperience({ defaultUsername = "" }: { defaultUse
       {error && (
         <div
           role="alert"
-          className="mt-4 rounded-xl border border-line bg-surface p-4"
+          style={reveal(0)}
+          className="mt-4 rounded-xl border border-line bg-surface p-4 shadow-card"
         >
           <p className="text-body-sm text-fg">{error.message}</p>
 
@@ -385,11 +408,12 @@ export default function PersonaExperience({ defaultUsername = "" }: { defaultUse
         </div>
       )}
 
-      <p className="mt-8 text-caption leading-relaxed text-muted">
+      <p style={reveal(4)} className="mt-8 text-caption leading-relaxed text-muted">
         본인 공개 인스타 정보를 촬영 취향 분석 목적으로만 사용해요.
         <br />
         팔로워·타인 게시물은 수집하지 않아요.
       </p>
+      <PersonaMotion />
     </div>
   );
 }
