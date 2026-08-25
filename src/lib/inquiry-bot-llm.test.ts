@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   answersToSlots,
+  botTurnSchema,
   buildSystemPrompt,
   coreSlotsFilled,
   hasPhotographerIntervened,
@@ -85,6 +86,43 @@ test("sanitizeBotTurn — custom 답변 병합·quickReplies 정리", () => {
   );
   assert.deepEqual(out.slots.custom, { 무드: "야경", 보정: "필름룩" });
   assert.deepEqual(out.quickReplies, ["네", "아니요"]);
+});
+
+// 회귀: haiku 가 미수집 슬롯을 `"region": null` 로 내보내 OUTPUT_PARSING_FAILURE → 502 →
+// 버튼 폴백 강등이 발생했던 실사고 케이스. 스키마가 null 을 받고 sanitize 가 정규화해야 한다.
+test("botTurnSchema — 미수집 슬롯 null 허용 + sanitize 정규화 (파싱 사고 회귀)", () => {
+  const raw = botTurnSchema.parse({
+    reply: "좋습니다. 촬영 지역을 선택해주세요.",
+    slots: {
+      purpose: "커플·우정 스냅",
+      preferredDate: "다음주",
+      region: null,
+      partySize: null,
+      custom: {},
+    },
+    quickReplies: ["서울", "경기·인천"],
+    asking: "region",
+    done: false,
+  });
+  const out = sanitizeBotTurn(raw, {});
+  assert.deepEqual(out.slots, { purpose: "커플·우정 스냅", preferredDate: "다음주" });
+  assert.equal(out.asking, "region");
+  assert.equal(out.done, false);
+});
+
+test("botTurnSchema — quickReplies/asking/done 생략·null 도 파싱되고 기본값으로 정규화", () => {
+  const raw = botTurnSchema.parse({
+    reply: "안녕하세요!",
+    slots: { custom: { 무드: null } },
+    quickReplies: null,
+    asking: null,
+    done: null,
+  });
+  const out = sanitizeBotTurn(raw, {});
+  assert.deepEqual(out.quickReplies, []);
+  assert.equal(out.asking, "none");
+  assert.equal(out.done, false);
+  assert.equal(out.slots.custom, undefined); // 값이 null 인 custom 항목은 버려진다
 });
 
 // ── 작가 문의대본 ────────────────────────────────────────────────

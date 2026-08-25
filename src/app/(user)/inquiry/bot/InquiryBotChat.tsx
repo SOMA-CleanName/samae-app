@@ -252,12 +252,20 @@ export function InquiryBotChat({
         slots: curSlots,
         photoContext: { moodTags: photoMoodTags, priceKrw: photoPriceKrw ?? null },
       };
-      const res = await fetch("/api/inquiry-bot", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) throw new Error(`inquiry-bot api ${res.status}`);
+      // 일시 오류 1회는 재시도 — 한 번의 실패로 대화 전체가 버튼 폴백으로 강등되지 않게
+      let res: Response | null = null;
+      for (let attempt = 0; attempt < 2 && !(res && res.ok); attempt++) {
+        try {
+          res = await fetch("/api/inquiry-bot", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+        } catch {
+          res = null; // 네트워크 오류 — 재시도 대상
+        }
+      }
+      if (!res || !res.ok) throw new Error(`inquiry-bot api ${res ? res.status : "network"}`);
       const data = (await res.json()) as BotApiResponse;
       setTyping(false);
       if (data.handedOff) {
@@ -768,16 +776,23 @@ export function InquiryBotChat({
         )}
       </div>
 
-      {/* LLM quick reply 칩 — 탭하면 그 텍스트가 사용자 발화가 된다 */}
+      {/* LLM quick reply — 입력창 바로 위의 '보조' 칩 한 줄 (가로 스크롤).
+          자유 입력이 주인공이라는 위계: 작게, 은은하게, 탭하면 그 텍스트가 사용자 발화가 된다 */}
       {llmMode && !handedOff && !typing && !done && !contactStep && quickReplies.length > 0 && (
-        <div className="border-t border-line/60 px-3 py-2.5">
-          <div className="flex flex-wrap gap-2">
-            {quickReplies.map((q) => (
-              <ChipButton key={q} onClick={() => sendUtterance(q)}>
-                {q}
-              </ChipButton>
-            ))}
-          </div>
+        <div
+          className="flex gap-1.5 overflow-x-auto px-3 pt-2 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          aria-label="추천 답변 — 탭해도 되고 직접 입력해도 돼요"
+        >
+          {quickReplies.map((q) => (
+            <button
+              key={q}
+              type="button"
+              onClick={() => sendUtterance(q)}
+              className="shrink-0 cursor-pointer whitespace-nowrap rounded-full bg-surface-2 px-3 py-1.5 text-[13px] font-medium text-fg/80 ring-1 ring-line transition-transform active:scale-[0.97] active:bg-surface"
+            >
+              {q}
+            </button>
+          ))}
         </div>
       )}
 

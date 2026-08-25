@@ -101,10 +101,19 @@ export async function POST(req: Request) {
       temperature: 0.2, // 접수 봇 — 창의성보다 일관된 슬롯 수집
     });
     const structured = model.withStructuredOutput(botTurnSchema, { name: "bot_turn" });
-    const turn = await structured.invoke([new SystemMessage(system), ...toLangChainMessages(messages, slots)]);
+    const lcMessages = [new SystemMessage(system), ...toLangChainMessages(messages, slots)];
+    // 구조화 출력은 확률적으로 파싱에 실패할 수 있다 — 서버에서 1회 재시도 후에만 502.
+    // (한 번의 일시 실패가 클라이언트를 버튼 폴백으로 강등시켰던 실사고 재발 방지)
+    let turn;
+    try {
+      turn = await structured.invoke(lcMessages);
+    } catch (first) {
+      console.warn("[inquiry-bot] structured output failed once, retrying:", first);
+      turn = await structured.invoke(lcMessages);
+    }
     return NextResponse.json({ ...sanitizeBotTurn(turn, slots), handedOff: false });
   } catch (e) {
-    // 클라이언트는 이 실패를 받으면 기존 버튼 상태 머신으로 폴백한다
+    // 클라이언트는 이 실패(재시도 포함 2회 연속)를 받으면 기존 버튼 상태 머신으로 폴백한다
     console.error("[inquiry-bot] LLM call failed:", e);
     return NextResponse.json({ error: "llm_unavailable" }, { status: 502 });
   }
