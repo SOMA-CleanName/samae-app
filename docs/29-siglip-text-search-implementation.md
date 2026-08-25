@@ -137,7 +137,7 @@ test("preserves RPC distance order after metadata fetch", () => {
 
 - [ ] **Step 2: 테스트가 실패하는지 확인**
 
-Run: `npx tsx --test src/lib/siglip-text-search-core.test.ts`
+Run: `node --experimental-strip-types --test src/lib/siglip-text-search-core.test.ts`
 
 Expected: 모듈 또는 export가 없어 실패
 
@@ -147,7 +147,7 @@ Expected: 모듈 또는 export가 없어 실패
 
 - [ ] **Step 4: 순수 함수 테스트 통과 확인**
 
-Run: `npx tsx --test src/lib/siglip-text-search-core.test.ts`
+Run: `node --experimental-strip-types --test src/lib/siglip-text-search-core.test.ts`
 
 Expected: 모든 테스트 통과
 
@@ -274,7 +274,7 @@ const queries = process.argv.slice(2).length
 
 Run: `scripts/embed/.venv/bin/python -m unittest scripts.embed.test_serve_text -v`
 
-Run: `npx tsx --test src/lib/siglip-text-search-core.test.ts`
+Run: `node --experimental-strip-types --test src/lib/siglip-text-search-core.test.ts`
 
 Expected: 모두 통과
 
