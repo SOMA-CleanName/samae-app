@@ -9,10 +9,14 @@ import ContactForm from "./ContactForm";
 export default async function SignupContactPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; preview?: string }>;
 }) {
   const sp = await searchParams;
   const next = safeNext(sp.next, "/");
+
+  // dev 편의 토글 — ?preview=1 이면 가드(로그인·번호 보유) 없이 UI 만 확인 (봇의 gate=1 과 동일 패턴)
+  if (process.env.NODE_ENV !== "production" && sp.preview === "1")
+    return <ContactForm next={next} displayName="정훈" />;
 
   const me = await getCurrentUser();
   if (!me) redirect(`/login?next=${encodeURIComponent(`/signup/contact?next=${next}`)}`);
