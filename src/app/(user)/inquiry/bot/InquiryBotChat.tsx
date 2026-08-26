@@ -774,8 +774,9 @@ export function InquiryBotChat({
           setManualSend(true);
           postContactPhase(false);
         } else {
+          // notice 는 완료 CTA 칩(다른 사진 탐색 등)까지 렌더하므로, 진행 중 안내는 일반 봇 버블로
           push({
-            kind: "notice",
+            kind: "bot",
             node: <>이어서 진행할게요 — 하시던 답변을 계속 입력해 주세요.</>,
           });
         }
