@@ -14,9 +14,17 @@ export type BookingEditTarget = {
   id: string;
   packageId: string | null;
   shootAt: string | null;
+  shootDate: string | null; // 시간 미정·날짜만 확정된 제안
   locationText: string | null;
   memo: string | null;
   travel: boolean;
+};
+
+// 신규 제안 프리필 (문의 요약 카드 → "이 내용으로 예약 제안")
+export type BookingDraft = {
+  date?: string | null; // YYYY-MM-DD
+  locationText?: string | null;
+  memo?: string | null;
 };
 
 // 채팅방 예약 작성기에 필요한 데이터 묶음 (페이지에서 주입)
@@ -34,6 +42,13 @@ export type ComposerData = {
 
 const fmt = new Intl.NumberFormat("ko-KR");
 
+// 직접 선택용 시간 옵션 — 07:00 ~ 22:30, 30분 간격
+const TIME_OPTIONS = Array.from({ length: (23 - 7) * 2 }, (_, i) => {
+  const h = 7 + Math.floor(i / 2);
+  const m = i % 2 === 0 ? "00" : "30";
+  return `${String(h).padStart(2, "0")}:${m}`;
+});
+
 function timeLabel(iso: string) {
   return new Date(iso).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
 }
@@ -50,10 +65,12 @@ function localDate(iso: string | null): string {
 export function BookingComposer({
   data,
   editTarget,
+  draft,
   onClose,
 }: {
   data: ComposerData;
   editTarget?: BookingEditTarget | null;
+  draft?: BookingDraft | null; // 신규 제안 프리필 (요약 카드 기반)
   onClose: () => void;
 }) {
   const {
@@ -72,8 +89,14 @@ export function BookingComposer({
   const [packageId, setPackageId] = useState(
     editTarget?.packageId ?? packages[0]?.id ?? ""
   );
-  const [date, setDate] = useState(localDate(editTarget?.shootAt ?? null));
-  const [shootAt, setShootAt] = useState(editTarget?.shootAt ?? ""); // 선택 시각("" = 협의)
+  const [date, setDate] = useState(
+    editTarget
+      ? editTarget.shootDate ?? localDate(editTarget.shootAt)
+      : draft?.date ?? ""
+  );
+  // 시간 선택 — "" = 미정(협의) / "custom" = 직접 선택 / 그 외 = 빈 시간 슬롯 ISO
+  const [timeSel, setTimeSel] = useState<string>(editTarget?.shootAt ? editTarget.shootAt : "");
+  const [customTime, setCustomTime] = useState("14:00"); // HH:MM (직접 선택)
 
   const selectedPkg = packages.find((p) => p.id === packageId) ?? packages[0];
 
@@ -82,6 +105,16 @@ export function BookingComposer({
     if (!date || !selectedPkg) return [];
     return availableStartTimes(date, selectedPkg.duration_min, rules, blocks, busy);
   }, [date, selectedPkg, rules, blocks, busy]);
+
+  // 최종 제출 시각(ISO) — 슬롯 선택은 그대로, 직접 선택은 날짜+시간 조합, 미정은 빈 값
+  const shootAt = useMemo(() => {
+    if (timeSel === "custom") {
+      if (!date) return "";
+      const d = new Date(`${date}T${customTime}:00`);
+      return isNaN(d.getTime()) ? "" : d.toISOString();
+    }
+    return timeSel;
+  }, [timeSel, customTime, date]);
 
   return (
     <div
@@ -108,6 +141,9 @@ export function BookingComposer({
         {isEdit && <input type="hidden" name="id" value={editTarget!.id} />}
         <input type="hidden" name="conversationId" value={conversationId} />
         <input type="hidden" name="photographerId" value={photographerId} />
+        {/* 시각(ISO)·날짜(YYYY-MM-DD) — 시간 미정이어도 날짜는 제안에 담긴다 */}
+        <input type="hidden" name="shootAt" value={shootAt} />
+        <input type="hidden" name="shootDate" value={date} />
 
         {bookingNote && (
           <p className="mt-4 whitespace-pre-wrap rounded-xl bg-fg/[0.05] p-3 text-body-sm text-muted">
@@ -160,52 +196,87 @@ export function BookingComposer({
                 onChange={(v) => {
                   if (v === date) return;
                   setDate(v);
-                  setShootAt(""); // 날짜 바뀌면 시간 초기화
+                  // 날짜가 바뀌면 슬롯 선택만 무효 (미정·직접 선택은 유지)
+                  setTimeSel((cur) => (cur === "" || cur === "custom" ? cur : ""));
                 }}
               />
             </div>
 
-            {/* 빈 시간 */}
+            {/* 시간 — 미정(협의) / 직접 선택 / 작가 빈 시간 슬롯 */}
             <fieldset>
               <legend className="mb-2 text-body-sm font-medium text-fg">시간</legend>
               <div className="space-y-2">
                 <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-line-strong px-3.5 py-3 text-body-sm has-[:checked]:border-fg has-[:checked]:bg-fg/[0.03]">
                   <input
                     type="radio"
-                    name="shootAt"
-                    value=""
-                    checked={shootAt === ""}
-                    onChange={() => setShootAt("")}
+                    checked={timeSel === ""}
+                    onChange={() => setTimeSel("")}
                     className="h-4 w-4 shrink-0 accent-fg"
                   />
-                  <span>날짜·시간 미정 — 채팅으로 협의</span>
+                  <span>시간 미정 — 채팅으로 협의</span>
                 </label>
-                {/* 수정 모드: 기존 선택 시각이 목록에 없으면 그대로 노출 */}
-                {isEdit && shootAt && !times.includes(shootAt) && (
-                  <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-line-strong px-3.5 py-3 text-body-sm has-[:checked]:border-fg has-[:checked]:bg-fg/[0.03]">
-                    <input type="radio" name="shootAt" value={shootAt} checked readOnly className="h-4 w-4 shrink-0 accent-fg" />
-                    <span>{timeLabel(shootAt)} (기존 선택)</span>
-                  </label>
-                )}
-                {date && times.length === 0 && (
-                  <p className="px-0.5 text-caption text-faint">그 날은 가능한 시간이 없어요. 다른 날짜를 골라보세요.</p>
-                )}
-                {times.map((iso) => (
-                  <label
-                    key={iso}
-                    className="flex cursor-pointer items-center gap-3 rounded-xl border border-line-strong px-3.5 py-3 text-body-sm has-[:checked]:border-fg has-[:checked]:bg-fg/[0.03]"
+
+                {/* 직접 선택 — 작가 빈 시간과 무관하게 자유 지정 */}
+                <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-line-strong px-3.5 py-3 text-body-sm has-[:checked]:border-fg has-[:checked]:bg-fg/[0.03]">
+                  <input
+                    type="radio"
+                    checked={timeSel === "custom"}
+                    onChange={() => setTimeSel("custom")}
+                    className="h-4 w-4 shrink-0 accent-fg"
+                  />
+                  <span className="shrink-0">시간 선택</span>
+                  <select
+                    value={customTime}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => {
+                      setCustomTime(e.target.value);
+                      setTimeSel("custom");
+                    }}
+                    className="ml-auto cursor-pointer rounded-lg border border-line-strong bg-surface px-2.5 py-1.5 text-body-sm tabular-nums outline-none transition-colors focus:border-fg/40"
                   >
+                    {TIME_OPTIONS.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {/* 수정 모드: 기존 선택 시각이 목록에 없으면 그대로 노출 */}
+                {isEdit && editTarget?.shootAt && !times.includes(editTarget.shootAt) && (
+                  <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-line-strong px-3.5 py-3 text-body-sm has-[:checked]:border-fg has-[:checked]:bg-fg/[0.03]">
                     <input
                       type="radio"
-                      name="shootAt"
-                      value={iso}
-                      checked={shootAt === iso}
-                      onChange={() => setShootAt(iso)}
+                      checked={timeSel === editTarget.shootAt}
+                      onChange={() => setTimeSel(editTarget.shootAt!)}
                       className="h-4 w-4 shrink-0 accent-fg"
                     />
-                    <span>{timeLabel(iso)}</span>
+                    <span>{timeLabel(editTarget.shootAt)} (기존 선택)</span>
                   </label>
-                ))}
+                )}
+
+                {/* 작가 빈 시간 슬롯 — 등록된 경우에만 빠른 선택으로 노출 */}
+                {times.length > 0 && (
+                  <div className="pt-1">
+                    <p className="mb-1.5 px-0.5 text-caption text-faint">작가의 빈 시간에서 고르기</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {times.map((iso) => (
+                        <button
+                          key={iso}
+                          type="button"
+                          onClick={() => setTimeSel(iso)}
+                          className={`cursor-pointer rounded-full border px-3 py-1.5 text-caption tabular-nums transition-colors ${
+                            timeSel === iso
+                              ? "border-fg bg-fg text-bg"
+                              : "border-line-strong text-fg hover:bg-fg/[0.04]"
+                          }`}
+                        >
+                          {timeLabel(iso)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </fieldset>
 
@@ -238,7 +309,7 @@ export function BookingComposer({
               <span className="mb-2 block text-body-sm font-medium text-fg">촬영 장소</span>
               <input
                 name="locationText"
-                defaultValue={editTarget?.locationText ?? ""}
+                defaultValue={editTarget?.locationText ?? draft?.locationText ?? ""}
                 placeholder="예: 성수동 카페거리"
                 className="w-full rounded-xl border border-line-strong bg-surface px-3.5 py-2.5 text-body-sm outline-none transition-colors focus:border-fg/40"
               />
@@ -250,7 +321,7 @@ export function BookingComposer({
               <textarea
                 name="memo"
                 rows={2}
-                defaultValue={editTarget?.memo ?? ""}
+                defaultValue={editTarget?.memo ?? draft?.memo ?? ""}
                 placeholder="원하는 컨셉·분위기를 적어주세요."
                 className="w-full resize-none rounded-xl border border-line-strong bg-surface px-3.5 py-2.5 text-body-sm outline-none transition-colors focus:border-fg/40"
               />

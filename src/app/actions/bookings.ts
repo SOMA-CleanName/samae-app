@@ -7,6 +7,15 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { mpTrackServer } from "@/lib/mixpanel-server";
 
+// 희망 날짜 정규화 — shoot_at(시각 확정)이 있으면 그 KST 날짜, 없으면 폼의 YYYY-MM-DD.
+function resolveShootDate(shootAtIso: string | null, dateRaw: string): string | null {
+  if (shootAtIso) {
+    // KST 기준 날짜로 저장 (en-CA = YYYY-MM-DD)
+    return new Date(shootAtIso).toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
+  }
+  return /^\d{4}-\d{2}-\d{2}$/.test(dateRaw) ? dateRaw : null;
+}
+
 // 알림 생성 헬퍼 (service_role)
 async function notify(
   admin: ReturnType<typeof createAdminClient>,
@@ -86,6 +95,7 @@ export async function proposeBooking(formData: FormData) {
   const conversationId = String(formData.get("conversationId"));
   const packageId = String(formData.get("packageId"));
   const shootAtRaw = String(formData.get("shootAt") || "");
+  const shootDateRaw = String(formData.get("shootDate") || "");
   const locationText = String(formData.get("locationText") || "").slice(0, 200);
   const memo = String(formData.get("memo") || "").slice(0, 500);
   const wantTravel = formData.get("travel") === "on";
@@ -127,6 +137,8 @@ export async function proposeBooking(formData: FormData) {
     const d = new Date(shootAtRaw);
     if (!isNaN(d.getTime())) shootAt = d.toISOString();
   }
+  // 희망 날짜 — 시간이 미정이어도 날짜는 카드에 남긴다 (shoot_at이 있으면 그 KST 날짜로 통일)
+  const shootDate = resolveShootDate(shootAt, shootDateRaw);
 
   // 양측 제안을 지원하려면 admin 삽입(작가 제안 시 user_id ≠ auth.uid())
   const admin = createAdminClient();
@@ -138,6 +150,7 @@ export async function proposeBooking(formData: FormData) {
       package_id: packageId,
       status: "requested",
       shoot_at: shootAt,
+      shoot_date: shootDate,
       duration_min: pkg.duration_min ?? null,
       location_text: locationText,
       amount_krw: amount,
@@ -184,6 +197,7 @@ export async function updateBooking(formData: FormData) {
   const conversationId = String(formData.get("conversationId"));
   const packageId = String(formData.get("packageId"));
   const shootAtRaw = String(formData.get("shootAt") || "");
+  const shootDateRaw = String(formData.get("shootDate") || "");
   const locationText = String(formData.get("locationText") || "").slice(0, 200);
   const memo = String(formData.get("memo") || "").slice(0, 500);
   const wantTravel = formData.get("travel") === "on";
@@ -219,6 +233,7 @@ export async function updateBooking(formData: FormData) {
     const d = new Date(shootAtRaw);
     if (!isNaN(d.getTime())) shootAt = d.toISOString();
   }
+  const shootDate = resolveShootDate(shootAt, shootDateRaw);
 
   // TOCTOU 방지 — read 이후 accept 와 경쟁 시 accepted 예약에 편집이 적용되지 않도록
   // requested 상태일 때만 원자적으로 수정.
@@ -227,6 +242,7 @@ export async function updateBooking(formData: FormData) {
     .update({
       package_id: packageId,
       shoot_at: shootAt,
+      shoot_date: shootDate,
       duration_min: pkg.duration_min ?? null,
       location_text: locationText,
       amount_krw: amount,

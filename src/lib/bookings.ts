@@ -31,6 +31,7 @@ export type BookingRow = {
   id: string;
   status: BookingStatus;
   shoot_at: string | null;
+  shoot_date: string | null;
   location_text: string | null;
   amount_krw: number | null;
   memo: string;
@@ -47,7 +48,7 @@ export type BookingRow = {
 };
 
 const SELECT =
-  "id, status, shoot_at, location_text, amount_krw, memo, user_id, photographer_id, created_at, accepted_at, transfer_marked_at, proposed_by_photographer, package_snapshot, " +
+  "id, status, shoot_at, shoot_date, location_text, amount_krw, memo, user_id, photographer_id, created_at, accepted_at, transfer_marked_at, proposed_by_photographer, package_snapshot, " +
   "photographer:photographers(display_name), " +
   "user:profiles!bookings_user_id_fkey(display_name), " +
   "package:packages(name)";
@@ -115,11 +116,22 @@ export async function getConversationIdFor(
   return (data?.id as string) ?? null;
 }
 
-// KST 일시 표시
-export function fmtShootAt(iso: string | null): string {
-  if (!iso) return "미정";
-  return new Intl.DateTimeFormat("ko-KR", {
-    month: "long", day: "numeric", weekday: "short",
-    hour: "2-digit", minute: "2-digit", timeZone: "Asia/Seoul",
-  }).format(new Date(iso));
+// KST 일시 표시 — 시각 미정이어도 날짜(shoot_date)가 있으면 날짜까지는 보여준다.
+export function fmtShootAt(iso: string | null, dateOnly?: string | null): string {
+  if (iso) {
+    return new Intl.DateTimeFormat("ko-KR", {
+      month: "long", day: "numeric", weekday: "short",
+      hour: "2-digit", minute: "2-digit", timeZone: "Asia/Seoul",
+    }).format(new Date(iso));
+  }
+  if (dateOnly) {
+    const d = new Date(`${dateOnly}T00:00:00+09:00`);
+    if (!isNaN(d.getTime())) {
+      const day = new Intl.DateTimeFormat("ko-KR", {
+        month: "long", day: "numeric", weekday: "short", timeZone: "Asia/Seoul",
+      }).format(d);
+      return `${day} · 시간 협의`;
+    }
+  }
+  return "미정";
 }

@@ -15,6 +15,7 @@ import {
   BookingComposer,
   type ComposerData,
   type BookingEditTarget,
+  type BookingDraft,
 } from "./BookingComposer";
 import { Spinner } from "@/components/ui";
 import {
@@ -34,7 +35,7 @@ import {
 const fmt = new Intl.NumberFormat("ko-KR");
 
 const BOOKING_COLS =
-  "id, status, shoot_at, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, transfer_marked_at, proposed_by_photographer";
+  "id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, transfer_marked_at, proposed_by_photographer";
 
 // 메시지 작성 시각 (카카오톡식 HH:MM)
 function timeLabel(iso: string) {
@@ -73,8 +74,11 @@ export function ChatRoom({
   const [uploading, setUploading] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false); // 입력창 + 옵션 메뉴
   const [pickerOpen, setPickerOpen] = useState(false); // 포트폴리오 사진 고르기 모달
-  // 예약 작성기 — null이면 닫힘, {} 신규, {edit} 수정 모드
-  const [composer, setComposer] = useState<null | { edit: BookingEditTarget | null }>(null);
+  // 예약 작성기 — null이면 닫힘, {} 신규, {edit} 수정, {draft} 요약 기반 프리필
+  const [composer, setComposer] = useState<null | {
+    edit: BookingEditTarget | null;
+    draft?: BookingDraft | null;
+  }>(null);
   const [, startTransition] = useTransition();
   const listRef = useRef<HTMLDivElement>(null);
   const firstScroll = useRef(true);
@@ -277,6 +281,7 @@ export function ChatRoom({
                             id: m.booking!.id,
                             packageId: m.booking!.package_id,
                             shootAt: m.booking!.shoot_at,
+                            shootDate: m.booking!.shoot_date,
                             locationText: m.booking!.location_text,
                             memo: m.booking!.memo,
                             travel: (m.booking!.travel_fee_krw ?? 0) > 0,
@@ -297,8 +302,20 @@ export function ChatRoom({
             );
           }
           // 문의 요약 카드 — 챗봇이 수집한 내용의 상주 요약 (body=JSON)
+          // 작가에겐 정리된 내용을 그대로 제안서로 옮기는 CTA를 함께 보여준다.
           if (m.type === "summary_card") {
-            return <SummaryCardBubble key={m.id} body={m.body} time={timeLabel(m.created_at)} />;
+            return (
+              <SummaryCardBubble
+                key={m.id}
+                body={m.body}
+                time={timeLabel(m.created_at)}
+                onPropose={
+                  amPhotographer && composerData
+                    ? (draft) => setComposer({ edit: null, draft })
+                    : null
+                }
+              />
+            );
           }
           // 챗봇 수집 대화 — 일반 버블 + 봇 발화(상대측)에만 '자동 응답' 라벨
           if (m.type === "bot") {
@@ -451,6 +468,7 @@ export function ChatRoom({
         <BookingComposer
           data={composerData}
           editTarget={composer.edit}
+          draft={composer.draft}
           onClose={() => setComposer(null)}
         />
       )}
@@ -651,6 +669,12 @@ function BookingCard({
         hour: "2-digit",
         minute: "2-digit",
       })
+    : booking.shoot_date
+    ? `${new Date(`${booking.shoot_date}T00:00:00+09:00`).toLocaleDateString("ko-KR", {
+        month: "long",
+        day: "numeric",
+        weekday: "short",
+      })} · 시간 협의`
     : "날짜 미정 (협의)";
 
   return (
@@ -950,9 +974,62 @@ function PolicyNote() {
   );
 }
 
-// 챗봇이 수집한 문의 요약 카드 — 채팅방 타임라인에 상주 (body=JSON, 파싱 실패 시 무해하게 생략)
-function SummaryCardBubble({ body, time }: { body: string; time: string }) {
-  let s: { purpose?: string; preferredDate?: string; region?: string; partySize?: string | null; note?: string | null } | null = null;
+// 요약 JSON 스키마 (챗봇이 접수 시 기록)
+type InquirySummary = {
+  purpose?: string;
+  preferredDate?: string;
+  region?: string;
+  partySize?: string | null;
+  note?: string | null;
+};
+
+// 자유 텍스트 희망일 → YYYY-MM-DD 추출 (실패 시 null — 날짜는 작성기에서 고르면 됨)
+function parsePreferredDate(text: string | undefined): string | null {
+  if (!text) return null;
+  const iso = /(\d{4})[-./](\d{1,2})[-./](\d{1,2})/.exec(text);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  if (iso) return `${iso[1]}-${pad(+iso[2])}-${pad(+iso[3])}`;
+  const ko = /(\d{1,2})\s*월\s*(\d{1,2})\s*일/.exec(text);
+  if (ko) {
+    const now = new Date();
+    const m = +ko[1];
+    const d = +ko[2];
+    // 이미 지난 날짜면 내년으로 (과거 예약 방지)
+    const y =
+      m < now.getMonth() + 1 || (m === now.getMonth() + 1 && d < now.getDate())
+        ? now.getFullYear() + 1
+        : now.getFullYear();
+    return `${y}-${pad(m)}-${pad(d)}`;
+  }
+  return null;
+}
+
+// 요약 카드 → 예약 작성기 프리필 초안
+function draftFromSummary(s: InquirySummary): BookingDraft {
+  const memoLines: string[] = [];
+  if (s.purpose) memoLines.push(`촬영 종류: ${s.purpose}`);
+  if (s.preferredDate) memoLines.push(`희망 일정: ${s.preferredDate}`);
+  if (s.partySize) memoLines.push(`인원: ${s.partySize}`);
+  if (s.note) memoLines.push(s.note);
+  return {
+    date: parsePreferredDate(s.preferredDate),
+    locationText: s.region ?? "",
+    memo: memoLines.join("\n"),
+  };
+}
+
+// 챗봇이 수집한 문의 요약 카드 — 채팅방 타임라인에 상주 (body=JSON, 파싱 실패 시 무해하게 생략).
+// onPropose(작가 화면): 정리된 내용이 그대로 채워진 예약 제안 작성기를 연다.
+function SummaryCardBubble({
+  body,
+  time,
+  onPropose,
+}: {
+  body: string;
+  time: string;
+  onPropose: ((draft: BookingDraft) => void) | null;
+}) {
+  let s: InquirySummary | null = null;
   try {
     s = JSON.parse(body);
   } catch {
@@ -982,6 +1059,15 @@ function SummaryCardBubble({ body, time }: { body: string; time: string }) {
             <p className="mt-1 whitespace-pre-wrap break-words border-t border-line pt-2 text-body-sm text-fg">
               {s.note}
             </p>
+          )}
+          {onPropose && (
+            <button
+              type="button"
+              onClick={() => onPropose(draftFromSummary(s!))}
+              className="mt-2 w-full cursor-pointer rounded-full bg-fg py-2.5 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90"
+            >
+              이 내용으로 예약 제안
+            </button>
           )}
         </div>
       </div>

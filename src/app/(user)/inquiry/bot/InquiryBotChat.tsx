@@ -462,9 +462,12 @@ export function InquiryBotChat({
   async function callBot(
     history: BotChatMessage[],
     curSlots: LlmSlots,
-    opts?: { images?: string[]; totalImages?: number }
+    opts?: { images?: string[]; totalImages?: number; extract?: boolean }
   ) {
-    setTyping(true);
+    // extract(조용한 추출) — 작가 개입 후에도 사용자의 답변에서 슬롯만 이어 채우는 모드.
+    // 봇 발화·타이핑 인디케이터 없이 슬롯 병합만 하고, 수집이 끝나면 정리(접수)로 넘어간다.
+    const extract = opts?.extract === true;
+    if (!extract) setTyping(true);
     try {
       let startedNotified = false;
       try {
@@ -482,6 +485,7 @@ export function InquiryBotChat({
         images: opts?.images?.length ? opts.images.map((dataUrl) => ({ dataUrl })) : undefined,
         totalImages: opts?.totalImages,
         startedNotified,
+        extractOnly: extract || undefined,
       };
       // A4: 재시도는 네트워크 오류·5xx 만 — 4xx(인증·상한 위반)는 재시도해도 같은 결과라 금지
       let res: Response | null = null;
@@ -507,14 +511,22 @@ export function InquiryBotChat({
         }
       }
       const data = (await res.json()) as BotApiResponse;
-      setTyping(false);
+      if (!extract) setTyping(false);
       if (data.handedOff) {
-        onHandedOff();
+        if (!extract) onHandedOff();
         return;
       }
       trackLlmTurn(curSlots, data.slots, data.asking);
       setSlots(data.slots);
       setAnswers(slotsToAnswers(data.slots)); // 요약 카드·제출·localStorage 저장이 이 값을 공유
+      if (extract) {
+        // 조용한 추출 — 봇 버블·칩은 게시하지 않고, 수집 완주 시에만 정리·접수로 넘어간다
+        if (data.done && !autoSubmittedRef.current) {
+          utteranceQueueRef.current.clear();
+          postContactPhase();
+        }
+        return;
+      }
       // 함수형 업데이트 — 응답 대기 중 사용자가 추가 발화해도 이력이 유실되지 않게
       setLlmMessages((prev) => [...prev, { role: "bot", text: data.reply }]);
       push({ kind: "bot", node: <span className="whitespace-pre-line">{data.reply}</span> });
@@ -535,6 +547,8 @@ export function InquiryBotChat({
       }
     } catch (e) {
       setTyping(false);
+      // 조용한 추출 실패 — 흐름 무영향 (다음 사용자 발화에서 다시 시도)
+      if (extract) return;
       // 이미지 반응 턴 실패는 흐름 무영향 — 부드러운 확인 버블만 남기고 봇 정상 유지
       if (opts?.images?.length) {
         push({ kind: "bot", node: <>레퍼런스 이미지 잘 받았어요! 작가님께 함께 전달드릴게요.</> });
@@ -581,13 +595,38 @@ export function InquiryBotChat({
     }
   }
 
+  // 작가 개입 후에도 '문의 내용 정리'는 계속 — 조용한 추출로 슬롯만 이어 채운다.
+  // 동시 호출 방지 가드 + 대기 중 발화가 있으면 완료 후 최신 이력으로 1회 더.
+  const extractingRef = useRef(false);
+  const extractDirtyRef = useRef(false);
+  function runExtract(history: BotChatMessage[]) {
+    if (extractingRef.current) {
+      extractDirtyRef.current = true;
+      return;
+    }
+    extractingRef.current = true;
+    void callBot(history, slotsRef.current, { extract: true }).finally(() => {
+      extractingRef.current = false;
+      if (extractDirtyRef.current) {
+        extractDirtyRef.current = false;
+        runExtract(llmMessagesRef.current);
+      }
+    });
+  }
+
   // 사용자 발화 (타이핑·quickReply 칩 공용) — 말풍선 게시 후 API 왕복
   function sendUtterance(text: string) {
     fireStartInquiry();
     forceScrollRef.current = true; // 내 발화 직후는 무조건 바닥으로
     push({ kind: "user", text });
     setLlmMessages((prev) => [...prev, { role: "user", text }]);
-    if (handedOff) return; // 작가가 이어받음 — 말풍선만 남긴다
+    if (handedOff) {
+      // 작가가 이어받음 — 말풍선은 남기고, 수집이 미완이면 조용한 추출로 정리를 잇는다
+      if (!done && !contactStep && !autoSubmittedRef.current) {
+        runExtract([...llmMessagesRef.current, { role: "user", text }]);
+      }
+      return;
+    }
     if (typing) {
       // B1: 봇 응답 대기 중 발화는 유실하지 않고 큐 — 응답 도착 즉시 자동 재호출
       utteranceQueueRef.current.enqueue(text);

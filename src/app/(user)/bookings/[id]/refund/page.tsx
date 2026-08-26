@@ -45,7 +45,7 @@ export default async function RefundPage({
       <div className="mt-6 rounded-xl border border-fg/10 p-5 text-sm">
         <Line label="작가" value={artist} />
         <Line label="패키지" value={b.package?.name ?? b.package_snapshot?.name ?? "—"} />
-        <Line label="일시" value={fmtShootAt(b.shoot_at)} />
+        <Line label="일시" value={fmtShootAt(b.shoot_at, b.shoot_date)} />
         <div className="mt-3 flex items-center justify-between border-t border-fg/10 pt-3">
           <span className="font-medium">환불 예정 금액</span>
           <span className="text-lg font-semibold">₩{fmt.format(b.amount_krw ?? 0)}</span>

@@ -36,6 +36,7 @@ export type BookingSnapshot = {
   id: string;
   status: string;
   shoot_at: string | null;
+  shoot_date: string | null; // 시간 미정이어도 날짜만 확정한 제안
   location_text: string | null;
   amount_krw: number | null;
   travel_fee_krw: number;
@@ -176,7 +177,7 @@ export async function getMessages(conversationId: string): Promise<ChatMessage[]
     .from("messages")
     .select(
       "id, sender_id, type, body, image_path, created_at, booking_id, " +
-        "booking:bookings(id, status, shoot_at, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, transfer_marked_at, proposed_by_photographer)"
+        "booking:bookings(id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, transfer_marked_at, proposed_by_photographer)"
     )
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true });

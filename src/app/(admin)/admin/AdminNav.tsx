@@ -19,6 +19,7 @@ const TABS = [
   { href: "/admin/tags", label: "태그" },
   { href: "/admin/search", label: "검색" },
   { href: "/admin/analytics", label: "분석" },
+  { href: "/admin/calculator", label: "손익 계산기" },
   { href: "/admin/trash", label: "휴지통" },
 ];
 

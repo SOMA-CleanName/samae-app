@@ -22,7 +22,7 @@ import {
   type LlmSlots,
 } from "@/lib/inquiry-bot-llm";
 import { getCurrentUser } from "@/lib/auth";
-import { getPhotographerScript } from "@/lib/photographer-scripts";
+import { fetchPhotographerScript } from "@/lib/photographer-scripts-db";
 import { notifyPhotographer } from "@/lib/inquiry-bot-notify";
 
 export const runtime = "nodejs";
@@ -135,11 +135,14 @@ export async function POST(req: Request) {
       : imageDataUrls.length;
 
   // ── 작가 개입 = 봇 정지. LLM 호출 자체를 하지 않는다 ──
-  if (hasPhotographerIntervened(messages)) {
+  // 예외: extractOnly(조용한 추출) — 작가가 대화 중이어도 사용자의 답변에서 슬롯만 계속
+  // 뽑아 '문의 내용 정리'가 끝까지 완성되게 한다 (봇 발화는 클라이언트가 게시하지 않음).
+  const extractOnly = body.extractOnly === true;
+  if (hasPhotographerIntervened(messages) && !extractOnly) {
     return NextResponse.json({ handedOff: true });
   }
 
-  const script = getPhotographerScript(photographerId);
+  const script = await fetchPhotographerScript(photographerId);
   const system = buildSystemPrompt({
     photographerName: body.photographerName?.trim() || "작가",
     script,
@@ -171,7 +174,8 @@ export async function POST(req: Request) {
     // 작가 알림 — "새 손님이 챗봇 문의 진행 중/완료" 를 알려 채팅 이어받기를 유도 (리드 구조 폐지).
     // started 는 크롤러·재방문마다 재발화되던 "빈 messages 첫 턴"이 아니라 사용자의 첫 실제
     // 발화 시점에만 + 클라이언트 localStorage dedupe(startedNotified). TODO(C3): conversation dedupe.
-    const notifyStarted = shouldNotifyStarted(messages, body.startedNotified === true);
+    const notifyStarted =
+      !extractOnly && shouldNotifyStarted(messages, body.startedNotified === true);
     if (clean.done || notifyStarted) {
       const s = clean.slots;
       await notifyPhotographer({

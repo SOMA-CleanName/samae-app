@@ -51,7 +51,7 @@ export default async function TransferGuidePage({
         </div>
         <div className="mt-3 flex justify-between gap-4">
           <span className="text-fg/50">일시</span>
-          <span className="text-right">{fmtShootAt(b.shoot_at)}</span>
+          <span className="text-right">{fmtShootAt(b.shoot_at, b.shoot_date)}</span>
         </div>
         <div className="mt-4 flex items-center justify-between border-t border-fg/10 pt-4">
           <span className="font-medium">보낼 금액</span>

@@ -148,7 +148,7 @@ function BookingItem({
           </span>
         </div>
         <p className="mt-1 text-xs text-fg/55">
-          {b.package?.name ?? b.package_snapshot?.name ?? "패키지"} · {fmtShootAt(b.shoot_at)}
+          {b.package?.name ?? b.package_snapshot?.name ?? "패키지"} · {fmtShootAt(b.shoot_at, b.shoot_date)}
         </p>
       </Link>
       {convId && (

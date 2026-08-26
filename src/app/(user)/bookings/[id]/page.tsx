@@ -136,7 +136,7 @@ export default async function BookingDetail({
       <dl className="mt-6 flex flex-col gap-3 rounded-xl border border-fg/10 p-5 text-sm">
         <Row label={isBuyer ? "작가" : "고객"} value={counterpart} />
         <Row label="패키지" value={b.package?.name ?? b.package_snapshot?.name ?? "—"} />
-        <Row label="일시" value={fmtShootAt(b.shoot_at)} />
+        <Row label="일시" value={fmtShootAt(b.shoot_at, b.shoot_date)} />
         <Row label="장소" value={b.location_text || "—"} />
         <Row label="금액" value={b.amount_krw ? `₩${fmt.format(b.amount_krw)}` : "—"} />
         {b.memo && <Row label="메모" value={b.memo} />}

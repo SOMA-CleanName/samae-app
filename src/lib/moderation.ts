@@ -44,8 +44,16 @@ const URL_RES: [RegExp, string][] = [
 ];
 const EMAIL_RE = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i;
 const PHONE_RE = /01[016789]\d{7,8}/;
-// 단독 숫자 덩어리 (7~11자리) — 가격·시각 단위가 붙지 않은 맨숫자는 연락처 파편으로 간주
-const BARE_DIGITS_RE = /(?<![\d원장분시월일년,])\d{7,11}(?![\d원장분시월일년,])/;
+// 단독 숫자 덩어리 (7~16자리) — 가격·시각 단위가 붙지 않은 맨숫자는 연락처/계좌 파편으로 간주
+// (계좌번호는 하이픈이 normalize에서 붕괴돼 10~14자리 덩어리가 된다)
+const BARE_DIGITS_RE = /(?<![\d원장분시월일년,])\d{7,16}(?![\d원장분시월일년,])/;
+
+// 개인 계좌 유도 — 에스크로(사매 계좌) 우회 차단.
+// 은행명 또는 계좌 단어 + 10자리 이상 숫자 덩어리(하이픈은 normalize에서 붕괴됨).
+const BANK_RE =
+  /(국민은행|신한은행|우리은행|하나은행|농협|기업은행|카카오\s*뱅크|카뱅|토스\s*뱅크|토뱅|케이\s*뱅크|케뱅|새마을금고|우체국|수협|신협|씨티은행|sc제일|\bkb\b|\bnh\b|\bibk\b|은행)/i;
+const ACCOUNT_WORD_RE = /(계좌|무통장|입금|송금|이체)/;
+const ACCT_DIGITS_RE = /\d{10,16}/;
 
 export function detectOffPlatform(text: string): string[] {
   const raw = text.trim();
@@ -55,6 +63,10 @@ export function detectOffPlatform(text: string): string[] {
 
   if (PHONE_RE.test(t)) matched.push("전화번호");
   else if (BARE_DIGITS_RE.test(t) && !/[원장,]/.test(raw)) matched.push("연락처 의심 숫자");
+
+  // 개인 계좌 공유 — 가격 표기("150,000원")는 10자리 미만이라 걸리지 않는다
+  if ((BANK_RE.test(t) || ACCOUNT_WORD_RE.test(t)) && ACCT_DIGITS_RE.test(t))
+    matched.push("계좌번호 공유");
 
   for (const [re, label] of URL_RES) if (re.test(t)) matched.push(label);
   if (EMAIL_RE.test(t)) matched.push("이메일");
@@ -67,4 +79,4 @@ export function detectOffPlatform(text: string): string[] {
 
 /** 차단 시 사용자에게 보여줄 안내문 */
 export const MODERATION_NOTICE =
-  "개인 연락처·SNS 안내는 보낼 수 없어요. 사매 채팅에서 대화를 이어가 주세요.";
+  "개인 연락처·SNS·계좌번호 안내는 보낼 수 없어요. 대화는 사매 채팅에서, 결제는 사매 안전결제로 진행해 주세요.";

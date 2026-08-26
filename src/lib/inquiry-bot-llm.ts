@@ -180,6 +180,11 @@ export type BotApiRequest = {
   totalImages?: number;
   /** 클라이언트 dedupe 마크 — true 면 started 작가 알림을 다시 보내지 않는다 */
   startedNotified?: boolean;
+  /**
+   * 조용한 추출 모드 — 작가가 개입한 뒤에도 사용자의 답변에서 슬롯만 계속 뽑는다.
+   * 봇 발화(reply)는 클라이언트가 게시하지 않고, 서버도 started 알림을 보내지 않는다.
+   */
+  extractOnly?: boolean;
 };
 
 // ── LLM 출력 후처리 ──────────────────────────────────────────────
