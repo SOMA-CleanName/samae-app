@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import {
-  listChatRooms,
   counterpartName,
   counterpartAvatar,
   myUnread,
@@ -11,10 +10,8 @@ import {
   type ChatRoomItem,
 } from "@/lib/chat";
 import type { CurrentUser } from "@/lib/auth";
-import { Avatar, Badge, EmptyState } from "@/components/ui";
-import { ChatIcon } from "@/components/user/icons";
+import { Avatar, Badge } from "@/components/ui";
 import { LeaveButton } from "./LeaveButton";
-import { MpTrackOnce } from "@/components/MpTrackOnce";
 
 export const dynamic = "force-dynamic";
 
@@ -42,39 +39,13 @@ function statusTone(s: ChatStatus): "neutral" | "warning" | "success" {
   return "neutral";
 }
 
-// 채팅 목록 — 실제 대화가 오간 방만, 진행 상태·나가기 포함
+// 채팅 목록 라우터 — 역할별 허브로 병합: 고객은 문의 탭, 작가는 스튜디오 문의함.
+// (개별 방 /chat/[id] 는 양쪽이 공유. ChatRoomRow 는 두 허브가 계속 import 한다)
 export default async function ChatListPage() {
   const me = await getCurrentUser();
   if (!me) redirect("/login?next=/chat");
-  // 목록은 역할별 허브로 병합 — 고객은 문의 탭, 작가는 스튜디오 문의함.
-  // (개별 방 /chat/[id] 는 양쪽이 공유)
   if (!me.photographer) redirect("/my-inquiries");
   redirect("/studio/chat");
-
-  const rooms = await listChatRooms(me);
-
-  return (
-    <main className="mx-auto max-w-2xl px-3.5 py-8 font-kr sm:px-5">
-      {/* 채팅 목록 진입 — 상담 활동·리텐션 */}
-      <MpTrackOnce event="View Chat List" props={{ room_count: rooms.length }} />
-      <h1 className="text-h1 font-semibold">채팅</h1>
-
-      {rooms.length === 0 ? (
-        <EmptyState
-          className="mt-8"
-          icon={<ChatIcon className="h-7 w-7" />}
-          title="아직 대화가 없어요"
-          description="작가 프로필에서 채팅을 시작하면 여기에 표시돼요."
-        />
-      ) : (
-        <ul className="mt-5 divide-y divide-line">
-          {rooms.map((c) => (
-            <ChatRoomRow key={c.id} room={c} me={me} withLeave />
-          ))}
-        </ul>
-      )}
-    </main>
-  );
 }
 
 // 채팅 목록 한 줄 — 아바타 + 이름·상태 + 시각·안읽음. 사용자/스튜디오 공용 패턴.
