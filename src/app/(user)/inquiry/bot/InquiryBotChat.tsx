@@ -345,9 +345,10 @@ export function InquiryBotChat({
     }, REVEAL_MS);
   }
 
-  // 전 질문 완료 — 요약 카드 + 안내를 한 턴으로 묶고 바로 보내기 단계로.
-  // (번호가 이미 등록돼 있으면 "어디로 받으실래요?"를 묻지 않는다 — 가입 때 인증한 번호로 통일)
-  function postContactPhase() {
+  // 전 질문 완료 — 요약 카드 + 안내 후, 등록 번호가 있으면 **자동 접수**한다.
+  // 채팅방 진입 자체가 문의 의사이므로 "문의 보내기" 버튼을 다시 누르게 하지 않는다.
+  // (번호가 없을 때만 — dev 게이트 오프 등 — 기존 연락처 입력 단계로)
+  function postContactPhase(auto: boolean = true) {
     setTyping(true);
     window.setTimeout(() => {
       setTyping(false);
@@ -355,12 +356,19 @@ export function InquiryBotChat({
       push({
         kind: "bot",
         node: userPhone ? (
-          <>
-            정리한 내용을 <Em>{photographerName}</Em>님께 보내드릴게요.
-            <br />
-            확인하시면 이 채팅방으로 답장을 주시고, 답장이 오면{" "}
-            <Em>{maskPhone(userPhone)}</Em> 문자로도 알려드려요.
-          </>
+          auto ? (
+            <>
+              정리한 내용을 <Em>{photographerName}</Em>님께 바로 전달할게요.
+              <br />
+              확인하시면 이 채팅방으로 답장을 주시고, 답장이 오면{" "}
+              <Em>{maskPhone(userPhone)}</Em> 문자로도 알려드려요.
+            </>
+          ) : (
+            <>
+              내용이 맞는지 확인하고 보내주세요. 답장이 오면 <Em>{maskPhone(userPhone)}</Em>{" "}
+              문자로도 알려드려요.
+            </>
+          )
         ) : (
           <>
             <Em>거의 다 왔어요!</Em>
@@ -369,6 +377,10 @@ export function InquiryBotChat({
           </>
         ),
       });
+      if (auto && userPhone && !autoSubmittedRef.current) {
+        autoSubmittedRef.current = true;
+        window.setTimeout(() => void submit("phone", userPhone), 400);
+      }
       setStepIndex(STEPS.length);
       if (!viewedRef.current.has("contact")) {
         viewedRef.current.add("contact");
@@ -388,12 +400,13 @@ export function InquiryBotChat({
     const curAnswers = slotsToAnswers(initialSlots);
     const resumeAt = nextStepIndex(STEPS, curAnswers);
     if (resumeAt >= STEPS.length) {
-      // 저장된 답변으로 이미 코어 완주(대화 기록은 없음) — 일반 인사 대신 재개 안내 후 요약·보내기.
-      // ("편하게 입력하세요" 인사 직후 바로 보내기가 나오는 어색함 방지)
-      const resumeText = "이전에 작성하시던 문의가 있어요. 내용을 확인하고 보내주세요.";
+      // 저장된 답변으로 이미 코어 완주(대화 기록은 없음) — 일반 인사 대신 재개 안내.
+      // 이 경로는 자동 접수하지 않는다: 과거 답변의 재진입이라 사용자 확인(버튼)을 거친다.
+      const resumeText = "이전에 작성하시던 문의가 있어요.";
       push({ kind: "bot", node: <>{resumeText}</> });
       setLlmMessages([{ role: "bot", text: resumeText }]);
-      postContactPhase();
+      setManualSend(true);
+      postContactPhase(false);
       return;
     }
     const greetingText = `안녕하세요! ${photographerName}님에게 보내는 문의를 도와드릴게요.\n편하게 입력하셔도 되고, 아래 선택지를 눌러도 좋아요.`;
@@ -789,6 +802,8 @@ export function InquiryBotChat({
     setHandedOff(false);
     setLlmMode(true);
     setFreeText("");
+    setManualSend(false);
+    autoSubmittedRef.current = false;
     refImageUrlsRef.current = [];
     uploadPromisesRef.current = [];
     utteranceQueueRef.current.clear();
@@ -992,6 +1007,10 @@ export function InquiryBotChat({
   }, [state]);
 
   // 성공 — 전환 기록(문의당 1회) + 완료 안내 버블 + 저장본 정리
+  // 자동 접수 1회 가드 + 수동 확인 모드(과거 답변 재진입 시 버튼 노출)
+  const autoSubmittedRef = useRef(false);
+  const [manualSend, setManualSend] = useState(false);
+
   const leadFiredFor = useRef<string | null>(null);
   useEffect(() => {
     if (!state.ok || !state.inquiryId) return;
@@ -1307,8 +1326,9 @@ export function InquiryBotChat({
 
         {typing && <TypingBubble avatar={photographerAvatar} name={photographerName} />}
 
-        {/* 연락처 단계 — 위저드 Q6 입력 규칙 재사용 (전화/카톡 탭 + 유효성) */}
-        {contactStep && !done && (
+        {/* 연락처 단계 — 등록 번호가 있으면 자동 접수라 카드 없음(실패 시에만 재시도 카드).
+            번호가 없을 때만 위저드 Q6 입력 규칙 재사용 (전화/카톡 탭 + 유효성) */}
+        {contactStep && !done && (!userPhone || state.error || manualSend) && (
           <ContactCard
             onSubmit={submit}
             pending={pending}
