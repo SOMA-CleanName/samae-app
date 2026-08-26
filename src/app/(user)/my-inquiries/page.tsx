@@ -39,15 +39,10 @@ export default async function MyInquiriesPage() {
         <section className="mt-5">
           <ul className="space-y-2">
             {rooms.map((r) => {
-              // 봇으로 시작했는데(사진 문의든 직접 문의든) 아직 접수 전 = 문의 작성 중
-              // — 봇 채팅으로 복귀시켜 이어서 진행
+              // 채팅방 상주 봇 — 작성 중이든 접수 후든 방은 하나. 라벨만 진행 상태를 구분한다.
               const startedWithBot = r.bot_photo_id != null || r.bot_slots != null;
               const inProgress = startedWithBot && !submittedPhotographers.has(r.photographer_id);
-              const href = inProgress
-                ? `/inquiry/bot?photographerId=${encodeURIComponent(r.photographer_id)}${
-                    r.bot_photo_id ? `&photoId=${encodeURIComponent(r.bot_photo_id)}` : ""
-                  }`
-                : `/chat/${r.id}`;
+              const href = `/chat/${r.id}`;
               return (
               <li key={r.id}>
                 <Link

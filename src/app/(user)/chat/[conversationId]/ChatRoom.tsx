@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { sendMessage, markRead, sendPortfolioPhoto, getBookingPayoutAccount } from "../actions";
+import { sendBotTurn } from "../bot-actions";
+import { canonicalChipsFor, type AskingKey } from "@/lib/inquiry-bot-llm";
 import { acceptBooking, rejectBooking, cancelBooking } from "@/app/actions/bookings";
 import { markTransferSent, markShot } from "@/app/actions/payments";
 import { mpTrack } from "@/lib/mixpanel";
@@ -48,6 +50,15 @@ function timeLabel(iso: string) {
 
 export type PortfolioPhoto = { id: string; thumb_url: string; src_url: string };
 
+// 다음에 물을 코어 슬롯 — 초기 칩 계산용 (수집 순서 고정: 목적→희망일→지역→인원)
+function firstMissingSlot(s: BotSlots | null): AskingKey {
+  if (!s?.purpose) return "purpose";
+  if (!s?.preferredDate) return "preferredDate";
+  if (!s?.region) return "region";
+  if (!s?.partySize) return "partySize";
+  return "none";
+}
+
 export function ChatRoom({
   conversationId,
   meId,
@@ -58,7 +69,7 @@ export function ChatRoom({
   brief,
   sourcePhotoPath,
   initialBotSlots,
-  botResumeUrl,
+  botMode,
 }: {
   conversationId: string;
   meId: string;
@@ -70,14 +81,22 @@ export function ChatRoom({
   sourcePhotoPath: string | null;
   /** 봇 수집 슬롯 — 작가용 문의 체크리스트 (고객 화면은 null) */
   initialBotSlots?: BotSlots | null;
-  /** 고객용 — 봇 문의 작성이 미접수 상태면 봇 채팅 복귀 URL (봇은 그 페이지에서만 응답) */
-  botResumeUrl?: string | null;
+  /** 고객용 — 채팅방 상주 봇 활성 (미접수 봇 문의): 발화가 sendBotTurn 으로 라우팅된다 */
+  botMode?: { slots: BotSlots | null; intervened: boolean } | null;
 }) {
   const amCustomer = !amPhotographer; // 참여자 중 작가가 아니면 구매자
   void brief; void sourcePhotoPath; // 레거시 상담정보 — 요약 카드로 대체, 과거 방 호환 위해 프롭만 유지
   const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [botSlots, setBotSlots] = useState<BotSlots | null>(initialBotSlots ?? null);
+  // 채팅방 상주 봇 — 고객 발화를 이 방 안에서 봇이 받는다 (칩·타이핑·완료 상태)
+  const [botChips, setBotChips] = useState<string[]>(
+    botMode && !botMode.intervened ? canonicalChipsFor(firstMissingSlot(botMode.slots)) : []
+  );
+  const [botTyping, setBotTyping] = useState(false);
+  const [botDone, setBotDone] = useState(false);
+  const [botNeedContact, setBotNeedContact] = useState(false);
+  const botActive = !!botMode && !botDone;
   const [text, setText] = useState("");
   const [uploading, setUploading] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false); // 입력창 + 옵션 메뉴
@@ -150,6 +169,10 @@ export function ChatRoom({
             }
             setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
             if (m.sender_id !== meId) markRead(conversationId);
+            // 작가가 실발화로 개입 — 봇 칩은 접는다 (봇은 서버에서 조용한 추출로 전환됨)
+            if ((m.type === "text" || m.type === "image") && m.sender_id !== meId) {
+              setBotChips((prev) => (prev.length > 0 ? [] : prev));
+            }
           }
         )
         // 봇 수집 슬롯 갱신 → 작가용 문의 체크리스트 실시간 반영
@@ -203,7 +226,7 @@ export function ChatRoom({
     if (!el) return;
     el.scrollTo({ top: el.scrollHeight, behavior: firstScroll.current ? "auto" : "smooth" });
     firstScroll.current = false;
-  }, [messages]);
+  }, [messages, botTyping]);
 
   // + 옵션 메뉴 바깥 클릭 시 닫기
   useEffect(() => {
@@ -219,10 +242,54 @@ export function ChatRoom({
 
   const [blockedNotice, setBlockedNotice] = useState<string | null>(null);
 
+  // 봇 턴 전송 — 입력바·칩 공용. 응답 대기 중엔 연타를 막고, 결과로 칩·완료 상태 갱신.
+  // (사용자·봇 말풍선은 서버 insert → realtime 으로 그려진다)
+  function submitBotTurn(t: string) {
+    if (botTyping) return;
+    setBlockedNotice(null);
+    setText("");
+    setBotChips([]);
+    setBotTyping(true);
+    startTransition(async () => {
+      try {
+        const res = await sendBotTurn(conversationId, t);
+        if (!res.ok) {
+          setBlockedNotice(res.reason);
+          setText(t); // 입력 복원 — 문구를 고쳐 다시 보낼 수 있게
+          setBotChips(botMode && !botMode.intervened ? canonicalChipsFor(firstMissingSlot(botSlotsForChips())) : []);
+          mpTrack("Chat Message Blocked", { conversation_id: conversationId, role: "customer" });
+          return;
+        }
+        setBotChips(res.quickReplies);
+        if (res.needContact) setBotNeedContact(true);
+        if (res.done) {
+          setBotDone(true);
+          mpTrack("Submit Inquiry", {
+            conversation_id: conversationId,
+            mode: "room-bot",
+            source: "chat",
+          });
+        }
+        mpTrack("Send Message", { conversation_id: conversationId, has_image: false, role: "customer", bot: true });
+      } finally {
+        setBotTyping(false);
+      }
+    });
+  }
+
+  // 차단 복구 시 칩 재계산용 — 프롭 슬롯 그대로 (턴이 실패했으니 슬롯 변화 없음)
+  function botSlotsForChips(): BotSlots | null {
+    return botMode?.slots ?? null;
+  }
+
   function onSend(e: React.FormEvent) {
     e.preventDefault();
     const t = text.trim();
     if (!t) return;
+    if (botActive) {
+      submitBotTurn(t);
+      return;
+    }
     setBlockedNotice(null);
     startTransition(async () => {
       const res = await sendMessage(conversationId, t);
@@ -267,21 +334,6 @@ export function ChatRoom({
       {/* 작가용 문의 체크리스트 — 봇이 수집한 항목의 확인/미확인 현황 (실시간 갱신) */}
       {amPhotographer && botSlots && <InquiryChecklist slots={botSlots} />}
 
-      {/* 고객용 — 봇 문의가 미접수 상태: 봇은 문의 페이지에서만 응답하므로 복귀 동선 제공 */}
-      {botResumeUrl && (
-        <Link
-          href={botResumeUrl}
-          className="flex shrink-0 items-center gap-2 border-b border-line bg-brand-soft px-3.5 py-2.5 text-caption sm:px-4"
-        >
-          <span className="min-w-0 flex-1 text-fg">
-            <b className="font-semibold text-brand">문의 작성이 아직 진행 중이에요.</b> 자동 응답
-            봇과 이어서 완성해 주세요.
-          </span>
-          <span className="shrink-0 rounded-full bg-brand px-3 py-1.5 font-semibold text-white">
-            이어서 작성
-          </span>
-        </Link>
-      )}
 
       {/* 메시지 영역 — 이 컨테이너만 스크롤 */}
       <div
@@ -424,7 +476,56 @@ export function ChatRoom({
           );
         });
         })()}
+
+        {/* 봇 응답 대기 — 타이핑 인디케이터 */}
+        {botTyping && (
+          <div className="flex flex-col items-start">
+            <div className="flex items-center gap-1 rounded-2xl rounded-bl-md bg-fg/[0.07] px-4 py-3">
+              {[0, 160, 320].map((d) => (
+                <span
+                  key={d}
+                  className="h-1.5 w-1.5 animate-pulse rounded-full bg-fg/40"
+                  style={{ animationDelay: `${d}ms` }}
+                />
+              ))}
+            </div>
+            <span className="mt-0.5 text-label text-faint">자동 응답</span>
+          </div>
+        )}
       </div>
+
+      {/* 봇 선택지 칩 — 자유 입력이 주인공, 칩은 보조 (탭하면 그 텍스트가 발화가 된다) */}
+      {botActive && !botTyping && botChips.length > 0 && (
+        <div
+          role="group"
+          aria-label="추천 답변 — 탭해도 되고 직접 입력해도 돼요"
+          className="flex shrink-0 gap-1.5 overflow-x-auto px-3 pb-1 pt-2 [scrollbar-width:none] sm:px-4 [&::-webkit-scrollbar]:hidden"
+        >
+          {botChips.map((q) => (
+            <button
+              key={q}
+              type="button"
+              onClick={() => submitBotTurn(q)}
+              className="shrink-0 cursor-pointer whitespace-nowrap rounded-full bg-fg/[0.06] px-3.5 py-2 text-caption font-medium text-fg ring-1 ring-line transition-colors hover:bg-fg/10"
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* 수집 완주했는데 프로필 연락처가 없어 접수 보류 — 등록 동선 제공 */}
+      {botNeedContact && (
+        <div className="mx-3 mb-1.5 rounded-xl bg-warning-soft px-3.5 py-2.5 text-caption text-warning sm:mx-4">
+          알림을 받을 연락처가 필요해요.{" "}
+          <Link
+            href={`/signup/contact?next=/chat/${conversationId}`}
+            className="font-semibold underline underline-offset-2"
+          >
+            전화번호 등록하고 문의 보내기
+          </Link>
+        </div>
+      )}
 
       {/* 오프플랫폼 유도 차단 안내 — 입력은 유지된 채 문구만 고치게 */}
       {blockedNotice && (

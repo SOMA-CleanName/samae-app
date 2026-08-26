@@ -37,15 +37,16 @@ export default async function ChatRoomPage({
     (m) => (m.type === "text" || m.type === "image") && m.sender_id !== conv.user_id
   );
 
-  // 봇 문의 작성 중(미접수) 방 — 고객에겐 봇 채팅으로 복귀하는 배너를 띄운다.
-  // (봇은 /inquiry/bot 에서만 응답하므로, 이 방에서 계속 치면 답이 없는 화면이 된다)
+  // 채팅방 상주 봇 — 봇으로 시작한 방이 아직 접수 전이면, 고객의 발화를 이 방 안에서
+  // 봇이 받는다 (작가 개입 시 봇은 조용한 추출로 전환 — 서버 액션이 판단).
   const startedWithBot = conv.bot_photo_id != null || conv.bot_slots != null;
   const inquirySubmitted = messages.some((m) => m.type === "summary_card");
-  const botResumeUrl =
+  const photographerIntervened = messages.some(
+    (m) => (m.type === "text" || m.type === "image") && m.sender_id !== conv.user_id
+  );
+  const botMode =
     amCustomer && startedWithBot && !inquirySubmitted
-      ? `/inquiry/bot?photographerId=${conv.photographer_id}${
-          conv.bot_photo_id ? `&photoId=${conv.bot_photo_id}` : ""
-        }`
+      ? { slots: conv.bot_slots ?? null, intervened: photographerIntervened }
       : null;
 
   // 작가 수취 계좌는 여기서 미리 내려보내지 않는다 — 수락(accepted) 이후 송금 카드에서
@@ -134,7 +135,7 @@ export default async function ChatRoomPage({
           sourcePhotoPath={conv.source_photo_path}
           // 작가에게만 — 봇 수집 현황 체크리스트 (고객 화면에는 봇 대화가 곧 그 정보)
           initialBotSlots={!amCustomer ? conv.bot_slots ?? null : null}
-          botResumeUrl={botResumeUrl}
+          botMode={botMode}
         />
       </div>
     </main>

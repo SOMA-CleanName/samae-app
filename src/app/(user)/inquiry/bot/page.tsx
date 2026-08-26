@@ -2,6 +2,10 @@ import { notFound, redirect } from "next/navigation";
 import { fetchPhotoById, fetchPhotographerById } from "@/lib/discovery";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { buildFlow } from "@/lib/inquiry-bot";
+import { seedBotRoomMessages } from "@/lib/inquiry-bot-room";
+import { ensureBotConversation } from "../actions";
 import { InquiryBotChat } from "./InquiryBotChat";
 
 export const dynamic = "force-dynamic";
@@ -69,6 +73,33 @@ export default async function InquiryBotPage({
 
   const photo = photoId ? await fetchPhotoById(photoId) : null;
   const photoSrc = photo ? photo.thumb_url ?? photo.src_url : null;
+
+  // ── 채팅방 상주 봇 — 로그인·연락처가 준비된 고객은 별도 봇 페이지 없이,
+  // 방을 만들고 봇 인사를 시드한 뒤 곧장 그 채팅방으로 보낸다 (봇=작가 같은 방).
+  // 이 페이지는 비로그인 게이트 프리뷰(카카오 CTA)용으로만 남는다.
+  if (me && userPhone) {
+    const convId = await ensureBotConversation(photographerId, photoId || null);
+    if (convId) {
+      const admin = createAdminClient();
+      const { data: phRow } = await admin
+        .from("photographers")
+        .select("profile_id")
+        .eq("id", photographerId)
+        .single();
+      if (phRow?.profile_id) {
+        const firstQuestion = buildFlow()[0].question.map((s) => s.text).join("");
+        await seedBotRoomMessages({
+          conversationId: convId,
+          customerId: me.id,
+          photographerProfileId: phRow.profile_id as string,
+          photographerName: photographer.display_name,
+          photo: { thumbUrl: photoSrc },
+          firstQuestion,
+        });
+      }
+      redirect(`/chat/${convId}`);
+    }
+  }
 
   return (
     // E2: 루트 레이아웃의 main 과 중첩(landmark 중복)되지 않게 div 사용
