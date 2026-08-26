@@ -63,8 +63,17 @@ export async function promoteBotInquiryToChat(params: {
       .maybeSingle();
     if (dup) return conversationId;
 
+    // 대화가 실시간 동기화(appendBotTurns)로 이미 방에 있으면 배치 저장 생략 (중복 방지).
+    // 폴백 버튼 플로우 등 동기화가 없던 대화만 여기서 일괄 승격한다.
+    const { count: existingBot } = await admin
+      .from("messages")
+      .select("id", { count: "exact", head: true })
+      .eq("conversation_id", conversationId)
+      .eq("type", "bot");
+
     // 대화 이력 — created_at 을 과거에서 현재로 1초 간격 배치해 순서를 고정
-    const turns = params.transcript.filter((t) => t.text.trim().length > 0);
+    const turns =
+      (existingBot ?? 0) > 0 ? [] : params.transcript.filter((t) => t.text.trim().length > 0);
     const base = Date.now() - (turns.length + 1) * 1000;
     if (turns.length > 0) {
       const rows = turns.map((t, i) => ({

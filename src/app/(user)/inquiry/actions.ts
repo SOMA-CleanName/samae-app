@@ -165,11 +165,11 @@ function readBriefInfo(formData: FormData): BriefInfo {
 export async function ensureBotConversation(
   photographerId: string,
   photoId: string | null
-): Promise<void> {
+): Promise<string | null> {
   try {
     const me = await getCurrentUser();
-    if (!me || !photographerId) return;
-    if (me.photographer?.id === photographerId) return; // 본인 방 방지
+    if (!me || !photographerId) return null;
+    if (me.photographer?.id === photographerId) return null; // 본인 방 방지
     const admin = createAdminClient();
     const { data: existing } = await admin
       .from("conversations")
@@ -181,13 +181,58 @@ export async function ensureBotConversation(
       // 다른 사진으로 새 문의를 시작했으면 복귀 사진만 갱신
       if (photoId && existing.bot_photo_id !== photoId)
         await admin.from("conversations").update({ bot_photo_id: photoId }).eq("id", existing.id);
-      return;
+      return existing.id as string;
     }
-    await admin
+    const { data: created } = await admin
       .from("conversations")
-      .insert({ user_id: me.id, photographer_id: photographerId, bot_photo_id: photoId });
+      .insert({ user_id: me.id, photographer_id: photographerId, bot_photo_id: photoId })
+      .select("id")
+      .single();
+    return (created?.id as string) ?? null;
   } catch (err) {
     console.error("[bot-chat] 방 선생성 실패:", err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+// 챗봇 대화 실시간 동기화 — 매 턴 새 발화를 messages(type='bot')로 저장.
+// 작가가 진행 중에도 방에서 대화를 보고 개입할 수 있게 하는 핵심 배선. 실패해도 대화 계속.
+export async function appendBotTurns(
+  conversationId: string,
+  turns: { role: "user" | "bot" | "photographer"; text: string }[]
+): Promise<boolean> {
+  try {
+    const me = await getCurrentUser();
+    if (!me || !conversationId || turns.length === 0) return false;
+    if (turns.length > 40) return false; // 폭주 가드
+    const admin = createAdminClient();
+    const { data: conv } = await admin
+      .from("conversations")
+      .select("id, user_id, photographer_id")
+      .eq("id", conversationId)
+      .maybeSingle();
+    if (!conv || conv.user_id !== me.id) return false; // 내 방만
+    const { data: photographer } = await admin
+      .from("photographers")
+      .select("profile_id")
+      .eq("id", conv.photographer_id)
+      .single();
+    // photographer 역할 발화는 실제 작가 메시지(type='text')로 이미 존재 — 중복 저장 금지
+    const rows = turns
+      .filter((t) => t.role !== "photographer" && t.text.trim().length > 0)
+      .map((t, i) => ({
+        conversation_id: conversationId,
+        sender_id: t.role === "user" ? me.id : (photographer!.profile_id as string),
+        type: "bot" as const,
+        body: t.text.slice(0, 4000),
+        created_at: new Date(Date.now() - (turns.length - i) * 20).toISOString(), // 순서 고정
+      }));
+    if (rows.length === 0) return true;
+    const { error } = await admin.from("messages").insert(rows);
+    return !error;
+  } catch (err) {
+    console.error("[bot-chat] 턴 동기화 실패:", err instanceof Error ? err.message : err);
+    return false;
   }
 }
 

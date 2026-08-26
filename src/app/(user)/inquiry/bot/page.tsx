@@ -87,6 +87,7 @@ export default async function InquiryBotPage({
         photoPriceKrw={photo?.price_krw ?? null}
         userPhone={userPhone}
         loginGateUrl={loginGateUrl}
+        meId={me?.id ?? null}
       />
     </div>
   );

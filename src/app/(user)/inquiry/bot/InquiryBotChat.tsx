@@ -36,7 +36,8 @@ import {
   type LlmSlots,
 } from "@/lib/inquiry-bot-llm";
 import { buildLegacyInquiryFormData } from "@/lib/inquiry-bot-persist";
-import { submitInquiry, ensureBotConversation, type InquiryState } from "../actions";
+import { submitInquiry, ensureBotConversation, appendBotTurns, type InquiryState } from "../actions";
+import { createClient } from "@/lib/supabase/client";
 
 // 채팅룸형 문의 챗봇 — LLM 대화가 기본, 버튼 상태 머신은 폴백.
 // - 기본(LLM): 사용자가 자유 타이핑 → /api/inquiry-bot 왕복 → 봇 답변 + quickReplies 칩.
@@ -197,6 +198,7 @@ export function InquiryBotChat({
   photoPriceKrw,
   userPhone,
   loginGateUrl,
+  meId,
 }: {
   photographerId: string;
   photographerName: string;
@@ -214,6 +216,8 @@ export function InquiryBotChat({
    *   sendUtterance 진입부에서 llmMessages 의 user 발화 수를 세어 게이트를 지연 발동하면 된다.
    */
   loginGateUrl?: string | null;
+  /** 로그인 사용자 id — 실시간 개입 감지에서 내 발화/작가 발화를 구분 */
+  meId?: string | null;
 }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState(submitInquiry, INITIAL_STATE);
@@ -226,6 +230,10 @@ export function InquiryBotChat({
   const [freeText, setFreeText] = useState("");
 
   const idRef = useRef(0);
+  // 실시간 동기화 — 방 id(구독 트리거용 state)·이미 DB에 보낸 턴 수·전송 중 가드
+  const [convId, setConvId] = useState<string | null>(null);
+  const persistedCountRef = useRef(0);
+  const syncingRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const started = useRef(false);
   const viewedRef = useRef<Set<string>>(new Set());
@@ -321,7 +329,9 @@ export function InquiryBotChat({
       photographer_id: photographerId,
     });
     // 첫 발화 = 대화방 생성 — 진행 중 문의도 문의 탭에 뜨게 (실패해도 대화 계속)
-    void ensureBotConversation(photographerId, photoId || null);
+    void ensureBotConversation(photographerId, photoId || null).then((id) => {
+      if (id) setConvId(id);
+    });
   }
 
   // 질문 노출 이벤트 — 봇이 질문 버블을 게시한 시점 = Viewed (복원으로 이미 답한 질문은 제외)
@@ -699,6 +709,21 @@ export function InquiryBotChat({
     setQuickReplies([]);
     setAsking("none");
     push({ kind: "handoff" });
+    // 이어지는 대화는 실제 채팅방에서 — 봇 방은 수집 전용이라 동선을 넘겨준다
+    const cid = convIdRef.current;
+    if (cid) {
+      push({
+        kind: "bot",
+        node: (
+          <>
+            지금부터는 <Em>{photographerName}</Em>님이 직접 답해드려요.{" "}
+            <Link href={`/chat/${cid}`} className="font-semibold text-brand underline underline-offset-2">
+              채팅방에서 이어서 대화하기
+            </Link>
+          </>
+        ),
+      });
+    }
   }
 
   // dev 전용 — 작가 개입 시뮬레이션: photographer 발화를 이력에 추가하고 봇이 멈추는 걸 확인
@@ -754,6 +779,15 @@ export function InquiryBotChat({
         setSlots(initialSlots);
       }
       if (savedTx.length > 1) {
+        try {
+          persistedCountRef.current = parseInt(localStorage.getItem(`${txKey}:n`) ?? "0", 10) || 0;
+        } catch {
+          /* 무시 */
+        }
+        // 진행 중 대화 재진입 — 방을 확보해 실시간 구독·동기화를 되살린다 (idempotent)
+        void ensureBotConversation(photographerId, photoId || null).then((id) => {
+          if (id) setConvId(id);
+        });
         setLlmMessages(savedTx);
         setItems(
           savedTx.map((m) => ({
@@ -823,6 +857,77 @@ export function InquiryBotChat({
     uploadFailNoticedRef.current = false;
     window.setTimeout(() => startLocalGreeting({}), 0);
   }
+
+  // ── 실시간 동기화·작가 개입 ──────────────────────────────────
+  const convIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    convIdRef.current = convId;
+  }, [convId]);
+
+  // 미전송 턴을 DB(messages type='bot')로 — 작가가 진행 중에도 대화를 보게 하는 배선.
+  // 전송 중 새 턴이 쌓이면 완료 후 재귀 호출로 따라잡는다.
+  function pumpSync() {
+    const cid = convIdRef.current;
+    if (!cid || syncingRef.current) return;
+    const msgs = llmMessagesRef.current;
+    if (msgs.length <= persistedCountRef.current) return;
+    const target = msgs.length;
+    const pending = msgs.slice(persistedCountRef.current);
+    syncingRef.current = true;
+    void appendBotTurns(cid, pending).then((ok) => {
+      syncingRef.current = false;
+      if (ok) {
+        persistedCountRef.current = target;
+        try {
+          localStorage.setItem(`${txKey}:n`, String(target));
+        } catch {
+          /* 무시 */
+        }
+      }
+      pumpSync();
+    });
+  }
+  useEffect(() => {
+    if (!done) pumpSync();
+    // pumpSync 는 ref 만 읽는 안정 함수 — 트리거 소스만 deps 로 둔다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [llmMessages, convId, done]);
+
+  // 작가 개입 실시간 감지 — 방에 작가의 실제 발화(text/image)가 꽂히면 봇 즉시 정지
+  useEffect(() => {
+    if (!convId || !meId) return;
+    const supabase = createClient();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (cancelled) return;
+      if (data.session) supabase.realtime.setAuth(data.session.access_token);
+      channel = supabase
+        .channel(`bot-room:${convId}`)
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${convId}` },
+          (payload) => {
+            const m = payload.new as { type: string; sender_id: string; body: string };
+            // 봇 동기화 에코·요약 카드·내 발화는 무시 — 작가의 실제 발화만
+            if (m.type !== "text" && m.type !== "image") return;
+            if (m.sender_id === meId) return;
+            const text = m.type === "image" ? "(사진을 보냈어요)" : m.body;
+            push({ kind: "photographer", text });
+            setLlmMessages((prev) => [...prev, { role: "photographer", text }]);
+            onHandedOff();
+          }
+        )
+        .subscribe();
+    })();
+    return () => {
+      cancelled = true;
+      if (channel) supabase.removeChannel(channel);
+    };
+    // push·onHandedOff 는 안정 참조(setter 기반) — 구독 키만 deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [convId, meId]);
 
   // 대화 이력 저장 — 나갔다 돌아와도 채팅방(타임라인)이 유지되게 (제출 완료 시 제거)
   useEffect(() => {
