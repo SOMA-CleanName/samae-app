@@ -16,9 +16,9 @@ function smsAllowed(): boolean {
   return process.env.NODE_ENV === "production" || process.env.NOTIFY_SMS_DEV === "on";
 }
 
-function chatLink(): string {
+function chatLink(conversationId: string): string {
   const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://samae.co.kr";
-  return `${base.replace(/\/$/, "")}/chat`;
+  return `${base.replace(/\/$/, "")}/chat/${conversationId}`;
 }
 
 /** 작가 답장 → 사용자 SMS 재소환. 메시지 insert 성공 직후 호출 (실패해도 채팅 흐름은 계속). */
@@ -66,7 +66,7 @@ export async function notifyUserOfPhotographerReply(
       .eq("id", conv.user_id)
       .maybeSingle();
 
-    const body = `[사매] ${photographer.display_name ?? "작가"}님 답장이 도착했어요. 확인: ${chatLink()}`;
+    const body = `[사매] ${photographer.display_name ?? "작가"}님 답장이 도착했어요. 확인: ${chatLink(conversationId)}`;
 
     // 큐 기록 먼저 (감사 로그) → 발송 → 상태 갱신
     const { data: queued } = await admin

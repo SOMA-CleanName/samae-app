@@ -7,6 +7,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { notifyOpsNewInquiry } from "@/lib/ops-alert";
 import { readMetaAdCookies, type MetaAdCookies } from "@/lib/meta-capi";
 import { rememberInquiryIds } from "@/lib/my-inquiries";
+import { promoteBotInquiryToChat } from "@/lib/inquiry-bot-chat";
+import type { BotChatMessage } from "@/lib/inquiry-bot-llm";
 
 export type InquiryState = {
   ok: boolean;
@@ -216,6 +218,32 @@ export async function submitInquiry(
     // 운영진 디스코드 알림 — 리드 플로우 시작. 운영진 전용 채널이라 어드민 정보(연락처·유입·
     // 브리프) + 어드민 딥링크 포함. 실패해도 접수는 성공.
     await notifyOpsNewInquiry({ inquiryId });
+
+    // C3 — 챗봇 대화·요약을 채팅방으로 승격 (로그인 사용자만: 방은 user↔photographer 1:1).
+    // 실패해도 접수는 이미 성공 — 부가 경로라 결과만 로그.
+    if (me) {
+      let transcript: BotChatMessage[] = [];
+      try {
+        const raw = String(formData.get("botTranscript") || "");
+        if (raw) transcript = JSON.parse(raw) as BotChatMessage[];
+      } catch {
+        transcript = [];
+      }
+      await promoteBotInquiryToChat({
+        userId: me.id,
+        photographerId,
+        transcript,
+        summary: {
+          inquiryId,
+          photoId: photoId || null,
+          purpose: brief.purpose ?? "문의",
+          preferredDate: brief.preferredDate ?? "미정",
+          region: brief.region ?? "미정",
+          partySize: brief.partySize,
+          note: brief.note,
+        },
+      });
+    }
   }
 
   return {

@@ -277,6 +277,27 @@ export function ChatRoom({
               </div>
             );
           }
+          // 문의 요약 카드 — 챗봇이 수집한 내용의 상주 요약 (body=JSON)
+          if (m.type === "summary_card") {
+            return <SummaryCardBubble key={m.id} body={m.body} time={timeLabel(m.created_at)} />;
+          }
+          // 챗봇 수집 대화 — 일반 버블 + 봇 발화(상대측)에만 '자동 응답' 라벨
+          if (m.type === "bot") {
+            return (
+              <div key={m.id} className={`flex flex-col ${mine ? "items-end" : "items-start"}`}>
+                <div
+                  className={`max-w-[75%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-body ${
+                    mine ? "rounded-br-md bg-fg text-bg" : "rounded-bl-md bg-fg/[0.07] text-fg"
+                  }`}
+                >
+                  {m.body}
+                </div>
+                {!mine && (
+                  <span className="mt-0.5 text-label text-faint">자동 응답 · {timeLabel(m.created_at)}</span>
+                )}
+              </div>
+            );
+          }
           const isImage = m.type === "image" && m.image_path;
           return (
             <div
@@ -898,6 +919,46 @@ function PolicyNote() {
       <br />
       · 사매는 결제를 중개·보증하지 않는 직접거래 방식이라 분쟁 시 중재에 한계가 있어요. 송금
       전 일정·금액을 꼭 확인하세요.
+    </div>
+  );
+}
+
+// 챗봇이 수집한 문의 요약 카드 — 채팅방 타임라인에 상주 (body=JSON, 파싱 실패 시 무해하게 생략)
+function SummaryCardBubble({ body, time }: { body: string; time: string }) {
+  let s: { purpose?: string; preferredDate?: string; region?: string; partySize?: string | null; note?: string | null } | null = null;
+  try {
+    s = JSON.parse(body);
+  } catch {
+    s = null;
+  }
+  if (!s) return null;
+  const rows: [string, string][] = [
+    ["촬영 종류", s.purpose ?? "-"],
+    ["희망일", s.preferredDate ?? "-"],
+    ["지역", s.region ?? "-"],
+  ];
+  if (s.partySize) rows.push(["인원", s.partySize]);
+  return (
+    <div className="flex flex-col items-end">
+      <div className="w-full max-w-[85%] overflow-hidden rounded-2xl rounded-br-md border border-line bg-surface">
+        <p className="border-b border-line bg-brand-soft px-3.5 py-2 text-body-sm font-semibold text-brand">
+          문의 내용 정리
+        </p>
+        <div className="space-y-1.5 px-3.5 py-3">
+          {rows.map(([k, v]) => (
+            <div key={k} className="flex items-baseline gap-3 text-body-sm">
+              <span className="w-16 shrink-0 text-muted">{k}</span>
+              <span className="min-w-0 break-words font-medium text-fg">{v}</span>
+            </div>
+          ))}
+          {s.note && (
+            <p className="mt-1 whitespace-pre-wrap break-words border-t border-line pt-2 text-body-sm text-fg">
+              {s.note}
+            </p>
+          )}
+        </div>
+      </div>
+      <span className="mt-0.5 text-label text-faint">{time}</span>
     </div>
   );
 }

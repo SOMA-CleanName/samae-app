@@ -88,5 +88,10 @@ export function buildLegacyInquiryFormData(
   const lp = record.attribution?.landing_path;
   if (lp) fd.set("landing_path", lp.slice(0, 300));
 
+  // C3 — 대화 이력을 서버로 전달 (submitInquiry 가 conversations/messages 로 승격)
+  if (record.transcript.length > 0) {
+    fd.set("botTranscript", JSON.stringify(record.transcript).slice(0, 100_000));
+  }
+
   return fd;
 }

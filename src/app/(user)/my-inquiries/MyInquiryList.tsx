@@ -2,11 +2,18 @@
 import Link from "next/link";
 import { inquiryStatusLabel, type MyInquiry } from "@/lib/my-inquiries-view";
 
-export function MyInquiryList({ inquiries }: { inquiries: MyInquiry[] }) {
+export function MyInquiryList({
+  inquiries,
+  roomByPhotographer = {},
+}: {
+  inquiries: MyInquiry[];
+  /** 작가별 대화방 id — 있으면 '채팅방 열기'가 실제 채팅방(/chat/[id])으로 연결 */
+  roomByPhotographer?: Record<string, string>;
+}) {
   return (
     <ul className="mt-4 space-y-3.5">
       {inquiries.map((iq) => (
-        <MyInquiryItem key={iq.id} iq={iq} />
+        <MyInquiryItem key={iq.id} iq={iq} roomId={roomByPhotographer[iq.photographerId] ?? null} />
       ))}
     </ul>
   );
@@ -18,13 +25,16 @@ const TONE: Record<string, string> = {
   done: "bg-fg/[0.06] text-fg/60",
 };
 
-function MyInquiryItem({ iq }: { iq: MyInquiry }) {
+function MyInquiryItem({ iq, roomId }: { iq: MyInquiry; roomId: string | null }) {
   const st = inquiryStatusLabel(iq.status);
   const title = iq.purpose && iq.purpose !== "아직 고민 중이에요" ? `${iq.purpose} 문의` : "문의";
-  // 챗봇 채팅방 재진입 — 봇이 진행 상태·완료 화면을 복원한다 (진입 쿼리는 문의 시작과 동일)
-  const chatHref = `/inquiry/bot?photographerId=${encodeURIComponent(iq.photographerId)}${
-    iq.photoId ? `&photoId=${encodeURIComponent(iq.photoId)}` : ""
-  }`;
+  // 실제 대화방이 있으면 그 방으로(작가 답장·요약 카드 포함), 없으면 챗봇 방 재진입
+  const chatHref =
+    roomId != null
+      ? `/chat/${roomId}`
+      : `/inquiry/bot?photographerId=${encodeURIComponent(iq.photographerId)}${
+          iq.photoId ? `&photoId=${encodeURIComponent(iq.photoId)}` : ""
+        }`;
   return (
     <li className="overflow-hidden rounded-2xl bg-surface shadow-sm ring-1 ring-line">
       {/* 상단 히어로 — 문의한 사진 + 날짜/상태 오버레이 */}
