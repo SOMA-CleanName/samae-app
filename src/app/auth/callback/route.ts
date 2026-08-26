@@ -26,7 +26,12 @@ export async function GET(request: Request) {
     if (!error) {
       // 비로그인 중 쿠키에 쌓인 관심사진 → 계정 favorites 로 병합(중복 무시) 후 쿠키 비움
       await mergeAnonFavorites(supabase);
-      const res = NextResponse.redirect(`${origin}${next}`);
+      // 연락처 없는 계정(첫 소셜 가입 포함) → 가입 마무리(전화번호 등록)를 거쳐 복귀.
+      // SMS(작가 답장 알림)가 profiles.phone 에 의존하므로 이 단계는 건너뛸 수 없다.
+      const dest = (await needsContact(supabase))
+        ? `/signup/contact?next=${encodeURIComponent(next)}`
+        : next;
+      const res = NextResponse.redirect(`${origin}${dest}`);
       res.cookies.delete(OAUTH_NEXT_COOKIE);
       res.cookies.delete(ANON_FAV_COOKIE);
       return res;
@@ -36,6 +41,26 @@ export async function GET(request: Request) {
   const res = NextResponse.redirect(`${origin}/login?error=auth`);
   res.cookies.delete(OAUTH_NEXT_COOKIE);
   return res;
+}
+
+// profiles.phone 이 없으면 true — 조회 실패 시 false(로그인 흐름을 막지 않는다).
+async function needsContact(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<boolean> {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return false;
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("phone")
+      .eq("id", user.id)
+      .maybeSingle();
+    return !profile?.phone;
+  } catch {
+    return false;
+  }
 }
 
 // 비로그인 관심사진(쿠키) → 로그인 계정 favorites 병합. 실패해도 로그인 흐름은 계속.
