@@ -8,7 +8,8 @@ import { notifyOpsNewInquiry } from "@/lib/ops-alert";
 import { readMetaAdCookies, type MetaAdCookies } from "@/lib/meta-capi";
 import { rememberInquiryIds } from "@/lib/my-inquiries";
 import { promoteBotInquiryToChat } from "@/lib/inquiry-bot-chat";
-import type { BotChatMessage } from "@/lib/inquiry-bot-llm";
+import { slotsToAnswers, type BotChatMessage } from "@/lib/inquiry-bot-llm";
+import { buildFlow, toInquiryFields } from "@/lib/inquiry-bot";
 
 export type InquiryState = {
   ok: boolean;
@@ -363,6 +364,83 @@ export async function submitInquiry(
     message: "문의가 작가에게 전달되었어요. 작가가 확인 후 연락드릴 예정입니다.",
     inquiryId,
   };
+}
+
+// 채팅방 상주 봇 접수 — 고객 컨텍스트 없이도(작가 개입 트리거 포함) 서버가 대신 접수한다.
+// submitInquiry 와 같은 저장·알림·승격 경로의 축약판. 중복은 findRecentDuplicate +
+// promote 의 summary dedupe 로 방지 (호출부도 summary_card 존재를 선검사한다).
+export async function finalizeBotInquiryFor(params: {
+  customerId: string;
+  photographerId: string;
+  photoId: string | null;
+  slots: import("@/lib/inquiry-bot-llm").LlmSlots;
+  /** 작가 본인 개입으로 트리거된 접수면 작가 알림 생략 (본인이 이미 보고 있다) */
+  notifyPhotographerFlag: boolean;
+}): Promise<{ ok: boolean; inquiryId?: string }> {
+  const admin = createAdminClient();
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("phone, display_name")
+    .eq("id", params.customerId)
+    .maybeSingle();
+  const rawPhone = profile?.phone ?? null;
+  if (!rawPhone) return { ok: false }; // 알림 연락처 없이는 접수 보류
+
+  const d = rawPhone.replace(/\D/g, "");
+  const contact: ContactInfo = {
+    phone: d.length >= 10 ? `${d.slice(0, 3)}-${d.slice(3, d.length - 4)}-${d.slice(-4)}` : rawPhone,
+    kakaoId: null,
+    contactEmail: null,
+  };
+  const fields = toInquiryFields(buildFlow(), slotsToAnswers(params.slots));
+  const customLines = Object.entries(params.slots.custom ?? {}).map(([k, v]) => `${k}: ${v}`);
+  const brief: BriefInfo = {
+    partySize: fields.partySize || null,
+    purpose: fields.purpose || "문의",
+    preferredDate: fields.preferredDate || "미정",
+    region: fields.region || "미정",
+    note: customLines.length > 0 ? `[챗봇 수집]\n${customLines.join("\n")}` : null,
+    gender: null,
+    name: null,
+    refImagePaths: [],
+  };
+  const result = await createInquiry(
+    params.customerId,
+    params.photographerId,
+    params.photoId ?? "",
+    contact,
+    brief,
+    { fbp: null, fbc: null },
+    { utmSource: null, utmMedium: null, utmCampaign: null, utmContent: null, utmTerm: null, landingPath: null }
+  );
+  if (!result) return { ok: false };
+  if (result.isNew) {
+    if (params.notifyPhotographerFlag) {
+      await notifyPhotographer(
+        params.photographerId,
+        result.id,
+        profile?.display_name ?? null,
+        contact,
+        brief
+      );
+    }
+    await notifyOpsNewInquiry({ inquiryId: result.id });
+    await promoteBotInquiryToChat({
+      userId: params.customerId,
+      photographerId: params.photographerId,
+      transcript: [], // 대화는 이미 방(DB)에 있다
+      summary: {
+        inquiryId: result.id,
+        photoId: params.photoId,
+        purpose: brief.purpose ?? "문의",
+        preferredDate: brief.preferredDate ?? "미정",
+        region: brief.region ?? "미정",
+        partySize: brief.partySize,
+        note: brief.note,
+      },
+    });
+  }
+  return { ok: true, inquiryId: result.id };
 }
 
 // 같은 작가에게 최근 2분 내 동일인(로그인=profile_id, 비로그인=연락처) 문의가 있으면 그 id 재사용

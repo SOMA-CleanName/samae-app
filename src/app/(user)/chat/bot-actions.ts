@@ -10,7 +10,6 @@
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { detectOffPlatform, MODERATION_NOTICE } from "@/lib/moderation";
-import { buildFlow } from "@/lib/inquiry-bot";
 import {
   coreSlotsFilled,
   type AskingKey,
@@ -23,8 +22,7 @@ import {
 } from "@/lib/inquiry-bot-room";
 import { fetchPhotographerScript } from "@/lib/photographer-scripts-db";
 import { notifyPhotographer } from "@/lib/inquiry-bot-notify";
-import { buildLegacyInquiryFormData } from "@/lib/inquiry-bot-persist";
-import { submitInquiry } from "@/app/(user)/inquiry/actions";
+import { finalizeBotInquiryFor } from "@/app/(user)/inquiry/actions";
 
 export type BotTurnResult =
   | { ok: false; blocked: true; reason: string }
@@ -39,8 +37,6 @@ export type BotTurnResult =
       /** 완주했지만 프로필에 번호가 없어 접수 보류 — 연락처 등록 필요 */
       needContact?: boolean;
     };
-
-const STEPS = buildFlow();
 
 // 대화·발화 상한 (봇 페이지와 동일 수준의 폭주 가드)
 const MAX_TURN_CHARS = 2000;
@@ -168,30 +164,29 @@ export async function sendBotTurn(conversationId: string, body: string): Promise
     });
   }
 
-  // 수집 완주 → 자동 접수 (채팅방 진입 자체가 문의 의사 — 별도 보내기 버튼 없음)
-  if (turn.done && coreSlotsFilled(turn.slots)) {
-    const { data: profile } = await admin
-      .from("profiles")
-      .select("phone")
-      .eq("id", me.id)
-      .maybeSingle();
-    const phone = profile?.phone ?? null;
-    if (!phone) {
-      return { ok: true, replied: !intervened, asking: turn.asking, quickReplies: [], done: false, needContact: true };
-    }
-    const fd = buildLegacyInquiryFormData(STEPS, {
+  // 수집 완주 → 자동 접수 (채팅방 진입 자체가 문의 의사 — 별도 보내기 버튼 없음).
+  //   · 봇 주도(개입 전): LLM 이 done 을 선언했을 때
+  //   · 작가 개입 후: 커스텀 질문을 기다리지 않고 코어 4슬롯이 차는 즉시 접수
+  //     (봇이 멈춰 있어 done 신호가 영영 안 올 수 있다 — 4/4면 정리는 충분하다)
+  const shouldFinalize = coreSlotsFilled(turn.slots) && (turn.done || intervened);
+  if (shouldFinalize) {
+    const result = await finalizeBotInquiryFor({
+      customerId: me.id,
       photographerId: conv.photographer_id,
-      photoId: conv.bot_photo_id ?? "",
+      photoId: conv.bot_photo_id ?? null,
       slots: turn.slots,
-      transcript: [], // 대화는 이미 이 방(DB)에 있다 — 승격 배치 불필요
-      contact: { type: "phone", value: phone },
-      referenceImageUrls: [],
-      referenceImageCount: 0,
+      notifyPhotographerFlag: !intervened, // 개입한 작가는 이미 보고 있다 — 알림 생략
     });
-    const result = await submitInquiry({ ok: false }, fd);
     if (!result.ok) {
-      console.error("[bot-room] 접수 실패:", result.error);
-      return { ok: true, replied: !intervened, asking: turn.asking, quickReplies: turn.quickReplies, done: false };
+      // 연락처 미등록 등 — 접수 보류
+      return {
+        ok: true,
+        replied: !intervened,
+        asking: turn.asking,
+        quickReplies: [],
+        done: false,
+        needContact: true,
+      };
     }
     return { ok: true, replied: !intervened, asking: "none", quickReplies: [], done: true };
   }

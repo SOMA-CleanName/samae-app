@@ -10,6 +10,8 @@ import { getPlatformAccount, hasAccount } from "@/lib/platform-account";
 import { archiveAndDelete } from "@/lib/soft-delete";
 import { notifyUserOfPhotographerReply } from "@/lib/notify-user";
 import { detectOffPlatform, MODERATION_NOTICE } from "@/lib/moderation";
+import { coreSlotsFilled, type LlmSlots } from "@/lib/inquiry-bot-llm";
+import { finalizeBotInquiryFor } from "@/app/(user)/inquiry/actions";
 
 // 송금 단계(수락 이후)에서만 작가 수취 계좌를 공개 — 채팅 진입만으로 계좌가 응답에 실리지 않게 한다(리드/보안).
 //   · 고객 본인 + 해당 예약이 accepted 이상일 때만 반환, 그 외엔 null.
@@ -34,6 +36,38 @@ export async function getBookingPayoutAccount(bookingId: string): Promise<Payout
 }
 
 export type SendMessageResult = { ok: true } | { ok: false; blocked: true; reason: string };
+
+// 작가가 개입한 순간 — 봇 수집이 코어 4슬롯까지 끝나 있으면 그 자리에서 자동 접수한다.
+// (봇이 커스텀 질문을 이어가던 중이어도, 작가가 이어받았으면 정리는 충분하다.
+//  이게 없으면 "체크리스트 4/4인데 요약 카드가 영영 안 뜨는" 상태가 된다)
+async function finalizeIfBotCollectionComplete(conversationId: string, senderId: string) {
+  try {
+    const admin = createAdminClient();
+    const { data: conv } = await admin
+      .from("conversations")
+      .select("user_id, photographer_id, bot_photo_id, bot_slots")
+      .eq("id", conversationId)
+      .maybeSingle();
+    if (!conv || conv.user_id === senderId) return; // 작가 발신일 때만
+    const slots = (conv.bot_slots ?? null) as LlmSlots | null;
+    if (!slots || !coreSlotsFilled(slots)) return;
+    const { count } = await admin
+      .from("messages")
+      .select("id", { count: "exact", head: true })
+      .eq("conversation_id", conversationId)
+      .eq("type", "summary_card");
+    if ((count ?? 0) > 0) return; // 이미 접수됨
+    await finalizeBotInquiryFor({
+      customerId: conv.user_id,
+      photographerId: conv.photographer_id,
+      photoId: conv.bot_photo_id ?? null,
+      slots,
+      notifyPhotographerFlag: false, // 본인이 트리거 — 알림 불필요
+    });
+  } catch (err) {
+    console.error("[bot-room] 개입 시 접수 실패:", err instanceof Error ? err.message : err);
+  }
+}
 
 // 텍스트 메시지 전송 (RLS: 발신자=본인 + 대화 참여자)
 // 오프플랫폼(개인 SNS·연락처) 유도 텍스트는 전송을 차단하고 시도를 어드민용으로 기록한다.
@@ -79,6 +113,8 @@ export async function sendMessage(conversationId: string, body: string): Promise
 
   // 작가 발신이면 사용자에게 SMS 재소환 (내부에서 발신자 검증·쿨다운, 실패해도 무시)
   await notifyUserOfPhotographerReply(conversationId, user.id);
+  // 작가 개입 + 봇 수집 완료(4/4) 상태면 요약 카드 자동 접수
+  await finalizeIfBotCollectionComplete(conversationId, user.id);
   return { ok: true };
 }
 
