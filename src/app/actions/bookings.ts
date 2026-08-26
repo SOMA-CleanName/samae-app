@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { mpTrackServer } from "@/lib/mixpanel-server";
+import { notifyOpsBookingAccepted } from "@/lib/ops-alert";
 
 // 희망 날짜 정규화 — shoot_at(시각 확정)이 있으면 그 KST 날짜, 없으면 폼의 YYYY-MM-DD.
 function resolveShootDate(shootAtIso: string | null, dateRaw: string): string | null {
@@ -335,6 +336,9 @@ export async function acceptBooking(formData: FormData) {
   if (proposerId)
     await notify(admin, proposerId, "예약이 수락됐어요", "예약이 체결되었습니다.", `/bookings/${id}`);
   await postSystemMessage(admin, b.user_id, b.photographer_id, me.id, "✅ 예약이 수락되어 체결되었어요.");
+
+  // 운영 디스코드 — 체결이 거래의 실제 시작 트리거 (문의 접수 시점엔 울리지 않는다)
+  await notifyOpsBookingAccepted({ bookingId: id });
 
   await mpTrackServer(
     "Accept Booking",

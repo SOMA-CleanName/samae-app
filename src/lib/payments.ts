@@ -298,7 +298,7 @@ export async function markSettlementPaid(bookingId: string): Promise<ConfirmResu
 
   const { data: booking } = await admin
     .from("bookings")
-    .select("id, status, amount_krw, photographer_id, settled_at")
+    .select("id, status, amount_krw, user_id, photographer_id, settled_at")
     .eq("id", bookingId)
     .maybeSingle();
   if (!booking || booking.settled_at) return { ok: false, reason: "bad_state" };
@@ -337,6 +337,25 @@ export async function markSettlementPaid(bookingId: string): Promise<ConfirmResu
       "/studio/settlements",
       "settlement"
     );
+
+  // 채팅 타임라인 기록 — 이 시점부터 작가 카드에 [정산 받았어요]/[아직 못 받았어요]
+  // 수령 확인 트리거가 노출된다 (카드 자체는 bookings realtime UPDATE 로 갱신).
+  if (ph) {
+    const { data: conv } = await admin
+      .from("conversations")
+      .select("id")
+      .eq("user_id", booking.user_id)
+      .eq("photographer_id", booking.photographer_id)
+      .maybeSingle();
+    if (conv) {
+      await admin.from("messages").insert({
+        conversation_id: conv.id,
+        sender_id: ph.profile_id,
+        type: "system",
+        body: `💸 사매가 작가님께 정산금 ₩${fmtKrw(settlementAmount)}을 보냈어요 — 작가님의 수령 확인을 기다립니다`,
+      });
+    }
+  }
   return { ok: true };
 }
 

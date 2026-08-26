@@ -55,6 +55,10 @@ export type BookingSnapshot = {
   memo: string | null;
   transfer_marked_at: string | null; // 구매자가 송금 완료를 알린 시각
   proposed_by_photographer: boolean; // 작가가 제안한 건(=구매자가 수락 주체)
+  settled_at: string | null; // 사매→작가 정산 송금 시각
+  settlement_amount_krw: number | null; // 정산 송금액 (촬영비 − 수수료)
+  settlement_ack_at: string | null; // 작가 [정산 받았어요]
+  settlement_dispute_at: string | null; // 작가 [못 받았어요 — 확인 요청]
 };
 
 export type ChatMessage = {
@@ -187,7 +191,7 @@ export async function getMessages(conversationId: string): Promise<ChatMessage[]
     .from("messages")
     .select(
       "id, sender_id, type, body, image_path, created_at, booking_id, " +
-        "booking:bookings(id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, transfer_marked_at, proposed_by_photographer)"
+        "booking:bookings(id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, transfer_marked_at, proposed_by_photographer, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at)"
     )
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true });

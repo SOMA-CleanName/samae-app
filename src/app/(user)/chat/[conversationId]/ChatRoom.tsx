@@ -9,7 +9,7 @@ import { sendMessage, markRead, sendPortfolioPhoto, getBookingPayoutAccount } fr
 import { sendBotTurn } from "../bot-actions";
 import { canonicalChipsFor, type AskingKey } from "@/lib/inquiry-bot-llm";
 import { acceptBooking, rejectBooking, cancelBooking } from "@/app/actions/bookings";
-import { markTransferSent, markShot } from "@/app/actions/payments";
+import { markTransferSent, markShot, ackSettlement, disputeSettlement } from "@/app/actions/payments";
 import { mpTrack } from "@/lib/mixpanel";
 import type { ChatMessage, BookingSnapshot, ConsultationBrief, BotSlots } from "@/lib/chat";
 import type { PayoutAccount } from "@/lib/payments";
@@ -38,7 +38,7 @@ import {
 const fmt = new Intl.NumberFormat("ko-KR");
 
 const BOOKING_COLS =
-  "id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, transfer_marked_at, proposed_by_photographer";
+  "id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, transfer_marked_at, proposed_by_photographer, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at";
 
 // 메시지 작성 시각 (카카오톡식 HH:MM)
 function timeLabel(iso: string) {
@@ -962,6 +962,11 @@ function BookingCard({
         />
       )}
 
+      {/* 작가: 사매→작가 정산 송금 후 — 수령 확인/미수령 신고 트리거 */}
+      {amPhotographer && booking.settled_at && (
+        <SettlementAckSection booking={booking} stop={stop} />
+      )}
+
       {/* 작가: 결제됨 → 촬영 완료 표시 (req9) */}
       {amPhotographer && status === "paid" && (
         <div className="mt-3 border-t border-line pt-3" onClick={stop}>
@@ -1167,6 +1172,69 @@ function TransferSection({
             정산해드려요.
           </p>
         </>
+      )}
+    </div>
+  );
+}
+
+// 정산 수령 확인 (작가) — 사매가 정산금을 보낸 뒤: [정산 받았어요] / [아직 못 받았어요].
+// 낙관적 반영 + realtime bookings UPDATE 가 최종 동기화.
+function SettlementAckSection({
+  booking,
+  stop,
+}: {
+  booking: BookingSnapshot;
+  stop: (e: React.MouseEvent) => void;
+}) {
+  const router = useRouter();
+  const [acted, setActed] = useState<null | "ack" | "dispute">(null);
+  const [, start] = useTransition();
+  const acked = acted === "ack" || !!booking.settlement_ack_at;
+  const disputed = !acked && (acted === "dispute" || !!booking.settlement_dispute_at);
+  const amount = booking.settlement_amount_krw;
+
+  function run(action: (fd: FormData) => Promise<void>, next: "ack" | "dispute") {
+    const fd = new FormData();
+    fd.set("id", booking.id);
+    setActed(next);
+    start(async () => {
+      await action(fd);
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="mt-3 border-t border-line pt-3" onClick={stop}>
+      <p className="flex items-center gap-1.5 text-caption font-semibold text-muted">
+        <WalletIcon className="h-4 w-4 shrink-0" />
+        사매가 정산금{amount != null ? ` ₩${fmt.format(amount)}` : ""}을 보내드렸어요
+      </p>
+      {acked ? (
+        <p className="mt-2 flex items-center justify-center gap-1.5 rounded-full bg-success-soft px-3 py-2 text-caption text-success">
+          <CheckIcon className="h-4 w-4 shrink-0" />
+          정산 입금을 확인했어요
+        </p>
+      ) : disputed ? (
+        <p className="mt-2 rounded-xl bg-warning-soft px-3 py-2 text-caption text-warning">
+          확인 요청을 접수했어요 — 사매가 송금 내역을 확인하고 다시 안내드릴게요.
+        </p>
+      ) : (
+        <div className="mt-2 flex gap-2">
+          <button
+            type="button"
+            onClick={() => run(disputeSettlement, "dispute")}
+            className="flex-1 cursor-pointer rounded-full border border-line-strong py-2.5 text-body-sm font-medium text-muted transition-colors hover:bg-fg/[0.04]"
+          >
+            아직 못 받았어요
+          </button>
+          <button
+            type="button"
+            onClick={() => run(ackSettlement, "ack")}
+            className="flex-1 cursor-pointer rounded-full bg-fg py-2.5 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90"
+          >
+            정산 받았어요
+          </button>
+        </div>
       )}
     </div>
   );

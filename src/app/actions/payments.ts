@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { confirmBankTransfer, waiveFee, ensureTransferRecord } from "@/lib/payments";
+import { notifyOpsBookingDeposit, notifyOpsSettlementDispute } from "@/lib/ops-alert";
 import { DELIVERY_BUCKET, signDeliveryAssets } from "@/lib/deliveries";
 import { mpTrackServer, mpRevenueServer } from "@/lib/mixpanel-server";
 
@@ -99,6 +100,9 @@ export async function markTransferSent(formData: FormData) {
     "💸 송금을 완료했어요. 작가님의 입금 확인을 기다립니다."
   );
 
+  // 운영 디스코드 — 사매 계좌 입금내역 대조·확인을 재촉하는 에스크로 신고 알림
+  await notifyOpsBookingDeposit({ bookingId: id });
+
   // 고객의 결제 의사(송금) 신호 — 매출 확정(Confirm Payment) 직전 단계.
   await mpTrackServer(
     "Mark Transfer Sent",
@@ -108,6 +112,65 @@ export async function markTransferSent(formData: FormData) {
   );
 
   revalidateBooking(id);
+}
+
+// ── 정산 수령 확인/이의 (작가) — 사매→작가 송금(settled_at) 이후 ──────────
+// [정산 받았어요]: ack 기록 + 채팅 타임라인에 확인 시스템 메시지.
+export async function ackSettlement(formData: FormData) {
+  const id = String(formData.get("id"));
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가만 가능합니다.");
+
+  const admin = createAdminClient();
+  const { data: moved } = await admin
+    .from("bookings")
+    .update({ settlement_ack_at: new Date().toISOString(), settlement_dispute_at: null })
+    .eq("id", id)
+    .eq("photographer_id", me.photographer.id)
+    .not("settled_at", "is", null)
+    .is("settlement_ack_at", null)
+    .select("id, user_id, photographer_id");
+  if (!moved || moved.length === 0) {
+    revalidateBooking(id);
+    return;
+  }
+  const b = moved[0];
+  await postSystemMessage(admin, b.user_id, b.photographer_id, me.id, "✅ 작가가 정산 입금을 확인했어요.");
+  revalidateBooking(id);
+  revalidatePath("/chat");
+}
+
+// [아직 못 받았어요]: dispute 기록 + 운영 디스코드로 확인 요청 (사매가 송금 내역 대조)
+export async function disputeSettlement(formData: FormData) {
+  const id = String(formData.get("id"));
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가만 가능합니다.");
+
+  const admin = createAdminClient();
+  const { data: moved } = await admin
+    .from("bookings")
+    .update({ settlement_dispute_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("photographer_id", me.photographer.id)
+    .not("settled_at", "is", null)
+    .is("settlement_ack_at", null)
+    .is("settlement_dispute_at", null) // 1회만 — 중복 신고·알림 방지
+    .select("id, user_id, photographer_id");
+  if (!moved || moved.length === 0) {
+    revalidateBooking(id);
+    return;
+  }
+  const b = moved[0];
+  await notifyOpsSettlementDispute({ bookingId: id });
+  await postSystemMessage(
+    admin,
+    b.user_id,
+    b.photographer_id,
+    me.id,
+    "⚠️ 작가가 정산 입금 확인을 요청했어요. 사매가 송금 내역을 확인 중입니다."
+  );
+  revalidateBooking(id);
+  revalidatePath("/chat");
 }
 
 // ── 입금 확인 (작가) : accepted → paid + 플랫폼 수수료 발생 ──────────────

@@ -4,7 +4,6 @@ import { randomUUID } from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
-import { notifyOpsNewInquiry } from "@/lib/ops-alert";
 import { readMetaAdCookies, type MetaAdCookies } from "@/lib/meta-capi";
 import { rememberInquiryIds } from "@/lib/my-inquiries";
 import { promoteBotInquiryToChat } from "@/lib/inquiry-bot-chat";
@@ -328,9 +327,7 @@ export async function submitInquiry(
   if (isNew) {
     await notifyPhotographer(photographerId, inquiryId, me?.displayName ?? null, contact, brief);
 
-    // 운영진 디스코드 알림 — 리드 플로우 시작. 운영진 전용 채널이라 어드민 정보(연락처·유입·
-    // 브리프) + 어드민 딥링크 포함. 실패해도 접수는 성공.
-    await notifyOpsNewInquiry({ inquiryId });
+    // 운영(디스코드) 알림은 접수 시점에 울리지 않는다 — 체결·입금 신고에서만 (에스크로 전환).
 
     // C3 — 챗봇 대화·요약을 채팅방으로 승격 (로그인 사용자만: 방은 user↔photographer 1:1).
     // 실패해도 접수는 이미 성공 — 부가 경로라 결과만 로그.
@@ -424,7 +421,8 @@ export async function finalizeBotInquiryFor(params: {
         brief
       );
     }
-    await notifyOpsNewInquiry({ inquiryId: result.id });
+    // 운영(디스코드) 알림은 여기서 울리지 않는다 — 실제 비즈니스 트리거는
+    // 체결(notifyOpsBookingAccepted)·입금 신고(notifyOpsBookingDeposit)에서.
     await promoteBotInquiryToChat({
       userId: params.customerId,
       photographerId: params.photographerId,

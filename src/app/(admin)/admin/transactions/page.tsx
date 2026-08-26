@@ -21,6 +21,8 @@ type DbBooking = {
   transfer_marked_at: string | null;
   settled_at: string | null;
   settlement_amount_krw: number | null;
+  settlement_ack_at: string | null;
+  settlement_dispute_at: string | null;
   package_snapshot: { name?: string } | null;
   user: { display_name: string | null } | { display_name: string | null }[] | null;
   photographer: { display_name: string | null } | { display_name: string | null }[] | null;
@@ -35,7 +37,7 @@ export default async function AdminTransactionsPage() {
   const { data: bData } = await admin
     .from("bookings")
     .select(
-      "id, status, amount_krw, shoot_at, created_at, package_snapshot, transfer_marked_at, settled_at, settlement_amount_krw, user:profiles!bookings_user_id_fkey(display_name), photographer:photographers(display_name)"
+      "id, status, amount_krw, shoot_at, created_at, package_snapshot, transfer_marked_at, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at, user:profiles!bookings_user_id_fkey(display_name), photographer:photographers(display_name)"
     )
     .order("created_at", { ascending: false })
     .limit(500);
@@ -45,9 +47,13 @@ export default async function AdminTransactionsPage() {
   const inProgress = raw.filter((b) => IN_PROGRESS.includes(b.status)).length;
 
   // 에스크로 운영 큐 — ①입금 확인 대기(고객이 입금 완료 알림) ②정산 대기(확정됐지만 작가 미송금)
+  // ③정산 미수령 확인 요청(작가가 [못 받았어요])
   const awaitingConfirm = raw.filter((b) => b.status === "accepted" && b.transfer_marked_at);
   const awaitingSettle = raw.filter(
     (b) => PAID_BOOKING.includes(b.status) && !b.settled_at
+  );
+  const settleDisputes = raw.filter(
+    (b) => b.settled_at && b.settlement_dispute_at && !b.settlement_ack_at
   );
 
   const bookings: BookingRow[] = raw.map((b) => ({
@@ -76,6 +82,25 @@ export default async function AdminTransactionsPage() {
           entityLabel="건"
         />
       </div>
+
+      {/* 정산 미수령 확인 요청 — 작가가 [못 받았어요]를 눌렀다: 송금 내역 대조 후 회신 */}
+      {settleDisputes.length > 0 && (
+        <section className="mt-5 rounded-2xl bg-warning-soft p-4 ring-1 ring-warning/30">
+          <h2 className="text-body-sm font-semibold text-warning">
+            ⚠️ 정산 미수령 확인 요청 {settleDisputes.length}건
+          </h2>
+          <ul className="mt-2 space-y-1.5">
+            {settleDisputes.map((b) => (
+              <li key={b.id} className="text-caption text-fg">
+                <b>{one(b.photographer)?.display_name ?? "작가"}</b> — 정산액 ₩
+                {fmt.format(b.settlement_amount_krw ?? 0)} · 송금 마킹{" "}
+                {b.settled_at?.slice(0, 10)} · 요청 {b.settlement_dispute_at?.slice(0, 10)}
+                <span className="ml-1 text-muted">송금 내역 확인 후 작가에게 회신하세요.</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* ── 에스크로 운영 큐 ── */}
       {(awaitingConfirm.length > 0 || awaitingSettle.length > 0) && (

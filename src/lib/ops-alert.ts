@@ -152,6 +152,84 @@ export async function notifyOpsDepositReported(params: { inquiryId: string }): P
   }
 }
 
+// ── 에스크로(예약) 운영 알림 — 채팅 상주 플로우의 실제 비즈니스 트리거들 ──────
+// 문의(요약 접수)는 더 이상 운영 알림을 울리지 않는다. 운영이 움직여야 하는 시점은
+// ① 체결(수락) ② 고객 입금 신고(사매 계좌 대조·확인) ③ 작가 정산 미수령 확인 요청.
+
+// 예약 공통 컨텍스트 로더 — 작가·고객·패키지·금액·일시
+async function loadBookingContext(bookingId: string) {
+  const admin = createAdminClient();
+  const { data: b } = await admin
+    .from("bookings")
+    .select(
+      "id, amount_krw, travel_fee_krw, shoot_at, shoot_date, location_text, settlement_amount_krw, package_snapshot, photographer:photographers!bookings_photographer_id_fkey(display_name), user:profiles!bookings_user_id_fkey(display_name)"
+    )
+    .eq("id", bookingId)
+    .maybeSingle();
+  if (!b) return null;
+  return {
+    ref: bookingId.slice(0, 8),
+    photographer: one(b.photographer as { display_name?: string | null })?.display_name || "작가",
+    customer: one(b.user as { display_name?: string | null })?.display_name || "고객",
+    amount: (b.amount_krw as number | null) ?? 0,
+    settlementAmount: (b.settlement_amount_krw as number | null) ?? null,
+    pkg: (b.package_snapshot as { name?: string } | null)?.name ?? "촬영",
+    when: (b.shoot_at as string | null) ?? (b.shoot_date as string | null) ?? "일정 협의",
+    location: (b.location_text as string | null) || null,
+  };
+}
+
+const ADMIN_TX_LINK = SITE_URL ? `${SITE_URL}/admin/transactions` : "/admin/transactions";
+
+async function postDiscord(webhook: string | undefined, lines: string[]) {
+  if (!webhook) return; // 미설정이면 조용히 패스(로컬/미배포)
+  try {
+    await fetch(webhook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: lines.join("\n") }),
+      redirect: "manual",
+    });
+  } catch {
+    // 디스코드 실패가 본 처리를 막지 않게 무시
+  }
+}
+
+/** 예약 체결(수락) — 거래 시작의 실제 트리거. 운영은 입금 대기 큐를 주시하면 된다. */
+export async function notifyOpsBookingAccepted(params: { bookingId: string }): Promise<void> {
+  const c = await loadBookingContext(params.bookingId);
+  if (!c) return;
+  await postDiscord(INQUIRY_WEBHOOK, [
+    `🤝 **예약 체결** — ${c.photographer} 작가 × ${c.customer}  (예약 \`${c.ref}\`)`,
+    `📦 ${c.pkg} · **₩${won(c.amount)}** · ${c.when}${c.location ? ` · ${c.location}` : ""}`,
+    `_고객에게 사매 계좌가 안내됐어요. 입금 신고가 오면 대조 후 확인 처리합니다._`,
+    `🛠 ${ADMIN_TX_LINK}`,
+  ]);
+}
+
+/** 고객 [입금 완료] 신고(에스크로) — 운영이 사매 계좌 입금내역과 대조 후 확인 처리 */
+export async function notifyOpsBookingDeposit(params: { bookingId: string }): Promise<void> {
+  const c = await loadBookingContext(params.bookingId);
+  if (!c) return;
+  await postDiscord(DEPOSIT_WEBHOOK, [
+    `💰 **입금완료 신고 (에스크로)** — ${c.customer} → 사매 계좌  (예약 \`${c.ref}\`)`,
+    `💳 금액: **₩${won(c.amount)}** · ${c.photographer} 작가 · ${c.pkg}`,
+    `🛠 **사매 계좌 입금내역 대조 후 [입금 확인]: ${ADMIN_TX_LINK}**`,
+  ]);
+}
+
+/** 작가 정산 미수령 확인 요청 — 사매→작가 송금이 안 닿았다는 신고 */
+export async function notifyOpsSettlementDispute(params: { bookingId: string }): Promise<void> {
+  const c = await loadBookingContext(params.bookingId);
+  if (!c) return;
+  await postDiscord(DEPOSIT_WEBHOOK, [
+    `⚠️ **정산 미수령 확인 요청** — ${c.photographer} 작가  (예약 \`${c.ref}\`)`,
+    `💸 정산 예정액: **₩${won(c.settlementAmount ?? 0)}** (촬영비 ₩${won(c.amount)} − 수수료)`,
+    `_송금 내역을 확인하고 작가에게 회신해주세요._`,
+    `🛠 ${ADMIN_TX_LINK}`,
+  ]);
+}
+
 // 새 작가 신청 알림 — 지원자가 남긴 정보.
 // (문의와 달리 지원자 연락처는 운영자가 직접 연락해야 하므로 포함한다.)
 export async function notifyOpsNewApplication(params: {
