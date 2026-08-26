@@ -187,6 +187,13 @@ export default function ContactForm({
         <CheckIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
         번호는 답장 알림에만 쓰여요. 광고 문자는 보내지 않아요.
       </p>
+      <p className="mt-2 text-caption leading-relaxed text-faint">
+        인증을 완료하면 문의 시 작가에게 연락처가 전달되는 것과 상담을 위한{" "}
+        <a href="/privacy" target="_blank" className="underline underline-offset-2 hover:text-muted">
+          개인정보 수집·이용
+        </a>
+        에 동의하게 됩니다.
+      </p>
     </main>
   );
 }

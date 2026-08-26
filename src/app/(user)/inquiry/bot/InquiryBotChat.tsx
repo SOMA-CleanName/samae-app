@@ -119,6 +119,21 @@ type DoneRecord = { at: number; dryRun: boolean; answers: BotAnswers };
 function botDoneKey(photoId: string, photographerId: string) {
   return `samae:inquiry:bot:done:${photographerId}:${photoId || "direct"}`;
 }
+// 진행 중 대화 이력(LLM 트랜스크립트) — 나갔다 돌아와도 채팅방이 그대로 유지되게
+function botTxKey(photoId: string, photographerId: string) {
+  return `samae:inquiry:bot:tx:${photographerId}:${photoId || "direct"}`;
+}
+function loadSavedTranscript(key: string): BotChatMessage[] {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed as BotChatMessage[];
+  } catch {
+    /* 무시 */
+  }
+  return [];
+}
 function loadDoneRecord(key: string): DoneRecord | null {
   try {
     const raw = localStorage.getItem(key);
@@ -253,6 +268,7 @@ export function InquiryBotChat({
 
   const storageKey = botStorageKey(photoId, photographerId);
   const doneKey = botDoneKey(photoId, photographerId);
+  const txKey = botTxKey(photoId, photographerId);
   // A3: started 작가 알림 dedupe 마크 — 사진·작가 키당 1회
   const notifiedKey = `samae:inquiry:bot:notified:${photoId || photographerId}`;
   const contactStep = stepIndex >= STEPS.length;
@@ -329,7 +345,8 @@ export function InquiryBotChat({
     }, REVEAL_MS);
   }
 
-  // 전 질문 완료 — 요약 카드 게시 후 연락처 단계로
+  // 전 질문 완료 — 요약 카드 + 안내를 한 턴으로 묶고 바로 보내기 단계로.
+  // (번호가 이미 등록돼 있으면 "어디로 받으실래요?"를 묻지 않는다 — 가입 때 인증한 번호로 통일)
   function postContactPhase() {
     setTyping(true);
     window.setTimeout(() => {
@@ -337,7 +354,14 @@ export function InquiryBotChat({
       push({ kind: "summary" });
       push({
         kind: "bot",
-        node: (
+        node: userPhone ? (
+          <>
+            정리한 내용을 <Em>{photographerName}</Em>님께 보내드릴게요.
+            <br />
+            확인하시면 이 채팅방으로 답장을 주시고, 답장이 오면{" "}
+            <Em>{maskPhone(userPhone)}</Em> 문자로도 알려드려요.
+          </>
+        ) : (
           <>
             <Em>거의 다 왔어요!</Em>
             <br />
@@ -704,10 +728,33 @@ export function InquiryBotChat({
     const saved = loadSavedAnswers(storageKey);
     const initialSlots = saved && Object.keys(saved).length > 0 ? answersToSlots(saved) : {};
     for (const k of Object.keys(initialSlots)) viewedRef.current.add(k); // Viewed 재발화 방지
+    // 진행 중이던 대화 이력 — 있으면 타임라인을 그대로 재구성 (채팅방 유지)
+    const savedTx = loadSavedTranscript(txKey);
     window.setTimeout(() => {
       if (Object.keys(initialSlots).length > 0) {
         setAnswers(slotsToAnswers(initialSlots));
         setSlots(initialSlots);
+      }
+      if (savedTx.length > 1) {
+        setLlmMessages(savedTx);
+        setItems(
+          savedTx.map((m) => ({
+            id: ++idRef.current,
+            ...(m.role === "user"
+              ? ({ kind: "user", text: m.text } as const)
+              : m.role === "photographer"
+                ? ({ kind: "photographer", text: m.text } as const)
+                : ({
+                    kind: "bot",
+                    node: <span className="whitespace-pre-line">{m.text}</span>,
+                  } as const)),
+          }))
+        );
+        push({
+          kind: "notice",
+          node: <>이어서 진행할게요 — 하시던 답변을 계속 입력해 주세요.</>,
+        });
+        return;
       }
       // A2: 첫 인사는 로컬 — 마운트만으로는 LLM 을 호출하지 않는다
       startLocalGreeting(initialSlots);
@@ -721,6 +768,7 @@ export function InquiryBotChat({
     try {
       localStorage.removeItem(doneKey);
       localStorage.removeItem(storageKey);
+      localStorage.removeItem(txKey);
     } catch {
       /* 무시 */
     }
@@ -747,6 +795,16 @@ export function InquiryBotChat({
     uploadFailNoticedRef.current = false;
     window.setTimeout(() => startLocalGreeting({}), 0);
   }
+
+  // 대화 이력 저장 — 나갔다 돌아와도 채팅방(타임라인)이 유지되게 (제출 완료 시 제거)
+  useEffect(() => {
+    if (done || llmMessages.length <= 1) return;
+    try {
+      localStorage.setItem(txKey, JSON.stringify(llmMessages).slice(0, 200_000));
+    } catch {
+      /* 저장 실패는 무해 — 다음 턴에 재시도 */
+    }
+  }, [llmMessages, done, txKey]);
 
   // 입력 변경 시 사진별로 저장 (제출 완료 전까지 — 위저드 패턴)
   useEffect(() => {
@@ -856,6 +914,7 @@ export function InquiryBotChat({
       saveDoneRecord(doneKey, { dryRun: true, answers });
       try {
         localStorage.removeItem(storageKey);
+      localStorage.removeItem(txKey);
       } catch {
         /* 무시 */
       }
@@ -959,6 +1018,7 @@ export function InquiryBotChat({
     saveDoneRecord(doneKey, { dryRun: false, answers });
     try {
       localStorage.removeItem(storageKey);
+      localStorage.removeItem(txKey);
     } catch {
       /* 무시 */
     }
@@ -1582,36 +1642,26 @@ function ContactCard({
   const [useRegistered, setUseRegistered] = useState(!!registeredPhone);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // 등록 번호가 있으면 버튼 하나로 끝 — 안내는 직전 봇 버블이 이미 했다 (동의 고지는 가입 시점으로 이동)
   if (useRegistered && registeredPhone) {
     return (
-      <div className="ml-10 mr-auto w-full max-w-[85%] rounded-2xl border border-line bg-surface p-3.5">
-        <p className="text-sm leading-relaxed text-fg">
-          등록된 연락처 <b className="font-semibold text-brand">{maskPhone(registeredPhone)}</b> 로
-          알림드릴게요.{" "}
-          <button
-            type="button"
-            onClick={() => setUseRegistered(false)}
-            className="cursor-pointer text-xs font-medium text-muted underline underline-offset-2 hover:text-fg"
-          >
-            변경
-          </button>
-        </p>
-        {serverError && <p className="mt-2 text-xs font-medium text-danger">{serverError}</p>}
+      <div className="ml-10 mr-auto w-full max-w-[85%]">
+        {serverError && <p className="mb-2 text-xs font-medium text-danger">{serverError}</p>}
         <button
           type="button"
           onClick={() => onSubmit("phone", registeredPhone)}
           disabled={pending}
-          className="mt-3 h-11 w-full cursor-pointer rounded-xl bg-brand text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          className="h-11 w-full cursor-pointer rounded-xl bg-brand text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {pending ? "전달 중…" : "문의 보내기"}
         </button>
-        <p className="mt-2 break-keep text-center text-[11px] leading-relaxed text-faint">
-          보내기를 누르면 연락처 전달 및 상담을 위한{" "}
-          <Link href="/privacy" target="_blank" className="underline underline-offset-2 hover:text-muted">
-            개인정보 수집·이용
-          </Link>
-          에 동의하는 것으로 간주됩니다.
-        </p>
+        <button
+          type="button"
+          onClick={() => setUseRegistered(false)}
+          className="mt-2 block w-full cursor-pointer text-center text-[11px] text-faint underline underline-offset-2 hover:text-muted"
+        >
+          다른 연락처로 받기
+        </button>
       </div>
     );
   }
@@ -1714,15 +1764,6 @@ function ContactCard({
           >
             {pending ? "전달 중…" : "문의 보내기"}
           </button>
-
-          {/* 동의 간주 고지 — 버튼 클릭이 개인정보 수집·이용 동의를 갈음 (위저드와 동일) */}
-          <p className="mt-2 break-keep text-center text-[11px] leading-relaxed text-faint">
-            보내기를 누르면 연락처 전달 및 상담을 위한{" "}
-            <Link href="/privacy" target="_blank" className="underline underline-offset-2 hover:text-muted">
-              개인정보 수집·이용
-            </Link>
-            에 동의하는 것으로 간주됩니다.
-          </p>
         </div>
       )}
     </div>
