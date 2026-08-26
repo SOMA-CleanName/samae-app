@@ -183,15 +183,16 @@ export async function submitInquiry(
 
   if (me) {
     const supabase = await createClient();
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        phone: contact.phone,
-        kakao_id: contact.kakaoId,
-        contact_email: contact.contactEmail,
-      })
-      .eq("id", me.id);
-    if (error) return { ok: false, error: error.message, values };
+    // 이번에 입력한 수단만 갱신 — 카톡ID만 제출해도 기존 phone 이 null 로 덮이지 않게
+    // (SMS 재소환이 profiles.phone 에 의존하므로 번호 유실은 알림 유실이다)
+    const patch: Record<string, string> = {};
+    if (contact.phone) patch.phone = contact.phone;
+    if (contact.kakaoId) patch.kakao_id = contact.kakaoId;
+    if (contact.contactEmail) patch.contact_email = contact.contactEmail;
+    if (Object.keys(patch).length > 0) {
+      const { error } = await supabase.from("profiles").update(patch).eq("id", me.id);
+      if (error) return { ok: false, error: error.message, values };
+    }
   }
 
   brief.refImagePaths = await uploadReferenceImages(formData);

@@ -5,7 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { mpTrack } from "@/lib/mixpanel";
+import { readNextParam, setOauthNextCookie } from "@/lib/safe-redirect-client";
 import { ArrowLeftIcon, MailIcon, CheckIcon } from "@/components/user/icons";
+
+const DEFAULT_SIGNUP_NEXT = "/";
 
 // 이메일 가입 노출 여부 — 도메인/커스텀 SMTP 준비 전까지는 false(카카오만).
 // 운영 SMTP 연결 후 true 로 바꾸면 이메일 가입 폼이 다시 노출된다. (docs/15)
@@ -24,9 +27,12 @@ export default function SignupPage() {
   const [sent, setSent] = useState(false); // 확인 메일 발송됨
   const [resentMsg, setResentMsg] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0); // 재발송 쿨다운(초) — 이메일 한도 보호
+  // 가입 후 복귀 경로 — 로그인 페이지에서 next 를 이어받는다 (문의 흐름 이탈 방지)
+  const [next, setNext] = useState(DEFAULT_SIGNUP_NEXT);
 
   // 회원가입 페이지 진입 — 가입 퍼널 시작점
   useEffect(() => {
+    setNext(readNextParam(DEFAULT_SIGNUP_NEXT));
     mpTrack("Start Sign Up");
   }, []);
 
@@ -49,6 +55,7 @@ export default function SignupPage() {
   async function onKakao() {
     setError(null);
     mpTrack("Start Kakao Login", { context: "signup" });
+    setOauthNextCookie(next); // 가입 완료 후에도 하던 흐름(문의 등)으로 복귀
     await supabase.auth.signInWithOAuth({
       provider: "kakao",
       options: { redirectTo: `${location.origin}/auth/callback` },
@@ -144,7 +151,7 @@ export default function SignupPage() {
               {cooldown > 0 ? `다시 보내기 (${cooldown}초)` : "확인 메일 다시 보내기"}
             </button>
             <Link
-              href="/login"
+              href={`/login?next=${encodeURIComponent(next)}`}
               className="mt-3 block text-center text-caption text-muted transition-colors hover:text-fg"
             >
               로그인하러 가기
@@ -163,10 +170,16 @@ export default function SignupPage() {
               type="button"
               onClick={onKakao}
               data-track="cta:signup_kakao"
-              className="mt-6 w-full cursor-pointer rounded-xl bg-[#FEE500] py-3 text-body-sm font-semibold text-[#191600] transition-opacity hover:opacity-90"
+              className="mt-6 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#FEE500] py-3.5 text-body-sm font-semibold text-[#191600] transition active:scale-[0.99] hover:opacity-90"
             >
-              카카오로 시작하기
+              <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0" fill="currentColor" aria-hidden>
+                <path d="M12 3C6.48 3 2 6.54 2 10.9c0 2.8 1.86 5.26 4.66 6.66l-.97 3.6c-.05.2.07.4.27.44a.4.4 0 0 0 .3-.05l4.3-2.85c.47.05.95.08 1.44.08 5.52 0 10-3.54 10-7.88C22 6.54 17.52 3 12 3Z" />
+              </svg>
+              카카오로 1초 만에 시작
             </button>
+            <p className="mt-2.5 text-center text-caption text-faint">
+              별도 입력 없이 카카오 계정으로 바로 가입돼요
+            </p>
 
             {EMAIL_SIGNUP_ENABLED && (
               <>
@@ -221,10 +234,10 @@ export default function SignupPage() {
             {error && !EMAIL_SIGNUP_ENABLED && <p className="mt-3 text-caption text-brand">{error}</p>}
 
             <Link
-              href="/login"
+              href={`/login?next=${encodeURIComponent(next)}`}
               className="mt-4 block text-center text-caption text-muted transition-colors hover:text-fg"
             >
-              이미 계정이 있으신가요? 로그인
+              이미 계정이 있으신가요? <span className="font-semibold text-fg">로그인</span>
             </Link>
           </>
         )}
