@@ -41,16 +41,14 @@ export default async function InquiryBotPage({
   // 비로그인 + 게이트 활성 → 리다이렉트하지 않고 로그인 CTA URL 을 내려보낸다.
   // 클라이언트는 입력바 자리에 카카오 CTA 를 렌더 (진입 시점의 대화 상태는 localStorage 키가
   // photoId/photographerId 기반이라 로그인 전후 동일 — 복귀 후 그대로 이어진다).
-  // 카카오 일반 앱은 전화번호를 주지 않으므로, 연락처는 챗봇의 연락처 스텝에서 1회 수집한다
-  // (profiles.phone 컬럼 존재 확인 — 저장 배선은 C3 persistBotConversation 본구현에서).
+  const selfUrl = `/inquiry/bot?photographerId=${photographerId}${photoId ? `&photoId=${photoId}` : ""}${gateForced ? "&gate=1" : ""}`;
   let loginGateUrl: string | null = null;
   if ((LOGIN_GATE_ON || gateForced) && !me) {
     // gate=1 을 next 에도 유지 — 로그인 후 복귀했을 때 같은 조건으로 재검증(이미 로그인이라 통과)
-    const next = `/inquiry/bot?photographerId=${photographerId}${photoId ? `&photoId=${photoId}` : ""}${gateForced ? "&gate=1" : ""}`;
-    loginGateUrl = `/login?next=${encodeURIComponent(next)}`;
+    loginGateUrl = `/login?next=${encodeURIComponent(selfUrl)}`;
   }
 
-  // 등록 연락처 — 있으면 챗봇 연락처 스텝을 스킵하고 "등록된 연락처로 알림" 한 줄로 대체
+  // 등록 연락처 — 게이트 환경에선 봇이 연락처를 묻지 않는 대신 프로필 번호로 알림을 보낸다
   let userPhone: string | null = null;
   if (me) {
     const supabase = await createClient();
@@ -60,6 +58,13 @@ export default async function InquiryBotPage({
       .eq("id", me.id)
       .maybeSingle();
     userPhone = profile?.phone ?? null;
+  }
+
+  // 로그인했는데 번호가 없는 계정(연락처 수집 도입 전 가입자 포함) → 가입 마무리(OTP) 경유.
+  // 로그인 콜백만으론 못 잡는다 — 이미 로그인된 채로 진입하면 콜백을 안 거치기 때문.
+  // 이게 없으면 봇이 구식 연락처 질문으로 폴백해 "번호를 두 번 묻는" 흐름이 된다.
+  if ((LOGIN_GATE_ON || gateForced) && me && !userPhone) {
+    redirect(`/signup/contact?next=${encodeURIComponent(selfUrl)}`);
   }
 
   const photo = photoId ? await fetchPhotoById(photoId) : null;
