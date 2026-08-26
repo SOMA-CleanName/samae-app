@@ -15,10 +15,12 @@ export const metadata: Metadata = { title: "문의", robots: { index: false } };
 //   하단: 문의 내역 카드 — 방이 있으면 그 방으로, 없으면 챗봇 방으로 재진입
 export default async function MyInquiriesPage() {
   const [ids, me] = await Promise.all([readMyInquiryIds(), getCurrentUser()]);
-  const [inquiries, rooms] = await Promise.all([
+  const [inquiries, allRooms] = await Promise.all([
     fetchMyInquiries(ids, me?.id),
     me ? listChatRooms(me) : Promise.resolve([] as ChatRoomItem[]),
   ]);
+  // 문의 탭은 "내가 고객인 방"만 — 작가로 받은 문의는 스튜디오 채팅에서 (역할 분리)
+  const rooms = me ? allRooms.filter((r) => r.user_id === me.id) : [];
   // 작가별 대화방 매핑 — 문의 카드의 '채팅방 열기'를 실제 방으로 연결
   const roomByPhotographer = new Map(rooms.map((r) => [r.photographer_id, r.id]));
 

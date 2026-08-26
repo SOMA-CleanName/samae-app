@@ -13,7 +13,9 @@ export default async function StudioChatPage() {
   if (!me) redirect("/login?next=/studio/chat");
   if (!me.photographer) redirect("/studio");
 
-  const rooms = await listChatRooms(me);
+  // 스튜디오는 "작가로서 받은 방"만 — 내가 고객으로 보낸 문의는 문의 탭에서 (역할 분리)
+  const photographerId = me.photographer.id;
+  const rooms = (await listChatRooms(me)).filter((r) => r.photographer_id === photographerId);
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8 font-kr sm:px-6">
