@@ -386,6 +386,16 @@ export function InquiryBotChat({
   // "첫 인사가 API 를 기다리는" 지연을 한 번에 제거. 첫 사용자 발화부터 LLM 이 이어받는다.
   function startLocalGreeting(initialSlots: LlmSlots) {
     const curAnswers = slotsToAnswers(initialSlots);
+    const resumeAt = nextStepIndex(STEPS, curAnswers);
+    if (resumeAt >= STEPS.length) {
+      // 저장된 답변으로 이미 코어 완주(대화 기록은 없음) — 일반 인사 대신 재개 안내 후 요약·보내기.
+      // ("편하게 입력하세요" 인사 직후 바로 보내기가 나오는 어색함 방지)
+      const resumeText = "이전에 작성하시던 문의가 있어요. 내용을 확인하고 보내주세요.";
+      push({ kind: "bot", node: <>{resumeText}</> });
+      setLlmMessages([{ role: "bot", text: resumeText }]);
+      postContactPhase();
+      return;
+    }
     const greetingText = `안녕하세요! ${photographerName}님에게 보내는 문의를 도와드릴게요.\n편하게 입력하셔도 되고, 아래 선택지를 눌러도 좋아요.`;
     push({
       kind: "bot",
@@ -397,13 +407,6 @@ export function InquiryBotChat({
         </>
       ),
     });
-    const resumeAt = nextStepIndex(STEPS, curAnswers);
-    if (resumeAt >= STEPS.length) {
-      // 저장된 답변으로 이미 코어 완주 — 곧장 요약·연락처 단계로
-      setLlmMessages([{ role: "bot", text: greetingText }]);
-      postContactPhase();
-      return;
-    }
     const step = STEPS[resumeAt];
     const questionText = step.question.map((s) => s.text).join("");
     setTyping(true);
