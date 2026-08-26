@@ -214,14 +214,29 @@ export function sanitizeBotTurn(turn: BotTurn, prevSlots: LlmSlots): BotTurnClea
   if ((turn.done ?? false) && !done && /전달드릴게요|정리해서|접수|완료/.test(reply)) {
     reply = "아직 확인할 내용이 남아 있어요. 이어서 몇 가지만 더 여쭤볼게요!";
   }
+  // 선택지 칩 — 코어 질문은 버튼 플로우와 동일한 정식 선택지를 항상 보장한다.
+  // (LLM 이 quickReplies 를 비우거나 일부만 주는 턴이 있어 "선택해주세요"인데 칩이 없는
+  //  화면이 나오던 문제 — 커스텀·서술형 질문만 LLM 제안 칩을 그대로 쓴다)
+  const asking = turn.asking ?? "none";
+  const canonical = canonicalChipsFor(asking);
+  const llmChips = (turn.quickReplies ?? []).map((q) => q.trim()).filter(Boolean).slice(0, 8);
   return {
     reply,
     slots,
-    quickReplies: (turn.quickReplies ?? []).map((q) => q.trim()).filter(Boolean).slice(0, 8),
-    asking: turn.asking ?? "none",
+    quickReplies: canonical.length > 0 ? canonical : llmChips,
+    asking,
     // done 은 코어 4슬롯이 실제로 전부 찼을 때만 — 미수집 상태의 조기 종료 방지
     done,
   };
+}
+
+/** 코어 질문의 정식 선택지 — 버튼 플로우(CORE_STEPS)와 동일한 옵션 + soft-skip */
+export function canonicalChipsFor(asking: AskingKey): string[] {
+  const step = CORE_STEPS.find((s) => s.key === asking);
+  if (!step) return [];
+  if (step.type === "options") return [...(step.options ?? []), step.skip];
+  if (step.type === "date") return ["2주 이내", "한 달 이내", step.skip];
+  return [];
 }
 
 // ── 시스템 프롬프트 ──────────────────────────────────────────────

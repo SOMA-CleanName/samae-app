@@ -91,6 +91,23 @@ test("sanitizeBotTurn — custom 답변 병합·quickReplies 정리", () => {
   assert.deepEqual(out.quickReplies, ["네", "아니요"]);
 });
 
+test("sanitizeBotTurn — 코어 질문이면 정식 선택지 칩을 항상 보장 (LLM 칩이 비거나 부분이어도)", () => {
+  // LLM 이 칩을 안 준 턴 — region 정식 옵션 + soft-skip 으로 채워진다
+  const empty = sanitizeBotTurn({ ...baseTurn, asking: "region" }, {});
+  assert.deepEqual(empty.quickReplies, [
+    "서울", "경기·인천", "부산·경남", "대구·경북", "대전·충청", "광주·전라", "제주", "협의 후 결정",
+  ]);
+  // LLM 이 일부만 준 턴도 정식 선택지로 통일 (버튼 플로우와 동일 UX)
+  const partial = sanitizeBotTurn({ ...baseTurn, asking: "partySize", quickReplies: ["2명"] }, {});
+  assert.deepEqual(partial.quickReplies, ["1명", "2명", "3~6명", "그 이상", "미정"]);
+  // 날짜 질문은 빠른 칩 + soft-skip
+  const date = sanitizeBotTurn({ ...baseTurn, asking: "preferredDate" }, {});
+  assert.deepEqual(date.quickReplies, ["2주 이내", "한 달 이내", "날짜는 미정이에요"]);
+  // 커스텀·서술형 질문은 LLM 제안 칩 유지
+  const custom = sanitizeBotTurn({ ...baseTurn, asking: "custom", quickReplies: ["필름 감성"] }, {});
+  assert.deepEqual(custom.quickReplies, ["필름 감성"]);
+});
+
 // 회귀: haiku 가 미수집 슬롯을 `"region": null` 로 내보내 OUTPUT_PARSING_FAILURE → 502 →
 // 버튼 폴백 강등이 발생했던 실사고 케이스. 스키마가 null 을 받고 sanitize 가 정규화해야 한다.
 test("botTurnSchema — 미수집 슬롯 null 허용 + sanitize 정규화 (파싱 사고 회귀)", () => {
