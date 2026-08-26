@@ -14,7 +14,7 @@ const DEFAULT_SIGNUP_NEXT = "/";
 // 운영 SMTP 연결 후 true 로 바꾸면 이메일 가입 폼이 다시 노출된다. (docs/15)
 const EMAIL_SIGNUP_ENABLED = false;
 
-// 회원가입 — 카카오 소셜 (이메일 가입은 SMTP 준비 후). 로그인과 구분되는 카드형 레이아웃.
+// 회원가입 — 로그인과 같은 풀페이지 스켈레톤(상단 헤드라인 + 하단 액션).
 // 이메일 인증 ON이면 가입 후 확인 메일 안내, OFF면 즉시 로그인.
 export default function SignupPage() {
   const router = useRouter();
@@ -24,6 +24,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [kakaoLoading, setKakaoLoading] = useState(false);
   const [sent, setSent] = useState(false); // 확인 메일 발송됨
   const [resentMsg, setResentMsg] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0); // 재발송 쿨다운(초) — 이메일 한도 보호
@@ -54,6 +55,7 @@ export default function SignupPage() {
 
   async function onKakao() {
     setError(null);
+    setKakaoLoading(true);
     mpTrack("Start Kakao Login", { context: "signup" });
     setOauthNextCookie(next); // 가입 완료 후에도 하던 흐름(문의 등)으로 복귀
     await supabase.auth.signInWithOAuth({
@@ -89,7 +91,7 @@ export default function SignupPage() {
     }
     if (data.session) {
       // 이메일 인증 OFF → 즉시 로그인
-      router.push("/");
+      router.push(next);
       router.refresh();
     } else {
       // 인증 ON → 확인 메일 안내
@@ -114,133 +116,138 @@ export default function SignupPage() {
     }
   }
 
+  // ── 확인 메일 안내 (이메일 가입 경로에서만 진입) ──
+  if (sent) {
+    return (
+      <main className="mx-auto flex min-h-[100svh] w-full max-w-sm flex-col items-center justify-center bg-surface px-6 py-10 text-center font-kr">
+        <span className="grid h-16 w-16 place-items-center rounded-full bg-brand-soft text-brand">
+          <MailIcon className="h-7 w-7" />
+        </span>
+        <h1 className="mt-5 text-h1 font-semibold">확인 메일을 보냈어요</h1>
+        <p className="mt-2 text-body-sm text-muted">
+          <strong className="font-semibold text-fg">{email}</strong> 로 보낸 메일의 링크를 눌러
+          가입을 완료해 주세요.
+        </p>
+        <p className="mt-1 text-caption text-faint">메일이 안 보이면 스팸함도 확인해 주세요.</p>
+
+        {resentMsg && <p className="mt-4 text-caption text-success">{resentMsg}</p>}
+
+        <button
+          type="button"
+          onClick={onResend}
+          disabled={cooldown > 0}
+          className="mt-6 w-full cursor-pointer rounded-xl border border-line-strong py-3 text-body-sm font-semibold text-fg transition-colors hover:bg-fg/[0.04] disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {cooldown > 0 ? `다시 보내기 (${cooldown}초)` : "확인 메일 다시 보내기"}
+        </button>
+        <Link
+          href={`/login?next=${encodeURIComponent(next)}`}
+          className="mt-3 block text-center text-caption text-muted transition-colors hover:text-fg"
+        >
+          로그인하러 가기
+        </Link>
+      </main>
+    );
+  }
+
   return (
-    <main className="flex min-h-[100svh] flex-col items-center justify-center bg-surface-2 px-5 py-10 font-kr">
+    <main className="mx-auto flex min-h-[100svh] w-full max-w-sm flex-col bg-surface px-6 pb-8 pt-4 font-kr">
+      {/* 상단 — 뒤로가기 */}
       <button
         type="button"
         onClick={onBack}
         aria-label="뒤로 가기"
-        className="fixed left-4 top-4 grid h-10 w-10 cursor-pointer place-items-center rounded-full bg-fg/[0.06] text-fg transition-colors hover:bg-fg/[0.1] sm:left-6 sm:top-6"
+        className="-ml-2 grid h-11 w-11 cursor-pointer place-items-center rounded-full text-fg transition-colors hover:bg-fg/[0.05]"
       >
         <ArrowLeftIcon />
       </button>
 
-      {/* 로그인과 구분되는 카드 */}
-      <div className="w-full max-w-sm rounded-2xl border border-line bg-surface p-6 shadow-card sm:p-7">
-        {sent ? (
-          // ── 확인 메일 안내 ──
-          <div className="text-center">
-            <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-brand-soft text-brand">
-              <MailIcon className="h-7 w-7" />
-            </span>
-            <h1 className="mt-5 text-h1 font-semibold">확인 메일을 보냈어요</h1>
-            <p className="mt-2 text-body-sm text-muted">
-              <strong className="font-semibold text-fg">{email}</strong> 로 보낸 메일의 링크를
-              눌러 가입을 완료해 주세요.
-            </p>
-            <p className="mt-1 text-caption text-faint">메일이 안 보이면 스팸함도 확인해 주세요.</p>
+      {/* 헤드라인 */}
+      <div className="mt-10">
+        <p className="font-display text-xl italic text-brand">samae</p>
+        <h1 className="mt-4 whitespace-pre-line text-[1.75rem] font-bold leading-[1.3] tracking-tight">
+          {"취향에 맞는 작가를\n만나러 가요"}
+        </h1>
+        <p className="mt-3 text-body-sm leading-relaxed text-muted">
+          {EMAIL_SIGNUP_ENABLED
+            ? "이메일로 30초 만에 시작해요."
+            : "복잡한 절차 없이 카카오 계정으로 바로 시작돼요."}
+        </p>
+      </div>
 
-            {resentMsg && <p className="mt-4 text-caption text-success">{resentMsg}</p>}
+      <div className="flex-1" />
 
+      {/* 하단 액션 */}
+      <div>
+        {EMAIL_SIGNUP_ENABLED && (
+          <form onSubmit={onSubmit} className="mb-5 flex flex-col gap-2.5">
+            <input
+              type="text"
+              required
+              placeholder="이름 (활동명)"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="rounded-xl border border-line-strong bg-surface px-4 py-3 text-body-sm outline-none transition-colors focus:border-fg/40"
+            />
+            <input
+              type="email"
+              required
+              placeholder="you@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="rounded-xl border border-line-strong bg-surface px-4 py-3 text-body-sm outline-none transition-colors focus:border-fg/40"
+            />
+            <input
+              type="password"
+              required
+              minLength={6}
+              placeholder="비밀번호 (6자 이상)"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="rounded-xl border border-line-strong bg-surface px-4 py-3 text-body-sm outline-none transition-colors focus:border-fg/40"
+            />
+            {error && <p className="text-caption text-danger">{error}</p>}
             <button
-              type="button"
-              onClick={onResend}
-              disabled={cooldown > 0}
-              className="mt-6 w-full cursor-pointer rounded-xl border border-line-strong py-3 text-body-sm font-semibold text-fg transition-colors hover:bg-fg/[0.04] disabled:cursor-not-allowed disabled:opacity-50"
+              type="submit"
+              disabled={loading}
+              className="w-full cursor-pointer rounded-xl bg-fg py-3 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90 disabled:opacity-50"
             >
-              {cooldown > 0 ? `다시 보내기 (${cooldown}초)` : "확인 메일 다시 보내기"}
+              {loading ? "처리 중…" : "이메일로 가입하기"}
             </button>
-            <Link
-              href={`/login?next=${encodeURIComponent(next)}`}
-              className="mt-3 block text-center text-caption text-muted transition-colors hover:text-fg"
-            >
-              로그인하러 가기
-            </Link>
-          </div>
-        ) : (
-          // ── 가입 폼 ──
-          <>
-            <p className="font-display text-lg italic text-brand">samae</p>
-            <h1 className="mt-1 text-h1 font-semibold">회원가입</h1>
-            <p className="mt-1.5 text-body-sm text-muted">
-              {EMAIL_SIGNUP_ENABLED ? "이메일로 30초 만에 시작해요." : "카카오로 간편하게 시작해요."}
-            </p>
-
-            <button
-              type="button"
-              onClick={onKakao}
-              data-track="cta:signup_kakao"
-              className="mt-6 flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#FEE500] py-3.5 text-body-sm font-semibold text-[#191600] transition active:scale-[0.99] hover:opacity-90"
-            >
-              <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0" fill="currentColor" aria-hidden>
-                <path d="M12 3C6.48 3 2 6.54 2 10.9c0 2.8 1.86 5.26 4.66 6.66l-.97 3.6c-.05.2.07.4.27.44a.4.4 0 0 0 .3-.05l4.3-2.85c.47.05.95.08 1.44.08 5.52 0 10-3.54 10-7.88C22 6.54 17.52 3 12 3Z" />
-              </svg>
-              카카오로 1초 만에 시작
-            </button>
-            <p className="mt-2.5 text-center text-caption text-faint">
-              별도 입력 없이 카카오 계정으로 바로 가입돼요
-            </p>
-
-            {EMAIL_SIGNUP_ENABLED && (
-              <>
-                <div className="my-5 flex items-center gap-3 text-caption text-faint">
-                  <span className="h-px flex-1 bg-line" /> 또는 이메일 <span className="h-px flex-1 bg-line" />
-                </div>
-
-                <form onSubmit={onSubmit} className="flex flex-col gap-2.5">
-                  <input
-                    type="text"
-                    required
-                    placeholder="이름 (활동명)"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="rounded-xl border border-line-strong bg-surface px-4 py-3 text-body-sm outline-none transition-colors focus:border-fg/40"
-                  />
-                  <input
-                    type="email"
-                    required
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="rounded-xl border border-line-strong bg-surface px-4 py-3 text-body-sm outline-none transition-colors focus:border-fg/40"
-                  />
-                  <input
-                    type="password"
-                    required
-                    minLength={6}
-                    placeholder="비밀번호 (6자 이상)"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="rounded-xl border border-line-strong bg-surface px-4 py-3 text-body-sm outline-none transition-colors focus:border-fg/40"
-                  />
-                  {error && <p className="text-caption text-brand">{error}</p>}
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="mt-1 w-full cursor-pointer rounded-xl bg-fg py-3 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90 disabled:opacity-50"
-                  >
-                    {loading ? "처리 중…" : "회원가입"}
-                  </button>
-                </form>
-
-                {/* 약관 안내 (간단) */}
-                <p className="mt-3 flex items-start gap-1.5 text-caption text-faint">
-                  <CheckIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
-                  가입 시 서비스 이용약관과 개인정보 처리방침에 동의하게 됩니다.
-                </p>
-              </>
-            )}
-
-            {error && !EMAIL_SIGNUP_ENABLED && <p className="mt-3 text-caption text-brand">{error}</p>}
-
-            <Link
-              href={`/login?next=${encodeURIComponent(next)}`}
-              className="mt-4 block text-center text-caption text-muted transition-colors hover:text-fg"
-            >
-              이미 계정이 있으신가요? <span className="font-semibold text-fg">로그인</span>
-            </Link>
-          </>
+          </form>
         )}
+
+        <button
+          type="button"
+          onClick={onKakao}
+          disabled={kakaoLoading}
+          data-track="cta:signup_kakao"
+          className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#FEE500] py-4 text-body-sm font-semibold text-[#191600] transition active:scale-[0.99] hover:opacity-90 disabled:opacity-60"
+        >
+          <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0" fill="currentColor" aria-hidden>
+            <path d="M12 3C6.48 3 2 6.54 2 10.9c0 2.8 1.86 5.26 4.66 6.66l-.97 3.6c-.05.2.07.4.27.44a.4.4 0 0 0 .3-.05l4.3-2.85c.47.05.95.08 1.44.08 5.52 0 10-3.54 10-7.88C22 6.54 17.52 3 12 3Z" />
+          </svg>
+          {kakaoLoading ? "카카오로 이동 중…" : "카카오로 1초 만에 시작"}
+        </button>
+        <p className="mt-2.5 text-center text-caption text-faint">
+          별도 입력 없이 카카오 계정으로 바로 가입돼요
+        </p>
+        {error && !EMAIL_SIGNUP_ENABLED && (
+          <p className="mt-3 text-center text-caption text-danger">{error}</p>
+        )}
+
+        <div className="mt-5 flex items-center justify-center text-caption text-muted">
+          <Link
+            href={`/login?next=${encodeURIComponent(next)}`}
+            className="transition-colors hover:text-fg"
+          >
+            이미 계정이 있으신가요? <span className="font-semibold text-fg">로그인</span>
+          </Link>
+        </div>
+
+        <p className="mt-5 text-center text-caption leading-relaxed text-faint">
+          가입 시 서비스 이용약관과 개인정보 처리방침에 동의하게 됩니다.
+        </p>
       </div>
     </main>
   );
