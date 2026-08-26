@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { getPhotographerPayoutAccount, type PayoutAccount } from "@/lib/payments";
 import { archiveAndDelete } from "@/lib/soft-delete";
+import { notifyUserOfPhotographerReply } from "@/lib/notify-user";
 
 // 송금 단계(수락 이후)에서만 작가 수취 계좌를 공개 — 채팅 진입만으로 계좌가 응답에 실리지 않게 한다(리드/보안).
 //   · 고객 본인 + 해당 예약이 accepted 이상일 때만 반환, 그 외엔 null.
@@ -43,6 +44,9 @@ export async function sendMessage(conversationId: string, body: string) {
     body: text,
   });
   if (error) throw new Error(error.message);
+
+  // 작가 발신이면 사용자에게 SMS 재소환 (내부에서 발신자 검증·쿨다운, 실패해도 무시)
+  await notifyUserOfPhotographerReply(conversationId, user.id);
 }
 
 // 작가 포트폴리오에서 사진 골라 보내기 (C5) — 참여자 검증 후 image 메시지 생성.
@@ -80,6 +84,9 @@ export async function sendPortfolioPhoto(conversationId: string, photoId: string
     image_path: photo.thumb_url ?? photo.src_url,
   });
   if (error) throw new Error(error.message);
+
+  // 작가가 사진으로 답한 경우도 재소환 대상
+  await notifyUserOfPhotographerReply(conversationId, me.id);
 }
 
 // 진행 중으로 볼 예약 상태(거절/취소/환불 제외) — 이 상태의 예약이 있으면 대화를 지우지 않는다.
