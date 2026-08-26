@@ -22,7 +22,7 @@ export async function GET(request: Request) {
 
   if (code) {
     const supabase = await createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
       // 비로그인 중 쿠키에 쌓인 관심사진 → 계정 favorites 로 병합(중복 무시) 후 쿠키 비움
       await mergeAnonFavorites(supabase);
@@ -34,6 +34,16 @@ export async function GET(request: Request) {
       const res = NextResponse.redirect(`${origin}${dest}`);
       res.cookies.delete(OAUTH_NEXT_COOKIE);
       res.cookies.delete(ANON_FAV_COOKIE);
+      // dev 전용 — 카카오 "나에게 보내기" 실험(/dev/kakao-memo)용 provider 토큰 스태시.
+      // 프로덕션 채택 시엔 쿠키가 아니라 DB(암호화)에 저장·리프레시하는 본구현으로 교체.
+      if (process.env.NODE_ENV !== "production" && data?.session?.provider_token) {
+        res.cookies.set("kakao_pt_dev", data.session.provider_token, {
+          httpOnly: true,
+          maxAge: 6 * 3600,
+          path: "/",
+          sameSite: "lax",
+        });
+      }
       return res;
     }
   }
