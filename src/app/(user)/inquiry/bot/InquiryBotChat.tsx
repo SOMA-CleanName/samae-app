@@ -49,7 +49,9 @@ const INITIAL_STATE: InquiryState = { ok: false };
 
 // 드라이런 가드 — 프로덕션이 아니면 submitInquiry 서버 액션을 호출하지 않고 성공 UI만 표시.
 // 개발 중 실수로 실제 문의가 접수(작가 SMS 발송)되는 것을 차단한다.
-const DRY_RUN = process.env.NODE_ENV !== "production";
+// E2E 실검증이 필요하면 NEXT_PUBLIC_INQUIRY_BOT_LIVE=1 로 dev 에서도 실제 접수.
+const DRY_RUN =
+  process.env.NODE_ENV !== "production" && process.env.NEXT_PUBLIC_INQUIRY_BOT_LIVE !== "1";
 
 // C1은 공통 4문항만 — C2에서 서버가 내려주는 작가 커스텀 질문을 buildFlow(custom)로 주입
 const STEPS: BotStep[] = buildFlow();

@@ -1,4 +1,5 @@
 /* eslint-disable @next/next/no-img-element */
+import Link from "next/link";
 import { inquiryStatusLabel, type MyInquiry } from "@/lib/my-inquiries-view";
 
 export function MyInquiryList({ inquiries }: { inquiries: MyInquiry[] }) {
@@ -20,6 +21,10 @@ const TONE: Record<string, string> = {
 function MyInquiryItem({ iq }: { iq: MyInquiry }) {
   const st = inquiryStatusLabel(iq.status);
   const title = iq.purpose && iq.purpose !== "아직 고민 중이에요" ? `${iq.purpose} 문의` : "문의";
+  // 챗봇 채팅방 재진입 — 봇이 진행 상태·완료 화면을 복원한다 (진입 쿼리는 문의 시작과 동일)
+  const chatHref = `/inquiry/bot?photographerId=${encodeURIComponent(iq.photographerId)}${
+    iq.photoId ? `&photoId=${encodeURIComponent(iq.photoId)}` : ""
+  }`;
   return (
     <li className="overflow-hidden rounded-2xl bg-surface shadow-sm ring-1 ring-line">
       {/* 상단 히어로 — 문의한 사진 + 날짜/상태 오버레이 */}
@@ -56,7 +61,10 @@ function MyInquiryItem({ iq }: { iq: MyInquiry }) {
           </div>
         )}
 
-        <h3 className="text-body font-bold tracking-tight text-fg">{title}</h3>
+        <h3 className="text-body font-bold tracking-tight text-fg">
+          {iq.photographerName ? `${iq.photographerName} · ` : ""}
+          {title}
+        </h3>
 
         <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3">
           <Cell label="희망일" value={iq.preferredDate} />
@@ -96,6 +104,26 @@ function MyInquiryItem({ iq }: { iq: MyInquiry }) {
             ))}
           </div>
         </div>
+
+        {/* 채팅방 재진입 — 문의가 "보내고 끝"이 아니라 이어지는 대화임을 카드에서 보여준다 */}
+        <Link
+          href={chatHref}
+          className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl bg-fg py-3 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90"
+        >
+          채팅방 열기
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2.2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-3.5 w-3.5"
+            aria-hidden
+          >
+            <path d="m9 6 6 6-6 6" />
+          </svg>
+        </Link>
       </div>
     </li>
   );

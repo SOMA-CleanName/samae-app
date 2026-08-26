@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { readMyInquiryIds, fetchMyInquiries } from "@/lib/my-inquiries";
+import { getCurrentUser } from "@/lib/auth";
 import { EmptyState } from "@/components/ui";
 import { ClipboardIcon } from "@/components/user/icons";
 import { MyInquiryList } from "./MyInquiryList";
@@ -7,10 +8,10 @@ import { MyInquiryList } from "./MyInquiryList";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "문의 내역", robots: { index: false } };
 
-// 비로그인 사용자의 '내 문의' 내역 — 쿠키에 보관된 문의 id 로 조회.
+// '내 문의' 내역 — 쿠키(기기) + 로그인 계정 소유 문의의 합집합.
 export default async function MyInquiriesPage() {
-  const ids = await readMyInquiryIds();
-  const inquiries = await fetchMyInquiries(ids);
+  const [ids, me] = await Promise.all([readMyInquiryIds(), getCurrentUser()]);
+  const inquiries = await fetchMyInquiries(ids, me?.id);
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6 font-kr">
