@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { muteHex } from "@/lib/persona/palette-theme";
 
 export const runtime = "nodejs";
 
@@ -52,6 +53,8 @@ export async function GET(request: Request) {
     .slice(0, 5);
   const photos = searchParams.getAll("p").filter(isAllowedPhotoUrl).slice(0, 3);
   const accent = palette[0] ?? "#ff3d2e";
+  // 결과 화면 히어로와 같은 뮤트 변환 — 미리보기(OG)와 착지 화면의 톤이 이어진다
+  const wash = muteHex(accent);
 
   const font = await loadKoreanFont();
 
@@ -65,7 +68,7 @@ export async function GET(request: Request) {
           flexDirection: "column",
           alignItems: "center",
           padding: "150px 80px 120px",
-          background: `radial-gradient(120% 60% at 50% 0%, ${accent}30 0%, #141210 50%, #0c0b0a 100%)`,
+          background: `radial-gradient(120% 60% at 50% 0%, ${wash}30 0%, #141210 50%, #0c0b0a 100%)`,
           color: "#f3f1ec",
           fontFamily: font ? "Noto" : "sans-serif",
         }}

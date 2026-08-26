@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Spinner } from "@/components/ui";
 import { CheckIcon } from "@/components/user/icons";
+import { PersonaMotion, reveal, pop } from "./motion";
 
 // 분석 대기 화면.
 //
@@ -68,18 +69,28 @@ export function PersonaLoading({
   return (
     // 셸의 <main pb-28> 만큼 빼야 화면이 넘치지 않는다
     <div className="mx-auto flex min-h-[calc(100dvh-7rem)] w-full max-w-md flex-col justify-center px-6 py-12 font-kr">
-      <div className="rounded-2xl border border-line bg-surface p-6 shadow-card">
-        <p className="font-display text-body-sm italic text-brand">samae · 촬영 페르소나</p>
-        <h1 className="mt-1.5 text-h2 font-bold">
+      <div
+        style={reveal(0)}
+        className="relative overflow-hidden rounded-3xl border border-line bg-surface p-6 shadow-card"
+      >
+        {/* 결과 화면의 팔레트 워시를 예고하는 은은한 브랜드 워시 — 국면이 이어져 보이게 */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-32"
+          style={{ background: "radial-gradient(100% 90% at 50% 0%, var(--brand-soft) 0%, transparent 75%)", opacity: 0.6 }}
+        />
+        <p className="relative font-display text-body-sm italic text-brand">samae · 촬영 페르소나</p>
+        <h1 className="relative mt-1.5 text-h2 font-bold">
           {target}의 미감을 읽고 있어요
         </h1>
-        <p className="mt-1.5 text-body-sm text-muted">
+        <p className="relative mt-1.5 text-body-sm text-muted">
           보통 20~30초 걸려요. 이 화면을 닫지 말고 잠시만 기다려 주세요.
         </p>
 
-        {/* 진행바 — 95%에서 멈춰 실제 응답을 기다린다 */}
+        {/* 진행바 — 95%에서 멈춰 실제 응답을 기다린다.
+            채움 위를 지나가는 하이라이트가 '멈춘 게 아니라 일하는 중'이라는 생존 신호. */}
         <div
-          className="mt-5 h-1.5 overflow-hidden rounded-full bg-surface-2"
+          className="relative mt-5 h-1.5 overflow-hidden rounded-full bg-surface-2"
           role="progressbar"
           aria-valuemin={0}
           aria-valuemax={100}
@@ -87,9 +98,15 @@ export function PersonaLoading({
           aria-label="분석 진행률"
         >
           <div
-            className="h-full rounded-full bg-brand transition-[width] duration-500 ease-out motion-reduce:transition-none"
+            className="relative h-full overflow-hidden rounded-full bg-brand transition-[width] duration-500 ease-out motion-reduce:transition-none"
             style={{ width: `${progress}%` }}
-          />
+          >
+            <span
+              aria-hidden
+              className="persona-shimmer absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/45 to-transparent"
+              style={{ animation: "persona-shimmer 1.8s ease-in-out infinite" }}
+            />
+          </div>
         </div>
 
         {/* 실제 파이프라인 단계 */}
@@ -111,7 +128,10 @@ export function PersonaLoading({
                   aria-hidden
                 >
                   {done ? (
-                    <CheckIcon className="h-3.5 w-3.5" />
+                    // 단계가 끝나는 순간 도장 찍듯 팝 — 진행이 '사건'으로 느껴진다
+                    <span className="grid place-items-center" style={pop(0)}>
+                      <CheckIcon className="h-3.5 w-3.5" />
+                    </span>
                   ) : active ? (
                     <Spinner className="h-4 w-4" />
                   ) : (
@@ -125,6 +145,20 @@ export function PersonaLoading({
                   }
                 >
                   {step.label}
+                  {active && (
+                    // 활성 단계에만 숨쉬는 점 세 개 — 라벨이 오래 머물러도 살아 있어 보인다
+                    <span aria-hidden className="ml-0.5">
+                      {[0, 1, 2].map((d) => (
+                        <span
+                          key={d}
+                          className="inline-block"
+                          style={{ animation: `persona-dot 1.4s ease-in-out ${d * 0.2}s infinite` }}
+                        >
+                          .
+                        </span>
+                      ))}
+                    </span>
+                  )}
                 </span>
               </li>
             );
@@ -134,12 +168,13 @@ export function PersonaLoading({
 
       {/* 초 카운터에 aria-live 를 걸면 250ms 마다 스크린리더가 숫자를 읽어 대화를 덮는다.
           읽어줘야 하는 건 '몇 초'가 아니라 '어느 단계로 넘어갔나'다. */}
-      <p aria-hidden className="mt-4 text-center text-caption text-muted">
+      <p aria-hidden style={reveal(2)} className="mt-4 text-center text-caption tabular-nums text-muted">
         {Math.floor(elapsed)}초 경과
       </p>
       <p aria-live="polite" className="sr-only">
         {steps[current].label}
       </p>
+      <PersonaMotion />
     </div>
   );
 }

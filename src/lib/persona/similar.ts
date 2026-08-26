@@ -17,9 +17,15 @@ export type SimilarPhoto = {
   id: string;
   src_url: string;
   thumb_url: string | null;
+  /** 사진의 무드 태그 — 결과 화면의 '왜 이 사진인가' 근거 칩 (RPC 가 원래 주던 값) */
+  mood_tags: string[] | null;
   album_id: string | null;
   photographer_id: string | null;
+  /** 코사인 거리 (0=동일, 벡터는 L2 정규화). 유사도 = 1 - distance */
   distance: number;
+  /** 이 사진을 뽑은 씨앗(사용자 피드 사진)의 0-base 인덱스 — sampleThumbs 와 대응.
+   *  결과 화면이 "내 이 사진과 닮아서"를 보여줄 수 있게 한다. 캐시 복원에는 없다. */
+  seedIdx?: number;
 };
 
 /** 씨앗 1장당 가져올 후보 수. 라운드로빈으로 섞을 여유분. */

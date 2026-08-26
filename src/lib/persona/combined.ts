@@ -28,10 +28,21 @@ import type { PersonaImageBlock } from "@/lib/persona/images";
 // 그런데 기존 스키마는 결과 화면이 읽지도 않는 값을 잔뜩 만들고 있었다 —
 // loveStyle · values · lifestyle · socialTendency · shootTypes · bigFive 의 note 5개.
 // 아무도 안 보는 문장을 만드느라 사용자를 기다리게 할 이유가 없다.
+// ⚠️ 글자수 제한이 이 스키마의 핵심이다 (2026-08-25 재설계).
+// 결과는 모바일 카드 UI 에 그대로 얹힌다 — 장문 문단은 화면에서 덩어리로 죽는다.
+// "짧게 쓰라"는 문장 지시는 값싼 모델이 흘리므로, 필드마다 구체적 글자수·형식을 박는다.
 const SlimTrait = z.object({ score: z.number().describe("0~100 점수") });
 
 const SlimPersonaSchema = z.object({
-  oneLiner: z.string().describe("이 사람이 '어떤 사람'인지 관통하는 한 줄 (직업/활동이 아니라 성격·태도)"),
+  // ⚠️ z.string().max() 를 쓰지 말 것 (2026-08-25 실측): maxLength 는 constrained
+  // decoding 에 반영되지 않고, SDK 가 사후 zod 검증에서 too_big 으로 **전면 실패**를
+  // 던진다 — 글자수는 프롬프트 계약으로만 다루고 스키마는 형태(개수·타입)만 강제한다.
+  oneLiner: z
+    .string()
+    .describe(
+      "'어떤 사람인지' 관통하는 한 줄. **10~22자(넘으면 실패)**, 명사형 종결·마침표 없음·쉼표로 절 잇기 금지. " +
+        "수식어는 1개만 (직업·활동이 아니라 성격·태도. 예: '고요한 순간을 골라내는 사람')"
+    ),
   bigFive: z.object({
     openness: SlimTrait.describe("개방성: 새로움·다양함·경험 추구"),
     conscientiousness: SlimTrait.describe("성실성: 계획성·꾸준함·자기관리"),
@@ -42,11 +53,22 @@ const SlimPersonaSchema = z.object({
   attachment: z.object({
     style: z.enum(["secure", "anxious", "avoidant", "fearful"]),
     label: z.string().describe("한국어 라벨. 예: '안정 애착'"),
-    reason: z.string().describe("그렇게 본 근거 한 문장"),
+    reason: z
+      .string()
+      .describe(
+        "그렇게 본 근거 **하나만**. '[신호]에서 [애착 특성]이 느껴져요' 꼴 1문장 45자 이내 " +
+          "(예: '거리를 두면서도 온기를 잃지 않아요'). 신호 2개 잇기('~과 ~에서') 금지"
+      ),
   }),
   evidence: z
     .array(z.string())
-    .describe("판단 근거 3~4개. 사진에서 실제로 관찰한 것을 구체적으로"),
+    .min(3)
+    .max(4)
+    .describe(
+      "판단 근거 3~4개. 각각 **'[관찰 대상]이/가 [반복돼요|이어져요|드러나요|유지돼요]' 꼴** 1문장. " +
+        "관찰만 쓰고 거기서 읽히는 성격('~한 모습/결/태도가 보여요' 류 해석 꼬리)은 **절대 붙이지 말 것** — 해석은 oneLiner·psychHook 의 몫. " +
+        "좋은 예: '창가 자연광의 정적인 컷이 반복돼요' / 실패 예: '루틴을 꾸준히 기록해 자신의 리듬을 소중히 여기는 결이 느껴져요' (해석 꼬리). 지표 인용은 문장당 숫자 1개까지"
+    ),
 });
 
 // 개수를 스키마로 못 박는다.
@@ -54,7 +76,20 @@ const SlimPersonaSchema = z.object({
 // 실측(haiku-4.5)에서 프로필에 따라 근거가 3.0 → 2.0 개로 떨어졌다.
 // 스키마 제약은 프롬프트와 달리 디코딩 단계에서 강제된다.
 const SlimShootSchema = z.object({
-  shootPersonaLabel: ShootPersonaSchema.shape.shootPersonaLabel,
+  shootPersonaLabel: z
+    .string()
+    .describe(
+      "촬영 페르소나 라벨. **8~16자 명사형** (예: '빛을 모으는 필름 산책자'). " +
+        "**'자연 속'·'~빛 아래' 같은 배경 수식을 앞에 붙이지 말 것** — 관형절 하나 + 명사 하나면 끝"
+    ),
+  keywords: z
+    .array(z.string())
+    .min(3)
+    .max(3)
+    .describe(
+      "당신을 요약하는 키워드 정확히 3개. **공백 없는 한 단어 명사, 각 2~5자** " +
+        "(예: '새벽빛', '기록', '여백'). '차분한 회색톤' 같은 수식어구·문장·조사 금지"
+    ),
   purposeKey: ShootPersonaSchema.shape.purposeKey,
   moodIds: z
     .array(z.string())
@@ -68,11 +103,16 @@ const SlimShootSchema = z.object({
         signal: z
           .string()
           .describe(
-            "사진에서 **직접 관찰한 시각 특성**을 반드시 하나 이상 명시할 것 " +
-              "(색온도·채도·계조·그레인·역광·하이키/로우키·흑백·명암대비·여백 중). " +
-              "해요체 1문장. 예: '6장 중 5장이 텅스텐 조명 아래 주황빛 색온도에 필름 그레인이 뚜렷해요'"
+            "사진에서 **직접 관찰한 시각 특성 최대 2개**를 '와/과' 로 이은 명사구. 35자 이내, 문장·쉼표 나열 금지 " +
+              "(색온도·채도·계조·그레인·명암대비·여백·피사체 중. 예: '따뜻한 색온도와 필름 그레인')"
           ),
-        why: z.string().describe("그래서 이 무드가 어울리는 이유. 해요체 1문장, 단정 금지"),
+        why: z
+          .string()
+          .describe(
+            "그래서 이 무드가 어울리는 이유. '~해서 ~가 어울려요' 꼴 해요체 **정확히 1문장, 50자 이내**, 단정 금지. " +
+              "**keywords 로 낸 단어 중 하나를 반드시 그대로 포함**해 성격과 무드를 이을 것 " +
+              "(예: 키워드 '잔잔함' → '잔잔함이 밴 장면들이라 여백 많은 이 무드가 어울려요'). 두 문장 잇기 금지"
+          ),
         photoIndexes: z
           .array(z.number().int().min(1))
           .min(1)
@@ -83,7 +123,18 @@ const SlimShootSchema = z.object({
     .min(2)
     .max(3)
     .describe("moodIds 와 개수·순서를 맞출 것"),
-  psychHook: ShootPersonaSchema.shape.psychHook,
+  psychHook: z
+    .string()
+    .describe(
+      "심리를 짚는 감성 카피 **정확히 2문장 — 마침표 정확히 2개, 세 번째 문장 금지**. 각 문장 45자 이내. " +
+        "두 문장 모두 반드시 '~요' 로 끝날 것 ('~입니다/~합니다' 금지). 캡처해서 인스타에 옮기고 싶은 문장으로. 평가·단정 금지"
+    ),
+  paletteReason: z
+    .string()
+    .describe(
+      "입력으로 준 '실제 팔레트' 색들이 피드의 **어떤 장면**에서 온 색인지. **장면 최대 2개만**, 해요체 1문장 45자 이내 " +
+        "(예: '창가 노을과 원목 가구에서 반복된 색이에요'). 해석·감상('감수성' 류) 금지, 색이름 나열 금지"
+    ),
   locations: ShootPersonaSchema.shape.locations,
 });
 
@@ -92,6 +143,67 @@ const CombinedSchema = z.object({
   shoot: SlimShootSchema,
 });
 
+// 우아한 강등용 완화 스키마 — 정식 파싱이 실패했을 때 같은 응답 텍스트를
+// (재호출 없이) 필수 강제를 풀고 다시 읽는다. v3 부가 필드(keywords·paletteReason)가
+// 빠져도 결과 화면은 폴백으로 그려지므로, 전면 실패(20초 대기 후 에러)보다 낫다.
+const RelaxedSchema = z.object({
+  persona: SlimPersonaSchema.extend({
+    evidence: z.array(z.string()),
+  }),
+  shoot: SlimShootSchema.extend({
+    keywords: z.array(z.string()).optional(),
+    paletteReason: z.string().optional(),
+    moodIds: z.array(z.string()),
+    moodReasons: z.array(
+      z.object({
+        moodTitle: z.string(),
+        signal: z.string(),
+        why: z.string(),
+        photoIndexes: z.array(z.number()).optional(),
+      })
+    ),
+  }),
+});
+
+// SYSTEM·스키마에 적힌 예시 문구 — 여기 있는 문장이 출력에 그대로 나오면 복제다.
+// 예시를 고치면 이 목록도 같이 고칠 것. (8자 미만 짧은 예시는 오탐이 많아 제외)
+const EXAMPLE_PHRASES = [
+  "자기만의 리듬이 단단한 사람",
+  "고요한 순간을 골라내는 사람",
+  "고요함을 담는 사람",
+  "거리를 두면서도 온기를 잃지 않아요",
+  "빛을 모으는 필름 산책자",
+  "잔잔함이 밴 장면들이라 여백 많은 이 무드가 어울려요",
+  "창가 노을과 원목 가구에서 반복된 색이에요",
+  "따뜻한 색온도와 필름 그레인",
+  "창가 자연광의 정적인 컷이 반복돼요",
+  "밤거리 조명과 안개 낀 바다에서 온 색이에요",
+];
+
+/** 출력 필드에 예시 문구가 그대로 들어갔는지 — 복제된 문구 목록을 돌려준다 */
+function findExampleCopies(out: z.infer<typeof RelaxedSchema>): string[] {
+  const texts = [
+    out.persona.oneLiner,
+    out.persona.attachment.reason,
+    ...out.persona.evidence,
+    out.shoot.shootPersonaLabel,
+    out.shoot.psychHook,
+    out.shoot.paletteReason ?? "",
+    ...out.shoot.moodReasons.flatMap((r) => [r.signal, r.why]),
+  ];
+  return EXAMPLE_PHRASES.filter((ex) => texts.some((t) => t.includes(ex)));
+}
+
+/** 정식 파싱 실패 시 — 응답 원문을 완화 스키마로 한 번 더 읽는다 (LLM 재호출 없음) */
+function parseRelaxed(raw: string): z.infer<typeof RelaxedSchema> | null {
+  try {
+    const parsed = RelaxedSchema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
 const SYSTEM = `당신은 SNS 사진과 데이터를 읽어 (1) 그 사람의 성격, (2) 어울리는 촬영 무드를 함께 판단하는 전문가입니다.
 
 ## 1부 · 심리 프로파일 (persona)
@@ -99,7 +211,7 @@ const SYSTEM = `당신은 SNS 사진과 데이터를 읽어 (1) 그 사람의 �
 
 - **"무엇을 하는 사람인가(직업·취미·활동)"가 아니라 "어떤 사람인가(성격·태도·관계방식)"를 쓰세요.**
   - 나쁜 예: "카페를 자주 가는 사람" (X — 활동 나열)
-  - 좋은 예: "혼자만의 리추얼로 하루를 정돈하는, 자기 세계가 단단한 사람" (O)
+  - 좋은 예: "자기만의 리듬이 단단한 사람" (O — 성격·태도, 22자 이내)
 - 신뢰도 순서대로 확신 어조를 차등하세요.
   1) **외향성(가장 신뢰 높음)**: 게시 빈도↑·상호작용 활발·사진에 사람 많음 → 외향 상향. 얼굴 없는 풍경·사물 위주 → 내향 쪽.
   2) **개방성**: 주제 다양성↑·실험적/미학적 콘텐츠 → 상향. 단일 주제 반복은 상향 근거 아님(하향 단정도 금지).
@@ -107,6 +219,7 @@ const SYSTEM = `당신은 SNS 사진과 데이터를 읽어 (1) 그 사람의 �
   4) **우호성(신호 약함)**: 따뜻한 반응·긍정 감정 → 약한 상향. 단독 근거 금지.
   5) **정서안정성(가장 불확실)**: 부정 감정어가 잦음 → 하향. 신호가 매우 약하니 데이터가 빈약하면 중앙값(45~60).
 - **팔로잉/팔로워 비율로 성격을 추론하지 마세요** — 실증 근거가 약합니다.
+- **애착 유형은 여러 장에서 반복된 강한 신호가 있을 때만 secure 밖으로 나가세요.** 게시 지표가 없거나(사진 업로드만 받은 경우) 신호가 약하면 secure 로 판단합니다 — 근거가 빈약한 불안·회피 진단은 금지. (같은 피드를 다시 봐도 같은 유형이 나와야 합니다)
 - 사진 한 장·필터 하나로 특성을 확정하지 마세요. "확실히 ~한 사람"이 아니라 **"~한 결이 느껴져요"** 같은 경향 어조.
 
 ## 2부 · 촬영 페르소나·무드 (shoot)
@@ -134,11 +247,43 @@ const SYSTEM = `당신은 SNS 사진과 데이터를 읽어 (1) 그 사람의 �
 - moodReasons 의 photoIndexes 에는 그 무드의 근거가 된 **사진 번호 1~3개**를 넣으세요. signal 이 말하는 바로 그 사진이어야 합니다.
   - O: "6장 중 5장이 텅스텐 조명 아래 주황빛 색온도예요. 필름 그레인도 뚜렷해요"
   - X: "감성적인 취향", "일상을 소중히 여기는 태도" (사진을 안 봐도 쓸 수 있는 말)
+- moodReasons 의 why 는 **keywords 중 한 단어를 그대로 인용**하세요 — 결과 화면에서 성격 카드와 무드 카드가 같은 단어로 이어져 "내 성격이 이래서 이 무드"라는 서사가 됩니다. (키워드 반복 금지 규칙의 유일한 예외)
+- **매번 같은 무드 조합을 내지 마세요.** 관찰된 시각 특징에 따라 목록의 무드 후보를 폭넓게 고려하세요 — 피드가 다르면 조합도 달라야 정상입니다. 익숙한 페어를 습관적으로 반복하는 것은 관찰 실패의 신호입니다.
 
-### 톤 (모든 출력 필드 공통)
-- **해요체 존댓말. 상대는 '당신'. '너·네·그대' 금지.** (예: "당신의 피드에는 ~가 반복돼요" O / "네 사진은~" X)
-- **짧게.** psychHook 은 2문장 이내, signal·why·attachment.reason 은 각 1문장, evidence 항목도 각 1문장. 같은 말을 늘여 쓰지 마세요.
-- psychHook 은 성향을 정확히 짚어 '나를 이렇게 봐주네' 싶게 하되, 평가·단정·부정 프레이밍 금지. 촬영을 제안하는 따뜻한 톤.
+### 출력 길이 계약 (초과는 실패 — 이 결과는 모바일 카드 UI 에 그대로 얹힙니다)
+| 필드 | 제한 |
+|---|---|
+| shootPersonaLabel | 명사형 8~16자 |
+| keywords | 공백 없는 한 단어 명사 3개, 각 2~5자 |
+| oneLiner | 명사형 종결 10~22자, 마침표·쉼표로 절 잇기 금지 |
+| psychHook | 정확히 2문장(마침표 정확히 2개), 각 45자 이내, 세 번째 문장 금지 |
+| attachment.reason | 해요체 1문장 45자 이내, 신호 하나만 |
+| evidence 각 항목 | '[관찰]이 반복돼요' 꼴 1문장 50자 이내 — 해석 꼬리 금지 |
+| moodReasons.signal | 명사구 35자 이내, 시각 특성 최대 2개, 쉼표 나열 금지 |
+| moodReasons.why | 해요체 1문장 50자 이내 + **모든 무드마다** keywords 중 1개 그대로 포함 |
+| paletteReason | 해요체 1문장 45자 이내, 장면 최대 2개 |
+
+**어떤 필드에도 문장 두 개를 이어붙이지 마세요** (psychHook 제외). 마침표는 문장당 하나. 글자수를 넘길 것 같으면 수식어를 버리고 짧게 끝내세요. 짧은 문장 두 개가 긴 한 문장보다 항상 좋습니다.
+
+### 길이를 지키는 방법 (글자수를 세지 말고 구조로 지키세요)
+- 한 문장 = **주어부 하나 + 서술 하나**. '~하면서도', '~하되', '~해서 ~한' 같은 연결어미가 나오면 이미 초과입니다 — 앞 절만 남기세요.
+- 수식어는 문장당 1개. 관찰(evidence·signal)에 해석을 붙이지 마세요 — 해석은 why·psychHook 의 몫입니다.
+- 실패 예: '밤거리의 따뜻한 조명과 낡은 물건의 회색빛, 안개 낀 바다의 중성 톤에서 비롯된 색이에요' (장면 3개 나열, 49자)
+- 좋은 예: '밤거리 조명과 안개 낀 바다에서 온 색이에요' (장면 2개, 22자)
+
+### 출력 직전 자가 점검 (하나라도 어기면 그 필드를 고쳐 쓴 뒤 출력)
+1. 각 moodReasons.why 안에 keywords 세 단어 중 하나가 **글자 그대로** 들어 있는가? (모든 무드 각각)
+2. psychHook 의 마침표가 정확히 2개인가?
+3. 연결어미('~하면서도'·'~하되')로 절을 이은 문장이 없는가? 있으면 앞 절만 남긴다.
+4. 모든 문장이 '~요' 로 끝나는가? (명사 종결·합쇼체 없음)
+
+### 톤 (모든 출력 필드 공통 — 이 규칙이 결과 품질을 결정합니다)
+- **해요체 존댓말. 상대는 '당신'. '너·네·그대' 등 2인칭 반말 금지.** (예: "당신의 피드에는 ~가 반복돼요" O / "네 사진은~" X)
+- **합쇼체(~합니다/~입니다) 금지 — 모든 문장은 '~요' 로 끝납니다.**
+- **이 지시문과 스키마에 적힌 예시 문구를 그대로 또는 비슷하게 재사용하지 마세요.** 예시는 형식 참고용입니다 — 내용은 반드시 이 피드에서 관찰한 것으로 새로 쓰세요.
+- **감성 카피 톤**: 설명하지 말고 짚으세요. 캡처해서 인스타에 옮기고 싶은, 짧고 단정한 문장. 수식어를 겹치지 말고(형용사 최대 1개씩) 구체적 이미지 하나로 말하세요.
+- 같은 단어를 여러 필드에서 반복하지 마세요. psychHook·oneLiner·keywords 가 서로 다른 면을 비추면 결과가 풍성해 보입니다. (예외: moodReasons.why 는 keywords 중 하나를 일부러 다시 씁니다)
+- psychHook 은 성향을 정확히 짚어 '나를 이렇게 봐주네' 싶게 하되, 평가·단정·부정 프레이밍 금지.
 - 반드시 한국어, 주어진 JSON 스키마로만 출력. **스키마에 없는 필드는 만들지 마세요.**`;
 
 /** 심리 + 촬영 페르소나를 한 번의 비전 호출로 생성. 무드는 서버측에서 유효 id 만 남긴다. */
@@ -147,7 +292,10 @@ export async function generateCombinedPersona(
   model: string,
   dataText: string,
   imgs: PersonaImageBlock[],
-  moodCatalog: Array<{ id: string; title: string }>
+  moodCatalog: Array<{ id: string; title: string }>,
+  /** 서버가 픽셀에서 추출한 실제 팔레트 — paletteReason 이 **이 색들**의 출처를 말하게 한다.
+   *  (LLM 에게 색을 뽑게 하지 않는 원칙은 유지 — 추출된 팩트를 보여주기만 한다) */
+  palette: string[] = []
 ): Promise<{ persona: Persona; shoot: ShootPersona }> {
   const purposeText = PURPOSE_OPTIONS.map((p) => `- ${p.key}: ${p.label} (${p.subtext})`).join("\n");
   const moodText = moodCatalog.map((m) => `- id=${m.id} · ${m.title}`).join("\n");
@@ -160,12 +308,20 @@ export async function generateCombinedPersona(
     "",
     "## 선택 가능한 무드 카테고리 (이 목록 안에서만 moodIds 선택)",
     moodText || "(등록된 공개 무드 없음 — moodIds 는 빈 배열로 두세요)",
+    "",
+    "## 실제 팔레트 (사진 픽셀에서 추출 — 결과 화면에 이 색이 그대로 표시됩니다)",
+    palette.length
+      ? `${palette.join(" ")}\n→ paletteReason 은 위 색들이 피드의 어떤 장면에서 온 색인지 설명해야 합니다.`
+      : "(추출 전 — 사진에서 직접 본 장면 기준으로 paletteReason 을 쓰세요)",
   ].join("\n");
 
   const call = (withImages: boolean) =>
     client.messages.parse({
       model,
       max_tokens: 4000,
+      // QA 실측: 기본 온도에서 동일 입력 재실행 시 애착 유형이 플립됐다(안정→회피).
+      // 창의성은 카피 표현에만 필요하고 판단은 안정적이어야 한다 — 중간값으로 고정.
+      temperature: 0.6,
       thinking: { type: "disabled" },
       system: SYSTEM,
       messages: [
@@ -198,23 +354,71 @@ export async function generateCombinedPersona(
       output_config: { format: zodOutputFormat(CombinedSchema) },
     });
 
-  let res;
-  try {
-    res = await call(true);
-  } catch (err) {
-    // 이미지 때문에 실패했을 수 있으니(용량·형식) 텍스트로 재시도 — 품질은 떨어져도 결과는 나온다
-    console.warn("[persona] 병합 호출 실패, 텍스트로 재시도:", err instanceof Error ? err.message : err);
-    res = await call(false);
-  }
-  if (!res.parsed_output) throw new Error(`페르소나 파싱 실패 (stop_reason: ${res.stop_reason})`);
+  const attempt = async (): Promise<z.infer<typeof RelaxedSchema>> => {
+    let res;
+    try {
+      res = await call(true);
+    } catch (err) {
+      // 이미지 때문에 실패했을 수 있으니(용량·형식) 텍스트로 재시도 — 품질은 떨어져도 결과는 나온다
+      console.warn("[persona] 병합 호출 실패, 텍스트로 재시도:", err instanceof Error ? err.message : err);
+      res = await call(false);
+    }
+    // 정식 파싱 실패 → 같은 응답을 완화 스키마로 강등 재파싱 (재호출 없음, 전면 실패 방지)
+    let parsed: z.infer<typeof RelaxedSchema> | null = res.parsed_output;
+    if (!parsed) {
+      const textBlock = res.content.find((b) => b.type === "text");
+      const rawText = textBlock && "text" in textBlock ? textBlock.text : null;
+      parsed = rawText ? parseRelaxed(rawText) : null;
+      if (parsed) console.warn("[persona] 정식 파싱 실패 → 완화 스키마로 강등 통과");
+    }
+    if (!parsed) throw new Error(`페르소나 파싱 실패 (stop_reason: ${res.stop_reason})`);
+    return parsed;
+  };
 
-  const { persona: slim, shoot } = res.parsed_output;
+  let output = await attempt();
+
+  // 예시문 복제 가드 — 재사용 금지 조항(SYSTEM)만으로는 12회 중 2회 예시가 글자
+  // 그대로 복제됐다(QA 실측). 결정론적으로 검출해 그때만 1회 재생성한다.
+  const copies = findExampleCopies(output);
+  if (copies.length) {
+    console.warn(`[persona] 예시문 복제 감지 (${copies.join(" / ")}) → 1회 재생성`);
+    try {
+      const second = await attempt();
+      if (findExampleCopies(second).length === 0) output = second;
+      else console.warn("[persona] 재생성에도 예시 복제 잔존 — 재생성 결과를 그대로 사용");
+    } catch {
+      // 재생성 실패 — 복제가 있어도 첫 결과가 전면 실패보다 낫다
+    }
+  }
+
+  const { persona: slim, shoot } = output;
+
+  // 애착 라벨은 코드에서 고정 — QA 실측에서 모델이 '불안정 애착' 같은 부정 프레이밍
+  // 라벨을 그대로 노출했다. 유형 판단(style)만 모델의 몫, 사용자에게 보일 말은 우리가 고른다.
+  const ATTACHMENT_LABELS: Record<string, string> = {
+    secure: "안정 애착",
+    anxious: "다가가고 싶은 애착",
+    avoidant: "거리를 지키는 애착",
+    fearful: "조심스러운 애착",
+  };
+  slim.attachment.label = ATTACHMENT_LABELS[slim.attachment.style] ?? slim.attachment.label;
 
   // 서버측 검증 — 목록 밖 무드는 걸러내고 moodReasons 도 유효한 것만 유지
   const validIds = new Set(moodCatalog.map((m) => m.id));
   const titleById = new Map(moodCatalog.map((m) => [m.id, m.title]));
   const keptIds = shoot.moodIds.filter((id) => validIds.has(id));
   const keptTitles = new Set(keptIds.map((id) => titleById.get(id)));
+
+  // 키워드는 저장 전에 dedupe (중복이면 히어로 칩이 같은 단어 두 번 뜬다)
+  const keywords = shoot.keywords ? [...new Set(shoot.keywords.filter(Boolean))] : undefined;
+  // 인용 계약 관측 — why 가 키워드를 안 물면 성격↔무드 연결이 화면에서 끊긴다 (강제 대신 경고)
+  if (keywords?.length) {
+    for (const r of shoot.moodReasons) {
+      if (!keywords.some((k) => r.why.includes(k))) {
+        console.warn(`[persona] 무드 '${r.moodTitle}' 의 why 가 키워드를 인용하지 않음: "${r.why}"`);
+      }
+    }
+  }
 
   // 생성하지 않은 필드는 빈 값으로 채운다 — 저장 포맷·타입을 그대로 유지해
   // 이전에 저장된 결과와 공유 링크가 계속 열리게 한다.
@@ -239,6 +443,7 @@ export async function generateCombinedPersona(
     persona,
     shoot: {
       ...shoot,
+      keywords,
       colorPalette: [], // 서버가 사진에서 직접 추출해 덮어쓴다 (palette.ts)
       shootTypes: [],
       moodIds: keptIds,
@@ -246,6 +451,11 @@ export async function generateCombinedPersona(
         .filter((r) => keptTitles.has(r.moodTitle))
         .map((r) => ({
           ...r,
+          // 쉼표 나열은 계약 위반이 잦다(실측) — 첫 구가 완결 명사구면 결정론적으로 자른다
+          signal: (() => {
+            const cut = r.signal.split(/,\s*/)[0].trim();
+            return cut.length >= 10 ? cut : r.signal;
+          })(),
           // 모델이 범위 밖 번호를 낼 수 있다 — 실제 표본 안의 번호만 남긴다
           photoIndexes: (r.photoIndexes ?? []).filter((n) => n >= 1 && n <= imgs.length).slice(0, 3),
         })),

@@ -100,8 +100,9 @@ export const PERSONA_RESULT_COOKIE = "samae_persona_rid";
  *  캐시(findCached)는 같은 버전만 히트한다. 안 올리면 업그레이드 배포 후에도
  *  기존 사용자에게 72h 동안 구버전 결과가 나간다 (2026-08-20 실사용에서 확인).
  *  공유 링크(findById)는 버전 불문 — 이미 공유된 결과는 계속 열려야 한다.
- *  v2: 병합 호출 + 임베딩 추천 + 근거 사진 + 하이브리드 피드 */
-export const PIPELINE_VERSION = 2;
+ *  v2: 병합 호출 + 임베딩 추천 + 근거 사진 + 하이브리드 피드
+ *  v3: 카드형 카피 재설계 — 필드별 글자수 제한 + keywords 칩 (combined.ts 2026-08-25) */
+export const PIPELINE_VERSION = 3;
 
 export async function saveResult(args: {
   username: string | null;
