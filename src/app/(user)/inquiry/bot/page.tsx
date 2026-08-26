@@ -74,6 +74,9 @@ export default async function InquiryBotPage({
     // E2: 루트 레이아웃의 main 과 중첩(landmark 중복)되지 않게 div 사용
     <div className="bg-bg">
       <InquiryBotChat
+        // 작가·사진이 바뀌면 컴포넌트를 통째로 리마운트 — 같은 라우트에서 쿼리만 바뀔 때
+        // React 가 인스턴스를 재사용해 이전 대화 타임라인이 이어지던 버그 방지
+        key={`${photographerId}:${photoId || "direct"}`}
         photographerId={photographerId}
         photographerName={photographer.display_name}
         photographerAvatar={photographer.avatar_url}

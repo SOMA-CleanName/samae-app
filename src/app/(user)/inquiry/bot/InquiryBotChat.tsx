@@ -93,9 +93,11 @@ function renderQuestion(segments: QuestionSegment[]): React.ReactNode {
   return segments.map((s, i) => (s.em ? <Em key={i}>{s.text}</Em> : s.text));
 }
 
-// 입력 중인 답변을 사진별로 보존 (위저드의 localStorage 패턴 재사용 — 키만 bot 네임스페이스)
+// 입력 중인 답변을 작가·사진 조합별로 보존 (위저드의 localStorage 패턴 재사용 — 키만 bot 네임스페이스)
+// 복합키인 이유: 사진 없이(작가 프로필) 진입한 문의와 특정 사진 문의가 섞이지 않게,
+// 그리고 추후 작가별 챗봇 개인화(커스텀 대본)에서도 대화 상태가 작가 단위로 오염되지 않게.
 function botStorageKey(photoId: string, photographerId: string) {
-  return `samae:inquiry:bot:${photoId || photographerId}`;
+  return `samae:inquiry:bot:${photographerId}:${photoId || "direct"}`;
 }
 function loadSavedAnswers(key: string): BotAnswers | null {
   try {
@@ -115,7 +117,7 @@ function loadSavedAnswers(key: string): BotAnswers | null {
 // 봇이 done 턴을 재생성해 연락처 카드가 또 노출됐다.
 type DoneRecord = { at: number; dryRun: boolean; answers: BotAnswers };
 function botDoneKey(photoId: string, photographerId: string) {
-  return `samae:inquiry:bot:done:${photoId || photographerId}`;
+  return `samae:inquiry:bot:done:${photographerId}:${photoId || "direct"}`;
 }
 function loadDoneRecord(key: string): DoneRecord | null {
   try {
