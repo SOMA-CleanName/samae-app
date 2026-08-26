@@ -36,7 +36,7 @@ import {
   type LlmSlots,
 } from "@/lib/inquiry-bot-llm";
 import { buildLegacyInquiryFormData } from "@/lib/inquiry-bot-persist";
-import { submitInquiry, type InquiryState } from "../actions";
+import { submitInquiry, ensureBotConversation, type InquiryState } from "../actions";
 
 // 채팅룸형 문의 챗봇 — LLM 대화가 기본, 버튼 상태 머신은 폴백.
 // - 기본(LLM): 사용자가 자유 타이핑 → /api/inquiry-bot 왕복 → 봇 답변 + quickReplies 칩.
@@ -320,6 +320,8 @@ export function InquiryBotChat({
       source: "photo",
       photographer_id: photographerId,
     });
+    // 첫 발화 = 대화방 생성 — 진행 중 문의도 문의 탭에 뜨게 (실패해도 대화 계속)
+    void ensureBotConversation(photographerId, photoId || null);
   }
 
   // 질문 노출 이벤트 — 봇이 질문 버블을 게시한 시점 = Viewed (복원으로 이미 답한 질문은 제외)

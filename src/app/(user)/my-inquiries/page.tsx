@@ -30,10 +30,18 @@ export default async function MyInquiriesPage() {
       {rooms.length > 0 && (
         <section className="mt-5">
           <ul className="space-y-2">
-            {rooms.map((r) => (
+            {rooms.map((r) => {
+              // 아직 메시지가 없는 방 = 챗봇 문의 작성 중 — 봇 채팅으로 복귀시켜 이어서 진행
+              const inProgress = !r.last_message_at;
+              const href = inProgress
+                ? `/inquiry/bot?photographerId=${encodeURIComponent(r.photographer_id)}${
+                    r.bot_photo_id ? `&photoId=${encodeURIComponent(r.bot_photo_id)}` : ""
+                  }`
+                : `/chat/${r.id}`;
+              return (
               <li key={r.id}>
                 <Link
-                  href={`/chat/${r.id}`}
+                  href={href}
                   className="flex items-center gap-3 rounded-2xl bg-surface p-3.5 shadow-sm ring-1 ring-line transition-colors hover:bg-fg/[0.02]"
                 >
                   {r.photographer_avatar_url ? (
@@ -53,7 +61,7 @@ export default async function MyInquiriesPage() {
                       {r.photographer?.display_name ?? "작가"}
                     </p>
                     <p className="mt-0.5 text-caption text-muted">
-                      {r.last_message_at ? "대화 진행 중" : "대화를 시작해보세요"}
+                      {inProgress ? "문의 작성 중 — 이어서 진행하기" : "대화 진행 중"}
                     </p>
                   </div>
                   {r.user_unread > 0 && (
@@ -63,7 +71,8 @@ export default async function MyInquiriesPage() {
                   )}
                 </Link>
               </li>
-            ))}
+              );
+            })}
           </ul>
         </section>
       )}

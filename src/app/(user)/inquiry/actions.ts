@@ -160,6 +160,37 @@ function readBriefInfo(formData: FormData): BriefInfo {
   };
 }
 
+// 챗봇 첫 발화 시 대화방 선생성 — "채팅을 시작한 순간 방이 생긴다"는 멘탈 모델.
+// 진행 중(미접수) 방도 문의 탭에 떠서 이어서 진행할 수 있다. 실패해도 대화는 계속.
+export async function ensureBotConversation(
+  photographerId: string,
+  photoId: string | null
+): Promise<void> {
+  try {
+    const me = await getCurrentUser();
+    if (!me || !photographerId) return;
+    if (me.photographer?.id === photographerId) return; // 본인 방 방지
+    const admin = createAdminClient();
+    const { data: existing } = await admin
+      .from("conversations")
+      .select("id, bot_photo_id")
+      .eq("user_id", me.id)
+      .eq("photographer_id", photographerId)
+      .maybeSingle();
+    if (existing) {
+      // 다른 사진으로 새 문의를 시작했으면 복귀 사진만 갱신
+      if (photoId && existing.bot_photo_id !== photoId)
+        await admin.from("conversations").update({ bot_photo_id: photoId }).eq("id", existing.id);
+      return;
+    }
+    await admin
+      .from("conversations")
+      .insert({ user_id: me.id, photographer_id: photographerId, bot_photo_id: photoId });
+  } catch (err) {
+    console.error("[bot-chat] 방 선생성 실패:", err instanceof Error ? err.message : err);
+  }
+}
+
 // 문의 폼 제출 — 연락 수단 검증을 통과하면 작가에게 알림을 보낸다.
 export async function submitInquiry(
   _prevState: InquiryState,
