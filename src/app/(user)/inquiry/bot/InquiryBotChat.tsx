@@ -766,10 +766,17 @@ export function InquiryBotChat({
                   } as const)),
           }))
         );
-        push({
-          kind: "notice",
-          node: <>이어서 진행할게요 — 하시던 답변을 계속 입력해 주세요.</>,
-        });
+        // 복원한 대화가 이미 완주 상태(수집 끝, 미접수) — 방치하지 않고 요약+확인(보내기)으로 잇는다.
+        // 과거 대화의 재진입이므로 자동 접수는 하지 않는다.
+        if (nextStepIndex(STEPS, slotsToAnswers(initialSlots)) >= STEPS.length) {
+          setManualSend(true);
+          postContactPhase(false);
+        } else {
+          push({
+            kind: "notice",
+            node: <>이어서 진행할게요 — 하시던 답변을 계속 입력해 주세요.</>,
+          });
+        }
         return;
       }
       // A2: 첫 인사는 로컬 — 마운트만으로는 LLM 을 호출하지 않는다

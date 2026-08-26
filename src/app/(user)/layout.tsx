@@ -4,7 +4,7 @@ import { FloatingCart } from "@/components/user/cart/FloatingCart";
 import { FloatingNav } from "@/components/user/FloatingNav";
 import { NavRevealProvider } from "@/components/user/NavReveal";
 import { PhotoReturnScroll } from "@/components/user/PhotoReturnScroll";
-import { readMyInquiryIds, hasProfileInquiries } from "@/lib/my-inquiries";
+import { readMyInquiryIds } from "@/lib/my-inquiries";
 
 // 사용자(탐색) 영역 공통 셸 — 기존 하단바/레일 제거.
 // 하단 중앙 홈/탐색 플로팅 내비 + (로그인 시) 좌측 하단 계정 + 우측 하단 장바구니.
@@ -14,9 +14,9 @@ export default async function UserLayout({
   children: React.ReactNode;
 }) {
   const me = await getCurrentUser();
-  // '내 문의' 탭 노출 — 쿠키(기기) 또는 로그인 계정에 문의가 있으면 (기기 바뀌어도 계정으로 잡힘)
-  let hasInquiries = (await readMyInquiryIds()).length > 0;
-  if (!hasInquiries && me) hasInquiries = await hasProfileInquiries(me.id);
+  // '문의' 탭 노출 — 로그인했으면 항상(대화 허브라 상시 진입점 필요, 빈 상태 화면 있음),
+  // 비로그인은 쿠키(기기)에 문의 내역이 있을 때만
+  const hasInquiries = !!me || (await readMyInquiryIds()).length > 0;
   const profileMe = me
     ? {
         displayName: me.displayName,
