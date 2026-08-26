@@ -46,8 +46,10 @@ function statusTone(s: ChatStatus): "neutral" | "warning" | "success" {
 export default async function ChatListPage() {
   const me = await getCurrentUser();
   if (!me) redirect("/login?next=/chat");
-  // 사용자(고객) 쪽은 문의 탭으로 병합 — 별도 채팅 목록은 작가만 사용
+  // 목록은 역할별 허브로 병합 — 고객은 문의 탭, 작가는 스튜디오 문의함.
+  // (개별 방 /chat/[id] 는 양쪽이 공유)
   if (!me.photographer) redirect("/my-inquiries");
+  redirect("/studio/chat");
 
   const rooms = await listChatRooms(me);
 

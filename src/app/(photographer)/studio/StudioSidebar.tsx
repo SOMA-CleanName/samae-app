@@ -17,6 +17,7 @@ export function StudioSidebar() {
 
   const ops: Item[] = [
     { href: "/studio", label: "문의" },
+    { href: "/studio/chat", label: "채팅" }, // 채팅 부활 (8/26) — 챗봇 수집 대화·고객 상담
     // 후기 탭 숨김(되돌리려면 아래 주석 해제):
     // { href: "/studio/reviews", label: "후기" },
   ];
