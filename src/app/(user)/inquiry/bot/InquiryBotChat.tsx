@@ -421,14 +421,15 @@ export function InquiryBotChat({
       postContactPhase(false);
       return;
     }
-    const greetingText = `안녕하세요! ${photographerName}님에게 보내는 문의를 도와드릴게요.\n편하게 입력하셔도 되고, 아래 선택지를 눌러도 좋아요.`;
+    const greetingText = `안녕하세요! 저는 ${photographerName}님의 문의를 대신 받아드리는 자동 응답 봇이에요 🤖\n몇 가지 여쭤보고 정리해서 작가님께 전달드려요. 편하게 입력하셔도 되고, 아래 선택지를 눌러도 좋아요.`;
     push({
       kind: "bot",
       node: (
         <>
-          안녕하세요! <Em>{photographerName}</Em>님에게 보내는 문의를 도와드릴게요.
-          <br />
-          편하게 입력하셔도 되고, 아래 선택지를 눌러도 좋아요.
+          안녕하세요! 저는 <Em>{photographerName}</Em>님의 문의를 대신 받아드리는{" "}
+          <Em>자동 응답 봇</Em>이에요 🤖
+          <br />몇 가지 여쭤보고 정리해서 작가님께 전달드려요. 편하게 입력하셔도 되고, 아래
+          선택지를 눌러도 좋아요.
         </>
       ),
     });
@@ -692,9 +693,9 @@ export function InquiryBotChat({
         <>연결이 잠시 원활하지 않네요. 이어서 <Em>선택지</Em>로 빠르게 진행할게요.</>
       ) : (
         <>
-          안녕하세요! <Em>{photographerName}</Em>님에게 보내는 문의를 도와드릴게요.
-          <br />
-          몇 가지만 여쭤보면 정리해서 작가님께 바로 전달해드려요.
+          안녕하세요! 저는 <Em>{photographerName}</Em>님의 문의를 대신 받는 <Em>자동 응답 봇</Em>
+          이에요 🤖
+          <br />몇 가지만 여쭤보면 정리해서 작가님께 바로 전달해드려요.
         </>
       ),
     });

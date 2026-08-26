@@ -50,7 +50,7 @@ export default async function AdminChatViewerPage({
   const photographer = conv.photographer;
   const customer = conv.user;
 
-  const [{ data: msgs }, { data: smsRows }] = await Promise.all([
+  const [{ data: msgs }, { data: smsRows }, { data: modRows }] = await Promise.all([
     admin
       .from("messages")
       .select("id, sender_id, type, body, image_path, created_at")
@@ -63,6 +63,12 @@ export default async function AdminChatViewerPage({
       .eq("dedupe_key", `chat_reply:${id}`)
       .order("created_at", { ascending: false })
       .limit(10),
+    admin
+      .from("moderation_events")
+      .select("sender_role, body, matched, created_at")
+      .eq("conversation_id", id)
+      .order("created_at", { ascending: false })
+      .limit(20),
   ]);
   const messages = (msgs ?? []) as Msg[];
 
@@ -92,6 +98,27 @@ export default async function AdminChatViewerPage({
         메시지 {messages.length}개 · 고객 연락처 {customer?.phone ?? "없음"} · 안읽음(고객{" "}
         {conv.user_unread} / 작가 {conv.photographer_unread})
       </p>
+
+      {/* 오프플랫폼 유도 차단 시도 — 메시지는 저장되지 않았고 여기에만 원문이 남는다 */}
+      {(modRows ?? []).length > 0 && (
+        <div className="mt-4 rounded-xl bg-danger-soft px-4 py-3 text-caption leading-relaxed">
+          <p className="font-semibold text-danger">
+            ⚠️ 오프플랫폼 유도 차단 {(modRows ?? []).length}건
+          </p>
+          {(modRows ?? []).map((e, i) => (
+            <div key={i} className="mt-2 border-t border-danger/20 pt-2">
+              <p className="text-danger">
+                {ts(e.created_at as string)} ·{" "}
+                <b className="font-semibold">
+                  {e.sender_role === "photographer" ? "작가" : "고객"}
+                </b>{" "}
+                · {(e.matched as string[]).join(", ")}
+              </p>
+              <p className="mt-0.5 whitespace-pre-wrap break-words text-fg">{e.body as string}</p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* SMS 발송 이력 */}
       {(smsRows ?? []).length > 0 && (

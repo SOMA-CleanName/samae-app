@@ -66,6 +66,7 @@ export function ChatRoom({
   sourcePhotoPath: string | null;
 }) {
   const amCustomer = !amPhotographer; // 참여자 중 작가가 아니면 구매자
+  void brief; void sourcePhotoPath; // 레거시 상담정보 — 요약 카드로 대체, 과거 방 호환 위해 프롭만 유지
   const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [text, setText] = useState("");
@@ -185,18 +186,30 @@ export function ChatRoom({
     return () => document.removeEventListener("mousedown", onDown);
   }, [optionsOpen]);
 
+  const [blockedNotice, setBlockedNotice] = useState<string | null>(null);
+
   function onSend(e: React.FormEvent) {
     e.preventDefault();
     const t = text.trim();
     if (!t) return;
-    setText("");
-    mpTrack("Send Message", {
-      conversation_id: conversationId,
-      has_image: false,
-      role: amPhotographer ? "photographer" : "customer",
-    });
-    startTransition(() => {
-      sendMessage(conversationId, t);
+    setBlockedNotice(null);
+    startTransition(async () => {
+      const res = await sendMessage(conversationId, t);
+      if (!res.ok) {
+        // 차단 — 입력은 유지해서 사용자가 문구를 고칠 수 있게
+        setBlockedNotice(res.reason);
+        mpTrack("Chat Message Blocked", {
+          conversation_id: conversationId,
+          role: amPhotographer ? "photographer" : "customer",
+        });
+        return;
+      }
+      setText("");
+      mpTrack("Send Message", {
+        conversation_id: conversationId,
+        has_image: false,
+        role: amPhotographer ? "photographer" : "customer",
+      });
     });
   }
 
@@ -225,21 +238,27 @@ export function ChatRoom({
         ref={listRef}
         className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-3 py-4 sm:px-4"
       >
-        {/* 작가: 고객이 작성한 상담 정보를 카드로 노출(대화 맥락) */}
-        {amPhotographer && brief && (
-          <ConsultationCard brief={brief} sourcePhotoPath={sourcePhotoPath} />
-        )}
-        {/* 상담 정보를 작성한 고객의 빈 방 — 첫 인사를 권유 (메시지가 생기면 사라짐) */}
-        {messages.length === 0 && amCustomer && brief && (
-          <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-            <span className="grid h-12 w-12 place-items-center rounded-full bg-success-soft text-success">
-              <CheckIcon className="h-6 w-6" />
-            </span>
-            <p className="mt-3 text-body font-semibold text-fg">상담 정보를 작성했어요</p>
-            <p className="mt-1 text-body-sm text-muted">작가님께 먼저 대화를 건네보세요.</p>
-          </div>
-        )}
-        {messages.map((m) => {
+        {/* 레거시 상담정보 카드·빈 방 안내는 제거 — 챗봇의 '문의 내용 정리' 요약 카드가
+            타임라인 안에서 같은 역할을 한다 (brief 데이터는 과거 방 호환용으로만 유지) */}
+        {(() => {
+          // 작가가 봇을 이어받은 지점 — 첫 작가 실발화(text/image) 앞에 구분선을 그린다
+          const firstPhotographerMsgId = messages.find(
+            (m) =>
+              (m.type === "text" || m.type === "image") &&
+              (amPhotographer ? m.sender_id === meId : m.sender_id !== meId)
+          )?.id;
+          return messages.map((m) => {
+          const handoffDivider =
+            m.id === firstPhotographerMsgId ? (
+              <div key={`handoff-${m.id}`} className="flex items-center gap-3 py-1.5">
+                <span className="h-px flex-1 bg-line" />
+                <span className="rounded-full bg-success-soft px-3 py-1 text-caption font-medium text-success">
+                  여기서부터 작가님이 직접 답해요
+                </span>
+                <span className="h-px flex-1 bg-line" />
+              </div>
+            ) : null;
+          const rendered = (() => {
           // 예약 제안 카드
           if (m.booking_id && m.booking) {
             return (
@@ -333,8 +352,31 @@ export function ChatRoom({
               )}
             </div>
           );
-        })}
+          })();
+          return (
+            <Fragment key={`w-${m.id}`}>
+              {handoffDivider}
+              {rendered}
+            </Fragment>
+          );
+        });
+        })()}
       </div>
+
+      {/* 오프플랫폼 유도 차단 안내 — 입력은 유지된 채 문구만 고치게 */}
+      {blockedNotice && (
+        <div className="mx-3 mb-1.5 flex items-start justify-between gap-2 rounded-xl bg-danger-soft px-3.5 py-2.5 text-caption text-danger sm:mx-4">
+          <span>{blockedNotice}</span>
+          <button
+            type="button"
+            onClick={() => setBlockedNotice(null)}
+            aria-label="닫기"
+            className="shrink-0 cursor-pointer font-semibold underline underline-offset-2"
+          >
+            닫기
+          </button>
+        </div>
+      )}
 
       {/* 입력 바 — 하단은 safe-area(홈 인디케이터)만큼만 여유 */}
       <form
@@ -432,6 +474,7 @@ export function ChatRoom({
 
 // 작가용 상담 정보 카드 — 고객이 작성한 상담 정보를 채팅 상단에 읽기 전용 카드로 노출.
 //   문의한 사진·기본 정보·레퍼런스 사진을 한눈에 보여준다(자세한 열람은 헤더의 상담 정보 버튼).
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- 레거시 보존 (되돌릴 때 사용)
 function ConsultationCard({
   brief,
   sourcePhotoPath,

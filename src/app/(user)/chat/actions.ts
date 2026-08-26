@@ -8,6 +8,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { getPhotographerPayoutAccount, type PayoutAccount } from "@/lib/payments";
 import { archiveAndDelete } from "@/lib/soft-delete";
 import { notifyUserOfPhotographerReply } from "@/lib/notify-user";
+import { detectOffPlatform, MODERATION_NOTICE } from "@/lib/moderation";
 
 // 송금 단계(수락 이후)에서만 작가 수취 계좌를 공개 — 채팅 진입만으로 계좌가 응답에 실리지 않게 한다(리드/보안).
 //   · 고객 본인 + 해당 예약이 accepted 이상일 때만 반환, 그 외엔 null.
@@ -27,15 +28,41 @@ export async function getBookingPayoutAccount(bookingId: string): Promise<Payout
   return getPhotographerPayoutAccount(booking.photographer_id as string);
 }
 
+export type SendMessageResult = { ok: true } | { ok: false; blocked: true; reason: string };
+
 // 텍스트 메시지 전송 (RLS: 발신자=본인 + 대화 참여자)
-export async function sendMessage(conversationId: string, body: string) {
+// 오프플랫폼(개인 SNS·연락처) 유도 텍스트는 전송을 차단하고 시도를 어드민용으로 기록한다.
+export async function sendMessage(conversationId: string, body: string): Promise<SendMessageResult> {
   const text = body.trim();
-  if (!text) return;
+  if (!text) return { ok: true };
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) throw new Error("로그인이 필요합니다.");
+
+  const matched = detectOffPlatform(text);
+  if (matched.length > 0) {
+    // 차단 — 메시지는 저장하지 않고 시도만 기록 (실패해도 차단은 유지)
+    try {
+      const admin = createAdminClient();
+      const { data: conv } = await admin
+        .from("conversations")
+        .select("user_id")
+        .eq("id", conversationId)
+        .maybeSingle();
+      await admin.from("moderation_events").insert({
+        conversation_id: conversationId,
+        sender_id: user.id,
+        sender_role: conv?.user_id === user.id ? "customer" : "photographer",
+        body: text,
+        matched,
+      });
+    } catch (err) {
+      console.error("[moderation] 기록 실패:", err instanceof Error ? err.message : err);
+    }
+    return { ok: false, blocked: true, reason: MODERATION_NOTICE };
+  }
 
   const { error } = await supabase.from("messages").insert({
     conversation_id: conversationId,
@@ -47,6 +74,7 @@ export async function sendMessage(conversationId: string, body: string) {
 
   // 작가 발신이면 사용자에게 SMS 재소환 (내부에서 발신자 검증·쿨다운, 실패해도 무시)
   await notifyUserOfPhotographerReply(conversationId, user.id);
+  return { ok: true };
 }
 
 // 작가 포트폴리오에서 사진 골라 보내기 (C5) — 참여자 검증 후 image 메시지 생성.
