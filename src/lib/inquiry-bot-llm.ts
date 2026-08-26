@@ -230,6 +230,33 @@ export function sanitizeBotTurn(turn: BotTurn, prevSlots: LlmSlots): BotTurnClea
   };
 }
 
+// 봇이 자체 판단으로 만드는 보조 기록 키 — 커스텀 질문 '답변 수' 계산에서 제외
+const AUX_CUSTOM_KEYS = new Set(["레퍼런스", "장소요청"]);
+
+/**
+ * 질문 수 결정론 — 질문은 항상 「코어 4 + 작가가 등록한 커스텀 질문 수」로 끝난다.
+ * 코어가 다 찼고 남은 커스텀 질문이 없는데 LLM 이 보너스 질문을 이어가려 하면
+ * done 으로 강제하고 마무리 멘트로 교체한다 (프롬프트 지시와 이중 방어).
+ */
+export function enforceQuestionBudget(
+  clean: BotTurnClean,
+  customQuestionCount: number,
+  photographerName: string
+): BotTurnClean {
+  if (clean.done || !coreSlotsFilled(clean.slots)) return clean;
+  const answered = Object.keys(clean.slots.custom ?? {}).filter(
+    (k) => !AUX_CUSTOM_KEYS.has(k)
+  ).length;
+  if (answered < customQuestionCount) return clean; // 등록된 커스텀 질문이 아직 남음
+  return {
+    ...clean,
+    done: true,
+    asking: "none",
+    quickReplies: [],
+    reply: `필요한 내용은 모두 확인했어요! 정리해서 ${photographerName}님께 바로 전달드릴게요.`,
+  };
+}
+
 /** 코어 질문의 정식 선택지 — 버튼 플로우(CORE_STEPS)와 동일한 옵션 + soft-skip */
 export function canonicalChipsFor(asking: AskingKey): string[] {
   const step = CORE_STEPS.find((s) => s.key === asking);
@@ -290,6 +317,7 @@ ${customBlock}${photoBlock}
 - quickReplies 에는 현재 질문에 탭으로 답할 수 있는 짧은 선택지를 넣는다 (자유 서술형 질문이면 빈 배열 또는 "잘 모르겠어요" 정도만).
 - 첫 인사에는 "편하게 입력하셔도 되고, 아래 선택지를 눌러도 좋아요" 뉘앙스를 한 줄 넣어 자유 입력이 기본임을 알린다.
 - 필수 슬롯과 커스텀 질문이 모두 끝나면 done=true 로 하고, "정리해서 ${photographerName}님께 전달드릴게요" 톤으로 마무리한다.
+- 질문 수는 고정이다: 필수 슬롯 + 위에 등록된 커스텀 질문뿐. 그 외 추가 질문(분위기·스타일 등 네가 만든 질문)은 금지. 등록된 커스텀 질문이 없으면 필수 슬롯이 끝나는 **즉시** done=true 로 마무리한다.
 - 사용자가 레퍼런스 이미지를 보내면: 분위기·톤·구도를 한 문장으로 따뜻하게 짚어주고(예: "따뜻한 필름 톤 레퍼런스네요! 참고해서 작가님께 전달드릴게요"), 그 특징 요약을 slots.custom 의 "레퍼런스" 키에 저장한 뒤, 남은 수집 질문을 이어간다. 여러 장이면 장마다 따로가 아니라 공통 무드(차이가 크면 차이도)를 묶어 한 번만 반응하고, 함께 온 캡션 텍스트가 있으면 그 내용에도 답한다.
 - 사용자가 수집과 무관한 것을 물어도(예: "가격이 얼마예요?", "예약은 어떻게 해요?") 무시하지 말고 한두 문장으로 자연스럽게 응대한 뒤, 같은 턴에서 곧바로 수집 질문으로 복귀한다. 단 가격·환불 등 정책성 내용은 단정하지 말고 "작가님이 직접 안내드릴 거예요" 톤으로 넘긴다. 작가 사생활 등 부적절한 주제는 정중히 문의 흐름으로 돌린다.
 - 사용자가 "이 사진 찍은 곳이 어디냐", "이 사진 장소에서 그대로 찍고 싶다"고 하면: 너는 촬영 장소 정보를 모른다 — 지어내지 말 것. slots.custom 의 "장소요청" 키에 "문의 사진과 같은 장소 희망"을 저장하고, **같은 턴 안에서** "정확한 장소는 작가님이 알고 계셔서 그 요청으로 함께 전달드릴게요. 이동 거리 참고를 위해 거주 지역만 알려주세요"처럼 안내와 다음 질문을 한 번에 묶는다. 안내만 하고 질문 없이 턴을 끝내지 말 것. "장소요청"이 이미 저장돼 있는데 사용자가 또 사진 장소를 말하면 안내를 반복하지 말고 "네, 그 요청은 적어뒀어요!" 한 줄 뒤 바로 미수집 질문을 잇는다.

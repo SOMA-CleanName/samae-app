@@ -16,6 +16,7 @@ import {
   CORE_SLOT_KEYS,
   botTurnSchema,
   buildSystemPrompt,
+  enforceQuestionBudget,
   sanitizeBotTurn,
   type BotChatMessage,
   type BotTurnClean,
@@ -122,7 +123,13 @@ export async function runBotLlmTurn(params: {
     console.warn("[inquiry-bot] structured output failed once, retrying:", first);
     turn = await structured.invoke(lcMessages);
   }
-  return sanitizeBotTurn(turn, params.slots);
+  const clean = sanitizeBotTurn(turn, params.slots);
+  // 질문 수 결정론 — 코어 4 + 등록 커스텀 질문 수를 넘는 보너스 질문은 done 으로 강제
+  return enforceQuestionBudget(
+    clean,
+    params.script.customQuestions.length,
+    params.photographerName.trim() || "작가"
+  );
 }
 
 // DB 메시지 행 → LLM 대화 이력 매핑용 최소 형태

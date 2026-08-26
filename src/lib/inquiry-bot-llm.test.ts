@@ -5,6 +5,7 @@ import {
   botTurnSchema,
   buildSystemPrompt,
   coreSlotsFilled,
+  enforceQuestionBudget,
   createUtteranceQueue,
   hasPhotographerIntervened,
   sanitizeBotTurn,
@@ -106,6 +107,33 @@ test("sanitizeBotTurn — 코어 질문이면 정식 선택지 칩을 항상 보
   // 커스텀·서술형 질문은 LLM 제안 칩 유지
   const custom = sanitizeBotTurn({ ...baseTurn, asking: "custom", quickReplies: ["필름 감성"] }, {});
   assert.deepEqual(custom.quickReplies, ["필름 감성"]);
+});
+
+test("enforceQuestionBudget — 질문 수 결정론 (코어 4 + 등록 커스텀 수)", () => {
+  const full = { purpose: "웨딩", preferredDate: "미정", region: "서울", partySize: "2명" };
+  const base = sanitizeBotTurn({ ...baseTurn, slots: {} }, full);
+  // 커스텀 질문 미등록 + 코어 완주 — LLM 이 보너스 질문을 이어가려 해도 done 강제
+  const forced = enforceQuestionBudget(
+    { ...base, reply: "혹시 원하는 분위기가 있나요?", asking: "custom", done: false },
+    0,
+    "김재즈"
+  );
+  assert.equal(forced.done, true);
+  assert.equal(forced.asking, "none");
+  assert.match(forced.reply, /김재즈님께 바로 전달/);
+  // 등록 커스텀 질문이 남아 있으면 그대로 진행
+  const pending = enforceQuestionBudget({ ...base, done: false }, 2, "김재즈");
+  assert.equal(pending.done, false);
+  // 보조 기록(레퍼런스·장소요청)은 커스텀 답변 수에 안 세고, 등록 질문 답이 차면 done
+  const withAux = sanitizeBotTurn(
+    { ...baseTurn, slots: { custom: { 레퍼런스: "필름 톤", 보정: "자연스럽게" } } },
+    full
+  );
+  assert.equal(enforceQuestionBudget({ ...withAux, done: false }, 2, "작가").done, false); // 1/2
+  assert.equal(enforceQuestionBudget({ ...withAux, done: false }, 1, "작가").done, true); // 1/1
+  // 코어 미완이면 절대 강제하지 않는다
+  const incomplete = sanitizeBotTurn({ ...baseTurn, slots: { purpose: "웨딩" } }, {});
+  assert.equal(enforceQuestionBudget({ ...incomplete, done: false }, 0, "작가").done, false);
 });
 
 // 회귀: haiku 가 미수집 슬롯을 `"region": null` 로 내보내 OUTPUT_PARSING_FAILURE → 502 →
