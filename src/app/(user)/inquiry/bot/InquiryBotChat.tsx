@@ -36,7 +36,13 @@ import {
   type LlmSlots,
 } from "@/lib/inquiry-bot-llm";
 import { buildLegacyInquiryFormData } from "@/lib/inquiry-bot-persist";
-import { submitInquiry, ensureBotConversation, appendBotTurns, type InquiryState } from "../actions";
+import {
+  submitInquiry,
+  ensureBotConversation,
+  appendBotTurns,
+  syncBotSlots,
+  type InquiryState,
+} from "../actions";
 import { createClient } from "@/lib/supabase/client";
 
 // 채팅룸형 문의 챗봇 — LLM 대화가 기본, 버튼 상태 머신은 폴백.
@@ -932,6 +938,12 @@ export function InquiryBotChat({
     // pumpSync 는 ref 만 읽는 안정 함수 — 트리거 소스만 deps 로 둔다
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [llmMessages, convId, done]);
+
+  // 문의 체크리스트 동기화 — 슬롯이 갱신될 때마다 대화에 저장 (작가 화면 실시간 반영)
+  useEffect(() => {
+    if (!convId || Object.keys(slots).length === 0) return;
+    void syncBotSlots(convId, slots as Record<string, unknown>);
+  }, [slots, convId]);
 
   // 작가 개입 실시간 감지 — 방에 작가의 실제 발화(text/image)가 꽂히면 봇 즉시 정지
   useEffect(() => {

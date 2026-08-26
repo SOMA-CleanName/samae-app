@@ -4,6 +4,15 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { CurrentUser } from "@/lib/auth";
 
+// 봇 수집 슬롯 — 작가용 문의 체크리스트 (conversations.bot_slots jsonb)
+export type BotSlots = {
+  purpose?: string;
+  preferredDate?: string;
+  region?: string;
+  partySize?: string;
+  custom?: Record<string, string>;
+};
+
 export type ConversationListItem = {
   id: string;
   user_id: string;
@@ -15,6 +24,7 @@ export type ConversationListItem = {
   photographer_hidden_at: string | null;
   source_photo_path: string | null; // 사진에서 문의 시작 시 그 사진 경로(상담 정보에 노출)
   bot_photo_id?: string | null; // 챗봇 문의 출발 사진 — 진행 중 방에서 봇 채팅 복귀용
+  bot_slots?: BotSlots | null; // 봇이 수집한 문의 슬롯 — 작가용 체크리스트
   photographer: { display_name: string | null; profile_id?: string | null } | null;
   user: { display_name: string | null } | null;
   // 상대 아바타 — profiles는 RLS상 본인만 조회 가능해 admin으로 보강(아래 fillCounterpartInfo)
@@ -60,7 +70,7 @@ export type ChatMessage = {
 
 const CONV_COLS =
   "id, user_id, photographer_id, last_message_at, user_unread, photographer_unread, " +
-  "user_hidden_at, photographer_hidden_at, source_photo_path, bot_photo_id, " +
+  "user_hidden_at, photographer_hidden_at, source_photo_path, bot_photo_id, bot_slots, " +
   "photographer:photographers(display_name, profile_id), " +
   "user:profiles!conversations_user_id_fkey(display_name)";
 

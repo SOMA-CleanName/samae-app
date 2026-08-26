@@ -121,6 +121,8 @@ export default async function ChatRoomPage({
           portfolioPhotos={portfolioPhotos}
           brief={brief}
           sourcePhotoPath={conv.source_photo_path}
+          // 작가에게만 — 봇 수집 현황 체크리스트 (고객 화면에는 봇 대화가 곧 그 정보)
+          initialBotSlots={!amCustomer ? conv.bot_slots ?? null : null}
         />
       </div>
     </main>

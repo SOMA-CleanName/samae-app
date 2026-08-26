@@ -8,7 +8,7 @@ import { sendMessage, markRead, sendPortfolioPhoto, getBookingPayoutAccount } fr
 import { acceptBooking, rejectBooking, cancelBooking } from "@/app/actions/bookings";
 import { markTransferSent, markShot } from "@/app/actions/payments";
 import { mpTrack } from "@/lib/mixpanel";
-import type { ChatMessage, BookingSnapshot, ConsultationBrief } from "@/lib/chat";
+import type { ChatMessage, BookingSnapshot, ConsultationBrief, BotSlots } from "@/lib/chat";
 import type { PayoutAccount } from "@/lib/payments";
 import { DeliveryUploader } from "@/app/(user)/bookings/[id]/DeliveryUploader";
 import {
@@ -56,6 +56,7 @@ export function ChatRoom({
   portfolioPhotos,
   brief,
   sourcePhotoPath,
+  initialBotSlots,
 }: {
   conversationId: string;
   meId: string;
@@ -65,11 +66,14 @@ export function ChatRoom({
   portfolioPhotos: PortfolioPhoto[];
   brief: ConsultationBrief | null;
   sourcePhotoPath: string | null;
+  /** 봇 수집 슬롯 — 작가용 문의 체크리스트 (고객 화면은 null) */
+  initialBotSlots?: BotSlots | null;
 }) {
   const amCustomer = !amPhotographer; // 참여자 중 작가가 아니면 구매자
   void brief; void sourcePhotoPath; // 레거시 상담정보 — 요약 카드로 대체, 과거 방 호환 위해 프롭만 유지
   const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
+  const [botSlots, setBotSlots] = useState<BotSlots | null>(initialBotSlots ?? null);
   const [text, setText] = useState("");
   const [uploading, setUploading] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false); // 입력창 + 옵션 메뉴
@@ -142,6 +146,20 @@ export function ChatRoom({
             }
             setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
             if (m.sender_id !== meId) markRead(conversationId);
+          }
+        )
+        // 봇 수집 슬롯 갱신 → 작가용 문의 체크리스트 실시간 반영
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "conversations",
+            filter: `id=eq.${conversationId}`,
+          },
+          (payload) => {
+            const c = payload.new as { bot_slots?: BotSlots | null };
+            if (c.bot_slots !== undefined) setBotSlots(c.bot_slots ?? null);
           }
         )
         // 예약 상태 변경(수락/거절/취소/송금 등) → 해당 booking_id 카드 스냅샷 갱신
@@ -237,6 +255,9 @@ export function ChatRoom({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {/* 작가용 문의 체크리스트 — 봇이 수집한 항목의 확인/미확인 현황 (실시간 갱신) */}
+      {amPhotographer && botSlots && <InquiryChecklist slots={botSlots} />}
+
       {/* 메시지 영역 — 이 컨테이너만 스크롤 */}
       <div
         ref={listRef}
@@ -485,6 +506,84 @@ export function ChatRoom({
             });
           }}
         />
+      )}
+    </div>
+  );
+}
+
+// 작가용 문의 체크리스트 — 봇이 수집한 슬롯 기준으로 "확인됨/미확인"을 한 줄 바에 요약.
+// 수집이 덜 됐으면 펼쳐서 시작(무엇을 물어야 할지 바로 보이게), 완료면 접어서 시작.
+function InquiryChecklist({ slots }: { slots: BotSlots }) {
+  const core: { label: string; value: string | undefined }[] = [
+    { label: "촬영 종류", value: slots.purpose },
+    { label: "희망일", value: slots.preferredDate },
+    { label: "지역", value: slots.region },
+    { label: "인원", value: slots.partySize },
+  ];
+  const filledCount = core.filter((c) => c.value).length;
+  const missing = core.filter((c) => !c.value).map((c) => c.label);
+  const customEntries = Object.entries(slots.custom ?? {});
+  const complete = missing.length === 0;
+  const [open, setOpen] = useState(!complete);
+
+  return (
+    <div className="shrink-0 border-b border-line bg-surface-2/60">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full cursor-pointer items-center gap-2 px-3.5 py-2 text-left sm:px-4"
+      >
+        <ClipboardIcon className="h-4 w-4 shrink-0 text-muted" />
+        <span className="text-caption font-semibold text-fg">
+          문의 체크리스트{" "}
+          <span className={complete ? "text-success" : "text-warning"}>
+            {filledCount}/{core.length}
+          </span>
+        </span>
+        {!open && (
+          <span className="min-w-0 truncate text-caption text-muted">
+            {complete
+              ? "기본 정보 확인 완료"
+              : `미확인: ${missing.join(" · ")}`}
+          </span>
+        )}
+        <svg
+          viewBox="0 0 24 24"
+          className={`ml-auto h-4 w-4 shrink-0 text-faint transition-transform ${open ? "rotate-180" : ""}`}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="space-y-1 px-3.5 pb-2.5 sm:px-4">
+          {core.map((c) => (
+            <div key={c.label} className="flex items-baseline gap-2 text-caption">
+              {c.value ? (
+                <CheckIcon className="h-3.5 w-3.5 shrink-0 translate-y-0.5 text-success" />
+              ) : (
+                <span className="h-3.5 w-3.5 shrink-0 translate-y-0.5 rounded-full border border-line-strong" />
+              )}
+              <span className="w-16 shrink-0 text-muted">{c.label}</span>
+              <span className={`min-w-0 break-words ${c.value ? "font-medium text-fg" : "text-faint"}`}>
+                {c.value ?? "미확인 — 대화로 여쭤보세요"}
+              </span>
+            </div>
+          ))}
+          {customEntries.map(([k, v]) => (
+            <div key={k} className="flex items-baseline gap-2 text-caption">
+              <CheckIcon className="h-3.5 w-3.5 shrink-0 translate-y-0.5 text-success" />
+              <span className="w-16 shrink-0 truncate text-muted" title={k}>
+                {k}
+              </span>
+              <span className="min-w-0 break-words font-medium text-fg">{v}</span>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

@@ -195,6 +195,42 @@ export async function ensureBotConversation(
   }
 }
 
+// 문의 체크리스트 동기화 — 봇이 수집한 슬롯을 대화에 저장해 작가 화면에서
+// "무엇이 확인됐고 무엇이 남았는지"를 실시간으로 보게 한다. 실패해도 대화 계속.
+export async function syncBotSlots(
+  conversationId: string,
+  slots: Record<string, unknown>
+): Promise<void> {
+  try {
+    const me = await getCurrentUser();
+    if (!me || !conversationId || !slots || typeof slots !== "object") return;
+    // 코어 4슬롯 + custom 만, 문자열만 통과 (임의 페이로드 저장 방지)
+    const clean: Record<string, unknown> = {};
+    for (const k of ["purpose", "preferredDate", "region", "partySize"] as const) {
+      const v = slots[k];
+      if (typeof v === "string" && v.trim()) clean[k] = v.trim().slice(0, 200);
+    }
+    const custom = slots.custom;
+    if (custom && typeof custom === "object" && !Array.isArray(custom)) {
+      const c: Record<string, string> = {};
+      for (const [k, v] of Object.entries(custom as Record<string, unknown>).slice(0, 10)) {
+        if (typeof v === "string" && v.trim()) c[k.slice(0, 80)] = v.trim().slice(0, 300);
+      }
+      if (Object.keys(c).length > 0) clean.custom = c;
+    }
+    const admin = createAdminClient();
+    const { data: conv } = await admin
+      .from("conversations")
+      .select("id, user_id")
+      .eq("id", conversationId)
+      .maybeSingle();
+    if (!conv || conv.user_id !== me.id) return; // 내 방만
+    await admin.from("conversations").update({ bot_slots: clean }).eq("id", conversationId);
+  } catch (err) {
+    console.error("[bot-chat] 슬롯 동기화 실패:", err instanceof Error ? err.message : err);
+  }
+}
+
 // 챗봇 대화 실시간 동기화 — 매 턴 새 발화를 messages(type='bot')로 저장.
 // 작가가 진행 중에도 방에서 대화를 보고 개입할 수 있게 하는 핵심 배선. 실패해도 대화 계속.
 export async function appendBotTurns(
