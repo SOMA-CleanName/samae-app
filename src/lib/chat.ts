@@ -169,7 +169,7 @@ export async function getConversation(id: string): Promise<ConversationListItem 
     .from("conversations")
     .select(
       "id, user_id, photographer_id, last_message_at, user_unread, photographer_unread, " +
-        "source_photo_path, " +
+        "source_photo_path, bot_photo_id, bot_slots, " +
         "photographer:photographers(display_name, profile_id), " +
         "user:profiles!conversations_user_id_fkey(display_name)"
     )

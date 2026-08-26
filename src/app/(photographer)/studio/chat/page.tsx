@@ -4,6 +4,7 @@ import { listChatRooms } from "@/lib/chat";
 import { EmptyState } from "@/components/ui";
 import { ChatIcon } from "@/components/user/icons";
 import { ChatRoomRow } from "@/app/(user)/chat/page";
+import { RealtimeListRefresh } from "@/components/user/RealtimeListRefresh";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,8 @@ export default async function StudioChatPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8 font-kr sm:px-6">
+      {/* 새 메시지·안읽음 변화 실시간 반영 (목록 리렌더) */}
+      <RealtimeListRefresh />
       <h1 className="text-h1 font-semibold">문의</h1>
       <p className="mt-1 text-body-sm text-muted">고객과의 상담·예약 대화예요.</p>
 

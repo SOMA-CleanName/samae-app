@@ -971,7 +971,12 @@ export function InquiryBotChat({
             onHandedOff();
           }
         )
-        .subscribe();
+        .subscribe((status, err) => {
+          // 구독 상태 가시화 — 작가 개입 감지가 조용히 죽지 않게
+          if (status !== "SUBSCRIBED")
+            console.warn("[bot-realtime]", status, err ? String(err) : "");
+          else console.log("[bot-realtime] SUBSCRIBED", convId);
+        });
     })();
     return () => {
       cancelled = true;

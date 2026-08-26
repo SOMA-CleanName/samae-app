@@ -178,7 +178,12 @@ export function ChatRoom({
             );
           }
         )
-        .subscribe();
+        .subscribe((status, err) => {
+          // 구독 상태 가시화 — CHANNEL_ERROR/TIMED_OUT 이 조용히 삼켜지지 않게
+          if (status !== "SUBSCRIBED")
+            console.warn("[chat-realtime]", status, err ? String(err) : "");
+          else console.log("[chat-realtime] SUBSCRIBED", conversationId);
+        });
     })();
 
     return () => {
