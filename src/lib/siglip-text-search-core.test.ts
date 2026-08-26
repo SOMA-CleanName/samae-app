@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  normalizeSiglipSearchLimit,
   orderByVectorIds,
   parseTextEmbeddingResponse,
   requestTextEmbedding,
@@ -111,4 +112,10 @@ test("returns null without a service URL or for failed and malformed responses",
     null
   );
   assert.equal(calls, 1);
+});
+
+test("clamps SigLIP2 search results to the 300-photo infinite-scroll pool", () => {
+  assert.equal(normalizeSiglipSearchLimit(48), 48);
+  assert.equal(normalizeSiglipSearchLimit(999), 300);
+  assert.equal(normalizeSiglipSearchLimit(0), 1);
 });

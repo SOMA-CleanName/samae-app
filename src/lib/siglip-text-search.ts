@@ -2,13 +2,16 @@ import "server-only";
 
 import type { GalleryPhoto } from "@/lib/discovery";
 import {
+  normalizeSiglipSearchLimit,
   orderByVectorIds,
   requestTextEmbedding,
+  SIGLIP_SEARCH_MAX_RESULTS,
 } from "@/lib/siglip-text-search-core";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const DEFAULT_LIMIT = 80;
-const MAX_LIMIT = 80;
+const DEFAULT_LIMIT = SIGLIP_SEARCH_MAX_RESULTS;
+
+export { SIGLIP_SEARCH_MAX_RESULTS } from "@/lib/siglip-text-search-core";
 
 type VectorSearchRow = {
   id: string;
@@ -39,7 +42,7 @@ export async function searchPhotosBySiglip(
   if (!vector) return [];
 
   const admin = createAdminClient();
-  const safeLimit = Math.min(Math.max(Math.floor(limit), 1), MAX_LIMIT);
+  const safeLimit = normalizeSiglipSearchLimit(limit);
   const { data: nearest, error: nearestError } = await admin.rpc(
     "similar_photos_by_vector",
     {

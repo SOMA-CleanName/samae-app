@@ -160,7 +160,7 @@ const vector = await embedSearchText(query);
 if (!vector) return [];
 const { data: nearest, error } = await admin.rpc("similar_photos_by_vector", {
   p_embedding: JSON.stringify(vector),
-  p_limit: Math.min(Math.max(limit, 1), 80),
+  p_limit: Math.min(Math.max(limit, 1), 300),
 });
 if (error) return [];
 const ids = nearest.map((row) => row.id);
@@ -199,7 +199,7 @@ git commit -m "feat: SigLIP2 검색어 벡터 검색 연결"
 - Modify: `src/components/user/ExploreGallery.tsx`
 
 **Interfaces:**
-- Consumes: `searchPhotosBySiglip(query, 80)`
+- Consumes: `searchPhotosBySiglip(query, 300)`
 - Produces: `<SearchPill initial?: string />`
 - Produces: `searchHref(rawQuery: string): string`
 
@@ -213,7 +213,7 @@ Expected: 2개 테스트 통과
 
 - [x] **Step 2: 현재 문자열 검색 호출을 SigLIP2 검색으로 교체**
 
-`src/app/(user)/page.tsx`에서 `searchPhotosByTag` import를 제거하고 검색 분기에서 `searchPhotosBySiglip(query, 80)`을 호출한다. 일반 홈 피드 분기는 변경하지 않는다.
+`src/app/(user)/page.tsx`에서 `searchPhotosByTag` import를 제거하고 검색 분기에서 `searchPhotosBySiglip(query, 300)`을 호출한다. 일반 홈 피드 분기는 변경하지 않는다. 검색 결과는 기존 `ExploreGallery`의 48장 단위 센티넬로 점진 노출한다.
 
 - [x] **Step 3: 검색창 컴포넌트 복원**
 

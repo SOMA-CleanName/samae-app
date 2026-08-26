@@ -5,7 +5,10 @@ import {
   fetchHomeFeedPage,
   newFeedSeed,
 } from "@/lib/discovery";
-import { searchPhotosBySiglip } from "@/lib/siglip-text-search";
+import {
+  searchPhotosBySiglip,
+  SIGLIP_SEARCH_MAX_RESULTS,
+} from "@/lib/siglip-text-search";
 import { cookies } from "next/headers";
 import { loadDemotedHomePhotos, loadMorePhotos, loadPersonalizedPhotos } from "./feed-actions";
 import { logSearch } from "@/lib/search-log";
@@ -83,13 +86,16 @@ export default async function ExploreHome({
     photos = await rerankByPersonaVector(photos);
   } else {
     const basePhotos = query
-      ? await searchPhotosBySiglip(query, 80)
+      ? await searchPhotosBySiglip(query, SIGLIP_SEARCH_MAX_RESULTS)
       : await fetchPublishedPhotos({});
     if (query) await logSearch(query, basePhotos.length, me?.id);
     const merged = adAsGallery
       ? [adAsGallery, ...basePhotos.filter((p) => p.id !== adAsGallery.id)]
       : basePhotos;
-    photos = merged.slice(0, FEED_CAP);
+    photos = merged.slice(
+      0,
+      query ? SIGLIP_SEARCH_MAX_RESULTS : FEED_CAP
+    );
   }
   const spotlightId = adAsGallery?.id;
 

@@ -1,5 +1,14 @@
 export const SIGLIP_TEXT_MODEL = "google/siglip2-so400m-patch16-naflex";
 export const SIGLIP_EMBED_DIM = 1152;
+export const SIGLIP_SEARCH_MAX_RESULTS = 300;
+
+/** DB RPC와 화면이 같은 검색 결과 상한을 사용하게 정규화한다. */
+export function normalizeSiglipSearchLimit(limit: number): number {
+  return Math.min(
+    Math.max(Math.floor(limit), 1),
+    SIGLIP_SEARCH_MAX_RESULTS
+  );
+}
 
 type TextEmbeddingRequestOptions = {
   baseUrl: string | null | undefined;
