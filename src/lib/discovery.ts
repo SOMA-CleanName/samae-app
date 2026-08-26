@@ -9,6 +9,7 @@ import {
   personalizedRecommendationTarget,
   selectPersonalizationAnchors,
 } from "@/lib/feed-personalization";
+import { matchesDirectPhotoMetadata } from "@/lib/search-metadata-core";
 
 // 탐색 갤러리 사진 1장
 export type GalleryPhoto = {
@@ -702,7 +703,10 @@ export async function fetchTargetCategoryFeed(
 
 // 무드 태그로 공개 사진 검색 — 부분 일치(대소문자 무시), 결과는 메이슨리 사진.
 // text[] 부분 일치는 PostgREST 단일 연산자로 어려워, published 전체를 페이지 단위로 받아 JS에서 필터.
-export async function searchPhotosByTag(qRaw: string): Promise<GalleryPhoto[]> {
+export async function searchPhotosByTag(
+  qRaw: string,
+  options: { directOnly?: boolean; limit?: number } = {}
+): Promise<GalleryPhoto[]> {
   const query = buildSearchQuery(qRaw);
   if (!query.compact) return [];
   const supabase = await createClient();
@@ -714,6 +718,16 @@ export async function searchPhotosByTag(qRaw: string): Promise<GalleryPhoto[]> {
       score: calculateSearchScore(photo, query),
     }))
     .filter((item) => item.score > 0);
+  if (options.directOnly) {
+    const limit = Math.min(Math.max(Math.floor(options.limit ?? 300), 1), 300);
+    return scored
+      .filter((item) =>
+        matchesDirectPhotoMetadata(qRaw, searchableTextValues(item.photo))
+      )
+      .sort((a, b) => b.score - a.score || a.index - b.index)
+      .slice(0, limit)
+      .map((item) => item.photo);
+  }
   const primary = await sortPhotosBySearchScore(supabase, scored);
   return appendRelatedPhotos(primary, rows);
 }
@@ -879,6 +893,12 @@ function coverageBonus(photo: SearchablePhoto, query: SearchQuery): number {
 }
 
 function searchableTextBlob(photo: SearchablePhoto): string {
+  return searchableTextValues(photo)
+    .map(normalizeSearchText)
+    .join(" ");
+}
+
+function searchableTextValues(photo: SearchablePhoto): string[] {
   return [
     ...(photo.mood_tags ?? []),
     ...(photo.generated_tags ?? []),
@@ -891,9 +911,7 @@ function searchableTextBlob(photo: SearchablePhoto): string {
     ...(photo.photographer.mood_tags ?? []),
     ...(photo.photographer.regions ?? []),
   ]
-    .filter((value): value is string => Boolean(value))
-    .map(normalizeSearchText)
-    .join(" ");
+    .filter((value): value is string => Boolean(value));
 }
 
 async function sortPhotosBySearchScore(
@@ -1209,6 +1227,7 @@ async function fetchAllSearchablePhotos(
       )
       .eq("visibility", "published")
       .eq("feed_hidden", false) // 운영자 피드 숨김 제외
+      .eq("photographer.status", "approved")
       .order("created_at", { ascending: false })
       .range(from, from + pageSize - 1);
 

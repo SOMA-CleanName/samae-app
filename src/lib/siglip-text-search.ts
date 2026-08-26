@@ -11,7 +11,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 const DEFAULT_LIMIT = SIGLIP_SEARCH_MAX_RESULTS;
 
-export { SIGLIP_SEARCH_MAX_RESULTS } from "@/lib/siglip-text-search-core";
+export {
+  mergeMetadataAndVectorResults,
+  SIGLIP_SEARCH_MAX_RESULTS,
+} from "@/lib/siglip-text-search-core";
 
 type VectorSearchRow = {
   id: string;

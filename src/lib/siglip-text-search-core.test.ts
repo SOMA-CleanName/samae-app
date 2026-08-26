@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  mergeMetadataAndVectorResults,
   normalizeSiglipSearchLimit,
   orderByVectorIds,
   parseTextEmbeddingResponse,
@@ -118,4 +119,22 @@ test("clamps SigLIP2 search results to the 300-photo infinite-scroll pool", () =
   assert.equal(normalizeSiglipSearchLimit(48), 48);
   assert.equal(normalizeSiglipSearchLimit(999), 300);
   assert.equal(normalizeSiglipSearchLimit(0), 1);
+});
+
+test("promotes metadata matches before SigLIP results without duplicates", () => {
+  const metadata = [
+    { id: "metadata-only", source: "metadata" },
+    { id: "shared", source: "metadata" },
+  ];
+  const vector = [
+    { id: "shared", source: "vector" },
+    { id: "visual-first", source: "vector" },
+    { id: "visual-second", source: "vector" },
+  ];
+
+  assert.deepEqual(mergeMetadataAndVectorResults(metadata, vector, 3), [
+    { id: "metadata-only", source: "metadata" },
+    { id: "shared", source: "metadata" },
+    { id: "visual-first", source: "vector" },
+  ]);
 });

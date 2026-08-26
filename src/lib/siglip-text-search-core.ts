@@ -10,6 +10,23 @@ export function normalizeSiglipSearchLimit(limit: number): number {
   );
 }
 
+/** 직접 일치한 메타데이터 결과를 먼저 두고 나머지는 벡터 거리순으로 잇는다. */
+export function mergeMetadataAndVectorResults<T extends { id: string }>(
+  metadataResults: T[],
+  vectorResults: T[],
+  limit = SIGLIP_SEARCH_MAX_RESULTS
+): T[] {
+  const merged: T[] = [];
+  const seen = new Set<string>();
+  for (const photo of [...metadataResults, ...vectorResults]) {
+    if (seen.has(photo.id)) continue;
+    seen.add(photo.id);
+    merged.push(photo);
+    if (merged.length >= normalizeSiglipSearchLimit(limit)) break;
+  }
+  return merged;
+}
+
 type TextEmbeddingRequestOptions = {
   baseUrl: string | null | undefined;
   token?: string;

@@ -4,8 +4,10 @@ import {
   fetchPhotoById,
   fetchHomeFeedPage,
   newFeedSeed,
+  searchPhotosByTag,
 } from "@/lib/discovery";
 import {
+  mergeMetadataAndVectorResults,
   searchPhotosBySiglip,
   SIGLIP_SEARCH_MAX_RESULTS,
 } from "@/lib/siglip-text-search";
@@ -86,7 +88,16 @@ export default async function ExploreHome({
     photos = await rerankByPersonaVector(photos);
   } else {
     const basePhotos = query
-      ? await searchPhotosBySiglip(query, SIGLIP_SEARCH_MAX_RESULTS)
+      ? mergeMetadataAndVectorResults(
+          ...(await Promise.all([
+            searchPhotosByTag(query, {
+              directOnly: true,
+              limit: SIGLIP_SEARCH_MAX_RESULTS,
+            }),
+            searchPhotosBySiglip(query, SIGLIP_SEARCH_MAX_RESULTS),
+          ])),
+          SIGLIP_SEARCH_MAX_RESULTS
+        )
       : await fetchPublishedPhotos({});
     if (query) await logSearch(query, basePhotos.length, me?.id);
     const merged = adAsGallery
