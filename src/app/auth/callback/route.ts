@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { safeNext } from "@/lib/safe-redirect";
+import { requestOrigin, safeNext } from "@/lib/safe-redirect";
 import { readAnonFavPhotoIds, ANON_FAV_COOKIE } from "@/lib/anon-favorites";
 
 const OAUTH_NEXT_COOKIE = "samae_oauth_next";
@@ -9,7 +9,8 @@ const OAUTH_NEXT_COOKIE = "samae_oauth_next";
  * OAuth(카카오) 및 이메일 매직링크 콜백 — 인가 코드를 세션으로 교환.
  */
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
+  const origin = requestOrigin(request); // request.url 의 origin 은 dev 원격 접속에서 localhost 로 보고됨
   const code = searchParams.get("code");
   const cookieNext = request.headers
     .get("cookie")
