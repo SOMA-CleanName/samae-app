@@ -13,5 +13,5 @@ export default async function InquiryPhotoResolver({
   const { photoId } = await params;
   const photo = await fetchPhotoById(photoId);
   if (!photo) notFound();
-  redirect(`/inquiry?photographerId=${photo.photographer_id}&photoId=${photoId}`);
+  redirect(`/inquiry/bot?photographerId=${photo.photographer_id}&photoId=${photoId}`);
 }

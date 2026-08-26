@@ -266,7 +266,7 @@ function PhotoCtas({
 
 function inquiryHref(photographerId: string, photoId: string) {
   const params = new URLSearchParams({ photographerId, photoId });
-  return `/inquiry?${params.toString()}`;
+  return `/inquiry/bot?${params.toString()}`;
 }
 
 // 추천 사진 — 별도 스트리밍 경계. 400장 조회+스코어링이 상단 렌더(LCP)를 막지 않게 분리.

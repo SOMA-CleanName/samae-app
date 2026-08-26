@@ -259,5 +259,5 @@ function ModalCta({ viewer, photoId }: { viewer: Viewer; photoId: string }) {
 
 function inquiryHref(photographerId: string, photoId: string) {
   const params = new URLSearchParams({ photographerId, photoId });
-  return `/inquiry?${params.toString()}`;
+  return `/inquiry/bot?${params.toString()}`;
 }
