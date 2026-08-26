@@ -48,3 +48,25 @@ function parseIds(raw: FormDataEntryValue | null): string[] {
     return [];
   }
 }
+
+// ── 에스크로 운영 액션 ─────────────────────────────────────────
+// 고객이 사매 계좌로 입금 → 운영자가 확인(accepted→paid) → 수수료 차감 송금 후 정산 완료 마킹.
+import { confirmBankTransferAdmin, markSettlementPaid } from "@/lib/payments";
+
+export async function adminConfirmTransfer(formData: FormData): Promise<void> {
+  const me = await getCurrentUser();
+  if (!me || me.role !== "admin") throw new Error("운영자 권한이 필요합니다.");
+  const id = String(formData.get("id"));
+  const res = await confirmBankTransferAdmin(id);
+  if (!res.ok) throw new Error("처리할 수 없는 상태예요 (이미 확인됐거나 수락 전).");
+  revalidatePath("/admin/transactions");
+}
+
+export async function adminMarkSettled(formData: FormData): Promise<void> {
+  const me = await getCurrentUser();
+  if (!me || me.role !== "admin") throw new Error("운영자 권한이 필요합니다.");
+  const id = String(formData.get("id"));
+  const res = await markSettlementPaid(id);
+  if (!res.ok) throw new Error("처리할 수 없는 상태예요 (미확정이거나 이미 정산됨).");
+  revalidatePath("/admin/transactions");
+}

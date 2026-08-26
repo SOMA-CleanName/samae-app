@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EmptyState } from "@/components/ui";
 import { CalendarIcon } from "@/components/user/icons";
-import { clearTransactions, deleteBookingsSelected } from "./actions";
+import { clearTransactions, deleteBookingsSelected, adminConfirmTransfer, adminMarkSettled } from "./actions";
 import { cn } from "@/lib/cn";
 import { DeleteModeProvider, DeleteModeToolbar } from "@/components/admin/DeleteMode";
 import { AdminBookings, type BookingRow } from "./AdminBookings";
@@ -18,6 +18,9 @@ type DbBooking = {
   amount_krw: number | null;
   shoot_at: string | null;
   created_at: string;
+  transfer_marked_at: string | null;
+  settled_at: string | null;
+  settlement_amount_krw: number | null;
   package_snapshot: { name?: string } | null;
   user: { display_name: string | null } | { display_name: string | null }[] | null;
   photographer: { display_name: string | null } | { display_name: string | null }[] | null;
@@ -32,7 +35,7 @@ export default async function AdminTransactionsPage() {
   const { data: bData } = await admin
     .from("bookings")
     .select(
-      "id, status, amount_krw, shoot_at, created_at, package_snapshot, user:profiles!bookings_user_id_fkey(display_name), photographer:photographers(display_name)"
+      "id, status, amount_krw, shoot_at, created_at, package_snapshot, transfer_marked_at, settled_at, settlement_amount_krw, user:profiles!bookings_user_id_fkey(display_name), photographer:photographers(display_name)"
     )
     .order("created_at", { ascending: false })
     .limit(500);
@@ -40,6 +43,12 @@ export default async function AdminTransactionsPage() {
   const raw = (bData ?? []) as DbBooking[];
   const gmv = raw.filter((b) => PAID_BOOKING.includes(b.status)).reduce((s, b) => s + (b.amount_krw ?? 0), 0);
   const inProgress = raw.filter((b) => IN_PROGRESS.includes(b.status)).length;
+
+  // 에스크로 운영 큐 — ①입금 확인 대기(고객이 입금 완료 알림) ②정산 대기(확정됐지만 작가 미송금)
+  const awaitingConfirm = raw.filter((b) => b.status === "accepted" && b.transfer_marked_at);
+  const awaitingSettle = raw.filter(
+    (b) => PAID_BOOKING.includes(b.status) && !b.settled_at
+  );
 
   const bookings: BookingRow[] = raw.map((b) => ({
     id: b.id,
@@ -67,6 +76,64 @@ export default async function AdminTransactionsPage() {
           entityLabel="건"
         />
       </div>
+
+      {/* ── 에스크로 운영 큐 ── */}
+      {(awaitingConfirm.length > 0 || awaitingSettle.length > 0) && (
+        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+          <section className="rounded-2xl bg-surface p-4 ring-1 ring-line">
+            <h2 className="text-body-sm font-semibold text-fg">
+              💰 입금 확인 대기 <span className="text-brand">{awaitingConfirm.length}</span>
+            </h2>
+            <p className="mt-0.5 text-caption text-muted">사매 계좌 입금 확인 → 예약 확정</p>
+            <ul className="mt-2 space-y-2">
+              {awaitingConfirm.map((b) => (
+                <li key={b.id} className="flex items-center justify-between gap-2 rounded-xl bg-surface-2 px-3 py-2">
+                  <div className="min-w-0 text-caption">
+                    <p className="font-semibold text-fg">
+                      {one(b.user)?.display_name ?? "고객"} → {one(b.photographer)?.display_name ?? "작가"}
+                    </p>
+                    <p className="text-muted">₩{fmt.format(b.amount_krw ?? 0)}</p>
+                  </div>
+                  <form action={adminConfirmTransfer}>
+                    <input type="hidden" name="id" value={b.id} />
+                    <button className="cursor-pointer rounded-lg bg-fg px-3 py-1.5 text-caption font-semibold text-bg hover:opacity-90">
+                      입금 확인
+                    </button>
+                  </form>
+                </li>
+              ))}
+              {awaitingConfirm.length === 0 && <li className="text-caption text-faint">없음</li>}
+            </ul>
+          </section>
+
+          <section className="rounded-2xl bg-surface p-4 ring-1 ring-line">
+            <h2 className="text-body-sm font-semibold text-fg">
+              📤 작가 정산 대기 <span className="text-brand">{awaitingSettle.length}</span>
+            </h2>
+            <p className="mt-0.5 text-caption text-muted">수수료 차감 후 작가 계좌로 송금 → 완료 마킹</p>
+            <ul className="mt-2 space-y-2">
+              {awaitingSettle.map((b) => (
+                <li key={b.id} className="flex items-center justify-between gap-2 rounded-xl bg-surface-2 px-3 py-2">
+                  <div className="min-w-0 text-caption">
+                    <p className="font-semibold text-fg">{one(b.photographer)?.display_name ?? "작가"}</p>
+                    <p className="text-muted">
+                      송금액 ₩{fmt.format(Math.max(0, (b.amount_krw ?? 0) - 6000))}{" "}
+                      <span className="text-faint">(수수료 6,000 차감)</span>
+                    </p>
+                  </div>
+                  <form action={adminMarkSettled}>
+                    <input type="hidden" name="id" value={b.id} />
+                    <button className="cursor-pointer rounded-lg border border-line-strong px-3 py-1.5 text-caption font-semibold text-fg hover:bg-fg/[0.04]">
+                      정산 완료
+                    </button>
+                  </form>
+                </li>
+              ))}
+              {awaitingSettle.length === 0 && <li className="text-caption text-faint">없음</li>}
+            </ul>
+          </section>
+        </div>
+      )}
 
       {/* 요약 */}
       <div className="mt-5 grid grid-cols-2 gap-3">

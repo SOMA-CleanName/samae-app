@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
-import { getPhotographerPayoutAccount, type PayoutAccount } from "@/lib/payments";
+import type { PayoutAccount } from "@/lib/payments";
+import { getPlatformAccount, hasAccount } from "@/lib/platform-account";
 import { archiveAndDelete } from "@/lib/soft-delete";
 import { notifyUserOfPhotographerReply } from "@/lib/notify-user";
 import { detectOffPlatform, MODERATION_NOTICE } from "@/lib/moderation";
@@ -25,7 +26,11 @@ export async function getBookingPayoutAccount(bookingId: string): Promise<Payout
     .maybeSingle();
   if (!booking || booking.user_id !== me.id) return null; // 고객 본인만
   if (!PAYOUT_VISIBLE_STATUSES.includes(booking.status as string)) return null;
-  return getPhotographerPayoutAccount(booking.photographer_id as string);
+  // 에스크로 — 고객은 작가 계좌가 아니라 **사매(플랫폼) 계좌**로 입금한다.
+  // 사매가 입금 확인 후 수수료를 차감해 작가에게 정산 (작가 계좌는 고객에게 비공개).
+  const platform = await getPlatformAccount();
+  if (!hasAccount(platform)) return null;
+  return { bank: platform.bank, number: platform.number, holder: platform.holder };
 }
 
 export type SendMessageResult = { ok: true } | { ok: false; blocked: true; reason: string };

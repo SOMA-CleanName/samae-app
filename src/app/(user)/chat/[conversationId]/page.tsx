@@ -9,6 +9,7 @@ import { ChatRoom } from "./ChatRoom";
 import type { ComposerData } from "./BookingComposer";
 import { Avatar } from "@/components/ui";
 import { BackButton } from "./BackButton";
+import { ProposeBookingButton } from "./ProposeBookingButton";
 
 // 채팅방
 export default async function ChatRoomPage({
@@ -31,8 +32,10 @@ export default async function ChatRoomPage({
   const titleAvatar = counterpartAvatar(conv, me);
   const amCustomer = conv.user_id === me.id; // 내가 고객(예약 제안 측)
   // 작가가 채팅을 한 번이라도 보냈는지 (참여자는 둘뿐 → 고객 외 발신=작가)
-  // 예약 제안 노출 조건 — 헤더 액션 숨김과 함께 보류 (③ 리뉴얼 시 복원)
-  // const photographerHasMessaged = messages.some((m) => m.sender_id !== conv.user_id);
+  // 예약 제안 노출 조건 — 작가는 항상, 고객은 작가가 실제로 대화를 이어받은 뒤에만
+  const photographerHasMessaged = messages.some(
+    (m) => (m.type === "text" || m.type === "image") && m.sender_id !== conv.user_id
+  );
 
   // 작가 수취 계좌는 여기서 미리 내려보내지 않는다 — 수락(accepted) 이후 송금 카드에서
   // getBookingPayoutAccount 서버액션으로 지연 로딩(채팅 진입만으로 계좌가 응답에 실리는 것 방지).
@@ -101,9 +104,12 @@ export default async function ChatRoomPage({
             </span>
           )}
 
-        {/* 레거시 헤더 액션 제거 (챗봇 전환) — 상담정보 작성/열람·권유 배너는 챗봇의
-            '문의 내용 정리' 요약 카드가 대체. 예약 제안은 ③(협의 확정→결제) 리뉴얼에서
-            요약 카드 연동으로 부활 예정 — 그때까지 숨김. */}
+          {/* 예약 제안 (에스크로 플로우의 시작) — 상담정보 작성/열람은 요약 카드가 대체해 제거 */}
+          <div className="ml-auto flex shrink-0 items-center gap-1">
+            {composerData && (!amCustomer || photographerHasMessaged) && (
+              <ProposeBookingButton data={composerData} />
+            )}
+          </div>
         </header>
 
         <ChatRoom

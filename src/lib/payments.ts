@@ -231,6 +231,115 @@ export async function confirmBankTransfer(
   return { ok: true };
 }
 
+// 운영자 입금 확인 (에스크로) — 고객이 **사매 계좌**로 입금 → 운영자가 확인: accepted → paid.
+// 작가 confirm 과 달리 photographer 조건 없이 어드민 권한으로 전이한다. 멱등.
+// 정산(사매→작가 송금)은 markSettlementPaid 에서 별도 기록.
+export async function confirmBankTransferAdmin(bookingId: string): Promise<ConfirmResult> {
+  const admin = createAdminClient();
+  const now = new Date().toISOString();
+
+  const { data: moved } = await admin
+    .from("bookings")
+    .update({ status: "paid", paid_at: now })
+    .eq("id", bookingId)
+    .eq("status", "accepted")
+    .select("id, user_id, photographer_id, amount_krw");
+  if (!moved || moved.length === 0) return { ok: false, reason: "bad_state" };
+  const b = moved[0];
+
+  await admin.from("payments").upsert(
+    {
+      booking_id: bookingId,
+      status: "paid",
+      provider: "bank_transfer",
+      method: "bank_transfer",
+      amount_krw: b.amount_krw ?? 0,
+      paid_at: now,
+    },
+    { onConflict: "booking_id" }
+  );
+
+  // 수수료 발생 — 정산 시 송금액에서 선취 상계
+  await admin.from("platform_fees").upsert(
+    {
+      booking_id: bookingId,
+      photographer_id: b.photographer_id,
+      fee_krw: PLATFORM_FEE_KRW,
+      status: "accrued",
+      period: now.slice(0, 7),
+      accrued_at: now,
+    },
+    { onConflict: "booking_id", ignoreDuplicates: true }
+  );
+
+  const link = `/bookings/${bookingId}`;
+  await notify(admin, b.user_id, "입금이 확인됐어요", "예약이 확정됐어요. 작가가 촬영을 준비합니다.", link);
+  const { data: ph } = await admin
+    .from("photographers")
+    .select("profile_id")
+    .eq("id", b.photographer_id)
+    .single();
+  if (ph)
+    await notify(
+      admin,
+      ph.profile_id,
+      "예약이 확정됐어요",
+      `사매가 입금을 확인했어요. 촬영비는 수수료(₩${fmtKrw(PLATFORM_FEE_KRW)}) 차감 후 정산해드려요.`,
+      "/studio/settlements",
+      "settlement"
+    );
+  return { ok: true };
+}
+
+// 정산 완료 (에스크로) — 사매가 수수료를 뗀 금액을 작가 계좌로 송금한 뒤 기록.
+export async function markSettlementPaid(bookingId: string): Promise<ConfirmResult> {
+  const admin = createAdminClient();
+  const now = new Date().toISOString();
+
+  const { data: booking } = await admin
+    .from("bookings")
+    .select("id, status, amount_krw, photographer_id, settled_at")
+    .eq("id", bookingId)
+    .maybeSingle();
+  if (!booking || booking.settled_at) return { ok: false, reason: "bad_state" };
+  if (!["paid", "shot", "delivered", "completed"].includes(booking.status as string))
+    return { ok: false, reason: "bad_state" };
+
+  const { data: fee } = await admin
+    .from("platform_fees")
+    .select("fee_krw")
+    .eq("booking_id", bookingId)
+    .maybeSingle();
+  const settlementAmount = Math.max(0, (booking.amount_krw ?? 0) - (fee?.fee_krw ?? PLATFORM_FEE_KRW));
+
+  await admin
+    .from("bookings")
+    .update({ settled_at: now, settlement_amount_krw: settlementAmount })
+    .eq("id", bookingId);
+  // 수수료는 송금액에서 상계했으므로 납부 완료 처리
+  await admin
+    .from("platform_fees")
+    .update({ status: "paid", paid_at: now })
+    .eq("booking_id", bookingId)
+    .in("status", ["accrued", "billed"]);
+
+  const { data: ph } = await admin
+    .from("photographers")
+    .select("profile_id")
+    .eq("id", booking.photographer_id)
+    .single();
+  if (ph)
+    await notify(
+      admin,
+      ph.profile_id,
+      "정산이 완료됐어요",
+      `촬영비 ₩${fmtKrw(settlementAmount)} 을 보내드렸어요 (수수료 차감 후).`,
+      "/studio/settlements",
+      "settlement"
+    );
+  return { ok: true };
+}
+
 // 환불 시 수수료 면제 (accrued/billed → waived)
 export async function waiveFee(
   admin: ReturnType<typeof createAdminClient>,

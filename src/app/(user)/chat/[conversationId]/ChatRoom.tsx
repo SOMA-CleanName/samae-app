@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { sendMessage, markRead, sendPortfolioPhoto, getBookingPayoutAccount } from "../actions";
 import { acceptBooking, rejectBooking, cancelBooking } from "@/app/actions/bookings";
-import { markTransferSent, confirmTransfer, markShot } from "@/app/actions/payments";
+import { markTransferSent, markShot } from "@/app/actions/payments";
 import { mpTrack } from "@/lib/mixpanel";
 import type { ChatMessage, BookingSnapshot, ConsultationBrief } from "@/lib/chat";
 import type { PayoutAccount } from "@/lib/payments";
@@ -810,7 +810,6 @@ function TransferSection({
 }) {
   const router = useRouter();
   const [sent, setSent] = useState(false); // 고객 [송금 완료] 낙관적 반영
-  const [confirming, setConfirming] = useState(false); // 작가 [입금 확인] 중복 클릭 방지
   const [showPolicy, setShowPolicy] = useState(false);
   const [, startSend] = useTransition();
   const marked = sent || !!booking.transfer_marked_at;
@@ -843,16 +842,7 @@ function TransferSection({
     });
   }
 
-  // 작가 입금 확인 — accepted→paid. 처리중 표시 후 카드 진행(req8)
-  function doConfirm() {
-    setConfirming(true);
-    const fd = new FormData();
-    fd.set("id", booking.id);
-    startSend(async () => {
-      await confirmTransfer(fd);
-      onConfirmed();
-    });
-  }
+  void onConfirmed; // 에스크로 전환 — 입금 확인 주체가 운영자(어드민)로 이동, 콜백은 호환 유지
 
   return (
     <div className="mt-3 border-t border-line pt-3" onClick={stop}>
@@ -861,7 +851,7 @@ function TransferSection({
         <>
           <p className="flex items-center gap-1.5 text-caption font-semibold text-muted">
             <WalletIcon className="h-4 w-4" />
-            송금 안내
+            입금 안내 — 사매 계좌로 안전하게
           </p>
           {accountLoading ? (
             <div className="mt-2 flex items-center gap-2 rounded-xl bg-surface-2 px-3 py-3 text-caption text-muted">
@@ -880,14 +870,14 @@ function TransferSection({
             </div>
           ) : (
             <div className="mt-2 rounded-xl bg-warning-soft px-3 py-2 text-caption text-warning">
-              작가가 아직 계좌를 등록하지 않았어요. 채팅으로 계좌를 문의해주세요.
+              입금 계좌 안내를 준비 중이에요. 잠시 후 다시 확인해주세요.
             </div>
           )}
 
           {marked ? (
             <p className="mt-3 flex items-center justify-center gap-1.5 rounded-full bg-success-soft px-3 py-2 text-center text-caption text-success">
               <CheckIcon className="h-4 w-4 shrink-0" />
-              송금 완료를 알렸어요 · 작가의 입금 확인을 기다리는 중
+              입금 완료를 알렸어요 · 사매가 확인하면 예약이 확정돼요
             </p>
           ) : (
             payoutAccount && (
@@ -896,7 +886,7 @@ function TransferSection({
                 onClick={notifySent}
                 className="mt-3 w-full cursor-pointer rounded-full bg-fg py-2.5 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90"
               >
-                송금 완료
+                입금 완료
               </button>
             )
           )}
@@ -912,28 +902,21 @@ function TransferSection({
         </>
       )}
 
-      {/* ── 작가 화면: 입금 확인 ── */}
+      {/* ── 작가 화면: 사매 입금 확인 대기 (에스크로 — 확인 주체는 운영자) ── */}
       {amPhotographer && (
         <>
           {marked ? (
             <p className="flex items-center gap-1.5 text-caption font-semibold text-success">
               <WalletIcon className="h-4 w-4 shrink-0" />
-              고객이 송금 완료를 알렸어요
+              고객이 입금 완료를 알렸어요 — 사매가 확인 중이에요
             </p>
           ) : (
-            <p className="text-caption text-muted">고객의 송금을 기다리는 중이에요</p>
+            <p className="text-caption text-muted">고객의 입금을 기다리는 중이에요</p>
           )}
           <p className="mt-1 text-label text-faint">
-            입금을 확인하면 결제가 완료되고 매칭 수수료가 발생합니다.
+            입금은 사매 계좌로 받고, 사매가 확인하면 예약이 확정돼요. 촬영비는 수수료 차감 후
+            정산해드려요.
           </p>
-          <button
-            type="button"
-            onClick={doConfirm}
-            disabled={confirming}
-            className="mt-3 w-full cursor-pointer rounded-full bg-fg py-2.5 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            {confirming ? "처리 중…" : "입금 확인"}
-          </button>
         </>
       )}
     </div>
@@ -952,16 +935,17 @@ function TransferRow({ label, value, mono }: { label: string; value: string; mon
   );
 }
 
-// 환불·취소 정책 안내 (직접이체 모델)
+// 환불·취소 정책 안내 (에스크로 — 사매 계좌 경유)
 function PolicyNote() {
   return (
     <div className="mt-2 rounded-xl bg-surface-2 px-3 py-2 text-label leading-relaxed text-muted">
-      · 송금 전에는 언제든 무료로 취소할 수 있어요.
+      · 입금 전에는 언제든 무료로 취소할 수 있어요.
       <br />
-      · 작가가 입금을 확인한 뒤 환불이 필요하면, 작가와 협의해 직접 환불받게 됩니다.
+      · 입금은 사매 계좌로 하며, 사매가 확인한 뒤 예약이 확정돼요. 촬영비는 사매가 작가에게
+      정산해요.
       <br />
-      · 사매는 결제를 중개·보증하지 않는 직접거래 방식이라 분쟁 시 중재에 한계가 있어요. 송금
-      전 일정·금액을 꼭 확인하세요.
+      · 확정 후 취소·환불이 필요하면 사매가 정책에 따라 처리해드려요. 작가 개인 계좌로의 직접
+      송금은 보호받을 수 없으니 이용하지 마세요.
     </div>
   );
 }
