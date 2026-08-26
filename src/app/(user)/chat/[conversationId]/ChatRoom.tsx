@@ -2,6 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 import { Fragment, useEffect, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { sendMessage, markRead, sendPortfolioPhoto, getBookingPayoutAccount } from "../actions";
@@ -57,6 +58,7 @@ export function ChatRoom({
   brief,
   sourcePhotoPath,
   initialBotSlots,
+  botResumeUrl,
 }: {
   conversationId: string;
   meId: string;
@@ -68,6 +70,8 @@ export function ChatRoom({
   sourcePhotoPath: string | null;
   /** 봇 수집 슬롯 — 작가용 문의 체크리스트 (고객 화면은 null) */
   initialBotSlots?: BotSlots | null;
+  /** 고객용 — 봇 문의 작성이 미접수 상태면 봇 채팅 복귀 URL (봇은 그 페이지에서만 응답) */
+  botResumeUrl?: string | null;
 }) {
   const amCustomer = !amPhotographer; // 참여자 중 작가가 아니면 구매자
   void brief; void sourcePhotoPath; // 레거시 상담정보 — 요약 카드로 대체, 과거 방 호환 위해 프롭만 유지
@@ -262,6 +266,22 @@ export function ChatRoom({
     <div className="flex min-h-0 flex-1 flex-col">
       {/* 작가용 문의 체크리스트 — 봇이 수집한 항목의 확인/미확인 현황 (실시간 갱신) */}
       {amPhotographer && botSlots && <InquiryChecklist slots={botSlots} />}
+
+      {/* 고객용 — 봇 문의가 미접수 상태: 봇은 문의 페이지에서만 응답하므로 복귀 동선 제공 */}
+      {botResumeUrl && (
+        <Link
+          href={botResumeUrl}
+          className="flex shrink-0 items-center gap-2 border-b border-line bg-brand-soft px-3.5 py-2.5 text-caption sm:px-4"
+        >
+          <span className="min-w-0 flex-1 text-fg">
+            <b className="font-semibold text-brand">문의 작성이 아직 진행 중이에요.</b> 자동 응답
+            봇과 이어서 완성해 주세요.
+          </span>
+          <span className="shrink-0 rounded-full bg-brand px-3 py-1.5 font-semibold text-white">
+            이어서 작성
+          </span>
+        </Link>
+      )}
 
       {/* 메시지 영역 — 이 컨테이너만 스크롤 */}
       <div

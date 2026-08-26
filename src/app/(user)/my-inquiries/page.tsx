@@ -24,6 +24,9 @@ export default async function MyInquiriesPage() {
   const rooms = me ? allRooms.filter((r) => r.user_id === me.id) : [];
   // 작가별 대화방 매핑 — 문의 카드의 '채팅방 열기'를 실제 방으로 연결
   const roomByPhotographer = new Map(rooms.map((r) => [r.photographer_id, r.id]));
+  // 접수 완료된 작가 — 이 작가의 방은 일반 채팅으로, 미접수(봇 수집 중)면 봇으로 복귀.
+  // (봇 대화가 DB에 실시간 동기화되면서 last_message_at 만으로는 진행 중을 구분 못 한다)
+  const submittedPhotographers = new Set(inquiries.map((i) => i.photographerId));
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6 font-kr">
@@ -36,8 +39,10 @@ export default async function MyInquiriesPage() {
         <section className="mt-5">
           <ul className="space-y-2">
             {rooms.map((r) => {
-              // 아직 메시지가 없는 방 = 챗봇 문의 작성 중 — 봇 채팅으로 복귀시켜 이어서 진행
-              const inProgress = !r.last_message_at;
+              // 봇으로 시작했는데(사진 문의든 직접 문의든) 아직 접수 전 = 문의 작성 중
+              // — 봇 채팅으로 복귀시켜 이어서 진행
+              const startedWithBot = r.bot_photo_id != null || r.bot_slots != null;
+              const inProgress = startedWithBot && !submittedPhotographers.has(r.photographer_id);
               const href = inProgress
                 ? `/inquiry/bot?photographerId=${encodeURIComponent(r.photographer_id)}${
                     r.bot_photo_id ? `&photoId=${encodeURIComponent(r.bot_photo_id)}` : ""

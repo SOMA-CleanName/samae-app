@@ -27,6 +27,7 @@ import {
 import {
   CORE_SLOT_KEYS,
   answersToSlots,
+  canonicalChipsFor,
   createUtteranceQueue,
   slotsToAnswers,
   type AskingKey,
@@ -850,7 +851,8 @@ export function InquiryBotChat({
         );
         // 복원한 대화가 이미 완주 상태(수집 끝, 미접수) — 방치하지 않고 요약+확인(보내기)으로 잇는다.
         // 과거 대화의 재진입이므로 자동 접수는 하지 않는다.
-        if (nextStepIndex(STEPS, slotsToAnswers(initialSlots)) >= STEPS.length) {
+        const resumeAt = nextStepIndex(STEPS, slotsToAnswers(initialSlots));
+        if (resumeAt >= STEPS.length) {
           setManualSend(true);
           postContactPhase(false);
         } else {
@@ -859,6 +861,10 @@ export function InquiryBotChat({
             kind: "bot",
             node: <>이어서 진행할게요 — 하시던 답변을 계속 입력해 주세요.</>,
           });
+          // 복귀 시에도 현재 질문의 선택지 칩 복원 (없으면 "선택해주세요"인데 칩이 빈 화면)
+          const step = STEPS[resumeAt];
+          setAsking(step.key as AskingKey);
+          setQuickReplies(canonicalChipsFor(step.key as AskingKey));
         }
         return;
       }
