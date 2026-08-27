@@ -8,6 +8,12 @@ import { usePathname } from "next/navigation";
 import type { GalleryPhoto } from "@/lib/discovery";
 import { cn } from "@/lib/cn";
 import { assignColumnAccents, seededShuffle, type AccentColor } from "@/lib/seeded-shuffle";
+import { buildDiverseMasonryColumns } from "@/lib/masonry-columns";
+import { expandSearchResultLoop, shouldKeepGallerySentinel } from "@/lib/search-feed-loop";
+import {
+  routeSessionKey,
+  SEARCH_FEED_SESSION_SCHEMA,
+} from "@/lib/search-navigation";
 import { SearchIcon } from "@/components/user/icons";
 import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
 import { useCart } from "@/components/user/cart/CartProvider";
@@ -161,8 +167,10 @@ export function ExploreGallery({
   loadDemoted?: (seed: string, page: number) => Promise<GalleryPhoto[]>;
 }) {
   const pathname = usePathname();
-  const feedSessionSuffix = `${pathname}${query ? `?q=${query}` : ""}`;
-  const feedSessionKey = `${FEED_SESSION_PREFIX}${FEED_SESSION_SCHEMA}:${feedSessionSuffix}`;
+  const routeKey = routeSessionKey(pathname, query);
+  const feedSessionSuffix = routeKey;
+  const feedSessionSchema = query ? SEARCH_FEED_SESSION_SCHEMA : FEED_SESSION_SCHEMA;
+  const feedSessionKey = `${FEED_SESSION_PREFIX}${feedSessionSchema}:${feedSessionSuffix}`;
   // 서버가 준 첫 페이지에서 시작해, 무한 스크롤로 다음 페이지를 이어붙인다(누적).
   const [items, setItems] = useState(initialPhotos);
   const feedPage = useRef(0); // 마지막으로 받은 서버 페이지(0=초기)
@@ -176,7 +184,9 @@ export function ExploreGallery({
   const [feedSessionReady, setFeedSessionReady] = useState(false);
   const [showPrice, setShowPrice] = useState(false);
   const [showName, setShowName] = useState(false);
-  const [visible, setVisible] = useState(STEP);
+  const [visible, setVisible] = useState(
+    query ? Math.min(STEP, initialPhotos.length) : STEP
+  );
   const sentinel = useRef<HTMLDivElement>(null);
   const { cols: colCount, ready: columnsReady, setNode: setGridRef } = useColumnCount();
 
@@ -381,7 +391,14 @@ export function ExploreGallery({
       const cached = raw ? (JSON.parse(raw) as FeedSession) : null;
       if (cached && Array.isArray(cached.items) && cached.items.length > 0) {
         setItems(cached.items);
-        setVisible(Math.max(STEP, Math.min(cached.visible, cached.items.length)));
+        setVisible(
+          query
+            ? Math.max(
+                Math.min(STEP, cached.items.length),
+                Math.floor(Number.isFinite(cached.visible) ? cached.visible : 0)
+              )
+            : Math.max(STEP, Math.min(cached.visible, cached.items.length))
+        );
         feedPage.current = Math.max(0, cached.page || 0);
         feedCycle.current = Math.max(0, cached.cycle || 0);
         feedPhase.current = cached.phase === "demoted" ? "demoted" : "normal";
@@ -405,7 +422,7 @@ export function ExploreGallery({
     }
 
     setItems(initialPhotos);
-    setVisible(STEP);
+    setVisible(query ? Math.min(STEP, initialPhotos.length) : STEP);
     feedPage.current = 0;
     feedCycle.current = 0;
     feedPhase.current = "normal";
@@ -453,6 +470,12 @@ export function ExploreGallery({
       if (isFeedReturnRestoring()) return;
       // 관심 이력을 아직 복원하지 못한 빈 배열을 실제 취향으로 오인하지 않게 잠시 기다린다.
       if (!cartHydrated) return;
+      // 검색은 방향별 후보 큐를 독립 순환해 매 48장의 세로 비율을 유지한다.
+      if (query && items.length > 0) {
+        busy = true;
+        setVisible((current) => current + STEP);
+        return;
+      }
       // 1) 이미 로드된 것 중 아직 안 보인 게 있으면 그것부터 노출
       if (visible < items.length) {
         busy = true;
@@ -586,6 +609,7 @@ export function ExploreGallery({
     loadMore,
     loadPersonalized,
     loadDemoted,
+    query,
   ]);
 
   // 보기 옵션(가격·작가명) — 세션 유지 + SearchOptions 토글과 이벤트로 동기화
@@ -668,8 +692,17 @@ export function ExploreGallery({
   }, [columnsReady, visible, items.length]);
 
   const columns = useMemo(
-    () => buildColumns(items.slice(0, visible), colCount),
-    [items, visible, colCount]
+    () => {
+      const visibleItems = query
+        ? expandSearchResultLoop(items, visible, query)
+        : items.slice(0, visible);
+      return query
+        ? buildDiverseMasonryColumns(visibleItems, colCount, {
+            disperseNonPortrait: true,
+          })
+        : buildColumns(visibleItems, colCount);
+    },
+    [items, visible, colCount, query]
   );
 
   // 테두리 — 컬럼별로 어긋나게 배치(한쪽 쏠림 방지) + 가끔 검정
@@ -683,7 +716,7 @@ export function ExploreGallery({
         title={query ? `“${query}” 결과가 없어요` : "공개된 사진이 아직 없어요"}
         description={
           query
-            ? "다른 태그나 장소로 검색해보세요. (예: 서울, 감성, 웨딩)"
+            ? "다른 장면이나 분위기로 검색해보세요. (예: 푸른 숲속 커플, 비 오는 날 필름 감성)"
             : "작가들이 작품을 올리면 여기에 표시돼요."
         }
         action={
@@ -723,6 +756,7 @@ export function ExploreGallery({
                 <PhotoCard
                   photo={photo}
                   feedInstanceId={feedInstanceId}
+                  routeKey={routeKey}
                   feedRank={feedIndex + 1}
                   onOpen={() => {
                     recordPhotoClick(photo.id);
@@ -771,7 +805,12 @@ export function ExploreGallery({
       </div>
 
       {/* 점진 노출 센티넬 */}
-      {(visible < items.length || (!!loadMore && !!activeFeedSeed)) && (
+      {shouldKeepGallerySentinel({
+        searchMode: !!query,
+        poolSize: items.length,
+        visibleCount: visible,
+        canLoadServer: !!loadMore && !!activeFeedSeed,
+      }) && (
         <div ref={sentinel} className="h-1" />
       )}
 
@@ -917,6 +956,7 @@ export function ExploreGallery({
 function PhotoCard({
   photo,
   feedInstanceId,
+  routeKey,
   feedRank,
   onOpen,
   showPrice,
@@ -926,6 +966,7 @@ function PhotoCard({
 }: {
   photo: GalleryPhoto;
   feedInstanceId: string;
+  routeKey: string;
   // 피드 내 위치(1-base) — 노출·클릭 계측용. 피드 밖(검색 등)에선 생략 가능.
   feedRank?: number;
   onOpen?: () => void;
@@ -974,11 +1015,11 @@ function PhotoCard({
           try {
             const card = event.currentTarget.closest<HTMLElement>("[data-pid]");
             sessionStorage.setItem(
-              `samae:scroll-anchor:${window.location.pathname}`,
+              `samae:scroll-anchor:${routeKey}`,
               JSON.stringify({ id: photo.id, instanceId: feedInstanceId, viewportTop: card?.getBoundingClientRect().top ?? 0 })
             );
             sessionStorage.setItem(
-              `samae:scroll:${window.location.pathname}`,
+              `samae:scroll:${routeKey}`,
               String(Math.round(window.scrollY))
             );
             sessionStorage.setItem(

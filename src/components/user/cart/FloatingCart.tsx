@@ -29,6 +29,7 @@ import {
   type InterestRecommendationRow,
 } from "@/lib/interest-similar-recommendations";
 import { recordFeedClick } from "@/lib/feed-click-history";
+import { routeSessionKey } from "@/lib/search-navigation";
 
 // FLIP 은 페인트 전에 측정/적용해야 깜빡임이 없음(SSR 에선 useEffect 로 폴백)
 const useIsoLayout = typeof window === "undefined" ? useEffect : useLayoutEffect;
@@ -775,6 +776,10 @@ export function FloatingCart() {
   function rememberListScroll(photoId: string) {
     try {
       const pathname = window.location.pathname;
+      const routeKey = routeSessionKey(
+        pathname,
+        new URLSearchParams(window.location.search).get("q")
+      );
       const y = Math.round(window.scrollY || pageScrollY.current);
       // 도크에는 data-pid 가 없어 뒤 목록의 카드만 잡힌다. 다른 페이지에서 담은 사진이면 없을 수도 있다.
       const card = document.querySelector<HTMLElement>(`[data-pid="${CSS.escape(photoId)}"]`);
@@ -786,11 +791,11 @@ export function FloatingCart() {
         "samae:photo-return",
         JSON.stringify({ pathname, y, photoId: viewportTop === null ? "" : photoId, viewportTop: viewportTop ?? 0 })
       );
-      sessionStorage.setItem(`samae:scroll:${pathname}`, String(y));
-      if (viewportTop === null) sessionStorage.removeItem(`samae:scroll-anchor:${pathname}`);
+      sessionStorage.setItem(`samae:scroll:${routeKey}`, String(y));
+      if (viewportTop === null) sessionStorage.removeItem(`samae:scroll-anchor:${routeKey}`);
       else
         sessionStorage.setItem(
-          `samae:scroll-anchor:${pathname}`,
+          `samae:scroll-anchor:${routeKey}`,
           JSON.stringify({ id: photoId, viewportTop })
         );
     } catch {

@@ -5,6 +5,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Avatar } from "@/components/ui";
 import { HomeIcon, SearchIcon, ClipboardIcon } from "@/components/user/icons";
+import {
+  homeNavMode,
+  searchSessionStorageKeys,
+} from "@/lib/search-navigation";
 import { ProfileSheet, type ProfileMe } from "./ProfileSheet";
 import { useNavReveal } from "./NavReveal";
 
@@ -152,9 +156,26 @@ export function FloatingNav({
               active={homeActive}
               icon={<HomeIcon className="h-5 w-5" />}
               onClick={(e) => {
+                const currentQuery = new URL(window.location.href).searchParams.get("q");
+                const mode = homeNavMode(pathname, currentQuery);
+                // 검색 결과에서 홈을 누르면 q를 제거한 기본 홈을 최상단부터 새로 연다.
+                if (mode === "leave-search") {
+                  e.preventDefault();
+                  try {
+                    searchSessionStorageKeys(pathname, currentQuery).forEach((key) =>
+                      sessionStorage.removeItem(key)
+                    );
+                    sessionStorage.removeItem("samae:scroll:/");
+                    sessionStorage.removeItem("samae:scroll-anchor:/");
+                  } catch {
+                    /* 스토리지 접근 불가 시 무시 */
+                  }
+                  window.location.assign("/");
+                  return;
+                }
                 // 이미 홈(또는 카테고리 컨텍스트)에서 다시 누르면 취향 피드 새로고침.
                 // 피드 캐시를 비우고 리로드 → 서버가 새 시드로 취향순 피드를 다시 내려줌 + 최상단.
-                if (homeActive) {
+                if (mode === "refresh-home") {
                   e.preventDefault();
                   try {
                     Object.keys(sessionStorage)

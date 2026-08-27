@@ -16,6 +16,8 @@
   GET  /health          → {ok, device, model, loaded_sec}
   POST /embed           → {"images": ["<base64 jpeg>", ...]}
                           {vectors: [[1152]...], mean: [1152], count, infer_ms}
+  POST /embed-text      → {"texts": ["푸른 숲속 커플 사진", ...]}
+                          {vectors: [[1152]...], count, infer_ms, model}
   GET  /iglookup?u=아이디 → 인스타 프로필 사전조회 프록시 (아래 참고)
   POST /persona_copy    → 구조화된 팩트 → 로컬 LLM(ollama qwen3:4b) 이 결과 문장 작성
                           (판단은 이미 SigLIP 중심벡터가 끝냈다 — 여기선 작문만)
@@ -47,8 +49,11 @@ PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8077
 SERVICE_TOKEN = os.environ.get("PERSONA_SERVICE_TOKEN", "")
 PATCH_BUDGET = int(os.environ.get("SIGLIP_PATCH_BUDGET", "256"))
 MAX_IMAGES = 16  # 한 요청에서 받아줄 최대 장수 — 그 이상은 사용자가 아니라 남용이다
+MAX_TEXTS = 8
+MAX_TEXT_LEN = 120
 
 _state = {"processor": None, "model": None, "device": None, "loaded_sec": 0.0}
+_infer_lock = threading.Lock()  # MPS 이미지·텍스트 추론이 동시에 그래프를 실행하지 않게 한다
 
 # ── 마이크로 배칭 ─────────────────────────────────────────────
 # MPS 는 동시에 여러 그래프를 돌리면 안 되므로 어차피 직렬이다. 그렇다면
@@ -79,9 +84,10 @@ def _worker():
         try:
             t = time.perf_counter()
             all_images = [img for job in batch for img in job["images"]]
-            emb = siglip.encode(
-                _state["processor"], _state["model"], all_images, PATCH_BUDGET, _state["device"]
-            )
+            with _infer_lock:
+                emb = siglip.encode(
+                    _state["processor"], _state["model"], all_images, PATCH_BUDGET, _state["device"]
+                )
             ms = (time.perf_counter() - t) * 1000
             # ⚠️ 반드시 여기서 CPU 리스트로 변환한다.
             # MPS 텐서를 파이썬에서 원소 단위로 순회하면(응답 직렬화 등)
@@ -133,6 +139,32 @@ def embed(images_b64):
     if "error" in job:
         raise RuntimeError(job["error"])
     return job["result"], job["infer_ms"]
+
+
+def validate_texts(value):
+    """외부 요청의 검색어 배열을 검증하고 공백만 정리한다."""
+    if not isinstance(value, list) or not value or len(value) > MAX_TEXTS:
+        raise ValueError(f"texts는 1~{MAX_TEXTS}개 배열이어야 합니다")
+
+    texts = []
+    for item in value:
+        if not isinstance(item, str):
+            raise ValueError("검색어는 문자열이어야 합니다")
+        text = item.strip()
+        if not text or len(text) > MAX_TEXT_LEN:
+            raise ValueError(f"검색어는 1~{MAX_TEXT_LEN}자여야 합니다")
+        texts.append(text)
+    return texts
+
+
+def embed_texts(texts):
+    """검색어를 현재 사진 임베딩과 같은 SigLIP2 공간의 벡터로 바꾼다."""
+    t = time.perf_counter()
+    with _infer_lock:
+        vectors = siglip.encode_text(
+            _state["processor"], _state["model"], texts, _state["device"]
+        )
+    return vectors.cpu().tolist(), (time.perf_counter() - t) * 1000
 
 
 import re as _re
@@ -331,6 +363,7 @@ class Handler(BaseHTTPRequestHandler):
         if not self._auth_ok():
             self._send(401, {"error": "unauthorized"})
             return
+        path = self.path.split("?", 1)[0]
         if self.path.startswith("/persona_copy"):
             try:
                 n = int(self.headers.get("Content-Length", "0"))
@@ -341,7 +374,30 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 self._send(500, {"error": f"copy 실패: {e}"})
             return
-        if not self.path.startswith("/embed"):
+        if path == "/embed-text":
+            try:
+                n = int(self.headers.get("Content-Length", "0"))
+                payload = json.loads(self.rfile.read(n) or b"{}")
+                texts = validate_texts(payload.get("texts"))
+            except (ValueError, TypeError, json.JSONDecodeError) as e:
+                self._send(400, {"error": str(e)})
+                return
+
+            try:
+                vectors, ms = embed_texts(texts)
+            except Exception as e:
+                self._send(500, {"error": f"embed-text 실패: {e}"})
+                return
+
+            self._send(200, {
+                "count": len(vectors),
+                "dim": len(vectors[0]),
+                "infer_ms": round(ms, 1),
+                "model": siglip.MODEL_ID,
+                "vectors": [[round(x, 6) for x in row] for row in vectors],
+            })
+            return
+        if path != "/embed":
             self._send(404, {"error": "not found"})
             return
         try:

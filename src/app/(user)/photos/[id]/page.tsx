@@ -31,6 +31,8 @@ import { Button } from "@/components/ui";
 import type { Metadata } from "next";
 import { photoMetadata, photoImageJsonLd } from "@/lib/seo";
 import { JsonLd } from "@/components/JsonLd";
+import { SearchDock } from "@/components/user/SearchDock";
+import { pickSearchPlaceholder } from "@/lib/search-copy";
 
 const fmt = new Intl.NumberFormat("ko-KR");
 
@@ -69,6 +71,7 @@ export default async function PhotoDetail({
   searchParams?: Promise<{ like?: string; mock?: string }>;
 }) {
   const { id } = await params;
+  const searchPlaceholder = pickSearchPlaceholder(Number.parseInt(newFeedSeed(), 36) / 2 ** 31);
   const sp = (await searchParams) ?? {};
   const photo = await fetchPhotoById(id);
   if (!photo) notFound();
@@ -145,14 +148,15 @@ export default async function PhotoDetail({
         price={photo.price_krw ?? null}
         disabled={isOwner}
       />
+      <SearchDock placeholder={searchPlaceholder} variant="photo" />
       <div className="md:flex md:items-start md:gap-8">
-        {/* 사진 — 화면 최상단. 뒤로가기·공유는 이미지 위 오버레이 */}
+        {/* 사진 — 화면 최상단. 공유·담기는 이미지 위 오버레이 */}
         <div
           className="relative mx-auto w-[min(100%,calc(82svh*var(--ar)))] md:mx-0 md:sticky md:top-4 md:shrink-0 md:self-start md:w-[min(60%,calc(80vh*var(--ar)))]"
           style={{ "--ar": String(aspect) } as React.CSSProperties}
         >
           <PhotoCarousel photos={carousel} startIndex={startIndex} frameAspect={aspect} />
-          {/* 좌상단 투명 뒤로가기 (담기·공유는 carousel 내부에서 사진 모서리에 붙음) */}
+          {/* 뒤로가기는 화면 좌상단 고정, 담기·공유는 carousel 내부에서 사진 모서리에 붙음 */}
           <PhotoTopBar />
         </div>
 

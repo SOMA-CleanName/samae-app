@@ -1,11 +1,16 @@
 import {
   fetchPublishedPhotos,
-  searchPhotosByTag,
   fetchLikedPhotoIds,
   fetchPhotoById,
   fetchHomeFeedPage,
   newFeedSeed,
+  searchPhotosByTag,
 } from "@/lib/discovery";
+import {
+  diversifySearchResults,
+  searchPhotosBySiglip,
+  SIGLIP_SEARCH_MAX_RESULTS,
+} from "@/lib/siglip-text-search";
 import { cookies } from "next/headers";
 import { loadDemotedHomePhotos, loadMorePhotos, loadPersonalizedPhotos } from "./feed-actions";
 import { logSearch } from "@/lib/search-log";
@@ -20,6 +25,10 @@ import {
 import { ExploreGallery } from "@/components/user/ExploreGallery";
 import { ScrollMemory } from "@/components/user/ScrollMemory";
 import { FeedHero } from "@/components/user/FeedHero";
+import { SearchDock } from "@/components/user/SearchDock";
+import { PhotoTopBar } from "./photos/[id]/PhotoTopBar";
+import { pickSearchPlaceholder } from "@/lib/search-copy";
+import { routeSessionKey } from "@/lib/search-navigation";
 import { TasteTestNudge } from "@/components/user/TasteTestNudge";
 import { TasteBanner } from "./TasteBanner";
 import { JsonLd } from "@/components/JsonLd";
@@ -35,6 +44,7 @@ export default async function ExploreHome({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
+  const searchPlaceholder = pickSearchPlaceholder(Number.parseInt(newFeedSeed(), 36) / 2 ** 31);
   const sp = await searchParams;
   const query = sp.q?.trim();
   // 카테고리 컨텍스트(?cat·쿠키)는 proxy 가 /c/<slug> 로 리다이렉트 → 여기(홈)는 검색·전체 피드만.
@@ -81,12 +91,27 @@ export default async function ExploreHome({
     // 페르소나 분석을 거친 방문자면 페이지 안 순서를 시각 유사도순으로 (0080, 실패 무해)
     photos = await rerankByPersonaVector(photos);
   } else {
-    const basePhotos = query ? await searchPhotosByTag(query) : await fetchPublishedPhotos({});
+    const basePhotos = query
+      ? diversifySearchResults(
+          query,
+          ...(await Promise.all([
+            searchPhotosByTag(query, {
+              directOnly: true,
+              limit: SIGLIP_SEARCH_MAX_RESULTS,
+            }),
+            searchPhotosBySiglip(query, SIGLIP_SEARCH_MAX_RESULTS),
+          ])),
+          SIGLIP_SEARCH_MAX_RESULTS
+        )
+      : await fetchPublishedPhotos({});
     if (query) await logSearch(query, basePhotos.length, me?.id);
     const merged = adAsGallery
       ? [adAsGallery, ...basePhotos.filter((p) => p.id !== adAsGallery.id)]
       : basePhotos;
-    photos = merged.slice(0, FEED_CAP);
+    photos = merged.slice(
+      0,
+      query ? SIGLIP_SEARCH_MAX_RESULTS : FEED_CAP
+    );
   }
   const spotlightId = adAsGallery?.id;
 
@@ -100,9 +125,24 @@ export default async function ExploreHome({
       {/* 브랜드 구조화데이터 — Organization(사매) + WebSite(검색박스) */}
       {!query && <JsonLd data={siteJsonLd()} />}
       {/* 탭 전환 시 스크롤 위치 유지 */}
-      <ScrollMemory />
+      <ScrollMemory routeKey={routeSessionKey("/", query)} />
       {/* 홈 최상단 히어로 (검색 모드 아닐 때만) */}
       {!query && <FeedHero />}
+
+      {/* 홈·검색 결과 모두 같은 검색 도크를 사용하고, 결과에는 상세 UI와 같은 뒤로가기를 둔다. */}
+      {query ? (
+        <>
+          <PhotoTopBar />
+          <SearchDock
+            key={query}
+            initial={query}
+            placeholder={searchPlaceholder}
+            variant="detail"
+          />
+        </>
+      ) : (
+        <SearchDock placeholder={searchPlaceholder} />
+      )}
 
       {/* 취향 적용 배너 (전체 피드 + 취향 v2 있을 때) */}
       {isAllFeed && tasteCatIds.length > 0 && <TasteBanner />}

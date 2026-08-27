@@ -11,12 +11,14 @@ const PHOTO_RETURN_RESTORING_KEY = "samae:feed-return-restoring";
 const PHOTO_RETURN_RESTORED_EVENT = "samae:feed-return-restored";
 
 export function ScrollMemory({
+  routeKey,
   freshTop = false,
   targetId,
   targetViewportTop = 0,
   targetBlock = "start",
   animateTarget = false,
 }: {
+  routeKey?: string;
   freshTop?: boolean;
   targetId?: string;
   targetViewportTop?: number;
@@ -24,10 +26,11 @@ export function ScrollMemory({
   animateTarget?: boolean;
 } = {}) {
   const pathname = usePathname();
+  const memoryKey = routeKey ?? pathname;
   const lastKnownY = useRef(0);
   useEffect(() => {
-    const key = `samae:scroll:${pathname}`;
-    const anchorKey = `samae:scroll-anchor:${pathname}`;
+    const key = `samae:scroll:${memoryKey}`;
+    const anchorKey = `samae:scroll-anchor:${memoryKey}`;
     // 사진 상세 복귀는 PhotoReturnScroll 한 곳만 좌표를 제어한다. 두 복원기가
     // 동시에 scrollTo를 반복하면 중간 좌표가 다음 저장값이 되어 반복할수록 누적 오차가 난다.
     const photoReturnOwnsRestore =
@@ -173,6 +176,6 @@ export function ScrollMemory({
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener(PHOTO_RETURN_RESTORED_EVENT, onPhotoReturnRestored);
     };
-  }, [pathname, freshTop, targetId, targetViewportTop, targetBlock, animateTarget]);
+  }, [memoryKey, freshTop, targetId, targetViewportTop, targetBlock, animateTarget]);
   return null;
 }
