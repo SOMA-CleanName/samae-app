@@ -3,7 +3,7 @@ import "server-only";
 import type { GalleryPhoto } from "@/lib/discovery";
 import {
   normalizeSiglipSearchLimit,
-  orderByVectorIds,
+  orderVectorMatches,
   requestTextEmbedding,
   SIGLIP_SEARCH_MAX_RESULTS,
 } from "@/lib/siglip-text-search-core";
@@ -12,6 +12,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 const DEFAULT_LIMIT = SIGLIP_SEARCH_MAX_RESULTS;
 
 export {
+  diversifySearchResults,
   mergeMetadataAndVectorResults,
   SIGLIP_SEARCH_MAX_RESULTS,
 } from "@/lib/siglip-text-search-core";
@@ -64,7 +65,7 @@ export async function searchPhotosBySiglip(
   const { data: photos, error: photoError } = await admin
     .from("photos")
     .select(
-      "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name, status)"
+      "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, album_id, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name, status)"
     )
     .in("id", ids)
     .eq("visibility", "published")
@@ -75,5 +76,8 @@ export async function searchPhotosBySiglip(
     return [];
   }
 
-  return orderByVectorIds((photos ?? []) as unknown as GalleryPhoto[], ids);
+  return orderVectorMatches(
+    (photos ?? []) as unknown as GalleryPhoto[],
+    (nearest ?? []) as VectorSearchRow[]
+  );
 }

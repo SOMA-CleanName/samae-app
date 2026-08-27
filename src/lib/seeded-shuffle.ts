@@ -73,3 +73,41 @@ export function spaceByKey<T>(items: T[], keyOf: (item: T) => string): T[] {
   }
   return out;
 }
+
+// 같은 키가 최근 windowSize개 결과 안에 다시 나오지 않게 재배치한다.
+// 가능한 키가 없으면 결과를 버리지 않고, 가장 오래전에 나온 키부터 다시 사용한다.
+export function spaceByRecentKey<T>(
+  items: T[],
+  keyOf: (item: T) => string,
+  windowSize: number
+): T[] {
+  const pending = [...items];
+  const out: T[] = [];
+  const recentKeys: string[] = [];
+  const lastSeenAt = new Map<string, number>();
+  const safeWindowSize = Math.max(1, Math.floor(windowSize));
+
+  while (pending.length > 0) {
+    let index = pending.findIndex((item) => !recentKeys.includes(keyOf(item)));
+    if (index === -1) {
+      index = 0;
+      let oldestSeenAt = Number.POSITIVE_INFINITY;
+      for (let candidateIndex = 0; candidateIndex < pending.length; candidateIndex++) {
+        const seenAt = lastSeenAt.get(keyOf(pending[candidateIndex])) ?? -1;
+        if (seenAt < oldestSeenAt) {
+          index = candidateIndex;
+          oldestSeenAt = seenAt;
+        }
+      }
+    }
+
+    const [picked] = pending.splice(index, 1);
+    const key = keyOf(picked);
+    out.push(picked);
+    lastSeenAt.set(key, out.length - 1);
+    recentKeys.push(key);
+    if (recentKeys.length > safeWindowSize) recentKeys.shift();
+  }
+
+  return out;
+}

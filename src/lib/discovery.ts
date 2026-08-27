@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { seededShuffle } from "@/lib/seeded-shuffle";
 import { readAnonFavPhotoIds } from "@/lib/anon-favorites";
-import { mapSimilarityRows, mergeDemotedSimilar, promotionStage, rebalancePortraitShare } from "@/lib/feed-demotion";
+import { diversifySimilarityCandidates, mapSimilarityRows, mergeDemotedSimilar, promotionStage } from "@/lib/feed-demotion";
 import {
   personalizedRecommendationTarget,
   selectPersonalizationAnchors,
@@ -22,6 +22,9 @@ export type GalleryPhoto = {
   mood_tags: string[];
   price_krw: number | null;
   photographer: { id: string; display_name: string | null };
+  // 검색·유사사진 재정렬에서만 채워지는 선택 필드. 일반 홈 사진에는 없어도 된다.
+  album_id?: string | null;
+  distance?: number;
 };
 
 type SearchablePhoto = GalleryPhoto & {
@@ -623,7 +626,10 @@ export async function fetchRankedDetailRecommendations(
   );
   const consistency = averageNeighborOverlap(lists, 60);
   const primary = lists[0] ?? [];
-  return orderSimilarWithDemotion(primary, anchors.length, consistency).slice(0, maxLimit);
+  return orderSimilarWithDemotion(primary, anchors.length, consistency, {
+    albumWindow: 12,
+    relevanceBandSize: 48,
+  }).slice(0, maxLimit);
 }
 
 function averageNeighborOverlap(lists: SimilarPhoto[][], sampleSize: number): number {
@@ -1482,6 +1488,7 @@ export type SimilarPhoto = {
   demoted: boolean;
   naturalRank: number;
   distance?: number;
+  albumId?: string | null;
 };
 
 export async function fetchSimilarPhotos(opts: {
@@ -1490,7 +1497,10 @@ export async function fetchSimilarPhotos(opts: {
   tags: string[];
   limit?: number;
 }): Promise<SimilarPhoto[]> {
-  return orderSimilarWithDemotion(await fetchSimilarPhotosRaw(opts), 1, 0).slice(
+  return orderSimilarWithDemotion(await fetchSimilarPhotosRaw(opts), 1, 0, {
+    albumWindow: 12,
+    relevanceBandSize: 48,
+  }).slice(
     0,
     opts.limit ?? 120
   );
@@ -1514,27 +1524,40 @@ async function fetchSimilarPhotosRaw(opts: {
 function orderSimilarWithDemotion(
   photos: SimilarPhoto[],
   anchorCount: number,
-  styleConsistency: number
+  styleConsistency: number,
+  diversity: { albumWindow?: number; relevanceBandSize?: number } = {}
 ): SimilarPhoto[] {
   const stage = promotionStage(anchorCount, styleConsistency);
   const distances = photos
     .map((photo) => photo.distance)
     .filter((distance): distance is number => Number.isFinite(distance));
   const bestDistance = distances.length > 0 ? Math.min(...distances) : undefined;
-  const normal = rebalancePortraitShare(
+  const normal = diversifySimilarityCandidates(
     photos.filter((photo) => !photo.demoted),
-    0.75,
-    0.015,
-    bestDistance
+    {
+      targetShare: 0.75,
+      protectionDelta: 0.015,
+      referenceBestDistance: bestDistance,
+      ...diversity,
+    }
   );
-  const demoted = rebalancePortraitShare(
+  const demoted = diversifySimilarityCandidates(
     photos.filter((photo) => photo.demoted),
-    0.75,
-    0.015,
-    bestDistance
+    {
+      targetShare: 0.75,
+      protectionDelta: 0.015,
+      referenceBestDistance: bestDistance,
+      ...diversity,
+    }
   );
   const merged = mergeDemotedSimilar(normal, demoted, stage);
-  return stage === 4 ? rebalancePortraitShare(merged, 0.75, 0.015, bestDistance) : merged;
+  return diversifySimilarityCandidates(merged, {
+    targetShare: 0.75,
+    protectionDelta: 0.015,
+    referenceBestDistance: bestDistance,
+    preserveOrientationOrder: stage !== 4,
+    ...diversity,
+  });
 }
 
 // 벡터 근접검색. RPC 가 published/approved·현재 사진·같은 게시물을 이미 걸러
@@ -1558,10 +1581,7 @@ async function similarByEmbedding(photoId: string, limit: number): Promise<Simil
   };
   const rows = mapSimilarityRows(data as unknown as Row[]);
 
-  // 시드의 게시물은 RPC 가 뺐지만, 다른 한 게시물이 상위를 연달아 채울 수는 있다.
-  // 같은 촬영본은 벡터가 붙어 있어 태그 방식보다 오히려 몰리기 쉽다.
-  // 유사도 순서를 최대한 보존하면서 인접 중복만 푼다.
-  return spaceByAlbum(rows, (p) => p.album_id ?? `single:${p.id}`).map((p) => ({
+  return rows.map((p) => ({
     id: p.id,
     src_url: p.src_url,
     thumb_url: p.thumb_url,
@@ -1570,6 +1590,7 @@ async function similarByEmbedding(photoId: string, limit: number): Promise<Simil
     demoted: p.demoted,
     naturalRank: p.naturalRank,
     distance: p.distance,
+    albumId: p.album_id,
   }));
 }
 
@@ -1641,11 +1662,7 @@ async function similarByTags(opts: {
     }
   }
 
-  // 최종 간격 보정 — 인접한 두 사진이 같은 게시물(앨범)이 되지 않도록 재배치.
-  // 라운드로빈만으로는 한 앨범만 남거나 점수 묶음 경계에서 같은 앨범이 연속될 수 있어, 한 번 더 보장.
-  const spaced = spaceByAlbum(ordered, (p) => p.album_id ?? `single:${p.id}`);
-
-  return spaced.map((p) => ({
+  return ordered.map((p) => ({
     id: p.id,
     src_url: p.src_url,
     thumb_url: p.thumb_url,
@@ -1653,24 +1670,8 @@ async function similarByTags(opts: {
     height: p.height,
     demoted: p.demoted,
     naturalRank: p.naturalRank,
+    albumId: p.album_id,
   }));
-}
-
-// 우선순위 순서를 최대한 보존하면서, 인접한 두 항목이 같은 키(게시물)가 되지 않게 재배치.
-// 다음 항목이 직전과 같은 게시물이면 그 뒤에서 다른 게시물을 먼저 꺼내 끼워넣는다.
-// 남은 게 전부 같은 게시물뿐일 때만 불가피하게 연속된다.
-function spaceByAlbum<T>(items: T[], keyOf: (item: T) => string): T[] {
-  const pending = [...items];
-  const out: T[] = [];
-  let lastKey: string | null = null;
-  while (pending.length > 0) {
-    let idx = pending.findIndex((it) => keyOf(it) !== lastKey);
-    if (idx === -1) idx = 0; // 전부 같은 게시물이면 어쩔 수 없이 연속
-    const [picked] = pending.splice(idx, 1);
-    out.push(picked);
-    lastKey = keyOf(picked);
-  }
-  return out;
 }
 
 // 작가 활성 패키지

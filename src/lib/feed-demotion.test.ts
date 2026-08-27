@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  diversifySimilarityCandidates,
   mergeDemotedSimilar,
   mapSimilarityRows,
   nextFeedPhase,
@@ -171,4 +172,74 @@ test("portrait rebalancing uses the shared best distance instead of protecting a
     rebalancePortraitShare(candidates, 0.75, 0.015, 0.1).map((candidate) => candidate.id),
     ["p0", "p1", "p2", "l0"]
   );
+});
+
+test("shared similarity diversity keeps the best candidate and prevents adjacent albums", () => {
+  const candidates = [
+    { id: "best", width: 1600, height: 900, distance: 0.1, albumId: "same" },
+    { id: "same", width: 1600, height: 900, distance: 0.11, albumId: "same" },
+    ...Array.from({ length: 6 }, (_, index) => ({
+      id: `portrait-${index}`,
+      width: 800,
+      height: 1200,
+      distance: 0.13 + index * 0.01,
+      albumId: `portrait-${index}`,
+    })),
+  ];
+
+  const result = diversifySimilarityCandidates(candidates);
+
+  assert.equal(result[0]?.id, "best");
+  assert.equal(
+    result.some((candidate, index) =>
+      index > 0 && candidate.albumId === result[index - 1].albumId
+    ),
+    false
+  );
+  assert.equal(
+    result.slice(0, 8).filter((candidate) => candidate.width / candidate.height < 0.9).length,
+    6
+  );
+});
+
+test("detail similarity diversity keeps the same album outside the recent twelve results", () => {
+  const candidates = [
+    { id: "album-a-first", width: 100, height: 100, albumId: "album-a" },
+    { id: "album-a-second", width: 100, height: 100, albumId: "album-a" },
+    ...Array.from({ length: 12 }, (_, index) => ({
+      id: `other-${index}`,
+      width: 100,
+      height: 100,
+      albumId: `album-${index}`,
+    })),
+  ];
+
+  const result = diversifySimilarityCandidates(candidates, {
+    preserveOrientationOrder: true,
+    albumWindow: 12,
+    relevanceBandSize: 48,
+  });
+
+  assert.equal(result[0]?.id, "album-a-first");
+  assert.equal(result.findIndex((candidate) => candidate.id === "album-a-second"), 13);
+});
+
+test("detail similarity diversity does not promote a weak album across relevance bands", () => {
+  const candidates = [
+    ...Array.from({ length: 48 }, (_, index) => ({
+      id: `strong-${index}`,
+      width: 100,
+      height: 100,
+      albumId: "strong-album",
+    })),
+    { id: "weak-other-album", width: 100, height: 100, albumId: "weak-album" },
+  ];
+  const options = {
+    preserveOrientationOrder: true,
+    relevanceBandSize: 48,
+  };
+
+  const result = diversifySimilarityCandidates(candidates, options);
+
+  assert.equal(result.findIndex((candidate) => candidate.id === "weak-other-album"), 48);
 });

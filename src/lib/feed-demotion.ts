@@ -13,6 +13,11 @@ export type OrientationCandidate = {
   distance?: number;
 };
 
+export type SimilarityDiversityCandidate = OrientationCandidate & {
+  id: string;
+  albumId?: string | null;
+};
+
 const PORTRAIT_SHARE_TARGET = 0.75;
 const SIMILARITY_PROTECTION_DELTA = 0.015;
 
@@ -75,6 +80,63 @@ export function rebalancePortraitShare<T extends OrientationCandidate>(
       result.push(others[otherIndex++]);
     }
   }
+  return result;
+}
+
+export function diversifySimilarityCandidates<T extends SimilarityDiversityCandidate>(
+  candidates: T[],
+  options: {
+    targetShare?: number;
+    protectionDelta?: number;
+    referenceBestDistance?: number;
+    preserveOrientationOrder?: boolean;
+    albumWindow?: number;
+    relevanceBandSize?: number;
+  } = {}
+): T[] {
+  const oriented = options.preserveOrientationOrder
+    ? [...candidates]
+    : rebalancePortraitShare(
+        candidates,
+        options.targetShare,
+        options.protectionDelta,
+        options.referenceBestDistance
+      );
+  const albumWindow = Math.max(1, Math.floor(options.albumWindow ?? 1));
+  const relevanceBandSize = Math.max(
+    1,
+    Math.floor(options.relevanceBandSize ?? Math.max(1, oriented.length))
+  );
+  const result: T[] = [];
+  const recentAlbums: string[] = [];
+  const lastSeenAt = new Map<string, number>();
+  const albumKey = (candidate: T) => candidate.albumId ?? `single:${candidate.id}`;
+
+  for (let start = 0; start < oriented.length; start += relevanceBandSize) {
+    const pending = oriented.slice(start, start + relevanceBandSize);
+    while (pending.length > 0) {
+      let index = pending.findIndex((candidate) => !recentAlbums.includes(albumKey(candidate)));
+      if (index === -1) {
+        index = 0;
+        let oldestSeenAt = Number.POSITIVE_INFINITY;
+        for (let candidateIndex = 0; candidateIndex < pending.length; candidateIndex++) {
+          const seenAt = lastSeenAt.get(albumKey(pending[candidateIndex])) ?? -1;
+          if (seenAt < oldestSeenAt) {
+            index = candidateIndex;
+            oldestSeenAt = seenAt;
+          }
+        }
+      }
+
+      const [picked] = pending.splice(index, 1);
+      const key = albumKey(picked);
+      result.push(picked);
+      lastSeenAt.set(key, result.length - 1);
+      recentAlbums.push(key);
+      if (recentAlbums.length > albumWindow) recentAlbums.shift();
+    }
+  }
+
   return result;
 }
 

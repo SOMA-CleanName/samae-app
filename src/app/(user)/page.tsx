@@ -7,7 +7,7 @@ import {
   searchPhotosByTag,
 } from "@/lib/discovery";
 import {
-  mergeMetadataAndVectorResults,
+  diversifySearchResults,
   searchPhotosBySiglip,
   SIGLIP_SEARCH_MAX_RESULTS,
 } from "@/lib/siglip-text-search";
@@ -25,7 +25,10 @@ import {
 import { ExploreGallery } from "@/components/user/ExploreGallery";
 import { ScrollMemory } from "@/components/user/ScrollMemory";
 import { FeedHero } from "@/components/user/FeedHero";
-import { SearchPill } from "@/components/user/SearchPill";
+import { SearchDock } from "@/components/user/SearchDock";
+import { PhotoTopBar } from "./photos/[id]/PhotoTopBar";
+import { pickSearchPlaceholder } from "@/lib/search-copy";
+import { routeSessionKey } from "@/lib/search-navigation";
 import { TasteTestNudge } from "@/components/user/TasteTestNudge";
 import { TasteBanner } from "./TasteBanner";
 import { JsonLd } from "@/components/JsonLd";
@@ -41,6 +44,7 @@ export default async function ExploreHome({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
+  const searchPlaceholder = pickSearchPlaceholder(Number.parseInt(newFeedSeed(), 36) / 2 ** 31);
   const sp = await searchParams;
   const query = sp.q?.trim();
   // 카테고리 컨텍스트(?cat·쿠키)는 proxy 가 /c/<slug> 로 리다이렉트 → 여기(홈)는 검색·전체 피드만.
@@ -88,7 +92,8 @@ export default async function ExploreHome({
     photos = await rerankByPersonaVector(photos);
   } else {
     const basePhotos = query
-      ? mergeMetadataAndVectorResults(
+      ? diversifySearchResults(
+          query,
           ...(await Promise.all([
             searchPhotosByTag(query, {
               directOnly: true,
@@ -120,19 +125,24 @@ export default async function ExploreHome({
       {/* 브랜드 구조화데이터 — Organization(사매) + WebSite(검색박스) */}
       {!query && <JsonLd data={siteJsonLd()} />}
       {/* 탭 전환 시 스크롤 위치 유지 */}
-      <ScrollMemory />
+      <ScrollMemory routeKey={routeSessionKey("/", query)} />
       {/* 홈 최상단 히어로 (검색 모드 아닐 때만) */}
       {!query && <FeedHero />}
 
-      {/* 검색창은 홈 히어로 바로 아래와 검색 결과 상단에만 노출한다. */}
-      <div className={`mx-auto max-w-screen-2xl px-1 ${query ? "pb-6 pt-1 sm:pb-8 sm:pt-2" : "pb-6 sm:pb-9"}`}>
-        <SearchPill key={query ?? "home"} initial={query ?? ""} />
-        {!query && (
-          <p className="mt-2 px-3 text-caption text-muted">
-            예: 푸른 숲속 커플, 비 오는 날 필름 감성
-          </p>
-        )}
-      </div>
+      {/* 홈·검색 결과 모두 같은 검색 도크를 사용하고, 결과에는 상세 UI와 같은 뒤로가기를 둔다. */}
+      {query ? (
+        <>
+          <PhotoTopBar />
+          <SearchDock
+            key={query}
+            initial={query}
+            placeholder={searchPlaceholder}
+            variant="detail"
+          />
+        </>
+      ) : (
+        <SearchDock placeholder={searchPlaceholder} />
+      )}
 
       {/* 취향 적용 배너 (전체 피드 + 취향 v2 있을 때) */}
       {isAllFeed && tasteCatIds.length > 0 && <TasteBanner />}

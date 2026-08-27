@@ -195,6 +195,57 @@ select:focus-visible {
   box-shadow: none;
 }
 
+/* 사진 검색창 — 좌상단에서 출발한 빛이 한 바퀴 돌고 좌상단에서 사라진다. */
+@keyframes search-border-lap {
+  0% {
+    stroke-dashoffset: var(--search-border-start-dash-offset);
+    opacity: 1;
+  }
+  90% {
+    stroke-dashoffset: var(--search-border-end-dash-offset);
+    opacity: 1;
+  }
+  100% {
+    stroke-dashoffset: var(--search-border-end-dash-offset);
+    opacity: 0;
+  }
+}
+.samae-search-border-trace {
+  position: absolute;
+  z-index: 3;
+  inset: -1px;
+  display: block;
+  width: calc(100% + 2px);
+  height: calc(100% + 2px);
+  pointer-events: none;
+  overflow: visible;
+}
+.samae-search-border-trace-path {
+  fill: none;
+  stroke: color-mix(in srgb, var(--brand) 92%, var(--fg));
+  stroke-width: 2px;
+  stroke-linecap: round;
+  stroke-dasharray: var(--search-border-dash-array);
+  stroke-dashoffset: var(--search-border-start-dash-offset);
+  vector-effect: non-scaling-stroke;
+  opacity: 0;
+  filter: drop-shadow(0 0 2px color-mix(in srgb, var(--brand) 34%, transparent));
+}
+.samae-search-icon {
+  transition: color 180ms ease;
+}
+.samae-search-frame:focus-within .samae-search-icon {
+  color: var(--fg);
+}
+.samae-search-frame[data-border-motion="running"] .samae-search-border-trace-path {
+  animation: search-border-lap 1500ms cubic-bezier(0.22, 1, 0.36, 1) 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .samae-search-frame[data-border-motion="running"] .samae-search-border-trace-path {
+    animation: none;
+  }
+}
+
 /* 텍스트 선택 — 브랜드 틴트 */
 ::selection {
   background: var(--brand-soft);

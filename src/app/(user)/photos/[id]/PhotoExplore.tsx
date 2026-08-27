@@ -8,6 +8,7 @@ import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
 import { rememberPhotoAspect } from "@/lib/photo-aspect";
 import type { GalleryPhoto } from "@/lib/discovery";
 import { readFeedClicks, recordFeedClick } from "@/lib/feed-click-history";
+import { buildDiverseMasonryColumns } from "@/lib/masonry-columns";
 
 export type ExplorePhoto = {
   id: string;
@@ -15,6 +16,7 @@ export type ExplorePhoto = {
   thumb_url: string | null;
   width: number;
   height: number;
+  albumId?: string | null;
 };
 
 const STEP = 30; // 스크롤마다 더 보여줄 사진 수(메모리에서 즉시 노출)
@@ -133,6 +135,7 @@ function RecsFeed({
               thumb_url: p.thumb_url,
               width: p.width,
               height: p.height,
+              albumId: p.album_id,
             }));
           if (fresh.length) {
             setItems((prev) => [...prev, ...fresh]);
@@ -195,19 +198,12 @@ function useColumnCount(ref: React.RefObject<HTMLDivElement | null>) {
   return cols;
 }
 
-// 높이 균형 그리디 분배 — 각 사진을 가장 짧은 컬럼에 넣는다.
-// 순서가 고정이면 prefix-stable: 뒤에 더 추가돼도 앞 사진들의 컬럼/위치가 안 바뀜(재정렬 없음).
+// 관련도 순서를 유지하면서 같은 앨범이 같은 화면 높이에 겹치지 않도록 분배한다.
+// 이 배치도 앞에서부터 결정되므로 뒤에 사진이 추가되어도 기존 사진의 컬럼은 바뀌지 않는다.
 function buildColumns(photos: ExplorePhoto[], colCount: number): ExplorePhoto[][] {
-  const cols: ExplorePhoto[][] = Array.from({ length: colCount }, () => []);
-  const heights = new Array(colCount).fill(0);
-  for (const p of photos) {
-    const ratio = p.width > 0 && p.height > 0 ? p.height / p.width : 1;
-    let min = 0;
-    for (let c = 1; c < colCount; c++) if (heights[c] < heights[min]) min = c;
-    cols[min].push(p);
-    heights[min] += ratio;
-  }
-  return cols;
+  return buildDiverseMasonryColumns(photos, colCount).map((column) =>
+    column.map((item) => item.photo)
+  );
 }
 
 // 추천 타일 이미지 — 로드 전 스켈레톤(빠른 스크롤 시 빈 칸이 '로딩 중'으로 보이게).
