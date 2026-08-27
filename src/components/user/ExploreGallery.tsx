@@ -21,6 +21,7 @@ import { mpTrack } from "@/lib/mixpanel";
 import { EmptyState } from "@/components/ui";
 import { rememberPhotoAspect } from "@/lib/photo-aspect";
 import { appendFeedClick, readFeedClicks, recordFeedClick } from "@/lib/feed-click-history";
+import { FEED_ALGO_VERSION } from "@/lib/feed-version";
 import { nextFeedPhase, type FeedPhase } from "@/lib/feed-demotion";
 
 const fmt = new Intl.NumberFormat("ko-KR");
@@ -629,6 +630,67 @@ export function ExploreGallery({
     };
   }, []);
 
+  // ── 피드 노출 배치 계측 ──────────────────────────────────────
+  // 카드마다 이벤트를 쏘면 무료 플랜 쿼터가 터지므로, 뷰포트에 절반 이상 보인 카드를
+  // 세트로 모아뒀다가 페이지를 떠날 때 1건(Feed Impressions)으로 묶어 보낸다.
+  // 추천 혼입 카드 수·최대 도달 랭크를 함께 실어 "추천 노출 대비 클릭률(CTR)"의
+  // 분모를 만든다. (분자 = Click Photo의 is_recommended)
+  const impSeen = useRef(new Set<string>());
+  const impRec = useRef(0);
+  const impMaxRank = useRef(0);
+  const impObserver = useRef<IntersectionObserver | null>(null);
+  const flushImpressions = useRef(() => {
+    if (impSeen.current.size === 0) return;
+    mpTrack("Feed Impressions", {
+      impression_count: impSeen.current.size,
+      recommended_count: impRec.current,
+      max_rank: impMaxRank.current,
+      feed_algo_version: FEED_ALGO_VERSION,
+      path: window.location.pathname,
+    });
+    impSeen.current = new Set();
+    impRec.current = 0;
+    impMaxRank.current = 0;
+  });
+  useEffect(() => {
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const el = entry.target as HTMLElement;
+          const pid = el.getAttribute("data-pid");
+          if (!pid || impSeen.current.has(pid)) continue;
+          impSeen.current.add(pid);
+          if (el.getAttribute("data-rec") === "1") impRec.current += 1;
+          const rank = Number(el.getAttribute("data-rank") || 0);
+          if (rank > impMaxRank.current) impMaxRank.current = rank;
+        }
+      },
+      { threshold: 0.5 }
+    );
+    impObserver.current = io;
+    const flush = () => flushImpressions.current();
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onVisibility);
+      flush(); // 라우트 이동(언마운트)도 노출 1건으로 기록
+      io.disconnect();
+    };
+  }, []);
+  // 점진 노출로 카드가 늘어날 때마다 새 카드를 관찰 (같은 요소 재관찰은 무시됨)
+  useEffect(() => {
+    const io = impObserver.current;
+    if (!io || !columnsReady) return;
+    document
+      .querySelectorAll<HTMLElement>("[data-feed-grid] [data-pid][data-rank]")
+      .forEach((el) => io.observe(el));
+  }, [columnsReady, visible, items.length]);
+
   const columns = useMemo(
     () => {
       const visibleItems = query
@@ -695,7 +757,20 @@ export function ExploreGallery({
                   photo={photo}
                   feedInstanceId={feedInstanceId}
                   routeKey={routeKey}
-                  onOpen={() => recordPhotoClick(photo.id)}
+                  feedRank={feedIndex + 1}
+                  onOpen={() => {
+                    recordPhotoClick(photo.id);
+                    // 피드 카드 클릭 — 추천 혼입 여부·피드 내 위치·알고리즘 세대까지 실어
+                    // "버전별 추천 vs 일반 클릭률" 분해가 조인 없이 되게 한다.
+                    mpTrack("Click Photo", {
+                      photo_id: photo.id,
+                      source: "feed",
+                      path: window.location.pathname,
+                      is_recommended: !!photo.recommended,
+                      feed_rank: feedIndex + 1,
+                      feed_algo_version: FEED_ALGO_VERSION,
+                    });
+                  }}
                   showPrice={showPrice}
                   showName={showName}
                   // 온보딩 디밍 중엔 브랜드 빨간 테두리가 비쳐 어색해 보여 숨김
@@ -882,6 +957,7 @@ function PhotoCard({
   photo,
   feedInstanceId,
   routeKey,
+  feedRank,
   onOpen,
   showPrice,
   showName,
@@ -891,6 +967,8 @@ function PhotoCard({
   photo: GalleryPhoto;
   feedInstanceId: string;
   routeKey: string;
+  // 피드 내 위치(1-base) — 노출·클릭 계측용. 피드 밖(검색 등)에선 생략 가능.
+  feedRank?: number;
   onOpen?: () => void;
   showPrice: boolean;
   showName: boolean;
@@ -910,6 +988,8 @@ function PhotoCard({
       data-cart-card
       data-pid={photo.id}
       data-feed-instance={feedInstanceId}
+      data-rank={feedRank}
+      data-rec={photo.recommended ? "1" : undefined}
       className={cn(
         // 저빈도 악센트 테두리 — border(안쪽)라 사진만 살짝 줄고 바깥 크기는 열 폭 그대로
         // (ring 바깥쪽이면 옆으로 삐져나와 더 커 보였음). 기본은 테두리 없음.

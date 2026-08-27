@@ -85,7 +85,14 @@ async function finalize(
       profilePicUrl,
       persona,
       shoot,
-      photos: similar.map((p) => ({ id: p.id, url: p.thumb_url ?? p.src_url })),
+      // "왜 이 사진인가" 근거는 **실제 파이프라인 값만** 싣는다 (지어내지 않는다).
+      // 캐시 복원(distance 0 더미)은 해당 필드가 조용히 빠지고 UI 도 생략한다.
+      photos: similar.map((p) => ({
+        id: p.id,
+        url: p.thumb_url ?? p.src_url,
+        ...(p.distance > 0 && p.distance < 1 ? { similarity: 1 - p.distance } : {}),
+        ...(p.seedIdx !== undefined ? { seedIdx: p.seedIdx } : {}),
+      })),
       shareId,
       sampleThumbs,
     };
@@ -124,9 +131,10 @@ export async function runPersonaAnalysis(usernameRaw: string): Promise<PersonaAc
       id: p.id,
       src_url: p.src_url,
       thumb_url: p.thumb_url ?? null,
+      mood_tags: null,
       album_id: null,
       photographer_id: null,
-      distance: 0,
+      distance: 0, // 더미 — 실측 유사도가 아니므로 finalize 가 similarity 를 싣지 않는다
     }));
     return finalize(cached.persona, cached.shoot, username, null, cached.id, restored);
   }

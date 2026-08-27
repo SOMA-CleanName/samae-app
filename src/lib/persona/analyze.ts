@@ -100,7 +100,8 @@ async function runBackend(
   const dataText = profile
     ? buildProfileText(profile, formatMetrics(computeMetrics(profile)))
     : `# 직접 업로드한 사진 ${imgs.length}장으로 분석\n(인스타 캡션·게시 지표 없음 — 이미지의 톤·색·구도·피사체만으로 신중하게 추론하고, 단서가 약한 항목은 중앙값 근처로 두세요.)`;
-  const r = await generateCombinedPersona(client, model, dataText, imgs, moods);
+  // 팔레트를 프롬프트에 준다 — paletteReason 이 화면에 실제 표시될 색의 출처를 말하게 (정합)
+  const r = await generateCombinedPersona(client, model, dataText, imgs, moods, palette);
   return { ...r, backend: "claude" };
 }
 
@@ -115,10 +116,12 @@ async function analyzeCore(
   const paletteP = extractPaletteSafe(imgs);
   const thumbsP = blockThumbnails(imgs);
 
-  // local 은 임베딩·팔레트가 판단·작문 재료라 먼저 필요하고, claude 는 기다릴 필요가 없다.
+  // local 은 임베딩이 판단 재료라 먼저 필요하고, claude 는 기다릴 필요가 없다.
   const isLocal = process.env.PERSONA_LLM === "local";
   const embedded = isLocal ? await embeddedP : null;
-  const earlyPalette = isLocal ? await paletteP : []; // 팔레트는 ~11ms — 기다려도 공짜
+  // 팔레트는 ~11ms — 두 경로 모두 기다린다. claude 는 paletteReason 이
+  // 화면에 실제 표시될 색(픽셀 추출)의 출처를 말해야 하므로 프롬프트에 넣어야 한다.
+  const earlyPalette = await paletteP;
 
   const { persona, shoot, backend } = await runBackend(
     profile,

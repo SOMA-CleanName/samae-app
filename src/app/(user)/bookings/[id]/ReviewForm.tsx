@@ -28,7 +28,12 @@ export function ReviewForm({
   }
 
   return (
-    <form action={submitReview} className="mt-4 rounded-xl border border-fg/10 p-5">
+    <form
+      action={submitReview}
+      // 제출 의도 시점 계측 — 서버 액션이라 성공 콜백이 없어 여기서 잡는다(Start Review 대비 완주율).
+      onSubmit={() => mpTrack("Submit Review", { booking_id: bookingId, rating, is_edit: !!initialRating })}
+      className="mt-4 rounded-xl border border-fg/10 p-5"
+    >
       <p className="text-sm font-semibold">{initialRating ? "후기 수정" : "촬영은 어떠셨나요?"}</p>
       <input type="hidden" name="bookingId" value={bookingId} />
       <input type="hidden" name="rating" value={rating} />

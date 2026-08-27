@@ -12,12 +12,15 @@ import {
   mpTrack,
   mpDistinctId,
   mpOptIn,
+  mpOptOut,
 } from "@/lib/mixpanel";
 
 // Mixpanel 라이프사이클 — 로그인 유저 식별(identify) + 가입/로그인 이벤트 + role 속성.
-// 스태프(운영자·작가) 처리: opt-out(전체 차단)이 아니라 super 속성 is_staff=true 태그만 단다.
-//   → 이벤트는 계속 수집되므로 세션 리플레이엔 그대로 잡히고,
-//     퍼널·플로우 리포트에서 "is_staff ≠ true" 필터로 제외한다.
+// 스태프(운영자·작가) 처리: opt-out 으로 수집 자체를 중단한다.
+//   2026-08 스캔에서 작가 계정 17개 기기가 전체 이벤트의 36%를 차지해
+//   소비자 체류·오가닉 지표를 심하게 오염시킨 것이 확인됨 (is_staff 태그만으로는
+//   무료 플랜에서 모든 리포트에 필터를 유지하기 어려움 → 차단으로 전환).
+//   대신 스태프 세션 리플레이는 함께 꺼진다는 트레이드오프 있음.
 // 익명 방문자는 읽기 쉬운 표시이름($name)="{광고콘셉}-{짧은ID}" 부여.
 // (Page View·Click·Scroll 등 자동 이벤트는 AnalyticsTracker 에서 함께 전송)
 
@@ -66,8 +69,12 @@ async function setUserProps(supabase: SupabaseClient, userId: string) {
       role,
       ...(photographer ? { photographer_status: photographer.status } : {}),
     });
-    // 스태프는 추적을 끊지 않고(리플레이 유지) is_staff 태그만 → 퍼널·플로우는 리포트 필터로 제외
-    mpRegister({ is_staff: role === "admin" || role === "photographer" });
+    const isStaff = role === "admin" || role === "photographer";
+    mpRegister({ is_staff: isStaff });
+    // 스태프(운영자·작가)는 수집 중단 — 소비자 퍼널·체류 지표 오염 방지.
+    // 일반 유저로 확인된 경우에만 추적 재개(과거 스태프였다 강등된 브라우저 복구).
+    if (isStaff) mpOptOut();
+    else mpOptIn();
   } catch {
     /* 무시 */
   }
@@ -76,9 +83,10 @@ async function setUserProps(supabase: SupabaseClient, userId: string) {
 export function MixpanelTracker() {
   useEffect(() => {
     if (!mpEnabled()) return;
-    // 이전 배포에서 스태프로 opt-out 됐던 브라우저 복구(리플레이 위해 스태프도 추적 유지) +
     // is_staff 기본값 false 등록(스태프면 setUserProps 에서 true 로 덮음).
-    mpOptIn();
+    // 주의: 여기서 무조건 mpOptIn() 하지 않는다 — 스태프로 opt-out 된 브라우저가
+    // 페이지 로드마다 잠깐 추적 재개되는 누수를 막기 위해, 재개는 setUserProps 에서
+    // '일반 유저 확인 시'에만 수행.
     mpRegister({ is_staff: false });
     const supabase = createClient();
 
