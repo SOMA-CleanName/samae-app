@@ -8,6 +8,24 @@ import { ClipboardIcon } from "@/components/user/icons";
 import { MyInquiryList } from "./MyInquiryList";
 import { RealtimeListRefresh } from "@/components/user/RealtimeListRefresh";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { bookingStatusLabel, type BookingStatus } from "@/lib/booking-status";
+import { readStoredFieldValues } from "@/lib/booking-fields";
+import type { InquiryBooking } from "./MyInquiryList";
+
+type DbInquiryBooking = {
+  id: string;
+  photographer_id: string;
+  status: string;
+  transfer_marked_at: string | null;
+  shoot_at: string | null;
+  shoot_date: string | null;
+  location_text: string | null;
+  memo: string | null;
+  amount_krw: number | null;
+  travel_fee_krw: number | null;
+  custom_fields: unknown;
+  package_snapshot: { name?: string } | null;
+};
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "문의", robots: { index: false } };
@@ -29,28 +47,51 @@ export default async function MyInquiriesPage() {
   // (봇 대화가 DB에 실시간 동기화되면서 last_message_at 만으로는 진행 중을 구분 못 한다)
   const submittedPhotographers = new Set(inquiries.map((i) => i.photographerId));
 
-  // 확정된(입금까지 끝난) 예약 — 문의 카드에서 바로 사매에 문의할 수 있게 붙인다.
-  // 환불·날짜 변경은 예약이 있어야 성립하므로, 예약이 없는 문의에는 버튼을 두지 않는다.
-  const bookingByPhotographer: Record<string, string> = {};
+  // 진행 중인 예약 — 문의 카드에서 예약 내용까지 다 보이게 한다.
+  //
+  // 문의 탭은 "내가 어디까지 갔나" 를 보는 자리다. 그런데 예약이 잡히고 나면 정작 그
+  // 결과(일시·장소·금액)는 채팅방 안에만 있어서, 확인하려면 대화를 거슬러 올라가야 했다.
+  const bookingByPhotographer: Record<string, InquiryBooking> = {};
   if (me) {
     const admin = createAdminClient();
     const { data: bks } = await admin
       .from("bookings")
-      .select("id, photographer_id, status, transfer_marked_at, created_at")
+      .select(
+        "id, photographer_id, status, transfer_marked_at, shoot_at, shoot_date, location_text, memo, amount_krw, travel_fee_krw, custom_fields, package_snapshot, created_at"
+      )
       .eq("user_id", me.id)
-      .in("status", ["accepted", "paid", "shot", "delivered"])
+      .in("status", ["requested", "accepted", "paid", "shot", "delivered", "completed"])
       .order("created_at", { ascending: false });
-    for (const b of (bks ?? []) as {
-      id: string;
-      photographer_id: string;
-      status: string;
-      transfer_marked_at: string | null;
-    }[]) {
-      // 입금을 알린 뒤부터가 사매를 거쳐야 하는 구간이다 (그 전엔 채팅에서 그냥 취소하면 된다)
-      const paidSide = b.status !== "accepted" || !!b.transfer_marked_at;
-      if (paidSide && !bookingByPhotographer[b.photographer_id]) {
-        bookingByPhotographer[b.photographer_id] = b.id;
-      }
+
+    for (const b of (bks ?? []) as DbInquiryBooking[]) {
+      // 작가당 가장 최근 1건만 — 카드는 문의 단위라 여러 건을 쌓으면 무엇을 보는지 흐려진다
+      if (bookingByPhotographer[b.photographer_id]) continue;
+      bookingByPhotographer[b.photographer_id] = {
+        id: b.id,
+        status: b.status,
+        statusLabel: bookingStatusLabel(
+          { status: b.status as BookingStatus, transfer_marked_at: b.transfer_marked_at },
+          true // 문의 탭은 언제나 고객 시점
+        ),
+        // 입금을 알린 뒤부터가 사매를 거쳐야 하는 구간 (그 전엔 채팅에서 그냥 취소하면 된다)
+        settled: b.status !== "requested" && (b.status !== "accepted" || !!b.transfer_marked_at),
+        packageName: b.package_snapshot?.name ?? null,
+        when: b.shoot_at
+          ? new Intl.DateTimeFormat("ko-KR", {
+              month: "long",
+              day: "numeric",
+              weekday: "short",
+              hour: "2-digit",
+              minute: "2-digit",
+              timeZone: "Asia/Seoul",
+            }).format(new Date(b.shoot_at))
+          : b.shoot_date ?? "날짜 협의 중",
+        location: b.location_text,
+        memo: b.memo || null,
+        amountKrw: b.amount_krw ?? 0,
+        travelFeeKrw: b.travel_fee_krw ?? 0,
+        customFields: readStoredFieldValues(b.custom_fields),
+      };
     }
   }
 
