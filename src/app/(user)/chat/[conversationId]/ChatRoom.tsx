@@ -27,6 +27,7 @@ import { GuideImagesButton } from "./GuideImagesButton";
 import { AcceptPayDialog } from "./AcceptPayDialog";
 import { PolicyNote } from "./PolicyNote";
 import { SupportButton } from "@/components/user/SupportButton";
+import { BookingDetailDialog, bookingWhen } from "./BookingDetailDialog";
 import type { GuideImage } from "@/lib/guide-images";
 import { readStoredFieldValues } from "@/lib/booking-fields";
 import {
@@ -131,6 +132,7 @@ export function ChatRoom({
   // 입금 안내 — 수락 직후, 그리고 입금 전 방에 다시 들어왔을 때 (고객만)
   const [payFor, setPayFor] = useState<BookingSnapshot | null>(null); // 수락 직후 즉시
   const [payDismissed, setPayDismissed] = useState(false); // 이번 방문에서 닫음
+  const [detailFor, setDetailFor] = useState<BookingSnapshot | null>(null); // 예약 내용 다이얼로그
 
   const [text, setText] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -175,6 +177,16 @@ export function ChatRoom({
   }, [amCustomer, payDismissed, messages]);
 
   const payDialogFor = payFor ?? pendingPay;
+
+  // 방에서 살아 있는 예약 — 종료된 건(거절·취소·환불)은 상단에 붙들고 있을 이유가 없다.
+  // 카드는 대화가 쌓이면 위로 밀려 사라지므로, 이 예약을 상단에 상주시킨다.
+  const liveBooking = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const b = messages[i].booking;
+      if (b && !["rejected", "cancelled", "refunded"].includes(b.status)) return b;
+    }
+    return null;
+  }, [messages]);
 
   // 예약 작성기 열기 — 예약 제안 직전 이탈지점. 열릴 때(신규/수정)만.
   useEffect(() => {
@@ -392,6 +404,13 @@ export function ChatRoom({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {detailFor && (
+        <BookingDetailDialog
+          booking={detailFor}
+          amCustomer={amCustomer}
+          onClose={() => setDetailFor(null)}
+        />
+      )}
       {payDialogFor && (
         <AcceptPayDialog
           bookingId={payDialogFor.id}
@@ -410,6 +429,37 @@ export function ChatRoom({
         <OpenQuestions items={openQuestions!} />
       )}
 
+
+      {/* 예약 요약 바 — 카드가 대화에 밀려 사라져도 예약은 늘 여기서 펼칠 수 있다.
+          한 줄에 일시와 금액만 두고, 나머지는 눌러서 다이얼로그로 본다
+          (방을 떠나지 않아야 대화 맥락이 끊기지 않는다). */}
+      {liveBooking && (
+        <button
+          type="button"
+          onClick={() => setDetailFor(liveBooking)}
+          className="flex shrink-0 cursor-pointer items-center gap-2 border-b border-line bg-surface-2 px-3 py-2 text-left transition-colors hover:bg-fg/[0.04] sm:px-4"
+        >
+          <ClipboardIcon className="h-4 w-4 shrink-0 text-faint" />
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-caption font-medium text-fg">
+              {bookingWhen(liveBooking)}
+            </span>
+            <span className="block text-label text-faint">
+              ₩{fmt.format(liveBooking.amount_krw ?? 0)} ·{" "}
+              {bookingStatusLabel(
+                {
+                  status: liveBooking.status as BookingStatus,
+                  transfer_marked_at: liveBooking.transfer_marked_at,
+                },
+                amCustomer
+              )}
+            </span>
+          </span>
+          <span className="shrink-0 rounded-full border border-line-strong px-2.5 py-1 text-label font-semibold text-fg">
+            예약 확인
+          </span>
+        </button>
+      )}
 
       {/* 메시지 영역 — 이 컨테이너만 스크롤 */}
       <div
@@ -455,6 +505,7 @@ export function ChatRoom({
                 amPhotographer={amPhotographer}
                 amCustomer={amCustomer}
                 onOpenDetail={() => router.push(`/bookings/${m.booking!.id}?from=chat`)}
+                onShowSummary={() => setDetailFor(m.booking!)}
                 onNeedPay={() => setPayFor(m.booking!)}
                 payoutAccount={payoutAccount ?? null}
                 conversationId={conversationId}
@@ -1022,6 +1073,7 @@ function BookingCard({
   amPhotographer,
   amCustomer,
   onOpenDetail,
+  onShowSummary,
   onEdit,
   onReuse,
   onNeedPay,
@@ -1031,7 +1083,10 @@ function BookingCard({
   booking: BookingSnapshot;
   amPhotographer: boolean;
   amCustomer: boolean;
+  /** 보정본·후기 등 다른 화면으로 이동 */
   onOpenDetail: () => void;
+  /** 예약 내용을 방 안에서 펼쳐 보는 다이얼로그 */
+  onShowSummary: () => void;
   onEdit: (() => void) | null; // 제안한 쪽에만 제공
   /** 취소·거절된 예약 — 카드를 누르면 그 내용 그대로 새 예약서를 연다 */
   onReuse: (() => void) | null;
@@ -1188,7 +1243,7 @@ function BookingCard({
           booking={booking}
           amCustomer={amCustomer}
           amPhotographer={amPhotographer}
-          onOpenDetail={onOpenDetail}
+          onShowSummary={onShowSummary}
           preloadedAccount={payoutAccount}
           onConfirmed={() => {
             setActed("paid");
@@ -1202,7 +1257,7 @@ function BookingCard({
         <div className="mt-3 border-t border-line pt-3">
           <button
             type="button"
-            onClick={onOpenDetail}
+            onClick={onShowSummary}
             className="w-full cursor-pointer rounded-full border border-line-strong py-2.5 text-body-sm font-medium text-fg transition-colors hover:bg-fg/[0.04]"
           >
             예약 확인하기
@@ -1331,7 +1386,7 @@ function TransferSection({
   booking,
   amCustomer,
   amPhotographer,
-  onOpenDetail,
+  onShowSummary,
   onConfirmed,
   preloadedAccount,
 }: {
@@ -1339,7 +1394,7 @@ function TransferSection({
   amCustomer: boolean;
   amPhotographer: boolean;
   /** 확정된 예약을 다시 펼쳐 보는 자리 */
-  onOpenDetail: () => void;
+  onShowSummary: () => void;
   onConfirmed: () => void; // 작가 입금 확인 후 카드 즉시 진행(req8)
   preloadedAccount: PayoutAccount | null;
 }) {
@@ -1398,7 +1453,7 @@ function TransferSection({
                 채팅 카드는 대화에 묻히고, 일시·장소·금액은 촬영 전날 다시 확인하게 된다 */}
             <button
               type="button"
-              onClick={onOpenDetail}
+              onClick={onShowSummary}
               className="mt-3 w-full cursor-pointer rounded-full border border-success/30 bg-surface py-2.5 text-body-sm font-semibold text-success transition-colors hover:bg-success/[0.06]"
             >
               예약 확인하기
