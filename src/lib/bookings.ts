@@ -3,29 +3,14 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export type BookingStatus =
-  | "requested" | "accepted" | "paid" | "shot"
-  | "delivered" | "completed" | "rejected" | "cancelled" | "refunded";
-
-// 상태 한글 라벨 + 색조
-export const STATUS_LABEL: Record<BookingStatus, string> = {
-  requested: "요청됨",
-  accepted: "수락됨 · 송금 대기",
-  paid: "입금 확인됨",
-  shot: "촬영 완료",
-  delivered: "보정본 전달됨",
-  completed: "완료",
-  rejected: "거절됨",
-  cancelled: "취소됨",
-  refunded: "환불됨",
-};
-
-export function statusTone(s: BookingStatus): string {
-  if (s === "completed" || s === "paid") return "bg-emerald-500/15 text-emerald-700";
-  if (s === "requested" || s === "accepted") return "bg-amber-500/15 text-amber-700";
-  if (s === "rejected" || s === "cancelled" || s === "refunded") return "bg-brand/15 text-brand";
-  return "bg-fg/10 text-fg/60";
-}
+// 상태 타입·라벨·색조는 booking-status.ts 에 있다 (클라이언트 공용). 호출부 편의를 위해 재수출.
+export {
+  STATUS_LABEL,
+  statusTone,
+  bookingStatusLabel,
+  type BookingStatus,
+} from "./booking-status";
+import type { BookingStatus } from "./booking-status";
 
 export type BookingRow = {
   id: string;

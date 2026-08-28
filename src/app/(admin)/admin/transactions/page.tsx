@@ -1,11 +1,13 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EmptyState } from "@/components/ui";
 import { CalendarIcon } from "@/components/user/icons";
-import { clearTransactions, deleteBookingsSelected, adminConfirmTransfer, adminMarkSettled } from "./actions";
+import { clearTransactions, deleteBookingsSelected, adminSettleNow, adminMarkSettled } from "./actions";
 import { cn } from "@/lib/cn";
 import { DeleteModeProvider, DeleteModeToolbar } from "@/components/admin/DeleteMode";
 import { AdminBookings, type BookingRow } from "./AdminBookings";
 import { AdminCancelButton } from "./AdminCancelButton";
+import { PLATFORM_FEE_KRW } from "@/lib/payments";
+import { readStoredFieldValues } from "@/lib/booking-fields";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +22,15 @@ type DbBooking = {
   shoot_at: string | null;
   created_at: string;
   accepted_at: string | null;
+  requested_at: string | null;
+  paid_at: string | null;
+  cancelled_at: string | null;
+  cancel_reason: string | null;
+  location_text: string | null;
+  travel_fee_krw: number;
+  memo: string | null;
+  custom_fields: unknown;
+  proposed_by_photographer: boolean;
   transfer_marked_at: string | null;
   settled_at: string | null;
   settlement_amount_krw: number | null;
@@ -39,36 +50,72 @@ export default async function AdminTransactionsPage() {
   const { data: bData } = await admin
     .from("bookings")
     .select(
-      "id, status, amount_krw, shoot_at, created_at, accepted_at, package_snapshot, transfer_marked_at, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at, user:profiles!bookings_user_id_fkey(display_name), photographer:photographers(display_name)"
+      "id, status, amount_krw, shoot_at, created_at, accepted_at, requested_at, paid_at, cancelled_at, cancel_reason, location_text, travel_fee_krw, memo, custom_fields, proposed_by_photographer, package_snapshot, transfer_marked_at, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at, user:profiles!bookings_user_id_fkey(display_name), photographer:photographers(display_name)"
     )
     .order("created_at", { ascending: false })
     .limit(500);
 
   const raw = (bData ?? []) as DbBooking[];
+
+  // 사매 매출 = 수수료 원장. 예약 수 × 6,000 으로 계산하지 않는다 —
+  // 환불로 면제(waived)된 건이 있고, 수수료가 바뀌면 과거 건은 옛 금액이어야 한다.
+  const { data: feeData } = await admin
+    .from("platform_fees")
+    .select("fee_krw, status, accrued_at");
+  const fees = (feeData ?? []) as { fee_krw: number; status: string; accrued_at: string }[];
+  const earned = fees
+    .filter((f) => f.status !== "waived")
+    .reduce((sum, f) => sum + (f.fee_krw ?? 0), 0);
+  const monthKey = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" }).slice(0, 7);
+  const earnedThisMonth = fees
+    .filter((f) => f.status !== "waived" && f.accrued_at?.slice(0, 7) === monthKey)
+    .reduce((sum, f) => sum + (f.fee_krw ?? 0), 0);
+
+
+  // 예약 → 대화 매핑. 어드민이 "이 건이 어떤 대화에서 나왔나" 를 바로 열어볼 수 있어야
+  // 금액 불일치·특이사항 판단이 된다 (채팅을 안 보고 확정하면 사고가 난다).
+  const { data: convData } = await admin
+    .from("messages")
+    .select("booking_id, conversation_id")
+    .in("booking_id", raw.map((b) => b.id).slice(0, 500));
+  const convByBooking = new Map<string, string>();
+  for (const m of (convData ?? []) as { booking_id: string | null; conversation_id: string }[]) {
+    if (m.booking_id && !convByBooking.has(m.booking_id)) convByBooking.set(m.booking_id, m.conversation_id);
+  }
   const gmv = raw.filter((b) => PAID_BOOKING.includes(b.status)).reduce((s, b) => s + (b.amount_krw ?? 0), 0);
   const inProgress = raw.filter((b) => IN_PROGRESS.includes(b.status)).length;
 
-  // 에스크로 운영 큐 — ①입금 확인 대기(고객이 입금 완료 알림) ②정산 대기(확정됐지만 작가 미송금)
-  // ③정산 미수령 확인 요청(작가가 [못 받았어요])
+  // 에스크로 운영 큐
+  //   ① 입금 확인 대기 — 고객이 [입금 완료]를 알림. 확인과 정산을 한 번에 처리한다.
+  //   ② 정산 누락 — ①에서 확인은 됐는데 정산 기록이 안 남은 건.
+  //      정상 흐름에서는 절대 안 생긴다(확인·정산이 한 동작이라). 생기면 사고라서 경고로 띄운다.
+  //   ③ 입금 대기 — 수락만 해놓고 아무 소식 없는 건
   const awaitingConfirm = raw.filter((b) => b.status === "accepted" && b.transfer_marked_at);
-  // ④입금 대기 — 수락은 됐는데 고객이 아직 입금 완료를 알리지 않은 건.
-  // 여태 어느 큐에도 안 떠서, 수락해놓고 그대로 멈춘 예약을 운영이 발견할 방법이 없었다.
+  const awaitingSettle = raw.filter((b) => PAID_BOOKING.includes(b.status) && !b.settled_at);
   const awaitingDeposit = raw.filter((b) => b.status === "accepted" && !b.transfer_marked_at);
-  const awaitingSettle = raw.filter(
-    (b) => PAID_BOOKING.includes(b.status) && !b.settled_at
-  );
-  const settleDisputes = raw.filter(
-    (b) => b.settled_at && b.settlement_dispute_at && !b.settlement_ack_at
-  );
 
   const bookings: BookingRow[] = raw.map((b) => ({
     id: b.id,
     status: b.status,
     amount_krw: b.amount_krw,
+    travel_fee_krw: b.travel_fee_krw ?? 0,
     shoot_at: b.shoot_at,
+    location_text: b.location_text,
+    memo: b.memo,
+    customFields: readStoredFieldValues(b.custom_fields),
     packageName: b.package_snapshot?.name ?? null,
     userName: one(b.user)?.display_name ?? null,
     photographerName: one(b.photographer)?.display_name ?? null,
+    proposedByPhotographer: b.proposed_by_photographer,
+    requested_at: b.requested_at ?? b.created_at,
+    accepted_at: b.accepted_at,
+    transfer_marked_at: b.transfer_marked_at,
+    paid_at: b.paid_at,
+    settled_at: b.settled_at,
+    settlement_amount_krw: b.settlement_amount_krw,
+    cancelled_at: b.cancelled_at,
+    cancel_reason: b.cancel_reason,
+    conversationId: convByBooking.get(b.id) ?? null,
   }));
 
   return (
@@ -88,19 +135,35 @@ export default async function AdminTransactionsPage() {
         />
       </div>
 
-      {/* 정산 미수령 확인 요청 — 작가가 [못 받았어요]를 눌렀다: 송금 내역 대조 후 회신 */}
-      {settleDisputes.length > 0 && (
+      {/* 정산 누락 — 확인은 됐는데 정산 기록이 없는 건.
+          [확인·정산] 이 한 동작이라 정상 흐름에선 안 생긴다. 뜨면 중간에 끊긴 것이다. */}
+      {awaitingSettle.length > 0 && (
         <section className="mt-5 rounded-2xl bg-warning-soft p-4 ring-1 ring-warning/30">
           <h2 className="text-body-sm font-semibold text-warning">
-            ⚠️ 정산 미수령 확인 요청 {settleDisputes.length}건
+            ⚠️ 정산 누락 {awaitingSettle.length}건
           </h2>
-          <ul className="mt-2 space-y-1.5">
-            {settleDisputes.map((b) => (
-              <li key={b.id} className="text-caption text-fg">
-                <b>{one(b.photographer)?.display_name ?? "작가"}</b> — 정산액 ₩
-                {fmt.format(b.settlement_amount_krw ?? 0)} · 송금 마킹{" "}
-                {b.settled_at?.slice(0, 10)} · 요청 {b.settlement_dispute_at?.slice(0, 10)}
-                <span className="ml-1 text-muted">송금 내역 확인 후 작가에게 회신하세요.</span>
+          <p className="mt-0.5 text-caption text-warning/80">
+            입금 확인은 됐는데 정산 기록이 남지 않았어요. 작가 송금 여부를 확인하고 마킹해주세요.
+          </p>
+          <ul className="mt-2 space-y-2">
+            {awaitingSettle.map((b) => (
+              <li
+                key={b.id}
+                className="flex items-center justify-between gap-2 rounded-xl bg-surface px-3 py-2"
+              >
+                <div className="min-w-0 text-caption">
+                  <p className="font-semibold text-fg">{one(b.photographer)?.display_name ?? "작가"}</p>
+                  <p className="text-muted">
+                    송금액 ₩{fmt.format(Math.max(0, (b.amount_krw ?? 0) - PLATFORM_FEE_KRW))}{" "}
+                    <span className="text-faint">(수수료 {fmt.format(PLATFORM_FEE_KRW)} 차감)</span>
+                  </p>
+                </div>
+                <form action={adminMarkSettled}>
+                  <input type="hidden" name="id" value={b.id} />
+                  <button className="cursor-pointer rounded-lg border border-line-strong px-3 py-1.5 text-caption font-semibold text-fg hover:bg-fg/[0.04]">
+                    정산 완료
+                  </button>
+                </form>
               </li>
             ))}
           </ul>
@@ -141,14 +204,16 @@ export default async function AdminTransactionsPage() {
         </section>
       )}
 
-      {/* ── 에스크로 운영 큐 ── */}
-      {(awaitingConfirm.length > 0 || awaitingSettle.length > 0) && (
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
+      {/* ── 에스크로 운영 큐 — 입금 확인이 곧 정산이라 단계가 하나다 ── */}
+      {awaitingConfirm.length > 0 && (
+        <div className="mt-5">
           <section className="rounded-2xl bg-surface p-4 ring-1 ring-line">
             <h2 className="text-body-sm font-semibold text-fg">
               💰 입금 확인 대기 <span className="text-brand">{awaitingConfirm.length}</span>
             </h2>
-            <p className="mt-0.5 text-caption text-muted">사매 계좌 입금 확인 → 예약 확정</p>
+            <p className="mt-0.5 text-caption text-muted">
+              입금 확인 + 수수료 차감 정산까지 한 번에 처리돼요 (작가 송금은 직접)
+            </p>
             <ul className="mt-2 space-y-2">
               {awaitingConfirm.map((b) => (
                 <li key={b.id} className="flex items-center justify-between gap-2 rounded-xl bg-surface-2 px-3 py-2">
@@ -159,10 +224,10 @@ export default async function AdminTransactionsPage() {
                     <p className="text-muted">₩{fmt.format(b.amount_krw ?? 0)}</p>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
-                    <form action={adminConfirmTransfer}>
+                    <form action={adminSettleNow}>
                       <input type="hidden" name="id" value={b.id} />
                       <button className="cursor-pointer rounded-lg bg-fg px-3 py-1.5 text-caption font-semibold text-bg hover:opacity-90">
-                        입금 확인
+                        확인 · 정산
                       </button>
                     </form>
                     <AdminCancelButton
@@ -176,38 +241,17 @@ export default async function AdminTransactionsPage() {
             </ul>
           </section>
 
-          <section className="rounded-2xl bg-surface p-4 ring-1 ring-line">
-            <h2 className="text-body-sm font-semibold text-fg">
-              📤 작가 정산 대기 <span className="text-brand">{awaitingSettle.length}</span>
-            </h2>
-            <p className="mt-0.5 text-caption text-muted">수수료 차감 후 작가 계좌로 송금 → 완료 마킹</p>
-            <ul className="mt-2 space-y-2">
-              {awaitingSettle.map((b) => (
-                <li key={b.id} className="flex items-center justify-between gap-2 rounded-xl bg-surface-2 px-3 py-2">
-                  <div className="min-w-0 text-caption">
-                    <p className="font-semibold text-fg">{one(b.photographer)?.display_name ?? "작가"}</p>
-                    <p className="text-muted">
-                      송금액 ₩{fmt.format(Math.max(0, (b.amount_krw ?? 0) - 6000))}{" "}
-                      <span className="text-faint">(수수료 6,000 차감)</span>
-                    </p>
-                  </div>
-                  <form action={adminMarkSettled}>
-                    <input type="hidden" name="id" value={b.id} />
-                    <button className="cursor-pointer rounded-lg border border-line-strong px-3 py-1.5 text-caption font-semibold text-fg hover:bg-fg/[0.04]">
-                      정산 완료
-                    </button>
-                  </form>
-                </li>
-              ))}
-              {awaitingSettle.length === 0 && <li className="text-caption text-faint">없음</li>}
-            </ul>
-          </section>
         </div>
       )}
 
-      {/* 요약 */}
-      <div className="mt-5 grid grid-cols-2 gap-3">
+      {/* 요약 — 들어온 돈 / 우리 몫 / 진행 중 */}
+      <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <SummaryCard label="총 거래액" value={`₩${fmt.format(gmv)}`} />
+        <SummaryCard
+          label="사매 매출 (수수료)"
+          value={`₩${fmt.format(earned)}`}
+          sub={`이번 달 ₩${fmt.format(earnedThisMonth)}`}
+        />
         <SummaryCard label="진행 중 거래" value={`${inProgress}건`} />
       </div>
 
@@ -221,11 +265,22 @@ export default async function AdminTransactionsPage() {
   );
 }
 
-function SummaryCard({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+function SummaryCard({
+  label,
+  value,
+  sub,
+  accent,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+  accent?: boolean;
+}) {
   return (
     <div className={cn("rounded-2xl border p-4", accent ? "border-brand/30 bg-brand/[0.04]" : "border-line bg-surface")}>
       <p className={cn("text-h2 font-semibold tabular-nums", accent ? "text-brand" : "text-fg")}>{value}</p>
       <p className="mt-0.5 text-caption text-muted">{label}</p>
+      {sub && <p className="mt-0.5 text-caption tabular-nums text-faint">{sub}</p>}
     </div>
   );
 }

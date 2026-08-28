@@ -5,7 +5,7 @@ import { MpTrackOnce } from "@/components/MpTrackOnce";
 import {
   listMyBookings,
   getConversationMap,
-  STATUS_LABEL,
+  bookingStatusLabel,
   statusTone,
   fmtShootAt,
   type BookingRow,
@@ -144,7 +144,7 @@ function BookingItem({
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm font-medium">{counterpart}</span>
           <span className={`rounded-full px-2 py-0.5 text-[11px] ${statusTone(b.status)}`}>
-            {STATUS_LABEL[b.status]}
+            {bookingStatusLabel(b, true)}
           </span>
         </div>
         <p className="mt-1 text-xs text-fg/55">

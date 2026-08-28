@@ -408,10 +408,10 @@ export async function acceptBooking(formData: FormData) {
         .data?.profile_id
     : b.user_id;
   if (proposerId)
-    await notify(admin, proposerId, "예약이 수락됐어요", "예약이 체결되었습니다.", `/bookings/${id}`);
-  await postSystemMessage(admin, b.user_id, b.photographer_id, me.id, "✅ 예약이 수락되어 체결되었어요.");
+    await notify(admin, proposerId, "예약이 수락됐어요", "고객이 입금하면 예약이 잡혀요.", `/bookings/${id}`);
+  await postSystemMessage(admin, b.user_id, b.photographer_id, me.id, "✅ 예약이 수락됐어요 — 입금하시면 예약이 잡혀요.");
 
-  // 운영 디스코드 — 체결이 거래의 실제 시작 트리거 (문의 접수 시점엔 울리지 않는다)
+  // 운영 디스코드 — 수락이 거래의 실제 시작 트리거 (문의 접수 시점엔 울리지 않는다)
   await notifyOpsBookingAccepted({ bookingId: id });
 
   await mpTrackServer(

@@ -4,7 +4,7 @@ import { getCurrentUser } from "@/lib/auth";
 import {
   getBooking,
   getConversationIdFor,
-  STATUS_LABEL,
+  bookingStatusLabel,
   statusTone,
   fmtShootAt,
 } from "@/lib/bookings";
@@ -104,7 +104,7 @@ export default async function BookingDetail({
       <div className="mt-4 flex items-center justify-between">
         <h1 className="text-2xl font-semibold">예약 상세</h1>
         <span className={`rounded-full px-2.5 py-1 text-xs ${statusTone(b.status)}`}>
-          {STATUS_LABEL[b.status]}
+          {bookingStatusLabel(b, isBuyer)}
         </span>
       </div>
 

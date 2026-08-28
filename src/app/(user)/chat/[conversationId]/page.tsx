@@ -15,6 +15,7 @@ import { fetchGuideImages } from "@/lib/guide-images";
 import { photographerHasKb, resolveGreeting } from "@/lib/bot-kb-db";
 import { listOpenQuestions } from "@/lib/bot-handoff";
 import { fetchBotSettings } from "@/lib/bot-settings";
+import { getPlatformAccount, hasAccount } from "@/lib/platform-account";
 import { normalizeBookingFields } from "@/lib/booking-fields";
 import { seedQaGreetingIfMissing } from "@/lib/inquiry-bot-room";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -75,6 +76,23 @@ export default async function ChatRoomPage({
   const botMode =
     amCustomer && !photographerIntervened
       ? { slots: conv.bot_slots ?? null, intervened: false, qa: true }
+      : null;
+
+  // 입금 안내에 쓸 사매 계좌 — 손님에게 결제가 걸린 방에서만 미리 실어 보낸다.
+  // 클라이언트에서 뒤늦게 불러오면 다이얼로그가 열리자마자 "계좌 불러오는 중…" 이 깜빡인다.
+  // (아무 방에나 계좌를 싣지 않는다는 원칙은 이 조건으로 지킨다)
+  const needsAccount =
+    amCustomer &&
+    messages.some(
+      (m) =>
+        m.booking &&
+        (m.booking.status === "requested" ||
+          (m.booking.status === "accepted" && !m.booking.transfer_marked_at))
+    );
+  const platformAccount = needsAccount ? await getPlatformAccount() : null;
+  const payoutAccount =
+    platformAccount && hasAccount(platformAccount)
+      ? { bank: platformAccount.bank, number: platformAccount.number, holder: platformAccount.holder }
       : null;
 
   // 작가에게만 — 봇이 답하지 못하고 넘긴 질문 (방에 들어오면 무엇에 답해야 하는지 보인다)
@@ -176,6 +194,7 @@ export default async function ChatRoomPage({
           botDisabled={conv.bot_disabled_at != null}
           openQuestions={openQuestions}
           guideImages={guideImages}
+          payoutAccount={payoutAccount}
           botName={botSettings.messages.botName}
           handoffNotice={botSettings.messages.handoff}
         />

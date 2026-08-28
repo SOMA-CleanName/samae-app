@@ -23,11 +23,19 @@ export type BookingEditTarget = {
   travelFeeKrw?: number | null;
 };
 
-// 신규 제안 프리필 (문의 요약 카드 → "이 내용으로 예약 제안")
+// 신규 제안 프리필 — 문의 요약 카드("이 내용으로 예약 제안") 와
+// 취소된 예약 다시 쓰기("취소된 카드를 누르면 그 내용 그대로 열린다") 가 함께 쓴다.
+// 수정(editTarget)과 달리 **새 제안**이다 — 취소된 예약은 되살릴 수 없으므로 내용만 물려받는다.
 export type BookingDraft = {
-  date?: string | null; // YYYY-MM-DD
+  packageId?: string | null;
+  date?: string | null; // YYYY-MM-DD (지난 날짜는 넘기지 않는다 — 달력이 못 고른다)
+  time?: string | null; // HH:MM (30분 격자에 없으면 무시)
   locationText?: string | null;
   memo?: string | null;
+  shootFeeKrw?: number | null;
+  travelFeeKrw?: number | null;
+  /** 작가 정의 항목 값 — fieldId → 값 */
+  fieldValues?: Record<string, string>;
 };
 
 // 채팅방 예약 작성기에 필요한 데이터 묶음 (페이지에서 주입)
@@ -88,8 +96,11 @@ export function BookingComposer({
   } = data;
   const isEdit = !!editTarget;
 
+  // 프리필 패키지가 그 사이 사라졌을 수 있다 — 없으면 첫 패키지로 내려앉는다
+  const prefillPkgId = editTarget?.packageId ?? draft?.packageId ?? null;
   const [packageId, setPackageId] = useState(
-    editTarget?.packageId ?? packages[0]?.id ?? ""
+    (prefillPkgId && packages.some((p) => p.id === prefillPkgId) ? prefillPkgId : packages[0]?.id) ??
+      ""
   );
   const [date, setDate] = useState(
     editTarget
@@ -99,20 +110,22 @@ export function BookingComposer({
   // 시간 선택 — "custom" = 직접 선택 / 그 외 = 빈 시간 슬롯 ISO.
   // 미정 옵션은 없앴다: 시간이 안 정해진 제안은 결국 채팅으로 다시 조율하게 돼서 제안의 의미가 없다.
   const [timeSel, setTimeSel] = useState<string>(editTarget?.shootAt ? editTarget.shootAt : "custom");
-  const [customTime, setCustomTime] = useState("14:00"); // HH:MM (직접 선택)
+  const [customTime, setCustomTime] = useState(
+    draft?.time && TIME_OPTIONS.includes(draft.time) ? draft.time : "14:00"
+  ); // HH:MM (직접 선택)
 
   const selectedPkg = packages.find((p) => p.id === packageId) ?? packages[0];
 
   // 협의된 최종 금액 — 촬영비는 선택한 패키지 가격에서 출발하되 자유롭게 수정, 출장비는 별도.
   // 문자열로 들고 있어야 비워두고 다시 입력하는 조작이 자연스럽다(빈 값 = 0).
-  const initialTravel = editTarget?.travelFeeKrw ?? (editTarget?.travel ? travelFeeKrw : 0);
-  const [shootFee, setShootFee] = useState(() =>
-    String(
-      editTarget?.amountKrw != null
-        ? Math.max(0, editTarget.amountKrw - (initialTravel ?? 0))
-        : packages.find((p) => p.id === (editTarget?.packageId ?? packages[0]?.id))?.price_krw ?? 0
-    )
-  );
+  const initialTravel =
+    editTarget?.travelFeeKrw ?? draft?.travelFeeKrw ?? (editTarget?.travel ? travelFeeKrw : 0);
+  const [shootFee, setShootFee] = useState(() => {
+    if (editTarget?.amountKrw != null)
+      return String(Math.max(0, editTarget.amountKrw - (initialTravel ?? 0)));
+    if (draft?.shootFeeKrw != null) return String(Math.max(0, draft.shootFeeKrw));
+    return String(packages.find((p) => p.id === packageId)?.price_krw ?? 0);
+  });
   const [travelFee, setTravelFee] = useState(String(initialTravel ?? 0));
   const total = (Number(shootFee) || 0) + (Number(travelFee) || 0);
 
@@ -148,7 +161,7 @@ export function BookingComposer({
         className="max-h-[88svh] w-full max-w-md overflow-y-auto rounded-2xl bg-surface p-5 shadow-pop"
       >
         <div className="flex items-center justify-between">
-          <h3 className="text-title font-semibold">{isEdit ? "예약 제안 수정" : "예약 제안"}</h3>
+          <h3 className="text-title font-semibold">{isEdit ? "예약서 수정" : "예약서 작성"}</h3>
           <button
             type="button"
             onClick={onClose}
@@ -349,7 +362,7 @@ export function BookingComposer({
                 <legend className="mb-2 text-body-sm font-medium text-fg">촬영 정보</legend>
                 <div className="space-y-2">
                   {bookingFields.map((f) => (
-                    <CustomField key={f.id} field={f} />
+                    <CustomField key={f.id} field={f} initial={draft?.fieldValues?.[f.id]} />
                   ))}
                 </div>
               </fieldset>
@@ -376,12 +389,18 @@ export function BookingComposer({
 }
 
 // 작가 정의 항목 한 칸 — 타입에 따라 입력·선택·체크박스
-function CustomField({ field }: { field: BookingField }) {
+function CustomField({ field, initial }: { field: BookingField; initial?: string }) {
   const name = fieldInputName(field.id);
   if (field.type === "checkbox") {
     return (
       <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-line-strong px-3.5 py-3 text-body-sm has-[:checked]:border-fg has-[:checked]:bg-fg/[0.03]">
-        <input type="checkbox" name={name} value="1" className="h-4 w-4 shrink-0 accent-fg" />
+        <input
+          type="checkbox"
+          name={name}
+          value="1"
+          defaultChecked={initial === "예"}
+          className="h-4 w-4 shrink-0 accent-fg"
+        />
         <span>{field.label}</span>
       </label>
     );
@@ -396,7 +415,7 @@ function CustomField({ field }: { field: BookingField }) {
         <select
           name={name}
           required={field.required}
-          defaultValue=""
+          defaultValue={initial && (field.options ?? []).includes(initial) ? initial : ""}
           className="w-full cursor-pointer rounded-xl border border-line-strong bg-surface px-3.5 py-2.5 text-body-sm outline-none transition-colors focus:border-fg/40"
         >
           <option value="" disabled>
@@ -420,6 +439,7 @@ function CustomField({ field }: { field: BookingField }) {
       <input
         name={name}
         required={field.required}
+        defaultValue={initial ?? ""}
         className="w-full rounded-xl border border-line-strong bg-surface px-3.5 py-2.5 text-body-sm outline-none transition-colors focus:border-fg/40"
       />
     </label>

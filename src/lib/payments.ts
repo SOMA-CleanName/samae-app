@@ -14,7 +14,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 // ════════════════════════════════════════════════════════════════
 
 // 매칭 건당 플랫폼 수수료 (작가 부담, 정액)
-export const PLATFORM_FEE_KRW = 6000;
+// 수수료 상수는 platform-fee.ts 에 있다 (클라이언트 공용). 호출부 편의를 위해 재수출.
+export { PLATFORM_FEE_KRW } from "./platform-fee";
+import { PLATFORM_FEE_KRW } from "./platform-fee";
 
 const fmtKrw = (n: number) => new Intl.NumberFormat("ko-KR").format(n);
 
@@ -338,24 +340,9 @@ export async function markSettlementPaid(bookingId: string): Promise<ConfirmResu
       "settlement"
     );
 
-  // 채팅 타임라인 기록 — 이 시점부터 작가 카드에 [정산 받았어요]/[아직 못 받았어요]
-  // 수령 확인 트리거가 노출된다 (카드 자체는 bookings realtime UPDATE 로 갱신).
-  if (ph) {
-    const { data: conv } = await admin
-      .from("conversations")
-      .select("id")
-      .eq("user_id", booking.user_id)
-      .eq("photographer_id", booking.photographer_id)
-      .maybeSingle();
-    if (conv) {
-      await admin.from("messages").insert({
-        conversation_id: conv.id,
-        sender_id: ph.profile_id,
-        type: "system",
-        body: `💸 사매가 작가님께 정산금 ₩${fmtKrw(settlementAmount)}을 보냈어요 — 작가님의 수령 확인을 기다립니다`,
-      });
-    }
-  }
+  // 채팅방에는 남기지 않는다 — 정산은 사매와 작가 사이의 일이고,
+  // 수령 확인도 카톡으로 오간다. 고객에게는 알 필요도, 알아서 좋을 것도 없다.
+  // (고객 입장에서 예약은 [입금 완료]를 누른 순간 끝났다)
   return { ok: true };
 }
 

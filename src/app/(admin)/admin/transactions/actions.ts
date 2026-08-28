@@ -70,3 +70,24 @@ export async function adminMarkSettled(formData: FormData): Promise<void> {
   if (!res.ok) throw new Error("처리할 수 없는 상태예요 (미확정이거나 이미 정산됨).");
   revalidatePath("/admin/transactions");
 }
+
+/**
+ * 입금 확인 + 작가 정산을 한 번에.
+ *
+ * 실제 운영은 은행 앱에서 입금을 확인한 그 자리에서 수수료를 떼고 작가에게 보낸다.
+ * 확인만 하고 정산을 미루는 경우가 없어서, 버튼 두 개는 클릭만 늘릴 뿐이었다.
+ * (정산 실송금은 사람이 하고, 이 버튼은 그걸 기록한다)
+ */
+export async function adminSettleNow(formData: FormData): Promise<void> {
+  const me = await getCurrentUser();
+  if (!me || me.role !== "admin") throw new Error("운영자 권한이 필요합니다.");
+  const id = String(formData.get("id"));
+
+  const confirmed = await confirmBankTransferAdmin(id);
+  if (!confirmed.ok) throw new Error("처리할 수 없는 상태예요 (이미 확인됐거나 수락 전).");
+
+  const settled = await markSettlementPaid(id);
+  if (!settled.ok) throw new Error("입금은 확인됐지만 정산 기록에 실패했어요 — 정산 대기에서 다시 시도해주세요.");
+
+  revalidatePath("/admin/transactions");
+}

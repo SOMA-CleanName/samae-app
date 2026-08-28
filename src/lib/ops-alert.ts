@@ -154,7 +154,7 @@ export async function notifyOpsDepositReported(params: { inquiryId: string }): P
 
 // ── 에스크로(예약) 운영 알림 — 채팅 상주 플로우의 실제 비즈니스 트리거들 ──────
 // 문의(요약 접수)는 더 이상 운영 알림을 울리지 않는다. 운영이 움직여야 하는 시점은
-// ① 체결(수락) ② 고객 입금 신고(사매 계좌 대조·확인) ③ 작가 정산 미수령 확인 요청.
+// ① 수락 ② 고객 입금 신고(사매 계좌 대조·확인).
 
 // 예약 공통 컨텍스트 로더 — 작가·고객·패키지·금액·일시
 async function loadBookingContext(bookingId: string) {
@@ -195,12 +195,12 @@ async function postDiscord(webhook: string | undefined, lines: string[]) {
   }
 }
 
-/** 예약 체결(수락) — 거래 시작의 실제 트리거. 운영은 입금 대기 큐를 주시하면 된다. */
+/** 예약 수락 — 거래 시작의 실제 트리거. 운영은 입금 대기 큐를 주시하면 된다. */
 export async function notifyOpsBookingAccepted(params: { bookingId: string }): Promise<void> {
   const c = await loadBookingContext(params.bookingId);
   if (!c) return;
   await postDiscord(INQUIRY_WEBHOOK, [
-    `🤝 **예약 체결** — ${c.photographer} 작가 × ${c.customer}  (예약 \`${c.ref}\`)`,
+    `🤝 **예약 수락** — ${c.photographer} 작가 × ${c.customer}  (예약 \`${c.ref}\`)`,
     `📦 ${c.pkg} · **₩${won(c.amount)}** · ${c.when}${c.location ? ` · ${c.location}` : ""}`,
     `_고객에게 사매 계좌가 안내됐어요. 입금 신고가 오면 대조 후 확인 처리합니다._`,
     `🛠 ${ADMIN_TX_LINK}`,
@@ -215,18 +215,6 @@ export async function notifyOpsBookingDeposit(params: { bookingId: string }): Pr
     `💰 **입금완료 신고 (에스크로)** — ${c.customer} → 사매 계좌  (예약 \`${c.ref}\`)`,
     `💳 금액: **₩${won(c.amount)}** · ${c.photographer} 작가 · ${c.pkg}`,
     `🛠 **사매 계좌 입금내역 대조 후 [입금 확인]: ${ADMIN_TX_LINK}**`,
-  ]);
-}
-
-/** 작가 정산 미수령 확인 요청 — 사매→작가 송금이 안 닿았다는 신고 */
-export async function notifyOpsSettlementDispute(params: { bookingId: string }): Promise<void> {
-  const c = await loadBookingContext(params.bookingId);
-  if (!c) return;
-  await postDiscord(DEPOSIT_WEBHOOK, [
-    `⚠️ **정산 미수령 확인 요청** — ${c.photographer} 작가  (예약 \`${c.ref}\`)`,
-    `💸 정산 예정액: **₩${won(c.settlementAmount ?? 0)}** (촬영비 ₩${won(c.amount)} − 수수료)`,
-    `_송금 내역을 확인하고 작가에게 회신해주세요._`,
-    `🛠 ${ADMIN_TX_LINK}`,
   ]);
 }
 
