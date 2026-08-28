@@ -160,7 +160,9 @@ export default async function PhotoDetail({
 
         {/* 사진 정보 — 가격·CTA 먼저 보이고, 작가·글·태그는 접기 */}
         <div className="mt-4 md:mt-0 md:min-w-0 md:flex-1">
-          {/* 공유·담기 한 행 — 촬영시간·보정본은 아래 패키지 정보 섹션에서만 노출(중복 제거) */}
+          {/* 공유·담기 + 파트너 뱃지 한 행 — 사진 바로 아래 첫 줄이다.
+              뱃지를 따로 한 줄 내리면 "누가 찍는가" 가 CTA 뒤로 밀려 읽히지 않는다.
+              (촬영시간·보정본·가격은 아래 패키지 정보 섹션에서만 — 중복 금지) */}
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-1.5">
               <ShareButton photoId={photo.id} />
@@ -174,15 +176,9 @@ export default async function PhotoDetail({
                 }}
               />
             </div>
+            {/* 오른쪽 끝 — 팝오버가 화면 밖으로 나가지 않게 정렬을 오른쪽 기준으로 */}
+            {!isOwner && <PartnerBadge popoverAlign="right" />}
           </div>
-
-          {/* 가격은 아래 패키지 정보 섹션에만 둔다 — 같은 화면에 두 번 적으면 어느 쪽이
-              진짜인지 흔들린다. 여기는 파트너 뱃지만. */}
-          {!isOwner && (
-            <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
-              <PartnerBadge popoverAlign="left" />
-            </div>
-          )}
 
           {/* 예약·상담 CTA — 가장 위 (전환 최우선) */}
           <PhotoCtas isOwner={isOwner} photographerId={ph.id} photoId={photo.id} />
@@ -208,7 +204,7 @@ export default async function PhotoDetail({
           {/* 작가 상세정보 라인 — 이 지점이 화면 상단 50%에 닿으면 플로팅 내비 노출 */}
           <NavRevealOnScroll />
 
-          {/* 작가·글 — 기본 접힘, 누르면 펼침 (패키지 정보는 위 섹션으로 이동) */}
+          {/* 작가·글 — 바로 펼쳐서 보여준다 (패키지 정보는 위 섹션) */}
           <DetailMoreInfo
             photographerId={ph.id}
             avatarUrl={ph.avatar_url}
