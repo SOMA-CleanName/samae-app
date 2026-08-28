@@ -18,7 +18,9 @@ export function bookingStatusLabel(
   amCustomer: boolean
 ): string {
   if (b.status === "accepted" && b.transfer_marked_at) {
-    return amCustomer ? "예약 확정" : "입금 확인 중";
+    // 작가 쪽 문구는 주어를 밝힌다 — "입금 확인 중" 은 고객이 아직 안 낸 것처럼 읽힌다.
+    // 실제로는 고객이 이미 보냈고, 사매가 통장을 확인하는 단계다.
+    return amCustomer ? "예약 확정" : "사매 확인 중";
   }
   return STATUS_LABEL[b.status];
 }

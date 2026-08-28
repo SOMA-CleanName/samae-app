@@ -34,11 +34,10 @@ export async function submitSupportRequest(formData: FormData): Promise<void> {
       .eq("id", bookingId)
       .maybeSingle();
     if (!b) throw new Error("예약을 찾을 수 없습니다.");
-    if (b.user_id === me.id) role = "customer";
-    else if (me.photographer?.id === b.photographer_id) role = "photographer";
-    else throw new Error("이 예약의 당사자만 문의할 수 있어요.");
-  } else if (me.photographer) {
-    role = "photographer";
+    // 창구는 고객 전용이다. 작가는 사매와 카톡으로 이어져 있어 여기로 받지 않는다
+    // (버튼만 감추면 폼 위조로 들어올 수 있으므로 서버에서도 막는다).
+    if (b.user_id !== me.id) throw new Error("이 예약의 고객만 문의할 수 있어요.");
+    role = "customer";
   }
 
   const { error } = await admin.from("support_requests").insert({

@@ -1273,8 +1273,11 @@ function BookingCard({
 
       {/* 입금을 알린 뒤에는 당사자끼리 무를 수 없다 — 환불이 걸린 사안이라 사매를 거친다.
           그 대신 요청 창구를 같은 자리에 둔다. 창구가 없으면 채팅에서 작가에게 말하게 되고,
-          작가는 결정할 수 없는 걸 약속하게 된다 (docs/32). */}
-      {(paidMarked || ["paid", "shot"].includes(status)) && (
+          작가는 결정할 수 없는 걸 약속하게 된다 (docs/32).
+
+          고객에게만 둔다. 작가는 이미 사매와 카톡으로 이어져 있어(정산도 그렇게 오간다)
+          서비스 안에 창구를 하나 더 만들면 어디로 말해야 할지만 헷갈린다. */}
+      {amCustomer && (paidMarked || ["paid", "shot"].includes(status)) && (
         <SupportButton bookingId={booking.id} conversationId={conversationId} />
       )}
 

@@ -231,7 +231,7 @@
 | `src/lib/bot-kb-data.ts` | 기본 KB 환불 카드 |
 | 어드민 작가 | 작가별 수수료 설정 (정액 ↔ 정률) |
 | 어드민 거래·정산 | 건별 환불 견적 표시 + 환불 처리 (`AdminRefundButton`) |
-| `SupportButton.tsx` · `support-actions.ts` | 고객·작가의 환불·날짜 변경 요청 창구 |
+| `SupportButton.tsx` · `support-actions.ts` | **고객 전용** 환불·날짜 변경 요청 창구 |
 | 어드민 사매 문의 | 요청 접수함 (`/admin/support`) |
 
 **DB (0101):** `photographers.fee_mode / fee_amount_krw / fee_rate` ·
@@ -259,3 +259,5 @@
 - **날짜 변경 1회 카운트**는 시스템이 세지 않는다 (§5-2).
 - **접수는 자동, 판단은 사람.** 예약 카드의 [사매에 문의] 가 요청을 `/admin/support` 로
   흘려보내고, 운영이 읽고 거래 화면에서 처리한다.
+- **작가 창구는 서비스 안에 두지 않는다.** 작가는 이미 사매와 카톡으로 이어져 있고
+  (정산도 그렇게 오간다), 창구를 하나 더 만들면 어디로 말해야 할지만 헷갈린다.
