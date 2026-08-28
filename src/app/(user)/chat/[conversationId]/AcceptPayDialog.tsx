@@ -13,6 +13,7 @@ import { markTransferSent } from "@/app/actions/payments";
 import { CheckIcon, WalletIcon, XIcon } from "@/components/user/icons";
 import { Spinner } from "@/components/ui";
 import type { PayoutAccount } from "@/lib/payments";
+import { PolicyNote } from "./PolicyNote";
 
 const fmt = new Intl.NumberFormat("ko-KR");
 
@@ -82,7 +83,7 @@ export function AcceptPayDialog({
     >
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-sm rounded-2xl bg-surface p-5 shadow-pop"
+        className="max-h-[88svh] w-full max-w-sm overflow-y-auto rounded-2xl bg-surface p-5 shadow-pop"
       >
         <div className="flex items-start justify-between gap-2">
           <div>
@@ -159,6 +160,9 @@ export function AcceptPayDialog({
             </span>
           </li>
         </ol>
+
+        {/* 무엇에 동의하고 보내는지 — 입금 버튼 바로 위가 유일하게 읽히는 자리다 */}
+        <PolicyNote />
 
         <button
           type="button"
