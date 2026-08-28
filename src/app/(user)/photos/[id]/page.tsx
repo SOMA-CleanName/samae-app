@@ -33,6 +33,7 @@ import { photoMetadata, photoImageJsonLd } from "@/lib/seo";
 import { JsonLd } from "@/components/JsonLd";
 import { SearchDock } from "@/components/user/SearchDock";
 import { pickSearchPlaceholder } from "@/lib/search-copy";
+import { shouldShowSearchUi } from "@/lib/search-ui-visibility";
 
 const fmt = new Intl.NumberFormat("ko-KR");
 
@@ -71,7 +72,10 @@ export default async function PhotoDetail({
   searchParams?: Promise<{ like?: string; mock?: string }>;
 }) {
   const { id } = await params;
-  const searchPlaceholder = pickSearchPlaceholder(Number.parseInt(newFeedSeed(), 36) / 2 ** 31);
+  const showSearchUi = shouldShowSearchUi("photo");
+  const searchPlaceholder = showSearchUi
+    ? pickSearchPlaceholder(Number.parseInt(newFeedSeed(), 36) / 2 ** 31)
+    : "";
   const sp = (await searchParams) ?? {};
   const photo = await fetchPhotoById(id);
   if (!photo) notFound();
@@ -148,7 +152,9 @@ export default async function PhotoDetail({
         price={photo.price_krw ?? null}
         disabled={isOwner}
       />
-      <SearchDock placeholder={searchPlaceholder} variant="photo" />
+      {showSearchUi ? (
+        <SearchDock placeholder={searchPlaceholder} variant="photo" />
+      ) : null}
       <div className="md:flex md:items-start md:gap-8">
         {/* 사진 — 화면 최상단. 공유·담기는 이미지 위 오버레이 */}
         <div

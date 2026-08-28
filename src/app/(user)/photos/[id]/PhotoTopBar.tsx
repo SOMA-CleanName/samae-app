@@ -7,7 +7,7 @@ import {
   getPhotoBackButtonMode,
 } from "@/lib/photo-back-button";
 
-// 상세 검색창과 나란히 보이도록 뷰포트 좌상단의 기존 위치를 유지한다.
+// 검색 UI 표시 여부와 무관하게 뷰포트 좌상단의 뒤로가기를 유지한다.
 export function PhotoTopBar() {
   const router = useRouter();
   const mode = getPhotoBackButtonMode();

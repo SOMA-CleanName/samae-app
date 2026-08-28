@@ -29,6 +29,7 @@ import { SearchDock } from "@/components/user/SearchDock";
 import { PhotoTopBar } from "./photos/[id]/PhotoTopBar";
 import { pickSearchPlaceholder } from "@/lib/search-copy";
 import { routeSessionKey } from "@/lib/search-navigation";
+import { shouldShowSearchUi } from "@/lib/search-ui-visibility";
 import { TasteTestNudge } from "@/components/user/TasteTestNudge";
 import { TasteBanner } from "./TasteBanner";
 import { JsonLd } from "@/components/JsonLd";
@@ -44,9 +45,12 @@ export default async function ExploreHome({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const searchPlaceholder = pickSearchPlaceholder(Number.parseInt(newFeedSeed(), 36) / 2 ** 31);
   const sp = await searchParams;
   const query = sp.q?.trim();
+  const showSearchUi = shouldShowSearchUi(query ? "results" : "home");
+  const searchPlaceholder = showSearchUi
+    ? pickSearchPlaceholder(Number.parseInt(newFeedSeed(), 36) / 2 ** 31)
+    : "";
   // 카테고리 컨텍스트(?cat·쿠키)는 proxy 가 /c/<slug> 로 리다이렉트 → 여기(홈)는 검색·전체 피드만.
 
   const me = await getCurrentUser();
@@ -129,20 +133,16 @@ export default async function ExploreHome({
       {/* 홈 최상단 히어로 (검색 모드 아닐 때만) */}
       {!query && <FeedHero />}
 
-      {/* 홈·검색 결과 모두 같은 검색 도크를 사용하고, 결과에는 상세 UI와 같은 뒤로가기를 둔다. */}
-      {query ? (
-        <>
-          <PhotoTopBar />
-          <SearchDock
-            key={query}
-            initial={query}
-            placeholder={searchPlaceholder}
-            variant="detail"
-          />
-        </>
-      ) : (
-        <SearchDock placeholder={searchPlaceholder} />
-      )}
+      {/* 검색 결과의 뒤로가기는 유지하고, 검색 진입 UI만 플래그로 임시 숨긴다. */}
+      {query ? <PhotoTopBar /> : null}
+      {showSearchUi ? (
+        <SearchDock
+          key={query ?? "home"}
+          initial={query ?? ""}
+          placeholder={searchPlaceholder}
+          variant={query ? "detail" : "home"}
+        />
+      ) : null}
 
       {/* 취향 적용 배너 (전체 피드 + 취향 v2 있을 때) */}
       {isAllFeed && tasteCatIds.length > 0 && <TasteBanner />}
