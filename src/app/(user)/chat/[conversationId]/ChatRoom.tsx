@@ -142,6 +142,7 @@ export function ChatRoom({
     draft?: BookingDraft | null;
   }>(null);
   const [, startTransition] = useTransition();
+  const sendingRef = useRef(false); // 전송 중 재진입 잠금 (엔터 연타)
   const listRef = useRef<HTMLDivElement>(null);
   const firstScroll = useRef(true);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -295,7 +296,9 @@ export function ChatRoom({
   // 봇 턴 전송 — 입력바·칩 공용. 응답 대기 중엔 연타를 막고, 결과로 칩·완료 상태 갱신.
   // (사용자·봇 말풍선은 서버 insert → realtime 으로 그려진다)
   function submitBotTurn(t: string) {
-    if (botTyping) return;
+    // botTyping 은 state 라 다음 렌더에서야 참이 된다 — 그 틈의 두 번째 엔터를 ref 로 막는다
+    if (botTyping || sendingRef.current) return;
+    sendingRef.current = true;
     setBlockedNotice(null);
     setText("");
     setBotChips([]);
@@ -323,6 +326,7 @@ export function ChatRoom({
         mpTrack("Send Message", { conversation_id: conversationId, has_image: false, role: "customer", bot: true });
       } finally {
         setBotTyping(false);
+        sendingRef.current = false;
       }
     });
   }
@@ -335,24 +339,36 @@ export function ChatRoom({
       submitBotTurn(t);
       return;
     }
+    // 전송이 끝나기 전에 엔터가 한 번 더 들어오면 같은 문장이 두 번 나간다.
+    // 서버 왕복은 수백 ms 라 연타로 충분히 겹친다 — ref 로 즉시 잠근다
+    // (state 는 다음 렌더에서야 반영돼 그 사이 두 번째 엔터를 못 막는다).
+    if (sendingRef.current) return;
+    sendingRef.current = true;
+
+    // 입력은 먼저 비운다. 응답을 기다렸다 비우면 그 사이의 엔터가 같은 텍스트를 다시 읽는다.
+    // 차단된 경우에만 되돌려 놓아, 문구를 고쳐 다시 보낼 수 있게 한다.
+    setText("");
     setBlockedNotice(null);
     startTransition(async () => {
-      const res = await sendMessage(conversationId, t);
-      if (!res.ok) {
-        // 차단 — 입력은 유지해서 사용자가 문구를 고칠 수 있게
-        setBlockedNotice(res.reason);
-        mpTrack("Chat Message Blocked", {
+      try {
+        const res = await sendMessage(conversationId, t);
+        if (!res.ok) {
+          setBlockedNotice(res.reason);
+          setText(t);
+          mpTrack("Chat Message Blocked", {
+            conversation_id: conversationId,
+            role: amPhotographer ? "photographer" : "customer",
+          });
+          return;
+        }
+        mpTrack("Send Message", {
           conversation_id: conversationId,
+          has_image: false,
           role: amPhotographer ? "photographer" : "customer",
         });
-        return;
+      } finally {
+        sendingRef.current = false;
       }
-      setText("");
-      mpTrack("Send Message", {
-        conversation_id: conversationId,
-        has_image: false,
-        role: amPhotographer ? "photographer" : "customer",
-      });
     });
   }
 
