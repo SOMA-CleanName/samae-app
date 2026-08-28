@@ -7,6 +7,7 @@ import type { GalleryPhoto } from "@/lib/discovery";
 import { ExploreGallery } from "@/components/user/ExploreGallery";
 import { ScrollMemory } from "@/components/user/ScrollMemory";
 import { FeedHero } from "@/components/user/FeedHero";
+import { HomeBannerSlot } from "@/components/user/HomeBannerSlot";
 import { EmptyState } from "@/components/ui";
 import { LayersIcon } from "@/components/user/icons";
 import type { Metadata } from "next";
@@ -90,6 +91,8 @@ export default async function CategoryPage({
   return (
     <section className="px-2.5 pb-2.5 pt-2.5 font-kr sm:px-4 sm:pt-4 sm:pb-4">
       <ScrollMemory />
+      {/* 홈과 공용 — 운영 배너 캐러셀 */}
+      <HomeBannerSlot />
       <FeedHero />
 
       {/* 카테고리 추천 보는 중 + 전체 보기 해제(쿠키도 해제됨 → /?nocat=1) */}

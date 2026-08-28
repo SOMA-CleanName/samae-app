@@ -1,0 +1,715 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>samae 구조와 AI 전략</title>
+</head>
+<body>
+<style>
+  :root {
+    --paper:      #F3F5F6;
+    --panel:      #FFFFFF;
+    --panel-alt:  #E8ECEE;
+    --ink:        #15191D;
+    --ink-soft:   #4C555C;
+    --ink-faint:  #78838A;
+    --rule:       #C6CED3;
+    --rule-soft:  #DDE3E6;
+    --signal:     #0F6470;
+    --signal-bg:  #E2EFF0;
+    --warn:       #8A6210;
+    --warn-bg:    #F3EBD9;
+    --risk:       #96382C;
+    --risk-bg:    #F5E5E2;
+
+    --serif: "Iowan Old Style", Charter, Georgia, "AppleMyungjo", "Nanum Myeongjo", "Noto Serif KR", serif;
+    --sans: "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, "Cascadia Mono", monospace;
+
+    --measure: 68ch;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:     #0E1215;
+      --panel:     #161B1F;
+      --panel-alt: #1D242A;
+      --ink:       #E3E8EA;
+      --ink-soft:  #A8B3B9;
+      --ink-faint: #7C878D;
+      --rule:      #333D43;
+      --rule-soft: #242C31;
+      --signal:    #58BAC6;
+      --signal-bg: #123034;
+      --warn:      #D2A54F;
+      --warn-bg:   #2E2718;
+      --risk:      #E08072;
+      --risk-bg:   #331C19;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper:     #0E1215;
+    --panel:     #161B1F;
+    --panel-alt: #1D242A;
+    --ink:       #E3E8EA;
+    --ink-soft:  #A8B3B9;
+    --ink-faint: #7C878D;
+    --rule:      #333D43;
+    --rule-soft: #242C31;
+    --signal:    #58BAC6;
+    --signal-bg: #123034;
+    --warn:      #D2A54F;
+    --warn-bg:   #2E2718;
+    --risk:      #E08072;
+    --risk-bg:   #331C19;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.72;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 1060px;
+    margin: 0 auto;
+    padding: 0 28px 96px;
+  }
+
+  /* ---------- masthead ---------- */
+  header.masthead {
+    border-bottom: 2px solid var(--ink);
+    padding: 56px 0 22px;
+    margin-bottom: 48px;
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+  h1 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: clamp(34px, 5.4vw, 54px);
+    line-height: 1.12;
+    letter-spacing: -0.015em;
+    margin: 14px 0 10px;
+    text-wrap: balance;
+  }
+  .standfirst {
+    font-family: var(--serif);
+    font-size: clamp(17px, 2vw, 20px);
+    line-height: 1.6;
+    color: var(--ink-soft);
+    max-width: 60ch;
+    margin: 0 0 26px;
+  }
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 26px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-faint);
+  }
+  .meta b { color: var(--ink-soft); font-weight: 500; }
+
+  /* ---------- sections ---------- */
+  section { margin-bottom: 62px; }
+  .sec-head {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 10px;
+    margin-bottom: 26px;
+  }
+  .sec-num {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--signal);
+    letter-spacing: 0.08em;
+    flex: none;
+  }
+  h2 {
+    font-family: var(--serif);
+    font-weight: 600;
+    font-size: clamp(23px, 3vw, 30px);
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    margin: 0;
+    text-wrap: balance;
+  }
+  h3 {
+    font-family: var(--sans);
+    font-weight: 650;
+    font-size: 16.5px;
+    letter-spacing: -0.005em;
+    margin: 34px 0 12px;
+  }
+  p { max-width: var(--measure); margin: 0 0 16px; }
+  p.lead { font-family: var(--serif); font-size: 18px; color: var(--ink-soft); }
+  strong { font-weight: 650; }
+  code {
+    font-family: var(--mono);
+    font-size: 0.86em;
+    background: var(--panel-alt);
+    padding: 0.12em 0.36em;
+    border-radius: 2px;
+  }
+
+  /* ---------- figures ---------- */
+  figure {
+    margin: 30px 0 34px;
+    background: var(--panel);
+    border: 1px solid var(--rule-soft);
+    padding: 22px 22px 16px;
+  }
+  .fig-scroll { overflow-x: auto; }
+  figure svg { display: block; width: 100%; min-width: 640px; height: auto; color: var(--ink); }
+  figcaption {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    line-height: 1.6;
+    color: var(--ink-faint);
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid var(--rule-soft);
+  }
+  .svg-box { fill: var(--panel); stroke: var(--rule); stroke-width: 1.25; }
+  .svg-box-alt { fill: var(--panel-alt); stroke: var(--rule); stroke-width: 1.25; }
+  .svg-box-sig { fill: var(--signal-bg); stroke: var(--signal); stroke-width: 1.25; }
+  .svg-t { font-family: var(--sans); font-size: 13px; fill: var(--ink); }
+  .svg-t-b { font-family: var(--sans); font-size: 13.5px; font-weight: 650; fill: var(--ink); }
+  .svg-s { font-family: var(--mono); font-size: 10.5px; fill: var(--ink-faint); letter-spacing: 0.02em; }
+  .svg-lbl { font-family: var(--mono); font-size: 10.5px; fill: var(--signal); letter-spacing: 0.02em; }
+  .svg-line { stroke: var(--ink-soft); stroke-width: 1.25; fill: none; }
+  .svg-line-sig { stroke: var(--signal); stroke-width: 1.5; fill: none; }
+  .svg-dash { stroke: var(--ink-faint); stroke-width: 1.25; stroke-dasharray: 5 5; fill: none; }
+
+  /* ---------- tables ---------- */
+  .table-scroll { overflow-x: auto; margin: 22px 0 26px; border: 1px solid var(--rule-soft); }
+  table { border-collapse: collapse; width: 100%; min-width: 540px; background: var(--panel); }
+  th, td {
+    text-align: left;
+    padding: 11px 14px;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: top;
+    font-size: 14.5px;
+    line-height: 1.6;
+  }
+  th {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 500;
+    background: var(--panel-alt);
+    border-bottom: 1px solid var(--rule);
+    white-space: nowrap;
+  }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.key { font-family: var(--mono); font-size: 12.5px; color: var(--ink-soft); white-space: nowrap; }
+  td.num { font-variant-numeric: tabular-nums; }
+
+  /* ---------- principle list ---------- */
+  ol.principles { counter-reset: p; list-style: none; padding: 0; margin: 24px 0 0; display: grid; gap: 1px; background: var(--rule-soft); border: 1px solid var(--rule-soft); }
+  ol.principles li { counter-increment: p; background: var(--panel); padding: 18px 20px 18px 66px; position: relative; }
+  ol.principles li::before {
+    content: "P" counter(p);
+    position: absolute; left: 20px; top: 18px;
+    font-family: var(--mono); font-size: 12px; color: var(--signal); letter-spacing: 0.06em;
+  }
+  ol.principles b { display: block; font-size: 15.5px; margin-bottom: 4px; }
+  ol.principles span { color: var(--ink-soft); font-size: 14.5px; line-height: 1.65; display: block; }
+
+  /* ---------- tags ---------- */
+  .tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border: 1px solid currentColor;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+  .tag.live { color: var(--signal); background: var(--signal-bg); }
+  .tag.hold { color: var(--warn); background: var(--warn-bg); }
+  .tag.risk { color: var(--risk); background: var(--risk-bg); }
+
+  /* ---------- callout ---------- */
+  .callout {
+    border-top: 2px solid var(--signal);
+    background: var(--panel);
+    padding: 22px 24px;
+    margin: 32px 0;
+  }
+  .callout p { margin: 0; max-width: 72ch; font-family: var(--serif); font-size: 18px; line-height: 1.62; }
+  .callout .eyebrow { display: block; margin-bottom: 10px; color: var(--signal); }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 18px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--ink-faint);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 24px;
+  }
+
+  a { color: var(--signal); text-underline-offset: 2px; }
+  a:focus-visible, li:focus-visible { outline: 2px solid var(--signal); outline-offset: 3px; }
+
+  @media (max-width: 620px) {
+    .wrap { padding: 0 18px 72px; }
+    header.masthead { padding-top: 38px; }
+    figure { padding: 14px 14px 12px; }
+  }
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <div class="eyebrow">프로젝트 보고 · 시스템 구성 &amp; AI 활용</div>
+  <h1>samae 구조와 AI 전략</h1>
+  <p class="standfirst">사진작가 매칭 마켓플레이스의 실제 가동 구조와, “조회 경로에서는 추론하지 않는다”는 하나의 규칙 위에 세운 AI 설계.</p>
+  <div class="meta">
+    <span><b>기준</b> main · 7b39aee</span>
+    <span><b>작성</b> 2026-08-15</span>
+    <span><b>스택</b> Next.js 16 · Supabase · Vercel</span>
+    <span><b>원본</b> docs/25</span>
+  </div>
+</header>
+
+<!-- ============ PART 1 ============ -->
+<section>
+  <div class="sec-head"><span class="sec-num">1.1</span><h2>시스템 구성도</h2></div>
+  <p class="lead">고객·작가·운영자가 하나의 Next.js 앱을 공유하고, 라우트 그룹과 접근 키로 권한이 갈린다. AI 추론은 이 요청 경로 바깥에 있다.</p>
+
+  <figure>
+    <div class="fig-scroll">
+      <svg viewBox="0 0 1000 620" role="img" aria-label="브라우저에서 Next.js 앱을 거쳐 Supabase에 이르는 요청 경로. 서버 컴포넌트는 anon key와 RLS로, 서버 액션과 라우트 핸들러는 service_role로 접근한다. 로컬 AI 배치는 오프라인에서 Postgres에 임베딩을 기록한다.">
+        <defs>
+          <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+          </marker>
+          <marker id="ar-s" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--signal)"/>
+          </marker>
+        </defs>
+
+        <!-- browser -->
+        <rect class="svg-box-alt" x="40" y="24" width="660" height="58"/>
+        <text class="svg-t-b" x="60" y="47">브라우저 — 반응형 웹</text>
+        <text class="svg-s" x="60" y="66">고객 / 작가 / 운영자 · 동일 앱, 라우트 그룹 + role 가드로 분기</text>
+
+        <line class="svg-line" x1="370" y1="82" x2="370" y2="106" marker-end="url(#ar)"/>
+        <text class="svg-s" x="380" y="99">HTTPS</text>
+
+        <!-- next.js -->
+        <rect class="svg-box" x="40" y="110" width="660" height="196"/>
+        <text class="svg-t-b" x="60" y="136">Next.js 16 App Router · Vercel (icn1)</text>
+
+        <rect class="svg-box-alt" x="56" y="152" width="196" height="132"/>
+        <text class="svg-t" x="70" y="177">Server</text>
+        <text class="svg-t" x="70" y="195">Components</text>
+        <text class="svg-s" x="70" y="220">탐색 · 피드 · 상세</text>
+        <text class="svg-s" x="70" y="236">작가 프로필 SSR</text>
+        <text class="svg-s" x="70" y="264">읽기 전용</text>
+
+        <rect class="svg-box-alt" x="268" y="152" width="196" height="132"/>
+        <text class="svg-t" x="282" y="177">Server Actions</text>
+        <text class="svg-s" x="282" y="202">문의 제출 · 수락</text>
+        <text class="svg-s" x="282" y="218">취향 테스트</text>
+        <text class="svg-s" x="282" y="234">페르소나 분석</text>
+        <text class="svg-s" x="282" y="264">상태 전이</text>
+
+        <rect class="svg-box-alt" x="480" y="152" width="204" height="132"/>
+        <text class="svg-t" x="494" y="177">Route Handlers</text>
+        <text class="svg-s" x="494" y="202">업로드 · 추적</text>
+        <text class="svg-s" x="494" y="218">크론 2건</text>
+        <text class="svg-s" x="494" y="234">Meta CAPI</text>
+        <text class="svg-s" x="494" y="264">외부 경계</text>
+
+        <!-- arrows down to supabase -->
+        <line class="svg-line" x1="154" y1="284" x2="154" y2="376" marker-end="url(#ar)"/>
+        <text class="svg-lbl" x="162" y="326">anon key</text>
+        <text class="svg-lbl" x="162" y="341">+ RLS</text>
+
+        <line class="svg-line" x1="366" y1="284" x2="366" y2="376" marker-end="url(#ar)"/>
+        <text class="svg-lbl" x="374" y="326">service_role</text>
+        <text class="svg-lbl" x="374" y="341">+ RPC</text>
+
+        <line class="svg-line" x1="582" y1="284" x2="582" y2="376" marker-end="url(#ar)"/>
+        <text class="svg-lbl" x="590" y="326">service_role</text>
+        <text class="svg-lbl" x="590" y="341">(서버 only)</text>
+
+        <!-- supabase -->
+        <rect class="svg-box" x="40" y="380" width="660" height="128"/>
+        <text class="svg-t-b" x="60" y="406">Supabase</text>
+        <text class="svg-t" x="60" y="432">Auth(카카오·이메일) · Postgres + RLS + RPC · Storage · Realtime</text>
+        <rect class="svg-box-sig" x="60" y="446" width="620" height="44"/>
+        <text class="svg-s" x="74" y="464" fill="var(--signal)">pgvector 0.8 — photos.embedding halfvec(1152)</text>
+        <text class="svg-s" x="74" y="480" fill="var(--signal)">HNSW cosine · visibility='published' 부분 인덱스</text>
+
+        <!-- external -->
+        <rect class="svg-box" x="740" y="110" width="220" height="196"/>
+        <text class="svg-t-b" x="756" y="136">외부 서비스</text>
+        <text class="svg-s" x="756" y="162">Anthropic API</text>
+        <text class="svg-s" x="756" y="180">Apify (IG 수집)</text>
+        <text class="svg-s" x="756" y="198">Kakao OAuth</text>
+        <text class="svg-s" x="756" y="216">Meta Pixel + CAPI</text>
+        <text class="svg-s" x="756" y="234">Mixpanel · Sentry</text>
+        <text class="svg-s" x="756" y="252">Discord Webhook</text>
+        <text class="svg-s" x="756" y="270">Google Sheets</text>
+        <text class="svg-s" x="756" y="292">모두 서버에서만 호출</text>
+
+        <line class="svg-dash" x1="700" y1="208" x2="736" y2="208" marker-end="url(#ar)"/>
+
+        <!-- batch -->
+        <rect class="svg-box-sig" x="740" y="380" width="220" height="128"/>
+        <text class="svg-t-b" x="756" y="406" fill="var(--signal)">로컬 AI 배치</text>
+        <text class="svg-s" x="756" y="430" fill="var(--signal)">Python 3.12 · 개발자 PC</text>
+        <text class="svg-s" x="756" y="448" fill="var(--signal)">SigLIP2 so400m naflex</text>
+        <text class="svg-s" x="756" y="466" fill="var(--signal)">scripts/embed/*.py</text>
+        <text class="svg-s" x="756" y="490" fill="var(--signal)">--apply 명시해야 write</text>
+
+        <line class="svg-line-sig" x1="736" y1="444" x2="704" y2="444" marker-end="url(#ar-s)"/>
+        <text class="svg-lbl" x="620" y="534">임베딩 write · 오프라인</text>
+        <line class="svg-dash" x1="616" y1="529" x2="596" y2="512"/>
+
+        <!-- rule note -->
+        <line x1="40" y1="566" x2="960" y2="566" stroke="var(--rule)" stroke-width="1"/>
+        <text class="svg-s" x="40" y="590">돈 · 상태 · 연락처를 바꾸는 일은 클라이언트가 직접 못 한다 — 게이트는 UI가 아니라 쿼리 레벨에 있다</text>
+      </svg>
+    </div>
+    <figcaption>그림 1 — 요청 경로와 접근 키. 공개·본인 데이터는 anon key + RLS로, 상태 전이와 연락처 노출은 service_role 경유로만 흐른다. AI 배치는 요청 경로 바깥에서 Postgres에 벡터만 기록한다.</figcaption>
+  </figure>
+
+  <h3>접근 경로와 권한 경계</h3>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>작업</th><th>경로</th><th>키</th><th>강제 수단</th></tr></thead>
+      <tbody>
+        <tr><td>공개 조회 — 탐색 · 피드 · 작가 프로필</td><td class="key">Server Component</td><td class="key">anon + RLS</td><td>public read 정책</td></tr>
+        <tr><td>본인 데이터 — 내 문의 · 프로필 · 채팅</td><td class="key">Server / Client</td><td class="key">anon + RLS</td><td>본인 스코프 정책</td></tr>
+        <tr><td><strong>리드 연락처 노출</strong></td><td class="key">lib/inquiries.ts</td><td class="key">service_role</td><td>잠긴 리드는 <strong>select 목록에서 연락처 컬럼을 제외</strong> — 네트워크 응답에도 값이 실리지 않음</td></tr>
+        <tr><td>상태 전이 — 수락 · 입금확인 · 만료 · 작가승인</td><td class="key">Action / Handler / RPC</td><td class="key">service_role</td><td>서버 전용 + 감사 컬럼</td></tr>
+        <tr><td>근접검색 · 피드 쿼리</td><td class="key">Postgres RPC</td><td class="key">security definer</td><td>함수 안에서 노출 규칙 재확인</td></tr>
+        <tr><td>크론</td><td class="key">/api/cron/*</td><td class="key">service_role</td><td><code>Authorization: Bearer $CRON_SECRET</code></td></tr>
+        <tr><td>익명 행동 수집</td><td class="key">/api/track</td><td class="key">service_role</td><td>same-origin 검증 · 어드민/스튜디오 경로 제외</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">1.2</span><h2>주력 동선 — 리드 언락</h2></div>
+  <p>현재 매출 동선은 예약·에스크로가 아니라 <strong>리드 언락</strong>이다. 작가에게 브리프와 신청 사진은 그대로 보여주고 <strong>연락처만 잠근다</strong>. 리드의 가치를 먼저 보게 하고, 해제에 과금한다.</p>
+
+  <figure>
+    <div class="fig-scroll">
+      <svg viewBox="0 0 960 300" role="img" aria-label="문의 제출부터 연락처 공개까지의 상태 흐름. 제출 즉시 운영진 알림과 광고 전환이 발생하고, 작가 입금과 운영자 확인을 거쳐 연락처가 공개된다. 7일간 반응이 없으면 크론이 만료 처리한다.">
+        <defs>
+          <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+          </marker>
+        </defs>
+
+        <rect class="svg-box-alt" x="24" y="70" width="184" height="72"/>
+        <text class="svg-t-b" x="40" y="98">문의 제출</text>
+        <text class="svg-s" x="40" y="120">위저드 · utm/Meta 쿠키</text>
+        <text class="svg-s" x="40" y="136">스냅샷 동반 저장</text>
+
+        <rect class="svg-box" x="256" y="70" width="184" height="72"/>
+        <text class="svg-t-b" x="272" y="98">new — 연락처 잠김</text>
+        <text class="svg-s" x="272" y="120">브리프 · 신청 사진은</text>
+        <text class="svg-s" x="272" y="136">구매 전에도 노출</text>
+
+        <rect class="svg-box" x="488" y="70" width="184" height="72"/>
+        <text class="svg-t-b" x="504" y="98">입금 확인 대기</text>
+        <text class="svg-s" x="504" y="120">작가 무통장 입금 →</text>
+        <text class="svg-s" x="504" y="136">'입금완료' 신고</text>
+
+        <rect class="svg-box-sig" x="720" y="70" width="216" height="72"/>
+        <text class="svg-t-b" x="736" y="98" fill="var(--signal)">confirmed — 연락처 공개</text>
+        <text class="svg-s" x="736" y="120" fill="var(--signal)">운영자가 확인해야만</text>
+        <text class="svg-s" x="736" y="136" fill="var(--signal)">게이트가 열린다</text>
+
+        <line class="svg-line" x1="208" y1="106" x2="252" y2="106" marker-end="url(#ar2)"/>
+        <line class="svg-line" x1="440" y1="106" x2="484" y2="106" marker-end="url(#ar2)"/>
+        <text class="svg-lbl" x="444" y="96">해제 신청</text>
+        <line class="svg-line" x1="672" y1="106" x2="716" y2="106" marker-end="url(#ar2)"/>
+        <text class="svg-lbl" x="676" y="96">운영 확인</text>
+
+        <!-- side effects up -->
+        <line class="svg-line" x1="116" y1="70" x2="116" y2="42" marker-end="url(#ar2)"/>
+        <text class="svg-s" x="132" y="38">Discord 운영 알림 · Meta CAPI Lead 전송 (서버 측 중복제거)</text>
+
+        <!-- expire -->
+        <polyline class="svg-line" points="348,142 348,206 484,206" marker-end="url(#ar2)"/>
+        <rect class="svg-box" x="488" y="180" width="184" height="52"/>
+        <text class="svg-t" x="504" y="202">expired</text>
+        <text class="svg-s" x="504" y="220">크론 · 멱등 스윕</text>
+        <text class="svg-lbl" x="356" y="198">7일 무반응</text>
+
+        <text class="svg-s" x="24" y="272">inquiries · platform_account · 마이그레이션 0064 · 0072 · 0076</text>
+      </svg>
+    </div>
+    <figcaption>그림 2 — 리드 언락 상태 흐름. 게이트는 연락처 컬럼 하나에만 걸리고, 그 앞뒤로 광고 전환 전송과 만료 스윕이 붙는다.</figcaption>
+  </figure>
+</section>
+
+<!-- ============ PART 2 ============ -->
+<section>
+  <div class="sec-head"><span class="sec-num">2.1</span><h2>AI 활용 전략 — 자산 3층</h2></div>
+  <p class="lead">AI는 세 층으로 나뉘어 있고, 각 층이 언제 돌아가는지가 서로 다르다. 이 “언제”가 비용 구조와 응답 속도를 결정한다.</p>
+
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>층</th><th>모델</th><th>실행 시점</th><th>소비처</th><th>상태</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><strong>1 · 언어/비전</strong></td>
+          <td class="key">Claude (2단계)</td>
+          <td>사용자가 시작한 이벤트</td>
+          <td>페르소나 이벤트 → 목적·무드 → 홈 피드 개인화</td>
+          <td><span class="tag live">가동</span></td>
+        </tr>
+        <tr>
+          <td><strong>2 · 이미지 임베딩</strong></td>
+          <td class="key">SigLIP2 naflex</td>
+          <td>오프라인 배치</td>
+          <td>사진 상세 유사 추천 · 홈 클릭 기반 개인화</td>
+          <td><span class="tag live">가동</span></td>
+        </tr>
+        <tr>
+          <td><strong>3 · 파생 태그</strong></td>
+          <td class="key">SigLIP 텍스트 타워</td>
+          <td>오프라인 배치 (임베딩 재사용)</td>
+          <td>미연결 — 처방할 증상이 실측되지 않음</td>
+          <td><span class="tag hold">보류</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <figure>
+    <div class="fig-scroll">
+      <svg viewBox="0 0 960 430" role="img" aria-label="추론 경계를 기준으로 왼쪽은 사용자 조회 경로, 오른쪽은 추론 영역이다. 조회 경로는 저장된 임베딩을 kNN으로 읽기만 하고, 모델 추론은 오프라인 배치와 사용자가 시작한 페르소나 이벤트에서만 일어난다.">
+        <defs>
+          <marker id="ar3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor"/>
+          </marker>
+          <marker id="ar3s" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--signal)"/>
+          </marker>
+        </defs>
+
+        <line class="svg-dash" x1="500" y1="40" x2="500" y2="400"/>
+        <text class="svg-lbl" x="500" y="28" text-anchor="middle">추론 경계</text>
+        <text class="svg-s" x="240" y="28" text-anchor="middle">조회 경로 — 모델 추론 0</text>
+        <text class="svg-s" x="740" y="28" text-anchor="middle">추론 영역 — 오프라인 또는 사용자 개시</text>
+
+        <rect class="svg-box-alt" x="30" y="56" width="170" height="56"/>
+        <text class="svg-t" x="46" y="90">홈 피드</text>
+
+        <rect class="svg-box-alt" x="30" y="146" width="170" height="56"/>
+        <text class="svg-t" x="46" y="180">사진 상세</text>
+
+        <rect class="svg-box" x="250" y="100" width="210" height="60"/>
+        <text class="svg-t" x="266" y="126">Postgres RPC</text>
+        <text class="svg-s" x="266" y="146">similar_photos_by_embedding</text>
+
+        <line class="svg-line" x1="200" y1="84" x2="246" y2="118" marker-end="url(#ar3)"/>
+        <line class="svg-line" x1="200" y1="174" x2="246" y2="142" marker-end="url(#ar3)"/>
+
+        <rect class="svg-box-sig" x="140" y="270" width="320" height="70"/>
+        <text class="svg-t-b" x="158" y="298" fill="var(--signal)">photos.embedding</text>
+        <text class="svg-s" x="158" y="320" fill="var(--signal)">halfvec(1152) + HNSW · 저장된 벡터</text>
+
+        <line class="svg-line" x1="330" y1="160" x2="330" y2="266" marker-end="url(#ar3)"/>
+        <text class="svg-lbl" x="340" y="210">kNN 조회</text>
+        <text class="svg-lbl" x="340" y="226">(추론 없음)</text>
+
+        <rect class="svg-box" x="540" y="56" width="390" height="88"/>
+        <text class="svg-t-b" x="558" y="82">Claude · 2단계 페르소나</text>
+        <text class="svg-s" x="558" y="104">Stage1 심리 프로파일 (지표 + 캡션 + 이미지 3장)</text>
+        <text class="svg-s" x="558" y="124">Stage2 촬영 페르소나 → 목적 · 무드 매핑</text>
+
+        <rect class="svg-box" x="540" y="176" width="390" height="54"/>
+        <text class="svg-t" x="558" y="199">서버 화이트리스트 검증 → taste v2 쿠키</text>
+        <text class="svg-s" x="558" y="219">카탈로그에 없는 무드 id는 제거된다</text>
+
+        <line class="svg-line" x1="735" y1="144" x2="735" y2="172" marker-end="url(#ar3)"/>
+
+        <rect class="svg-box-sig" x="540" y="270" width="390" height="70"/>
+        <text class="svg-t-b" x="558" y="298" fill="var(--signal)">SigLIP2 배치 (로컬 · 오프라인)</text>
+        <text class="svg-s" x="558" y="320" fill="var(--signal)">공개 사진 전량 → 1152차원 · 호출 과금 없음</text>
+
+        <line class="svg-line-sig" x1="536" y1="305" x2="464" y2="305" marker-end="url(#ar3s)"/>
+        <text class="svg-lbl" x="466" y="294" text-anchor="end">임베딩 write</text>
+
+        <polyline class="svg-line" points="536,203 230,203 230,116 204,116" marker-end="url(#ar3)"/>
+        <text class="svg-lbl" x="330" y="196">쿠키 1개로 피드가 개인화된다</text>
+
+        <text class="svg-s" x="30" y="392">임베딩 없는 신규 사진은 태그 기반 추천으로 폴백 — 배치 지연이 화면 결손이 되지 않는다</text>
+      </svg>
+    </div>
+    <figcaption>그림 3 — 추론 경계. 화면을 여는 경로에는 어떤 모델도 돌지 않는다. 왼쪽은 저장된 벡터를 읽기만 하고, 경계를 넘는 화살표는 배치 write와 사용자가 직접 시작한 이벤트 결과뿐이다.</figcaption>
+  </figure>
+
+  <h3>층 1 — LLM 파이프라인</h3>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>단계</th><th>입력</th><th>처리</th><th>출력</th></tr></thead>
+      <tbody>
+        <tr><td class="key">수집</td><td>IG username</td><td>Apify actor 동기 실행 · 최근 20건 · 120s 타임아웃</td><td>프로필 · 게시물 · 지표</td></tr>
+        <tr><td class="key">Stage1</td><td>정량 지표 + 캡션 + 이미지 3장</td><td>계산심리학 근거를 프롬프트에 명시, 신호 강도에 따라 확신 어조 차등</td><td><code>Persona</code> (Zod)</td></tr>
+        <tr><td class="key">Stage2</td><td>Stage1 + 지표 + <strong>런타임 무드 카탈로그</strong></td><td>목적 판별 + 무드 1~3개 매핑</td><td><code>ShootPersona</code> (Zod)</td></tr>
+        <tr><td class="key">후처리</td><td>Stage2 출력</td><td><strong>서버측 화이트리스트 필터</strong> — 없는 id 제거, 근거문도 정리</td><td>taste v2 쿠키</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>구현상 특징: <code>messages.parse()</code> + <code>zodOutputFormat</code>으로 구조화 출력을 SDK 레벨에서 강제하고 파싱 실패 시 1회 재시도, 이벤트 UX를 위해 thinking을 끄고 <code>max_tokens</code>를 2000으로 묶었다. 무드 카탈로그는 하드코딩이 아니라 <strong>런타임에 DB에서 주입</strong>하므로, 운영이 카테고리를 바꿔도 코드를 고치지 않는다. 비공개·게시물 없음 계정은 전용 에러 타입으로 사진 직접 업로드 폴백에 태운다.</p>
+
+  <h3>층 2 — 임베딩 파이프라인의 결정들</h3>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>결정</th><th>값</th><th>근거</th></tr></thead>
+      <tbody>
+        <tr><td>모델</td><td class="key">siglip2-so400m-patch16-naflex</td><td>오픈 웨이트 — 다운로드·사용 무료, 호출 과금 없음</td></tr>
+        <tr><td>비율 처리</td><td class="key">naflex (원본 비율 보존)</td><td>공개 사진의 80% 이상이 세로 — 정사각 리사이즈는 구도를 뭉갠다</td></tr>
+        <tr><td>해상도 예산</td><td class="key">max_num_patches = 256</td><td>thumb(500×750)로 충분, 1024와 육안 품질 차이가 갈리지 않음</td></tr>
+        <tr><td>저장</td><td class="key">halfvec(1152)</td><td>검색 품질 손실 없이 용량 절반</td></tr>
+        <tr><td>인덱스</td><td class="key">HNSW cosine · 부분 인덱스</td><td>published만 색인해 크기·빌드시간 절감, 작가 승인은 조인에서 재확인</td></tr>
+        <tr><td>폴백</td><td class="key">태그 기반 추천</td><td>임베딩 없는 신규 사진도 화면이 비지 않는다</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">2.2</span><h2>유지할 설계 원칙</h2></div>
+  <ol class="principles">
+    <li><b>조회 시점 추론 0</b><span>사용자가 화면을 여는 경로에는 어떤 모델도 돌지 않는다. 추론은 오프라인 배치이거나, 사용자가 명시적으로 시작한 이벤트일 때만 발생한다. 응답 지연과 GPU 상시 비용이 구조적으로 0이 된다.</span></li>
+    <li><b>LLM 출력은 신뢰하지 않고 검증한다</b><span>스키마는 Zod로, 값은 서버측 화이트리스트로 이중 검증한다. 모델이 없는 카테고리를 지어내도 화면까지 도달하지 못한다.</span></li>
+    <li><b>durable 산출물과 파생물을 분리한다</b><span>임베딩은 durable(재계산이 비쌈), 태그는 파생물(어휘만 바뀌면 저렴). 그래서 어휘를 바꿔도 사진을 다시 내려받지 않는다.</span></li>
+    <li><b>실측되지 않은 증상은 처방하지 않는다</b><span>자동 무드 태그를 만들어놓고 연결하지 않은 것은 미완성이 아니라 판단이다. 지표 없이 붙인 AI 기능은 되돌리기 어려운 부채가 된다.</span></li>
+    <li><b>배치 스크립트는 사고를 구조적으로 못 내게 만든다</b><span>dry-run 기본 · <code>--apply</code> 명시 필요 · update는 항상 id 단건 · 건드리는 컬럼 3개 고정. service_role이 RLS를 우회하는 위험을 이 규칙들이 감싼다.</span></li>
+  </ol>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">2.3</span><h2>비용 구조</h2></div>
+  <p>AI 비용은 <strong>사용자 수가 아니라 이벤트 참여 수에 비례</strong>한다. 피드와 추천은 트래픽이 늘어도 AI 비용이 증가하지 않는다.</p>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>항목</th><th>과금</th><th>특징</th></tr></thead>
+      <tbody>
+        <tr><td>이미지 임베딩 · 자동 태그</td><td class="key">0원</td><td>오픈 웨이트 로컬 실행. 공개 사진 약 1,800장 전량 백필이 수 분</td></tr>
+        <tr><td>벡터 근접검색</td><td class="key">Supabase 포함</td><td>조회당 추가 과금 없음</td></tr>
+        <tr><td><strong>페르소나 이벤트</strong></td><td class="key">Anthropic + Apify</td><td>유일한 가변비. 1회 = Stage1(이미지 포함) + Stage2</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>참고 단가 (per MTok)</th><th class="num">입력</th><th class="num">출력</th><th>용처 후보</th></tr></thead>
+      <tbody>
+        <tr><td class="key">Claude Opus 5</td><td class="num">$5</td><td class="num">$25</td><td>Stage1 — 이미지 포함 심리 추론</td></tr>
+        <tr><td class="key">Claude Sonnet 5</td><td class="num">$3</td><td class="num">$15</td><td>Stage2 — 카탈로그 내 매핑</td></tr>
+        <tr><td class="key">Claude Haiku 4.5</td><td class="num">$1</td><td class="num">$5</td><td>Stage2 하한 후보</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>1회 실비는 <code>count_tokens</code>로 실측한 뒤 확정한다. 현재는 두 단계 모두 같은 모델을 쓰고 있어, 단계별 분리만으로도 절감 여지가 있다.</p>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">2.4</span><h2>로드맵</h2></div>
+
+  <h3>단기 — 이미 아는 결함부터 (0~1개월)</h3>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>#</th><th>과제</th><th>내용</th></tr></thead>
+      <tbody>
+        <tr><td class="key">S1</td><td>모델 기본값 갱신</td><td>기본값이 <code>claude-opus-4-8</code>. Opus 5로 이관하되, Opus 5는 thinking이 <strong>기본 on</strong>이고 <code>disabled</code>는 effort ≤ high에서만 허용되므로 현재 조합을 함께 점검</td></tr>
+        <tr><td class="key">S2</td><td>단계별 모델 분리</td><td>Stage1은 상위 모델, Stage2는 Sonnet 5 / Haiku 4.5 후보로 A/B — 품질 손실 없는 지점 탐색</td></tr>
+        <tr><td class="key">S3</td><td>취향 ‘목적’ 축 재배선</td><td>커플 판정 사용자에게 웨딩 사진이 55% 섞인다. 탐색 슬러그가 아니라 타겟 멤버십을 보도록 고치고, 슬러그 드리프트 경고를 남긴다</td></tr>
+        <tr><td class="key">S4</td><td>임베딩 백필 자동화</td><td>신규 사진이 수동 배치 전까지 추천 후보에서 빠진다. 업로드 훅 또는 크론 스윕 — 현재 유일한 운영 수동 개입</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>중기 — 기존 자산 재활용 (1~3개월)</h3>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>#</th><th>과제</th><th>방식</th></tr></thead>
+      <tbody>
+        <tr><td class="key">M1</td><td>검색 벡터화</td><td>이미 쓰고 있는 SigLIP <strong>텍스트 타워</strong>로 같은 공간에 검색어를 태운다. 신규 모델·추가 비용 0</td></tr>
+        <tr><td class="key">M2</td><td>자동 무드 태그 연결</td><td>원칙 4에 따라 먼저 측정 — “태그 미부착 사진의 노출 결손”을 수치화한 뒤에만 연결</td></tr>
+        <tr><td class="key">M3</td><td>문의 브리프 정규화</td><td>자유서술 메모를 구조화해 작가 카드 가독성과 언락 전환 개선. 접수당 1회 호출이라 비용 예측 가능</td></tr>
+        <tr><td class="key">M4</td><td>작가↔리드 적합도</td><td>작가 포트폴리오 임베딩 평균 vs 신청 사진 임베딩 코사인 → 운영 배분 보조. <strong>추론 없이 벡터 연산만</strong></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>장기 — 데이터가 쌓인 뒤에만 (3개월+)</h3>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>#</th><th>과제</th><th>전제 조건</th></tr></thead>
+      <tbody>
+        <tr><td class="key">L1</td><td>클릭·언락 로그 기반 학습형 랭킹</td><td>현재 개인화는 세션 한정(최근 8장). 계정 단위 장기 취향 프로필은 의도적으로 미적용 — 로그량 확보가 선결</td></tr>
+        <tr><td class="key">L2</td><td>리드 가격 최적화</td><td>언락 전환율 · 작가 유형별 데이터 축적 후</td></tr>
+        <tr><td class="key">L3</td><td>자동 큐레이션 제안</td><td>편집형 큐레이션의 운영 부하가 실제 병목이 된 뒤</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head"><span class="sec-num">2.5</span><h2>리스크와 가드레일</h2></div>
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>리스크</th><th>현재 방어</th><th>보강</th></tr></thead>
+      <tbody>
+        <tr><td><span class="tag risk">환각</span> 없는 카테고리 · 과장된 심리 단정</td><td>화이트리스트 필터 + 확신 차등 규칙 + 부정 프레이밍 금지 프롬프트</td><td>결과 샘플 정기 리뷰</td></tr>
+        <tr><td><span class="tag risk">외부 의존</span> Apify 비공개 · 차단</td><td>명시적 에러 타입 → 업로드 폴백 경로</td><td>타임아웃 · 재시도 정책 문서화</td></tr>
+        <tr><td><span class="tag risk">개인정보</span></td><td>분석 도구 PII 미전송, 연락처는 쿼리 레벨 게이트</td><td>페르소나 원본 데이터 보존 범위 정의</td></tr>
+        <tr><td><span class="tag risk">설정 드리프트</span> 코드가 참조하는 슬러그가 조용히 사라짐</td><td>—</td><td>CI 또는 어드민에서 참조 무결성 경고</td></tr>
+        <tr><td><span class="tag risk">배치 사고</span> service_role RLS 우회</td><td>dry-run 기본 · 단건 update · 3컬럼 한정</td><td>마이그레이션 추적 격차 해소</td></tr>
+        <tr><td><span class="tag risk">모델 교체</span></td><td><code>embedding_model</code> / <code>auto_mood_model</code>에 <code>&lt;모델&gt;@&lt;설정&gt;</code> 기록 → 점진 재계산 가능</td><td>현행 유지</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout">
+    <span class="eyebrow">한 문장 요약</span>
+    <p>samae의 AI는 “조회 경로에서는 절대 추론하지 않는다”는 하나의 규칙 위에 서 있다. 무거운 계산은 오프라인 배치로 밀어 벡터로 저장하고, 언어 모델은 사용자가 직접 시작한 이벤트에서만 돌리며, 그 출력은 반드시 서버가 검증한 뒤에야 화면에 도달한다. 그래서 사용자가 늘어도 AI 비용은 늘지 않고, 모델이 틀려도 화면은 깨지지 않는다.</p>
+  </div>
+</section>
+
+<footer>
+  <span>samae · SOMA-CleanName</span>
+  <span>원본 문서 docs/25-system-architecture-ai-strategy.md</span>
+  <span>기준 main · 7b39aee · 2026-08-15</span>
+</footer>
+
+</div>
+
+</body>
+</html>
