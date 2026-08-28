@@ -1,19 +1,28 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from "next/link";
 import { inquiryStatusLabel, type MyInquiry } from "@/lib/my-inquiries-view";
+import { SupportButton } from "@/components/user/SupportButton";
 
 export function MyInquiryList({
   inquiries,
   roomByPhotographer = {},
+  bookingByPhotographer = {},
 }: {
   inquiries: MyInquiry[];
   /** 작가별 대화방 id — 있으면 '채팅방 열기'가 실제 채팅방(/chat/[id])으로 연결 */
   roomByPhotographer?: Record<string, string>;
+  /** 작가별 확정 예약 id — 있으면 '사매에 문의' 버튼이 붙는다 */
+  bookingByPhotographer?: Record<string, string>;
 }) {
   return (
     <ul className="mt-4 space-y-3.5">
       {inquiries.map((iq) => (
-        <MyInquiryItem key={iq.id} iq={iq} roomId={roomByPhotographer[iq.photographerId] ?? null} />
+        <MyInquiryItem
+          key={iq.id}
+          iq={iq}
+          roomId={roomByPhotographer[iq.photographerId] ?? null}
+          bookingId={bookingByPhotographer[iq.photographerId] ?? null}
+        />
       ))}
     </ul>
   );
@@ -25,7 +34,15 @@ const TONE: Record<string, string> = {
   done: "bg-fg/[0.06] text-fg/60",
 };
 
-function MyInquiryItem({ iq, roomId }: { iq: MyInquiry; roomId: string | null }) {
+function MyInquiryItem({
+  iq,
+  roomId,
+  bookingId,
+}: {
+  iq: MyInquiry;
+  roomId: string | null;
+  bookingId: string | null;
+}) {
   const st = inquiryStatusLabel(iq.status);
   const title = iq.purpose && iq.purpose !== "아직 고민 중이에요" ? `${iq.purpose} 문의` : "문의";
   // 실제 대화방이 있으면 그 방으로(작가 답장·요약 카드 포함), 없으면 챗봇 방 재진입
@@ -134,6 +151,12 @@ function MyInquiryItem({ iq, roomId }: { iq: MyInquiry; roomId: string | null })
             <path d="m9 6 6 6-6 6" />
           </svg>
         </Link>
+
+        {/* 확정된 예약이 있을 때만 — 환불·날짜 변경은 예약이 있어야 성립한다.
+            채팅방까지 들어가야 보이던 창구를 목록에서 바로 열어준다 */}
+        {bookingId && (
+          <SupportButton bookingId={bookingId} conversationId={roomId} variant="list" />
+        )}
       </div>
     </li>
   );

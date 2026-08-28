@@ -10,16 +10,19 @@
 
 import { useState } from "react";
 import { useFormStatus } from "react-dom";
-import { submitSupportRequest } from "./support-actions";
+import { submitSupportRequest } from "@/app/actions/support";
 import { SUPPORT_KINDS, SUPPORT_KIND_HINT, SUPPORT_KIND_LABEL, type SupportKind } from "@/lib/support";
 import { XIcon } from "@/components/user/icons";
 
 export function SupportButton({
   bookingId,
   conversationId,
+  variant = "card",
 }: {
   bookingId: string;
-  conversationId: string;
+  conversationId: string | null;
+  /** card = 예약 카드 안(테두리 버튼) · list = 목록 카드 안(연한 버튼) */
+  variant?: "card" | "list";
 }) {
   const [open, setOpen] = useState(false);
   const [kind, setKind] = useState<SupportKind>("refund");
@@ -29,7 +32,11 @@ export function SupportButton({
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="mt-2 w-full cursor-pointer rounded-full border border-line-strong py-2.5 text-body-sm font-medium text-muted transition-colors hover:bg-fg/[0.04]"
+        className={
+          variant === "list"
+            ? "mt-2 flex w-full cursor-pointer items-center justify-center rounded-xl bg-fg/[0.06] py-3 text-body-sm font-semibold text-fg transition-colors hover:bg-fg/10"
+            : "mt-2 w-full cursor-pointer rounded-full border border-line-strong py-2.5 text-body-sm font-medium text-muted transition-colors hover:bg-fg/[0.04]"
+        }
       >
         사매에 문의
       </button>
@@ -53,7 +60,7 @@ export function SupportButton({
         className="max-h-[88svh] w-full max-w-sm overflow-y-auto rounded-2xl bg-surface p-5 shadow-pop"
       >
         <input type="hidden" name="bookingId" value={bookingId} />
-        <input type="hidden" name="conversationId" value={conversationId} />
+        <input type="hidden" name="conversationId" value={conversationId ?? ""} />
         <input type="hidden" name="kind" value={kind} />
 
         <div className="flex items-start justify-between gap-2">

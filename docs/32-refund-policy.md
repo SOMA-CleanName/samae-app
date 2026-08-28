@@ -231,7 +231,7 @@
 | `src/lib/bot-kb-data.ts` | 기본 KB 환불 카드 |
 | 어드민 작가 | 작가별 수수료 설정 (정액 ↔ 정률) |
 | 어드민 거래·정산 | 건별 환불 견적 표시 + 환불 처리 (`AdminRefundButton`) |
-| `SupportButton.tsx` · `support-actions.ts` | **고객 전용** 환불·날짜 변경 요청 창구 |
+| `components/user/SupportButton.tsx` · `app/actions/support.ts` | **고객 전용** 환불·날짜 변경 요청 창구 (채팅 예약 카드 · 문의 목록 카드) |
 | 어드민 사매 문의 | 요청 접수함 (`/admin/support`) |
 
 **DB (0101):** `photographers.fee_mode / fee_amount_krw / fee_rate` ·

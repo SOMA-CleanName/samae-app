@@ -61,4 +61,5 @@ export async function submitSupportRequest(formData: FormData): Promise<void> {
   }
 
   if (conversationId) revalidatePath(`/chat/${conversationId}`);
+  revalidatePath("/my-inquiries"); // 목록 카드에서 넣은 경우도 즉시 반영
 }

@@ -26,7 +26,7 @@ import { Spinner, Avatar } from "@/components/ui";
 import { GuideImagesButton } from "./GuideImagesButton";
 import { AcceptPayDialog } from "./AcceptPayDialog";
 import { PolicyNote } from "./PolicyNote";
-import { SupportButton } from "./SupportButton";
+import { SupportButton } from "@/components/user/SupportButton";
 import type { GuideImage } from "@/lib/guide-images";
 import { readStoredFieldValues } from "@/lib/booking-fields";
 import {
@@ -1188,12 +1188,26 @@ function BookingCard({
           booking={booking}
           amCustomer={amCustomer}
           amPhotographer={amPhotographer}
+          onOpenDetail={onOpenDetail}
           preloadedAccount={payoutAccount}
           onConfirmed={() => {
             setActed("paid");
             router.refresh();
           }}
         />
+      )}
+
+      {/* 고객: 사매 확인까지 끝난 뒤 — 카드에는 더 볼 것이 없다. 예약 상세로 보낸다 */}
+      {amCustomer && ["paid", "shot", "delivered"].includes(status) && (
+        <div className="mt-3 border-t border-line pt-3">
+          <button
+            type="button"
+            onClick={onOpenDetail}
+            className="w-full cursor-pointer rounded-full border border-line-strong py-2.5 text-body-sm font-medium text-fg transition-colors hover:bg-fg/[0.04]"
+          >
+            예약 확인하기
+          </button>
+        </div>
       )}
 
       {/* 작가: 결제됨 → 촬영 완료 표시 (req9) */}
@@ -1317,12 +1331,15 @@ function TransferSection({
   booking,
   amCustomer,
   amPhotographer,
+  onOpenDetail,
   onConfirmed,
   preloadedAccount,
 }: {
   booking: BookingSnapshot;
   amCustomer: boolean;
   amPhotographer: boolean;
+  /** 확정된 예약을 다시 펼쳐 보는 자리 */
+  onOpenDetail: () => void;
   onConfirmed: () => void; // 작가 입금 확인 후 카드 즉시 진행(req8)
   preloadedAccount: PayoutAccount | null;
 }) {
@@ -1377,6 +1394,15 @@ function TransferSection({
             <p className="mt-1 text-caption leading-relaxed text-success/80">
               이제 촬영일에 만나면 돼요.
             </p>
+            {/* 확정된 뒤에도 "내가 뭘 예약했더라" 를 다시 볼 자리가 필요하다 —
+                채팅 카드는 대화에 묻히고, 일시·장소·금액은 촬영 전날 다시 확인하게 된다 */}
+            <button
+              type="button"
+              onClick={onOpenDetail}
+              className="mt-3 w-full cursor-pointer rounded-full border border-success/30 bg-surface py-2.5 text-body-sm font-semibold text-success transition-colors hover:bg-success/[0.06]"
+            >
+              예약 확인하기
+            </button>
           </div>
         ) : (
           <>

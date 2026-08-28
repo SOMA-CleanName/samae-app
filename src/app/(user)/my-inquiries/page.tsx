@@ -7,6 +7,7 @@ import { EmptyState } from "@/components/ui";
 import { ClipboardIcon } from "@/components/user/icons";
 import { MyInquiryList } from "./MyInquiryList";
 import { RealtimeListRefresh } from "@/components/user/RealtimeListRefresh";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "문의", robots: { index: false } };
@@ -27,6 +28,31 @@ export default async function MyInquiriesPage() {
   // 접수 완료된 작가 — 이 작가의 방은 일반 채팅으로, 미접수(봇 수집 중)면 봇으로 복귀.
   // (봇 대화가 DB에 실시간 동기화되면서 last_message_at 만으로는 진행 중을 구분 못 한다)
   const submittedPhotographers = new Set(inquiries.map((i) => i.photographerId));
+
+  // 확정된(입금까지 끝난) 예약 — 문의 카드에서 바로 사매에 문의할 수 있게 붙인다.
+  // 환불·날짜 변경은 예약이 있어야 성립하므로, 예약이 없는 문의에는 버튼을 두지 않는다.
+  const bookingByPhotographer: Record<string, string> = {};
+  if (me) {
+    const admin = createAdminClient();
+    const { data: bks } = await admin
+      .from("bookings")
+      .select("id, photographer_id, status, transfer_marked_at, created_at")
+      .eq("user_id", me.id)
+      .in("status", ["accepted", "paid", "shot", "delivered"])
+      .order("created_at", { ascending: false });
+    for (const b of (bks ?? []) as {
+      id: string;
+      photographer_id: string;
+      status: string;
+      transfer_marked_at: string | null;
+    }[]) {
+      // 입금을 알린 뒤부터가 사매를 거쳐야 하는 구간이다 (그 전엔 채팅에서 그냥 취소하면 된다)
+      const paidSide = b.status !== "accepted" || !!b.transfer_marked_at;
+      if (paidSide && !bookingByPhotographer[b.photographer_id]) {
+        bookingByPhotographer[b.photographer_id] = b.id;
+      }
+    }
+  }
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6 font-kr">
@@ -93,7 +119,11 @@ export default async function MyInquiriesPage() {
       ) : inquiries.length > 0 ? (
         <>
           <h2 className="mt-7 text-body font-semibold text-muted">문의 내역</h2>
-          <MyInquiryList inquiries={inquiries} roomByPhotographer={Object.fromEntries(roomByPhotographer)} />
+          <MyInquiryList
+            inquiries={inquiries}
+            roomByPhotographer={Object.fromEntries(roomByPhotographer)}
+            bookingByPhotographer={bookingByPhotographer}
+          />
         </>
       ) : null}
     </main>
