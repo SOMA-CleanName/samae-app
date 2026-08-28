@@ -9,20 +9,15 @@ import {
   fmtShootAt,
 } from "@/lib/bookings";
 import { acceptBooking, rejectBooking, cancelBooking } from "@/app/actions/bookings";
-import {
-  confirmTransfer,
-  markShot,
-  markTransferSent,
-  confirmCompletion,
-} from "@/app/actions/payments";
+import { markShot, markTransferSent, confirmCompletion } from "@/app/actions/payments";
 import {
   getPaymentByBooking,
   getFeeByBooking,
-  getPayoutAccountForBooking,
   ensureTransferRecord,
   PAYMENT_LABEL,
   FEE_LABEL,
 } from "@/lib/payments";
+import { getPlatformAccount, hasAccount } from "@/lib/platform-account";
 import { getReviewByBooking } from "@/lib/reviews";
 import { getDelivery, getDeliveryDownloads, signDeliveryAssets } from "@/lib/deliveries";
 import { ReviewForm } from "./ReviewForm";
@@ -54,7 +49,7 @@ export default async function BookingDetail({
   // 한 번에 병렬 조회(기존 8단계 직렬 제거). 조건 미충족 항목은 즉시 null/[] 로 해소.
   const needDelivery =
     b.status === "completed" || (isOwner && ["paid", "shot"].includes(b.status));
-  const [payment, fee, review, delivery, downloads, convId, payoutAccount] = await Promise.all([
+  const [payment, fee, review, delivery, downloads, convId, platformAccount] = await Promise.all([
     getPaymentByBooking(id),
     isOwner ? getFeeByBooking(id) : Promise.resolve(null),
     b.status === "completed" ? getReviewByBooking(id) : Promise.resolve(null),
@@ -64,7 +59,7 @@ export default async function BookingDetail({
       : Promise.resolve([] as Awaited<ReturnType<typeof getDeliveryDownloads>>),
     getConversationIdFor(b.user_id, b.photographer_id),
     isBuyer && b.status === "accepted"
-      ? ensureTransferRecord(id, b.amount_krw ?? 0).then(() => getPayoutAccountForBooking(id)) // 송금대기 레코드 보장(멱등) 후 계좌 조회
+      ? ensureTransferRecord(id, b.amount_krw ?? 0).then(() => getPlatformAccount()) // 송금대기 레코드 보장(멱등) 후 사매 계좌 조회
       : Promise.resolve(null),
   ]);
   // 전달물 서명 URL — delivery 결과에 의존하므로 이후 단계
@@ -83,8 +78,8 @@ export default async function BookingDetail({
     const d = b.accepted_at ? daysSince(b.accepted_at) : 0;
     const tail = d > 0 ? ` · ${d}일째` : "";
     nudge = isBuyer
-      ? `송금 대기 중${tail} — 작가 계좌로 직접 송금 후 입금 확인을 기다려주세요.`
-      : `고객 송금 대기 중${tail} — 입금되면 '입금 확인'을 눌러주세요.`;
+      ? `입금 대기 중${tail} — 사매 계좌로 입금 후 [입금 완료]를 눌러주세요.`
+      : `고객 입금 대기 중${tail} — 사매가 입금을 확인하면 예약이 확정돼요.`;
   } else if (b.status === "delivered") {
     nudge = isBuyer
       ? "보정본이 전달됐어요 — 확인 후 거래 완료를 눌러주세요."
@@ -185,19 +180,19 @@ export default async function BookingDetail({
           </div>
         )}
 
-        {/* 구매자: 수락됨 → 송금 안내(작가 계좌·금액·송금완료) 인라인 노출 (req4) */}
+        {/* 구매자: 수락됨 → 입금 안내(사매 계좌·금액·입금완료) 인라인 노출 (req4) */}
         {isBuyer && b.status === "accepted" && (
           <section className="rounded-xl border border-fg/12 bg-surface p-5">
-            <p className="text-sm font-semibold">💸 송금 안내</p>
+            <p className="text-sm font-semibold">💸 입금 안내 — 사매 계좌로 안전하게</p>
             <p className="mt-1 text-xs text-fg/55">
-              아래 계좌로 촬영비를 직접 송금해주세요. 작가가 입금을 확인하면 결제가 완료됩니다.
+              아래 사매 계좌로 입금해주세요. 사매가 입금을 확인하면 예약이 확정됩니다.
             </p>
 
-            {payoutAccount ? (
+            {platformAccount && hasAccount(platformAccount) ? (
               <div className="mt-3 rounded-xl bg-fg/[0.04] p-3 text-sm">
-                <Row label="은행" value={payoutAccount.bank} />
-                <Row label="계좌번호" value={payoutAccount.number} />
-                <Row label="예금주" value={payoutAccount.holder} />
+                <Row label="은행" value={platformAccount.bank} />
+                <Row label="계좌번호" value={platformAccount.number} />
+                <Row label="예금주" value={platformAccount.holder} />
                 <div className="mt-2 flex items-center justify-between border-t border-fg/10 pt-2">
                   <span className="text-fg/50">보낼 금액</span>
                   <span className="text-base font-bold">₩{fmt.format(b.amount_krw ?? 0)}</span>
@@ -205,40 +200,49 @@ export default async function BookingDetail({
               </div>
             ) : (
               <p className="mt-3 rounded-xl bg-warning-soft px-3 py-2 text-xs text-warning">
-                작가가 아직 수취 계좌를 등록하지 않았어요. 채팅으로 계좌를 문의해주세요.
+                입금 계좌 안내를 준비 중이에요. 잠시 후 다시 확인해주세요.
               </p>
             )}
 
             {b.transfer_marked_at ? (
               <p className="mt-3 rounded-full bg-success-soft px-3 py-2 text-center text-xs text-success">
-                ✅ 송금 완료를 알렸어요 · 작가의 입금 확인을 기다리는 중
+                ✅ 입금 완료를 알렸어요 · 사매가 확인하면 예약이 확정돼요
               </p>
             ) : (
-              payoutAccount && (
+              platformAccount &&
+              hasAccount(platformAccount) && (
                 <form action={markTransferSent} className="mt-3">
                   <input type="hidden" name="id" value={b.id} />
                   <button className="w-full rounded-xl bg-fg py-3 text-sm font-semibold text-bg hover:opacity-90">
-                    송금 완료
+                    입금 완료
                   </button>
                 </form>
               )
             )}
 
             <p className="mt-3 text-[11px] text-fg/45">
-              · 받는 분 통장에 <b>예약자 본인 이름</b>으로 보내면 작가가 확인하기 쉬워요.<br />
-              · 플랫폼은 결제를 중개하지 않으며, 송금은 사용자와 작가 간 직접 거래입니다.
+              · 받는 분 통장에 <b>예약자 본인 이름</b>으로 보내면 확인이 빨라요.<br />
+              · 촬영비는 사매가 보관했다가 촬영 후 작가에게 정산해요. 작가 개인 계좌로의 직접
+              송금은 보호받지 못해요.
             </p>
           </section>
         )}
 
-        {/* 작가: 수락됨 → 입금 확인 */}
+        {/* 작가: 수락됨 → 사매 입금 확인 대기 (확인 주체는 운영자 — 작가 직접 확인은 폐지) */}
         {isOwner && b.status === "accepted" && (
-          <form action={confirmTransfer}>
-            <input type="hidden" name="id" value={b.id} />
-            <button className="w-full rounded-xl bg-fg py-3 text-sm font-semibold text-bg hover:opacity-90">
-              입금 확인
-            </button>
-          </form>
+          <section className="rounded-xl border border-fg/12 bg-surface p-5">
+            {b.transfer_marked_at ? (
+              <p className="text-sm font-semibold text-success">
+                💸 고객이 입금 완료를 알렸어요 — 사매가 확인 중이에요
+              </p>
+            ) : (
+              <p className="text-sm text-fg/60">고객의 입금을 기다리는 중이에요</p>
+            )}
+            <p className="mt-1.5 text-xs text-fg/45">
+              입금은 사매 계좌로 받고, 사매가 확인하면 예약이 확정돼요. 촬영비는 수수료 차감 후
+              정산해드려요.
+            </p>
+          </section>
         )}
 
         {/* 작가: 결제됨 → 촬영 완료 */}

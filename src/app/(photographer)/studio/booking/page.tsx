@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { saveBookingTemplate } from "./actions";
+import { BookingFieldsEditor } from "./BookingFieldsEditor";
+import { normalizeBookingFields } from "@/lib/booking-fields";
 
 // 예약 설정 — 채팅 예약 제안에 쓰일 안내문·출장비 템플릿
 export default async function BookingTemplatePage() {
@@ -13,7 +15,7 @@ export default async function BookingTemplatePage() {
   const supabase = await createClient();
   const { data: ph } = await supabase
     .from("photographers")
-    .select("booking_note, travel_fee_note")
+    .select("booking_fields")
     .eq("id", me.photographer.id)
     .single();
 
@@ -24,41 +26,18 @@ export default async function BookingTemplatePage() {
       </Link>
       <h1 className="mt-4 text-2xl font-semibold">예약 설정</h1>
       <p className="mt-1 text-sm text-fg/55">
-        고객이 채팅에서 “예약하기”를 누르면 보게 될 안내문과 출장비 옵션이에요.
+        예약 제안서에서 고객에게 함께 물어볼 항목을 정할 수 있어요.
       </p>
 
       <form action={saveBookingTemplate} className="mt-6 flex flex-col gap-5">
-        {/* 예약 안내문/조건 */}
-        <label className="flex flex-col gap-1 text-sm font-medium">
-          예약 안내문 · 조건
-          <textarea
-            name="booking_note"
-            rows={5}
-            defaultValue={ph?.booking_note ?? ""}
-            placeholder={"예) 선입금 후 예약 확정됩니다.\n촬영 3일 전까지 취소 가능, 이후 환불 불가."}
-            className="rounded-xl border border-fg/15 bg-surface px-4 py-3 text-sm font-normal outline-none focus:border-fg/40"
-          />
-          <span className="text-xs text-fg/45">고객이 예약 제안 화면 상단에서 보게 됩니다.</span>
-        </label>
-
-        {/* 출장비 — 자유 텍스트 안내 */}
-        <label className="flex flex-col gap-1 text-sm font-medium">
-          출장비 안내
-          <textarea
-            name="travel_fee_note"
-            rows={3}
-            defaultValue={ph?.travel_fee_note ?? ""}
-            placeholder={"예) 성수·한강 무료\n그 외 지역은 거리에 따라 협의 (왕복 교통비 실비)"}
-            className="rounded-xl border border-fg/15 bg-surface px-4 py-3 text-sm font-normal outline-none focus:border-fg/40"
-          />
-          <span className="text-xs text-fg/45">
-            금액이 정해져 있지 않아도 돼요. 적어둔 안내가 예약 제안 화면에서 고객에게 보입니다.
+        {/* 예약서 추가 항목 — 촬영 전에 꼭 받아야 하는 것을 작가가 직접 정의 */}
+        <div className="flex flex-col gap-1 text-sm font-medium">
+          예약서 추가 항목
+          <span className="mb-1 text-xs font-normal text-fg/45">
+            예약 제안서에 이 항목들이 함께 뜨고, 채워진 값은 예약 상세에 그대로 남아요. 최대 5개.
           </span>
-        </label>
-
-        <button className="rounded-xl bg-fg py-3 text-sm font-semibold text-bg hover:opacity-90">
-          저장
-        </button>
+          <BookingFieldsEditor initial={normalizeBookingFields(ph?.booking_fields).fields} />
+        </div>
       </form>
     </main>
   );

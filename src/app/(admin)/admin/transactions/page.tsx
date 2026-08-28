@@ -5,6 +5,7 @@ import { clearTransactions, deleteBookingsSelected, adminConfirmTransfer, adminM
 import { cn } from "@/lib/cn";
 import { DeleteModeProvider, DeleteModeToolbar } from "@/components/admin/DeleteMode";
 import { AdminBookings, type BookingRow } from "./AdminBookings";
+import { AdminCancelButton } from "./AdminCancelButton";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +19,7 @@ type DbBooking = {
   amount_krw: number | null;
   shoot_at: string | null;
   created_at: string;
+  accepted_at: string | null;
   transfer_marked_at: string | null;
   settled_at: string | null;
   settlement_amount_krw: number | null;
@@ -37,7 +39,7 @@ export default async function AdminTransactionsPage() {
   const { data: bData } = await admin
     .from("bookings")
     .select(
-      "id, status, amount_krw, shoot_at, created_at, package_snapshot, transfer_marked_at, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at, user:profiles!bookings_user_id_fkey(display_name), photographer:photographers(display_name)"
+      "id, status, amount_krw, shoot_at, created_at, accepted_at, package_snapshot, transfer_marked_at, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at, user:profiles!bookings_user_id_fkey(display_name), photographer:photographers(display_name)"
     )
     .order("created_at", { ascending: false })
     .limit(500);
@@ -49,6 +51,9 @@ export default async function AdminTransactionsPage() {
   // 에스크로 운영 큐 — ①입금 확인 대기(고객이 입금 완료 알림) ②정산 대기(확정됐지만 작가 미송금)
   // ③정산 미수령 확인 요청(작가가 [못 받았어요])
   const awaitingConfirm = raw.filter((b) => b.status === "accepted" && b.transfer_marked_at);
+  // ④입금 대기 — 수락은 됐는데 고객이 아직 입금 완료를 알리지 않은 건.
+  // 여태 어느 큐에도 안 떠서, 수락해놓고 그대로 멈춘 예약을 운영이 발견할 방법이 없었다.
+  const awaitingDeposit = raw.filter((b) => b.status === "accepted" && !b.transfer_marked_at);
   const awaitingSettle = raw.filter(
     (b) => PAID_BOOKING.includes(b.status) && !b.settled_at
   );
@@ -102,6 +107,40 @@ export default async function AdminTransactionsPage() {
         </section>
       )}
 
+      {/* 입금 대기 — 수락 후 아무 소식 없는 건. 며칠째 그대로면 운영이 연락하거나 취소한다 */}
+      {awaitingDeposit.length > 0 && (
+        <section className="mt-5 rounded-2xl bg-surface p-4 ring-1 ring-line">
+          <h2 className="text-body-sm font-semibold text-fg">
+            ⏳ 입금 대기 <span className="text-brand">{awaitingDeposit.length}</span>
+          </h2>
+          <p className="mt-0.5 text-caption text-muted">
+            수락됐지만 고객이 아직 입금 완료를 알리지 않았어요. 오래 멈춰 있으면 연락하거나 취소하세요.
+          </p>
+          <ul className="mt-2 space-y-2">
+            {awaitingDeposit.map((b) => (
+              <li
+                key={b.id}
+                className="flex items-center justify-between gap-2 rounded-xl bg-surface-2 px-3 py-2"
+              >
+                <div className="min-w-0 text-caption">
+                  <p className="font-semibold text-fg">
+                    {one(b.user)?.display_name ?? "고객"} → {one(b.photographer)?.display_name ?? "작가"}
+                  </p>
+                  <p className="text-muted">
+                    ₩{fmt.format(b.amount_krw ?? 0)}
+                    {b.accepted_at && ` · 수락 ${new Date(b.accepted_at).toLocaleDateString("ko-KR")}`}
+                  </p>
+                </div>
+                <AdminCancelButton
+                  bookingId={b.id}
+                  label={`${one(b.user)?.display_name ?? "고객"} → ${one(b.photographer)?.display_name ?? "작가"} · ₩${fmt.format(b.amount_krw ?? 0)}`}
+                />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {/* ── 에스크로 운영 큐 ── */}
       {(awaitingConfirm.length > 0 || awaitingSettle.length > 0) && (
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -119,12 +158,18 @@ export default async function AdminTransactionsPage() {
                     </p>
                     <p className="text-muted">₩{fmt.format(b.amount_krw ?? 0)}</p>
                   </div>
-                  <form action={adminConfirmTransfer}>
-                    <input type="hidden" name="id" value={b.id} />
-                    <button className="cursor-pointer rounded-lg bg-fg px-3 py-1.5 text-caption font-semibold text-bg hover:opacity-90">
-                      입금 확인
-                    </button>
-                  </form>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <form action={adminConfirmTransfer}>
+                      <input type="hidden" name="id" value={b.id} />
+                      <button className="cursor-pointer rounded-lg bg-fg px-3 py-1.5 text-caption font-semibold text-bg hover:opacity-90">
+                        입금 확인
+                      </button>
+                    </form>
+                    <AdminCancelButton
+                      bookingId={b.id}
+                      label={`${one(b.user)?.display_name ?? "고객"} → ${one(b.photographer)?.display_name ?? "작가"} · ₩${fmt.format(b.amount_krw ?? 0)}`}
+                    />
+                  </div>
                 </li>
               ))}
               {awaitingConfirm.length === 0 && <li className="text-caption text-faint">없음</li>}

@@ -34,6 +34,7 @@ export type BookingRow = {
   shoot_date: string | null;
   location_text: string | null;
   amount_krw: number | null;
+  travel_fee_krw: number; // 출장비 — 예약 카드·상세에서 촬영비와 분리 표기
   memo: string;
   user_id: string;
   photographer_id: string;
@@ -48,7 +49,7 @@ export type BookingRow = {
 };
 
 const SELECT =
-  "id, status, shoot_at, shoot_date, location_text, amount_krw, memo, user_id, photographer_id, created_at, accepted_at, transfer_marked_at, proposed_by_photographer, package_snapshot, " +
+  "id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, memo, user_id, photographer_id, created_at, accepted_at, transfer_marked_at, proposed_by_photographer, package_snapshot, " +
   "photographer:photographers(display_name), " +
   "user:profiles!bookings_user_id_fkey(display_name), " +
   "package:packages(name)";

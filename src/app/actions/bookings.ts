@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { mpTrackServer } from "@/lib/mixpanel-server";
 import { notifyOpsBookingAccepted } from "@/lib/ops-alert";
+import { normalizeBookingFields, readBookingFieldValues } from "@/lib/booking-fields";
 
 // 희망 날짜 정규화 — shoot_at(시각 확정)이 있으면 그 KST 날짜, 없으면 폼의 YYYY-MM-DD.
 function resolveShootDate(shootAtIso: string | null, dateRaw: string): string | null {
@@ -15,6 +16,18 @@ function resolveShootDate(shootAtIso: string | null, dateRaw: string): string | 
     return new Date(shootAtIso).toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
   }
   return /^\d{4}-\d{2}-\d{2}$/.test(dateRaw) ? dateRaw : null;
+}
+
+// 금액 입력 파싱 — 촬영비·출장비는 폼에서 '각각' 받는다(패키지 가격은 프리필일 뿐).
+// 합계(=입금액)는 서버가 계산한다. 클라이언트가 보낸 총액은 신뢰하지 않는다.
+const MAX_FEE_KRW = 50_000_000;
+function parseFee(raw: FormDataEntryValue | null, label: string): number {
+  const s = String(raw ?? "").replace(/[,\s₩]/g, "");
+  if (s === "") return 0;
+  const n = Number(s);
+  if (!Number.isInteger(n) || n < 0) throw new Error(`${label}는 0 이상의 정수로 입력해주세요.`);
+  if (n > MAX_FEE_KRW) throw new Error(`${label}가 너무 커요.`);
+  return n;
 }
 
 // 알림 생성 헬퍼 (service_role)
@@ -99,7 +112,11 @@ export async function proposeBooking(formData: FormData) {
   const shootDateRaw = String(formData.get("shootDate") || "");
   const locationText = String(formData.get("locationText") || "").slice(0, 200);
   const memo = String(formData.get("memo") || "").slice(0, 500);
-  const wantTravel = formData.get("travel") === "on";
+  // 협의된 최종 금액 — 촬영비/출장비 분리 입력
+  const shootFee = parseFee(formData.get("shootFeeKrw"), "촬영비");
+  const travelFee = parseFee(formData.get("travelFeeKrw"), "출장비");
+  const amount = shootFee + travelFee;
+  if (amount <= 0) throw new Error("촬영비를 입력해주세요.");
 
   const supabase = await createClient();
 
@@ -117,20 +134,14 @@ export async function proposeBooking(formData: FormData) {
   const photographerId = conv.photographer_id;
   const userId = conv.user_id;
 
-  // 패키지 스냅샷 + 작가 출장비
-  const [{ data: pkg }, { data: phRow }] = await Promise.all([
-    supabase
-      .from("packages")
-      .select("name, description, price_krw, duration_min, edited_count")
-      .eq("id", packageId)
-      .eq("photographer_id", photographerId) // 타작가 패키지 id로 예약 생성(폼 위조) 차단
-      .single(),
-    supabase.from("photographers").select("travel_fee_krw").eq("id", photographerId).single(),
-  ]);
+  // 패키지 스냅샷 — 제안이 어느 패키지에서 출발했는지 기록(금액의 근거는 아니다)
+  const { data: pkg } = await supabase
+    .from("packages")
+    .select("name, description, price_krw, duration_min, edited_count")
+    .eq("id", packageId)
+    .eq("photographer_id", photographerId) // 타작가 패키지 id로 예약 생성(폼 위조) 차단
+    .single();
   if (!pkg) throw new Error("패키지를 찾을 수 없습니다.");
-
-  const travelFee = wantTravel ? Math.max(0, phRow?.travel_fee_krw ?? 0) : 0;
-  const amount = pkg.price_krw + travelFee;
 
   // 희망 시각 (없으면 협의). 유효하지 않으면 null.
   let shootAt: string | null = null;
@@ -138,6 +149,21 @@ export async function proposeBooking(formData: FormData) {
     const d = new Date(shootAtRaw);
     if (!isNaN(d.getTime())) shootAt = d.toISOString();
   }
+  // 날짜·시간·장소는 필수 — 시간 미정 제안은 결국 채팅으로 다시 조율하게 돼 제안의 의미가 없다.
+  if (!shootAt) throw new Error("촬영 일시를 골라주세요.");
+  if (!locationText.trim()) throw new Error("촬영 장소를 입력해주세요.");
+
+  // 작가가 정의한 추가 항목 — 스펙은 DB 에서 다시 읽는다(폼이 보낸 스펙을 믿지 않는다)
+  const { data: phFields } = await supabase
+    .from("photographers")
+    .select("booking_fields")
+    .eq("id", photographerId)
+    .maybeSingle();
+  const { fields: specs } = normalizeBookingFields(phFields?.booking_fields);
+  const { values: customFields, errors: fieldErrors } = readBookingFieldValues(specs, (n) =>
+    formData.get(n) == null ? null : String(formData.get(n))
+  );
+  if (fieldErrors.length > 0) throw new Error(fieldErrors[0]);
   // 희망 날짜 — 시간이 미정이어도 날짜는 카드에 남긴다 (shoot_at이 있으면 그 KST 날짜로 통일)
   const shootDate = resolveShootDate(shootAt, shootDateRaw);
 
@@ -154,6 +180,7 @@ export async function proposeBooking(formData: FormData) {
       shoot_date: shootDate,
       duration_min: pkg.duration_min ?? null,
       location_text: locationText,
+      custom_fields: customFields,
       amount_krw: amount,
       travel_fee_krw: travelFee,
       package_snapshot: pkg,
@@ -187,6 +214,10 @@ export async function proposeBooking(formData: FormData) {
     `Propose Booking:${booking.id}`,
   );
 
+  // 같은 URL 로 redirect 하므로 캐시를 먼저 버려야 한다 —
+  // 안 그러면 제안한 쪽 화면이 옛 데이터(카드 없는 상태)로 다시 렌더된다.
+  revalidatePath(`/chat/${conversationId}`);
+  revalidatePath("/chat");
   redirect(`/chat/${conversationId}`);
 }
 
@@ -201,39 +232,57 @@ export async function updateBooking(formData: FormData) {
   const shootDateRaw = String(formData.get("shootDate") || "");
   const locationText = String(formData.get("locationText") || "").slice(0, 200);
   const memo = String(formData.get("memo") || "").slice(0, 500);
-  const wantTravel = formData.get("travel") === "on";
+  const shootFee = parseFee(formData.get("shootFeeKrw"), "촬영비");
+  const travelFee = parseFee(formData.get("travelFeeKrw"), "출장비");
+  const amount = shootFee + travelFee;
+  if (amount <= 0) throw new Error("촬영비를 입력해주세요.");
 
   const admin = createAdminClient();
 
-  // 본인 + requested 상태만 수정 가능
+  // 제안한 쪽 + requested 상태만 수정 가능.
+  // 예약서에 금액·일시·장소·추가 항목까지 들어가면서 오타 한 번에 취소하고 다시 쓰는 게
+  // 너무 비쌌다 — 제안자가 자기 제안을 고칠 수 있어야 한다. 수락 이후에는 여전히 잠긴다.
   const { data: b } = await admin
     .from("bookings")
-    .select("id, user_id, photographer_id, status")
+    .select("id, user_id, photographer_id, status, proposed_by_photographer")
     .eq("id", id)
     .single();
-  if (!b || b.user_id !== me.id) throw new Error("권한이 없습니다.");
+  if (!b) throw new Error("예약을 찾을 수 없습니다.");
+  const isProposer = b.proposed_by_photographer
+    ? me.photographer?.id === b.photographer_id
+    : b.user_id === me.id;
+  if (!isProposer) throw new Error("제안한 쪽만 수정할 수 있습니다.");
   if (b.status !== "requested") throw new Error("수정할 수 없는 상태입니다.");
 
-  // 패키지 스냅샷 + 작가 출장비 재계산
-  const [{ data: pkg }, { data: phRow }] = await Promise.all([
-    admin
-      .from("packages")
-      .select("name, description, price_krw, duration_min, edited_count")
-      .eq("id", packageId)
-      .eq("photographer_id", b.photographer_id) // 타작가 패키지 id로 수정(폼 위조) 차단
-      .single(),
-    admin.from("photographers").select("travel_fee_krw").eq("id", b.photographer_id).single(),
-  ]);
+  // 패키지 스냅샷 재기록 (금액은 폼의 촬영비·출장비가 진실)
+  const { data: pkg } = await admin
+    .from("packages")
+    .select("name, description, price_krw, duration_min, edited_count")
+    .eq("id", packageId)
+    .eq("photographer_id", b.photographer_id) // 타작가 패키지 id로 수정(폼 위조) 차단
+    .single();
   if (!pkg) throw new Error("패키지를 찾을 수 없습니다.");
-
-  const travelFee = wantTravel ? Math.max(0, phRow?.travel_fee_krw ?? 0) : 0;
-  const amount = pkg.price_krw + travelFee;
 
   let shootAt: string | null = null;
   if (shootAtRaw) {
     const d = new Date(shootAtRaw);
     if (!isNaN(d.getTime())) shootAt = d.toISOString();
   }
+  // 날짜·시간·장소는 필수 — 시간 미정 제안은 결국 채팅으로 다시 조율하게 돼 제안의 의미가 없다.
+  if (!shootAt) throw new Error("촬영 일시를 골라주세요.");
+  if (!locationText.trim()) throw new Error("촬영 장소를 입력해주세요.");
+
+  // 작가가 정의한 추가 항목 — 스펙은 DB 에서 다시 읽는다(폼이 보낸 스펙을 믿지 않는다)
+  const { data: phFields } = await admin
+    .from("photographers")
+    .select("booking_fields")
+    .eq("id", b.photographer_id)
+    .maybeSingle();
+  const { fields: specs } = normalizeBookingFields(phFields?.booking_fields);
+  const { values: customFields, errors: fieldErrors } = readBookingFieldValues(specs, (n) =>
+    formData.get(n) == null ? null : String(formData.get(n))
+  );
+  if (fieldErrors.length > 0) throw new Error(fieldErrors[0]);
   const shootDate = resolveShootDate(shootAt, shootDateRaw);
 
   // TOCTOU 방지 — read 이후 accept 와 경쟁 시 accepted 예약에 편집이 적용되지 않도록
@@ -246,6 +295,7 @@ export async function updateBooking(formData: FormData) {
       shoot_date: shootDate,
       duration_min: pkg.duration_min ?? null,
       location_text: locationText,
+      custom_fields: customFields,
       amount_krw: amount,
       travel_fee_krw: travelFee,
       package_snapshot: pkg,
@@ -262,9 +312,33 @@ export async function updateBooking(formData: FormData) {
     conversation_id: conversationId,
     sender_id: me.id,
     type: "system",
-    body: "✏️ 예약 제안을 수정했어요",
+    body: "✏️ 예약 제안이 수정됐어요 — 바뀐 내용을 확인하고 다시 수락해주세요.",
   });
 
+  // 수락할 쪽에 알림 — 방을 보고 있지 않으면 내용이 바뀐 걸 모른 채 수락하게 된다
+  const recipient = b.proposed_by_photographer
+    ? b.user_id
+    : (await admin.from("photographers").select("profile_id").eq("id", b.photographer_id).single())
+        .data?.profile_id;
+  if (recipient) {
+    await notify(
+      admin,
+      recipient,
+      "예약 제안이 수정됐어요",
+      "바뀐 내용을 확인하고 다시 수락해주세요.",
+      `/chat/${conversationId}`
+    );
+  }
+
+  await mpTrackServer("Update Booking", me.id, {
+    booking_id: id,
+    actor: b.proposed_by_photographer ? "photographer" : "customer",
+  });
+
+  // 같은 URL 로 redirect 하므로 캐시를 먼저 버려야 한다 —
+  // 안 그러면 제안한 쪽 화면이 옛 데이터(카드 없는 상태)로 다시 렌더된다.
+  revalidatePath(`/chat/${conversationId}`);
+  revalidatePath("/chat");
   redirect(`/chat/${conversationId}`);
 }
 
@@ -355,6 +429,7 @@ export async function acceptBooking(formData: FormData) {
   revalidatePath(`/bookings/${id}`);
   revalidatePath("/bookings");
   revalidatePath("/chat");
+  revalidatePath("/chat/[conversationId]", "page");
 }
 
 // 요청 거절 — 수락과 동일하게 '제안자의 상대'가 거절한다.
@@ -404,6 +479,7 @@ export async function rejectBooking(formData: FormData) {
   revalidatePath(`/bookings/${id}`);
   revalidatePath("/bookings");
   revalidatePath("/chat");
+  revalidatePath("/chat/[conversationId]", "page");
 }
 
 // 구매자/작가: 결제 전 취소 → 슬롯 해제
@@ -422,19 +498,34 @@ export async function cancelBooking(formData: FormData) {
 
   const isBuyer = b.user_id === me.id;
   const isOwner = me.photographer?.id === b.photographer_id;
-  if (!isBuyer && !isOwner) throw new Error("권한이 없습니다.");
+  // 운영자도 취소할 수 있다 — 수락만 해놓고 입금이 오지 않는 건은 결국 누군가 물러야 하는데,
+  // 당사자가 안 눌러주면 운영이 손쓸 방법이 없었다.
+  const isAdmin = me.role === "admin";
+  if (!isBuyer && !isOwner && !isAdmin) throw new Error("권한이 없습니다.");
   if (!["requested", "accepted"].includes(b.status)) throw new Error("취소할 수 없는 상태입니다.");
+
+  const reason = String(formData.get("reason") ?? "").trim().slice(0, 200);
 
   await admin
     .from("bookings")
-    .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
+    .update({
+      status: "cancelled",
+      cancelled_at: new Date().toISOString(),
+      ...(reason ? { cancel_reason: reason } : {}),
+    })
     .eq("id", id);
 
-  // 상대에게 알림
-  const recipient = isBuyer
-    ? (await admin.from("photographers").select("profile_id").eq("id", b.photographer_id).single()).data?.profile_id
-    : b.user_id;
-  if (recipient) await notify(admin, recipient, "예약이 취소됐어요", "", `/bookings/${id}`);
+  // 알림 — 당사자 취소는 상대에게만, 운영 취소는 양측 모두에게
+  const phProfile = (
+    await admin.from("photographers").select("profile_id").eq("id", b.photographer_id).single()
+  ).data?.profile_id;
+  const recipients =
+    !isBuyer && !isOwner
+      ? [b.user_id, phProfile]
+      : [isBuyer ? phProfile : b.user_id];
+  for (const r of recipients) {
+    if (r) await notify(admin, r, "예약이 취소됐어요", reason, `/bookings/${id}`);
+  }
 
   // 채팅 타임라인에도 취소 기록
   await postSystemMessage(
@@ -442,7 +533,11 @@ export async function cancelBooking(formData: FormData) {
     b.user_id,
     b.photographer_id,
     me.id,
-    isBuyer ? "🚫 고객이 예약을 취소했어요." : "🚫 작가가 예약을 취소했어요."
+    !isBuyer && !isOwner
+      ? `🚫 사매 운영이 예약을 취소했어요.${reason ? ` (${reason})` : ""}`
+      : isBuyer
+        ? "🚫 고객이 예약을 취소했어요."
+        : "🚫 작가가 예약을 취소했어요."
   );
 
   await mpTrackServer(
@@ -452,7 +547,7 @@ export async function cancelBooking(formData: FormData) {
       booking_id: id,
       photographer_id: b.photographer_id,
       from_status: b.status,
-      actor: isBuyer ? "customer" : "photographer",
+      actor: !isBuyer && !isOwner ? "admin" : isBuyer ? "customer" : "photographer",
     },
     // from_status 포함 — 같은 예약이 여러 상태에서 취소될 일은 없지만 방어적으로.
     `Cancel Booking:${id}`,
@@ -461,4 +556,5 @@ export async function cancelBooking(formData: FormData) {
   revalidatePath(`/bookings/${id}`);
   revalidatePath("/bookings");
   revalidatePath("/chat");
+  revalidatePath("/chat/[conversationId]", "page");
 }
