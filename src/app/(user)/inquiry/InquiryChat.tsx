@@ -1,34 +1,26 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { startTransition, useActionState, useEffect, useRef, useState } from "react";
+import { startTransition, useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeftIcon, CheckIcon, ChevronDownIcon } from "@/components/user/icons";
+import { ArrowLeftIcon, CheckIcon } from "@/components/user/icons";
 import { mpTrack, mpTrackBeacon } from "@/lib/mixpanel";
 import * as Sentry from "@sentry/nextjs";
-import { CORE_STEPS, type QuestionSegment } from "@/lib/inquiry-bot";
-import { submitInquiry, submitMultiInquiry, type InquiryState } from "./actions";
+import { buildFlow, type BotStep, type CustomBotQuestion, type QuestionSegment } from "@/lib/inquiry-bot";
+import { submitInquiryToChat, submitMultiInquiry, type InquiryState } from "./actions";
 
 const INITIAL_STATE: InquiryState = { ok: false };
 
 // 채팅형 문의 — 스크롤되는 채팅방. 시스템이 질문을 보내고, 사용자는 질문별 맞춤 입력으로 답함.
-// soft-skip은 다른 선택지와 동등한 버튼. 언제든 "바로 문의" 경로 → 건너뛴 질문은 접이식 아코디언.
-// 제출 전까진 이전 답변 언제든 수정(답변 칩 유지 + 선택지 부드럽게 펼침).
+// soft-skip은 다른 선택지와 동등한 버튼. 제출 전까진 이전 답변 언제든 수정.
+//
+// 촬영 예약 트랙(사진 상세의 [촬영 예약하기]) — 연락처는 묻지 않는다. 로그인·번호 인증이
+// 이미 전제(채팅 모델)고 작가에게 연락처는 어떤 단계에서도 비공개다. 제출하면 답변이
+// 작가 채팅방에 봇 수집과 동일한 요약 카드로 올라가고 사용자는 그 방으로 들어간다.
 
-type StepKey = "purpose" | "preferredDate" | "region" | "partySize";
-type StepType = "options" | "date";
-
-type Step = {
-  key: StepKey;
-  q: React.ReactNode;
-  type: StepType;
-  options?: string[];
-  cols?: 1 | 2; // options 레이아웃 (기본 2열)
-  skip: string; // 질문별 맞춤 soft-skip (다른 선택지와 동등 버튼)
-  short: string; // 요약 라벨
-  ev: string; // Mixpanel 이벤트 접두어 — 질문마다 고유 이름("... Viewed" / "... Answered")
-};
+// 질문 정의는 봇과 공유(inquiry-bot.ts) — 코어 4문항 + 작가 커스텀 질문.
+type Step = BotStep & { q: React.ReactNode };
 
 // 질문 데이터는 챗봇(/inquiry/bot)과 공유하는 inquiry-bot.ts 로 분리 —
 // 문구 조각(QuestionSegment)을 여기서 <Em> 강조 JSX 로 렌더해 기존과 동일하게 표시한다.
@@ -37,37 +29,19 @@ function renderQuestion(segments: QuestionSegment[]): React.ReactNode {
   return segments.map((s, i) => (s.em ? <Em key={i}>{s.text}</Em> : s.text));
 }
 
-const STEPS: Step[] = CORE_STEPS.map((s) => ({
-  key: s.key as StepKey,
-  q: renderQuestion(s.question),
-  type: s.type as StepType,
-  options: s.options,
-  cols: s.cols,
-  skip: s.skip,
-  short: s.short,
-  ev: s.ev,
-}));
-
-// 연락처(마지막 단계) — 질문 이벤트와 같은 규칙의 고유 이름. 퍼널 마지막 스텝.
+// 마지막 단계(확인·전달) — 질문 이벤트와 같은 규칙의 고유 이름.
 //
 // ⚠️ Q번호는 '순서'가 아니라 '고유 ID' 다. 절대 당겨쓰지 말 것.
-// v2에서 Q5 Note(문의사항)를 제거했지만 연락처는 Q6 그대로 둔다 — 이름을 Q5로 당기면
-// 기존 Mixpanel 퍼널 리포트가 끊기고, 같은 이름이 시점에 따라 다른 뜻이 돼 복구가 불가능해진다.
-// 지금은 Q5 Note 이벤트만 조용히 0이 되므로, 저장된 퍼널에서 Q5 스텝만 빼면 v1·v2가 이어진다.
-const CONTACT_EV = "Inquiry Q6 Contact";
+// v3에서 연락처(Q6)를 제거하고 그 자리를 '확인' 단계가 대신한다. Q6 Contact 이벤트는
+// 조용히 0이 되므로, 저장된 퍼널에서 마지막 스텝만 Review 로 바꾸면 v2·v3가 이어진다.
+const REVIEW_EV = "Inquiry Review";
 
 // 퍼널 세대 구분 — 문항 구성이 바뀔 때마다 올린다. 모든 문의 이벤트에 실려서
 // "문항을 줄여 완료율이 올랐는가" 를 세대별로 끊어 볼 수 있게 한다.
 //   v1 = 5문항(목적·희망일·지역·인원·문의사항) + 연락처
 //   v2 = 4문항(목적·희망일·지역·인원) + 연락처
-const FLOW_VERSION = "v2";
-
-// 이벤트 공통 prop — step_index 는 '이 버전 안에서의 위치' 라서 total_steps 와 같이 읽어야 한다.
-// (연락처 step_index 는 v1에서 6, v2에서 5. 안정 키가 필요하면 step/last_step 을 쓸 것.)
-const FLOW_PROPS = {
-  inquiry_flow_version: FLOW_VERSION,
-  total_steps: STEPS.length + 1, // 질문 + 연락처
-} as const;
+//   v3 = 4문항 + 작가 커스텀 질문(0~3) + 확인 — 연락처 없음(채팅방으로 바로 전달)
+const FLOW_VERSION = "v3";
 
 // 키워드 강조 — 볼드 + 브랜드 컬러
 function Em({ children }: { children: React.ReactNode }) {
@@ -87,9 +61,9 @@ function formatDateKo(iso: string) {
   if (Number.isNaN(d.getTime())) return iso;
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${WEEKDAY[d.getDay()]})`;
 }
-// 저장값 → 화면 표시 문자열
-function displayAnswer(key: StepKey, value: string) {
-  if (key === "preferredDate" && isISODate(value)) return formatDateKo(value);
+// 저장값 → 화면 표시 문자열 (날짜 스텝의 ISO 값만 한국어 표기로)
+function displayAnswer(step: Step, value: string) {
+  if (step.type === "date" && isISODate(value)) return formatDateKo(value);
   return value;
 }
 
@@ -97,94 +71,16 @@ function displayAnswer(key: StepKey, value: string) {
 function inquiryStorageKey(photoId: string, photographerId: string) {
   return `samae:inquiry:${photoId || photographerId}`;
 }
-function loadSavedAnswers(key: string): Partial<Record<StepKey, string>> | null {
+function loadSavedAnswers(key: string): Record<string, string> | null {
   try {
     const raw = localStorage.getItem(key);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === "object") return parsed as Partial<Record<StepKey, string>>;
+    if (parsed && typeof parsed === "object") return parsed as Record<string, string>;
   } catch {
     /* 무시 */
   }
   return null;
-}
-
-// ── 연락처 타입 / 유효성 (item9) ─────────────────────────────────
-type ContactType = "phone" | "kakao";
-const CONTACT_TYPES: {
-  key: ContactType;
-  label: string;
-  short: string; // 아이콘 아래 짧은 라벨
-  placeholder: string;
-  inputMode: "tel" | "text";
-  empty: string; // 빈칸일 때 안내문
-}[] = [
-  { key: "phone", label: "전화번호", short: "전화", placeholder: "010-1234-5678", inputMode: "tel", empty: "전화번호를 입력해주세요." },
-  { key: "kakao", label: "카카오톡 ID", short: "카톡", placeholder: "카카오톡 ID", inputMode: "text", empty: "카카오톡 ID를 입력해주세요." },
-];
-
-// 연락처 방식 아이콘 (전화 / 카카오톡)
-function ContactIcon({ kind }: { kind: ContactType }) {
-  const cls = "h-5 w-5";
-  if (kind === "phone")
-    return (
-      <svg viewBox="0 0 24 24" className={cls} fill="none" stroke="currentColor" strokeWidth="1.8">
-        <path
-          d="M4 5c0-.6.4-1 1-1h2.3c.5 0 .9.3 1 .8l.8 3c.1.4 0 .8-.3 1.1L7.3 10.4a12 12 0 0 0 6.3 6.3l1.5-1.5c.3-.3.7-.4 1.1-.3l3 .8c.5.1.8.5.8 1V19c0 .6-.4 1-1 1A15 15 0 0 1 4 5z"
-          strokeLinejoin="round"
-        />
-      </svg>
-    );
-  return (
-    <svg viewBox="0 0 24 24" className={cls} fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path
-        d="M12 4.5C7 4.5 3 7.6 3 11.4c0 2.4 1.7 4.6 4.2 5.8-.2.7-.7 2.3-.8 2.7 0 .3.2.4.4.3.3-.2 2.5-1.7 3.5-2.4.5.1 1.1.1 1.7.1 5 0 9-3.1 9-6.9S17 4.5 12 4.5z"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-// 카카오톡 아이디 — 영문 소문자·숫자·마침표(.)·밑줄(_) 4~20자 (대문자·하이픈 불가)
-const KAKAO_RE = /^[a-z0-9._]{4,20}$/;
-
-// 전화번호 — "-" 없이 입력해도 자동으로 하이픈 삽입 (item5)
-function formatPhoneInput(raw: string) {
-  const d = raw.replace(/\D/g, "").slice(0, 11);
-  if (d.length < 4) return d;
-  if (d.length < 8) return `${d.slice(0, 3)}-${d.slice(3)}`;
-  return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
-}
-// 카톡 ID — 소문자만 허용: 대문자는 자동 소문자화, 허용 외 문자(하이픈·공백 등)는 제거, 20자 캡
-function formatKakaoInput(raw: string) {
-  return raw.toLowerCase().replace(/[^a-z0-9._]/g, "").slice(0, 20);
-}
-
-// 입력창 흔들림 — 미완성 제출 시 "여기 입력해주세요" 시선 유도
-function shakeEl(el: HTMLElement | null) {
-  el?.animate(
-    [
-      { transform: "translateX(0)" },
-      { transform: "translateX(-5px)" },
-      { transform: "translateX(5px)" },
-      { transform: "translateX(-4px)" },
-      { transform: "translateX(4px)" },
-      { transform: "translateX(0)" },
-    ],
-    { duration: 320, easing: "ease-in-out" }
-  );
-}
-
-function validateContact(type: ContactType, raw: string): { valid: boolean; error: string | null } {
-  const v = raw.trim();
-  if (!v) return { valid: false, error: null };
-  if (type === "phone") {
-    const d = v.replace(/\D/g, "");
-    if (d.length !== 11 || !d.startsWith("01"))
-      return { valid: false, error: "010으로 시작하는 11자리를 입력해주세요." };
-    return { valid: true, error: null };
-  }
-  if (!KAKAO_RE.test(v)) return { valid: false, error: "4자 이상 입력해주세요." };
-  return { valid: true, error: null };
 }
 
 export function InquiryChat({
@@ -193,6 +89,7 @@ export function InquiryChat({
   photoSrc,
   photoIds,
   photoSrcs,
+  customQuestions,
 }: {
   photographerId: string;
   photoId: string;
@@ -200,21 +97,36 @@ export function InquiryChat({
   // 찜에서 여러 장 묶음 상담(작가별 dedup은 서버에서). 있으면 멀티 모드.
   photoIds?: string[];
   photoSrcs?: string[];
+  // 작가가 등록한 커스텀 질문 — 코어 4문항 뒤에 이어 붙는다(봇과 같은 시퀀스)
+  customQuestions?: CustomBotQuestion[];
 }) {
   const router = useRouter();
   const multi = !!photoIds && photoIds.length > 0;
   const [state, formAction, pending] = useActionState(
-    multi ? submitMultiInquiry : submitInquiry,
+    multi ? submitMultiInquiry : submitInquiryToChat,
     INITIAL_STATE
   );
 
-  const [answers, setAnswers] = useState<Partial<Record<StepKey, string>>>({});
+  // 질문 수가 작가마다 달라 스텝은 런타임 구성 — 질문 목록이 같으면 인스턴스를 유지한다.
+  const customKey = (customQuestions ?? []).map((q) => q.id).join(",");
+  const steps = useMemo<Step[]>(
+    () => buildFlow(customQuestions ?? []).map((s) => ({ ...s, q: renderQuestion(s.question) })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [customKey]
+  );
+  // 이벤트 공통 prop — step_index 는 '이 버전 안에서의 위치' 라서 total_steps 와 같이 읽어야 한다.
+  // (v3의 확인 단계 step_index = 질문 수 + 1. 안정 키가 필요하면 step/last_step 을 쓸 것.)
+  const flowProps = useMemo(
+    () => ({ inquiry_flow_version: FLOW_VERSION, total_steps: steps.length + 1 }),
+    [steps.length]
+  );
+
+  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [revealed, setRevealed] = useState(-1); // 노출된 질문 최대 index
   const [typing, setTyping] = useState(false);
   const [optionsReady, setOptionsReady] = useState(false); // 질문 노출 후 1초 뒤 선지 노출
-  const [contactStep, setContactStep] = useState(false);
+  const [review, setReview] = useState(false); // 마지막 단계 — 확인 후 전달
   const [editing, setEditing] = useState<number | null>(null); // 재선택 중인 질문 index
-  const [submittedContactType, setSubmittedContactType] = useState<ContactType | null>(null);
 
   const chatRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -231,7 +143,7 @@ export function InquiryChat({
     if (startFired.current) return;
     startFired.current = true;
     mpTrack("Start Inquiry", {
-      ...FLOW_PROPS,
+      ...flowProps,
       source: mode,
       photographer_id: photographerId,
     });
@@ -240,11 +152,16 @@ export function InquiryChat({
   const storageKey = multi
     ? `samae:inquiry:cart:${(photoIds ?? []).slice(0, 3).join("_")}`
     : inquiryStorageKey(photoId, photographerId);
-  const answeredCount = STEPS.filter((s) => answers[s.key] !== undefined).length;
+  const answeredCount = steps.filter((s) => answers[s.key] !== undefined).length;
   const done = state.ok;
-  // 진행률 = 답변한 질문 수 / 전체 질문 수. 연락처는 '결승선'이라 질문 카운트에 미포함.
-  const totalQ = STEPS.length;
+  // 진행률 = 답변한 질문 수 / 전체 질문 수. 확인 단계는 '결승선'이라 질문 카운트에 미포함.
+  const totalQ = steps.length;
   const answeredQ = Math.min(answeredCount, totalQ);
+
+  // 로그인·연락처 동선 복귀 주소 — 답변은 localStorage 에 남아 있어 돌아오면 그대로 이어진다.
+  const selfUrl = multi
+    ? `/inquiry/cart?ids=${(photoIds ?? []).join(",")}`
+    : `/inquiry?photographerId=${photographerId}${photoId ? `&photoId=${photoId}` : ""}`;
 
   // 질문 노출 후 선지는 0.6초 뒤에 펼침 — 질문을 먼저 읽게 하되 너무 늦지 않게.
   // 스크롤은 '질문 상단 고정' 정책이 담당 — 여기선 바닥에 붙이지 않는다(밀림/스냅 제거).
@@ -260,11 +177,11 @@ export function InquiryChat({
       revealOptionsSoon();
     }, REVEAL_MS);
   }
-  function revealContact() {
+  function revealReview() {
     setTyping(true);
     window.setTimeout(() => {
       setTyping(false);
-      setContactStep(true);
+      setReview(true);
     }, REVEAL_MS);
   }
 
@@ -288,15 +205,15 @@ export function InquiryChat({
     } catch {
       /* 무시 */
     }
-    // 사진별로 저장된 입력이 있으면 복원 (새로고침·뒤로가기 후 그대로)
+    // 사진별로 저장된 입력이 있으면 복원 (새로고침·로그인 복귀 후 그대로)
     const saved = loadSavedAnswers(storageKey);
     if (saved && Object.keys(saved).length > 0) {
-      const cnt = STEPS.filter((s) => saved[s.key] !== undefined).length;
+      const cnt = steps.filter((s) => saved[s.key] !== undefined).length;
       window.setTimeout(() => {
         setAnswers(saved);
-        if (cnt >= STEPS.length) {
-          setRevealed(STEPS.length - 1);
-          setContactStep(true);
+        if (cnt >= steps.length) {
+          setRevealed(steps.length - 1);
+          setReview(true);
         } else {
           setRevealed(cnt); // 순차 답변 가정 — 다음 질문을 활성화
           revealOptionsSoon();
@@ -333,36 +250,47 @@ export function InquiryChat({
     }
   }, [done, storageKey]);
 
+  // 채팅 트랙 전제(로그인·등록 번호) 미충족 — 해당 동선으로 보내고 돌아오면 이어서 제출한다.
+  useEffect(() => {
+    if (state.needLogin) router.push(`/login?next=${encodeURIComponent(selfUrl)}`);
+    else if (state.needContact) router.push(`/signup/contact?next=${encodeURIComponent(selfUrl)}`);
+  }, [state.needLogin, state.needContact, router, selfUrl]);
+
+  // 접수 완료 → 요약 카드가 올라간 작가 채팅방으로. 여기서부터는 방 안에서 대화가 이어진다.
+  useEffect(() => {
+    if (state.conversationId) router.replace(`/chat/${state.conversationId}`);
+  }, [state.conversationId, router]);
+
   // ── 질문별 퍼널 계측 ────────────────────────────────────────────
   // 질문마다 고유 이벤트("Inquiry Q3 Region Viewed" / "... Answered")를 쏴서 Mixpanel 퍼널을
   // 스텝별로 그대로 쌓을 수 있게 한다. Viewed 끼리 이어붙이면 '어느 질문에서 이탈했는가'가 바로 나옴.
-  const viewedRef = useRef<Set<StepKey | "contact">>(new Set());
+  const viewedRef = useRef<Set<string>>(new Set());
   useEffect(() => {
-    if (revealed < 0 || contactStep || done) return;
-    const step = STEPS[revealed];
+    if (revealed < 0 || review || done) return;
+    const step = steps[revealed];
     if (!step || viewedRef.current.has(step.key)) return;
     viewedRef.current.add(step.key);
     mpTrack(`${step.ev} Viewed`, {
-      ...FLOW_PROPS,
+      ...flowProps,
       step: step.key,
       step_index: revealed + 1,
       step_name: step.short,
       mode,
     });
-  }, [revealed, contactStep, done, mode]);
+  }, [revealed, review, done, mode, steps, flowProps]);
 
-  // 연락처 단계 도달 — 저장본 복원으로 바로 진입한 경우까지 잡히게 effect 에서 발화.
+  // 확인 단계 도달 — 저장본 복원으로 바로 진입한 경우까지 잡히게 effect 에서 발화.
   useEffect(() => {
-    if (!contactStep || viewedRef.current.has("contact")) return;
-    viewedRef.current.add("contact");
-    mpTrack(`${CONTACT_EV} Viewed`, {
-      ...FLOW_PROPS,
-      step: "contact",
-      step_index: STEPS.length + 1,
-      step_name: "연락처",
+    if (!review || viewedRef.current.has("review")) return;
+    viewedRef.current.add("review");
+    mpTrack(`${REVIEW_EV} Viewed`, {
+      ...flowProps,
+      step: "review",
+      step_index: steps.length + 1,
+      step_name: "확인",
       mode,
     });
-  }, [contactStep, mode]);
+  }, [review, mode, steps.length, flowProps]);
 
   // 서버 검증 실패 — 제출까지 왔는데 접수가 안 된 이탈(퍼널 마지막 구멍).
   // 같은 문구가 반복돼도 세도록 state 객체 동일성으로 중복만 막는다(제출마다 새 객체).
@@ -371,23 +299,23 @@ export function InquiryChat({
     if (!state.error || failedStateRef.current === state) return;
     failedStateRef.current = state;
     mpTrack("Inquiry Submit Failed", {
-      ...FLOW_PROPS,
+      ...flowProps,
       reason: "server",
       message: state.error.slice(0, 100),
       mode,
     });
-  }, [state, mode]);
+  }, [state, mode, flowProps]);
 
   // 이탈 스냅샷 — 언로드/언마운트 시점에 '마지막으로 머문 질문'을 읽기 위한 최신값 보관.
   const snapRef = useRef({ stepEv: "", stepKey: "", stepName: "", stepIndex: 0, answered: 0, done: false });
   useEffect(() => {
     // 첫 질문 노출 전(revealed < 0)엔 스냅샷을 비워 둔다 — 진입 직후 바운스가 이탈로 잡히지 않게.
-    const cur = contactStep || revealed < 0 ? null : STEPS[revealed];
+    const cur = review || revealed < 0 ? null : steps[revealed];
     snapRef.current = {
-      stepEv: contactStep ? CONTACT_EV : (cur?.ev ?? ""),
-      stepKey: contactStep ? "contact" : (cur?.key ?? ""),
-      stepName: contactStep ? "연락처" : (cur?.short ?? ""),
-      stepIndex: contactStep ? STEPS.length + 1 : revealed + 1,
+      stepEv: review ? REVIEW_EV : (cur?.ev ?? ""),
+      stepKey: review ? "review" : (cur?.key ?? ""),
+      stepName: review ? "확인" : (cur?.short ?? ""),
+      stepIndex: review ? steps.length + 1 : revealed + 1,
       answered: answeredCount,
       done,
     };
@@ -401,7 +329,7 @@ export function InquiryChat({
     if (abandonedRef.current || s.done || !s.stepKey) return;
     abandonedRef.current = true;
     mpTrackBeacon("Inquiry Abandoned", {
-      ...FLOW_PROPS,
+      ...flowProps,
       last_step: s.stepKey,
       last_step_name: s.stepName,
       last_step_index: s.stepIndex,
@@ -434,10 +362,10 @@ export function InquiryChat({
     optionsEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [answeredCount, optionsReady, revealed]);
 
-  // 연락처·완료 단계 진입 시엔 폼/모달이 보이게 하단으로.
+  // 확인·완료 단계 진입 시엔 버튼/모달이 보이게 하단으로.
   useEffect(() => {
-    if (contactStep || done) bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [contactStep, done]);
+    if (review || done) bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [review, done]);
 
   // 성공 — 자체 분석·Mixpanel 전환 기록 (문의당 1회).
   // Meta 픽셀 Lead 는 여기가 아니라 '무료로 견적 받아보기' CTA 클릭에서 발화(meta-lead.ts).
@@ -456,7 +384,7 @@ export function InquiryChat({
       // Sentry 세션 리플레이 필터용 태그 — 신청자 세션만 골라 진입~이탈 전 과정 재생.
       Sentry.getCurrentScope().setTag("inquiry_submitted", "true");
       mpTrack("Submit Inquiry", {
-        ...FLOW_PROPS,
+        ...flowProps,
         inquiry_id: state.inquiryId,
         source: multi ? "cart" : "photo",
         photographer_id: photographerId,
@@ -467,6 +395,7 @@ export function InquiryChat({
         region: answers.region,
         party_size: answers.partySize,
         preferred_date: answers.preferredDate,
+        custom_questions: steps.filter((s) => s.custom).length,
       });
     }
     // 답변·모드는 제출 성공 시점 값으로 1회만 기록 — leadFiredFor 가드로 중복 방지.
@@ -475,7 +404,7 @@ export function InquiryChat({
 
   function onAnswer(i: number, value: string) {
     fireStartInquiry();
-    const key = STEPS[i].key;
+    const key = steps[i].key;
     setAnswers((prev) => ({ ...prev, [key]: value }));
     if (editing === i) {
       setEditing(null);
@@ -485,52 +414,59 @@ export function InquiryChat({
     if (editing !== null) setEditing(null);
     if (i === revealed) {
       // 질문별 답변 이벤트(전진 답변만 — 수정은 위에서 return). Viewed 대비 Answered 로
-      // 질문 단위 이탈률이 바로 나온다. 남은 질문은 모두 선택지(목적·지역 등 수요 신호)라 값 포함.
-      mpTrack(`${STEPS[i].ev} Answered`, {
-        ...FLOW_PROPS,
+      // 질문 단위 이탈률이 바로 나온다.
+      mpTrack(`${steps[i].ev} Answered`, {
+        ...flowProps,
         step: key,
         step_index: i + 1,
-        step_name: STEPS[i].short,
+        step_name: steps[i].short,
         mode,
-        skipped: value === STEPS[i].skip, // soft-skip 도 '답변' — 실제 응답률과 구분
-        value,
+        skipped: value === steps[i].skip, // soft-skip 도 '답변' — 실제 응답률과 구분
+        // 커스텀 질문 답변은 자유 입력(개인정보 유입 가능) — 값은 싣지 않는다.
+        ...(steps[i].custom ? {} : { value }),
       });
-      if (i < STEPS.length - 1) advanceTo(i + 1);
-      else revealContact();
+      if (i < steps.length - 1) advanceTo(i + 1);
+      else revealReview();
     }
   }
 
-  // 제출 — 채팅 답변 + 연락처를 FormData 로 변환해 기존 submitInquiry 재사용
-  function submit(contactType: ContactType, contactValue: string) {
+  // 봇 슬롯 형태(코어 4 + custom) — 서버가 봇 접수 경로를 그대로 태울 수 있게 맞춘다.
+  // 코어는 원본 값 그대로: 날짜 ISO 변환·인원 소프트스킵 처리는 서버(toInquiryFields)가 한다.
+  function buildSlots() {
+    const slots: Record<string, unknown> = {};
+    const custom: Record<string, string> = {};
+    for (const s of steps) {
+      const raw = answers[s.key];
+      if (raw === undefined) continue;
+      if (s.custom) {
+        if (raw === s.skip) continue; // 모르겠다는 답은 작가에게 전달하지 않는다
+        custom[s.question.map((q) => q.text).join("")] = displayAnswer(s, raw);
+      } else {
+        slots[s.key] = raw;
+      }
+    }
+    if (Object.keys(custom).length > 0) slots.custom = custom;
+    return slots;
+  }
+
+  // 제출 — 채팅 트랙은 슬롯 JSON, 묶음 상담은 기존 FormData 계약 그대로.
+  function submit() {
     // 저장된 답변 복원 후 바로 제출하는 경로에서도 Start 가 반드시 선행되게 안전망.
     fireStartInquiry();
-    // 접수 완료 안내에서 실제로 선택한 연락 채널에 맞는 문구를 보여준다.
-    setSubmittedContactType(contactType);
     const fd = new FormData();
     if (multi) {
       fd.set("photoIds", (photoIds ?? []).join(","));
+      for (const s of steps) {
+        const raw = answers[s.key];
+        if (!raw || s.custom) continue;
+        // partySize 는 soft-skip 을 값으로 저장하지 않고 미입력(null)로 처리
+        if (s.key === "partySize" && raw === s.skip) continue;
+        fd.set(s.key, displayAnswer(s, raw));
+      }
     } else {
       fd.set("photographerId", photographerId);
       fd.set("photoId", photoId);
-    }
-    for (const s of STEPS) {
-      const raw = answers[s.key];
-      if (!raw) {
-        fd.set(s.key, "");
-        continue;
-      }
-      // partySize 는 soft-skip 을 값으로 저장하지 않고 미입력(null)로 처리
-      if (s.key === "partySize" && raw === s.skip) {
-        fd.set(s.key, "");
-        continue;
-      }
-      fd.set(s.key, displayAnswer(s.key, raw));
-    }
-    if (contactType === "phone") {
-      const d = contactValue.replace(/\D/g, "");
-      fd.set("phone", `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`);
-    } else {
-      fd.set("kakaoId", contactValue.trim());
+      fd.set("slots", JSON.stringify(buildSlots()));
     }
     // 유입 어트리뷰션 — AnalyticsTracker 가 sessionStorage 에 담아둔 utm/랜딩을 접수에 첨부.
     // fbc(광고 클릭 ID)는 인스타가 오가닉 클릭에도 붙여 광고/스토리 구분이 안 되므로,
@@ -548,7 +484,7 @@ export function InquiryChat({
     startTransition(() => formAction(fd));
   }
 
-  // item10 — 완료 모달 동선
+  // item10 — 완료 모달 동선 (묶음 상담 전용 — 단건은 채팅방으로 바로 이동)
   function goExplore() {
     try {
       sessionStorage.removeItem(POST_INQUIRY_KEY);
@@ -558,8 +494,7 @@ export function InquiryChat({
     router.replace("/");
   }
   function goSave() {
-    // 완료 후 문의 내역으로 — 비로그인도 쿠키로 조회 가능(죽은 /bookings 대신 /my-inquiries).
-    // POST_INQUIRY_KEY 는 유지 → 내역에서 '뒤로' 시 빈 폼 대신 탐색으로 바운스.
+    // 완료 후 문의 내역으로 — POST_INQUIRY_KEY 는 유지 → 내역에서 '뒤로' 시 탐색으로 바운스.
     router.push("/my-inquiries");
   }
 
@@ -577,24 +512,26 @@ export function InquiryChat({
             <ArrowLeftIcon />
           </button>
           <div className="min-w-0 flex-1">
-            <p className="text-base font-semibold">무료 견적 받기</p>
-            <p className="text-sm text-muted">보통 1시간 내 답변드려요</p>
+            <p className="text-base font-semibold">{multi ? "무료 견적 받기" : "촬영 예약 문의"}</p>
+            <p className="text-sm text-muted">
+              {multi ? "보통 1시간 내 답변드려요" : "작가님과 채팅으로 이어져요"}
+            </p>
           </div>
         </div>
         <div className="px-4 pb-3 pt-2">
           <div className="mb-1.5 flex items-baseline justify-between">
             <span className="text-sm font-semibold text-fg">
-              {contactStep ? "마지막 단계 · 연락처" : STEPS[answeredQ]?.short ?? "질문"}
+              {review ? "마지막 단계 · 확인" : steps[answeredQ]?.short ?? "질문"}
             </span>
             <span className="text-sm font-bold tabular-nums text-brand">
-              {contactStep ? "거의 끝났어요!" : `${answeredQ} / ${totalQ}`}
+              {review ? "거의 끝났어요!" : `${answeredQ} / ${totalQ}`}
             </span>
           </div>
           {/* 연결된 도트 스텝퍼 — 완료=체크, 현재=핑(ping) 강조, 미완성=작은 점(크기 리듬) */}
           <div className="flex items-center py-1">
             {Array.from({ length: totalQ }).map((_, i) => {
               const isDone = i < answeredQ;
-              const isCurrent = i === answeredQ && !contactStep && !done;
+              const isCurrent = i === answeredQ && !review && !done;
               return (
                 <div key={i} className={`flex items-center ${i === 0 ? "" : "flex-1"}`}>
                   {i > 0 && (
@@ -618,8 +555,8 @@ export function InquiryChat({
                 </div>
               );
             })}
-            {/* 레버5 — 연락처 노드를 처음부터 노출해 '예고 없는 6번째 단계' 서프라이즈 제거.
-                질문 중엔 작은 점(예정), 연락처 단계에선 ping, 완료 시 체크. */}
+            {/* 레버5 — 마지막(확인) 노드를 처음부터 노출해 '예고 없는 마지막 단계' 서프라이즈 제거.
+                질문 중엔 작은 점(예정), 확인 단계에선 ping, 완료 시 체크. */}
             {(() => {
               const allAnswered = answeredQ >= totalQ;
               return (
@@ -634,7 +571,7 @@ export function InquiryChat({
                       <span className="flex h-4 w-4 items-center justify-center rounded-full bg-brand">
                         <CheckIcon className="h-2.5 w-2.5 text-white" />
                       </span>
-                    ) : contactStep ? (
+                    ) : review ? (
                       <span className="h-4 w-4 rounded-full bg-brand ring-4 ring-brand/30" />
                     ) : (
                       <span className="h-2 w-2 rounded-full bg-fg/15" />
@@ -673,7 +610,7 @@ export function InquiryChat({
               />
             )
           )}
-          짧게 <Em>몇 가지 질문</Em>과 <Em>연락받을 방법</Em>만 알려주시면
+          짧게 <Em>몇 가지 질문</Em>에만 답해주시면
           <br />
           {multi ? (
             <>
@@ -681,13 +618,13 @@ export function InquiryChat({
             </>
           ) : (
             <>
-              사진을 찍은 <Em>작가님과 연결</Em>해드려요.
+              사진을 찍은 <Em>작가님과 채팅</Em>으로 이어드려요.
             </>
           )}
         </SystemBubble>
 
         {/* 질문/답변 */}
-        {STEPS.map((step, i) => {
+        {steps.map((step, i) => {
           const answered = answers[step.key] !== undefined;
           const isEditing = editing === i;
 
@@ -698,7 +635,7 @@ export function InquiryChat({
                 <SystemBubble emphasis>{step.q}</SystemBubble>
                 {answered && (
                   <div className="ml-auto w-fit max-w-[88%]">
-                    <SentBubble muted>{displayAnswer(step.key, answers[step.key]!)}</SentBubble>
+                    <SentBubble muted>{displayAnswer(step, answers[step.key]!)}</SentBubble>
                   </div>
                 )}
                 <ExpandIn>
@@ -718,7 +655,7 @@ export function InquiryChat({
           // 답변 완료 또는 현재 노출 스텝을 한 블록으로 렌더 — 답변 시 선지 Reveal 이 즉시
           // 언마운트되지 않고 부드럽게 닫히게, 질문·답변칩은 ExpandIn 으로 등장 → 레이아웃 시프트 완화.
           // 자식 key(q/a/opts)로 answered 전환 시에도 Reveal 인스턴스가 보존돼 닫힘 애니가 재생된다.
-          if (answered || (!contactStep && i === revealed)) {
+          if (answered || (!review && i === revealed)) {
             return (
               <div key={step.key} className="space-y-1.5">
                 <ExpandIn key="q">
@@ -727,7 +664,7 @@ export function InquiryChat({
                 {answered && (
                   <ExpandIn key="a">
                     <div className="ml-auto flex w-fit max-w-[88%] flex-col items-end gap-0.5">
-                      <SentBubble>{displayAnswer(step.key, answers[step.key]!)}</SentBubble>
+                      <SentBubble>{displayAnswer(step, answers[step.key]!)}</SentBubble>
                       {!done && (
                         <button
                           type="button"
@@ -740,7 +677,7 @@ export function InquiryChat({
                     </div>
                   </ExpandIn>
                 )}
-                {i === revealed && !contactStep && (
+                {i === revealed && !review && (
                   <Reveal key="opts" snapOpen open={!answered && optionsReady}>
                     <UserTray>
                       <QuestionInput
@@ -763,16 +700,21 @@ export function InquiryChat({
         {/* 스크롤 기준 마커 — 선지 생성 시 이 지점을 채팅창 바닥에 맞춰 선지가 보이도록 스크롤한다. */}
         <div ref={optionsEndRef} aria-hidden />
 
-        {/* 연락처 단계 (item9) */}
-        {contactStep && (
+        {/* 마지막 단계 — 확인 후 전달 (연락처는 묻지 않는다) */}
+        {review && (
           <div className="space-y-2">
             <SystemBubble>
               <Em>거의 다 왔어요!</Em>
               <br />
-              작성하신 내용으로 <Em>무료 견적</Em>, 어디로 받아보실래요?
+              작성하신 내용을 {multi ? "작가님들께" : "작가님께"} 그대로 전달할게요.
             </SystemBubble>
             {!done && (
-              <ContactBlock onSubmit={submit} pending={pending} serverError={state.error} mode={mode} />
+              <SubmitBlock
+                onSubmit={submit}
+                pending={pending}
+                serverError={state.error}
+                multi={multi}
+              />
             )}
           </div>
         )}
@@ -780,14 +722,8 @@ export function InquiryChat({
         <div ref={bottomRef} />
       </div>
 
-      {/* item3 — 완료 모달 (닫기 불가) */}
-      {done && (
-        <DoneModal
-          contactType={submittedContactType}
-          onExplore={goExplore}
-          onSave={goSave}
-        />
-      )}
+      {/* item3 — 완료 모달 (닫기 불가). 단건은 채팅방으로 이동하므로 묶음 상담에서만. */}
+      {done && multi && <DoneModal onExplore={goExplore} onSave={goSave} />}
     </div>
   );
 
@@ -800,40 +736,15 @@ export function InquiryChat({
   }
 }
 
-// ── 완료 모달 (item3) ─────────────────────────────────────────────
-function DoneModal({
-  contactType,
-  onExplore,
-  onSave,
-}: {
-  contactType: ContactType | null;
-  onExplore: () => void;
-  onSave: () => void;
-}) {
+// ── 완료 모달 (item3) — 묶음 상담 전용 ────────────────────────────
+function DoneModal({ onExplore, onSave }: { onExplore: () => void; onSave: () => void }) {
   // 마운트 시 팝인 — 완료를 여정의 Peak 로
   const [shown, setShown] = useState(false);
   useEffect(() => {
     const r = requestAnimationFrame(() => setShown(true));
     return () => cancelAnimationFrame(r);
   }, []);
-  const contactMessage =
-    contactType === "kakao" ? (
-      <>
-        입력한 카톡 아이디로 작가님이 고객님께
-        <br />
-        카톡 메시지를 보냅니다.
-      </>
-    ) : (
-      <>
-        입력한 전화번호로 작가님이 고객님께
-        <br />
-        메시지를 보냅니다.
-      </>
-    );
-  const nextSteps = [
-    "보통 1시간 내 연락드려요",
-    "채팅에서 일정·컨셉을 협의해요",
-  ];
+  const nextSteps = ["보통 1시간 내 답변드려요", "채팅에서 일정·컨셉을 협의해요"];
   return (
     <div className="fixed inset-0 z-[70] grid place-items-center bg-black/50 p-6 font-kr">
       <div
@@ -850,7 +761,9 @@ function DoneModal({
         </div>
         <p className="text-xl font-bold">신청 접수 완료!</p>
         <p className="mt-2 text-sm leading-relaxed text-muted">
-          {contactMessage}
+          작가님들이 사매 채팅으로
+          <br />
+          답변을 보내드려요.
         </p>
 
         {/* 다음 일 타임라인 — '끝'이 아니라 '다음'을 보여줘 안심 */}
@@ -884,258 +797,54 @@ function DoneModal({
   );
 }
 
-// ── 연락처 입력 (item9) ───────────────────────────────────────────
-function ContactBlock({
+// ── 마지막 단계 — 확인 후 전달 ────────────────────────────────────
+// 연락처 입력이 사라진 자리. 여기서 묻지 않는 이유(비공개·채팅 진행)를 먼저 말해준다.
+function SubmitBlock({
   onSubmit,
   pending,
   serverError,
-  mode,
+  multi,
 }: {
-  onSubmit: (type: ContactType, value: string) => void;
+  onSubmit: () => void;
   pending: boolean;
   serverError?: string;
-  mode: string;
+  multi: boolean;
 }) {
-  const [type, setType] = useState<ContactType | null>(null);
-  const [val, setVal] = useState("");
-  const [attempted, setAttempted] = useState(false);
-  const [blockMsg, setBlockMsg] = useState<string | null>(null);
-  const [kakaoHelp, setKakaoHelp] = useState(false); // '카톡 아이디 찾는 방법' 펼침
-  const inputRef = useRef<HTMLInputElement>(null);
-  const endRef = useRef<HTMLDivElement>(null);
-  const blockTimer = useRef<number | undefined>(undefined);
-
-  const active = CONTACT_TYPES.find((t) => t.key === type);
-  const check = type ? validateContact(type, val) : { valid: false, error: null };
-  const errorText = check.valid
-    ? null
-    : val.trim()
-      ? check.error
-      : (active?.empty ?? "연락받을 연락처를 입력해주세요.");
-  // 안내문: blur/버튼 시 검증 노출 + 허용 외 문자 입력 시 즉시(blockMsg) 노출
-  const showError = attempted && !!errorText;
-  const displayedError = blockMsg ?? (showError ? errorText : null);
-
-  // 허용 외 문자 입력 시 즉시 안내 (입력 자체는 차단)
-  function flashBlock(msg: string) {
-    setBlockMsg(msg);
-    if (blockTimer.current) window.clearTimeout(blockTimer.current);
-    blockTimer.current = window.setTimeout(() => setBlockMsg(null), 2200);
-  }
-  function handleChange(raw: string) {
-    if (type === "phone") {
-      if (/[^\d\s().-]/.test(raw)) flashBlock("숫자만 입력할 수 있어요.");
-      setVal(formatPhoneInput(raw));
-    } else if (type === "kakao") {
-      // 대문자는 조용히 소문자화 → 안내는 진짜 못 쓰는 문자(하이픈·공백·한글 등)에만
-      if (/[^a-zA-Z0-9._]/.test(raw)) flashBlock("영문·숫자·_·.만 쓸 수 있어요.");
-      setVal(formatKakaoInput(raw));
-    } else {
-      setVal(raw);
-    }
-  }
-  useEffect(() => () => window.clearTimeout(blockTimer.current), []);
-
-  // 연락처 종류 선택 시 채팅 스크롤을 최하단까지 내려 입력창·버튼이 보이게
-  useEffect(() => {
-    if (!type) return;
-    const id = window.setTimeout(() => {
-      const sc = endRef.current?.closest<HTMLElement>(".overflow-y-auto");
-      if (sc) sc.scrollTo({ top: sc.scrollHeight, behavior: "smooth" });
-      else endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-    }, 80);
-    return () => window.clearTimeout(id);
-  }, [type]);
-
-  function handleSubmit() {
-    setAttempted(true);
-    if (!type || !check.valid) {
-      // 제출 버튼까지 눌렀지만 연락처 형식 오류 — 마지막 단계의 숨은 이탈 원인
-      mpTrack("Inquiry Submit Failed", {
-        ...FLOW_PROPS,
-        reason: "invalid_contact",
-        contact_type: type ?? "none",
-        mode,
-      });
-      // 연락처 미완성 — 입력창으로 시선 유도(포커스 + 흔들림)
-      inputRef.current?.focus();
-      shakeEl(inputRef.current);
-      return;
-    }
-    onSubmit(type, val);
-  }
-
   return (
-    <>
     <div className="ml-auto w-full max-w-[88%] rounded-2xl rounded-tr-md bg-brand/[0.07] p-3">
-      <div className="grid grid-cols-2 gap-2">
-        {CONTACT_TYPES.map((t) => {
-          const on = type === t.key;
-          return (
-            <button
-              key={t.key}
-              type="button"
-              aria-pressed={on}
-              aria-label={t.label}
-              onClick={() => {
-                // 연락 수단 선택 — 연락처 단계 안에서의 진행 신호(도달만 하고 고르지도 않은 이탈과 구분)
-                if (type !== t.key)
-                  mpTrack(`${CONTACT_EV} Type Selected`, { ...FLOW_PROPS, contact_type: t.key, mode });
-                setType(t.key);
-                setVal("");
-                setAttempted(false);
-                setBlockMsg(null);
-                setKakaoHelp(false);
-              }}
-              className={[
-                // 아이콘 + 짧은 라벨 세로 스택 — '인스타 DM' 처럼 긴 라벨로 줄바꿈되던 문제 해소
-                "flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl py-2.5 text-[13px] font-medium transition-transform active:scale-[0.97]",
-                on ? "bg-brand text-white" : "bg-surface text-fg ring-1 ring-line-strong active:bg-surface-2",
-              ].join(" ")}
-            >
-              <ContactIcon kind={t.key} />
-              {t.short}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* 연락처 안심 — 왜 필요한지 + 노출 범위(이탈 최다 지점 방어) */}
-      <p className="mt-2 flex items-center gap-1.5 text-[11px] leading-tight text-muted">
+      <p className="flex items-center gap-1.5 text-[11px] leading-tight text-muted">
         <svg viewBox="0 0 24 24" className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
           <rect x="5" y="11" width="14" height="9" rx="2" />
           <path d="M8 11V8a4 4 0 0 1 8 0v3" strokeLinecap="round" />
         </svg>
-        연락처는 작가 전달 이외의 용도로 사용되지 않습니다.
+        연락처는 작가에게 공개되지 않아요. 대화는 사매 채팅에서 이어집니다.
       </p>
 
-      {type && active && (
-        <div className="mt-3">
-          <input
-            ref={inputRef}
-            type="text"
-            value={val}
-            onChange={(e) => handleChange(e.target.value)}
-            onBlur={() => setAttempted(true)}
-            placeholder={active.placeholder}
-            inputMode={active.inputMode}
-            autoFocus
-            className={[
-              // mp-mask: 세션 리플레이에서 이 입력(연락처=PII)만 마스킹. 나머지 화면은 공개.
-              "mp-mask h-11 w-full rounded-xl border bg-surface px-3 text-base text-fg outline-none transition-colors placeholder:text-faint",
-              displayedError ? "border-danger" : "border-line-strong focus:border-brand",
-            ].join(" ")}
-          />
-          {/* 안내문 자리를 항상 확보 — 등장해도 버튼이 밀리지 않게 */}
-          {/* 에러 + 카톡 도움말 토글을 같은 예약 높이(min-h-[18px]) 줄에 —
-              연락수단별(전화/카톡/이메일) 입력 박스 높이를 동일하게 유지. 도움말은 탭 시에만 아래로 펼침. */}
-          {/* 에러 줄(높이는 에러 텍스트 18px 로만 결정) — 카톡 도움말 토글은 absolute 로 얹어
-              줄 높이에 영향 주지 않음 → 전화/카톡/이메일 입력 박스 높이가 항상 동일. */}
-          <div className="relative mt-1.5 min-h-[18px]">
-            <p
-              className={`truncate text-[11px] font-medium leading-[18px] text-danger ${
-                type === "kakao" ? "pr-28" : ""
-              }`}
-            >
-              {displayedError ?? ""}
-            </p>
-            {type === "kakao" && (
-              <button
-                type="button"
-                onClick={() => setKakaoHelp((v) => !v)}
-                aria-expanded={kakaoHelp}
-                className="absolute right-0 top-1/2 flex -translate-y-1/2 cursor-pointer items-center gap-1 text-[11px] font-medium leading-[18px] text-muted transition-colors hover:text-fg"
-              >
-                <span className="grid h-3.5 w-3.5 place-items-center rounded-full border border-current text-[9px] font-bold leading-none">
-                  ?
-                </span>
-                아이디 찾는 방법
-                <ChevronDownIcon
-                  className={`h-3 w-3 transition-transform ${kakaoHelp ? "rotate-180" : ""}`}
-                />
-              </button>
-            )}
-          </div>
+      {serverError && <p className="mt-2 text-xs font-medium text-danger">{serverError}</p>}
 
-          {/* 카톡 아이디 찾는 방법 — 열렸을 때만 렌더(닫힘=0 높이 → 전화/이메일과 박스 높이 동일) */}
-          {type === "kakao" && kakaoHelp && (
-            <div className="mt-2 rounded-xl bg-surface-2 px-3 py-3 text-[12px] leading-relaxed text-fg/80">
-                  <ol className="space-y-3">
-                    <li>
-                      <p className="mb-1.5">
-                        <b className="text-fg">1.</b> 카카오톡 <b className="text-fg">친구 탭</b> →
-                        우측 상단 <b className="text-fg">친구 추가(사람+)</b> 아이콘
-                      </p>
-                      <img
-                        src="/guide/kakao-id-1.jpg"
-                        alt="카카오톡 친구 탭 우측 상단의 친구 추가 아이콘 위치"
-                        loading="lazy"
-                        className="w-full rounded-lg border border-line"
-                      />
-                    </li>
-                    <li>
-                      <p className="mb-1.5">
-                        <b className="text-fg">2.</b> 상단에서 <b className="text-fg">카카오톡 ID</b> 선택
-                      </p>
-                      <img
-                        src="/guide/kakao-id-2.jpg"
-                        alt="친구 추가 화면의 카카오톡 ID 메뉴"
-                        loading="lazy"
-                        className="w-full rounded-lg border border-line"
-                      />
-                    </li>
-                    <li>
-                      <p className="mb-1.5">
-                        <b className="text-fg">3.</b> 하단 <b className="text-fg">‘내 아이디’</b>에
-                        표시된 값이 내 카카오톡 아이디예요
-                      </p>
-                      <img
-                        src="/guide/kakao-id-3.jpg"
-                        alt="내 카카오톡 아이디가 표시되는 위치"
-                        loading="lazy"
-                        className="w-full rounded-lg border border-line"
-                      />
-                    </li>
-                  </ol>
-            </div>
-          )}
+      <button
+        type="button"
+        onClick={onSubmit}
+        disabled={pending}
+        className="mt-3 h-12 w-full cursor-pointer rounded-xl bg-brand text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        {pending ? "전달 중…" : multi ? "작가님들께 문의 보내기" : "작가님께 문의 보내기"}
+      </button>
 
-          {serverError && <p className="mt-2 text-xs font-medium text-danger">{serverError}</p>}
-
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={pending}
-            className={[
-              "mt-3 h-12 w-full cursor-pointer rounded-xl bg-brand text-base font-semibold text-white transition-opacity",
-              check.valid ? "opacity-100 hover:opacity-90" : "opacity-40",
-              "disabled:cursor-not-allowed",
-            ].join(" ")}
-          >
-            {pending ? "요청 중…" : "무료로 견적 받기"}
-          </button>
-
-          {/* 동의 간주 고지 — 버튼 클릭이 개인정보 수집·이용 동의를 갈음 */}
-          <p className="mt-2 break-keep text-center text-[11px] leading-relaxed text-faint">
-            신청하기를 누르면 연락처 전달 및 상담을 위한
-            <br />
-            <Link
-              href="/privacy"
-              target="_blank"
-              className="underline underline-offset-2 hover:text-muted"
-            >
-              개인정보 수집·이용
-            </Link>
-            에 동의하는 것으로 간주됩니다.
-          </p>
-          <div ref={endRef} />
-        </div>
-      )}
+      {/* 동의 간주 고지 — 버튼 클릭이 개인정보 수집·이용 동의를 갈음 */}
+      <p className="mt-2 break-keep text-center text-[11px] leading-relaxed text-faint">
+        문의 보내기를 누르면 상담을 위한
+        <br />
+        <Link
+          href="/privacy"
+          target="_blank"
+          className="underline underline-offset-2 hover:text-muted"
+        >
+          개인정보 수집·이용
+        </Link>
+        에 동의하는 것으로 간주됩니다.
+      </p>
     </div>
-    {/* 박스 밖 하단 여백 — 선택 전엔 입력영역 높이만큼 '공간만' 확보(박스 자체는 안 커짐).
-        선택 시 0 → 박스가 입력창만큼 커져도 아래가 안 밀린다. 실제 입력영역보다 살짝 넉넉히. */}
-    {!type && <div aria-hidden className="h-[212px]" />}
-    </>
   );
 }
 
@@ -1168,6 +877,9 @@ function QuestionInput({
       {step.type === "date" && (
         <DateField skip={step.skip} value={value} onPick={onSubmit} />
       )}
+      {step.type === "text" && (
+        <TextField skip={step.skip} value={value} onPick={onSubmit} />
+      )}
       {onCancel && (
         <div className="flex justify-end">
           <button
@@ -1179,6 +891,44 @@ function QuestionInput({
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+// 자유 입력 — 작가 커스텀 질문(선택지가 없는 질문)용. 소프트스킵은 선택지 버튼과 동일 취급.
+function TextField({
+  skip,
+  value,
+  onPick,
+}: {
+  skip: string;
+  value?: string;
+  onPick: (v: string) => void;
+}) {
+  const [text, setText] = useState(value && value !== skip ? value : "");
+  const trimmed = text.trim();
+  return (
+    <div className="space-y-2">
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value.slice(0, 300))}
+        rows={3}
+        placeholder="자유롭게 적어주세요"
+        className="w-full resize-none rounded-xl border border-line-strong bg-surface px-3 py-2.5 text-[15px] text-fg outline-none transition-colors placeholder:text-faint focus:border-brand"
+      />
+      <button
+        type="button"
+        onClick={() => trimmed && onPick(trimmed)}
+        disabled={!trimmed}
+        className="h-11 w-full cursor-pointer rounded-xl bg-brand text-[15px] font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        답변 보내기
+      </button>
+      <div className="grid">
+        <OptionButton active={value === skip} onClick={() => onPick(skip)}>
+          {skip}
+        </OptionButton>
+      </div>
     </div>
   );
 }

@@ -7,7 +7,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { readMetaAdCookies, type MetaAdCookies } from "@/lib/meta-capi";
 import { rememberInquiryIds } from "@/lib/my-inquiries";
 import { promoteBotInquiryToChat } from "@/lib/inquiry-bot-chat";
-import { slotsToAnswers, type BotChatMessage } from "@/lib/inquiry-bot-llm";
+import { slotsToAnswers, type BotChatMessage, type LlmSlots } from "@/lib/inquiry-bot-llm";
 import { buildFlow, toInquiryFields } from "@/lib/inquiry-bot";
 
 export type InquiryState = {
@@ -17,6 +17,11 @@ export type InquiryState = {
   values?: InquiryValues;
   // 접수된 문의 id — 클라이언트가 Mixpanel 전환 기록·중복 발화 가드에 사용
   inquiryId?: string;
+  // 예약 문의(채팅 트랙) — 요약 카드를 올린 방. 클라이언트가 여기로 이동한다.
+  conversationId?: string;
+  // 채팅 트랙의 전제(로그인·프로필 번호)가 빠진 경우 — 클라이언트가 해당 동선으로 보낸다.
+  needLogin?: boolean;
+  needContact?: boolean;
 };
 
 const PHONE_PATTERN = /^0\d{2}-\d{4}-\d{4}$/;
@@ -195,6 +200,49 @@ export async function ensureBotConversation(
   }
 }
 
+// 슬롯 정규화 — 코어 4슬롯 + custom 만, 문자열만 통과 (클라이언트가 보낸 임의 페이로드 차단).
+function cleanSlots(raw: Record<string, unknown>): LlmSlots {
+  const clean: LlmSlots = {};
+  for (const k of ["purpose", "preferredDate", "region", "partySize"] as const) {
+    const v = raw[k];
+    if (typeof v === "string" && v.trim()) clean[k] = v.trim().slice(0, 200);
+  }
+  const custom = raw.custom;
+  if (custom && typeof custom === "object" && !Array.isArray(custom)) {
+    const c: Record<string, string> = {};
+    for (const [k, v] of Object.entries(custom as Record<string, unknown>).slice(0, 10)) {
+      if (typeof v === "string" && v.trim()) c[k.slice(0, 80)] = v.trim().slice(0, 300);
+    }
+    if (Object.keys(c).length > 0) clean.custom = c;
+  }
+  return clean;
+}
+
+// 프로필에 등록된 번호를 접수용 연락처로 — 문의 폼은 연락처를 묻지 않는다(채팅 모델 전제:
+// 로그인 + 가입 시 번호 인증). 번호가 없으면 null → 호출부가 /signup/contact 로 보낸다.
+async function profileContact(
+  customerId: string
+): Promise<{ contact: ContactInfo; displayName: string | null } | null> {
+  const admin = createAdminClient();
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("phone, display_name")
+    .eq("id", customerId)
+    .maybeSingle();
+  const rawPhone = profile?.phone ?? null;
+  if (!rawPhone) return null;
+  const d = rawPhone.replace(/\D/g, "");
+  return {
+    contact: {
+      phone:
+        d.length >= 10 ? `${d.slice(0, 3)}-${d.slice(3, d.length - 4)}-${d.slice(-4)}` : rawPhone,
+      kakaoId: null,
+      contactEmail: null,
+    },
+    displayName: (profile?.display_name as string | null) ?? null,
+  };
+}
+
 // 문의 체크리스트 동기화 — 봇이 수집한 슬롯을 대화에 저장해 작가 화면에서
 // "무엇이 확인됐고 무엇이 남았는지"를 실시간으로 보게 한다. 실패해도 대화 계속.
 export async function syncBotSlots(
@@ -204,20 +252,7 @@ export async function syncBotSlots(
   try {
     const me = await getCurrentUser();
     if (!me || !conversationId || !slots || typeof slots !== "object") return;
-    // 코어 4슬롯 + custom 만, 문자열만 통과 (임의 페이로드 저장 방지)
-    const clean: Record<string, unknown> = {};
-    for (const k of ["purpose", "preferredDate", "region", "partySize"] as const) {
-      const v = slots[k];
-      if (typeof v === "string" && v.trim()) clean[k] = v.trim().slice(0, 200);
-    }
-    const custom = slots.custom;
-    if (custom && typeof custom === "object" && !Array.isArray(custom)) {
-      const c: Record<string, string> = {};
-      for (const [k, v] of Object.entries(custom as Record<string, unknown>).slice(0, 10)) {
-        if (typeof v === "string" && v.trim()) c[k.slice(0, 80)] = v.trim().slice(0, 300);
-      }
-      if (Object.keys(c).length > 0) clean.custom = c;
-    }
+    const clean = cleanSlots(slots);
     const admin = createAdminClient();
     const { data: conv } = await admin
       .from("conversations")
@@ -363,6 +398,69 @@ export async function submitInquiry(
   };
 }
 
+// 촬영 예약 문의(숨고형 폼) 제출 → 작가 채팅방.
+// 연락처는 묻지 않는다 — 이미 로그인·번호 인증을 거친 사용자만 접수되고, 작가에게 연락처는
+// 어떤 단계에서도 비공개다. 답변은 봇과 같은 슬롯 형태로 받아 봇 접수 경로(finalizeBotInquiryFor)를
+// 그대로 태운다 → 작가는 봇이 수집했을 때와 완전히 동일한 요약 카드·알림을 받는다.
+export async function submitInquiryToChat(
+  _prevState: InquiryState,
+  formData: FormData
+): Promise<InquiryState> {
+  const photographerId = String(formData.get("photographerId") || "");
+  const photoId = String(formData.get("photoId") || "") || null;
+  if (!photographerId) return { ok: false, error: "작가 정보를 찾지 못했어요." };
+
+  const me = await getCurrentUser();
+  if (!me) return { ok: false, needLogin: true };
+  if (me.photographer?.id === photographerId) {
+    return { ok: false, error: "본인에게는 문의할 수 없어요." };
+  }
+
+  let raw: Record<string, unknown> = {};
+  try {
+    raw = JSON.parse(String(formData.get("slots") || "{}")) as Record<string, unknown>;
+  } catch {
+    raw = {};
+  }
+  const slots = cleanSlots(raw);
+
+  // 방 선확보 — 이미 있으면 재사용(conversations 는 user+photographer 유니크)하고 복귀 사진만 갱신.
+  // 승격(promoteBotInquiryToChat)도 같은 규칙으로 방을 찾으므로 중복 방은 생기지 않는다.
+  const conversationId = await ensureBotConversation(photographerId, photoId);
+  // 방의 체크리스트(작가 화면)도 봇 수집과 같은 상태로 — 폼으로 받았을 뿐 수집 결과는 동일하다.
+  if (conversationId) await syncBotSlots(conversationId, slots);
+
+  const result = await finalizeBotInquiryFor({
+    customerId: me.id,
+    photographerId,
+    photoId,
+    slots,
+    // 봇 수집 문의와 동일 — 작가가 아직 방에 들어오지 않은 상태의 접수다.
+    notifyPhotographerFlag: true,
+  });
+  // 접수 보류 사유는 프로필 번호 없음뿐 — 가입 마무리(OTP)로 보내고 돌아오게 한다.
+  if (!result.ok) return { ok: false, needContact: true };
+
+  await rememberInquiryIds([result.inquiryId!]);
+
+  // ensureBotConversation 이 실패했어도 승격이 방을 만들었으므로 한 번 더 찾는다.
+  const roomId = conversationId ?? (await findConversationId(me.id, photographerId));
+  if (!roomId) return { ok: false, error: "채팅방을 열지 못했어요. 잠시 후 다시 시도해주세요." };
+
+  return { ok: true, inquiryId: result.inquiryId, conversationId: roomId };
+}
+
+async function findConversationId(userId: string, photographerId: string): Promise<string | null> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("conversations")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("photographer_id", photographerId)
+    .maybeSingle();
+  return (data?.id as string | undefined) ?? null;
+}
+
 // 채팅방 상주 봇 접수 — 고객 컨텍스트 없이도(작가 개입 트리거 포함) 서버가 대신 접수한다.
 // submitInquiry 와 같은 저장·알림·승격 경로의 축약판. 중복은 findRecentDuplicate +
 // promote 의 summary dedupe 로 방지 (호출부도 summary_card 존재를 선검사한다).
@@ -374,21 +472,10 @@ export async function finalizeBotInquiryFor(params: {
   /** 작가 본인 개입으로 트리거된 접수면 작가 알림 생략 (본인이 이미 보고 있다) */
   notifyPhotographerFlag: boolean;
 }): Promise<{ ok: boolean; inquiryId?: string }> {
-  const admin = createAdminClient();
-  const { data: profile } = await admin
-    .from("profiles")
-    .select("phone, display_name")
-    .eq("id", params.customerId)
-    .maybeSingle();
-  const rawPhone = profile?.phone ?? null;
-  if (!rawPhone) return { ok: false }; // 알림 연락처 없이는 접수 보류
+  const registered = await profileContact(params.customerId);
+  if (!registered) return { ok: false }; // 알림 연락처 없이는 접수 보류
+  const { contact, displayName } = registered;
 
-  const d = rawPhone.replace(/\D/g, "");
-  const contact: ContactInfo = {
-    phone: d.length >= 10 ? `${d.slice(0, 3)}-${d.slice(3, d.length - 4)}-${d.slice(-4)}` : rawPhone,
-    kakaoId: null,
-    contactEmail: null,
-  };
   const fields = toInquiryFields(buildFlow(), slotsToAnswers(params.slots));
   const customLines = Object.entries(params.slots.custom ?? {}).map(([k, v]) => `${k}: ${v}`);
   const brief: BriefInfo = {
@@ -416,7 +503,7 @@ export async function finalizeBotInquiryFor(params: {
       await notifyPhotographer(
         params.photographerId,
         result.id,
-        profile?.display_name ?? null,
+        displayName,
         contact,
         brief
       );
@@ -611,32 +698,14 @@ export async function submitMultiInquiry(
   ];
   const values = readInquiryValues(formData);
   const me = await getCurrentUser();
-
-  let contact: ContactInfo;
-  let brief: BriefInfo;
-  try {
-    contact = validateContactInfo(formData);
-    brief = validateBriefInfo(formData);
-  } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "연락 수단을 확인해주세요.",
-      values,
-    };
-  }
   if (photoIds.length === 0) return { ok: false, error: "선택한 사진이 없어요.", values };
 
-  if (me) {
-    const supabase = await createClient();
-    await supabase
-      .from("profiles")
-      .update({
-        phone: contact.phone,
-        kakao_id: contact.kakaoId,
-        contact_email: contact.contactEmail,
-      })
-      .eq("id", me.id);
-  }
+  // 묶음 상담도 연락처를 묻지 않는다 — 등록된 번호로 접수하고 대화는 각 작가 채팅방에서.
+  if (!me) return { ok: false, needLogin: true, values };
+  const registered = await profileContact(me.id);
+  if (!registered) return { ok: false, needContact: true, values };
+  const { contact } = registered;
+  const brief = validateBriefInfo(formData);
 
   brief.refImagePaths = await uploadReferenceImages(formData);
 
@@ -665,13 +734,28 @@ export async function submitMultiInquiry(
   const createdIds: string[] = [];
   for (const [photographerId, repPhotoId] of repByPhotographer) {
     // 본인(작가)이 자기 사진에 보낸 건 건너뜀
-    if (me?.photographer?.id === photographerId) continue;
-    const result = await createInquiry(me?.id ?? null, photographerId, repPhotoId, contact, brief, ad, acq);
+    if (me.photographer?.id === photographerId) continue;
+    const result = await createInquiry(me.id, photographerId, repPhotoId, contact, brief, ad, acq);
     if (!result) continue;
     createdIds.push(result.id);
     if (!firstInquiryId) firstInquiryId = result.id;
     if (result.isNew) {
-      await notifyPhotographer(photographerId, result.id, me?.displayName ?? null, contact, brief);
+      await notifyPhotographer(photographerId, result.id, me.displayName ?? null, contact, brief);
+      // 대화는 작가별 채팅방에서 — 단건 문의와 같은 요약 카드를 각 방에 올린다.
+      await promoteBotInquiryToChat({
+        userId: me.id,
+        photographerId,
+        transcript: [],
+        summary: {
+          inquiryId: result.id,
+          photoId: repPhotoId,
+          purpose: brief.purpose ?? "문의",
+          preferredDate: brief.preferredDate ?? "미정",
+          region: brief.region ?? "미정",
+          partySize: brief.partySize,
+          note: brief.note,
+        },
+      });
     }
   }
 

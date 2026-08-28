@@ -26,7 +26,7 @@ export function StudioSidebar() {
   //   { href: "/studio/booking", label: "예약 설정" },
   //   { href: "/studio/settlements", label: "수수료" },
   const settings: Item[] = [
-    { href: "/studio/bot", label: "문의 챗봇" }, // 커스텀 대본 — 말투·추가 질문 설정
+    { href: "/studio/guide", label: "고객 안내 이미지" }, // 사진 상세에 노출되는 촬영 안내 이미지
     { href: "/studio/profile", label: "프로필" },
     { href: "/studio/about", label: "소개 페이지" },
     { href: "/studio/packages", label: "패키지" },

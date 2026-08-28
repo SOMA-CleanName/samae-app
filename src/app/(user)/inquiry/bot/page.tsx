@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { buildFlow } from "@/lib/inquiry-bot";
 import { seedBotRoomMessages } from "@/lib/inquiry-bot-room";
+import { photographerHasKb } from "@/lib/bot-kb-db";
 import { ensureBotConversation } from "../actions";
 import { InquiryBotChat } from "./InquiryBotChat";
 
@@ -95,6 +96,7 @@ export default async function InquiryBotPage({
           photographerName: photographer.display_name,
           photo: { thumbUrl: photoSrc },
           firstQuestion,
+          qaMode: await photographerHasKb(photographerId),
         });
       }
       redirect(`/chat/${convId}`);
