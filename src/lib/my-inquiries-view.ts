@@ -10,10 +10,6 @@ export type MyInquiry = {
   photographerId: string;
   photoId: string | null;
   photographerName: string | null;
-  phone: string | null;
-  kakao: string | null;
-  email: string | null;
-  name: string | null;
   partySize: string | null;
   purpose: string;
   preferredDate: string;

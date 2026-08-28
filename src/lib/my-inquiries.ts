@@ -48,10 +48,6 @@ type InquiryRow = {
   id: string;
   photographer_id: string;
   source_photo_id: string | null;
-  phone: string | null;
-  kakao_id: string | null;
-  contact_email: string | null;
-  name: string | null;
   party_size: string | null;
   purpose: string;
   preferred_date: string;
@@ -91,7 +87,7 @@ export async function fetchMyInquiries(ids: string[], profileId?: string | null)
   let q = admin
     .from("inquiries")
     .select(
-      "id, photographer_id, source_photo_id, phone, kakao_id, contact_email, name, party_size, purpose, preferred_date, region, note, ref_image_paths, status, created_at"
+      "id, photographer_id, source_photo_id, party_size, purpose, preferred_date, region, note, ref_image_paths, status, created_at"
     );
   if (ids.length > 0 && profileId) q = q.or(`id.in.(${ids.join(",")}),profile_id.eq.${profileId}`);
   else if (profileId) q = q.eq("profile_id", profileId);
@@ -123,10 +119,6 @@ export async function fetchMyInquiries(ids: string[], profileId?: string | null)
       photographerId: r.photographer_id,
       photoId: r.source_photo_id,
       photographerName: nameByPhotographer.get(r.photographer_id) ?? null,
-      phone: r.phone,
-      kakao: r.kakao_id,
-      email: r.contact_email,
-      name: r.name,
       partySize: r.party_size,
       purpose: r.purpose,
       preferredDate: r.preferred_date,
