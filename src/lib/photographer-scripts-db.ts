@@ -49,3 +49,23 @@ export async function fetchPhotographerScript(photographerId: string): Promise<P
   }
   return getPhotographerScript(photographerId);
 }
+
+/**
+ * 작가가 **직접 정한** 말투만 (미설정이면 빈 문자열).
+ *
+ * fetchPhotographerScript 는 기본 대본까지 폴백해서 tone 이 절대 비지 않는다.
+ * 그러면 어드민의 전역 기본 말투가 영영 가려지므로, 상담봇은 이 함수를 쓴다.
+ */
+export async function fetchPhotographerTone(photographerId: string): Promise<string> {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin
+      .from("photographer_bot_scripts")
+      .select("tone")
+      .eq("photographer_id", photographerId)
+      .maybeSingle();
+    return typeof data?.tone === "string" ? data.tone.trim().slice(0, 300) : "";
+  } catch {
+    return "";
+  }
+}

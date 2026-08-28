@@ -25,6 +25,8 @@ export type ConversationListItem = {
   source_photo_path: string | null; // 사진에서 문의 시작 시 그 사진 경로(상담 정보에 노출)
   bot_photo_id?: string | null; // 챗봇 문의 출발 사진 — 진행 중 방에서 봇 채팅 복귀용
   bot_slots?: BotSlots | null; // 봇이 수집한 문의 슬롯 — 작가용 체크리스트
+  bot_disabled_at?: string | null; // 작가 첫 발화 시각 — 세팅되면 봇은 다시 발화하지 않는다(단방향)
+  bot_handoff_notified_at?: string | null; // "작가님이 들어왔어요" 안내를 이미 게시했는지
   photographer: { display_name: string | null; profile_id?: string | null } | null;
   user: { display_name: string | null } | null;
   // 상대 아바타 — profiles는 RLS상 본인만 조회 가능해 admin으로 보강(아래 fillCounterpartInfo)
@@ -53,6 +55,7 @@ export type BookingSnapshot = {
   package_snapshot: { name?: string } | null;
   package_id: string | null;
   memo: string | null;
+  custom_fields: unknown; // 작가 정의 추가 항목 값 스냅샷 (readStoredFieldValues 로 읽는다)
   transfer_marked_at: string | null; // 구매자가 송금 완료를 알린 시각
   proposed_by_photographer: boolean; // 작가가 제안한 건(=구매자가 수락 주체)
   settled_at: string | null; // 사매→작가 정산 송금 시각
@@ -75,6 +78,7 @@ export type ChatMessage = {
 const CONV_COLS =
   "id, user_id, photographer_id, last_message_at, user_unread, photographer_unread, " +
   "user_hidden_at, photographer_hidden_at, source_photo_path, bot_photo_id, bot_slots, " +
+  "bot_disabled_at, bot_handoff_notified_at, " +
   "photographer:photographers(display_name, profile_id), " +
   "user:profiles!conversations_user_id_fkey(display_name)";
 
@@ -191,7 +195,7 @@ export async function getMessages(conversationId: string): Promise<ChatMessage[]
     .from("messages")
     .select(
       "id, sender_id, type, body, image_path, created_at, booking_id, " +
-        "booking:bookings(id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, transfer_marked_at, proposed_by_photographer, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at)"
+        "booking:bookings(id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, custom_fields, transfer_marked_at, proposed_by_photographer, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at)"
     )
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true });

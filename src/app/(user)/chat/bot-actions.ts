@@ -1,28 +1,25 @@
 "use server";
 
-// 채팅방 상주 봇 — 고객이 /chat/[id] 에서 보낸 발화를 봇이 그 방 안에서 받아 응답한다.
-// (봇 페이지 분리 구조 폐지 — 작가와 봇이 같은 방을 쓴다)
+// 채팅방 상주 봇 — 고객이 /chat/[id] 에서 보낸 발화를 봇이 그 방 안에서 받아 **답한다**.
+//
+// 이 봇은 묻지 않는다. 촬영 정보 수집(촬영종류·희망일·지역·인원)은 숨고형 예약 폼
+// (/inquiry)이 맡고, 채팅방 봇은 작가가 자리를 비운 동안 작가 KB 로 답만 한다.
 //
 // 한 턴의 흐름:
-//   검열 → 사용자 발화 저장 → DB 이력·슬롯 로드 → LLM (작가 개입 시 조용한 추출만)
-//   → 봇 응답 저장(개입 전) → bot_slots 갱신 → 수집 완주면 자동 접수(요약 카드)
+//   검열 → 사용자 발화 저장 → 인계 여부 확인 → KB 조회
+//   → (KB 있음) 근거 기반 답변, 근거 없으면 작가에게 이관 + 질문 기록
+//   → (KB 없음) 지어내지 않고 곧장 작가에게 이관 + 질문 기록
 
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { detectOffPlatform, MODERATION_NOTICE } from "@/lib/moderation";
-import {
-  coreSlotsFilled,
-  type AskingKey,
-  type LlmSlots,
-} from "@/lib/inquiry-bot-llm";
-import {
-  mapDbMessagesToBotHistory,
-  runBotLlmTurn,
-  type BotPhotoContext,
-} from "@/lib/inquiry-bot-room";
-import { fetchPhotographerScript } from "@/lib/photographer-scripts-db";
+import { type AskingKey } from "@/lib/inquiry-bot-llm";
+import { mapDbMessagesToBotHistory, runBotQaTurn } from "@/lib/inquiry-bot-room";
+import { fetchPhotographerKb } from "@/lib/bot-kb-db";
+import { recordOpenQuestion } from "@/lib/bot-handoff";
+import { fetchBotSettings, renderBotMessage } from "@/lib/bot-settings";
+import { fetchPhotographerTone } from "@/lib/photographer-scripts-db";
 import { notifyPhotographer } from "@/lib/inquiry-bot-notify";
-import { finalizeBotInquiryFor } from "@/app/(user)/inquiry/actions";
 
 export type BotTurnResult =
   | { ok: false; blocked: true; reason: string }
@@ -51,7 +48,7 @@ export async function sendBotTurn(conversationId: string, body: string): Promise
   const admin = createAdminClient();
   const { data: conv } = await admin
     .from("conversations")
-    .select("id, user_id, photographer_id, bot_photo_id, bot_slots")
+    .select("id, user_id, photographer_id, bot_photo_id, bot_slots, bot_disabled_at")
     .eq("id", conversationId)
     .maybeSingle();
   if (!conv || conv.user_id !== me.id) throw new Error("권한이 없습니다."); // 고객 본인만
@@ -88,7 +85,11 @@ export async function sendBotTurn(conversationId: string, body: string): Promise
   ]);
   if (!ph) throw new Error("작가를 찾을 수 없습니다.");
 
-  const { history, intervened } = mapDbMessagesToBotHistory(rows ?? [], me.id);
+  // 인계 판정 — conversations.bot_disabled_at 이 진실이다(단방향).
+  // 이력 파생(mapDbMessagesToBotHistory)은 컬럼이 아직 안 찍힌 구방(0097 이전 방)에 대한 폴백.
+  const mapped = mapDbMessagesToBotHistory(rows ?? [], me.id);
+  const history = mapped.history;
+  const intervened = conv.bot_disabled_at != null || mapped.intervened;
   const isFirstUserTurn = !history.some((m) => m.role === "user");
 
   // 사용자 발화 저장 — 개입 전엔 수집 대화(type='bot', 무알림), 개입 후엔 일반 채팅(작가 알림)
@@ -100,102 +101,97 @@ export async function sendBotTurn(conversationId: string, body: string): Promise
   });
   if (insErr) throw new Error(insErr.message);
 
-  const slots: LlmSlots =
-    conv.bot_slots && typeof conv.bot_slots === "object" ? (conv.bot_slots as LlmSlots) : {};
+  const photographerName0 = ph.display_name ?? "작가";
 
-  // 사진 컨텍스트 — 무드·가격을 시스템 프롬프트에 주입
-  let photoContext: BotPhotoContext | null = null;
-  if (conv.bot_photo_id) {
-    const { data: photo } = await admin
-      .from("photos")
-      .select("mood_tags, price_krw")
-      .eq("id", conv.bot_photo_id)
-      .maybeSingle();
-    if (photo)
-      photoContext = { moodTags: photo.mood_tags ?? [], priceKrw: photo.price_krw ?? null };
+  // ── 답변 전용 봇 ────────────────────────────────────────────────
+  // 이 방의 봇은 **묻지 않는다.** 촬영 정보 수집은 숨고형 예약 폼(/inquiry)이 맡고,
+  // 채팅방 봇은 작가가 자리를 비운 동안 KB 로 답만 한다. (수집 LLM 턴은 여기서 폐지)
+  if (intervened) {
+    // 작가가 이어받은 방 — 봇은 다시 발화하지 않는다. 고객 발화는 위에서 이미 text 로 저장됐다.
+    return { ok: true, replied: false, asking: "none", quickReplies: [], done: false };
   }
 
-  const script = await fetchPhotographerScript(conv.photographer_id);
-  const photographerName = ph.display_name ?? "작가";
+  const [settings, kb] = await Promise.all([
+    fetchBotSettings(),
+    fetchPhotographerKb(conv.photographer_id, photographerName0),
+  ]);
 
-  let turn;
-  try {
-    turn = await runBotLlmTurn({
-      photographerName,
-      script,
-      messages: [...history, { role: "user", text }],
-      slots,
-      photoContext,
-    });
-  } catch (e) {
-    console.error("[bot-room] LLM 실패:", e instanceof Error ? e.message : e);
-    // LLM 실패 — 발화는 이미 남았다. 봇이 침묵하는 대신 정직한 안내 한 줄 (개입 전만).
-    if (!intervened) {
-      await admin.from("messages").insert({
-        conversation_id: conversationId,
-        sender_id: ph.profile_id,
-        type: "bot",
-        body: "잠시 연결이 원활하지 않아요. 남겨주신 내용은 그대로 전달되니, 이어서 편하게 적어주세요.",
-      });
-    }
-    return { ok: true, replied: !intervened, asking: "none", quickReplies: [], done: false };
-  }
-
-  // 슬롯 저장 — 작가 체크리스트가 실시간으로 차오른다
-  await admin.from("conversations").update({ bot_slots: turn.slots }).eq("id", conversationId);
-
-  // 봇 응답 — 작가 개입 전에만 게시 (개입 후엔 조용한 추출: 작가 대화를 방해하지 않는다)
-  if (!intervened) {
+  // KB 가 없거나 전역 킬스위치가 내려가 있으면 답할 근거가 없다 —
+  // 지어내지 않고 작가에게 넘기고 질문을 남긴다. (킬스위치는 사고 시 배포 없이 봇을 세우는 수단)
+  if (!kb || !settings.enabled) {
     await admin.from("messages").insert({
       conversation_id: conversationId,
       sender_id: ph.profile_id,
       type: "bot",
-      body: turn.reply,
+      body: renderBotMessage(settings.messages.noAnswer, photographerName0),
     });
+    await recordOpenQuestion(admin, {
+      conversationId,
+      photographerId: conv.photographer_id,
+      question: text,
+    });
+    if (isFirstUserTurn) {
+      await notifyPhotographer({
+        event: "bot_inquiry_started",
+        photographerId: conv.photographer_id,
+        photographerName: photographerName0,
+        photoId: conv.bot_photo_id ?? undefined,
+      });
+    }
+    return { ok: true, replied: true, asking: "none", quickReplies: [], done: false };
   }
 
-  // 첫 실제 발화 — 작가에게 "챗봇 문의 진행 중" 알림 (방당 자연 dedupe: 첫 턴에만)
-  if (isFirstUserTurn && !intervened) {
+  // 작가가 스튜디오에서 정한 말투 — 비어 있으면 전역 기본 말투로 내려간다
+  const tone = await fetchPhotographerTone(conv.photographer_id);
+
+  let qa;
+  try {
+    qa = await runBotQaTurn({
+      kb,
+      messages: [...history, { role: "user", text }],
+      settings,
+      tone,
+    });
+  } catch (e) {
+    console.error("[bot-kb] LLM 실패:", e instanceof Error ? e.message : e);
+    await admin.from("messages").insert({
+      conversation_id: conversationId,
+      sender_id: ph.profile_id,
+      type: "bot",
+      body: renderBotMessage(settings.messages.error, photographerName0),
+    });
+    return { ok: true, replied: true, asking: "none", quickReplies: [], done: false };
+  }
+
+  await admin.from("messages").insert({
+    conversation_id: conversationId,
+    sender_id: ph.profile_id,
+    type: "bot",
+    body: qa.reply,
+  });
+  // 봇이 근거 없이 답하지 않고 작가에게 넘긴 질문은 남긴다 —
+  // 작가가 방에 들어왔을 때 "무엇에 답해야 하는지" 를 알 수 있어야 한다.
+  if (qa.needsHuman) {
+    await recordOpenQuestion(admin, {
+      conversationId,
+      photographerId: conv.photographer_id,
+      question: text,
+    });
+  }
+  if (isFirstUserTurn) {
     await notifyPhotographer({
       event: "bot_inquiry_started",
       photographerId: conv.photographer_id,
-      photographerName,
+      photographerName: photographerName0,
       photoId: conv.bot_photo_id ?? undefined,
     });
   }
 
-  // 수집 완주 → 자동 접수 (채팅방 진입 자체가 문의 의사 — 별도 보내기 버튼 없음).
-  //   · 봇 주도(개입 전): LLM 이 done 을 선언했을 때
-  //   · 작가 개입 후: 커스텀 질문을 기다리지 않고 코어 4슬롯이 차는 즉시 접수
-  //     (봇이 멈춰 있어 done 신호가 영영 안 올 수 있다 — 4/4면 정리는 충분하다)
-  const shouldFinalize = coreSlotsFilled(turn.slots) && (turn.done || intervened);
-  if (shouldFinalize) {
-    const result = await finalizeBotInquiryFor({
-      customerId: me.id,
-      photographerId: conv.photographer_id,
-      photoId: conv.bot_photo_id ?? null,
-      slots: turn.slots,
-      notifyPhotographerFlag: !intervened, // 개입한 작가는 이미 보고 있다 — 알림 생략
-    });
-    if (!result.ok) {
-      // 연락처 미등록 등 — 접수 보류
-      return {
-        ok: true,
-        replied: !intervened,
-        asking: turn.asking,
-        quickReplies: [],
-        done: false,
-        needContact: true,
-      };
-    }
-    return { ok: true, replied: !intervened, asking: "none", quickReplies: [], done: true };
-  }
-
   return {
     ok: true,
-    replied: !intervened,
-    asking: turn.asking,
-    quickReplies: intervened ? [] : turn.quickReplies,
+    replied: true,
+    asking: "none",
+    quickReplies: qa.suggestions,
     done: false,
   };
 }

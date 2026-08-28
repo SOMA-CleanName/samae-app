@@ -7,7 +7,8 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { sendMessage, markRead, sendPortfolioPhoto, getBookingPayoutAccount } from "../actions";
 import { sendBotTurn } from "../bot-actions";
-import { canonicalChipsFor, type AskingKey } from "@/lib/inquiry-bot-llm";
+import { KB_EXAMPLE_QUESTIONS } from "@/lib/bot-kb";
+import { BOT_DISPLAY_NAME, BOT_HANDOFF_NOTICE } from "@/lib/bot-identity";
 import { acceptBooking, rejectBooking, cancelBooking } from "@/app/actions/bookings";
 import { markTransferSent, markShot, ackSettlement, disputeSettlement } from "@/app/actions/payments";
 import { mpTrack } from "@/lib/mixpanel";
@@ -20,7 +21,10 @@ import {
   type BookingEditTarget,
   type BookingDraft,
 } from "./BookingComposer";
-import { Spinner } from "@/components/ui";
+import { Spinner, Avatar } from "@/components/ui";
+import { GuideImagesButton } from "./GuideImagesButton";
+import type { GuideImage } from "@/lib/guide-images";
+import { readStoredFieldValues } from "@/lib/booking-fields";
 import {
   PlusIcon,
   SendIcon,
@@ -38,7 +42,7 @@ import {
 const fmt = new Intl.NumberFormat("ko-KR");
 
 const BOOKING_COLS =
-  "id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, transfer_marked_at, proposed_by_photographer, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at";
+  "id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, custom_fields, transfer_marked_at, proposed_by_photographer, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at";
 
 // 메시지 작성 시각 (카카오톡식 HH:MM)
 function timeLabel(iso: string) {
@@ -49,15 +53,6 @@ function timeLabel(iso: string) {
 }
 
 export type PortfolioPhoto = { id: string; thumb_url: string; src_url: string };
-
-// 다음에 물을 코어 슬롯 — 초기 칩 계산용 (수집 순서 고정: 목적→희망일→지역→인원)
-function firstMissingSlot(s: BotSlots | null): AskingKey {
-  if (!s?.purpose) return "purpose";
-  if (!s?.preferredDate) return "preferredDate";
-  if (!s?.region) return "region";
-  if (!s?.partySize) return "partySize";
-  return "none";
-}
 
 export function ChatRoom({
   conversationId,
@@ -70,6 +65,14 @@ export function ChatRoom({
   sourcePhotoPath,
   initialBotSlots,
   botMode,
+  customerId,
+  counterpartName,
+  counterpartAvatar,
+  botDisabled,
+  openQuestions,
+  guideImages,
+  botName,
+  handoffNotice,
 }: {
   conversationId: string;
   meId: string;
@@ -82,21 +85,42 @@ export function ChatRoom({
   /** 봇 수집 슬롯 — 작가용 문의 체크리스트 (고객 화면은 null) */
   initialBotSlots?: BotSlots | null;
   /** 고객용 — 채팅방 상주 봇 활성 (미접수 봇 문의): 발화가 sendBotTurn 으로 라우팅된다 */
-  botMode?: { slots: BotSlots | null; intervened: boolean } | null;
+  botMode?: { slots: BotSlots | null; intervened: boolean; qa?: boolean } | null;
+  /** 이 방의 고객(conversations.user_id) — 봇 발화와 고객 발화를 가르는 기준 */
+  customerId: string;
+  /** 상대(작가 또는 고객) 표시 정보 — 봇 말풍선과 아바타로 구분하기 위해 필요 */
+  counterpartName?: string;
+  counterpartAvatar?: string | null;
+  /** 작가가 이미 이어받은 방 — 봇은 다시 발화하지 않는다 */
+  botDisabled?: boolean;
+  /** 작가에게만 — 봇이 답하지 못하고 넘긴 질문 */
+  openQuestions?: { id: string; question: string; created_at: string }[];
+  /** 작가 촬영 안내 이미지 — 봇 첫 인사 아래에 여는 버튼을 단다 (손님 화면만) */
+  guideImages?: GuideImage[];
+  /** 봇 표시 이름 — 운영이 어드민에서 바꾼다 (없으면 코드 기본) */
+  botName?: string;
+  /** 현재 인계 안내 문구 — 이 말풍선만 다르게 그린다 (문구가 바뀌어도 옛 방이 깨지지 않게 코드 상수도 함께 본다) */
+  handoffNotice?: string;
 }) {
   const amCustomer = !amPhotographer; // 참여자 중 작가가 아니면 구매자
+  const botLabel = (botName ?? "").trim() || BOT_DISPLAY_NAME;
+  // 인계 안내 판별 — 운영이 문구를 바꿔도, 바꾸기 전에 쌓인 방도 그대로 인식돼야 한다
+  const isHandoffBody = (body: string) =>
+    body === BOT_HANDOFF_NOTICE || (!!handoffNotice && body === handoffNotice);
   void brief; void sourcePhotoPath; // 레거시 상담정보 — 요약 카드로 대체, 과거 방 호환 위해 프롭만 유지
   const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [botSlots, setBotSlots] = useState<BotSlots | null>(initialBotSlots ?? null);
   // 채팅방 상주 봇 — 고객 발화를 이 방 안에서 봇이 받는다 (칩·타이핑·완료 상태)
   const [botChips, setBotChips] = useState<string[]>(
-    botMode && !botMode.intervened ? canonicalChipsFor(firstMissingSlot(botMode.slots)) : []
+    // 봇은 묻지 않는다 — 칩은 '손님이 물어볼 만한 것' 예시다(수집 선택지가 아니다)
+    botMode && !botMode.intervened ? KB_EXAMPLE_QUESTIONS : []
   );
   const [botTyping, setBotTyping] = useState(false);
   const [botDone, setBotDone] = useState(false);
   const [botNeedContact, setBotNeedContact] = useState(false);
-  const botActive = !!botMode && !botDone;
+  // 작가가 이어받았으면(botDisabled) 봇은 다시 켜지지 않는다 — 칩·라우팅 모두 죽는다
+  const botActive = !!botMode && !botDone && !botDisabled;
   const [text, setText] = useState("");
   const [uploading, setUploading] = useState(false);
   const [optionsOpen, setOptionsOpen] = useState(false); // 입력창 + 옵션 메뉴
@@ -256,7 +280,7 @@ export function ChatRoom({
         if (!res.ok) {
           setBlockedNotice(res.reason);
           setText(t); // 입력 복원 — 문구를 고쳐 다시 보낼 수 있게
-          setBotChips(botMode && !botMode.intervened ? canonicalChipsFor(firstMissingSlot(botSlotsForChips())) : []);
+          setBotChips(botMode && !botMode.intervened ? KB_EXAMPLE_QUESTIONS : []);
           mpTrack("Chat Message Blocked", { conversation_id: conversationId, role: "customer" });
           return;
         }
@@ -275,11 +299,6 @@ export function ChatRoom({
         setBotTyping(false);
       }
     });
-  }
-
-  // 차단 복구 시 칩 재계산용 — 프롭 슬롯 그대로 (턴이 실패했으니 슬롯 변화 없음)
-  function botSlotsForChips(): BotSlots | null {
-    return botMode?.slots ?? null;
   }
 
   function onSend(e: React.FormEvent) {
@@ -333,6 +352,9 @@ export function ChatRoom({
     <div className="flex min-h-0 flex-1 flex-col">
       {/* 작가용 문의 체크리스트 — 봇이 수집한 항목의 확인/미확인 현황 (실시간 갱신) */}
       {amPhotographer && botSlots && <InquiryChecklist slots={botSlots} />}
+      {amPhotographer && (openQuestions?.length ?? 0) > 0 && (
+        <OpenQuestions items={openQuestions!} />
+      )}
 
 
       {/* 메시지 영역 — 이 컨테이너만 스크롤 */}
@@ -343,12 +365,21 @@ export function ChatRoom({
         {/* 레거시 상담정보 카드·빈 방 안내는 제거 — 챗봇의 '문의 내용 정리' 요약 카드가
             타임라인 안에서 같은 역할을 한다 (brief 데이터는 과거 방 호환용으로만 유지) */}
         {(() => {
-          // 작가가 봇을 이어받은 지점 — 첫 작가 실발화(text/image) 앞에 구분선을 그린다
-          const firstPhotographerMsgId = messages.find(
-            (m) =>
-              (m.type === "text" || m.type === "image") &&
-              (amPhotographer ? m.sender_id === meId : m.sender_id !== meId)
+          // 작가가 봇을 이어받은 지점 — 첫 작가 실발화(text/image) 앞에 구분선을 그린다.
+          // 단 봇이 인계를 직접 말한 방(0097 이후)에서는 그 말풍선이 같은 역할을 하므로 생략한다.
+          const botAnnouncedHandoff = messages.some((m) => m.type === "bot" && isHandoffBody(m.body));
+          // 촬영 안내 버튼은 봇 첫 인사 바로 아래 1회만 — 헤더 아이콘만으로는 발견이 안 된다.
+          // (그 자리에서 봇이 "미리 알려주신 내용은 답해드릴게요" 라고 말한 직후라 맥락이 맞다)
+          const firstBotMsgId = messages.find(
+            (m) => m.type === "bot" && m.sender_id !== customerId && !isHandoffBody(m.body)
           )?.id;
+          const firstPhotographerMsgId = botAnnouncedHandoff
+            ? undefined
+            : messages.find(
+                (m) =>
+                  (m.type === "text" || m.type === "image") &&
+                  (amPhotographer ? m.sender_id === meId : m.sender_id !== meId)
+              )?.id;
           return messages.map((m) => {
           const handoffDivider =
             m.id === firstPhotographerMsgId ? (
@@ -371,8 +402,9 @@ export function ChatRoom({
                 amCustomer={amCustomer}
                 onOpenDetail={() => router.push(`/bookings/${m.booking!.id}?from=chat`)}
                 onEdit={
-                  // 수정은 '구매자가 한 제안'에 한해 구매자만 가능
-                  amCustomer && composerData && !m.booking.proposed_by_photographer
+                  // 수정은 제안한 쪽만 (수락 전까지). 상대는 바뀐 내용으로 다시 수락한다.
+                  composerData &&
+                  (m.booking.proposed_by_photographer ? amPhotographer : amCustomer)
                     ? () =>
                         setComposer({
                           edit: {
@@ -382,7 +414,8 @@ export function ChatRoom({
                             shootDate: m.booking!.shoot_date,
                             locationText: m.booking!.location_text,
                             memo: m.booking!.memo,
-                            travel: (m.booking!.travel_fee_krw ?? 0) > 0,
+                            amountKrw: m.booking!.amount_krw,
+                            travelFeeKrw: m.booking!.travel_fee_krw,
                           },
                         })
                     : null
@@ -415,10 +448,24 @@ export function ChatRoom({
               />
             );
           }
-          // 챗봇 수집 대화 — 일반 버블 + 봇 발화(상대측)에만 '자동 응답' 라벨
-          if (m.type === "bot") {
+          // 챗봇 발화 — 작가 말풍선과 **같아 보이면 안 된다**. 봇 전용 아바타 + 이름을 단다.
+          //
+          // ⚠️ 봇 판정은 '내 것이 아님'이 아니라 **발신자가 고객이 아님**이다.
+          //   · 개입 전 고객 발화도 무알림을 위해 type='bot' 으로 저장된다 → 고객의 말이다
+          //   · 봇 발화는 작가 profile_id 로 저장된다 → 작가 화면에서는 sender_id === meId 다
+          // meId 로 가르면 작가 화면에서 고객 질문이 '사매 안내봇'으로, 봇 답이 작가 자신의
+          // 말풍선으로 뒤집힌다. 두 화면 모두 같은 기준(customerId)을 써야 한다.
+          const isBotSpeech = m.type === "bot" && m.sender_id !== customerId;
+          if (m.type === "bot" && !isBotSpeech) {
+            // 고객이 봇에게 한 말 — 평범한 고객 말풍선으로 (보는 사람에 따라 좌/우)
             return (
-              <div key={m.id} className={`flex flex-col ${mine ? "items-end" : "items-start"}`}>
+              <div key={m.id} className={`flex items-end gap-1.5 ${mine ? "justify-end" : "justify-start"}`}>
+                {!mine && (
+                  <span className="mb-0.5 shrink-0">
+                    <Avatar src={counterpartAvatar ?? null} name={counterpartName ?? ""} size="xs" />
+                  </span>
+                )}
+                {mine && <span className="mb-0.5 shrink-0 text-label text-faint">{timeLabel(m.created_at)}</span>}
                 <div
                   className={`max-w-[75%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-body ${
                     mine ? "rounded-br-md bg-fg text-bg" : "rounded-bl-md bg-fg/[0.07] text-fg"
@@ -426,9 +473,30 @@ export function ChatRoom({
                 >
                   {m.body}
                 </div>
-                {!mine && (
-                  <span className="mt-0.5 text-label text-faint">자동 응답 · {timeLabel(m.created_at)}</span>
-                )}
+                {!mine && <span className="mb-0.5 shrink-0 text-label text-faint">{timeLabel(m.created_at)}</span>}
+              </div>
+            );
+          }
+          if (isBotSpeech) {
+            const isHandoff = isHandoffBody(m.body);
+            return (
+              <div key={m.id} className="flex items-start gap-2">
+                <BotAvatar />
+                <div className="flex min-w-0 flex-col items-start">
+                  <span className="mb-0.5 text-label font-medium text-muted">{botLabel}</span>
+                  <div
+                    className={`max-w-full whitespace-pre-wrap break-words rounded-2xl rounded-tl-md px-3.5 py-2 text-body ${
+                      isHandoff
+                        ? "bg-success-soft text-success ring-1 ring-success/20"
+                        : "bg-fg/[0.07] text-fg"
+                    }`}
+                  >
+                    {m.body}
+                  </div>
+                  <span className="mt-0.5 text-label text-faint">
+                    {isHandoff ? timeLabel(m.created_at) : `자동 응답 · ${timeLabel(m.created_at)}`}
+                  </span>
+                </div>
               </div>
             );
           }
@@ -438,6 +506,12 @@ export function ChatRoom({
               key={m.id}
               className={`flex items-end gap-1.5 ${mine ? "justify-end" : "justify-start"}`}
             >
+              {/* 상대(작가) 발화에는 프로필 아바타 — 봇 아바타와 나란히 놓였을 때 다른 객체임이 보인다 */}
+              {!mine && (
+                <span className="mb-0.5 shrink-0">
+                  <Avatar src={counterpartAvatar ?? null} name={counterpartName ?? ""} size="xs" />
+                </span>
+              )}
               {/* 카카오톡식: 내 메시지는 시간이 왼쪽, 상대 메시지는 오른쪽 */}
               {mine && (
                 <span className="mb-0.5 shrink-0 text-label text-faint">
@@ -472,6 +546,11 @@ export function ChatRoom({
             <Fragment key={`w-${m.id}`}>
               {handoffDivider}
               {rendered}
+              {m.id === firstBotMsgId && amCustomer && (guideImages?.length ?? 0) > 0 && (
+                <div className="pl-8">
+                  <GuideImagesButton images={guideImages!} variant="inline" />
+                </div>
+              )}
             </Fragment>
           );
         });
@@ -479,8 +558,9 @@ export function ChatRoom({
 
         {/* 봇 응답 대기 — 타이핑 인디케이터 */}
         {botTyping && (
-          <div className="flex flex-col items-start">
-            <div className="flex items-center gap-1 rounded-2xl rounded-bl-md bg-fg/[0.07] px-4 py-3">
+          <div className="flex items-start gap-2">
+            <BotAvatar />
+            <div className="flex items-center gap-1 rounded-2xl rounded-tl-md bg-fg/[0.07] px-4 py-3">
               {[0, 160, 320].map((d) => (
                 <span
                   key={d}
@@ -489,7 +569,6 @@ export function ChatRoom({
                 />
               ))}
             </div>
-            <span className="mt-0.5 text-label text-faint">자동 응답</span>
           </div>
         )}
       </div>
@@ -639,6 +718,42 @@ export function ChatRoom({
 
 // 작가용 문의 체크리스트 — 봇이 수집한 슬롯 기준으로 "확인됨/미확인"을 한 줄 바에 요약.
 // 수집이 덜 됐으면 펼쳐서 시작(무엇을 물어야 할지 바로 보이게), 완료면 접어서 시작.
+// 봇 아바타 — 작가 프로필 사진과 겹치지 않도록 사람 얼굴이 아닌 도형으로 간다.
+// (작가 아바타는 원형 사진, 봇은 라운드 사각 + 안테나 아이콘 — 실루엣부터 다르다)
+function BotAvatar() {
+  return (
+    <span
+      aria-label="안내봇"
+      className="mt-5 grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-brand/15 text-brand ring-1 ring-brand/20"
+    >
+      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M12 3v3" strokeLinecap="round" />
+        <rect x="4" y="6" width="16" height="12" rx="3" />
+        <path d="M9 12h.01M15 12h.01" strokeLinecap="round" />
+      </svg>
+    </span>
+  );
+}
+
+// 작가에게만 — 봇이 근거가 없어 답하지 못하고 넘긴 질문.
+// 이 목록이 있다는 건 "고객이 물었는데 아직 아무도 답을 안 한 것" 이 남아 있다는 뜻이다.
+function OpenQuestions({ items }: { items: { id: string; question: string }[] }) {
+  return (
+    <div className="shrink-0 border-b border-line bg-warning-soft px-3 py-2.5 sm:px-4">
+      <p className="text-caption font-semibold text-warning">
+        봇이 답하지 못한 질문 {items.length}개 — 작가님 답변이 필요해요
+      </p>
+      <ul className="mt-1.5 flex flex-col gap-1">
+        {items.map((q) => (
+          <li key={q.id} className="text-caption text-fg">
+            · {q.question}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function InquiryChecklist({ slots }: { slots: BotSlots }) {
   const core: { label: string; value: string | undefined }[] = [
     { label: "촬영 종류", value: slots.purpose },
@@ -939,14 +1054,28 @@ function BookingCard({
           {booking.location_text}
         </p>
       )}
-      <p className="mt-2 text-body font-bold text-fg">
-        ₩{fmt.format(booking.amount_krw ?? 0)}
+      {/* 작가가 정의한 추가 항목 — 제안 시점 값 그대로 (라벨까지 스냅샷) */}
+      {readStoredFieldValues(booking.custom_fields).length > 0 && (
+        <dl className="mt-2 flex flex-col gap-1">
+          {readStoredFieldValues(booking.custom_fields).map((f) => (
+            <div key={f.id} className="flex gap-2 text-caption">
+              <dt className="shrink-0 text-muted">{f.label}</dt>
+              <dd className="min-w-0 flex-1 text-fg">{f.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+
+      {/* 금액 — 촬영비와 출장비를 분리 표기. 합계가 곧 사매 계좌로 입금할 금액이다 */}
+      <div className="mt-2">
         {booking.travel_fee_krw > 0 && (
-          <span className="ml-1 text-caption font-normal text-faint">
-            (출장비 ₩{fmt.format(booking.travel_fee_krw)} 포함)
-          </span>
+          <div className="text-caption text-muted">
+            <span>촬영비 ₩{fmt.format((booking.amount_krw ?? 0) - booking.travel_fee_krw)}</span>
+            <span className="ml-2">출장비 ₩{fmt.format(booking.travel_fee_krw)}</span>
+          </div>
         )}
-      </p>
+        <p className="text-body font-bold text-fg">₩{fmt.format(booking.amount_krw ?? 0)}</p>
+      </div>
 
       {/* 수락(체결) 후 송금 단계 — 고객: 계좌·송금완료, 작가: 입금확인 */}
       {status === "accepted" && (

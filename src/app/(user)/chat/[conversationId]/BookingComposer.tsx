@@ -4,8 +4,9 @@ import { useMemo, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { proposeBooking, updateBooking } from "@/app/actions/bookings";
 import { availableStartTimes, type AvailRule, type TimeRange } from "@/lib/slots";
-import { CarIcon, XIcon } from "@/components/user/icons";
-import { DateWheel } from "./DateWheel";
+import { XIcon } from "@/components/user/icons";
+import { DateCalendar } from "./DateCalendar";
+import { fieldInputName, type BookingField } from "@/lib/booking-fields";
 
 type Pkg = { id: string; name: string; price_krw: number; duration_min: number };
 
@@ -17,7 +18,9 @@ export type BookingEditTarget = {
   shootDate: string | null; // 시간 미정·날짜만 확정된 제안
   locationText: string | null;
   memo: string | null;
-  travel: boolean;
+  travel?: boolean; // (레거시) 출장 체크박스 — 금액 분리 입력으로 대체됨
+  amountKrw?: number | null; // 기존 제안 합계 (촬영비 프리필 = 합계 − 출장비)
+  travelFeeKrw?: number | null;
 };
 
 // 신규 제안 프리필 (문의 요약 카드 → "이 내용으로 예약 제안")
@@ -35,9 +38,9 @@ export type ComposerData = {
   rules: AvailRule[];
   blocks: TimeRange[];
   busy: TimeRange[];
-  bookingNote: string | null;
   travelFeeKrw: number;
-  travelFeeNote: string | null;
+  /** 작가가 정의한 예약서 추가 항목 */
+  bookingFields: BookingField[];
 };
 
 const fmt = new Intl.NumberFormat("ko-KR");
@@ -80,9 +83,8 @@ export function BookingComposer({
     rules,
     blocks,
     busy,
-    bookingNote,
     travelFeeKrw,
-    travelFeeNote,
+    bookingFields,
   } = data;
   const isEdit = !!editTarget;
 
@@ -94,11 +96,30 @@ export function BookingComposer({
       ? editTarget.shootDate ?? localDate(editTarget.shootAt)
       : draft?.date ?? ""
   );
-  // 시간 선택 — "" = 미정(협의) / "custom" = 직접 선택 / 그 외 = 빈 시간 슬롯 ISO
-  const [timeSel, setTimeSel] = useState<string>(editTarget?.shootAt ? editTarget.shootAt : "");
+  // 시간 선택 — "custom" = 직접 선택 / 그 외 = 빈 시간 슬롯 ISO.
+  // 미정 옵션은 없앴다: 시간이 안 정해진 제안은 결국 채팅으로 다시 조율하게 돼서 제안의 의미가 없다.
+  const [timeSel, setTimeSel] = useState<string>(editTarget?.shootAt ? editTarget.shootAt : "custom");
   const [customTime, setCustomTime] = useState("14:00"); // HH:MM (직접 선택)
 
   const selectedPkg = packages.find((p) => p.id === packageId) ?? packages[0];
+
+  // 협의된 최종 금액 — 촬영비는 선택한 패키지 가격에서 출발하되 자유롭게 수정, 출장비는 별도.
+  // 문자열로 들고 있어야 비워두고 다시 입력하는 조작이 자연스럽다(빈 값 = 0).
+  const initialTravel = editTarget?.travelFeeKrw ?? (editTarget?.travel ? travelFeeKrw : 0);
+  const [shootFee, setShootFee] = useState(() =>
+    String(
+      editTarget?.amountKrw != null
+        ? Math.max(0, editTarget.amountKrw - (initialTravel ?? 0))
+        : packages.find((p) => p.id === (editTarget?.packageId ?? packages[0]?.id))?.price_krw ?? 0
+    )
+  );
+  const [travelFee, setTravelFee] = useState(String(initialTravel ?? 0));
+  const total = (Number(shootFee) || 0) + (Number(travelFee) || 0);
+
+  // 총 촬영비가 패키지 기본가에서 얼마나 벗어났는지 — 협의 결과를 눈으로 확인하고 제안한다.
+  // (오타로 0 하나 더 붙는 사고가 여기서 걸린다)
+  const basePrice = selectedPkg?.price_krw ?? 0;
+  const extraFee = (Number(shootFee) || 0) - basePrice;
 
   // 선택한 날짜·패키지 기준 빈 시작시간
   const times = useMemo(() => {
@@ -145,12 +166,6 @@ export function BookingComposer({
         <input type="hidden" name="shootAt" value={shootAt} />
         <input type="hidden" name="shootDate" value={date} />
 
-        {bookingNote && (
-          <p className="mt-4 whitespace-pre-wrap rounded-xl bg-fg/[0.05] p-3 text-body-sm text-muted">
-            {bookingNote}
-          </p>
-        )}
-
         {packages.length === 0 ? (
           <p className="mt-4 text-body-sm text-muted">
             작가가 아직 패키지를 등록하지 않았어요. 채팅으로 문의해 주세요.
@@ -172,7 +187,10 @@ export function BookingComposer({
                       name="packageId"
                       value={p.id}
                       checked={packageId === p.id}
-                      onChange={() => setPackageId(p.id)}
+                      onChange={() => {
+                        setPackageId(p.id);
+                        setShootFee(String(p.price_krw)); // 패키지를 바꾸면 촬영비 프리필도 따라간다
+                      }}
                       required
                       className="h-4 w-4 shrink-0 accent-fg"
                     />
@@ -191,31 +209,21 @@ export function BookingComposer({
             {/* 날짜 — 커스텀 휠 피커(년/월/일) */}
             <div>
               <p className="mb-2 text-body-sm font-medium text-fg">희망 날짜</p>
-              <DateWheel
+              <DateCalendar
                 value={date}
                 onChange={(v) => {
                   if (v === date) return;
                   setDate(v);
-                  // 날짜가 바뀌면 슬롯 선택만 무효 (미정·직접 선택은 유지)
-                  setTimeSel((cur) => (cur === "" || cur === "custom" ? cur : ""));
+                  // 날짜가 바뀌면 그 날짜의 슬롯 선택은 무효 — 직접 선택은 유지
+                  setTimeSel((cur) => (cur === "custom" ? cur : "custom"));
                 }}
               />
             </div>
 
-            {/* 시간 — 미정(협의) / 직접 선택 / 작가 빈 시간 슬롯 */}
+            {/* 시간 — 직접 선택 / 작가 빈 시간 슬롯 (미정 없음) */}
             <fieldset>
               <legend className="mb-2 text-body-sm font-medium text-fg">시간</legend>
               <div className="space-y-2">
-                <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-line-strong px-3.5 py-3 text-body-sm has-[:checked]:border-fg has-[:checked]:bg-fg/[0.03]">
-                  <input
-                    type="radio"
-                    checked={timeSel === ""}
-                    onChange={() => setTimeSel("")}
-                    className="h-4 w-4 shrink-0 accent-fg"
-                  />
-                  <span>시간 미정 — 채팅으로 협의</span>
-                </label>
-
                 {/* 직접 선택 — 작가 빈 시간과 무관하게 자유 지정 */}
                 <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-line-strong px-3.5 py-3 text-body-sm has-[:checked]:border-fg has-[:checked]:bg-fg/[0.03]">
                   <input
@@ -280,40 +288,72 @@ export function BookingComposer({
               </div>
             </fieldset>
 
-            {/* 출장비 옵션 — 고정 금액(레거시) */}
-            {travelFeeKrw > 0 && (
-              <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-line-strong px-3.5 py-3 text-body-sm has-[:checked]:border-fg has-[:checked]:bg-fg/[0.03]">
-                <input
-                  type="checkbox"
-                  name="travel"
-                  defaultChecked={editTarget?.travel ?? false}
-                  className="h-4 w-4 shrink-0 rounded accent-fg"
+            {/* 금액 — 협의된 촬영비와 (있으면) 출장비를 각각 기입. 합계가 곧 입금액이다. */}
+            <fieldset>
+              <legend className="mb-2 text-body-sm font-medium text-fg">금액</legend>
+              <div className="space-y-2">
+                <FeeInput
+                  label="총 촬영비"
+                  name="shootFeeKrw"
+                  value={shootFee}
+                  onChange={setShootFee}
+                  placeholder="0"
                 />
-                출장 촬영 (+₩{fmt.format(travelFeeKrw)})
-              </label>
-            )}
-
-            {/* 출장비 안내 — 자유 텍스트(금액은 협의) */}
-            {travelFeeKrw === 0 && travelFeeNote && (
-              <div className="rounded-xl border border-line-strong px-3.5 py-3 text-caption text-muted">
-                <p className="flex items-center gap-1.5 font-medium text-fg">
-                  <CarIcon className="h-4 w-4" />
-                  출장비 안내
+                {/* 패키지 기본가 대비 차이 — 협의로 얼마를 더/덜 받는지 바로 보인다 */}
+                <p className="px-0.5 text-caption text-faint">
+                  {selectedPkg?.name} 기본 ₩{fmt.format(basePrice)}
+                  {extraFee > 0 && (
+                    <span className="ml-1 font-medium text-brand">
+                      · 추가 촬영비 ₩{fmt.format(extraFee)}
+                    </span>
+                  )}
+                  {extraFee < 0 && (
+                    <span className="ml-1 font-medium text-warning">
+                      · 기본가보다 ₩{fmt.format(-extraFee)} 낮음
+                    </span>
+                  )}
+                  {extraFee === 0 && <span className="ml-1">· 추가 촬영비 없음</span>}
                 </p>
-                <p className="mt-1 whitespace-pre-wrap leading-relaxed">{travelFeeNote}</p>
+                <FeeInput
+                  label="출장비"
+                  name="travelFeeKrw"
+                  value={travelFee}
+                  onChange={setTravelFee}
+                  placeholder="없으면 비워두세요"
+                />
+                <div className="flex items-center justify-between rounded-xl bg-fg/[0.05] px-3.5 py-3">
+                  <span className="text-body-sm font-medium text-fg">합계</span>
+                  <span className="text-body font-bold text-fg">₩{fmt.format(total)}</span>
+                </div>
+                <p className="px-0.5 text-caption text-faint">
+                  합계 금액을 사매 계좌로 입금받아요.
+                </p>
               </div>
-            )}
+            </fieldset>
 
             {/* 장소 */}
             <label className="block">
               <span className="mb-2 block text-body-sm font-medium text-fg">촬영 장소</span>
               <input
                 name="locationText"
+                required
                 defaultValue={editTarget?.locationText ?? draft?.locationText ?? ""}
                 placeholder="예: 성수동 카페거리"
                 className="w-full rounded-xl border border-line-strong bg-surface px-3.5 py-2.5 text-body-sm outline-none transition-colors focus:border-fg/40"
               />
             </label>
+
+            {/* 작가가 정의한 추가 항목 — 촬영 전에 꼭 확인해야 하는 것들 */}
+            {bookingFields.length > 0 && (
+              <fieldset>
+                <legend className="mb-2 text-body-sm font-medium text-fg">촬영 정보</legend>
+                <div className="space-y-2">
+                  {bookingFields.map((f) => (
+                    <CustomField key={f.id} field={f} />
+                  ))}
+                </div>
+              </fieldset>
+            )}
 
             {/* 메모 */}
             <label className="block">
@@ -327,7 +367,7 @@ export function BookingComposer({
               />
             </label>
 
-            <ComposerSubmit isEdit={isEdit} />
+            <ComposerSubmit isEdit={isEdit} blocked={!date || !shootAt} />
           </div>
         )}
       </form>
@@ -335,16 +375,104 @@ export function BookingComposer({
   );
 }
 
+// 작가 정의 항목 한 칸 — 타입에 따라 입력·선택·체크박스
+function CustomField({ field }: { field: BookingField }) {
+  const name = fieldInputName(field.id);
+  if (field.type === "checkbox") {
+    return (
+      <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-line-strong px-3.5 py-3 text-body-sm has-[:checked]:border-fg has-[:checked]:bg-fg/[0.03]">
+        <input type="checkbox" name={name} value="1" className="h-4 w-4 shrink-0 accent-fg" />
+        <span>{field.label}</span>
+      </label>
+    );
+  }
+  if (field.type === "select") {
+    return (
+      <label className="block">
+        <span className="mb-1.5 block text-caption text-muted">
+          {field.label}
+          {field.required && <span className="ml-1 text-danger">*</span>}
+        </span>
+        <select
+          name={name}
+          required={field.required}
+          defaultValue=""
+          className="w-full cursor-pointer rounded-xl border border-line-strong bg-surface px-3.5 py-2.5 text-body-sm outline-none transition-colors focus:border-fg/40"
+        >
+          <option value="" disabled>
+            선택해주세요
+          </option>
+          {(field.options ?? []).map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-caption text-muted">
+        {field.label}
+        {field.required && <span className="ml-1 text-danger">*</span>}
+      </span>
+      <input
+        name={name}
+        required={field.required}
+        className="w-full rounded-xl border border-line-strong bg-surface px-3.5 py-2.5 text-body-sm outline-none transition-colors focus:border-fg/40"
+      />
+    </label>
+  );
+}
+
+// 금액 입력 — 숫자만 허용(서버가 다시 검증한다). inputMode=numeric 으로 모바일 숫자 키패드.
+function FeeInput({
+  label,
+  name,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  name: string;
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <label className="flex items-center gap-3 rounded-xl border border-line-strong px-3.5 py-3 focus-within:border-fg/40">
+      <span className="shrink-0 text-body-sm text-fg">{label}</span>
+      <span className="ml-auto flex items-center gap-1">
+        <span className="text-body-sm text-faint">₩</span>
+        <input
+          name={name}
+          value={value}
+          onChange={(e) => onChange(e.target.value.replace(/[^0-9]/g, ""))}
+          inputMode="numeric"
+          placeholder={placeholder}
+          className="w-32 bg-transparent text-right text-body-sm tabular-nums outline-none placeholder:text-faint"
+        />
+      </span>
+    </label>
+  );
+}
+
 // 제출 버튼 — 전송 중 비활성화로 연속 클릭 중복 제안 방지
-function ComposerSubmit({ isEdit }: { isEdit: boolean }) {
+function ComposerSubmit({ isEdit, blocked }: { isEdit: boolean; blocked?: boolean }) {
   const { pending } = useFormStatus();
   return (
+    <>
+      {blocked && (
+        <p className="text-caption text-faint">희망 날짜와 시간을 골라야 제안할 수 있어요.</p>
+      )}
     <button
       type="submit"
-      disabled={pending}
+      disabled={pending || blocked}
       className="mt-1 w-full cursor-pointer rounded-full bg-fg py-3 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90 disabled:opacity-50"
     >
       {pending ? "처리 중…" : isEdit ? "수정하기" : "제안하기"}
     </button>
+    </>
   );
 }

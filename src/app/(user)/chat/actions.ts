@@ -12,6 +12,7 @@ import { notifyUserOfPhotographerReply } from "@/lib/notify-user";
 import { detectOffPlatform, MODERATION_NOTICE } from "@/lib/moderation";
 import { coreSlotsFilled, type LlmSlots } from "@/lib/inquiry-bot-llm";
 import { finalizeBotInquiryFor } from "@/app/(user)/inquiry/actions";
+import { handlePhotographerTakeover } from "@/lib/bot-handoff";
 
 // 송금 단계(수락 이후)에서만 작가 수취 계좌를 공개 — 채팅 진입만으로 계좌가 응답에 실리지 않게 한다(리드/보안).
 //   · 고객 본인 + 해당 예약이 accepted 이상일 때만 반환, 그 외엔 null.
@@ -103,6 +104,10 @@ export async function sendMessage(conversationId: string, body: string): Promise
     return { ok: false, blocked: true, reason: MODERATION_NOTICE };
   }
 
+  // 작가 첫 발화면 봇을 영구 정지시키고 인계 안내를 먼저 깐다 —
+  // 메시지 삽입 뒤에 부르면 안내가 작가 첫 마디 아래로 밀린다.
+  await handlePhotographerTakeover(createAdminClient(), conversationId, user.id);
+
   const { error } = await supabase.from("messages").insert({
     conversation_id: conversationId,
     sender_id: user.id,
@@ -145,6 +150,7 @@ export async function sendPortfolioPhoto(conversationId: string, photoId: string
   }
 
   const admin = createAdminClient();
+  await handlePhotographerTakeover(admin, conversationId, me.id); // 사진으로 답해도 인계다
   const { error } = await admin.from("messages").insert({
     conversation_id: conversationId,
     sender_id: me.id,

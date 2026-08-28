@@ -9,6 +9,7 @@ import "server-only";
 //
 // 접수(finalize)는 submitInquiry 재사용이 필요해 app 레이어(chat/bot-actions.ts)에 있다.
 
+import { z } from "zod";
 import { ChatAnthropic } from "@langchain/anthropic";
 import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
 import type { BaseMessage } from "@langchain/core/messages";
@@ -23,6 +24,14 @@ import {
   type LlmSlots,
 } from "./inquiry-bot-llm";
 import type { PhotographerScript } from "./photographer-scripts";
+import {
+  buildQaPrompt,
+  kbGreeting,
+  degradeToHandoff,
+  validateGrounding,
+  type PhotographerKb,
+  type QaTurn,
+} from "./bot-kb";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // haiku — 문의 접수는 슬롯 채우기 중심의 좁은 태스크라 소형 모델로 충분 (비용·지연 최소화)
@@ -179,6 +188,10 @@ export async function seedBotRoomMessages(params: {
   photographerName: string;
   photo: { thumbUrl: string | null } | null;
   firstQuestion: string;
+  /** 작가 KB 가 있으면 수집 인사 대신 상담 인사로 열고 첫 질문은 시드하지 않는다 */
+  qaMode?: boolean;
+  /** 상담 인사말 (작가별 > 전역 > 코드 기본). 비면 코드 기본 */
+  greeting?: string;
 }): Promise<boolean> {
   const admin = createAdminClient();
   const { count } = await admin
@@ -199,26 +212,123 @@ export async function seedBotRoomMessages(params: {
       created_at: new Date(now - 40).toISOString(),
     });
   }
-  rows.push(
-    {
-      conversation_id: params.conversationId,
-      sender_id: params.photographerProfileId,
-      type: "bot",
-      body: `안녕하세요! 저는 ${params.photographerName}님의 문의를 대신 받아드리는 자동 응답 봇이에요 🤖\n몇 가지 여쭤보고 정리해서 작가님께 전달드려요. 편하게 입력하셔도 되고, 아래 선택지를 눌러도 좋아요.`,
-      created_at: new Date(now - 20).toISOString(),
-    },
-    {
+  rows.push({
+    conversation_id: params.conversationId,
+    sender_id: params.photographerProfileId,
+    type: "bot",
+    body: params.qaMode
+      ? (params.greeting ?? "").trim() || kbGreeting(params.photographerName)
+      : `안녕하세요! 저는 ${params.photographerName}님의 문의를 대신 받아드리는 자동 응답 봇이에요 🤖\n몇 가지 여쭤보고 정리해서 작가님께 전달드려요. 편하게 입력하셔도 되고, 아래 선택지를 눌러도 좋아요.`,
+    created_at: new Date(now - 20).toISOString(),
+  });
+  if (!params.qaMode) {
+    rows.push({
       conversation_id: params.conversationId,
       sender_id: params.photographerProfileId,
       type: "bot",
       body: params.firstQuestion,
       created_at: new Date(now).toISOString(),
-    }
-  );
+    });
+  }
   const { error } = await admin.from("messages").insert(rows);
   if (error) {
     console.error("[bot-room] 시드 실패:", error.message);
     return false;
   }
   return true;
+}
+
+/**
+ * 상담 인사만 뒤늦게 시드한다 — 숨고형 폼(/inquiry)으로 만들어진 방 대응.
+ *
+ * 그 경로는 방을 만들고 요약 카드만 넣기 때문에 봇 발화가 하나도 없다. 그런데 요구사항상
+ * **두 트랙 모두** 작가가 첫 마디를 하기 전까지는 봇이 응대해야 한다. 그래서 방에 봇 발화가
+ * 없으면 여기서 인사 한 줄을 깔아, 손님이 "작가 방인데 지금은 봇이 대신 답한다"를 알게 한다.
+ * 봇 발화가 이미 있으면(=봇으로 시작한 방) 아무것도 하지 않는다.
+ */
+export async function seedQaGreetingIfMissing(params: {
+  conversationId: string;
+  photographerProfileId: string;
+  photographerName: string;
+  /** 작가별 인사말 > 전역 인사말 > 코드 기본 순으로 이미 정해져 내려온다 */
+  greeting?: string;
+}): Promise<boolean> {
+  const admin = createAdminClient();
+  const { count } = await admin
+    .from("messages")
+    .select("id", { count: "exact", head: true })
+    .eq("conversation_id", params.conversationId)
+    .eq("type", "bot");
+  if ((count ?? 0) > 0) return false;
+
+  const { error } = await admin.from("messages").insert({
+    conversation_id: params.conversationId,
+    sender_id: params.photographerProfileId,
+    type: "bot",
+    body: (params.greeting ?? "").trim() || kbGreeting(params.photographerName),
+  });
+  if (error) {
+    console.error("[bot-room] 상담 인사 시드 실패:", error.message);
+    return false;
+  }
+  return true;
+}
+
+// ── 상담(Q&A) 모드 ───────────────────────────────────────────────
+// 수집이 아니라 답변이 목적인 턴. 근거는 작가 KB 카드 + 사매 공통 정책뿐이고,
+// 생성된 답변은 서버에서 기계 검증(카드 존재·숫자·기한)을 통과해야 게시된다.
+
+const qaTurnSchema = z.object({
+  reply: z.string().describe("손님에게 보낼 답변 (1~3문장 존댓말)"),
+  citedCardIds: z.array(z.string()).describe("근거로 사용한 카드 id 목록"),
+  needsHuman: z.boolean().describe("근거가 없거나 부분적이라 작가가 답해야 하면 true"),
+  suggestions: z.array(z.string()).max(3).nullish().describe("이어서 궁금해할 만한 짧은 질문"),
+});
+
+export async function runBotQaTurn(params: {
+  kb: PhotographerKb;
+  messages: BotChatMessage[];
+  /** 전역 정책·기본 말투·모델 (어드민에서 관리). 없으면 코드 상수로 동작한다 */
+  settings?: { policy: string; defaultTone: string; model: string };
+  /** 작가가 스튜디오에서 정한 말투 — 없으면 전역 기본 말투 */
+  tone?: string;
+}): Promise<QaTurn & { blockedReason?: string }> {
+  const policy = params.settings?.policy;
+  const tone = (params.tone ?? "").trim() || params.settings?.defaultTone || "";
+  const model = new ChatAnthropic({
+    model: params.settings?.model || MODEL,
+    maxTokens: 700,
+    temperature: 0.2, // 상담 답변 — 창의성보다 근거 충실도
+  });
+  const structured = model.withStructuredOutput(qaTurnSchema, { name: "qa_turn" });
+  const lcMessages: BaseMessage[] = [new SystemMessage(buildQaPrompt(params.kb, { policy, tone }))];
+  for (const m of params.messages) {
+    if (m.role === "user") lcMessages.push(new HumanMessage(m.text));
+    else if (m.role === "bot") lcMessages.push(new AIMessage(m.text));
+  }
+  if (lcMessages.length === 1) lcMessages.push(new HumanMessage(ENTER_EVENT));
+
+  let raw;
+  try {
+    raw = await structured.invoke(lcMessages);
+  } catch (first) {
+    console.warn("[bot-kb] structured output failed once, retrying:", first);
+    raw = await structured.invoke(lcMessages);
+  }
+
+  const turn: QaTurn = {
+    reply: (raw.reply ?? "").trim(),
+    citedCardIds: raw.citedCardIds ?? [],
+    needsHuman: raw.needsHuman ?? false,
+    suggestions: (raw.suggestions ?? []).map((s) => s.trim()).filter(Boolean).slice(0, 3),
+  };
+
+  const lastUser = [...params.messages].reverse().find((m) => m.role === "user")?.text ?? "";
+  const problems = validateGrounding(turn, params.kb.cards, lastUser, policy);
+  if (problems.length > 0) {
+    // 틀린 답보다 침묵이 낫다 — 검증에 걸리면 작가에게 넘긴다.
+    console.warn("[bot-kb] 근거 검증 실패 → 넘김:", problems.join(" / "), "|", turn.reply);
+    return { ...degradeToHandoff(turn, params.kb.displayName), blockedReason: problems.join(" / ") };
+  }
+  return turn;
 }
