@@ -91,3 +91,25 @@ export async function adminSettleNow(formData: FormData): Promise<void> {
 
   revalidatePath("/admin/transactions");
 }
+
+// ── 환불 (docs/32) ────────────────────────────────────────────
+// 판정은 lib/refund.ts 가 하고, 운영은 그 결과를 확인한 뒤 실행만 한다.
+// 사람이 은행에서 실제로 돈을 보내고, 이 액션은 원장을 정리한다.
+import { refundBooking } from "@/lib/payments";
+import type { RefundOverride } from "@/lib/refund";
+
+export async function adminRefund(formData: FormData): Promise<void> {
+  const me = await getCurrentUser();
+  if (!me || me.role !== "admin") throw new Error("운영자 권한이 필요합니다.");
+  const id = String(formData.get("id"));
+
+  // 운영 판정 — 없으면 시간 규칙대로
+  const raw = String(formData.get("override") ?? "");
+  const override: RefundOverride | null =
+    raw === "force_majeure" || raw === "photographer_fault" ? raw : null;
+
+  const res = await refundBooking(id, { override, note: String(formData.get("note") ?? "") });
+  if (!res.ok) throw new Error("환불할 수 없는 상태예요 (이미 환불됐거나 입금 전).");
+
+  revalidatePath("/admin/transactions");
+}

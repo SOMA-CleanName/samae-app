@@ -1,0 +1,167 @@
+// 환불 판정 — docs/32 의 표가 그대로 통과해야 한다.
+// 돈이 갈라지는 자리라 경계(정확히 7일/24시간)를 특히 못박는다.
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { refundQuote } from "./refund";
+import { resolveFee, readFeeSnapshot, feeSpecFromRow } from "./platform-fee";
+
+const NOW = new Date("2026-09-01T12:00:00+09:00");
+const iso = (d: Date) => d.toISOString();
+const shift = (base: Date, ms: number) => new Date(base.getTime() + ms);
+const DAY = 24 * 60 * 60 * 1000;
+const HOUR = 60 * 60 * 1000;
+
+// 촬영비 100,000 + 출장비 20,000, 정률 10% → 수수료 10,000
+const base = {
+  amountKrw: 120000,
+  travelFeeKrw: 20000,
+  feeKrw: 10000,
+  now: NOW,
+};
+
+test("입금 전이면 환불이 아니라 취소", () => {
+  const q = refundQuote({ ...base, shootAt: iso(shift(NOW, 30 * DAY)), transferMarkedAt: null });
+  assert.equal(q.basis, "not_paid");
+  assert.equal(q.refundKrw, 0);
+  assert.equal(q.feeWaived, true);
+});
+
+test("결제 24시간 이내 · 촬영 7일 이상 → 100%, 아무도 손해 없음", () => {
+  const q = refundQuote({
+    ...base,
+    shootAt: iso(shift(NOW, 30 * DAY)),
+    transferMarkedAt: iso(shift(NOW, -2 * HOUR)),
+  });
+  assert.equal(q.basis, "cooling_off");
+  assert.equal(q.refundKrw, 120000);
+  assert.equal(q.feeWaived, true);
+  assert.equal(q.photographerNetKrw, 0); // 작가도 0 — 손실 없음
+});
+
+test("결제 24시간 경계는 포함 — 정확히 24시간 전이면 아직 100%", () => {
+  const q = refundQuote({
+    ...base,
+    shootAt: iso(shift(NOW, 30 * DAY)),
+    transferMarkedAt: iso(shift(NOW, -24 * HOUR)),
+  });
+  assert.equal(q.basis, "cooling_off");
+});
+
+test("결제 24시간 1분 경과 → 50%", () => {
+  const q = refundQuote({
+    ...base,
+    shootAt: iso(shift(NOW, 30 * DAY)),
+    transferMarkedAt: iso(shift(NOW, -24 * HOUR - 60_000)),
+  });
+  assert.equal(q.basis, "standard_50");
+  assert.equal(q.refundKrw, 60000);
+  assert.equal(q.feeKrw, 10000); // 수수료는 유지
+  assert.equal(q.photographerNetKrw, 50000); // 120,000 − 10,000 − 60,000
+});
+
+test("연락처 교환 뒤에는 24시간 이내여도 50%", () => {
+  const q = refundQuote({
+    ...base,
+    shootAt: iso(shift(NOW, 30 * DAY)),
+    transferMarkedAt: iso(shift(NOW, -1 * HOUR)),
+    contactExchangedAt: iso(shift(NOW, -30 * 60_000)),
+  });
+  assert.equal(q.basis, "contact_exchanged");
+  assert.equal(q.percent, 50);
+});
+
+test("촬영 7일 경계는 고객 쪽으로 — 정확히 7일 남으면 환불 가능", () => {
+  const q = refundQuote({
+    ...base,
+    shootAt: iso(shift(NOW, 7 * DAY)),
+    transferMarkedAt: iso(shift(NOW, -10 * DAY)),
+  });
+  assert.equal(q.basis, "standard_50");
+});
+
+test("촬영 7일 1분 안쪽이면 환불 불가", () => {
+  const q = refundQuote({
+    ...base,
+    shootAt: iso(shift(NOW, 7 * DAY - 60_000)),
+    transferMarkedAt: iso(shift(NOW, -10 * DAY)),
+  });
+  assert.equal(q.basis, "within_7_days");
+  assert.equal(q.refundKrw, 0);
+});
+
+test("촬영 임박은 결제 24시간 이내여도 환불 불가", () => {
+  const q = refundQuote({
+    ...base,
+    shootAt: iso(shift(NOW, 2 * DAY)),
+    transferMarkedAt: iso(shift(NOW, -1 * HOUR)),
+  });
+  assert.equal(q.basis, "within_7_days");
+});
+
+test("시각 없는 옛 예약은 그날 23:59 기준 — 경계가 고객에게 유리하게 잡힌다", () => {
+  // 9/8 23:59 는 9/1 12:00 에서 7일 이상 뒤 → 환불 가능
+  const q = refundQuote({
+    ...base,
+    shootAt: null,
+    shootDate: "2026-09-08",
+    transferMarkedAt: iso(shift(NOW, -10 * DAY)),
+  });
+  assert.equal(q.basis, "standard_50");
+});
+
+test("작가 귀책 — 촬영 임박이어도 전액 환불하고 수수료는 작가가 문다", () => {
+  const q = refundQuote({
+    ...base,
+    shootAt: iso(shift(NOW, 1 * DAY)),
+    transferMarkedAt: iso(shift(NOW, -10 * DAY)),
+    override: "photographer_fault",
+  });
+  assert.equal(q.refundKrw, 120000);
+  assert.equal(q.feeWaived, false);
+  assert.equal(q.photographerNetKrw, -10000); // 수수료만큼 마이너스
+});
+
+test("천재지변 — 전액 환불에 수수료도 면제, 작가는 0", () => {
+  const q = refundQuote({
+    ...base,
+    shootAt: iso(shift(NOW, 1 * DAY)),
+    transferMarkedAt: iso(shift(NOW, -10 * DAY)),
+    override: "force_majeure",
+  });
+  assert.equal(q.refundKrw, 120000);
+  assert.equal(q.feeWaived, true);
+  assert.equal(q.photographerNetKrw, 0);
+});
+
+// ── 수수료 모델 ────────────────────────────────────────────────
+
+test("설정 없는 작가는 전역 정액 6,000", () => {
+  const f = resolveFee(null, 100000);
+  assert.equal(f.mode, "flat");
+  assert.equal(f.feeKrw, 6000);
+});
+
+test("정률 10% 는 촬영비에만 붙는다", () => {
+  const f = resolveFee({ mode: "rate", rate: 0.1 }, 100000);
+  assert.equal(f.feeKrw, 10000);
+  assert.equal(f.shootFeeKrw, 100000);
+});
+
+test("정률인데 요율이 비면 기본 10% 로 받는다 — 매출이 조용히 0 이 되지 않게", () => {
+  assert.equal(resolveFee({ mode: "rate", rate: null }, 100000).feeKrw, 10000);
+});
+
+test("정액이 촬영비보다 크면 촬영비까지만", () => {
+  assert.equal(resolveFee({ mode: "flat", amountKrw: 6000 }, 3000).feeKrw, 3000);
+});
+
+test("row → spec 변환은 numeric 문자열도 받는다", () => {
+  const spec = feeSpecFromRow({ fee_mode: "rate", fee_rate: 0.15 as unknown as number });
+  assert.equal(resolveFee(spec, 100000).feeKrw, 15000);
+});
+
+test("스냅샷은 깨져 있어도 화면을 죽이지 않는다", () => {
+  assert.equal(readFeeSnapshot(null), null);
+  assert.equal(readFeeSnapshot({ nope: 1 }), null);
+  assert.equal(readFeeSnapshot({ mode: "rate", rate: 0.1, shootFeeKrw: 100000, feeKrw: 10000 })?.feeKrw, 10000);
+});

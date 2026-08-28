@@ -6,7 +6,8 @@ import { cn } from "@/lib/cn";
 import { DeleteModeProvider, DeleteModeToolbar } from "@/components/admin/DeleteMode";
 import { AdminBookings, type BookingRow } from "./AdminBookings";
 import { AdminCancelButton } from "./AdminCancelButton";
-import { PLATFORM_FEE_KRW } from "@/lib/payments";
+import { feeSpecFromRow, feeSpecLabel, readFeeSnapshot, resolveFee } from "@/lib/platform-fee";
+import { refundQuote } from "@/lib/refund";
 import { readStoredFieldValues } from "@/lib/booking-fields";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +20,10 @@ type DbBooking = {
   id: string;
   status: string;
   amount_krw: number | null;
+  shoot_date: string | null;
+  fee_snapshot: unknown;
+  refunded_at: string | null;
+  refund_reason: string | null;
   shoot_at: string | null;
   created_at: string;
   accepted_at: string | null;
@@ -31,6 +36,7 @@ type DbBooking = {
   memo: string | null;
   custom_fields: unknown;
   proposed_by_photographer: boolean;
+  photographer_id: string;
   transfer_marked_at: string | null;
   settled_at: string | null;
   settlement_amount_krw: number | null;
@@ -50,7 +56,7 @@ export default async function AdminTransactionsPage() {
   const { data: bData } = await admin
     .from("bookings")
     .select(
-      "id, status, amount_krw, shoot_at, created_at, accepted_at, requested_at, paid_at, cancelled_at, cancel_reason, location_text, travel_fee_krw, memo, custom_fields, proposed_by_photographer, package_snapshot, transfer_marked_at, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at, user:profiles!bookings_user_id_fkey(display_name), photographer:photographers(display_name)"
+      "id, status, amount_krw, shoot_at, shoot_date, fee_snapshot, refunded_at, refund_reason, created_at, accepted_at, requested_at, paid_at, cancelled_at, cancel_reason, location_text, travel_fee_krw, memo, custom_fields, proposed_by_photographer, photographer_id, package_snapshot, transfer_marked_at, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at, user:profiles!bookings_user_id_fkey(display_name), photographer:photographers(display_name)"
     )
     .order("created_at", { ascending: false })
     .limit(500);
@@ -82,6 +88,30 @@ export default async function AdminTransactionsPage() {
   for (const m of (convData ?? []) as { booking_id: string | null; conversation_id: string }[]) {
     if (m.booking_id && !convByBooking.has(m.booking_id)) convByBooking.set(m.booking_id, m.conversation_id);
   }
+  // 연락처 교환 시각 — 환불 상한을 50% 로 내리는 조건이라 판정에 필요하다
+  const { data: convRows } = await admin
+    .from("conversations")
+    .select("booking_id, contact_exchanged_at")
+    .not("booking_id", "is", null);
+  const contactByBooking = new Map<string, string | null>();
+  for (const c of (convRows ?? []) as { booking_id: string; contact_exchanged_at: string | null }[]) {
+    contactByBooking.set(c.booking_id, c.contact_exchanged_at);
+  }
+
+  // 작가별 수수료 설정 — 스냅샷이 없는 옛 예약의 폴백 계산에 쓴다
+  const { data: phRows } = await admin
+    .from("photographers")
+    .select("id, fee_mode, fee_amount_krw, fee_rate");
+  const feeSpecById = new Map<string, ReturnType<typeof feeSpecFromRow>>();
+  for (const p of (phRows ?? []) as {
+    id: string;
+    fee_mode: string | null;
+    fee_amount_krw: number | null;
+    fee_rate: number | null;
+  }[]) {
+    feeSpecById.set(p.id, feeSpecFromRow(p));
+  }
+
   const gmv = raw.filter((b) => PAID_BOOKING.includes(b.status)).reduce((s, b) => s + (b.amount_krw ?? 0), 0);
   const inProgress = raw.filter((b) => IN_PROGRESS.includes(b.status)).length;
 
@@ -116,6 +146,26 @@ export default async function AdminTransactionsPage() {
     cancelled_at: b.cancelled_at,
     cancel_reason: b.cancel_reason,
     conversationId: convByBooking.get(b.id) ?? null,
+    refunded_at: b.refunded_at,
+    refund_reason: b.refund_reason,
+    ...(() => {
+      // 수수료: 제안 시점 스냅샷이 우선, 없으면 현재 설정으로 계산 (0101 이전 예약)
+      const shootFee = Math.max(0, (b.amount_krw ?? 0) - (b.travel_fee_krw ?? 0));
+      const fee =
+        readFeeSnapshot(b.fee_snapshot) ??
+        resolveFee(feeSpecById.get(b.photographer_id) ?? null, shootFee);
+      // 지금 환불하면 얼마인가 — 운영이 버튼을 누르기 전에 보는 값 (판정은 lib/refund.ts)
+      const quote = refundQuote({
+        shootAt: b.shoot_at,
+        shootDate: b.shoot_date,
+        transferMarkedAt: b.transfer_marked_at,
+        contactExchangedAt: contactByBooking.get(b.id) ?? null,
+        amountKrw: b.amount_krw ?? 0,
+        travelFeeKrw: b.travel_fee_krw ?? 0,
+        feeKrw: fee.feeKrw,
+      });
+      return { feeKrw: fee.feeKrw, feeLabel: feeSpecLabel(fee), refund: quote };
+    })(),
   }));
 
   return (
@@ -154,8 +204,8 @@ export default async function AdminTransactionsPage() {
                 <div className="min-w-0 text-caption">
                   <p className="font-semibold text-fg">{one(b.photographer)?.display_name ?? "작가"}</p>
                   <p className="text-muted">
-                    송금액 ₩{fmt.format(Math.max(0, (b.amount_krw ?? 0) - PLATFORM_FEE_KRW))}{" "}
-                    <span className="text-faint">(수수료 {fmt.format(PLATFORM_FEE_KRW)} 차감)</span>
+                    입금액 ₩{fmt.format(b.amount_krw ?? 0)}{" "}
+                    <span className="text-faint">(수수료는 아래 상세에서 확인)</span>
                   </p>
                 </div>
                 <form action={adminMarkSettled}>

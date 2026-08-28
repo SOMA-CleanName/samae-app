@@ -8,6 +8,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { mpTrackServer } from "@/lib/mixpanel-server";
 import { notifyOpsBookingAccepted } from "@/lib/ops-alert";
 import { normalizeBookingFields, readBookingFieldValues } from "@/lib/booking-fields";
+import { snapshotFeeForBooking } from "@/lib/payments";
 
 // 희망 날짜 정규화 — shoot_at(시각 확정)이 있으면 그 KST 날짜, 없으면 폼의 YYYY-MM-DD.
 function resolveShootDate(shootAtIso: string | null, dateRaw: string): string | null {
@@ -184,6 +185,9 @@ export async function proposeBooking(formData: FormData) {
       amount_krw: amount,
       travel_fee_krw: travelFee,
       package_snapshot: pkg,
+      // 수수료 근거를 제안 시점에 굳힌다 — 뒤에 작가 요율이 바뀌어도
+      // 이미 협의된 이 거래의 정산·환불 금액은 흔들리면 안 된다 (docs/32 §2)
+      fee_snapshot: await snapshotFeeForBooking(admin, photographerId, amount, travelFee),
       memo,
       proposed_by_photographer: amPhotographer,
     })
@@ -299,6 +303,8 @@ export async function updateBooking(formData: FormData) {
       amount_krw: amount,
       travel_fee_krw: travelFee,
       package_snapshot: pkg,
+      // 금액이 바뀌면 수수료도 달라진다 — 스냅샷을 다시 굳힌다
+      fee_snapshot: await snapshotFeeForBooking(admin, b.photographer_id, amount, travelFee),
       memo,
     })
     .eq("id", id)

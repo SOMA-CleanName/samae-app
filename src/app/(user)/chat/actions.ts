@@ -9,7 +9,7 @@ import type { PayoutAccount } from "@/lib/payments";
 import { getPlatformAccount, hasAccount } from "@/lib/platform-account";
 import { archiveAndDelete } from "@/lib/soft-delete";
 import { notifyUserOfPhotographerReply } from "@/lib/notify-user";
-import { detectOffPlatform, MODERATION_NOTICE } from "@/lib/moderation";
+import { detectOffPlatform, contactExchangeAllowed, MODERATION_NOTICE } from "@/lib/moderation";
 import { coreSlotsFilled, type LlmSlots } from "@/lib/inquiry-bot-llm";
 import { finalizeBotInquiryFor } from "@/app/(user)/inquiry/actions";
 import { handlePhotographerTakeover } from "@/lib/bot-handoff";
@@ -83,25 +83,47 @@ export async function sendMessage(conversationId: string, body: string): Promise
 
   const matched = detectOffPlatform(text);
   if (matched.length > 0) {
-    // 차단 — 메시지는 저장하지 않고 시도만 기록 (실패해도 차단은 유지)
-    try {
-      const admin = createAdminClient();
-      const { data: conv } = await admin
-        .from("conversations")
-        .select("user_id")
-        .eq("id", conversationId)
+    const admin = createAdminClient();
+    const { data: conv } = await admin
+      .from("conversations")
+      .select("user_id, booking_id, contact_exchanged_at")
+      .eq("id", conversationId)
+      .maybeSingle();
+
+    // 입금이 확인된 예약이 있으면 연락처를 주고받아도 된다 — 촬영 당일 연락은 실제로 필요하다.
+    // 다만 교환 시각을 남긴다: 그 순간부터 환불 상한이 50% 로 내려간다 (docs/32 §3-3).
+    let bookingStatus: string | null = null;
+    if (conv?.booking_id) {
+      const { data: bk } = await admin
+        .from("bookings")
+        .select("status")
+        .eq("id", conv.booking_id)
         .maybeSingle();
-      await admin.from("moderation_events").insert({
-        conversation_id: conversationId,
-        sender_id: user.id,
-        sender_role: conv?.user_id === user.id ? "customer" : "photographer",
-        body: text,
-        matched,
-      });
-    } catch (err) {
-      console.error("[moderation] 기록 실패:", err instanceof Error ? err.message : err);
+      bookingStatus = (bk?.status as string) ?? null;
     }
-    return { ok: false, blocked: true, reason: MODERATION_NOTICE };
+    if (contactExchangeAllowed(bookingStatus)) {
+      if (!conv?.contact_exchanged_at) {
+        await admin
+          .from("conversations")
+          .update({ contact_exchanged_at: new Date().toISOString() })
+          .eq("id", conversationId)
+          .is("contact_exchanged_at", null);
+      }
+    } else {
+      // 차단 — 메시지는 저장하지 않고 시도만 기록 (실패해도 차단은 유지)
+      try {
+        await admin.from("moderation_events").insert({
+          conversation_id: conversationId,
+          sender_id: user.id,
+          sender_role: conv?.user_id === user.id ? "customer" : "photographer",
+          body: text,
+          matched,
+        });
+      } catch (err) {
+        console.error("[moderation] 기록 실패:", err instanceof Error ? err.message : err);
+      }
+      return { ok: false, blocked: true, reason: MODERATION_NOTICE };
+    }
   }
 
   // 작가 첫 발화면 봇을 영구 정지시키고 인계 안내를 먼저 깐다 —

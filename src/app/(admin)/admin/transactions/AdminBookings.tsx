@@ -10,9 +10,10 @@ import { useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui";
 import { SelectCheckbox } from "@/components/admin/DeleteMode";
-import { PLATFORM_FEE_KRW } from "@/lib/platform-fee";
+import type { RefundQuote } from "@/lib/refund";
 import type { BookingFieldValue } from "@/lib/booking-fields";
 import { adminSettleNow, adminMarkSettled } from "./actions";
+import { AdminRefundButton } from "./AdminRefundButton";
 import { AdminCancelButton } from "./AdminCancelButton";
 
 const fmt = new Intl.NumberFormat("ko-KR");
@@ -54,6 +55,14 @@ export type BookingRow = {
   cancelled_at: string | null;
   cancel_reason: string | null;
   conversationId: string | null;
+  refunded_at: string | null;
+  refund_reason: string | null;
+  /** 이 예약에 부과된(또는 부과될) 사매 수수료 — 스냅샷 우선 */
+  feeKrw: number;
+  /** "정률 10%" 처럼 사람이 읽는 근거 */
+  feeLabel: string;
+  /** 지금 환불하면 어떻게 되는지 (docs/32) */
+  refund: RefundQuote;
 };
 
 const day = (iso: string | null) =>
@@ -122,7 +131,7 @@ export function AdminBookings({ bookings }: { bookings: BookingRow[] }) {
 
 function BookingDetail({ b }: { b: BookingRow }) {
   const shootFee = (b.amount_krw ?? 0) - (b.travel_fee_krw ?? 0);
-  const payout = Math.max(0, (b.amount_krw ?? 0) - PLATFORM_FEE_KRW);
+  const payout = Math.max(0, (b.amount_krw ?? 0) - b.feeKrw);
 
   // 진행 흐름 — 비어 있는 칸이 곧 '여기서 멈춰 있다'
   const steps: { label: string; at: string | null }[] = [
@@ -156,7 +165,7 @@ function BookingDetail({ b }: { b: BookingRow }) {
             <Row k="촬영비" v={`₩${fmt.format(shootFee)}`} />
             {b.travel_fee_krw > 0 && <Row k="출장비" v={`₩${fmt.format(b.travel_fee_krw)}`} />}
             <Row k="고객 입금액" v={`₩${fmt.format(b.amount_krw ?? 0)}`} strong />
-            <Row k="수수료" v={`− ₩${fmt.format(PLATFORM_FEE_KRW)}`} />
+            <Row k="수수료" v={`− ₩${fmt.format(b.feeKrw)} (${b.feeLabel})`} />
             <Row
               k="작가 송금액"
               v={`₩${fmt.format(b.settlement_amount_krw ?? payout)}`}
@@ -181,11 +190,29 @@ function BookingDetail({ b }: { b: BookingRow }) {
         </ol>
         {b.cancelled_at && (
           <p className="mt-1.5 text-caption text-danger">
-            취소됨 {stamp(b.cancelled_at)}
+            {b.refunded_at ? "환불됨" : "취소됨"} {stamp(b.cancelled_at)}
             {b.cancel_reason ? ` — ${b.cancel_reason}` : ""}
           </p>
         )}
       </section>
+
+      {/* 환불 — 버튼을 누르기 전에 '얼마가 어디로 가는지' 를 먼저 보여준다.
+          계산은 lib/refund.ts 한 곳에서만 한다 (docs/32). */}
+      {!b.refunded_at && b.transfer_marked_at && (
+        <section className="mt-4 rounded-xl bg-bg-2 p-3">
+          <p className="text-caption font-semibold text-muted">지금 환불하면</p>
+          <p className="mt-1 text-caption text-fg">
+            <b>{b.refund.percent}% · ₩{fmt.format(b.refund.refundKrw)}</b> 고객 환불 ·{" "}
+            수수료 {b.refund.feeWaived ? "면제" : `₩${fmt.format(b.refund.feeKrw)} 유지`} ·{" "}
+            작가{" "}
+            <b className={b.refund.photographerNetKrw < 0 ? "text-danger" : ""}>
+              {b.refund.photographerNetKrw < 0 ? "−" : ""}₩
+              {fmt.format(Math.abs(b.refund.photographerNetKrw))}
+            </b>
+          </p>
+          <p className="mt-0.5 text-caption text-faint">{b.refund.reason}</p>
+        </section>
+      )}
 
       {/* 조치 */}
       <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3">
@@ -215,6 +242,15 @@ function BookingDetail({ b }: { b: BookingRow }) {
               정산 완료 마킹
             </button>
           </form>
+        )}
+
+        {!b.refunded_at && b.transfer_marked_at && (
+          <AdminRefundButton
+            bookingId={b.id}
+            quote={b.refund}
+            amountKrw={b.amount_krw ?? 0}
+            label={`${b.userName ?? "고객"} → ${b.photographerName ?? "작가"} · ₩${fmt.format(b.amount_krw ?? 0)}`}
+          />
         )}
 
         {["requested", "accepted"].includes(b.status) && (

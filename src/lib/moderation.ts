@@ -78,5 +78,18 @@ export function detectOffPlatform(text: string): string[] {
 }
 
 /** 차단 시 사용자에게 보여줄 안내문 */
+/**
+ * 이 대화에서 연락처 교환을 허용해도 되는가.
+ *
+ * 입금이 확인된 뒤에는 촬영 당일 연락이 실제로 필요하다 — 그때까지 막는 건 고객을 지키는
+ * 장치지만, 확정된 촬영에서까지 막으면 서비스가 현장을 방해한다. 그래서 검열은
+ * **입금 확인 전까지만** 유지한다 (docs/32 §3-3).
+ *
+ * 대신 교환이 실제로 일어난 시각을 기록한다 — 그 시점부터 환불이 50% 로 내려가기 때문이다.
+ */
+export function contactExchangeAllowed(bookingStatus: string | null | undefined): boolean {
+  return !!bookingStatus && ["paid", "shot", "delivered", "completed"].includes(bookingStatus);
+}
+
 export const MODERATION_NOTICE =
   "개인 연락처·SNS·계좌번호 안내는 보낼 수 없어요. 대화는 사매 채팅에서, 결제는 사매 안전결제로 진행해 주세요.";
