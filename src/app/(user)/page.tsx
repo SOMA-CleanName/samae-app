@@ -21,6 +21,7 @@ import { ExploreGallery } from "@/components/user/ExploreGallery";
 import { ScrollMemory } from "@/components/user/ScrollMemory";
 import { FeedHero } from "@/components/user/FeedHero";
 import { TasteTestNudge } from "@/components/user/TasteTestNudge";
+import { HomeBannerSlot } from "@/components/user/HomeBannerSlot";
 import { TasteBanner } from "./TasteBanner";
 import { JsonLd } from "@/components/JsonLd";
 import { siteJsonLd } from "@/lib/seo";
@@ -101,7 +102,9 @@ export default async function ExploreHome({
       {!query && <JsonLd data={siteJsonLd()} />}
       {/* 탭 전환 시 스크롤 위치 유지 */}
       <ScrollMemory />
-      {/* 홈 최상단 히어로 (검색 모드 아닐 때만) */}
+      {/* 홈 최상단 운영 배너 캐러셀 (검색 모드 아닐 때만) */}
+      {!query && <HomeBannerSlot />}
+      {/* 홈 히어로 (검색 모드 아닐 때만) */}
       {!query && <FeedHero />}
 
       {/* 취향 적용 배너 (전체 피드 + 취향 v2 있을 때) */}
