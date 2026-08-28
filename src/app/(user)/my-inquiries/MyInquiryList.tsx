@@ -210,13 +210,6 @@ function BookingBlock({ b }: { b: InquiryBooking }) {
           <span className="text-body font-bold text-fg">₩{fmt.format(b.amountKrw)}</span>
         </div>
       </div>
-
-      <Link
-        href={`/bookings/${b.id}`}
-        className="mt-3 flex w-full items-center justify-center rounded-xl border border-line-strong py-2.5 text-body-sm font-medium text-fg transition-colors hover:bg-fg/[0.04]"
-      >
-        예약 확인하기
-      </Link>
     </div>
   );
 }
