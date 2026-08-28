@@ -26,6 +26,7 @@ import { Spinner, Avatar } from "@/components/ui";
 import { GuideImagesButton } from "./GuideImagesButton";
 import { AcceptPayDialog } from "./AcceptPayDialog";
 import { PolicyNote } from "./PolicyNote";
+import { SupportButton } from "./SupportButton";
 import type { GuideImage } from "@/lib/guide-images";
 import { readStoredFieldValues } from "@/lib/booking-fields";
 import {
@@ -440,15 +441,21 @@ export function ChatRoom({
                 onOpenDetail={() => router.push(`/bookings/${m.booking!.id}?from=chat`)}
                 onNeedPay={() => setPayFor(m.booking!)}
                 payoutAccount={payoutAccount ?? null}
+                conversationId={conversationId}
                 onReuse={
                   composerData
                     ? () => setComposer({ edit: null, draft: draftFromBooking(m.booking!) })
                     : null
                 }
                 onEdit={
-                  // 수정은 제안한 쪽만 (수락 전까지). 상대는 바뀐 내용으로 다시 수락한다.
+                  // 수락 전에는 제안한 쪽이, 입금이 확인된 뒤에는 작가가 고칠 수 있다.
+                  // (권한 판정의 진실은 서버 updateBooking — 여기서는 버튼 노출만)
                   composerData &&
-                  (m.booking.proposed_by_photographer ? amPhotographer : amCustomer)
+                  (["paid", "shot"].includes(m.booking.status)
+                    ? amPhotographer
+                    : m.booking.proposed_by_photographer
+                    ? amPhotographer
+                    : amCustomer)
                     ? () =>
                         setComposer({
                           edit: {
@@ -460,6 +467,7 @@ export function ChatRoom({
                             memo: m.booking!.memo,
                             amountKrw: m.booking!.amount_krw,
                             travelFeeKrw: m.booking!.travel_fee_krw,
+                            amountLocked: ["paid", "shot"].includes(m.booking!.status),
                           },
                         })
                     : null
@@ -1002,6 +1010,7 @@ function BookingCard({
   onReuse,
   onNeedPay,
   payoutAccount,
+  conversationId,
 }: {
   booking: BookingSnapshot;
   amPhotographer: boolean;
@@ -1014,6 +1023,7 @@ function BookingCard({
   onNeedPay: () => void;
   /** 서버가 미리 실어 보낸 사매 계좌 (없으면 TransferSection 이 직접 조회) */
   payoutAccount: PayoutAccount | null;
+  conversationId: string;
 }) {
   // 처리 결과를 낙관적으로 반영 (서버 액션 + realtime 지연에도 카드가 즉시 진행)
   const [acted, setActed] = useState<
@@ -1234,15 +1244,19 @@ function BookingCard({
         </div>
       )}
 
-      {/* 수정 — 제안한 쪽만, 수락 전까지 */}
-      {amProposer && status === "requested" && onEdit && (
+      {/* 수정 — 수락 전에는 제안한 쪽, 입금이 확인된 뒤에는 작가만 (docs/32 §3-6).
+          입금 대기 구간(accepted)에서는 아무도 못 고친다: 금액이 바뀌면 고객이 보고 있는
+          입금액과 어긋난다. */}
+      {onEdit &&
+        ((amProposer && status === "requested") ||
+          (amPhotographer && ["paid", "shot"].includes(status))) && (
         <div className="mt-3">
           <button
             type="button"
             onClick={onEdit}
             className="w-full cursor-pointer rounded-full border border-line-strong py-2.5 text-body-sm font-medium text-muted transition-colors hover:bg-fg/[0.04]"
           >
-            수정
+            {status === "requested" ? "수정" : "예약 변경"}
           </button>
         </div>
       )}
@@ -1255,6 +1269,13 @@ function BookingCard({
         <p className="mt-3 border-t border-line pt-3 text-caption font-medium text-brand">
           이 내용으로 다시 예약서 작성하기
         </p>
+      )}
+
+      {/* 입금을 알린 뒤에는 당사자끼리 무를 수 없다 — 환불이 걸린 사안이라 사매를 거친다.
+          그 대신 요청 창구를 같은 자리에 둔다. 창구가 없으면 채팅에서 작가에게 말하게 되고,
+          작가는 결정할 수 없는 걸 약속하게 된다 (docs/32). */}
+      {(paidMarked || ["paid", "shot"].includes(status)) && (
+        <SupportButton bookingId={booking.id} conversationId={conversationId} />
       )}
 
       {!paidMarked && ((amProposer && status === "requested") || status === "accepted") && (

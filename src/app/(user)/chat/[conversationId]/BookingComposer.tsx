@@ -21,6 +21,8 @@ export type BookingEditTarget = {
   travel?: boolean; // (레거시) 출장 체크박스 — 금액 분리 입력으로 대체됨
   amountKrw?: number | null; // 기존 제안 합계 (촬영비 프리필 = 합계 − 출장비)
   travelFeeKrw?: number | null;
+  /** 입금이 끝난 예약 — 금액·패키지는 잠긴다 (결제·수수료 원장과 어긋나므로) */
+  amountLocked?: boolean;
 };
 
 // 신규 제안 프리필 — 문의 요약 카드("이 내용으로 예약 제안") 와
@@ -95,6 +97,9 @@ export function BookingComposer({
     bookingFields,
   } = data;
   const isEdit = !!editTarget;
+  // 입금 후 변경 — 바꿀 수 있는 건 일시·장소·추가 항목·메모뿐이다.
+  // 금액을 입력할 수 있게 두면 고쳐서 저장했다가 서버에서 튕기는 경험이 된다.
+  const locked = !!editTarget?.amountLocked;
 
   // 프리필 패키지가 그 사이 사라졌을 수 있다 — 없으면 첫 패키지로 내려앉는다
   const prefillPkgId = editTarget?.packageId ?? draft?.packageId ?? null;
@@ -161,7 +166,9 @@ export function BookingComposer({
         className="max-h-[88svh] w-full max-w-md overflow-y-auto rounded-2xl bg-surface p-5 shadow-pop"
       >
         <div className="flex items-center justify-between">
-          <h3 className="text-title font-semibold">{isEdit ? "예약서 수정" : "예약서 작성"}</h3>
+          <h3 className="text-title font-semibold">
+            {locked ? "예약 변경" : isEdit ? "예약서 수정" : "예약서 작성"}
+          </h3>
           <button
             type="button"
             onClick={onClose}
@@ -200,12 +207,13 @@ export function BookingComposer({
                       name="packageId"
                       value={p.id}
                       checked={packageId === p.id}
+                      disabled={locked}
                       onChange={() => {
                         setPackageId(p.id);
                         setShootFee(String(p.price_krw)); // 패키지를 바꾸면 촬영비 프리필도 따라간다
                       }}
                       required
-                      className="h-4 w-4 shrink-0 accent-fg"
+                      className="h-4 w-4 shrink-0 accent-fg disabled:opacity-40"
                     />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-body-sm font-medium text-fg">{p.name}</span>
@@ -301,7 +309,22 @@ export function BookingComposer({
               </div>
             </fieldset>
 
-            {/* 금액 — 협의된 촬영비와 (있으면) 출장비를 각각 기입. 합계가 곧 입금액이다. */}
+            {/* 금액 — 협의된 촬영비와 (있으면) 출장비를 각각 기입. 합계가 곧 입금액이다.
+                입금이 끝난 예약에서는 고칠 수 없다(원장과 어긋난다) — 읽기 전용으로만 보여준다. */}
+            {locked ? (
+              <div className="rounded-xl bg-fg/[0.05] px-3.5 py-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-body-sm font-medium text-fg">입금 완료 금액</span>
+                  <span className="text-body font-bold text-fg">₩{fmt.format(total)}</span>
+                </div>
+                <p className="mt-1 text-caption text-faint">
+                  이미 입금이 끝나 금액·패키지는 바꿀 수 없어요. 금액이 달라져야 하면 사매에
+                  문의해주세요.
+                </p>
+                <input type="hidden" name="shootFeeKrw" value={shootFee} />
+                <input type="hidden" name="travelFeeKrw" value={travelFee} />
+              </div>
+            ) : (
             <fieldset>
               <legend className="mb-2 text-body-sm font-medium text-fg">금액</legend>
               <div className="space-y-2">
@@ -343,6 +366,8 @@ export function BookingComposer({
                 </p>
               </div>
             </fieldset>
+
+            )}
 
             {/* 장소 */}
             <label className="block">

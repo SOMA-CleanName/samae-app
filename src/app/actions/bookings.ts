@@ -9,6 +9,7 @@ import { mpTrackServer } from "@/lib/mixpanel-server";
 import { notifyOpsBookingAccepted } from "@/lib/ops-alert";
 import { normalizeBookingFields, readBookingFieldValues } from "@/lib/booking-fields";
 import { snapshotFeeForBooking } from "@/lib/payments";
+import { REFUND_WINDOW_DAYS } from "@/lib/refund";
 
 // 희망 날짜 정규화 — shoot_at(시각 확정)이 있으면 그 KST 날짜, 없으면 폼의 YYYY-MM-DD.
 function resolveShootDate(shootAtIso: string | null, dateRaw: string): string | null {
@@ -243,20 +244,42 @@ export async function updateBooking(formData: FormData) {
 
   const admin = createAdminClient();
 
-  // 제안한 쪽 + requested 상태만 수정 가능.
-  // 예약서에 금액·일시·장소·추가 항목까지 들어가면서 오타 한 번에 취소하고 다시 쓰는 게
-  // 너무 비쌌다 — 제안자가 자기 제안을 고칠 수 있어야 한다. 수락 이후에는 여전히 잠긴다.
+  // 수정 권한은 단계에 따라 다르다.
+  //
+  //  · requested (수락 전) — 제안한 쪽. 예약서에 금액·일시·장소까지 들어가면서
+  //    오타 한 번에 취소하고 다시 쓰는 게 너무 비쌌다.
+  //  · paid 이후 (입금 확인됨) — **작가만.** 날짜 변경은 작가 재량으로만 성사되고(docs/32 §3-6),
+  //    현장 사정으로 장소·시간이 바뀌는 건 작가가 판단한다. 고객이 확정된 예약을
+  //    혼자 고칠 수 있으면 그건 협의가 아니라 통보가 된다.
+  //  · accepted (입금 대기) — 아무도. 금액이 바뀌면 고객이 이미 보고 있는 입금액과 어긋난다.
   const { data: b } = await admin
     .from("bookings")
-    .select("id, user_id, photographer_id, status, proposed_by_photographer")
+    .select(
+      "id, user_id, photographer_id, status, proposed_by_photographer, amount_krw, travel_fee_krw, shoot_at, package_id"
+    )
     .eq("id", id)
     .single();
   if (!b) throw new Error("예약을 찾을 수 없습니다.");
-  const isProposer = b.proposed_by_photographer
-    ? me.photographer?.id === b.photographer_id
-    : b.user_id === me.id;
-  if (!isProposer) throw new Error("제안한 쪽만 수정할 수 있습니다.");
-  if (b.status !== "requested") throw new Error("수정할 수 없는 상태입니다.");
+
+  const amPhotographerHere = me.photographer?.id === b.photographer_id;
+  const afterPayment = ["paid", "shot"].includes(b.status as string);
+
+  if (afterPayment) {
+    if (!amPhotographerHere)
+      throw new Error("입금이 확인된 예약은 작가만 수정할 수 있어요. 변경이 필요하면 채팅으로 요청해주세요.");
+    // 돈은 이미 오갔다 — 금액·패키지가 바뀌면 결제·수수료 원장과 어긋난다.
+    // 변경이 정말 필요하면 취소·환불 후 새로 잡는 게 맞다.
+    if (amount !== (b.amount_krw ?? 0))
+      throw new Error("입금이 끝난 예약의 금액은 바꿀 수 없어요. 금액이 달라지면 사매에 문의해주세요.");
+    if (packageId !== b.package_id)
+      throw new Error("입금이 끝난 예약의 패키지는 바꿀 수 없어요.");
+  } else {
+    const isProposer = b.proposed_by_photographer
+      ? amPhotographerHere
+      : b.user_id === me.id;
+    if (!isProposer) throw new Error("제안한 쪽만 수정할 수 있습니다.");
+    if (b.status !== "requested") throw new Error("수정할 수 없는 상태입니다.");
+  }
 
   // 패키지 스냅샷 재기록 (금액은 폼의 촬영비·출장비가 진실)
   const { data: pkg } = await admin
@@ -289,6 +312,23 @@ export async function updateBooking(formData: FormData) {
   if (fieldErrors.length > 0) throw new Error(fieldErrors[0]);
   const shootDate = resolveShootDate(shootAt, shootDateRaw);
 
+  // 입금 후 날짜 변경은 조건이 있다 (docs/32 §3-6):
+  // 기존 촬영일까지 7일 이상 남아 있고, 새로 잡는 날짜도 7일 이상 뒤여야 한다.
+  // 어느 한쪽이라도 안쪽이면 작가 재량으로도 못 바꾼다 — 그 구간은 환불도 안 되는 구간이라,
+  // 여기서 열어주면 "환불 대신 날짜만 미루기" 로 규정을 우회하는 길이 된다.
+  if (afterPayment && b.shoot_at && shootAt !== b.shoot_at) {
+    const week = REFUND_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const oldAt = new Date(b.shoot_at).getTime();
+    const newAt = new Date(shootAt).getTime();
+    if (oldAt - now < week)
+      throw new Error(
+        `기존 촬영일까지 ${REFUND_WINDOW_DAYS}일이 안 남아 날짜를 바꿀 수 없어요. 사매에 문의해주세요.`
+      );
+    if (newAt - now < week)
+      throw new Error(`새 촬영일은 지금부터 ${REFUND_WINDOW_DAYS}일 이후로 잡아주세요.`);
+  }
+
   // TOCTOU 방지 — read 이후 accept 와 경쟁 시 accepted 예약에 편집이 적용되지 않도록
   // requested 상태일 때만 원자적으로 수정.
   const { data: edited, error } = await admin
@@ -308,7 +348,7 @@ export async function updateBooking(formData: FormData) {
       memo,
     })
     .eq("id", id)
-    .eq("status", "requested")
+    .eq("status", b.status) // 읽은 뒤 상태가 바뀌었으면(수락·취소 경쟁) 적용하지 않는다
     .select("id");
   if (error) throw new Error(error.message);
   if (!edited || edited.length === 0) throw new Error("수정할 수 없는 상태입니다.");
@@ -318,7 +358,9 @@ export async function updateBooking(formData: FormData) {
     conversation_id: conversationId,
     sender_id: me.id,
     type: "system",
-    body: "✏️ 예약 제안이 수정됐어요 — 바뀐 내용을 확인하고 다시 수락해주세요.",
+    body: afterPayment
+      ? "✏️ 작가가 예약 내용을 변경했어요 — 바뀐 내용을 확인해주세요."
+      : "✏️ 예약 제안이 수정됐어요 — 바뀐 내용을 확인하고 다시 수락해주세요.",
   });
 
   // 수락할 쪽에 알림 — 방을 보고 있지 않으면 내용이 바뀐 걸 모른 채 수락하게 된다
@@ -394,7 +436,7 @@ export async function acceptBooking(formData: FormData) {
     .from("bookings")
     .update({ status: "accepted", accepted_at: new Date().toISOString() })
     .eq("id", id)
-    .eq("status", "requested")
+    .eq("status", b.status) // 읽은 뒤 상태가 바뀌었으면(수락·취소 경쟁) 적용하지 않는다
     .select("id");
   // 시간겹침 EXCLUSION 제약(0040) 위반 — 서로 다른 두 예약이 동시에 수락돼 충돌한 경우
   if (acceptErr?.code === "23P01") throw new Error("해당 시간에 이미 다른 예약이 있어요.");

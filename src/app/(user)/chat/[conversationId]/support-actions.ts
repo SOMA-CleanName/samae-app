@@ -1,0 +1,65 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { getCurrentUser } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { isSupportKind, SUPPORT_KIND_LABEL } from "@/lib/support";
+
+/**
+ * 사매 문의 접수.
+ *
+ * 환불·날짜 변경은 작가가 결정할 수 있는 일이 아니다(docs/32). 채팅에서 작가에게 말하면
+ * 작가가 규정 밖의 약속을 해버리므로, 요청을 운영 접수함으로 직접 흘려보낸다.
+ * 대신 채팅에도 흔적을 남긴다 — 상대가 "말도 없이 취소됐다" 고 느끼지 않게.
+ */
+export async function submitSupportRequest(formData: FormData): Promise<void> {
+  const me = await getCurrentUser();
+  if (!me) throw new Error("로그인이 필요합니다.");
+
+  const bookingId = String(formData.get("bookingId") || "") || null;
+  const conversationId = String(formData.get("conversationId") || "") || null;
+  const kindRaw = formData.get("kind");
+  const kind = isSupportKind(kindRaw) ? kindRaw : "other";
+  const body = String(formData.get("body") || "").trim().slice(0, 1000);
+  if (!body) throw new Error("문의 내용을 적어주세요.");
+
+  const admin = createAdminClient();
+
+  // 요청자가 이 예약의 당사자인지 확인 — 남의 예약에 문의를 붙일 수 없게
+  let role: "customer" | "photographer" = "customer";
+  if (bookingId) {
+    const { data: b } = await admin
+      .from("bookings")
+      .select("user_id, photographer_id")
+      .eq("id", bookingId)
+      .maybeSingle();
+    if (!b) throw new Error("예약을 찾을 수 없습니다.");
+    if (b.user_id === me.id) role = "customer";
+    else if (me.photographer?.id === b.photographer_id) role = "photographer";
+    else throw new Error("이 예약의 당사자만 문의할 수 있어요.");
+  } else if (me.photographer) {
+    role = "photographer";
+  }
+
+  const { error } = await admin.from("support_requests").insert({
+    booking_id: bookingId,
+    conversation_id: conversationId,
+    requester_id: me.id,
+    requester_role: role,
+    kind,
+    body,
+  });
+  if (error) throw new Error(error.message);
+
+  // 채팅에 흔적 — 상대도 "지금 사매가 보고 있다" 를 알아야 기다릴 수 있다
+  if (conversationId) {
+    await admin.from("messages").insert({
+      conversation_id: conversationId,
+      sender_id: me.id,
+      type: "system",
+      body: `🛟 사매에 ${SUPPORT_KIND_LABEL[kind]}이 접수됐어요 — 사매가 확인 후 안내드릴게요.`,
+    });
+  }
+
+  if (conversationId) revalidatePath(`/chat/${conversationId}`);
+}
