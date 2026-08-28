@@ -10,6 +10,7 @@ import {
   fetchSimilarPhotos,
   newFeedSeed,
 } from "@/lib/discovery";
+import { fetchGuideImages } from "@/lib/guide-images";
 import { loadMorePhotos } from "../../feed-actions";
 import { getCurrentUser } from "@/lib/auth";
 import { PhotoCarousel } from "./PhotoCarousel";
@@ -22,6 +23,8 @@ import { ShareButton } from "@/components/user/ShareButton";
 import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
 import { PhotoTopBar } from "./PhotoTopBar";
 import { DetailMoreInfo } from "./DetailMoreInfo";
+import { PackageInfoSection } from "./PackageInfoSection";
+import { GuideImageGallery } from "@/components/user/GuideImageGallery";
 import { NavRevealOnScroll } from "@/components/user/NavReveal";
 import { OwnerPhotoBackButton } from "./OwnerPhotoBackButton";
 import { AutoFavorite } from "@/components/user/AutoFavorite";
@@ -31,8 +34,6 @@ import { Button } from "@/components/ui";
 import type { Metadata } from "next";
 import { photoMetadata, photoImageJsonLd } from "@/lib/seo";
 import { JsonLd } from "@/components/JsonLd";
-
-const fmt = new Intl.NumberFormat("ko-KR");
 
 // 사진 가격에 가장 가까운(가격 차 최소) 활성 패키지. 정확 일치 시 차=0. 패키지 없으면 null.
 function nearestPackage<T extends { price_krw: number }>(packages: T[], price: number): T | null {
@@ -75,10 +76,11 @@ export default async function PhotoDetail({
 
   // 상단(즉시 노출)에 필요한 것만 병렬 조회. 추천(400장 조회+스코어링)은 첫 화면을
   // 막지 않도록 아래 <Suspense>에서 따로 스트리밍한다.
-  const [ph, me, packages] = await Promise.all([
+  const [ph, me, packages, guideImages] = await Promise.all([
     fetchPhotographerById(photo.photographer_id),
     getCurrentUser(),
     fetchPhotographerPackages(photo.photographer_id),
+    fetchGuideImages(photo.photographer_id),
   ]);
   if (!ph) notFound();
 
@@ -158,7 +160,7 @@ export default async function PhotoDetail({
 
         {/* 사진 정보 — 가격·CTA 먼저 보이고, 작가·글·태그는 접기 */}
         <div className="mt-4 md:mt-0 md:min-w-0 md:flex-1">
-          {/* 공유·담기(좌) · 촬영시간·보정본(우) 한 행 */}
+          {/* 공유·담기 한 행 — 촬영시간·보정본은 아래 패키지 정보 섹션에서만 노출(중복 제거) */}
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-1.5">
               <ShareButton photoId={photo.id} />
@@ -172,48 +174,45 @@ export default async function PhotoDetail({
                 }}
               />
             </div>
-            {matchedPkg && (
-              <p className="ml-auto text-right text-body font-medium text-fg">
-                촬영 {formatDuration(matchedPkg.duration_min)} · 보정본 {matchedPkg.edited_count}장
-              </p>
-            )}
           </div>
 
-          {/* 사매 파트너 작가 뱃지는 왼쪽, 가격은 오른쪽 아래 행. 장소는 상품 정보 안에서 노출한다. */}
-          {(photo.price_krw != null || !isOwner) && (
+          {/* 가격은 아래 패키지 정보 섹션에만 둔다 — 같은 화면에 두 번 적으면 어느 쪽이
+              진짜인지 흔들린다. 여기는 파트너 뱃지만. */}
+          {!isOwner && (
             <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
-              {!isOwner && <PartnerBadge popoverAlign="left" />}
-              <p className="ml-auto min-w-0 text-right">
-                {photo.price_krw != null ? (
-                  <span className="text-title font-semibold tracking-tight">
-                    ₩{fmt.format(photo.price_krw)}
-                  </span>
-                ) : (
-                  <span className="text-title font-semibold tracking-tight text-fg">가격 · 장소 협의</span>
-                )}
-              </p>
+              <PartnerBadge popoverAlign="left" />
             </div>
           )}
 
-          {/* 예약·문의 CTA — 가장 위 (전환 최우선) */}
+          {/* 예약·상담 CTA — 가장 위 (전환 최우선) */}
           <PhotoCtas isOwner={isOwner} photographerId={ph.id} photoId={photo.id} />
+
+          {/* 이 사진을 찍은 패키지 정보 — 접지 않고 바로 펼쳐서 보여준다 */}
+          <PackageInfoSection
+            name={matchedPkg?.name ?? null}
+            description={matchedPkg?.description ?? null}
+            price={photo.price_krw}
+            duration={matchedPkg ? formatDuration(matchedPkg.duration_min) : null}
+            editedCount={matchedPkg?.edited_count ?? null}
+            location={location}
+          />
+
+          {/* 작가 안내 이미지 — 없으면 섹션째 렌더 안 됨 */}
+          {guideImages.length > 0 && (
+            <section className="mt-6">
+              <h2 className="mb-2.5 text-base font-semibold text-fg">작가님이 안내드리는 내용</h2>
+              <GuideImageGallery images={guideImages} />
+            </section>
+          )}
 
           {/* 작가 상세정보 라인 — 이 지점이 화면 상단 50%에 닿으면 플로팅 내비 노출 */}
           <NavRevealOnScroll />
 
-          {/* 작가·글·태그 — 기본 접힘, 누르면 펼침 */}
+          {/* 작가·글 — 기본 접힘, 누르면 펼침 (패키지 정보는 위 섹션으로 이동) */}
           <DetailMoreInfo
             photographerId={ph.id}
             avatarUrl={ph.avatar_url}
             caption={caption || albumDescription}
-            packageInfo={{
-              name: matchedPkg?.name ?? null,
-              description: matchedPkg?.description ?? null,
-              price: photo.price_krw,
-              duration: matchedPkg ? formatDuration(matchedPkg.duration_min) : null,
-              editedCount: matchedPkg?.edited_count ?? null,
-              location,
-            }}
           />
         </div>
       </div>
@@ -246,27 +245,39 @@ function PhotoCtas({
   if (isOwner) {
     return <OwnerPhotoBackButton />;
   }
-  // 주 전환 CTA — 혜택형 카피로 클릭 욕구 자극(로그인 무관, /inquiry 에서 처리)
-  // data-quote-lead: Meta 픽셀 Lead 전환 지점(MetaPixel 위임 캡처, 브라우저당 1회)
+  // 2트랙 — 대부분은 바로 예약하기 전에 물어볼 게 있다. 그래서 상담을 위에 둔다.
+  // 예약은 주 전환이라 brand 색을 유지 — 순서는 상담이 먼저, 시선 무게는 예약이 위.
+  // data-quote-lead: Meta 픽셀 Lead 전환 지점(MetaPixel 위임 캡처, 브라우저당 1회) — 예약 CTA 에만.
   return (
-    <Button
-      href={inquiryHref(photographerId, photoId)}
-      variant="brand"
-      size="lg"
-      fullWidth
-      className="mt-4"
-      style={{ borderRadius: "16px" }}
-      data-track="cta:inquiry"
-      data-quote-lead=""
-    >
-      무료로 견적 받아보기
-    </Button>
+    <div className="mt-4 flex flex-col gap-2">
+      <Button
+        href={ctaHref("/chat/start", photographerId, photoId)}
+        variant="secondary"
+        size="lg"
+        fullWidth
+        style={{ borderRadius: "16px" }}
+        data-track="cta:consult"
+      >
+        작가 상담하기
+      </Button>
+      <Button
+        href={ctaHref("/inquiry", photographerId, photoId)}
+        variant="brand"
+        size="lg"
+        fullWidth
+        style={{ borderRadius: "16px" }}
+        data-track="cta:inquiry"
+        data-quote-lead=""
+      >
+        촬영 예약하기
+      </Button>
+    </div>
   );
 }
 
-function inquiryHref(photographerId: string, photoId: string) {
+function ctaHref(path: string, photographerId: string, photoId: string) {
   const params = new URLSearchParams({ photographerId, photoId });
-  return `/inquiry/bot?${params.toString()}`;
+  return `${path}?${params.toString()}`;
 }
 
 // 추천 사진 — 별도 스트리밍 경계. 400장 조회+스코어링이 상단 렌더(LCP)를 막지 않게 분리.
