@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { ADULT_AGE, CASTING_BUCKET, ageYears } from "@/lib/casting";
+import { notifyCastingRoundResults, purgeCastingPersonalData } from "@/lib/casting-notify";
 
 // 운영자 권한 확인 (방어적 — RLS 외 이중 체크)
 async function assertAdmin(): Promise<string> {
@@ -128,6 +129,33 @@ export async function uploadGuardianConsent(formData: FormData) {
     .eq("id", id);
   if (error) throw new Error(error.message);
 
+  revalidatePath("/admin/casting");
+}
+
+/**
+ * 회차 결과 일괄 통지.
+ * 개별이 아니라 회차 단위로 한 번에 — 개별 발송은 형평성 논란을 만든다.
+ * 이미 통지한 건은 건너뛰므로 두 번 눌러도 안전하다.
+ */
+// <form action={...}> 에 직접 물리므로 반환값은 void 여야 한다.
+// 결과는 재검증된 화면의 카운트로 확인한다.
+export async function notifyCastingResults(formData: FormData): Promise<void> {
+  await assertAdmin();
+  const roundId = String(formData.get("roundId"));
+
+  const r = await notifyCastingRoundResults(roundId);
+  console.log(`[casting] 결과 통지 — 선정 ${r.selected} · 탈락 ${r.rejected}`);
+
+  revalidatePath("/admin/casting");
+  revalidatePath("/casting/my");
+  revalidatePath("/notifications");
+}
+
+/** 미선정자 사진·동의서 파기 — 동의서에 한 약속을 배치로 지킨다. */
+export async function purgeCastingData(): Promise<void> {
+  await assertAdmin();
+  const r = await purgeCastingPersonalData();
+  console.log(`[casting] 파기 — 신청 ${r.purged}건 · 파일 ${r.files}개`);
   revalidatePath("/admin/casting");
 }
 

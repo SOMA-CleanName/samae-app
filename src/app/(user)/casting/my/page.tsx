@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ADULT_AGE, ageYears } from "@/lib/casting";
+import { PickedPhotoLink } from "./PickedPhotoLink";
 
 export const metadata: Metadata = { title: "내 캐스팅 신청" };
 export const dynamic = "force-dynamic";
@@ -24,7 +24,7 @@ export default async function CastingMyPage() {
   const { data: rows } = await admin
     .from("casting_applications")
     .select(
-      "id, status, birth_date, guardian_name, guardian_consent_path, preferred_photo_ids, created_at, round:casting_rounds!inner(title, slug, status, closes_at)",
+      "id, status, birth_date, guardian_name, guardian_consent_path, preferred_photo_ids, notified_at, created_at, round:casting_rounds!inner(title, slug, status, closes_at)",
     )
     .eq("profile_id", me.id)
     .neq("status", "withdrawn")
@@ -93,18 +93,13 @@ export default async function CastingMyPage() {
                     <p className="text-[11px] font-medium text-fg/45">고르신 사진</p>
                     <div className="mt-1.5 flex gap-2">
                       {picks.map((p) => (
-                        <Link key={p.id} href={`/photos/${p.id}`} className="group w-20 shrink-0">
-                          <div className="relative aspect-[3/4] overflow-hidden rounded-xl border border-line">
-                            <Image
-                              src={p.url}
-                              alt=""
-                              fill
-                              sizes="80px"
-                              className="object-cover transition-transform group-hover:scale-105"
-                            />
-                          </div>
-                          <p className="mt-1 truncate text-[10px] text-fg/50">{p.name}</p>
-                        </Link>
+                        <PickedPhotoLink
+                          key={p.id}
+                          photoId={p.id}
+                          url={p.url}
+                          photographerName={p.name}
+                          applicationStatus={a.status as string}
+                        />
                       ))}
                     </div>
                   </div>
@@ -126,9 +121,15 @@ export default async function CastingMyPage() {
                   </div>
                 )}
 
-                {a.status === "rejected" && (
+                {a.status === "rejected" && a.notified_at && (
                   <p className="mt-3 text-xs leading-relaxed text-fg/55">
                     다음 회차 대기 명단에 올려두었어요. 열리면 가장 먼저 알려드릴게요.
+                  </p>
+                )}
+
+                {a.status === "selected" && a.notified_at && (
+                  <p className="mt-3 rounded-xl bg-success-soft px-3.5 py-2.5 text-xs leading-relaxed text-success">
+                    선정되셨어요! 촬영 일정과 장소는 따로 안내드릴게요.
                   </p>
                 )}
               </li>

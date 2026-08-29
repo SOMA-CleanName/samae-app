@@ -5,6 +5,8 @@ import { PendingButton } from "@/components/ui/SubmitButton";
 import { ADULT_AGE, CASTING_BUCKET, ageYears } from "@/lib/casting";
 import {
   decideCastingApplication,
+  notifyCastingResults,
+  purgeCastingData,
   saveCastingMemo,
   setCastingRoundStatus,
   uploadGuardianConsent,
@@ -77,6 +79,8 @@ type AppRow = {
   guardian_consent_path: string | null;
   utm_source: string | null;
   reject_reason: string | null;
+  notified_at: string | null;
+  purged_at: string | null;
   created_at: string;
 };
 
@@ -115,7 +119,7 @@ export default async function AdminCastingPage({
     admin
       .from("casting_applications")
       .select(
-        "id, status, name, phone, birth_date, gender, region, preferred_photographer_ids, preferred_photo_ids, mood_tags, concept_note, photo_paths, consent_participate, consent_sns, consent_paid_ad, consent_credit, guardian_name, guardian_phone, guardian_relation, guardian_consent_path, utm_source, reject_reason, created_at",
+        "id, status, name, phone, birth_date, gender, region, preferred_photographer_ids, preferred_photo_ids, mood_tags, concept_note, photo_paths, consent_participate, consent_sns, consent_paid_ad, consent_credit, guardian_name, guardian_phone, guardian_relation, guardian_consent_path, utm_source, reject_reason, notified_at, purged_at, created_at",
       )
       .eq("round_id", round.id)
       .neq("status", "withdrawn")
@@ -147,6 +151,9 @@ export default async function AdminCastingPage({
     selected: apps.filter((a) => a.status === "selected").length,
     minor: apps.filter(isMinor).length,
     pending: apps.filter(consentPending).length,
+    // 판정은 끝났는데 아직 결과를 못 받은 사람 — 일괄 통지 대상
+    unnotified: apps.filter((a) => ["selected", "rejected"].includes(a.status) && !a.notified_at).length,
+    undecided: apps.filter((a) => a.status === "new" || a.status === "shortlisted").length,
   };
 
   const shown = apps.filter((a) => {
@@ -247,6 +254,42 @@ export default async function AdminCastingPage({
             ))}
           </div>
         )}
+      </section>
+
+      {/* 결과 일괄 통지 — 개별 발송은 형평성 논란이 생기므로 회차 단위로 한 번에 */}
+      <section className="mt-3 rounded-2xl border border-line bg-surface p-5">
+        <p className="text-body-sm font-semibold">결과 통지</p>
+        {counts.unnotified > 0 ? (
+          <>
+            <p className="mt-1.5 text-caption text-muted">
+              판정이 끝난 <b className="font-semibold text-fg">{counts.unnotified}명</b>에게 결과를 한 번에 보냅니다.
+              탈락자는 다음 회차 대기 명단에 자동 등록되고, 고른 사진으로 돌아갈 링크가 함께 나갑니다.
+            </p>
+            {counts.undecided > 0 && (
+              <p className="mt-2 rounded-lg bg-warning-soft px-3 py-2 text-caption text-warning">
+                아직 판정하지 않은 신청이 {counts.undecided}건 있어요. 지금 보내면 이분들은 결과를 못 받습니다.
+              </p>
+            )}
+            <form action={notifyCastingResults} className="mt-3">
+              <input type="hidden" name="roundId" value={round.id} />
+              <PendingButton size="sm">{counts.unnotified}명에게 결과 보내기</PendingButton>
+            </form>
+          </>
+        ) : (
+          <p className="mt-1.5 text-caption text-faint">통지할 대상이 없어요. (판정 완료 건은 모두 발송됨)</p>
+        )}
+
+        <div className="mt-4 border-t border-line pt-4">
+          <p className="text-body-sm font-semibold">개인정보 파기</p>
+          <p className="mt-1.5 text-caption text-muted">
+            동의서에 “종료 후 파기”라고 약속한 부분이에요. 통지한 지 30일 지난{" "}
+            <b className="font-semibold text-fg">미선정자</b>의 사진과 보호자 동의서를 지웁니다.
+            선정자는 촬영·게시가 남아 있어 제외돼요.
+          </p>
+          <form action={purgeCastingData} className="mt-3">
+            <PendingButton size="sm" variant="secondary">파기 대상 정리</PendingButton>
+          </form>
+        </div>
       </section>
 
       {/* 필터 */}
