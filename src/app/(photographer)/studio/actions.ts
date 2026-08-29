@@ -178,6 +178,10 @@ export async function unlockInquiries(ids: string[]): Promise<{ ok: boolean; cou
     .update({ status: "accepted", accepted_at: new Date().toISOString() })
     .eq("photographer_id", me.photographer.id) // 본인 문의만
     .eq("status", "new") // 아직 미수락인 것만
+    // ⚠️ 여기가 리드비가 발생하는 지점이다. 테스트 문의는 목록에서 이미 빠지지만,
+    //    id 가 어떤 경로로든 새어 들어와도 해제되지 않도록 최종 방어선을 둔다.
+    //    (2026-08-27 테스트 문의를 작가가 해제하고 10,000원을 입금한 사고 — 0088)
+    .eq("is_test", false)
     .in("id", clean)
     .select("id");
   if (error) throw new Error(error.message);

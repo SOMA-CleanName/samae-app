@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { notifyOpsNewInquiry } from "@/lib/ops-alert";
 import { readMetaAdCookies, type MetaAdCookies } from "@/lib/meta-capi";
 import { rememberInquiryIds } from "@/lib/my-inquiries";
+import { isTestInquiry } from "@/lib/inquiry-test";
 
 export type InquiryState = {
   ok: boolean;
@@ -200,7 +201,10 @@ export async function submitInquiry(
   const ad = await readMetaAdCookies();
   const acq = readAcquisition(formData);
 
-  const result = await createInquiry(me?.id ?? null, photographerId, photoId, contact, brief, ad, acq);
+  // 테스트 문의 판정 — 운영자 계정이거나 테스트 연락처면 작가에게 보내지 않는다.
+  const isTest = isTestInquiry({ me, phone: contact.phone });
+
+  const result = await createInquiry(me?.id ?? null, photographerId, photoId, contact, brief, ad, acq, isTest);
   if (!result) return { ok: false, error: "문의 저장에 실패했어요.", values };
   const { id: inquiryId, isNew } = result;
 
@@ -210,7 +214,11 @@ export async function submitInquiry(
   // 연타·재제출로 기존 리드를 재사용한 경우엔 알림을 다시 보내지 않는다.
   // (Meta Lead 전환은 문의 완료가 아니라 '무료로 견적 받아보기' CTA 클릭에서 발화)
   if (isNew) {
-    await notifyPhotographer(photographerId, inquiryId, me?.displayName ?? null, contact, brief);
+    // ⚠️ 테스트 문의는 작가 알림을 건너뛴다. 작가가 이걸 진짜 리드로 알고 리드비를 입금한
+    //    사고가 있었다(2026-08-27, kiwi_film). 운영진 알림은 테스트 확인용으로 계속 보낸다.
+    if (!isTest) {
+      await notifyPhotographer(photographerId, inquiryId, me?.displayName ?? null, contact, brief);
+    }
 
     // 운영진 디스코드 알림 — 리드 플로우 시작. 운영진 전용 채널이라 어드민 정보(연락처·유입·
     // 브리프) + 어드민 딥링크 포함. 실패해도 접수는 성공.
@@ -219,7 +227,9 @@ export async function submitInquiry(
 
   return {
     ok: true,
-    message: "문의가 작가에게 전달되었어요. 작가가 확인 후 연락드릴 예정입니다.",
+    message: isTest
+      ? "테스트 문의로 접수됐어요. 작가에게는 전달되지 않습니다."
+      : "문의가 작가에게 전달되었어요. 작가가 확인 후 연락드릴 예정입니다.",
     inquiryId,
   };
 }
@@ -259,7 +269,8 @@ async function createInquiry(
   contact: ContactInfo,
   brief: BriefInfo,
   ad: MetaAdCookies,
-  acq: Acquisition
+  acq: Acquisition,
+  isTest: boolean
 ): Promise<{ id: string; isNew: boolean } | null> {
   const admin = createAdminClient();
 
@@ -292,6 +303,8 @@ async function createInquiry(
       utm_content: acq.utmContent,
       utm_term: acq.utmTerm,
       landing_path: acq.landingPath,
+      // 테스트 문의는 작가에게 전달되지 않는다 (0088 · lib/inquiry-test)
+      is_test: isTest,
     })
     .select("id")
     .single();
@@ -444,16 +457,19 @@ export async function submitMultiInquiry(
   const ad = await readMetaAdCookies();
   const acq = readAcquisition(formData);
 
+  // 장바구니 문의는 한 번에 여러 작가에게 나간다 — 테스트가 새면 피해가 그만큼 커진다.
+  const isTest = isTestInquiry({ me, phone: contact.phone });
+
   let firstInquiryId: string | null = null;
   const createdIds: string[] = [];
   for (const [photographerId, repPhotoId] of repByPhotographer) {
     // 본인(작가)이 자기 사진에 보낸 건 건너뜀
     if (me?.photographer?.id === photographerId) continue;
-    const result = await createInquiry(me?.id ?? null, photographerId, repPhotoId, contact, brief, ad, acq);
+    const result = await createInquiry(me?.id ?? null, photographerId, repPhotoId, contact, brief, ad, acq, isTest);
     if (!result) continue;
     createdIds.push(result.id);
     if (!firstInquiryId) firstInquiryId = result.id;
-    if (result.isNew) {
+    if (result.isNew && !isTest) {
       await notifyPhotographer(photographerId, result.id, me?.displayName ?? null, contact, brief);
     }
   }
@@ -465,7 +481,9 @@ export async function submitMultiInquiry(
 
   return {
     ok: true,
-    message: "선택한 사진의 작가님들에게 문의가 전달되었어요. 곧 연락드릴 예정입니다.",
+    message: isTest
+      ? "테스트 문의로 접수됐어요. 작가에게는 전달되지 않습니다."
+      : "선택한 사진의 작가님들에게 문의가 전달되었어요. 곧 연락드릴 예정입니다.",
     inquiryId: firstInquiryId,
   };
 }

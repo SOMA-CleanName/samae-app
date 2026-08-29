@@ -40,6 +40,7 @@ export type InquiryRow = {
   sourcePhotoThumb: string | null;
   sourcePhotoRegion: string | null;
   hidden: boolean; // 운영진이 작가에게서 숨김(취소)
+  isTest: boolean; // 테스트 문의 — 작가에게 전달되지 않음 (0088)
 };
 
 const STAGE: Record<Stage, { label: string; tone: "warning" | "success" | "neutral" }> = {
@@ -150,6 +151,11 @@ export function AdminInquiries({ rows }: { rows: InquiryRow[] }) {
                 {r.channelKind === "organic" && (
                   <span className="shrink-0 rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-semibold text-success">
                     스토리
+                  </span>
+                )}
+                {r.isTest && (
+                  <span className="shrink-0 rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-semibold text-warning">
+                    🧪 테스트
                   </span>
                 )}
                 {r.hidden && (
