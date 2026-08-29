@@ -32,7 +32,7 @@ export async function notifyOpsNewInquiry(params: { inquiryId: string }): Promis
     const { data: q } = await admin
       .from("inquiries")
       .select(
-        "id, name, phone, kakao_id, contact_email, purpose, preferred_date, region, gender, party_size, note, source_photo_id, utm_source, utm_medium, utm_campaign, landing_path, fbc, photographer:photographers!inquiries_photographer_id_fkey(display_name), profile:profiles!inquiries_profile_id_fkey(display_name)"
+        "id, name, phone, kakao_id, contact_email, purpose, preferred_date, region, gender, party_size, note, source_photo_id, utm_source, utm_medium, utm_campaign, landing_path, fbc, is_test, photographer:photographers!inquiries_photographer_id_fkey(display_name), profile:profiles!inquiries_profile_id_fkey(display_name)"
       )
       .eq("id", params.inquiryId)
       .maybeSingle();
@@ -61,8 +61,12 @@ export async function notifyOpsNewInquiry(params: { inquiryId: string }): Promis
       `${who} 작가님, 작가님의 사진을 마음에 들어한 고객이 문의를 남기셨어요!\n` +
       `확인하러 가기 👉 ${studioLink}`;
 
+    const isTest = q.is_test === true;
+
     const lines: string[] = [
-      `📨 **새 문의** — ${who} 작가  ·  ${ch.label}  (ID \`${ref}\`)`,
+      isTest
+        ? `🧪 **[테스트 문의]** — ${who} 작가  ·  ${ch.label}  (ID \`${ref}\`)`
+        : `📨 **새 문의** — ${who} 작가  ·  ${ch.label}  (ID \`${ref}\`)`,
       `👤 고객: ${q.name || member || "비회원(게스트)"}${member ? " · 회원" : " · 비회원"}`,
       `📞 연락처: ${contacts.length ? contacts.join(" / ") : "없음"}`,
     ];
@@ -81,8 +85,19 @@ export async function notifyOpsNewInquiry(params: { inquiryId: string }): Promis
     if (q.source_photo_id && SITE_URL) lines.push(`🖼 문의한 사진: ${SITE_URL}/photos/${q.source_photo_id}`);
     // 어드민 바로가기
     lines.push(`🛠 **어드민에서 열기: ${adminLink}**`);
-    // 작가 복붙 블록
-    lines.push("", "⬇️ 아래 메시지를 복사해 작가에게 보내세요", "```", forPhotographer, "```");
+
+    if (isTest) {
+      // ⚠️ 복붙 블록을 주지 않는다. 사고는 시스템이 아니라 이 블록을 사람이 그대로 보내면서 났다.
+      //    (2026-08-27 — 작가가 테스트 문의를 진짜 리드로 알고 리드비를 입금 → 0088)
+      lines.push(
+        "",
+        "🚫 **테스트 문의라 작가에게 전달되지 않았어요.** 작가 알림·대시보드 모두에서 제외됐고, 해제(리드비)도 불가합니다.",
+        "작가에게 따로 안내하지 마세요 — 실제 리드로 오해할 수 있어요.",
+      );
+    } else {
+      // 작가 복붙 블록
+      lines.push("", "⬇️ 아래 메시지를 복사해 작가에게 보내세요", "```", forPhotographer, "```");
+    }
 
     await fetch(webhook, {
       method: "POST",
@@ -154,6 +169,42 @@ export async function notifyOpsDepositReported(params: { inquiryId: string }): P
 
 // 새 작가 신청 알림 — 지원자가 남긴 정보.
 // (문의와 달리 지원자 연락처는 운영자가 직접 연락해야 하므로 포함한다.)
+// 캐스팅 신청 — 미성년 건은 보호자 동의서 회수를 운영진이 직접 챙겨야 하므로 눈에 띄게 알린다.
+// ⚠️ PII 최소화: 실명·연락처·생년월일은 싣지 않는다(어드민에서 본다). 만 나이만 보낸다.
+export async function notifyOpsNewCastingApplication(params: {
+  applicationId: string;
+  roundTitle: string;
+  age: number;
+  isMinor: boolean;
+  hasGuardianConsent: boolean;
+  photographerNames: string[];
+}): Promise<void> {
+  const webhook = APPLICATION_WEBHOOK;
+  if (!webhook) return;
+
+  try {
+    const ref = params.applicationId.slice(0, 8);
+    const lines: string[] = [
+      `📸 **캐스팅 신청** — ${params.roundTitle}  (ID \`${ref}\`)`,
+      `• 만 ${params.age}세${params.isMinor ? " ⚠️ 미성년" : ""}`,
+      `• 희망 작가: ${params.photographerNames.join(", ") || "-"}`,
+    ];
+    if (params.isMinor && !params.hasGuardianConsent) {
+      lines.push("", "🚨 **보호자 동의서 미제출** — 동의서 없이는 선정할 수 없어요. 보호자에게 회수 요청 필요.");
+    }
+    lines.push("", `${SITE_URL}/admin/casting`);
+
+    await fetch(webhook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: lines.join("\n") }),
+      redirect: "manual",
+    });
+  } catch {
+    // 알림 실패가 신청 접수를 막지 않게 무시
+  }
+}
+
 export async function notifyOpsNewApplication(params: {
   applicationId: string;
   displayName: string;

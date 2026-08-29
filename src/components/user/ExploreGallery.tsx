@@ -17,6 +17,8 @@ import { rememberPhotoAspect } from "@/lib/photo-aspect";
 import { appendFeedClick, readFeedClicks, recordFeedClick } from "@/lib/feed-click-history";
 import { FEED_ALGO_VERSION } from "@/lib/feed-version";
 import { nextFeedPhase, type FeedPhase } from "@/lib/feed-demotion";
+import { buildMasonryColumns } from "@/lib/masonry";
+import { useColumnCount } from "@/components/user/useColumnCount";
 
 const fmt = new Intl.NumberFormat("ko-KR");
 const STEP = 48; // 스크롤마다 더 보여줄 사진 수(메모리에서 즉시 노출)
@@ -82,42 +84,12 @@ type FeedSession = {
 
 type PositionedPhoto = { id: string; photo: GalleryPhoto; feedIndex: number };
 
-function useColumnCount() {
-  const [node, setNode] = useState<HTMLDivElement | null>(null);
-  const [cols, setCols] = useState(2);
-  const [ready, setReady] = useState(false);
-
-  useIsoLayoutEffect(() => {
-    if (!node) {
-      setReady(false);
-      return;
-    }
-    const compute = () => {
-      setCols(Math.max(2, Math.min(7, Math.round(node.clientWidth / 220))));
-      setReady(true);
-    };
-    compute();
-    const ro = new ResizeObserver(compute);
-    ro.observe(node);
-    return () => ro.disconnect();
-  }, [node]);
-
-  return { cols, ready, setNode };
-}
-
-// 높이 균형 그리디 분배 — 각 사진을 가장 짧은 컬럼에 넣는다.
-// 순서가 고정이면 prefix-stable: 뒤에 더 추가돼도 앞 사진들의 컬럼/위치가 안 바뀜(재정렬 없음).
+// 컬럼 분배·컬럼 수 계산은 캐스팅 사진 선택과 공유한다 (lib/masonry · useColumnCount).
+// 여기서는 기존 호출부가 쓰던 { photo, feedIndex } 모양으로만 맞춰준다.
 function buildColumns(photos: GalleryPhoto[], colCount: number): PositionedPhoto[][] {
-  const cols: PositionedPhoto[][] = Array.from({ length: colCount }, () => []);
-  const heights = new Array(colCount).fill(0);
-  for (const [feedIndex, p] of photos.entries()) {
-    const ratio = p.width > 0 && p.height > 0 ? p.height / p.width : 1; // 단위 폭당 상대 높이
-    let min = 0;
-    for (let c = 1; c < colCount; c++) if (heights[c] < heights[min]) min = c;
-    cols[min].push({ id: p.id, photo: p, feedIndex });
-    heights[min] += ratio;
-  }
-  return cols;
+  return buildMasonryColumns(photos, colCount).map((col) =>
+    col.map(({ item, index }) => ({ id: item.id, photo: item, feedIndex: index })),
+  );
 }
 
 // 탐색 갤러리 — 서버가 셔플된 풀을 내려주고, 클라이언트는 메모리에서 점진 노출(네트워크 없음).
