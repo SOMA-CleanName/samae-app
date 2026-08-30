@@ -39,14 +39,14 @@ export function SendContactButton({
   if (deliveredAt) {
     return (
       <p className="mt-3 border-t border-line pt-3 text-caption text-success">
-        연락처를 전달했어요 — 고객님이 확인했습니다.
+        연락처를 전달했습니다.
       </p>
     );
   }
   if (sentAt) {
     return (
       <p className="mt-3 border-t border-line pt-3 text-caption text-muted">
-        연락처를 보냈어요 — 고객님이 확인하면 전달돼요.
+        연락처를 보냈습니다. 고객이 확인하면 전달됩니다.
       </p>
     );
   }
@@ -65,7 +65,7 @@ export function SendContactButton({
               await sendPhotographerContact(fd);
               router.refresh();
             } catch (e) {
-              setError(e instanceof Error ? e.message : "보내지 못했어요.");
+              setError(e instanceof Error ? e.message : "보내지 못했습니다.");
             }
           })
         }
@@ -74,7 +74,7 @@ export function SendContactButton({
         {sending ? "보내는 중…" : "연락처 보내기"}
       </button>
       <p className="mt-1.5 text-label text-faint">
-        스튜디오 프로필에 등록한 연락 수단이 전달돼요.
+        스튜디오 프로필에 등록한 연락 수단이 전달됩니다.
       </p>
       {error && <p className="mt-1.5 text-caption text-danger">{error}</p>}
     </div>
@@ -114,7 +114,7 @@ export function ReceiveContactCard({
   if (deliveredAt) {
     return (
       <div className="mt-3 border-t border-line pt-3">
-        <p className="text-caption font-semibold text-muted">작가님 연락처</p>
+        <p className="text-caption font-semibold text-muted">작가 연락처</p>
         <ul className="mt-2 flex flex-col gap-1.5">
           {methods.map((c) => {
             const href = contactHref(c);
@@ -143,39 +143,40 @@ export function ReceiveContactCard({
 
   return (
     <div className="mt-3 border-t border-line pt-3">
-      <div className="rounded-xl bg-warning-soft p-3.5 ring-1 ring-warning/25">
-        <p className="text-body-sm font-semibold text-warning">작가님이 연락처를 보냈어요</p>
-        <p className="mt-1.5 text-caption leading-relaxed text-warning/90">
-          받으시면 촬영 준비를 작가님과 직접 이야기하실 수 있어요.
-        </p>
+      {/* 노란 배경 위의 노란 글씨는 읽히지 않는다 — 배경은 흰 카드로 두고 테두리로만 경고한다 */}
+      <div className="rounded-xl bg-surface p-3.5 ring-1 ring-warning/40">
+        <p className="text-body-sm font-semibold text-fg">작가 연락처가 도착했습니다</p>
 
-        {/* 조건이 어떻게 달라지는지 — 문장으로 흘리면 읽히지 않는다. 금액을 나란히 놓는다 */}
-        {quote && quote.percent === 100 ? (
-          <div className="mt-3 rounded-lg bg-surface/70 p-3">
-            <p className="text-caption font-semibold text-fg">받으시면 환불 조건이 달라져요</p>
-            <dl className="mt-2 flex flex-col gap-1.5">
-              <div className="flex items-baseline justify-between gap-2">
-                <dt className="text-caption text-muted">지금 취소하면</dt>
-                <dd className="text-body-sm font-semibold text-fg">
-                  전액 ₩{fmt.format(quote.amountKrw)}
-                </dd>
-              </div>
-              <div className="flex items-baseline justify-between gap-2 border-t border-line pt-1.5">
-                <dt className="text-caption font-medium text-warning">받은 뒤 취소하면</dt>
-                <dd className="text-body-sm font-bold text-warning">
-                  ₩{fmt.format(Math.round(quote.amountKrw / 2))}
-                  <span className="ml-1 text-caption font-normal">(위약금 50%)</span>
-                </dd>
-              </div>
-            </dl>
-            <p className="mt-2 text-label leading-relaxed text-muted">
-              연락처가 오가면 사매의 중개가 끝나기 때문이에요.
-            </p>
+        {/* 받을지 말지를 정하는 데 필요한 건 문장이 아니라 두 숫자다 */}
+        {quote && (
+          <div className="mt-2.5 rounded-lg bg-surface-2 p-3">
+            {quote.percent === 100 ? (
+              <>
+                <dl className="flex flex-col gap-2">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <dt className="text-caption text-muted">지금 취소</dt>
+                    <dd className="text-body-sm font-semibold text-fg">
+                      ₩{fmt.format(quote.amountKrw)} 전액 환불
+                    </dd>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-3 border-t border-line pt-2">
+                    <dt className="text-caption font-medium text-fg">받은 뒤 취소</dt>
+                    <dd className="text-body-sm font-bold text-danger">
+                      ₩{fmt.format(Math.round(quote.amountKrw / 2))}
+                      <span className="ml-1 text-caption font-medium">· 50% 위약금</span>
+                    </dd>
+                  </div>
+                </dl>
+                <p className="mt-2 text-caption text-muted">
+                  연락처를 받으면 사매 중개가 종료됩니다.
+                </p>
+              </>
+            ) : (
+              <p className="text-caption text-muted">
+                연락처를 받아도 환불 조건은 그대로입니다.
+              </p>
+            )}
           </div>
-        ) : (
-          <p className="mt-3 rounded-lg bg-surface/70 p-3 text-caption leading-relaxed text-muted">
-            지금은 이미 위약금 구간이라, 연락처를 받아도 환불 조건은 달라지지 않아요.
-          </p>
         )}
 
         <button
@@ -191,10 +192,10 @@ export function ReceiveContactCard({
           }
           className="mt-3 w-full cursor-pointer rounded-full bg-fg py-2.5 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90 disabled:opacity-50"
         >
-          {accepting ? "처리 중…" : "확인했어요 — 연락처 받기"}
+          {accepting ? "처리 중…" : "연락처 받기"}
         </button>
-        <p className="mt-1.5 text-center text-label text-warning/70">
-          받지 않으셔도 촬영은 예정대로 진행돼요.
+        <p className="mt-1.5 text-center text-caption text-muted">
+          받지 않아도 촬영은 예정대로 진행됩니다.
         </p>
       </div>
     </div>
