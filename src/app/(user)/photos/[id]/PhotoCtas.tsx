@@ -65,13 +65,7 @@ export function PhotoCtas({
 
       {gateOpen && (
         <LoginGateDialog
-          title="작가에게 바로 물어보세요"
-          description="로그인하면 작가님 채팅방이 열려요. 지금 보던 사진을 그대로 들고 들어갑니다."
-          bullets={[
-            "작가가 자리를 비운 동안에도 안내봇이 먼저 답해드려요",
-            "연락처는 작가에게 공개되지 않아요 — 대화는 사매 안에서만",
-            "답장이 오면 알림으로 알려드려요",
-          ]}
+          title="로그인하고 상담 시작하기"
           next={consultHref}
           context="photo_detail_consult"
           onClose={() => setGateOpen(false)}

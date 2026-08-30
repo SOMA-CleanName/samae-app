@@ -91,6 +91,7 @@ export function InquiryChat({
   photoIds,
   photoSrcs,
   customQuestions,
+  isLoggedIn = false,
 }: {
   photographerId: string;
   photoId: string;
@@ -100,6 +101,8 @@ export function InquiryChat({
   photoSrcs?: string[];
   // 작가가 등록한 커스텀 질문 — 코어 4문항 뒤에 이어 붙는다(봇과 같은 시퀀스)
   customQuestions?: CustomBotQuestion[];
+  /** 비로그인이면 마지막 버튼 자체가 카카오 로그인이 된다 */
+  isLoggedIn?: boolean;
 }) {
   const router = useRouter();
   const multi = !!photoIds && photoIds.length > 0;
@@ -717,7 +720,7 @@ export function InquiryChat({
                 pending={pending}
                 serverError={state.error}
                 multi={multi}
-                needLogin={!!state.needLogin}
+                needLogin={!isLoggedIn || !!state.needLogin}
                 loginNext={selfUrl}
               />
             )}
@@ -833,23 +836,15 @@ function SubmitBlock({
       {serverError && <p className="mt-2 text-xs font-medium text-danger">{serverError}</p>}
 
       {needLogin ? (
-        // 마지막 한 걸음 — 여기까지 다 적은 사람이다. 페이지를 옮기지 않고 그대로 로그인만 받는다.
+        // 마지막 한 걸음 — 여기까지 다 적은 사람이다. 로그인 페이지로 옮기지 않고
+        // 제출 버튼 자리를 그대로 카카오 버튼이 대신한다. 누를 것이 하나여야 안 헤맨다.
         // 적은 내용은 이 기기에 남아 있어서, 돌아오면 그 자리에서 이어진다.
         <div className="mt-3">
-          <p className="mb-2 text-body-sm font-semibold text-fg">
-            마지막으로 로그인만 하면 전달돼요
-          </p>
-          <p className="mb-3 text-caption leading-relaxed text-muted">
-            작가님 답변을 받을 곳이 필요해서예요. 적으신 내용은 그대로 남아 있어요.
-          </p>
           <KakaoLoginButton
             next={loginNext}
             context="inquiry_submit"
             label="카카오로 로그인하고 문의 보내기"
           />
-          <p className="mt-2 text-center text-caption text-faint">
-            가입돼 있지 않아도 이 버튼 하나로 시작돼요
-          </p>
         </div>
       ) : (
         <button

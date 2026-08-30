@@ -4,7 +4,9 @@
 //
 // 로그인 페이지로 보내면 지금 보고 있던 사진도, 하려던 상담도 화면에서 사라진다.
 // 사용자는 "왜 로그인해야 하는지" 를 다시 떠올려야 하고 그 지점에서 이탈한다.
-// 그래서 맥락(무엇을 하려던 참인지)을 문장으로 붙들어둔 채 로그인만 받는다.
+//
+// 문구는 최소로 둔다. 버튼 하나 누르면 끝나는 일에 설명을 쌓으면 오히려 큰일처럼 보인다 —
+// 읽을거리가 늘어난 만큼 누르기까지의 시간도 늘어난다.
 
 import { KakaoLoginButton } from "./KakaoLoginButton";
 import { XIcon } from "./icons";
@@ -12,15 +14,13 @@ import { XIcon } from "./icons";
 export function LoginGateDialog({
   title,
   description,
-  bullets,
   next,
   context,
   onClose,
 }: {
   title: string;
-  description: string;
-  /** 로그인 후 무엇이 일어나는지 — 망설임을 줄이는 건 약속이지 설명이 아니다 */
-  bullets?: string[];
+  /** 한 줄. 두 줄이 필요하면 문구가 아직 안 다듬어진 것이다 */
+  description?: string;
   next: string;
   context: string;
   onClose: () => void;
@@ -49,27 +49,13 @@ export function LoginGateDialog({
           </button>
         </div>
 
-        <p className="mt-1.5 text-body-sm leading-relaxed text-muted">{description}</p>
-
-        {bullets && bullets.length > 0 && (
-          <ul className="mt-3 flex flex-col gap-1.5 rounded-xl bg-surface-2 p-3">
-            {bullets.map((b) => (
-              <li key={b} className="flex gap-1.5 text-caption leading-relaxed text-muted">
-                <span aria-hidden className="text-brand">
-                  ·
-                </span>
-                {b}
-              </li>
-            ))}
-          </ul>
+        {description && (
+          <p className="mt-1.5 text-body-sm leading-relaxed text-muted">{description}</p>
         )}
 
         <div className="mt-4">
           <KakaoLoginButton next={next} context={context} />
         </div>
-        <p className="mt-2 text-center text-caption text-faint">
-          가입돼 있지 않아도 이 버튼 하나로 시작돼요
-        </p>
 
         <a
           href={`/login?next=${encodeURIComponent(next)}`}

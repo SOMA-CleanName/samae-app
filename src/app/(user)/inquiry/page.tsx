@@ -43,6 +43,7 @@ export default async function InquiryPage({
         photoId={photoId}
         photoSrc={photoSrc}
         customQuestions={customQuestions}
+        isLoggedIn={!!me}
       />
     </main>
   );
