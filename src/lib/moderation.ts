@@ -1,3 +1,5 @@
+import { WITHDRAWAL_DAYS } from "./refund";
+
 // 오프플랫폼 유도 감지 — 채팅에서 개인 SNS·연락처로 대화를 빼돌리는 텍스트를 잡는다.
 // 순수 함수 (클라이언트·서버 공용). 매칭된 규칙 라벨 목록을 돌려준다 — 비면 통과.
 //
@@ -81,14 +83,25 @@ export function detectOffPlatform(text: string): string[] {
 /**
  * 이 대화에서 연락처 교환을 허용해도 되는가.
  *
- * 입금이 확인된 뒤에는 촬영 당일 연락이 실제로 필요하다 — 그때까지 막는 건 고객을 지키는
- * 장치지만, 확정된 촬영에서까지 막으면 서비스가 현장을 방해한다. 그래서 검열은
- * **입금 확인 전까지만** 유지한다 (docs/32 §3-3).
+ * v1 은 "입금 확인 후 허용 + 교환하면 환불 50%" 였다. 그 조항은 뒷거래를 막았지만
+ * 뒷거래 의도가 없는 대부분의 고객에게도 똑같이 걸렸고, 이유가 플랫폼 이탈 방지라
+ * 약관규제법 제6조·제9조의 '취소 방해' 프레임에 그대로 들어갔다.
  *
- * 대신 교환이 실제로 일어난 시각을 기록한다 — 그 시점부터 환불이 50% 로 내려가기 때문이다.
+ * v2 는 조항을 없애고 **타이밍으로 해결한다** (docs/32 §3-3):
+ *   결제 후 7일간   → 잠금 (사매 채팅으로만)
+ *   결제 후 7일 경과 → 자동 개방
+ *
+ * 개방 시점이 곧 위약금 구간의 시작이라, 열리는 순간에는 이미 직거래가 고객에게
+ * 이득이 되지 않는다(50% 손실을 안고 시작한다). 조항 하나를 시점 하나로 대체한 것이다.
+ *
+ * 그전에 조율할 내용(장소·컨셉·의상)은 사매 채팅으로 충분하다. 전화번호가 실제로
+ * 필요해지는 건 촬영 임박 시점이다.
  */
-export function contactExchangeAllowed(bookingStatus: string | null | undefined): boolean {
-  return !!bookingStatus && ["paid", "shot", "delivered", "completed"].includes(bookingStatus);
+export function contactExchangeAllowed(transferMarkedAt: string | null | undefined): boolean {
+  if (!transferMarkedAt) return false;
+  const t = new Date(transferMarkedAt).getTime();
+  if (isNaN(t)) return false;
+  return Date.now() - t >= WITHDRAWAL_DAYS * 24 * 60 * 60 * 1000;
 }
 
 export const MODERATION_NOTICE =

@@ -67,7 +67,9 @@ export function normalizeSettings(row: Row | null): BotSettings {
   return {
     enabled: row.enabled !== false,
     policy: policy || PLATFORM_POLICY,
-    policyVersion: row.policy_version ?? PLATFORM_POLICY_VERSION,
+    // 문구와 버전은 같이 다녀야 한다 — DB 문구가 비어 코드 상수를 쓰는데 버전만 옛 숫자면
+    // 어드민이 "구버전 정책이 돌고 있다" 고 잘못 읽는다.
+    policyVersion: policy ? row.policy_version ?? PLATFORM_POLICY_VERSION : PLATFORM_POLICY_VERSION,
     defaultTone: (row.default_tone ?? "").trim(),
     model: model || CODE_MODEL,
     messages: {

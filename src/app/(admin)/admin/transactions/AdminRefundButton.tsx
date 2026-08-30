@@ -2,7 +2,7 @@
 
 // 운영 환불 — 규정대로 얼마가 나가는지 보여주고, 예외 판정만 사람이 고른다.
 //
-// 금액을 손으로 입력받지 않는다. 운영자가 매번 7일/24시간을 세고 곱셈을 하면 반드시 틀리고,
+// 금액을 손으로 입력받지 않는다. 운영자가 매번 두 시계(결제+7일 / 촬영−7일)를 세고 곱셈을 하면 반드시 틀리고,
 // 틀린 금액은 고객·작가 어느 쪽이든 손해로 돌아온다. 계산은 lib/refund.ts 가 하고
 // 여기서는 그 결과를 확인시킨 뒤 실행만 한다. (docs/32)
 //
@@ -18,7 +18,7 @@ import type { RefundOverride, RefundQuote } from "@/lib/refund";
 const fmt = new Intl.NumberFormat("ko-KR");
 
 const OVERRIDES: { value: "" | RefundOverride; label: string; hint: string }[] = [
-  { value: "", label: "규정대로", hint: "7일 · 24시간 · 연락처 교환 기준으로 자동 판정" },
+  { value: "", label: "규정대로", hint: "결제 후 7일(청약철회) · 촬영 7일 전 기준으로 자동 판정" },
   {
     value: "force_majeure",
     label: "천재지변",

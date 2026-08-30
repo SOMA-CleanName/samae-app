@@ -5,12 +5,12 @@ import { Fragment, useEffect, useRef, useState, useTransition, useMemo } from "r
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { sendMessage, markRead, sendPortfolioPhoto, getBookingPayoutAccount } from "../actions";
+import { sendMessage, markRead, sendPortfolioPhoto } from "../actions";
 import { sendBotTurn } from "../bot-actions";
 import { KB_EXAMPLE_QUESTIONS } from "@/lib/bot-kb";
 import { BOT_DISPLAY_NAME, BOT_HANDOFF_NOTICE } from "@/lib/bot-identity";
 import { acceptBooking, rejectBooking, cancelBooking } from "@/app/actions/bookings";
-import { markTransferSent, markShot } from "@/app/actions/payments";
+import { markShot } from "@/app/actions/payments";
 import { mpTrack } from "@/lib/mixpanel";
 import type { ChatMessage, BookingSnapshot, ConsultationBrief, BotSlots } from "@/lib/chat";
 import { bookingStatusLabel, type BookingStatus } from "@/lib/booking-status";
@@ -25,7 +25,6 @@ import {
 import { Spinner, Avatar } from "@/components/ui";
 import { GuideImagesButton } from "./GuideImagesButton";
 import { AcceptPayDialog } from "./AcceptPayDialog";
-import { PolicyNote } from "./PolicyNote";
 import { SupportButton } from "@/components/user/SupportButton";
 import { BookingDetailDialog, bookingWhen } from "./BookingDetailDialog";
 import type { GuideImage } from "@/lib/guide-images";
@@ -47,7 +46,7 @@ import {
 const fmt = new Intl.NumberFormat("ko-KR");
 
 const BOOKING_COLS =
-  "id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, custom_fields, transfer_marked_at, proposed_by_photographer, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at";
+  "id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, custom_fields, transfer_marked_at, late_booking_consent_at, proposed_by_photographer, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at";
 
 // 메시지 작성 시각 (카카오톡식 HH:MM)
 function timeLabel(iso: string) {
@@ -415,6 +414,9 @@ export function ChatRoom({
         <AcceptPayDialog
           bookingId={payDialogFor.id}
           amountKrw={payDialogFor.amount_krw ?? 0}
+          shootAt={payDialogFor.shoot_at}
+          shootDate={payDialogFor.shoot_date}
+          lateBookingConsentAt={payDialogFor.late_booking_consent_at ?? null}
           account={payoutAccount ?? null}
           onClose={() => {
             setPayFor(null);
@@ -507,7 +509,6 @@ export function ChatRoom({
                 onOpenDetail={() => router.push(`/bookings/${m.booking!.id}?from=chat`)}
                 onShowSummary={() => setDetailFor(m.booking!)}
                 onNeedPay={() => setPayFor(m.booking!)}
-                payoutAccount={payoutAccount ?? null}
                 conversationId={conversationId}
                 onReuse={
                   composerData
@@ -1088,7 +1089,6 @@ function BookingCard({
   onEdit,
   onReuse,
   onNeedPay,
-  payoutAccount,
   conversationId,
 }: {
   booking: BookingSnapshot;
@@ -1103,8 +1103,6 @@ function BookingCard({
   onReuse: (() => void) | null;
   /** 고객이 수락한 직후 — 방이 입금 안내를 띄운다 */
   onNeedPay: () => void;
-  /** 서버가 미리 실어 보낸 사매 계좌 (없으면 TransferSection 이 직접 조회) */
-  payoutAccount: PayoutAccount | null;
   conversationId: string;
 }) {
   // 처리 결과를 낙관적으로 반영 (서버 액션 + realtime 지연에도 카드가 즉시 진행)
@@ -1255,7 +1253,7 @@ function BookingCard({
           amCustomer={amCustomer}
           amPhotographer={amPhotographer}
           onShowSummary={onShowSummary}
-          preloadedAccount={payoutAccount}
+          onOpenPay={onNeedPay}
           onConfirmed={() => {
             setActed("paid");
             router.refresh();
@@ -1398,50 +1396,19 @@ function TransferSection({
   amCustomer,
   amPhotographer,
   onShowSummary,
+  onOpenPay,
   onConfirmed,
-  preloadedAccount,
 }: {
   booking: BookingSnapshot;
   amCustomer: boolean;
   amPhotographer: boolean;
   /** 확정된 예약을 다시 펼쳐 보는 자리 */
   onShowSummary: () => void;
+  /** 입금 안내 다이얼로그 열기 — 계좌·정책·동의가 모두 거기 있다 */
+  onOpenPay: () => void;
   onConfirmed: () => void; // 작가 입금 확인 후 카드 즉시 진행(req8)
-  preloadedAccount: PayoutAccount | null;
 }) {
-  const router = useRouter();
-  const [sent, setSent] = useState(false); // 고객 [송금 완료] 낙관적 반영
-  const [, startSend] = useTransition();
-  const marked = sent || !!booking.transfer_marked_at;
-
-  // 계좌는 결제가 걸린 방이면 서버가 미리 실어 보낸다 — 그 경우 조회 없이 바로 그린다.
-  // 못 받았을 때(수락 직후처럼 서버 렌더가 앞선 경우)만 서버액션으로 채운다.
-  const [fetched, setFetched] = useState<PayoutAccount | null>(null);
-  const [accountLoading, setAccountLoading] = useState(amCustomer && !preloadedAccount);
-  const payoutAccount = preloadedAccount ?? fetched;
-  useEffect(() => {
-    if (!amCustomer || preloadedAccount) return;
-    let active = true;
-    getBookingPayoutAccount(booking.id).then((acc) => {
-      if (!active) return;
-      setFetched(acc);
-      setAccountLoading(false);
-    });
-    return () => {
-      active = false;
-    };
-  }, [amCustomer, booking.id, preloadedAccount]);
-
-  // 고객 송금 완료 알림 — 낙관적 표시 + 서버 반영 후 새로고침
-  function notifySent() {
-    setSent(true);
-    const fd = new FormData();
-    fd.set("id", booking.id);
-    startSend(async () => {
-      await markTransferSent(fd);
-      router.refresh();
-    });
-  }
+  const marked = !!booking.transfer_marked_at;
 
   void onConfirmed; // 에스크로 전환 — 입금 확인 주체가 운영자(어드민)로 이동, 콜백은 호환 유지
 
@@ -1472,44 +1439,23 @@ function TransferSection({
           </div>
         ) : (
           <>
+            {/* 입금은 다이얼로그 한 곳에서만 받는다.
+                계좌·정책·동의 체크가 거기 모여 있어서, 카드에도 버튼을 두면
+                체크 없이 [입금 완료]가 눌리는 길이 생긴다 (docs/32 §6-1). */}
             <p className="flex items-center gap-1.5 text-caption font-semibold text-muted">
               <WalletIcon className="h-4 w-4" />
               입금 안내 — 사매 계좌로 안전하게
             </p>
-            {accountLoading ? (
-              <div className="mt-2 flex items-center gap-2 rounded-xl bg-surface-2 px-3 py-3 text-caption text-muted">
-                <Spinner className="h-4 w-4" />
-                계좌 정보를 불러오는 중…
-              </div>
-            ) : payoutAccount ? (
-              <div className="mt-2 rounded-xl bg-surface-2 p-3 text-caption">
-                <TransferRow label="은행" value={payoutAccount.bank} />
-                <TransferRow label="계좌번호" value={payoutAccount.number} mono />
-                <TransferRow label="예금주" value={payoutAccount.holder} />
-                <div className="mt-2 flex items-center justify-between border-t border-line pt-2">
-                  <span className="text-faint">보낼 금액</span>
-                  <span className="text-body-sm font-bold text-fg">
-                    ₩{fmt.format(booking.amount_krw ?? 0)}
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div className="mt-2 rounded-xl bg-warning-soft px-3 py-2 text-caption text-warning">
-                입금 계좌 안내를 준비 중이에요. 잠시 후 다시 확인해주세요.
-              </div>
-            )}
-
-            {payoutAccount && (
-              <button
-                type="button"
-                onClick={notifySent}
-                className="mt-3 w-full cursor-pointer rounded-full bg-fg py-2.5 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90"
-              >
-                입금 완료
-              </button>
-            )}
-
-            <PolicyNote />
+            <p className="mt-1 text-caption text-muted">
+              아래에서 계좌와 환불 안내를 확인하고 입금해주세요.
+            </p>
+            <button
+              type="button"
+              onClick={onOpenPay}
+              className="mt-3 w-full cursor-pointer rounded-full bg-fg py-2.5 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90"
+            >
+              입금 안내 열기
+            </button>
           </>
         ))}
 
@@ -1530,17 +1476,6 @@ function TransferSection({
           </p>
         </>
       )}
-    </div>
-  );
-}
-
-function TransferRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div className="flex items-center justify-between gap-3 py-0.5">
-      <span className="shrink-0 text-faint">{label}</span>
-      <span className={`text-right font-medium text-fg ${mono ? "tabular-nums tracking-tight" : ""}`}>
-        {value}
-      </span>
     </div>
   );
 }

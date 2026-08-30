@@ -14,17 +14,27 @@ import { CheckIcon, WalletIcon, XIcon } from "@/components/user/icons";
 import { Spinner } from "@/components/ui";
 import type { PayoutAccount } from "@/lib/payments";
 import { PolicyNote } from "./PolicyNote";
+import { LateBookingConsent } from "./LateBookingConsent";
+import { isLateBooking } from "@/lib/refund";
 
 const fmt = new Intl.NumberFormat("ko-KR");
 
 export function AcceptPayDialog({
   bookingId,
   amountKrw,
+  shootAt = null,
+  shootDate = null,
+  lateBookingConsentAt = null,
   account: preloaded,
   onClose,
 }: {
   bookingId: string;
   amountKrw: number;
+  /** 임박 예약 판정·환불 마감일 표기에 쓴다 */
+  shootAt?: string | null;
+  shootDate?: string | null;
+  /** 이미 받아둔 동의 — 있으면 모달을 다시 세우지 않는다 */
+  lateBookingConsentAt?: string | null;
   /** 서버가 미리 실어 보낸 사매 계좌. 있으면 조회 없이 바로 그린다 —
    *  없으면 창이 열리자마자 "계좌 불러오는 중…" 이 깜빡인다. */
   account?: PayoutAccount | null;
@@ -36,6 +46,13 @@ export function AcceptPayDialog({
   const [loading, setLoading] = useState(!preloaded);
   const [copied, setCopied] = useState(false);
   const [sending, startSend] = useTransition();
+  // 가장 불리한 조항을 직접 읽고 체크해야 입금 버튼이 열린다 (docs/32 §6-1).
+  // "정책에 동의합니다" 로는 약관규제법 제3조의 설명 의무를 채우지 못한다.
+  const [agreed, setAgreed] = useState(false);
+  // 촬영이 임박한 건은 결제 전에 별도 동의를 먼저 받는다 (§6-2). 이게 없으면
+  // 나중에 위약금을 주장할 수 없다 — 그래서 건너뛸 수 있는 창이 아니다.
+  const [consented, setConsented] = useState(!!lateBookingConsentAt);
+  const needsLateConsent = !consented && isLateBooking(shootAt, shootDate);
 
   // 입금하고 돌아온 손님이 이 창에서 바로 끝낼 수 있게 — 카드까지 내려가 다시 찾지 않는다
   function markPaid() {
@@ -72,6 +89,17 @@ export function AcceptPayDialog({
       /* 클립보드 거부 — 계좌번호는 화면에 그대로 보인다 */
     }
   };
+
+  if (needsLateConsent) {
+    return (
+      <LateBookingConsent
+        bookingId={bookingId}
+        shootAt={shootAt}
+        onAgreed={() => setConsented(true)}
+        onCancel={onClose}
+      />
+    );
+  }
 
   return (
     <div
@@ -162,12 +190,24 @@ export function AcceptPayDialog({
         </ol>
 
         {/* 무엇에 동의하고 보내는지 — 입금 버튼 바로 위가 유일하게 읽히는 자리다 */}
-        <PolicyNote />
+        <PolicyNote shootAt={shootAt} shootDate={shootDate} />
+
+        <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-xl bg-surface-2 p-3">
+          <input
+            type="checkbox"
+            checked={agreed}
+            onChange={(e) => setAgreed(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
+          />
+          <span className="text-caption font-medium leading-relaxed text-fg">
+            촬영 7일 전부터는 취소해도 환불되지 않는다는 점을 확인했습니다.
+          </span>
+        </label>
 
         <button
           type="button"
           onClick={markPaid}
-          disabled={sending || !account}
+          disabled={sending || !account || !agreed}
           className="mt-4 w-full cursor-pointer rounded-full bg-fg py-3 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90 disabled:opacity-50"
         >
           {sending ? "처리 중…" : "입금 완료"}

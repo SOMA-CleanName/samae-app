@@ -90,18 +90,18 @@ export async function sendMessage(conversationId: string, body: string): Promise
       .eq("id", conversationId)
       .maybeSingle();
 
-    // 입금이 확인된 예약이 있으면 연락처를 주고받아도 된다 — 촬영 당일 연락은 실제로 필요하다.
-    // 다만 교환 시각을 남긴다: 그 순간부터 환불 상한이 50% 로 내려간다 (docs/32 §3-3).
-    let bookingStatus: string | null = null;
+    // 결제 후 7일이 지나면 연락처를 주고받아도 된다 — 그 시점이 곧 위약금 구간의 시작이라
+    // 직거래 유인이 이미 없다 (docs/32 §3-3). 교환 시각은 분쟁 대응용으로 남긴다.
+    let transferMarkedAt: string | null = null;
     if (conv?.booking_id) {
       const { data: bk } = await admin
         .from("bookings")
-        .select("status")
+        .select("transfer_marked_at")
         .eq("id", conv.booking_id)
         .maybeSingle();
-      bookingStatus = (bk?.status as string) ?? null;
+      transferMarkedAt = (bk?.transfer_marked_at as string) ?? null;
     }
-    if (contactExchangeAllowed(bookingStatus)) {
+    if (contactExchangeAllowed(transferMarkedAt)) {
       if (!conv?.contact_exchanged_at) {
         await admin
           .from("conversations")

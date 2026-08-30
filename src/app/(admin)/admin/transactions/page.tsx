@@ -7,7 +7,7 @@ import { DeleteModeProvider, DeleteModeToolbar } from "@/components/admin/Delete
 import { AdminBookings, type BookingRow } from "./AdminBookings";
 import { AdminCancelButton } from "./AdminCancelButton";
 import { feeSpecFromRow, feeSpecLabel, readFeeSnapshot, resolveFee } from "@/lib/platform-fee";
-import { refundQuote } from "@/lib/refund";
+import { refundQuote, refundSlaOverdue } from "@/lib/refund";
 import { readStoredFieldValues } from "@/lib/booking-fields";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +25,7 @@ type DbBooking = {
   refunded_at: string | null;
   refund_reason: string | null;
   late_booking_consent_at: string | null;
+  refund_due_at: string | null;
   shoot_at: string | null;
   created_at: string;
   accepted_at: string | null;
@@ -57,7 +58,7 @@ export default async function AdminTransactionsPage() {
   const { data: bData } = await admin
     .from("bookings")
     .select(
-      "id, status, amount_krw, shoot_at, shoot_date, fee_snapshot, refunded_at, refund_reason, late_booking_consent_at, created_at, accepted_at, requested_at, paid_at, cancelled_at, cancel_reason, location_text, travel_fee_krw, memo, custom_fields, proposed_by_photographer, photographer_id, package_snapshot, transfer_marked_at, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at, user:profiles!bookings_user_id_fkey(display_name), photographer:photographers(display_name)"
+      "id, status, amount_krw, shoot_at, shoot_date, fee_snapshot, refunded_at, refund_reason, late_booking_consent_at, refund_due_at, created_at, accepted_at, requested_at, paid_at, cancelled_at, cancel_reason, location_text, travel_fee_krw, memo, custom_fields, proposed_by_photographer, photographer_id, package_snapshot, transfer_marked_at, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at, user:profiles!bookings_user_id_fkey(display_name), photographer:photographers(display_name)"
     )
     .order("created_at", { ascending: false })
     .limit(500);
@@ -139,6 +140,9 @@ export default async function AdminTransactionsPage() {
     conversationId: convByBooking.get(b.id) ?? null,
     refunded_at: b.refunded_at,
     refund_reason: b.refund_reason,
+    refundDueAt: b.refund_due_at,
+    // 3영업일을 넘긴 환불 요청 — 넘기면 연 15% 지연이자가 법정 의무다 (docs/32 §6-7)
+    refundOverdue: !b.refunded_at && refundSlaOverdue(b.refund_due_at),
     ...(() => {
       // 수수료: 제안 시점 스냅샷이 우선, 없으면 현재 설정으로 계산 (0101 이전 예약)
       const shootFee = Math.max(0, (b.amount_krw ?? 0) - (b.travel_fee_krw ?? 0));

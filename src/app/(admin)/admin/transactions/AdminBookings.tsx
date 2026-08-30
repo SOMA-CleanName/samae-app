@@ -57,6 +57,10 @@ export type BookingRow = {
   conversationId: string | null;
   refunded_at: string | null;
   refund_reason: string | null;
+  /** 환불 요청 접수 시각 — 3영업일 SLA 기산점 */
+  refundDueAt: string | null;
+  /** 그 기한을 넘겼는가 */
+  refundOverdue: boolean;
   /** 이 예약에 부과된(또는 부과될) 사매 수수료 — 스냅샷 우선 */
   feeKrw: number;
   /** "정률 10%" 처럼 사람이 읽는 근거 */
@@ -115,6 +119,9 @@ export function AdminBookings({ bookings }: { bookings: BookingRow[] }) {
                   ₩{fmt.format(b.amount_krw ?? 0)}
                 </span>
               </button>
+              {b.refundOverdue && (
+                <Badge tone="danger">환불 지연</Badge>
+              )}
               <Badge tone={s.tone}>{s.label}</Badge>
             </div>
 
@@ -195,6 +202,21 @@ function BookingDetail({ b }: { b: BookingRow }) {
           </p>
         )}
       </section>
+
+      {/* 환불 요청이 접수돼 있으면 기한을 먼저 보여준다 — 초과하면 연 15% 지연이자가
+          법정 의무로 붙는다(제18조 제2항). 주말이 끼면 달력 3일로는 그냥 넘어간다. */}
+      {b.refundDueAt && !b.refunded_at && (
+        <p
+          className={`mt-3 rounded-lg px-3 py-2 text-caption ${
+            b.refundOverdue
+              ? "bg-danger/10 font-semibold text-danger"
+              : "bg-warning-soft text-warning"
+          }`}
+        >
+          환불 요청 접수 {stamp(b.refundDueAt)} ·{" "}
+          {b.refundOverdue ? "3영업일 기한을 넘겼어요 — 지연이자 대상" : "3영업일 이내 환급"}
+        </p>
+      )}
 
       {/* 환불 — 버튼을 누르기 전에 '얼마가 어디로 가는지' 를 먼저 보여준다.
           계산은 lib/refund.ts 한 곳에서만 한다 (docs/32). */}

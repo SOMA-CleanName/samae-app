@@ -201,3 +201,27 @@ export function refundQuote(input: RefundInput): RefundQuote {
 export function settlementAfterRefund(q: RefundQuote): number {
   return q.photographerNetKrw;
 }
+
+/** 환급 기한 — 사유 확정일로부터 3영업일 (전자상거래법 제18조 제2항).
+ *  주말이 끼면 달력 3일로는 그냥 넘어간다. 초과하면 연 15% 지연이자가 법정 의무다.
+ *  (공휴일은 세지 않는다 — 목록을 들고 있어야 해서, 그만큼 보수적으로 짧게 잡힌다) */
+export const REFUND_SLA_BUSINESS_DAYS = 3;
+
+export function refundSlaDueAt(refundDueAt: string | null): Date | null {
+  if (!refundDueAt) return null;
+  const d = new Date(refundDueAt);
+  if (isNaN(d.getTime())) return null;
+  let left = REFUND_SLA_BUSINESS_DAYS;
+  while (left > 0) {
+    d.setDate(d.getDate() + 1);
+    const day = d.getDay();
+    if (day !== 0 && day !== 6) left--;
+  }
+  return d;
+}
+
+/** 기한을 넘겼는가 — 어드민 목록에서 강조할 건 */
+export function refundSlaOverdue(refundDueAt: string | null, now: Date = new Date()): boolean {
+  const due = refundSlaDueAt(refundDueAt);
+  return !!due && now.getTime() > due.getTime();
+}

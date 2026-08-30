@@ -22,7 +22,12 @@ import {
   readFeeSnapshot,
   type FeeSnapshot,
 } from "./platform-fee";
-import { refundQuote, type RefundOverride, type RefundQuote } from "./refund";
+import {
+  refundQuote,
+  withdrawalDeadline,
+  type RefundOverride,
+  type RefundQuote,
+} from "./refund";
 
 const fmtKrw = (n: number) => new Intl.NumberFormat("ko-KR").format(n);
 
@@ -236,7 +241,7 @@ export async function confirmBankTransfer(
     .eq("id", bookingId)
     .eq("photographer_id", photographerId)
     .eq("status", "accepted")
-    .select("id, user_id, photographer_id, amount_krw, travel_fee_krw, fee_snapshot");
+    .select("id, user_id, photographer_id, amount_krw, travel_fee_krw, fee_snapshot, transfer_marked_at");
   if (!moved || moved.length === 0) return { ok: false, reason: "bad_state" };
   const b = moved[0];
 
@@ -271,6 +276,7 @@ export async function confirmBankTransfer(
   // 양측 알림
   const link = `/bookings/${bookingId}`;
   await notify(admin, b.user_id, "입금이 확인됐어요", "작가가 촬영을 준비합니다.", link);
+  await postDepositNotice(admin, bookingId, b.transfer_marked_at ?? null);
   const { data: ph } = await admin
     .from("photographers")
     .select("profile_id")
@@ -301,7 +307,7 @@ export async function confirmBankTransferAdmin(bookingId: string): Promise<Confi
     .update({ status: "paid", paid_at: now })
     .eq("id", bookingId)
     .eq("status", "accepted")
-    .select("id, user_id, photographer_id, amount_krw, travel_fee_krw, fee_snapshot");
+    .select("id, user_id, photographer_id, amount_krw, travel_fee_krw, fee_snapshot, transfer_marked_at");
   if (!moved || moved.length === 0) return { ok: false, reason: "bad_state" };
   const b = moved[0];
 
@@ -333,6 +339,7 @@ export async function confirmBankTransferAdmin(bookingId: string): Promise<Confi
 
   const link = `/bookings/${bookingId}`;
   await notify(admin, b.user_id, "입금이 확인됐어요", "예약이 확정됐어요. 작가가 촬영을 준비합니다.", link);
+  await postDepositNotice(admin, bookingId, b.transfer_marked_at ?? null);
   const { data: ph } = await admin
     .from("photographers")
     .select("profile_id")
@@ -404,6 +411,55 @@ export async function markSettlementPaid(bookingId: string): Promise<ConfirmResu
   // 수령 확인도 카톡으로 오간다. 고객에게는 알 필요도, 알아서 좋을 것도 없다.
   // (고객 입장에서 예약은 [입금 완료]를 누른 순간 끝났다)
   return { ok: true };
+}
+
+
+/**
+ * 입금 확인 직후 채팅에 남기는 안내 (docs/32 §6-3).
+ *
+ * 환불 마감일과 연락처 개방일을 **날짜로** 박는다. "7일 이내" 는 계산을 요구하고,
+ * 계산하지 않은 고객은 나중에 "몰랐다" 고 말한다. 연락처 잠금도 감추지 않고 예고한다 —
+ * "왜 번호가 안 보이지" 라는 문의를 없애고, 정책을 인지한 시점이 기록으로 남는다.
+ */
+async function postDepositNotice(
+  admin: ReturnType<typeof createAdminClient>,
+  bookingId: string,
+  transferMarkedAt: string | null
+): Promise<void> {
+  const deadline = withdrawalDeadline(transferMarkedAt);
+  if (!deadline) return;
+
+  const { data: conv } = await admin
+    .from("conversations")
+    .select("id, user_id")
+    .eq("booking_id", bookingId)
+    .maybeSingle();
+  if (!conv) return;
+
+  const dt = new Intl.DateTimeFormat("ko-KR", {
+    month: "long",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Asia/Seoul",
+  }).format(deadline);
+  const d = new Intl.DateTimeFormat("ko-KR", {
+    month: "long",
+    day: "numeric",
+    timeZone: "Asia/Seoul",
+  }).format(new Date(deadline.getTime() + 1000));
+
+  // sender_id 는 NOT NULL 이다. 시스템 안내는 고객을 발신자로 둔다 —
+  // 가운데 정렬 회색 칩으로 그려져 누가 보냈는지는 화면에 드러나지 않는다.
+  await admin.from("messages").insert({
+    conversation_id: conv.id,
+    sender_id: conv.user_id,
+    type: "system",
+    body:
+      `입금이 확인되었습니다. 예약이 확정됐어요.\n` +
+      `· ${dt}까지 취소하시면 전액 환불됩니다\n` +
+      `· 작가님 연락처는 ${d}에 공개돼요 (그전까지는 이 채팅으로 이야기해주세요)`,
+  });
 }
 
 // ─────────────────────────────────────────────
