@@ -598,13 +598,23 @@ export function ChatRoom({
           }
           if (isBotSpeech) {
             const isHandoff = isHandoffBody(m.body);
+            // 봇은 작가를 대신해 말한다 — 작가 화면에서는 내 쪽(오른쪽)에 붙어야 한다.
+            // 왼쪽에 두면 작가가 자기 방에서 제3자의 말을 보는 것처럼 읽히고,
+            // 고객 발화와 같은 편에 놓여 누가 무슨 말을 했는지 흐려진다.
+            // (아바타·이름·'자동 응답' 표기는 그대로 — 작가 본인 발화와는 구분돼야 한다)
+            const botMine = amPhotographer;
             return (
-              <div key={m.id} className="flex items-start gap-2">
-                <BotAvatar />
-                <div className="flex min-w-0 flex-col items-start">
+              <div
+                key={m.id}
+                className={`flex items-start gap-2 ${botMine ? "justify-end" : "justify-start"}`}
+              >
+                {!botMine && <BotAvatar />}
+                <div className={`flex min-w-0 flex-col ${botMine ? "items-end" : "items-start"}`}>
                   <span className="mb-0.5 text-label font-medium text-muted">{botLabel}</span>
                   <div
-                    className={`max-w-full whitespace-pre-wrap break-words rounded-2xl rounded-tl-md px-3.5 py-2 text-body ${
+                    className={`max-w-full whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-body ${
+                      botMine ? "rounded-tr-md" : "rounded-tl-md"
+                    } ${
                       isHandoff
                         ? "bg-success-soft text-success ring-1 ring-success/20"
                         : "bg-fg/[0.07] text-fg"
@@ -616,6 +626,7 @@ export function ChatRoom({
                     {isHandoff ? timeLabel(m.created_at) : `자동 응답 · ${timeLabel(m.created_at)}`}
                   </span>
                 </div>
+                {botMine && <BotAvatar />}
               </div>
             );
           }
