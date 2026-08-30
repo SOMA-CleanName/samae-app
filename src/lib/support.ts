@@ -13,7 +13,7 @@ export const SUPPORT_KIND_LABEL: Record<SupportKind, string> = {
 
 /** 문의 창에서 종류를 고를 때 함께 보여주는 안내 — 규정을 미리 알려 기대를 맞춘다 */
 export const SUPPORT_KIND_HINT: Record<SupportKind, string> = {
-  refund: "결제 후 7일 이내면 전액, 촬영 7일 전까지는 50% 환불돼요.",
+  refund: "결제 후 7일 이내면 전액, 촬영 7일 전까지는 지불 금액의 50%가 환불됩니다.",
   reschedule: "촬영일까지 7일 이상 남았을 때 작가님과 협의해 옮길 수 있어요.",
   other: "결제·정산·촬영 진행 중 궁금한 점을 적어주세요.",
 };

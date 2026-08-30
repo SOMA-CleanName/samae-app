@@ -202,7 +202,7 @@ export function refundQuote(input: RefundInput): RefundQuote {
   }
 
   // 4) 그 외 — 위약금 50%
-  return settle("penalty_50", 50, false, "취소 위약금 50%를 제외하고 환불돼요.");
+  return settle("penalty_50", 50, false, "지불 금액의 50%가 환불됩니다.");
 }
 
 /** 환불 후 작가에게 실제로 송금할 금액 (음수면 작가가 사매에 반환할 금액) */

@@ -87,7 +87,7 @@ export function PolicyNote({
             </>
           )}
         </li>
-        <li>· 이후 취소는 결제 금액의 50%가 위약금으로 부과됩니다.</li>
+        <li>· 이후 취소하시면 지불 금액의 50%가 환불됩니다.</li>
         <li>
           ·{" "}
           <b className="text-fg">

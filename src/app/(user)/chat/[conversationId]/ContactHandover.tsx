@@ -153,7 +153,7 @@ export function ReceiveContactCard({
           (quote.percent === 100 ? (
             <>
               <p className="mt-1.5 text-caption leading-relaxed text-muted">
-                작가 연락처를 받은 이후에는 환불 시 50% 위약금이 부과됩니다.
+                작가 연락처를 받은 이후에는 환불 시 지불 금액의 50%가 환불됩니다.
               </p>
               <dl className="mt-2.5 flex flex-col gap-2 rounded-lg bg-surface-2 p-3">
                 <div className="flex items-baseline justify-between gap-3">
@@ -166,7 +166,7 @@ export function ReceiveContactCard({
                   <dt className="text-caption font-medium text-fg">받은 뒤 취소</dt>
                   <dd className="text-body-sm font-bold text-danger">
                     ₩{fmt.format(Math.round(quote.amountKrw / 2))}
-                    <span className="ml-1 text-caption font-medium">· 50% 위약금</span>
+                    <span className="ml-1 text-caption font-medium">· 50% 환불</span>
                   </dd>
                 </div>
               </dl>

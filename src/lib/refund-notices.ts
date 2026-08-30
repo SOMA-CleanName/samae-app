@@ -80,8 +80,8 @@ export async function sendRefundWindowNotices(): Promise<{
       await notify(
         admin,
         b.user_id,
-        "내일부터 취소 시 위약금이 붙어요",
-        "오늘까지 취소하시면 전액 환불됩니다. 내일부터는 결제 금액의 50%가 위약금으로 부과돼요.",
+        "내일부터는 절반만 환불됩니다",
+        "오늘까지 취소하시면 전액 환불됩니다. 내일부터는 지불 금액의 50%가 환불됩니다.",
         b.id
       );
       await admin.from("bookings").update({ notice_withdrawal_at: stamp }).eq("id", b.id);

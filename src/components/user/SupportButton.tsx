@@ -136,7 +136,7 @@ export function SupportButton({
             )}
             <p className="mt-1 text-caption text-muted">
               결제 ₩{fmt.format(quote.amountKrw)}
-              {quote.penaltyKrw > 0 && ` · 취소 위약금 ₩${fmt.format(quote.penaltyKrw)}`}
+              {quote.percent > 0 && quote.percent < 100 && ` · ${quote.percent}% 환불`}
             </p>
             {quote.penaltyStartsAt && quote.refundKrw > 0 && (
               <p className="mt-1.5 border-t border-brand/15 pt-1.5 text-caption text-muted">
