@@ -268,4 +268,22 @@ export async function fetchUnreadTotalForUser(userId: string): Promise<number> {
   );
 }
 
-// 작가 시점 안읽은 문의 합계 (스튜디오 네비 배지)
+/**
+ * 작가 시점 안읽은 메시지 합계 — 하단 내비 '스튜디오' 배지.
+ *
+ * 작가는 스튜디오 밖(홈·탐색)에서도 답장이 왔는지 알아야 한다. 고객은 답이 늦으면
+ * 그냥 다른 작가에게 간다 — 이 숫자가 늦는 만큼 거래가 샌다.
+ * 숨긴 방은 세지 않는다 (목록에 없는 방의 배지는 눌러도 갈 곳이 없다).
+ */
+export async function fetchUnreadTotalForPhotographer(photographerId: string): Promise<number> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("conversations")
+    .select("photographer_unread")
+    .eq("photographer_id", photographerId)
+    .is("photographer_hidden_at", null);
+  return ((data ?? []) as { photographer_unread: number | null }[]).reduce(
+    (sum, c) => sum + (c.photographer_unread ?? 0),
+    0
+  );
+}

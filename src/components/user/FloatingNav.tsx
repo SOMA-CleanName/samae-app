@@ -17,11 +17,14 @@ export function FloatingNav({
   me,
   hasInquiries = false,
   unreadCount = 0,
+  studioUnread = 0,
 }: {
   me: ProfileMe | null;
   hasInquiries?: boolean;
-  /** 안읽은 메시지 합계 — '문의' 탭에 배지로 붙는다 */
+  /** 내가 고객인 방의 안읽음 — '문의' 탭 배지 */
   unreadCount?: number;
+  /** 내가 작가인 방의 안읽음 — '스튜디오' 탭 배지 */
+  studioUnread?: number;
 }) {
   const pathname = usePathname();
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -92,6 +95,7 @@ export function FloatingNav({
       label: "스튜디오",
       icon: <CameraIcon className="h-5 w-5" />,
       active: studioActive,
+      badge: studioUnread,
     });
 
   tabs.push({
