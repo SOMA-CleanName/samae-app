@@ -16,9 +16,12 @@ const EXPLORE_HINT_DURATION_MS = 3_000;
 export function FloatingNav({
   me,
   hasInquiries = false,
+  unreadCount = 0,
 }: {
   me: ProfileMe | null;
   hasInquiries?: boolean;
+  /** 안읽은 메시지 합계 — '문의' 탭에 배지로 붙는다 */
+  unreadCount?: number;
 }) {
   const pathname = usePathname();
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -142,6 +145,7 @@ export function FloatingNav({
                 label="문의"
                 active={inquiriesActive}
                 icon={<ClipboardIcon className="h-5 w-5" />}
+                badge={unreadCount}
               />
             )}
             {/* 상세에서 홈을 눌러도 일반 탭처럼 이동 — scroll={false} + ScrollMemory 가
@@ -265,6 +269,7 @@ function NavPill({
   active,
   attention = false,
   icon,
+  badge = 0,
   onClick,
 }: {
   href: string;
@@ -272,6 +277,8 @@ function NavPill({
   active: boolean;
   attention?: boolean;
   icon: React.ReactNode;
+  /** 0 이면 안 그린다 */
+  badge?: number;
   onClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
 }) {
   return (
@@ -280,6 +287,7 @@ function NavPill({
       scroll={false} // 탭 전환 시 최상단 강제 스크롤 방지 — 위치 복원은 ScrollMemory 가 담당
       onClick={onClick}
       aria-current={active ? "page" : undefined}
+      aria-label={badge > 0 ? `${label} — 안읽음 ${badge}개` : undefined}
       className={[
         // 탭 균등 너비 — 라벨 길이 달라도 같은 크기
         "relative z-10 flex w-[5.5rem] items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors duration-300",
@@ -289,6 +297,16 @@ function NavPill({
     >
       {icon}
       {label}
+      {/* 안읽음 배지 — pill 바깥 위쪽 모서리. 안에 넣으면 라벨이 밀려 탭 너비가 흔들린다.
+          99를 넘으면 자릿수만 늘어날 뿐 판단은 달라지지 않으므로 99+ 로 자른다 */}
+      {badge > 0 && (
+        <span
+          aria-hidden
+          className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[10px] font-bold leading-none text-white ring-2 ring-bg"
+        >
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
     </Link>
   );
 }

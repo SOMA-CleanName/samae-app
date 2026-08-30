@@ -248,4 +248,24 @@ export function myUnread(c: ConversationListItem, me: CurrentUser): number {
   return c.user_id === me.id ? c.user_unread : c.photographer_unread;
 }
 
+/**
+ * 고객 시점 안읽은 메시지 합계 — 하단 내비 '문의' 배지.
+ *
+ * 목록 페이지를 열기 전에도 "새 답장이 왔다" 를 알아야 한다. 알림을 놓친 사용자에게
+ * 다시 들어올 이유를 주는 건 이 숫자뿐이다.
+ * 숨긴 방은 세지 않는다 — 목록에 없는 방의 배지는 눌러도 갈 곳이 없다.
+ */
+export async function fetchUnreadTotalForUser(userId: string): Promise<number> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("conversations")
+    .select("user_unread")
+    .eq("user_id", userId)
+    .is("user_hidden_at", null);
+  return ((data ?? []) as { user_unread: number | null }[]).reduce(
+    (sum, c) => sum + (c.user_unread ?? 0),
+    0
+  );
+}
+
 // 작가 시점 안읽은 문의 합계 (스튜디오 네비 배지)

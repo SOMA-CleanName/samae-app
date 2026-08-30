@@ -6,7 +6,6 @@ import { getCurrentUser } from "@/lib/auth";
 import { EmptyState } from "@/components/ui";
 import { ClipboardIcon } from "@/components/user/icons";
 import { MyInquiryList } from "./MyInquiryList";
-import { RealtimeListRefresh } from "@/components/user/RealtimeListRefresh";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { bookingStatusLabel, type BookingStatus } from "@/lib/booking-status";
 import { readStoredFieldValues } from "@/lib/booking-fields";
@@ -97,8 +96,6 @@ export default async function MyInquiriesPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 pb-24 pt-6 font-kr">
-      {/* 새 메시지·안읽음 변화 실시간 반영 (목록 리렌더) */}
-      {me && <RealtimeListRefresh />}
       <h1 className="text-h1 font-semibold">문의</h1>
       <p className="mt-1 text-body-sm text-muted">작가와의 대화와 문의 진행 상태를 확인할 수 있어요.</p>
 
