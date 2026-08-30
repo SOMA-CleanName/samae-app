@@ -23,6 +23,7 @@ import { ShareButton } from "@/components/user/ShareButton";
 import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
 import { PhotoTopBar } from "./PhotoTopBar";
 import { DetailMoreInfo } from "./DetailMoreInfo";
+import { PhotoCtas } from "./PhotoCtas";
 import { PackageInfoSection } from "./PackageInfoSection";
 import { GuideImageGallery } from "@/components/user/GuideImageGallery";
 import { NavRevealOnScroll } from "@/components/user/NavReveal";
@@ -30,7 +31,7 @@ import { OwnerPhotoBackButton } from "./OwnerPhotoBackButton";
 import { AutoFavorite } from "@/components/user/AutoFavorite";
 import { PartnerBadge } from "@/components/user/PartnerBadge";
 import { PixelViewContent } from "@/components/PixelViewContent";
-import { Button } from "@/components/ui";
+import {} from "@/components/ui";
 import type { Metadata } from "next";
 import { photoMetadata, photoImageJsonLd } from "@/lib/seo";
 import { JsonLd } from "@/components/JsonLd";
@@ -181,7 +182,13 @@ export default async function PhotoDetail({
           </div>
 
           {/* 예약·상담 CTA — 가장 위 (전환 최우선) */}
-          <PhotoCtas isOwner={isOwner} photographerId={ph.id} photoId={photo.id} />
+          {isOwner ? (
+            <div className="mt-4">
+              <OwnerPhotoBackButton />
+            </div>
+          ) : (
+            <PhotoCtas photographerId={ph.id} photoId={photo.id} isLoggedIn={!!me} />
+          )}
 
           {/* 이 사진을 찍은 패키지 정보 — 접지 않고 바로 펼쳐서 보여준다 */}
           <PackageInfoSection
@@ -226,54 +233,6 @@ export default async function PhotoDetail({
       {/* A11 혜택 hook — 스크롤 내리면 노출, 예약/장바구니 1회 후 숨김 */}
     </main>
   );
-}
-
-// 문의/예약 CTA
-function PhotoCtas({
-  isOwner,
-  photographerId,
-  photoId,
-}: {
-  isOwner: boolean;
-  photographerId: string;
-  photoId: string;
-}) {
-  if (isOwner) {
-    return <OwnerPhotoBackButton />;
-  }
-  // 2트랙 — 대부분은 바로 예약하기 전에 물어볼 게 있다. 그래서 상담을 위에 둔다.
-  // 예약은 주 전환이라 brand 색을 유지 — 순서는 상담이 먼저, 시선 무게는 예약이 위.
-  // data-quote-lead: Meta 픽셀 Lead 전환 지점(MetaPixel 위임 캡처, 브라우저당 1회) — 예약 CTA 에만.
-  return (
-    <div className="mt-4 flex flex-col gap-2">
-      <Button
-        href={ctaHref("/chat/start", photographerId, photoId)}
-        variant="secondary"
-        size="lg"
-        fullWidth
-        style={{ borderRadius: "16px" }}
-        data-track="cta:consult"
-      >
-        작가 상담하기
-      </Button>
-      <Button
-        href={ctaHref("/inquiry", photographerId, photoId)}
-        variant="brand"
-        size="lg"
-        fullWidth
-        style={{ borderRadius: "16px" }}
-        data-track="cta:inquiry"
-        data-quote-lead=""
-      >
-        촬영 예약하기
-      </Button>
-    </div>
-  );
-}
-
-function ctaHref(path: string, photographerId: string, photoId: string) {
-  const params = new URLSearchParams({ photographerId, photoId });
-  return `${path}?${params.toString()}`;
 }
 
 // 추천 사진 — 별도 스트리밍 경계. 400장 조회+스코어링이 상단 렌더(LCP)를 막지 않게 분리.

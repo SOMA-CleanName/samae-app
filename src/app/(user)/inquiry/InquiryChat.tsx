@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeftIcon, CheckIcon } from "@/components/user/icons";
 import { mpTrack, mpTrackBeacon } from "@/lib/mixpanel";
+import { KakaoLoginButton } from "@/components/user/KakaoLoginButton";
 import * as Sentry from "@sentry/nextjs";
 import { buildFlow, type BotStep, type CustomBotQuestion, type QuestionSegment } from "@/lib/inquiry-bot";
 import { submitInquiryToChat, submitMultiInquiry, type InquiryState } from "./actions";
@@ -250,11 +251,13 @@ export function InquiryChat({
     }
   }, [done, storageKey]);
 
-  // 채팅 트랙 전제(로그인·등록 번호) 미충족 — 해당 동선으로 보내고 돌아오면 이어서 제출한다.
+  // 번호 미등록은 별도 동선(OTP)이 필요해 그대로 보낸다. 돌아오면 저장된 답변으로 이어서 제출.
+  //
+  // 로그인은 보내지 않는다 — 여기까지 다 채운 사람을 로그인 페이지로 밀어내면 폼이 화면에서
+  // 사라지고, 돌아올 이유를 스스로 기억해야 한다. 그 자리에 카카오 버튼을 띄운다(아래).
   useEffect(() => {
-    if (state.needLogin) router.push(`/login?next=${encodeURIComponent(selfUrl)}`);
-    else if (state.needContact) router.push(`/signup/contact?next=${encodeURIComponent(selfUrl)}`);
-  }, [state.needLogin, state.needContact, router, selfUrl]);
+    if (state.needContact) router.push(`/signup/contact?next=${encodeURIComponent(selfUrl)}`);
+  }, [state.needContact, router, selfUrl]);
 
   // 접수 완료 → 요약 카드가 올라간 작가 채팅방으로. 여기서부터는 방 안에서 대화가 이어진다.
   useEffect(() => {
@@ -714,6 +717,8 @@ export function InquiryChat({
                 pending={pending}
                 serverError={state.error}
                 multi={multi}
+                needLogin={!!state.needLogin}
+                loginNext={selfUrl}
               />
             )}
           </div>
@@ -804,11 +809,16 @@ function SubmitBlock({
   pending,
   serverError,
   multi,
+  needLogin,
+  loginNext,
 }: {
   onSubmit: () => void;
   pending: boolean;
   serverError?: string;
   multi: boolean;
+  /** 제출을 눌렀는데 로그인이 안 돼 있는 경우 — 이 자리에서 바로 받는다 */
+  needLogin?: boolean;
+  loginNext: string;
 }) {
   return (
     <div className="ml-auto w-full max-w-[88%] rounded-2xl rounded-tr-md bg-brand/[0.07] p-3">
@@ -822,14 +832,35 @@ function SubmitBlock({
 
       {serverError && <p className="mt-2 text-xs font-medium text-danger">{serverError}</p>}
 
-      <button
-        type="button"
-        onClick={onSubmit}
-        disabled={pending}
-        className="mt-3 h-12 w-full cursor-pointer rounded-xl bg-brand text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        {pending ? "전달 중…" : multi ? "작가님들께 문의 보내기" : "작가님께 문의 보내기"}
-      </button>
+      {needLogin ? (
+        // 마지막 한 걸음 — 여기까지 다 적은 사람이다. 페이지를 옮기지 않고 그대로 로그인만 받는다.
+        // 적은 내용은 이 기기에 남아 있어서, 돌아오면 그 자리에서 이어진다.
+        <div className="mt-3">
+          <p className="mb-2 text-body-sm font-semibold text-fg">
+            마지막으로 로그인만 하면 전달돼요
+          </p>
+          <p className="mb-3 text-caption leading-relaxed text-muted">
+            작가님 답변을 받을 곳이 필요해서예요. 적으신 내용은 그대로 남아 있어요.
+          </p>
+          <KakaoLoginButton
+            next={loginNext}
+            context="inquiry_submit"
+            label="카카오로 로그인하고 문의 보내기"
+          />
+          <p className="mt-2 text-center text-caption text-faint">
+            가입돼 있지 않아도 이 버튼 하나로 시작돼요
+          </p>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={onSubmit}
+          disabled={pending}
+          className="mt-3 h-12 w-full cursor-pointer rounded-xl bg-brand text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {pending ? "전달 중…" : multi ? "작가님들께 문의 보내기" : "작가님께 문의 보내기"}
+        </button>
+      )}
 
       {/* 동의 간주 고지 — 버튼 클릭이 개인정보 수집·이용 동의를 갈음 */}
       <p className="mt-2 break-keep text-center text-[11px] leading-relaxed text-faint">
