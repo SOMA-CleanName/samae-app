@@ -708,21 +708,23 @@ export function InquiryChat({
         {/* 마지막 단계 — 확인 후 전달 (연락처는 묻지 않는다) */}
         {review && (
           <div className="space-y-2">
-            <SystemBubble>
+            {/* 마지막 말풍선 안에서 바로 끝낸다 — 안내와 버튼이 갈라져 있으면
+                다 읽고 나서 눌러야 할 것을 한 번 더 찾게 된다 */}
+            <SystemBubble wide>
               <Em>거의 다 왔어요!</Em>
               <br />
               작성하신 내용을 {multi ? "작가님들께" : "작가님께"} 그대로 전달할게요.
+              {!done && (
+                <SubmitBlock
+                  onSubmit={submit}
+                  pending={pending}
+                  serverError={state.error}
+                  multi={multi}
+                  needLogin={!isLoggedIn || !!state.needLogin}
+                  loginNext={selfUrl}
+                />
+              )}
             </SystemBubble>
-            {!done && (
-              <SubmitBlock
-                onSubmit={submit}
-                pending={pending}
-                serverError={state.error}
-                multi={multi}
-                needLogin={!isLoggedIn || !!state.needLogin}
-                loginNext={selfUrl}
-              />
-            )}
           </div>
         )}
 
@@ -823,7 +825,7 @@ function SubmitBlock({
   loginNext: string;
 }) {
   return (
-    <div className="ml-auto w-full max-w-[88%]">
+    <div className="mt-3">
       {serverError && <p className="mb-2 text-xs font-medium text-danger">{serverError}</p>}
 
       {needLogin ? (
@@ -1218,14 +1220,18 @@ function UserTray({ children }: { children: React.ReactNode }) {
 function SystemBubble({
   children,
   emphasis,
+  wide,
 }: {
   children: React.ReactNode;
   emphasis?: boolean;
+  /** 말풍선 안에 버튼이 들어가는 경우 — 글자 폭에 눌려 버튼이 좁아지지 않게 */
+  wide?: boolean;
 }) {
   return (
     <div
       className={[
-        "mr-auto max-w-[88%] rounded-2xl rounded-tl-md px-3.5 py-2.5 text-[17px] leading-relaxed text-fg transition-colors",
+        "mr-auto rounded-2xl rounded-tl-md px-3.5 py-2.5 text-[17px] leading-relaxed text-fg transition-colors",
+        wide ? "w-full max-w-[92%]" : "max-w-[88%]",
         emphasis ? "bg-brand/[0.08] ring-1 ring-brand/25" : "bg-surface-2",
       ].join(" ")}
     >
