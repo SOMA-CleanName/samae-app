@@ -3,7 +3,6 @@
 /* eslint-disable @next/next/no-img-element */
 import { startTransition, useActionState, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { ArrowLeftIcon, CheckIcon } from "@/components/user/icons";
 import { mpTrack, mpTrackBeacon } from "@/lib/mixpanel";
 import { KakaoLoginButton } from "@/components/user/KakaoLoginButton";
@@ -824,22 +823,14 @@ function SubmitBlock({
   loginNext: string;
 }) {
   return (
-    <div className="ml-auto w-full max-w-[88%] rounded-2xl rounded-tr-md bg-brand/[0.07] p-3">
-      <p className="flex items-center gap-1.5 text-[11px] leading-tight text-muted">
-        <svg viewBox="0 0 24 24" className="h-3 w-3 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
-          <rect x="5" y="11" width="14" height="9" rx="2" />
-          <path d="M8 11V8a4 4 0 0 1 8 0v3" strokeLinecap="round" />
-        </svg>
-        연락처는 작가에게 공개되지 않아요. 대화는 사매 채팅에서 이어집니다.
-      </p>
-
-      {serverError && <p className="mt-2 text-xs font-medium text-danger">{serverError}</p>}
+    <div className="ml-auto w-full max-w-[88%]">
+      {serverError && <p className="mb-2 text-xs font-medium text-danger">{serverError}</p>}
 
       {needLogin ? (
         // 마지막 한 걸음 — 여기까지 다 적은 사람이다. 로그인 페이지로 옮기지 않고
         // 제출 버튼 자리를 그대로 카카오 버튼이 대신한다. 누를 것이 하나여야 안 헤맨다.
         // 적은 내용은 이 기기에 남아 있어서, 돌아오면 그 자리에서 이어진다.
-        <div className="mt-3">
+        <div>
           <KakaoLoginButton
             next={loginNext}
             context="inquiry_submit"
@@ -851,25 +842,11 @@ function SubmitBlock({
           type="button"
           onClick={onSubmit}
           disabled={pending}
-          className="mt-3 h-12 w-full cursor-pointer rounded-xl bg-brand text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          className="h-12 w-full cursor-pointer rounded-xl bg-brand text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {pending ? "전달 중…" : multi ? "작가님들께 문의 보내기" : "작가님께 문의 보내기"}
         </button>
       )}
-
-      {/* 동의 간주 고지 — 버튼 클릭이 개인정보 수집·이용 동의를 갈음 */}
-      <p className="mt-2 break-keep text-center text-[11px] leading-relaxed text-faint">
-        문의 보내기를 누르면 상담을 위한
-        <br />
-        <Link
-          href="/privacy"
-          target="_blank"
-          className="underline underline-offset-2 hover:text-muted"
-        >
-          개인정보 수집·이용
-        </Link>
-        에 동의하는 것으로 간주됩니다.
-      </p>
     </div>
   );
 }
