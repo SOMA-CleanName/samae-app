@@ -52,7 +52,10 @@ export function AcceptPayDialog({
   // 촬영이 임박한 건은 결제 전에 별도 동의를 먼저 받는다 (§6-2). 이게 없으면
   // 나중에 위약금을 주장할 수 없다 — 그래서 건너뛸 수 있는 창이 아니다.
   const [consented, setConsented] = useState(!!lateBookingConsentAt);
-  const needsLateConsent = !consented && isLateBooking(shootAt, shootDate);
+  const lateBooking = isLateBooking(shootAt, shootDate);
+  const needsLateConsent = !consented && lateBooking;
+  // 임박 + 동의 완료 = 환불이 없는 건. 안내와 체크 문구가 여기에 맞춰 바뀐다.
+  const noRefund = consented && lateBooking;
 
   // 입금하고 돌아온 손님이 이 창에서 바로 끝낼 수 있게 — 카드까지 내려가 다시 찾지 않는다
   function markPaid() {
@@ -190,7 +193,7 @@ export function AcceptPayDialog({
         </ol>
 
         {/* 무엇에 동의하고 보내는지 — 입금 버튼 바로 위가 유일하게 읽히는 자리다 */}
-        <PolicyNote shootAt={shootAt} shootDate={shootDate} />
+        <PolicyNote shootAt={shootAt} shootDate={shootDate} noRefund={noRefund} />
 
         <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-xl bg-surface-2 p-3">
           <input
@@ -200,7 +203,9 @@ export function AcceptPayDialog({
             className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
           />
           <span className="text-caption font-medium leading-relaxed text-fg">
-            촬영 7일 전부터는 취소해도 환불되지 않는다는 점을 확인했습니다.
+            {noRefund
+              ? "입금 후에는 취소해도 환불되지 않는다는 점을 확인했습니다."
+              : "촬영 7일 전부터는 취소해도 환불되지 않는다는 점을 확인했습니다."}
           </span>
         </label>
 

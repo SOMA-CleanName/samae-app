@@ -33,14 +33,41 @@ export function PolicyNote({
   transferMarkedAt = null,
   shootAt = null,
   shootDate = null,
+  /**
+   * 촬영이 임박해 환불 자체가 없는 건 (임박 예약 + 별도 동의 완료).
+   * 이때 청약철회 안내를 띄우면 방금 동의한 내용과 모순되고, '촬영 7일 전' 날짜도
+   * 이미 지나 있어 문장이 성립하지 않는다 — 그래서 결론만 말한다.
+   * 판정은 호출부가 한다(렌더 중에 현재 시각을 읽지 않는다).
+   */
+  noRefund = false,
 }: {
-  /** 입금을 알린 시각 — 있으면 청약철회 마감을 실제 날짜로 박는다 */
   transferMarkedAt?: string | null;
   shootAt?: string | null;
   shootDate?: string | null;
+  noRefund?: boolean;
 }) {
   const deadline = withdrawalDeadline(transferMarkedAt);
   const penalty = penaltyStart(shootAt, shootDate);
+
+  if (noRefund) {
+    return (
+      <div className="mt-3 rounded-xl bg-warning-soft p-3 ring-1 ring-warning/25">
+        <p className="text-caption font-semibold text-warning">환불·취소 안내</p>
+        <ul className="mt-1.5 flex list-none flex-col gap-1 text-caption leading-relaxed text-warning/90">
+          <li>· 입금 전에는 언제든 무료로 취소할 수 있어요.</li>
+          <li>
+            · <b>촬영이 7일 안쪽이라, 입금 후에는 취소하셔도 환불되지 않습니다.</b> 방금 동의하신
+            내용이에요.
+          </li>
+          <li>· 작가 사정으로 촬영이 무산되면 전액 환불됩니다.</li>
+          <li>
+            · <b>작가 개인 계좌로의 직접 송금은 보호받을 수 없어요.</b> 반드시 사매 계좌로
+            보내주세요.
+          </li>
+        </ul>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-3 rounded-xl bg-surface-2 p-3">
@@ -64,8 +91,8 @@ export function PolicyNote({
         <li>
           ·{" "}
           <b className="text-fg">
-            {penalty ? `촬영 7일 전(${dateFmt.format(penalty)})부터는` : "촬영 7일 전부터는"} 환불되지
-            않습니다.
+            {penalty ? `촬영 7일 전(${dateFmt.format(penalty)})부터는` : "촬영 7일 전부터는"}{" "}
+            환불되지 않습니다.
           </b>{" "}
           작가님이 그 날짜를 비워두시기 때문이에요.
         </li>
