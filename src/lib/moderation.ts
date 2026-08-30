@@ -1,5 +1,3 @@
-import { WITHDRAWAL_DAYS } from "./refund";
-
 // 오프플랫폼 유도 감지 — 채팅에서 개인 SNS·연락처로 대화를 빼돌리는 텍스트를 잡는다.
 // 순수 함수 (클라이언트·서버 공용). 매칭된 규칙 라벨 목록을 돌려준다 — 비면 통과.
 //
@@ -83,25 +81,15 @@ export function detectOffPlatform(text: string): string[] {
 /**
  * 이 대화에서 연락처 교환을 허용해도 되는가.
  *
- * v1 은 "입금 확인 후 허용 + 교환하면 환불 50%" 였다. 그 조항은 뒷거래를 막았지만
- * 뒷거래 의도가 없는 대부분의 고객에게도 똑같이 걸렸고, 이유가 플랫폼 이탈 방지라
- * 약관규제법 제6조·제9조의 '취소 방해' 프레임에 그대로 들어갔다.
+ * 시간이 지나면 저절로 열리는 방식은 폐기했다(구 '결제 후 7일 자동 개방'). 저절로 열리면
+ * 고지도 동의도 기록도 없이 추적만 끊긴다 — 정작 그 기록이 있어야 청약철회 제한을
+ * 주장할 수 있다.
  *
- * v2 는 조항을 없애고 **타이밍으로 해결한다** (docs/32 §3-3):
- *   결제 후 7일간   → 잠금 (사매 채팅으로만)
- *   결제 후 7일 경과 → 자동 개방
- *
- * 개방 시점이 곧 위약금 구간의 시작이라, 열리는 순간에는 이미 직거래가 고객에게
- * 이득이 되지 않는다(50% 손실을 안고 시작한다). 조항 하나를 시점 하나로 대체한 것이다.
- *
- * 그전에 조율할 내용(장소·컨셉·의상)은 사매 채팅으로 충분하다. 전화번호가 실제로
- * 필요해지는 건 촬영 임박 시점이다.
+ * 지금은 **작가가 보내고 고객이 동의해 받은 뒤**에만 열린다 (docs/32 §3-3).
+ * 그 전까지는 양쪽 다 막는다 — 한쪽만 막으면 반대 방향으로 새어 나간다.
  */
-export function contactExchangeAllowed(transferMarkedAt: string | null | undefined): boolean {
-  if (!transferMarkedAt) return false;
-  const t = new Date(transferMarkedAt).getTime();
-  if (isNaN(t)) return false;
-  return Date.now() - t >= WITHDRAWAL_DAYS * 24 * 60 * 60 * 1000;
+export function contactExchangeAllowed(contactDeliveredAt: string | null | undefined): boolean {
+  return !!contactDeliveredAt;
 }
 
 export const MODERATION_NOTICE =

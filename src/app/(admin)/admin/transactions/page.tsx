@@ -25,6 +25,7 @@ type DbBooking = {
   refunded_at: string | null;
   refund_reason: string | null;
   late_booking_consent_at: string | null;
+  contact_delivered_at: string | null;
   refund_due_at: string | null;
   shoot_at: string | null;
   created_at: string;
@@ -58,7 +59,7 @@ export default async function AdminTransactionsPage() {
   const { data: bData } = await admin
     .from("bookings")
     .select(
-      "id, status, amount_krw, shoot_at, shoot_date, fee_snapshot, refunded_at, refund_reason, late_booking_consent_at, refund_due_at, created_at, accepted_at, requested_at, paid_at, cancelled_at, cancel_reason, location_text, travel_fee_krw, memo, custom_fields, proposed_by_photographer, photographer_id, package_snapshot, transfer_marked_at, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at, user:profiles!bookings_user_id_fkey(display_name), photographer:photographers(display_name)"
+      "id, status, amount_krw, shoot_at, shoot_date, fee_snapshot, refunded_at, refund_reason, late_booking_consent_at, contact_delivered_at, refund_due_at, created_at, accepted_at, requested_at, paid_at, cancelled_at, cancel_reason, location_text, travel_fee_krw, memo, custom_fields, proposed_by_photographer, photographer_id, package_snapshot, transfer_marked_at, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at, user:profiles!bookings_user_id_fkey(display_name), photographer:photographers(display_name)"
     )
     .order("created_at", { ascending: false })
     .limit(500);
@@ -155,6 +156,7 @@ export default async function AdminTransactionsPage() {
         shootDate: b.shoot_date,
         transferMarkedAt: b.transfer_marked_at,
         lateBookingConsentAt: b.late_booking_consent_at,
+        contactDeliveredAt: b.contact_delivered_at,
         amountKrw: b.amount_krw ?? 0,
         travelFeeKrw: b.travel_fee_krw ?? 0,
         feeKrw: fee.feeKrw,

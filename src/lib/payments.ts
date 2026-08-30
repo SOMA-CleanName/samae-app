@@ -475,7 +475,7 @@ export async function quoteRefund(
   const { data: b } = await admin
     .from("bookings")
     .select(
-      "id, status, amount_krw, travel_fee_krw, fee_snapshot, shoot_at, shoot_date, transfer_marked_at, late_booking_consent_at, photographer_id"
+      "id, status, amount_krw, travel_fee_krw, fee_snapshot, shoot_at, shoot_date, transfer_marked_at, late_booking_consent_at, contact_delivered_at, photographer_id"
     )
     .eq("id", bookingId)
     .maybeSingle();
@@ -489,6 +489,8 @@ export async function quoteRefund(
     transferMarkedAt: b.transfer_marked_at,
     // 임박 예약의 환불불가 동의 — 없으면 청약철회가 이긴다 (docs/32 §1-1)
     lateBookingConsentAt: b.late_booking_consent_at,
+    // 연락처를 받았으면 중개가 끝난 것 — 청약철회 구간이 닫힌다
+    contactDeliveredAt: b.contact_delivered_at,
     amountKrw: b.amount_krw ?? 0,
     travelFeeKrw: b.travel_fee_krw ?? 0,
     feeKrw: fee.feeKrw,

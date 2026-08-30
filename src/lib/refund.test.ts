@@ -61,14 +61,41 @@ test("결제 7일 1분 경과 → 위약금 50%", () => {
   assert.equal(q.photographerNetKrw, 50000); // 120,000 − 10,000 − 60,000
 });
 
-test("연락처를 주고받아도 판정은 달라지지 않는다 — v2 에서 조항이 사라졌다", () => {
+// ── 연락처 전달 (§3-3) ────────────────────────────────────────
+
+test("연락처를 받으면 청약철회 기간이 남아 있어도 구간이 닫힌다", () => {
+  // 중개 용역이 제공 완료된 시점이라 100% 구간이 끝난다
   const q = refundQuote({
     ...base,
     shootAt: iso(shift(NOW, 30 * DAY)),
     transferMarkedAt: iso(shift(NOW, -1 * HOUR)),
+    contactDeliveredAt: iso(shift(NOW, -10 * 60_000)),
+  });
+  assert.equal(q.basis, "penalty_50");
+  assert.equal(q.refundKrw, 60000);
+});
+
+test("작가가 보내기만 하고 고객이 받지 않았으면 그대로 100%", () => {
+  // 보낸 사실만으로는 아무것도 달라지지 않는다 — 고지·동의를 거쳐 받아야 한다
+  const q = refundQuote({
+    ...base,
+    shootAt: iso(shift(NOW, 30 * DAY)),
+    transferMarkedAt: iso(shift(NOW, -1 * HOUR)),
+    contactDeliveredAt: null,
   });
   assert.equal(q.basis, "withdrawal");
   assert.equal(q.percent, 100);
+});
+
+test("연락처를 받았어도 작가 귀책이면 전액 환불", () => {
+  const q = refundQuote({
+    ...base,
+    shootAt: iso(shift(NOW, 30 * DAY)),
+    transferMarkedAt: iso(shift(NOW, -1 * HOUR)),
+    contactDeliveredAt: iso(shift(NOW, -10 * 60_000)),
+    override: "photographer_fault",
+  });
+  assert.equal(q.refundKrw, 120000);
 });
 
 test("촬영 7일 경계는 고객 쪽으로 — 정확히 7일 남으면 위약금 50%", () => {

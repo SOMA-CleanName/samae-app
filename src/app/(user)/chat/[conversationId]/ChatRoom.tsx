@@ -27,6 +27,7 @@ import { GuideImagesButton } from "./GuideImagesButton";
 import { AcceptPayDialog } from "./AcceptPayDialog";
 import { SupportButton } from "@/components/user/SupportButton";
 import { BookingDetailDialog, bookingWhen } from "./BookingDetailDialog";
+import { ReceiveContactCard, SendContactButton } from "./ContactHandover";
 import type { GuideImage } from "@/lib/guide-images";
 import { readStoredFieldValues } from "@/lib/booking-fields";
 import {
@@ -46,7 +47,7 @@ import {
 const fmt = new Intl.NumberFormat("ko-KR");
 
 const BOOKING_COLS =
-  "id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, custom_fields, transfer_marked_at, late_booking_consent_at, proposed_by_photographer, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at";
+  "id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, custom_fields, transfer_marked_at, late_booking_consent_at, contact_sent_at, contact_delivered_at, contact_payload, proposed_by_photographer, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at";
 
 // 메시지 작성 시각 (카카오톡식 HH:MM)
 function timeLabel(iso: string) {
@@ -1260,6 +1261,22 @@ function BookingCard({
           }}
         />
       )}
+
+      {/* 연락처 전달 — 입금이 확인된 뒤에만. 받는 순간 중개가 끝나므로 고지·동의가 앞선다 */}
+      {["paid", "shot", "delivered"].includes(status) &&
+        (amPhotographer ? (
+          <SendContactButton
+            bookingId={booking.id}
+            sentAt={booking.contact_sent_at}
+            deliveredAt={booking.contact_delivered_at}
+          />
+        ) : amCustomer && booking.contact_sent_at ? (
+          <ReceiveContactCard
+            bookingId={booking.id}
+            payload={booking.contact_payload}
+            deliveredAt={booking.contact_delivered_at}
+          />
+        ) : null)}
 
       {/* 고객: 사매 확인까지 끝난 뒤 — 카드에는 더 볼 것이 없다. 예약 상세로 보낸다 */}
       {amCustomer && ["paid", "shot", "delivered"].includes(status) && (

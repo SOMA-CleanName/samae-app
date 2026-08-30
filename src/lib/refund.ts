@@ -48,6 +48,12 @@ export type RefundInput = {
    * 이게 있어야만 촬영 임박 위약금이 청약철회를 이긴다 (시행령 제21조 ③요건).
    */
   lateBookingConsentAt?: string | null;
+  /**
+   * 고객이 작가 연락처를 받은 시각 (고지·동의 후).
+   * 연락처가 넘어가면 사매의 중개 용역이 제공 완료되고 그 이후는 추적할 수 없다 —
+   * 그래서 이 시점에 청약철회 100% 구간이 닫힌다 (제17조 제2항 제5호).
+   */
+  contactDeliveredAt?: string | null;
   /** 고객이 낸 총액 (촬영비 + 출장비) */
   amountKrw: number;
   /** 그 중 출장비 */
@@ -173,8 +179,10 @@ export function refundQuote(input: RefundInput): RefundQuote {
   const paidAt = new Date(input.transferMarkedAt).getTime();
   const withinWithdrawal = !isNaN(paidAt) && now - paidAt <= WITHDRAWAL_DAYS * DAY_MS;
   const penaltyClaimable = shootImminent && !!input.lateBookingConsentAt;
+  // 연락처를 받았으면 중개 용역이 끝난 것이다 — 기간이 남아 있어도 구간은 닫힌다
+  const contactDelivered = !!input.contactDeliveredAt;
 
-  if (withinWithdrawal && !penaltyClaimable) {
+  if (withinWithdrawal && !penaltyClaimable && !contactDelivered) {
     return settle(
       "withdrawal",
       100,

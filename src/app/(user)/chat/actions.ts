@@ -90,18 +90,18 @@ export async function sendMessage(conversationId: string, body: string): Promise
       .eq("id", conversationId)
       .maybeSingle();
 
-    // 결제 후 7일이 지나면 연락처를 주고받아도 된다 — 그 시점이 곧 위약금 구간의 시작이라
-    // 직거래 유인이 이미 없다 (docs/32 §3-3). 교환 시각은 분쟁 대응용으로 남긴다.
-    let transferMarkedAt: string | null = null;
+    // 작가가 보내고 고객이 동의해 받은 뒤에만 열린다 (docs/32 §3-3).
+    // 그 전까지는 양쪽 다 막는다 — 한쪽만 막으면 반대 방향으로 새어 나간다.
+    let contactDeliveredAt: string | null = null;
     if (conv?.booking_id) {
       const { data: bk } = await admin
         .from("bookings")
-        .select("transfer_marked_at")
+        .select("contact_delivered_at")
         .eq("id", conv.booking_id)
         .maybeSingle();
-      transferMarkedAt = (bk?.transfer_marked_at as string) ?? null;
+      contactDeliveredAt = (bk?.contact_delivered_at as string) ?? null;
     }
-    if (contactExchangeAllowed(transferMarkedAt)) {
+    if (contactExchangeAllowed(contactDeliveredAt)) {
       if (!conv?.contact_exchanged_at) {
         await admin
           .from("conversations")

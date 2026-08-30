@@ -58,6 +58,9 @@ export type BookingSnapshot = {
   custom_fields: unknown; // 작가 정의 추가 항목 값 스냅샷 (readStoredFieldValues 로 읽는다)
   transfer_marked_at: string | null; // 구매자가 송금 완료를 알린 시각
   late_booking_consent_at: string | null; // 임박 예약 환불불가 별도 동의 (docs/32 §1-1)
+  contact_sent_at: string | null; // 작가가 연락처를 보낸 시각 (docs/32 §3-3)
+  contact_delivered_at: string | null; // 고객이 고지·동의 후 받은 시각
+  contact_payload: unknown; // 전달 시점 연락 수단 스냅샷
   proposed_by_photographer: boolean; // 작가가 제안한 건(=구매자가 수락 주체)
   settled_at: string | null; // 사매→작가 정산 송금 시각
   settlement_amount_krw: number | null; // 정산 송금액 (촬영비 − 수수료)
@@ -196,7 +199,7 @@ export async function getMessages(conversationId: string): Promise<ChatMessage[]
     .from("messages")
     .select(
       "id, sender_id, type, body, image_path, created_at, booking_id, " +
-        "booking:bookings(id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, custom_fields, transfer_marked_at, late_booking_consent_at, proposed_by_photographer, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at)"
+        "booking:bookings(id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, custom_fields, transfer_marked_at, late_booking_consent_at, contact_sent_at, contact_delivered_at, contact_payload, proposed_by_photographer, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at)"
     )
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true });

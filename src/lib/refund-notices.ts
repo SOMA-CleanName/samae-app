@@ -1,6 +1,8 @@
 import "server-only";
 
-// 구간 전환 예고 알림 (docs/32 §6-4) + 연락처 개방 안내 (§6-5).
+// 구간 전환 예고 알림 (docs/32 §6-4).
+//
+// 연락처 개방은 여기서 다루지 않는다 — 시간이 아니라 작가가 보내는 순간 일어난다(§3-3).
 //
 // 환불 조건이 바뀌는 지점이 정확히 두 개다. 각각 하루 전에 알린다.
 // 무섭게 느껴질 수 있지만 반대다 — 다크패턴의 정확한 반대이고, 분쟁에서
@@ -26,7 +28,6 @@ type Row = {
   shoot_date: string | null;
   transfer_marked_at: string | null;
   notice_withdrawal_at: string | null;
-  notice_contact_open_at: string | null;
   notice_penalty_at: string | null;
 };
 
@@ -49,7 +50,6 @@ async function notify(
 export async function sendRefundWindowNotices(): Promise<{
   ok: boolean;
   withdrawal: number;
-  contactOpen: number;
   penalty: number;
   error?: string;
 }> {
@@ -59,15 +59,14 @@ export async function sendRefundWindowNotices(): Promise<{
   const { data, error } = await admin
     .from("bookings")
     .select(
-      "id, user_id, status, shoot_at, shoot_date, transfer_marked_at, notice_withdrawal_at, notice_contact_open_at, notice_penalty_at"
+      "id, user_id, status, shoot_at, shoot_date, transfer_marked_at, notice_withdrawal_at, notice_penalty_at"
     )
     .in("status", LIVE)
     .not("transfer_marked_at", "is", null);
-  if (error) return { ok: false, withdrawal: 0, contactOpen: 0, penalty: 0, error: error.message };
+  if (error) return { ok: false, withdrawal: 0, penalty: 0, error: error.message };
 
   const rows = (data ?? []) as Row[];
   let withdrawal = 0;
-  let contactOpen = 0;
   let penalty = 0;
 
   for (const b of rows) {
@@ -89,21 +88,7 @@ export async function sendRefundWindowNotices(): Promise<{
       withdrawal++;
     }
 
-    // ② 연락처 개방 — 청약철회가 끝나는 순간이 곧 개방 시점이다.
-    //    개방과 구간 변경을 한 알림에 같이 담는다 (§6-5). 둘이 같은 시점이라는 걸 알아야 한다.
-    if (!b.notice_contact_open_at && now >= withdrawEnd) {
-      await notify(
-        admin,
-        b.user_id,
-        "작가님 연락처가 공개됐어요",
-        "촬영 관련 연락은 직접 하셔도 됩니다. 지금부터 취소 시에는 결제 금액의 50%가 위약금으로 부과돼요.",
-        b.id
-      );
-      await admin.from("bookings").update({ notice_contact_open_at: stamp }).eq("id", b.id);
-      contactOpen++;
-    }
-
-    // ③ 환불 마감 하루 전 — 내일부터는 환불이 사라진다
+    // ② 환불 마감 하루 전 — 내일부터는 환불이 사라진다
     const shootMs = b.shoot_at
       ? new Date(b.shoot_at).getTime()
       : b.shoot_date
@@ -125,5 +110,5 @@ export async function sendRefundWindowNotices(): Promise<{
     }
   }
 
-  return { ok: true, withdrawal, contactOpen, penalty };
+  return { ok: true, withdrawal, penalty };
 }

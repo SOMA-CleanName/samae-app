@@ -24,7 +24,10 @@
 - 핵심 파일: `src/lib/inquiry-bot-room.ts`(LLM 턴) · `src/app/(user)/chat/bot-actions.ts`(sendBotTurn) · `ChatRoom.tsx`(봇 모드·체크리스트·에스크로 카드) · `src/lib/moderation.ts`(연락처·SNS·계좌 검열)
 - `/inquiry/bot` 페이지와 `InquiryBotChat.tsx` 는 **레거시**(비로그인 게이트 프리뷰 전용) — 본 플로우 수정은 ChatRoom/bot-actions 쪽에서
 - 테스트: 고객 `roleplay-customer@samae.test` / `samae-test-2026` (시크릿 창) + 본인 작가 계정 2창 역할극. `npx tsx --test src/lib/*.test.ts`
-- 작가에게 고객 연락처 **절대 비공개**, 오프플랫폼(연락처·SNS·계좌) 검열은 **완화 금지**
+- 오프플랫폼(연락처·SNS·계좌) 검열은 **임의 완화 금지**. 단 **연락처 전달은 정해진 경로가 있다** —
+  예약 확정 후 작가가 [연락처 보내기] → 고객이 고지·동의 후 수령(`docs/32` §3-3).
+  받는 순간 청약철회 100% 구간이 닫히므로 이 절차를 건너뛰면 환불 판정 근거가 사라진다.
+  고객 연락처는 여전히 작가에게 공개되지 않는다(전달은 작가→고객 단방향)
 
 ---
 
