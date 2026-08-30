@@ -419,25 +419,20 @@ export async function quoteRefund(
   const { data: b } = await admin
     .from("bookings")
     .select(
-      "id, status, amount_krw, travel_fee_krw, fee_snapshot, shoot_at, shoot_date, transfer_marked_at, photographer_id"
+      "id, status, amount_krw, travel_fee_krw, fee_snapshot, shoot_at, shoot_date, transfer_marked_at, late_booking_consent_at, photographer_id"
     )
     .eq("id", bookingId)
     .maybeSingle();
   if (!b) return null;
 
   const fee = await feeForBooking(admin, b);
-  // 연락처가 실제로 오간 시각 — '교환 가능해진 시각'이 아니라 '오간 시각'이 기준이다
-  const { data: conv } = await admin
-    .from("conversations")
-    .select("contact_exchanged_at")
-    .eq("booking_id", bookingId)
-    .maybeSingle();
 
   const quote = refundQuote({
     shootAt: b.shoot_at,
     shootDate: b.shoot_date,
     transferMarkedAt: b.transfer_marked_at,
-    contactExchangedAt: conv?.contact_exchanged_at ?? null,
+    // 임박 예약의 환불불가 동의 — 없으면 청약철회가 이긴다 (docs/32 §1-1)
+    lateBookingConsentAt: b.late_booking_consent_at,
     amountKrw: b.amount_krw ?? 0,
     travelFeeKrw: b.travel_fee_krw ?? 0,
     feeKrw: fee.feeKrw,

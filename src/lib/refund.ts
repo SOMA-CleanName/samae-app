@@ -1,19 +1,26 @@
 // 환불 계산 — docs/32-refund-policy.md 의 규정을 그대로 옮긴 순수 함수.
 //
 // 돈이 갈라지는 자리라 화면·서버·어드민이 같은 답을 내야 한다. 조건문을 각자 짜면
-// 반드시 어긋나므로 판정은 여기 한 곳에서만 한다. 부수효과 없음 — 테스트로 고정한다.
+// 반드시 어긋나고, 고객이 본 금액과 운영이 처리한 금액이 다르면 그 자체가 분쟁이 된다.
+// 판정은 여기 한 곳에서만 한다. 부수효과 없음 — 테스트로 고정한다.
+//
+// ── 시계가 둘이다 ────────────────────────────────────────────────
+//   결제일에서 출발하는 시계 : 법정 청약철회(전자상거래법 제17조) — 사매가 줄일 수 없다
+//   촬영일로 다가오는 시계   : 취소 위약금 — 사매가 정하되 근거가 있어야 한다
+// 둘이 겹치면 **법정 권리가 이긴다**(§1-1). 예외는 임박 예약에 별도 동의를 받아둔 경우뿐이다.
 //
 // 판정 순서가 곧 정책의 우선순위다:
-//   1. 운영 판정(천재지변·작가 귀책)이 있으면 그것이 모든 시간 규칙을 이긴다
-//   2. 촬영 7일 이내면 환불 없음
-//   3. 연락처를 교환했으면 50%
-//   4. 결제 후 24시간 이내면 100%, 아니면 50%
+//   1. 운영 판정(천재지변·작가 귀책)
+//   2. 결제 후 7일 이내 → 100% 환불 (임박 예약 동의가 있으면 건너뛴다)
+//   3. 촬영 7일 이내    → 위약금 100%
+//   4. 그 외            → 위약금 50%
 
+/** 촬영일 기준 — 이 안쪽이면 위약금 100% */
 export const REFUND_WINDOW_DAYS = 7;
-export const COOLING_OFF_HOURS = 24;
+/** 결제일 기준 — 법정 청약철회 기간 */
+export const WITHDRAWAL_DAYS = 7;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const HOUR_MS = 60 * 60 * 1000;
 
 /** 운영이 내리는 판정 — 시간 규칙을 덮어쓴다 */
 export type RefundOverride =
@@ -24,10 +31,9 @@ export type RefundOverride =
 
 export type RefundBasis =
   | "not_paid" // 아직 입금 전 — 환불이라는 개념이 없다
-  | "cooling_off" // 결제 후 24시간 이내
-  | "standard_50" // 7일 이상 남았고 24시간은 지났다
-  | "contact_exchanged" // 연락처 교환 이후 — 24시간이어도 50%
-  | "within_7_days" // 촬영 임박 — 환불 없음
+  | "withdrawal" // 결제 후 7일 이내 — 법정 청약철회
+  | "penalty_50" // 촬영 7일 이전 · 청약철회 기간 경과
+  | "penalty_100" // 촬영 임박 — 환불 없음
   | "force_majeure"
   | "photographer_fault";
 
@@ -35,10 +41,13 @@ export type RefundInput = {
   /** 촬영 시각. 없으면 shootDate(YYYY-MM-DD)로 그날 23:59(KST)를 쓴다 */
   shootAt: string | null;
   shootDate?: string | null;
-  /** 고객이 [입금 완료]를 누른 시각 — 24시간 창구의 기산점 */
+  /** 고객이 [입금 완료]를 누른 시각 — 청약철회 기간의 기산점 */
   transferMarkedAt: string | null;
-  /** 검열을 통과한 연락처가 처음 오간 시각 */
-  contactExchangedAt?: string | null;
+  /**
+   * 임박 예약(촬영 7일 이내)의 환불불가 별도 동의 시각.
+   * 이게 있어야만 촬영 임박 위약금이 청약철회를 이긴다 (시행령 제21조 ③요건).
+   */
+  lateBookingConsentAt?: string | null;
   /** 고객이 낸 총액 (촬영비 + 출장비) */
   amountKrw: number;
   /** 그 중 출장비 */
@@ -53,7 +62,7 @@ export type RefundInput = {
 
 export type RefundQuote = {
   basis: RefundBasis;
-  /** 0 | 50 | 100 */
+  /** 고객이 돌려받는 비율 — 0 | 50 | 100 */
   percent: number;
   /** 고객이 돌려받는 금액 */
   refundKrw: number;
@@ -78,6 +87,30 @@ function shootTime(input: RefundInput): number | null {
     if (!isNaN(t)) return t;
   }
   return null;
+}
+
+/** 청약철회 마감 — 결제 + 7일. 화면이 날짜로 보여줘야 해서 따로 뽑아 쓴다 (§6-1) */
+export function withdrawalDeadline(transferMarkedAt: string | null): Date | null {
+  if (!transferMarkedAt) return null;
+  const t = new Date(transferMarkedAt).getTime();
+  if (isNaN(t)) return null;
+  return new Date(t + WITHDRAWAL_DAYS * DAY_MS);
+}
+
+/** 환불 마감 — 촬영 − 7일. 이 시각부터 위약금 100% */
+export function penaltyStart(shootAt: string | null, shootDate?: string | null): Date | null {
+  const t = shootTime({ shootAt, shootDate } as RefundInput);
+  return t == null ? null : new Date(t - REFUND_WINDOW_DAYS * DAY_MS);
+}
+
+/** 이 예약이 '임박 예약'인가 — 결제 시점에 촬영까지 7일이 안 남았는가 (§6-2 모달 노출 조건) */
+export function isLateBooking(
+  shootAt: string | null,
+  shootDate?: string | null,
+  now: Date = new Date()
+): boolean {
+  const t = shootTime({ shootAt, shootDate } as RefundInput);
+  return t != null && t - now.getTime() < REFUND_WINDOW_DAYS * DAY_MS;
 }
 
 export function refundQuote(input: RefundInput): RefundQuote {
@@ -129,34 +162,39 @@ export function refundQuote(input: RefundInput): RefundQuote {
     );
   }
 
-  // 2) 촬영 7일 이내 — 작가가 그 날짜를 비워둔 시점이라 환불이 없다
   const shoot = shootTime(input);
-  if (shoot != null && shoot - now < REFUND_WINDOW_DAYS * DAY_MS) {
+  const shootImminent = shoot != null && shoot - now < REFUND_WINDOW_DAYS * DAY_MS;
+
+  // 2) 법정 청약철회 — 결제 후 7일. 위약금·수수료를 한 푼도 뗄 수 없다.
+  //
+  //    촬영이 임박한 건이라도 원칙은 이쪽이다. 예외는 결제 전에 '환불 불가'를 별도 화면에서
+  //    고지하고 동의를 받아둔 경우뿐이고(시행령 제21조 ③), 동의 기록이 없으면
+  //    임박 예약이어도 전액 환불이다 — 기록이 없다는 건 요건을 못 갖췄다는 뜻이다.
+  const paidAt = new Date(input.transferMarkedAt).getTime();
+  const withinWithdrawal = !isNaN(paidAt) && now - paidAt <= WITHDRAWAL_DAYS * DAY_MS;
+  const penaltyClaimable = shootImminent && !!input.lateBookingConsentAt;
+
+  if (withinWithdrawal && !penaltyClaimable) {
     return settle(
-      "within_7_days",
+      "withdrawal",
+      100,
+      true,
+      `결제 후 ${WITHDRAWAL_DAYS}일 이내라 전액 환불돼요.`
+    );
+  }
+
+  // 3) 촬영 7일 이내 — 작가가 그 날짜를 비워둔 시점이라 위약금 100%
+  if (shootImminent) {
+    return settle(
+      "penalty_100",
       0,
       false,
       `촬영 ${REFUND_WINDOW_DAYS}일 이내라 환불이 어려워요. 취소는 가능해요.`
     );
   }
 
-  // 3) 연락처 교환 이후 — 24시간 창구가 닫힌다
-  if (input.contactExchangedAt) {
-    return settle("contact_exchanged", 50, false, "연락처를 주고받은 뒤라 50% 환불이에요.");
-  }
-
-  // 4) 결제 후 24시간 — 아무도 손해 보지 않는 구간
-  const paidAt = new Date(input.transferMarkedAt).getTime();
-  if (!isNaN(paidAt) && now - paidAt <= COOLING_OFF_HOURS * HOUR_MS) {
-    return settle(
-      "cooling_off",
-      100,
-      true,
-      `결제 후 ${COOLING_OFF_HOURS}시간 이내라 전액 환불돼요.`
-    );
-  }
-
-  return settle("standard_50", 50, false, "촬영 7일 이전이라 50% 환불이에요.");
+  // 4) 그 외 — 위약금 50%
+  return settle("penalty_50", 50, false, "취소 위약금 50%를 제외하고 환불돼요.");
 }
 
 /** 환불 후 작가에게 실제로 송금할 금액 (음수면 작가가 사매에 반환할 금액) */

@@ -24,6 +24,7 @@ type DbBooking = {
   fee_snapshot: unknown;
   refunded_at: string | null;
   refund_reason: string | null;
+  late_booking_consent_at: string | null;
   shoot_at: string | null;
   created_at: string;
   accepted_at: string | null;
@@ -56,7 +57,7 @@ export default async function AdminTransactionsPage() {
   const { data: bData } = await admin
     .from("bookings")
     .select(
-      "id, status, amount_krw, shoot_at, shoot_date, fee_snapshot, refunded_at, refund_reason, created_at, accepted_at, requested_at, paid_at, cancelled_at, cancel_reason, location_text, travel_fee_krw, memo, custom_fields, proposed_by_photographer, photographer_id, package_snapshot, transfer_marked_at, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at, user:profiles!bookings_user_id_fkey(display_name), photographer:photographers(display_name)"
+      "id, status, amount_krw, shoot_at, shoot_date, fee_snapshot, refunded_at, refund_reason, late_booking_consent_at, created_at, accepted_at, requested_at, paid_at, cancelled_at, cancel_reason, location_text, travel_fee_krw, memo, custom_fields, proposed_by_photographer, photographer_id, package_snapshot, transfer_marked_at, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at, user:profiles!bookings_user_id_fkey(display_name), photographer:photographers(display_name)"
     )
     .order("created_at", { ascending: false })
     .limit(500);
@@ -88,16 +89,6 @@ export default async function AdminTransactionsPage() {
   for (const m of (convData ?? []) as { booking_id: string | null; conversation_id: string }[]) {
     if (m.booking_id && !convByBooking.has(m.booking_id)) convByBooking.set(m.booking_id, m.conversation_id);
   }
-  // 연락처 교환 시각 — 환불 상한을 50% 로 내리는 조건이라 판정에 필요하다
-  const { data: convRows } = await admin
-    .from("conversations")
-    .select("booking_id, contact_exchanged_at")
-    .not("booking_id", "is", null);
-  const contactByBooking = new Map<string, string | null>();
-  for (const c of (convRows ?? []) as { booking_id: string; contact_exchanged_at: string | null }[]) {
-    contactByBooking.set(c.booking_id, c.contact_exchanged_at);
-  }
-
   // 작가별 수수료 설정 — 스냅샷이 없는 옛 예약의 폴백 계산에 쓴다
   const { data: phRows } = await admin
     .from("photographers")
@@ -159,7 +150,7 @@ export default async function AdminTransactionsPage() {
         shootAt: b.shoot_at,
         shootDate: b.shoot_date,
         transferMarkedAt: b.transfer_marked_at,
-        contactExchangedAt: contactByBooking.get(b.id) ?? null,
+        lateBookingConsentAt: b.late_booking_consent_at,
         amountKrw: b.amount_krw ?? 0,
         travelFeeKrw: b.travel_fee_krw ?? 0,
         feeKrw: fee.feeKrw,

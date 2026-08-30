@@ -50,6 +50,17 @@ export async function submitSupportRequest(formData: FormData): Promise<void> {
   });
   if (error) throw new Error(error.message);
 
+  // 환불 요청이 들어온 순간이 곧 '사유 확정일' 이다 — 여기서부터 3영업일 안에 환급해야 하고,
+  // 넘기면 연 15% 지연이자가 법정 의무로 붙는다(전자상거래법 제18조 제2항).
+  // 수동 처리라 주말이 끼면 그냥 넘어가므로, 기산 시각을 남겨 어드민이 볼 수 있게 한다.
+  if (kind === "refund" && bookingId) {
+    await admin
+      .from("bookings")
+      .update({ refund_due_at: new Date().toISOString() })
+      .eq("id", bookingId)
+      .is("refund_due_at", null); // 첫 요청 시각을 유지 — 재요청으로 시계가 리셋되면 안 된다
+  }
+
   // 채팅에 흔적 — 상대도 "지금 사매가 보고 있다" 를 알아야 기다릴 수 있다
   if (conversationId) {
     await admin.from("messages").insert({
