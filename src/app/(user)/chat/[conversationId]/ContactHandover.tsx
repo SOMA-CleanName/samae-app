@@ -20,6 +20,8 @@ import {
 } from "@/lib/photographer-contacts";
 import { getCustomerRefundQuote, type CustomerRefundQuote } from "@/app/actions/refund-quote";
 
+const fmt = new Intl.NumberFormat("ko-KR");
+
 /** 작가 화면 — 확정된 예약 카드의 [연락처 보내기] */
 export function SendContactButton({
   bookingId,
@@ -145,15 +147,35 @@ export function ReceiveContactCard({
       <div className="rounded-xl bg-surface p-3.5 ring-1 ring-warning/40">
         <p className="text-body-sm font-semibold text-fg">작가 연락처가 도착했습니다</p>
 
-        {/* 달라지는 건 한 가지뿐이라 한 줄이면 된다.
-            다만 이미 위약금 구간이면 '추가된다'가 거짓이 되므로 그때는 문장을 바꾼다. */}
-        {quote && (
-          <p className="mt-1.5 text-caption leading-relaxed text-muted">
-            {quote.percent === 100
-              ? "작가 연락처를 받은 이후에는 환불 시 50% 위약금이 부과됩니다."
-              : "연락처를 받아도 환불 조건은 그대로입니다."}
-          </p>
-        )}
+        {/* 규칙은 한 줄로 말하고, 금액은 표로 보여준다.
+            이미 위약금 구간이면 '부과됩니다'가 거짓이 되므로 그때만 문장이 바뀐다. */}
+        {quote &&
+          (quote.percent === 100 ? (
+            <>
+              <p className="mt-1.5 text-caption leading-relaxed text-muted">
+                작가 연락처를 받은 이후에는 환불 시 50% 위약금이 부과됩니다.
+              </p>
+              <dl className="mt-2.5 flex flex-col gap-2 rounded-lg bg-surface-2 p-3">
+                <div className="flex items-baseline justify-between gap-3">
+                  <dt className="text-caption text-muted">지금 취소</dt>
+                  <dd className="text-body-sm font-semibold text-fg">
+                    ₩{fmt.format(quote.amountKrw)} 전액 환불
+                  </dd>
+                </div>
+                <div className="flex items-baseline justify-between gap-3 border-t border-line pt-2">
+                  <dt className="text-caption font-medium text-fg">받은 뒤 취소</dt>
+                  <dd className="text-body-sm font-bold text-danger">
+                    ₩{fmt.format(Math.round(quote.amountKrw / 2))}
+                    <span className="ml-1 text-caption font-medium">· 50% 위약금</span>
+                  </dd>
+                </div>
+              </dl>
+            </>
+          ) : (
+            <p className="mt-1.5 text-caption leading-relaxed text-muted">
+              연락처를 받아도 환불 조건은 그대로입니다.
+            </p>
+          ))}
 
         <button
           type="button"
@@ -170,9 +192,6 @@ export function ReceiveContactCard({
         >
           {accepting ? "처리 중…" : "연락처 받기"}
         </button>
-        <p className="mt-1.5 text-center text-caption text-muted">
-          받지 않아도 촬영은 예정대로 진행됩니다.
-        </p>
       </div>
     </div>
   );

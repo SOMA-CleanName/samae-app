@@ -508,7 +508,6 @@ export function ChatRoom({
                 amPhotographer={amPhotographer}
                 amCustomer={amCustomer}
                 onOpenDetail={() => router.push(`/bookings/${m.booking!.id}?from=chat`)}
-                onShowSummary={() => setDetailFor(m.booking!)}
                 onNeedPay={() => setPayFor(m.booking!)}
                 conversationId={conversationId}
                 onReuse={
@@ -1086,7 +1085,6 @@ function BookingCard({
   amPhotographer,
   amCustomer,
   onOpenDetail,
-  onShowSummary,
   onEdit,
   onReuse,
   onNeedPay,
@@ -1097,8 +1095,6 @@ function BookingCard({
   amCustomer: boolean;
   /** 보정본·후기 등 다른 화면으로 이동 */
   onOpenDetail: () => void;
-  /** 예약 내용을 방 안에서 펼쳐 보는 다이얼로그 */
-  onShowSummary: () => void;
   onEdit: (() => void) | null; // 제안한 쪽에만 제공
   /** 취소·거절된 예약 — 카드를 누르면 그 내용 그대로 새 예약서를 연다 */
   onReuse: (() => void) | null;
@@ -1253,7 +1249,6 @@ function BookingCard({
           booking={booking}
           amCustomer={amCustomer}
           amPhotographer={amPhotographer}
-          onShowSummary={onShowSummary}
           onOpenPay={onNeedPay}
           onConfirmed={() => {
             setActed("paid");
@@ -1277,19 +1272,6 @@ function BookingCard({
             deliveredAt={booking.contact_delivered_at}
           />
         ) : null)}
-
-      {/* 고객: 사매 확인까지 끝난 뒤 — 카드에는 더 볼 것이 없다. 예약 상세로 보낸다 */}
-      {amCustomer && ["paid", "shot", "delivered"].includes(status) && (
-        <div className="mt-3 border-t border-line pt-3">
-          <button
-            type="button"
-            onClick={onShowSummary}
-            className="w-full cursor-pointer rounded-full border border-line-strong py-2.5 text-body-sm font-medium text-fg transition-colors hover:bg-fg/[0.04]"
-          >
-            예약 확인하기
-          </button>
-        </div>
-      )}
 
       {/* 작가: 결제됨 → 촬영 완료 표시 (req9) */}
       {amPhotographer && status === "paid" && (
@@ -1412,15 +1394,12 @@ function TransferSection({
   booking,
   amCustomer,
   amPhotographer,
-  onShowSummary,
   onOpenPay,
   onConfirmed,
 }: {
   booking: BookingSnapshot;
   amCustomer: boolean;
   amPhotographer: boolean;
-  /** 확정된 예약을 다시 펼쳐 보는 자리 */
-  onShowSummary: () => void;
   /** 입금 안내 다이얼로그 열기 — 계좌·정책·동의가 모두 거기 있다 */
   onOpenPay: () => void;
   onConfirmed: () => void; // 작가 입금 확인 후 카드 즉시 진행(req8)
@@ -1444,15 +1423,6 @@ function TransferSection({
             <p className="mt-1 text-caption leading-relaxed text-success/80">
               이제 촬영일에 만나면 돼요.
             </p>
-            {/* 확정된 뒤에도 "내가 뭘 예약했더라" 를 다시 볼 자리가 필요하다 —
-                채팅 카드는 대화에 묻히고, 일시·장소·금액은 촬영 전날 다시 확인하게 된다 */}
-            <button
-              type="button"
-              onClick={onShowSummary}
-              className="mt-3 w-full cursor-pointer rounded-full border border-success/30 bg-surface py-2.5 text-body-sm font-semibold text-success transition-colors hover:bg-success/[0.06]"
-            >
-              예약 확인하기
-            </button>
           </div>
         ) : (
           <>
