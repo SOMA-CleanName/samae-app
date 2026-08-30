@@ -15,11 +15,10 @@ export function StudioSidebar({ chatUnread = 0 }: { chatUnread?: number }) {
   const isActive = (href: string) =>
     href === "/studio" ? pathname === "/studio" : pathname === href || pathname.startsWith(href + "/");
 
-  // 채팅은 목록에서 빼고 따로 둔다 — 모바일에서 오른쪽 끝에 고정하기 위해서다.
-  // 탭이 여덟 개라 가로 스크롤 안에 있으면 답장이 와도 화면 밖이라 안 보인다.
-  const chat: Item = { href: "/studio/chat", label: "채팅", badge: chatUnread };
-
+  // 채팅이 맨 앞이다 — 탭이 여덟 개라 가로 스크롤인데, 답장은 가장 급한 일이라
+  // 스크롤하지 않고 바로 보여야 한다.
   const ops: Item[] = [
+    { href: "/studio/chat", label: "채팅", badge: chatUnread },
     { href: "/studio", label: "문의" },
     // 후기 탭 숨김(되돌리려면 아래 주석 해제):
     // { href: "/studio/reviews", label: "후기" },
@@ -50,7 +49,6 @@ export function StudioSidebar({ chatUnread = 0 }: { chatUnread?: number }) {
           {ops.map((it) => (
             <SideLink key={it.href} item={it} active={isActive(it.href)} />
           ))}
-          <SideLink item={chat} active={isActive(chat.href)} />
           <GroupLabel className="mt-5">설정</GroupLabel>
           {settings.map((it) => (
             <SideLink key={it.href} item={it} active={isActive(it.href)} />
@@ -72,7 +70,7 @@ export function StudioSidebar({ chatUnread = 0 }: { chatUnread?: number }) {
           <HomeIcon className="h-5 w-5" />
         </Link>
         <span className="h-5 w-px shrink-0 bg-line" />
-        <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto scrollbar-none">
+        <div className="flex gap-1 overflow-x-auto scrollbar-none">
           {[...ops, ...settings].map((it) => {
             const active = isActive(it.href);
             return (
@@ -84,27 +82,16 @@ export function StudioSidebar({ chatUnread = 0 }: { chatUnread?: number }) {
                 }`}
               >
                 {it.label}
-                {it.badge ? <Dot /> : null}
+                {it.badge ? (
+                  <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[10px] font-bold leading-none text-white ring-2 ring-bg">
+                    {it.badge > 99 ? "99+" : it.badge}
+                  </span>
+                ) : null}
               </Link>
             );
           })}
         </div>
 
-        {/* 채팅 — 오른쪽 끝 고정. 스크롤에 섞이면 답장이 와도 화면 밖에 있게 된다 */}
-        <span className="h-5 w-px shrink-0 bg-line" />
-        <Link
-          href={chat.href}
-          className={`relative shrink-0 rounded-full px-3 py-1.5 text-sm transition-colors ${
-            isActive(chat.href) ? "bg-fg text-bg" : "text-fg/60 hover:bg-fg/[0.05]"
-          }`}
-        >
-          채팅
-          {chatUnread > 0 && (
-            <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[10px] font-bold leading-none text-white ring-2 ring-bg">
-              {chatUnread > 99 ? "99+" : chatUnread}
-            </span>
-          )}
-        </Link>
       </nav>
     </>
   );
@@ -134,8 +121,4 @@ function SideLink({ item, active }: { item: Item; active: boolean }) {
       ) : null}
     </Link>
   );
-}
-
-function Dot() {
-  return <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-brand" />;
 }
