@@ -8,7 +8,7 @@
 // 문구는 최소로 둔다. 버튼 하나 누르면 끝나는 일에 설명을 쌓으면 오히려 큰일처럼 보인다 —
 // 읽을거리가 늘어난 만큼 누르기까지의 시간도 늘어난다.
 
-import { KakaoLoginButton } from "./KakaoLoginButton";
+import { LoginChoice } from "./LoginChoice";
 import { XIcon } from "./icons";
 
 export function LoginGateDialog({
@@ -54,15 +54,8 @@ export function LoginGateDialog({
         )}
 
         <div className="mt-4">
-          <KakaoLoginButton next={next} context={context} />
+          <LoginChoice next={next} context={context} />
         </div>
-
-        <a
-          href={`/login?next=${encodeURIComponent(next)}`}
-          className="mt-3 block text-center text-caption text-muted underline-offset-2 transition-colors hover:text-fg hover:underline"
-        >
-          다른 방법으로 로그인
-        </a>
       </div>
     </div>
   );

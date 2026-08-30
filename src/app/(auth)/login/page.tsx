@@ -45,6 +45,9 @@ export default function LoginPage() {
   useEffect(() => {
     setNext(readNextParam(DEFAULT_LOGIN_NEXT));
     const p = new URLSearchParams(window.location.search);
+    // '이메일로 시작하기' 로 들어온 경우 — 도착하자마자 입력칸이 열려 있어야 한다.
+    // 눌러서 왔는데 여기서 또 눌러 펼쳐야 하면 한 번 더 헤맨다.
+    if (p.get("email") === "1") setEmailOpen(true);
     if (p.get("verified") === "1") setNotice("verified");
     else if (p.get("error") === "verify") setNotice("verifyError");
     else if (p.get("error") === "auth") setNotice("auth");

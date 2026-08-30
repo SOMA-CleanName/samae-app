@@ -5,7 +5,7 @@ import { startTransition, useActionState, useEffect, useMemo, useRef, useState }
 import { useRouter } from "next/navigation";
 import { ArrowLeftIcon, CheckIcon } from "@/components/user/icons";
 import { mpTrack, mpTrackBeacon } from "@/lib/mixpanel";
-import { KakaoLoginButton } from "@/components/user/KakaoLoginButton";
+import { LoginChoice } from "@/components/user/LoginChoice";
 import * as Sentry from "@sentry/nextjs";
 import { buildFlow, type BotStep, type CustomBotQuestion, type QuestionSegment } from "@/lib/inquiry-bot";
 import { submitInquiryToChat, submitMultiInquiry, type InquiryState } from "./actions";
@@ -830,15 +830,9 @@ function SubmitBlock({
 
       {needLogin ? (
         // 마지막 한 걸음 — 여기까지 다 적은 사람이다. 로그인 페이지로 옮기지 않고
-        // 제출 버튼 자리를 그대로 카카오 버튼이 대신한다. 누를 것이 하나여야 안 헤맨다.
+        // 제출 버튼 자리에서 그대로 로그인을 받는다.
         // 적은 내용은 이 기기에 남아 있어서, 돌아오면 그 자리에서 이어진다.
-        <div>
-          <KakaoLoginButton
-            next={loginNext}
-            context="inquiry_submit"
-            label="카카오로 로그인하고 문의 보내기"
-          />
-        </div>
+        <LoginChoice next={loginNext} context="inquiry_submit" />
       ) : (
         <button
           type="button"
