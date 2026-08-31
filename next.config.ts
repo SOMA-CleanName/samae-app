@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
+  // dev 전용 — Tailscale 등 localhost 외 origin 에서 원격 로컬 접속 시 HMR·dev 리소스 차단 해제.
+  // 프로덕션 빌드에는 영향 없음.
+  allowedDevOrigins: ["100.79.41.65", "mac-mini.tailf8a21e.ts.net"],
   images: {
     // Supabase Storage 공개 URL 허용 (실제 프로젝트 호스트로 교체됨)
     remotePatterns: [
