@@ -174,6 +174,7 @@ export default async function PhotoDetail({
         {/* 사진 프레임 — 높이 상한은 globals.css 의 --photo-cap 한 곳에 있다
             (page · loading · carousel 이 같은 값을 써야 로딩 끝날 때 화면이 안 튄다) */}
         <div
+          data-photo-frame
           className="photo-frame relative mx-auto md:mx-0 md:sticky md:top-4 md:shrink-0 md:self-start"
           style={{ "--ar": String(aspect) } as React.CSSProperties}
         >
