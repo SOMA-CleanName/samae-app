@@ -38,7 +38,9 @@ export function PhotoExplore({
   excludeId?: string; // 현재 사진 — 이어붙일 때 제외
 }) {
   return (
-    <section className="mt-6">
+    // 바깥 여백은 호출부(page.tsx 의 추천 섹션)가 준다.
+    // 여기와 스켈레톤 중 한쪽만 여백을 들고 있으면 로드가 끝날 때 그리드가 그만큼 튄다.
+    <section>
       {/* key=현재 사진 → 다른 사진으로 이동 시 리마운트되어 누적/페이지 상태 초기화 */}
       <RecsFeed
         key={excludeId ?? "recs"}
