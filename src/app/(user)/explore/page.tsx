@@ -167,6 +167,22 @@ export default async function ExplorePage({
                   </Link>
                 </div>
                 <ArticleRail articles={articles} />
+
+                {/* 장소·가이드로 잇기. 아티클을 읽고 나면 "그래서 어디서 찍지"가 다음 질문이다. */}
+                <div className="mt-4 flex gap-2 px-1">
+                  <Link
+                    href="/spots"
+                    className="flex-1 rounded-sm border border-line px-3 py-2.5 text-center text-xs font-semibold transition-colors hover:bg-surface-2"
+                  >
+                    촬영 장소 둘러보기
+                  </Link>
+                  <Link
+                    href="/guide"
+                    className="flex-1 rounded-sm border border-line px-3 py-2.5 text-center text-xs font-semibold transition-colors hover:bg-surface-2"
+                  >
+                    촬영 가이드
+                  </Link>
+                </div>
               </div>
             )}
 

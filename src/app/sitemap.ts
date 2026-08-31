@@ -6,11 +6,13 @@ import { resolveExplorePhotoIds } from "@/lib/target-categories";
 import { SITE_URL } from "@/lib/site";
 import { GUIDE_PAGE_ITEMS } from "@/lib/guide-data";
 import { listPublishedArticleSlugs } from "@/lib/articles";
+import { PUBLISHED_SPOTS } from "@/lib/spots-data";
+import { countSpotPhotos } from "@/lib/spots";
 
 // 하루 1회 재생성 — 공개 작가·사진은 자주 바뀌므로.
 export const revalidate = 86400;
 
-const STATIC_ROUTES = ["", "/apply", "/guide", "/articles"];
+const STATIC_ROUTES = ["", "/apply", "/guide", "/articles", "/spots"];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticEntries: MetadataRoute.Sitemap = STATIC_ROUTES.map((path) => ({
@@ -68,6 +70,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     }));
 
+    // 촬영 장소 — 사진이 실제로 잡히는 곳만. 소개글만 남는 페이지는 블로그가 더 잘 쓴다.
+    const spotResolved = await Promise.all(
+      PUBLISHED_SPOTS.map(async (s) => ({ s, n: await countSpotPhotos(s) }))
+    );
+    const spotEntries: MetadataRoute.Sitemap = spotResolved
+      .filter((x) => x.n > 0)
+      .map((x) => ({
+        url: `${SITE_URL}/spots/${x.s.slug}`,
+        changeFrequency: "weekly",
+        priority: 0.9,
+      }));
+
     const { data } = await admin
       .from("photos")
       .select("id, photographer_id, updated_at")
@@ -94,6 +108,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     return [
       ...staticEntries,
       ...articleEntries,
+      ...spotEntries,
       ...guideEntries,
       ...exploreEntries,
       ...categoryEntries,

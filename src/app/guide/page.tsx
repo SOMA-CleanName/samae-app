@@ -44,6 +44,11 @@ export default function GuideHubPage() {
       <p className="mt-2 text-sm leading-relaxed text-muted">
         촬영을 준비하면서 자주 막히는 것들을 모았어요. 사진이 쌓이면서 보이는 것들을 하나씩 적어둡니다.
       </p>
+      <p className="mt-3 text-sm">
+        <Link href="/spots" className="font-medium text-brand underline underline-offset-4">
+          촬영 장소가 궁금하다면 →
+        </Link>
+      </p>
 
       {items.length === 0 ? (
         <p className="mt-10 text-sm text-muted">아직 공개된 글이 없어요.</p>

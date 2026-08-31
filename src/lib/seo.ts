@@ -331,3 +331,56 @@ export function photoImageJsonLd(photo: PhotoMeta): object {
     ...((photo.mood_tags ?? []).length ? { keywords: (photo.mood_tags ?? []).join(", ") } : {}),
   };
 }
+
+/**
+ * 장소 → Place.
+ *
+ * 주소를 통째 문자열로 넣지 않고 PostalAddress 로 쪼갠다. 지역 질의("중구 스냅")에
+ * 걸리려면 addressRegion 이 필드로 서 있어야 한다.
+ *
+ * ⚠️ geo(위경도)는 넣지 않는다. 확인한 좌표가 없고, 틀린 좌표는 사람을 헛걸음시킨다.
+ */
+export function placeJsonLd(spot: {
+  name: string;
+  slug: string;
+  description: string;
+  area: string;
+  address: string;
+  photoUrls?: string[];
+}): object {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Place",
+    name: spot.name,
+    description: spot.description,
+    url: `${SITE_URL}/spots/${spot.slug}`,
+    address: {
+      "@type": "PostalAddress",
+      addressCountry: "KR",
+      addressLocality: "서울",
+      addressRegion: spot.area,
+      streetAddress: spot.address,
+    },
+    ...(spot.photoUrls?.length ? { photo: spot.photoUrls.slice(0, 6) } : {}),
+  };
+}
+
+/** 목록 → ItemList. 순서가 의미를 갖는 목록에만 쓴다(사진 많은 순 등). */
+export function itemListJsonLd(
+  name: string,
+  items: Array<{ name: string; path: string }>
+): object | null {
+  if (items.length === 0) return null;
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name,
+    numberOfItems: items.length,
+    itemListElement: items.map((it, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: it.name,
+      url: `${SITE_URL}${it.path}`,
+    })),
+  };
+}
