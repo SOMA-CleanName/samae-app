@@ -1,6 +1,7 @@
 import { getCurrentUser } from "@/lib/auth";
 import { fetchUnreadTotalForPhotographer } from "@/lib/chat";
 import { RealtimeListRefresh } from "@/components/user/RealtimeListRefresh";
+import { ChatToast } from "@/components/user/ChatToast";
 import { StudioSidebar } from "./StudioSidebar";
 
 // 작가 스튜디오 공통 레이아웃 — 승인된 작가에게만 좌측 네비를 씌운다.
@@ -20,6 +21,8 @@ export default async function StudioLayout({ children }: { children: React.React
     <div className="md:pl-52">
       {/* 새 메시지가 오면 배지를 다시 그린다 — 스튜디오에는 (user) 레이아웃의 구독이 없다 */}
       <RealtimeListRefresh />
+      {/* 스튜디오 어느 탭에 있든 새 문의가 오면 바로 보인다 */}
+      <ChatToast meId={me.id} />
       <StudioSidebar chatUnread={chatUnread} />
       {children}
     </div>

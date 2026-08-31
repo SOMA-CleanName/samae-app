@@ -7,6 +7,7 @@ import { PhotoReturnScroll } from "@/components/user/PhotoReturnScroll";
 import { readMyInquiryIds } from "@/lib/my-inquiries";
 import { fetchUnreadTotalForUser, fetchUnreadTotalForPhotographer } from "@/lib/chat";
 import { RealtimeListRefresh } from "@/components/user/RealtimeListRefresh";
+import { ChatToast } from "@/components/user/ChatToast";
 
 // 사용자(탐색) 영역 공통 셸 — 기존 하단바/레일 제거.
 // 하단 중앙 홈/탐색 플로팅 내비 + (로그인 시) 좌측 하단 계정 + 우측 하단 장바구니.
@@ -44,6 +45,8 @@ export default async function UserLayout({
         {/* 새 메시지가 오면 셸을 다시 그린다 — 내비 배지가 어느 화면에서나 살아 있어야 한다
             (목록 페이지에도 있던 구독을 여기로 올렸다. 채널이 둘이면 같은 이름으로 겹친다) */}
         {me && <RealtimeListRefresh />}
+        {/* 배지는 '어딘가에 왔다' 만 말한다 — 누가 뭐라고 했는지까지 띄워야 바로 답한다 */}
+        {me && <ChatToast meId={me.id} />}
         {/* 하단 플로팅 내비 높이만큼 여백 확보 */}
         <main className="pb-28">{children}</main>
         <FloatingNav
