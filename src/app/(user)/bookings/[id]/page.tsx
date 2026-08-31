@@ -23,6 +23,7 @@ import { getDelivery, getDeliveryDownloads, signDeliveryAssets } from "@/lib/del
 import { ReviewForm } from "./ReviewForm";
 import { DeliveryUploader } from "./DeliveryUploader";
 import { DeliveryGallery } from "./DeliveryGallery";
+import { TrustLink } from "@/components/user/TrustLink";
 import { MpTrackOnce } from "@/components/MpTrackOnce";
 
 // 예약 상세 + 역할·상태별 액션
@@ -187,6 +188,9 @@ export default async function BookingDetail({
             <p className="mt-1 text-xs text-fg/55">
               아래 사매 계좌로 입금해주세요. 사매가 입금을 확인하면 예약이 확정됩니다.
             </p>
+            {/* 돈이 실제로 나가는 자리. "이거 믿어도 되나"가 가장 크게 드는 순간이라
+                답으로 가는 문을 화면 안에 둔다. */}
+            <TrustLink from="booking_deposit" className="mt-2" />
 
             {platformAccount && hasAccount(platformAccount) ? (
               <div className="mt-3 rounded-xl bg-fg/[0.04] p-3 text-sm">

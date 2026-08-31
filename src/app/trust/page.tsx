@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { JsonLd } from "@/components/JsonLd";
 import { StickyBack } from "@/components/editorial/StickyBack";
+import { SiteFooter } from "@/components/SiteFooter";
 import { Masthead } from "@/components/editorial/Masthead";
 import { breadcrumbJsonLd } from "@/lib/seo";
 import { REFUND_WINDOW_DAYS, WITHDRAWAL_DAYS } from "@/lib/refund";
@@ -187,21 +188,9 @@ export default function TrustPage() {
             여기 적힌 내용과 다르게 진행되는 일이 있으면 예약 카드의 [사매에 문의]로 알려
             주세요. 사매가 확인합니다.
           </p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Link
-              href="/privacy"
-              className="ed-more rounded-full border border-line bg-surface px-4 py-2 text-body-sm font-semibold"
-            >
-              개인정보 처리방침
-            </Link>
-            <Link
-              href="/"
-              className="ed-more rounded-full border border-line bg-surface px-4 py-2 text-body-sm font-semibold"
-            >
-              사진 보러 가기
-            </Link>
-          </div>
         </footer>
+
+        <SiteFooter />
       </div>
     </main>
   );

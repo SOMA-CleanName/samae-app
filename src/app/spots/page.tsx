@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { JsonLd } from "@/components/JsonLd";
 import { StickyBack } from "@/components/editorial/StickyBack";
+import { SiteFooter } from "@/components/SiteFooter";
 import { Masthead } from "@/components/editorial/Masthead";
 import { breadcrumbJsonLd, itemListJsonLd } from "@/lib/seo";
 import { findSpot } from "@/lib/spots-data";
@@ -191,6 +192,8 @@ export default async function SpotsIndexPage() {
         <p className="mt-8 text-[11px] leading-relaxed text-faint">
           장소 정보는 확인된 것만 올려요. 확인 중인 곳은 준비되는 대로 추가됩니다.
         </p>
+
+        <SiteFooter />
       </div>
     </main>
   );

@@ -1223,3 +1223,24 @@ select:focus-visible {
 .photo-cap {
   max-height: var(--photo-cap);
 }
+
+/* 신뢰·안전으로 가는 한 줄 (TrustLink) — 돈이 오가기 직전에 놓인다.
+   조용해야 하지만 손을 대면 반응해야 한다. 붙잡아 세우려는 배너가 아니다. */
+.trust-link {
+  transition: color 0.2s ease;
+}
+.trust-link:hover {
+  color: var(--brand);
+}
+.trust-link-arrow {
+  display: inline-block;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.trust-link:hover .trust-link-arrow {
+  transform: translateX(3px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .trust-link,
+  .trust-link-arrow { transition: none; }
+  .trust-link:hover .trust-link-arrow { transform: none; }
+}

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { JsonLd } from "@/components/JsonLd";
 import { StickyBack } from "@/components/editorial/StickyBack";
+import { SiteFooter } from "@/components/SiteFooter";
 import { Masthead } from "@/components/editorial/Masthead";
 import { faqJsonLd, breadcrumbJsonLd } from "@/lib/seo";
 import { PUBLISHED_GUIDE_ITEMS, GUIDE_PAGE_ITEMS, AXIS_ORDER } from "@/lib/guide-data";
@@ -139,25 +140,7 @@ export default function GuideHubPage() {
           </>
         )}
 
-        <footer className="mt-16 border-t border-line pt-6">
-          <p className="text-body-sm leading-relaxed text-muted">
-            찍을 곳이 궁금하다면 촬영 장소를, 더 긴 글은 스냅 촬영 이야기를 보세요.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Link
-              href="/spots"
-              className="ed-more rounded-full border border-line bg-surface px-4 py-2 text-body-sm font-semibold"
-            >
-              촬영 장소
-            </Link>
-            <Link
-              href="/articles"
-              className="ed-more rounded-full border border-line bg-surface px-4 py-2 text-body-sm font-semibold"
-            >
-              스냅 촬영 이야기
-            </Link>
-          </div>
-        </footer>
+        <SiteFooter />
       </div>
     </main>
   );

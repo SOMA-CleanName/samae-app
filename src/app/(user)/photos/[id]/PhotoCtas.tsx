@@ -11,6 +11,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui";
+import { TrustLink } from "@/components/user/TrustLink";
 import { LoginGateDialog } from "@/components/user/LoginGateDialog";
 
 export function PhotoCtas({
@@ -62,6 +63,10 @@ export function PhotoCtas({
       >
         촬영 예약하기
       </Button>
+
+      {/* 문의·예약을 누르기 직전 — "이거 믿어도 되나"가 드는 자리다.
+          CTA 자체는 그대로 두고, 답으로 가는 문만 아래에 한 줄 둔다. */}
+      <TrustLink from="photo_cta" className="mt-1 self-center" />
 
       {gateOpen && (
         <LoginGateDialog

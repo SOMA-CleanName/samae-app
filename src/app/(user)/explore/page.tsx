@@ -242,6 +242,15 @@ export default async function ExplorePage() {
               <p className="mt-3 text-[11px] leading-relaxed text-faint">
                 사진을 고르면 그 사진을 찍은 작가로 이어집니다.
               </p>
+              {/* 판권면이 이 지면의 푸터 역할을 한다. 공통 푸터를 또 얹지 않고 링크만 얹는다. */}
+              <nav aria-label="사매 안내" className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-[11px]">
+                <Link href="/trust" className="text-muted transition-colors hover:text-brand">
+                  안전하게 촬영하기
+                </Link>
+                <Link href="/privacy" className="text-muted transition-colors hover:text-brand">
+                  개인정보 처리방침
+                </Link>
+              </nav>
             </footer>
           </>
         )}
