@@ -1,18 +1,30 @@
 import type { MetadataRoute } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { listPublishedCategories } from "@/lib/categories";
+import { listPublishedExploreSlugs, countVisiblePhotos } from "@/lib/explore-db";
+import { resolveExplorePhotoIds } from "@/lib/target-categories";
 import { SITE_URL } from "@/lib/site";
+import { GUIDE_PAGE_ITEMS } from "@/lib/guide-data";
+import { listPublishedArticleSlugs } from "@/lib/articles";
 
 // 하루 1회 재생성 — 공개 작가·사진은 자주 바뀌므로.
 export const revalidate = 86400;
 
-const STATIC_ROUTES = ["", "/apply"];
+const STATIC_ROUTES = ["", "/apply", "/guide", "/articles"];
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticEntries: MetadataRoute.Sitemap = STATIC_ROUTES.map((path) => ({
     url: `${SITE_URL}${path}`,
     changeFrequency: "weekly",
     priority: path === "" ? 1 : 0.7,
+  }));
+
+  // 촬영 가이드 — 질문-답 페이지. AI 답변이 가장 잘 인용하는 형식이라 우선순위를 높게 준다.
+  // published 로 켠 것 중 본문이 충분한 것만 개별 URL 을 갖는다(GUIDE_PAGE_ITEMS).
+  const guideEntries: MetadataRoute.Sitemap = GUIDE_PAGE_ITEMS.map((g) => ({
+    url: `${SITE_URL}/guide/${encodeURIComponent(g.slug)}`,
+    changeFrequency: "monthly",
+    priority: 0.8,
   }));
 
   try {
@@ -25,6 +37,37 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly",
       priority: 0.7,
     }));
+
+    // 탐색 카테고리(무드·장면 큐레이션). /c/ 보다 우선순위를 높게 잡는다 —
+    // "성수 스냅", "빈티지 사진" 같은 롱테일 검색이 닿는 지점이라 유입 가치가 가장 크다.
+    //
+    // ⚠️ **사진이 실제로 잡히는 카테고리만 싣는다.** 공개(published)라도 사진이 0장인 카테고리가 있고,
+    //    빈 페이지를 sitemap 에 올리면 색인 품질 점수를 깎고 크롤 예산만 먹는다.
+    //    페이지와 같은 해석기(resolveExplorePhotoIds)를 써서 판정이 어긋나지 않게 한다.
+    const exploreSlugs = await listPublishedExploreSlugs();
+    const exploreResolved = await Promise.all(
+      exploreSlugs.map(async (e) => ({
+        ...e,
+        count: await countVisiblePhotos(await resolveExplorePhotoIds(e.id)),
+      }))
+    );
+    const exploreEntries: MetadataRoute.Sitemap = exploreResolved
+      .filter((e) => e.count > 0)
+      .map((e) => ({
+        url: `${SITE_URL}/explore/${encodeURIComponent(e.slug)}`,
+        changeFrequency: "weekly",
+        priority: 0.8,
+      }));
+
+    // 아티클 — 롱폼 글. 검색·AI 유입의 본체라 우선순위를 높게 준다.
+    const articleSlugs = await listPublishedArticleSlugs();
+    const articleEntries: MetadataRoute.Sitemap = articleSlugs.map((a) => ({
+      url: `${SITE_URL}/articles/${encodeURIComponent(a.slug)}`,
+      lastModified: a.updated_at ? new Date(a.updated_at) : undefined,
+      changeFrequency: "monthly",
+      priority: 0.9,
+    }));
+
     const { data } = await admin
       .from("photos")
       .select("id, photographer_id, updated_at")
@@ -48,9 +91,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.5,
     }));
 
-    return [...staticEntries, ...categoryEntries, ...photographerEntries, ...photoEntries];
+    return [
+      ...staticEntries,
+      ...articleEntries,
+      ...guideEntries,
+      ...exploreEntries,
+      ...categoryEntries,
+      ...photographerEntries,
+      ...photoEntries,
+    ];
   } catch {
-    // DB 접근 실패 시에도 정적 경로 sitemap 은 제공
-    return staticEntries;
+    // DB 접근 실패 시에도 정적 경로·가이드 sitemap 은 제공 (DB 를 안 타는 항목들)
+    return [...staticEntries, ...guideEntries];
   }
 }

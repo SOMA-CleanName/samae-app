@@ -17,7 +17,8 @@ import { ProfileBackButton } from "./ProfileBackButton";
 import { MapPinIcon } from "@/components/user/icons";
 import { Avatar, Button } from "@/components/ui";
 import type { Metadata } from "next";
-import { photographerMetadata } from "@/lib/seo";
+import { photographerMetadata, packagesJsonLd, breadcrumbJsonLd } from "@/lib/seo";
+import { JsonLd } from "@/components/JsonLd";
 
 // 페이지별 동적 메타 — 지역·무드·시작가로 고유 제목/설명(작가 실명은 미노출).
 export async function generateMetadata({
@@ -93,8 +94,18 @@ export default async function PhotographerProfile({
 
   const isOwner = me?.photographer?.id === ph.id;
 
+  // 패키지 가격 → Product/Offer. "성수 스냅 얼마?" 류 질의에 AI 가 인용할 사실 단위다.
+  // 실명은 넣지 않는다(익명 정책) — seller 는 브랜드로 나간다.
+  const packagesLd = packagesJsonLd(ph.id, packages);
+  const breadcrumbLd = breadcrumbJsonLd([
+    { name: "홈", path: "/" },
+    { name: "사진작가", path: `/photographers/${ph.id}` },
+  ]);
+
   return (
     <main className="mx-auto max-w-6xl px-2.5 py-2.5 font-kr sm:px-4 sm:py-4">
+      {packagesLd && <JsonLd data={packagesLd} />}
+      <JsonLd data={breadcrumbLd} />
       {/* 상단 바 — 좌측 뒤로가기 + 가운데 작가 이름(작게) */}
       <div className="relative flex items-center">
         <ProfileBackButton />
