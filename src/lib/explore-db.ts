@@ -328,7 +328,8 @@ export async function listPopularPosts(
 
   // 신호 3종 + 운영자 계정 목록을 브로드 조회 (긴 .in URL 회피 — 카테고리 랭커와 동일 패턴)
   const [{ data: inq }, { data: fav }, { data: pv }, { data: admins }] = await Promise.all([
-    admin.from("inquiries").select("source_photo_id, profile_id").not("source_photo_id", "is", null).gte("created_at", since),
+    // 테스트 문의는 인기 신호가 되면 안 된다 (0088)
+    admin.from("inquiries").select("source_photo_id, profile_id").eq("is_test", false).not("source_photo_id", "is", null).gte("created_at", since),
     admin.from("favorites").select("target_id, profile_id").eq("target_type", "photo").gte("created_at", since).limit(100000),
     admin.from("analytics_events").select("path, profile_id").eq("type", "pageview").like("path", "/photos/%").gte("created_at", since).limit(100000),
     admin.from("profiles").select("id").eq("role", "admin"),
@@ -511,6 +512,7 @@ export async function rankExploreCategoriesByPopularity(windowDays = 60): Promis
   const { data: inqData } = await admin
     .from("inquiries")
     .select("source_photo_id")
+    .eq("is_test", false) // 테스트 문의는 카테고리 랭킹에 반영하지 않는다 (0088)
     .not("source_photo_id", "is", null)
     .gte("created_at", since);
   const inqByCat = new Map<string, number>();
