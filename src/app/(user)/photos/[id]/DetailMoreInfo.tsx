@@ -17,10 +17,9 @@ export function DetailMoreInfo({
   avatarUrl: string | null;
 }) {
   return (
-    <section className="mt-5">
-      <h2 className="mb-2.5 text-base font-semibold text-fg">작가 정보</h2>
-
-      {/* 작가 홈 — 누구에게 맡기는지 먼저 확인 */}
+    <>
+      {/* 작가 홈 — 누구에게 맡기는지 먼저 확인.
+          섹션 껍데기(제목·구획선·간격)는 호출부의 DetailSection 이 맡는다. */}
       <Link
         href={`/photographers/${photographerId}`}
         className="group flex items-center gap-3 rounded-2xl border border-line bg-surface p-3 transition-colors hover:bg-surface-2"
@@ -32,6 +31,6 @@ export function DetailMoreInfo({
         </span>
         <ChevronRightIcon className="h-4 w-4 shrink-0 text-faint transition-transform group-hover:translate-x-0.5" />
       </Link>
-    </section>
+    </>
   );
 }

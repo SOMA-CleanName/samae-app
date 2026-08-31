@@ -26,12 +26,26 @@ export type PhotoMeta = {
   price_krw?: number | null;
 };
 
-export function photoMetadata(photo: PhotoMeta): Metadata {
+/**
+ * 사진 한 장을 사람 말로 부르는 이름.
+ *
+ * 사진에는 제목이 없어서 태그와 촬영지로 짓는다.
+ * <title> 과 지면의 h1 이 이걸 같이 쓴다 — 따로 지으면 검색 결과에 뜨는 이름과
+ * 페이지 안의 이름이 어긋난다.
+ */
+export function photoTitle(photo: PhotoMeta): string {
   const tags = (photo.mood_tags ?? []).slice(0, 3);
   const rawPlace = photo.region || photo.location_text || undefined;
   const place = rawPlace && !tags.includes(rawPlace) ? rawPlace : undefined; // 태그와 중복 방지
   const subject = clean([tags.join(" "), place], " ") || "사진작가의 사진";
-  const title = `${subject} 사진`;
+  return `${subject} 사진`;
+}
+
+export function photoMetadata(photo: PhotoMeta): Metadata {
+  const tags = (photo.mood_tags ?? []).slice(0, 3);
+  const rawPlace = photo.region || photo.location_text || undefined;
+  const place = rawPlace && !tags.includes(rawPlace) ? rawPlace : undefined; // 태그와 중복 방지
+  const title = photoTitle(photo);
   const description = clean(
     [
       "이 느낌 그대로 촬영을 문의해보세요.",
