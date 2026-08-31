@@ -198,6 +198,7 @@ export default async function PhotoDetail({
             duration={matchedPkg ? formatDuration(matchedPkg.duration_min) : null}
             editedCount={matchedPkg?.edited_count ?? null}
             location={location}
+            caption={caption || albumDescription}
           />
 
           {/* 작가 안내 이미지 — 없으면 섹션째 렌더 안 됨 */}
@@ -211,12 +212,8 @@ export default async function PhotoDetail({
           {/* 작가 상세정보 라인 — 이 지점이 화면 상단 50%에 닿으면 플로팅 내비 노출 */}
           <NavRevealOnScroll />
 
-          {/* 작가·글 — 바로 펼쳐서 보여준다 (패키지 정보는 위 섹션) */}
-          <DetailMoreInfo
-            photographerId={ph.id}
-            avatarUrl={ph.avatar_url}
-            caption={caption || albumDescription}
-          />
+          {/* 작가 프로필 — 누구에게 맡기는지 (작가의 글은 패키지 정보 안으로) */}
+          <DetailMoreInfo photographerId={ph.id} avatarUrl={ph.avatar_url} />
         </div>
       </div>
 
