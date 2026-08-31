@@ -694,7 +694,20 @@ select:focus-visible {
 }
 [data-reveal-on] .feed-rise:not([data-shown]) {
   opacity: 0;
-  transform: translateY(26px) scale(0.97);
+  /*
+    ⚠️ scale 을 쓰지 않는다.
+
+    전에는 translateY(26px) scale(0.97) 이었는데, 카드 가장자리에 아주 얇은 흰 선이
+    생겼다가 멈추면 사라졌다. 크기가 변하면 매 프레임 테두리가 새로운 소수 픽셀에
+    떨어지고, 합성 레이어의 가장자리 픽셀이 반투명해진다. 그 틈으로 카드 배경
+    (bg-fg/[0.05] — 다크 모드에서는 페이지보다 밝다)이 비쳐 선으로 보였다.
+    애니메이션이 끝나면 레이어가 버려지고 픽셀이 격자에 맞아 선도 없어진 것이다.
+
+    이동만 하면 크기가 안 변해 그 틈이 안 생긴다. 떠오르는 느낌은 그대로다.
+  */
+  transform: translateY(26px);
+  /* 웹킷에서 합성 레이어 가장자리 처리를 한 겹 더 눌러 준다 */
+  backface-visibility: hidden;
   will-change: opacity, transform;
 }
 
