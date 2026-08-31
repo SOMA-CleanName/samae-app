@@ -108,6 +108,7 @@ python3 scripts/build-guide-page.py     # guide.html 재생성 (data URI 로 박
 | 3 | `fig-2-3-plus-menu` | 채팅 입력창 + 메뉴 — 입력창까지 함께 보이게 찍는다 |
 | 4 | `fig-2-4-contact-consent` | 고객 화면 — 금액 고지 + [연락처 받기] |
 | 5 | `fig-2-5-contact-received` | 전달 완료 — 연락처 카드가 채팅에 남는다 |
+| 6 | `fig-2-6-contact-refund-notice` | 수령 직후 시스템 안내 — 달라진 환불 조건(금액·날짜) |
 
 `fig-2-3` 은 입력창(`flex shrink-0 items-center gap-2 border-t …`)을 복제하고
 `boxCss` 로 위쪽 여백을 170px 정도 준다. 메뉴가 `bottom-full` 로 뜨기 때문에

@@ -14,6 +14,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeContactMethods, type ContactMethod } from "@/lib/photographer-contacts";
+import { postContactDeliveredNotice } from "@/lib/payments";
 
 /** 연락처를 건넬 수 있는 단계 — 입금이 확인된 뒤에만 */
 const DELIVERABLE = ["paid", "shot", "delivered", "completed"];
@@ -120,6 +121,8 @@ export async function acceptPhotographerContact(formData: FormData): Promise<voi
       .update({ contact_exchanged_at: new Date().toISOString() })
       .eq("id", conv.id)
       .is("contact_exchanged_at", null);
+    // 달라진 환불 조건을 대화에 남긴다 — 동의 카드는 누르는 순간 사라진다
+    await postContactDeliveredNotice(bookingId);
     revalidatePath(`/chat/${conv.id}`);
   }
 }

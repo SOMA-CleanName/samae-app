@@ -25,6 +25,7 @@ import {
 import {
   refundQuote,
   withdrawalDeadline,
+  penaltyStart,
   type RefundOverride,
   type RefundQuote,
 } from "./refund";
@@ -458,6 +459,63 @@ async function postDepositNotice(
       `· ${dt}까지 취소하시면 전액 환불됩니다\n` +
       `· 촬영 준비는 이 채팅으로 이야기해주세요\n` +
       `  작가님 연락처는 작가님이 보내주시면 받을 수 있어요`,
+  });
+}
+
+/**
+ * 연락처 수령 직후 채팅에 남기는 안내 (docs/32 §3-3).
+ *
+ * 받기 전 동의 카드에서 이미 보여주긴 했다. 다만 그 카드는 누르는 순간 연락처 카드로
+ * 바뀌어 사라진다 — 조건이 어떻게 달라졌는지 다시 볼 데가 없어진다.
+ * 입금 확인 안내와 같은 이유로, 금액과 날짜를 박아 대화에 남긴다.
+ * 나중에 "그런 얘기 못 들었다" 가 나오면 이 줄이 근거가 된다.
+ */
+export async function postContactDeliveredNotice(bookingId: string): Promise<void> {
+  const admin = createAdminClient();
+
+  const { data: conv } = await admin
+    .from("conversations")
+    .select("id, user_id")
+    .eq("booking_id", bookingId)
+    .maybeSingle();
+  if (!conv) return;
+
+  // 이 시점의 견적 — contact_delivered_at 이 찍힌 뒤라 basis 는 이미 '연락처 수령'이다
+  const quote = await quoteRefund(bookingId);
+  const { data: b } = await admin
+    .from("bookings")
+    .select("shoot_at, shoot_date")
+    .eq("id", bookingId)
+    .maybeSingle();
+
+  const day = (d: Date) =>
+    new Intl.DateTimeFormat("ko-KR", {
+      month: "long",
+      day: "numeric",
+      timeZone: "Asia/Seoul",
+    }).format(d);
+
+  const lines = ["연락처를 받으셨어요. 이제부터 환불 조건이 달라집니다.", ""];
+  if (quote && quote.refundKrw > 0) {
+    lines.push(
+      `· 지금 취소하시면 ₩${fmtKrw(quote.refundKrw)}이 환불됩니다 (지불 금액의 ${quote.percent}%)`
+    );
+  } else {
+    // 이미 촬영 7일 안쪽으로 들어온 건 — 없는 환불을 있는 것처럼 적지 않는다
+    lines.push("· 지금 취소하셔도 환불되지 않습니다");
+  }
+  const cutoff = b ? penaltyStart(b.shoot_at, b.shoot_date) : null;
+  if (cutoff && cutoff.getTime() > Date.now()) {
+    lines.push(`· ${day(cutoff)}부터는 환불되지 않습니다`);
+  }
+  lines.push("· 촬영 준비는 작가님과 직접 이야기하셔도 되고, 이 채팅도 그대로 쓰실 수 있어요");
+
+  // sender_id 는 NOT NULL — 시스템 안내는 고객을 발신자로 둔다(가운데 회색 칩으로 그려진다)
+  await admin.from("messages").insert({
+    conversation_id: conv.id,
+    sender_id: conv.user_id,
+    type: "system",
+    body: lines.join("\n"),
   });
 }
 
