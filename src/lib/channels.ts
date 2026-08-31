@@ -23,20 +23,22 @@ export type Channel = {
 };
 
 /**
- * ⚠️ URL 은 정훈 확인 필요 — 코드 어디에도 없어서 비워 뒀다.
- *    비어 있으면 링크가 아예 안 그려진다(아래 activeChannels). 틀린 주소를 거는 것보다 낫다.
+ * 주소가 비면 그 채널은 아예 안 그려진다(아래 activeChannels).
+ * 틀린 주소를 거는 것보다 낫다 — 새 채널을 열면 여기만 채우면 된다.
  */
 export const CHANNELS: Channel[] = [
   {
     key: "instagram",
     label: "인스타그램",
-    handle: "",
-    url: "",
+    handle: "@samae_photo_official",
+    url: "https://www.instagram.com/samae_photo_official/",
   },
   {
     key: "kakao",
     label: "카카오톡 채널",
-    url: "",
+    // 받은 주소는 http 였다. pf.kakao.com 은 https 를 지원하므로 올려 둔다 —
+    // http 로 두면 브라우저가 혼합 콘텐츠로 경고하거나 리다이렉트 한 번을 더 탄다.
+    url: "https://pf.kakao.com/_xiYxlXX",
   },
 ];
 
