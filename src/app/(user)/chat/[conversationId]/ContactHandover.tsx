@@ -72,6 +72,70 @@ export function SendContactMenuItem({
   );
 }
 
+
+/**
+ * 예약 카드 안의 [연락처 보내기] — + 메뉴와 같은 일을 한다.
+ *
+ * 두 자리에 둔 이유: + 메뉴는 '지금 보내려고 마음먹은' 작가의 자리이고, 카드는
+ * 예약을 확인하다가 "아 연락처 줘야지" 를 떠올리는 자리다. 한 곳에만 두면
+ * 나머지 한 동선에서는 이 기능이 없는 것처럼 보인다.
+ */
+export function SendContactCardButton({
+  bookingId,
+  sentAt,
+  deliveredAt,
+}: {
+  bookingId: string;
+  sentAt: string | null;
+  deliveredAt: string | null;
+}) {
+  const router = useRouter();
+  const [sending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  if (deliveredAt)
+    return (
+      <p className="mt-3 border-t border-line pt-3 text-caption text-success">
+        연락처를 전달했습니다.
+      </p>
+    );
+  if (sentAt)
+    return (
+      <p className="mt-3 border-t border-line pt-3 text-caption text-muted">
+        연락처를 보냈습니다. 고객이 확인하면 전달됩니다.
+      </p>
+    );
+
+  return (
+    <div className="mt-3 border-t border-line pt-3">
+      <button
+        type="button"
+        disabled={sending}
+        onClick={() =>
+          start(async () => {
+            setError(null);
+            try {
+              const fd = new FormData();
+              fd.set("id", bookingId);
+              await sendPhotographerContact(fd);
+              router.refresh();
+            } catch (e) {
+              setError(e instanceof Error ? e.message : "보내지 못했습니다.");
+            }
+          })
+        }
+        className="w-full cursor-pointer rounded-full border border-line-strong py-2.5 text-body-sm font-medium text-fg transition-colors hover:bg-fg/[0.04] disabled:opacity-50"
+      >
+        {sending ? "보내는 중…" : "연락처 보내기"}
+      </button>
+      <p className="mt-1.5 text-label text-faint">
+        스튜디오 프로필에 등록한 연락 수단이 전달됩니다.
+      </p>
+      {error && <p className="mt-1.5 text-caption text-danger">{error}</p>}
+    </div>
+  );
+}
+
 /** 타임라인 말풍선 — 작가는 보낸 사실만, 고객은 고지·동의 후 수령 */
 export function ContactCardBubble({
   bookingId,

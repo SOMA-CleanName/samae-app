@@ -26,7 +26,7 @@ import { GuideImagesButton } from "./GuideImagesButton";
 import { AcceptPayDialog } from "./AcceptPayDialog";
 import { SupportButton } from "@/components/user/SupportButton";
 import { BookingDetailDialog, bookingWhen } from "./BookingDetailDialog";
-import { ContactCardBubble, SendContactMenuItem } from "./ContactHandover";
+import { ContactCardBubble, SendContactCardButton, SendContactMenuItem } from "./ContactHandover";
 import type { GuideImage } from "@/lib/guide-images";
 import { readStoredFieldValues } from "@/lib/booking-fields";
 import {
@@ -1272,6 +1272,15 @@ function BookingCard({
             setActed("paid");
             router.refresh();
           }}
+        />
+      )}
+
+      {/* 작가: 연락처 보내기 — + 메뉴와 같은 일. 예약을 확인하다 떠올리는 자리이기도 하다 */}
+      {amPhotographer && ["paid", "shot", "delivered"].includes(status) && (
+        <SendContactCardButton
+          bookingId={booking.id}
+          sentAt={booking.contact_sent_at}
+          deliveredAt={booking.contact_delivered_at}
         />
       )}
 
