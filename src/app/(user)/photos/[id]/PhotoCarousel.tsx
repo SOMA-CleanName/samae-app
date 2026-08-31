@@ -120,7 +120,7 @@ export function PhotoCarousel({
     return (
       <div
         data-cart-card
-        className="relative max-h-[82svh] select-none overflow-hidden bg-black"
+        className="relative photo-cap select-none overflow-hidden bg-black"
         style={{ aspectRatio: frameAspect }}
       >
         <Slide p={photos[0]} alt={altFor(0)} priority />
@@ -133,7 +133,7 @@ export function PhotoCarousel({
       <div
         ref={ref}
         onScroll={onScroll}
-        className="flex max-h-[82svh] snap-x snap-mandatory select-none overflow-x-auto overflow-y-hidden overscroll-x-contain bg-black scrollbar-none"
+        className="flex photo-cap snap-x snap-mandatory select-none overflow-x-auto overflow-y-hidden overscroll-x-contain bg-black scrollbar-none"
         style={{ aspectRatio: frameAspect }}
       >
         {photos.map((p, i) => (

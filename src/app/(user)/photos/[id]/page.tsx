@@ -171,8 +171,10 @@ export default async function PhotoDetail({
       <CaptionProvider caption={caption || albumDescription}>
       <div className="md:flex md:items-start md:gap-8">
         {/* 사진 — 화면 최상단. 공유·담기는 이미지 위 오버레이 */}
+        {/* 사진 프레임 — 높이 상한은 globals.css 의 --photo-cap 한 곳에 있다
+            (page · loading · carousel 이 같은 값을 써야 로딩 끝날 때 화면이 안 튄다) */}
         <div
-          className="relative mx-auto w-[min(100%,calc(82svh*var(--ar)))] md:mx-0 md:sticky md:top-4 md:shrink-0 md:self-start md:w-[min(60%,calc(80vh*var(--ar)))]"
+          className="photo-frame relative mx-auto md:mx-0 md:sticky md:top-4 md:shrink-0 md:self-start"
           style={{ "--ar": String(aspect) } as React.CSSProperties}
         >
           <PhotoCarousel photos={carousel} startIndex={startIndex} frameAspect={aspect} />

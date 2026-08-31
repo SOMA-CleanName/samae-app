@@ -1186,3 +1186,40 @@ select:focus-visible {
 @media (prefers-reduced-motion: reduce) {
   .chat-toast { animation: none; }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   사진 상세 — 사진 프레임 높이 상한
+
+   같은 값을 page.tsx · loading.tsx · PhotoCarousel 세 곳이 각자 들고 있었다.
+   한 곳만 바꾸면 **스켈레톤과 실제 사진 크기가 어긋나** 로딩이 끝나는 순간 화면이 튄다.
+   값은 여기 한 곳에만 둔다.
+
+   82svh 였다. 세로 사진(2:3)이면 폭이 화면을 꽉 채우고 높이가 뷰포트의 80%가 되어
+   첫 화면이 통째로 사진이었다 — [상담하기]·[예약하기]가 한 화면 아래에 있었다.
+   사진을 보러 온 지면이 맞지만, 마음에 들었을 때 다음으로 갈 문은 화면 안에 있어야 한다.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  --photo-cap: 66svh;
+}
+@media (min-width: 768px) {
+  :root {
+    /* 데스크탑은 사진이 우측 정보 칼럼보다 200px 넘게 길어져 칼럼이 끝난 아래로
+       빈 공간이 길게 남았다. 62vh 면 두 칼럼 길이가 얼추 맞는다. */
+    --photo-cap: 62vh;
+  }
+}
+
+/* 사진이 앉는 칸 — 비율(--ar)은 호출부가 인라인으로 넣는다 */
+.photo-frame {
+  width: min(100%, calc(var(--photo-cap) * var(--ar)));
+}
+@media (min-width: 768px) {
+  .photo-frame {
+    width: min(60%, calc(var(--photo-cap) * var(--ar)));
+  }
+}
+
+/* 캐러셀 자체의 상한 — 프레임과 같은 값이어야 한다 */
+.photo-cap {
+  max-height: var(--photo-cap);
+}

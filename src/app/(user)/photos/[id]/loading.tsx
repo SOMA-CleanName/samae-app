@@ -21,7 +21,7 @@ export default function Loading() {
       <div className="md:flex md:items-start md:gap-8">
         {/* 사진 자리 — 실제 비율 적용. 데스크탑은 실제 페이지처럼 sticky */}
         <div
-          className="relative mx-auto w-[min(100%,calc(82svh*var(--ar)))] md:mx-0 md:sticky md:top-4 md:shrink-0 md:self-start md:w-[min(60%,calc(80vh*var(--ar)))]"
+          className="photo-frame relative mx-auto md:mx-0 md:sticky md:top-4 md:shrink-0 md:self-start"
           style={{ "--ar": String(aspect) } as React.CSSProperties}
         >
           <div

@@ -25,9 +25,13 @@ export function DetailMoreInfo({
         className="group flex items-center gap-3 rounded-2xl border border-line bg-surface p-3 transition-colors hover:bg-surface-2"
       >
         <Avatar src={avatarUrl} name="사진작가" size="md" />
+        {/* 한 문장으로. "이 촬영을 진행하는" / "작가 홈 가기" 로 갈라 두 줄이었는데,
+            한 문장이 중간에서 끊겨 두 개의 다른 말처럼 읽혔다. */}
         <span className="min-w-0 flex-1">
-          <span className="block text-[11px] text-muted">이 촬영을 진행하는</span>
-          <span className="mt-0.5 block truncate text-body font-semibold text-fg">작가 홈 가기</span>
+          <span className="block truncate text-body font-semibold text-fg">
+            이 촬영을 진행하는 작가
+          </span>
+          <span className="mt-0.5 block text-[11px] text-muted">프로필과 다른 작업 보기</span>
         </span>
         <ChevronRightIcon className="h-4 w-4 shrink-0 text-faint transition-transform group-hover:translate-x-0.5" />
       </Link>
