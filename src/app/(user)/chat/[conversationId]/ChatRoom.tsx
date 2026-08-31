@@ -540,7 +540,7 @@ export function ChatRoom({
                   // 수락 전에는 제안한 쪽이, 입금이 확인된 뒤에는 작가가 고칠 수 있다.
                   // (권한 판정의 진실은 서버 updateBooking — 여기서는 버튼 노출만)
                   composerData &&
-                  (["paid", "shot"].includes(m.booking.status)
+                  (m.booking.status === "paid"
                     ? amPhotographer
                     : m.booking.proposed_by_photographer
                     ? amPhotographer
@@ -1330,7 +1330,8 @@ function BookingCard({
           입금액과 어긋난다. */}
       {onEdit &&
         ((amProposer && status === "requested") ||
-          (amPhotographer && ["paid", "shot"].includes(status))) && (
+          // 촬영이 끝난 뒤에는 바꿀 것이 없다 — 일시·장소를 고쳐도 이미 지난 일이다
+          (amPhotographer && status === "paid")) && (
         <div className="mt-3">
           <button
             type="button"

@@ -248,7 +248,7 @@ export async function updateBooking(formData: FormData) {
   //
   //  · requested (수락 전) — 제안한 쪽. 예약서에 금액·일시·장소까지 들어가면서
   //    오타 한 번에 취소하고 다시 쓰는 게 너무 비쌌다.
-  //  · paid 이후 (입금 확인됨) — **작가만.** 날짜 변경은 작가 재량으로만 성사되고(docs/32 §3-6),
+  //  · paid (입금 확인됨, 촬영 전) — **작가만.** 날짜 변경은 작가 재량으로만 성사되고(docs/32 §3-6),
   //    현장 사정으로 장소·시간이 바뀌는 건 작가가 판단한다. 고객이 확정된 예약을
   //    혼자 고칠 수 있으면 그건 협의가 아니라 통보가 된다.
   //  · accepted (입금 대기) — 아무도. 금액이 바뀌면 고객이 이미 보고 있는 입금액과 어긋난다.
@@ -262,7 +262,8 @@ export async function updateBooking(formData: FormData) {
   if (!b) throw new Error("예약을 찾을 수 없습니다.");
 
   const amPhotographerHere = me.photographer?.id === b.photographer_id;
-  const afterPayment = ["paid", "shot"].includes(b.status as string);
+  // 촬영이 끝난 뒤(shot 이후)에는 바꿀 것이 없다 — 지난 일시를 고치는 건 기록을 흐릴 뿐이다
+  const afterPayment = b.status === "paid";
 
   if (afterPayment) {
     if (!amPhotographerHere)
