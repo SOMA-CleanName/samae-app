@@ -4,6 +4,7 @@ import "./globals.css";
 import { AnalyticsTracker } from "@/components/AnalyticsTracker";
 import { MixpanelTracker } from "@/components/MixpanelTracker";
 import { MetaPixel } from "@/components/MetaPixel";
+import { NavEntryProbe } from "@/components/NavEntryProbe";
 import { Analytics } from "@vercel/analytics/next";
 import { SITE_URL, SITE_NAME, SITE_TITLE, SITE_DESCRIPTION } from "@/lib/site";
 
@@ -83,6 +84,8 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-bg text-fg">
         {children}
+        {/* 뒤로가기가 "온 곳"으로 갈 수 있는지 판정하려면 문서 진입 시점을 잡아야 한다 */}
+        <NavEntryProbe />
         <AnalyticsTracker />
         <MixpanelTracker />
         <MetaPixel />
