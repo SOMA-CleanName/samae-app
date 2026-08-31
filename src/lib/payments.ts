@@ -443,14 +443,12 @@ async function postDepositNotice(
     minute: "2-digit",
     timeZone: "Asia/Seoul",
   }).format(deadline);
-  const d = new Intl.DateTimeFormat("ko-KR", {
-    month: "long",
-    day: "numeric",
-    timeZone: "Asia/Seoul",
-  }).format(new Date(deadline.getTime() + 1000));
 
   // sender_id 는 NOT NULL 이다. 시스템 안내는 고객을 발신자로 둔다 —
   // 가운데 정렬 회색 칩으로 그려져 누가 보냈는지는 화면에 드러나지 않는다.
+  //
+  // ⚠️ 연락처는 시간이 지나도 저절로 열리지 않는다(docs/32 §3-3 개정) —
+  //    작가가 보내고 고객이 동의해야 전달된다. 날짜를 예고하면 오고지가 된다.
   await admin.from("messages").insert({
     conversation_id: conv.id,
     sender_id: conv.user_id,
@@ -458,7 +456,7 @@ async function postDepositNotice(
     body:
       `입금이 확인되었습니다. 예약이 확정됐어요.\n` +
       `· ${dt}까지 취소하시면 전액 환불됩니다\n` +
-      `· 작가님 연락처는 ${d}에 공개돼요 (그전까지는 이 채팅으로 이야기해주세요)`,
+      `· 촬영 준비는 이 채팅으로 이야기해주세요 (작가님 연락처는 작가님이 보내주시면 받을 수 있어요)`,
   });
 }
 
