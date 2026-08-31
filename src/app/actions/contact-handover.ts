@@ -56,11 +56,15 @@ export async function sendPhotographerContact(formData: FormData): Promise<void>
     .eq("booking_id", bookingId)
     .maybeSingle();
   if (conv) {
+    // 대화의 한 사건이므로 타임라인에 말풍선으로 남긴다.
+    // 예약 카드 안에만 두면 대화가 몇 줄만 쌓여도 위로 밀려 안 보인다.
+    // body 에 예약 id 를 실어 카드가 어느 예약의 전달인지 알게 한다.
     await admin.from("messages").insert({
       conversation_id: conv.id,
-      sender_id: b.user_id, // 시스템 안내는 가운데 칩으로 그려진다
-      type: "system",
-      body: "📇 작가님이 연락처를 보냈어요 — 아래에서 확인해주세요.",
+      sender_id: b.user_id, // 카드형이라 좌우 정렬에 쓰이지 않는다
+      type: "contact_card",
+      body: bookingId,
+      booking_id: bookingId,
     });
     revalidatePath(`/chat/${conv.id}`);
   }

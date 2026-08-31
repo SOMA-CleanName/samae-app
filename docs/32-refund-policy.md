@@ -191,9 +191,9 @@ v1 의 "연락처 교환" 조건은 삭제한다 — 아래.
 
 ```
 작가 (스튜디오 프로필에 연락 수단 등록)
-   │  예약 확정(paid) 후 카드의 [연락처 보내기]
+   │  예약 확정(paid) 후 채팅 입력창 + 메뉴의 [연락처 보내기]
    ▼
-고객 (채팅 카드에 고지 + [확인했어요 — 연락처 받기])
+고객 (채팅 타임라인에 카드 — 고지 + [연락처 받기])
    │  받는 순간 contact_delivered_at 기록
    ▼
 100% 구간 종료 → 이후 취소는 위약금 50%
@@ -414,7 +414,7 @@ v1 의 "연락처 교환" 조건은 삭제한다 — 아래.
 | `refund.test.ts` | 경계 재고정 — 결제+7일 경계, 촬영−7일 경계, 두 구간 중첩(§1-1), 동의 유무 |
 | `src/lib/moderation.ts` | `contactExchangeAllowed()` 조건을 연락처 **전달 완료** 로 |
 | `src/lib/photographer-contacts.ts` · `app/actions/contact-handover.ts` | 연락 수단 등록·전달·수령 |
-| `ContactHandover.tsx` | 작가 [연락처 보내기] · 고객 고지+동의 카드 |
+| `ContactHandover.tsx` | 작가 + 메뉴의 [연락처 보내기] · 타임라인 연락처 카드(고지+동의) |
 | `src/app/actions/bookings.ts` | 임박 예약 시 동의 기록 (`late_booking_consent_at`) |
 | `ChatRoom.tsx` | `PolicyNote()` 교체 + 임박 예약 동의 모달(§6-2) |
 | `src/lib/platform-policy.ts` · `bot-kb-data.ts` | 정책 문구 v3 |

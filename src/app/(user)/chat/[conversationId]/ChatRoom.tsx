@@ -26,7 +26,7 @@ import { GuideImagesButton } from "./GuideImagesButton";
 import { AcceptPayDialog } from "./AcceptPayDialog";
 import { SupportButton } from "@/components/user/SupportButton";
 import { BookingDetailDialog, bookingWhen } from "./BookingDetailDialog";
-import { ReceiveContactCard, SendContactButton } from "./ContactHandover";
+import { ContactCardBubble, SendContactMenuItem } from "./ContactHandover";
 import type { GuideImage } from "@/lib/guide-images";
 import { readStoredFieldValues } from "@/lib/booking-fields";
 import {
@@ -41,6 +41,7 @@ import {
   CameraIcon,
   WalletIcon,
   XIcon,
+  UserIcon,
 } from "@/components/user/icons";
 
 const fmt = new Intl.NumberFormat("ko-KR");
@@ -176,6 +177,15 @@ export function ChatRoom({
   }, [amCustomer, payDismissed, messages]);
 
   const payDialogFor = payFor ?? pendingPay;
+
+  // 연락처를 보낼 수 있는 예약 — 입금이 확인된 최신 건 하나
+  const contactTarget = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const b = messages[i].booking;
+      if (b && ["paid", "shot", "delivered"].includes(b.status)) return b;
+    }
+    return null;
+  }, [messages]);
 
   // 방에서 살아 있는 예약 — 종료된 건(거절·취소·환불)은 상단에 붙들고 있을 이유가 없다.
   // 카드는 대화가 쌓이면 위로 밀려 사라지므로, 이 예약을 상단에 상주시킨다.
@@ -498,6 +508,18 @@ export function ChatRoom({
               </div>
             ) : null;
           const rendered = (() => {
+          // 연락처 전달 카드 — 대화의 한 사건이므로 타임라인에 남는다
+          if (m.type === "contact_card" && m.booking) {
+            return (
+              <ContactCardBubble
+                key={m.id}
+                bookingId={m.booking.id}
+                payload={m.booking.contact_payload}
+                deliveredAt={m.booking.contact_delivered_at}
+                amCustomer={amCustomer}
+              />
+            );
+          }
           // 예약 제안 카드
           if (m.booking_id && m.booking) {
             return (
@@ -797,6 +819,16 @@ export function ChatRoom({
                   <LayersIcon className="h-5 w-5 text-muted" />
                   포트폴리오에서 고르기
                 </button>
+              )}
+              {/* 연락처 보내기 — 입금이 확인된 예약이 있을 때만. 보내는 건 '지금 하는 행동' 이라
+                  사진 보내기와 같은 자리에 둔다 (예약 카드에 두면 대화에 밀려 올라간다) */}
+              {amPhotographer && contactTarget && (
+                <SendContactMenuItem
+                  bookingId={contactTarget.id}
+                  sentAt={contactTarget.contact_sent_at}
+                  onDone={() => setOptionsOpen(false)}
+                  icon={<UserIcon className="h-5 w-5 text-muted" />}
+                />
               )}
               {/* 예약 제안은 헤더의 예약 제안 버튼으로 이동 — 수정은 예약 카드에서 */}
             </div>
@@ -1242,22 +1274,6 @@ function BookingCard({
           }}
         />
       )}
-
-      {/* 연락처 전달 — 입금이 확인된 뒤에만. 받는 순간 중개가 끝나므로 고지·동의가 앞선다 */}
-      {["paid", "shot", "delivered"].includes(status) &&
-        (amPhotographer ? (
-          <SendContactButton
-            bookingId={booking.id}
-            sentAt={booking.contact_sent_at}
-            deliveredAt={booking.contact_delivered_at}
-          />
-        ) : amCustomer && booking.contact_sent_at ? (
-          <ReceiveContactCard
-            bookingId={booking.id}
-            payload={booking.contact_payload}
-            deliveredAt={booking.contact_delivered_at}
-          />
-        ) : null)}
 
       {/* 작가: 촬영됨 → 보정본 전달 업로더 (req9) */}
       {amPhotographer && status === "shot" && (

@@ -96,7 +96,7 @@ export type BookingSnapshot = {
 export type ChatMessage = {
   id: string;
   sender_id: string;
-  type: "text" | "image" | "system" | "bot" | "summary_card";
+  type: "text" | "image" | "system" | "bot" | "summary_card" | "contact_card";
   body: string;
   image_path: string | null;
   created_at: string;
