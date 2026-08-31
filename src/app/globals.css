@@ -369,3 +369,135 @@ select:focus-visible {
     transform: translateX(-50%);
   }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   아티클(에디토리얼) — 매거진 레이아웃 전용 모션·타이포
+   레퍼런스 방향: 흑백 골격 + 브랜드 레드 액센트 하나, 하드 그리드, 번호 매김.
+   모션 라이브러리 없이 CSS 로만 처리한다(의존성 0).
+   ───────────────────────────────────────────────────────────── */
+
+/* 페이지 진입 스태거 — 목록 셀이 순서대로 올라온다.
+   --i(순번)를 인라인 스타일로 넘겨 지연을 준다. 60ms 간격, 최대 8칸까지만 체감된다. */
+@keyframes ed-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+.ed-rise {
+  animation: ed-rise 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+
+/* 매스트헤드 — 글자가 아래에서 밀려 올라오며 자리를 잡는다.
+   overflow:hidden 한 줄 안에서 움직여 '조판되는' 느낌을 준다. */
+@keyframes ed-slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: none; }
+}
+.ed-mast > span {
+  display: block;
+  animation: ed-slide-up 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* 스크롤 진입 리빌 — Reveal 컴포넌트가 data-shown 을 켠다 */
+.ed-reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 700ms cubic-bezier(0.22, 1, 0.36, 1),
+              transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ed-reveal[data-shown="true"] { opacity: 1; transform: none; }
+
+/* 읽기 진행 바 — 상단 얇은 브랜드 라인 */
+.ed-progress {
+  transform-origin: 0 50%;
+  transition: transform 90ms linear;
+}
+
+/* 목록 셀 호버 — 이미지가 살짝 밀려나고 번호에 색이 든다 */
+.ed-cell img { transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1); }
+.ed-cell:hover img { transform: scale(1.04); }
+.ed-cell .ed-num { transition: color 260ms ease; }
+.ed-cell:hover .ed-num { color: var(--brand); }
+.ed-cell .ed-arrow { transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1); }
+.ed-cell:hover .ed-arrow { transform: translateX(5px); }
+
+/* 본문 타이포 — 매거진 리듬. 첫 문단만 살짝 크게 잡아 도입부를 만든다. */
+.ed-body > p:first-of-type {
+  font-size: 1.07em;
+  line-height: 1.8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ed-rise,
+  .ed-mast > span { animation: none; }
+  .ed-reveal { opacity: 1; transform: none; transition: none; }
+  .ed-cell img,
+  .ed-cell:hover img,
+  .ed-cell .ed-arrow,
+  .ed-cell:hover .ed-arrow { transition: none; transform: none; }
+}
+
+/* ── 흐르는 띠 ────────────────────────────────────────────── */
+@keyframes ed-marquee {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-50%, 0, 0); }
+}
+.ed-marquee-track {
+  animation-name: ed-marquee;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+/* ── 스크롤 연동 (지원 브라우저에서만) ─────────────────────────
+   animation-timeline: view() 는 크롬 계열에서만 동작한다.
+   @supports 로 감싸 미지원 브라우저에서는 '그냥 보이는' 상태가 되게 한다 —
+   기능 감지 없이 쓰면 사파리에서 콘텐츠가 영영 안 나타난다. */
+@supports (animation-timeline: view()) {
+  @keyframes ed-in {
+    from { opacity: 0; transform: translateY(28px) scale(0.985); }
+    to   { opacity: 1; transform: none; }
+  }
+  .ed-scroll-in {
+    animation: ed-in linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 62%;
+  }
+
+  /* 이미지가 스크롤에 따라 서서히 열린다 — 잡지 넘김 느낌 */
+  @keyframes ed-unveil {
+    from { clip-path: inset(14% 8% 14% 8% round 2px); }
+    to   { clip-path: inset(0% 0% 0% 0% round 2px); }
+  }
+  .ed-unveil {
+    animation: ed-unveil linear both;
+    animation-timeline: view();
+    animation-range: entry 8% cover 42%;
+  }
+
+  /* 머리기사 타이틀이 스크롤과 함께 살짝 밀린다 */
+  @keyframes ed-drift {
+    from { transform: translateY(0); }
+    to   { transform: translateY(-38px); }
+  }
+  .ed-drift {
+    animation: ed-drift linear both;
+    animation-timeline: view();
+    animation-range: cover 0% cover 100%;
+  }
+}
+
+/* ── 벤토 셀 ──────────────────────────────────────────────── */
+.ed-tile { position: relative; overflow: hidden; }
+.ed-tile img { transition: transform 900ms cubic-bezier(0.22, 1, 0.36, 1); }
+.ed-tile:hover img { transform: scale(1.05); }
+/* 이미지 위 텍스트 가독성 — 아래쪽만 어둡게 */
+.ed-tile-veil {
+  background: linear-gradient(to top, rgba(0,0,0,0.74) 0%, rgba(0,0,0,0.42) 24%, rgba(0,0,0,0.08) 52%, rgba(0,0,0,0) 74%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ed-marquee-track { animation: none; }
+  .ed-tile img, .ed-tile:hover img { transition: none; transform: none; }
+  .ed-scroll-in, .ed-unveil, .ed-drift { animation: none; }
+}

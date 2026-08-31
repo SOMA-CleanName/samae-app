@@ -10,7 +10,10 @@ import { CATEGORY_COOKIE } from "@/lib/category-constants";
 import { newFeedSeed } from "@/lib/discovery";
 import { seededShuffle } from "@/lib/seeded-shuffle";
 import { MpTrackOnce } from "@/components/MpTrackOnce";
+import { JsonLd } from "@/components/JsonLd";
+import { exploreCategoryMetadata, collectionJsonLd, breadcrumbJsonLd } from "@/lib/seo";
 import { CategoryImmersive } from "./CategoryImmersive";
+import type { Metadata } from "next";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +24,17 @@ function safeDecode(s: string): string {
   } catch {
     return s;
   }
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const cat = await getPublishedExploreCategory(safeDecode(slug));
+  if (!cat) return {};
+  return exploreCategoryMetadata({ title: cat.title, subtitle: cat.subtitle, slug: cat.slug });
 }
 
 // 탐색 카테고리 진입 — 홈 그리드가 아니라 '풀스크린 몰입 + 하단 필름스트립'으로.
@@ -46,8 +60,22 @@ export default async function ExploreCategoryPage({
   const cover = coverId ? shuffled.find((p) => p.id === coverId) : undefined;
   const photos = cover ? [cover, ...shuffled.filter((p) => p.id !== cover.id)] : shuffled;
 
+  // 검색·AI 가 읽을 구조. 사진이 없으면 collectionJsonLd 가 null 을 주고 아무것도 안 심는다.
+  const collection = collectionJsonLd({
+    title: cat.title,
+    description: cat.subtitle,
+    path: `/explore/${encodeURIComponent(cat.slug)}`,
+    photoIds: photos.map((p) => p.id),
+  });
+  const breadcrumb = breadcrumbJsonLd([
+    { name: "홈", path: "/" },
+    { name: cat.title, path: `/explore/${encodeURIComponent(cat.slug)}` },
+  ]);
+
   return (
     <>
+      {collection && <JsonLd data={collection} />}
+      <JsonLd data={breadcrumb} />
       {/* 카테고리 탐색 진입 — 취향 시그널(수요 차원) */}
       <MpTrackOnce
         event="View Category"

@@ -53,3 +53,7 @@ docs/27-ai-presentation-prep.md
 
 # 참고 논문 PDF — 라이선스·용량 문제로 커밋하지 않는다
 docs/assets/
+
+# 로컬 인증서·분석 대시보드 산출물 — 개인 작업물
+certificates/
+scripts/analytics/samae_dashboard.html

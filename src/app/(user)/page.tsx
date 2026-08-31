@@ -31,6 +31,7 @@ import { pickSearchPlaceholder } from "@/lib/search-copy";
 import { routeSessionKey } from "@/lib/search-navigation";
 import { shouldShowSearchUi } from "@/lib/search-ui-visibility";
 import { TasteTestNudge } from "@/components/user/TasteTestNudge";
+import { HomeBannerSlot } from "@/components/user/HomeBannerSlot";
 import { TasteBanner } from "./TasteBanner";
 import { JsonLd } from "@/components/JsonLd";
 import { siteJsonLd } from "@/lib/seo";
@@ -130,7 +131,9 @@ export default async function ExploreHome({
       {!query && <JsonLd data={siteJsonLd()} />}
       {/* 탭 전환 시 스크롤 위치 유지 */}
       <ScrollMemory routeKey={routeSessionKey("/", query)} />
-      {/* 홈 최상단 히어로 (검색 모드 아닐 때만) */}
+      {/* 홈 최상단 운영 배너 캐러셀 (검색 모드 아닐 때만) */}
+      {!query && <HomeBannerSlot />}
+      {/* 홈 히어로 (검색 모드 아닐 때만) */}
       {!query && <FeedHero />}
 
       {/* 검색 결과의 뒤로가기는 유지하고, 검색 진입 UI만 플래그로 임시 숨긴다. */}

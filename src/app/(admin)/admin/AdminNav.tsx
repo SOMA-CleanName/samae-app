@@ -13,6 +13,8 @@ const TABS = [
   { href: "/admin/users", label: "회원" },
   { href: "/admin/inquiries", label: "문의" },
   { href: "/admin/photos", label: "사진 노출" },
+  { href: "/admin/banners", label: "홈 배너" },
+  { href: "/admin/articles", label: "아티클" },
   { href: "/admin/categories", label: "타겟 카테고리" },
   { href: "/admin/explore", label: "무드(탐색)" },
   { href: "/admin/tags", label: "태그" },
