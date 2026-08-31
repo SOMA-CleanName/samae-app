@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { confirmBankTransfer, waiveFee, ensureTransferRecord } from "@/lib/payments";
+import { notifyOpsBookingDeposit } from "@/lib/ops-alert";
 import { DELIVERY_BUCKET, signDeliveryAssets } from "@/lib/deliveries";
 import { mpTrackServer, mpRevenueServer } from "@/lib/mixpanel-server";
+import { isLateBooking } from "@/lib/refund";
 
 // 알림 헬퍼 (service_role)
 async function notify(
@@ -84,8 +86,8 @@ export async function markTransferSent(formData: FormData) {
     await notify(
       admin,
       ph.profile_id,
-      "송금 완료 알림",
-      `${who}님이 송금을 완료했어요. 입금을 확인해주세요.`,
+      "입금 완료 알림",
+      `${who}님이 입금을 완료했어요. 사매가 확인 후 정산해드려요.`,
       `/bookings/${id}`,
       "payment"
     );
@@ -96,8 +98,11 @@ export async function markTransferSent(formData: FormData) {
     b.user_id,
     b.photographer_id,
     b.user_id,
-    "💸 송금을 완료했어요. 작가님의 입금 확인을 기다립니다."
+    "✅ 입금이 완료되어 예약이 확정됐어요 — 촬영일에 만나요!"
   );
+
+  // 운영 디스코드 — 사매 계좌 입금내역 대조·확인을 재촉하는 에스크로 신고 알림
+  await notifyOpsBookingDeposit({ bookingId: id });
 
   // 고객의 결제 의사(송금) 신호 — 매출 확정(Confirm Payment) 직전 단계.
   await mpTrackServer(
@@ -110,8 +115,6 @@ export async function markTransferSent(formData: FormData) {
   revalidateBooking(id);
 }
 
-// ── 입금 확인 (작가) : accepted → paid + 플랫폼 수수료 발생 ──────────────
-// 사용자가 작가 계좌로 직접 송금한 것을 작가가 확인하면 호출. 머니패스의 신뢰 시점.
 export async function confirmTransfer(formData: FormData) {
   const id = String(formData.get("id"));
   const me = await getCurrentUser();
@@ -459,4 +462,41 @@ export async function refundBooking(formData: FormData) {
 
   revalidateBooking(id);
   revalidatePath("/chat");
+}
+
+/**
+ * 임박 예약 환불불가 동의 기록 (docs/32 §1-1 ③ · §6-2).
+ *
+ * 촬영일까지 7일이 안 남은 예약은 두 규정이 동시에 성립한다 — 사매 약정(위약금 100%)과
+ * 법정 청약철회(결제 후 7일 100% 환불). 법정 권리가 이기므로, 위약금을 주장하려면
+ * 전자상거래법 시행령 제21조의 ③요건(사전 별도 고지 + 서면 동의)을 갖춰야 한다.
+ *
+ * 상세페이지 하단 문구로는 인정되지 않는다 — **별도 화면·별도 체크**여야 하고,
+ * 그 시각이 여기 남는다. 기록이 없으면 refundQuote() 가 전액 환불로 계산한다.
+ */
+export async function agreeLateBooking(formData: FormData): Promise<void> {
+  const me = await getCurrentUser();
+  if (!me) throw new Error("로그인이 필요합니다.");
+  const id = String(formData.get("id"));
+
+  const admin = createAdminClient();
+  const { data: b } = await admin
+    .from("bookings")
+    .select("id, user_id, shoot_at, shoot_date, late_booking_consent_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (!b) throw new Error("예약을 찾을 수 없습니다.");
+  // 동의는 돈을 내는 사람만 한다 — 작가가 대신 눌러줄 수 있으면 요건 자체가 무의미해진다
+  if (b.user_id !== me.id) throw new Error("고객 본인만 동의할 수 있어요.");
+  if (b.late_booking_consent_at) return; // 멱등 — 첫 동의 시각을 유지한다
+
+  // 임박 예약이 아니면 받을 이유가 없다. 여유 있는 건에 동의가 붙으면
+  // 나중에 촬영일이 다가왔을 때 근거 없는 위약금 주장이 된다.
+  if (!isLateBooking(b.shoot_at, b.shoot_date)) return;
+
+  await admin
+    .from("bookings")
+    .update({ late_booking_consent_at: new Date().toISOString() })
+    .eq("id", id)
+    .is("late_booking_consent_at", null);
 }

@@ -4,9 +4,11 @@ import { randomUUID } from "crypto";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
-import { notifyOpsNewInquiry } from "@/lib/ops-alert";
 import { readMetaAdCookies, type MetaAdCookies } from "@/lib/meta-capi";
 import { rememberInquiryIds } from "@/lib/my-inquiries";
+import { promoteBotInquiryToChat } from "@/lib/inquiry-bot-chat";
+import { slotsToAnswers, type BotChatMessage, type LlmSlots } from "@/lib/inquiry-bot-llm";
+import { buildFlow, toInquiryFields } from "@/lib/inquiry-bot";
 
 export type InquiryState = {
   ok: boolean;
@@ -15,6 +17,11 @@ export type InquiryState = {
   values?: InquiryValues;
   // 접수된 문의 id — 클라이언트가 Mixpanel 전환 기록·중복 발화 가드에 사용
   inquiryId?: string;
+  // 예약 문의(채팅 트랙) — 요약 카드를 올린 방. 클라이언트가 여기로 이동한다.
+  conversationId?: string;
+  // 채팅 트랙의 전제(로그인·프로필 번호)가 빠진 경우 — 클라이언트가 해당 동선으로 보낸다.
+  needLogin?: boolean;
+  needContact?: boolean;
 };
 
 const PHONE_PATTERN = /^0\d{2}-\d{4}-\d{4}$/;
@@ -158,6 +165,148 @@ function readBriefInfo(formData: FormData): BriefInfo {
   };
 }
 
+// 챗봇 첫 발화 시 대화방 선생성 — "채팅을 시작한 순간 방이 생긴다"는 멘탈 모델.
+// 진행 중(미접수) 방도 문의 탭에 떠서 이어서 진행할 수 있다. 실패해도 대화는 계속.
+export async function ensureBotConversation(
+  photographerId: string,
+  photoId: string | null
+): Promise<string | null> {
+  try {
+    const me = await getCurrentUser();
+    if (!me || !photographerId) return null;
+    if (me.photographer?.id === photographerId) return null; // 본인 방 방지
+    const admin = createAdminClient();
+    const { data: existing } = await admin
+      .from("conversations")
+      .select("id, bot_photo_id")
+      .eq("user_id", me.id)
+      .eq("photographer_id", photographerId)
+      .maybeSingle();
+    if (existing) {
+      // 다른 사진으로 새 문의를 시작했으면 복귀 사진만 갱신
+      if (photoId && existing.bot_photo_id !== photoId)
+        await admin.from("conversations").update({ bot_photo_id: photoId }).eq("id", existing.id);
+      return existing.id as string;
+    }
+    const { data: created } = await admin
+      .from("conversations")
+      .insert({ user_id: me.id, photographer_id: photographerId, bot_photo_id: photoId })
+      .select("id")
+      .single();
+    return (created?.id as string) ?? null;
+  } catch (err) {
+    console.error("[bot-chat] 방 선생성 실패:", err instanceof Error ? err.message : err);
+    return null;
+  }
+}
+
+// 슬롯 정규화 — 코어 4슬롯 + custom 만, 문자열만 통과 (클라이언트가 보낸 임의 페이로드 차단).
+function cleanSlots(raw: Record<string, unknown>): LlmSlots {
+  const clean: LlmSlots = {};
+  for (const k of ["purpose", "preferredDate", "region", "partySize"] as const) {
+    const v = raw[k];
+    if (typeof v === "string" && v.trim()) clean[k] = v.trim().slice(0, 200);
+  }
+  const custom = raw.custom;
+  if (custom && typeof custom === "object" && !Array.isArray(custom)) {
+    const c: Record<string, string> = {};
+    for (const [k, v] of Object.entries(custom as Record<string, unknown>).slice(0, 10)) {
+      if (typeof v === "string" && v.trim()) c[k.slice(0, 80)] = v.trim().slice(0, 300);
+    }
+    if (Object.keys(c).length > 0) clean.custom = c;
+  }
+  return clean;
+}
+
+// 프로필에 등록된 번호를 접수용 연락처로 — 문의 폼은 연락처를 묻지 않는다(채팅 모델 전제:
+// 로그인 + 가입 시 번호 인증). 번호가 없으면 null → 호출부가 /signup/contact 로 보낸다.
+async function profileContact(
+  customerId: string
+): Promise<{ contact: ContactInfo; displayName: string | null } | null> {
+  const admin = createAdminClient();
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("phone, display_name")
+    .eq("id", customerId)
+    .maybeSingle();
+  const rawPhone = profile?.phone ?? null;
+  if (!rawPhone) return null;
+  const d = rawPhone.replace(/\D/g, "");
+  return {
+    contact: {
+      phone:
+        d.length >= 10 ? `${d.slice(0, 3)}-${d.slice(3, d.length - 4)}-${d.slice(-4)}` : rawPhone,
+      kakaoId: null,
+      contactEmail: null,
+    },
+    displayName: (profile?.display_name as string | null) ?? null,
+  };
+}
+
+// 문의 체크리스트 동기화 — 봇이 수집한 슬롯을 대화에 저장해 작가 화면에서
+// "무엇이 확인됐고 무엇이 남았는지"를 실시간으로 보게 한다. 실패해도 대화 계속.
+export async function syncBotSlots(
+  conversationId: string,
+  slots: Record<string, unknown>
+): Promise<void> {
+  try {
+    const me = await getCurrentUser();
+    if (!me || !conversationId || !slots || typeof slots !== "object") return;
+    const clean = cleanSlots(slots);
+    const admin = createAdminClient();
+    const { data: conv } = await admin
+      .from("conversations")
+      .select("id, user_id")
+      .eq("id", conversationId)
+      .maybeSingle();
+    if (!conv || conv.user_id !== me.id) return; // 내 방만
+    await admin.from("conversations").update({ bot_slots: clean }).eq("id", conversationId);
+  } catch (err) {
+    console.error("[bot-chat] 슬롯 동기화 실패:", err instanceof Error ? err.message : err);
+  }
+}
+
+// 챗봇 대화 실시간 동기화 — 매 턴 새 발화를 messages(type='bot')로 저장.
+// 작가가 진행 중에도 방에서 대화를 보고 개입할 수 있게 하는 핵심 배선. 실패해도 대화 계속.
+export async function appendBotTurns(
+  conversationId: string,
+  turns: { role: "user" | "bot" | "photographer"; text: string }[]
+): Promise<boolean> {
+  try {
+    const me = await getCurrentUser();
+    if (!me || !conversationId || turns.length === 0) return false;
+    if (turns.length > 40) return false; // 폭주 가드
+    const admin = createAdminClient();
+    const { data: conv } = await admin
+      .from("conversations")
+      .select("id, user_id, photographer_id")
+      .eq("id", conversationId)
+      .maybeSingle();
+    if (!conv || conv.user_id !== me.id) return false; // 내 방만
+    const { data: photographer } = await admin
+      .from("photographers")
+      .select("profile_id")
+      .eq("id", conv.photographer_id)
+      .single();
+    // photographer 역할 발화는 실제 작가 메시지(type='text')로 이미 존재 — 중복 저장 금지
+    const rows = turns
+      .filter((t) => t.role !== "photographer" && t.text.trim().length > 0)
+      .map((t, i) => ({
+        conversation_id: conversationId,
+        sender_id: t.role === "user" ? me.id : (photographer!.profile_id as string),
+        type: "bot" as const,
+        body: t.text.slice(0, 4000),
+        created_at: new Date(Date.now() - (turns.length - i) * 20).toISOString(), // 순서 고정
+      }));
+    if (rows.length === 0) return true;
+    const { error } = await admin.from("messages").insert(rows);
+    return !error;
+  } catch (err) {
+    console.error("[bot-chat] 턴 동기화 실패:", err instanceof Error ? err.message : err);
+    return false;
+  }
+}
+
 // 문의 폼 제출 — 연락 수단 검증을 통과하면 작가에게 알림을 보낸다.
 export async function submitInquiry(
   _prevState: InquiryState,
@@ -183,15 +332,16 @@ export async function submitInquiry(
 
   if (me) {
     const supabase = await createClient();
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        phone: contact.phone,
-        kakao_id: contact.kakaoId,
-        contact_email: contact.contactEmail,
-      })
-      .eq("id", me.id);
-    if (error) return { ok: false, error: error.message, values };
+    // 이번에 입력한 수단만 갱신 — 카톡ID만 제출해도 기존 phone 이 null 로 덮이지 않게
+    // (SMS 재소환이 profiles.phone 에 의존하므로 번호 유실은 알림 유실이다)
+    const patch: Record<string, string> = {};
+    if (contact.phone) patch.phone = contact.phone;
+    if (contact.kakaoId) patch.kakao_id = contact.kakaoId;
+    if (contact.contactEmail) patch.contact_email = contact.contactEmail;
+    if (Object.keys(patch).length > 0) {
+      const { error } = await supabase.from("profiles").update(patch).eq("id", me.id);
+      if (error) return { ok: false, error: error.message, values };
+    }
   }
 
   brief.refImagePaths = await uploadReferenceImages(formData);
@@ -212,9 +362,33 @@ export async function submitInquiry(
   if (isNew) {
     await notifyPhotographer(photographerId, inquiryId, me?.displayName ?? null, contact, brief);
 
-    // 운영진 디스코드 알림 — 리드 플로우 시작. 운영진 전용 채널이라 어드민 정보(연락처·유입·
-    // 브리프) + 어드민 딥링크 포함. 실패해도 접수는 성공.
-    await notifyOpsNewInquiry({ inquiryId });
+    // 운영(디스코드) 알림은 접수 시점에 울리지 않는다 — 체결·입금 신고에서만 (에스크로 전환).
+
+    // C3 — 챗봇 대화·요약을 채팅방으로 승격 (로그인 사용자만: 방은 user↔photographer 1:1).
+    // 실패해도 접수는 이미 성공 — 부가 경로라 결과만 로그.
+    if (me) {
+      let transcript: BotChatMessage[] = [];
+      try {
+        const raw = String(formData.get("botTranscript") || "");
+        if (raw) transcript = JSON.parse(raw) as BotChatMessage[];
+      } catch {
+        transcript = [];
+      }
+      await promoteBotInquiryToChat({
+        userId: me.id,
+        photographerId,
+        transcript,
+        summary: {
+          inquiryId,
+          photoId: photoId || null,
+          purpose: brief.purpose ?? "문의",
+          preferredDate: brief.preferredDate ?? "미정",
+          region: brief.region ?? "미정",
+          partySize: brief.partySize,
+          note: brief.note,
+        },
+      });
+    }
   }
 
   return {
@@ -222,6 +396,136 @@ export async function submitInquiry(
     message: "문의가 작가에게 전달되었어요. 작가가 확인 후 연락드릴 예정입니다.",
     inquiryId,
   };
+}
+
+// 촬영 예약 문의(숨고형 폼) 제출 → 작가 채팅방.
+// 연락처는 묻지 않는다 — 이미 로그인·번호 인증을 거친 사용자만 접수되고, 작가에게 연락처는
+// 어떤 단계에서도 비공개다. 답변은 봇과 같은 슬롯 형태로 받아 봇 접수 경로(finalizeBotInquiryFor)를
+// 그대로 태운다 → 작가는 봇이 수집했을 때와 완전히 동일한 요약 카드·알림을 받는다.
+export async function submitInquiryToChat(
+  _prevState: InquiryState,
+  formData: FormData
+): Promise<InquiryState> {
+  const photographerId = String(formData.get("photographerId") || "");
+  const photoId = String(formData.get("photoId") || "") || null;
+  if (!photographerId) return { ok: false, error: "작가 정보를 찾지 못했어요." };
+
+  const me = await getCurrentUser();
+  if (!me) return { ok: false, needLogin: true };
+  if (me.photographer?.id === photographerId) {
+    return { ok: false, error: "본인에게는 문의할 수 없어요." };
+  }
+
+  let raw: Record<string, unknown> = {};
+  try {
+    raw = JSON.parse(String(formData.get("slots") || "{}")) as Record<string, unknown>;
+  } catch {
+    raw = {};
+  }
+  const slots = cleanSlots(raw);
+
+  // 방 선확보 — 이미 있으면 재사용(conversations 는 user+photographer 유니크)하고 복귀 사진만 갱신.
+  // 승격(promoteBotInquiryToChat)도 같은 규칙으로 방을 찾으므로 중복 방은 생기지 않는다.
+  const conversationId = await ensureBotConversation(photographerId, photoId);
+  // 방의 체크리스트(작가 화면)도 봇 수집과 같은 상태로 — 폼으로 받았을 뿐 수집 결과는 동일하다.
+  if (conversationId) await syncBotSlots(conversationId, slots);
+
+  const result = await finalizeBotInquiryFor({
+    customerId: me.id,
+    photographerId,
+    photoId,
+    slots,
+    // 봇 수집 문의와 동일 — 작가가 아직 방에 들어오지 않은 상태의 접수다.
+    notifyPhotographerFlag: true,
+  });
+  // 접수 보류 사유는 프로필 번호 없음뿐 — 가입 마무리(OTP)로 보내고 돌아오게 한다.
+  if (!result.ok) return { ok: false, needContact: true };
+
+  await rememberInquiryIds([result.inquiryId!]);
+
+  // ensureBotConversation 이 실패했어도 승격이 방을 만들었으므로 한 번 더 찾는다.
+  const roomId = conversationId ?? (await findConversationId(me.id, photographerId));
+  if (!roomId) return { ok: false, error: "채팅방을 열지 못했어요. 잠시 후 다시 시도해주세요." };
+
+  return { ok: true, inquiryId: result.inquiryId, conversationId: roomId };
+}
+
+async function findConversationId(userId: string, photographerId: string): Promise<string | null> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("conversations")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("photographer_id", photographerId)
+    .maybeSingle();
+  return (data?.id as string | undefined) ?? null;
+}
+
+// 채팅방 상주 봇 접수 — 고객 컨텍스트 없이도(작가 개입 트리거 포함) 서버가 대신 접수한다.
+// submitInquiry 와 같은 저장·알림·승격 경로의 축약판. 중복은 findRecentDuplicate +
+// promote 의 summary dedupe 로 방지 (호출부도 summary_card 존재를 선검사한다).
+export async function finalizeBotInquiryFor(params: {
+  customerId: string;
+  photographerId: string;
+  photoId: string | null;
+  slots: import("@/lib/inquiry-bot-llm").LlmSlots;
+  /** 작가 본인 개입으로 트리거된 접수면 작가 알림 생략 (본인이 이미 보고 있다) */
+  notifyPhotographerFlag: boolean;
+}): Promise<{ ok: boolean; inquiryId?: string }> {
+  const registered = await profileContact(params.customerId);
+  if (!registered) return { ok: false }; // 알림 연락처 없이는 접수 보류
+  const { contact, displayName } = registered;
+
+  const fields = toInquiryFields(buildFlow(), slotsToAnswers(params.slots));
+  const customLines = Object.entries(params.slots.custom ?? {}).map(([k, v]) => `${k}: ${v}`);
+  const brief: BriefInfo = {
+    partySize: fields.partySize || null,
+    purpose: fields.purpose || "문의",
+    preferredDate: fields.preferredDate || "미정",
+    region: fields.region || "미정",
+    note: customLines.length > 0 ? `[챗봇 수집]\n${customLines.join("\n")}` : null,
+    gender: null,
+    name: null,
+    refImagePaths: [],
+  };
+  const result = await createInquiry(
+    params.customerId,
+    params.photographerId,
+    params.photoId ?? "",
+    contact,
+    brief,
+    { fbp: null, fbc: null },
+    { utmSource: null, utmMedium: null, utmCampaign: null, utmContent: null, utmTerm: null, landingPath: null }
+  );
+  if (!result) return { ok: false };
+  if (result.isNew) {
+    if (params.notifyPhotographerFlag) {
+      await notifyPhotographer(
+        params.photographerId,
+        result.id,
+        displayName,
+        contact,
+        brief
+      );
+    }
+    // 운영(디스코드) 알림은 여기서 울리지 않는다 — 실제 비즈니스 트리거는
+    // 체결(notifyOpsBookingAccepted)·입금 신고(notifyOpsBookingDeposit)에서.
+    await promoteBotInquiryToChat({
+      userId: params.customerId,
+      photographerId: params.photographerId,
+      transcript: [], // 대화는 이미 방(DB)에 있다
+      summary: {
+        inquiryId: result.id,
+        photoId: params.photoId,
+        purpose: brief.purpose ?? "문의",
+        preferredDate: brief.preferredDate ?? "미정",
+        region: brief.region ?? "미정",
+        partySize: brief.partySize,
+        note: brief.note,
+      },
+    });
+  }
+  return { ok: true, inquiryId: result.id };
 }
 
 // 같은 작가에게 최근 2분 내 동일인(로그인=profile_id, 비로그인=연락처) 문의가 있으면 그 id 재사용
@@ -394,32 +698,14 @@ export async function submitMultiInquiry(
   ];
   const values = readInquiryValues(formData);
   const me = await getCurrentUser();
-
-  let contact: ContactInfo;
-  let brief: BriefInfo;
-  try {
-    contact = validateContactInfo(formData);
-    brief = validateBriefInfo(formData);
-  } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "연락 수단을 확인해주세요.",
-      values,
-    };
-  }
   if (photoIds.length === 0) return { ok: false, error: "선택한 사진이 없어요.", values };
 
-  if (me) {
-    const supabase = await createClient();
-    await supabase
-      .from("profiles")
-      .update({
-        phone: contact.phone,
-        kakao_id: contact.kakaoId,
-        contact_email: contact.contactEmail,
-      })
-      .eq("id", me.id);
-  }
+  // 묶음 상담도 연락처를 묻지 않는다 — 등록된 번호로 접수하고 대화는 각 작가 채팅방에서.
+  if (!me) return { ok: false, needLogin: true, values };
+  const registered = await profileContact(me.id);
+  if (!registered) return { ok: false, needContact: true, values };
+  const { contact } = registered;
+  const brief = validateBriefInfo(formData);
 
   brief.refImagePaths = await uploadReferenceImages(formData);
 
@@ -448,13 +734,28 @@ export async function submitMultiInquiry(
   const createdIds: string[] = [];
   for (const [photographerId, repPhotoId] of repByPhotographer) {
     // 본인(작가)이 자기 사진에 보낸 건 건너뜀
-    if (me?.photographer?.id === photographerId) continue;
-    const result = await createInquiry(me?.id ?? null, photographerId, repPhotoId, contact, brief, ad, acq);
+    if (me.photographer?.id === photographerId) continue;
+    const result = await createInquiry(me.id, photographerId, repPhotoId, contact, brief, ad, acq);
     if (!result) continue;
     createdIds.push(result.id);
     if (!firstInquiryId) firstInquiryId = result.id;
     if (result.isNew) {
-      await notifyPhotographer(photographerId, result.id, me?.displayName ?? null, contact, brief);
+      await notifyPhotographer(photographerId, result.id, me.displayName ?? null, contact, brief);
+      // 대화는 작가별 채팅방에서 — 단건 문의와 같은 요약 카드를 각 방에 올린다.
+      await promoteBotInquiryToChat({
+        userId: me.id,
+        photographerId,
+        transcript: [],
+        summary: {
+          inquiryId: result.id,
+          photoId: repPhotoId,
+          purpose: brief.purpose ?? "문의",
+          preferredDate: brief.preferredDate ?? "미정",
+          region: brief.region ?? "미정",
+          partySize: brief.partySize,
+          note: brief.note,
+        },
+      });
     }
   }
 

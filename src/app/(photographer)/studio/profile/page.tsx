@@ -4,6 +4,9 @@ import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { AvatarUploader } from "@/app/(user)/settings/AvatarUploader";
 import { ProfileForm } from "./ProfileForm";
+import { ContactMethodsEditor } from "./ContactMethodsEditor";
+import { updateContactMethods } from "../actions";
+import { normalizeContactMethods } from "@/lib/photographer-contacts";
 
 export type ProfileInitial = {
   displayName: string;
@@ -25,7 +28,7 @@ export default async function ProfilePage() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("photographers")
-    .select("display_name, bio, regions, mood_tags, price_from_krw")
+    .select("display_name, bio, regions, mood_tags, price_from_krw, contact_methods")
     .eq("id", me.photographer.id)
     .single();
 
@@ -64,6 +67,19 @@ export default async function ProfilePage() {
         </div>
       </section>
       <ProfileForm initial={initial} />
+
+      {/* 고객에게 건넬 연락 수단 — 예약 확정 뒤 [연락처 보내기] 로 한 번에 넘긴다.
+          채팅에 직접 적는 건 여전히 막혀 있다(추적이 끊기면 환불 판정 근거가 사라진다). */}
+      <section className="mt-8 rounded-2xl border border-fg/10 bg-surface p-4">
+        <p className="text-sm font-semibold text-fg">고객에게 보낼 연락처</p>
+        <p className="mt-1 text-xs leading-relaxed text-fg/55">
+          예약이 확정되면 채팅의 예약 카드에서 한 번에 보낼 수 있어요. 고객이 안내를 확인하고
+          동의해야 전달됩니다. 채팅에 직접 적는 건 그전까지 막혀 있어요.
+        </p>
+        <form action={updateContactMethods} className="mt-4">
+          <ContactMethodsEditor initial={normalizeContactMethods(data?.contact_methods)} />
+        </form>
+      </section>
     </main>
   );
 }

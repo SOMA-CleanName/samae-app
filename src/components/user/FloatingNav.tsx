@@ -4,11 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Avatar } from "@/components/ui";
-import { HomeIcon, SearchIcon, ClipboardIcon } from "@/components/user/icons";
-import {
-  homeNavMode,
-  searchSessionStorageKeys,
-} from "@/lib/search-navigation";
+import { HomeIcon, SearchIcon, ClipboardIcon, CameraIcon } from "@/components/user/icons";
+import { homeNavMode, searchSessionStorageKeys } from "@/lib/search-navigation";
 import { ProfileSheet, type ProfileMe } from "./ProfileSheet";
 import { useNavReveal } from "./NavReveal";
 
@@ -20,9 +17,15 @@ const EXPLORE_HINT_DURATION_MS = 3_000;
 export function FloatingNav({
   me,
   hasInquiries = false,
+  unreadCount = 0,
+  studioUnread = 0,
 }: {
   me: ProfileMe | null;
   hasInquiries?: boolean;
+  /** 내가 고객인 방의 안읽음 — '문의' 탭 배지 */
+  unreadCount?: number;
+  /** 내가 작가인 방의 안읽음 — '스튜디오' 탭 배지 */
+  studioUnread?: number;
 }) {
   const pathname = usePathname();
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -60,14 +63,107 @@ export function FloatingNav({
   const homeActive = !previewExplore && (pathname === "/" || pathname.startsWith("/c/"));
   const exploreActive = previewExplore || pathname.startsWith("/explore");
   const inquiriesActive = pathname.startsWith("/my-inquiries");
-  const activeNavIndex = inquiriesActive && hasInquiries
-    ? 0
-    : homeActive
-      ? hasInquiries ? 1 : 0
-      : exploreActive
-        ? hasInquiries ? 2 : 1
-        : -1;
+  const studioActive = pathname.startsWith("/studio");
+
+  // 탭 목록 — 조건부 노출이 둘(문의·스튜디오)이라 인덱스를 손으로 세면 반드시 어긋난다.
+  // 배열이 곧 순서이자 인덱스다.
+  const tabs: {
+    key: string;
+    href: string;
+    label: string;
+    icon: React.ReactNode;
+    active: boolean;
+    badge?: number;
+    attention?: boolean;
+    onClick?: (e: React.MouseEvent<HTMLAnchorElement>) => void;
+  }[] = [];
+
+  if (hasInquiries)
+    tabs.push({
+      key: "inquiries",
+      href: "/my-inquiries",
+      label: "문의",
+      icon: <ClipboardIcon className="h-5 w-5" />,
+      active: inquiriesActive,
+      badge: unreadCount,
+    });
+
+  // 작가에게는 스튜디오가 홈보다 자주 가는 곳이다 — 매번 프로필 시트를 거치게 하지 않는다
+  if (me?.isPhotographer)
+    tabs.push({
+      key: "studio",
+      href: "/studio",
+      label: "스튜디오",
+      icon: <CameraIcon className="h-5 w-5" />,
+      active: studioActive,
+      badge: studioUnread,
+    });
+
+  tabs.push({
+    key: "home",
+    href: "/",
+    label: "홈",
+    icon: <HomeIcon className="h-5 w-5" />,
+    active: homeActive,
+    onClick: (e) => {
+      const currentQuery = new URL(window.location.href).searchParams.get("q");
+      const mode = homeNavMode(pathname, currentQuery);
+
+      // 검색 결과(/?q=)에서 홈을 누르면 q 를 뗀 기본 홈을 최상단부터 새로 연다.
+      // homeActive 만 보면 검색 결과도 '홈'이라 그 자리에서 리로드돼 검색을 못 빠져나온다.
+      if (mode === "leave-search") {
+        e.preventDefault();
+        try {
+          searchSessionStorageKeys(pathname, currentQuery).forEach((key) =>
+            sessionStorage.removeItem(key)
+          );
+          sessionStorage.removeItem("samae:scroll:/");
+          sessionStorage.removeItem("samae:scroll-anchor:/");
+        } catch {
+          /* 스토리지 접근 불가 시 무시 */
+        }
+        window.location.assign("/");
+        return;
+      }
+
+      // 이미 홈(또는 카테고리 컨텍스트)에서 다시 누르면 취향 피드 새로고침.
+      // 피드 캐시를 비우고 리로드 → 서버가 새 시드로 취향순 피드를 다시 내려줌 + 최상단.
+      if (mode === "refresh-home") {
+        e.preventDefault();
+        try {
+          Object.keys(sessionStorage)
+            .filter((k) => k.startsWith("samae:gallery-session:"))
+            .forEach((k) => sessionStorage.removeItem(k));
+          sessionStorage.removeItem(`samae:scroll:${pathname}`);
+        } catch {
+          /* 스토리지 접근 불가 시 무시 */
+        }
+        window.location.reload();
+      }
+    },
+  });
+
+  tabs.push({
+    key: "explore",
+    href: "/explore",
+    label: "탐색",
+    icon: <SearchIcon className="h-5 w-5" />,
+    active: exploreActive,
+    attention: exploreHintVisible,
+  });
+
+  const activeNavIndex = tabs.findIndex((t) => t.active);
   const indicatorIndex = Math.max(activeNavIndex, 0);
+
+  // 탭 폭 — 4개가 되면 5.5rem 씩으로는 좁은 화면에서 넘친다(4×5.5=22rem).
+  // 표시기와 같은 값을 써야 어긋나지 않으므로 숫자 하나로 둔다.
+  // '스튜디오' 는 네 글자라 가장 넓다 — 12px 기준 44px + 아이콘 20 + 간격 4 + 좌우 여백 12 = 80px.
+  // 5.25rem(84px)이면 넘치지 않고, 탭 4개여도 전체 356px 라 일반적인 폰 폭에 들어간다.
+  const compact = tabs.length >= 4;
+  const tabW = compact ? 5.25 : 5.5; // rem
+  const tabStep = tabW + 0.25; // gap-1
+  // 탐색 힌트 말풍선 꼬리 — 마지막 탭 중심을 가리킨다
+  const hintArrowRight = ((tabs.length - 1) / 2) * tabStep + 1;
 
   // 문의·채팅 같은 풀스크린 몰입 플로우에선 내비를 아예 렌더하지 않음 — 전환·애니메이션 중
   // 그 위(z-50)로 잠깐 새어 보이던 문제 방지.
@@ -115,9 +211,7 @@ export function FloatingNav({
             aria-hidden
             className="absolute -bottom-1.5 h-3 w-3 rotate-45 border-b border-r border-line-strong bg-surface"
             style={{
-              right: hasInquiries
-                ? "clamp(1.5rem, calc(50vw - 6.75rem), calc(100% - 1.5rem))"
-                : "clamp(1.5rem, calc(50vw - 3.875rem), calc(100% - 1.5rem))",
+              right: `clamp(1.5rem, calc(50vw - ${hintArrowRight}rem), calc(100% - 1.5rem))`,
             }}
           />
         </div>
@@ -125,8 +219,6 @@ export function FloatingNav({
 
       {/* 가운데 홈/탐색 pill — 바깥 nav 의 레이아웃 박스도 숨김 시 터치 통과시킴 */}
       <nav
-        // 맨 위로 버튼이 이 알약의 오른쪽에 붙으려고 위치를 재 간다.
-        data-floating-nav
         className="fixed bottom-5 left-1/2 z-40 -translate-x-1/2"
         style={{ pointerEvents: visible ? "auto" : "none" }}
       >
@@ -134,84 +226,28 @@ export function FloatingNav({
           <div className="relative flex items-center gap-1 rounded-full bg-bg/95 p-1 shadow-lg ring-1 ring-line backdrop-blur">
             <span
               aria-hidden
-              className="absolute bottom-1 left-1 top-1 w-[5.5rem] rounded-full bg-brand shadow-sm transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+              className="absolute bottom-1 left-1 top-1 rounded-full bg-brand shadow-sm transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
               style={{
+                width: `${tabW}rem`,
                 opacity: activeNavIndex >= 0 ? 1 : 0,
                 transform: `translate3d(calc(${indicatorIndex * 100}% + ${indicatorIndex * 0.25}rem), 0, 0)`,
                 willChange: "transform, opacity",
               }}
             />
-            {/* '문의' — 문의 내역이 있을 때만(쿠키·비로그인 포함). 맨 앞에 노출 */}
-            {hasInquiries && (
+            {tabs.map((t) => (
               <NavPill
-                href="/my-inquiries"
-                label="문의"
-                active={inquiriesActive}
-                icon={<ClipboardIcon className="h-5 w-5" />}
+                key={t.key}
+                href={t.href}
+                label={t.label}
+                active={t.active}
+                icon={t.icon}
+                badge={t.badge}
+                attention={t.attention}
+                width={tabW}
+                compact={compact}
+                onClick={t.onClick}
               />
-            )}
-            {/* 상세에서 홈을 눌러도 일반 탭처럼 이동 — scroll={false} + ScrollMemory 가
-                이전 홈 스크롤 위치·피드를 복원한다(새 방문으로 리셋하지 않음). */}
-            <NavPill
-              href="/"
-              label="홈"
-              active={homeActive}
-              icon={<HomeIcon className="h-5 w-5" />}
-              onClick={(e) => {
-                const currentQuery = new URL(window.location.href).searchParams.get("q");
-                const mode = homeNavMode(pathname, currentQuery);
-                // 검색 결과에서 홈을 누르면 q를 제거한 기본 홈을 최상단부터 새로 연다.
-                if (mode === "leave-search") {
-                  e.preventDefault();
-                  try {
-                    searchSessionStorageKeys(pathname, currentQuery).forEach((key) =>
-                      sessionStorage.removeItem(key)
-                    );
-                    sessionStorage.removeItem("samae:scroll:/");
-                    sessionStorage.removeItem("samae:scroll-anchor:/");
-                  } catch {
-                    /* 스토리지 접근 불가 시 무시 */
-                  }
-                  window.location.assign("/");
-                  return;
-                }
-                // 이미 홈(또는 카테고리 컨텍스트)에서 다시 누르면 취향 피드 새로고침.
-                // 피드 캐시를 비우고 리로드 → 서버가 새 시드로 취향순 피드를 다시 내려줌 + 최상단.
-                if (mode === "refresh-home") {
-                  e.preventDefault();
-                  try {
-                    Object.keys(sessionStorage)
-                      .filter((k) => k.startsWith("samae:gallery-session:"))
-                      .forEach((k) => sessionStorage.removeItem(k));
-                    sessionStorage.removeItem(`samae:scroll:${pathname}`);
-                  } catch {
-                    /* 스토리지 접근 불가 시 무시 */
-                  }
-                  window.location.reload();
-                }
-              }}
-            />
-            <NavPill
-              href="/explore"
-              label="탐색"
-              active={exploreActive}
-              attention={exploreHintVisible}
-              icon={<SearchIcon className="h-5 w-5" />}
-              onClick={(e) => {
-                // 저장된 스크롤 위치를 지워 다른 경로에서 오면 탐색 최상단으로.
-                try {
-                  sessionStorage.removeItem("samae:scroll:/explore");
-                  sessionStorage.removeItem("samae:scroll-anchor:/explore");
-                } catch {
-                  /* 스토리지 접근 불가 시 무시 */
-                }
-                // 이미 탐색이면 한 번 더 누를 때 새로고침(리로드) → 커버·썸네일 새 랜덤 + 최상단.
-                if (exploreActive) {
-                  e.preventDefault();
-                  window.location.reload();
-                }
-              }}
-            />
+            ))}
           </div>
         </div>
       </nav>
@@ -288,6 +324,9 @@ function NavPill({
   active,
   attention = false,
   icon,
+  badge = 0,
+  width,
+  compact = false,
   onClick,
 }: {
   href: string;
@@ -295,6 +334,12 @@ function NavPill({
   active: boolean;
   attention?: boolean;
   icon: React.ReactNode;
+  /** 0 이면 안 그린다 */
+  badge?: number;
+  /** rem — 표시기와 같은 값을 받아야 어긋나지 않는다 */
+  width: number;
+  /** 탭이 넷일 때 — 글자를 줄여 라벨이 넘치지 않게 */
+  compact?: boolean;
   onClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void;
 }) {
   return (
@@ -303,15 +348,28 @@ function NavPill({
       scroll={false} // 탭 전환 시 최상단 강제 스크롤 방지 — 위치 복원은 ScrollMemory 가 담당
       onClick={onClick}
       aria-current={active ? "page" : undefined}
+      aria-label={badge > 0 ? `${label} — 안읽음 ${badge}개` : undefined}
+      style={{ width: `${width}rem` }}
       className={[
         // 탭 균등 너비 — 라벨 길이 달라도 같은 크기
-        "relative z-10 flex w-[5.5rem] items-center justify-center gap-1.5 rounded-full px-4 py-2 text-sm font-semibold transition-colors duration-300",
+        "relative z-10 flex shrink-0 items-center justify-center gap-1 rounded-full py-2 font-semibold transition-colors duration-300",
+        compact ? "px-1.5 text-xs" : "px-2 text-sm",
         active ? "text-white" : "text-fg/65 hover:text-brand",
         attention ? "samae-explore-tab-attention text-brand" : "",
       ].join(" ")}
     >
       {icon}
       {label}
+      {/* 안읽음 배지 — pill 바깥 위쪽 모서리. 안에 넣으면 라벨이 밀려 탭 너비가 흔들린다.
+          99를 넘으면 자릿수만 늘어날 뿐 판단은 달라지지 않으므로 99+ 로 자른다 */}
+      {badge > 0 && (
+        <span
+          aria-hidden
+          className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[10px] font-bold leading-none text-white ring-2 ring-bg"
+        >
+          {badge > 99 ? "99+" : badge}
+        </span>
+      )}
     </Link>
   );
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { safeNext } from "@/lib/safe-redirect";
+import { requestOrigin, safeNext } from "@/lib/safe-redirect";
 import { readAnonFavPhotoIds, ANON_FAV_COOKIE } from "@/lib/anon-favorites";
 
 const OAUTH_NEXT_COOKIE = "samae_oauth_next";
@@ -9,7 +9,8 @@ const OAUTH_NEXT_COOKIE = "samae_oauth_next";
  * OAuth(카카오) 및 이메일 매직링크 콜백 — 인가 코드를 세션으로 교환.
  */
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
+  const origin = requestOrigin(request); // request.url 의 origin 은 dev 원격 접속에서 localhost 로 보고됨
   const code = searchParams.get("code");
   const cookieNext = request.headers
     .get("cookie")
@@ -21,13 +22,28 @@ export async function GET(request: Request) {
 
   if (code) {
     const supabase = await createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
       // 비로그인 중 쿠키에 쌓인 관심사진 → 계정 favorites 로 병합(중복 무시) 후 쿠키 비움
       await mergeAnonFavorites(supabase);
-      const res = NextResponse.redirect(`${origin}${next}`);
+      // 연락처 없는 계정(첫 소셜 가입 포함) → 가입 마무리(전화번호 등록)를 거쳐 복귀.
+      // SMS(작가 답장 알림)가 profiles.phone 에 의존하므로 이 단계는 건너뛸 수 없다.
+      const dest = (await needsContact(supabase))
+        ? `/signup/contact?next=${encodeURIComponent(next)}`
+        : next;
+      const res = NextResponse.redirect(`${origin}${dest}`);
       res.cookies.delete(OAUTH_NEXT_COOKIE);
       res.cookies.delete(ANON_FAV_COOKIE);
+      // dev 전용 — 카카오 "나에게 보내기" 실험(/dev/kakao-memo)용 provider 토큰 스태시.
+      // 프로덕션 채택 시엔 쿠키가 아니라 DB(암호화)에 저장·리프레시하는 본구현으로 교체.
+      if (process.env.NODE_ENV !== "production" && data?.session?.provider_token) {
+        res.cookies.set("kakao_pt_dev", data.session.provider_token, {
+          httpOnly: true,
+          maxAge: 6 * 3600,
+          path: "/",
+          sameSite: "lax",
+        });
+      }
       return res;
     }
   }
@@ -35,6 +51,26 @@ export async function GET(request: Request) {
   const res = NextResponse.redirect(`${origin}/login?error=auth`);
   res.cookies.delete(OAUTH_NEXT_COOKIE);
   return res;
+}
+
+// profiles.phone 이 없으면 true — 조회 실패 시 false(로그인 흐름을 막지 않는다).
+async function needsContact(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<boolean> {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return false;
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("phone")
+      .eq("id", user.id)
+      .maybeSingle();
+    return !profile?.phone;
+  } catch {
+    return false;
+  }
 }
 
 // 비로그인 관심사진(쿠키) → 로그인 계정 favorites 병합. 실패해도 로그인 흐름은 계속.

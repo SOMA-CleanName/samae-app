@@ -13,6 +13,24 @@
 
 ---
 
+## 🔥 문의·채팅 시스템 (2026-08-26 전면 개편 — `feat/inquiry-chatbot`)
+
+**채팅·문의·예약·정산 어디든 손대기 전에 `docs/23-inquiry-chat-system.md` 를 반드시 먼저 읽을 것.**
+플로우·파일 맵·DB 마이그레이션(0084~0094, 원격 적용 완료)·알림 트리거·테스트 계정이 전부 거기 있다.
+
+30초 요약:
+- 리드 모델 폐지 → **채팅 상주**: 문의하기 = 방 생성 + 봇 시드 → `/chat/[id]` 안에서 자동응답 봇이 수집(칩 포함) → 작가 개입 가능 → 4/4 자동 접수(요약 카드) → 예약 제안 → **사매 계좌 에스크로** → 어드민 입금확인 → 수수료(6,000) 차감 정산 → 작가 수령 확인 버튼
+- 봇의 진실은 DB: 대화=`messages`(type `bot`/`summary_card` 추가), 슬롯=`conversations.bot_slots`
+- 핵심 파일: `src/lib/inquiry-bot-room.ts`(LLM 턴) · `src/app/(user)/chat/bot-actions.ts`(sendBotTurn) · `ChatRoom.tsx`(봇 모드·체크리스트·에스크로 카드) · `src/lib/moderation.ts`(연락처·SNS·계좌 검열)
+- `/inquiry/bot` 페이지와 `InquiryBotChat.tsx` 는 **레거시**(비로그인 게이트 프리뷰 전용) — 본 플로우 수정은 ChatRoom/bot-actions 쪽에서
+- 테스트: 고객 `roleplay-customer@samae.test` / `samae-test-2026` (시크릿 창) + 본인 작가 계정 2창 역할극. `npx tsx --test src/lib/*.test.ts`
+- 오프플랫폼(연락처·SNS·계좌) 검열은 **임의 완화 금지**. 단 **연락처 전달은 정해진 경로가 있다** —
+  예약 확정 후 작가가 [연락처 보내기] → 고객이 고지·동의 후 수령(`docs/32` §3-3).
+  받는 순간 청약철회 100% 구간이 닫히므로 이 절차를 건너뛰면 환불 판정 근거가 사라진다.
+  고객 연락처는 여전히 작가에게 공개되지 않는다(전달은 작가→고객 단방향)
+
+---
+
 ## 프로젝트 위치
 
 - **본서비스(이 repo)**: `~/Documents/git/samae-app` — 거래 완결형 마켓플레이스 (Next.js 16 + Supabase)

@@ -1,11 +1,47 @@
 /* eslint-disable @next/next/no-img-element */
+import Link from "next/link";
 import { inquiryStatusLabel, type MyInquiry } from "@/lib/my-inquiries-view";
+import { SupportButton } from "@/components/user/SupportButton";
+import type { BookingFieldValue } from "@/lib/booking-fields";
 
-export function MyInquiryList({ inquiries }: { inquiries: MyInquiry[] }) {
+const fmt = new Intl.NumberFormat("ko-KR");
+
+/** 문의 카드에 붙는 예약 요약 — 페이지에서 이미 사람이 읽을 형태로 만들어 내려온다 */
+export type InquiryBooking = {
+  id: string;
+  status: string;
+  statusLabel: string;
+  /** 입금을 알린 뒤 — 사매를 거쳐야 하는 구간 (사매 문의 버튼 노출 조건) */
+  settled: boolean;
+  packageName: string | null;
+  when: string;
+  location: string | null;
+  memo: string | null;
+  amountKrw: number;
+  travelFeeKrw: number;
+  customFields: BookingFieldValue[];
+};
+
+export function MyInquiryList({
+  inquiries,
+  roomByPhotographer = {},
+  bookingByPhotographer = {},
+}: {
+  inquiries: MyInquiry[];
+  /** 작가별 대화방 id — 있으면 '채팅방 열기'가 실제 채팅방(/chat/[id])으로 연결 */
+  roomByPhotographer?: Record<string, string>;
+  /** 작가별 진행 중인 예약 — 있으면 카드에 예약 내용이 함께 뜬다 */
+  bookingByPhotographer?: Record<string, InquiryBooking>;
+}) {
   return (
     <ul className="mt-4 space-y-3.5">
       {inquiries.map((iq) => (
-        <MyInquiryItem key={iq.id} iq={iq} />
+        <MyInquiryItem
+          key={iq.id}
+          iq={iq}
+          roomId={roomByPhotographer[iq.photographerId] ?? null}
+          booking={bookingByPhotographer[iq.photographerId] ?? null}
+        />
       ))}
     </ul>
   );
@@ -17,9 +53,24 @@ const TONE: Record<string, string> = {
   done: "bg-fg/[0.06] text-fg/60",
 };
 
-function MyInquiryItem({ iq }: { iq: MyInquiry }) {
+function MyInquiryItem({
+  iq,
+  roomId,
+  booking,
+}: {
+  iq: MyInquiry;
+  roomId: string | null;
+  booking: InquiryBooking | null;
+}) {
   const st = inquiryStatusLabel(iq.status);
   const title = iq.purpose && iq.purpose !== "아직 고민 중이에요" ? `${iq.purpose} 문의` : "문의";
+  // 실제 대화방이 있으면 그 방으로(작가 답장·요약 카드 포함), 없으면 챗봇 방 재진입
+  const chatHref =
+    roomId != null
+      ? `/chat/${roomId}`
+      : `/inquiry/bot?photographerId=${encodeURIComponent(iq.photographerId)}${
+          iq.photoId ? `&photoId=${encodeURIComponent(iq.photoId)}` : ""
+        }`;
   return (
     <li className="overflow-hidden rounded-2xl bg-surface shadow-sm ring-1 ring-line">
       {/* 상단 히어로 — 문의한 사진 + 날짜/상태 오버레이 */}
@@ -56,7 +107,10 @@ function MyInquiryItem({ iq }: { iq: MyInquiry }) {
           </div>
         )}
 
-        <h3 className="text-body font-bold tracking-tight text-fg">{title}</h3>
+        <h3 className="text-body font-bold tracking-tight text-fg">
+          {iq.photographerName ? `${iq.photographerName} · ` : ""}
+          {title}
+        </h3>
 
         <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3">
           <Cell label="희망일" value={iq.preferredDate} />
@@ -66,6 +120,10 @@ function MyInquiryItem({ iq }: { iq: MyInquiry }) {
           />
           {iq.note ? <Cell label="메모" value={iq.note} full soft /> : null}
         </div>
+
+        {/* 예약이 잡혔으면 그 내용이 곧 결론이다 — 문의 답변보다 아래, 참고사진보다 위.
+            채팅방을 거슬러 올라가지 않아도 일시·장소·금액이 한눈에 보여야 한다 */}
+        {booking && <BookingBlock b={booking} />}
 
         {iq.refImages.length > 0 && (
           <div className="mt-3 border-t border-line pt-3">
@@ -84,20 +142,84 @@ function MyInquiryItem({ iq }: { iq: MyInquiry }) {
           </div>
         )}
 
-        {/* 남긴 연락처 — 구분선으로 분리, 종류는 아이콘으로 */}
-        <div className="mt-3 border-t border-line pt-3">
-          <p className="mb-2 text-caption text-muted">남긴 연락처</p>
-          <div className="space-y-2">
-            {contactRows(iq).map((c, i) => (
-              <div key={i} className="flex items-center gap-2 text-body-sm leading-4 text-fg">
-                <ContactIcon kind={c.kind} />
-                <span className="min-w-0 break-all">{c.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* 채팅방 재진입 — 문의가 "보내고 끝"이 아니라 이어지는 대화임을 카드에서 보여준다 */}
+        <Link
+          href={chatHref}
+          className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-xl bg-fg py-3 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90"
+        >
+          채팅방 열기
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2.2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="h-3.5 w-3.5"
+            aria-hidden
+          >
+            <path d="m9 6 6 6-6 6" />
+          </svg>
+        </Link>
+
+        {/* 확정된 예약이 있을 때만 — 환불·날짜 변경은 예약이 있어야 성립한다.
+            채팅방까지 들어가야 보이던 창구를 목록에서 바로 열어준다 */}
+        {booking?.settled && (
+          <SupportButton bookingId={booking.id} conversationId={roomId} variant="list" />
+        )}
       </div>
     </li>
+  );
+}
+
+// 확정된 예약 내용 — 채팅 카드와 같은 항목을 같은 순서로 보여준다.
+// 두 화면이 다른 걸 보여주면 어느 쪽이 진짜인지 흔들린다.
+function BookingBlock({ b }: { b: InquiryBooking }) {
+  const shootFee = Math.max(0, b.amountKrw - b.travelFeeKrw);
+  return (
+    <div className="mt-3 rounded-2xl border border-line bg-bg p-3.5">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-caption font-semibold text-muted">예약 내용</p>
+        <span className="rounded-full bg-fg/[0.06] px-2.5 py-1 text-caption font-medium text-fg">
+          {b.statusLabel}
+        </span>
+      </div>
+
+      {b.packageName && (
+        <p className="mt-2 text-body font-semibold text-fg">{b.packageName}</p>
+      )}
+
+      <dl className="mt-2 flex flex-col gap-1.5">
+        <BookingRow k="일시" v={b.when} />
+        {b.location && <BookingRow k="장소" v={b.location} />}
+        {b.customFields.map((f) => (
+          <BookingRow key={f.id} k={f.label} v={f.value} />
+        ))}
+        {b.memo && <BookingRow k="메모" v={b.memo} />}
+      </dl>
+
+      <div className="mt-2.5 border-t border-line pt-2.5">
+        {b.travelFeeKrw > 0 && (
+          <div className="flex items-center justify-between text-caption text-muted">
+            <span>촬영비 ₩{fmt.format(shootFee)}</span>
+            <span>출장비 ₩{fmt.format(b.travelFeeKrw)}</span>
+          </div>
+        )}
+        <div className="mt-0.5 flex items-center justify-between">
+          <span className="text-caption text-muted">합계</span>
+          <span className="text-body font-bold text-fg">₩{fmt.format(b.amountKrw)}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BookingRow({ k, v }: { k: string; v: string }) {
+  return (
+    <div className="flex gap-2 text-caption">
+      <dt className="w-14 shrink-0 text-muted">{k}</dt>
+      <dd className="min-w-0 flex-1 whitespace-pre-wrap break-words text-fg">{v}</dd>
+    </div>
   );
 }
 
@@ -123,52 +245,5 @@ function Cell({
         {value}
       </p>
     </div>
-  );
-}
-
-type ContactKind = "name" | "phone" | "kakao" | "email";
-
-function contactRows(iq: MyInquiry): { kind: ContactKind; value: string }[] {
-  const rows: { kind: ContactKind; value: string }[] = [];
-  if (iq.name) rows.push({ kind: "name", value: iq.name });
-  if (iq.phone) rows.push({ kind: "phone", value: iq.phone });
-  if (iq.kakao) rows.push({ kind: "kakao", value: iq.kakao });
-  if (iq.email) rows.push({ kind: "email", value: iq.email });
-  if (rows.length === 0) rows.push({ kind: "email", value: "-" });
-  return rows;
-}
-
-function ContactIcon({ kind }: { kind: ContactKind }) {
-  const cls = "h-4 w-4 shrink-0 text-muted";
-  if (kind === "phone")
-    return (
-      <svg viewBox="0 0 24 24" className={cls} fill="none" stroke="currentColor" strokeWidth="1.8">
-        <path
-          d="M4 5c0-.6.4-1 1-1h2.3c.5 0 .9.3 1 .8l.8 3c.1.4 0 .8-.3 1.1L7.3 10.4a12 12 0 0 0 6.3 6.3l1.5-1.5c.3-.3.7-.4 1.1-.3l3 .8c.5.1.8.5.8 1V19c0 .6-.4 1-1 1A15 15 0 0 1 4 5z"
-          strokeLinejoin="round"
-        />
-      </svg>
-    );
-  if (kind === "name")
-    return (
-      <svg viewBox="0 0 24 24" className={cls} fill="none" stroke="currentColor" strokeWidth="1.8">
-        <circle cx="12" cy="8" r="3.5" />
-        <path d="M5 19c0-3.3 3.1-5.5 7-5.5s7 2.2 7 5.5" strokeLinecap="round" />
-      </svg>
-    );
-  if (kind === "kakao")
-    return (
-      <svg viewBox="0 0 24 24" className={cls} fill="none" stroke="currentColor" strokeWidth="1.8">
-        <path
-          d="M12 4.5c-4.3 0-7.8 2.6-7.8 5.9 0 2.1 1.5 4 3.6 5-.2.7-.7 2.4-.8 2.7 0 .2.2.3.4.2.3-.2 2.6-1.8 3-2.1.5.1 1 .1 1.6.1 4.3 0 7.8-2.6 7.8-5.9S16.3 4.5 12 4.5z"
-          strokeLinejoin="round"
-        />
-      </svg>
-    );
-  return (
-    <svg viewBox="0 0 24 24" className={cls} fill="none" stroke="currentColor" strokeWidth="1.8">
-      <rect x="3" y="5" width="18" height="14" rx="2.5" />
-      <path d="M4 7l8 5.5L20 7" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
   );
 }

@@ -251,5 +251,5 @@ function ProfileCta({
 }
 
 function inquiryHref(photographerId: string) {
-  return `/inquiry?photographerId=${encodeURIComponent(photographerId)}`;
+  return `/inquiry/bot?photographerId=${encodeURIComponent(photographerId)}`;
 }

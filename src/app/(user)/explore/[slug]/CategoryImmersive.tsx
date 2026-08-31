@@ -21,10 +21,10 @@ function formatDuration(min: number): string {
   return m === 0 ? `${h}시간` : `${h}시간 ${m}분`;
 }
 
-// 사진 상세와 동일한 문의 링크 (/inquiry?photographerId&photoId)
+// 사진 상세와 동일한 문의 링크 (/inquiry/bot?photographerId&photoId)
 function inquiryHref(photographerId: string, photoId: string) {
   const params = new URLSearchParams({ photographerId, photoId });
-  return `/inquiry?${params.toString()}`;
+  return `/inquiry/bot?${params.toString()}`;
 }
 
 // 카테고리 몰입 뷰 — 풀스크린 세로 스와이프(사진이 바로 크게) + 하단 필름스트립으로 빠른 이동.

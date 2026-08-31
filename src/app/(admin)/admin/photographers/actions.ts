@@ -222,3 +222,45 @@ export async function updateDefaultLeadPrice(formData: FormData) {
   revalidatePath("/admin/photographers");
   revalidatePath("/studio");
 }
+
+// ── 중개 수수료 (docs/32 §2) ───────────────────────────────────
+// 정액과 정률이 공존한다. 작가를 한 명씩 정률로 옮기기 위한 것이고,
+// 설정을 건드리지 않은 작가는 전역 기본(정액 6,000)을 그대로 따른다.
+//
+// 이미 제안된 예약은 fee_snapshot 으로 굳어 있어 여기서 바꿔도 소급되지 않는다.
+import { MAX_FEE_RATE, MIN_FEE_RATE } from "@/lib/platform-fee";
+
+export async function updatePhotographerFee(formData: FormData) {
+  await assertAdmin();
+  const id = String(formData.get("id"));
+  const mode = String(formData.get("mode") ?? "flat") === "rate" ? "rate" : "flat";
+  const raw = String(formData.get("value") ?? "").trim();
+
+  const patch: Record<string, unknown> = { fee_mode: mode };
+
+  if (mode === "rate") {
+    // 화면에서는 퍼센트(10)로 받고 DB 에는 비율(0.1)로 넣는다.
+    // 0.1 대신 10 을 넣는 사고가 잦은 자리라 범위를 여기서도 막는다(DB 제약과 이중).
+    const pct = Number(raw);
+    if (!Number.isFinite(pct) || pct <= 0) throw new Error("요율을 입력해주세요 (예: 10).");
+    const rate = pct / 100;
+    if (rate < MIN_FEE_RATE || rate > MAX_FEE_RATE)
+      throw new Error(`요율은 ${MIN_FEE_RATE * 100}% ~ ${MAX_FEE_RATE * 100}% 사이여야 해요.`);
+    patch.fee_rate = rate;
+  } else {
+    // 비우면 전역 기본값을 따른다
+    const amount = raw ? Number(raw.replace(/[^0-9]/g, "")) : null;
+    if (amount !== null && (!Number.isFinite(amount) || amount < 0))
+      throw new Error("수수료 금액이 올바르지 않아요.");
+    patch.fee_amount_krw = amount;
+    patch.fee_rate = null;
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin.from("photographers").update(patch).eq("id", id);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/admin/photographers");
+  revalidatePath("/admin/transactions");
+}
+

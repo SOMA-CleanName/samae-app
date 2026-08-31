@@ -11,7 +11,9 @@ import {
   deleteApplication,
   updateLeadPrice,
   updateDefaultLeadPrice,
+  updatePhotographerFee,
 } from "./actions";
+import { feeSpecFromRow, feeSpecLabel } from "@/lib/platform-fee";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +26,10 @@ type Row = {
   price_from_krw: number;
   // 리드 단가 — null 이면 기본 단가를 따른다
   lead_price_krw: number | null;
+  // 중개 수수료 — 미설정이면 전역 기본(정액 6,000). docs/32
+  fee_mode: string | null;
+  fee_amount_krw: number | null;
+  fee_rate: number | null;
   review_count: number;
   status: string;
   created_at: string;
@@ -57,7 +63,7 @@ export default async function AdminPhotographersPage() {
   const [{ data }, { data: leadData }, { data: platform }] = await Promise.all([
     supabase
       .from("photographers")
-      .select("id, display_name, bio, regions, mood_tags, price_from_krw, lead_price_krw, review_count, status, created_at")
+      .select("id, display_name, bio, regions, mood_tags, price_from_krw, lead_price_krw, fee_mode, fee_amount_krw, fee_rate, review_count, status, created_at")
       .order("created_at", { ascending: false }),
     supabase
       .from("photographer_applications")
@@ -223,11 +229,15 @@ export default async function AdminPhotographersPage() {
                     <p className="truncate text-caption text-faint">
                       후기 {r.review_count} · 리드 단가 ₩{fmt.format(r.lead_price_krw ?? defaultLeadPrice)}
                       {r.lead_price_krw === null && " (기본)"}
+                      {" · 수수료 "}
+                      {feeSpecLabel(feeSpecFromRow(r))}
+                      {r.fee_mode !== "rate" && r.fee_amount_krw === null && " (기본)"}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 sm:shrink-0">
                   <LeadPriceForm row={r} defaultLeadPrice={defaultLeadPrice} />
+                  <FeeForm row={r} />
                   <StatusBadge status={r.status} />
                   <RowAction row={r} />
                 </div>
@@ -317,6 +327,38 @@ function LeadPriceForm({ row, defaultLeadPrice }: { row: Row; defaultLeadPrice: 
         defaultValue={row.lead_price_krw === null ? "" : String(row.lead_price_krw)}
         placeholder={fmt.format(defaultLeadPrice)}
         ariaLabel={`${row.display_name || "작가"} 리드 단가`}
+      />
+      <PendingButton size="sm" variant="ghost">저장</PendingButton>
+    </form>
+  );
+}
+
+// 작가별 중개 수수료 — 정액(원)과 정률(%)을 한 자리에서 고른다.
+//
+// 요율은 퍼센트로 받고 저장할 때 비율로 바꾼다 (0.1 대신 10 을 넣는 사고가 잦아서다).
+// 정액을 비우고 저장하면 전역 기본값으로 되돌아간다. 이미 제안된 예약은 스냅샷으로
+// 굳어 있어 여기서 바꿔도 소급되지 않는다. (docs/32 §2)
+function FeeForm({ row }: { row: Row }) {
+  const isRate = row.fee_mode === "rate";
+  return (
+    <form action={updatePhotographerFee} className="flex items-center gap-1.5">
+      <input type="hidden" name="id" value={row.id} />
+      <select
+        name="mode"
+        defaultValue={isRate ? "rate" : "flat"}
+        aria-label={`${row.display_name || "작가"} 수수료 방식`}
+        className="cursor-pointer rounded-full border border-line-strong bg-bg px-2.5 py-1.5 text-caption text-fg focus:border-fg/30 focus:outline-none"
+      >
+        <option value="flat">정액</option>
+        <option value="rate">정률</option>
+      </select>
+      <input
+        name="value"
+        inputMode="numeric"
+        defaultValue={isRate ? String(+(Number(row.fee_rate ?? 0) * 100).toFixed(2)) : row.fee_amount_krw === null ? "" : String(row.fee_amount_krw)}
+        placeholder={isRate ? "10" : fmt.format(6000)}
+        aria-label={`${row.display_name || "작가"} 수수료 값`}
+        className="w-20 rounded-full border border-line-strong bg-bg px-3 py-1.5 text-body-sm text-fg placeholder:text-faint focus:border-fg/30 focus:outline-none"
       />
       <PendingButton size="sm" variant="ghost">저장</PendingButton>
     </form>

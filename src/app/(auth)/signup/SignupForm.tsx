@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { mpTrack } from "@/lib/mixpanel";
+import { readNextParam, setOauthNextCookie } from "@/lib/safe-redirect-client";
 import { MailIcon } from "@/components/user/icons";
 import { Divider, Field, KakaoButton, Note, SubmitButton } from "../AuthBits";
+
+/** 가입 후 복귀 경로 — 로그인 페이지에서 next 를 이어받는다(문의 흐름 이탈 방지). */
+const DEFAULT_SIGNUP_NEXT = "/";
 
 // 이메일 가입 노출 여부 — 도메인/커스텀 SMTP 준비 전까지는 false(카카오만).
 // 운영 SMTP 연결 후 true 로 바꾸면 이메일 가입 폼이 다시 노출된다. (docs/15)
@@ -25,6 +29,9 @@ export function SignupForm() {
   const [sent, setSent] = useState(false); // 확인 메일 발송됨
   const [resentMsg, setResentMsg] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0); // 재발송 쿨다운(초) — 이메일 한도 보호
+  const [kakaoLoading, setKakaoLoading] = useState(false);
+
+  const signupNext = () => readNextParam(DEFAULT_SIGNUP_NEXT);
 
   // 회원가입 페이지 진입 — 가입 퍼널 시작점
   useEffect(() => {
@@ -44,7 +51,10 @@ export function SignupForm() {
 
   async function onKakao() {
     setError(null);
+    setKakaoLoading(true);
     mpTrack("Start Kakao Login", { context: "signup" });
+    // 가입 완료 후에도 하던 흐름(문의 등)으로 복귀
+    setOauthNextCookie(signupNext());
     await supabase.auth.signInWithOAuth({
       provider: "kakao",
       options: { redirectTo: `${location.origin}/auth/callback` },
@@ -78,7 +88,7 @@ export function SignupForm() {
     }
     if (data.session) {
       // 이메일 인증 OFF → 즉시 로그인
-      router.push("/");
+      router.push(signupNext());
       router.refresh();
     } else {
       // 인증 ON → 확인 메일 안내
@@ -131,12 +141,9 @@ export function SignupForm() {
         >
           {cooldown > 0 ? `다시 보내기 (${cooldown}초)` : "확인 메일 다시 보내기"}
         </button>
-        <Link
-          href="/login"
-          className="mt-3 block text-center text-body-sm text-muted transition-colors hover:text-fg"
-        >
+        <LoginLink className="mt-3 block text-center text-body-sm text-muted transition-colors hover:text-fg">
           로그인하러 가기
-        </Link>
+        </LoginLink>
       </div>
     );
   }
@@ -144,7 +151,15 @@ export function SignupForm() {
   // ── 가입 폼 ──
   return (
     <>
-      <KakaoButton onClick={onKakao} label="카카오로 시작하기" track="cta:signup_kakao" />
+      <KakaoButton
+        onClick={onKakao}
+        label={kakaoLoading ? "카카오로 이동 중…" : "카카오로 시작하기"}
+        track="cta:signup_kakao"
+        disabled={kakaoLoading}
+      />
+      <p className="mt-2.5 text-center text-caption text-faint">
+        별도 입력 없이 카카오 계정으로 바로 가입돼요
+      </p>
 
       {EMAIL_SIGNUP_ENABLED && (
         <>
@@ -208,12 +223,30 @@ export function SignupFooter() {
   return (
     <p className="text-center text-body-sm text-muted">
       이미 계정이 있나요?{" "}
-      <Link
-        href="/login"
-        className="font-semibold text-fg underline decoration-line-strong underline-offset-4 transition-colors hover:text-brand"
-      >
+      <LoginLink className="font-semibold text-fg underline decoration-line-strong underline-offset-4 transition-colors hover:text-brand">
         로그인
-      </Link>
+      </LoginLink>
     </p>
+  );
+}
+
+/**
+ * 로그인으로 넘어갈 때 복귀 경로를 들고 간다 — 문의 흐름이 여기서 끊기면 안 된다.
+ * useSearchParams 는 Suspense 안에서만 쓴다(밖에 두면 정적 지면이 매 요청 렌더로 떨어진다).
+ */
+function LoginLink({ className, children }: { className?: string; children: React.ReactNode }) {
+  return (
+    <Suspense fallback={<Link href="/login" className={className}>{children}</Link>}>
+      <LoginLinkInner className={className}>{children}</LoginLinkInner>
+    </Suspense>
+  );
+}
+
+function LoginLinkInner({ className, children }: { className?: string; children: React.ReactNode }) {
+  const next = useSearchParams().get("next");
+  return (
+    <Link href={next ? `/login?next=${encodeURIComponent(next)}` : "/login"} className={className}>
+      {children}
+    </Link>
   );
 }

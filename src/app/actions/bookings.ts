@@ -6,6 +6,31 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { mpTrackServer } from "@/lib/mixpanel-server";
+import { notifyOpsBookingAccepted } from "@/lib/ops-alert";
+import { normalizeBookingFields, readBookingFieldValues } from "@/lib/booking-fields";
+import { snapshotFeeForBooking } from "@/lib/payments";
+import { REFUND_WINDOW_DAYS } from "@/lib/refund";
+
+// 희망 날짜 정규화 — shoot_at(시각 확정)이 있으면 그 KST 날짜, 없으면 폼의 YYYY-MM-DD.
+function resolveShootDate(shootAtIso: string | null, dateRaw: string): string | null {
+  if (shootAtIso) {
+    // KST 기준 날짜로 저장 (en-CA = YYYY-MM-DD)
+    return new Date(shootAtIso).toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
+  }
+  return /^\d{4}-\d{2}-\d{2}$/.test(dateRaw) ? dateRaw : null;
+}
+
+// 금액 입력 파싱 — 촬영비·출장비는 폼에서 '각각' 받는다(패키지 가격은 프리필일 뿐).
+// 합계(=입금액)는 서버가 계산한다. 클라이언트가 보낸 총액은 신뢰하지 않는다.
+const MAX_FEE_KRW = 50_000_000;
+function parseFee(raw: FormDataEntryValue | null, label: string): number {
+  const s = String(raw ?? "").replace(/[,\s₩]/g, "");
+  if (s === "") return 0;
+  const n = Number(s);
+  if (!Number.isInteger(n) || n < 0) throw new Error(`${label}는 0 이상의 정수로 입력해주세요.`);
+  if (n > MAX_FEE_KRW) throw new Error(`${label}가 너무 커요.`);
+  return n;
+}
 
 // 알림 생성 헬퍼 (service_role)
 async function notify(
@@ -86,9 +111,14 @@ export async function proposeBooking(formData: FormData) {
   const conversationId = String(formData.get("conversationId"));
   const packageId = String(formData.get("packageId"));
   const shootAtRaw = String(formData.get("shootAt") || "");
+  const shootDateRaw = String(formData.get("shootDate") || "");
   const locationText = String(formData.get("locationText") || "").slice(0, 200);
   const memo = String(formData.get("memo") || "").slice(0, 500);
-  const wantTravel = formData.get("travel") === "on";
+  // 협의된 최종 금액 — 촬영비/출장비 분리 입력
+  const shootFee = parseFee(formData.get("shootFeeKrw"), "촬영비");
+  const travelFee = parseFee(formData.get("travelFeeKrw"), "출장비");
+  const amount = shootFee + travelFee;
+  if (amount <= 0) throw new Error("촬영비를 입력해주세요.");
 
   const supabase = await createClient();
 
@@ -106,20 +136,14 @@ export async function proposeBooking(formData: FormData) {
   const photographerId = conv.photographer_id;
   const userId = conv.user_id;
 
-  // 패키지 스냅샷 + 작가 출장비
-  const [{ data: pkg }, { data: phRow }] = await Promise.all([
-    supabase
-      .from("packages")
-      .select("name, description, price_krw, duration_min, edited_count")
-      .eq("id", packageId)
-      .eq("photographer_id", photographerId) // 타작가 패키지 id로 예약 생성(폼 위조) 차단
-      .single(),
-    supabase.from("photographers").select("travel_fee_krw").eq("id", photographerId).single(),
-  ]);
+  // 패키지 스냅샷 — 제안이 어느 패키지에서 출발했는지 기록(금액의 근거는 아니다)
+  const { data: pkg } = await supabase
+    .from("packages")
+    .select("name, description, price_krw, duration_min, edited_count")
+    .eq("id", packageId)
+    .eq("photographer_id", photographerId) // 타작가 패키지 id로 예약 생성(폼 위조) 차단
+    .single();
   if (!pkg) throw new Error("패키지를 찾을 수 없습니다.");
-
-  const travelFee = wantTravel ? Math.max(0, phRow?.travel_fee_krw ?? 0) : 0;
-  const amount = pkg.price_krw + travelFee;
 
   // 희망 시각 (없으면 협의). 유효하지 않으면 null.
   let shootAt: string | null = null;
@@ -127,6 +151,23 @@ export async function proposeBooking(formData: FormData) {
     const d = new Date(shootAtRaw);
     if (!isNaN(d.getTime())) shootAt = d.toISOString();
   }
+  // 날짜·시간·장소는 필수 — 시간 미정 제안은 결국 채팅으로 다시 조율하게 돼 제안의 의미가 없다.
+  if (!shootAt) throw new Error("촬영 일시를 골라주세요.");
+  if (!locationText.trim()) throw new Error("촬영 장소를 입력해주세요.");
+
+  // 작가가 정의한 추가 항목 — 스펙은 DB 에서 다시 읽는다(폼이 보낸 스펙을 믿지 않는다)
+  const { data: phFields } = await supabase
+    .from("photographers")
+    .select("booking_fields")
+    .eq("id", photographerId)
+    .maybeSingle();
+  const { fields: specs } = normalizeBookingFields(phFields?.booking_fields);
+  const { values: customFields, errors: fieldErrors } = readBookingFieldValues(specs, (n) =>
+    formData.get(n) == null ? null : String(formData.get(n))
+  );
+  if (fieldErrors.length > 0) throw new Error(fieldErrors[0]);
+  // 희망 날짜 — 시간이 미정이어도 날짜는 카드에 남긴다 (shoot_at이 있으면 그 KST 날짜로 통일)
+  const shootDate = resolveShootDate(shootAt, shootDateRaw);
 
   // 양측 제안을 지원하려면 admin 삽입(작가 제안 시 user_id ≠ auth.uid())
   const admin = createAdminClient();
@@ -138,11 +179,16 @@ export async function proposeBooking(formData: FormData) {
       package_id: packageId,
       status: "requested",
       shoot_at: shootAt,
+      shoot_date: shootDate,
       duration_min: pkg.duration_min ?? null,
       location_text: locationText,
+      custom_fields: customFields,
       amount_krw: amount,
       travel_fee_krw: travelFee,
       package_snapshot: pkg,
+      // 수수료 근거를 제안 시점에 굳힌다 — 뒤에 작가 요율이 바뀌어도
+      // 이미 협의된 이 거래의 정산·환불 금액은 흔들리면 안 된다 (docs/32 §2)
+      fee_snapshot: await snapshotFeeForBooking(admin, photographerId, amount, travelFee),
       memo,
       proposed_by_photographer: amPhotographer,
     })
@@ -173,6 +219,10 @@ export async function proposeBooking(formData: FormData) {
     `Propose Booking:${booking.id}`,
   );
 
+  // 같은 URL 로 redirect 하므로 캐시를 먼저 버려야 한다 —
+  // 안 그러면 제안한 쪽 화면이 옛 데이터(카드 없는 상태)로 다시 렌더된다.
+  revalidatePath(`/chat/${conversationId}`);
+  revalidatePath("/chat");
   redirect(`/chat/${conversationId}`);
 }
 
@@ -184,40 +234,100 @@ export async function updateBooking(formData: FormData) {
   const conversationId = String(formData.get("conversationId"));
   const packageId = String(formData.get("packageId"));
   const shootAtRaw = String(formData.get("shootAt") || "");
+  const shootDateRaw = String(formData.get("shootDate") || "");
   const locationText = String(formData.get("locationText") || "").slice(0, 200);
   const memo = String(formData.get("memo") || "").slice(0, 500);
-  const wantTravel = formData.get("travel") === "on";
+  const shootFee = parseFee(formData.get("shootFeeKrw"), "촬영비");
+  const travelFee = parseFee(formData.get("travelFeeKrw"), "출장비");
+  const amount = shootFee + travelFee;
+  if (amount <= 0) throw new Error("촬영비를 입력해주세요.");
 
   const admin = createAdminClient();
 
-  // 본인 + requested 상태만 수정 가능
+  // 수정 권한은 단계에 따라 다르다.
+  //
+  //  · requested (수락 전) — 제안한 쪽. 예약서에 금액·일시·장소까지 들어가면서
+  //    오타 한 번에 취소하고 다시 쓰는 게 너무 비쌌다.
+  //  · paid (입금 확인됨, 촬영 전) — **작가만.** 날짜 변경은 작가 재량으로만 성사되고(docs/32 §3-6),
+  //    현장 사정으로 장소·시간이 바뀌는 건 작가가 판단한다. 고객이 확정된 예약을
+  //    혼자 고칠 수 있으면 그건 협의가 아니라 통보가 된다.
+  //  · accepted (입금 대기) — 아무도. 금액이 바뀌면 고객이 이미 보고 있는 입금액과 어긋난다.
   const { data: b } = await admin
     .from("bookings")
-    .select("id, user_id, photographer_id, status")
+    .select(
+      "id, user_id, photographer_id, status, proposed_by_photographer, amount_krw, travel_fee_krw, shoot_at, package_id"
+    )
     .eq("id", id)
     .single();
-  if (!b || b.user_id !== me.id) throw new Error("권한이 없습니다.");
-  if (b.status !== "requested") throw new Error("수정할 수 없는 상태입니다.");
+  if (!b) throw new Error("예약을 찾을 수 없습니다.");
 
-  // 패키지 스냅샷 + 작가 출장비 재계산
-  const [{ data: pkg }, { data: phRow }] = await Promise.all([
-    admin
-      .from("packages")
-      .select("name, description, price_krw, duration_min, edited_count")
-      .eq("id", packageId)
-      .eq("photographer_id", b.photographer_id) // 타작가 패키지 id로 수정(폼 위조) 차단
-      .single(),
-    admin.from("photographers").select("travel_fee_krw").eq("id", b.photographer_id).single(),
-  ]);
+  const amPhotographerHere = me.photographer?.id === b.photographer_id;
+  // 촬영이 끝난 뒤(shot 이후)에는 바꿀 것이 없다 — 지난 일시를 고치는 건 기록을 흐릴 뿐이다
+  const afterPayment = b.status === "paid";
+
+  if (afterPayment) {
+    if (!amPhotographerHere)
+      throw new Error("입금이 확인된 예약은 작가만 수정할 수 있어요. 변경이 필요하면 채팅으로 요청해주세요.");
+    // 돈은 이미 오갔다 — 금액·패키지가 바뀌면 결제·수수료 원장과 어긋난다.
+    // 변경이 정말 필요하면 취소·환불 후 새로 잡는 게 맞다.
+    if (amount !== (b.amount_krw ?? 0))
+      throw new Error("입금이 끝난 예약의 금액은 바꿀 수 없어요. 금액이 달라지면 사매에 문의해주세요.");
+    if (packageId !== b.package_id)
+      throw new Error("입금이 끝난 예약의 패키지는 바꿀 수 없어요.");
+  } else {
+    const isProposer = b.proposed_by_photographer
+      ? amPhotographerHere
+      : b.user_id === me.id;
+    if (!isProposer) throw new Error("제안한 쪽만 수정할 수 있습니다.");
+    if (b.status !== "requested") throw new Error("수정할 수 없는 상태입니다.");
+  }
+
+  // 패키지 스냅샷 재기록 (금액은 폼의 촬영비·출장비가 진실)
+  const { data: pkg } = await admin
+    .from("packages")
+    .select("name, description, price_krw, duration_min, edited_count")
+    .eq("id", packageId)
+    .eq("photographer_id", b.photographer_id) // 타작가 패키지 id로 수정(폼 위조) 차단
+    .single();
   if (!pkg) throw new Error("패키지를 찾을 수 없습니다.");
-
-  const travelFee = wantTravel ? Math.max(0, phRow?.travel_fee_krw ?? 0) : 0;
-  const amount = pkg.price_krw + travelFee;
 
   let shootAt: string | null = null;
   if (shootAtRaw) {
     const d = new Date(shootAtRaw);
     if (!isNaN(d.getTime())) shootAt = d.toISOString();
+  }
+  // 날짜·시간·장소는 필수 — 시간 미정 제안은 결국 채팅으로 다시 조율하게 돼 제안의 의미가 없다.
+  if (!shootAt) throw new Error("촬영 일시를 골라주세요.");
+  if (!locationText.trim()) throw new Error("촬영 장소를 입력해주세요.");
+
+  // 작가가 정의한 추가 항목 — 스펙은 DB 에서 다시 읽는다(폼이 보낸 스펙을 믿지 않는다)
+  const { data: phFields } = await admin
+    .from("photographers")
+    .select("booking_fields")
+    .eq("id", b.photographer_id)
+    .maybeSingle();
+  const { fields: specs } = normalizeBookingFields(phFields?.booking_fields);
+  const { values: customFields, errors: fieldErrors } = readBookingFieldValues(specs, (n) =>
+    formData.get(n) == null ? null : String(formData.get(n))
+  );
+  if (fieldErrors.length > 0) throw new Error(fieldErrors[0]);
+  const shootDate = resolveShootDate(shootAt, shootDateRaw);
+
+  // 입금 후 날짜 변경은 조건이 있다 (docs/32 §3-6):
+  // 기존 촬영일까지 7일 이상 남아 있고, 새로 잡는 날짜도 7일 이상 뒤여야 한다.
+  // 어느 한쪽이라도 안쪽이면 작가 재량으로도 못 바꾼다 — 그 구간은 환불도 안 되는 구간이라,
+  // 여기서 열어주면 "환불 대신 날짜만 미루기" 로 규정을 우회하는 길이 된다.
+  if (afterPayment && b.shoot_at && shootAt !== b.shoot_at) {
+    const week = REFUND_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    const oldAt = new Date(b.shoot_at).getTime();
+    const newAt = new Date(shootAt).getTime();
+    if (oldAt - now < week)
+      throw new Error(
+        `기존 촬영일까지 ${REFUND_WINDOW_DAYS}일이 안 남아 날짜를 바꿀 수 없어요. 사매에 문의해주세요.`
+      );
+    if (newAt - now < week)
+      throw new Error(`새 촬영일은 지금부터 ${REFUND_WINDOW_DAYS}일 이후로 잡아주세요.`);
   }
 
   // TOCTOU 방지 — read 이후 accept 와 경쟁 시 accepted 예약에 편집이 적용되지 않도록
@@ -227,15 +337,19 @@ export async function updateBooking(formData: FormData) {
     .update({
       package_id: packageId,
       shoot_at: shootAt,
+      shoot_date: shootDate,
       duration_min: pkg.duration_min ?? null,
       location_text: locationText,
+      custom_fields: customFields,
       amount_krw: amount,
       travel_fee_krw: travelFee,
       package_snapshot: pkg,
+      // 금액이 바뀌면 수수료도 달라진다 — 스냅샷을 다시 굳힌다
+      fee_snapshot: await snapshotFeeForBooking(admin, b.photographer_id, amount, travelFee),
       memo,
     })
     .eq("id", id)
-    .eq("status", "requested")
+    .eq("status", b.status) // 읽은 뒤 상태가 바뀌었으면(수락·취소 경쟁) 적용하지 않는다
     .select("id");
   if (error) throw new Error(error.message);
   if (!edited || edited.length === 0) throw new Error("수정할 수 없는 상태입니다.");
@@ -245,9 +359,35 @@ export async function updateBooking(formData: FormData) {
     conversation_id: conversationId,
     sender_id: me.id,
     type: "system",
-    body: "✏️ 예약 제안을 수정했어요",
+    body: afterPayment
+      ? "✏️ 작가가 예약 내용을 변경했어요 — 바뀐 내용을 확인해주세요."
+      : "✏️ 예약 제안이 수정됐어요 — 바뀐 내용을 확인하고 다시 수락해주세요.",
   });
 
+  // 수락할 쪽에 알림 — 방을 보고 있지 않으면 내용이 바뀐 걸 모른 채 수락하게 된다
+  const recipient = b.proposed_by_photographer
+    ? b.user_id
+    : (await admin.from("photographers").select("profile_id").eq("id", b.photographer_id).single())
+        .data?.profile_id;
+  if (recipient) {
+    await notify(
+      admin,
+      recipient,
+      "예약 제안이 수정됐어요",
+      "바뀐 내용을 확인하고 다시 수락해주세요.",
+      `/chat/${conversationId}`
+    );
+  }
+
+  await mpTrackServer("Update Booking", me.id, {
+    booking_id: id,
+    actor: b.proposed_by_photographer ? "photographer" : "customer",
+  });
+
+  // 같은 URL 로 redirect 하므로 캐시를 먼저 버려야 한다 —
+  // 안 그러면 제안한 쪽 화면이 옛 데이터(카드 없는 상태)로 다시 렌더된다.
+  revalidatePath(`/chat/${conversationId}`);
+  revalidatePath("/chat");
   redirect(`/chat/${conversationId}`);
 }
 
@@ -297,7 +437,7 @@ export async function acceptBooking(formData: FormData) {
     .from("bookings")
     .update({ status: "accepted", accepted_at: new Date().toISOString() })
     .eq("id", id)
-    .eq("status", "requested")
+    .eq("status", b.status) // 읽은 뒤 상태가 바뀌었으면(수락·취소 경쟁) 적용하지 않는다
     .select("id");
   // 시간겹침 EXCLUSION 제약(0040) 위반 — 서로 다른 두 예약이 동시에 수락돼 충돌한 경우
   if (acceptErr?.code === "23P01") throw new Error("해당 시간에 이미 다른 예약이 있어요.");
@@ -317,8 +457,11 @@ export async function acceptBooking(formData: FormData) {
         .data?.profile_id
     : b.user_id;
   if (proposerId)
-    await notify(admin, proposerId, "예약이 수락됐어요", "예약이 체결되었습니다.", `/bookings/${id}`);
-  await postSystemMessage(admin, b.user_id, b.photographer_id, me.id, "✅ 예약이 수락되어 체결되었어요.");
+    await notify(admin, proposerId, "예약이 수락됐어요", "고객이 입금하면 예약이 잡혀요.", `/bookings/${id}`);
+  await postSystemMessage(admin, b.user_id, b.photographer_id, me.id, "✅ 예약이 수락됐어요 — 입금하시면 예약이 잡혀요.");
+
+  // 운영 디스코드 — 수락이 거래의 실제 시작 트리거 (문의 접수 시점엔 울리지 않는다)
+  await notifyOpsBookingAccepted({ bookingId: id });
 
   await mpTrackServer(
     "Accept Booking",
@@ -335,6 +478,7 @@ export async function acceptBooking(formData: FormData) {
   revalidatePath(`/bookings/${id}`);
   revalidatePath("/bookings");
   revalidatePath("/chat");
+  revalidatePath("/chat/[conversationId]", "page");
 }
 
 // 요청 거절 — 수락과 동일하게 '제안자의 상대'가 거절한다.
@@ -384,6 +528,7 @@ export async function rejectBooking(formData: FormData) {
   revalidatePath(`/bookings/${id}`);
   revalidatePath("/bookings");
   revalidatePath("/chat");
+  revalidatePath("/chat/[conversationId]", "page");
 }
 
 // 구매자/작가: 결제 전 취소 → 슬롯 해제
@@ -402,19 +547,34 @@ export async function cancelBooking(formData: FormData) {
 
   const isBuyer = b.user_id === me.id;
   const isOwner = me.photographer?.id === b.photographer_id;
-  if (!isBuyer && !isOwner) throw new Error("권한이 없습니다.");
+  // 운영자도 취소할 수 있다 — 수락만 해놓고 입금이 오지 않는 건은 결국 누군가 물러야 하는데,
+  // 당사자가 안 눌러주면 운영이 손쓸 방법이 없었다.
+  const isAdmin = me.role === "admin";
+  if (!isBuyer && !isOwner && !isAdmin) throw new Error("권한이 없습니다.");
   if (!["requested", "accepted"].includes(b.status)) throw new Error("취소할 수 없는 상태입니다.");
+
+  const reason = String(formData.get("reason") ?? "").trim().slice(0, 200);
 
   await admin
     .from("bookings")
-    .update({ status: "cancelled", cancelled_at: new Date().toISOString() })
+    .update({
+      status: "cancelled",
+      cancelled_at: new Date().toISOString(),
+      ...(reason ? { cancel_reason: reason } : {}),
+    })
     .eq("id", id);
 
-  // 상대에게 알림
-  const recipient = isBuyer
-    ? (await admin.from("photographers").select("profile_id").eq("id", b.photographer_id).single()).data?.profile_id
-    : b.user_id;
-  if (recipient) await notify(admin, recipient, "예약이 취소됐어요", "", `/bookings/${id}`);
+  // 알림 — 당사자 취소는 상대에게만, 운영 취소는 양측 모두에게
+  const phProfile = (
+    await admin.from("photographers").select("profile_id").eq("id", b.photographer_id).single()
+  ).data?.profile_id;
+  const recipients =
+    !isBuyer && !isOwner
+      ? [b.user_id, phProfile]
+      : [isBuyer ? phProfile : b.user_id];
+  for (const r of recipients) {
+    if (r) await notify(admin, r, "예약이 취소됐어요", reason, `/bookings/${id}`);
+  }
 
   // 채팅 타임라인에도 취소 기록
   await postSystemMessage(
@@ -422,7 +582,11 @@ export async function cancelBooking(formData: FormData) {
     b.user_id,
     b.photographer_id,
     me.id,
-    isBuyer ? "🚫 고객이 예약을 취소했어요." : "🚫 작가가 예약을 취소했어요."
+    !isBuyer && !isOwner
+      ? `🚫 사매 운영이 예약을 취소했어요.${reason ? ` (${reason})` : ""}`
+      : isBuyer
+        ? "🚫 고객이 예약을 취소했어요."
+        : "🚫 작가가 예약을 취소했어요."
   );
 
   await mpTrackServer(
@@ -432,7 +596,7 @@ export async function cancelBooking(formData: FormData) {
       booking_id: id,
       photographer_id: b.photographer_id,
       from_status: b.status,
-      actor: isBuyer ? "customer" : "photographer",
+      actor: !isBuyer && !isOwner ? "admin" : isBuyer ? "customer" : "photographer",
     },
     // from_status 포함 — 같은 예약이 여러 상태에서 취소될 일은 없지만 방어적으로.
     `Cancel Booking:${id}`,
@@ -441,4 +605,5 @@ export async function cancelBooking(formData: FormData) {
   revalidatePath(`/bookings/${id}`);
   revalidatePath("/bookings");
   revalidatePath("/chat");
+  revalidatePath("/chat/[conversationId]", "page");
 }

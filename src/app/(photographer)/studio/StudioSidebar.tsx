@@ -8,14 +8,17 @@ type Item = { href: string; label: string; badge?: number };
 
 // 운영과 설정을 시각적으로 분리한 작가 스튜디오 네비.
 // 데스크톱: 좌측 고정 사이드바 / 모바일: 상단 가로 스크롤 바.
-export function StudioSidebar() {
+export function StudioSidebar({ chatUnread = 0 }: { chatUnread?: number }) {
   const pathname = usePathname();
   // 홈은 정확히 일치, 나머지는 경로 경계(href 또는 href/...)로 매칭.
   // ('/studio/booking'(예약설정)과 '/studio/bookings'(예약) 접두 충돌 방지)
   const isActive = (href: string) =>
     href === "/studio" ? pathname === "/studio" : pathname === href || pathname.startsWith(href + "/");
 
+  // 채팅이 맨 앞이다 — 탭이 여덟 개라 가로 스크롤인데, 답장은 가장 급한 일이라
+  // 스크롤하지 않고 바로 보여야 한다.
   const ops: Item[] = [
+    { href: "/studio/chat", label: "채팅", badge: chatUnread },
     { href: "/studio", label: "문의" },
     // 후기 탭 숨김(되돌리려면 아래 주석 해제):
     // { href: "/studio/reviews", label: "후기" },
@@ -25,6 +28,7 @@ export function StudioSidebar() {
   //   { href: "/studio/booking", label: "예약 설정" },
   //   { href: "/studio/settlements", label: "수수료" },
   const settings: Item[] = [
+    { href: "/studio/guide", label: "고객 안내 이미지" }, // 사진 상세에 노출되는 촬영 안내 이미지
     { href: "/studio/profile", label: "프로필" },
     { href: "/studio/about", label: "소개 페이지" },
     { href: "/studio/packages", label: "패키지" },
@@ -78,11 +82,16 @@ export function StudioSidebar() {
                 }`}
               >
                 {it.label}
-                {it.badge ? <Dot /> : null}
+                {it.badge ? (
+                  <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[10px] font-bold leading-none text-white ring-2 ring-bg">
+                    {it.badge > 99 ? "99+" : it.badge}
+                  </span>
+                ) : null}
               </Link>
             );
           })}
         </div>
+
       </nav>
     </>
   );
@@ -112,8 +121,4 @@ function SideLink({ item, active }: { item: Item; active: boolean }) {
       ) : null}
     </Link>
   );
-}
-
-function Dot() {
-  return <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-brand" />;
 }

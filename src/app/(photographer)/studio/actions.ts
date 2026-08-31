@@ -265,3 +265,28 @@ async function getCurrentPhotographerId(
     .maybeSingle();
   return data?.id ?? null;
 }
+
+// ── 연락 수단 (docs/32 §3-3) ───────────────────────────────────
+// 예약이 확정된 뒤 고객에게 건넬 것들. 매번 채팅에 타이핑하지 않게 미리 등록해둔다.
+import { normalizeContactMethods } from "@/lib/photographer-contacts";
+
+export async function updateContactMethods(formData: FormData): Promise<void> {
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가만 등록할 수 있어요.");
+
+  let raw: unknown = [];
+  try {
+    raw = JSON.parse(String(formData.get("contact_methods") ?? "[]"));
+  } catch {
+    raw = []; // 형식이 깨져도 화면이 죽지 않게 — 빈 값으로 저장된다
+  }
+
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("photographers")
+    .update({ contact_methods: normalizeContactMethods(raw) })
+    .eq("id", me.photographer.id);
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/studio/profile");
+}

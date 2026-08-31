@@ -19,11 +19,20 @@ import { fetchAuthBackdropPhotos } from "@/lib/auth-backdrop";
 export async function AuthShell({
   title,
   lead,
+  header,
   children,
   footer,
 }: {
-  title: string;
-  lead: string;
+  title?: string;
+  lead?: string;
+  /**
+   * 표제를 클라이언트에서 그려야 할 때 쓰는 자리 (title·lead 대신).
+   *
+   * 로그인은 **어디서 왔는지에 따라 첫 줄이 달라진다** — next 파라미터를 읽어야 하니
+   * 서버에서 문자열로 넘길 수 없다. 로그인 벽은 이탈 지점이라, 맥락 없는
+   * "로그인하세요"가 가장 나쁜 카피다.
+   */
+  header?: ReactNode;
   children: ReactNode;
   /** 폼 아래 한 줄(로그인↔가입 전환 등) */
   footer?: ReactNode;
@@ -101,10 +110,14 @@ export async function AuthShell({
             samae
           </Link>
 
-          <h1 className="mt-6 text-[clamp(1.5rem,6vw,2rem)] font-extrabold leading-[1.2] tracking-[-0.035em]">
-            {title}
-          </h1>
-          <p className="mt-2.5 text-body-sm leading-relaxed text-muted">{lead}</p>
+          {header ?? (
+            <>
+              <h1 className="mt-6 text-[clamp(1.5rem,6vw,2rem)] font-extrabold leading-[1.2] tracking-[-0.035em]">
+                {title}
+              </h1>
+              <p className="mt-2.5 text-body-sm leading-relaxed text-muted">{lead}</p>
+            </>
+          )}
 
           <div className="mt-8">{children}</div>
 

@@ -12,17 +12,21 @@ export function KakaoButton({
   onClick,
   label,
   track,
+  disabled = false,
 }: {
   onClick: () => void;
   label: string;
   track?: string;
+  /** OAuth 리디렉션까지 한 박자 걸린다 — 그 사이 두 번 눌리지 않게. */
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       data-track={track}
-      className="auth-kakao flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#FEE500] py-3.5 text-body-sm font-bold text-[#191600]"
+      className="auth-kakao flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-[#FEE500] py-3.5 text-body-sm font-bold text-[#191600] disabled:opacity-60"
     >
       <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="currentColor" aria-hidden>
         <path d="M12 3.5C6.9 3.5 2.8 6.75 2.8 10.76c0 2.55 1.7 4.79 4.26 6.07l-1.08 4a.33.33 0 0 0 .5.36l4.72-3.12c.26.02.53.03.8.03 5.1 0 9.2-3.25 9.2-7.26S17.1 3.5 12 3.5Z" />

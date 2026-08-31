@@ -4,6 +4,7 @@ import { listChatRooms } from "@/lib/chat";
 import { EmptyState } from "@/components/ui";
 import { ChatIcon } from "@/components/user/icons";
 import { ChatRoomRow } from "@/app/(user)/chat/page";
+import { RealtimeListRefresh } from "@/components/user/RealtimeListRefresh";
 
 export const dynamic = "force-dynamic";
 
@@ -13,10 +14,14 @@ export default async function StudioChatPage() {
   if (!me) redirect("/login?next=/studio/chat");
   if (!me.photographer) redirect("/studio");
 
-  const rooms = await listChatRooms(me);
+  // 스튜디오는 "작가로서 받은 방"만 — 내가 고객으로 보낸 문의는 문의 탭에서 (역할 분리)
+  const photographerId = me.photographer.id;
+  const rooms = (await listChatRooms(me)).filter((r) => r.photographer_id === photographerId);
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8 font-kr sm:px-6">
+      {/* 새 메시지·안읽음 변화 실시간 반영 (목록 리렌더) */}
+      <RealtimeListRefresh />
       <h1 className="text-h1 font-semibold">문의</h1>
       <p className="mt-1 text-body-sm text-muted">고객과의 상담·예약 대화예요.</p>
 
@@ -30,7 +35,7 @@ export default async function StudioChatPage() {
       ) : (
         <ul className="mt-5 divide-y divide-line">
           {rooms.map((c) => (
-            <ChatRoomRow key={c.id} room={c} me={me} />
+            <ChatRoomRow key={c.id} room={c} me={me} viewer="photographer" />
           ))}
         </ul>
       )}
