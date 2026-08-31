@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SiteFooter } from "@/components/SiteFooter";
 import Link from "next/link";
 import { ArrowLeftIcon } from "@/components/user/icons";
 
@@ -85,6 +86,8 @@ export default function PrivacyPage() {
       </div>
 
       <p className="mt-10 text-xs text-faint">시행일: 2026-06-26 · 본 방침은 관련 법령 및 서비스 변경에 따라 개정될 수 있습니다.</p>
+
+      <SiteFooter />
     </main>
   );
 }

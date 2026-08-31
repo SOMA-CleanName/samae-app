@@ -7,8 +7,8 @@
 // 여기 있는 것은 순수 로직(프롬프트 렌더 + 답변 검증)뿐이라 LLM 없이 테스트된다.
 // 카드 데이터는 bot-kb-data.ts (파일 데모 → 이후 photographer_bot_kb 테이블).
 
-import { PLATFORM_POLICY } from "./platform-policy";
-import { BOT_DISPLAY_NAME } from "./bot-identity";
+import { PLATFORM_POLICY } from "./platform-policy.ts";
+import { BOT_DISPLAY_NAME } from "./bot-identity.ts";
 
 export type KbCard = {
   /** 인용·집계의 키 — 편집해도 절대 재발급하지 않는다 */

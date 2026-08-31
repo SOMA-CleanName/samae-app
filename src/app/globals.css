@@ -1213,6 +1213,22 @@ select:focus-visible {
 .photo-frame {
   width: min(100%, calc(var(--photo-cap) * var(--ar)));
 }
+
+/*
+  사진이 실제로 걸린 칸은 뒤를 검게 받친다.
+
+  폭이 min(100%, calc(...)) 라 소수 픽셀로 떨어지는데, 안에 든 검은 판은 그 폭의
+  100% 라 반올림이 어긋나는 자리에서 1px이 빈다. 그 틈으로 페이지 배경(밝은 회색)이
+  비쳐 사진 테두리에 흰 선이 도는 것처럼 보였다.
+  (피드 카드에서 겪은 것과 같은 종류다 — 그쪽은 scale 을 걷어내 고쳤다)
+
+  같은 색으로 받치면 어긋나도 안 보인다. 사진이 프레임을 다 못 채울 때 깔리는 색과도
+  같아서 새로 튀는 색이 아니다. 스켈레톤(loading)에는 안 준다 — 거기 배경은 밝은 회색이라
+  검게 받치면 오히려 테두리가 생긴다.
+*/
+.photo-frame[data-photo-frame] {
+  background: #000;
+}
 @media (min-width: 768px) {
   .photo-frame {
     width: min(60%, calc(var(--photo-cap) * var(--ar)));
