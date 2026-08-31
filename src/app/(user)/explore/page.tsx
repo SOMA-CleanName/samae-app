@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { cookies } from "next/headers";
 import {
   listPublishedExploreSections,
@@ -17,6 +18,8 @@ import { TasteTestCard } from "./TasteTestCard";
 import { PersonaTestCard } from "./PersonaTestCard";
 import { LiveViewers } from "./LiveViewers";
 import { ExploreTabBar, type ExploreTab } from "./ExploreTabBar";
+import { ArticleRail } from "./ArticleRail";
+import { listPublishedArticles } from "@/lib/articles";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +41,9 @@ export default async function ExplorePage({
   // 병렬화 + 60s 인메모리 메모 — 이 데이터는 운영자 큐레이션·일간 랭킹이라
   // 요청마다 다시 계산할 이유가 없다. (개인화 없음 — 키는 광고 타겟뿐)
   const ctx = adCat?.id ?? "all";
+  // 아티클은 개인화가 없고 자주 바뀌지 않아 60초 메모로 충분하다.
+  const articlesPromise = memoTtl("explore:articles", 60_000, () => listPublishedArticles());
+
   const [coverCats, gridItems, popular]: [CoverCat[], GridItem[], Awaited<ReturnType<typeof listPopularPosts>>] =
     await Promise.all([
       // 오늘의 큐레이션 — 이번 세션의 타겟에 속한 무드들(슬라이드 1개 = 무드 1개, 3컷)
@@ -65,6 +71,8 @@ export default async function ExplorePage({
         return scoped;
       }),
     ]);
+
+  const articles = await articlesPromise;
 
   // 중간 메뉴바 탭 — 실제로 렌더되는 섹션만(스크롤 이동 대상).
   const tabs: ExploreTab[] = [
@@ -145,6 +153,20 @@ export default async function ExplorePage({
                   <h2 className="text-title font-bold tracking-tight">사매 인기 스냅</h2>
                 </div>
                 <RecentSnapsRail posts={popular} />
+              </div>
+            )}
+
+            {/* 스냅 촬영 이야기 — 아티클 진입점. 정보 비대칭을 줄이는 롱폼이 여기서 열린다 */}
+            {articles.length > 0 && (
+              <div id="sec-articles" data-pid="sec-articles" className="mt-16 scroll-mt-24">
+                <div className="mb-3 flex items-baseline gap-2 px-1">
+                  <span className="font-display text-body-sm italic text-brand">05</span>
+                  <h2 className="text-title font-bold tracking-tight">스냅 촬영 이야기</h2>
+                  <Link href="/articles" className="ml-auto text-xs text-muted underline">
+                    전체 보기
+                  </Link>
+                </div>
+                <ArticleRail articles={articles} />
               </div>
             )}
 
