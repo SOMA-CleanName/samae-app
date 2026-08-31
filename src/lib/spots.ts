@@ -73,12 +73,6 @@ function orFilter(spot: Spot): string | null {
   return safe.map((k) => `location_text.ilike.%${k}%`).join(",");
 }
 
-/**
- * 키워드가 걸린 공개 사진을 전부 읽어 나열형을 걸러낸다.
- *
- * 콤마 개수는 SQL 로 못 세서 받아 온 뒤 자바스크립트로 거른다.
- * 장소가 세 곳이고 장소당 수십 장이라 그래도 된다.
- */
 /** 이 장소만 가리키는 표기인가 — "성수 골목, 을지로 골목"은 두 장소 중 어디인지 모른다. */
 function namesOnePlace(text: string | null | undefined): boolean {
   if (!text) return false;
@@ -111,6 +105,12 @@ function spreadByAlbum<T extends { id: string; album_id: string | null }>(photos
   return out;
 }
 
+/**
+ * 키워드가 걸린 공개 사진을 전부 읽어 나열형을 걸러내고, 앞자리를 정리한다.
+ *
+ * 콤마 개수는 SQL 로 못 세서 받아 온 뒤 자바스크립트로 거른다.
+ * 장소가 스무 곳 남짓이고 장소당 수십 장이라 그래도 된다.
+ */
 async function fetchMatched(spot: Spot): Promise<MatchedPhoto[]> {
   const or = orFilter(spot);
   if (!or) return [];
@@ -228,6 +228,8 @@ export function formatKrw(n: number): string {
 export type SpotCard = {
   slug: string;
   name: string;
+  /** 광역 지자체 — 목록을 지역별로 묶는 데 쓴다 */
+  city: string;
   area: string;
   /** 이 장소에서 찍힌 공개 사진 수 */
   count: number;
@@ -277,6 +279,7 @@ export async function listSpotCards(limit = 6): Promise<SpotCard[]> {
       return {
         slug: s.slug,
         name: s.name,
+        city: s.city,
         area: s.area,
         count: matched.length,
         coverUrl: covers[0] ?? null,

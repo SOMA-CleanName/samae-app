@@ -830,26 +830,50 @@ select:focus-visible {
   .fi:hover .fi-more { transform: none; }
 }
 
-/* 이번 호의 작가 — 전면 화보.
-   (이 자리에 있던 '인기 사진' 레일·격자는 걷어냈다. 형식이 아니라 주제가 문제였다.) */
+/* ─────────────────────────────────────────────────────────────
+   이번 호의 사진 — 도판(圖版)
+
+   사진 위에 글을 얹지 않는다. 얹으면 읽히게 하려고 사진을 어둡게 눌러야 하고,
+   그러면 잘림을 고쳐 놓고 다시 얼굴을 덮는 셈이 된다.
+   캡션은 사진 밖 아래에 조판한다 — 잡지가 도판에 번호를 다는 방식이다.
+   ───────────────────────────────────────────────────────────── */
 .pf-img {
-  transition: transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+  transition:
+    opacity 0.9s ease-in-out,
+    transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.pf:hover .pf-img,
-.pf-cell:hover .pf-img {
-  transform: scale(1.045);
+.pf:hover .pf-img {
+  transform: scale(1.04);
 }
-/* 화살표 원 — 손을 대면 브랜드색으로 켜지며 오른쪽으로 */
-.pf-go {
-  transition: background-color 0.25s ease, color 0.25s ease, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+
+/* 괘선 — 손을 대면 브랜드색이 왼쪽에서 오른쪽으로 차오른다.
+   번호와 촬영지 사이를 잇는 선이라, 이게 차오르는 게 곧 '이 도판을 고름'이 된다. */
+.pf-rule::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  background: var(--brand);
+  transition: width 0.55s cubic-bezier(0.22, 1, 0.36, 1);
 }
-.pf:hover .pf-go {
-  background-color: var(--brand);
-  color: #fff;
-  transform: translateX(3px);
+.pf:hover .pf-rule::after,
+.pf:focus-visible .pf-rule::after {
+  width: 100%;
+}
+
+.pf-loc,
+.pf-arrow {
+  transition: color 0.25s ease, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.pf:hover .pf-loc {
+  color: var(--brand);
+}
+.pf:hover .pf-arrow {
+  color: var(--brand);
+  transform: translateX(4px);
 }
 .pf:active {
-  transform: scale(0.995);
+  transform: scale(0.99);
 }
 
 /* 더보기 버튼 — 화살표만 움직인다 */
@@ -870,12 +894,13 @@ select:focus-visible {
 
 @media (prefers-reduced-motion: reduce) {
   .pf-img,
-  .pf-go,
+  .pf-rule::after,
+  .pf-loc,
+  .pf-arrow,
   .ed-more,
   .ed-more-arrow { transition: none; }
   .pf:hover .pf-img,
-  .pf-cell:hover .pf-img,
-  .pf:hover .pf-go,
+  .pf:hover .pf-arrow,
   .pf:active,
   .ed-more:hover .ed-more-arrow { transform: none; }
 }

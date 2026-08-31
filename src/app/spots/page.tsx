@@ -22,9 +22,11 @@ import { listSpotCards } from "@/lib/spots";
 export const revalidate = 86400;
 
 export const metadata: Metadata = {
-  title: "서울 스냅 촬영 장소",
+  // 전국으로 넓히는 중이라 제목에서 "서울"을 뗐다. 다만 지금 장소의 대부분이 서울이고
+  // "서울 스냅 촬영 장소" 질의를 놓치면 안 돼서, 지면 안에서 지역 섹션(h2)으로 나눈다.
+  title: "스냅 촬영 장소 — 서울·인천",
   description:
-    "을지로·경복궁·덕수궁 돌담길 등 서울 스냅 촬영 장소. 그곳에서 실제로 찍힌 사진과 찍는 작가, 대략의 비용까지 사매(samae)에서 확인하세요.",
+    "을지로·연남동 경의선숲길·창덕궁 등 서울과 인천 개항장 거리까지, 스냅 촬영 장소. 그곳에서 실제로 찍힌 사진과 찍는 작가, 대략의 비용까지 사매(samae)에서 확인하세요.",
   alternates: { canonical: "/spots" },
 };
 
@@ -36,6 +38,18 @@ export default async function SpotsIndexPage() {
     .filter((x): x is { card: (typeof cards)[number]; spot: NonNullable<ReturnType<typeof findSpot>> } => !!x.spot);
 
   const totalPhotos = spots.reduce((n, x) => n + x.card.count, 0);
+
+  /*
+    지역별로 묶는다.
+    장소가 서울 밖으로 넓어지면서 한 줄로 이어 놓으면 "여기 서울 장소 맞나"가 안 보인다.
+    사진이 많은 지역이 먼저 온다 — 지금은 서울이고, 다른 지역이 커지면 순서가 바뀐다.
+  */
+  const cities = [...new Set(spots.map((x) => x.spot.city))]
+    .map((city) => ({
+      city,
+      items: spots.filter((x) => x.spot.city === city),
+    }))
+    .sort((a, b) => b.items.length - a.items.length);
 
   const list = itemListJsonLd(
     "서울 스냅 촬영 장소",
@@ -72,8 +86,15 @@ export default async function SpotsIndexPage() {
             아직 공개된 장소가 없어요.
           </p>
         ) : (
-          <ul className="mt-8 border-t border-line-strong">
-            {spots.map(({ spot, card: { count, covers } }, i) => (
+          <div className="mt-8 space-y-10">
+            {cities.map(({ city, items }) => (
+              <section key={city}>
+                <div className="flex items-baseline gap-2">
+                  <h2 className="text-title font-bold tracking-tight">{city}</h2>
+                  <span className="text-[11px] tabular-nums text-faint">{items.length}곳</span>
+                </div>
+                <ul className="mt-3 border-t border-line-strong">
+            {items.map(({ spot, card: { count, covers } }, i) => (
               <li key={spot.slug} className="border-b border-line">
                 <Link
                   href={`/spots/${spot.slug}`}
@@ -161,7 +182,10 @@ export default async function SpotsIndexPage() {
                 </Link>
               </li>
             ))}
-          </ul>
+                </ul>
+              </section>
+            ))}
+          </div>
         )}
 
         <p className="mt-8 text-[11px] leading-relaxed text-faint">

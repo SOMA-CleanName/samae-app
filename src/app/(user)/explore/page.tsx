@@ -37,14 +37,24 @@ export default async function ExplorePage() {
     memoTtl("explore:articles", 60_000, () => listPublishedArticles()).catch(
       () => [] as ArticleCard[]
     ),
-    memoTtl("explore:spots", 60_000, () => listSpotCards(6)).catch(() => [] as SpotCard[]),
-    // 화보에 실을 사진 둘(게시물 단위). 인기 신호로 고른다.
-    memoTtl("explore:featured", 60_000, () => listFeaturedPhotos(2, 30)).catch(
+    // 레일에 다섯 장만 세운다. 나머지는 끝에서 당겨 넘어가는 전체보기가 받는다.
+    memoTtl("explore:spots", 60_000, () => listSpotCards(50)).catch(() => [] as SpotCard[]),
+    // 화보에 실을 사진 넷(게시물 단위). 좁은 화면은 3장, 넓으면 2×2 로 넷을 편다.
+    memoTtl("explore:featured", 60_000, () => listFeaturedPhotos(4, 30)).catch(
       () => [] as FeaturedPhoto[]
     ),
   ]);
 
   const guidePeek = GUIDE_PAGE_ITEMS.slice(0, 6);
+
+  /*
+    레일에 세우는 장소 수. 나머지는 끝에서 당겨 넘어가는 전체보기가 받는다.
+
+    이 상수는 여기(서버)에 둔다. SpotsRail 은 "use client" 라, 거기서 export 한 값을
+    서버 컴포넌트가 import 하면 숫자가 아니라 클라이언트 참조가 넘어온다 —
+    slice(0, 그것) 이 NaN 이 되면서 레일이 통째로 비었다.
+  */
+  const SPOTS_RAIL_MAX = 5;
 
   /*
     아티클은 두 단이다.
@@ -179,7 +189,7 @@ export default async function ExplorePage() {
                   lead="장소 소개만 있는 글은 많아요. 여기엔 그곳에서 실제로 찍힌 사진이 같이 있어요."
                   more="/spots"
                 />
-                <SpotsRail spots={spots} />
+                <SpotsRail spots={spots.slice(0, SPOTS_RAIL_MAX)} total={spots.length} />
               </section>
             )}
 

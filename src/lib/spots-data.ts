@@ -30,14 +30,23 @@
 //   · 이화여대 11장 — 캠퍼스. 외부인 출입·촬영 규정이 따로 있다.
 // 규정을 확인하고 켜는 건 정훈 판단.
 //
-// 서울 밖 (2026-09-01)
-//   · 동인천 39장 / 부산 31장 — 사진은 제일 많은 축인데 지면 제목이 "서울 스냅 촬영 장소"다.
-//     지역을 넓히는 건 SEO 타겟을 바꾸는 일이라 따로 결정할 것.
+// 서울 밖 (2026-09-01 — 전국으로 넓히기로 함)
+//   · 인천 개항장 거리 39장 / 선녀바위해수욕장 15장 — 켰다.
+//   · "부산" 31장 / "충남" 34장 — **못 켠다.** 광역 지명만 적혀 있어 어느 지점인지 알 수 없다.
+//     장소 페이지는 "여기서 찍힌 사진"을 약속하는 지면이라 도시 이름으로는 만들 수 없다.
+//     작가가 구체적인 지명으로 적어 주면 그때 켠다.
 
 export type Spot = {
   /** URL 조각. 한글 대신 영문 — 디코딩 사고가 날 자리를 안 만든다. */
   slug: string;
   name: string;
+  /**
+   * 광역 지자체. 목록을 지역별로 묶는 데 쓴다.
+   *
+   * 전국으로 넓히는 중인데 "서울 스냅 촬영 장소" 질의도 계속 잡아야 해서,
+   * 한 지면 안에서 지역 섹션으로 나눈다. 나중에 지역이 더 늘면 /spots/<city> 로 쪼갠다.
+   */
+  city: string;
   /** 자치구 */
   area: string;
   address: string;
@@ -61,6 +70,7 @@ export const SPOTS: Spot[] = [
   {
     slug: "euljiro",
     name: "을지로 인쇄 골목",
+    city: "서울",
     area: "중구",
     address: "서울 중구 을지로3가 · 세운상가 뒤편 골목",
     station: null,
@@ -73,6 +83,7 @@ export const SPOTS: Spot[] = [
   {
     slug: "gyeongbokgung",
     name: "경복궁",
+    city: "서울",
     area: "종로구",
     address: "서울 종로구 사직로 161",
     station: "3호선 경복궁역 5번 출구",
@@ -85,6 +96,7 @@ export const SPOTS: Spot[] = [
   {
     slug: "deoksugung-doldam",
     name: "덕수궁 돌담길",
+    city: "서울",
     area: "중구",
     address: "서울 중구 세종대로 99 일대",
     station: "1·2호선 시청역 2번 출구",
@@ -99,6 +111,7 @@ export const SPOTS: Spot[] = [
   {
     slug: "seoulforest",
     name: "서울숲",
+    city: "서울",
     area: "성동구",
     address: "서울 성동구 뚝섬로 273",
     station: "수인분당선 서울숲역 3번 출구",
@@ -111,6 +124,7 @@ export const SPOTS: Spot[] = [
   {
     slug: "seongsu",
     name: "성수 연무장길 일대",
+    city: "서울",
     area: "성동구",
     address: "서울 성동구 연무장길 일대",
     station: "2호선 성수역 3번 출구",
@@ -123,6 +137,7 @@ export const SPOTS: Spot[] = [
   {
     slug: "huam",
     name: "후암동 계단길",
+    city: "서울",
     area: "용산구",
     address: "서울 용산구 후암동 · 남산 소월길 아래",
     station: null,
@@ -135,6 +150,7 @@ export const SPOTS: Spot[] = [
   {
     slug: "ikseon",
     name: "익선동 한옥거리",
+    city: "서울",
     area: "종로구",
     address: "서울 종로구 익선동",
     station: "1·3·5호선 종로3가역 4번 출구",
@@ -147,6 +163,7 @@ export const SPOTS: Spot[] = [
   {
     slug: "mullae",
     name: "문래창작촌",
+    city: "서울",
     area: "영등포구",
     address: "서울 영등포구 도림로128가길 일대",
     station: "2호선 문래역 7번 출구",
@@ -159,6 +176,7 @@ export const SPOTS: Spot[] = [
   {
     slug: "nodeul",
     name: "노들섬",
+    city: "서울",
     area: "용산구",
     address: "서울 용산구 양녕로 445",
     station: "9호선 노들역 2번 출구",
@@ -171,6 +189,7 @@ export const SPOTS: Spot[] = [
   {
     slug: "gyeongui-yeonnam",
     name: "연남동 경의선숲길",
+    city: "서울",
     area: "마포구",
     address: "서울 마포구 연남동 · 경의선숲길 연남동 구간",
     station: "2호선·경의중앙선·공항철도 홍대입구역 3번 출구",
@@ -183,6 +202,7 @@ export const SPOTS: Spot[] = [
   {
     slug: "seongbuk",
     name: "성북동 골목과 성북천",
+    city: "서울",
     area: "성북구",
     address: "서울 성북구 성북동 일대 · 성북천 산책로",
     station: "4호선 한성대입구역",
@@ -195,6 +215,7 @@ export const SPOTS: Spot[] = [
   {
     slug: "baekbin",
     name: "백빈건널목",
+    city: "서울",
     area: "용산구",
     address: "서울 용산구 한강대로7길 23-15 인근",
     station: "1호선·경의중앙선 용산역에서 도보 약 10분",
@@ -207,6 +228,7 @@ export const SPOTS: Spot[] = [
   {
     slug: "changdeokgung",
     name: "창덕궁",
+    city: "서울",
     area: "종로구",
     address: "서울 종로구 율곡로 99",
     station: "3호선 안국역 3번 출구에서 도보 약 5분",
@@ -219,6 +241,7 @@ export const SPOTS: Spot[] = [
   {
     slug: "seochon",
     name: "서촌",
+    city: "서울",
     area: "종로구",
     address: "서울 종로구 청운효자동·사직동 일대 (경복궁 서쪽)",
     station: "3호선 경복궁역",
@@ -231,6 +254,7 @@ export const SPOTS: Spot[] = [
   {
     slug: "mangwon-hangang",
     name: "망원한강공원",
+    city: "서울",
     area: "마포구",
     address: "서울 마포구 마포나루길 467",
     station: "6호선 망원역 (도보 약 20분)",
@@ -243,6 +267,7 @@ export const SPOTS: Spot[] = [
   {
     slug: "ttukseom-hangang",
     name: "뚝섬한강공원",
+    city: "서울",
     area: "광진구",
     address: "서울 광진구 강변북로 139 (자양동)",
     station: "7호선 자양(뚝섬한강공원)역 2·3번 출구",
@@ -253,8 +278,76 @@ export const SPOTS: Spot[] = [
     source: "서울시 한강공원 안내(주소·자양역 2·3번 출구 도보 30m). 공개 사진 9장 확인 (2026-09-01)",
   },
   {
+    slug: "jeongdok",
+    name: "정독도서관",
+    city: "서울",
+    area: "종로구",
+    address: "서울 종로구 북촌로5길 48",
+    station: "3호선 안국역 1번 출구에서 도보 약 3분",
+    desc: "북촌 언덕 위 옛 경기고 자리. 붉은 벽돌 건물과 큰 나무, 넓은 마당이 한 자리에 있다.",
+    tip: "공부하러 오는 사람이 쓰는 공간이다. 열람실 쪽은 피하고 마당과 바깥 계단 쪽에서 찍는 편이 서로 편하다.",
+    keywords: ["정독"],
+    published: true,
+    source: "서울시교육청 정독도서관 안내(주소·안국역 1번 출구). 공개 사진 23장 확인 (2026-09-01)",
+  },
+  {
+    slug: "changgyeonggung",
+    name: "창경궁",
+    city: "서울",
+    area: "종로구",
+    address: "서울 종로구 창경궁로 185",
+    station: "4호선 혜화역 4번 출구",
+    desc: "궁 중에서 나무가 가장 많다. 전각보다 숲과 연못이 배경이 되는 쪽에 가깝다.",
+    tip: "관람 방식이 따로 정해져 있다. 가기 전에 국가유산청 궁능유적본부 공지에서 그날 운영 방식을 확인하는 편이 안전하다.",
+    keywords: ["창경궁"],
+    published: true,
+    source: "국가유산청 궁능유적본부. 공개 사진 12장 확인 (2026-09-01)",
+  },
+  {
+    slug: "jamsugyo",
+    name: "잠수교",
+    city: "서울",
+    area: "서초구",
+    address: "서울 서초구 반포동 · 반포대교 아래 잠수교",
+    station: "3·7·9호선 고속터미널역에서 반포한강공원 방면",
+    desc: "반포대교 아래에 낮게 걸린 다리. 수면과 거의 같은 높이라 물이 프레임 안으로 들어온다.",
+    tip: "차와 자전거가 함께 다니는 다리다. 차도와 보행로가 나뉘는 지점을 확인하고 자리를 잡는 편이 좋다.",
+    keywords: ["잠수교"],
+    published: true,
+    source: "서울시 한강공원 안내(반포대교=잠수교, 반포한강공원 중심). 공개 사진 11장 확인 (2026-09-01)",
+  },
+  {
+    slug: "incheon-gaehangjang",
+    name: "인천 개항장 거리",
+    city: "인천",
+    area: "중구",
+    address: "인천 중구 관동 1가 일대",
+    station: "1호선 동인천역 · 인천역",
+    desc: "1880년대 개항기 건물이 그대로 남은 거리. 벽돌과 창틀의 결이 서울 골목과 다르다.",
+    tip: "동인천역 쪽은 홍예문·자유공원이, 인천역 쪽은 차이나타운이 가깝다. 어느 역에서 시작하냐로 동선이 갈린다.",
+    keywords: ["동인천", "개항장"],
+    published: true,
+    source: "인천 중구청 문화관광(위치·두 역에서 접근). 공개 사진 39장 확인 (2026-09-01)",
+  },
+  {
+    slug: "seonnyeobawi",
+    name: "선녀바위해수욕장",
+    city: "인천",
+    area: "중구",
+    address: "인천 중구 을왕동 678-188",
+    station: null,
+    desc: "기암이 서 있는 서해 바닷가. 서쪽으로 트여 있어 해 지는 방향이 그대로 정면이 된다.",
+    tip: "노을이 이 자리의 전부다. 그날 일몰 시각을 확인하고 그 앞뒤 30분에 맞춰 가는 편이 낫다.",
+    // location_text 에 오타("선너뱌위")로 적힌 사진이 9장 있다. 작가가 고쳐 주기 전까지는
+    // 그 표기도 같이 잡아야 사진이 안 샌다.
+    keywords: ["선녀바위", "선너뱌위"],
+    published: true,
+    source: "인천 중구 문화관광(주소). 공개 사진 15장 확인 (2026-09-01)",
+  },
+  {
     slug: "haebang",
     name: "해방촌 신흥시장",
+    city: "서울",
     area: "용산구",
     address: "서울 용산구 신흥로 일대",
     station: "6호선 녹사평역 2번 출구",
