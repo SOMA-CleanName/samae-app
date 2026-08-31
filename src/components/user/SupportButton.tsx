@@ -138,6 +138,8 @@ export function SupportButton({
               결제 ₩{fmt.format(quote.amountKrw)}
               {quote.percent > 0 && quote.percent < 100 && ` · ${quote.percent}% 환불`}
             </p>
+            {/* 왜 이 금액인지 — 이유를 안 적으면 숫자만 남고, 그게 곧 문의이고 분쟁이다 */}
+            <p className="mt-1.5 text-caption text-fg/70">{quote.reason}</p>
             {quote.penaltyStartsAt && quote.refundKrw > 0 && (
               <p className="mt-1.5 border-t border-brand/15 pt-1.5 text-caption text-muted">
                 촬영 7일 전({dateFmt.format(new Date(quote.penaltyStartsAt))})부터는 환불되지

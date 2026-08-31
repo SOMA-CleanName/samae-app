@@ -565,11 +565,21 @@ export function ChatRoom({
             );
           }
           const mine = m.sender_id === meId;
-          // 시스템 안내는 가운데 정렬 회색 칩
+          // 시스템 안내 — 한 줄이면 알약, 여러 줄이면 카드.
+          // 긴 안내를 알약에 욱여넣으면 줄바꿈이 뭉개져 읽히지 않는다(입금 확인 안내가 그랬다).
           if (m.type === "system") {
+            const multiline = m.body.includes("\n");
             return (
               <div key={m.id} className="flex justify-center py-1">
-                <span className="rounded-full bg-fg/[0.06] px-3 py-1 text-caption text-muted">{m.body}</span>
+                {multiline ? (
+                  <div className="w-full max-w-sm whitespace-pre-wrap rounded-2xl bg-fg/[0.05] px-4 py-3 text-caption leading-relaxed text-muted">
+                    {m.body}
+                  </div>
+                ) : (
+                  <span className="rounded-full bg-fg/[0.06] px-3 py-1 text-caption text-muted">
+                    {m.body}
+                  </span>
+                )}
               </div>
             );
           }

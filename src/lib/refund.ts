@@ -33,6 +33,7 @@ export type RefundBasis =
   | "not_paid" // 아직 입금 전 — 환불이라는 개념이 없다
   | "withdrawal" // 결제 후 7일 이내 — 법정 청약철회
   | "penalty_50" // 촬영 7일 이전 · 청약철회 기간 경과
+  | "contact_delivered" // 작가 연락처를 받아 중개가 끝났다
   | "penalty_100" // 촬영 임박 — 환불 없음
   | "force_majeure"
   | "photographer_fault";
@@ -192,6 +193,7 @@ export function refundQuote(input: RefundInput): RefundQuote {
   }
 
   // 3) 촬영 7일 이내 — 작가가 그 날짜를 비워둔 시점이라 위약금 100%
+  //    (연락처를 받았더라도 이쪽이 먼저다 — 더 좁은 규정이 이긴다)
   if (shootImminent) {
     return settle(
       "penalty_100",
@@ -201,8 +203,24 @@ export function refundQuote(input: RefundInput): RefundQuote {
     );
   }
 
-  // 4) 그 외 — 위약금 50%
-  return settle("penalty_50", 50, false, "지불 금액의 50%가 환불됩니다.");
+  // 4) 연락처를 받아 100% 구간이 닫힌 경우 — 왜 50%인지는 화면이 그대로 말해줘야 한다.
+  //    "50% 환불" 만 보면 고객은 이유를 모르고, 모르면 그게 곧 문의이고 분쟁이다.
+  if (contactDelivered) {
+    return settle(
+      "contact_delivered",
+      50,
+      false,
+      "작가 연락처를 받으신 뒤라 지불 금액의 50%가 환불됩니다."
+    );
+  }
+
+  // 5) 그 외 — 청약철회 기간이 지났다
+  return settle(
+    "penalty_50",
+    50,
+    false,
+    `결제 후 ${WITHDRAWAL_DAYS}일이 지나 지불 금액의 50%가 환불됩니다.`
+  );
 }
 
 /** 환불 후 작가에게 실제로 송금할 금액 (음수면 작가가 사매에 반환할 금액) */

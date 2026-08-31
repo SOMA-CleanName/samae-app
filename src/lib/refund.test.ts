@@ -71,8 +71,9 @@ test("연락처를 받으면 청약철회 기간이 남아 있어도 구간이 �
     transferMarkedAt: iso(shift(NOW, -1 * HOUR)),
     contactDeliveredAt: iso(shift(NOW, -10 * 60_000)),
   });
-  assert.equal(q.basis, "penalty_50");
+  assert.equal(q.basis, "contact_delivered");
   assert.equal(q.refundKrw, 60000);
+  assert.match(q.reason, /연락처를 받으신 뒤라/);
 });
 
 test("작가가 보내기만 하고 고객이 받지 않았으면 그대로 100%", () => {
