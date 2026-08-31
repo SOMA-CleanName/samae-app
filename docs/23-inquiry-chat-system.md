@@ -103,6 +103,21 @@
 | `src/lib/payments.ts` | 에스크로: `confirmBankTransferAdmin`(운영 입금확인→paid+수수료), `markSettlementPaid`(정산 마킹+채팅 안내), `PLATFORM_FEE_KRW=6000` |
 | `src/app/actions/payments.ts` | `markTransferSent`(+디스코드), `ackSettlement`/`disputeSettlement`(작가 수령 확인/이의) |
 | `src/lib/ops-alert.ts` | 디스코드 운영 알림 (§2) |
+| `src/components/user/ChatToast.tsx` | **앱 내 새 메시지 알림** — 이름·첫 줄을 띄우고 누르면 그 방으로. 탭이 뒤에 있으면 탭 제목에 개수 |
+| `src/app/actions/chat-notify.ts` | 알림 한 줄 만들기 — 상대 이름·아바타는 profiles RLS 때문에 서버에서만 읽힌다 |
+
+**앱 내 알림 규칙** (`chat-notify.ts`) — 봇에게 맡긴 대화를 매 발화마다 띄우면 맡긴 의미가 없다:
+
+| 상황 | 작가에게 | 고객에게 |
+|---|---|---|
+| 봇 단계 · 고객 **첫** 발화 | "새 문의가 들어왔어요 · 안내봇이 먼저 답하고 있어요" **1회** | — |
+| 봇 단계 · 이후 발화 | 없음 (채팅 목록 안읽음 배지가 맡는다) | — |
+| 봇 답변 | 없음 (sender 가 작가 profile 이라 본인 발화로 걸러진다) | "사매 안내봇" 이름으로 뜸 |
+| 인계 후 (`bot_disabled_at`) | 정상 | 정상 |
+| 그 방을 보고 있을 때 / 내가 보낸 것 | 안 뜸 | 안 뜸 |
+
+첫 발화 판정은 `messages` 에서 `type='bot' AND sender_id=대화의 user_id` 개수가 1인지로 본다.
+디스코드/인앱 `bot_inquiry_started` 와 같은 시점이다.
 
 ### 어드민
 - `/admin/chats` — 전체 대화 모니터링 + 방별 트랜스크립트 + ⚠️ 검열 차단 기록

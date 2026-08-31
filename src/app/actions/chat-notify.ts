@@ -50,12 +50,42 @@ export async function previewIncoming(messageId: string): Promise<ChatNotice | n
 
   const { data: conv } = await supabase
     .from("conversations")
-    .select("id, user_id, photographer_id")
+    .select("id, user_id, photographer_id, bot_disabled_at")
     .eq("id", msg.conversation_id)
     .maybeSingle();
   if (!conv) return null;
 
   const amCustomer = conv.user_id === me.id;
+
+  // 봇이 응대 중인 방 — 작가에게는 '첫 문의' 한 번만 알린다.
+  //
+  // 수집 대화는 원래 무알림이다(bot-actions.ts). 봇에게 맡겨둔 대화를 매 발화마다
+  // 띄우면 맡긴 의미가 없고, 작가는 알림을 꺼버린다. 대신 문의가 시작됐다는 사실은
+  // 놓치면 안 되므로 첫 발화 한 번만 띄운다 — bot_inquiry_started 알림과 같은 시점이다.
+  // (그 뒤로 쌓이는 건 채팅 목록의 안읽음 배지가 맡는다)
+  if (!amCustomer && conv.bot_disabled_at == null) {
+    if (msg.type !== "bot") return null; // 방을 열 때 딸려오는 시드 사진 등
+    const { count } = await createAdminClient()
+      .from("messages")
+      .select("id", { count: "exact", head: true })
+      .eq("conversation_id", conv.id)
+      .eq("sender_id", conv.user_id)
+      .eq("type", "bot");
+    if ((count ?? 0) !== 1) return null; // 첫 발화가 아니면 조용히 넘긴다
+
+    const admin0 = createAdminClient();
+    const { data: p0 } = await admin0
+      .from("profiles")
+      .select("display_name, avatar_url")
+      .eq("id", conv.user_id)
+      .maybeSingle();
+    return {
+      conversationId: conv.id as string,
+      title: (p0?.display_name as string | null) ?? "고객님",
+      avatarUrl: (p0?.avatar_url as string | null) ?? null,
+      preview: "새 문의가 들어왔어요 · 안내봇이 먼저 답하고 있어요",
+    };
+  }
 
   // 상대 이름·아바타 — RLS 를 이미 통과했으므로 표시용 두 필드만 admin 으로 채운다
   const admin = createAdminClient();

@@ -43,6 +43,20 @@ const GREETING = "안녕하세요 고객님! 문의 주셔서 감사합니다. �
   if (users.length === 0) throw new Error("테스트 손님 계정이 없어요.");
   const ids = users.map((u) => u.id);
 
+  if (PRESET === "messages") {
+    const { rows } = await c.query(
+      `select m.type, m.sender_id, left(m.body, 30) as body, m.created_at,
+              c.bot_disabled_at is not null as handed_off
+         from messages m join conversations c on c.id = m.conversation_id
+        where c.user_id = any($1)
+        order by m.created_at desc limit 8`,
+      [ids]
+    );
+    console.table(rows);
+    await c.end();
+    return;
+  }
+
   if (PRESET === "whois") {
     const { rows } = await c.query(
       `select c.id, c.user_id, c.photographer_id, p.profile_id as photographer_profile,
