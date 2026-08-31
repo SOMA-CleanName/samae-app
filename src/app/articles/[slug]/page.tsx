@@ -6,6 +6,7 @@ import { Markdown } from "@/components/Markdown";
 import { Reveal } from "@/components/editorial/Reveal";
 import { Parallax } from "@/components/editorial/Parallax";
 import { ReadingProgress } from "@/components/editorial/ReadingProgress";
+import { StickyBack } from "@/components/editorial/StickyBack";
 import { articleJsonLd, breadcrumbJsonLd } from "@/lib/seo";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { getPublishedArticle, listPublishedArticles, readingMinutes } from "@/lib/articles";
@@ -79,16 +80,17 @@ export default async function ArticleDetailPage({
         ]}
       />
 
+      {/*
+        나갈 문은 항상 화면 안에. 글이 길어 한참 내려가 있어도 보여야 한다.
+        온 곳으로 돌아간다 — 홈 피드에서 들어왔으면 피드로, 검색으로 바로 들어왔으면
+        글 목록으로. (판정은 StickyBack / lib/in-app-nav)
+      */}
+      <StickyBack href="/articles" meta="Article" maxWidth="1280px" />
+
       {/* ── 표제 + 커버 — 제목을 이미지 위에 얹는다 ────────── */}
       {a.cover_url ? (
         <section className="px-4 pt-6 md:px-6 md:pt-8">
           <div className="mx-auto max-w-[1280px]">
-            <Link
-              href="/articles"
-              className="mb-4 inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-muted transition-colors hover:text-brand"
-            >
-              ← Stories
-            </Link>
             <div className="ed-unveil relative aspect-[4/5] w-full overflow-hidden rounded-2xl bg-surface-2 sm:aspect-[16/9] lg:aspect-[2/1]">
               <Parallax speed={0.16} className="absolute inset-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -121,13 +123,7 @@ export default async function ArticleDetailPage({
       ) : (
         <header className="px-4 pb-2 pt-10 md:px-6 md:pt-14">
           <div className="mx-auto max-w-[760px]">
-            <Link
-              href="/articles"
-              className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-muted transition-colors hover:text-brand"
-            >
-              ← Stories
-            </Link>
-            <div className="mt-8 flex flex-wrap items-center gap-x-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-muted">
+            <div className="flex flex-wrap items-center gap-x-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-muted">
               <span className="rounded-full bg-brand px-2.5 py-1 text-white">Article</span>
               {dateText && <span className="tabular-nums">{dateText}</span>}
               <span>·</span>

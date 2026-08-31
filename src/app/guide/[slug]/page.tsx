@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeftIcon } from "@/components/user/icons";
 import { JsonLd } from "@/components/JsonLd";
+import { StickyBack } from "@/components/editorial/StickyBack";
 import { faqJsonLd, breadcrumbJsonLd } from "@/lib/seo";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { findGuideItem, GUIDE_PAGE_ITEMS } from "@/lib/guide-data";
@@ -64,17 +64,13 @@ export default async function GuideDetailPage({
   ).slice(0, 4);
 
   return (
-    <main className="mx-auto max-w-2xl px-5 py-10 font-kr">
+    <main className="min-h-dvh bg-bg font-kr">
       {faq && <JsonLd data={faq} />}
       <JsonLd data={breadcrumb} />
 
-      <Link
-        href="/guide"
-        className="mb-6 inline-flex items-center gap-1 text-sm font-medium text-muted transition-colors hover:text-fg"
-      >
-        <ArrowLeftIcon className="h-4 w-4" /> 촬영 가이드
-      </Link>
+      <StickyBack href="/guide" meta={item.axisLabel} maxWidth="42rem" />
 
+      <div className="mx-auto max-w-2xl px-5 pb-24 pt-8">
       <p className="text-xs font-semibold tracking-tight text-muted">{item.axisLabel}</p>
       <h1 className="mt-1.5 text-2xl font-bold leading-snug tracking-tight">{item.question}</h1>
 
@@ -95,22 +91,31 @@ export default async function GuideDetailPage({
       </div>
 
       {related.length > 0 && (
-        <section className="mt-10">
-          <h2 className="text-sm font-semibold tracking-tight text-muted">함께 보면 좋은 글</h2>
-          <ul className="mt-3 space-y-2">
+        <section className="mt-12 border-t border-line pt-6">
+          <h2 className="text-[11px] font-bold uppercase tracking-[0.16em] text-faint">
+            함께 보면 좋은 글
+          </h2>
+          {/* 줄마다 구획선 — 제목만 나열하면 어디까지가 한 항목인지 안 보인다 */}
+          <ul className="mt-3 border-t border-line">
             {related.map((g) => (
-              <li key={g.slug}>
+              <li key={g.slug} className="border-b border-line">
                 <Link
                   href={`/guide/${encodeURIComponent(g.slug)}`}
-                  className="text-sm leading-snug text-fg/85 transition-colors hover:text-fg"
+                  className="sp-maker group flex items-center gap-3 py-3"
                 >
-                  {g.question}
+                  <span className="min-w-0 flex-1 text-body-sm leading-snug tracking-tight transition-colors group-hover:text-brand">
+                    {g.question}
+                  </span>
+                  <span aria-hidden className="sp-arrow shrink-0 text-body-sm text-faint">
+                    →
+                  </span>
                 </Link>
               </li>
             ))}
           </ul>
         </section>
       )}
+      </div>
     </main>
   );
 }
