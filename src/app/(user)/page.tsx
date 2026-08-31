@@ -26,7 +26,8 @@ import { ExploreGallery } from "@/components/user/ExploreGallery";
 import { ScrollMemory } from "@/components/user/ScrollMemory";
 import { FeedHero } from "@/components/user/FeedHero";
 import { SearchDock } from "@/components/user/SearchDock";
-import { PhotoTopBar } from "./photos/[id]/PhotoTopBar";
+import { SearchBackButton } from "@/components/user/SearchBackButton";
+import { SearchResultsHead } from "@/components/user/SearchResultsHead";
 import { pickSearchPlaceholder } from "@/lib/search-copy";
 import { routeSessionKey } from "@/lib/search-navigation";
 import { shouldShowSearchUi } from "@/lib/search-ui-visibility";
@@ -149,13 +150,25 @@ export default async function ExploreHome({
         <FeedHero right={<ProfileButton loggedIn={!!me} avatarUrl={me?.avatarUrl ?? null} />} />
       )}
 
-      {/* 검색 — 로고 줄 바로 아래 한 줄. 스크롤하면 상단에 붙는다(SearchDock 자체 sticky). */}
+      {/* 검색 — 로고 줄 바로 아래 한 줄. 스크롤하면 상단에 붙는다(SearchDock 자체 sticky).
+          결과 화면에서는 나가는 버튼을 같은 줄 왼쪽에 세운다. */}
       {showSearchUi ? (
         <SearchDock
           key={query ?? "home"}
           initial={query ?? ""}
           placeholder={searchPlaceholder}
           variant={query ? "detail" : "home"}
+          back={query ? <SearchBackButton query={query} /> : undefined}
+        />
+      ) : null}
+
+      {/* 무엇을 찾았고 몇 장인지 — 전에는 이 화면에 글자가 하나도 없었다 */}
+      {query ? (
+        <SearchResultsHead
+          query={query}
+          count={photos.length}
+          // 상한(300)에 딱 걸렸으면 그건 찾은 수가 아니라 잘린 수다 — "+"로 표시한다.
+          capped={photos.length >= SIGLIP_SEARCH_MAX_RESULTS}
         />
       ) : null}
       {!query && <HomeBannerSlot />}
@@ -169,9 +182,6 @@ export default async function ExploreHome({
            온 거라, 큐레이션을 먼저 깔면 정작 클릭한 사진이 두 화면 아래로 밀린다.
       */}
       {isAllFeed && <HomeDiscoverySections />}
-
-      {/* 검색 결과 화면의 뒤로가기 바 */}
-      {query ? <PhotoTopBar /> : null}
 
       {/* 취향 미설정 사용자 — 홈 피드를 5초간 둘러본 뒤 하단 내비 위에서 테스트 안내 */}
       {isAllFeed &&
