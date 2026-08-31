@@ -10,6 +10,14 @@ export type BannerItem = {
   src: string;
   alt: string;
   href: string | null;
+  /**
+   * 이미지 위에 얹을 글. 아티클처럼 **배너용으로 만들어진 이미지가 아닌 것**에 쓴다.
+   *
+   * 운영자가 올린 배너는 글자까지 들어간 완성 이미지라 아무것도 얹지 않는다.
+   * 반대로 아티클 커버는 그냥 사진이라, 제목이 없으면 왜 눌러야 하는지 알 수 없다.
+   */
+  kicker?: string;
+  title?: string;
 };
 
 const AUTO_MS = 5000;
@@ -39,8 +47,10 @@ export function BannerCarousel({ items }: { items: BannerItem[] }) {
   if (count === 0) return null;
 
   return (
-    // 풀블리드 — 페이지 섹션의 좌우·상단 패딩(px-2.5 pt-2.5 / sm:px-4 sm:pt-4)을 음수 마진으로 상쇄한다.
-    <div className="-mx-2.5 -mt-2.5 mb-3 sm:-mx-4 sm:-mt-4 sm:mb-4">
+    // 좌우만 풀블리드 — 페이지 섹션의 가로 패딩(px-2.5 / sm:px-4)을 음수 마진으로 상쇄한다.
+    // 위쪽은 당기지 않는다. 배너가 소개글(FeedHero) 아래로 내려가면서
+    // 상단 음수 마진이 소개글을 파고들기 때문.
+    <div className="-mx-2.5 mb-3 sm:-mx-4 sm:mb-4">
       <div
         className="relative overflow-hidden bg-surface"
         onMouseEnter={() => setPaused(true)}
@@ -65,14 +75,35 @@ export function BannerCarousel({ items }: { items: BannerItem[] }) {
         >
           {items.map((b, i) => {
             const img = (
-              <Image
-                src={b.src}
-                alt={b.alt}
-                fill
-                sizes="100vw"
-                priority={i === 0}
-                className="object-cover"
-              />
+              <>
+                <Image
+                  src={b.src}
+                  alt={b.alt}
+                  fill
+                  sizes="100vw"
+                  priority={i === 0}
+                  className="object-cover"
+                />
+                {b.title && (
+                  <>
+                    {/* 사진을 통째로 덮지 않는다. 글이 앉는 아래쪽만 어둡게 깐다. */}
+                    <span
+                      aria-hidden
+                      className="absolute inset-x-0 bottom-0 h-3/5 bg-gradient-to-t from-black/72 via-black/32 to-transparent"
+                    />
+                    <span className="absolute inset-x-0 bottom-0 block p-4 sm:p-7">
+                      {b.kicker && (
+                        <span className="block text-[10px] font-bold uppercase tracking-[0.16em] text-white/80">
+                          {b.kicker}
+                        </span>
+                      )}
+                      <span className="mt-1.5 block max-w-2xl text-[clamp(1.05rem,2.6vw,1.9rem)] font-extrabold leading-[1.18] tracking-[-0.03em] text-white">
+                        {b.title}
+                      </span>
+                    </span>
+                  </>
+                )}
+              </>
             );
             // sm:max-h — 초광폭 모니터에서 배너만 화면을 다 먹지 않도록 높이 상한
             return (

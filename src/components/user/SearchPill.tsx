@@ -68,7 +68,7 @@ export function SearchPill({
       data-border-motion={borderMotion}
       className="samae-search-frame relative w-full rounded-md"
     >
-      <span className="samae-search-icon pointer-events-none absolute left-4 top-1/2 z-[2] -translate-y-1/2 text-brand">
+      <span className="samae-search-icon pointer-events-none absolute left-3.5 top-1/2 z-[2] -translate-y-1/2 text-brand">
         <SearchIcon className="h-5 w-5" />
       </span>
       <input
@@ -79,7 +79,7 @@ export function SearchPill({
         autoComplete="off"
         maxLength={120}
         style={{ borderWidth }}
-        className={`relative z-[1] h-12 w-full rounded-md border pl-11 pr-5 text-body-sm outline-none transition-[background-color,border-color,border-width,box-shadow,color,backdrop-filter] duration-300 ease-out hover:border-brand/45 focus:border-brand/55 focus:ring-2 focus:ring-brand/10 ${borderClass} ${
+        className={`relative z-[1] h-[42px] w-full rounded-md border pl-10 pr-4 text-body-sm outline-none transition-[background-color,border-color,border-width,box-shadow,color,backdrop-filter] duration-300 ease-out hover:border-brand/45 focus:border-brand/55 focus:ring-2 focus:ring-brand/10 ${borderClass} ${
           appearance === "clear"
             ? "bg-transparent text-transparent caret-transparent shadow-none placeholder:text-transparent"
             : appearance === "overlay"

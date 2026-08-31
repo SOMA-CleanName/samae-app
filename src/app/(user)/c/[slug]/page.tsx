@@ -91,9 +91,9 @@ export default async function CategoryPage({
   return (
     <section className="px-2.5 pb-2.5 pt-2.5 font-kr sm:px-4 sm:pt-4 sm:pb-4">
       <ScrollMemory />
-      {/* 홈과 공용 — 운영 배너 캐러셀 */}
-      <HomeBannerSlot />
+      {/* 소개글 → 배너. 홈과 같은 순서로 맞춘다 */}
       <FeedHero />
+      <HomeBannerSlot />
 
       {/* 카테고리 추천 보는 중 + 전체 보기 해제(쿠키도 해제됨 → /?nocat=1) */}
       <div className="mx-auto mt-1 mb-3 flex max-w-screen-2xl items-center gap-2 px-1 sm:mb-4">

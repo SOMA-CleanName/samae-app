@@ -32,7 +32,11 @@ import { routeSessionKey } from "@/lib/search-navigation";
 import { shouldShowSearchUi } from "@/lib/search-ui-visibility";
 import { TasteTestNudge } from "@/components/user/TasteTestNudge";
 import { HomeBannerSlot } from "@/components/user/HomeBannerSlot";
-import { TasteBanner } from "./TasteBanner";
+import { HomeQuickNav } from "@/components/user/HomeQuickNav";
+import { HomeDiscoverySections } from "./HomeDiscoverySections";
+import { ScrollTopButton } from "@/components/user/ScrollTopButton";
+import { ProfileButton } from "@/components/user/ProfileButton";
+import { buildFeedInterstitials } from "@/lib/feed-interstitials";
 import { JsonLd } from "@/components/JsonLd";
 import { siteJsonLd } from "@/lib/seo";
 import type { GalleryPhoto } from "@/lib/discovery";
@@ -120,6 +124,13 @@ export default async function ExploreHome({
   }
   const spotlightId = adAsGallery?.id;
 
+  /*
+    피드 사이 카드 — 읽을거리와 작가를 번갈아.
+    아티클·장소는 이미 메모에 있고 작가는 이 피드 사진에서 세므로 추가 쿼리가 없다.
+    전체 피드일 때만 만든다(검색·광고 진입에는 안 넣는다).
+  */
+  const interstitials = isAllFeed ? await buildFeedInterstitials(photos) : [];
+
   const likedIds = await fetchLikedPhotoIds(
     photos.map((p) => p.id),
     me?.id
@@ -131,13 +142,14 @@ export default async function ExploreHome({
       {!query && <JsonLd data={siteJsonLd()} />}
       {/* 탭 전환 시 스크롤 위치 유지 */}
       <ScrollMemory routeKey={routeSessionKey("/", query)} />
-      {/* 홈 최상단 운영 배너 캐러셀 (검색 모드 아닐 때만) */}
-      {!query && <HomeBannerSlot />}
-      {/* 홈 히어로 (검색 모드 아닐 때만) */}
-      {!query && <FeedHero />}
+      {/* 로고·프로필 → 검색 → 배너 → 바로가기 순.
+          배너를 로고 위에 두면 들어오자마자 브랜드가 아니라 광고가 먼저 보인다.
+          (검색 모드에서는 로고 줄부터 아래 층까지 걷어내고 결과에 집중) */}
+      {!query && (
+        <FeedHero right={<ProfileButton loggedIn={!!me} avatarUrl={me?.avatarUrl ?? null} />} />
+      )}
 
-      {/* 검색 결과의 뒤로가기는 유지하고, 검색 진입 UI만 플래그로 임시 숨긴다. */}
-      {query ? <PhotoTopBar /> : null}
+      {/* 검색 — 로고 줄 바로 아래 한 줄. 스크롤하면 상단에 붙는다(SearchDock 자체 sticky). */}
       {showSearchUi ? (
         <SearchDock
           key={query ?? "home"}
@@ -146,14 +158,28 @@ export default async function ExploreHome({
           variant={query ? "detail" : "home"}
         />
       ) : null}
+      {!query && <HomeBannerSlot />}
+      {!query && <HomeQuickNav />}
 
-      {/* 취향 적용 배너 (전체 피드 + 취향 v2 있을 때) */}
-      {isAllFeed && tasteCatIds.length > 0 && <TasteBanner />}
+      {/*
+        탐색 탭에 있던 사진 섹션들(오늘의 큐레이션·추천 무드·인기 스냅)을 여기로 옮겼다.
+        탐색은 이제 매거진이고 사진은 홈 한 곳에 모인다.
+
+        ⚠️ 광고 유입(?ad=)에서는 렌더하지 않는다. 광고로 들어온 사람은 그 사진을 보러
+           온 거라, 큐레이션을 먼저 깔면 정작 클릭한 사진이 두 화면 아래로 밀린다.
+      */}
+      {isAllFeed && <HomeDiscoverySections />}
+
+      {/* 검색 결과 화면의 뒤로가기 바 */}
+      {query ? <PhotoTopBar /> : null}
 
       {/* 취향 미설정 사용자 — 홈 피드를 5초간 둘러본 뒤 하단 내비 위에서 테스트 안내 */}
       {isAllFeed &&
         (TASTE_TEST_NUDGE_PREVIEW_ENABLED ||
           (tasteCatIds.length === 0 && !tasteNudgeHidden)) && <TasteTestNudge />}
+
+      {/* 맨 위로 — '전체 사진' 머리를 지나야 나타난다 */}
+      {isAllFeed && <ScrollTopButton anchorId="sec-all-photos" />}
 
       <ExploreGallery
         photos={photos}
@@ -166,6 +192,7 @@ export default async function ExploreHome({
         loadMore={loadMorePhotos}
         loadPersonalized={loadPersonalizedPhotos}
         loadDemoted={loadDemotedHomePhotos}
+        interstitials={interstitials}
       />
     </section>
   );

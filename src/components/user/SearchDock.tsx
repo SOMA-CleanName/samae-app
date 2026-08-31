@@ -19,10 +19,17 @@ export function SearchDock({
   initial = "",
   placeholder,
   variant = "home",
+  inline = false,
 }: {
   initial?: string;
   placeholder: string;
   variant?: SearchDockVariant;
+  /**
+   * 상단 한 줄(로고 ─ 검색 ─ 프로필) 안에 끼워 넣을 때.
+   * 자체 sticky 와 아래 여백을 끈다 — 줄 안에서 그것들이 살아 있으면
+   * 형제 요소와 높이가 어긋나고 아래에 빈칸이 생긴다.
+   */
+  inline?: boolean;
 }) {
   const markerRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<SearchDockMode>("inline");
@@ -73,7 +80,7 @@ export function SearchDock({
 
   return (
     <>
-      <div ref={markerRef} aria-hidden="true" className="h-px" />
+      {!inline && <div ref={markerRef} aria-hidden="true" className="h-px" />}
       <div
         data-search-dock-mode={mode}
         data-search-dock-surface={surface}
@@ -81,10 +88,12 @@ export function SearchDock({
         onMouseLeave={() => setHovered(false)}
         onFocusCapture={() => setFocused(true)}
         onBlurCapture={() => setFocused(false)}
-        style={rightInset > 0 ? { marginRight: rightInset } : undefined}
-        className={`sticky top-2 z-30 ${
-          detail ? "ml-12" : "mx-auto max-w-screen-2xl px-1"
-        }`}
+        style={!inline && rightInset > 0 ? { marginRight: rightInset } : undefined}
+        className={
+          inline
+            ? "min-w-0 flex-1"
+            : `sticky top-2 z-30 ${detail ? "ml-12" : "mx-auto max-w-screen-2xl px-1"}`
+        }
       >
         <SearchPill
           initial={initial}
@@ -93,10 +102,9 @@ export function SearchDock({
           appearance={appearance}
         />
       </div>
-      <div
-        aria-hidden="true"
-        className={detail ? "h-3 sm:h-4" : "h-6 sm:h-9"}
-      />
+      {!inline && (
+        <div aria-hidden="true" className={detail ? "h-2 sm:h-3" : "h-3 sm:h-4"} />
+      )}
     </>
   );
 }

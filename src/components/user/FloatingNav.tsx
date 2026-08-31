@@ -125,6 +125,8 @@ export function FloatingNav({
 
       {/* 가운데 홈/탐색 pill — 바깥 nav 의 레이아웃 박스도 숨김 시 터치 통과시킴 */}
       <nav
+        // 맨 위로 버튼이 이 알약의 오른쪽에 붙으려고 위치를 재 간다.
+        data-floating-nav
         className="fixed bottom-5 left-1/2 z-40 -translate-x-1/2"
         style={{ pointerEvents: visible ? "auto" : "none" }}
       >
