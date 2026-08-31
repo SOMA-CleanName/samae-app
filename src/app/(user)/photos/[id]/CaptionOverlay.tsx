@@ -44,8 +44,11 @@ export function CaptionToggleButton() {
       onClick={ctx.toggle}
       aria-pressed={ctx.open}
       aria-label="작가의 글"
-      className={`grid h-9 w-9 cursor-pointer place-items-center rounded-full transition-colors ${
-        ctx.open ? "bg-fg text-bg" : "text-fg/70 hover:bg-fg/[0.06] hover:text-fg"
+      // 공유·담기와 같은 톤 — 셋이 한 줄에 있으니 형태가 어긋나면 다른 종류처럼 보인다
+      className={`grid h-9 w-9 cursor-pointer place-items-center rounded-full shadow-sm ring-1 backdrop-blur transition-colors ${
+        ctx.open
+          ? "bg-fg text-bg ring-fg"
+          : "bg-bg/80 text-fg ring-line hover:bg-bg"
       }`}
     >
       <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2">
@@ -68,14 +71,15 @@ export function CaptionOverlay() {
       onClick={ctx.close}
       aria-hidden={!ctx.open}
       inert={!ctx.open}
-      className={`absolute inset-0 flex items-end justify-end p-3 transition-opacity duration-300 sm:p-4 ${
+      className={`absolute inset-0 flex items-end p-3 transition-opacity duration-300 sm:p-4 ${
         ctx.open ? "cursor-pointer opacity-100" : "pointer-events-none opacity-0"
       }`}
     >
       {/* 사진을 완전히 덮지 않는다 — 무엇에 대한 글인지 보이는 채로 읽혀야 한다 */}
       <div className="absolute inset-0 bg-black/45" />
+      {/* 폭은 사진에 맞춘다. 한쪽으로 치우치면 사진 위에 뜬 쪽지처럼 보인다 */}
       <p
-        className={`relative max-h-[70%] max-w-[92%] overflow-y-auto whitespace-pre-wrap rounded-2xl bg-black/45 p-3.5 text-body-sm leading-relaxed text-white backdrop-blur-sm transition-transform duration-300 sm:max-w-[80%] ${
+        className={`relative max-h-[70%] w-full overflow-y-auto whitespace-pre-wrap rounded-2xl bg-black/45 p-3.5 text-body-sm leading-relaxed text-white backdrop-blur-sm transition-transform duration-300 ${
           ctx.open ? "translate-y-0" : "translate-y-2"
         }`}
       >
