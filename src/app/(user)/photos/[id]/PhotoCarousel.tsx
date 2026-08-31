@@ -143,6 +143,22 @@ export function PhotoCarousel({
         ))}
       </div>
 
+      {/*
+        가장자리 가림막.
+
+        프레임 폭이 min(100%, calc(...)) 라 소수 픽셀로 떨어진다. 슬라이드는 그 폭의
+        100% 인데 브라우저는 스크롤 위치를 장치 픽셀로 반올림하므로, 스냅이 멈춘 자리에서
+        **옆 사진의 첫 열이 1px 새어 나온다.** 실제로 사진 오른쪽 테두리에 다른 사진이
+        세로로 얇게 비쳐 보였다.
+
+        새는 양은 1px 미만이라 같은 색 1px 띠로 덮으면 사라진다. 사진은 대개 프레임 안에
+        contain 으로 앉아 가장자리가 레터박스(흐린 배경)라, 1px 을 덮어도 티가 안 난다.
+        (폭을 정수로 맞추는 게 근본이지만 CSS 만으로는 안 되고, JS 로 재서 px 를 박으면
+         화면 회전·리사이즈마다 다시 재야 한다 — 값에 비해 비싸다)
+      */}
+      <span aria-hidden className="pointer-events-none absolute inset-y-0 left-0 w-px bg-black" />
+      <span aria-hidden className="pointer-events-none absolute inset-y-0 right-0 w-px bg-black" />
+
       {/* 좌우 버튼 */}
       {idx > 0 && (
         <button
