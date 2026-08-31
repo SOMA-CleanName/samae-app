@@ -1,7 +1,13 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { EmptyState } from "@/components/ui";
 import { CalendarIcon } from "@/components/user/icons";
-import { clearTransactions, deleteBookingsSelected, adminSettleNow, adminMarkSettled } from "./actions";
+import {
+  clearTransactions,
+  deleteBookingsSelected,
+  adminSettleNow,
+  adminMarkSettled,
+  adminMarkDepositAndSettle,
+} from "./actions";
 import { cn } from "@/lib/cn";
 import { DeleteModeProvider, DeleteModeToolbar } from "@/components/admin/DeleteMode";
 import { AdminBookings, type BookingRow } from "./AdminBookings";
@@ -241,10 +247,19 @@ export default async function AdminTransactionsPage() {
                     {b.accepted_at && ` · 수락 ${new Date(b.accepted_at).toLocaleDateString("ko-KR")}`}
                   </p>
                 </div>
-                <AdminCancelButton
-                  bookingId={b.id}
-                  label={`${one(b.user)?.display_name ?? "고객"} → ${one(b.photographer)?.display_name ?? "작가"} · ₩${fmt.format(b.amount_krw ?? 0)}`}
-                />
+                <div className="flex shrink-0 items-center gap-1.5">
+                  {/* 통장에 돈은 들어왔는데 고객이 버튼을 안 누른 건 — 운영이 대신 확인한다 */}
+                  <form action={adminMarkDepositAndSettle}>
+                    <input type="hidden" name="id" value={b.id} />
+                    <button className="cursor-pointer rounded-lg bg-fg px-3 py-1.5 text-caption font-semibold text-bg hover:opacity-90">
+                      입금 확인 · 정산
+                    </button>
+                  </form>
+                  <AdminCancelButton
+                    bookingId={b.id}
+                    label={`${one(b.user)?.display_name ?? "고객"} → ${one(b.photographer)?.display_name ?? "작가"} · ₩${fmt.format(b.amount_krw ?? 0)}`}
+                  />
+                </div>
               </li>
             ))}
           </ul>

@@ -462,6 +462,32 @@ async function postDepositNotice(
   });
 }
 
+/**
+ * 운영이 고객 대신 입금 표시 (고객이 [입금 완료] 를 누르지 않은 건).
+ *
+ * 통장에는 돈이 들어왔는데 고객이 버튼을 안 눌러 거래가 멈추는 일이 실제로 생긴다.
+ * 그때 운영이 대신 표시한다 — 확인 주체는 어차피 사매이고, 버튼은 '고객이 알렸다' 는
+ * 신호일 뿐이라 없다고 정산을 막을 이유가 없다.
+ *
+ * ⚠️ transfer_marked_at 은 청약철회 7일의 기산점이다(docs/32 §3-2). 실제 입금일보다
+ *    늦게 찍히면 고객의 철회 기간이 그만큼 뒤로 밀린다 — 고객에게 유리한 방향이라
+ *    그대로 둔다. 반대로 앞당겨 적으면 고객 권리를 줄이게 되므로 절대 소급하지 않는다.
+ */
+export async function markTransferByOps(bookingId: string): Promise<ConfirmResult> {
+  const admin = createAdminClient();
+  const { data: moved } = await admin
+    .from("bookings")
+    .update({ transfer_marked_at: new Date().toISOString() })
+    .eq("id", bookingId)
+    .eq("status", "accepted")
+    .is("transfer_marked_at", null) // 멱등 — 이미 표시됐으면 건드리지 않는다
+    .select("id, amount_krw");
+  if (!moved || moved.length === 0) return { ok: false, reason: "bad_state" };
+
+  await ensureTransferRecord(bookingId, moved[0].amount_krw ?? 0);
+  return { ok: true };
+}
+
 // ─────────────────────────────────────────────
 // 환불 (docs/32)
 // ─────────────────────────────────────────────

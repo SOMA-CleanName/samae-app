@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui";
 import { SelectCheckbox } from "@/components/admin/DeleteMode";
 import type { RefundQuote } from "@/lib/refund";
 import type { BookingFieldValue } from "@/lib/booking-fields";
-import { adminSettleNow, adminMarkSettled } from "./actions";
+import { adminSettleNow, adminMarkSettled, adminMarkDepositAndSettle } from "./actions";
 import { AdminRefundButton } from "./AdminRefundButton";
 import { AdminCancelButton } from "./AdminCancelButton";
 
@@ -246,6 +246,17 @@ function BookingDetail({ b }: { b: BookingRow }) {
             대화 보기
           </Link>
         )}
+        {/* 고객이 [입금 완료] 를 안 누른 건 — 통장에 돈이 들어왔으면 운영이 대신 표시한다.
+            버튼은 '고객이 알렸다' 는 신호일 뿐이고 확인 주체는 어차피 사매다. */}
+        {b.status === "accepted" && !b.transfer_marked_at && (
+          <form action={adminMarkDepositAndSettle}>
+            <input type="hidden" name="id" value={b.id} />
+            <button className="cursor-pointer rounded-lg bg-fg px-3 py-1.5 text-caption font-semibold text-bg hover:opacity-90">
+              입금 확인 · 정산 (고객 미표시)
+            </button>
+          </form>
+        )}
+
         {/* 입금 확인 + 정산 — 고객이 입금을 알린 건만 */}
         {b.status === "accepted" && b.transfer_marked_at && (
           <form action={adminSettleNow}>
