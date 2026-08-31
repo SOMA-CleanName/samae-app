@@ -10,7 +10,6 @@ import { sendBotTurn } from "../bot-actions";
 import { KB_EXAMPLE_QUESTIONS } from "@/lib/bot-kb";
 import { BOT_DISPLAY_NAME, BOT_HANDOFF_NOTICE } from "@/lib/bot-identity";
 import { acceptBooking, rejectBooking, cancelBooking } from "@/app/actions/bookings";
-import { markShot } from "@/app/actions/payments";
 import { mpTrack } from "@/lib/mixpanel";
 import type { ChatMessage, BookingSnapshot, ConsultationBrief, BotSlots } from "@/lib/chat";
 import { bookingStatusLabel, type BookingStatus } from "@/lib/booking-status";
@@ -1108,19 +1107,6 @@ function BookingCard({
   >(null);
   const status = acted ?? booking.status;
   const router = useRouter();
-  const [advancing, startAdvance] = useTransition();
-
-  // 상태 전이 액션을 실행하고 카드를 낙관적으로 진행시킨다(req8) — markShot/입금확인 등
-  function advance(action: (fd: FormData) => Promise<void>, next: "paid" | "shot") {
-    const fd = new FormData();
-    fd.set("id", booking.id);
-    startAdvance(async () => {
-      await action(fd);
-      setActed(next);
-      router.refresh();
-    });
-  }
-
   // 제안자/수락자 판별 — 작가 제안이면 구매자가 수락, 구매자 제안이면 작가가 수락
   const proposedByPhotographer = booking.proposed_by_photographer;
   const amRecipient = proposedByPhotographer ? amCustomer : amPhotographer; // 수락/거절 권한자
@@ -1272,20 +1258,6 @@ function BookingCard({
             deliveredAt={booking.contact_delivered_at}
           />
         ) : null)}
-
-      {/* 작가: 결제됨 → 촬영 완료 표시 (req9) */}
-      {amPhotographer && status === "paid" && (
-        <div className="mt-3 border-t border-line pt-3">
-          <button
-            type="button"
-            disabled={advancing}
-            onClick={() => advance(markShot, "shot")}
-            className="w-full cursor-pointer rounded-full bg-fg py-2.5 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            {advancing ? "처리 중…" : "촬영 완료 표시"}
-          </button>
-        </div>
-      )}
 
       {/* 작가: 촬영됨 → 보정본 전달 업로더 (req9) */}
       {amPhotographer && status === "shot" && (
