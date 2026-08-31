@@ -80,6 +80,63 @@ export async function getExploreCategoryPhotoIds(categoryId: string): Promise<st
 
 // ── 프론트(사용자) 읽기 — RLS(published·승인작가) 를 태워 안전하게 노출 ──
 
+/**
+ * sitemap 용 — 공개 탐색 카테고리의 slug 만 가볍게 가져온다.
+ *
+ * 요청 컨텍스트(쿠키)가 없는 sitemap 에서 도는 코드라 admin 클라이언트를 쓴다.
+ * admin 은 RLS 를 우회하므로 `published` 를 **명시적으로 걸어야 한다** —
+ * 안 걸면 비공개 카테고리 URL 이 sitemap 에 실려 검색엔진에 404/빈 페이지를 먹인다.
+ * (categories.ts 의 listPublishedCategories 와 같은 규약)
+ *
+ * ⚠️ 2026-08-31 이전까지 sitemap 에 탐색 카테고리가 통째로 빠져 있었다.
+ *    무드·장면 큐레이션이라 SEO 가치가 가장 높은 페이지인데 색인 대상이 아니었다.
+ */
+export async function listPublishedExploreSlugs(): Promise<
+  Array<{ id: string; slug: string; sort: number }>
+> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("explore_categories")
+    .select("id, slug, sort")
+    .eq("published", true)
+    .order("sort", { ascending: true });
+  return (data ?? [])
+    .map((r) => ({ id: String(r.id), slug: String(r.slug ?? ""), sort: Number(r.sort ?? 0) }))
+    .filter((r) => r.slug.length > 0);
+}
+
+/**
+ * sitemap 용 — 주어진 사진 id 중 **로그아웃 방문자(=검색봇)에게 실제로 보이는** 것의 수.
+ *
+ * `resolveExplorePhotoIds` 는 배정만 볼 뿐 노출 가능 여부를 보지 않는다.
+ * 그래서 "배정은 300장인데 페이지는 0장"인 카테고리가 존재한다(2026-08-31 확인:
+ * our-vibe·vintage-memories·natural-look 등). 그런 페이지를 sitemap 에 실으면
+ * 검색엔진에 빈 페이지를 먹이는 셈이다.
+ *
+ * 조건은 fetchExploreCategoryGalleryPhotos 와 **같게 맞춘다** — published + feed_hidden=false.
+ * 어긋나면 sitemap 과 실제 페이지가 다른 말을 하게 된다.
+ * (작가 승인 여부는 RLS 가 보지만 여기선 태울 수 없다. 승인 안 된 작가의 사진이
+ *  카테고리에 배정되는 경우가 드물어 실용상 차이가 없다고 보고 생략한다.)
+ *
+ * ⚠️ id 는 100개씩 끊어 조회한다. 한 번에 넣으면 URL 길이를 넘겨 조용히 0이 된다.
+ */
+export async function countVisiblePhotos(photoIds: string[]): Promise<number> {
+  if (photoIds.length === 0) return 0;
+  const admin = createAdminClient();
+  let total = 0;
+  for (let i = 0; i < photoIds.length; i += 100) {
+    const { count } = await admin
+      .from("photos")
+      .select("id", { count: "exact", head: true })
+      .in("id", photoIds.slice(i, i + 100))
+      .eq("visibility", "published")
+      .eq("feed_hidden", false);
+    total += count ?? 0;
+    if (total > 0) break; // sitemap 판정엔 "0인가 아닌가"만 필요하다
+  }
+  return total;
+}
+
 // 공개 카테고리 1건 (slug). 비공개/미존재는 null.
 export async function getPublishedExploreCategory(slug: string): Promise<ExploreCategory | null> {
   const supabase = await createClient();
@@ -100,15 +157,24 @@ export async function fetchExploreCategoryGalleryPhotos(
   const ids = await getExploreCategoryPhotoIds(categoryId);
   if (ids.length === 0) return [];
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("photos")
-    .select(GALLERY_SELECT)
-    .in("id", ids)
-    .eq("visibility", "published")
-    .eq("feed_hidden", false); // 운영자 피드 숨김 제외
-  const byId = new Map(
-    ((data ?? []) as unknown as GalleryPhoto[]).map((p) => [p.id, p])
-  );
+
+  // ⚠️ id 를 한 번에 .in() 으로 넣으면 안 된다. PostgREST 는 쿼리스트링으로 나가서
+  //    id 가 수백 개면 URL 길이 한계를 넘고, 그러면 **에러도 없이 data 가 null 로 돌아온다.**
+  //    → 카테고리 전체가 빈 페이지가 된다. (2026-08-31 확인: our-vibe·vintage-memories·
+  //      natural-look 등 10개가 배정 300+ 인데 0장으로 렌더되고 있었다)
+  //    같은 파일 publishedPhotoIdsOfAlbums 가 이미 100개씩 끊는 이유가 이것이다.
+  const CHUNK = 100;
+  const rows: GalleryPhoto[] = [];
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const { data } = await supabase
+      .from("photos")
+      .select(GALLERY_SELECT)
+      .in("id", ids.slice(i, i + CHUNK))
+      .eq("visibility", "published")
+      .eq("feed_hidden", false); // 운영자 피드 숨김 제외
+    rows.push(...((data ?? []) as unknown as GalleryPhoto[]));
+  }
+  const byId = new Map(rows.map((p) => [p.id, p]));
   const ordered = ids
     .map((id) => byId.get(id))
     .filter((p): p is GalleryPhoto => !!p);
