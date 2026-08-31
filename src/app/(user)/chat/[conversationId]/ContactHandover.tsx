@@ -215,9 +215,9 @@ export function ContactCardBubble({
         <p className="text-body-sm font-semibold text-fg">작가님이 연락처를 보냈습니다</p>
 
         {/* 규칙은 한 줄로 말하고, 금액은 표로 보여준다.
-            이미 위약금 구간이면 '부과됩니다'가 거짓이 되므로 그때만 문장이 바뀐다. */}
-        {quote &&
-          (quote.percent === 100 ? (
+            이미 50% 구간이면 달라지는 게 없으므로 아무 말도 하지 않는다 —
+            없던 조건이 생긴다고 말하면 겁주기고, 그대로라고 말하면 군더더기다. */}
+        {quote && quote.percent === 100 && (
             <>
               <p className="mt-1.5 text-caption leading-relaxed text-muted">
                 작가 연락처를 받은 이후에는 환불 시 지불 금액의 50%가 환불됩니다.
@@ -238,11 +238,7 @@ export function ContactCardBubble({
                 </div>
               </dl>
             </>
-          ) : (
-            <p className="mt-1.5 text-caption leading-relaxed text-muted">
-              연락처를 받아도 환불 조건은 그대로입니다.
-            </p>
-          ))}
+        )}
 
         <button
           type="button"
