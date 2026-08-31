@@ -3,6 +3,7 @@ import Link from "next/link";
 import { JsonLd } from "@/components/JsonLd";
 import { StickyBack } from "@/components/editorial/StickyBack";
 import { SiteFooter } from "@/components/SiteFooter";
+import { ChannelCard } from "@/components/ChannelCard";
 import { Masthead } from "@/components/editorial/Masthead";
 import { faqJsonLd, breadcrumbJsonLd } from "@/lib/seo";
 import { PUBLISHED_GUIDE_ITEMS, GUIDE_PAGE_ITEMS, AXIS_ORDER } from "@/lib/guide-data";
@@ -139,6 +140,8 @@ export default function GuideHubPage() {
             </div>
           </>
         )}
+
+        <ChannelCard />
 
         <SiteFooter />
       </div>

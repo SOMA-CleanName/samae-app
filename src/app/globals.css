@@ -1260,3 +1260,32 @@ select:focus-visible {
   .trust-link-arrow { transition: none; }
   .trust-link:hover .trust-link-arrow { transform: none; }
 }
+
+/* 읽기를 마친 자리의 채널 카드 — 조용히 있다가 손을 대면 반응한다.
+   붙잡아 세우려는 배너가 아니라, 이미 '더 볼' 의향이 있는 사람에게 열어 둔 문이다. */
+.ch-card {
+  transition: border-color 0.25s ease, box-shadow 0.3s ease, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ch-card:hover,
+.ch-card:focus-visible {
+  border-color: var(--brand);
+  box-shadow: var(--shadow-card);
+  transform: translateY(-2px);
+}
+.ch-card:active {
+  transform: scale(0.995);
+}
+.ch-arrow {
+  display: inline-block;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ch-card:hover .ch-arrow {
+  transform: translateX(4px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ch-card,
+  .ch-arrow { transition: none; }
+  .ch-card:hover,
+  .ch-card:active { transform: none; }
+  .ch-card:hover .ch-arrow { transform: none; }
+}

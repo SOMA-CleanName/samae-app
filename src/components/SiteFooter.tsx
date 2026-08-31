@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { activeChannels } from "@/lib/channels";
 
 /**
  * 지면 공통 푸터.
@@ -11,6 +12,8 @@ import Link from "next/link";
  * (탐색 탭은 판권면이 그 자리를 맡고 있어 거기에 링크만 얹었다)
  */
 export function SiteFooter() {
+  const channels = activeChannels();
+
   return (
     <footer className="mt-16 border-t border-line pt-7">
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-4">
@@ -39,6 +42,31 @@ export function SiteFooter() {
           ))}
         </nav>
       </div>
+
+      {/*
+        사매 공식 채널.
+        ⚠️ 여기 있는 건 **사매의 채널**이지 작가에게 연락하는 길이 아니다.
+           문의·채팅 근처에는 두지 않는다 — 거기 있으면 "작가랑 카톡으로 얘기하면 되나"가 된다.
+           주소가 비면 이 줄이 통째로 안 그려진다(lib/channels).
+      */}
+      {channels.length > 0 && (
+        <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
+          <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-faint">
+            사매 공식 채널
+          </span>
+          {channels.map((c) => (
+            <a
+              key={c.key}
+              href={c.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-body-sm text-muted underline decoration-line-strong underline-offset-4 transition-colors hover:text-brand"
+            >
+              {c.label}
+            </a>
+          ))}
+        </div>
+      )}
 
       <p className="mt-5 text-[11px] leading-relaxed text-faint">
         사진을 고르면 그 사진을 찍은 작가로 이어집니다. 결제는 사매 계좌로 받고, 연락처는
