@@ -5,8 +5,9 @@ import {
   counterpartName,
   counterpartAvatar,
   myUnread,
-  CHAT_STATUS_LABEL,
-  type ChatStatus,
+  chatStatusLabel,
+  chatStatusTone,
+  type ChatViewer,
   type ChatRoomItem,
 } from "@/lib/chat";
 import type { CurrentUser } from "@/lib/auth";
@@ -32,13 +33,6 @@ function when(iso: string | null): string {
   }).format(d);
 }
 
-// 상태 → Badge 톤 (consulting=상담 중 / booked=예약 / shot=촬영 완료)
-function statusTone(s: ChatStatus): "neutral" | "warning" | "success" {
-  if (s === "shot") return "success";
-  if (s === "booked") return "warning";
-  return "neutral";
-}
-
 // 채팅 목록 라우터 — 역할별 허브로 병합: 고객은 문의 탭, 작가는 스튜디오 문의함.
 // (개별 방 /chat/[id] 는 양쪽이 공유. ChatRoomRow 는 두 허브가 계속 import 한다)
 export default async function ChatListPage() {
@@ -53,10 +47,13 @@ export function ChatRoomRow({
   room: c,
   me,
   withLeave,
+  viewer,
 }: {
   room: ChatRoomItem;
   me: CurrentUser;
   withLeave?: boolean;
+  /** 같은 상태라도 부르는 이름이 다르다 — 고객에겐 봇·작가 구분을 보여주지 않는다 */
+  viewer: ChatViewer;
 }) {
   const unread = myUnread(c, me);
   const name = counterpartName(c, me);
@@ -70,8 +67,8 @@ export function ChatRoomRow({
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-2">
             <span className="truncate text-body font-semibold text-fg">{name}</span>
-            <Badge tone={statusTone(c.status)} className="shrink-0">
-              {CHAT_STATUS_LABEL[c.status]}
+            <Badge tone={chatStatusTone(c.status)} className="shrink-0">
+              {chatStatusLabel(c.status, viewer)}
             </Badge>
           </span>
           <span className="mt-0.5 block text-caption text-faint">{when(c.last_message_at)}</span>

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { readMyInquiryIds, fetchMyInquiries } from "@/lib/my-inquiries";
-import { listChatRooms, type ChatRoomItem } from "@/lib/chat";
+import { chatStatusLabel, listChatRooms, type ChatRoomItem } from "@/lib/chat";
 import { getCurrentUser } from "@/lib/auth";
 import { EmptyState } from "@/components/ui";
 import { ClipboardIcon } from "@/components/user/icons";
@@ -42,10 +42,6 @@ export default async function MyInquiriesPage() {
   const rooms = me ? allRooms.filter((r) => r.user_id === me.id) : [];
   // 작가별 대화방 매핑 — 문의 카드의 '채팅방 열기'를 실제 방으로 연결
   const roomByPhotographer = new Map(rooms.map((r) => [r.photographer_id, r.id]));
-  // 접수 완료된 작가 — 이 작가의 방은 일반 채팅으로, 미접수(봇 수집 중)면 봇으로 복귀.
-  // (봇 대화가 DB에 실시간 동기화되면서 last_message_at 만으로는 진행 중을 구분 못 한다)
-  const submittedPhotographers = new Set(inquiries.map((i) => i.photographerId));
-
   // 진행 중인 예약 — 문의 카드에서 예약 내용까지 다 보이게 한다.
   //
   // 문의 탭은 "내가 어디까지 갔나" 를 보는 자리다. 그런데 예약이 잡히고 나면 정작 그
@@ -103,9 +99,6 @@ export default async function MyInquiriesPage() {
         <section className="mt-5">
           <ul className="space-y-2">
             {rooms.map((r) => {
-              // 채팅방 상주 봇 — 작성 중이든 접수 후든 방은 하나. 라벨만 진행 상태를 구분한다.
-              const startedWithBot = r.bot_photo_id != null || r.bot_slots != null;
-              const inProgress = startedWithBot && !submittedPhotographers.has(r.photographer_id);
               const href = `/chat/${r.id}`;
               return (
               <li key={r.id}>
@@ -129,8 +122,9 @@ export default async function MyInquiriesPage() {
                     <p className="truncate text-body font-semibold text-fg">
                       {r.photographer?.display_name ?? "작가"}
                     </p>
+                    {/* 고객에게는 봇·작가를 나누지 않는다 — 누가 답하든 상담은 진행 중이다 */}
                     <p className="mt-0.5 text-caption text-muted">
-                      {inProgress ? "문의 작성 중 — 이어서 진행하기" : "대화 진행 중"}
+                      {chatStatusLabel(r.status, "customer")}
                     </p>
                   </div>
                   {r.user_unread > 0 && (

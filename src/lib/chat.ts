@@ -34,13 +34,38 @@ export type ConversationListItem = {
   photographer_avatar_url?: string | null;
 };
 
-// 채팅방 진행 상태 (예약 단계에서 파생)
-export type ChatStatus = "consulting" | "booked" | "shot";
-export const CHAT_STATUS_LABEL: Record<ChatStatus, string> = {
-  consulting: "상담 중",
-  booked: "예약 완료",
-  shot: "촬영 완료",
+// 채팅방 진행 상태 — 세 가지뿐이다.
+//
+//   bot        챗봇이 응대 중 (작가가 아직 개입하지 않음)
+//   consulting 작가가 이어받아 상담 중
+//   booked     예약이 성사됨 (고객이 입금을 알린 뒤)
+//
+// **보는 사람에 따라 다르게 부른다.** 고객에게 '챗봇 상담중' 과 '작가 상담중' 을 나눠
+// 보여줄 이유가 없다 — 누가 답하든 고객 입장에선 상담이 진행 중인 것이고,
+// "지금 사람이 아니라 봇이 답하고 있다" 는 사실은 방 안에서 이미 드러난다.
+// 작가·운영에게는 구분이 곧 할 일의 차이라(개입해야 하는가) 나눠서 보여준다.
+export type ChatStatus = "bot" | "consulting" | "booked";
+export type ChatViewer = "customer" | "photographer" | "admin";
+
+const STATUS_LABEL_BY_VIEWER: Record<ChatViewer, Record<ChatStatus, string>> = {
+  customer: { bot: "상담중", consulting: "상담중", booked: "예약 성사" },
+  photographer: { bot: "챗봇 상담중", consulting: "상담중", booked: "예약 성사" },
+  admin: { bot: "챗봇 상담중", consulting: "작가 상담중", booked: "예약 성사" },
 };
+
+export function chatStatusLabel(status: ChatStatus, viewer: ChatViewer): string {
+  return STATUS_LABEL_BY_VIEWER[viewer][status];
+}
+
+/** 배지 색 — 손이 필요한 것(챗봇 상담중)과 끝난 것(예약 성사)이 구분돼야 한다 */
+export function chatStatusTone(s: ChatStatus): "neutral" | "warning" | "success" {
+  if (s === "booked") return "success";
+  if (s === "bot") return "warning";
+  return "neutral";
+}
+
+/** 어드민 필터용 — 표시 순서가 곧 진행 순서다 */
+export const CHAT_STATUSES: ChatStatus[] = ["bot", "consulting", "booked"];
 export type ChatRoomItem = ConversationListItem & { status: ChatStatus };
 
 // 예약 제안 카드용 스냅샷 (편집 프리필을 위해 package_id·memo 포함)
@@ -135,21 +160,33 @@ export async function listChatRooms(me: CurrentUser): Promise<ChatRoomItem[]> {
   // 거절/취소/환불은 제외하고 created_at desc로 최신 1건만 반영(역대 최고 단계 오표시 방지).
   const { data: bookings } = await supabase
     .from("bookings")
-    .select("user_id, photographer_id, status, created_at")
+    .select("user_id, photographer_id, status, transfer_marked_at, created_at")
     .order("created_at", { ascending: false });
-  const latestByPair = new Map<string, string>();
+  const latestByPair = new Map<string, { status: string; transferMarkedAt: string | null }>();
   for (const b of bookings ?? []) {
     if (!LIVE_STATUSES.has(b.status as string)) continue;
     const key = `${b.user_id}:${b.photographer_id}`;
-    if (!latestByPair.has(key)) latestByPair.set(key, b.status as string); // desc 정렬이라 첫 항목=최신
+    // desc 정렬이라 첫 항목=최신
+    if (!latestByPair.has(key))
+      latestByPair.set(key, {
+        status: b.status as string,
+        transferMarkedAt: (b.transfer_marked_at as string) ?? null,
+      });
   }
 
   const visible = convs.filter((c) => isVisibleTo(c, me, withBrief)); // 대화 있거나 상담정보 입력된 + 안 나간 방만
   await fillCounterpartInfo(visible); // 상대 이름·아바타 보강
-  return visible.map((c) => ({
-    ...c,
-    status: deriveStatus(latestByPair.get(`${c.user_id}:${c.photographer_id}`)),
-  }));
+  return visible.map((c) => {
+    const bk = latestByPair.get(`${c.user_id}:${c.photographer_id}`);
+    return {
+      ...c,
+      status: deriveChatStatus({
+        botDisabledAt: c.bot_disabled_at,
+        bookingStatus: bk?.status,
+        transferMarkedAt: bk?.transferMarkedAt,
+      }),
+    };
+  });
 }
 
 // 진행 중으로 볼 예약 상태 (거절/취소/환불 제외)
@@ -167,11 +204,21 @@ function isVisibleTo(c: ConversationListItem, me: CurrentUser, withBrief: Set<st
   return !myHidden || c.last_message_at > myHidden;
 }
 
-// 최근 활성 예약 상태 → 채팅방 진행 상태
-function deriveStatus(status: string | undefined): ChatStatus {
-  if (status === "shot" || status === "delivered" || status === "completed") return "shot";
-  if (status === "accepted" || status === "paid") return "booked";
-  return "consulting";
+/**
+ * 방의 진행 상태 — 예약이 있으면 예약이, 없으면 봇 인계 여부가 결정한다.
+ *
+ * '예약 성사' 의 기준은 **고객이 입금을 알린 시점**이다. 수락만 된 건은 아직 성사가 아니라
+ * 입금 대기이고, 그 구간에서 '성사' 로 보이면 작가가 준비를 시작해버린다.
+ */
+export function deriveChatStatus(params: {
+  botDisabledAt: string | null | undefined;
+  bookingStatus?: string | null;
+  transferMarkedAt?: string | null;
+}): ChatStatus {
+  const s = params.bookingStatus;
+  const paid = s === "paid" || s === "shot" || s === "delivered" || s === "completed";
+  if (paid || (s === "accepted" && params.transferMarkedAt)) return "booked";
+  return params.botDisabledAt ? "consulting" : "bot";
 }
 
 // 대화 1건 (접근 불가 시 null)

@@ -35,7 +35,7 @@ export default async function StudioChatPage() {
       ) : (
         <ul className="mt-5 divide-y divide-line">
           {rooms.map((c) => (
-            <ChatRoomRow key={c.id} room={c} me={me} />
+            <ChatRoomRow key={c.id} room={c} me={me} viewer="photographer" />
           ))}
         </ul>
       )}
