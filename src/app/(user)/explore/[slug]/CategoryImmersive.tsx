@@ -81,7 +81,9 @@ export function CategoryImmersive({
 
   function back() {
     if (typeof window !== "undefined" && window.history.length > 1) router.back();
-    else router.push("/explore");
+    // 직접 진입이면 홈으로. 예전엔 /explore 로 보냈는데 그 탭은 이제 매거진이라,
+    // 사진을 보다 나온 사람을 글 목록에 떨어뜨리게 된다.
+    else router.push("/");
   }
 
   // 담기 — 기존 '카트로 빨려들어가는' fly 애니메이션 재사용.
