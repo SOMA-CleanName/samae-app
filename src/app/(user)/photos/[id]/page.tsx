@@ -24,6 +24,7 @@ import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
 import { PhotoTopBar } from "./PhotoTopBar";
 import { DetailMoreInfo } from "./DetailMoreInfo";
 import { PhotoCtas } from "./PhotoCtas";
+import { CaptionOverlay, CaptionProvider, CaptionToggleButton } from "./CaptionOverlay";
 import { PackageInfoSection } from "./PackageInfoSection";
 import { GuideImageGallery } from "@/components/user/GuideImageGallery";
 import { NavRevealOnScroll } from "@/components/user/NavReveal";
@@ -148,6 +149,7 @@ export default async function PhotoDetail({
         price={photo.price_krw ?? null}
         disabled={isOwner}
       />
+      <CaptionProvider caption={caption || albumDescription}>
       <div className="md:flex md:items-start md:gap-8">
         {/* 사진 — 화면 최상단. 뒤로가기·공유는 이미지 위 오버레이 */}
         <div
@@ -155,6 +157,8 @@ export default async function PhotoDetail({
           style={{ "--ar": String(aspect) } as React.CSSProperties}
         >
           <PhotoCarousel photos={carousel} startIndex={startIndex} frameAspect={aspect} />
+          {/* 작가의 글 — 버튼을 누르면 사진 위에 겹친다 */}
+          <CaptionOverlay />
           {/* 좌상단 투명 뒤로가기 (담기·공유는 carousel 내부에서 사진 모서리에 붙음) */}
           <PhotoTopBar />
         </div>
@@ -176,6 +180,7 @@ export default async function PhotoDetail({
                   h: photo.height ?? 0,
                 }}
               />
+              <CaptionToggleButton />
             </div>
             {/* 오른쪽 끝 — 팝오버가 화면 밖으로 나가지 않게 정렬을 오른쪽 기준으로 */}
             {!isOwner && <PartnerBadge popoverAlign="right" />}
@@ -198,7 +203,6 @@ export default async function PhotoDetail({
             duration={matchedPkg ? formatDuration(matchedPkg.duration_min) : null}
             editedCount={matchedPkg?.edited_count ?? null}
             location={location}
-            caption={caption || albumDescription}
           />
 
           {/* 작가 안내 이미지 — 없으면 섹션째 렌더 안 됨 */}
@@ -216,6 +220,7 @@ export default async function PhotoDetail({
           <DetailMoreInfo photographerId={ph.id} avatarUrl={ph.avatar_url} />
         </div>
       </div>
+      </CaptionProvider>
 
       {/* 하단 — 추천 사진. Suspense 로 분리해 상단(사진·CTA)을 먼저 렌더하고 추천은 스트리밍.
           400장 조회+스코어링이 더 이상 첫 화면(LCP)을 막지 않는다.

@@ -9,7 +9,6 @@ export function PackageInfoSection({
   duration,
   editedCount,
   location,
-  caption,
 }: {
   name: string | null;
   description: string | null;
@@ -17,8 +16,6 @@ export function PackageInfoSection({
   duration: string | null;
   editedCount: number | null;
   location: string | null;
-  /** 이 사진에 대한 작가의 코멘트 — 패키지 설명과 같은 흐름에서 읽힌다 */
-  caption: string | null;
 }) {
   return (
     <section className="mt-5 rounded-2xl border border-line bg-surface p-4">
@@ -46,21 +43,11 @@ export function PackageInfoSection({
         </p>
       )}
 
-      {/* 패키지 설명과 작가의 글 — 따로 떼어놓으면 같은 이야기를 두 번 읽게 된다.
-          둘 다 '이 촬영이 어떤 촬영인가' 를 말하므로 한 흐름에 둔다. */}
-      {(description || caption) && (
-        <div className="mt-3 flex flex-col gap-3 border-t border-line pt-3">
-          {description && (
-            <p className="whitespace-pre-wrap text-body-sm leading-relaxed text-muted">
-              {description}
-            </p>
-          )}
-          {caption && (
-            <p className="whitespace-pre-wrap text-body-sm leading-relaxed text-muted">
-              {caption}
-            </p>
-          )}
-        </div>
+      {/* 작가의 글은 사진 위 오버레이로 갔다 (CaptionOverlay) — 여기는 패키지 설명만 */}
+      {description && (
+        <p className="mt-3 whitespace-pre-wrap border-t border-line pt-3 text-body-sm leading-relaxed text-muted">
+          {description}
+        </p>
       )}
 
       {/* 협의 가능하다는 사실을 여기서 못 박아야 '가격이 안 맞아서' 이탈하지 않는다 */}
