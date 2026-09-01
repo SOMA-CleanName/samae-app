@@ -1147,7 +1147,10 @@ function PhotoCard({
       className={cn(
         // 저빈도 악센트 테두리 — border(안쪽)라 사진만 살짝 줄고 바깥 크기는 열 폭 그대로
         // (ring 바깥쪽이면 옆으로 삐져나와 더 커 보였음). 기본은 테두리 없음.
-        "group relative break-inside-avoid overflow-hidden bg-fg/[0.05]",
+        "group relative break-inside-avoid overflow-hidden",
+        // 스켈레톤 배경은 **로드 전에만**. 사진이 들어온 뒤에도 깔아 두면
+        // 등장 애니메이션 중 가장자리 틈으로 이 색이 비쳐 얇은 선이 된다.
+        !loaded && "bg-fg/[0.05]",
         accent === "brand" ? "border-[6px] border-brand" : accent === "ink" ? "border-[6px] border-fg" : ""
       )}
     >

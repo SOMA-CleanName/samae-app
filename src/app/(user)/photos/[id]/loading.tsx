@@ -2,6 +2,12 @@
 
 // 사진 상세 로딩 스켈레톤 — 탭 직후 즉시 노출.
 // 갤러리에서 넘겨준 비율(sessionStorage)로 사진 자리를 그려 실제 사진과 크기를 맞춘다.
+//
+// ⚠️ 이 파일은 **실제 지면(page.tsx)과 골격이 같아야 한다.**
+//    어긋난 만큼 로딩이 끝나는 순간 화면이 밀린다. 실제로 어긋나 있었다 —
+//    CTA 가 지면엔 둘(상담·예약)인데 스켈레톤엔 하나, 패키지 카드 자리가 없었고,
+//    추천 섹션의 제목·구획선도 빠져 있어 로딩이 끝나면 그만큼 아래가 튀었다.
+//    page.tsx 의 블록을 고치면 여기도 같이 고칠 것.
 import { usePathname } from "next/navigation";
 import { readPhotoAspect, readFrameAspect } from "@/lib/photo-aspect";
 import { RecsSkeleton } from "@/components/user/skeletons";
@@ -19,9 +25,9 @@ export default function Loading() {
     <main className="mx-auto max-w-5xl px-2.5 pb-2.5 pt-2.5 font-kr sm:px-4 sm:pt-4 sm:pb-4">
       <ScrollTop />
       <div className="md:flex md:items-start md:gap-8">
-        {/* 사진 자리 — 실제 비율 적용. 데스크탑은 실제 페이지처럼 sticky */}
+        {/* 사진 자리 — 실제 비율 적용. 높이 상한은 globals.css 의 --photo-cap 공용 */}
         <div
-          className="relative mx-auto w-[min(100%,calc(82svh*var(--ar)))] md:mx-0 md:sticky md:top-4 md:shrink-0 md:self-start md:w-[min(60%,calc(80vh*var(--ar)))]"
+          className="photo-frame relative mx-auto md:mx-0 md:sticky md:top-4 md:shrink-0 md:self-start"
           style={{ "--ar": String(aspect) } as React.CSSProperties}
         >
           <div
@@ -30,27 +36,47 @@ export default function Loading() {
           />
         </div>
 
-        {/* 정보 자리 — 실제 레이아웃(공유·담기 / 가격 · 상담 CTA) 골격 그대로 */}
         <div className="mt-4 w-full md:mt-0 md:min-w-0 md:flex-1">
-          {/* 공유·담기(좌) · 가격(우) 한 행 */}
+          {/* 공유·담기·작가의 글(좌) · 파트너 뱃지(우) 한 행 */}
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-1.5">
               <div className="h-9 w-9 animate-pulse rounded-full bg-surface-2" />
               <div className="h-9 w-9 animate-pulse rounded-full bg-surface-2" />
+              <div className="h-9 w-9 animate-pulse rounded-full bg-surface-2" />
             </div>
-            <div className="flex items-baseline gap-2">
-              <div className="h-6 w-24 animate-pulse rounded bg-surface-2" />
-              <div className="h-4 w-14 animate-pulse rounded bg-surface-2" />
-            </div>
+            <div className="h-6 w-28 animate-pulse rounded-full bg-surface-2" />
           </div>
 
-          {/* 무료 상담 신청 CTA (브랜드 톤) */}
-          <div className="mt-4 h-12 w-full animate-pulse rounded-xl bg-brand/15" />
+          {/* CTA 두 개 — 작가 상담하기 / 촬영 예약하기 (h-12, gap-2) */}
+          <div className="mt-4 flex flex-col gap-2">
+            <div className="h-12 w-full animate-pulse rounded-2xl bg-surface-2" />
+            <div className="h-12 w-full animate-pulse rounded-2xl bg-brand/15" />
+          </div>
+
+          {/* 패키지 카드 자리 — 라벨·이름/가격·사실 세 줄 */}
+          <div className="mt-5 rounded-2xl border border-line bg-surface p-4">
+            <div className="h-3 w-32 animate-pulse rounded bg-surface-2" />
+            <div className="mt-2 flex items-end justify-between gap-3">
+              <div className="h-5 w-24 animate-pulse rounded bg-surface-2" />
+              <div className="h-6 w-24 animate-pulse rounded bg-surface-2" />
+            </div>
+            <div className="mt-3 border-t border-line">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="flex items-center justify-between border-b border-line py-2.5">
+                  <div className="h-3 w-16 animate-pulse rounded bg-surface-2" />
+                  <div className="h-3 w-20 animate-pulse rounded bg-surface-2" />
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* 하단 — 추천(탐색) 사진 스켈레톤도 미리 노출 */}
-      <RecsSkeleton count={8} />
+      {/* 하단 — 추천. 지면과 같은 구획선·제목 자리를 미리 잡아 둔다 */}
+      <div className="mt-12 border-t border-line pt-6">
+        <div className="mb-3 h-5 w-36 animate-pulse rounded bg-surface-2" />
+        <RecsSkeleton count={8} />
+      </div>
     </main>
   );
 }

@@ -8,9 +8,11 @@ import { readMyInquiryIds } from "@/lib/my-inquiries";
 import { fetchUnreadTotalForUser, fetchUnreadTotalForPhotographer } from "@/lib/chat";
 import { RealtimeListRefresh } from "@/components/user/RealtimeListRefresh";
 import { ChatToast } from "@/components/user/ChatToast";
+import { toProfileMe } from "@/lib/profile-me";
 
 // 사용자(탐색) 영역 공통 셸 — 기존 하단바/레일 제거.
-// 하단 중앙 홈/탐색 플로팅 내비 + (로그인 시) 좌측 하단 계정 + 우측 하단 장바구니.
+// 하단 중앙 플로팅 내비 + 우측 하단 장바구니.
+// 계정은 여기 없다 — 홈/카테고리 지면 상단 오른쪽 ProfileButton 이 맡는다.
 export default async function UserLayout({
   children,
 }: {
@@ -27,16 +29,7 @@ export default async function UserLayout({
     me ? fetchUnreadTotalForUser(me.id) : Promise.resolve(0),
     me?.photographer ? fetchUnreadTotalForPhotographer(me.photographer.id) : Promise.resolve(0),
   ]);
-  const profileMe = me
-    ? {
-        displayName: me.displayName,
-        email: me.email,
-        avatarUrl: me.avatarUrl,
-        isPhotographer: !!me.photographer,
-        photographerId: me.photographer?.id ?? null,
-        isAdmin: me.role === "admin",
-      }
-    : null;
+  const profileMe = toProfileMe(me);
 
   return (
     <CartProvider>

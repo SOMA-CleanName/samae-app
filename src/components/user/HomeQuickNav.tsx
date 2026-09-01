@@ -1,11 +1,18 @@
 import Link from "next/link";
 
 /**
- * 홈 바로가기 — 아이콘 위, 이름 아래. 한 줄에 다섯 개.
+ * 홈 바로가기 — 폭에 따라 두 가지 모양.
  *
- * 아이콘과 이름을 가로로 붙이면 알약 하나가 90px 을 넘어 다섯 개가 화면에 안 들어간다.
- * 세로로 쌓으면 칸당 68px 로 줄어 375px 화면에서도 스크롤 없이 전부 보인다.
- * 옆으로 밀어야 보이는 항목은 절반이 안 눌린다.
+ * 폰(~640px): 아이콘 위, 이름 아래. 다섯 칸이 화면 폭을 나눠 갖는다.
+ *   아이콘과 이름을 가로로 붙이면 알약 하나가 90px 을 넘어 다섯 개가 안 들어간다.
+ *   세로로 쌓으면 칸당 68px 로 줄어 375px 화면에서도 스크롤 없이 전부 보인다.
+ *   옆으로 밀어야 보이는 항목은 절반이 안 눌린다.
+ *
+ * 그 위(sm~): 아이콘 옆에 이름을 붙인 알약을 왼쪽부터 늘어놓는다.
+ *   위의 제약은 폰 폭에서만 성립한다. 넓은 화면에서 grid-cols-5 를 그대로 두면
+ *   1500px 를 다섯으로 나눠 칸마다 300px 가 되고, 그 한가운데 44px 아이콘 하나가
+ *   떠 있게 된다 — 항목 사이가 250px 씩 벌어져 한 세트로 안 읽힌다.
+ *   폭을 정해 왼쪽으로 모으면 로고·검색과 같은 선에서 시작해 줄이 맞는다.
  *
  * 다섯 개 모두 같은 선 굵기(1.7)·같은 크기(20px) 아이콘이다.
  * 전에는 둘만 사진이고 셋은 도형이라 성격이 갈렸고, 32px 원에 들어간 사진은
@@ -19,7 +26,9 @@ type Chip = {
 };
 
 const CHIPS: Chip[] = [
-  { href: "/explore", label: "이야기", icon: "story" },
+  // 하단 내비 탭과 같은 곳(/explore)이다 — 이름이 다르면 두 군데인 줄 안다.
+  // 탭이 '탐색'에서 '매거진'으로 바뀌면서 여기 '이야기'도 같이 맞췄다.
+  { href: "/explore", label: "매거진", icon: "story" },
   { href: "/spots", label: "장소", icon: "place" },
   { href: "/guide", label: "가이드", icon: "qna" },
   { href: "/explore/quiz", label: "취향", icon: "taste" },
@@ -84,15 +93,18 @@ function Icon({ kind }: { kind: Chip["icon"] }) {
 export function HomeQuickNav() {
   return (
     <nav aria-label="바로가기" className="mb-6">
-      <ul className="grid grid-cols-5 gap-1">
+      <ul className="grid grid-cols-5 gap-1 sm:flex sm:flex-wrap sm:gap-2">
         {CHIPS.map((c, i) => (
           // 로드 때 순서대로 자리를 잡는다
           <li key={c.href} className="ed-rise" style={{ ["--i" as string]: i }}>
-            <Link href={c.href} className="qp flex flex-col items-center gap-1.5 py-1">
-              <span className="qp-dot grid h-11 w-11 place-items-center rounded-full bg-brand-soft text-brand">
+            <Link
+              href={c.href}
+              className="qp flex flex-col items-center gap-1.5 py-1 sm:flex-row sm:gap-2 sm:rounded-full sm:border sm:border-line sm:bg-surface sm:py-1.5 sm:pl-1.5 sm:pr-4"
+            >
+              <span className="qp-dot grid h-11 w-11 place-items-center rounded-full bg-brand-soft text-brand sm:h-9 sm:w-9">
                 <Icon kind={c.icon} />
               </span>
-              <span className="qp-label block max-w-full truncate text-[11px] font-bold tracking-tight">
+              <span className="qp-label block max-w-full truncate text-[11px] font-bold tracking-tight sm:text-sm">
                 {c.label}
               </span>
             </Link>

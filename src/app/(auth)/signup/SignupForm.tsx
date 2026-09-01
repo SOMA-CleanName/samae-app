@@ -206,10 +206,15 @@ export function SignupForm() {
         </div>
       )}
 
-      {/* 이용약관은 아직 단독 페이지가 없다(/terms/ad-consent 만 있음). 없는 데로 링크를
-          걸면 404 라, 링크는 실제로 있는 개인정보 처리방침에만 건다. */}
+      {/* 전에는 '서비스 이용약관'이 링크 없는 평문이었다 — /terms 가 404 였기 때문.
+          이제 페이지가 있다. 다만 전문은 법무 검토 전이라, 그 페이지가 준비 중임을
+          밝히고 지금 유효한 기준(/trust·/privacy)으로 안내한다. */}
       <p className="mt-4 text-caption leading-relaxed text-faint">
-        가입하면 서비스 이용약관과{" "}
+        가입하면{" "}
+        <Link href="/terms" className="underline underline-offset-2 hover:text-muted">
+          서비스 이용약관
+        </Link>
+        과{" "}
         <Link href="/privacy" className="underline underline-offset-2 hover:text-muted">
           개인정보 처리방침
         </Link>

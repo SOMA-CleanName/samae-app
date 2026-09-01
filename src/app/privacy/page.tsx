@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
+import { SiteFooter } from "@/components/SiteFooter";
 import Link from "next/link";
 import { ArrowLeftIcon } from "@/components/user/icons";
 
 export const metadata: Metadata = {
   title: "개인정보 처리방침",
   description: "사매(samae) 개인정보 수집·이용 및 처리방침",
+  // 없으면 루트 layout 의 canonical:"/" 를 상속해 홈의 복제본으로 신고된다
+  alternates: { canonical: "/privacy" },
 };
 
 // 개인정보 처리방침 — 표준안. ※ 실제 시행 전 법무 검토 권장.
@@ -85,6 +88,8 @@ export default function PrivacyPage() {
       </div>
 
       <p className="mt-10 text-xs text-faint">시행일: 2026-06-26 · 본 방침은 관련 법령 및 서비스 변경에 따라 개정될 수 있습니다.</p>
+
+      <SiteFooter />
     </main>
   );
 }

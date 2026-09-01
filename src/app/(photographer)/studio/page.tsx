@@ -19,14 +19,14 @@ export default async function StudioHome() {
     return (
       <main className="mx-auto max-w-3xl px-4 sm:px-6 py-10 font-kr">
         <Link href="/" className="text-sm text-fg/50 hover:text-fg">
-          ← 탐색으로
+          ← 홈으로
         </Link>
         <h1 className="mt-4 text-2xl font-semibold">작가 스튜디오</h1>
 
         {!ph && (
           <div className="mt-6 rounded-xl border border-fg/10 p-6">
             <p className="text-sm text-fg/70">
-              아직 작가로 등록되지 않았어요. 신청하고 승인받으면 탐색 탭에 노출됩니다.
+              아직 작가로 등록되지 않았어요. 신청하고 승인받으면 사진이 홈 피드에 노출됩니다.
             </p>
             <Link
               href="/apply"

@@ -1,7 +1,7 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
@@ -38,7 +38,9 @@ export function PhotoExplore({
   excludeId?: string; // 현재 사진 — 이어붙일 때 제외
 }) {
   return (
-    <section className="mt-6">
+    // 바깥 여백은 호출부(page.tsx 의 추천 섹션)가 준다.
+    // 여기와 스켈레톤 중 한쪽만 여백을 들고 있으면 로드가 끝날 때 그리드가 그만큼 튄다.
+    <section>
       {/* key=현재 사진 → 다른 사진으로 이동 시 리마운트되어 누적/페이지 상태 초기화 */}
       <RecsFeed
         key={excludeId ?? "recs"}
@@ -264,11 +266,41 @@ function PhotoMasonry({
   const ref = useRef<HTMLDivElement>(null);
   const colCount = useColumnCount(ref);
   const columns = useMemo(() => buildColumns(photos, colCount), [photos, colCount]);
+
+  /*
+    카드 등장 — 홈 피드와 같은 관찰자다(globals.css 의 .feed-rise).
+
+    ⚠️ 숨김은 관찰자가 실제로 설치된 뒤에만 걸린다(부모의 data-reveal-on).
+       기본값을 숨김으로 두면 관찰자가 안 도는 경우 — 백그라운드 탭, 하이드레이션 실패,
+       IntersectionObserver 미지원 — 추천이 통째로 사라진다.
+    한 번 보이면 관찰을 끊는다. 무한 스크롤이라 카드가 수백 장까지 늘어난다.
+  */
+  useLayoutEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    const grid = ref.current;
+    if (!grid) return;
+    grid.dataset.revealOn = "1";
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (!e.isIntersecting) continue;
+          (e.target as HTMLElement).dataset.shown = "1";
+          io.unobserve(e.target);
+        }
+      },
+      { rootMargin: "0px 0px -8% 0px", threshold: 0.01 }
+    );
+    grid.querySelectorAll<HTMLElement>(".feed-rise:not([data-shown])").forEach((el) => io.observe(el));
+    return () => io.disconnect();
+  }, [colCount, photos.length]);
+
   if (photos.length === 0) {
     return <p className="mt-10 text-center text-sm text-muted">{empty}</p>;
   }
   return (
-    <div ref={ref} className="mt-5 flex gap-3">
+    <div ref={ref} data-recs-grid className="mt-5 flex gap-3">
       {columns.map((col, ci) => (
         <div key={ci} className="flex min-w-0 flex-1 flex-col gap-3">
           {col.map((p) => {
@@ -278,7 +310,10 @@ function PhotoMasonry({
                 key={p.id}
                 data-cart-card
                 data-pid={p.id}
-                className="group relative overflow-hidden bg-fg/[0.05]"
+                // 홈 피드와 같은 장치. 화면에 들어올 때 떠오른다.
+                // (열마다 --c 로 조금씩 늦춰 같은 줄이 통째로 튀지 않게)
+                className="feed-rise group relative overflow-hidden"
+                style={{ ["--c" as string]: ci }}
               >
                 <Link
                   href={`/photos/${p.id}`}

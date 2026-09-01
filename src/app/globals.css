@@ -313,6 +313,24 @@ select:focus-visible {
   .page-enter { animation: none; }
 }
 
+/*
+  프로필 시트 — 모바일은 아래에서 올라오는 바텀시트, 데스크톱은 여는 버튼
+  (홈 상단 오른쪽 ProfileButton) 아래에 붙는 팝오버.
+
+  열림/닫힘 위치는 인라인 transform 으로 온다. 드래그 중에는 손가락을 따라와야 해서
+  클래스로는 줄 수 없다. 인라인은 클래스를 이기므로 데스크톱에서만 !important 로 되돌린다 —
+  위에 붙은 팝오버가 화면 아래(translateY(100%))에서 올라오면 화면을 가로질러
+  날아오는 꼴이 된다. 드래그 핸들은 md:hidden 이라 데스크톱에서 이 값이 바뀔 일은 없다.
+*/
+@media (min-width: 768px) {
+  .profile-sheet { transition: transform 180ms ease-out, opacity 180ms ease-out; }
+  .profile-sheet[data-entered="false"] { opacity: 0; transform: translateY(-6px) !important; }
+  .profile-sheet[data-entered="true"]  { opacity: 1; transform: none !important; }
+}
+@media (min-width: 768px) and (prefers-reduced-motion: reduce) {
+  .profile-sheet { transition: none; }
+}
+
 /* 이미지 로딩 시머 — 스켈레톤 위로 밝은 띠가 좌→우로 반복 슬라이드 */
 @keyframes shimmer-slide {
   100% { transform: translateX(100%); }
@@ -516,7 +534,7 @@ select:focus-visible {
 }
 
 /* ─────────────────────────────────────────────────────────────
-   탐색 지면 — 잡지 골격
+   매거진 지면(/explore) — 잡지 골격
    /articles 에서 쓴 ed-* 체계를 이어서 쓴다. 두 지면이 한 잡지처럼
    읽히려면 장치가 같아야 한다.
    ───────────────────────────────────────────────────────────── */
@@ -694,7 +712,20 @@ select:focus-visible {
 }
 [data-reveal-on] .feed-rise:not([data-shown]) {
   opacity: 0;
-  transform: translateY(26px) scale(0.97);
+  /*
+    ⚠️ scale 을 쓰지 않는다.
+
+    전에는 translateY(26px) scale(0.97) 이었는데, 카드 가장자리에 아주 얇은 흰 선이
+    생겼다가 멈추면 사라졌다. 크기가 변하면 매 프레임 테두리가 새로운 소수 픽셀에
+    떨어지고, 합성 레이어의 가장자리 픽셀이 반투명해진다. 그 틈으로 카드 배경
+    (bg-fg/[0.05] — 다크 모드에서는 페이지보다 밝다)이 비쳐 선으로 보였다.
+    애니메이션이 끝나면 레이어가 버려지고 픽셀이 격자에 맞아 선도 없어진 것이다.
+
+    이동만 하면 크기가 안 변해 그 틈이 안 생긴다. 떠오르는 느낌은 그대로다.
+  */
+  transform: translateY(26px);
+  /* 웹킷에서 합성 레이어 가장자리 처리를 한 겹 더 눌러 준다 */
+  backface-visibility: hidden;
   will-change: opacity, transform;
 }
 
@@ -931,6 +962,34 @@ select:focus-visible {
   transform-origin: center bottom;
   transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.35s ease;
   will-change: transform;
+}
+
+/*
+  데스크톱 — 가운데 한 장 세우기를 끈다.
+  (⚠️ 반드시 위 .deck / .deck-card 기본값 **뒤에** 둘 것. 특정도가 같아서
+   순서로만 이긴다. 앞에 두면 미디어쿼리가 통째로 무시된다.)
+
+  padding-inline 이 (레일폭 − 카드폭)/2 라서, 카드가 304px 인 1361px 화면에서는
+  좌우가 528px 씩 빈다. 제목("스냅 촬영 이야기")은 왼쪽에 있는데 카드는 화면
+  한복판에 한 장만 떠 있어 왼쪽 절반이 통째로 비어 보였다.
+  넓은 화면은 카드가 여러 장 동시에 보이는 게 자연스럽다 — 왼쪽부터 채우고
+  카드도 조금 키운다. 기울임·축소는 JS 가 같은 조건에서 끈다(ArticleDeck).
+*/
+@media (min-width: 640px) {
+  .deck {
+    --deck-w: 20rem;
+    /* 감싼 쪽의 -mx-6 을 되돌려 지면 왼쪽 선에 맞춘다 */
+    padding-inline: 1.5rem;
+    scroll-snap-type: x proximity;
+    /* ⚠️ padding-inline 과 같은 값을 넣어야 한다. scroll-snap-align:start 는
+       패딩을 무시하고 스크롤포트 끝에 카드를 붙여서, 로드하자마자 scrollLeft 가
+       24 로 튀며 첫 카드가 지면 왼쪽 선 밖으로 24px 밀려 나갔다(실측).
+       스냅 기준선을 패딩만큼 안으로 들여 준다. */
+    scroll-padding-inline: 1.5rem;
+  }
+  .deck-card {
+    scroll-snap-align: start;
+  }
 }
 .deck-img {
   transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
@@ -1172,4 +1231,107 @@ select:focus-visible {
 }
 @media (prefers-reduced-motion: reduce) {
   .chat-toast { animation: none; }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   사진 상세 — 사진 프레임 높이 상한
+
+   같은 값을 page.tsx · loading.tsx · PhotoCarousel 세 곳이 각자 들고 있었다.
+   한 곳만 바꾸면 **스켈레톤과 실제 사진 크기가 어긋나** 로딩이 끝나는 순간 화면이 튄다.
+   값은 여기 한 곳에만 둔다.
+
+   82svh 였다. 세로 사진(2:3)이면 폭이 화면을 꽉 채우고 높이가 뷰포트의 80%가 되어
+   첫 화면이 통째로 사진이었다 — [상담하기]·[예약하기]가 한 화면 아래에 있었다.
+   사진을 보러 온 지면이 맞지만, 마음에 들었을 때 다음으로 갈 문은 화면 안에 있어야 한다.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  --photo-cap: 66svh;
+}
+@media (min-width: 768px) {
+  :root {
+    /* 데스크탑은 사진이 우측 정보 칼럼보다 200px 넘게 길어져 칼럼이 끝난 아래로
+       빈 공간이 길게 남았다. 62vh 면 두 칼럼 길이가 얼추 맞는다. */
+    --photo-cap: 62vh;
+  }
+}
+
+/* 사진이 앉는 칸 — 비율(--ar)은 호출부가 인라인으로 넣는다 */
+.photo-frame {
+  width: min(100%, calc(var(--photo-cap) * var(--ar)));
+}
+
+/*
+  사진이 실제로 걸린 칸은 뒤를 검게 받친다.
+
+  폭이 min(100%, calc(...)) 라 소수 픽셀로 떨어지는데, 안에 든 검은 판은 그 폭의
+  100% 라 반올림이 어긋나는 자리에서 1px이 빈다. 그 틈으로 페이지 배경(밝은 회색)이
+  비쳐 사진 테두리에 흰 선이 도는 것처럼 보였다.
+  (피드 카드에서 겪은 것과 같은 종류다 — 그쪽은 scale 을 걷어내 고쳤다)
+
+  같은 색으로 받치면 어긋나도 안 보인다. 사진이 프레임을 다 못 채울 때 깔리는 색과도
+  같아서 새로 튀는 색이 아니다. 스켈레톤(loading)에는 안 준다 — 거기 배경은 밝은 회색이라
+  검게 받치면 오히려 테두리가 생긴다.
+*/
+.photo-frame[data-photo-frame] {
+  background: #000;
+}
+@media (min-width: 768px) {
+  .photo-frame {
+    width: min(60%, calc(var(--photo-cap) * var(--ar)));
+  }
+}
+
+/* 캐러셀 자체의 상한 — 프레임과 같은 값이어야 한다 */
+.photo-cap {
+  max-height: var(--photo-cap);
+}
+
+/* 신뢰·안전으로 가는 한 줄 (TrustLink) — 돈이 오가기 직전에 놓인다.
+   조용해야 하지만 손을 대면 반응해야 한다. 붙잡아 세우려는 배너가 아니다. */
+.trust-link {
+  transition: color 0.2s ease;
+}
+.trust-link:hover {
+  color: var(--brand);
+}
+.trust-link-arrow {
+  display: inline-block;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.trust-link:hover .trust-link-arrow {
+  transform: translateX(3px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .trust-link,
+  .trust-link-arrow { transition: none; }
+  .trust-link:hover .trust-link-arrow { transform: none; }
+}
+
+/* 읽기를 마친 자리의 채널 카드 — 조용히 있다가 손을 대면 반응한다.
+   붙잡아 세우려는 배너가 아니라, 이미 '더 볼' 의향이 있는 사람에게 열어 둔 문이다. */
+.ch-card {
+  transition: border-color 0.25s ease, box-shadow 0.3s ease, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ch-card:hover,
+.ch-card:focus-visible {
+  border-color: var(--brand);
+  box-shadow: var(--shadow-card);
+  transform: translateY(-2px);
+}
+.ch-card:active {
+  transform: scale(0.995);
+}
+.ch-arrow {
+  display: inline-block;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ch-card:hover .ch-arrow {
+  transform: translateX(4px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ch-card,
+  .ch-arrow { transition: none; }
+  .ch-card:hover,
+  .ch-card:active { transform: none; }
+  .ch-card:hover .ch-arrow { transform: none; }
 }

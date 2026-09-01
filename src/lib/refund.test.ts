@@ -4,8 +4,8 @@
 // 가장 어려운 자리이므로 동의 유무까지 네 경우를 모두 못박는다.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { refundQuote } from "./refund";
-import { resolveFee, readFeeSnapshot, feeSpecFromRow } from "./platform-fee";
+import { refundQuote } from "./refund.ts";
+import { resolveFee, readFeeSnapshot, feeSpecFromRow } from "./platform-fee.ts";
 
 const NOW = new Date("2026-09-01T12:00:00+09:00");
 const iso = (d: Date) => d.toISOString();

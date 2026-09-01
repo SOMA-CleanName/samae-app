@@ -26,6 +26,7 @@ import { DetailMoreInfo } from "./DetailMoreInfo";
 import { PhotoCtas } from "./PhotoCtas";
 import { CaptionOverlay, CaptionProvider, CaptionToggleButton } from "./CaptionOverlay";
 import { PackageInfoSection } from "./PackageInfoSection";
+import { DetailSection } from "./DetailSection";
 import { GuideImageGallery } from "@/components/user/GuideImageGallery";
 import { NavRevealOnScroll } from "@/components/user/NavReveal";
 import { OwnerPhotoBackButton } from "./OwnerPhotoBackButton";
@@ -34,7 +35,7 @@ import { PartnerBadge } from "@/components/user/PartnerBadge";
 import { PixelViewContent } from "@/components/PixelViewContent";
 import {} from "@/components/ui";
 import type { Metadata } from "next";
-import { photoMetadata, photoImageJsonLd } from "@/lib/seo";
+import { photoMetadata, photoImageJsonLd, photoTitle } from "@/lib/seo";
 import { JsonLd } from "@/components/JsonLd";
 import { SearchDock } from "@/components/user/SearchDock";
 import { pickSearchPlaceholder } from "@/lib/search-copy";
@@ -159,11 +160,22 @@ export default async function PhotoDetail({
       {showSearchUi ? (
         <SearchDock placeholder={searchPlaceholder} variant="photo" />
       ) : null}
+      {/*
+        지면의 제목. 화면에서는 사진 자체가 제목이라 글씨를 얹지 않는다 —
+        사진 위에 큰 글씨를 놓으면 그걸 읽히게 하려고 사진을 눌러야 한다.
+        다만 문서에는 h1 이 있어야 한다. 이 지면엔 h2 만 둘 있고 h1 이 없었다.
+        <title> 과 같은 함수(photoTitle)로 지어 이름이 어긋나지 않게 한다.
+      */}
+      <h1 className="sr-only">{photoTitle(photo)}</h1>
+
       <CaptionProvider caption={caption || albumDescription}>
       <div className="md:flex md:items-start md:gap-8">
         {/* 사진 — 화면 최상단. 공유·담기는 이미지 위 오버레이 */}
+        {/* 사진 프레임 — 높이 상한은 globals.css 의 --photo-cap 한 곳에 있다
+            (page · loading · carousel 이 같은 값을 써야 로딩 끝날 때 화면이 안 튄다) */}
         <div
-          className="relative mx-auto w-[min(100%,calc(82svh*var(--ar)))] md:mx-0 md:sticky md:top-4 md:shrink-0 md:self-start md:w-[min(60%,calc(80vh*var(--ar)))]"
+          data-photo-frame
+          className="photo-frame relative mx-auto md:mx-0 md:sticky md:top-4 md:shrink-0 md:self-start"
           style={{ "--ar": String(aspect) } as React.CSSProperties}
         >
           <PhotoCarousel photos={carousel} startIndex={startIndex} frameAspect={aspect} />
@@ -217,17 +229,18 @@ export default async function PhotoDetail({
 
           {/* 작가 안내 이미지 — 없으면 섹션째 렌더 안 됨 */}
           {guideImages.length > 0 && (
-            <section className="mt-6">
-              <h2 className="mb-2.5 text-base font-semibold text-fg">작가님이 안내드리는 내용</h2>
+            <DetailSection title="작가님이 안내드리는 내용">
               <GuideImageGallery images={guideImages} />
-            </section>
+            </DetailSection>
           )}
 
           {/* 작가 상세정보 라인 — 이 지점이 화면 상단 50%에 닿으면 플로팅 내비 노출 */}
           <NavRevealOnScroll />
 
           {/* 작가 프로필 — 누구에게 맡기는지 (작가의 글은 패키지 정보 안으로) */}
-          <DetailMoreInfo photographerId={ph.id} avatarUrl={ph.avatar_url} />
+          <DetailSection title="작가 정보">
+            <DetailMoreInfo photographerId={ph.id} avatarUrl={ph.avatar_url} />
+          </DetailSection>
         </div>
       </div>
       </CaptionProvider>
@@ -235,8 +248,8 @@ export default async function PhotoDetail({
       {/* 하단 — 추천 사진. Suspense 로 분리해 상단(사진·CTA)을 먼저 렌더하고 추천은 스트리밍.
           400장 조회+스코어링이 더 이상 첫 화면(LCP)을 막지 않는다.
           구분선 대신 섹션 제목으로 위 정보 영역과 탐색 그리드를 분리(제목은 스켈레톤·로드 공통 노출). */}
-      <div className="mt-8">
-        <h2 className="text-base font-semibold text-fg">이런 사진은 어때요?</h2>
+      <div className="mt-12 border-t border-line pt-6">
+        <h2 className="mb-3 text-body font-bold tracking-tight text-fg">이런 사진은 어때요?</h2>
         <Suspense fallback={<RecsSkeleton />}>
           <Recommendations photoId={photo.id} albumId={photo.album_id} tags={photo.mood_tags ?? []} />
         </Suspense>

@@ -6,7 +6,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { MpTrackOnce } from "@/components/MpTrackOnce";
 import { ApplyLeadForm } from "./ApplyLeadForm";
 
-export const metadata: Metadata = { title: "작가 신청" };
+// canonical 없이 sitemap 에만 올라 있었다 → 루트의 canonical:"/" 를 상속해 홈의 복제본
+export const metadata: Metadata = {
+  title: "작가 신청",
+  description:
+    "사매에 사진을 올리고 촬영 의뢰를 받아보세요. 운영자 검토 후 작가로 등록되면 사진이 지면에 노출됩니다.",
+  alternates: { canonical: "/apply" },
+};
 export const dynamic = "force-dynamic";
 
 // 작가 신청 — 로그인 필수. 신청은 계정에 연결되고, 운영자 승인 시 작가로 등록된다.
@@ -36,7 +42,7 @@ export default async function ApplyPage() {
           <p className="mt-3 text-xs text-fg/45">신청 작가명: {open.display_name}</p>
         </div>
         <Link href="/" className="mt-6 inline-block text-sm text-fg/50 hover:text-fg">
-          ← 탐색으로
+          ← 홈으로
         </Link>
       </main>
     );
@@ -48,7 +54,7 @@ export default async function ApplyPage() {
       <MpTrackOnce event="Start Apply Photographer" />
       <h1 className="text-2xl font-semibold">작가 신청</h1>
       <p className="mt-2 text-sm text-fg/60">
-        아래 정보를 남기고 신청하면, 운영자 검토 후 작가로 등록돼 탐색 탭에 노출되고 의뢰를 받을 수 있어요.
+        아래 정보를 남기고 신청하면, 운영자 검토 후 작가로 등록돼 사진이 지면에 노출되고 의뢰를 받을 수 있어요.
       </p>
       <ApplyLeadForm kakaoChannelUrl={process.env.NEXT_PUBLIC_KAKAO_CHANNEL_URL ?? ""} />
     </main>

@@ -4,6 +4,7 @@ import { breadcrumbJsonLd } from "@/lib/seo";
 import { listPublishedArticles } from "@/lib/articles";
 import { Masthead } from "@/components/editorial/Masthead";
 import { StickyBack } from "@/components/editorial/StickyBack";
+import { SiteFooter } from "@/components/SiteFooter";
 import { ArticleRows } from "@/components/editorial/ArticleTiers";
 
 /*
@@ -57,6 +58,8 @@ export default async function ArticlesIndexPage() {
         ) : (
           <ArticleRows articles={articles} />
         )}
+
+        <SiteFooter />
       </div>
     </main>
   );

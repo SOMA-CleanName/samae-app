@@ -12,13 +12,38 @@ import { countSpotPhotos } from "@/lib/spots";
 // 하루 1회 재생성 — 공개 작가·사진은 자주 바뀌므로.
 export const revalidate = 86400;
 
-const STATIC_ROUTES = ["", "/apply", "/guide", "/articles", "/spots"];
+/*
+  정적 경로.
+
+  빠져 있던 셋을 넣었다 —
+    /explore  매거진 인덱스. 아티클·화보·촬영 장소·자주 묻는 것이 모이는 허브인데
+              하위(/explore/{slug})만 싣고 정작 인덱스가 없었다.
+    /trust    작가 심사·결제 보호·환불 기준. "사매 안전한가" 류 검색이 닿을 유일한 지면.
+    /privacy  개인정보 처리방침. 사이트 신뢰 평가에 쓰인다.
+
+  ⚠️ 여기 넣는 경로는 **자기 canonical 을 갖고 있어야 한다.** 루트 layout 의
+     canonical:"/" 를 상속한 채로 sitemap 에만 올리면, 색인해 달라고 해 놓고
+     같은 태그로 "나는 홈의 복제본"이라고 말하는 꼴이 된다.
+*/
+const STATIC_ROUTES = [
+  "",
+  "/explore",
+  "/apply",
+  "/guide",
+  "/articles",
+  "/spots",
+  "/trust",
+  "/privacy",
+];
+
+/** 법적 고지는 콘텐츠가 아니다 — 실려는 있되 우선순위는 낮게. */
+const LOW_PRIORITY = new Set(["/privacy", "/apply"]);
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticEntries: MetadataRoute.Sitemap = STATIC_ROUTES.map((path) => ({
     url: `${SITE_URL}${path}`,
-    changeFrequency: "weekly",
-    priority: path === "" ? 1 : 0.7,
+    changeFrequency: path === "/privacy" ? "yearly" : "weekly",
+    priority: path === "" ? 1 : LOW_PRIORITY.has(path) ? 0.4 : 0.7,
   }));
 
   // 촬영 가이드 — 질문-답 페이지. AI 답변이 가장 잘 인용하는 형식이라 우선순위를 높게 준다.

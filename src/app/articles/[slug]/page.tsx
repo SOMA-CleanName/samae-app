@@ -7,6 +7,7 @@ import { Reveal } from "@/components/editorial/Reveal";
 import { Parallax } from "@/components/editorial/Parallax";
 import { ReadingProgress } from "@/components/editorial/ReadingProgress";
 import { StickyBack } from "@/components/editorial/StickyBack";
+import { ChannelCard } from "@/components/ChannelCard";
 import { articleJsonLd, breadcrumbJsonLd } from "@/lib/seo";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { getPublishedArticle, listPublishedArticles, readingMinutes } from "@/lib/articles";
@@ -60,7 +61,7 @@ export default async function ArticleDetailPage({
     : null;
 
   return (
-    <main className="min-h-dvh bg-bg font-kr">
+    <main className="min-h-dvh bg-bg pb-24 font-kr">
       <ReadingProgress />
       <JsonLd
         data={[
@@ -176,7 +177,7 @@ export default async function ArticleDetailPage({
 
       {/* ── 다음 글 ────────────────────────────────────────── */}
       {others.length > 0 && (
-        <section className="mt-16 px-5 pb-24 md:px-8">
+        <section className="mt-16 px-5 md:px-8">
           <div className="mx-auto max-w-[1200px]">
             <h2 className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted">
               More stories
@@ -211,6 +212,11 @@ export default async function ArticleDetailPage({
           </div>
         </section>
       )}
+
+      {/* 글을 끝까지 읽은 사람은 이미 "더 볼" 의향이 있다. 그 자리에 문만 열어 둔다. */}
+      <div className="mx-auto max-w-[760px] px-5 md:px-8">
+        <ChannelCard />
+      </div>
     </main>
   );
 }

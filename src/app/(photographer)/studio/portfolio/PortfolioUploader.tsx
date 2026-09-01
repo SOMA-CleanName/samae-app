@@ -304,7 +304,7 @@ export function PortfolioUploader({
             올리면서 바로 공개 (끄면 비공개 저장)
           </label>
           <HelpTip label="공개 안내" placement="top">
-            체크하면 메인 탐색 탭과 작가 프로필 포트폴리오에 바로 표시돼요.
+            체크하면 홈 피드와 작가 프로필 포트폴리오에 바로 표시돼요.
           </HelpTip>
         </div>
 

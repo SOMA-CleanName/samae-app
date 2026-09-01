@@ -1,4 +1,11 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import { JsonLd } from "@/components/JsonLd";
+import { breadcrumbJsonLd, itemListJsonLd } from "@/lib/seo";
+import { SITE_URL } from "@/lib/site";
+import { getCurrentUser } from "@/lib/auth";
+import { toProfileMe } from "@/lib/profile-me";
+import { ProfileButton } from "@/components/user/ProfileButton";
 import { memoTtl } from "@/lib/server-memo";
 import { ScrollMemory } from "@/components/user/ScrollMemory";
 import { MpTrackOnce } from "@/components/MpTrackOnce";
@@ -19,9 +26,42 @@ import { Marquee } from "@/components/editorial/Marquee";
 export const dynamic = "force-dynamic";
 
 /*
-  탐색 탭 = 매거진.
+  ⚠️ 이게 없으면 이 지면은 **홈의 복제본으로 신고된다.**
 
-  사진을 '찾는' 일(무드 고르기·취향 테스트·전체 피드)은 홈이 맡는다.
+  루트 layout.tsx 이 `alternates: { canonical: "/" }` 를 들고 있고 자식이 그걸 상속한다.
+  그래서 /explore 가 `<link rel="canonical" href="https://samae.ai">` 를 뱉고 있었다 —
+  색인에서 빠지는 게 아니라 "나는 홈과 같은 페이지"라고 구글에 말하는 상태다.
+  제목·설명도 홈과 문자 단위로 똑같았다.
+
+  (같은 사고가 /explore/{slug} 19개에도 있었다 — lib/seo.ts 의 exploreCategoryMetadata 주석 참고.
+   그때는 하위 페이지만 고치고 이 인덱스를 빠뜨렸다.)
+*/
+export const metadata: Metadata = {
+  title: "스냅 촬영 이야기와 장소",
+  description:
+    "가격이 왜 다른지, 뭘 입어야 하는지, 어디서 찍는지. 스냅 촬영을 처음 알아보는 사람이 궁금해할 것들을 사매가 아티클·촬영 장소·자주 묻는 것으로 정리했어요.",
+  keywords: ["스냅 촬영", "스냅 가격", "촬영 준비물", "촬영 장소", "스냅 매거진"],
+  alternates: { canonical: "/explore" },
+  openGraph: {
+    title: "스냅 촬영 이야기와 장소 · samae",
+    description: "가격이 왜 다른지, 뭘 입어야 하는지, 어디서 찍는지.",
+    url: `${SITE_URL}/explore`,
+    type: "website",
+  },
+};
+
+/*
+  매거진 탭.
+
+  하단 내비에서 '탐색'이라 부르고 아이콘도 돋보기였다. 둘 다 이 지면이 하는 일과
+  달랐다 — 여기엔 검색창이 없고(진짜 검색은 홈 상단 SearchDock 이다), 사진을
+  훑는 일(무드 고르기·전체 피드)도 홈이 맡는다.
+  이름과 아이콘을 지면에 맞췄다(마스트헤드가 이미 STORIES 다).
+
+  ⚠️ 취향 테스트(/explore/quiz)는 예외다 — 경로상 여기 아래에 있고, 하단 내비의
+     힌트 말풍선도 이 탭을 가리킨다. 한때 이 주석이 "취향 테스트도 홈이 맡는다"고
+     적혀 있었는데 코드와 반대였다(홈 바로가기의 '취향' 칩도 /explore/quiz 로 간다).
+     진입점이 둘(홈 바로가기 · 이 탭)이고 실체는 여기 하나다.
   여기는 읽을 것과 알 것 — 아티클·화보·촬영 장소·자주 묻는 것.
 
   한때 여기 '인기 사진'이 격자로도 슬라이드로도 있었다. 형식 문제가 아니었다 —
@@ -33,7 +73,8 @@ export const dynamic = "force-dynamic";
   그 정보 비대칭을 메우는 게 이 지면의 일이다.
 */
 export default async function ExplorePage() {
-  const [articles, spots, featured] = await Promise.all([
+  const [me, articles, spots, featured] = await Promise.all([
+    getCurrentUser(),
     memoTtl("explore:articles", 60_000, () => listPublishedArticles()).catch(
       () => [] as ArticleCard[]
     ),
@@ -90,8 +131,28 @@ export default async function ExplorePage() {
 
   const empty = numbered.length === 0;
 
+  /*
+    이 지면이 무엇의 목록인지 기계에 알려 준다.
+    AI 답변이 인용하는 건 사진이 아니라 글이라, 실린 아티클을 ItemList 로 편다.
+    (개별 글의 Article 스키마는 /articles/{slug} 가 각자 들고 있다)
+  */
+  const articleList = itemListJsonLd(
+    "스냅 촬영 이야기",
+    [...deck, ...list].map((a) => ({
+      name: a.title,
+      path: `/articles/${encodeURIComponent(a.slug)}`,
+    }))
+  );
+
   return (
     <main className="min-h-dvh bg-bg font-kr">
+      <JsonLd
+        data={breadcrumbJsonLd([
+          { name: "홈", path: "/" },
+          { name: "매거진", path: "/explore" },
+        ])}
+      />
+      {articleList && <JsonLd data={articleList} />}
       <MpTrackOnce
         event="View Explore Feed"
         props={{ article_count: articles.length, spot_count: spots.length }}
@@ -106,6 +167,16 @@ export default async function ExplorePage() {
           // 브랜드명·날짜는 뺐다. 매번 같은 값이라 자리만 차지하고 아무것도 안 알려준다.
           // 대신 이 지면이 실제로 무엇을 다루는지 한 줄로 못 박는다.
           lead="가격이 왜 다른지, 뭘 입어야 하는지, 어디서 찍는지."
+          // 계정 진입 — 홈·카테고리 지면과 같은 자리(표제 위 오른쪽).
+          // 좌하단 아바타를 없앤 뒤로 계정에 닿는 문이 홈에만 있었다. 이 지면은
+          // 읽다 보면 오래 머무는 곳이라, 로그아웃 한 번 하려고 홈으로 돌아가야 했다.
+          action={
+            <ProfileButton
+              loggedIn={!!me}
+              avatarUrl={me?.avatarUrl ?? null}
+              me={toProfileMe(me)}
+            />
+          }
         />
       </div>
 
@@ -242,6 +313,15 @@ export default async function ExplorePage() {
               <p className="mt-3 text-[11px] leading-relaxed text-faint">
                 사진을 고르면 그 사진을 찍은 작가로 이어집니다.
               </p>
+              {/* 판권면이 이 지면의 푸터 역할을 한다. 공통 푸터를 또 얹지 않고 링크만 얹는다. */}
+              <nav aria-label="사매 안내" className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-[11px]">
+                <Link href="/trust" className="text-muted transition-colors hover:text-brand">
+                  안전하게 촬영하기
+                </Link>
+                <Link href="/privacy" className="text-muted transition-colors hover:text-brand">
+                  개인정보 처리방침
+                </Link>
+              </nav>
             </footer>
           </>
         )}

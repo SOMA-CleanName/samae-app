@@ -15,8 +15,9 @@ export type ProfileMe = {
   isAdmin: boolean;
 };
 
-// 프로필 시트 — 하단바 '프로필' 진입.
-// 모바일: 하단에서 슬라이드 업 + 핸들 드래그로 닫기 / 데스크톱: 좌하단 팝오버.
+// 프로필 시트 — 홈·카테고리 지면 상단 오른쪽 ProfileButton 진입.
+// 모바일: 화면 하단에서 슬라이드 업 + 핸들 드래그로 닫기(fixed)
+// 데스크톱: 버튼에 붙는 팝오버(absolute — 기준점은 ProfileButton 의 span.relative)
 // 구 TopBar의 계정 메뉴 + 과밀 항목(알림·설정·스튜디오·어드민)을 흡수.
 export function ProfileSheet({
   me,
@@ -92,14 +93,20 @@ export function ProfileSheet({
         )}
       />
 
-      {/* 패널 — 모바일 하단 시트(슬라이드/드래그) / 데스크톱 좌하단 팝오버 */}
+      {/* 패널 — 모바일 하단 시트(슬라이드/드래그) / 데스크톱 우상단 팝오버 */}
       <div
         role="dialog"
         aria-label="내 메뉴"
+        data-entered={entered ? "true" : "false"}
         style={{ transform }}
         className={cn(
-          "fixed inset-x-0 bottom-0 z-50 rounded-t-3xl border border-line bg-surface pb-safe shadow-pop",
-          "md:inset-x-auto md:bottom-4 md:left-[80px] md:w-64 md:rounded-2xl",
+          "profile-sheet fixed inset-x-0 bottom-0 z-50 rounded-t-3xl border border-line bg-surface pb-safe shadow-pop",
+          // 데스크톱은 팝오버 — 여는 버튼(ProfileButton) 바로 아래에 붙는다.
+          // 화면 모서리(md:right-4 md:top-16)에 고정하지 않는다. 그 버튼은 화면이 아니라
+          // 지면(FeedHero, max-w-screen-2xl 가운데 정렬) 안에 있어서, 1536px 넘는
+          // 모니터에서는 버튼만 안쪽으로 들어오고 팝오버는 모서리에 남아 따로 놀았다.
+          // ProfileButton 이 감싼 span.relative 가 기준점이다.
+          "md:absolute md:inset-x-auto md:bottom-auto md:left-auto md:right-0 md:top-[calc(100%+0.5rem)] md:w-64 md:rounded-2xl",
           !dragging.current && "transition-transform duration-300 ease-out"
         )}
       >
@@ -130,6 +137,28 @@ export function ProfileSheet({
           <SheetLink href="/settings" onClick={requestClose}>
             계정 설정
           </SheetLink>
+        </nav>
+
+        {/*
+          안전 안내·처리방침. 앱에서 이걸 찾는 사람은 계정 메뉴부터 연다.
+          홈은 무한 피드라 푸터가 없어서(SiteFooter 주석) 지면 안내 줄이 그 몫을
+          하는데, 그건 스크롤해야 나온다 — 여기는 어느 화면에서든 한 번에 닿는다.
+        */}
+        <div className="border-t border-line" />
+        <nav aria-label="사매 안내" className="flex flex-wrap gap-x-4 gap-y-1 px-5 py-3">
+          {[
+            { href: "/trust", label: "안전하게 촬영하기" },
+            { href: "/privacy", label: "개인정보 처리방침" },
+          ].map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              onClick={requestClose}
+              className="text-caption text-muted transition-colors hover:text-brand"
+            >
+              {l.label}
+            </Link>
+          ))}
         </nav>
 
         <div className="border-t border-line" />
