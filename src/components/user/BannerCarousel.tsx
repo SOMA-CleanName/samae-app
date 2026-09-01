@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/cn";
+import { ChevronLeftIcon, ChevronRightIcon } from "@/components/user/icons";
 
 export type BannerItem = {
   id: string;
@@ -22,6 +23,10 @@ export type BannerItem = {
 
 const AUTO_MS = 5000;
 const SWIPE_PX = 40;
+
+/** 배너 위에 얹는 화살표. 사진이 밝든 어둡든 보이게 검은 판 위 흰 아이콘. */
+const ARROW =
+  "absolute top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 cursor-pointer place-items-center rounded-full bg-black/35 text-white backdrop-blur-sm transition-colors hover:bg-black/55 sm:grid";
 
 // 홈·카테고리 상단 배너 캐러셀 — 자동 슬라이드 + 스와이프 + 도트.
 // 이미지는 업로드 시 만든 2000px JPG 를 그대로 쓴다(next/image 최적화는 프로젝트 전역 off).
@@ -128,6 +133,33 @@ export function BannerCarousel({ items }: { items: BannerItem[] }) {
           })}
         </div>
 
+        {/*
+          데스크톱 화살표.
+
+          폰에는 스와이프가 있지만 마우스에는 아무것도 없었다. 게다가 호버가
+          자동 넘김을 멈추므로, 마우스를 올린 사람 눈에는 **완전히 멈춘 배너**가 된다.
+          정지 자체는 맞다(읽는 중에 넘어가면 안 된다) — 대신 넘길 손잡이를 준다.
+        */}
+        {count > 1 && (
+          <>
+            <button
+              type="button"
+              aria-label="이전 배너"
+              onClick={() => go(idx - 1)}
+              className={cn(ARROW, "left-3")}
+            >
+              <ChevronLeftIcon className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              aria-label="다음 배너"
+              onClick={() => go(idx + 1)}
+              className={cn(ARROW, "right-3")}
+            >
+              <ChevronRightIcon className="h-5 w-5" />
+            </button>
+          </>
+        )}
       </div>
 
       {/* 도트 — 사진 아래. 현재/비현재 차이는 색만(크기·모양 동일). 2장 이상일 때만 */}

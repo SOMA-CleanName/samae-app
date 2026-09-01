@@ -14,14 +14,23 @@ export function Masthead({
   word,
   lead,
   meta,
+  action,
   size = "full",
 }: {
   /** 표제 한 단어. 대문자 라틴 — 한글 제목은 lead 로 받는다. */
   word: string;
   /** 표제 아래 한 줄. 이 지면이 뭘 하는 곳인지. */
   lead?: string;
-  /** 우상단 발행 정보 — 날짜·수량 같은 사실만 넣는다. */
+  /** 발행 정보 — 날짜·수량 같은 사실만 넣는다. 표제 위 왼쪽. */
   meta?: ReactNode;
+  /**
+   * 표제 위 오른쪽에 세우는 버튼 한 개(매거진 지면의 ProfileButton).
+   *
+   * meta 자리에 끼워 넣지 않는다 — 거긴 11px 대문자 텍스트를 baseline 으로
+   * 맞추는 줄이라 36px 버튼을 넣으면 줄이 어긋난다. 둘은 같은 행을 쓰되
+   * 정렬 기준이 다르다.
+   */
+  action?: ReactNode;
   size?: "full" | "compact";
 }) {
   const scale =
@@ -31,9 +40,16 @@ export function Masthead({
 
   return (
     <header>
-      {meta && (
-        <div className="flex items-baseline justify-between gap-3 text-[11px] font-bold uppercase tracking-[0.16em] text-muted">
-          {meta}
+      {(meta || action) && (
+        // 왼쪽 칸은 action 만 있을 때도 비워 둔 채 렌더한다 —
+        // justify-between 이 오른쪽 버튼을 끝으로 밀어 주는 건 형제가 둘일 때뿐이다.
+        <div className={`flex items-center justify-between gap-3 ${action ? "min-h-9" : ""}`}>
+          {/* flex-1 — 이게 없으면 meta 안의 항목들을 벌려 주던 justify-between 이
+              내용 폭까지만 작동한다(다른 지면들이 쓰는 배치가 깨진다) */}
+          <div className="flex min-w-0 flex-1 items-baseline justify-between gap-3 text-[11px] font-bold uppercase tracking-[0.16em] text-muted">
+            {meta}
+          </div>
+          {action}
         </div>
       )}
 
