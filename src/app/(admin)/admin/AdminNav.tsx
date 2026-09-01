@@ -14,6 +14,7 @@ const TABS = [
   { href: "/admin/inquiries", label: "문의" },
   { href: "/admin/support", label: "사매 문의" },
   { href: "/admin/chats", label: "채팅" },
+  { href: "/admin/simulator", label: "시뮬레이터" },
   { href: "/admin/bot-kb", label: "상담봇" },
   { href: "/admin/photos", label: "사진 노출" },
   { href: "/admin/banners", label: "홈 배너" },
