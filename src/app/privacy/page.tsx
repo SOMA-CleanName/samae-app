@@ -6,6 +6,8 @@ import { ArrowLeftIcon } from "@/components/user/icons";
 export const metadata: Metadata = {
   title: "개인정보 처리방침",
   description: "사매(samae) 개인정보 수집·이용 및 처리방침",
+  // 없으면 루트 layout 의 canonical:"/" 를 상속해 홈의 복제본으로 신고된다
+  alternates: { canonical: "/privacy" },
 };
 
 // 개인정보 처리방침 — 표준안. ※ 실제 시행 전 법무 검토 권장.

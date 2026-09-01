@@ -37,14 +37,37 @@ import { HomeQuickNav } from "@/components/user/HomeQuickNav";
 import { HomeDiscoverySections } from "./HomeDiscoverySections";
 import { ScrollTopButton } from "@/components/user/ScrollTopButton";
 import { ProfileButton } from "@/components/user/ProfileButton";
+import { toProfileMe } from "@/lib/profile-me";
 import { buildFeedInterstitials } from "@/lib/feed-interstitials";
 import { JsonLd } from "@/components/JsonLd";
 import { siteJsonLd } from "@/lib/seo";
+import type { Metadata } from "next";
 import type { GalleryPhoto } from "@/lib/discovery";
 
 export const dynamic = "force-dynamic";
 
 type SearchParams = { q?: string; ad?: string; cat?: string; nocat?: string };
+
+/*
+  검색 결과(/?q=)와 광고 진입(/?ad=)은 색인하지 않는다.
+
+  둘 다 홈과 같은 라우트라 루트 layout 의 제목·설명·canonical("/")을 그대로 쓴다.
+  canonical 이 홈을 가리키니 중복 색인 위험 자체는 낮지만, 쿼리는 사용자가 무한히
+  만들 수 있어서 링크가 하나라도 걸리면 크롤 예산이 그리로 샌다.
+  follow 는 남긴다 — 결과에 걸린 사진 페이지들은 계속 타고 들어가야 한다.
+
+  ⚠️ 매개변수가 없을 때는 아무것도 돌려주지 않는다. 여기서 robots 를 통째로 지정하면
+     **홈까지** 그 값을 쓰게 된다.
+*/
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}): Promise<Metadata> {
+  const sp = await searchParams;
+  if (!sp.q?.trim() && !sp.ad) return {};
+  return { robots: { index: false, follow: true } };
+}
 
 export default async function ExploreHome({
   searchParams,
@@ -138,7 +161,14 @@ export default async function ExploreHome({
   );
 
   return (
-    <section className="px-2.5 pb-2.5 pt-2.5 font-kr sm:px-4 sm:pt-4 sm:pb-4">
+    /*
+      지면 폭 상한 — 로고 줄·검색·배너·바로가기가 각자 max-w-screen-2xl(1536px)로
+      가운데 정렬인데 그 아래 갤러리만 안 그랬다. 1536px 넘는 모니터(16" 맥북 = 1728)
+      에서는 위 네 층은 가운데 모이고 사진만 화면 끝까지 흘러 줄이 안 맞았다.
+      게다가 갤러리 컬럼은 flex-1 이라 폭이 남으면 컬럼당 220px 설계치를 넘어
+      2560px 에서는 한 장이 360px 까지 커진다. 상한을 지면 전체로 올린다.
+    */
+    <section className="mx-auto max-w-screen-2xl px-2.5 pb-2.5 pt-2.5 font-kr sm:px-4 sm:pt-4 sm:pb-4">
       {/* 브랜드 구조화데이터 — Organization(사매) + WebSite(검색박스) */}
       {!query && <JsonLd data={siteJsonLd()} />}
       {/* 탭 전환 시 스크롤 위치 유지 */}
@@ -147,7 +177,17 @@ export default async function ExploreHome({
           배너를 로고 위에 두면 들어오자마자 브랜드가 아니라 광고가 먼저 보인다.
           (검색 모드에서는 로고 줄부터 아래 층까지 걷어내고 결과에 집중) */}
       {!query && (
-        <FeedHero right={<ProfileButton loggedIn={!!me} avatarUrl={me?.avatarUrl ?? null} />} />
+        <FeedHero
+          right={
+            <ProfileButton
+              loggedIn={!!me}
+              avatarUrl={me?.avatarUrl ?? null}
+              // 시트를 여는 데 필요한 것들. 하단 좌측 아바타를 없애면서
+              // 이 버튼이 계정 메뉴의 유일한 문이 됐다(FloatingNav 주석 참고).
+              me={toProfileMe(me)}
+            />
+          }
+        />
       )}
 
       {/* 검색 — 로고 줄 바로 아래 한 줄. 스크롤하면 상단에 붙는다(SearchDock 자체 sticky).

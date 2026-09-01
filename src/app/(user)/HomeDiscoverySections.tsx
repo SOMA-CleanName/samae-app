@@ -13,6 +13,7 @@ import {
 import { CATEGORY_COOKIE } from "@/lib/category-constants";
 import { memoTtl } from "@/lib/server-memo";
 import { MoodRail, type MoodItem } from "./MoodRail";
+import { SiteLinksRow } from "@/components/user/SiteLinksRow";
 
 /**
  * 홈의 사진 탐색 층 — 무한 피드 위에 얹히는 큐레이션.
@@ -104,6 +105,9 @@ export async function HomeDiscoverySections() {
         어중간한 물건이 됐다. 위의 두 섹션과 똑같은 머리로 맞춰 확실히 끊는다.
         id 는 '맨 위로' 버튼이 나타날 기준점이기도 하다.
       */}
+      {/* 아래로는 끝이 없다 — 사람이 닿을 수 있는 마지막 자리라 여기에 안내 링크를 둔다 */}
+      <SiteLinksRow />
+
       <div id="sec-all-photos" className="scroll-mt-20 px-1">
         <span aria-hidden className="mb-2 block h-[2px] w-6 bg-brand" />
         <h2 className="text-body font-bold tracking-tight">전체 사진</h2>
