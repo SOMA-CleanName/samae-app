@@ -369,10 +369,10 @@ export function PortfolioEditManager({
                     defaultChecked={anchor.visibility === "published"}
                     className="h-4 w-4 rounded border-fg/30"
                   />
-                  탐색에 공개
+                  피드에 공개
                 </label>
                 <HelpTip label="공개 안내" placement="top">
-                  체크하면 메인 탐색 탭과 작가 프로필 포트폴리오에 바로 표시돼요.
+                  체크하면 홈 피드와 작가 프로필 포트폴리오에 바로 표시돼요.
                 </HelpTip>
               </div>
               {feed.length > 1 && (

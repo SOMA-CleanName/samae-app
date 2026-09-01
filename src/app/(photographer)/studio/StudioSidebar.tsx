@@ -56,15 +56,15 @@ export function StudioSidebar({ chatUnread = 0 }: { chatUnread?: number }) {
         </nav>
 
         <Link href="/" className="px-3 py-2 text-xs text-fg/45 hover:text-fg">
-          ← 탐색으로
+          ← 홈으로
         </Link>
       </aside>
 
-      {/* 모바일: 상단 한 줄 바 — 탐색(홈) 복귀 + 가로 스크롤 탭 */}
+      {/* 모바일: 상단 한 줄 바 — 홈 복귀 + 가로 스크롤 탭 */}
       <nav className="sticky top-0 z-40 flex items-center gap-1.5 border-b border-line bg-bg/95 px-2 py-2 backdrop-blur md:hidden">
         <Link
           href="/"
-          aria-label="탐색으로"
+          aria-label="홈으로"
           className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-fg/70 transition-colors hover:bg-fg/[0.06]"
         >
           <HomeIcon className="h-5 w-5" />
