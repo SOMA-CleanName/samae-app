@@ -279,9 +279,19 @@ export async function getBrief(conversationId: string): Promise<ConsultationBrie
 }
 
 // 대화 상대 표시명 (내 관점)
+/**
+ * 작가는 이름만이 아니라 역할까지 붙여 부른다 — "김재즈" 보다 "김재즈 작가" 가
+ * 누구와 이야기하고 있는지 한 번에 읽힌다. 이미 '작가' 로 끝나는 이름은 그대로 둔다.
+ */
+export function photographerLabel(name: string | null | undefined): string {
+  const n = (name ?? "").trim();
+  if (!n) return "작가";
+  return n.endsWith("작가") ? n : `${n} 작가`;
+}
+
 export function counterpartName(c: ConversationListItem, me: CurrentUser): string {
   if (c.user_id === me.id) {
-    return c.photographer?.display_name || "작가";
+    return photographerLabel(c.photographer?.display_name);
   }
   return c.user?.display_name || "고객";
 }
