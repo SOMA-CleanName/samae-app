@@ -14,7 +14,6 @@ const TABS = [
   { href: "/admin/inquiries", label: "문의" },
   { href: "/admin/support", label: "사매 문의" },
   { href: "/admin/chats", label: "채팅" },
-  { href: "/admin/simulator", label: "시뮬레이터" },
   { href: "/admin/bot-kb", label: "상담봇" },
   { href: "/admin/photos", label: "사진 노출" },
   { href: "/admin/banners", label: "홈 배너" },
@@ -34,7 +33,7 @@ export function AdminNav() {
     exact ? pathname === href : pathname.startsWith(href);
 
   return (
-    <nav className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-3 scrollbar-none sm:px-5">
+    <nav className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-3 scrollbar-none sm:flex-wrap sm:overflow-visible sm:px-5">
       {TABS.map((t) => {
         const active = isActive(t.href, t.exact);
         return (
