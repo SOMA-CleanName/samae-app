@@ -14,16 +14,29 @@ const signWon = (n: number) => {
 };
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
-const FEES = [10000, 15000, 20000, 25000, 30000, 35000, 40000];
+const TAKES = [4, 6, 8, 10, 12, 15, 20]; // 매트릭스 세로축 — 우리가 떼는 요율(%)
 const RATES = [20, 30, 40, 50, 60, 70, 80];
 const MAXMAG = 30000; // 매트릭스 셀 색 농도 기준 최대 손익 폭
 
-const PRESETS: { label: string; fee: number; rate: number; cpa: number }[] = [
-  { label: "현재", fee: 10000, rate: 33, cpa: 11529 },
-  { label: "수수료 2만", fee: 20000, rate: 33, cpa: 11529 },
-  { label: "2만 + 성사율 50%", fee: 20000, rate: 50, cpa: 11529 },
-  { label: "CPA만 개선", fee: 10000, rate: 33, cpa: 3300 },
-  { label: "2.5만 + 50%", fee: 25000, rate: 50, cpa: 11529 },
+/** PG 수수료 기본값 — 카드 결제를 붙이면 결제 **전액**에 붙는다(우리 몫이 아니라) */
+const PG_PCT = 3.3;
+
+type Preset = {
+  label: string;
+  shoot: number;
+  take: number;
+  pg: boolean;
+  rate: number;
+  cpa: number;
+};
+const PRESETS: Preset[] = [
+  // 지금은 건당 정액 6,000원 — 촬영비 15만 기준이면 4% 에 해당한다
+  { label: "현재 (정액 6천)", shoot: 150000, take: 4, pg: false, rate: 33, cpa: 11529 },
+  { label: "정률 10%", shoot: 150000, take: 10, pg: false, rate: 33, cpa: 11529 },
+  { label: "정률 10% + PG", shoot: 150000, take: 10, pg: true, rate: 33, cpa: 11529 },
+  { label: "요율 15%", shoot: 150000, take: 15, pg: false, rate: 33, cpa: 11529 },
+  { label: "촬영비 30만", shoot: 300000, take: 10, pg: false, rate: 33, cpa: 11529 },
+  { label: "성사율 50%", shoot: 150000, take: 10, pg: false, rate: 50, cpa: 11529 },
 ];
 
 // 숫자 입력 + 슬라이더 페어
@@ -85,31 +98,52 @@ function Ctrl({
 }
 
 export default function CalculatorPage() {
-  const [fee, setFee] = useState(10000); // 평균 수수료 (원)
+  const [shoot, setShoot] = useState(150000); // 건당 평균 촬영비 (원)
+  const [takePct, setTakePct] = useState(10); // 우리가 떼는 수수료율 (%)
+  const [pgOn, setPgOn] = useState(false); // PG 결제를 붙였을 때
+  const [pgPct, setPgPct] = useState(PG_PCT); // PG 수수료율 (%)
   const [ratePct, setRatePct] = useState(33); // 문의 후 성사율 (%)
   const [cpa, setCpa] = useState(11529); // 문의당 CPA (원)
   const [vol, setVol] = useState(40); // 월 문의완료 건수
 
   const d = useMemo(() => {
     const rate = clamp(ratePct, 1, 100) / 100;
+
+    // 수수료는 더 이상 직접 넣는 값이 아니다 — 촬영비 × 요율에서 나온다.
+    // PG 를 붙이면 그 비용은 **우리 몫이 아니라 결제 전액**에 붙는다.
+    // 작가에게 줄 돈은 그대로 나가므로, PG 수수료는 통째로 우리 마진에서 빠진다.
+    const gross = shoot * (clamp(takePct, 0, 100) / 100); // 총수수료
+    const pgCost = pgOn ? shoot * (clamp(pgPct, 0, 100) / 100) : 0;
+    const fee = gross - pgCost; // 순수수료 = 실제로 우리에게 남는 매출
+
     const acq = cpa / rate; // 성사당 CPA
     const pl = fee - acq; // 건당 손익
     const needRate = fee > 0 ? (cpa / fee) * 100 : Infinity; // 손익분기 성사율
     const needCpa = fee * rate; // 손익분기 CPA
+    // 손익분기 요율 — 성사당 CPA 를 덮으려면 촬영비의 몇 %를 떼야 하는가 (PG 몫 포함)
+    const needTake =
+      shoot > 0 ? (acq / shoot) * 100 + (pgOn ? clamp(pgPct, 0, 100) : 0) : Infinity;
     return {
       rate,
+      gross,
+      pgCost,
+      fee,
       acq,
       pl,
       positive: pl >= 0,
       roas: acq > 0 ? fee / acq : Infinity,
       needRate,
       needCpa,
+      needTake,
       monthly: vol * rate * pl,
     };
-  }, [fee, ratePct, cpa, vol]);
+  }, [shoot, takePct, pgOn, pgPct, ratePct, cpa, vol]);
+  const fee = d.fee;
 
   const stateColor = d.positive ? "text-success" : "text-danger";
-  const nearFee = FEES.reduce((a, b) => (Math.abs(b - fee) < Math.abs(a - fee) ? b : a));
+  const nearTake = TAKES.reduce((a, b) =>
+    Math.abs(b - takePct) < Math.abs(a - takePct) ? b : a
+  );
   const nearRate = RATES.reduce((a, b) =>
     Math.abs(b - ratePct) < Math.abs(a - ratePct) ? b : a
   );
@@ -118,8 +152,9 @@ export default function CalculatorPage() {
     <main className="mx-auto max-w-5xl px-3 py-6 font-kr sm:px-5">
       <h1 className="text-xl font-semibold text-fg">사매 건당 손익 계산기</h1>
       <p className="mt-2 w-fit rounded-lg border border-line bg-surface px-3 py-2 text-caption tabular-nums text-muted">
-        성사당 CPA = <b className="text-fg">문의당 CPA ÷ 성사율</b> · 건당 손익 ={" "}
-        <b className="text-fg">평균 수수료 − 성사당 CPA</b>
+        순수수료 = <b className="text-fg">촬영비 × 요율 − PG</b> · 성사당 CPA ={" "}
+        <b className="text-fg">문의당 CPA ÷ 성사율</b> · 건당 손익 ={" "}
+        <b className="text-fg">순수수료 − 성사당 CPA</b>
       </p>
 
       <div className="mt-5 grid gap-5 md:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
@@ -127,15 +162,57 @@ export default function CalculatorPage() {
         <section className="space-y-5 rounded-2xl border border-line bg-surface p-4">
           <p className="text-label font-semibold uppercase tracking-wider text-faint">입력</p>
           <Ctrl
-            label="평균 수수료"
-            value={fee}
-            onChange={(v) => setFee(clamp(v, 0, 100000))}
+            label="건당 평균 촬영비"
+            value={shoot}
+            onChange={(v) => setShoot(clamp(v, 0, 2000000))}
             min={0}
-            max={60000}
-            step={500}
+            max={500000}
+            step={10000}
             suffix="원"
-            scale={["0", "3만", "6만"]}
+            scale={["0", "25만", "50만"]}
           />
+          <Ctrl
+            label="우리 수수료율"
+            value={takePct}
+            onChange={(v) => setTakePct(clamp(v, 0, 100))}
+            min={0}
+            max={30}
+            step={0.5}
+            suffix="%"
+            scale={["0%", "15%", "30%"]}
+          />
+
+          {/* PG — 붙였다 뗐다 하면서 마진이 얼마나 깎이는지 본다 */}
+          <div className="rounded-xl border border-line bg-surface-2 p-3">
+            <label className="flex cursor-pointer items-center gap-2.5">
+              <input
+                type="checkbox"
+                checked={pgOn}
+                onChange={(e) => setPgOn(e.target.checked)}
+                className="h-4 w-4 shrink-0 accent-brand"
+              />
+              <span className="flex-1 text-body-sm font-medium text-fg">PG 결제 붙이기</span>
+              <span className="flex items-baseline gap-1 rounded-lg border border-line-strong bg-surface px-2 py-1">
+                <input
+                  type="number"
+                  value={pgPct}
+                  step={0.1}
+                  min={0}
+                  disabled={!pgOn}
+                  onChange={(e) => {
+                    const v = parseFloat(e.target.value);
+                    if (!isNaN(v)) setPgPct(clamp(v, 0, 100));
+                  }}
+                  className="w-12 bg-transparent text-right text-body-sm font-semibold tabular-nums text-fg outline-none disabled:opacity-40"
+                />
+                <span className="text-caption text-faint">%</span>
+              </span>
+            </label>
+            <p className="mt-2 text-label leading-relaxed text-muted">
+              PG 수수료는 우리 몫이 아니라 <b className="text-fg">결제 전액</b>에 붙어요. 작가에게
+              줄 돈은 그대로 나가므로 {pgOn ? "지금" : ""} 그만큼이 통째로 마진에서 빠집니다.
+            </p>
+          </div>
           <Ctrl
             label="문의 후 성사율"
             value={ratePct}
@@ -166,7 +243,9 @@ export default function CalculatorPage() {
                   key={p.label}
                   type="button"
                   onClick={() => {
-                    setFee(p.fee);
+                    setShoot(p.shoot);
+                    setTakePct(p.take);
+                    setPgOn(p.pg);
                     setRatePct(p.rate);
                     setCpa(p.cpa);
                   }}
@@ -198,15 +277,17 @@ export default function CalculatorPage() {
               {Math.abs(d.pl) < 500 ? "손익분기" : d.positive ? "흑자" : "적자"}
             </span>
             <span className="w-full text-caption text-muted">
-              성사 1건마다 {d.positive ? "남는" : "까먹는"} 금액이에요. 매출 {won(fee)} − 획득비용{" "}
-              {won(d.acq)}.
+              성사 1건마다 {d.positive ? "남는" : "까먹는"} 금액이에요. 순수수료 {won(fee)} −
+              획득비용 {won(d.acq)}.
             </span>
           </div>
 
-          <dl className="grid grid-cols-1 overflow-hidden rounded-xl border border-line bg-surface-2 sm:grid-cols-3">
+          <dl className="grid grid-cols-2 overflow-hidden rounded-xl border border-line bg-surface-2 sm:grid-cols-5">
             {(
               [
-                ["문의당 CPA", won(cpa)],
+                ["총수수료 (촬영비×요율)", won(d.gross)],
+                [pgOn ? `PG ${pgPct}%` : "PG (꺼짐)", pgOn ? `−${won(d.pgCost)}` : "—"],
+                ["순수수료", won(d.fee)],
                 ["성사당 CPA", won(d.acq)],
                 ["회수율 (매출÷비용)", `${isFinite(d.roas) ? d.roas.toFixed(2) : "∞"}×`],
               ] as const
@@ -238,7 +319,16 @@ export default function CalculatorPage() {
                 }
               />
               <TargetRow
-                name="필요 평균 수수료"
+                name="필요 수수료율"
+                value={isFinite(d.needTake) ? `${d.needTake.toFixed(1)}%` : "—"}
+                gap={
+                  d.needTake <= takePct
+                    ? { text: "이미 충족", tone: "ok" }
+                    : { text: `+${(d.needTake - takePct).toFixed(1)}%p 필요`, tone: "bad" }
+                }
+              />
+              <TargetRow
+                name="필요 순수수료"
                 value={won(d.acq)}
                 gap={
                   d.acq / Math.max(fee, 1) <= 1
@@ -291,11 +381,12 @@ export default function CalculatorPage() {
       <section className="mt-5 rounded-2xl border border-line bg-surface p-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <p className="text-label font-semibold uppercase tracking-wider text-faint">
-            민감도 — 수수료 × 성사율
+            민감도 — 수수료율 × 성사율
           </p>
           <p className="text-caption text-muted">
-            현재 문의당 CPA <b className="tabular-nums text-fg">{won(cpa)}</b> 기준 · 셀은 건당
-            손익
+            촬영비 <b className="tabular-nums text-fg">{won(shoot)}</b> · 문의당 CPA{" "}
+            <b className="tabular-nums text-fg">{won(cpa)}</b>
+            {pgOn && <> · PG {pgPct}% 포함</>} 기준 · 셀은 건당 손익
           </p>
         </div>
         <div className="mt-3 overflow-x-auto">
@@ -303,7 +394,7 @@ export default function CalculatorPage() {
             <thead>
               <tr>
                 <th className="border border-line bg-surface-2 px-2.5 py-2 text-left font-medium text-muted">
-                  수수료 \ 성사율
+                  수수료율 \ 성사율
                 </th>
                 {RATES.map((r) => (
                   <th
@@ -316,16 +407,21 @@ export default function CalculatorPage() {
               </tr>
             </thead>
             <tbody>
-              {FEES.map((f) => (
-                <tr key={f}>
+              {TAKES.map((t) => (
+                <tr key={t}>
                   <th className="border border-line bg-surface-2 px-2.5 py-2 text-left font-semibold text-muted">
-                    {(f / 10000).toFixed(1).replace(".0", "")}만원
+                    {t}%
+                    <span className="ml-1 font-normal text-faint">
+                      {won(shoot * ((t - (pgOn ? pgPct : 0)) / 100))}
+                    </span>
                   </th>
                   {RATES.map((rp) => {
-                    const pl = f - cpa / (rp / 100);
+                    // 셀마다 요율이 다르므로 순수수료를 다시 구한다 (PG 는 켜져 있으면 전부에 적용)
+                    const cellFee = shoot * ((t - (pgOn ? pgPct : 0)) / 100);
+                    const pl = cellFee - cpa / (rp / 100);
                     const mag = Math.min(1, Math.abs(pl) / MAXMAG);
                     const alpha = (mag * 0.9 + 0.06) * 0.35;
-                    const here = f === nearFee && rp === nearRate;
+                    const here = t === nearTake && rp === nearRate;
                     return (
                       <td
                         key={rp}
@@ -350,9 +446,15 @@ export default function CalculatorPage() {
         </div>
         <p className="mt-3 text-caption leading-relaxed text-faint">
           성사당 CPA는 문의당 CPA ÷ 성사율이므로, 성사율이 낮을수록 같은 광고비가 몇 배로
-          불어나요. 회수율 1.0× 미만은 성사 1건마다 그만큼 손실이 난다는 뜻. 부가 매출(무빙컷
-          등)이 있으면 평균 수수료에 더해서, 유기 유입 비중이 있으면 문의당 CPA에 유료 비중을
-          곱한 blended 값으로 넣으면 돼요.
+          불어나요. 회수율 1.0× 미만은 성사 1건마다 그만큼 손실이 난다는 뜻.
+          <br />
+          PG 를 붙이면 요율에서 {pgPct}%p 를 그냥 뺀 것과 같아요 — 결제 전액에 붙는데 작가
+          정산액은 줄지 않으니까요. 요율 10%에 PG 를 켜면 실제로 남는 건 {(10 - pgPct).toFixed(1)}%
+          입니다. 지금 계좌이체(에스크로)로 받는 건 이 비용이 없다는 뜻이기도 해요.
+          <br />
+          출장비는 수수료 대상이 아니라 촬영비만 넣으면 되고, 부가 매출(무빙컷 등)이 있으면
+          촬영비에 더해서, 유기 유입 비중이 있으면 문의당 CPA에 유료 비중을 곱한 blended 값으로
+          넣으면 돼요.
         </p>
       </section>
     </main>
