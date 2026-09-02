@@ -1,6 +1,9 @@
 import "server-only";
 
-import { createAdminClient } from "@/lib/supabase/admin";
+// 공개 데이터만 읽는다 → anon. /spots/[slug] 는 SSG 라 빌드 타임에 프리렌더되는데,
+// admin(service_role)을 쓰면 그 키가 없는 Vercel Preview 스코프에서 빌드가 죽는다.
+// RLS 가 published·approved·is_active 를 대신 걸러 주므로 보안도 더 낫다.
+import { createPublicClient } from "@/lib/supabase/public";
 import type { GalleryPhoto } from "@/lib/discovery";
 import type { Spot } from "@/lib/spots-data";
 
@@ -115,15 +118,14 @@ async function fetchMatched(spot: Spot): Promise<MatchedPhoto[]> {
   const or = orFilter(spot);
   if (!or) return [];
 
-  const supabase = createAdminClient();
+  const supabase = createPublicClient();
   const { data, error } = await supabase
     .from("photos")
     .select(`${GALLERY_SELECT}, location_text, album_id`)
     .or(or)
     .eq("visibility", "published")
     .eq("feed_hidden", false)
-    // admin 클라이언트는 RLS 를 지나친다. anon 이었으면 RLS 가 걸러 줬을 '승인 작가만'을
-    // 여기서 직접 건다. (지금은 전원 승인이라 결과가 같지만, 미승인 작가가 생기는 순간 샌다)
+    // RLS 가 이미 '승인 작가만' 을 걸러 주지만, 조인 조건으로 한 겹 더 건다.
     .eq("photographer.status", "approved")
     // 정렬을 안 주면 매번 순서가 달라져 ISR 재생성 때마다 지면이 흔들린다.
     .order("created_at", { ascending: false });
@@ -176,7 +178,7 @@ export async function fetchSpotDetail(spot: Spot): Promise<SpotDetail> {
   }
 
   const ids = [...counts.keys()];
-  const supabase = createAdminClient();
+  const supabase = createPublicClient();
   // ids 는 사진 24장에서 나온 작가라 많아야 24개다. .in() URL 한계에 안 걸린다.
   // (수백 개를 한 번에 넣으면 에러 없이 data 가 null 로 온다 — explore-db 참고)
   const { data: pkgRows } = await supabase
