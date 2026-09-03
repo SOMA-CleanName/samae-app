@@ -1147,6 +1147,28 @@ function ContactBlock({
             {pending ? "요청 중…" : "무료로 견적 받기"}
           </button>
 
+          {/*
+            🔴 중개자 고지 — 전자상거래법 제20조 제1항.
+            통신판매중개자는 **자신이 거래의 당사자가 아니라는 사실**을 소비자가 쉽게 알 수
+            있도록 **미리** 고지해야 한다. 약관 제4조에 같은 내용이 있지만, 약관에 묻혀
+            있으면 "쉽게 알 수 있도록" 을 충족했다고 보기 어렵다. **청약 직전인 이 자리가
+            그 고지의 자리다.**
+            ⚠️ 지우지 말 것. 지우면 법정 고지 의무 미이행이 된다.
+          */}
+          <p className="mt-3 break-keep rounded-lg bg-surface-2 px-3 py-2 text-center text-[11px] leading-relaxed text-muted">
+            사매는 회원과 작가의 촬영 계약을 <b className="font-semibold text-fg">중개</b>하며,
+            <b className="font-semibold text-fg"> 촬영 계약의 당사자가 아닙니다.</b>
+            <br />
+            촬영 조건과 이행에 관한 책임은 해당 작가에게 있습니다.{" "}
+            <Link
+              href="/terms"
+              target="_blank"
+              className="underline underline-offset-2 hover:text-fg"
+            >
+              이용약관
+            </Link>
+          </p>
+
           {/* 동의 간주 고지 — 버튼 클릭이 개인정보 수집·이용 동의를 갈음 */}
           <p className="mt-2 break-keep text-center text-[11px] leading-relaxed text-faint">
             신청하기를 누르면 연락처 전달 및 상담을 위한
