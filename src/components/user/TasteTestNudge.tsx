@@ -98,7 +98,7 @@ export function TasteTestNudge() {
     setVisible(false);
     rememberTasteTestNudgeHidden();
     window.dispatchEvent(new Event("samae:taste-test-navigation"));
-    window.setTimeout(() => router.push("/explore?focus=taste"), 520);
+    window.setTimeout(() => router.push("/explore/quiz"), 520);
   }
 
   return (

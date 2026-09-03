@@ -7,6 +7,10 @@ import type { GalleryPhoto } from "@/lib/discovery";
 import { ExploreGallery } from "@/components/user/ExploreGallery";
 import { ScrollMemory } from "@/components/user/ScrollMemory";
 import { FeedHero } from "@/components/user/FeedHero";
+import { ProfileButton } from "@/components/user/ProfileButton";
+import { toProfileMe } from "@/lib/profile-me";
+import { HomeBannerSlot } from "@/components/user/HomeBannerSlot";
+import { SiteLinksRow } from "@/components/user/SiteLinksRow";
 import { EmptyState } from "@/components/ui";
 import { LayersIcon } from "@/components/user/icons";
 import type { Metadata } from "next";
@@ -88,9 +92,22 @@ export default async function CategoryPage({
   const likedIds = me ? await fetchLikedPhotoIds(photos.map((p) => p.id), me.id) : [];
 
   return (
-    <section className="px-2.5 pb-2.5 pt-2.5 font-kr sm:px-4 sm:pt-4 sm:pb-4">
+    // 지면 폭 상한 — 홈과 같은 이유·같은 값. (근거는 (user)/page.tsx 주석)
+    <section className="mx-auto max-w-screen-2xl px-2.5 pb-2.5 pt-2.5 font-kr sm:px-4 sm:pt-4 sm:pb-4">
       <ScrollMemory />
-      <FeedHero />
+      {/* 소개글 → 배너. 홈과 같은 순서로 맞춘다 */}
+      {/* 계정 진입도 홈과 같은 자리에. 이 지면은 하단 내비에서 '홈' 으로 잡히는데
+          여기만 프로필 버튼이 없으면 계정에 닿을 길이 사라진다(좌하단 아바타를 없앴다). */}
+      <FeedHero
+        right={
+          <ProfileButton
+            loggedIn={!!me}
+            avatarUrl={me?.avatarUrl ?? null}
+            me={toProfileMe(me)}
+          />
+        }
+      />
+      <HomeBannerSlot />
 
       {/* 카테고리 추천 보는 중 + 전체 보기 해제(쿠키도 해제됨 → /?nocat=1) */}
       <div className="mx-auto mt-1 mb-3 flex max-w-screen-2xl items-center gap-2 px-1 sm:mb-4">
@@ -110,6 +127,9 @@ export default async function CategoryPage({
           전체 보기 ✕
         </a>
       </div>
+
+      {/* 여기도 무한 스크롤이라 푸터에 못 닿는다 — 피드 시작 전에 안내 링크 (홈과 같은 이유) */}
+      <SiteLinksRow />
 
       {photos.length === 0 ? (
         <EmptyState

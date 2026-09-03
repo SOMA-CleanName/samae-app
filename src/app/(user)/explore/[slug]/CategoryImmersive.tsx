@@ -21,10 +21,10 @@ function formatDuration(min: number): string {
   return m === 0 ? `${h}시간` : `${h}시간 ${m}분`;
 }
 
-// 사진 상세와 동일한 문의 링크 (/inquiry?photographerId&photoId)
+// 사진 상세와 동일한 문의 링크 (/inquiry/bot?photographerId&photoId)
 function inquiryHref(photographerId: string, photoId: string) {
   const params = new URLSearchParams({ photographerId, photoId });
-  return `/inquiry?${params.toString()}`;
+  return `/inquiry/bot?${params.toString()}`;
 }
 
 // 카테고리 몰입 뷰 — 풀스크린 세로 스와이프(사진이 바로 크게) + 하단 필름스트립으로 빠른 이동.
@@ -81,7 +81,9 @@ export function CategoryImmersive({
 
   function back() {
     if (typeof window !== "undefined" && window.history.length > 1) router.back();
-    else router.push("/explore");
+    // 직접 진입이면 홈으로. 예전엔 /explore 로 보냈는데 그 탭은 이제 매거진이라,
+    // 사진을 보다 나온 사람을 글 목록에 떨어뜨리게 된다.
+    else router.push("/");
   }
 
   // 담기 — 기존 '카트로 빨려들어가는' fly 애니메이션 재사용.

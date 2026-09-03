@@ -124,6 +124,19 @@ html {
   /* iOS 사파리: 최상단에서 고무줄 오버스크롤 시 position:fixed 요소(장바구니 도크)가
      순간 이동·복귀하며 뒷 카드가 밀렸다 사라지는 모션을 만들던 문제 억제. */
   overscroll-behavior-y: none;
+
+  /*
+    가로로는 화면 자체가 움직이지 않게 못 박는다.
+
+    레일(무드·인기 사진·바로가기)을 옆으로 밀 때 페이지까지 같이 밀려 흔들렸다.
+    원인은 둘이다 — 풀블리드 요소(-mx)가 만드는 미세한 가로 넘침, 그리고 브라우저의
+    가로 스와이프 제스처(뒤로가기).
+
+    overflow-x 는 hidden 이 아니라 **clip** 을 쓴다. hidden 은 스크롤 컨테이너를 만들어
+    안쪽 position:sticky(러닝 헤드·플로팅 바)를 깨뜨린다. clip 은 자르기만 한다.
+  */
+  overflow-x: clip;
+  overscroll-behavior-x: none;
 }
 
 html,
@@ -249,7 +262,7 @@ select:focus-visible {
 /* 텍스트 선택 — 브랜드 틴트 */
 ::selection {
   background: var(--brand-soft);
-  color: var(--brand-ink);
+  color: var(--brand);
 }
 
 /* 모션 최소화 선호 존중 (애니메이션 사실상 제거) */
@@ -298,6 +311,24 @@ select:focus-visible {
 .page-enter { animation: page-enter 0.24s cubic-bezier(0.4, 0, 0.2, 1); }
 @media (prefers-reduced-motion: reduce) {
   .page-enter { animation: none; }
+}
+
+/*
+  프로필 시트 — 모바일은 아래에서 올라오는 바텀시트, 데스크톱은 여는 버튼
+  (홈 상단 오른쪽 ProfileButton) 아래에 붙는 팝오버.
+
+  열림/닫힘 위치는 인라인 transform 으로 온다. 드래그 중에는 손가락을 따라와야 해서
+  클래스로는 줄 수 없다. 인라인은 클래스를 이기므로 데스크톱에서만 !important 로 되돌린다 —
+  위에 붙은 팝오버가 화면 아래(translateY(100%))에서 올라오면 화면을 가로질러
+  날아오는 꼴이 된다. 드래그 핸들은 md:hidden 이라 데스크톱에서 이 값이 바뀔 일은 없다.
+*/
+@media (min-width: 768px) {
+  .profile-sheet { transition: transform 180ms ease-out, opacity 180ms ease-out; }
+  .profile-sheet[data-entered="false"] { opacity: 0; transform: translateY(-6px) !important; }
+  .profile-sheet[data-entered="true"]  { opacity: 1; transform: none !important; }
+}
+@media (min-width: 768px) and (prefers-reduced-motion: reduce) {
+  .profile-sheet { transition: none; }
 }
 
 /* 이미지 로딩 시머 — 스켈레톤 위로 밝은 띠가 좌→우로 반복 슬라이드 */
@@ -368,4 +399,939 @@ select:focus-visible {
     opacity: 0.85;
     transform: translateX(-50%);
   }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   아티클(에디토리얼) — 매거진 레이아웃 전용 모션·타이포
+   레퍼런스 방향: 흑백 골격 + 브랜드 레드 액센트 하나, 하드 그리드, 번호 매김.
+   모션 라이브러리 없이 CSS 로만 처리한다(의존성 0).
+   ───────────────────────────────────────────────────────────── */
+
+/* 페이지 진입 스태거 — 목록 셀이 순서대로 올라온다.
+   --i(순번)를 인라인 스타일로 넘겨 지연을 준다. 60ms 간격, 최대 8칸까지만 체감된다. */
+@keyframes ed-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: none; }
+}
+.ed-rise {
+  animation: ed-rise 620ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+
+/* 매스트헤드 — 글자가 아래에서 밀려 올라오며 자리를 잡는다.
+   overflow:hidden 한 줄 안에서 움직여 '조판되는' 느낌을 준다. */
+@keyframes ed-slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: none; }
+}
+.ed-mast > span {
+  display: block;
+  animation: ed-slide-up 900ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* 스크롤 진입 리빌 — Reveal 컴포넌트가 data-shown 을 켠다 */
+.ed-reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 700ms cubic-bezier(0.22, 1, 0.36, 1),
+              transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ed-reveal[data-shown="true"] { opacity: 1; transform: none; }
+
+/* 읽기 진행 바 — 상단 얇은 브랜드 라인 */
+.ed-progress {
+  transform-origin: 0 50%;
+  transition: transform 90ms linear;
+}
+
+/* 목록 셀 호버 — 이미지가 살짝 밀려나고 번호에 색이 든다 */
+.ed-cell img { transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1); }
+.ed-cell:hover img { transform: scale(1.04); }
+.ed-cell .ed-num { transition: color 260ms ease; }
+.ed-cell:hover .ed-num { color: var(--brand); }
+.ed-cell .ed-arrow { transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1); }
+.ed-cell:hover .ed-arrow { transform: translateX(5px); }
+
+/* 본문 타이포 — 매거진 리듬. 첫 문단만 살짝 크게 잡아 도입부를 만든다. */
+.ed-body > p:first-of-type {
+  font-size: 1.07em;
+  line-height: 1.8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ed-rise,
+  .ed-mast > span { animation: none; }
+  .ed-reveal { opacity: 1; transform: none; transition: none; }
+  .ed-cell img,
+  .ed-cell:hover img,
+  .ed-cell .ed-arrow,
+  .ed-cell:hover .ed-arrow { transition: none; transform: none; }
+}
+
+/* ── 흐르는 띠 ────────────────────────────────────────────── */
+@keyframes ed-marquee {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(-50%, 0, 0); }
+}
+.ed-marquee-track {
+  animation-name: ed-marquee;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  will-change: transform;
+}
+
+/* ── 스크롤 연동 (지원 브라우저에서만) ─────────────────────────
+   animation-timeline: view() 는 크롬 계열에서만 동작한다.
+   @supports 로 감싸 미지원 브라우저에서는 '그냥 보이는' 상태가 되게 한다 —
+   기능 감지 없이 쓰면 사파리에서 콘텐츠가 영영 안 나타난다. */
+@supports (animation-timeline: view()) {
+  @keyframes ed-in {
+    from { opacity: 0; transform: translateY(28px) scale(0.985); }
+    to   { opacity: 1; transform: none; }
+  }
+  .ed-scroll-in {
+    animation: ed-in linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 62%;
+  }
+
+  /* 이미지가 스크롤에 따라 서서히 열린다 — 잡지 넘김 느낌 */
+  @keyframes ed-unveil {
+    from { clip-path: inset(14% 8% 14% 8% round 2px); }
+    to   { clip-path: inset(0% 0% 0% 0% round 2px); }
+  }
+  .ed-unveil {
+    animation: ed-unveil linear both;
+    animation-timeline: view();
+    animation-range: entry 8% cover 42%;
+  }
+
+  /* 머리기사 타이틀이 스크롤과 함께 살짝 밀린다 */
+  @keyframes ed-drift {
+    from { transform: translateY(0); }
+    to   { transform: translateY(-38px); }
+  }
+  .ed-drift {
+    animation: ed-drift linear both;
+    animation-timeline: view();
+    animation-range: cover 0% cover 100%;
+  }
+}
+
+/* ── 벤토 셀 ──────────────────────────────────────────────── */
+.ed-tile { position: relative; overflow: hidden; }
+.ed-tile img { transition: transform 900ms cubic-bezier(0.22, 1, 0.36, 1); }
+.ed-tile:hover img { transform: scale(1.05); }
+/* 이미지 위 텍스트 가독성 — 아래쪽만 어둡게 */
+.ed-tile-veil {
+  background: linear-gradient(to top, rgba(0,0,0,0.74) 0%, rgba(0,0,0,0.42) 24%, rgba(0,0,0,0.08) 52%, rgba(0,0,0,0) 74%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ed-marquee-track { animation: none; }
+  .ed-tile img, .ed-tile:hover img { transition: none; transform: none; }
+  .ed-scroll-in, .ed-unveil, .ed-drift { animation: none; }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   매거진 지면(/explore) — 잡지 골격
+   /articles 에서 쓴 ed-* 체계를 이어서 쓴다. 두 지면이 한 잡지처럼
+   읽히려면 장치가 같아야 한다.
+   ───────────────────────────────────────────────────────────── */
+
+/* 목차 한 줄 — 호버하면 줄이 브랜드색으로 차오르고 제목이 밀린다.
+   깔개(::after)를 폭 0 에서 100% 로 늘린다. JS 없음. */
+.ed-idx-row {
+  position: relative;
+  transition: color 0.25s ease;
+}
+.ed-idx-row::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -1px;
+  height: 1px;
+  width: 0;
+  background: var(--brand);
+  transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ed-idx-row:hover::after,
+.ed-idx-row:focus-visible::after {
+  width: 100%;
+}
+.ed-idx-label {
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ed-idx-row:hover .ed-idx-label {
+  transform: translateX(6px);
+}
+.ed-idx-num,
+.ed-idx-arrow {
+  transition: color 0.25s ease, transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ed-idx-row:hover .ed-idx-num {
+  color: var(--brand);
+}
+.ed-idx-row:hover .ed-idx-arrow {
+  color: var(--brand);
+  transform: translate(3px, -3px);
+}
+
+/* 액자 — 사진을 두르는 얇은 테두리. 모서리에 짧은 눈금을 찍어
+   '프레임'이라는 걸 알아보게 한다(테두리만으로는 그냥 카드로 읽힌다). */
+/* 좁은 화면에서는 눈금을 그리지 않는다. 여백이 없어서 라벨 글자를 물어
+   괄호가 잘못 찍힌 것처럼 보인다. 액자 느낌은 가로가 남을 때만 필요하다. */
+.ed-frame::before,
+.ed-frame::after {
+  display: none;
+}
+@media (min-width: 1024px) {
+  .ed-frame::before,
+  .ed-frame::after {
+    content: "";
+    display: block;
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border-color: var(--brand);
+    opacity: 0.65;
+    pointer-events: none;
+  }
+}
+.ed-frame::before {
+  top: 10px;
+  left: 10px;
+  border-top: 1.5px solid;
+  border-left: 1.5px solid;
+  border-top-left-radius: 6px;
+}
+.ed-frame::after {
+  bottom: 10px;
+  right: 10px;
+  border-bottom: 1.5px solid;
+  border-right: 1.5px solid;
+  border-bottom-right-radius: 6px;
+}
+
+/* 스크롤 유도 — 화살표만 천천히 오르내린다 */
+.ed-scroll-hint > span {
+  display: inline-block;
+  animation: ed-nudge 2s ease-in-out infinite;
+}
+@keyframes ed-nudge {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(3px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ed-idx-row::after,
+  .ed-idx-label,
+  .ed-idx-num,
+  .ed-idx-arrow { transition: none; }
+  .ed-scroll-hint > span { animation: none; }
+}
+
+/* 홈 바로가기 — 가로로 미는 알약.
+   눌리는 물건이라는 감각만 준다. 낮은 띠라 화려하면 오히려 시끄럽다. */
+.qp {
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.qp:active {
+  transform: scale(0.94);
+}
+.qp-label {
+  transition: color 0.25s ease;
+}
+.qp:hover .qp-label {
+  color: var(--brand-ink);
+}
+/* 아이콘 원 — 호버하면 브랜드색으로 채워진다 */
+.qp-dot {
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+.qp:hover .qp-dot,
+.qp:focus-visible .qp-dot {
+  background: var(--brand);
+  color: #fff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .qp,
+  .qp-label,
+  .qp-dot { transition: none; }
+  .qp:active { transform: none; }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   홈 — 가로 레일 공통 (모바일 드래그 우선)
+   ───────────────────────────────────────────────────────────── */
+.rail {
+  overflow-x: auto;
+  scrollbar-width: none;
+  /* 가로 끝에서 더 밀어도 페이지가 뒤로가기로 넘어가지 않게. 모바일에서 이게 없으면
+     레일을 넘기다 브라우저 뒤로가기가 튀어나온다. */
+  overscroll-behavior-x: contain;
+  /* 손을 떼면 카드 경계에 부드럽게 붙는다. mandatory 는 자동 흐름과 싸워서 proximity. */
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+.rail::-webkit-scrollbar {
+  display: none;
+}
+.rail > * {
+  scroll-snap-align: start;
+}
+/* 자동으로 흐르는 레일은 스냅을 끈다 — 흐르는 걸 매 프레임 붙잡아 덜컥거린다. */
+.rail-drift {
+  scroll-snap-type: none;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   전체 사진 피드 — 카드가 화면에 들어오며 떠오른다.
+
+   CSS 스크롤 타임라인(animation-timeline)을 쓰다가 IntersectionObserver 로 바꿨다.
+   전자는 크롬 계열에서만 돌고 범위 계산이 뷰포트에 묶여 있어 "들어왔는데 이미 다 보임"이
+   되기 쉬웠다. 관찰자는 어디서나 같게 돌고, 한 번 보이면 관찰을 끊어 비용이 남지 않는다.
+   ───────────────────────────────────────────────────────────── */
+/*
+  ⚠️ 기본값은 '보임'이다. 절대 opacity:0 으로 시작하지 않는다.
+
+  관찰자가 안 도는 경우가 실제로 있다 — 백그라운드 탭에서 열림, 하이드레이션 실패,
+  IntersectionObserver 미지원. 숨김을 기본값으로 두면 그때 **피드가 통째로 사라진다.**
+  메인 피드라 그건 빈 화면과 같다.
+
+  그래서 숨김은 관찰자가 실제로 설치된 뒤에만 걸린다(부모의 data-reveal-on).
+  그 표식은 useLayoutEffect 에서 그리기 전에 붙어 깜빡임도 없다.
+*/
+.feed-rise {
+  transition:
+    opacity 0.5s ease-out,
+    transform 0.72s cubic-bezier(0.22, 1, 0.36, 1);
+  /* 같은 줄이 통째로 튀지 않게 열마다 조금씩 늦춘다 */
+  transition-delay: calc(var(--c, 0) * 70ms);
+}
+[data-reveal-on] .feed-rise:not([data-shown]) {
+  opacity: 0;
+  /*
+    ⚠️ scale 을 쓰지 않는다.
+
+    전에는 translateY(26px) scale(0.97) 이었는데, 카드 가장자리에 아주 얇은 흰 선이
+    생겼다가 멈추면 사라졌다. 크기가 변하면 매 프레임 테두리가 새로운 소수 픽셀에
+    떨어지고, 합성 레이어의 가장자리 픽셀이 반투명해진다. 그 틈으로 카드 배경
+    (bg-fg/[0.05] — 다크 모드에서는 페이지보다 밝다)이 비쳐 선으로 보였다.
+    애니메이션이 끝나면 레이어가 버려지고 픽셀이 격자에 맞아 선도 없어진 것이다.
+
+    이동만 하면 크기가 안 변해 그 틈이 안 생긴다. 떠오르는 느낌은 그대로다.
+  */
+  transform: translateY(26px);
+  /* 웹킷에서 합성 레이어 가장자리 처리를 한 겹 더 눌러 준다 */
+  backface-visibility: hidden;
+  will-change: opacity, transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .feed-rise {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* 무드 펼치기 — 새로 나타나는 칸만 아래에서 올라온다.
+   전부 다시 그리면 이미 보고 있던 4칸까지 흔들려 어지럽다. */
+@keyframes mood-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+.mood-in {
+  animation: mood-in 380ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mood-in { animation: none; }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   피드 사이 삽입 카드
+   사진 카드(풀블리드·둥근 모서리)와 갈리도록 인쇄물처럼 만든다.
+   모서리를 각지게(rounded-sm) 두는 것만으로도 첫눈에 구분된다.
+   ───────────────────────────────────────────────────────────── */
+.fi {
+  transition:
+    transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.3s ease;
+}
+.fi:hover,
+.fi:focus-visible {
+  transform: translateY(-3px);
+}
+.fi:active {
+  transform: scale(0.985);
+}
+
+/*
+  잡지 표지 — 사진이 카드를 다 채우되 톤을 눌러 둔다(듀오톤).
+
+  주변이 전부 컬러 사진이라 **채도**가 갈리는 지점이다. 어둡게만 하면 어두운 사진과
+  섞이지만, 저채도 한 장은 컬러 격자에서 제일 먼저 눈에 걸린다.
+
+  완전 흑백으로는 안 만든다. 작가 사진을 우리 마음대로 흑백으로 바꿔 거는 셈이 되고,
+  0.72 정도면 '빛바랜 인쇄물'이지 '흑백 사진'이 아니다.
+  손을 대면 원래 색으로 돌아온다 — 안에 컬러가 있다는 신호.
+*/
+.fi-cover {
+  box-shadow: var(--shadow-card);
+}
+.fi-cover:hover,
+.fi-cover:focus-visible {
+  box-shadow: var(--shadow-pop);
+}
+.fi-cover .fi-img {
+  filter: grayscale(0.72) contrast(1.06) brightness(0.92);
+  transition:
+    filter 0.55s ease,
+    transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.fi-cover:hover .fi-img,
+.fi-cover:focus-visible .fi-img,
+.fi-cover:active .fi-img {
+  filter: grayscale(0) contrast(1) brightness(1);
+}
+/* 잉크 — 위(라벨)와 아래(제목) 양쪽을 눌러 흰 글씨가 어디서나 읽히게 */
+.fi-cover .fi-ink {
+  background: linear-gradient(
+    to bottom,
+    rgb(15 14 12 / 0.62) 0%,
+    rgb(15 14 12 / 0.18) 34%,
+    rgb(15 14 12 / 0.72) 76%,
+    rgb(15 14 12 / 0.92) 100%
+  );
+}
+
+/*
+  컨택트 시트 — 필름 가장자리 퍼포레이션.
+  구멍 색을 페이지 배경(--bg)으로 찍어 '뚫린 것'처럼 보이게 한다.
+  다크 모드에서도 토큰이 뒤집히므로 그대로 맞는다.
+*/
+.fi-perf {
+  height: 9px;
+  background-image: radial-gradient(circle, var(--bg) 40%, transparent 42%);
+  background-size: 11px 9px;
+  background-repeat: repeat-x;
+  background-position: center;
+}
+.fi-film {
+  box-shadow: var(--shadow-card);
+}
+.fi-film:hover,
+.fi-film:focus-visible {
+  box-shadow: var(--shadow-pop);
+}
+
+.fi-img {
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.fi:hover .fi-img {
+  transform: scale(1.04);
+}
+
+.fi-arrow,
+.fi-more {
+  display: inline-block;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), color 0.25s ease;
+}
+.fi:hover .fi-arrow {
+  color: var(--brand);
+  transform: translate(2px, -2px);
+}
+.fi:hover .fi-more {
+  transform: translateX(3px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fi,
+  .fi-img,
+  .fi-cover .fi-img,
+  .fi-arrow,
+  .fi-more { transition: none; }
+  .fi:hover,
+  .fi:focus-visible,
+  .fi:active { transform: none; }
+  .fi:hover .fi-img,
+  .fi:hover .fi-arrow,
+  .fi:hover .fi-more { transform: none; }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   이번 호의 사진 — 도판(圖版)
+
+   사진 위에 글을 얹지 않는다. 얹으면 읽히게 하려고 사진을 어둡게 눌러야 하고,
+   그러면 잘림을 고쳐 놓고 다시 얼굴을 덮는 셈이 된다.
+   캡션은 사진 밖 아래에 조판한다 — 잡지가 도판에 번호를 다는 방식이다.
+   ───────────────────────────────────────────────────────────── */
+.pf-img {
+  transition:
+    opacity 0.9s ease-in-out,
+    transform 0.9s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.pf:hover .pf-img {
+  transform: scale(1.04);
+}
+
+/* 괘선 — 손을 대면 브랜드색이 왼쪽에서 오른쪽으로 차오른다.
+   번호와 촬영지 사이를 잇는 선이라, 이게 차오르는 게 곧 '이 도판을 고름'이 된다. */
+.pf-rule::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0;
+  background: var(--brand);
+  transition: width 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.pf:hover .pf-rule::after,
+.pf:focus-visible .pf-rule::after {
+  width: 100%;
+}
+
+.pf-loc,
+.pf-arrow {
+  transition: color 0.25s ease, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.pf:hover .pf-loc {
+  color: var(--brand);
+}
+.pf:hover .pf-arrow {
+  color: var(--brand);
+  transform: translateX(4px);
+}
+.pf:active {
+  transform: scale(0.99);
+}
+
+/* 더보기 버튼 — 화살표만 움직인다 */
+.ed-more {
+  transition: border-color 0.25s ease, color 0.25s ease;
+}
+.ed-more:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+.ed-more-arrow {
+  display: inline-block;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ed-more:hover .ed-more-arrow {
+  transform: translateX(4px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pf-img,
+  .pf-rule::after,
+  .pf-loc,
+  .pf-arrow,
+  .ed-more,
+  .ed-more-arrow { transition: none; }
+  .pf:hover .pf-img,
+  .pf:hover .pf-arrow,
+  .pf:active,
+  .ed-more:hover .ed-more-arrow { transform: none; }
+}
+
+/* 아티클 덱 — 한 장씩 넘겨 보는 카드.
+   변형은 JS 가 스크롤 위치로 넣는다. 여기서는 스크롤 동작만 잡는다. */
+.deck {
+  /* 카드 폭을 한 곳에서 정하고 좌우 여백을 그에 맞춘다.
+     이렇게 해야 스크롤 0 에서 첫 카드가, 끝에서 마지막 카드가 정확히 가운데 선다.
+     (여백을 고정값으로 두면 첫 카드가 늘 왼쪽으로 치우쳐 작게 그려진다) */
+  --deck-w: clamp(15rem, 74vw, 19rem);
+  padding-inline: max(1rem, calc(50% - var(--deck-w) / 2));
+
+  overflow-x: auto;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  /* 카드가 기울면서 모서리가 잘리지 않게 위아래 여유 */
+  padding-block: 0.5rem;
+}
+.deck::-webkit-scrollbar {
+  display: none;
+}
+.deck-card {
+  width: var(--deck-w);
+  scroll-snap-align: center;
+  transform-origin: center bottom;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.35s ease;
+  will-change: transform;
+}
+
+/*
+  데스크톱 — 가운데 한 장 세우기를 끈다.
+  (⚠️ 반드시 위 .deck / .deck-card 기본값 **뒤에** 둘 것. 특정도가 같아서
+   순서로만 이긴다. 앞에 두면 미디어쿼리가 통째로 무시된다.)
+
+  padding-inline 이 (레일폭 − 카드폭)/2 라서, 카드가 304px 인 1361px 화면에서는
+  좌우가 528px 씩 빈다. 제목("스냅 촬영 이야기")은 왼쪽에 있는데 카드는 화면
+  한복판에 한 장만 떠 있어 왼쪽 절반이 통째로 비어 보였다.
+  넓은 화면은 카드가 여러 장 동시에 보이는 게 자연스럽다 — 왼쪽부터 채우고
+  카드도 조금 키운다. 기울임·축소는 JS 가 같은 조건에서 끈다(ArticleDeck).
+*/
+@media (min-width: 640px) {
+  .deck {
+    --deck-w: 20rem;
+    /* 감싼 쪽의 -mx-6 을 되돌려 지면 왼쪽 선에 맞춘다 */
+    padding-inline: 1.5rem;
+    scroll-snap-type: x proximity;
+    /* ⚠️ padding-inline 과 같은 값을 넣어야 한다. scroll-snap-align:start 는
+       패딩을 무시하고 스크롤포트 끝에 카드를 붙여서, 로드하자마자 scrollLeft 가
+       24 로 튀며 첫 카드가 지면 왼쪽 선 밖으로 24px 밀려 나갔다(실측).
+       스냅 기준선을 패딩만큼 안으로 들여 준다. */
+    scroll-padding-inline: 1.5rem;
+  }
+  .deck-card {
+    scroll-snap-align: start;
+  }
+}
+.deck-img {
+  transition: transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.deck-card a:hover .deck-img {
+  transform: scale(1.05);
+}
+.deck-arrow {
+  display: inline-block;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.deck-card a:hover .deck-arrow {
+  transform: translateX(4px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .deck { scroll-snap-type: x proximity; }
+  .deck-card,
+  .deck-img,
+  .deck-arrow { transition: none; }
+  .deck-card a:hover .deck-img,
+  .deck-card a:hover .deck-arrow { transform: none; }
+}
+
+/* 아티클 2단 — 가로 카드. 사진은 살짝 확대되고 화살표가 밖으로 나간다. */
+.ar-row {
+  transition: border-color 0.25s ease, box-shadow 0.3s ease, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ar-row:hover,
+.ar-row:focus-visible {
+  border-color: var(--brand);
+  box-shadow: var(--shadow-card);
+  transform: translateY(-2px);
+}
+.ar-row:active {
+  transform: scale(0.99);
+}
+.ar-img {
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ar-row:hover .ar-img {
+  transform: scale(1.07);
+}
+.ar-title,
+.ar-arrow {
+  transition: color 0.25s ease, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ar-row:hover .ar-title {
+  color: var(--brand);
+}
+.ar-row:hover .ar-arrow {
+  color: var(--brand);
+  transform: translate(2px, -2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ar-row,
+  .ar-img,
+  .ar-title,
+  .ar-arrow { transition: none; }
+  .ar-row:hover,
+  .ar-row:active { transform: none; }
+  .ar-row:hover .ar-img,
+  .ar-row:hover .ar-arrow { transform: none; }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   지면 상단 뒤로가기 바 (StickyBack)
+   손을 대면 화살표만 왼쪽으로 살짝 — "여기서 나간다"는 방향을 몸으로 말한다.
+   ───────────────────────────────────────────────────────────── */
+.ed-back-arrow {
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ed-back:hover .ed-back-arrow,
+.ed-back:focus-visible .ed-back-arrow {
+  transform: translateX(-3px);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   가이드 허브 — 질문 목록(아코디언)
+
+   답을 전부 펼쳐 두면 열네 개가 경계 없이 이어져 한 문답이 어디서 끝나는지
+   안 보인다. <details> 로 접되 답은 DOM 에 남긴다 — 크롤러가 보는 건 그대로.
+   ───────────────────────────────────────────────────────────── */
+.gd-item > summary::-webkit-details-marker {
+  display: none; /* 사파리 기본 삼각형 */
+}
+.gd-q {
+  transition: color 0.2s ease;
+}
+.gd-q:hover {
+  color: var(--brand);
+}
+.gd-mark {
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), color 0.2s ease;
+}
+.gd-q:hover .gd-mark {
+  color: var(--brand);
+}
+/* 열리면 + 가 × 로 — 다시 누르면 닫힌다는 걸 모양이 말한다 */
+.gd-item[open] .gd-mark {
+  transform: rotate(135deg);
+  color: var(--brand);
+}
+@keyframes gd-a-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: none; }
+}
+.gd-item[open] .gd-a {
+  animation: gd-a-in 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.gd-chip {
+  transition: border-color 0.2s ease, color 0.2s ease, background-color 0.2s ease;
+}
+.gd-chip:hover {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   장소 지면 — 목록 행 / 사진 칸 / 작가 행
+   ───────────────────────────────────────────────────────────── */
+.sp-img {
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.sp-row:hover .sp-img,
+.sp-cell:hover .sp-img {
+  transform: scale(1.05);
+}
+.sp-arrow {
+  display: inline-block;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), color 0.2s ease;
+}
+.sp-row:hover .sp-arrow,
+.sp-maker:hover .sp-arrow {
+  color: var(--brand);
+  transform: translateX(4px);
+}
+.sp-cell {
+  transition: opacity 0.2s ease;
+}
+.sp-cell:active {
+  opacity: 0.82;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ed-back-arrow,
+  .gd-mark,
+  .gd-q,
+  .gd-chip,
+  .sp-img,
+  .sp-arrow,
+  .sp-cell { transition: none; }
+  .ed-back:hover .ed-back-arrow,
+  .sp-row:hover .sp-img,
+  .sp-cell:hover .sp-img,
+  .sp-row:hover .sp-arrow,
+  .sp-maker:hover .sp-arrow { transform: none; }
+  .gd-item[open] .gd-a { animation: none; }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   로그인 · 회원가입 — 사진 벽
+
+   서비스에 실제로 올라와 있는 사진이 세 줄로 아주 느리게 흐른다.
+   순수 CSS 라 JS 가 스크롤을 만지지 않는다 — 어디서도 손가락과 싸울 일이 없다.
+   같은 목록을 두 번 깔아 두고 절반(-50%)만큼 밀어 이음매를 없앤다.
+   ───────────────────────────────────────────────────────────── */
+@keyframes auth-drift-up {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-50%); }
+}
+@keyframes auth-drift-down {
+  from { transform: translateY(-50%); }
+  to   { transform: translateY(0); }
+}
+/* 줄마다 속도와 방향을 다르게 — 같으면 벽 전체가 한 덩어리로 움직여 지루하다 */
+.auth-col-0 { animation: auth-drift-up 68s linear infinite; }
+.auth-col-1 { animation: auth-drift-down 84s linear infinite; }
+.auth-col-2 { animation: auth-drift-up 100s linear infinite; }
+
+/* 사진이 폼 쪽으로 사라지는 자리.
+   모바일은 아래로(폼이 밑에 있다), 데스크탑은 왼쪽으로(폼이 옆에 있다). */
+.auth-fade {
+  background: linear-gradient(to bottom, transparent 44%, var(--bg) 97%);
+}
+@media (min-width: 1024px) {
+  .auth-fade {
+    background: linear-gradient(to right, var(--bg) 0%, transparent 18%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-col-0,
+  .auth-col-1,
+  .auth-col-2 { animation: none; }
+}
+
+/* ── 폼 컨트롤 ─────────────────────────────────────────────── */
+.auth-kakao,
+.auth-submit {
+  transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.2s ease, box-shadow 0.25s ease;
+}
+.auth-kakao:hover,
+.auth-submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-card);
+}
+.auth-kakao:active,
+.auth-submit:active:not(:disabled) {
+  transform: scale(0.99);
+}
+
+.auth-input {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.auth-input:focus {
+  border-color: color-mix(in srgb, var(--fg) 40%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-kakao,
+  .auth-submit,
+  .auth-input { transition: none; }
+  .auth-kakao:hover,
+  .auth-submit:hover:not(:disabled),
+  .auth-kakao:active,
+  .auth-submit:active:not(:disabled) { transform: none; }
+}
+
+/* 새 메시지 알림 — 위에서 미끄러져 들어온다. 화면을 가리는 요소라 짧고 조용하게. */
+@keyframes chat-toast-in {
+  from { opacity: 0; transform: translateY(-10px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.chat-toast {
+  animation: chat-toast-in 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-toast { animation: none; }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   사진 상세 — 사진 프레임 높이 상한
+
+   같은 값을 page.tsx · loading.tsx · PhotoCarousel 세 곳이 각자 들고 있었다.
+   한 곳만 바꾸면 **스켈레톤과 실제 사진 크기가 어긋나** 로딩이 끝나는 순간 화면이 튄다.
+   값은 여기 한 곳에만 둔다.
+
+   82svh 였다. 세로 사진(2:3)이면 폭이 화면을 꽉 채우고 높이가 뷰포트의 80%가 되어
+   첫 화면이 통째로 사진이었다 — [상담하기]·[예약하기]가 한 화면 아래에 있었다.
+   사진을 보러 온 지면이 맞지만, 마음에 들었을 때 다음으로 갈 문은 화면 안에 있어야 한다.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  --photo-cap: 66svh;
+}
+@media (min-width: 768px) {
+  :root {
+    /* 데스크탑은 사진이 우측 정보 칼럼보다 200px 넘게 길어져 칼럼이 끝난 아래로
+       빈 공간이 길게 남았다. 62vh 면 두 칼럼 길이가 얼추 맞는다. */
+    --photo-cap: 62vh;
+  }
+}
+
+/* 사진이 앉는 칸 — 비율(--ar)은 호출부가 인라인으로 넣는다 */
+.photo-frame {
+  width: min(100%, calc(var(--photo-cap) * var(--ar)));
+}
+
+/*
+  사진이 실제로 걸린 칸은 뒤를 검게 받친다.
+
+  폭이 min(100%, calc(...)) 라 소수 픽셀로 떨어지는데, 안에 든 검은 판은 그 폭의
+  100% 라 반올림이 어긋나는 자리에서 1px이 빈다. 그 틈으로 페이지 배경(밝은 회색)이
+  비쳐 사진 테두리에 흰 선이 도는 것처럼 보였다.
+  (피드 카드에서 겪은 것과 같은 종류다 — 그쪽은 scale 을 걷어내 고쳤다)
+
+  같은 색으로 받치면 어긋나도 안 보인다. 사진이 프레임을 다 못 채울 때 깔리는 색과도
+  같아서 새로 튀는 색이 아니다. 스켈레톤(loading)에는 안 준다 — 거기 배경은 밝은 회색이라
+  검게 받치면 오히려 테두리가 생긴다.
+*/
+.photo-frame[data-photo-frame] {
+  background: #000;
+}
+@media (min-width: 768px) {
+  .photo-frame {
+    width: min(60%, calc(var(--photo-cap) * var(--ar)));
+  }
+}
+
+/* 캐러셀 자체의 상한 — 프레임과 같은 값이어야 한다 */
+.photo-cap {
+  max-height: var(--photo-cap);
+}
+
+/* 신뢰·안전으로 가는 한 줄 (TrustLink) — 돈이 오가기 직전에 놓인다.
+   조용해야 하지만 손을 대면 반응해야 한다. 붙잡아 세우려는 배너가 아니다. */
+.trust-link {
+  transition: color 0.2s ease;
+}
+.trust-link:hover {
+  color: var(--brand);
+}
+.trust-link-arrow {
+  display: inline-block;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.trust-link:hover .trust-link-arrow {
+  transform: translateX(3px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .trust-link,
+  .trust-link-arrow { transition: none; }
+  .trust-link:hover .trust-link-arrow { transform: none; }
+}
+
+/* 읽기를 마친 자리의 채널 카드 — 조용히 있다가 손을 대면 반응한다.
+   붙잡아 세우려는 배너가 아니라, 이미 '더 볼' 의향이 있는 사람에게 열어 둔 문이다. */
+.ch-card {
+  transition: border-color 0.25s ease, box-shadow 0.3s ease, transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ch-card:hover,
+.ch-card:focus-visible {
+  border-color: var(--brand);
+  box-shadow: var(--shadow-card);
+  transform: translateY(-2px);
+}
+.ch-card:active {
+  transform: scale(0.995);
+}
+.ch-arrow {
+  display: inline-block;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ch-card:hover .ch-arrow {
+  transform: translateX(4px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ch-card,
+  .ch-arrow { transition: none; }
+  .ch-card:hover,
+  .ch-card:active { transform: none; }
+  .ch-card:hover .ch-arrow { transform: none; }
 }
