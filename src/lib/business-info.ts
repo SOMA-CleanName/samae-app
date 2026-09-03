@@ -34,7 +34,14 @@ export type BusinessInfo = {
    *    개인 번호를 넣지 말 것 — 사업용 회선(알뜰폰) 개통 후 채운다.
    */
   phone?: string;
-  /** 대표 이메일. 공개되는 주소이므로 개인 메일이 아닌 것을 쓴다. */
+  /**
+   * 대표 이메일. 공개되는 주소이므로 **개인 메일이 아닌 것**을 쓴다.
+   *
+   * 도메인 메일(help@samae.ai)을 Zoho 로 만들어 뒀지만 여기 걸지 않는다 —
+   * 무료 플랜이 전달·IMAP·POP 을 전부 막아서 **Zoho 웹/앱에 따로 들어가야만** 보인다.
+   * 아무도 안 보는 창구가 제일 나쁘다. 팀이 이미 함께 쓰는 메일함을 쓴다.
+   * (도메인·MX·DKIM 은 그대로 살려 뒀다. 유료로 올리는 날 여기만 바꾸면 된다)
+   */
   email?: string;
 };
 
@@ -45,7 +52,7 @@ export const BUSINESS_INFO: BusinessInfo = {
   address: "인천광역시 연수구 인천타워대로 323, A동 31층 3101호",
   // mailOrderNumber: "제2026-인천연수-00000호",
   // phone: "0000-0000",
-  // email: "help@samae.ai",
+  email: "samaephoto@gmail.com",
 };
 
 /** 푸터에 한 줄씩 그릴 항목. 값이 없는 건 빠진다. */
