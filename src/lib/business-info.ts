@@ -20,7 +20,13 @@ export type BusinessInfo = {
   ceo: string;
   /** 하이픈 포함 10자리 */
   registrationNumber: string;
-  /** 사업장 소재지 (사업자등록증 그대로) */
+  /**
+   * 사업장 소재지 — **사업자등록증 그대로** 적는다.
+   * ⚠️ 호실(CS119호)까지 있어야 한다. PG 입점 심사는 여기 적힌 주소를 사업자등록증과
+   *    대조하는데, 한 칸이라도 다르면 그 자리에서 반려된다.
+   *    등록증 전체 표기: (22007) 인천광역시 연수구 인천타워대로 323,
+   *                      A동 31층 3101호 CS119호 (송도동, 송도 센트로드)
+   */
   address: string;
   /**
    * 통신판매업 신고번호.
@@ -49,7 +55,7 @@ export const BUSINESS_INFO: BusinessInfo = {
   name: "사매",
   ceo: "김정훈",
   registrationNumber: "827-70-00636",
-  address: "인천광역시 연수구 인천타워대로 323, A동 31층 3101호",
+  address: "인천광역시 연수구 인천타워대로 323, A동 31층 3101호 CS119호",
   // mailOrderNumber: "제2026-인천연수-00000호",
   // phone: "0000-0000",
   email: "samaephoto@gmail.com",
