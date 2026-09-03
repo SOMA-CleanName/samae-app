@@ -1,110 +1,346 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { BusinessInfoBlock } from "@/components/BusinessInfoBlock";
 
 /*
-  서비스 이용약관 — **껍데기**.
+  서비스 이용약관.
 
-  회원가입 화면이 "서비스 이용약관"을 링크 없는 평문으로 띄우고 있었다
-  (SignupForm 주석에도 "없는 데로 링크를 걸지 않는다"고 적혀 있었다).
-  /terms 는 404 였다.
+  ⚠️ **이 파일은 코드가 아니라 법정 게시물이다.** 여기 적힌 문장은 회사가 한 약속이 되고,
+     분쟁이 나면 이 문장이 근거가 된다. 그래서 두 가지를 지킨다 —
 
-  ⚠️ 여기에 조항을 지어 쓰지 않는다. 약관은 법적 효력을 갖는 문서라
-     확정되지 않은 문장을 올려 두면 그게 곧 회사가 한 약속이 된다.
-     지금 확정된 것은 /trust · /privacy · /terms/ad-consent 세 곳에 이미 공개돼 있고,
-     이 페이지는 **무엇을 다룰지와 지금 어디에 무엇이 있는지**만 알린다.
+     1) **코드가 실제로 하는 것만 적는다.** 조문별 근거는 `docs/35-terms-draft.md` 의
+        `↳` 주석에 남겨 뒀다. 특히 제4·8·9조(회사의 지위·결제·환불)는 리드 언락 모델의
+        실제 동작을 확인하고 썼다 —
+          settlements  "촬영비는 오프플랫폼이라 플랫폼이 보관/정산하지 않는다"
+          bookings     "작가 계좌로 직접 송금"
+          refund       "환불 금액도 작가가 직접 고객 계좌로 송금"
+     2) **운영을 바꾸면 조문도 같이 고친다.** 지면이 운영과 어긋나는 순간 그게 거짓이 된다.
 
-  본문은 법무 검토를 거쳐 채운다. 채우는 날 아래 STATUS 를 지우고 시행일을 박을 것.
-  그때까지 robots noindex — 미완성 약관이 검색에 잡히면 그 자체가 사고다.
+  🔴 **PG 를 붙이면 제4조 2항이 거짓이 된다** — 돈이 회사를 거치게 되기 때문이다.
+     그때 개정할 조: 4(지위) · 7(리드) · 8(결제) · 9(환불) · 12(금지행위) · 16(면책).
+     설계는 `docs/32-refund-policy.md` v2 에 이미 있으므로 조문으로 옮기는 작업이 된다.
+     개정 대상 표는 `docs/35-terms-draft.md` §3.
 */
 
 export const metadata: Metadata = {
   title: "서비스 이용약관",
-  description: "사매(samae) 서비스 이용약관 — 준비 중. 확정된 기준은 안전 안내와 개인정보 처리방침에 있습니다.",
+  description: "사매(samae) 서비스 이용약관 — 회사의 지위, 예약과 결제, 취소와 환불, 결과물의 이용 범위.",
   alternates: { canonical: "/terms" },
-  robots: { index: false, follow: true },
 };
 
-/** 본문이 들어오면 이 줄을 지운다 (아래 안내 박스도 함께). */
-const STATUS = "준비 중";
-
-/** 조문 뼈대 — 실제 서비스가 하는 일에 맞춘 목차. 문구가 아니라 범위만 적는다. */
-const OUTLINE: Array<{ no: string; title: string; scope: string }> = [
-  { no: "01", title: "목적과 용어", scope: "사매가 제공하는 서비스의 범위, 회원·작가·촬영·예약의 정의" },
-  { no: "02", title: "사매의 지위", scope: "사매가 촬영 당사자인지 중개자인지, 그에 따른 책임의 범위" },
-  { no: "03", title: "계정", scope: "가입과 탈퇴, 계정 이용 제한, 작가 등록 심사" },
-  { no: "04", title: "예약과 결제", scope: "예약이 확정되는 시점, 결제 방식, 중개 수수료" },
-  { no: "05", title: "취소와 환불", scope: "취소 시점별 환불 비율, 작가 귀책·기상 등 예외" },
-  { no: "06", title: "결과물과 저작권", scope: "촬영 결과물의 권리, 사매 지면·홍보 사용 범위" },
-  { no: "07", title: "금지 행위", scope: "외부 채널 유도, 개인 계좌 직거래, 허위 정보" },
-  { no: "08", title: "분쟁 해결", scope: "이의 제기 절차, 준거법과 관할" },
-];
-
 /**
- * 지금 실제로 공개돼 있고 서비스가 그대로 운영되는 문서들.
+ * 시행일.
  *
- * ⚠️ dev 판에는 여기에 /trust(작가 심사·결제·연락처·취소와 환불 기준)가 함께 있고,
- *    윗 문단도 "촬영·결제·환불은 모두 그 기준으로 처리됩니다" 라고 단언한다.
- *    이 브랜치에는 그 지면이 없다(새 모델을 설명해서 지금 운영과 어긋난다).
- *    **가리킬 문서가 없는데 그렇게 적으면 거짓말이 된다.** 그래서 문장을 사실로 낮췄다.
- *    /trust 를 되살리는 날 문장과 목록을 함께 되돌릴 것.
+ * ⚠️ **게시일 + 7일**이어야 한다. 부칙이 기존 회원에게 7일 사전 공지를 약속하고 있고,
+ *    이 지면 자체가 그 공지다. 머지가 2026-09-04 보다 밀리면 **이 날짜도 같이 밀 것.**
+ *    미리 박아 두면 실제 게시일과 어긋나고, 약관이 언제부터 유효했는지가 분쟁 때
+ *    그대로 쟁점이 된다.
  */
-const PUBLISHED = [
-  { href: "/privacy", label: "개인정보 처리방침", desc: "수집 항목 · 보관과 파기" },
-  { href: "/terms/ad-consent", label: "광고 소재 사용 동의", desc: "작가 포트폴리오의 홍보 사용 범위" },
-];
+const EFFECTIVE_DATE = "2026-09-11";
+const POSTED_DATE = "2026-09-04";
 
 export default function TermsPage() {
   return (
     <main className="mx-auto max-w-2xl px-5 py-10 font-kr">
-      <h1 className="text-2xl font-bold tracking-tight">서비스 이용약관</h1>
-      <p className="mt-2 text-sm text-muted">{STATUS}</p>
+      <Link
+        href="/"
+        className="mb-6 inline-block text-sm font-medium text-muted transition-colors hover:text-fg"
+      >
+        ← 홈으로
+      </Link>
 
-      {/* 없는 약관을 있는 것처럼 보이게 하지 않는다. 대신 지금 무엇이 유효한지 바로 말한다. */}
-      <div className="mt-6 rounded-xl border border-line bg-surface-2 p-4">
-        <p className="text-sm leading-relaxed text-fg/80">
-          전문(全文)을 준비하고 있습니다. 그전까지 사매가 지키는 기준 중 지면으로 공개된
-          것은 아래 두 문서이고, 취소·환불 조건은 예약을 진행하는 화면에서 그때 안내합니다.
-        </p>
+      <h1 className="text-2xl font-bold tracking-tight">서비스 이용약관</h1>
+      <p className="mt-2 text-sm text-muted">
+        시행일 {EFFECTIVE_DATE} · 게시일 {POSTED_DATE}
+      </p>
+
+      <div className="mt-8 space-y-7 text-sm leading-relaxed text-fg/85">
+        <A n="1" t="목적">
+          <p>
+            이 약관은 사매(이하 &ldquo;회사&rdquo;)가 제공하는 사진 촬영 중개 서비스(이하
+            &ldquo;서비스&rdquo;)의 이용과 관련하여 회사와 이용자의 권리·의무 및 책임사항을
+            정함을 목적으로 합니다.
+          </p>
+        </A>
+
+        <A n="2" t="용어의 정의">
+          <Ol
+            items={[
+              "서비스 — 회사가 운영하는 웹사이트(samae.ai)와 이에 부수하는 일체의 서비스",
+              "회원 — 이 약관에 동의하고 계정을 만든 자",
+              "작가 — 회사의 등록 절차를 거쳐 승인된 사진작가 회원",
+              "문의 — 회원이 촬영을 희망하여 작가에게 남기는 상담 요청",
+              "연락처 열람 — 작가가 회사에 이용요금을 지급하고 문의를 남긴 회원의 연락처를 확인하는 것",
+              "촬영 계약 — 회원과 작가 사이에 직접 성립하는 촬영 용역 계약",
+            ]}
+          />
+        </A>
+
+        <A n="3" t="약관의 효력과 변경">
+          <Ol
+            items={[
+              "이 약관은 서비스 화면에 게시함으로써 효력이 발생합니다.",
+              "회사는 관련 법령을 위반하지 않는 범위에서 약관을 변경할 수 있으며, 변경 시 적용일과 변경 사유를 명시하여 적용일 7일 전부터 공지합니다. 회원에게 불리한 변경은 30일 전부터 공지하고 개별 통지합니다.",
+              "회원이 변경된 약관에 동의하지 않는 경우 이용계약을 해지할 수 있습니다.",
+            ]}
+          />
+        </A>
+
+        <A n="4" t="회사의 지위">
+          <Ol
+            items={[
+              "회사는 회원과 작가 사이의 촬영 계약을 중개하는 통신판매중개자이며, 촬영 계약의 당사자가 아닙니다.",
+              "촬영 계약의 성립, 촬영비의 결제, 촬영 결과물의 인도, 취소와 환불은 회원과 작가 사이에서 직접 이루어집니다. 회사는 촬영비를 수령하거나 보관하지 않습니다.",
+              "회사는 작가가 등록한 정보와 회원이 입력한 정보의 정확성을 보증하지 않으며, 촬영 계약의 내용과 이행에 대해 책임지지 않습니다. 다만 회사의 고의 또는 중대한 과실로 발생한 손해에 대해서는 책임을 집니다.",
+            ]}
+          />
+        </A>
+
+        <A n="5" t="회원가입과 계정">
+          <Ol
+            items={[
+              "서비스 이용을 원하는 자는 회사가 정한 절차에 따라 계정을 만들어 회원이 됩니다.",
+              "회원은 계정 정보를 최신으로 유지해야 하며, 계정을 타인에게 양도하거나 대여할 수 없습니다.",
+              "회원은 언제든지 서비스 내 설정 화면에서 탈퇴할 수 있습니다. 다만 진행 중인 문의나 예약이 있는 경우 그 절차가 끝난 뒤에 처리됩니다.",
+            ]}
+          />
+        </A>
+
+        <A n="6" t="작가의 등록과 승인">
+          <Ol
+            items={[
+              "작가로 활동하려는 회원은 회사가 정한 절차에 따라 등록을 신청하고, 회사의 승인을 받아야 작가로 활동할 수 있습니다.",
+              "회사는 신청 내용과 포트폴리오를 확인하여 승인 여부를 결정합니다.",
+              "승인이 취소되면 해당 작가의 사진과 프로필은 서비스에 노출되지 않습니다.",
+            ]}
+          />
+        </A>
+
+        <A n="7" t="문의와 연락처 열람">
+          <Ol
+            items={[
+              "회원은 무료로 작가에게 문의를 남길 수 있습니다.",
+              "작가는 회사가 정한 이용요금을 지급하고 문의를 남긴 회원의 연락처를 열람할 수 있습니다. 회사가 입금을 확인한 뒤 연락처가 공개됩니다.",
+              "작가는 열람한 연락처를 해당 촬영 상담·예약의 목적으로만 사용해야 하며, 다른 목적으로 이용하거나 제3자에게 제공할 수 없습니다.",
+              "연락처 열람 이용요금은 환불되지 않습니다. 이용요금은 연락처를 열람할 수 있는 상태를 제공하는 것에 대한 대가이며, 열람 이후 회원과의 상담이나 촬영 계약이 성립하지 않더라도 같습니다.",
+              "다만 회사의 귀책사유로 연락처가 제공되지 않았거나 제공된 정보가 명백히 잘못된 경우에는 이용요금을 환불합니다.",
+            ]}
+          />
+        </A>
+
+        <A n="8" t="촬영 예약과 결제">
+          <Ol
+            items={[
+              "회원과 작가는 서비스 내 채팅과 예약 기능을 이용해 촬영 일정과 조건을 정할 수 있습니다.",
+              "촬영비는 회원이 작가에게 직접 지급합니다. 회사는 결제를 대행하거나 촬영비를 보관하지 않으며, 서비스의 예약 화면은 두 사람의 합의 내용을 기록하는 기능일 뿐입니다.",
+              "세금계산서·현금영수증 등 촬영비에 관한 증빙은 작가가 발급합니다.",
+            ]}
+          />
+        </A>
+
+        <A n="9" t="취소와 환불">
+          <Ol
+            items={[
+              "촬영 계약의 취소와 환불 조건은 회원과 작가가 정합니다. 회사는 그 결정에 관여하지 않으며, 환불 금액은 작가가 회원에게 직접 지급합니다.",
+              "회원은 서비스의 환불 신청 기능을 통해 작가에게 환불 의사를 전달할 수 있습니다. 이 기능은 의사를 전달하고 기록하는 수단이며, 회사가 환불을 보증하는 것이 아닙니다.",
+              "회원과 작가 사이에 분쟁이 생긴 경우 회사는 사실관계 확인과 연락 중개 등 합리적인 범위에서 협조합니다.",
+            ]}
+          />
+        </A>
+
+        <A n="10" t="촬영 결과물과 저작권">
+          <Ol
+            items={[
+              "촬영 결과물의 저작권은 저작권법에 따라 이를 촬영한 작가에게 있습니다. 결과물에 담긴 회원의 초상에 관한 권리는 회원에게 있습니다.",
+              "회원은 전달받은 결과물을 자유롭게 이용할 수 있습니다. 개인적 이용은 물론, 회원 본인이나 회원이 운영하는 사업의 소개·홍보에 사용하는 것을 포함합니다.",
+            ]}
+          />
+          <p className="mt-2">
+            3. 다만 회원은 다음 행위를 하려는 경우 작가와 별도로 협의해야 합니다.
+          </p>
+          <ul className="mt-1 list-disc space-y-1 pl-5">
+            <li>결과물 자체를 제3자에게 판매하거나 사용권을 넘기는 것</li>
+            <li>결과물을 제3자의 상품·서비스 광고에 제공하는 것</li>
+          </ul>
+          <Ol
+            start={4}
+            className="mt-2"
+            items={[
+              "회원은 결과물을 이용할 때 작가의 성명을 표시할 수 있으며, 작가가 요청하는 경우 합리적인 범위에서 표시합니다. 결과물의 내용을 왜곡하는 정도로 변형하지 않습니다.",
+              "결과물의 제공 범위(보정본 수량, 원본 파일 제공 여부, 추가 보정 조건 등)는 작가가 정한 촬영 상품의 내용에 따릅니다. 회원은 예약 전에 해당 내용을 확인해야 합니다.",
+              "작가는 회원의 초상이 포함된 결과물을 자신의 포트폴리오로 사용할 수 있으나, 회원이 이를 원하지 않는다는 의사를 밝힌 경우에는 사용하지 않습니다.",
+            ]}
+          />
+        </A>
+
+        <A n="11" t="사진의 서비스 게재와 홍보 사용">
+          <Ol
+            items={[
+              "작가는 자신이 촬영한 사진을 서비스에 게재할 수 있으며, 게재한 사진이 서비스 내에서 노출되는 것에 동의합니다.",
+              "작가는 게재하는 사진에 대해 촬영 대상자의 동의를 받았음을 보증합니다.",
+            ]}
+          />
+          <p className="mt-2">
+            3. 회사가 사진을 광고에 사용하는 범위와 조건은 별도의{" "}
+            <Link href="/terms/ad-consent" className="underline underline-offset-4 hover:text-brand">
+              광고 소재 사용 동의
+            </Link>
+            에 따릅니다.
+          </p>
+        </A>
+
+        <A n="12" t="금지 행위">
+          <p>회원과 작가는 다음 행위를 해서는 안 됩니다.</p>
+          <Ol
+            className="mt-2"
+            items={[
+              "허위 정보를 등록하거나 타인을 사칭하는 행위",
+              "타인이 촬영한 사진을 자신의 것으로 게재하는 행위",
+              "정당한 이유 없이 약속한 촬영에 응하지 않는 행위",
+              "작가가 서비스를 통하지 않고 회원의 연락처를 취득하거나, 문의를 남긴 회원에게 서비스 외부 경로로 먼저 연락하는 행위",
+              "회원이 특정 작가와의 상담을 서비스 밖에서 시작할 목적으로 문의 기능을 이용하는 행위",
+              "서비스의 정상적인 운영을 방해하거나 자동화된 수단으로 접근하는 행위",
+              "법령을 위반하거나 타인의 권리를 침해하는 행위",
+            ]}
+          />
+        </A>
+
+        <A n="13" t="서비스 이용의 제한">
+          <Ol
+            items={[
+              "회사는 회원이 제12조를 위반한 경우 사전 통지 후 서비스 이용을 제한할 수 있습니다. 다만 긴급한 경우에는 조치 후 통지할 수 있습니다.",
+              "조치의 종류는 시정 요구, 일부 기능 제한, 일정 기간 이용 정지, 이용계약 해지이며, 위반의 내용과 반복 여부를 고려하여 정합니다. 대표적인 기준은 아래와 같습니다.",
+            ]}
+          />
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[24rem] border-collapse text-left text-[13px]">
+              <thead>
+                <tr className="border-b border-line text-faint">
+                  <th className="py-2 pr-3 font-semibold">행위</th>
+                  <th className="py-2 pr-3 font-semibold">1회</th>
+                  <th className="py-2 font-semibold">반복</th>
+                </tr>
+              </thead>
+              <tbody>
+                {SANCTIONS.map((s) => (
+                  <tr key={s.act} className="border-b border-line/60 align-top">
+                    <td className="py-2 pr-3">{s.act}</td>
+                    <td className="py-2 pr-3 text-fg/70">{s.first}</td>
+                    <td className="py-2 text-fg/70">{s.repeat}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-3">
+            3. 회원은 조치에 대해 이의를 제기할 수 있고, 회사는 그 내용을 검토해 회신합니다.
+          </p>
+        </A>
+
+        <A n="14" t="개인정보의 보호">
+          <p>
+            회사는 관련 법령에 따라 회원의 개인정보를 보호하며, 구체적인 내용은{" "}
+            <Link href="/privacy" className="underline underline-offset-4 hover:text-brand">
+              개인정보 처리방침
+            </Link>
+            에 따릅니다.
+          </p>
+        </A>
+
+        <A n="15" t="서비스의 변경과 중단">
+          <Ol
+            items={[
+              "회사는 서비스의 내용을 변경하거나 일부를 중단할 수 있으며, 중대한 변경은 사전에 공지합니다.",
+              "시스템 점검, 천재지변 등 부득이한 사유로 서비스가 일시 중단될 수 있습니다.",
+            ]}
+          />
+        </A>
+
+        <A n="16" t="회사의 면책">
+          <Ol
+            items={[
+              "회사는 제4조에 따라 촬영 계약의 당사자가 아니므로, 촬영의 품질·일정·결과물 등 촬영 계약의 이행에 관한 책임을 지지 않습니다.",
+              "회사는 회원과 작가가 서비스 밖에서 한 거래나 약속에 대해 책임지지 않습니다.",
+              "앞의 각 항에도 불구하고 회사의 고의 또는 중대한 과실로 발생한 손해와, 회사가 제공하는 서비스 자체의 하자로 발생한 손해에 대해서는 책임을 집니다.",
+            ]}
+          />
+        </A>
+
+        <A n="17" t="분쟁의 해결">
+          <Ol
+            items={[
+              "회사는 회원의 불만과 의견을 처리하기 위한 창구를 운영합니다. 접수처는 아래 사업자 정보의 이메일 주소입니다.",
+              "회원은 소비자기본법에 따른 소비자분쟁조정기구에 조정을 신청할 수 있습니다.",
+            ]}
+          />
+        </A>
+
+        <A n="18" t="준거법과 관할">
+          <Ol
+            items={[
+              "이 약관과 서비스 이용에 관하여는 대한민국 법령을 적용합니다.",
+              "서비스 이용과 관련한 분쟁의 관할은 민사소송법에 따릅니다.",
+            ]}
+          />
+        </A>
+
+        <section>
+          <h2 className="mb-2 text-base font-semibold text-fg">부칙</h2>
+          <p>이 약관은 {EFFECTIVE_DATE} 부터 적용합니다.</p>
+          <p className="mt-2">
+            이 약관은 시행 전에 가입한 회원에게도 적용됩니다. 회사는 {POSTED_DATE} 부터 이
+            지면에 약관의 내용과 시행일을 공지하며, 회원이 시행일까지 이의를 제기하지 않으면
+            동의한 것으로 봅니다. 동의하지 않는 회원은 시행일 전에 이용계약을 해지할 수 있습니다.
+          </p>
+          <p className="mt-2">
+            {POSTED_DATE} 이후 새로 가입하는 회원에게는 가입 시점부터 적용됩니다.
+          </p>
+        </section>
       </div>
 
-      <nav aria-label="공개된 기준" className="mt-4 border-t border-line">
-        {PUBLISHED.map((p) => (
-          <Link
-            key={p.href}
-            href={p.href}
-            className="group flex items-baseline justify-between gap-4 border-b border-line py-3.5"
-          >
-            <span className="shrink-0 text-sm font-bold tracking-tight transition-colors group-hover:text-brand">
-              {p.label}
-            </span>
-            <span className="min-w-0 truncate text-xs text-faint">{p.desc}</span>
-          </Link>
-        ))}
-      </nav>
-
-      <section className="mt-12">
-        <h2 className="text-base font-semibold">약관이 다룰 내용</h2>
-        <p className="mt-1.5 text-sm text-muted">
-          아래 여덟 항목으로 정리해 공지 후 시행합니다.
-        </p>
-        <ol className="mt-5 space-y-4">
-          {OUTLINE.map((o) => (
-            <li key={o.no} className="flex gap-3.5">
-              <span className="w-6 shrink-0 font-display text-xs italic tabular-nums text-brand">
-                {o.no}
-              </span>
-              <div className="min-w-0">
-                <p className="text-sm font-bold tracking-tight">{o.title}</p>
-                <p className="mt-0.5 text-sm leading-relaxed text-muted">{o.scope}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      <p className="mt-12 border-t border-line pt-5 text-xs leading-relaxed text-faint">
-        약관이 시행되면 시행일 전에 공지하고, 이미 가입한 회원에게도 알립니다.
-      </p>
+      {/*
+        사업자 정보 — 약관 자체에 상호·대표자·주소·연락처가 있어야 한다.
+        제17조 1항이 "접수처는 아래 사업자 정보의 이메일" 이라고 이 블록을 가리킨다.
+      */}
+      <BusinessInfoBlock className="mt-10 border-t border-line pt-5" />
     </main>
+  );
+}
+
+/** 제13조 2항의 제재 기준. 표를 약관에 넣으면 그대로 지켜야 한다. */
+const SANCTIONS = [
+  { act: "프로필·상품 정보의 사실과 다른 기재", first: "시정 요구", repeat: "노출 제한" },
+  { act: "정당한 이유 없는 촬영 불이행(노쇼)", first: "시정 요구", repeat: "이용 정지" },
+  { act: "제12조 4·5호(리드 우회)", first: "이용 정지", repeat: "이용계약 해지" },
+  { act: "타인이 촬영한 사진의 게재", first: "게시물 삭제 및 이용 정지", repeat: "이용계약 해지" },
+  { act: "법령 위반 또는 타인의 권리 침해", first: "이용계약 해지", repeat: "—" },
+];
+
+function A({ n, t, children }: { n: string; t: string; children: React.ReactNode }) {
+  return (
+    <section id={`article-${n}`}>
+      <h2 className="mb-2 text-base font-semibold text-fg">
+        제{n}조 ({t})
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+function Ol({
+  items,
+  start = 1,
+  className = "",
+}: {
+  items: string[];
+  start?: number;
+  className?: string;
+}) {
+  return (
+    <ol start={start} className={`list-decimal space-y-1.5 pl-5 ${className}`}>
+      {items.map((it) => (
+        <li key={it}>{it}</li>
+      ))}
+    </ol>
   );
 }

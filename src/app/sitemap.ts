@@ -36,10 +36,11 @@ const STATIC_ROUTES = [
   //    설명하는데 지금 운영은 리드 판매다. 없는 URL 을 사이트맵에 실으면 404 를 먹인다.
   //    본배포 때 지면과 함께 되살릴 것.
   "/privacy",
+  "/terms",
 ];
 
 /** 법적 고지는 콘텐츠가 아니다 — 실려는 있되 우선순위는 낮게. */
-const LOW_PRIORITY = new Set(["/privacy", "/apply"]);
+const LOW_PRIORITY = new Set(["/privacy", "/terms", "/apply"]);
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticEntries: MetadataRoute.Sitemap = STATIC_ROUTES.map((path) => ({

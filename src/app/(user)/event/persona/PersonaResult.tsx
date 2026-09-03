@@ -584,6 +584,18 @@ export default function PersonaResult({
         )}
       </section>
 
+      {/*
+        자동 분석 결과라는 사실을 결과 화면에서 밝힌다.
+
+        페르소나는 인스타그램 공개 게시물을 임베딩해 분류하고 사진을 추천하는 **AI 기능**인데,
+        결과가 단정적인 문장으로 제시되면 사람은 그것을 판정으로 읽는다. 사실은 취향 참고용
+        추천이다. 개인정보 처리방침 §1·§2 에도 같은 취지를 적어 뒀다(자동화된 분석 명시).
+      */}
+      <p className="mt-6 text-center text-caption leading-relaxed text-faint">
+        이 결과는 공개된 게시물을 자동으로 분석해 만든 <b className="font-semibold">취향 추천</b>이에요.
+        정확한 진단이 아니라 사진을 고르는 참고용으로 봐주세요.
+      </p>
+
       <PersonaMotion />
     </div>
   );

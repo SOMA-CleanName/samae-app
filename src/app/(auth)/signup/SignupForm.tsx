@@ -30,6 +30,12 @@ export function SignupForm() {
   const [resentMsg, setResentMsg] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0); // 재발송 쿨다운(초) — 이메일 한도 보호
   const [kakaoLoading, setKakaoLoading] = useState(false);
+  // 필수 동의 — 약관과 개인정보 수집·이용을 **구분해서** 받는다(개인정보보호법 제22조).
+  // 전에는 "가입하면 …에 동의하게 됩니다" 문구뿐이었다(묵시적 동의). 무엇에 동의했는지
+  // 특정할 수 없어 분쟁 때 근거가 되지 못한다.
+  const [agreeTerms, setAgreeTerms] = useState(false);
+  const [agreePrivacy, setAgreePrivacy] = useState(false);
+  const agreed = agreeTerms && agreePrivacy;
 
   const signupNext = () => readNextParam(DEFAULT_SIGNUP_NEXT);
 
@@ -50,6 +56,10 @@ export function SignupForm() {
     typeof window !== "undefined" ? `${location.origin}/login?verified=1` : "/login?verified=1";
 
   async function onKakao() {
+    if (!agreed) {
+      setError("약관과 개인정보 수집·이용에 동의해 주세요.");
+      return;
+    }
     setError(null);
     setKakaoLoading(true);
     mpTrack("Start Kakao Login", { context: "signup" });
@@ -63,6 +73,10 @@ export function SignupForm() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!agreed) {
+      setError("약관과 개인정보 수집·이용에 동의해 주세요.");
+      return;
+    }
     setError(null);
     setLoading(true);
 
@@ -151,6 +165,19 @@ export function SignupForm() {
   // ── 가입 폼 ──
   return (
     <>
+      {/*
+        필수 동의 — 두 항목을 **구분해서** 받는다(개인정보보호법 제22조).
+        카카오·이메일 두 경로 모두 여기를 통과해야 진행된다.
+      */}
+      <div className="mb-4 flex flex-col gap-2">
+        <Consent checked={agreeTerms} onChange={setAgreeTerms} href="/terms">
+          서비스 이용약관
+        </Consent>
+        <Consent checked={agreePrivacy} onChange={setAgreePrivacy} href="/privacy">
+          개인정보 수집·이용
+        </Consent>
+      </div>
+
       <KakaoButton
         onClick={onKakao}
         label={kakaoLoading ? "카카오로 이동 중…" : "카카오로 시작하기"}
@@ -206,21 +233,42 @@ export function SignupForm() {
         </div>
       )}
 
-      {/* 전에는 '서비스 이용약관'이 링크 없는 평문이었다 — /terms 가 404 였기 때문.
-          이제 페이지가 있다. 다만 전문은 법무 검토 전이라, 그 페이지가 준비 중임을
-          밝히고 지금 유효한 기준(/trust·/privacy)으로 안내한다. */}
-      <p className="mt-4 text-caption leading-relaxed text-faint">
-        가입하면{" "}
-        <Link href="/terms" className="underline underline-offset-2 hover:text-muted">
-          서비스 이용약관
-        </Link>
-        과{" "}
-        <Link href="/privacy" className="underline underline-offset-2 hover:text-muted">
-          개인정보 처리방침
-        </Link>
-        에 동의하게 됩니다.
-      </p>
+
     </>
+  );
+}
+
+/** 필수 동의 한 줄 — 체크박스 + 문서 링크. 링크를 눌러도 체크가 토글되지 않게 분리한다. */
+function Consent({
+  checked,
+  onChange,
+  href,
+  children,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  href: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-2 text-caption">
+      <input
+        id={`consent-${href}`}
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="h-4 w-4 shrink-0 cursor-pointer accent-brand"
+      />
+      <label htmlFor={`consent-${href}`} className="cursor-pointer text-muted">
+        <span className="font-semibold text-fg">[필수]</span> {children}
+      </label>
+      <Link
+        href={href}
+        className="ml-auto shrink-0 text-faint underline underline-offset-2 hover:text-muted"
+      >
+        보기
+      </Link>
+    </div>
   );
 }
 
