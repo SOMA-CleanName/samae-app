@@ -32,6 +32,8 @@ export function SiteFooter() {
             { href: "/guide", label: "자주 묻는 것" },
             // ⚠️ /trust 는 이 브랜치에 없다 — 그 지면은 에스크로·연락처 비공개(새 모델)를
             //    설명하는데 지금 운영은 리드 판매다. 지면과 함께 본배포 때 되살릴 것.
+            // 🔴 /terms 는 전자상거래법 제10조의 법정 표시 항목이다(SiteLinksRow 주석 참고).
+            { href: "/terms", label: "이용약관" },
             { href: "/privacy", label: "개인정보 처리방침" },
           ].map((l) => (
             <Link
