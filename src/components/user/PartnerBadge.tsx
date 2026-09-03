@@ -4,6 +4,20 @@ import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 import { mpTrack } from "@/lib/mixpanel";
 
+/**
+ * 사매 파트너 작가 뱃지.
+ *
+ * **조건이 없어 보이는 이유** — 호출부는 `!isOwner` 만 본다(photos/[id]). 언뜻 모든 작가에게
+ * 붙는 것처럼 읽히지만, 지면에 노출되는 사진은 전부 `photographer.status = 'approved'` 를
+ * 통과한 것이다(lib/discovery · siglip-text-search · spots). 즉 **사진 상세에 도달했다는 것
+ * 자체가 승인된 작가라는 뜻**이라 별도 조건이 필요 없다. 여기에 조건을 더 붙이려 하지 말 것.
+ *
+ * **문구는 status/approved_at 이 보증하는 만큼만 적는다.** 예전에 "직접 인터뷰하고 심사해
+ * 선별한" 이라고 썼는데, 승인 기록이 보증하는 것은 사매가 심사·승인했다는 사실까지다.
+ * 인터뷰 여부는 작가마다 다르고(운영진 본인 계정도 작가로 등록돼 있다) 기록으로 남지 않는다.
+ * 지면에서 단언하면 그건 검증할 수 없는 약속이 된다.
+ */
+
 // 사매 파트너 작가 뱃지 — 사매에 노출되는 작가는 모두 카카오 채널로 직접 인터뷰·선별한 승인 작가.
 // 클릭하면 '왜 믿을 수 있는지' 안내 팝오버를 띄운다(전환 직전 신뢰 신호).
 export function PartnerBadge({
@@ -71,7 +85,7 @@ export function PartnerBadge({
             사매 파트너 작가
           </p>
           <p className="mt-2 text-body-sm leading-relaxed text-muted">
-            사매가 직접 인터뷰하고 심사해 선별한 작가입니다.
+            사매가 심사해 승인한 작가입니다.
           </p>
           {/*
             ⚠️ dev 판은 여기에 "결제는 사매 계좌로 받고, 연락처는 채팅 밖으로 나가지
