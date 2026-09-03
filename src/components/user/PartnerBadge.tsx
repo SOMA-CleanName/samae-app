@@ -73,9 +73,12 @@ export function PartnerBadge({
           <p className="mt-2 text-body-sm leading-relaxed text-muted">
             사매가 직접 인터뷰하고 심사해 선별한 작가입니다.
           </p>
-          <p className="mt-1.5 text-body-sm leading-relaxed text-muted">
-            안전하고 퀄리티 높은 촬영을 믿고 맡기세요.
-          </p>
+          {/*
+            ⚠️ dev 판은 여기에 "결제는 사매 계좌로 받고, 연락처는 채팅 밖으로 나가지
+               않습니다" 한 줄과 /trust 로 가는 버튼을 둔다. 둘 다 뺐다 —
+               그건 에스크로·채팅 상주 모델의 약속인데 이 브랜치의 운영은 리드 판매다.
+               **사실이 아닌 것을 지면에 적을 수 없다.** 본배포 때 지면과 함께 되살릴 것.
+          */}
         </div>
       )}
     </div>
