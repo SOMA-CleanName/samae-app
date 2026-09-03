@@ -41,7 +41,6 @@ const OUTLINE: Array<{ no: string; title: string; scope: string }> = [
 
 /** 지금 실제로 공개돼 있고 서비스가 그대로 운영되는 문서들. */
 const PUBLISHED = [
-  { href: "/trust", label: "안전하게 촬영하기", desc: "작가 심사 · 결제 · 연락처 · 취소와 환불 기준" },
   { href: "/privacy", label: "개인정보 처리방침", desc: "수집 항목 · 보관과 파기" },
   { href: "/terms/ad-consent", label: "광고 소재 사용 동의", desc: "작가 포트폴리오의 홍보 사용 범위" },
 ];

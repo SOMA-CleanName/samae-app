@@ -34,6 +34,7 @@ import { TasteTestNudge } from "@/components/user/TasteTestNudge";
 import { TasteBanner } from "./TasteBanner";
 import { JsonLd } from "@/components/JsonLd";
 import { siteJsonLd } from "@/lib/seo";
+import { BusinessInfoBlock } from "@/components/BusinessInfoBlock";
 import type { GalleryPhoto } from "@/lib/discovery";
 
 export const dynamic = "force-dynamic";
@@ -151,6 +152,16 @@ export default async function ExploreHome({
       {isAllFeed &&
         (TASTE_TEST_NUDGE_PREVIEW_ENABLED ||
           (tasteCatIds.length === 0 && !tasteNudgeHidden)) && <TasteTestNudge />}
+
+      {/*
+        사업자 정보 — 전자상거래법 제10조 표시 의무 + PG 입점 심사 요건.
+
+        푸터가 아니라 **무한 피드가 시작되기 직전**에 둔다. 홈은 아래로 끝이 없어서
+        SiteFooter 에 영영 안 닿는데, PG 심사는 "사이트 하단에서 사업자정보가
+        확인되는지"를 본다. 유입이 가장 많은 지면에서 못 찾으면 거기서 걸린다.
+        여기가 사람이 닿을 수 있는 마지막 자리다.
+      */}
+      <BusinessInfoBlock className="mb-5 px-1" />
 
       <ExploreGallery
         photos={photos}

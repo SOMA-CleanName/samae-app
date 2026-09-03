@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { activeChannels } from "@/lib/channels";
+import { BusinessInfoBlock } from "@/components/BusinessInfoBlock";
 
 /**
  * 지면 공통 푸터.
@@ -29,7 +30,8 @@ export function SiteFooter() {
             { href: "/articles", label: "스냅 촬영 이야기" },
             { href: "/spots", label: "촬영 장소" },
             { href: "/guide", label: "자주 묻는 것" },
-            { href: "/trust", label: "안전하게 촬영하기" },
+            // ⚠️ /trust 는 이 브랜치에 없다 — 그 지면은 에스크로·연락처 비공개(새 모델)를
+            //    설명하는데 지금 운영은 리드 판매다. 지면과 함께 본배포 때 되살릴 것.
             { href: "/privacy", label: "개인정보 처리방침" },
           ].map((l) => (
             <Link
@@ -72,6 +74,13 @@ export function SiteFooter() {
         사진을 고르면 그 사진을 찍은 작가로 이어집니다. 결제는 사매 계좌로 받고, 연락처는
         채팅 밖으로 나가지 않아요.
       </p>
+
+      {/*
+        사업자 정보 — 전자상거래법 제10조 표시 의무 + PG 입점 심사 요건.
+        확정 안 된 항목(통신판매업 신고번호·전화)은 lib/business-info 에서
+        비어 있어 자동으로 빠진다.
+      */}
+      <BusinessInfoBlock className="mt-6 border-t border-line pt-4" />
     </footer>
   );
 }
