@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { activeChannels } from "@/lib/channels";
+import { BusinessInfoBlock } from "@/components/BusinessInfoBlock";
 
 /**
  * 지면 공통 푸터.
@@ -72,6 +73,13 @@ export function SiteFooter() {
         사진을 고르면 그 사진을 찍은 작가로 이어집니다. 결제는 사매 계좌로 받고, 연락처는
         채팅 밖으로 나가지 않아요.
       </p>
+
+      {/*
+        사업자 정보 — 전자상거래법 제10조 표시 의무 + PG 입점 심사 요건.
+        확정 안 된 항목(통신판매업 신고번호·전화·이메일)은 lib/business-info 에서
+        비어 있어 자동으로 빠진다.
+      */}
+      <BusinessInfoBlock className="mt-6 border-t border-line pt-4" />
     </footer>
   );
 }

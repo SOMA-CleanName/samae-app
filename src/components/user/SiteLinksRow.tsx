@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BusinessInfoBlock } from "@/components/BusinessInfoBlock";
 
 /**
  * 지면 안내 한 줄 — 홈·카테고리 전용.
@@ -26,19 +27,28 @@ const LINKS = [
 
 export function SiteLinksRow() {
   return (
-    <nav
-      aria-label="사매 안내"
-      className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-1.5 px-1 text-caption"
-    >
-      {LINKS.map((l) => (
-        <Link
-          key={l.href}
-          href={l.href}
-          className="text-muted underline decoration-line underline-offset-4 transition-colors hover:text-brand hover:decoration-brand"
-        >
-          {l.label}
-        </Link>
-      ))}
-    </nav>
+    <div className="mb-5 px-1">
+      <nav
+        aria-label="사매 안내"
+        className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-caption"
+      >
+        {LINKS.map((l) => (
+          <Link
+            key={l.href}
+            href={l.href}
+            className="text-muted underline decoration-line underline-offset-4 transition-colors hover:text-brand hover:decoration-brand"
+          >
+            {l.label}
+          </Link>
+        ))}
+      </nav>
+
+      {/*
+        사업자 정보도 같은 이유로 여기 붙는다 — 홈·카테고리는 푸터에 안 닿는데,
+        전자상거래법 표시 의무와 PG 입점 심사는 **유입이 가장 많은 지면**에서
+        확인되기를 요구한다. 링크 줄 아래, 피드 시작 직전.
+      */}
+      <BusinessInfoBlock className="mt-4" />
+    </div>
   );
 }
