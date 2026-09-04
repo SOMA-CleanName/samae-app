@@ -4,15 +4,12 @@
 // 색은 카드 플레이스홀더(bg-fg/[0.06])와 동일하게 맞춰 전환을 매끄럽게.
 const pulse = "animate-pulse bg-fg/[0.06]";
 
-// 섹션 머리 — 브랜드 규칙선 + '01' 프리픽스 + 타이틀(SectionHead 규격).
+// 섹션 머리 — 타이틀 + 밑 강조선(SectionHead 규격).
 function SectionTitle({ w }: { w: string }) {
   return (
     <div className="mb-4 px-1">
-      <div className="mb-3 h-[2px] w-8 bg-fg/[0.12]" />
-      <div className="flex items-baseline gap-2">
-        <div className={`h-4 w-5 rounded ${pulse}`} />
-        <div className={`h-6 rounded ${pulse}`} style={{ width: w }} />
-      </div>
+      <div className={`h-6 rounded ${pulse}`} style={{ width: w }} />
+      <div className="mt-1 h-[3px] bg-fg/[0.12]" style={{ width: w }} />
     </div>
   );
 }

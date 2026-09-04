@@ -113,23 +113,16 @@ export default async function ExplorePage() {
   const list = articles.slice(DECK_N, DECK_N + LIST_N);
   const restCount = Math.max(0, articles.length - (DECK_N + LIST_N));
 
-  const numbered = [
+  const sections: RunningSection[] = [
     { id: "sec-articles", label: "ARTICLES", show: articles.length > 0 },
     { id: "sec-featured", label: "TREND", show: featured.length > 0 },
     { id: "sec-spots", label: "SPOTS", show: spots.length > 0 },
     { id: "sec-guide", label: "Q&A", show: guidePeek.length > 0 },
   ]
     .filter((d) => d.show)
-    .map((d, i) => ({ ...d, no: String(i + 1).padStart(2, "0") }));
+    .map(({ id, label }) => ({ id, label }));
 
-  const no = (id: string) => numbered.find((d) => d.id === id)?.no ?? "";
-  const sections: RunningSection[] = numbered.map((d) => ({
-    id: d.id,
-    no: d.no,
-    label: d.label,
-  }));
-
-  const empty = numbered.length === 0;
+  const empty = sections.length === 0;
 
   /*
     이 지면이 무엇의 목록인지 기계에 알려 준다.
@@ -206,7 +199,7 @@ export default async function ExplorePage() {
             {/* ── ARTICLES ─────────────────────────────────── */}
             {articles.length > 0 && (
               <section id="sec-articles" data-pid="sec-articles" className="scroll-mt-24">
-                <SectionHead no={no("sec-articles")} title="ARTICLES" more="/articles" />
+                <SectionHead title="ARTICLES" more="/articles" />
 
                 {/*
                   카드를 한 장씩 넘겨 본다.
@@ -234,7 +227,7 @@ export default async function ExplorePage() {
             {/* ── TREND ────────────────────────────────────── */}
             {featured.length > 0 && (
               <section id="sec-featured" data-pid="sec-featured" className="mt-20 scroll-mt-24">
-                <SectionHead no={no("sec-featured")} title="TREND" />
+                <SectionHead title="TREND" />
                 <PhotoFeature photos={featured} />
               </section>
             )}
@@ -242,7 +235,7 @@ export default async function ExplorePage() {
             {/* ── SPOTS ────────────────────────────────────── */}
             {spots.length > 0 && (
               <section id="sec-spots" data-pid="sec-spots" className="mt-20 scroll-mt-24">
-                <SectionHead no={no("sec-spots")} title="SPOTS" more="/spots" />
+                <SectionHead title="SPOTS" more="/spots" />
                 <SpotsRail spots={spots.slice(0, SPOTS_RAIL_MAX)} total={spots.length} />
               </section>
             )}
@@ -250,7 +243,7 @@ export default async function ExplorePage() {
             {/* ── Q&A ──────────────────────────────────────── */}
             {guidePeek.length > 0 && (
               <section id="sec-guide" data-pid="sec-guide" className="mt-20 scroll-mt-24">
-                <SectionHead no={no("sec-guide")} title="Q&A" more="/guide" />
+                <SectionHead title="Q&A" more="/guide" />
                 <IndexList
                   entries={guidePeek.map((g) => ({
                     href: `/guide/${encodeURIComponent(g.slug)}`,
