@@ -6,17 +6,18 @@ import {
   groupCartByPhotographer,
   groupDisplayName,
   groupInquiryPhotoId,
+  groupPriceText,
   hasPhotographerGroups,
   rowItems,
 } from "./cart-photographer-groups.ts";
 
 const item = (id: string) => ({ id, src: `src-${id}`, w: 100, h: 150 });
 const owners = cartOwnerMap([
-  { photoId: "a", photographerId: "kim", displayName: "김작가" },
-  { photoId: "b", photographerId: "lee", displayName: "이작가" },
-  { photoId: "c", photographerId: "kim", displayName: "김작가" },
-  { photoId: "d", photographerId: "lee", displayName: null },
-  { photoId: "e", photographerId: "park", displayName: "박작가" },
+  { photoId: "a", photographerId: "kim", displayName: "김작가", priceFromKrw: 150000 },
+  { photoId: "b", photographerId: "lee", displayName: "이작가", priceFromKrw: 0 },
+  { photoId: "c", photographerId: "kim", displayName: "김작가", priceFromKrw: 150000 },
+  { photoId: "d", photographerId: "lee", displayName: null, priceFromKrw: null },
+  { photoId: "e", photographerId: "park", displayName: "박작가", priceFromKrw: 90000 },
 ]);
 
 test("많이 담은 작가가 위, 같은 장수면 최근에 담은 작가가 위", () => {
@@ -71,5 +72,15 @@ test("줄 안에서는 최근에 담은 사진이 왼쪽", () => {
 test("줄 문의는 그 작가의 가장 최근 관심사진으로 들어간다", () => {
   const group = groupCartByPhotographer(["a", "c"].map(item), owners)[0];
   assert.equal(groupInquiryPhotoId(group), "c");
-  assert.equal(groupInquiryPhotoId({ photographerId: "x", displayName: null, items: [] }), null);
+  assert.equal(groupInquiryPhotoId({ photographerId: "x", displayName: null, priceFromKrw: null, items: [] }), null);
+});
+
+test("최소 촬영 금액은 있을 때만, 0원·미입력은 표시하지 않는다", () => {
+  const [kim] = groupCartByPhotographer([item("a")], owners);
+  assert.equal(groupPriceText(kim), "150,000원~");
+  // 0원(미입력)도, 값이 아예 없는 것도 표시하지 않는다.
+  assert.equal(groupPriceText(groupCartByPhotographer([item("b")], owners)[0]), null);
+  assert.equal(groupPriceText(groupCartByPhotographer([item("d")], owners)[0]), null);
+  // 작가를 못 찾은 줄에도 금액이 없다.
+  assert.equal(groupPriceText(groupCartByPhotographer([item("zz")], owners)[0]), null);
 });

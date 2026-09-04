@@ -185,10 +185,16 @@ export async function loadCartPhotoMeta(photoId: string): Promise<{
 
 // (추천 피드는 discovery.fetchSimilarPhotos 로 이전 — 태그 유사도순 풀을 서버에서 한 번에 제공)
 
-// 관심사진(장바구니) 사진들의 작가 — 도크를 펼칠 때 작가별 더미로 묶기 위해 한 번에 조회.
+// 관심사진(장바구니) 사진들의 작가 — 도크를 펼칠 때 작가별 줄로 묶기 위해 한 번에 조회.
 // 카트 아이템(localStorage)엔 작가가 없고, 확대용 loadCartPhotoMeta 는 1장씩이라 따로 둔다.
+// 줄 머리에 붙일 '최소 촬영 패키지 금액' 도 같이 담는다.
 export async function loadCartPhotographers(photoIds: string[]): Promise<
-  { photoId: string; photographerId: string; displayName: string | null }[]
+  {
+    photoId: string;
+    photographerId: string;
+    displayName: string | null;
+    priceFromKrw: number | null;
+  }[]
 > {
   const ids = [...new Set(photoIds.filter((id) => typeof id === "string" && id.length > 0))];
   if (ids.length === 0) return [];
@@ -197,22 +203,43 @@ export async function loadCartPhotographers(photoIds: string[]): Promise<
   const { data } = await supabase
     .from("photos")
     .select(
-      "id, photographer_id, photographer:photographers!photos_photographer_id_fkey(display_name)"
+      "id, photographer_id, photographer:photographers!photos_photographer_id_fkey(display_name, price_from_krw)"
     )
     .in("id", ids);
 
-  return ((data ?? []) as unknown as {
+  const rows = ((data ?? []) as unknown as {
     id: string;
     photographer_id: string | null;
-    photographer: { display_name: string | null } | { display_name: string | null }[] | null;
-  }[])
-    .filter((row) => !!row.photographer_id)
-    .map((row) => {
-      const ph = Array.isArray(row.photographer) ? row.photographer[0] : row.photographer;
-      return {
-        photoId: row.id,
-        photographerId: row.photographer_id as string,
-        displayName: ph?.display_name ?? null,
-      };
-    });
+    photographer:
+      | { display_name: string | null; price_from_krw: number | null }
+      | { display_name: string | null; price_from_krw: number | null }[]
+      | null;
+  }[]).filter((row) => !!row.photographer_id);
+
+  // 최소 패키지가가 진짜 '이 작가에게 촬영을 맡기는 최저 금액'. 패키지를 아직 안 올린
+  // 작가만 프로필의 시작가로 대신한다.
+  const photographerIds = [...new Set(rows.map((row) => row.photographer_id as string))];
+  const { data: packages } = await supabase
+    .from("packages")
+    .select("photographer_id, price_krw")
+    .in("photographer_id", photographerIds)
+    .eq("is_active", true);
+
+  const minPackage = new Map<string, number>();
+  for (const pkg of (packages ?? []) as { photographer_id: string; price_krw: number }[]) {
+    const current = minPackage.get(pkg.photographer_id);
+    if (current == null || pkg.price_krw < current) minPackage.set(pkg.photographer_id, pkg.price_krw);
+  }
+
+  return rows.map((row) => {
+    const ph = Array.isArray(row.photographer) ? row.photographer[0] : row.photographer;
+    const photographerId = row.photographer_id as string;
+    const fallback = ph?.price_from_krw ?? 0;
+    return {
+      photoId: row.id,
+      photographerId,
+      displayName: ph?.display_name ?? null,
+      priceFromKrw: minPackage.get(photographerId) ?? (fallback > 0 ? fallback : null),
+    };
+  });
 }

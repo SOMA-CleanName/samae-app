@@ -7,6 +7,7 @@ import {
   UNKNOWN_PHOTOGRAPHER,
   groupDisplayName,
   groupInquiryPhotoId,
+  groupPriceText,
   rowItems,
   type CartGroup,
 } from "@/lib/cart-photographer-groups";
@@ -39,7 +40,6 @@ export function CartPhotographerRows({
   groups,
   selectMode,
   selectedIds,
-  reserveRight = false,
   onToggleSelect,
   onLongPress,
   onOpenPhoto,
@@ -47,9 +47,6 @@ export function CartPhotographerRows({
 }: {
   groups: CartGroup[];
   selectMode: boolean;
-  // '비슷한 사진' 진입 버튼이 오른쪽 가장자리에 상주할 때 — 줄 머리의 문의 버튼이
-  // 그 아래로 들어가지 않게 자리를 비운다(사진은 그대로 지나가도 된다).
-  reserveRight?: boolean;
   selectedIds: Set<string>;
   onToggleSelect: (id: string) => void;
   onLongPress: (id: string) => void;
@@ -62,15 +59,18 @@ export function CartPhotographerRows({
     <div className="flex flex-col gap-7 pb-32 pt-16">
       {groups.map((group, gi) => {
         const inquiryPhotoId = groupInquiryPhotoId(group);
+        const priceText = groupPriceText(group);
         return (
           <section key={group.photographerId} aria-label={`${groupDisplayName(group)} 관심 사진`}>
-            <header
-              className={`flex items-center gap-2 pb-2.5 pl-4 ${reserveRight ? "pr-[70px]" : "pr-4"}`}
-            >
+            <header className="flex items-center gap-2 px-4 pb-2.5">
               <p className="min-w-0 truncate text-[15px] font-bold leading-tight text-white">
                 {groupDisplayName(group)}
               </p>
-              <span className="shrink-0 text-xs text-white/55">{group.items.length}장</span>
+              {/* 최소 촬영 패키지 금액 — '이 작가에게 맡기면 얼마부터' 를 이름 옆에서 바로. */}
+              {priceText && (
+                <span className="shrink-0 text-xs font-semibold text-white/75">{priceText}</span>
+              )}
+              <span className="shrink-0 text-xs text-white/45">{group.items.length}장</span>
               <span className="flex-1" />
               {/* 작가 미상 줄은 문의할 상대가 없다 — 버튼을 두지 않는다. */}
               {group.photographerId !== UNKNOWN_PHOTOGRAPHER && inquiryPhotoId && !selectMode && (
@@ -84,7 +84,7 @@ export function CartPhotographerRows({
                   }}
                   className="shrink-0 cursor-pointer rounded-full bg-brand px-3 py-1.5 text-xs font-bold text-white shadow-pop transition-opacity hover:opacity-90"
                 >
-                  견적 문의
+                  문의하기
                 </button>
               )}
             </header>

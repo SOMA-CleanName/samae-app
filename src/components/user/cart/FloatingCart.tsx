@@ -4,7 +4,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useCart, cartCardJitter, PEEK_CARD_W, type CartItem } from "./CartProvider";
-import { InterestSimilarEntry } from "./InterestSimilarEntry";
 import { InterestSimilarRows } from "./InterestSimilarRows";
 import { loadCartPhotoMeta, loadCartPhotographers } from "@/app/(user)/actions";
 import { loadInterestSimilarGroups } from "@/app/(user)/feed-actions";
@@ -14,16 +13,13 @@ import {
   circularPhotoId,
   reconciledFocusedPhotoId,
   shouldShowCartSwipeHint,
-  verticalSwipeDirection,
+  horizontalSwipeDirection,
   wheelNavigationDirection,
   type CartNavigationDirection,
 } from "@/lib/cart-detail-navigation";
 import {
-  INTEREST_RECOMMENDATION_COLLAPSE_MS,
   canOpenInterestRecommendations,
   countInterestRecommendationCards,
-  interestEntryIntroSeen,
-  markInterestEntryIntroSeen,
   interestRecommendationRequestKey,
   toInterestRecommendationRows,
   type InterestRecommendationRow,
@@ -165,10 +161,6 @@ export function FloatingCart() {
   const [leaving, setLeaving] = useState<Set<string>>(new Set());
   const [shareToast, setShareToast] = useState(false);
   const [cartTip, setCartTip] = useState(false); // 첫 담기 시 도크 용도 툴팁(1회)
-  // 진입 버튼 펼침 안내는 **브라우저 세션당 한 번만** 재생한다. 매번 펼치면
-  // 이미 아는 사용자에게는 소음이고, 관심사진 화면을 자주 여닫을수록 거슬린다.
-  // sessionStorage 라 탭을 닫았다 다시 열면(= 웹을 다시 실행하면) 한 번 더 안내한다.
-  const [recommendationEntryCollapsed, setRecommendationEntryCollapsed] = useState(false);
   const [similarMode, setSimilarMode] = useState(false);
   // 추천 줄에서 확대해 보고 있는 카드. 헤더 뒤로가기가 '확대 → 줄 → 관심사진'
   // 순서로 한 단계씩 물러나야 해서 이 계층이 들고 있다.
@@ -205,7 +197,6 @@ export function FloatingCart() {
   const suppressFocusClickUntil = useRef(0);
   const swipeHintShowTimer = useRef<number | null>(null);
   const swipeHintHideTimer = useRef<number | null>(null);
-  const recommendationEntryTimer = useRef<number | null>(null);
   const similarRequestGeneration = useRef(0);
   const swipeHintSeenThisPage = useRef(false);
   // 도크를 펼치기 직전(배경 스크롤 잠그기 전)의 페이지 스크롤 위치.
@@ -217,14 +208,20 @@ export function FloatingCart() {
     () => (ownerState.owners.length === 0 ? [] : groupCartByPhotographer(items, owners)),
     [items, owners, ownerState.owners.length]
   );
-  // 확대에서 위/아래로 넘기는 순서 — 화면에 보이는 순서를 따른다.
-  // 줄 화면이면 작가 줄 순서(줄 안은 최근 담은 것부터), 아니면 담은 최신순.
-  const navigationIds = useMemo(
-    () =>
-      groups.length > 0
-        ? groups.flatMap((group) => rowItems(group).map((item) => item.id))
-        : items.map((item) => item.id).reverse(),
+  // 화면에 보이는 순서 — 작가 줄 순서(줄 안은 최근 담은 것부터), 작가를 모르면 담은 최신순.
+  const visualOrder = useMemo(
+    () => (groups.length > 0 ? groups.flatMap((group) => rowItems(group)) : [...items].reverse()),
     [groups, items]
+  );
+  // 폴라로이드 그리드는 배열 끝을 좌상단에 놓는다 → 보이는 순서를 뒤집어 넘긴다.
+  const groupedOrderItems = useMemo(() => [...visualOrder].reverse(), [visualOrder]);
+  // 확대에서 좌우로 넘기는 순서도 같은 순서를 따른다.
+  const navigationIds = useMemo(() => visualOrder.map((item) => item.id), [visualOrder]);
+  // 도크/중앙 스택에서 '위 5장만 보이기' 판단용 — 담은 순서(최신=0)로만 센다.
+  // 그리드 순서(g)는 작가 순서를 따르므로 여기에 쓰면 도크 더미가 엉킨다.
+  const dockRank = useMemo(
+    () => new Map(items.map((item, i) => [item.id, items.length - 1 - i])),
+    [items]
   );
   const currentInterestIds = useMemo(() => items.map((item) => item.id), [items]);
   const currentInterestKey = useMemo(
@@ -249,9 +246,6 @@ export function FloatingCart() {
       if (wheelUnlockTimer.current != null) window.clearTimeout(wheelUnlockTimer.current);
       if (swipeHintShowTimer.current != null) window.clearTimeout(swipeHintShowTimer.current);
       if (swipeHintHideTimer.current != null) window.clearTimeout(swipeHintHideTimer.current);
-      if (recommendationEntryTimer.current != null) {
-        window.clearTimeout(recommendationEntryTimer.current);
-      }
       similarRequestGeneration.current += 1;
     },
     []
@@ -271,7 +265,9 @@ export function FloatingCart() {
 
   const N = count;
   // 작가 줄로 보여줄 수 있는 상태인가. 추천 화면일 때는 그쪽 배치가 우선한다.
-  const rowsMode = hasPhotographerGroups(groups) && !similarMode;
+  // 선택은 작가와 무관한 일(공유·삭제)이라 줄을 접고 폴라로이드 그리드로 돌아간다.
+  // 다만 나열 순서는 줄에서 보던 작가 순서를 그대로 이어간다.
+  const rowsMode = hasPhotographerGroups(groups) && !similarMode && !selectMode;
   const recommendationRows = similarState.status === "ready" ? similarState.rows : [];
 
   // 관심사진 목록이 바뀌면(담기·빼기) 작가를 다시 조회 — 새로 담은 사진의 작가를 채운다.
@@ -296,7 +292,8 @@ export function FloatingCart() {
   }, [currentInterestKey, currentInterestIds, ownerState.key]);
   // 추천은 별도 줄 레이아웃(InterestSimilarRows)이 그리므로 폴라로이드 배치 계산은
   // 관심사진만 다룬다. 두 화면의 배치를 섞지 않는 편이 양쪽 모두 단순해진다.
-  const displayItems = items;
+  // 그리드 배치는 최신(g=0)부터 좌상단에 놓으므로, 보여줄 순서를 뒤집어 넘긴다.
+  const displayItems = groupedOrderItems;
   const displayCount = displayItems.length;
 
   function clearSwipeHintTimers() {
@@ -308,12 +305,6 @@ export function FloatingCart() {
       window.clearTimeout(swipeHintHideTimer.current);
       swipeHintHideTimer.current = null;
     }
-  }
-
-  function clearRecommendationEntryTimer() {
-    if (recommendationEntryTimer.current == null) return;
-    window.clearTimeout(recommendationEntryTimer.current);
-    recommendationEntryTimer.current = null;
   }
 
   function exitSimilarMode() {
@@ -487,7 +478,7 @@ export function FloatingCart() {
     if (!gesture.active || gesture.pointerId !== e.pointerId) return;
     gesture.active = false;
     e.currentTarget.releasePointerCapture?.(e.pointerId);
-    const direction = verticalSwipeDirection(
+    const direction = horizontalSwipeDirection(
       gesture.startX,
       gesture.startY,
       e.clientX,
@@ -503,9 +494,9 @@ export function FloatingCart() {
   }
 
   function cardKeyDown(e: React.KeyboardEvent<HTMLDivElement>, id: string) {
-    if (focused === id && navigationIds.length > 1 && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
+    if (focused === id && navigationIds.length > 1 && (e.key === "ArrowRight" || e.key === "ArrowLeft")) {
       e.preventDefault();
-      const moved = beginFocusTransition(e.key === "ArrowDown" ? "next" : "previous", true);
+      const moved = beginFocusTransition(e.key === "ArrowRight" ? "next" : "previous", true);
       if (moved) dismissSwipeHint(true);
       return;
     }
@@ -770,29 +761,15 @@ export function FloatingCart() {
   function startOpen() {
     mpTrack("View Cart", { item_count: items.length });
     if (cartTip || !tipDone.current) dismissTip(); // 도크 열면 툴팁 종료(재등장 방지)
-    clearRecommendationEntryTimer();
-    const showRecommendationEntry = canOpenInterestRecommendations(currentInterestIds);
-    // 이번 세션에서 이미 안내했으면 처음부터 접힌 아이콘으로 시작한다.
-    const introDone = interestEntryIntroSeen();
-    setRecommendationEntryCollapsed(introDone);
-    if (showRecommendationEntry) {
+    if (canOpenInterestRecommendations(currentInterestIds)) {
       mpTrack("View Similar Interest Entry", { interest_count: currentInterestIds.length });
     }
     setPhase("center");
-    window.setTimeout(() => {
-      setPhase("spread");
-      if (!showRecommendationEntry || introDone) return;
-      markInterestEntryIntroSeen();
-      recommendationEntryTimer.current = window.setTimeout(() => {
-        recommendationEntryTimer.current = null;
-        setRecommendationEntryCollapsed(true);
-      }, INTEREST_RECOMMENDATION_COLLAPSE_MS);
-    }, 300);
+    window.setTimeout(() => setPhase("spread"), 300);
   }
   // 닫힘: 펼침 → 중앙 스택 → 도크 복귀 (열 때보다 빠르게 — 머무름·트랜지션 단축)
   function close() {
     dismissSwipeHint();
-    clearRecommendationEntryTimer();
     cancelFocusTransition();
     similarRequestGeneration.current += 1;
     setZoomedRecommendation(null);
@@ -887,7 +864,6 @@ export function FloatingCart() {
   function leaveToRecommendationPhoto(photoId: string) {
     mpTrack("Click Similar Interest Photo", { photo_id: photoId });
     recordFeedClick(photoId);
-    clearRecommendationEntryTimer();
     similarRequestGeneration.current += 1;
     setZoomedRecommendation(null);
     setSimilarMode(false);
@@ -1069,8 +1045,8 @@ export function FloatingCart() {
     if (!el) return;
     const rest = el.style.transform; // 현재 도크 포즈(인라인, tfAt 형태)
     if (!rest) return;
-    const nc = cards[cards.length - 1]; // 최신 카드 = 마지막
-    if (!nc || nc.it.id !== newestId) return;
+    const nc = cards.find((c) => c.it.id === newestId); // 배치 순서와 무관하게 최신 카드를 찾는다
+    if (!nc) return;
     const ncW = nc.photoW + nc.side * 2;
     const ncH = nc.photoH + nc.side + nc.bottom;
     const fromCx = from.left + from.width / 2;
@@ -1184,7 +1160,6 @@ export function FloatingCart() {
               groups={groups}
               selectMode={selectMode}
               selectedIds={selectedIds}
-              reserveRight={canOpenInterestRecommendations(currentInterestIds)}
               onToggleSelect={toggleSelect}
               onLongPress={(id) => {
                 setSelectMode(true);
@@ -1238,16 +1213,17 @@ export function FloatingCart() {
               tf = tfAt(x, y - 44, 0.6, rot);
               op = 0;
             } else if (focusTransition && (isTransitionFrom || isTransitionTo)) {
-              const travel = reducedMotion ? 0 : H * 0.86;
+              // 좌우로 넘긴다 — 나가는 카드는 민 방향으로, 들어오는 카드는 반대편에서.
+              const travel = reducedMotion ? 0 : W * 0.86;
               const directionSign = focusTransition.direction === "next" ? 1 : -1;
-              const offsetY = isTransitionFrom
+              const offsetX = isTransitionFrom
                 ? focusTransition.active
                   ? -directionSign * travel
                   : 0
                 : focusTransition.active
                   ? 0
                   : directionSign * travel;
-              tf = tfAt(W / 2, focusScroll + H * 0.42 + offsetY, focusScale, 0);
+              tf = tfAt(W / 2 + offsetX, focusScroll + H * 0.42, focusScale, 0);
               op = isTransitionFrom ? (focusTransition.active ? 0 : 1) : focusTransition.active ? 1 : 0;
             } else if (isFocused) {
               // 실제 카드가 화면 중앙으로 와서 확대(복제 없음). 스크롤 보정 포함.
@@ -1267,11 +1243,11 @@ export function FloatingCart() {
               op = 0;
             } else if (phase === "center") {
               tf = tfAt(cx + j.dx, cy + j.dy, dockScale, jRot);
-              op = g >= 5 ? 0 : 1;
+              op = (dockRank.get(it.id) ?? 0) >= 5 ? 0 : 1;
             } else {
               // 도크 — x,y 무관 고정 좌표
               tf = tfAt(dockCx + j.dx, dockCy + j.dy, dockScale, jRot);
-              op = g >= 5 ? 0 : 1;
+              op = (dockRank.get(it.id) ?? 0) >= 5 ? 0 : 1;
             }
             // 펼칠 때만 스태거 — 그리드 위(g 작은 쪽=최신)부터 한 장씩. 포커스 이동은 즉시.
             const delay = !dragging && phase === "spread" && !anyFocused ? Math.min(g, 16) * 22 : 0;
@@ -1332,7 +1308,7 @@ export function FloatingCart() {
                       ? "비슷한 사진 상세 보기"
                       : focused
                       ? navigationIds.length > 1
-                        ? "관심 사진 상세, 위아래로 다른 관심 사진 보기"
+                        ? "관심 사진 상세, 좌우로 다른 관심 사진 보기"
                         : "관심 사진 상세"
                       : open
                         ? selectMode
@@ -1432,21 +1408,10 @@ export function FloatingCart() {
 
       {phase === "spread" && (
         <>
-          {canOpenInterestRecommendations(currentInterestIds) &&
-            !focused &&
-            !selectMode &&
-            !similarMode && (
-              <InterestSimilarEntry
-                collapsed={recommendationEntryCollapsed}
-                loading={similarState.status === "loading"}
-                onClick={() => void openSimilarRecommendations()}
-              />
-            )}
-
           {similarState.status === "error" && !similarMode && !focused && !selectMode && (
             <div
               role="alert"
-              className="pointer-events-auto fixed right-3 top-[calc(38%+64px)] z-[64] max-w-[240px] rounded-xl border border-white/10 bg-black/85 p-3 text-right text-xs text-white shadow-pop backdrop-blur-md"
+              className="pointer-events-auto fixed right-3 top-[72px] z-[64] max-w-[240px] rounded-xl border border-white/10 bg-black/85 p-3 text-right text-xs text-white shadow-pop backdrop-blur-md"
             >
               <p>비슷한 사진을 불러오지 못했어요</p>
               <button
@@ -1479,23 +1444,23 @@ export function FloatingCart() {
               aria-hidden
               className="cart-swipe-hint pointer-events-none fixed bottom-[24%] left-1/2 z-[64] flex w-[calc(100vw-32px)] flex-col items-center"
             >
-              <div className="relative mb-1 h-12 w-7">
+              <div className="relative mb-1.5 h-7 w-12">
                 {SWIPE_HINT_ARROWS.map((index) => (
                   <svg
                     key={index}
                     viewBox="0 0 24 24"
-                    className="cart-swipe-chevron absolute bottom-0 left-1/2 h-6 w-6 text-white"
-                    style={{ animationDelay: `${index * 120}ms`, bottom: `${index * 9}px` }}
+                    className="cart-swipe-chevron absolute top-1/2 h-6 w-6 text-white"
+                    style={{ animationDelay: `${index * 120}ms`, right: `${index * 9}px` }}
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="2.4"
                   >
-                    <path d="M5 15l7-7 7 7" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M15 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 ))}
               </div>
               <p className="w-fit max-w-full break-keep rounded-xl border border-white/10 bg-[#5c5c5c]/90 px-4 py-2.5 text-center text-sm font-semibold text-white shadow-pop backdrop-blur-sm">
-                위로 밀면 다음 관심사진이 보입니다
+                옆으로 밀면 다음 관심사진이 보입니다
               </p>
             </div>
           )}
@@ -1623,7 +1588,34 @@ export function FloatingCart() {
                       {N}장
                     </span>
                   </div>
-                  <div className="flex flex-1 justify-end">
+                  <div className="flex flex-1 items-center justify-end gap-2">
+                    {/* 비슷한 사진 — 화면 가장자리에 따로 떠 있으면 줄 머리의 문의 버튼을
+                        덮는다. 상단 액션이니 '선택' 옆에 나란히 둔다. */}
+                    {canOpenInterestRecommendations(currentInterestIds) && (
+                      <button
+                        type="button"
+                        aria-label="관심사진과 비슷한 사진 보기"
+                        aria-busy={similarState.status === "loading"}
+                        onClick={() => void openSimilarRecommendations()}
+                        className="pointer-events-auto grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-full bg-brand text-white shadow-pop transition-opacity hover:opacity-90"
+                      >
+                        {similarState.status === "loading" ? (
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/35 border-t-white motion-reduce:animate-none" />
+                        ) : (
+                          <svg
+                            viewBox="0 0 24 24"
+                            className="h-5 w-5"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            aria-hidden="true"
+                          >
+                            <path d="M12 3l1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7L12 3z" strokeLinejoin="round" />
+                            <path d="M18.5 16l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8.8-2.2z" strokeLinejoin="round" />
+                          </svg>
+                        )}
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => setSelectMode(true)}
@@ -1702,7 +1694,7 @@ export function FloatingCart() {
                     data-quote-lead=""
                     className="flex-1 cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
                   >
-                    무료 견적 받기
+                    무료 상담하기
                   </button>
                   </div>
                 </div>

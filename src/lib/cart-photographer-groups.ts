@@ -7,12 +7,15 @@ export type CartPhotoOwner = {
   photoId: string;
   photographerId: string;
   displayName: string | null;
+  // 최소 촬영 패키지 금액(없으면 프로필 시작가, 그것도 없으면 null)
+  priceFromKrw: number | null;
 };
 
 export type CartGroup = {
   // 작가를 못 찾은 사진(비공개 전환·삭제 등)은 UNKNOWN_PHOTOGRAPHER 한 줄로 모은다.
   photographerId: string;
   displayName: string | null;
+  priceFromKrw: number | null;
   items: CartItem[];
 };
 
@@ -42,6 +45,7 @@ export function groupCartByPhotographer(
       byPhotographer.set(key, {
         photographerId: key,
         displayName: owner?.displayName ?? null,
+        priceFromKrw: owner?.priceFromKrw ?? null,
         items: [item],
       });
     lastIndex.set(key, index);
@@ -74,4 +78,11 @@ export function groupInquiryPhotoId(group: CartGroup): string | null {
 // 작가 이름이 비어 있을 때의 표시 문구.
 export function groupDisplayName(group: CartGroup): string {
   return group.displayName?.trim() || "작가 미상";
+}
+
+// 줄 머리에 붙는 최소 촬영 금액 — 0원·미입력은 값이 없는 것으로 본다.
+export function groupPriceText(group: CartGroup): string | null {
+  const price = group.priceFromKrw;
+  if (price == null || price <= 0) return null;
+  return `${new Intl.NumberFormat("ko-KR").format(price)}원~`;
 }

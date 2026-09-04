@@ -14,7 +14,9 @@ export function circularPhotoId(
   return ids[(currentIndex + delta + ids.length) % ids.length] ?? null;
 }
 
-export function verticalSwipeDirection(
+// 확대에서 사진 넘기기 — 좌우로 민다. 왼쪽으로 밀면 다음 사진.
+// (줄 화면이 이미 가로로 넘기는 화면이라, 확대만 세로면 손이 다시 배워야 한다.)
+export function horizontalSwipeDirection(
   startX: number,
   startY: number,
   endX: number,
@@ -23,8 +25,8 @@ export function verticalSwipeDirection(
 ): CartNavigationDirection | null {
   const dx = endX - startX;
   const dy = endY - startY;
-  if (Math.abs(dy) < threshold || Math.abs(dy) <= Math.abs(dx)) return null;
-  return dy < 0 ? "next" : "previous";
+  if (Math.abs(dx) < threshold || Math.abs(dx) <= Math.abs(dy)) return null;
+  return dx < 0 ? "next" : "previous";
 }
 
 export function shouldShowCartSwipeHint(photoCount: number, hasSeen: boolean): boolean {
@@ -48,6 +50,8 @@ export function reconciledFocusedPhotoId(ids: string[], focusedId: string): stri
   return ids[0] ?? null;
 }
 
+// 휠/트랙패드 — 우세한 축을 따른다. 트랙패드는 가로로 밀 수 있지만 휠 마우스는
+// 세로밖에 못 돌리므로, 세로 스크롤도 계속 넘기기로 받는다.
 export function wheelNavigationDirection(
   deltaX: number,
   deltaY: number,
@@ -56,6 +60,7 @@ export function wheelNavigationDirection(
   const unit = deltaMode === 1 ? 16 : deltaMode === 2 ? 800 : 1;
   const normalizedX = deltaX * unit;
   const normalizedY = deltaY * unit;
-  if (Math.abs(normalizedY) < 20 || Math.abs(normalizedY) <= Math.abs(normalizedX)) return null;
-  return normalizedY > 0 ? "next" : "previous";
+  const dominant = Math.abs(normalizedX) > Math.abs(normalizedY) ? normalizedX : normalizedY;
+  if (Math.abs(dominant) < 20) return null;
+  return dominant > 0 ? "next" : "previous";
 }

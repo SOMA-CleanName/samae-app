@@ -400,9 +400,9 @@ select:focus-visible {
   100% { opacity: 0; transform: translate(-50%, -8px); }
 }
 @keyframes cart-swipe-chevron {
-  0%, 10% { opacity: 0; transform: translate(-50%, 16px); }
+  0%, 10% { opacity: 0; transform: translate(16px, -50%); }
   30% { opacity: 1; }
-  76%, 100% { opacity: 0; transform: translate(-50%, -22px); }
+  76%, 100% { opacity: 0; transform: translate(-22px, -50%); }
 }
 @keyframes cart-swipe-hint-fade {
   0%, 100% { opacity: 0; transform: translate(-50%, 0); }
