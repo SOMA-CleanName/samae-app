@@ -106,6 +106,12 @@ export default function CalculatorPage() {
   const [cpa, setCpa] = useState(11529); // 문의당 CPA (원)
   const [vol, setVol] = useState(40); // 월 문의완료 건수
 
+  // 콘텐츠 마케팅 — 하루에 끌어오는 건수로 한 달 수익을 본다
+  const [perDay, setPerDay] = useState(2); // 하루 평균 유입 건수
+  const [byInquiry, setByInquiry] = useState(false); // 위 값이 '문의' 기준일 때 성사율을 곱한다
+  const [days, setDays] = useState(30); // 한 달 영업일
+  const [contentCost, setContentCost] = useState(500000); // 콘텐츠 제작·운영 월 고정비
+
   const d = useMemo(() => {
     const rate = clamp(ratePct, 1, 100) / 100;
 
@@ -139,6 +145,52 @@ export default function CalculatorPage() {
     };
   }, [shoot, takePct, pgOn, pgPct, ratePct, cpa, vol]);
   const fee = d.fee;
+
+  // 콘텐츠 마케팅 수익 — 건당 순수수료(위 입력)를 그대로 쓰고 물량만 바꿔 끼운다.
+  // 유료 광고와 달리 건당 CPA 가 아니라 **월 고정비**(제작·운영)로 잡는 게 맞다.
+  const c = useMemo(() => {
+    const shootsPerDay = byInquiry ? perDay * d.rate : perDay; // 실제 성사되는 촬영 건수/일
+    const shoots = shootsPerDay * days;
+    const gmv = shoots * shoot;
+    const gross = shoots * d.gross;
+    const pgCost = shoots * d.pgCost;
+    const net = shoots * d.fee; // 월 순매출 = 순수수료 합
+    const profit = net - contentCost;
+    // 손익분기 — 고정비를 덮으려면 하루에 몇 건이 필요한가 (입력과 같은 기준으로 환산)
+    const bepShoots = d.fee > 0 ? contentCost / d.fee / days : Infinity;
+    const bepPerDay = byInquiry ? (d.rate > 0 ? bepShoots / d.rate : Infinity) : bepShoots;
+    return { shootsPerDay, shoots, gmv, gross, pgCost, net, profit, bepPerDay };
+  }, [perDay, byInquiry, days, contentCost, shoot, d.rate, d.gross, d.pgCost, d.fee]);
+  const cProfitColor = c.profit >= 0 ? "text-success" : "text-danger";
+
+  // 합산 대시보드 — 유료(광고) 채널 + 콘텐츠 채널의 한 달 순이익
+  //   유료: 문의 vol 건 × 성사율 = 촬영 건수, 비용은 문의 전체에 붙는 CPA
+  //   콘텐츠: 위 섹션 그대로 (비용은 월 고정비)
+  const t = useMemo(() => {
+    const paidShoots = vol * d.rate;
+    const paidNet = paidShoots * d.fee;
+    const paidCost = vol * cpa; // 광고비는 성사 여부와 무관하게 문의 전부에 든다
+    const paid = { shoots: paidShoots, net: paidNet, cost: paidCost, profit: paidNet - paidCost };
+    const content = { shoots: c.shoots, net: c.net, cost: contentCost, profit: c.profit };
+
+    const shoots = paid.shoots + content.shoots;
+    const net = paid.net + content.net;
+    const cost = paid.cost + content.cost;
+    const profit = net - cost;
+    return {
+      paid,
+      content,
+      shoots,
+      net,
+      cost,
+      profit,
+      gmv: shoots * shoot,
+      margin: net > 0 ? (profit / net) * 100 : 0,
+      blendedCac: shoots > 0 ? cost / shoots : 0, // 촬영 1건 따오는 데 실제로 든 돈
+      perShoot: shoots > 0 ? profit / shoots : 0,
+    };
+  }, [vol, cpa, shoot, d.rate, d.fee, c.shoots, c.net, c.profit, contentCost]);
+  const tProfitColor = t.profit >= 0 ? "text-success" : "text-danger";
 
   const stateColor = d.positive ? "text-success" : "text-danger";
   const nearTake = TAKES.reduce((a, b) =>
@@ -455,6 +507,312 @@ export default function CalculatorPage() {
           출장비는 수수료 대상이 아니라 촬영비만 넣으면 되고, 부가 매출(무빙컷 등)이 있으면
           촬영비에 더해서, 유기 유입 비중이 있으면 문의당 CPA에 유료 비중을 곱한 blended 값으로
           넣으면 돼요.
+        </p>
+      </section>
+
+      {/* 콘텐츠 마케팅 — 하루 유입 건수 → 한 달 수익 */}
+      <section className="mt-5 rounded-2xl border border-line bg-surface p-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <p className="text-label font-semibold uppercase tracking-wider text-faint">
+            콘텐츠 마케팅 — 하루 유입 건수로 보는 한 달 수익
+          </p>
+          <p className="text-caption text-muted">
+            위 입력의 촬영비 <b className="tabular-nums text-fg">{won(shoot)}</b> · 요율{" "}
+            <b className="tabular-nums text-fg">{takePct}%</b>
+            {pgOn && <> · PG {pgPct}%</>} → 건당 순수수료{" "}
+            <b className="tabular-nums text-fg">{won(fee)}</b>
+          </p>
+        </div>
+        <p className="mt-2 w-fit rounded-lg border border-line bg-surface-2 px-3 py-2 text-caption tabular-nums text-muted">
+          월 순매출 = <b className="text-fg">하루 촬영 건수 × 영업일 × 순수수료</b> · 월 순이익 ={" "}
+          <b className="text-fg">월 순매출 − 콘텐츠 고정비</b>
+        </p>
+
+        <div className="mt-4 grid gap-5 md:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+          {/* 입력 */}
+          <div className="space-y-5 rounded-xl border border-line bg-surface-2 p-4">
+            <Ctrl
+              label={byInquiry ? "하루 평균 문의 건수" : "하루 평균 촬영 건수"}
+              value={perDay}
+              onChange={(v) => setPerDay(clamp(v, 0, 100))}
+              min={0}
+              max={20}
+              step={0.5}
+              suffix="건/일"
+              scale={["0", "10", "20"]}
+            />
+            <label className="flex cursor-pointer items-start gap-2.5">
+              <input
+                type="checkbox"
+                checked={byInquiry}
+                onChange={(e) => setByInquiry(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
+              />
+              <span className="text-label leading-relaxed text-muted">
+                이 값은 <b className="text-fg">문의</b> 기준 — 켜면 성사율 {ratePct}%를 곱해서 실제
+                촬영 건수로 환산해요. 끄면 입력값을 그대로 성사된 촬영 건수로 봅니다.
+              </span>
+            </label>
+            <Ctrl
+              label="한 달 영업일"
+              value={days}
+              onChange={(v) => setDays(clamp(v, 1, 31))}
+              min={1}
+              max={31}
+              step={1}
+              suffix="일"
+              scale={["1", "16", "31"]}
+            />
+            <Ctrl
+              label="콘텐츠 월 고정비"
+              value={contentCost}
+              onChange={(v) => setContentCost(clamp(v, 0, 50000000))}
+              min={0}
+              max={5000000}
+              step={100000}
+              suffix="원"
+              scale={["0", "250만", "500만"]}
+            />
+            <p className="text-label leading-relaxed text-faint">
+              콘텐츠는 건당 광고비가 아니라 제작·운영에 매달 나가는 고정비로 잡아요 (인건비·외주·툴).
+              유료 광고를 같이 돌리면 위쪽 CPA 계산기와 따로 보고 합치면 됩니다.
+            </p>
+          </div>
+
+          {/* 결과 */}
+          <div className="space-y-4">
+            <div className="rounded-xl border border-line bg-surface-2 p-4">
+              <p className="text-caption text-muted">월 순이익</p>
+              <div className="mt-1 flex flex-wrap items-baseline gap-3">
+                <span className={`text-3xl font-bold tabular-nums sm:text-4xl ${cProfitColor}`}>
+                  {signWon(c.profit)}
+                </span>
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-caption font-semibold ${
+                    c.profit >= 0
+                      ? "bg-success-soft text-success"
+                      : "bg-danger-soft text-danger"
+                  }`}
+                >
+                  {c.profit >= 0 ? "흑자" : "적자"}
+                </span>
+                <span className="w-full text-caption text-muted">
+                  월 촬영 <b className="tabular-nums text-fg">{c.shoots.toFixed(1)}건</b> (하루{" "}
+                  {c.shootsPerDay.toFixed(2)}건) · 연 환산{" "}
+                  <b className={`tabular-nums ${cProfitColor}`}>{signWon(c.profit * 12)}</b>
+                </span>
+              </div>
+            </div>
+
+            <dl className="grid grid-cols-2 overflow-hidden rounded-xl border border-line bg-surface-2 sm:grid-cols-3">
+              {(
+                [
+                  ["월 거래액 (GMV)", won(c.gmv)],
+                  ["월 총수수료", won(c.gross)],
+                  [pgOn ? `월 PG ${pgPct}%` : "월 PG (꺼짐)", pgOn ? `−${won(c.pgCost)}` : "—"],
+                  ["월 순매출", won(c.net)],
+                  ["콘텐츠 고정비", `−${won(contentCost)}`],
+                  [
+                    "손익분기",
+                    isFinite(c.bepPerDay)
+                      ? `하루 ${c.bepPerDay.toFixed(2)}건`
+                      : "불가능",
+                  ],
+                ] as const
+              ).map(([k, v]) => (
+                <div key={k} className="border-b border-line px-3.5 py-2.5 sm:border-r sm:last:border-r-0">
+                  <dt className="text-caption text-muted">{k}</dt>
+                  <dd className="text-body font-semibold tabular-nums text-fg">{v}</dd>
+                </div>
+              ))}
+            </dl>
+
+            {/* 하루 건수별 월 수익 */}
+            <div className="overflow-x-auto rounded-xl border border-line">
+              <table className="w-full min-w-[420px] border-collapse text-caption tabular-nums">
+                <thead>
+                  <tr>
+                    <th className="border-b border-line bg-surface-2 px-3 py-2 text-left font-medium text-muted">
+                      하루 {byInquiry ? "문의" : "촬영"}
+                    </th>
+                    <th className="border-b border-line bg-surface-2 px-3 py-2 text-right font-medium text-muted">
+                      월 촬영
+                    </th>
+                    <th className="border-b border-line bg-surface-2 px-3 py-2 text-right font-medium text-muted">
+                      월 순매출
+                    </th>
+                    <th className="border-b border-line bg-surface-2 px-3 py-2 text-right font-medium text-muted">
+                      월 순이익
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[0.5, 1, 2, 3, 5, 10, 20].map((n) => {
+                    const shoots = (byInquiry ? n * d.rate : n) * days;
+                    const net = shoots * fee;
+                    const profit = net - contentCost;
+                    const here = Math.abs(n - perDay) < 0.26;
+                    return (
+                      <tr key={n} className={here ? "bg-fg/[0.05] font-semibold" : ""}>
+                        <td className="border-b border-line px-3 py-2 text-fg last:border-b-0">
+                          {n}건
+                        </td>
+                        <td className="border-b border-line px-3 py-2 text-right text-muted">
+                          {shoots.toFixed(1)}건
+                        </td>
+                        <td className="border-b border-line px-3 py-2 text-right text-fg">
+                          {won(net)}
+                        </td>
+                        <td
+                          className={`border-b border-line px-3 py-2 text-right ${
+                            profit >= 0 ? "text-success" : "text-danger"
+                          }`}
+                        >
+                          {signWon(profit)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <p className="mt-3 text-caption leading-relaxed text-faint">
+          콘텐츠는 한 번 만들면 계속 도는 대신 물량이 천천히 붙어요. 고정비는 그대로 나가니까
+          하루 {isFinite(c.bepPerDay) ? c.bepPerDay.toFixed(2) : "—"}건을 넘기기 전까지는 적자,
+          넘긴 다음부터는 건당 순수수료 {won(fee)}가 거의 그대로 이익으로 쌓입니다.
+        </p>
+      </section>
+
+      {/* 합산 대시보드 — 유료 + 콘텐츠 */}
+      <section className="mt-5 rounded-2xl border border-line bg-surface p-4">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <p className="text-label font-semibold uppercase tracking-wider text-faint">
+            월 순이익 대시보드 — 유료 + 콘텐츠 합산
+          </p>
+          <p className="text-caption text-muted">
+            위 두 계산기의 물량을 그대로 더한 값이에요 · 건당 순수수료{" "}
+            <b className="tabular-nums text-fg">{won(fee)}</b>
+          </p>
+        </div>
+
+        {/* 합계 */}
+        <div className="mt-3 rounded-xl border border-line bg-surface-2 p-4">
+          <p className="text-caption text-muted">두 채널 합계 월 순이익</p>
+          <div className="mt-1 flex flex-wrap items-baseline gap-3">
+            <span className={`text-3xl font-bold tabular-nums sm:text-4xl ${tProfitColor}`}>
+              {signWon(t.profit)}
+            </span>
+            <span
+              className={`rounded-full px-2.5 py-0.5 text-caption font-semibold ${
+                t.profit >= 0 ? "bg-success-soft text-success" : "bg-danger-soft text-danger"
+              }`}
+            >
+              {t.profit >= 0 ? "흑자" : "적자"}
+            </span>
+            <span className="w-full text-caption text-muted">
+              월 촬영 <b className="tabular-nums text-fg">{t.shoots.toFixed(1)}건</b> · 순매출{" "}
+              <b className="tabular-nums text-fg">{won(t.net)}</b> − 총비용{" "}
+              <b className="tabular-nums text-fg">{won(t.cost)}</b> · 연 환산{" "}
+              <b className={`tabular-nums ${tProfitColor}`}>{signWon(t.profit * 12)}</b>
+            </span>
+          </div>
+        </div>
+
+        {/* 채널별 */}
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          {(
+            [
+              {
+                key: "paid",
+                name: "유료 광고",
+                sub: `월 문의 ${vol}건 · 성사율 ${ratePct}% · 문의당 CPA ${won(cpa)}`,
+                costLabel: "광고비",
+                ch: t.paid,
+              },
+              {
+                key: "content",
+                name: "콘텐츠 마케팅",
+                sub: `하루 ${perDay}건${byInquiry ? " (문의 기준)" : ""} · ${days}일 · 고정비`,
+                costLabel: "콘텐츠 고정비",
+                ch: t.content,
+              },
+            ] as const
+          ).map(({ key, name, sub, costLabel, ch }) => {
+            const share = t.shoots > 0 ? (ch.shoots / t.shoots) * 100 : 0;
+            const good = ch.profit >= 0;
+            return (
+              <div key={key} className="rounded-xl border border-line bg-surface-2 p-4">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-body-sm font-semibold text-fg">{name}</span>
+                  <span className={`text-body font-bold tabular-nums ${good ? "text-success" : "text-danger"}`}>
+                    {signWon(ch.profit)}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-label text-faint">{sub}</p>
+
+                {/* 촬영 건수 비중 */}
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-fg/[0.08]">
+                  <div
+                    className={good ? "h-full bg-success" : "h-full bg-danger"}
+                    style={{ width: `${clamp(share, 0, 100).toFixed(1)}%` }}
+                  />
+                </div>
+                <p className="mt-1 text-label tabular-nums text-faint">
+                  촬영 {ch.shoots.toFixed(1)}건 · 전체의 {share.toFixed(0)}%
+                </p>
+
+                <dl className="mt-3 space-y-1.5 text-caption tabular-nums">
+                  <div className="flex justify-between">
+                    <dt className="text-muted">순매출</dt>
+                    <dd className="font-medium text-fg">{won(ch.net)}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-muted">{costLabel}</dt>
+                    <dd className="font-medium text-fg">−{won(ch.cost)}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-muted">촬영 1건당 획득비용</dt>
+                    <dd className="font-medium text-fg">
+                      {ch.shoots > 0 ? won(ch.cost / ch.shoots) : "—"}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* 합산 지표 */}
+        <dl className="mt-4 grid grid-cols-2 overflow-hidden rounded-xl border border-line bg-surface-2 sm:grid-cols-5">
+          {(
+            [
+              ["월 거래액 (GMV)", won(t.gmv)],
+              ["월 순매출", won(t.net)],
+              ["월 총비용", `−${won(t.cost)}`],
+              ["블렌디드 획득비용", t.shoots > 0 ? won(t.blendedCac) : "—"],
+              ["촬영 1건당 순이익", t.shoots > 0 ? signWon(t.perShoot) : "—"],
+            ] as const
+          ).map(([k, v]) => (
+            <div
+              key={k}
+              className="border-b border-line px-3.5 py-2.5 last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0"
+            >
+              <dt className="text-caption text-muted">{k}</dt>
+              <dd className="text-body font-semibold tabular-nums text-fg">{v}</dd>
+            </div>
+          ))}
+        </dl>
+
+        <p className="mt-3 text-caption leading-relaxed text-faint">
+          유료는 물량을 돈으로 살 수 있는 대신 건당 비용이 그대로 따라붙고, 콘텐츠는 고정비를
+          넘긴 다음부터 건당 순수수료가 거의 통째로 남아요. 그래서 합산 순이익률은 콘텐츠 비중이
+          커질수록 올라갑니다 — 지금은 순매출 대비 {t.margin.toFixed(0)}%.
+          {t.paid.profit < 0 && t.profit >= 0 && (
+            <> 지금은 콘텐츠가 유료 적자를 메우는 구조라, 유료를 줄이면 합계가 더 좋아져요.</>
+          )}
         </p>
       </section>
     </main>
