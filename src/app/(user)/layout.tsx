@@ -4,7 +4,7 @@ import { FloatingCart } from "@/components/user/cart/FloatingCart";
 import { FloatingNav } from "@/components/user/FloatingNav";
 import { NavRevealProvider } from "@/components/user/NavReveal";
 import { PhotoReturnScroll } from "@/components/user/PhotoReturnScroll";
-import { SiteFooter } from "@/components/SiteFooter";
+import { SiteInfoBar } from "@/components/SiteInfoBar";
 import { readMyInquiryIds } from "@/lib/my-inquiries";
 
 // 사용자(탐색) 영역 공통 셸 — 기존 하단바/레일 제거.
@@ -32,10 +32,10 @@ export default async function UserLayout({
     <CartProvider>
       <NavRevealProvider>
         <PhotoReturnScroll />
+        {/* 운영 주체 — 지면 맨 위, 데스크톱에서만 (SiteInfoBar 주석 참조) */}
+        <SiteInfoBar />
         {/* 하단 플로팅 내비 높이만큼 여백 확보 */}
         <main className="pb-28">{children}</main>
-        {/* 운영 주체 — 데스크톱에서만 보인다(SiteFooter 주석 참조) */}
-        <SiteFooter />
         <FloatingNav me={profileMe} hasInquiries={hasInquiries} />
         <FloatingCart />
       </NavRevealProvider>
