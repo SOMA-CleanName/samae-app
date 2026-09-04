@@ -1,80 +1,88 @@
-// 탐색 로딩 — 실제 /explore 레이아웃과 1:1로 맞춘 골격.
-// 순서: 헤더 → 무빙 커버(캐러셀) → 중간 탭바 → 01 취향 테스트 → 02 추천 무드 → 03 인기 스냅.
-// 색은 실제 카드 플레이스홀더(bg-fg/[0.06])와 동일하게 맞춰 전환을 매끄럽게.
+// 매거진 로딩 — 실제 /explore 지면과 1:1로 맞춘 골격.
+// 순서: 표제(MAGAZINE + 계정 버튼) → 러닝 밴드 → 01 ARTICLES(카드 덱 + 점) →
+//       02 TREND(도판 격자) → 03 SPOTS(티켓 레일) → 04 Q&A(목차 리스트).
+// 색은 카드 플레이스홀더(bg-fg/[0.06])와 동일하게 맞춰 전환을 매끄럽게.
 const pulse = "animate-pulse bg-fg/[0.06]";
 
-// 섹션 제목 — 실제는 '01' 이탤릭 프리픽스 + 타이틀 조합이라 두 덩이로 흉내낸다.
+// 섹션 머리 — 브랜드 규칙선 + '01' 프리픽스 + 타이틀(SectionHead 규격).
 function SectionTitle({ w }: { w: string }) {
   return (
-    <div className="mb-3 flex items-baseline gap-2 px-1">
-      <div className={`h-4 w-5 rounded ${pulse}`} />
-      <div className={`h-6 rounded ${pulse}`} style={{ width: w }} />
+    <div className="mb-4 px-1">
+      <div className="mb-3 h-[2px] w-8 bg-fg/[0.12]" />
+      <div className="flex items-baseline gap-2">
+        <div className={`h-4 w-5 rounded ${pulse}`} />
+        <div className={`h-6 rounded ${pulse}`} style={{ width: w }} />
+      </div>
     </div>
   );
 }
 
 export default function Loading() {
   return (
-    <section className="font-kr">
-      <div className="mx-auto w-full max-w-4xl px-2.5 pb-4 pt-3 sm:px-4 sm:pt-4">
-        {/* 헤더 — '오늘의 큐레이션' + 라이브 뱃지 */}
-        <div className="flex items-center justify-between gap-3 px-1">
-          <div className={`h-8 w-44 rounded ${pulse}`} />
-          <div className={`h-6 w-28 shrink-0 rounded-full ${pulse}`} />
-        </div>
-
-        {/* 무빙 커버 캐러셀 — 중앙 max-w-md, 4:5 비율(각진 카드) */}
-        <div className="mx-auto mt-3 w-full max-w-md">
-          <div className={`aspect-[4/5] w-full ${pulse}`} />
-          {/* 하단 진행 바 — 슬라이드 수만큼 */}
-          <div className="mt-2 flex gap-1.5">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className={`h-[3px] flex-1 rounded-full ${pulse}`} />
-            ))}
-          </div>
-        </div>
-
-        {/* 중간 탭바 — 실제는 sticky + 상하 여백(h-6) */}
-        <div aria-hidden className="h-6" />
-        <div className="-mx-2.5 border-b border-line sm:-mx-4">
-          <div className="flex gap-1 px-2.5 py-2 sm:px-4">
-            {[96, 72, 88].map((w, i) => (
-              <div key={i} className={`h-8 rounded-full ${pulse}`} style={{ width: `${w}px` }} />
-            ))}
-          </div>
-        </div>
-
-        {/* 01 내 취향 테스트 */}
-        <div className="mt-6">
-          <SectionTitle w="112px" />
-          <div className={`h-40 w-full rounded-2xl ${pulse}`} />
-        </div>
-
-        {/* 02 추천 무드 — 첫 타일 와이드(16:9) + 정사각 4개 + 더보기 */}
-        <div className="mt-16">
-          <SectionTitle w="88px" />
-          <div className="grid grid-cols-2 gap-2.5">
-            <div className={`col-span-2 aspect-[16/9] rounded-2xl ${pulse}`} />
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className={`aspect-square rounded-2xl ${pulse}`} />
-            ))}
-          </div>
-          <div className={`mt-3 h-12 w-full rounded-full ${pulse}`} />
-        </div>
-
-        {/* 03 사매 인기 스냅 — 가로 레일(각진 카드) */}
-        <div className="mt-16">
-          <SectionTitle w="128px" />
-          <div className="-mx-2.5 flex gap-2.5 overflow-hidden px-2.5 sm:-mx-4 sm:px-4">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className={`aspect-[3/4] w-[54vw] max-w-72 shrink-0 ${pulse}`} />
-            ))}
-          </div>
-        </div>
-
-        {/* 하단 여백 — 플로팅 내비에 가리지 않을 정도 */}
-        <div aria-hidden className="h-20" />
+    <main className="min-h-dvh bg-bg font-kr">
+      {/* 표제 — 큰 워드마크 자리 + 오른쪽 위 계정 버튼 */}
+      <div className="relative mx-auto w-full max-w-[1280px] px-4 pt-2 sm:px-6 sm:pt-3">
+        <div className={`absolute right-4 top-2 h-9 w-9 rounded-full sm:right-6 sm:top-3 ${pulse}`} />
+        <div className={`mt-3 h-[clamp(2rem,9vw,5.4rem)] w-[72%] max-w-xl rounded ${pulse}`} />
       </div>
-    </section>
+
+      {/* 러닝 밴드 */}
+      <div className="mt-5 flex items-center gap-6 overflow-hidden border-y border-line px-6 py-2">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className={`h-3 w-20 shrink-0 rounded ${pulse}`} />
+        ))}
+      </div>
+
+      <div className="mx-auto w-full max-w-[1280px] px-4 pb-24 pt-7 sm:px-6">
+        {/* 01 ARTICLES — 카드 덱(가운데 한 장) + 점 인디케이터 */}
+        <SectionTitle w="96px" />
+        <div className="-mx-4 flex justify-center gap-3 overflow-hidden sm:-mx-6 sm:justify-start sm:px-6">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div
+              key={i}
+              className={`aspect-[4/5] w-[clamp(15rem,74vw,19rem)] shrink-0 rounded-2xl sm:w-80 ${pulse}`}
+            />
+          ))}
+        </div>
+        <div className="mt-2 flex justify-center gap-1.5">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className={`h-1.5 w-1.5 rounded-full ${pulse}`} />
+          ))}
+        </div>
+
+        {/* 02 TREND — 3:4 도판 격자 + 캡션 줄 */}
+        <div className="mt-20">
+          <SectionTitle w="72px" />
+          <div className="grid grid-cols-2 gap-x-2.5 gap-y-5 sm:grid-cols-4 sm:gap-x-3">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className={i >= 2 ? "hidden sm:block" : undefined}>
+                <div className={`aspect-[3/4] w-full rounded-lg ${pulse}`} />
+                <div className={`mt-2 h-3 w-full rounded ${pulse}`} />
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 03 SPOTS — 가로 티켓 레일 */}
+        <div className="mt-20">
+          <SectionTitle w="64px" />
+          <div className="-mx-4 flex gap-3 overflow-hidden px-4 sm:-mx-6 sm:px-6">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className={`aspect-[4/3] w-[70vw] max-w-80 shrink-0 rounded-2xl ${pulse}`} />
+            ))}
+          </div>
+        </div>
+
+        {/* 04 Q&A — 목차 리스트 */}
+        <div className="mt-20">
+          <SectionTitle w="56px" />
+          <div className="space-y-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className={`h-5 rounded ${pulse}`} style={{ width: `${88 - i * 7}%` }} />
+            ))}
+          </div>
+        </div>
+      </div>
+    </main>
   );
 }

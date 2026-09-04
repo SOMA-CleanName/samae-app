@@ -10,7 +10,7 @@ import type { FeaturedPhoto } from "@/lib/explore-db";
  * 이 자리엔 '인기 사진' 레일도, 격자도, 잠깐은 '이번 호의 작가'도 있었다.
  * 주인공을 사진으로 되돌린 건 **사매가 개별 작가를 띄우는 서비스가 아니어서**다.
  * 작가를 스타로 만들면 플랫폼이 아니라 그 사람의 채널이 된다.
- * 그래서 이름도 가격도 안 싣고 **어디서 찍혔는지**만 적는다.
+ * 그래서 이름도 가격도 안 싣고, 캡션엔 이 섹션(TREND)의 근거인 **조회수**만 적는다.
  *
  * ── 비율
  * 이 서비스 사진은 절반 가까이가 2:3 세로다. 가로로 납작한 카드(2:1)에
@@ -92,7 +92,12 @@ export function PhotoFeature({ photos }: { photos: FeaturedPhoto[] }) {
                   ))}
                 </span>
 
-                {/* 캡션 — 도판 번호 + 괘선, 그 아래 촬영지 */}
+                {/*
+                  캡션 — 도판 번호 + 괘선 + 조회수.
+                  촬영지·컷수를 실었던 적이 있는데, '요즘 많이 보는 사진'이라는 이 섹션의
+                  주제와 안 엮여 뺐다. 인기 섹션의 주장을 뒷받침하는 건 수치라서
+                  최근 30일 조회수만 싣는다(0이면 숫자 없이 괘선만).
+                */}
                 <figcaption className="mt-2">
                   <span className="flex items-center gap-1.5">
                     <span className="font-display text-[11px] italic tabular-nums leading-none text-brand">
@@ -100,27 +105,15 @@ export function PhotoFeature({ photos }: { photos: FeaturedPhoto[] }) {
                     </span>
                     {/* 괘선 — 손을 대면 브랜드색이 왼쪽에서 차오른다 */}
                     <span aria-hidden className="pf-rule relative h-px flex-1 bg-line" />
-                    {shots.length > 1 && (
+                    {p.views > 0 && (
                       <span
-                        aria-hidden
-                        className="text-[9px] tabular-nums leading-none text-faint"
-                        title={`같은 촬영 ${shots.length}컷`}
+                        className="text-[10px] tabular-nums leading-none text-faint"
+                        title="최근 30일 조회수"
                       >
-                        {shots.length}컷
+                        조회 {p.views.toLocaleString("ko-KR")}
                       </span>
                     )}
                   </span>
-
-                  {p.location && (
-                    <span className="mt-1.5 flex items-baseline gap-1.5">
-                      <span className="pf-loc min-w-0 truncate text-[13px] font-bold tracking-tight">
-                        {p.location}
-                      </span>
-                      <span aria-hidden className="pf-arrow shrink-0 text-[11px] text-faint">
-                        →
-                      </span>
-                    </span>
-                  )}
                 </figcaption>
               </figure>
             </Link>

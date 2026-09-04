@@ -347,7 +347,12 @@ type ScoredRow = {
 async function loadScoredPhotos(
   windowDays: number,
   scopeCategoryIds?: string[]
-): Promise<{ rows: ScoredRow[]; scoreOf: (photoId: string) => number }> {
+): Promise<{
+  rows: ScoredRow[];
+  scoreOf: (photoId: string) => number;
+  /** 순수 조회수(가중치 없는 pageview 수) — 지면에 숫자로 실을 때 쓴다 */
+  viewsOf: (photoId: string) => number;
+}> {
   const supabase = await createClient();
   const admin = createAdminClient();
   const PHOTO_SELECT =
@@ -372,7 +377,7 @@ async function loadScoredPhotos(
       .in("category_id", scopeCategoryIds)
       .limit(100000);
     const ids = [...new Set((mem ?? []).map((m) => m.photo_id as string))];
-    if (ids.length === 0) return { rows: [], scoreOf: () => 0 };
+    if (ids.length === 0) return { rows: [], scoreOf: () => 0, viewsOf: () => 0 };
     raw = [];
     // 긴 .in URL 회피 — 100개씩 청크 조회(RLS 로 승인·published 만 통과)
     for (let i = 0; i < ids.length; i += 100) {
@@ -394,7 +399,7 @@ async function loadScoredPhotos(
       .limit(500);
     raw = (data ?? []) as unknown as PhotoRow[];
   }
-  if (raw.length === 0) return { rows: [], scoreOf: () => 0 };
+  if (raw.length === 0) return { rows: [], scoreOf: () => 0, viewsOf: () => 0 };
 
   const rows: ScoredRow[] = [];
   // 사진 → 작가 계정(profile_id) 맵 — 작가 본인의 조회·찜·문의를 인기 신호에서 제외하기 위함
@@ -455,7 +460,7 @@ async function loadScoredPhotos(
     (inqByPhoto.get(photoId) ?? 0) * 30 +
     (likeByPhoto.get(photoId) ?? 0) * 8;
 
-  return { rows, scoreOf };
+  return { rows, scoreOf, viewsOf: (photoId) => viewByPhoto.get(photoId) ?? 0 };
 }
 
 // 사매 인기 스냅 — 게시물(앨범)을 최근 windowDays 간의 조회·문의·찜 신호로 랭킹.
@@ -511,8 +516,10 @@ export type FeaturedPhoto = {
   coverUrl: string;
   /** 같은 게시물(앨범)의 다른 컷 */
   moreUrls: string[];
-  /** 촬영지. 구체적으로 적힌 것만. 없으면 null — 지어내지 않는다. */
+  /** 촬영지. 구체적으로 적힌 것만. 없으면 null — 지어내지 않는다. (alt 텍스트용) */
   location: string | null;
+  /** 최근 windowDays 간 이 게시물(앨범 전체)의 조회수 합. 캡션에 수치로 싣는다. */
+  views: number;
 };
 
 /**
@@ -535,7 +542,7 @@ export async function listFeaturedPhotos(
   limit = 2,
   windowDays = 30
 ): Promise<FeaturedPhoto[]> {
-  const { rows, scoreOf } = await loadScoredPhotos(windowDays);
+  const { rows, scoreOf, viewsOf } = await loadScoredPhotos(windowDays);
   if (rows.length === 0) return [];
 
   // 게시물(앨범) 단위로 묶는다 — 같은 촬영의 컷들이 화보 하나가 된다.
@@ -571,6 +578,7 @@ export async function listFeaturedPhotos(
           usableLocation(cover.locationText) ??
           sorted.map((p) => usableLocation(p.locationText)).find(Boolean) ??
           null,
+        views: g.photos.reduce((sum, p) => sum + viewsOf(p.id), 0),
       };
     });
 }

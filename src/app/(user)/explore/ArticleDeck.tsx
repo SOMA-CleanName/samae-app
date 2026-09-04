@@ -107,8 +107,10 @@ export function ArticleDeck({ articles }: { articles: ArticleCard[] }) {
   return (
     <div>
       {/* relative — 화살표가 레일 위에 얹힌다. 아래 점 줄은 감싸지 않는다
-          (같이 감싸면 top-1/2 가 점까지 포함한 가운데라 화살표가 아래로 처진다) */}
-      <div className="relative">
+          (같이 감싸면 top-1/2 가 점까지 포함한 가운데라 화살표가 아래로 처진다)
+          isolate — 아래에서 카드에 인라인으로 쓰는 zIndex(최대 100)를 이 안에 가둔다.
+          안 가두면 sticky 러닝헤드·하단 내비(z-40)를 카드가 덮는다. */}
+      <div className="relative isolate">
         {/* 폭·좌우 여백은 .deck 이 --deck-w 로 함께 잡는다(globals.css) */}
         <ul ref={railRef} className="deck -mx-4 flex gap-3 sm:-mx-6">
           {articles.map((a, i) => (
@@ -179,10 +181,9 @@ export function ArticleDeck({ articles }: { articles: ArticleCard[] }) {
               aria-label={`${i + 1}번째 글 보기`}
               aria-current={i === active ? "true" : undefined}
               onClick={() => goTo(i)}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
-                i === active
-                  ? "w-5 bg-brand"
-                  : "w-1.5 bg-line-strong hover:bg-fg/40"
+              // 점 규격은 BannerCarousel 과 동일 — 크기·모양은 고정, 색만 바뀐다.
+              className={`h-1.5 w-1.5 rounded-full transition-colors ${
+                i === active ? "bg-fg" : "bg-line-strong hover:bg-fg/40"
               }`}
             />
           ))}
