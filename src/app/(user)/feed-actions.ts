@@ -10,7 +10,6 @@ import {
   fetchRankedDetailRecommendations,
 } from "@/lib/discovery";
 import type { GalleryPhoto, InterestSimilarGroup } from "@/lib/discovery";
-import { INTEREST_RECOMMENDATION_MIN_COUNT } from "@/lib/interest-similar-recommendations";
 import { TASTE_V2_COOKIE, parseTasteV2 } from "@/lib/category-constants";
 
 // 홈 피드 무한 스크롤 — 클라이언트(ExploreGallery)가 바닥 근처에서 호출.
@@ -49,11 +48,15 @@ export async function loadPersonalizedPhotos(
 
 // 관심사진 화면의 '비슷한 사진' — 앵커별 묶음으로 돌려준다.
 // 합치지 않는 이유는 discovery.fetchInterestSimilarGroups 주석 참조.
+//
+// 최소 장수를 두지 않는다. 예전에는 관심사진 전체를 자동으로 앵커 삼았기 때문에
+// "충분히 쌓였을 때만" 이라는 기준(4장)이 필요했지만, 지금은 사용자가 추천받을
+// 사진을 직접 고른다. 한 장을 고른 것도 "이 사진과 비슷한 걸 보여줘" 라는 분명한 요청이다.
 export async function loadInterestSimilarGroups(
   interestPhotoIds: string[]
 ): Promise<InterestSimilarGroup[]> {
   const currentInterestIds = [...new Set(interestPhotoIds.filter(Boolean))];
-  if (currentInterestIds.length < INTEREST_RECOMMENDATION_MIN_COUNT) return [];
+  if (currentInterestIds.length === 0) return [];
   return fetchInterestSimilarGroups(currentInterestIds, 100);
 }
 
