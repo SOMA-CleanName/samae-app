@@ -33,7 +33,7 @@ export function AdminNav() {
     exact ? pathname === href : pathname.startsWith(href);
 
   return (
-    <nav className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-3 scrollbar-none sm:px-5">
+    <nav className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-3 scrollbar-none sm:flex-wrap sm:overflow-visible sm:px-5">
       {TABS.map((t) => {
         const active = isActive(t.href, t.exact);
         return (

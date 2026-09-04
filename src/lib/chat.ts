@@ -3,6 +3,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { CurrentUser } from "@/lib/auth";
+import { photographerLabel } from "@/lib/photographer-label";
 
 // 봇 수집 슬롯 — 작가용 문의 체크리스트 (conversations.bot_slots jsonb)
 export type BotSlots = {
@@ -279,9 +280,11 @@ export async function getBrief(conversationId: string): Promise<ConsultationBrie
 }
 
 // 대화 상대 표시명 (내 관점)
+export { photographerLabel };
+
 export function counterpartName(c: ConversationListItem, me: CurrentUser): string {
   if (c.user_id === me.id) {
-    return c.photographer?.display_name || "작가";
+    return photographerLabel(c.photographer?.display_name);
   }
   return c.user?.display_name || "고객";
 }

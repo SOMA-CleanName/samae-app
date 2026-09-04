@@ -123,7 +123,9 @@ export function GuideImageViewer({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/95"
+      // 거의 불투명한 검정은 채팅방을 통째로 지워 "어디로 왔지" 가 된다.
+      // 뒤가 비치는 정도로만 덮고 흐린다 — 안내를 보다 닫으면 대화로 돌아온다는 게 보인다.
+      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
       aria-label="작가 안내 이미지"

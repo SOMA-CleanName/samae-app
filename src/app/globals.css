@@ -25,11 +25,19 @@
   --brand-soft: #ffe9e6;       /* 브랜드 틴트 배경 */
   --brand-ink: #c42a1e;        /* 브랜드 위 텍스트·진한 상태 */
 
-  /* 상태 — 텍스트(ink) / 배경 틴트(soft) 쌍 */
+  /* 상태 — 채움(bg) / 배경 틴트(soft) / 틴트 위 글자(ink) 3종 */
   --success: #15803d;  --success-soft: #dcfce7;
   --warning: #b45309;  --warning-soft: #fef3c7;
   --danger:  #dc2626;  --danger-soft:  #fee2e2;
   --info:    #1d4ed8;  --info-soft:    #dbeafe;
+
+  /* 틴트 위에 얹는 글자색. 라이트에서는 채움색과 같지만 다크에서는 갈라진다 —
+     채움색은 흰 글자를 받아야 해서 어둡게 유지되는데, 그 색을 어두운 틴트 위에
+     그대로 쓰면 배경과 붙어 안 읽힌다(인계 안내가 그랬다). */
+  --success-ink: var(--success);
+  --warning-ink: var(--warning);
+  --danger-ink:  var(--danger);
+  --info-ink:    var(--info);
 
   /* 반경 / 그림자 — 일관 스케일 */
   --radius-sm: 0.5rem;   /* 칩·작은 배지 */
@@ -57,6 +65,9 @@
     --brand-soft: #3a201c;    /* 브랜드 틴트 배경(다크) */
     --brand-ink: #ff8d80;     /* 브랜드 위 텍스트(다크에서 밝게) */
     --success-soft: #14331f; --warning-soft: #3a2a10; --danger-soft: #3a1a18; --info-soft: #16233f;
+    /* 틴트가 어두워진 만큼 글자는 밝아져야 한다 (채움색 --success 등은 그대로 둔다 —
+       bg-success 위에는 여전히 흰 글자가 올라간다) */
+    --success-ink: #5fd48b; --warning-ink: #f0b13d; --danger-ink: #f88a80; --info-ink: #86b0ff;
     --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 16px rgb(0 0 0 / 0.4);
     --shadow-pop:  0 8px 32px rgb(0 0 0 / 0.55);
   }
@@ -78,6 +89,10 @@
 
   --color-success: var(--success);
   --color-success-soft: var(--success-soft);
+  --color-success-ink: var(--success-ink);
+  --color-warning-ink: var(--warning-ink);
+  --color-danger-ink: var(--danger-ink);
+  --color-info-ink: var(--info-ink);
   --color-warning: var(--warning);
   --color-warning-soft: var(--warning-soft);
   --color-danger: var(--danger);

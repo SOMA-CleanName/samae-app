@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { sendMessage, markRead, sendPortfolioPhoto } from "../actions";
 import { sendBotTurn } from "../bot-actions";
 import { KB_EXAMPLE_QUESTIONS } from "@/lib/bot-kb";
-import { BOT_DISPLAY_NAME, BOT_HANDOFF_NOTICE } from "@/lib/bot-identity";
+import { BOT_DISPLAY_NAME, isHandoffNotice } from "@/lib/bot-identity";
 import { acceptBooking, rejectBooking, cancelBooking } from "@/app/actions/bookings";
 import { mpTrack } from "@/lib/mixpanel";
 import type { ChatMessage, BookingSnapshot, ConsultationBrief, BotSlots } from "@/lib/chat";
@@ -113,8 +113,7 @@ export function ChatRoom({
   const amCustomer = !amPhotographer; // 참여자 중 작가가 아니면 구매자
   const botLabel = (botName ?? "").trim() || BOT_DISPLAY_NAME;
   // 인계 안내 판별 — 운영이 문구를 바꿔도, 바꾸기 전에 쌓인 방도 그대로 인식돼야 한다
-  const isHandoffBody = (body: string) =>
-    body === BOT_HANDOFF_NOTICE || (!!handoffNotice && body === handoffNotice);
+  const isHandoffBody = (body: string) => isHandoffNotice(body, handoffNotice);
   void brief; void sourcePhotoPath; // 레거시 상담정보 — 요약 카드로 대체, 과거 방 호환 위해 프롭만 유지
   const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
@@ -648,7 +647,7 @@ export function ChatRoom({
                       botMine ? "rounded-tr-md" : "rounded-tl-md"
                     } ${
                       isHandoff
-                        ? "bg-success-soft text-success ring-1 ring-success/20"
+                        ? "bg-success-soft text-success-ink ring-1 ring-success-ink/25"
                         : "bg-fg/[0.07] text-fg"
                     }`}
                   >
@@ -680,22 +679,29 @@ export function ChatRoom({
                   {timeLabel(m.created_at)}
                 </span>
               )}
-              {isImage ? (
-                <img
-                  src={m.image_path!}
-                  alt=""
-                  loading="lazy"
-                  className="max-h-64 max-w-[75%] rounded-2xl object-cover"
-                />
-              ) : (
-                <div
-                  className={`max-w-[75%] whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-body ${
-                    mine ? "rounded-br-md bg-fg text-bg" : "rounded-bl-md bg-fg/[0.07] text-fg"
-                  }`}
-                >
-                  {m.body}
-                </div>
-              )}
+              {/* 상대 발화에는 이름을 얹는다 — 봇이 물러난 뒤 말풍선만 바뀌면
+                  누구로 바뀐 건지 알 수 없다. 봇은 '사매 안내봇', 작가는 'OOO 작가'. */}
+              <div className={`flex min-w-0 max-w-[75%] flex-col ${mine ? "items-end" : "items-start"}`}>
+                {!mine && counterpartName && (
+                  <span className="mb-0.5 text-label font-medium text-muted">{counterpartName}</span>
+                )}
+                {isImage ? (
+                  <img
+                    src={m.image_path!}
+                    alt=""
+                    loading="lazy"
+                    className="max-h-64 rounded-2xl object-cover"
+                  />
+                ) : (
+                  <div
+                    className={`max-w-full whitespace-pre-wrap break-words rounded-2xl px-3.5 py-2 text-body ${
+                      mine ? "rounded-br-md bg-fg text-bg" : "rounded-bl-md bg-fg/[0.07] text-fg"
+                    }`}
+                  >
+                    {m.body}
+                  </div>
+                )}
+              </div>
               {!mine && (
                 <span className="mb-0.5 shrink-0 text-label text-faint">
                   {timeLabel(m.created_at)}

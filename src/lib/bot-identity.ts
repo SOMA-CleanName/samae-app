@@ -6,5 +6,31 @@
 
 export const BOT_DISPLAY_NAME = "사매 안내봇";
 
-/** 작가가 대화에 들어온 순간 봇이 스스로 물러나며 남기는 한 줄 (이 문자열로 렌더 분기도 한다) */
-export const BOT_HANDOFF_NOTICE = "작가님이 대화에 들어왔어요. 지금부터는 작가님이 직접 답해드립니다.";
+/**
+ * 작가가 대화에 들어온 순간 봇이 스스로 물러나며 남기는 한 줄.
+ *
+ * 두 문장을 줄로 나눈다 — 앞은 '무슨 일이 일어났는지', 뒤는 '그래서 어떻게 되는지' 라
+ * 한 줄로 붙이면 폭이 좁은 말풍선에서 아무 데서나 접힌다.
+ */
+export const BOT_HANDOFF_NOTICE =
+  "작가님이 대화에 들어왔어요.\n지금부터는 작가님이 직접 답해드립니다.";
+
+/**
+ * 문구를 바꾸기 전에 쌓인 방도 인계 안내로 인식돼야 한다.
+ * 이 배열에 옛 문구를 남겨두지 않으면 과거 방의 안내가 평범한 봇 말풍선으로 그려진다.
+ */
+const LEGACY_HANDOFF_NOTICES = [
+  "작가님이 대화에 들어왔어요. 지금부터는 작가님이 직접 답해드립니다.",
+];
+
+/**
+ * 이 말풍선이 인계 안내인가 — 렌더 분기용.
+ * 운영이 어드민에서 고친 문구(configured)까지 함께 본다.
+ */
+export function isHandoffNotice(body: string, configured?: string | null): boolean {
+  const t = (body ?? "").trim();
+  if (!t) return false;
+  if (t === BOT_HANDOFF_NOTICE) return true;
+  if (LEGACY_HANDOFF_NOTICES.includes(t)) return true;
+  return !!configured && t === configured.trim();
+}
