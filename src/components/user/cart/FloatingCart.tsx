@@ -166,6 +166,10 @@ export function FloatingCart() {
   // 순서로 한 단계씩 물러나야 해서 이 계층이 들고 있다.
   const [zoomedRecommendation, setZoomedRecommendation] = useState<CartItem | null>(null);
   const [similarState, setSimilarState] = useState<SimilarRequestState>({ status: "idle" });
+  // AI 추천 — 어떤 사진과 비슷한 걸 볼지 사용자가 직접 고른다. 고르는 화면은
+  // '선택'(공유·삭제)과 같은 폴라로이드 그리드를 쓰되, 고른 결과가 가는 곳만 다르다.
+  const [recommendMode, setRecommendMode] = useState(false);
+  const [recommendIds, setRecommendIds] = useState<Set<string>>(new Set());
   // 작가별 줄 — 카트 아이템(localStorage)엔 작가가 없어 도크를 열 때 한 번에 조회한다.
   // key 는 조회 시점의 관심사진 목록. 목록이 바뀌면 다시 받아 새 사진의 작가를 채운다.
   const [ownerState, setOwnerState] = useState<{ key: string; owners: CartPhotoOwner[] }>({
@@ -228,8 +232,6 @@ export function FloatingCart() {
     () => interestRecommendationRequestKey(currentInterestIds),
     [currentInterestIds]
   );
-  const currentInterestKeyRef = useRef(currentInterestKey);
-  currentInterestKeyRef.current = currentInterestKey;
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -265,9 +267,11 @@ export function FloatingCart() {
 
   const N = count;
   // 작가 줄로 보여줄 수 있는 상태인가. 추천 화면일 때는 그쪽 배치가 우선한다.
-  // 선택은 작가와 무관한 일(공유·삭제)이라 줄을 접고 폴라로이드 그리드로 돌아간다.
-  // 다만 나열 순서는 줄에서 보던 작가 순서를 그대로 이어간다.
-  const rowsMode = hasPhotographerGroups(groups) && !similarMode && !selectMode;
+  // 사진을 고르는 화면(공유·삭제용 '선택', AI 추천용 '고르기')은 작가와 무관한 일이라
+  // 줄을 접고 폴라로이드 그리드로 돌아간다. 다만 나열 순서는 작가 순서를 그대로 이어간다.
+  const gridMode = selectMode || recommendMode;
+  const gridSelectedIds = selectMode ? selectedIds : recommendIds;
+  const rowsMode = hasPhotographerGroups(groups) && !similarMode && !gridMode;
   const recommendationRows = similarState.status === "ready" ? similarState.rows : [];
 
   // 관심사진 목록이 바뀌면(담기·빼기) 작가를 다시 조회 — 새로 담은 사진의 작가를 채운다.
@@ -315,10 +319,43 @@ export function FloatingCart() {
     });
   }
 
-  async function openSimilarRecommendations() {
-    if (!canOpenInterestRecommendations(currentInterestIds)) return;
-    const key = currentInterestKey;
+  // AI 추천 1단계 — 어떤 사진과 비슷한 걸 볼지 고르는 화면으로.
+  function startRecommendPick() {
     mpTrack("Click Similar Interest Entry", { interest_count: currentInterestIds.length });
+    setRecommendMode(true);
+    setRecommendIds(new Set());
+    setSimilarState({ status: "idle" });
+    requestAnimationFrame(() => {
+      if (layerRef.current) layerRef.current.scrollTop = 0;
+    });
+  }
+  function exitRecommendPick() {
+    similarRequestGeneration.current += 1;
+    setZoomedRecommendation(null);
+    setSimilarMode(false);
+    setSimilarState({ status: "idle" });
+    setRecommendMode(false);
+    setRecommendIds(new Set());
+    requestAnimationFrame(() => {
+      if (layerRef.current) layerRef.current.scrollTop = 0;
+    });
+  }
+  function toggleRecommendPick(id: string) {
+    setRecommendIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+    // 고른 사진이 바뀌면 이전 결과는 더 이상 그 요청의 답이 아니다.
+    setSimilarState({ status: "idle" });
+  }
+
+  // AI 추천 2단계 — 고른 사진들로 비슷한 무드를 받아온다.
+  async function openSimilarRecommendations() {
+    const pickedIds = [...recommendIds];
+    if (pickedIds.length === 0) return;
+    const key = interestRecommendationRequestKey(pickedIds);
 
     if (similarState.status === "ready" && similarState.key === key) {
       setSimilarMode(true);
@@ -332,16 +369,13 @@ export function FloatingCart() {
     const generation = ++similarRequestGeneration.current;
     setSimilarState({ status: "loading", key });
     try {
-      const groups = await loadInterestSimilarGroups(currentInterestIds);
-      if (
-        generation !== similarRequestGeneration.current ||
-        currentInterestKeyRef.current !== key
-      ) return;
+      const groups = await loadInterestSimilarGroups(pickedIds);
+      if (generation !== similarRequestGeneration.current) return;
       const rows = toInterestRecommendationRows(groups);
       setSimilarState({ status: "ready", key, rows });
       setSimilarMode(true);
       mpTrack("Load Similar Interest Photos", {
-        interest_count: currentInterestIds.length,
+        interest_count: pickedIds.length,
         result_count: countInterestRecommendationCards(rows),
         anchor_count: rows.length,
         status: "success",
@@ -350,13 +384,10 @@ export function FloatingCart() {
         if (layerRef.current) layerRef.current.scrollTop = 0;
       });
     } catch {
-      if (
-        generation !== similarRequestGeneration.current ||
-        currentInterestKeyRef.current !== key
-      ) return;
+      if (generation !== similarRequestGeneration.current) return;
       setSimilarState({ status: "error", key });
       mpTrack("Load Similar Interest Photos", {
-        interest_count: currentInterestIds.length,
+        interest_count: pickedIds.length,
         result_count: 0,
         status: "error",
       });
@@ -596,7 +627,14 @@ export function FloatingCart() {
   // 핵심: pushState/back 은 전부 effect(렌더 후)에서만 호출 → popstate 핸들러 '안'에서
   // 재push 하던 이전 방식의 모바일+Next 라우터 비신뢰성 문제를 피한다.
   const histRef = useRef({ pushed: 0, browserPopped: false, ignore: 0 });
-  const navDepth = !open ? 0 : focused || selectMode || similarMode ? 2 : 1;
+  // 관심사진(1) → 추천 사진 고르기(+1) → 추천 결과(+1) → 확대(+1).
+  // 선택(공유·삭제)은 관심사진 위 한 겹.
+  const navDepth = !open
+    ? 0
+    : 1 +
+      (selectMode || recommendMode ? 1 : 0) +
+      (similarMode ? 1 : 0) +
+      (focused ? 1 : 0);
 
   useEffect(() => {
     const h = histRef.current;
@@ -635,6 +673,8 @@ export function FloatingCart() {
       exitSelect();
     } else if (similarMode) {
       exitSimilarMode();
+    } else if (recommendMode) {
+      exitRecommendPick();
     } else if (open) {
       close();
     } else {
@@ -764,6 +804,9 @@ export function FloatingCart() {
     if (canOpenInterestRecommendations(currentInterestIds)) {
       mpTrack("View Similar Interest Entry", { interest_count: currentInterestIds.length });
     }
+    // 열 때는 늘 작가 줄부터 — 지난번에 보던 추천 단계로 떨어지지 않게.
+    setRecommendMode(false);
+    setRecommendIds(new Set());
     setPhase("center");
     window.setTimeout(() => setPhase("spread"), 300);
   }
@@ -775,6 +818,8 @@ export function FloatingCart() {
     setZoomedRecommendation(null);
     setSimilarMode(false);
     setSimilarState({ status: "idle" });
+    setRecommendMode(false);
+    setRecommendIds(new Set());
     setFocused(null);
     setSelectMode(false);
     setSelectedIds(new Set());
@@ -790,6 +835,7 @@ export function FloatingCart() {
   // 빈 곳(사진 외 여백) 탭 — 선택 모드면 선택만 해제, 확대 중이면 그리드로, 그 외엔 닫힘
   function dismissOverlay() {
     if (selectMode) exitSelect();
+    else if (recommendMode && !similarMode) exitRecommendPick();
     else if (focused) {
       dismissSwipeHint();
       cancelFocusTransition();
@@ -868,6 +914,8 @@ export function FloatingCart() {
     setZoomedRecommendation(null);
     setSimilarMode(false);
     setSimilarState({ status: "idle" });
+    setRecommendMode(false);
+    setRecommendIds(new Set());
     setPhase("dock");
     histRef.current.pushed = 0;
     router.push(`/photos/${photoId}`);
@@ -927,7 +975,7 @@ export function FloatingCart() {
   const LONG_PRESS_MS = 420;
   function cardPointerDown(e: React.PointerEvent, id: string) {
     startDrag(e); // 도크 단계 드래그(펼침 단계에선 내부에서 무시됨)
-    if (phase !== "spread" || selectMode || focused || similarMode) return;
+    if (phase !== "spread" || gridMode || focused || similarMode) return;
     longPress.current = { timer: null, fired: false, x: e.clientX, y: e.clientY };
     longPress.current.timer = window.setTimeout(() => {
       longPress.current.fired = true;
@@ -1237,7 +1285,7 @@ export function FloatingCart() {
               op = 0;
             } else if (phase === "spread") {
               tf = tfAt(x, y, 1, rot);
-              op = anyFocused ? 0 : selectMode && !selectedIds.has(it.id) ? 0.5 : 1;
+              op = anyFocused ? 0 : gridMode && !gridSelectedIds.has(it.id) ? 0.5 : 1;
             } else if (belowFold) {
               tf = tfAt(x, y, 1, rot);
               op = 0;
@@ -1288,6 +1336,7 @@ export function FloatingCart() {
                     if (phase === "spread") {
                       if (similarMode) leaveToRecommendationPhoto(it.id);
                       else if (selectMode) toggleSelect(it.id);
+                      else if (recommendMode) toggleRecommendPick(it.id);
                       else if (focused === it.id) {
                         dismissSwipeHint();
                         cancelFocusTransition();
@@ -1311,7 +1360,7 @@ export function FloatingCart() {
                         ? "관심 사진 상세, 좌우로 다른 관심 사진 보기"
                         : "관심 사진 상세"
                       : open
-                        ? selectMode
+                        ? gridMode
                           ? "선택/해제"
                           : "크게 보기"
                         : "관심 사진 펼치기 (드래그로 이동)"
@@ -1355,11 +1404,11 @@ export function FloatingCart() {
                     }}
                   />
                   {/* 선택 모드 — 우상단 체크 표시 */}
-                  {phase === "spread" && selectMode && !similarMode && (
+                  {phase === "spread" && gridMode && !similarMode && (
                     <span
                       style={{ top: side + 2, right: side + 2 }}
                       className={`absolute grid h-6 w-6 place-items-center rounded-full border-2 ${
-                        selectedIds.has(it.id)
+                        gridSelectedIds.has(it.id)
                           ? "border-brand bg-brand text-white"
                           : "border-white bg-black/25 text-transparent"
                       }`}
@@ -1433,7 +1482,7 @@ export function FloatingCart() {
                   onClick={exitSimilarMode}
                   className="mt-3 cursor-pointer text-sm font-bold text-brand"
                 >
-                  관심사진으로 돌아가기
+                  사진 다시 고르기
                 </button>
               </div>
             </div>
@@ -1545,6 +1594,28 @@ export function FloatingCart() {
                     </button>
                   </div>
                 </>
+              ) : recommendMode && !similarMode ? (
+                <>
+                  <div className="flex flex-1 justify-start">
+                    <button
+                      type="button"
+                      onClick={exitRecommendPick}
+                      aria-label="관심사진으로 돌아가기"
+                      className="pointer-events-auto grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
+                    >
+                      <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M15 5l-7 7 7 7" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <p className="text-sm font-semibold text-white">비슷한 무드 찾기</p>
+                    <span className="pointer-events-none absolute left-1/2 top-full mt-0.5 -translate-x-1/2 whitespace-nowrap text-xs text-white/60">
+                      {recommendIds.size > 0 ? `${recommendIds.size}장 선택` : "사진 고르기"}
+                    </span>
+                  </div>
+                  <div className="flex flex-1" />
+                </>
               ) : similarMode ? (
                 <>
                   <div className="flex flex-1 justify-start">
@@ -1555,7 +1626,7 @@ export function FloatingCart() {
                       onClick={() =>
                         zoomedRecommendation ? setZoomedRecommendation(null) : exitSimilarMode()
                       }
-                      aria-label={zoomedRecommendation ? "사진 닫기" : "관심사진으로 돌아가기"}
+                      aria-label={zoomedRecommendation ? "사진 닫기" : "사진 고르기로 돌아가기"}
                       className="pointer-events-auto grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
                     >
                       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1596,7 +1667,7 @@ export function FloatingCart() {
                         type="button"
                         aria-label="관심사진과 비슷한 사진 보기"
                         aria-busy={similarState.status === "loading"}
-                        onClick={() => void openSimilarRecommendations()}
+                        onClick={startRecommendPick}
                         className="pointer-events-auto grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-full bg-brand text-white shadow-pop transition-opacity hover:opacity-90"
                       >
                         {similarState.status === "loading" ? (
@@ -1633,9 +1704,29 @@ export function FloatingCart() {
               컨테이너는 pointer-events-none, 실제 버튼/폼만 auto → 빈 영역 탭이 그대로 '닫기'로 전달됨. */}
           <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[62] px-4 pb-6 pt-3">
             <div className="mx-auto max-w-md">
-              {selectMode ||
-              (similarMode && recommendationRows.length === 0) ||
-              (rowsMode && !focused) ? null : focused && items.some((i) => i.id === focused) ? (
+              {recommendMode && !similarMode && !focused ? (
+                // AI 추천 1단계 — 무엇을 고르는 화면인지 문구로 말하고, 고르면 그대로 버튼이 된다.
+                recommendIds.size === 0 ? (
+                  <p className="text-center">
+                    <span className="inline-block rounded-full bg-black/65 px-4 py-2.5 text-sm font-semibold text-white shadow-pop backdrop-blur-sm">
+                      비슷한 무드의 사진을 추천받아요
+                    </span>
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void openSimilarRecommendations()}
+                    disabled={similarState.status === "loading"}
+                    className="pointer-events-auto flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90 disabled:cursor-default disabled:opacity-70"
+                  >
+                    {similarState.status === "loading" && (
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/35 border-t-white motion-reduce:animate-none" />
+                    )}
+                    사진 추천 받기 {recommendIds.size}장
+                  </button>
+                )
+              ) : selectMode || similarMode || (rowsMode && !focused) ? null : focused &&
+                items.some((i) => i.id === focused) ? (
                 <div
                   className="transition-opacity duration-150"
                   style={{
