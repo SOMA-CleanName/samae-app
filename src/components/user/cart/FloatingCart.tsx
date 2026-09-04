@@ -6,7 +6,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useCart, cartCardJitter, PEEK_CARD_W, type CartItem } from "./CartProvider";
 import { InterestSimilarEntry } from "./InterestSimilarEntry";
 import { InterestSimilarRows } from "./InterestSimilarRows";
-import { loadCartPhotoMeta } from "@/app/(user)/actions";
+import { loadCartPhotoMeta, loadCartPhotographers } from "@/app/(user)/actions";
 import { loadInterestSimilarGroups } from "@/app/(user)/feed-actions";
 import { mpTrack } from "@/lib/mixpanel";
 import {
@@ -28,6 +28,20 @@ import {
   toInterestRecommendationRows,
   type InterestRecommendationRow,
 } from "@/lib/interest-similar-recommendations";
+import {
+  UNKNOWN_PHOTOGRAPHER,
+  cartOwnerMap,
+  groupCartByPhotographer,
+  groupDisplayName,
+  groupInquiryPhotoId,
+  PILE_VISIBLE_MAX,
+  pileCoverItems,
+  reconciledActiveGroupId,
+  shouldShowPhotographerPiles,
+  visibleCartItems,
+  type CartGroup,
+  type CartPhotoOwner,
+} from "@/lib/cart-photographer-groups";
 import { recordFeedClick } from "@/lib/feed-click-history";
 import { routeSessionKey } from "@/lib/search-navigation";
 
@@ -94,17 +108,38 @@ function spreadJitter(id: string): { rot: number; fx: number; fy: number } {
   };
 }
 
+// 작가 더미에 쌓인 카드 포즈 — 맨 위(0)는 거의 반듯하고, 뒤로 갈수록 살짝 어긋나게.
+// 이보다 뒤(3장 이상)는 그리지 않고 개수 배지로만 알린다.
+const PILE_STACK_POSE = [
+  { rot: -2, dx: 0, dy: 0 },
+  { rot: -9, dx: -7, dy: 5 },
+  { rot: 8, dx: 8, dy: 7 },
+] as const;
+
 type Placed = {
   it: CartItem;
   x: number;
   y: number;
   rot: number;
+  s: number; // 펼침 배율 — 작가 더미에서는 축소해 한 자리에 겹쳐 쌓는다
   photoW: number;
   photoH: number;
   side: number;
   bottom: number;
   z: number; // 담은 순서 인덱스(최신=큼) → zIndex
   g: number; // 그리드 순서(최신=0, 좌상단) → 펼침 스태거
+  // 작가 더미에서 몇 번째로 쌓인 카드인지(0=맨 위). null 이면 일반 펼침 배치.
+  stack: number | null;
+  // 이 카드가 속한 작가 더미 — 탭하면 그 작가를 연다
+  groupId: string | null;
+};
+
+// 작가 더미 하나의 화면 위치 — 이름표·문의 버튼을 카드 아래에 올리기 위한 좌표.
+type PilePlacement = {
+  group: CartGroup;
+  cx: number;
+  labelTop: number;
+  width: number;
 };
 
 type FocusTransition = {
@@ -166,6 +201,14 @@ export function FloatingCart() {
   // 순서로 한 단계씩 물러나야 해서 이 계층이 들고 있다.
   const [zoomedRecommendation, setZoomedRecommendation] = useState<CartItem | null>(null);
   const [similarState, setSimilarState] = useState<SimilarRequestState>({ status: "idle" });
+  // 작가별 더미 — 카트 아이템(localStorage)엔 작가가 없어 도크를 열 때 한 번에 조회한다.
+  // key 는 조회 시점의 관심사진 목록. 목록이 바뀌면 다시 받아 새 사진의 작가를 채운다.
+  const [ownerState, setOwnerState] = useState<{ key: string; owners: CartPhotoOwner[] }>({
+    key: "",
+    owners: [],
+  });
+  // 열어 놓은 작가 더미. null 이면 더미 화면(작가 고르는 단계).
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
   const prevCount = useRef(0);
   const tipDone = useRef(false); // 한 번 노출 후 끝 — 재등장 방지
   const tipTimers = useRef<number[]>([]);
@@ -195,7 +238,31 @@ export function FloatingCart() {
   // 도크를 펼치기 직전(배경 스크롤 잠그기 전)의 페이지 스크롤 위치.
   // 잠금 중에는 window.scrollY 를 신뢰할 수 없어(브라우저에 따라 0 으로 클램프) 복귀 좌표로 이 값을 쓴다.
   const pageScrollY = useRef(0);
-  const navigationIds = useMemo(() => items.map((item) => item.id).reverse(), [items]);
+  const owners = useMemo(() => cartOwnerMap(ownerState.owners), [ownerState.owners]);
+  // 작가를 아직 못 받아왔으면 빈 배열 → 지금까지처럼 한 화면에 전부 펼친다.
+  const groups = useMemo(
+    () => (ownerState.owners.length === 0 ? [] : groupCartByPhotographer(items, owners)),
+    [items, owners, ownerState.owners.length]
+  );
+  const pileMode = shouldShowPhotographerPiles(groups) && !activeGroupId;
+  // 도크/중앙 스택에서 '위 5장만 보이기' 판단용 — 담은 순서(최신=0)로만 센다.
+  // 펼침 배치의 g 는 작가 더미에서 '작가 순서' 가 되므로 여기에 쓰면 안 된다.
+  const dockRank = useMemo(
+    () => new Map(items.map((item, i) => [item.id, items.length - 1 - i])),
+    [items]
+  );
+  const activeGroup = activeGroupId
+    ? groups.find((g) => g.photographerId === activeGroupId) ?? null
+    : null;
+  // 더미 화면에서도 카드는 전부 렌더한다(더미에 쌓인 채로) — 작가를 열 때
+  // 같은 엘리먼트가 그대로 펼쳐져야 '복제본 없음' 원칙이 유지된다.
+  const displayItems = visibleCartItems(groups, activeGroupId, items);
+  const displayCount = displayItems.length;
+  // 확대 상태의 위/아래 넘기기는 지금 보고 있는 묶음 안에서만 순환한다.
+  const navigationIds = useMemo(
+    () => displayItems.map((item) => item.id).reverse(),
+    [displayItems]
+  );
   const currentInterestIds = useMemo(() => items.map((item) => item.id), [items]);
   const currentInterestKey = useMemo(
     () => interestRecommendationRequestKey(currentInterestIds),
@@ -243,8 +310,31 @@ export function FloatingCart() {
   const recommendationRows = similarState.status === "ready" ? similarState.rows : [];
   // 추천은 별도 줄 레이아웃(InterestSimilarRows)이 그리므로 폴라로이드 배치 계산은
   // 관심사진만 다룬다. 두 화면의 배치를 섞지 않는 편이 양쪽 모두 단순해진다.
-  const displayItems = items;
-  const displayCount = displayItems.length;
+
+  // 관심사진 목록이 바뀌면(담기·빼기) 작가를 다시 조회 — 새로 담은 사진의 작가를 채운다.
+  // 도크를 연 동안에만 호출한다. 닫힌 채로 담기만 반복할 때 서버를 두드릴 이유가 없다.
+  useEffect(() => {
+    if (!open || ownerState.key === currentInterestKey || currentInterestIds.length === 0) return;
+    let alive = true;
+    loadCartPhotographers(currentInterestIds)
+      .then((rows) => {
+        if (alive) setOwnerState({ key: currentInterestKey, owners: rows });
+      })
+      .catch(() => {
+        /* 못 받아오면 작가별 묶음 없이 한 화면에 펼친다 */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [open, currentInterestKey, currentInterestIds, ownerState.key]);
+
+  // 열어 둔 작가의 사진을 다 빼면 더미 화면으로 되돌린다.
+  useEffect(() => {
+    const next = reconciledActiveGroupId(groups, activeGroupId);
+    if (next === activeGroupId) return;
+    const timer = window.setTimeout(() => setActiveGroupId(next), 0);
+    return () => window.clearTimeout(timer);
+  }, [groups, activeGroupId]);
 
   function clearSwipeHintTimers() {
     if (swipeHintShowTimer.current != null) {
@@ -261,6 +351,25 @@ export function FloatingCart() {
     if (recommendationEntryTimer.current == null) return;
     window.clearTimeout(recommendationEntryTimer.current);
     recommendationEntryTimer.current = null;
+  }
+
+  // 작가 더미 열기/닫기 — 카드 레이어는 그대로 두고 배치만 바뀐다(같은 엘리먼트가 펼쳐짐).
+  function openGroup(group: CartGroup) {
+    mpTrack("Open Cart Photographer Group", {
+      photographer_id: group.photographerId,
+      item_count: group.items.length,
+      group_count: groups.length,
+    });
+    setActiveGroupId(group.photographerId);
+    requestAnimationFrame(() => {
+      if (layerRef.current) layerRef.current.scrollTop = 0;
+    });
+  }
+  function closeGroup() {
+    setActiveGroupId(null);
+    requestAnimationFrame(() => {
+      if (layerRef.current) layerRef.current.scrollTop = 0;
+    });
   }
 
   function exitSimilarMode() {
@@ -547,12 +656,15 @@ export function FloatingCart() {
     };
   }, [open]);
 
-  // ── 폰 내장 뒤로가기: 논리적 '깊이'마다 히스토리 가드 1개 (열림=1, 확대/선택=2). ──
+  // ── 폰 내장 뒤로가기: 논리적 '깊이'마다 히스토리 가드 1개
+  //    (더미 화면=1, 작가 하나 열기=+1, 확대/선택=+1). ──
   // 깊이가 늘면 가드를 push, 줄면 제거. 뒤로(popstate)는 한 단계씩만 닫는다(뒤 페이지로 안 샘).
   // 핵심: pushState/back 은 전부 effect(렌더 후)에서만 호출 → popstate 핸들러 '안'에서
   // 재push 하던 이전 방식의 모바일+Next 라우터 비신뢰성 문제를 피한다.
   const histRef = useRef({ pushed: 0, browserPopped: false, ignore: 0 });
-  const navDepth = !open ? 0 : focused || selectMode || similarMode ? 2 : 1;
+  const navDepth = !open
+    ? 0
+    : 1 + (activeGroupId ? 1 : 0) + (focused || selectMode || similarMode ? 1 : 0);
 
   useEffect(() => {
     const h = histRef.current;
@@ -591,6 +703,8 @@ export function FloatingCart() {
       exitSelect();
     } else if (similarMode) {
       exitSimilarMode();
+    } else if (activeGroupId) {
+      closeGroup();
     } else if (open) {
       close();
     } else {
@@ -725,6 +839,7 @@ export function FloatingCart() {
     if (showRecommendationEntry) {
       mpTrack("View Similar Interest Entry", { interest_count: currentInterestIds.length });
     }
+    setActiveGroupId(null); // 열 때는 항상 작가 고르는 화면부터
     setPhase("center");
     window.setTimeout(() => {
       setPhase("spread");
@@ -746,6 +861,7 @@ export function FloatingCart() {
     setSimilarMode(false);
     setSimilarState({ status: "idle" });
     setFocused(null);
+    setActiveGroupId(null);
     setSelectMode(false);
     setSelectedIds(new Set());
     setClosing(true);
@@ -765,6 +881,7 @@ export function FloatingCart() {
       cancelFocusTransition();
       setFocused(null);
     }
+    else if (activeGroupId) closeGroup();
     else close();
   }
   // 도크에서 다른 페이지로 떠나기 전, 뒤에 있던 목록의 스크롤 위치를 저장한다.
@@ -814,6 +931,7 @@ export function FloatingCart() {
     dismissSwipeHint();
     cancelFocusTransition();
     setFocused(null);
+    setActiveGroupId(null);
     setSelectMode(false);
     setSelectedIds(new Set());
     setPhase("dock");
@@ -889,7 +1007,7 @@ export function FloatingCart() {
   const LONG_PRESS_MS = 420;
   function cardPointerDown(e: React.PointerEvent, id: string) {
     startDrag(e); // 도크 단계 드래그(펼침 단계에선 내부에서 무시됨)
-    if (phase !== "spread" || selectMode || focused || similarMode) return;
+    if (phase !== "spread" || selectMode || focused || similarMode || pileMode) return;
     longPress.current = { timer: null, fired: false, x: e.clientX, y: e.clientY };
     longPress.current.timer = window.setTimeout(() => {
       longPress.current.fired = true;
@@ -914,16 +1032,21 @@ export function FloatingCart() {
       longPress.current.timer = null;
     }
   }
-  // ── 펼침 레이아웃(메이슨리) — 열별로 높이를 누적해 채운다. 그리드와 달리 셀 높이를
-  //    고정하지 않아, 가로로 긴 사진 아래에 빈틈이 안 생기고 각 사진은 원본 비율을 유지한다. ──
-  const { cards, contentH, cardW, SCROLL } = ((): {
+  // ── 펼침 레이아웃 ──
+  //  · 작가 더미(pileMode): 작가마다 폴라로이드 한 무더기. 이름표·문의 버튼은 더미 아래.
+  //  · 메이슨리: 열별로 높이를 누적해 채운다. 그리드와 달리 셀 높이를 고정하지 않아,
+  //    가로로 긴 사진 아래에 빈틈이 안 생기고 각 사진은 원본 비율을 유지한다.
+  // 카드 크기(cardW·photoH)는 두 배치에서 같은 값을 쓰고 더미 쪽만 scale 로 줄인다 →
+  // 더미에서 작가를 열 때 transform 만 바뀌어(크기 스냅 없이) 그대로 펼쳐진다.
+  const { cards, piles, contentH, cardW, SCROLL } = ((): {
     cards: Placed[];
+    piles: PilePlacement[];
     contentH: number;
     cardW: number;
     SCROLL: boolean;
   } => {
     if (!vp || displayCount === 0) {
-      return { cards: [], contentH: 0, cardW: CART_W, SCROLL: false };
+      return { cards: [], piles: [], contentH: 0, cardW: CART_W, SCROLL: false };
     }
     const { w: W, h: H } = vp;
     const padX = Math.max(16, W * 0.06);
@@ -933,7 +1056,8 @@ export function FloatingCart() {
     const TARGET_COL = 184; // 목표 열 폭 → 카드 ~160px. 화면 넓으면 같은 크기로 열만 늘림
     const GAP_Y = 16; // 같은 열 카드 세로 간격
 
-    const cols = Math.max(2, Math.min(displayCount, Math.round(areaW / TARGET_COL)));
+    // 열 수는 화면 폭만 보고 정한다(사진 장수와 무관) → 더미↔작가 전환에서 카드 크기가 안 변함.
+    const cols = Math.max(2, Math.round(areaW / TARGET_COL));
     const colW = areaW / cols;
     const cardW = Math.min(colW * 0.92, 240);
     const effCols = Math.min(displayCount, cols); // 실제 사용 열 수(사진 1장이면 1열)
@@ -943,6 +1067,78 @@ export function FloatingCart() {
     const bottom = Math.max(14, Math.round(cardW * 0.16));
     const photoW = Math.round(cardW - side * 2);
     const maxPhotoH = Math.round(cardW * 1.7); // 극단적 세로 사진만 상한(나머지는 자연 비율 그대로)
+    const photoHOf = (it: CartItem) => {
+      const ratio = it.w > 0 && it.h > 0 ? it.h / it.w : 1;
+      return Math.min(Math.max(40, Math.round(photoW * ratio)), maxPhotoH);
+    };
+    const avail = Math.max(180, H - topPad - bottomReserve);
+
+    // ── 작가 더미 배치 ──
+    if (pileMode) {
+      const PILE_TARGET_COL = 132; // 폰에서 한 줄에 세 작가 — 고르는 화면이라 카드보다 촘촘하게
+      const PILE_LABEL_H = 62; // 이름표 + 문의 버튼이 들어갈 자리
+      const PILE_GAP_Y = 20;
+      // '비슷한 사진' 진입 버튼이 오른쪽 가장자리에 상주한다 → 그만큼 비워 겹치지 않게.
+      // 열 수는 원래 폭으로 정하고 열 폭만 줄인다(줄여 놓은 폭으로 세면 한 줄에 담기는 작가가 준다).
+      const rightReserve = canOpenInterestRecommendations(currentInterestIds) ? 60 : 0;
+      const pileAreaW = Math.max(160, areaW - rightReserve);
+      const pileCols = Math.max(1, Math.min(groups.length, Math.round(areaW / PILE_TARGET_COL)));
+      const pileColW = pileAreaW / pileCols;
+      const pileXLeft = padX + (pileAreaW - Math.min(groups.length, pileCols) * pileColW) / 2;
+      const scale = Math.max(0.34, Math.min((pileColW * 0.62) / cardW, 0.86));
+
+      const coverH = groups.map((g) => (photoHOf(pileCoverItems(g)[0]) + side + bottom) * scale);
+      const rowCount = Math.ceil(groups.length / pileCols);
+      const rowH = new Array(rowCount).fill(0);
+      groups.forEach((_, gi) => {
+        const r = Math.floor(gi / pileCols);
+        rowH[r] = Math.max(rowH[r], coverH[gi]);
+      });
+      const rowTop = new Array(rowCount).fill(topPad);
+      for (let r = 1; r < rowCount; r++) {
+        rowTop[r] = rowTop[r - 1] + rowH[r - 1] + PILE_LABEL_H + PILE_GAP_Y;
+      }
+      const stackH = rowTop[rowCount - 1] + rowH[rowCount - 1] + PILE_LABEL_H - topPad;
+      const SCROLL = stackH > avail;
+      const yOffset = SCROLL ? 0 : Math.max(0, (avail - stackH) / 2);
+      const contentH = SCROLL ? topPad + stackH + 96 : H; // 마지막 줄 이름표가 하단 안내에 안 가리게
+
+      const cards: Placed[] = [];
+      const piles: PilePlacement[] = [];
+      groups.forEach((group, gi) => {
+        const r = Math.floor(gi / pileCols);
+        const c = gi % pileCols;
+        const cx = pileXLeft + (c + 0.5) * pileColW;
+        const cy = rowTop[r] + yOffset + coverH[gi] / 2;
+        piles.push({
+          group,
+          cx,
+          labelTop: rowTop[r] + yOffset + rowH[r] + 8,
+          width: pileColW,
+        });
+        group.items.forEach((it, i) => {
+          const stack = group.items.length - 1 - i; // 0 = 가장 최근에 담은 카드(맨 위)
+          const pose = PILE_STACK_POSE[Math.min(stack, PILE_STACK_POSE.length - 1)];
+          const j = cartCardJitter(it.id);
+          cards.push({
+            it,
+            x: cx + (stack < PILE_STACK_POSE.length ? pose.dx : 0),
+            y: cy + (stack < PILE_STACK_POSE.length ? pose.dy : 0),
+            rot: pose.rot + (j.rot % 4),
+            s: scale,
+            photoW,
+            photoH: photoHOf(it),
+            side,
+            bottom,
+            z: groups.length * 8 + (displayCount - stack),
+            g: gi,
+            stack,
+            groupId: group.photographerId,
+          });
+        });
+      });
+      return { cards, piles, contentH, cardW, SCROLL };
+    }
 
     // 최신(g=0)부터 '가장 낮은(짧은) 열'에 차례로 투입 → 열 높이 균형, 아래 빈틈 최소화.
     const colBottom: number[] = new Array(effCols).fill(topPad); // 각 열의 현재 바닥 y
@@ -950,8 +1146,7 @@ export function FloatingCart() {
     for (const { it, i } of displayItems
       .map((it, i) => ({ it, i, g: displayCount - 1 - i }))
       .sort((a, b) => a.g - b.g)) {
-      const ratio = it.w > 0 && it.h > 0 ? it.h / it.w : 1;
-      const photoH = Math.min(Math.max(40, Math.round(photoW * ratio)), maxPhotoH);
+      const photoH = photoHOf(it);
       const cardH = photoH + side + bottom;
       let c = 0;
       for (let k = 1; k < effCols; k++) if (colBottom[k] < colBottom[c]) c = k;
@@ -961,7 +1156,6 @@ export function FloatingCart() {
 
     const maxBottom = Math.max(...colBottom) - GAP_Y; // 마지막 GAP 제거
     const gridH = maxBottom - topPad;
-    const avail = Math.max(180, H - topPad - bottomReserve);
     const SCROLL = gridH > avail; // 한 화면 넘으면 스크롤
     const yOffset = SCROLL ? 0 : Math.max(0, (avail - gridH) / 2); // 적으면 세로 중앙 정렬
     const contentH = SCROLL ? maxBottom + 32 : H;
@@ -973,9 +1167,23 @@ export function FloatingCart() {
       const j = spreadJitter(it.id);
       const x = p.cx + j.fx * Math.min(10, colW * 0.04);
       const y = p.cy + yOffset + j.fy * 5; // 세로는 누적 배치라 작은 흔들림만(겹침 방지)
-      return { it, x, y, rot: j.rot, photoW, photoH: p.photoH, side, bottom, z: i, g };
+      return {
+        it,
+        x,
+        y,
+        rot: j.rot,
+        s: 1,
+        photoW,
+        photoH: p.photoH,
+        side,
+        bottom,
+        z: i,
+        g,
+        stack: null,
+        groupId: activeGroupId,
+      };
     });
-    return { cards, contentH, cardW, SCROLL };
+    return { cards, piles: [], contentH, cardW, SCROLL };
   })();
 
   // ── 도크(닫힘) 위치·스케일 ──
@@ -1007,8 +1215,8 @@ export function FloatingCart() {
     if (!el) return;
     const rest = el.style.transform; // 현재 도크 포즈(인라인, tfAt 형태)
     if (!rest) return;
-    const nc = cards[cards.length - 1]; // 최신 카드 = 마지막
-    if (!nc || nc.it.id !== newestId) return;
+    const nc = cards.find((c) => c.it.id === newestId); // 배치 순서와 무관하게 최신 카드를 찾는다
+    if (!nc) return;
     const ncW = nc.photoW + nc.side * 2;
     const ncH = nc.photoH + nc.side + nc.bottom;
     const fromCx = from.left + from.width / 2;
@@ -1084,7 +1292,7 @@ export function FloatingCart() {
           className={`relative w-full ${similarMode ? "hidden" : ""}`}
           style={{ height: phase === "spread" && SCROLL ? contentH : "100%" }}
         >
-          {cards.map(({ it, x, y, rot, photoW, photoH, side, bottom, z, g }) => {
+          {cards.map(({ it, x, y, rot, s: spreadScale, photoW, photoH, side, bottom, z, g, stack, groupId }) => {
             const isLeaving = leaving.has(it.id);
             const j = cartCardJitter(it.id);
             // 도크 회전 부호를 '고정 순번(seq)'으로 번갈아(±). seq 는 담기·빼기에도 안 바뀌어
@@ -1129,18 +1337,24 @@ export function FloatingCart() {
               tf = tfAt(W / 2, focusScroll + H * 0.42, focusScale, 0);
               op = 1;
             } else if (phase === "spread") {
-              tf = tfAt(x, y, 1, rot);
-              op = anyFocused ? 0 : selectMode && !selectedIds.has(it.id) ? 0.5 : 1;
+              tf = tfAt(x, y, spreadScale, rot);
+              // 더미에 깊이 묻힌 카드는 그리지 않는다 — 개수는 이름표가 말해준다.
+              op =
+                anyFocused || (stack != null && stack >= PILE_VISIBLE_MAX)
+                  ? 0
+                  : selectMode && !selectedIds.has(it.id)
+                    ? 0.5
+                    : 1;
             } else if (belowFold) {
               tf = tfAt(x, y, 1, rot);
               op = 0;
             } else if (phase === "center") {
               tf = tfAt(cx + j.dx, cy + j.dy, dockScale, jRot);
-              op = g >= 5 ? 0 : 1;
+              op = (dockRank.get(it.id) ?? 0) >= 5 ? 0 : 1;
             } else {
               // 도크 — x,y 무관 고정 좌표
               tf = tfAt(dockCx + j.dx, dockCy + j.dy, dockScale, jRot);
-              op = g >= 5 ? 0 : 1;
+              op = (dockRank.get(it.id) ?? 0) >= 5 ? 0 : 1;
             }
             // 펼칠 때만 스태거 — 그리드 위(g 작은 쪽=최신)부터 한 장씩. 포커스 이동은 즉시.
             const delay = !dragging && phase === "spread" && !anyFocused ? Math.min(g, 16) * 22 : 0;
@@ -1180,6 +1394,11 @@ export function FloatingCart() {
                     }
                     if (phase === "spread") {
                       if (similarMode) leaveToRecommendationPhoto(it.id);
+                      // 더미 화면에서 카드를 누르면 그 작가의 사진만 펼친다.
+                      else if (pileMode) {
+                        const group = groups.find((gr) => gr.photographerId === groupId);
+                        if (group) openGroup(group);
+                      }
                       else if (selectMode) toggleSelect(it.id);
                       else if (focused === it.id) {
                         dismissSwipeHint();
@@ -1199,6 +1418,14 @@ export function FloatingCart() {
                   aria-label={
                     similarMode
                       ? "비슷한 사진 상세 보기"
+                      : pileMode && open
+                      ? `${groupDisplayName(
+                          groups.find((gr) => gr.photographerId === groupId) ?? {
+                            photographerId: UNKNOWN_PHOTOGRAPHER,
+                            displayName: null,
+                            items: [],
+                          }
+                        )} 관심 사진 펼치기`
                       : focused
                       ? navigationIds.length > 1
                         ? "관심 사진 상세, 위아래로 다른 관심 사진 보기"
@@ -1264,6 +1491,46 @@ export function FloatingCart() {
               </div>
             );
           })}
+
+          {/* 작가 이름표 · 장수 · 문의 — 더미 바로 아래에 붙는다. */}
+          {phase === "spread" &&
+            pileMode &&
+            !focused &&
+            piles.map(({ group, cx, labelTop, width }) => {
+              const inquiryPhotoId = groupInquiryPhotoId(group);
+              return (
+                <div
+                  key={group.photographerId}
+                  className="absolute flex flex-col items-center px-1 text-center"
+                  style={{ left: cx - width / 2, top: labelTop, width, zIndex: 900 }}
+                >
+                  <p className="max-w-full truncate text-sm font-semibold text-white">
+                    {groupDisplayName(group)}
+                  </p>
+                  <div className="mt-1 flex items-center gap-2">
+                    <span className="text-xs text-white/60">{group.items.length}장</span>
+                    {group.photographerId !== UNKNOWN_PHOTOGRAPHER && inquiryPhotoId && (
+                      // 사진 상세의 '무료로 견적 받아보기'와 같은 Meta Lead 전환(data-quote-lead).
+                      <button
+                        type="button"
+                        data-quote-lead=""
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          mpTrack("Click Cart Group Inquiry", {
+                            photographer_id: group.photographerId,
+                            item_count: group.items.length,
+                          });
+                          leaveToInquiry(`/inquiry/photo/${inquiryPhotoId}`);
+                        }}
+                        className="cursor-pointer rounded-full bg-brand px-2.5 py-1 text-xs font-bold text-white shadow-pop transition-opacity hover:opacity-90"
+                      >
+                        문의
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
         </div>
       </div>
 
@@ -1302,7 +1569,8 @@ export function FloatingCart() {
           {canOpenInterestRecommendations(currentInterestIds) &&
             !focused &&
             !selectMode &&
-            !similarMode && (
+            !similarMode &&
+            !activeGroupId && (
               <InterestSimilarEntry
                 collapsed={recommendationEntryCollapsed}
                 loading={similarState.status === "loading"}
@@ -1474,8 +1742,9 @@ export function FloatingCart() {
                   <div className="flex flex-1 justify-start">
                     <button
                       type="button"
-                      onClick={close}
-                      aria-label="뒤로"
+                      // 작가를 열어 둔 상태면 한 단계만 물러난다(작가 사진 → 작가 더미).
+                      onClick={activeGroup ? closeGroup : close}
+                      aria-label={activeGroup ? "작가 목록으로" : "뒤로"}
                       className="pointer-events-auto grid h-9 w-9 cursor-pointer place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
                     >
                       <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
@@ -1483,21 +1752,26 @@ export function FloatingCart() {
                       </svg>
                     </button>
                   </div>
-                  {/* '관심 사진' 은 가로·세로 정중앙, 개수는 absolute 로 아래에(타이틀 안 밀림) */}
-                  <div className="relative">
-                    <p className="text-sm font-semibold text-white">관심 사진</p>
+                  {/* 제목은 가로·세로 정중앙, 개수는 absolute 로 아래에(타이틀 안 밀림) */}
+                  <div className="relative max-w-[52vw]">
+                    <p className="truncate text-sm font-semibold text-white">
+                      {activeGroup ? groupDisplayName(activeGroup) : "관심 사진"}
+                    </p>
                     <span className="pointer-events-none absolute left-1/2 top-full mt-0.5 -translate-x-1/2 whitespace-nowrap text-xs text-white/60">
-                      {N}장
+                      {activeGroup ? activeGroup.items.length : N}장
                     </span>
                   </div>
                   <div className="flex flex-1 justify-end">
-                    <button
-                      type="button"
-                      onClick={() => setSelectMode(true)}
-                      className="pointer-events-auto cursor-pointer rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
-                    >
-                      선택
-                    </button>
+                    {/* 더미 화면에선 선택할 대상이 사진이 아니라 작가라 '선택' 을 내리지 않는다. */}
+                    {!pileMode && (
+                      <button
+                        type="button"
+                        onClick={() => setSelectMode(true)}
+                        className="pointer-events-auto cursor-pointer rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur transition-colors hover:bg-white/25"
+                      >
+                        선택
+                      </button>
+                    )}
                   </div>
                 </>
               )}
@@ -1575,7 +1849,7 @@ export function FloatingCart() {
                 // 전체·묶음 상담 CTA 제거 — 개별 사진 상담으로만 안내.
                 <p className="text-center">
                   <span className="inline-block rounded-full bg-black/65 px-4 py-2.5 text-sm font-semibold text-white shadow-pop backdrop-blur-sm">
-                    마음에 드는 사진을 담아보세요
+                    {pileMode ? "작가를 눌러 담은 사진을 펼쳐보세요" : "마음에 드는 사진을 담아보세요"}
                   </span>
                 </p>
               )}

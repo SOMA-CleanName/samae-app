@@ -184,3 +184,35 @@ export async function loadCartPhotoMeta(photoId: string): Promise<{
 }
 
 // (추천 피드는 discovery.fetchSimilarPhotos 로 이전 — 태그 유사도순 풀을 서버에서 한 번에 제공)
+
+// 관심사진(장바구니) 사진들의 작가 — 도크를 펼칠 때 작가별 더미로 묶기 위해 한 번에 조회.
+// 카트 아이템(localStorage)엔 작가가 없고, 확대용 loadCartPhotoMeta 는 1장씩이라 따로 둔다.
+export async function loadCartPhotographers(photoIds: string[]): Promise<
+  { photoId: string; photographerId: string; displayName: string | null }[]
+> {
+  const ids = [...new Set(photoIds.filter((id) => typeof id === "string" && id.length > 0))];
+  if (ids.length === 0) return [];
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("photos")
+    .select(
+      "id, photographer_id, photographer:photographers!photos_photographer_id_fkey(display_name)"
+    )
+    .in("id", ids);
+
+  return ((data ?? []) as unknown as {
+    id: string;
+    photographer_id: string | null;
+    photographer: { display_name: string | null } | { display_name: string | null }[] | null;
+  }[])
+    .filter((row) => !!row.photographer_id)
+    .map((row) => {
+      const ph = Array.isArray(row.photographer) ? row.photographer[0] : row.photographer;
+      return {
+        photoId: row.id,
+        photographerId: row.photographer_id as string,
+        displayName: ph?.display_name ?? null,
+      };
+    });
+}
