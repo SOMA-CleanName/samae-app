@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { resolveCoverForPurpose } from "@/lib/taste-purposes";
 import { resolveExplorePhotoIds } from "@/lib/target-categories";
-import type { GalleryPhoto } from "@/lib/discovery";
+import { fetchAlbumDescriptions, type GalleryPhoto } from "@/lib/discovery";
 
 const GALLERY_SELECT =
   "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name)";
@@ -520,6 +520,8 @@ export type FeaturedPhoto = {
   location: string | null;
   /** 최근 windowDays 간 이 게시물(앨범 전체)의 조회수 합. 캡션에 수치로 싣는다. */
   views: number;
+  /** 작가가 이 게시물(앨범)에 직접 쓴 설명글. 없으면 null — 대신 지어내지 않는다. */
+  description: string | null;
 };
 
 /**
@@ -558,29 +560,38 @@ export async function listFeaturedPhotos(
     }
   }
 
-  return [...groups.values()]
-    .sort((a, b) => b.score - a.score || (a.recency < b.recency ? 1 : -1))
-    .slice(0, limit)
-    .map((g) => {
-      // 대표는 점수가 가장 높은 컷. 동점이면 앨범 순서 앞쪽.
-      const sorted = g.photos
-        .slice()
-        .sort(
-          (a, b) => scoreOf(b.id) - scoreOf(a.id) || (a.sort_order ?? 0) - (b.sort_order ?? 0)
-        );
-      const cover = sorted[0];
-      return {
-        id: cover.id,
-        coverUrl: cover.src_url,
-        moreUrls: sorted.slice(1, 5).map((p) => p.src_url),
-        // 앨범 안에서 쓸 만한 촬영지 표기가 하나라도 있으면 그걸 쓴다
-        location:
-          usableLocation(cover.locationText) ??
-          sorted.map((p) => usableLocation(p.locationText)).find(Boolean) ??
-          null,
-        views: g.photos.reduce((sum, p) => sum + viewsOf(p.id), 0),
-      };
-    });
+  const top = [...groups.values()].sort(
+    (a, b) => b.score - a.score || (a.recency < b.recency ? 1 : -1)
+  ).slice(0, limit);
+
+  // 작가가 게시물에 직접 쓴 설명글 — 실린 앨범 것만 일괄 조회
+  const albumIds = top
+    .map((g) => g.photos[0].album_id)
+    .filter((id): id is string => !!id);
+  const descByAlbum = await fetchAlbumDescriptions(albumIds);
+
+  return top.map((g) => {
+    // 대표는 점수가 가장 높은 컷. 동점이면 앨범 순서 앞쪽.
+    const sorted = g.photos
+      .slice()
+      .sort(
+        (a, b) => scoreOf(b.id) - scoreOf(a.id) || (a.sort_order ?? 0) - (b.sort_order ?? 0)
+      );
+    const cover = sorted[0];
+    const albumId = g.photos[0].album_id;
+    return {
+      id: cover.id,
+      coverUrl: cover.src_url,
+      moreUrls: sorted.slice(1, 5).map((p) => p.src_url),
+      // 앨범 안에서 쓸 만한 촬영지 표기가 하나라도 있으면 그걸 쓴다
+      location:
+        usableLocation(cover.locationText) ??
+        sorted.map((p) => usableLocation(p.locationText)).find(Boolean) ??
+        null,
+      views: g.photos.reduce((sum, p) => sum + viewsOf(p.id), 0),
+      description: (albumId ? descByAlbum[albumId] : null) ?? null,
+    };
+  });
 }
 
 // Fisher-Yates 셔플 (원본 불변). 취향 테스트 방문마다 다른 구성용.

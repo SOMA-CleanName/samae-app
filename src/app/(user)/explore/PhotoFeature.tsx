@@ -114,6 +114,14 @@ export function PhotoFeature({ photos }: { photos: FeaturedPhoto[] }) {
                       </span>
                     )}
                   </span>
+
+                  {/* 작가가 이 게시물에 직접 쓴 설명글 — 있을 때만, 두 줄까지.
+                      ⚠️ block 을 같이 주면 line-clamp 의 -webkit-box display 가 덮여 클램프가 풀린다 */}
+                  {p.description && (
+                    <span className="mt-1.5 line-clamp-2 text-[12px] leading-relaxed text-muted">
+                      {p.description}
+                    </span>
+                  )}
                 </figcaption>
               </figure>
             </Link>
