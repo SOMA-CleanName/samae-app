@@ -6,10 +6,8 @@ import {
   groupCartByPhotographer,
   groupDisplayName,
   groupInquiryPhotoId,
-  pileCoverItems,
-  reconciledActiveGroupId,
-  shouldShowPhotographerPiles,
-  visibleCartItems,
+  hasPhotographerGroups,
+  rowItems,
 } from "./cart-photographer-groups.ts";
 
 const item = (id: string) => ({ id, src: `src-${id}`, w: 100, h: 150 });
@@ -18,69 +16,59 @@ const owners = cartOwnerMap([
   { photoId: "b", photographerId: "lee", displayName: "이작가" },
   { photoId: "c", photographerId: "kim", displayName: "김작가" },
   { photoId: "d", photographerId: "lee", displayName: null },
+  { photoId: "e", photographerId: "park", displayName: "박작가" },
 ]);
 
-test("가장 최근에 담은 사진의 작가가 첫 더미", () => {
-  const groups = groupCartByPhotographer(["a", "b", "c"].map(item), owners);
+test("많이 담은 작가가 위, 같은 장수면 최근에 담은 작가가 위", () => {
+  // kim 2장 / lee 1장 — 담기는 lee 가 더 최근이어도 장수가 앞선다.
   assert.deepEqual(
-    groups.map((g) => [g.photographerId, g.items.map((i) => i.id)]),
+    groupCartByPhotographer(["a", "c", "b"].map(item), owners).map((g) => [
+      g.photographerId,
+      g.items.map((i) => i.id),
+    ]),
     [
       ["kim", ["a", "c"]],
       ["lee", ["b"]],
     ]
   );
-});
-
-test("작가를 못 찾은 사진은 한 더미로 모여 맨 뒤", () => {
-  const groups = groupCartByPhotographer(["a", "zz", "b", "yy"].map(item), owners);
-  assert.deepEqual(groups.map((g) => g.photographerId), ["lee", "kim", UNKNOWN_PHOTOGRAPHER]);
-  assert.deepEqual(groups[2].items.map((i) => i.id), ["zz", "yy"]);
-  assert.equal(groupDisplayName(groups[2]), "작가 미상");
-});
-
-test("작가가 한 명뿐이면 더미 화면을 건너뛴다", () => {
-  assert.equal(shouldShowPhotographerPiles(groupCartByPhotographer([item("a")], owners)), false);
-  assert.equal(
-    shouldShowPhotographerPiles(groupCartByPhotographer(["a", "b"].map(item), owners)),
-    true
+  // 둘 다 1장 — 나중에 담은 park 가 위로.
+  assert.deepEqual(
+    groupCartByPhotographer(["a", "e"].map(item), owners).map((g) => g.photographerId),
+    ["park", "kim"]
   );
 });
 
-test("이름이 비어도 작가 더미는 유지된다", () => {
+test("작가를 못 찾은 사진은 한 줄로 모여 맨 뒤", () => {
+  const groups = groupCartByPhotographer(["a", "zz", "yy", "xx", "b"].map(item), owners);
+  assert.deepEqual(groups.map((g) => g.photographerId), [
+    "lee",
+    "kim",
+    UNKNOWN_PHOTOGRAPHER,
+  ]);
+  // 3장으로 가장 많아도 작가 미상은 맨 뒤에 둔다.
+  assert.deepEqual(groups[2].items.map((i) => i.id), ["zz", "yy", "xx"]);
+  assert.equal(groupDisplayName(groups[2]), "작가 미상");
+});
+
+test("작가를 하나도 못 받아오면 줄로 묶지 않는다", () => {
+  assert.equal(hasPhotographerGroups([]), false);
+  assert.equal(hasPhotographerGroups(groupCartByPhotographer([item("a")], owners)), true);
+});
+
+test("이름이 비어도 줄은 유지된다", () => {
   const groups = groupCartByPhotographer([item("d")], owners);
   assert.equal(groups[0].photographerId, "lee");
   assert.equal(groupDisplayName(groups[0]), "작가 미상");
 });
 
-test("열어둔 작가가 사라지면 더미 화면으로 되돌린다", () => {
-  const groups = groupCartByPhotographer(["a", "c"].map(item), owners);
-  assert.equal(reconciledActiveGroupId(groups, "kim"), "kim");
-  assert.equal(reconciledActiveGroupId(groups, "lee"), null);
-  assert.equal(reconciledActiveGroupId(groups, null), null);
-});
-
-test("더미 화면은 전부, 작가를 열면 그 작가 사진만 그린다", () => {
-  const items = ["a", "b", "c"].map(item);
-  const groups = groupCartByPhotographer(items, owners);
-  assert.deepEqual(visibleCartItems(groups, null, items).map((i) => i.id), ["a", "c", "b"]);
-  assert.deepEqual(visibleCartItems(groups, "kim", items).map((i) => i.id), ["a", "c"]);
-  // 아직 작가를 못 받아온 동안에는 카트 원본을 그대로 쓴다.
-  assert.deepEqual(visibleCartItems([], null, items).map((i) => i.id), ["a", "b", "c"]);
-});
-
-test("더미 표지는 최근 3장, 맨 위가 가장 최근", () => {
+test("줄 안에서는 최근에 담은 사진이 왼쪽", () => {
   const group = groupCartByPhotographer(["a", "c"].map(item), owners)[0];
-  assert.deepEqual(pileCoverItems(group).map((i) => i.id), ["c", "a"]);
-
-  const many = {
-    photographerId: "kim",
-    displayName: "김작가",
-    items: ["1", "2", "3", "4", "5"].map(item),
-  };
-  assert.deepEqual(pileCoverItems(many).map((i) => i.id), ["5", "4", "3"]);
+  assert.deepEqual(rowItems(group).map((i) => i.id), ["c", "a"]);
+  // 원본은 건드리지 않는다.
+  assert.deepEqual(group.items.map((i) => i.id), ["a", "c"]);
 });
 
-test("작가 문의는 그 작가의 가장 최근 관심사진으로 들어간다", () => {
+test("줄 문의는 그 작가의 가장 최근 관심사진으로 들어간다", () => {
   const group = groupCartByPhotographer(["a", "c"].map(item), owners)[0];
   assert.equal(groupInquiryPhotoId(group), "c");
   assert.equal(groupInquiryPhotoId({ photographerId: "x", displayName: null, items: [] }), null);

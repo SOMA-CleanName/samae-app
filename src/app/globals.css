@@ -383,6 +383,16 @@ select:focus-visible {
   .cart-tip-in { animation: none; }
 }
 
+/* 관심사진 작가 줄 — 아래에서 살짝 올라오며 차례로 놓인다(펼침 스태거의 대역) */
+@keyframes cart-row-card-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+.cart-row-card { animation: cart-row-card-in 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .cart-row-card { animation: none; }
+}
+
 /* 관심 사진 상세 최초 안내 — 문구는 잠깐 머물고, 화살표는 위로 차례로 흩어진다. */
 @keyframes cart-swipe-hint {
   0% { opacity: 0; transform: translate(-50%, 10px); }
