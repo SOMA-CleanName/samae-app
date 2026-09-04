@@ -22,6 +22,7 @@ import { Masthead } from "@/components/editorial/Masthead";
 import { SectionHead } from "@/components/editorial/SectionHead";
 import { IndexList } from "@/components/editorial/IndexList";
 import { Marquee } from "@/components/editorial/Marquee";
+import { SiteFooter } from "@/components/SiteFooter";
 
 export const dynamic = "force-dynamic";
 
@@ -254,46 +255,11 @@ export default async function ExplorePage() {
             )}
 
             {/*
-              판권면(콜로폰) — 잡지 맨 뒤의 그 페이지.
-
-              전에는 "사진부터 보고 싶다면 홈에서" 마퀴가 있었는데, 탭 하나만 누르면
-              갈 수 있는 곳을 큰 배너로 안내하는 셈이라 자리만 먹었다.
-              대신 이 호에 뭐가 실렸는지를 적는다 — 끝났다는 신호이자 사실이다.
-              나중에 광고를 넣는다면 이 위가 그 자리다.
+              푸터 — 다른 지면들과 같은 공통 SiteFooter.
+              한때 자체 판권면(콜로폰: 실린 글·장소·Q&A 수)이 있었는데, 지면마다
+              푸터가 달라 보이는 게 더 손해라 공통으로 통일했다.
             */}
-            <footer className="mt-24 border-t border-line pt-6">
-              <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-3">
-                <span className="font-display text-xl italic leading-none text-brand">samae</span>
-                <dl className="flex flex-wrap gap-x-5 gap-y-1 text-[11px] uppercase tracking-[0.14em] text-faint">
-                  <span className="flex items-baseline gap-1.5">
-                    <dt>Stories</dt>
-                    <dd className="font-bold tabular-nums text-muted">{articles.length}</dd>
-                  </span>
-                  <span className="flex items-baseline gap-1.5">
-                    <dt>Locations</dt>
-                    <dd className="font-bold tabular-nums text-muted">{spots.length}</dd>
-                  </span>
-                  <span className="flex items-baseline gap-1.5">
-                    <dt>Q &amp; A</dt>
-                    <dd className="font-bold tabular-nums text-muted">
-                      {GUIDE_PAGE_ITEMS.length}
-                    </dd>
-                  </span>
-                </dl>
-              </div>
-              <p className="mt-3 text-[11px] leading-relaxed text-faint">
-                사진을 고르면 그 사진을 찍은 작가로 이어집니다.
-              </p>
-              {/* 판권면이 이 지면의 푸터 역할을 한다. 공통 푸터를 또 얹지 않고 링크만 얹는다. */}
-              <nav aria-label="사매 안내" className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-[11px]">
-                <Link href="/trust" className="text-muted transition-colors hover:text-brand">
-                  안전하게 촬영하기
-                </Link>
-                <Link href="/privacy" className="text-muted transition-colors hover:text-brand">
-                  개인정보 처리방침
-                </Link>
-              </nav>
-            </footer>
+            <SiteFooter />
           </>
         )}
       </div>
