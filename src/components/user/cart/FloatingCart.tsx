@@ -1707,9 +1707,16 @@ export function FloatingCart() {
               {recommendMode && !similarMode && !focused ? (
                 // AI 추천 1단계 — 무엇을 고르는 화면인지 문구로 말하고, 고르면 그대로 버튼이 된다.
                 recommendIds.size === 0 ? (
+                  // 무엇을 얻는지(추천)와 지금 할 일(고르기)을 같이 말한다.
+                  // 약속만 있으면 사용자가 다음 손동작을 몰라 화면 앞에서 멈춘다.
                   <p className="text-center">
-                    <span className="inline-block rounded-full bg-black/65 px-4 py-2.5 text-sm font-semibold text-white shadow-pop backdrop-blur-sm">
-                      비슷한 무드의 사진을 추천받아요
+                    <span className="inline-block rounded-2xl bg-black/65 px-5 py-2.5 text-center shadow-pop backdrop-blur-sm">
+                      <span className="block text-sm font-semibold text-white">
+                        비슷한 무드의 사진을 추천받아요
+                      </span>
+                      <span className="mt-0.5 block text-xs font-medium text-white/65">
+                        기준이 될 사진을 선택해 주세요
+                      </span>
                     </span>
                   </p>
                 ) : (
