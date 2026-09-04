@@ -87,6 +87,31 @@ export async function listPublishedArticleSlugs(): Promise<
   }));
 }
 
+/**
+ * 글별 누적 조회수 — analytics_events pageview(/articles/{slug}) 집계. {slug: n}
+ *
+ * articles 에 카운터 컬럼이 없어 이벤트를 세서 만든다. 요청 컨텍스트가 없는
+ * ISR 재생성에서도 돌아야 하므로 admin 클라이언트를 쓴다(경로 집계라 개인정보 없음).
+ * 경로의 한글 slug 는 URL 인코딩돼 있어 디코딩해서 slug 와 맞춘다.
+ */
+export async function countArticleViews(): Promise<Record<string, number>> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("analytics_events")
+    .select("path")
+    .eq("type", "pageview")
+    .like("path", "/articles/%")
+    .limit(100000);
+  const out: Record<string, number> = {};
+  for (const r of data ?? []) {
+    const m = ((r.path as string) || "").match(/^\/articles\/([^/?#]+)/);
+    if (!m) continue;
+    const slug = safeDecode(m[1]);
+    out[slug] = (out[slug] ?? 0) + 1;
+  }
+  return out;
+}
+
 // Next.js 16: 동적 라우트 param 은 자동 디코딩되지 않는다. 한글 slug 를 쓰므로 직접 푼다.
 export function safeDecode(s: string): string {
   try {
