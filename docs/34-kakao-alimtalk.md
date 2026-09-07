@@ -132,9 +132,37 @@ lib/payments.ts 정산완료      →  notifySettlementPaid            ┘   · 
 |---|---|
 | `src/lib/notify-templates.ts` | kind 7종·문안·변수·버튼. 순수 함수 — `notify-templates.test.ts` 가 변수 불일치·잔여 `#{}` 를 잡는다 |
 | `src/lib/notify-dispatch.ts` | 단일 통로. 큐에 pending 먼저 쓰고 결과로 갱신 — 중간에 죽어도 "보내려 했다" 는 남는다 |
-| `src/lib/notify-user.ts` | 발송 시점 규칙. 채팅은 안읽음 0→1 + 4h 쿨다운, 나머지는 사건당 영구 1회 |
+| `src/lib/notify-user.ts` | 발송 시점 규칙. **채팅만 5분 지연 예약**, 나머지는 즉시·사건당 영구 1회 |
+| `src/lib/notification-policy.ts` | 예약 건 발송 판정(읽음 → 쿨다운 → 발송). 순수 함수 — `notification-policy.test.ts` |
+| `src/lib/notification-runner.ts` | 예약 실행기. 크론 `/api/cron/notify-queue` 5분 |
 | `src/lib/alimtalk.ts` · `sms.ts` · `solapi.ts` | 공급자 어댑터. 갈아탈 때 여기만 |
 | `supabase/migrations/0109` | `notification_queue.channel / template_code / variables / provider_group_id` |
+| `supabase/migrations/0110` | `scheduled_at` · `conversation_id` + **대기 예약은 키당 1건** partial unique |
+
+### 채팅 답장만 지연 발송인 이유
+
+거래 알림(제안·수락·입금·정산)은 늦으면 거래가 멈추므로 **즉시**다.
+채팅 답장은 다르다 — 지금 방을 열어두고 대화 중인 사람에게 울릴 이유가 없다.
+
+```
+작가 답장 → 5분 뒤로 예약 (큐에 pending, 대화당 1건)
+   ↓ 크론 5분
+① 읽었나?          → 예. 발송 취소 (skipped: read)
+② 24h 안에 보냈나?  → 예. "마지막 발송 + 24h" 로 연기
+③ 아니면            → deliverQueued (즉시 발송과 같은 경로)
+```
+
+**"지금 보고 있는지" 를 추적하지 않는다.** 방을 열어둔 채라면 그 5분 안에 읽히고
+`user_unread=0` 이 되므로 ①에서 걸러진다. presence 를 따로 관리할 필요가 없다.
+
+②가 취소가 아니라 **연기**인 것이 핵심이다. 취소하면 그 사이 쌓인 답장이 영영 안 알려진다.
+미뤄두면 계속 안 읽고 있을 때 하루 뒤 한 번 더 간다.
+
+안읽음 `0→1` 조건은 두지 않는다. 첫 알림이 나간 뒤 쌓인 답장도 재알림 대상인데
+그 조건이 있으면 예약 자체가 안 생긴다. 중복은 partial unique index 가 막는다.
+
+⚠️ **크론이 5개가 됐다.** Vercel Hobby 는 크론 2개·하루 1회 제한이라 `*/5 * * * *` 가
+돌지 않는다. 배포 전에 플랜을 확인할 것 (Hobby 면 Supabase `pg_cron` 으로).
 
 **dedupe 키**: `<kind>:<conversationId|bookingId>`. `status='sent'` 이력만 본다 — `skipped`·`failed` 는 재시도를 막지 않는다.
 

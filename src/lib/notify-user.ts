@@ -2,6 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dispatchNotify, notifyLink, photographerNotifyTarget } from "@/lib/notify-dispatch";
 import { formatKrwVar, formatShootDateVar, nameVar } from "@/lib/notify-templates";
+import { NOTIFY_DELAY_MS } from "@/lib/notification-policy";
 
 // 서비스 밖 채널(알림톡·문자) 재소환 — "언제 보낼지" 를 정하는 층.
 // "어떻게 보낼지"(채널 선택·중복 억제·큐 기록)는 notify-dispatch.ts 가 맡는다.
@@ -9,14 +10,22 @@ import { formatKrwVar, formatShootDateVar, nameVar } from "@/lib/notify-template
 // 원칙: 앱을 닫아둔 사람이 놓치면 거래가 멈추는 순간에만 보낸다.
 // 채팅 한 줄마다 울리면 알림이 소음이 되고, 소음이 되면 정작 입금·정산 알림도 안 읽힌다.
 
-const CHAT_REPLY_COOLDOWN_MS = 4 * 3600_000;
-
 /**
  * 작가 답장 → 고객 재소환. 메시지 insert 성공 직후 호출 (실패해도 채팅 흐름은 계속).
  *
- * 발송 조건:
- *   · 작가가 보낸 메시지로 고객 안읽음이 0→1 이 된 순간에만 (밀린 안읽음에 연타 금지)
- *   · 대화당 쿨다운 4시간 — 작가가 연속으로 여러 줄을 보내도 알림은 1통
+ * **이 알림만 즉시 보내지 않는다.** 거래 알림(제안·수락·입금·정산)은 늦으면 거래가
+ * 멈추니 그대로 즉시지만, 채팅 답장은 지금 보고 있는 사람에게 울릴 이유가 없다.
+ *
+ * 발송 정책:
+ *   · 5분 뒤로 예약하고, 그 시점에 **여전히 안 읽었을 때만** 보낸다.
+ *     "지금 보고 있는지" 를 따로 추적하지 않는다 — 방을 열어둔 채 대화 중이면
+ *     그 5분 안에 읽히고(user_unread=0) 실행기가 발송을 취소한다.
+ *   · 대화당 대기 중인 예약은 1건 (0110 partial unique index).
+ *     작가가 연달아 여러 줄을 보내도 알림은 1통.
+ *   · 한 번 보낸 뒤에는 24시간 동안 다시 보내지 않는다. 그 사이 도착한 답장은
+ *     실행기가 "마지막 발송 + 24h" 로 미뤄두므로, 계속 안 읽으면 하루 뒤 한 번 더 간다.
+ *
+ * 판정은 notification-policy.ts, 발송은 notification-runner.ts(크론 5분).
  */
 export async function notifyUserOfPhotographerReply(
   conversationId: string,
@@ -28,7 +37,7 @@ export async function notifyUserOfPhotographerReply(
     // 대화·발신자 검증 — 이 대화의 작가가 보낸 게 맞을 때만
     const { data: conv } = await admin
       .from("conversations")
-      .select("id, user_id, photographer_id, user_unread")
+      .select("id, user_id, photographer_id")
       .eq("id", conversationId)
       .maybeSingle();
     if (!conv) return;
@@ -39,15 +48,14 @@ export async function notifyUserOfPhotographerReply(
       .maybeSingle();
     if (!photographer || photographer.profile_id !== senderProfileId) return; // 사용자 발신이면 무시
 
-    // 안읽음 0→1 순간에만 — 트리거(0004)가 insert 와 같은 트랜잭션에서 +1 하므로
-    // 이 시점의 user_unread=1 은 "방금 그 메시지가 첫 안읽음"이라는 뜻
-    if ((conv.user_unread as number) !== 1) return;
-
+    // 안읽음 0→1 조건은 두지 않는다. 첫 알림이 나간 뒤 쌓인 답장도 하루 뒤 재알림
+    // 대상인데, 0→1 만 보면 그 예약이 아예 안 생긴다. 중복은 인덱스가 막는다.
     await dispatchNotify({
       kind: "chat_reply",
       profileId: conv.user_id,
       dedupeKey: `chat_reply:${conversationId}`,
-      cooldownMs: CHAT_REPLY_COOLDOWN_MS,
+      deferMs: NOTIFY_DELAY_MS,
+      conversationId,
       variables: {
         작가명: nameVar(photographer.display_name, "작가"),
         링크: notifyLink(`/chat/${conversationId}`),
