@@ -1,0 +1,163 @@
+# 카카오 알림톡 — 솔라피 셋업·문안·운영
+
+> 작성: 2026-09-07 · 브랜치 `feat/kakao-alimtalk`
+> 코드는 끝나 있다. 이 문서는 **콘솔에서 사람이 해야 하는 일**과 그 뒤 운영 규칙이다.
+
+---
+
+## 0. 한 줄 요약
+
+서비스 밖으로 나가는 알림(작가 답장·새 문의·예약 제안·수락·입금 확인·정산)을
+**카카오 알림톡 1순위, 문자 대체**로 보낸다. 공급사는 솔라피 하나(문자·OTP 와 같은 계정).
+템플릿 ID 가 등록된 알림만 알림톡으로 나가고, 나머지는 자동으로 문자로 내려간다 —
+심사가 끝나는 것부터 하나씩 env 에 채우면 된다.
+
+## 1. 왜 솔라피인가 (결정 기록)
+
+- 알림톡은 카카오가 직접 팔지 않는다. 어느 대행사든 끼어야 하고, 우리 규모에서 단가 차이는 없다.
+- 이미 문자(OTP·재소환)를 솔라피 어댑터로 짜 두었다. 알림톡은 같은 엔드포인트에 `kakaoOptions` 만 얹는다.
+- 카카오 단계 실패(알림톡 미가입·채널 차단)를 솔라피가 문자로 대체 발송해 준다. 우리는 "요청 자체가 거부된" 경우만 문자로 재시도한다.
+- **묶이는 건 템플릿 심사다.** 회사를 옮기면 7종을 다시 등록·심사한다. 코드는 `alimtalk.ts` 한 파일 교체.
+- 검토했다 버린 것: 카카오 "나에게 보내기"(본인 한정·토큰 갱신 부담·이메일 가입자 제외·용도 외 사용).
+
+## 2. 콘솔 체크리스트 (순서대로)
+
+전제: 사업자등록 완료 ✅ · 카카오 비즈니스 채널 개설 ✅ · 070 대표번호 개통 ✅
+
+| # | 할 일 | 어디서 | 산출물 → env |
+|---|---|---|---|
+| 1 | 솔라피 가입(사업자) + **API 키 새로 발급** (구 키는 대화 노출 이력 — docs/23 §7) | solapi.com → API Key | `SOLAPI_API_KEY`, `SOLAPI_API_SECRET` |
+| 2 | 발신번호 등록 — 070 번호, 통신서비스 이용증명원 첨부 | 콘솔 → 발신번호 관리 | `SMS_SENDER=07052364673` |
+| 3 | 카카오 채널 연동 — 채널 검색용 아이디 + 카카오 채널 관리자 휴대폰 인증 | 콘솔 → 카카오 → 채널 연동 | `SOLAPI_KAKAO_PF_ID` |
+| 4 | 템플릿 7종 등록 — §3 원문 그대로, 버튼은 웹링크(변수) | 콘솔 → 카카오 → 템플릿 | 승인 후 `ALIMTALK_TPL_*` |
+| 5 | 선불 충전 + **잔액 알림** 설정 (떨어지면 조용히 멈춘다) | 콘솔 → 결제 | — |
+| 6 | Vercel 프로덕션 env 등록 (위 전부) | Vercel → Settings → Env | — |
+| 7 | 마이그레이션 `0109` 원격 적용 | `node scripts/migrate.cjs 0109` | — |
+
+- 3번 채널 연동 조건: 채널이 **비즈니스 채널**이어야 하고, 프로필 설정에서 '채널 검색 허용'이 켜져 있어야 한다.
+- 4번 심사는 건당 영업일 2~3일. 반려 사유 대부분은 "정보성이 아니라 광고성으로 읽힘"·"변수만으로 이루어진 줄". 문안은 §3 그대로 내고, 고치면 코드 쪽 `notify-templates.ts` 도 같이 고쳐야 한다(테스트가 변수 불일치를 잡는다).
+- 템플릿 카테고리: 전부 **"서비스 이용 → 이용안내/공지"** 또는 **"구매 → 주문/예약"**. 광고성 표기 없음.
+
+## 3. 템플릿 원문 (콘솔에 붙여넣기)
+
+문안의 진실은 `src/lib/notify-templates.ts` 다. 아래는 `npx tsx scripts/print-alimtalk-templates.ts` 출력.
+변수는 `#{이름}` 그대로 등록한다. 버튼 타입은 **웹링크(WL)**, 링크 값은 해당 변수.
+
+## 작가 답장  (chat_reply → ALIMTALK_TPL_CHAT_REPLY)
+받는 사람: customer · 변수: #{작가명}, #{링크}
+버튼: [답장 확인하기] 웹링크 → #{링크}
+```
+[사매] #{작가명} 작가님의 답장이 도착했어요.
+채팅방에서 확인해 주세요.
+#{링크}
+```
+
+## 새 문의  (inquiry_received → ALIMTALK_TPL_INQUIRY_RECEIVED)
+받는 사람: photographer · 변수: #{링크}
+버튼: [문의 확인하기] 웹링크 → #{링크}
+```
+[사매] 새 문의가 들어왔어요.
+안내봇이 먼저 답하고 있어요. 여유 있을 때 채팅방에서 이어받아 주세요.
+#{링크}
+```
+
+## 예약 제안  (booking_proposed → ALIMTALK_TPL_BOOKING_PROPOSED)
+받는 사람: counterparty · 변수: #{상대명}, #{촬영일}, #{금액}, #{링크}
+버튼: [제안 확인하기] 웹링크 → #{링크}
+```
+[사매] #{상대명}님이 예약을 제안했어요.
+· 촬영일: #{촬영일}
+· 금액: #{금액}원
+채팅방에서 내용을 확인하고 수락해 주세요.
+#{링크}
+```
+
+## 예약 수락  (booking_accepted → ALIMTALK_TPL_BOOKING_ACCEPTED)
+받는 사람: counterparty · 변수: #{상대명}, #{촬영일}, #{링크}
+버튼: [예약 확인하기] 웹링크 → #{링크}
+```
+[사매] #{상대명}님이 예약을 수락했어요.
+· 촬영일: #{촬영일}
+입금이 확인되면 예약이 확정돼요. 확인되는 대로 다시 알려드릴게요.
+#{링크}
+```
+
+## 입금 확인 (고객)  (deposit_confirmed → ALIMTALK_TPL_DEPOSIT_CONFIRMED)
+받는 사람: customer · 변수: #{작가명}, #{촬영일}, #{링크}
+버튼: [예약 확인하기] 웹링크 → #{링크}
+```
+[사매] 입금이 확인됐어요. 예약이 확정됐습니다.
+· 작가: #{작가명}
+· 촬영일: #{촬영일}
+작가님이 촬영을 준비해요. 자세한 내용은 예약 페이지에서 확인해 주세요.
+#{링크}
+```
+
+## 입금 확인 (작가)  (booking_confirmed → ALIMTALK_TPL_BOOKING_CONFIRMED)
+받는 사람: photographer · 변수: #{고객명}, #{촬영일}, #{정산금액}, #{링크}
+버튼: [정산 내역 보기] 웹링크 → #{링크}
+```
+[사매] 예약이 확정됐어요. 사매가 입금을 확인했습니다.
+· 고객: #{고객명}
+· 촬영일: #{촬영일}
+· 정산 예정: #{정산금액}원 (수수료 차감 후)
+#{링크}
+```
+
+## 정산 완료  (settlement_paid → ALIMTALK_TPL_SETTLEMENT_PAID)
+받는 사람: photographer · 변수: #{촬영일}, #{정산금액}, #{링크}
+버튼: [정산 내역 보기] 웹링크 → #{링크}
+```
+[사매] 정산이 완료됐어요.
+· 촬영일: #{촬영일}
+· 송금액: #{정산금액}원 (수수료 차감 후)
+받으신 내역을 스튜디오에서 확인해 주세요.
+#{링크}
+```
+
+## 4. 코드 구조
+
+```
+호출부 (언제)                    notify-user.ts          notify-dispatch.ts (어떻게)         어댑터
+─────────────────────────────    ───────────────────     ─────────────────────────────    ─────────────
+chat/actions.ts 작가 발화     →  notifyUserOfPhotographerReply   ┐
+chat/bot-actions.ts 첫 발화   →  notifyPhotographerOfNewInquiry  │  dispatchNotify(kind, vars)    alimtalk.ts ──┐
+actions/bookings.ts 제안·수락 →  notifyBookingProposed/Accepted  ├→  · dedupe (영구 1회 / 쿨다운)   sms.ts ──────┼→ solapi.ts
+lib/payments.ts 입금확인      →  notifyDepositConfirmed          │   · 채널 선택 (템플릿 ID 유무)                  │
+                              →  notifyBookingConfirmedToPhoto.. │   · notification_queue 기록      (HMAC·fetch) ┘
+lib/payments.ts 정산완료      →  notifySettlementPaid            ┘   · 알림톡 거부 → 문자 재시도
+```
+
+| 파일 | 역할 |
+|---|---|
+| `src/lib/notify-templates.ts` | kind 7종·문안·변수·버튼. 순수 함수 — `notify-templates.test.ts` 가 변수 불일치·잔여 `#{}` 를 잡는다 |
+| `src/lib/notify-dispatch.ts` | 단일 통로. 큐에 pending 먼저 쓰고 결과로 갱신 — 중간에 죽어도 "보내려 했다" 는 남는다 |
+| `src/lib/notify-user.ts` | 발송 시점 규칙. 채팅은 안읽음 0→1 + 4h 쿨다운, 나머지는 사건당 영구 1회 |
+| `src/lib/alimtalk.ts` · `sms.ts` · `solapi.ts` | 공급자 어댑터. 갈아탈 때 여기만 |
+| `supabase/migrations/0109` | `notification_queue.channel / template_code / variables / provider_group_id` |
+
+**dedupe 키**: `<kind>:<conversationId|bookingId>`. `status='sent'` 이력만 본다 — `skipped`·`failed` 는 재시도를 막지 않는다.
+
+**링크 도메인**: 운영에서는 `SITE_URL`(samae.ai) 고정. `NEXT_PUBLIC_SITE_URL` 은 로컬 localhost 라 보지 않는다.
+(구 코드가 `samae.co.kr` 로 폴백하고 있었다 — 이번에 고침.)
+
+## 5. dev 에서 확인하는 법
+
+- 키 없음 → 어댑터 스텁: 서버 콘솔에 `[alimtalk:stub]` / `[sms:stub]` 로 본문이 찍히고 큐에는 `skipped/dev`.
+- 실발송 테스트: `.env.local` 에 키 + `NOTIFY_SMS_DEV=on`. 본인 번호로 로그인한 계정에만 보낼 것.
+- 큐 확인: `select kind, channel, status, error, phone, created_at from notification_queue order by created_at desc limit 20;`
+- 알림톡이 나갔는데 카카오에서 문자로 대체됐는지는 솔라피 콘솔 → 발송 내역에서 `provider_group_id` 로 찾는다.
+
+## 6. 운영 규칙
+
+- **문안 변경 = 재심사.** 승인 전에는 카카오 본문(구)과 문자 대체 본문(신)이 어긋난다. 바꿀 땐 템플릿 재등록 → 승인 → env ID 교체까지 한 세트.
+- 변수에 **연락처·계좌번호 금지**. 이름·촬영일·금액·링크까지만.
+- 잔액 알림은 반드시. 선불이라 0 이 되면 알림톡·문자·OTP 가 한꺼번에 조용히 멈춘다.
+- 실패는 거래를 막지 않는다 — 큐의 `failed` 를 어드민에서 주기적으로 본다 (§7).
+
+## 7. 남은 일
+
+1. §2 콘솔 작업 (사람 손) — 3·4 번이 일정의 대부분
+2. 어드민 발송 이력 페이지(`/admin/notifications`) — 큐를 눈으로 보고 `failed` 재발송
+3. `docs/23` §7 의 "지연 SMS(N분 안 읽으면)" 는 이 큐 위에 pg_cron 으로 — 아직 미착수
+4. 웹 푸시(PWA) — 알림톡과 별개로 언제든. 무료지만 iOS 는 홈 화면 추가 전제

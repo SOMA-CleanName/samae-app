@@ -60,8 +60,8 @@
 | 작가 정산 미수령 확인 요청 | `notifyOpsSettlementDispute` | `DISCORD_DEPOSIT_WEBHOOK_URL` |
 
 (전부 `src/lib/ops-alert.ts`. 미설정이면 `DISCORD_OPS_WEBHOOK_URL` 폴백, 그것도 없으면 조용히 패스.)
-작가행 알림(새 문의·입금 확인·정산 완료)은 인앱 notifications + 채팅 시스템 메시지.
-카카오 알림톡은 사업자 등록 후 — 끼울 지점은 `markSettlementPaid`(lib/payments.ts).
+작가행 알림(새 문의·입금 확인·정산 완료)은 인앱 notifications + 채팅 시스템 메시지
++ **카카오 알림톡/문자** (2026-09-07 — `docs/34-kakao-alimtalk.md`, `src/lib/notify-user.ts`).
 
 ---
 
@@ -98,8 +98,9 @@
 | 파일 | 역할 |
 |---|---|
 | `src/lib/moderation.ts` | 오프플랫폼 감지: 전화(한글숫자 위장 포함)·SNS·이메일·URL·**계좌번호**(은행명/계좌단어+10자리+). 차단 시 `moderation_events` 기록 → 어드민 표시 |
-| `src/lib/notify-user.ts` | 작가 답장 → 고객 SMS 재소환 (쿨다운·안읽음 조건) |
-| `src/lib/sms.ts`, `src/lib/phone-otp.ts` | 솔라피 SMS·가입 전화번호 OTP |
+| `src/lib/notify-user.ts` | 앱 밖 알림의 발송 시점 — 작가 답장·새 문의·제안·수락·입금 확인·정산 (docs/34) |
+| `src/lib/notify-dispatch.ts`, `notify-templates.ts`, `alimtalk.ts` | 알림톡 1순위·문자 대체, 문안 7종, 큐 기록 (docs/34) |
+| `src/lib/sms.ts`, `src/lib/solapi.ts`, `src/lib/phone-otp.ts` | 솔라피 SMS·가입 전화번호 OTP |
 | `src/lib/payments.ts` | 에스크로: `confirmBankTransferAdmin`(운영 입금확인→paid+수수료), `markSettlementPaid`(정산 마킹+채팅 안내), `PLATFORM_FEE_KRW=6000` |
 | `src/app/actions/payments.ts` | `markTransferSent`(+디스코드), `ackSettlement`/`disputeSettlement`(작가 수령 확인/이의) |
 | `src/lib/ops-alert.ts` | 디스코드 운영 알림 (§2) |
@@ -206,7 +207,7 @@ npx tsc --noEmit
 4. **레퍼런스 이미지 vision 반응**: 통합 방에서는 이미지 전송·작가 열람만 되고 봇 코멘트 없음
    (레거시 봇페이지에는 있었음 — `runBotLlmTurn`의 `imageDataUrls` 파라미터는 살아있으니 배선만 하면 됨)
 5. **Mixpanel 질문 단위 퍼널**(Q1~Q4 Viewed/Answered): 통합 방에서 미배선 (Submit Inquiry는 발화됨)
-6. **알림톡**: 사업자 등록 후 — 정산 완료·입금 확인 지점에 끼우기
+6. ~~**알림톡**: 사업자 등록 후 — 정산 완료·입금 확인 지점에 끼우기~~ → 코드 완료(`docs/34`). 남은 건 솔라피 콘솔 작업(채널 연동·템플릿 심사)
 7. **inquiries.status 동기화**: 예약 확정 시 문의 상태 갱신 미구현
 8. 솔라피 키 재발급 권장(대화 노출 이력) + 잔액 충전
 9. 발신번호: 알뜰폰 유심 도착 시 솔라피 발신번호 등록 → `SMS_SENDER` 교체
