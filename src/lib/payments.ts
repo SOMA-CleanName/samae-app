@@ -2,6 +2,11 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  notifyBookingConfirmedToPhotographer,
+  notifyDepositConfirmed,
+  notifySettlementPaid,
+} from "@/lib/notify-user";
 
 // ════════════════════════════════════════════════════════════════
 // 결제·수수료 도메인 — 사매 계좌 에스크로
@@ -242,7 +247,9 @@ export async function confirmBankTransfer(
     .eq("id", bookingId)
     .eq("photographer_id", photographerId)
     .eq("status", "accepted")
-    .select("id, user_id, photographer_id, amount_krw, travel_fee_krw, fee_snapshot, transfer_marked_at");
+    .select(
+      "id, user_id, photographer_id, amount_krw, travel_fee_krw, fee_snapshot, transfer_marked_at"
+    );
   if (!moved || moved.length === 0) return { ok: false, reason: "bad_state" };
   const b = moved[0];
 
@@ -308,7 +315,9 @@ export async function confirmBankTransferAdmin(bookingId: string): Promise<Confi
     .update({ status: "paid", paid_at: now })
     .eq("id", bookingId)
     .eq("status", "accepted")
-    .select("id, user_id, photographer_id, amount_krw, travel_fee_krw, fee_snapshot, transfer_marked_at");
+    .select(
+      "id, user_id, photographer_id, amount_krw, travel_fee_krw, fee_snapshot, transfer_marked_at, shoot_at, shoot_date"
+    );
   if (!moved || moved.length === 0) return { ok: false, reason: "bad_state" };
   const b = moved[0];
 
@@ -343,7 +352,7 @@ export async function confirmBankTransferAdmin(bookingId: string): Promise<Confi
   await postDepositNotice(admin, bookingId, b.transfer_marked_at ?? null);
   const { data: ph } = await admin
     .from("photographers")
-    .select("profile_id")
+    .select("profile_id, display_name")
     .eq("id", b.photographer_id)
     .single();
   if (ph)
@@ -355,6 +364,30 @@ export async function confirmBankTransferAdmin(bookingId: string): Promise<Confi
       "/studio/settlements",
       "settlement"
     );
+
+  // 돈이 오간 지점 — 양쪽 다 앱 밖으로 알린다 (예약당 각 1회).
+  // 고객은 "확정됐다", 작가는 "촬영 준비 + 정산 예정액" 을 알아야 한다.
+  const { data: customer } = await admin
+    .from("profiles")
+    .select("display_name")
+    .eq("id", b.user_id)
+    .maybeSingle();
+  await notifyDepositConfirmed({
+    bookingId,
+    userProfileId: b.user_id,
+    photographerName: ph?.display_name ?? "작가",
+    shootAt: b.shoot_at,
+    shootDate: b.shoot_date,
+  });
+  if (ph)
+    await notifyBookingConfirmedToPhotographer({
+      bookingId,
+      photographerProfileId: ph.profile_id,
+      customerName: customer?.display_name ?? "고객",
+      shootAt: b.shoot_at,
+      shootDate: b.shoot_date,
+      settlementKrw: Math.max(0, (b.amount_krw ?? 0) - fee.feeKrw),
+    });
   return { ok: true };
 }
 
@@ -366,7 +399,7 @@ export async function markSettlementPaid(bookingId: string): Promise<ConfirmResu
   const { data: booking } = await admin
     .from("bookings")
     .select(
-      "id, status, amount_krw, travel_fee_krw, fee_snapshot, user_id, photographer_id, settled_at"
+      "id, status, amount_krw, travel_fee_krw, fee_snapshot, user_id, photographer_id, settled_at, shoot_at, shoot_date"
     )
     .eq("id", bookingId)
     .maybeSingle();
@@ -407,6 +440,16 @@ export async function markSettlementPaid(bookingId: string): Promise<ConfirmResu
       "/studio/settlements",
       "settlement"
     );
+
+  // 실제로 돈이 나간 사실은 반드시 밖으로 알린다 — 작가가 통장을 확인해야 루프가 닫힌다
+  if (ph)
+    await notifySettlementPaid({
+      bookingId,
+      photographerProfileId: ph.profile_id,
+      shootAt: booking.shoot_at,
+      shootDate: booking.shoot_date,
+      settlementKrw: settlementAmount,
+    });
 
   // 채팅방에는 남기지 않는다 — 정산은 사매와 작가 사이의 일이고,
   // 수령 확인도 카톡으로 오간다. 고객에게는 알 필요도, 알아서 좋을 것도 없다.
