@@ -11,7 +11,7 @@
 // 이 모듈은 server-only 가 아니다 — 순수 함수라 단위 테스트(notify-templates.test.ts)로 검증한다.
 
 export type NotifyKind =
-  | "chat_reply" // 작가 답장 → 고객 (5분 지연 예약 · 안 읽었을 때만 · 24h 쿨다운)
+  | "chat_reply" // 작가 답장 → 고객 (보는 중이면 스킵 · 안 읽은 채로는 24h 쿨다운)
   | "inquiry_received" // 새 문의 첫 발화 → 작가 (대화당 1회)
   | "booking_proposed" // 예약 제안 → 상대방 (예약당 1회)
   | "booking_accepted" // 예약 수락 → 제안자 (예약당 1회)

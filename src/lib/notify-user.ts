@@ -2,7 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { dispatchNotify, notifyLink, photographerNotifyTarget } from "@/lib/notify-dispatch";
 import { formatKrwVar, formatShootDateVar, nameVar } from "@/lib/notify-templates";
-import { NOTIFY_DELAY_MS } from "@/lib/notification-policy";
+import { decideChatReplyNotification } from "@/lib/notification-policy";
 
 // 서비스 밖 채널(알림톡·문자) 재소환 — "언제 보낼지" 를 정하는 층.
 // "어떻게 보낼지"(채널 선택·중복 억제·큐 기록)는 notify-dispatch.ts 가 맡는다.
@@ -13,19 +13,16 @@ import { NOTIFY_DELAY_MS } from "@/lib/notification-policy";
 /**
  * 작가 답장 → 고객 재소환. 메시지 insert 성공 직후 호출 (실패해도 채팅 흐름은 계속).
  *
- * **이 알림만 즉시 보내지 않는다.** 거래 알림(제안·수락·입금·정산)은 늦으면 거래가
- * 멈추니 그대로 즉시지만, 채팅 답장은 지금 보고 있는 사람에게 울릴 이유가 없다.
- *
- * 발송 정책:
- *   · 5분 뒤로 예약하고, 그 시점에 **여전히 안 읽었을 때만** 보낸다.
- *     "지금 보고 있는지" 를 따로 추적하지 않는다 — 방을 열어둔 채 대화 중이면
- *     그 5분 안에 읽히고(user_unread=0) 실행기가 발송을 취소한다.
- *   · 대화당 대기 중인 예약은 1건 (0110 partial unique index).
+ * 다른 알림과 달리 **보낼지 말지를 여기서 먼저 따진다** (판정은 notification-policy.ts):
+ *   · 최근 2분 안에 읽은 방이면 보내지 않는다 — 지금 보고 있다는 뜻이다.
+ *     방을 열어두면 상대 메시지가 올 때마다 markRead 가 불려(ChatRoom.tsx) 값이 갱신된다.
+ *   · 직전 알림 뒤로 읽은 적이 없으면 24시간 동안 다시 보내지 않는다.
  *     작가가 연달아 여러 줄을 보내도 알림은 1통.
- *   · 한 번 보낸 뒤에는 24시간 동안 다시 보내지 않는다. 그 사이 도착한 답장은
- *     실행기가 "마지막 발송 + 24h" 로 미뤄두므로, 계속 안 읽으면 하루 뒤 한 번 더 간다.
+ *   · 읽었으면 쿨다운은 풀린다 — 읽고 나간 뒤 온 새 답장은 다시 알려야 한다.
  *
- * 판정은 notification-policy.ts, 발송은 notification-runner.ts(크론 5분).
+ * `user_unread` 로는 이 판정을 못 한다. 트리거가 +1 한 직후에 이 함수가 도는데
+ * 고객 브라우저의 읽음 처리는 그 뒤에 도착하므로, 여기서는 늘 "안 읽음" 으로 보인다.
+ * 그래서 안읽음 수가 아니라 `user_read_at`(0110)을 본다.
  */
 export async function notifyUserOfPhotographerReply(
   conversationId: string,
@@ -37,7 +34,7 @@ export async function notifyUserOfPhotographerReply(
     // 대화·발신자 검증 — 이 대화의 작가가 보낸 게 맞을 때만
     const { data: conv } = await admin
       .from("conversations")
-      .select("id, user_id, photographer_id")
+      .select("id, user_id, photographer_id, user_read_at")
       .eq("id", conversationId)
       .maybeSingle();
     if (!conv) return;
@@ -48,14 +45,31 @@ export async function notifyUserOfPhotographerReply(
       .maybeSingle();
     if (!photographer || photographer.profile_id !== senderProfileId) return; // 사용자 발신이면 무시
 
-    // 안읽음 0→1 조건은 두지 않는다. 첫 알림이 나간 뒤 쌓인 답장도 하루 뒤 재알림
-    // 대상인데, 0→1 만 보면 그 예약이 아예 안 생긴다. 중복은 인덱스가 막는다.
+    const dedupeKey = `chat_reply:${conversationId}`;
+
+    const { data: lastSent } = await admin
+      .from("notification_queue")
+      .select("sent_at")
+      .eq("dedupe_key", dedupeKey)
+      .eq("status", "sent")
+      .not("sent_at", "is", null)
+      .order("sent_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const decision = decideChatReplyNotification({
+      lastReadAt: conv.user_read_at ? new Date(conv.user_read_at) : null,
+      lastSentAt: lastSent?.sent_at ? new Date(lastSent.sent_at) : null,
+      now: new Date(),
+    });
+    if (!decision.send) return;
+
+    // 억제 판정은 위에서 끝냈다 — dispatchNotify 의 쿨다운은 걸지 않는다.
+    // (여기 규칙은 "읽으면 리셋" 이라 단순 시간 창으로 표현되지 않는다)
     await dispatchNotify({
       kind: "chat_reply",
       profileId: conv.user_id,
-      dedupeKey: `chat_reply:${conversationId}`,
-      deferMs: NOTIFY_DELAY_MS,
-      conversationId,
+      dedupeKey,
       variables: {
         작가명: nameVar(photographer.display_name, "작가"),
         링크: notifyLink(`/chat/${conversationId}`),

@@ -249,8 +249,13 @@ export async function markRead(conversationId: string) {
     .maybeSingle();
   if (!conv) return;
 
+  // user_read_at 은 답장 알림 판정에 쓴다 — "지금 이 방을 보고 있는가".
+  // 방을 열어두면 상대 메시지가 도착할 때마다 이 액션이 불리므로(ChatRoom.tsx) 계속 갱신된다.
+  // 작가 쪽은 아직 이 판정을 쓰지 않아 대응 컬럼을 두지 않았다.
   const patch =
-    conv.user_id === me.id ? { user_unread: 0 } : { photographer_unread: 0 };
+    conv.user_id === me.id
+      ? { user_unread: 0, user_read_at: new Date().toISOString() }
+      : { photographer_unread: 0 };
   await supabase.from("conversations").update(patch).eq("id", conversationId);
   revalidatePath("/chat");
 }

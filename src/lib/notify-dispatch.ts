@@ -24,7 +24,7 @@ import {
 //
 // 실패가 본 흐름(채팅·예약·정산)을 막으면 안 된다. 모든 예외는 여기서 삼키고 로그만 남긴다.
 
-export type DispatchResult = "sent" | "skipped" | "failed" | "scheduled";
+export type DispatchResult = "sent" | "skipped" | "failed";
 
 /** 알림 링크 — 사용자 손에 남는 주소다. 운영에서는 무조건 정식 도메인. */
 export function notifyLink(path: string): string {
@@ -54,14 +54,6 @@ export type DispatchParams = {
    * 생략하면 **영구 1회** — 예약·정산처럼 한 사건에 한 번만 알리는 알림이 기본이다.
    */
   cooldownMs?: number;
-  /**
-   * 지금 보내지 않고 이만큼 뒤로 예약한다 (chat_reply 전용).
-   * 큐에 pending 으로만 남기고, 크론 실행기(notification-runner.ts)가 그 시점에
-   * "아직 안 읽었는지" 를 다시 보고 보낸다. 보고 있는 사람에게는 알림이 가지 않는다.
-   */
-  deferMs?: number;
-  /** 예약 건의 읽음 재확인 대상 — deferMs 와 함께 쓴다 */
-  conversationId?: string;
 };
 
 export async function dispatchNotify(params: DispatchParams): Promise<DispatchResult> {
@@ -69,25 +61,20 @@ export async function dispatchNotify(params: DispatchParams): Promise<DispatchRe
     if (!params.profileId) return "skipped";
     const admin = createAdminClient();
 
-    // 중복 억제 — 이미 나간 이력이 있으면 조용히 스킵.
-    // 예약 건은 여기서 거르지 않는다: "최근에 보냈다" 는 판정을 발송 시점에 해야
-    // 그때까지 안 읽고 있는 경우 다음 창으로 미룰 수 있다(runner). 대기 중인 예약이
-    // 이미 있으면 아래 insert 가 partial unique index(0110)에 걸려 조용히 끝난다.
-    if (params.deferMs === undefined) {
-      let dupQuery = admin
-        .from("notification_queue")
-        .select("id")
-        .eq("dedupe_key", params.dedupeKey)
-        .eq("status", "sent");
-      if (params.cooldownMs !== undefined) {
-        dupQuery = dupQuery.gte(
-          "created_at",
-          new Date(Date.now() - params.cooldownMs).toISOString()
-        );
-      }
-      const { data: recent } = await dupQuery.limit(1).maybeSingle();
-      if (recent) return "skipped";
+    // 중복 억제 — 이미 나간 이력이 있으면 조용히 스킵
+    let dupQuery = admin
+      .from("notification_queue")
+      .select("id")
+      .eq("dedupe_key", params.dedupeKey)
+      .eq("status", "sent");
+    if (params.cooldownMs !== undefined) {
+      dupQuery = dupQuery.gte(
+        "created_at",
+        new Date(Date.now() - params.cooldownMs).toISOString()
+      );
     }
+    const { data: recent } = await dupQuery.limit(1).maybeSingle();
+    if (recent) return "skipped";
 
     // 본문 — 알림톡은 카카오가 템플릿으로 그리지만, 문자 대체와 감사 로그에는 이 본문이 쓰인다.
     // 변수가 비면 던진다 (`#{}` 가 그대로 나가는 사고를 막는다)
@@ -101,7 +88,7 @@ export async function dispatchNotify(params: DispatchParams): Promise<DispatchRe
 
     const useAlimtalk = alimtalkAvailable(params.kind);
 
-    const { data: queued, error: queueError } = await admin
+    const { data: queued } = await admin
       .from("notification_queue")
       .insert({
         kind: params.kind,
@@ -113,34 +100,65 @@ export async function dispatchNotify(params: DispatchParams): Promise<DispatchRe
         channel: useAlimtalk ? "alimtalk" : "sms",
         template_code: params.kind,
         variables: params.variables,
-        ...(params.deferMs !== undefined
-          ? {
-              scheduled_at: new Date(Date.now() + params.deferMs).toISOString(),
-              conversation_id: params.conversationId ?? null,
-            }
-          : {}),
       })
       .select("id")
       .single();
-
-    if (queueError) {
-      // 23505 = 대화당 pending 1건 제약(0110). 이미 대기 중인 예약이 있다는 뜻이라 정상 흐름이다.
-      if (queueError.code === "23505") return "skipped";
-      console.error(`[notify] ${params.kind} 큐 기록 실패: ${queueError.message}`);
-      return "failed";
-    }
     if (!queued) return "failed";
 
-    // 예약이면 여기서 끝 — 발송은 크론 실행기가 한다
-    if (params.deferMs !== undefined) return "scheduled";
+    const finish = async (
+      status: DispatchResult | "pending",
+      opts: { error?: string; channel?: "sms" | "alimtalk"; groupId?: string } = {}
+    ) => {
+      await admin
+        .from("notification_queue")
+        .update({
+          status,
+          error: opts.error ?? null,
+          sent_at: status === "sent" ? new Date().toISOString() : null,
+          ...(opts.channel ? { channel: opts.channel } : {}),
+          ...(opts.groupId ? { provider_group_id: opts.groupId } : {}),
+        })
+        .eq("id", queued.id);
+    };
 
-    return deliverQueued({
-      queueId: queued.id,
-      kind: params.kind,
-      phone: profile?.phone ?? null,
-      body,
-      variables: params.variables,
+    if (!profile?.phone) {
+      await finish("skipped", { error: "no_phone" });
+      return "skipped";
+    }
+    if (!sendingAllowed()) {
+      await finish("skipped", { error: "dev" });
+      return "skipped";
+    }
+
+    if (useAlimtalk) {
+      const res = await sendAlimtalk({
+        to: profile.phone,
+        kind: params.kind,
+        variables: toSolapiVariables(params.variables),
+      });
+      if (res.ok) {
+        await finish("sent", { channel: "alimtalk", groupId: res.groupId });
+        return "sent";
+      }
+      // 요청 자체가 거부됨(템플릿 미승인·pfId 오류 등) — 문자로 한 번 더.
+      // 알림을 못 받는 것보다 문자로라도 가는 게 낫다. 채널은 실제 나간 쪽으로 기록한다.
+      console.error(`[notify] 알림톡 실패 → 문자 대체 (${params.kind}): ${res.error}`);
+      const sms = await sendSms(profile.phone, body);
+      await finish(sms.ok ? "sent" : "failed", {
+        channel: "sms",
+        groupId: sms.groupId,
+        error: sms.ok ? `alimtalk_fallback: ${res.error}` : sms.error,
+      });
+      return sms.ok ? "sent" : "failed";
+    }
+
+    const sms = await sendSms(profile.phone, body);
+    await finish(sms.ok ? "sent" : "failed", {
+      channel: "sms",
+      groupId: sms.groupId,
+      error: sms.error,
     });
+    return sms.ok ? "sent" : "failed";
   } catch (err) {
     // 알림 실패가 거래를 막으면 안 된다 — 로그만
     console.error(
@@ -149,77 +167,6 @@ export async function dispatchNotify(params: DispatchParams): Promise<DispatchRe
     );
     return "failed";
   }
-}
-
-/**
- * 큐에 이미 올라온 pending 한 건을 실제로 내보내고 상태를 닫는다.
- *
- * 즉시 발송(dispatchNotify)과 예약 발송(notification-runner)이 **같은 경로**를 타야
- * 채널 선택·폴백·기록이 어긋나지 않는다. 그래서 발송부만 여기로 뺐다.
- */
-export async function deliverQueued(row: {
-  queueId: string;
-  kind: NotifyKind;
-  phone: string | null;
-  body: string;
-  variables: NotifyVariables;
-}): Promise<DispatchResult> {
-  const admin = createAdminClient();
-
-  const finish = async (
-    status: DispatchResult,
-    opts: { error?: string; channel?: "sms" | "alimtalk"; groupId?: string } = {}
-  ) => {
-    await admin
-      .from("notification_queue")
-      .update({
-        status,
-        error: opts.error ?? null,
-        sent_at: status === "sent" ? new Date().toISOString() : null,
-        ...(opts.channel ? { channel: opts.channel } : {}),
-        ...(opts.groupId ? { provider_group_id: opts.groupId } : {}),
-      })
-      .eq("id", row.queueId);
-  };
-
-  if (!row.phone) {
-    await finish("skipped", { error: "no_phone" });
-    return "skipped";
-  }
-  if (!sendingAllowed()) {
-    await finish("skipped", { error: "dev" });
-    return "skipped";
-  }
-
-  if (alimtalkAvailable(row.kind)) {
-    const res = await sendAlimtalk({
-      to: row.phone,
-      kind: row.kind,
-      variables: toSolapiVariables(row.variables),
-    });
-    if (res.ok) {
-      await finish("sent", { channel: "alimtalk", groupId: res.groupId });
-      return "sent";
-    }
-    // 요청 자체가 거부됨(템플릿 미승인·pfId 오류 등) — 문자로 한 번 더.
-    // 알림을 못 받는 것보다 문자로라도 가는 게 낫다. 채널은 실제 나간 쪽으로 기록한다.
-    console.error(`[notify] 알림톡 실패 → 문자 대체 (${row.kind}): ${res.error}`);
-    const sms = await sendSms(row.phone, row.body);
-    await finish(sms.ok ? "sent" : "failed", {
-      channel: "sms",
-      groupId: sms.groupId,
-      error: sms.ok ? `alimtalk_fallback: ${res.error}` : sms.error,
-    });
-    return sms.ok ? "sent" : "failed";
-  }
-
-  const sms = await sendSms(row.phone, row.body);
-  await finish(sms.ok ? "sent" : "failed", {
-    channel: "sms",
-    groupId: sms.groupId,
-    error: sms.error,
-  });
-  return sms.ok ? "sent" : "failed";
 }
 
 /** 작가 프로필 id + 표시 이름 — 알림 호출부가 반복해서 필요로 한다 */

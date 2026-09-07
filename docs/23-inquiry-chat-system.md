@@ -43,11 +43,12 @@
   → 작가 카드에 [정산 받았어요] / [아직 못 받았어요 — 확인 요청] → 루프 종결
 ```
 
-- **작가 답장 재소환**: 작가가 답하면 **즉시 보내지 않고 5분 뒤로 예약**한다.
-  방을 열어둔 채 대화 중이면 그 사이 읽히고(`user_unread=0`) 발송이 취소된다 —
-  "보고 있는지"를 추적하는 대신 지연으로 푼다. 같은 대화는 24시간에 한 번,
-  쿨다운에 걸린 예약은 버리지 않고 다음 창으로 미룬다(계속 안 읽으면 하루 뒤 한 번 더).
-  거래 알림(제안·수락·입금·정산)은 그대로 즉시. 자세히는 `docs/34-kakao-alimtalk.md`.
+- **작가 답장 재소환**: 즉시 발송하되 **지금 방을 보고 있으면 보내지 않는다**.
+  판정은 안읽음 수가 아니라 `conversations.user_read_at`(0110) — 트리거가 +1 한 직후에
+  알림이 도는 탓에 `user_unread` 로는 늘 "안 읽음" 으로 보인다. 방을 열어두면 상대
+  메시지마다 `markRead` 가 불려 이 값이 갱신된다(`ChatRoom.tsx:242`).
+  안 읽은 채로는 24시간에 한 번, **읽으면 쿨다운은 리셋**(읽고 나간 뒤 새 답장은 다시 알림).
+  거래 알림(제안·수락·입금·정산)은 사건당 1회 즉시. 자세히는 `docs/34-kakao-alimtalk.md`.
 - **작가에게 고객 연락처는 어떤 단계에서도 비공개** (`src/lib/inquiries.ts`에서 전면 null).
 
 ---
@@ -102,6 +103,7 @@
 |---|---|
 | `src/lib/moderation.ts` | 오프플랫폼 감지: 전화(한글숫자 위장 포함)·SNS·이메일·URL·**계좌번호**(은행명/계좌단어+10자리+). 차단 시 `moderation_events` 기록 → 어드민 표시 |
 | `src/lib/notify-user.ts` | 앱 밖 알림의 발송 시점 — 작가 답장·새 문의·제안·수락·입금 확인·정산 (docs/34) |
+| `src/lib/notification-policy.ts` | 답장 알림 억제 판정 (보는 중 · 쿨다운) — 순수 함수, 테스트 있음 |
 | `src/lib/notify-dispatch.ts`, `notify-templates.ts`, `alimtalk.ts` | 알림톡 1순위·문자 대체, 문안 7종, 큐 기록 (docs/34) |
 | `src/lib/sms.ts`, `src/lib/solapi.ts`, `src/lib/phone-otp.ts` | 솔라피 SMS·가입 전화번호 OTP |
 | `src/lib/payments.ts` | 에스크로: `confirmBankTransferAdmin`(운영 입금확인→paid+수수료), `markSettlementPaid`(정산 마킹+채팅 안내), `PLATFORM_FEE_KRW=6000` |
@@ -136,7 +138,7 @@
 | 파일 | 내용 |
 |---|---|
 | 0084 | `phone_verifications` — 가입 전화번호 OTP |
-| 0085 | `notification_queue` — 지연 알림용 (실행기 미구현) |
+| 0085 | `notification_queue` — 앱 밖 알림 큐·감사 로그 |
 | 0086·0087 | `messages.type`에 `bot`(무알림 수집대화)·`summary_card`(작가 안읽음+1) + 트리거 |
 | 0088 | `conversations.bot_photo_id` — 문의 출발 사진 |
 | 0089 | `moderation_events` — 검열 차단 기록 |
@@ -145,6 +147,8 @@
 | 0092 | `photographer_bot_scripts` — 작가 커스텀 대본 (RLS: 작가 본인) |
 | 0093 | `conversations.bot_slots` — 봇 수집 슬롯 (작가 체크리스트·봇 상태의 진실) |
 | 0094 | `bookings.settlement_ack_at`, `settlement_dispute_at` — 작가 수령 확인/이의 |
+| 0109 | `notification_queue.channel / template_code / variables / provider_group_id` (알림톡) |
+| 0110 | `conversations.user_read_at` — 답장 알림 억제 판정(보는 중인지) |
 
 적용 방법: `node scripts/apply-migration.cjs supabase/migrations/00XX_*.sql`
 (직결 DB URL이 IPv6 전용이라 실패하면 `.env.local`에 `SUPABASE_DB_POOLER_URL`
@@ -205,8 +209,10 @@ npx tsc --noEmit
 
 1. **팀 리뷰·머지**: 이 브랜치는 문의 플로우 전면 교체라 팀 합의 후 main 머지
 2. **Vercel env** 등록 + 프로덕션 카카오 redirect 확인
-3. **지연 SMS**: "작가가 보냈는데 고객이 N분 안 읽으면" — `notification_queue`(0085)에 쌓는
-   설계만 있음. Vercel 크론 한도(2개 사용 중) 때문에 Supabase pg_cron 후보
+3. ~~**지연 SMS**~~ → **다르게 풀었다 (0110).** 지연·크론 없이, 보낼 때
+   `conversations.user_read_at` 을 보고 **지금 보고 있으면 스킵**한다. Vercel Hobby 는
+   크론이 2개·하루 1회라 `*/5` 가 안 도는데, 그 제약을 우회한 게 아니라 애초에 크론이 필요 없다.
+   상세는 `docs/34-kakao-alimtalk.md` "채팅 답장 알림은 왜 다른가"
 4. **레퍼런스 이미지 vision 반응**: 통합 방에서는 이미지 전송·작가 열람만 되고 봇 코멘트 없음
    (레거시 봇페이지에는 있었음 — `runBotLlmTurn`의 `imageDataUrls` 파라미터는 살아있으니 배선만 하면 됨)
 5. **Mixpanel 질문 단위 퍼널**(Q1~Q4 Viewed/Answered): 통합 방에서 미배선 (Submit Inquiry는 발화됨)
