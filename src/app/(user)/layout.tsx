@@ -4,6 +4,7 @@ import { FloatingCart } from "@/components/user/cart/FloatingCart";
 import { FloatingNav } from "@/components/user/FloatingNav";
 import { NavRevealProvider } from "@/components/user/NavReveal";
 import { PhotoReturnScroll } from "@/components/user/PhotoReturnScroll";
+import { SiteInfoBar } from "@/components/SiteInfoBar";
 import { readMyInquiryIds } from "@/lib/my-inquiries";
 import { fetchUnreadTotalForUser, fetchUnreadTotalForPhotographer } from "@/lib/chat";
 import { RealtimeListRefresh } from "@/components/user/RealtimeListRefresh";
@@ -40,6 +41,8 @@ export default async function UserLayout({
         {me && <RealtimeListRefresh />}
         {/* 배지는 '어딘가에 왔다' 만 말한다 — 누가 뭐라고 했는지까지 띄워야 바로 답한다 */}
         {me && <ChatToast meId={me.id} />}
+        {/* 운영 주체 — 지면 맨 위, 데스크톱에서만 (SiteInfoBar 주석 참조) */}
+        <SiteInfoBar />
         {/* 하단 플로팅 내비 높이만큼 여백 확보 */}
         <main className="pb-28">{children}</main>
         <FloatingNav
