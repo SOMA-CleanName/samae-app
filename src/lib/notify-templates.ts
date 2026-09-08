@@ -28,8 +28,19 @@ export type NotifyTemplate = {
   variables: readonly string[];
   /** 알림톡 심사 원문 = 문자 대체 본문 */
   body: string;
-  /** 알림톡 버튼 (웹링크). 링크 변수는 본문에도 들어 있어 문자 대체 시에도 살아남는다 */
-  button: { name: string; urlVariable: string };
+  /**
+   * 알림톡 버튼 (웹링크).
+   *
+   * `url` 은 **콘솔에 등록할 값**이다. 본문의 `#{링크}` 를 그대로 쓸 수 없다 —
+   * 카카오는 웹링크에 프로토콜이 고정으로 앞에 있기를 요구해서 `#{링크}` 단독은 거부된다.
+   * 그래서 도메인까지는 박고 경로만 변수로 뺀다.
+   *
+   * `urlVariable` 은 그 경로 변수 이름. 본문 변수(`variables`)와 별개이므로 발송할 때
+   * notify-user.ts 가 따로 채워 보낸다. 없으면(고정 URL) undefined.
+   *
+   * 본문에는 `#{링크}` 가 그대로 남아 있어야 한다 — 문자로 대체 발송될 땐 버튼이 없다.
+   */
+  button: { name: string; url: string; urlVariable?: string };
 };
 
 export const NOTIFY_TEMPLATES: Record<NotifyKind, NotifyTemplate> = {
@@ -41,7 +52,7 @@ export const NOTIFY_TEMPLATES: Record<NotifyKind, NotifyTemplate> = {
     body: `[사매] 문의하신 내용에 #{작가명} 작가님이 답장을 보냈어요.
 채팅방에서 확인해 주세요.
 #{링크}`,
-    button: { name: "답장 확인하기", urlVariable: "링크" },
+    button: { name: "답장 확인하기", url: "https://samae.ai/chat/#{채팅방ID}", urlVariable: "채팅방ID" },
   },
   inquiry_received: {
     kind: "inquiry_received",
@@ -51,7 +62,7 @@ export const NOTIFY_TEMPLATES: Record<NotifyKind, NotifyTemplate> = {
     body: `[사매] 등록하신 스튜디오로 새 문의가 들어왔어요.
 안내봇이 먼저 답하고 있어요. 여유 있을 때 채팅방에서 이어받아 주세요.
 #{링크}`,
-    button: { name: "문의 확인하기", urlVariable: "링크" },
+    button: { name: "문의 확인하기", url: "https://samae.ai/chat/#{채팅방ID}", urlVariable: "채팅방ID" },
   },
   booking_proposed: {
     kind: "booking_proposed",
@@ -63,7 +74,7 @@ export const NOTIFY_TEMPLATES: Record<NotifyKind, NotifyTemplate> = {
 · 금액: #{금액}원
 채팅방에서 내용을 확인하고 수락해 주세요.
 #{링크}`,
-    button: { name: "제안 확인하기", urlVariable: "링크" },
+    button: { name: "제안 확인하기", url: "https://samae.ai/bookings/#{예약ID}", urlVariable: "예약ID" },
   },
   booking_accepted: {
     kind: "booking_accepted",
@@ -74,7 +85,7 @@ export const NOTIFY_TEMPLATES: Record<NotifyKind, NotifyTemplate> = {
 · 촬영일: #{촬영일}
 입금이 확인되면 예약이 확정돼요. 확인되는 대로 다시 알려드릴게요.
 #{링크}`,
-    button: { name: "예약 확인하기", urlVariable: "링크" },
+    button: { name: "예약 확인하기", url: "https://samae.ai/bookings/#{예약ID}", urlVariable: "예약ID" },
   },
   deposit_confirmed: {
     kind: "deposit_confirmed",
@@ -86,7 +97,7 @@ export const NOTIFY_TEMPLATES: Record<NotifyKind, NotifyTemplate> = {
 · 촬영일: #{촬영일}
 작가님이 촬영을 준비해요. 자세한 내용은 예약 페이지에서 확인해 주세요.
 #{링크}`,
-    button: { name: "예약 확인하기", urlVariable: "링크" },
+    button: { name: "예약 확인하기", url: "https://samae.ai/bookings/#{예약ID}", urlVariable: "예약ID" },
   },
   booking_confirmed: {
     kind: "booking_confirmed",
@@ -98,7 +109,7 @@ export const NOTIFY_TEMPLATES: Record<NotifyKind, NotifyTemplate> = {
 · 촬영일: #{촬영일}
 · 정산 예정: #{정산금액}원 (수수료 차감 후)
 #{링크}`,
-    button: { name: "정산 내역 보기", urlVariable: "링크" },
+    button: { name: "정산 내역 보기", url: "https://samae.ai/studio/settlements" },
   },
   settlement_paid: {
     kind: "settlement_paid",
@@ -110,7 +121,7 @@ export const NOTIFY_TEMPLATES: Record<NotifyKind, NotifyTemplate> = {
 · 송금액: #{정산금액}원 (수수료 차감 후)
 받으신 내역을 스튜디오에서 확인해 주세요.
 #{링크}`,
-    button: { name: "정산 내역 보기", urlVariable: "링크" },
+    button: { name: "정산 내역 보기", url: "https://samae.ai/studio/settlements" },
   },
 };
 

@@ -7,7 +7,7 @@ for (const kind of NOTIFY_KINDS) {
   const t = NOTIFY_TEMPLATES[kind];
   console.log(`## ${t.label}  (${kind} → ${alimtalkTemplateEnvKey(kind)})`);
   console.log(`받는 사람: ${t.recipient} · 변수: ${t.variables.map((v) => `#{${v}}`).join(", ")}`);
-  console.log(`버튼: [${t.button.name}] 웹링크 → #{${t.button.urlVariable}}`);
+  console.log(`버튼: [${t.button.name}] 웹링크 → ${t.button.url}`);
   console.log("```");
   console.log(t.body);
   console.log("```");

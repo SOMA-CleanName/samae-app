@@ -73,6 +73,8 @@ export async function notifyUserOfPhotographerReply(
       variables: {
         작가명: nameVar(photographer.display_name, "작가"),
         링크: notifyLink(`/chat/${conversationId}`),
+        // 알림톡 버튼 URL(https://samae.ai/chat/#{채팅방ID})용 — 본문에는 안 쓰인다
+        채팅방ID: conversationId,
       },
     });
   } catch (err) {
@@ -94,7 +96,10 @@ export async function notifyPhotographerOfNewInquiry(
     kind: "inquiry_received",
     profileId: target.profileId,
     dedupeKey: `inquiry_received:${conversationId}`,
-    variables: { 링크: notifyLink(`/chat/${conversationId}`) },
+    variables: {
+      링크: notifyLink(`/chat/${conversationId}`),
+      채팅방ID: conversationId, // 버튼 URL 용
+    },
   });
 }
 
@@ -118,6 +123,7 @@ export async function notifyBookingProposed(info: BookingNotifyInfo): Promise<vo
     profileId: info.recipientProfileId,
     dedupeKey: `booking_proposed:${info.bookingId}`,
     variables: {
+      예약ID: info.bookingId, // 버튼 URL 용
       상대명: nameVar(info.counterpartName, "상대방"),
       촬영일: formatShootDateVar(info.shootAt, info.shootDate),
       금액: formatKrwVar(info.amountKrw),
@@ -135,6 +141,7 @@ export async function notifyBookingAccepted(
     profileId: info.recipientProfileId,
     dedupeKey: `booking_accepted:${info.bookingId}`,
     variables: {
+      예약ID: info.bookingId, // 버튼 URL 용
       상대명: nameVar(info.counterpartName, "상대방"),
       촬영일: formatShootDateVar(info.shootAt, info.shootDate),
       링크: notifyLink(`/bookings/${info.bookingId}`),
@@ -155,6 +162,7 @@ export async function notifyDepositConfirmed(params: {
     profileId: params.userProfileId,
     dedupeKey: `deposit_confirmed:${params.bookingId}`,
     variables: {
+      예약ID: params.bookingId, // 버튼 URL 용
       작가명: nameVar(params.photographerName, "작가"),
       촬영일: formatShootDateVar(params.shootAt, params.shootDate),
       링크: notifyLink(`/bookings/${params.bookingId}`),
@@ -176,6 +184,7 @@ export async function notifyBookingConfirmedToPhotographer(params: {
     profileId: params.photographerProfileId,
     dedupeKey: `booking_confirmed:${params.bookingId}`,
     variables: {
+      예약ID: params.bookingId, // 버튼 URL 용
       고객명: nameVar(params.customerName, "고객"),
       촬영일: formatShootDateVar(params.shootAt, params.shootDate),
       정산금액: formatKrwVar(params.settlementKrw),

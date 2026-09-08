@@ -19,9 +19,24 @@ test("템플릿 본문에 선언된 변수가 전부 등장하고, 선언 안 �
     const t = NOTIFY_TEMPLATES[kind];
     const inBody = new Set([...t.body.matchAll(/#\{([^}]+)\}/g)].map((m) => m[1]));
     assert.deepEqual([...inBody].sort(), [...t.variables].sort(), `${kind} 변수 불일치`);
-    // 버튼 링크 변수도 본문에 있어야 문자 대체 시 링크가 살아남는다
-    assert.ok(inBody.has(t.button.urlVariable), `${kind} 버튼 변수가 본문에 없음`);
+    // 본문에 #{링크} 가 살아 있어야 한다 — 문자로 대체 발송되면 버튼이 없다
+    assert.ok(inBody.has("링크"), `${kind} 본문에 #{링크} 가 없음`);
     assert.ok(t.body.startsWith("[사매]"), `${kind} 본문은 [사매] 로 시작`);
+  }
+});
+
+test("버튼 URL 은 프로토콜·도메인이 고정이고 경로만 변수다", () => {
+  // 카카오는 웹링크에 프로토콜이 앞에 고정으로 있기를 요구한다.
+  // `#{링크}` 처럼 변수 하나만 넣으면 콘솔이 등록을 거부한다(2026-09-08 확인).
+  for (const kind of NOTIFY_KINDS) {
+    const b = NOTIFY_TEMPLATES[kind].button;
+    assert.ok(b.url.startsWith("https://samae.ai/"), `${kind} 버튼 URL 이 고정 도메인으로 시작해야 함`);
+    const inUrl = [...b.url.matchAll(/#\{([^}]+)\}/g)].map((m) => m[1]);
+    if (b.urlVariable) {
+      assert.deepEqual(inUrl, [b.urlVariable], `${kind} 버튼 URL 변수 불일치`);
+    } else {
+      assert.deepEqual(inUrl, [], `${kind} 는 고정 URL 이라 변수가 없어야 함`);
+    }
   }
 });
 

@@ -59,15 +59,20 @@
 ## 3. 템플릿 원문 (콘솔에 붙여넣기)
 
 문안의 진실은 `src/lib/notify-templates.ts` 다. 아래는 `npx tsx scripts/print-alimtalk-templates.ts` 출력.
-변수는 `#{이름}` 그대로 등록한다. 버튼 타입은 **웹링크(WL)**, 링크 값은 해당 변수.
+변수는 `#{이름}` 그대로 등록한다. 버튼 타입은 **웹링크(WL)**, Mobile/PC 둘 다 아래 URL 을 넣는다.
 
 > ⚠️ **첫 줄에 "수신자가 무엇을 했는지" 가 반드시 들어 있어야 한다** (문의하신 / 등록하신 /
-> 제안하신 / 입금하신 / 수락하신 / 예약하신). 2026-09-08 `chat_reply` 가 이것 때문에 반려됐다 —
-> §2 참고. 문안을 고칠 때 이 부분을 지우지 말 것.
+> 제안하신 / 입금하신 / 수락하신 / 예약하신). 2026-09-08 `chat_reply` 가 이것 때문에 반려됐다 — §2 참고.
+>
+> ⚠️ **버튼 URL 에 `#{링크}` 를 그대로 넣을 수 없다.** 카카오는 웹링크에 프로토콜이 고정으로
+> 앞에 있기를 요구해서 변수 하나만 넣으면 콘솔이 등록을 거부한다. 도메인까지 박고 경로만
+> 변수로 뺀다(`https://samae.ai/chat/#{채팅방ID}`). 이 경로 변수는 본문에 없으므로
+> `variables` 에 넣지 않고 `notify-user.ts` 가 발송할 때 따로 채워 보낸다.
+> 본문의 `#{링크}` 는 그대로 둔다 — 문자로 대체 발송되면 버튼이 없다.
 
 ## 작가 답장  (chat_reply → ALIMTALK_TPL_CHAT_REPLY)
 받는 사람: customer · 변수: #{작가명}, #{링크}
-버튼: [답장 확인하기] 웹링크 → #{링크}
+버튼: [답장 확인하기] 웹링크 → https://samae.ai/chat/#{채팅방ID}
 ```
 [사매] 문의하신 내용에 #{작가명} 작가님이 답장을 보냈어요.
 채팅방에서 확인해 주세요.
@@ -76,7 +81,7 @@
 
 ## 새 문의  (inquiry_received → ALIMTALK_TPL_INQUIRY_RECEIVED)
 받는 사람: photographer · 변수: #{링크}
-버튼: [문의 확인하기] 웹링크 → #{링크}
+버튼: [문의 확인하기] 웹링크 → https://samae.ai/chat/#{채팅방ID}
 ```
 [사매] 등록하신 스튜디오로 새 문의가 들어왔어요.
 안내봇이 먼저 답하고 있어요. 여유 있을 때 채팅방에서 이어받아 주세요.
@@ -85,7 +90,7 @@
 
 ## 예약 제안  (booking_proposed → ALIMTALK_TPL_BOOKING_PROPOSED)
 받는 사람: counterparty · 변수: #{상대명}, #{촬영일}, #{금액}, #{링크}
-버튼: [제안 확인하기] 웹링크 → #{링크}
+버튼: [제안 확인하기] 웹링크 → https://samae.ai/bookings/#{예약ID}
 ```
 [사매] 상담 중인 촬영 건에 #{상대명}님이 예약을 제안했어요.
 · 촬영일: #{촬영일}
@@ -96,7 +101,7 @@
 
 ## 예약 수락  (booking_accepted → ALIMTALK_TPL_BOOKING_ACCEPTED)
 받는 사람: counterparty · 변수: #{상대명}, #{촬영일}, #{링크}
-버튼: [예약 확인하기] 웹링크 → #{링크}
+버튼: [예약 확인하기] 웹링크 → https://samae.ai/bookings/#{예약ID}
 ```
 [사매] 제안하신 예약을 #{상대명}님이 수락했어요.
 · 촬영일: #{촬영일}
@@ -106,7 +111,7 @@
 
 ## 입금 확인 (고객)  (deposit_confirmed → ALIMTALK_TPL_DEPOSIT_CONFIRMED)
 받는 사람: customer · 변수: #{작가명}, #{촬영일}, #{링크}
-버튼: [예약 확인하기] 웹링크 → #{링크}
+버튼: [예약 확인하기] 웹링크 → https://samae.ai/bookings/#{예약ID}
 ```
 [사매] 입금하신 예약금이 확인되어 예약이 확정됐어요.
 · 작가: #{작가명}
@@ -117,7 +122,7 @@
 
 ## 입금 확인 (작가)  (booking_confirmed → ALIMTALK_TPL_BOOKING_CONFIRMED)
 받는 사람: photographer · 변수: #{고객명}, #{촬영일}, #{정산금액}, #{링크}
-버튼: [정산 내역 보기] 웹링크 → #{링크}
+버튼: [정산 내역 보기] 웹링크 → https://samae.ai/studio/settlements
 ```
 [사매] 수락하신 예약의 입금이 확인되어 예약이 확정됐어요.
 · 고객: #{고객명}
@@ -128,7 +133,7 @@
 
 ## 정산 완료  (settlement_paid → ALIMTALK_TPL_SETTLEMENT_PAID)
 받는 사람: photographer · 변수: #{촬영일}, #{정산금액}, #{링크}
-버튼: [정산 내역 보기] 웹링크 → #{링크}
+버튼: [정산 내역 보기] 웹링크 → https://samae.ai/studio/settlements
 ```
 [사매] 예약하신 촬영 건의 정산이 완료됐어요.
 · 촬영일: #{촬영일}
