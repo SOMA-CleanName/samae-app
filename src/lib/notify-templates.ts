@@ -38,7 +38,7 @@ export const NOTIFY_TEMPLATES: Record<NotifyKind, NotifyTemplate> = {
     label: "작가 답장",
     recipient: "customer",
     variables: ["작가명", "링크"],
-    body: `[사매] #{작가명} 작가님의 답장이 도착했어요.
+    body: `[사매] 문의하신 내용에 #{작가명} 작가님이 답장을 보냈어요.
 채팅방에서 확인해 주세요.
 #{링크}`,
     button: { name: "답장 확인하기", urlVariable: "링크" },
@@ -48,7 +48,7 @@ export const NOTIFY_TEMPLATES: Record<NotifyKind, NotifyTemplate> = {
     label: "새 문의",
     recipient: "photographer",
     variables: ["링크"],
-    body: `[사매] 새 문의가 들어왔어요.
+    body: `[사매] 등록하신 스튜디오로 새 문의가 들어왔어요.
 안내봇이 먼저 답하고 있어요. 여유 있을 때 채팅방에서 이어받아 주세요.
 #{링크}`,
     button: { name: "문의 확인하기", urlVariable: "링크" },
@@ -58,7 +58,7 @@ export const NOTIFY_TEMPLATES: Record<NotifyKind, NotifyTemplate> = {
     label: "예약 제안",
     recipient: "counterparty",
     variables: ["상대명", "촬영일", "금액", "링크"],
-    body: `[사매] #{상대명}님이 예약을 제안했어요.
+    body: `[사매] 상담 중인 촬영 건에 #{상대명}님이 예약을 제안했어요.
 · 촬영일: #{촬영일}
 · 금액: #{금액}원
 채팅방에서 내용을 확인하고 수락해 주세요.
@@ -70,7 +70,7 @@ export const NOTIFY_TEMPLATES: Record<NotifyKind, NotifyTemplate> = {
     label: "예약 수락",
     recipient: "counterparty",
     variables: ["상대명", "촬영일", "링크"],
-    body: `[사매] #{상대명}님이 예약을 수락했어요.
+    body: `[사매] 제안하신 예약을 #{상대명}님이 수락했어요.
 · 촬영일: #{촬영일}
 입금이 확인되면 예약이 확정돼요. 확인되는 대로 다시 알려드릴게요.
 #{링크}`,
@@ -81,7 +81,7 @@ export const NOTIFY_TEMPLATES: Record<NotifyKind, NotifyTemplate> = {
     label: "입금 확인 (고객)",
     recipient: "customer",
     variables: ["작가명", "촬영일", "링크"],
-    body: `[사매] 입금이 확인됐어요. 예약이 확정됐습니다.
+    body: `[사매] 입금하신 예약금이 확인되어 예약이 확정됐어요.
 · 작가: #{작가명}
 · 촬영일: #{촬영일}
 작가님이 촬영을 준비해요. 자세한 내용은 예약 페이지에서 확인해 주세요.
@@ -93,7 +93,7 @@ export const NOTIFY_TEMPLATES: Record<NotifyKind, NotifyTemplate> = {
     label: "입금 확인 (작가)",
     recipient: "photographer",
     variables: ["고객명", "촬영일", "정산금액", "링크"],
-    body: `[사매] 예약이 확정됐어요. 사매가 입금을 확인했습니다.
+    body: `[사매] 수락하신 예약의 입금이 확인되어 예약이 확정됐어요.
 · 고객: #{고객명}
 · 촬영일: #{촬영일}
 · 정산 예정: #{정산금액}원 (수수료 차감 후)
@@ -105,7 +105,7 @@ export const NOTIFY_TEMPLATES: Record<NotifyKind, NotifyTemplate> = {
     label: "정산 완료",
     recipient: "photographer",
     variables: ["촬영일", "정산금액", "링크"],
-    body: `[사매] 정산이 완료됐어요.
+    body: `[사매] 예약하신 촬영 건의 정산이 완료됐어요.
 · 촬영일: #{촬영일}
 · 송금액: #{정산금액}원 (수수료 차감 후)
 받으신 내역을 스튜디오에서 확인해 주세요.
