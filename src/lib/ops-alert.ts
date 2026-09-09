@@ -250,3 +250,20 @@ export async function notifyOpsNewApplication(params: {
     // 알림 실패가 신청 접수를 막지 않게 무시
   }
 }
+
+/**
+ * 작가 [정산 못 받았어요] — 사매가 보냈다고 기록했는데 작가는 받지 못한 건.
+ *
+ * 돈이 어디서 멈췄는지 아는 사람이 아무도 없는 상태라 **사람이 봐야 한다.**
+ * 입금 신고와 같은 채널로 보낸다 — 대조할 곳이 사매 계좌 거래내역으로 같다.
+ */
+export async function notifyOpsSettlementDispute(params: { bookingId: string }): Promise<void> {
+  const c = await loadBookingContext(params.bookingId);
+  if (!c) return;
+  await postDiscord(DEPOSIT_WEBHOOK, [
+    `🚨 **정산 미수령 신고** — ${c.photographer} 작가  (예약 \`${c.ref}\`)`,
+    `💳 결제액 **₩${won(c.amount)}** · ${c.customer} 고객 · ${c.pkg}`,
+    `_사매는 정산 송금을 완료로 기록했는데 작가는 받지 못했다고 합니다._`,
+    `🛠 **송금 내역 확인 후 재처리: ${ADMIN_TX_LINK}**`,
+  ]);
+}

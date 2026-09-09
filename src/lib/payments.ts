@@ -715,3 +715,109 @@ export async function waiveFee(
     .eq("booking_id", bookingId)
     .in("status", ["accrued", "billed"]);
 }
+
+// ── 작가 정산 내역 (studio/settlements) ──────────────────────────
+//
+// 알림톡 「정산 완료」 버튼이 이 화면으로 온다(notify-templates.ts). 그래서 여기는
+// **작가가 받을 돈이 지금 어디까지 왔는지**만 보여주면 된다.
+//
+// 이전 화면은 리드(문의 해제) 모델이었다 — 작가가 리드마다 건당 수수료를 사매에 내던
+// 구조라 "입금 대기 / 납부 완료" 를 보여줬다. 지금은 반대다. 고객이 사매에 내고,
+// 사매가 수수료를 뗀 뒤 작가에게 보낸다. 돈의 방향이 뒤집혔으므로 화면도 다시 짰다.
+
+export type SettlementStage =
+  | "awaiting_transfer"  // 고객이 아직 입금하지 않음
+  | "checking"           // 고객이 [입금 완료] 를 눌렀고 사매가 확인 중
+  | "settling"           // 입금 확인됨 — 사매가 작가에게 보낼 차례
+  | "settled"            // 사매가 보냄
+  | "refunded";          // 환불되어 정산이 없어짐
+
+export type SettlementRow = {
+  bookingId: string;
+  customerName: string;
+  shootAt: string | null;
+  shootDate: string | null;
+  /** 고객이 낸 총액 (촬영비 + 출장비) */
+  paidKrw: number;
+  /** 사매 중개 수수료 */
+  feeKrw: number;
+  /** 작가 실수령 — 정산 전이면 예상액 */
+  netKrw: number;
+  stage: SettlementStage;
+  settledAt: string | null;
+  ackAt: string | null;
+  disputeAt: string | null;
+};
+
+/**
+ * 로그인한 작가의 정산 내역. RLS 가 이 작가의 예약만 돌려준다.
+ *
+ * 고객 이름은 작가 시점에서 RLS 에 막혀 비어 오므로 admin 으로 **이름만** 보강한다
+ * (lib/bookings.ts 의 fillBookingCustomerNames 와 같은 패턴 — 연락처는 보강하지 않는다).
+ */
+export async function listMySettlements(photographerId: string): Promise<SettlementRow[]> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("bookings")
+    .select(
+      "id, status, shoot_at, shoot_date, amount_krw, travel_fee_krw, user_id, " +
+        "transfer_marked_at, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at"
+    )
+    .eq("photographer_id", photographerId)
+    .in("status", ["accepted", "paid", "shot", "delivered", "completed", "refunded"])
+    .order("created_at", { ascending: false });
+
+  const rows = (data ?? []) as unknown as Array<Record<string, unknown>>;
+  if (rows.length === 0) return [];
+
+  const admin = createAdminClient();
+  const bookingIds = rows.map((r) => r.id as string);
+  const userIds = [...new Set(rows.map((r) => r.user_id as string))];
+
+  const [{ data: fees }, { data: profiles }] = await Promise.all([
+    admin.from("platform_fees").select("booking_id, fee_krw, status").in("booking_id", bookingIds),
+    admin.from("profiles").select("id, display_name").in("id", userIds),
+  ]);
+
+  const feeByBooking = new Map(
+    (fees ?? []).map((f) => [
+      f.booking_id as string,
+      // 면제된 수수료는 0 으로 본다 — 환불 건에서 작가가 물지 않는다
+      (f.status as string) === "waived" ? 0 : (f.fee_krw as number),
+    ])
+  );
+  const nameById = new Map((profiles ?? []).map((p) => [p.id as string, p.display_name as string | null]));
+
+  return rows.map((r) => {
+    const status = r.status as string;
+    const paidKrw = (r.amount_krw as number | null) ?? 0;
+    const feeKrw = feeByBooking.get(r.id as string) ?? 0;
+    const settledAt = (r.settled_at as string | null) ?? null;
+
+    // 정산이 끝났으면 그때 확정된 금액이 진실이다. 그 뒤 수수료 정책이 바뀌어도 흔들리면 안 된다.
+    const netKrw =
+      settledAt && r.settlement_amount_krw != null
+        ? (r.settlement_amount_krw as number)
+        : Math.max(0, paidKrw - feeKrw);
+
+    let stage: SettlementStage;
+    if (status === "refunded") stage = "refunded";
+    else if (settledAt) stage = "settled";
+    else if (status === "accepted") stage = r.transfer_marked_at ? "checking" : "awaiting_transfer";
+    else stage = "settling";
+
+    return {
+      bookingId: r.id as string,
+      customerName: nameById.get(r.user_id as string) || "고객",
+      shootAt: (r.shoot_at as string | null) ?? null,
+      shootDate: (r.shoot_date as string | null) ?? null,
+      paidKrw,
+      feeKrw,
+      netKrw,
+      stage,
+      settledAt,
+      ackAt: (r.settlement_ack_at as string | null) ?? null,
+      disputeAt: (r.settlement_dispute_at as string | null) ?? null,
+    };
+  });
+}
