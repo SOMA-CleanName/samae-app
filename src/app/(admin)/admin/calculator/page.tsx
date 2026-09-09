@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import {
   DEFAULT_VAT,
+  PAYOUT_FEE,
   monthlyVat,
   unitEconomics,
   type VatSettings,
@@ -136,6 +137,7 @@ export default function CalculatorPage() {
   const [pgPct, setPgPct] = useState(PG_PCT); // PG 수수료율 (%)
   const [ratePct, setRatePct] = useState(33); // 문의 후 성사율 (%)
   const [cpa, setCpa] = useState(11529); // 문의당 CPA (원)
+  const [payoutFee, setPayoutFee] = useState(PAYOUT_FEE); // 지급대행 수수료 (건당 정액, 공급가액)
   const [vol, setVol] = useState(40); // 월 문의완료 건수
 
   // 콘텐츠 마케팅 — 하루에 끌어오는 건수로 한 달 수익을 본다
@@ -149,9 +151,9 @@ export default function CalculatorPage() {
   const patchVat = (patch: Partial<VatSettings>) => setVat((v) => ({ ...v, ...patch }));
 
   const d = useMemo(() => {
-    const u = unitEconomics({ shoot, takePct, pgOn, pgPct, ratePct, cpa, vat });
+    const u = unitEconomics({ shoot, takePct, pgOn, pgPct, ratePct, cpa, payoutFee, vat });
     return { ...u, rate: clamp(ratePct, 1, 100) / 100, monthly: vol * (clamp(ratePct, 1, 100) / 100) * u.pl };
-  }, [shoot, takePct, pgOn, pgPct, ratePct, cpa, vol, vat]);
+  }, [shoot, takePct, pgOn, pgPct, ratePct, cpa, payoutFee, vol, vat]);
   const fee = d.netFee; // 건당 순수수료 (공급가액)
 
   // 콘텐츠 마케팅 수익 — 건당 순수수료(위 입력)를 그대로 쓰고 물량만 바꿔 끼운다.
@@ -242,7 +244,7 @@ export default function CalculatorPage() {
     <main className="mx-auto max-w-5xl px-3 py-6 font-kr sm:px-5">
       <h1 className="text-xl font-semibold text-fg">사매 건당 손익 계산기</h1>
       <p className="mt-2 w-fit rounded-lg border border-line bg-surface px-3 py-2 text-caption tabular-nums text-muted">
-        순수수료 = <b className="text-fg">촬영비 × 요율 − PG</b> · 성사당 CPA ={" "}
+        순수수료 = <b className="text-fg">촬영비 × 요율 − PG − 지급대행</b> · 성사당 CPA ={" "}
         <b className="text-fg">문의당 CPA ÷ 성사율</b> · 건당 손익 ={" "}
         <b className="text-fg">순수수료 − 성사당 CPA</b>
         {vat.on && (
@@ -321,6 +323,45 @@ export default function CalculatorPage() {
               )}
             </p>
           </div>
+          {/* 지급대행 — 정률이 아니라 건당 정액이라 촬영비가 쌀수록 아프다 */}
+          <div className="rounded-xl border border-line bg-surface-2 p-3">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-body-sm font-medium text-fg">지급대행 수수료</span>
+              <span className="flex items-baseline gap-1 rounded-lg border border-line-strong bg-surface px-2 py-1">
+                <input
+                  type="number"
+                  value={payoutFee}
+                  step={50}
+                  min={0}
+                  onChange={(e) => {
+                    const v = parseFloat(e.target.value);
+                    if (!isNaN(v)) setPayoutFee(clamp(v, 0, 100000));
+                  }}
+                  className="w-16 bg-transparent text-right text-body-sm font-semibold tabular-nums text-fg outline-none"
+                />
+                <span className="text-caption text-faint">원/건</span>
+              </span>
+            </div>
+            <p className="mt-2 text-label leading-relaxed text-muted">
+              작가에게 정산금을 보낼 때마다 건당 정액으로 나가요 — {won(payoutFee)}
+              {vat.on ? (
+                <>
+                  {" "}
+                  + 부가세 {won(d.payoutFeeInputVat)} ={" "}
+                  <b className="text-fg">{won(d.payoutFeeBilled)}</b> 청구, 세액은 공제되니 실부담은{" "}
+                  <b className="text-fg">{won(d.payoutFeeSupply)}</b>.
+                </>
+              ) : (
+                <> (VAT 포함 {won(payoutFee * 1.1)}).</>
+              )}{" "}
+              정률이 아니라서 촬영비가 쌀수록 아파요 — 지금 순수수료의{" "}
+              <b className="tabular-nums text-fg">
+                {d.feeSupply > 0 ? ((d.payoutFeeSupply / d.feeSupply) * 100).toFixed(1) : "—"}%
+              </b>
+              .
+            </p>
+          </div>
+
           {/* 부가세 — 손익은 공급가액으로, 납부세액은 따로 */}
           <div className="rounded-xl border border-line bg-surface-2 p-3">
             <label className="flex cursor-pointer items-center gap-2.5">
@@ -603,6 +644,10 @@ export default function CalculatorPage() {
                     : "PG (꺼짐)",
                   pgOn ? `−${won(d.pgSupply)}` : "—",
                 ],
+                [
+                  `지급대행${vat.on ? " (공제 후)" : ""}`,
+                  payoutFee > 0 ? `−${won(d.payoutFeeSupply)}` : "—",
+                ],
                 ["순수수료", won(d.netFee)],
                 ...(d.structureCost > 0.5
                   ? ([["구조 비용 (판매자 인정)", `−${won(d.structureCost)}`]] as const)
@@ -706,6 +751,7 @@ export default function CalculatorPage() {
             촬영비 <b className="tabular-nums text-fg">{won(shoot)}</b> · 문의당 CPA{" "}
             <b className="tabular-nums text-fg">{won(cpa)}</b>
             {pgOn && <> · PG {pgPct}% 포함</>}
+            {payoutFee > 0 && <> · 지급대행 {won(payoutFee)}/건</>}
             {vat.on && (
               <>
                 {" "}
@@ -739,7 +785,7 @@ export default function CalculatorPage() {
                     {t}%
                     <span className="ml-1 font-normal text-faint">
                       {won(
-                        unitEconomics({ shoot, takePct: t, pgOn, pgPct, ratePct, cpa, vat }).netFee
+                        unitEconomics({ shoot, takePct: t, pgOn, pgPct, ratePct, cpa, payoutFee, vat }).netFee
                       )}
                     </span>
                   </th>
@@ -753,6 +799,7 @@ export default function CalculatorPage() {
                       pgPct,
                       ratePct: rp,
                       cpa,
+                      payoutFee,
                       vat,
                     }).pl;
                     const mag = Math.min(1, Math.abs(pl) / MAXMAG);
@@ -925,6 +972,9 @@ export default function CalculatorPage() {
                     pgOn ? `월 PG ${pgPct}%` : "월 PG (꺼짐)",
                     pgOn ? `−${won(c.shoots * d.pgSupply)}` : "—",
                   ],
+                  ...(payoutFee > 0
+                    ? ([["월 지급대행", `−${won(c.shoots * d.payoutFeeSupply)}`]] as const)
+                    : []),
                   ["월 순매출", won(c.net)],
                   ...(c.structure > 0.5
                     ? ([["구조 비용", `−${won(c.structure)}`]] as const)
@@ -1156,6 +1206,7 @@ export default function CalculatorPage() {
                   ["매입세액", `−${won(t.tax.inputVat)}`],
                   ["ㄴ 광고비분", won(t.tax.adInputVat)],
                   ["ㄴ PG 수수료분", pgOn ? won(t.tax.pgInputVat) : "—"],
+                  ["ㄴ 지급대행분", payoutFee > 0 ? won(t.tax.payoutFeeInputVat) : "—"],
                   ["ㄴ 콘텐츠 고정비분", won(t.tax.contentInputVat)],
                   ...(t.tax.payoutInputVat > 0.5
                     ? ([["ㄴ 작가 정산분", won(t.tax.payoutInputVat)]] as const)

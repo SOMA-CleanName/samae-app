@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   DEFAULT_VAT,
+  PAYOUT_FEE,
   monthlyVat,
   unitEconomics,
   type UnitInput,
@@ -18,14 +19,16 @@ const base = (vat: Partial<VatSettings> = {}): UnitInput => ({
   pgPct: 3.3,
   ratePct: 33,
   cpa: 11529,
+  payoutFee: PAYOUT_FEE,
   vat: { ...DEFAULT_VAT, ...vat },
 });
 
 test("VAT 를 끄면 세전 계산과 정확히 같다", () => {
   const r = unitEconomics(base({ on: false }));
   near(r.feeSupply, 15000);
+  near(r.netFee, 15000 - PAYOUT_FEE);
   near(r.acq, 11529 / 0.33);
-  near(r.pl, 15000 - 11529 / 0.33);
+  near(r.pl, 15000 - PAYOUT_FEE - 11529 / 0.33);
   assert.equal(r.outputVat, 0);
   assert.equal(r.vatPerShoot, 0);
 });
@@ -46,6 +49,7 @@ test("PG 수수료는 매입세액 공제 — 순수수료에서 공급가액만
   near(on.pgSupply, (150000 * 0.033) / 1.1);
   near(on.pgInputVat, 150000 * 0.033 - (150000 * 0.033) / 1.1);
   near(on.netFee, off.netFee - on.pgSupply);
+  near(on.netFee, on.feeSupply - on.pgSupply - PAYOUT_FEE);
 });
 
 test("PG 매입세액을 공제하지 않으면 청구액 전체가 순수수료에서 빠진다", () => {
@@ -57,6 +61,30 @@ test("PG 매입세액을 공제하지 않으면 청구액 전체가 순수수료
   // 공제할 때보다 순수수료가 부가세만큼 더 깎인다
   const deducted = unitEconomics({ ...base(), pgOn: true });
   near(r.netFee, deducted.netFee - (billed - billed / 1.1));
+});
+
+test("지급대행 수수료 — 건당 정액 550원, 그중 50원은 매입세액 공제", () => {
+  const r = unitEconomics(base());
+  near(r.payoutFeeSupply, 500);
+  near(r.payoutFeeInputVat, 50);
+  near(r.payoutFeeBilled, 550);
+  // 순수수료에서 공급가액 500원만 빠진다 (50원은 돌려받으니까)
+  const none = unitEconomics({ ...base(), payoutFee: 0 });
+  near(r.netFee, none.netFee - 500);
+});
+
+test("지급대행은 정액이라 촬영비가 쌀수록 비중이 커진다", () => {
+  const cheap = unitEconomics({ ...base(), shoot: 50000 });
+  const rich = unitEconomics({ ...base(), shoot: 500000 });
+  const share = (u: ReturnType<typeof unitEconomics>) => u.payoutFeeSupply / u.feeSupply;
+  assert.ok(share(cheap) > share(rich) * 5);
+});
+
+test("VAT 를 끄면 지급대행도 500원 그대로 (돌려받을 세액이 없다)", () => {
+  const r = unitEconomics(base({ on: false }));
+  near(r.payoutFeeSupply, 500);
+  near(r.payoutFeeBilled, 500);
+  assert.equal(r.payoutFeeInputVat, 0);
 });
 
 test("중개 구조에서는 작가 증빙이라는 개념 자체가 없다", () => {
@@ -164,9 +192,13 @@ test("월 납부세액 — 매출세액에서 광고·PG·콘텐츠 매입세액
   near(m.contentSupply, 500000 - m.contentInputVat);
   near(m.outputVat, 20 * unit.outputVat);
   near(m.pgInputVat, 20 * unit.pgInputVat);
+  near(m.payoutFeeInputVat, 20 * 50);
   near(m.adInputVat, 60 * unit.adInputVat);
   assert.ok(m.pgInputVat > 0, "PG 매입세액이 잡혀야 한다");
-  near(m.inputVat, m.adInputVat + m.pgInputVat + m.payoutInputVat + m.contentInputVat);
+  near(
+    m.inputVat,
+    m.adInputVat + m.pgInputVat + m.payoutFeeInputVat + m.payoutInputVat + m.contentInputVat
+  );
   near(m.payable, m.outputVat - m.inputVat);
 });
 

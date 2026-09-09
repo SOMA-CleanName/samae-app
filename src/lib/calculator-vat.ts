@@ -10,6 +10,8 @@
 
 export const VAT_PCT = 10; // 부가가치세 표준세율 (%)
 export const PROOF_PENALTY_PCT = 2; // 정규증빙 미수취 가산세 (%)
+/** 지급대행 수수료 — 작가에게 정산금을 보낼 때마다 건당 정액으로 나간다 (공급가액, VAT 포함 550원) */
+export const PAYOUT_FEE = 500;
 
 /**
  * 세무상 우리가 무엇을 판 것으로 잡히는가 — 이 계산기에서 가장 큰 갈림길.
@@ -80,6 +82,8 @@ export type UnitInput = {
   ratePct: number;
   /** 문의당 CPA (원, 매체 청구액) */
   cpa: number;
+  /** 지급대행 수수료 (원, 건당 정액 · 공급가액) — 촬영 1건마다 무조건 나간다 */
+  payoutFee: number;
   vat: VatSettings;
 };
 
@@ -113,7 +117,12 @@ export type UnitResult = {
   pgSupply: number;
   pgInputVat: number;
 
-  /** 순수수료 = 수수료 공급가액 − PG 공급가액 */
+  /** 지급대행 수수료 — 청구액(VAT 포함) / 공급가액 / 매입세액 */
+  payoutFeeBilled: number;
+  payoutFeeSupply: number;
+  payoutFeeInputVat: number;
+
+  /** 순수수료 = 수수료 공급가액 − PG − 지급대행 수수료 */
   netFee: number;
 
   /** 작가에게 나가는 정산액 */
@@ -179,7 +188,13 @@ export function unitEconomics(input: UnitInput): UnitResult {
   const pgSupply = pgDeduct ? toSupply(pgBilled, v) : pgBilled;
   const pgInputVat = pgBilled - pgSupply;
 
-  const netFee = feeSupply - pgSupply;
+  // 지급대행 수수료 — 정률이 아니라 건당 정액이라, 촬영비가 쌀수록 비중이 커진다.
+  // 국내 지급대행사는 세금계산서를 주므로 매입세액은 공제된다.
+  const payoutFeeSupply = Math.max(0, input.payoutFee);
+  const payoutFeeInputVat = payoutFeeSupply * v;
+  const payoutFeeBilled = payoutFeeSupply + payoutFeeInputVat;
+
+  const netFee = feeSupply - pgSupply - payoutFeeSupply;
 
   // 작가 정산액.
   //
@@ -226,7 +241,7 @@ export function unitEconomics(input: UnitInput): UnitResult {
     ? shoot * ((v / (1 + v)) * (1 - deductibleShare) + (1 - proof) * (inc + pen))
     : 0;
   const denom = shoot / k + A;
-  const needTake = denom > 0 ? (100 * (pgSupply + acq + A)) / denom : Infinity;
+  const needTake = denom > 0 ? (100 * (pgSupply + payoutFeeSupply + acq + A)) / denom : Infinity;
 
   // 순수수료에서 구조 비용을 뺀 값이 광고비가 덮어야 할 실제 여력
   const headroom = netFee - structureCost;
@@ -235,7 +250,7 @@ export function unitEconomics(input: UnitInput): UnitResult {
 
   // 납부세액 — 성사 1건 기준. 매출세액에서 그 건에 딸린 매입세액을 뺀다.
   const outputVat = reseller ? vatOf(shoot, v) : feeIncl ? billedFee - feeSupply : 0;
-  const vatPerShoot = outputVat - pgInputVat - payoutInputVat;
+  const vatPerShoot = outputVat - pgInputVat - payoutFeeInputVat - payoutInputVat;
 
   return {
     v,
@@ -245,6 +260,9 @@ export function unitEconomics(input: UnitInput): UnitResult {
     pgBilled,
     pgSupply,
     pgInputVat,
+    payoutFeeBilled,
+    payoutFeeSupply,
+    payoutFeeInputVat,
     netFee,
     payout,
     payoutInputVat,
@@ -286,6 +304,8 @@ export type MonthlyVatResult = {
   adInputVat: number;
   /** PG 수수료에서 돌려받는 매입세액 */
   pgInputVat: number;
+  /** 지급대행 수수료에서 돌려받는 매입세액 */
+  payoutFeeInputVat: number;
   /** 작가 정산액에서 돌려받는 매입세액 (총액 인식일 때만) */
   payoutInputVat: number;
   outputVat: number;
@@ -309,16 +329,19 @@ export function monthlyVat({
 
   const adInputVat = inquiries * unit.adInputVat;
   const pgInputVat = shoots * unit.pgInputVat;
+  const payoutFeeInputVat = shoots * unit.payoutFeeInputVat;
   const payoutInputVat = shoots * unit.payoutInputVat;
 
   const outputVat = shoots * unit.outputVat;
-  const inputVat = adInputVat + pgInputVat + payoutInputVat + contentInputVat;
+  const inputVat =
+    adInputVat + pgInputVat + payoutFeeInputVat + payoutInputVat + contentInputVat;
 
   return {
     contentInputVat,
     contentSupply,
     adInputVat,
     pgInputVat,
+    payoutFeeInputVat,
     payoutInputVat,
     outputVat,
     inputVat,
