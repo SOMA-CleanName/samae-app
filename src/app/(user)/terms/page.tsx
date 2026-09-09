@@ -2,102 +2,484 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 /*
-  서비스 이용약관 — **껍데기**.
+  서비스 이용약관 — 본문.
 
-  회원가입 화면이 "서비스 이용약관"을 링크 없는 평문으로 띄우고 있었다
-  (SignupForm 주석에도 "없는 데로 링크를 걸지 않는다"고 적혀 있었다).
-  /terms 는 404 였다.
+  ⚠️ **여기서 조문을 고치지 말 것.** 진실은 `docs/35-terms-draft.md` 이고, 각 조 아래에
+     그 조가 왜 그렇게 쓰였는지와 코드 근거(↳)가 달려 있다. 이 파일은 그 문서를 지면으로
+     옮긴 것이다. 운영이 바뀌면 docs/35 → 이 파일 순서로 함께 고친다.
 
-  ⚠️ 여기에 조항을 지어 쓰지 않는다. 약관은 법적 효력을 갖는 문서라
-     확정되지 않은 문장을 올려 두면 그게 곧 회사가 한 약속이 된다.
-     지금 확정된 것은 /trust · /privacy · /terms/ad-consent 세 곳에 이미 공개돼 있고,
-     이 페이지는 **무엇을 다룰지와 지금 어디에 무엇이 있는지**만 알린다.
+  ⚠️ **시행일(EFFECTIVE_DATE)은 실제 배포일이어야 한다.** 약관은 게시한 날부터 효력이
+     생기는데, 아직 안 올라간 문서에 과거 날짜를 박아 두면 그 사이 기간을 소급해 약속한
+     꼴이 된다. 게시일과 어긋나면 "언제부터 유효했는가" 가 분쟁에서 그대로 쟁점이 된다.
 
-  본문은 법무 검토를 거쳐 채운다. 채우는 날 아래 STATUS 를 지우고 시행일을 박을 것.
-  그때까지 robots noindex — 미완성 약관이 검색에 잡히면 그 자체가 사고다.
+  이 약관은 **에스크로 구조**를 전제로 한다 — 회사가 촬영 대금을 받아 보관하고, 수수료를
+  공제해 작가에게 정산하며, 환불을 판정한다. 그래서 `lib/refund.ts`(구간 판정) ·
+  `lib/platform-fee.ts`(수수료) · `SupportButton`(접수 창구) · `contact-handover.ts`
+  (연락처 전달) 가 없는 브랜치에 이 페이지만 올리면 **없는 기능을 설명하는 문서**가 된다.
 */
 
 export const metadata: Metadata = {
   title: "서비스 이용약관",
-  description: "사매(samae) 서비스 이용약관 — 준비 중. 확정된 기준은 안전 안내와 개인정보 처리방침에 있습니다.",
+  description:
+    "사매(samae) 서비스 이용약관 — 회사의 지위, 예약과 결제, 취소와 환불 기준을 정합니다.",
   alternates: { canonical: "/terms" },
-  robots: { index: false, follow: true },
 };
 
-/** 본문이 들어오면 이 줄을 지운다 (아래 안내 박스도 함께). */
-const STATUS = "준비 중";
-
-/** 조문 뼈대 — 실제 서비스가 하는 일에 맞춘 목차. 문구가 아니라 범위만 적는다. */
-const OUTLINE: Array<{ no: string; title: string; scope: string }> = [
-  { no: "01", title: "목적과 용어", scope: "사매가 제공하는 서비스의 범위, 회원·작가·촬영·예약의 정의" },
-  { no: "02", title: "사매의 지위", scope: "사매가 촬영 당사자인지 중개자인지, 그에 따른 책임의 범위" },
-  { no: "03", title: "계정", scope: "가입과 탈퇴, 계정 이용 제한, 작가 등록 심사" },
-  { no: "04", title: "예약과 결제", scope: "예약이 확정되는 시점, 결제 방식, 중개 수수료" },
-  { no: "05", title: "취소와 환불", scope: "취소 시점별 환불 비율, 작가 귀책·기상 등 예외" },
-  { no: "06", title: "결과물과 저작권", scope: "촬영 결과물의 권리, 사매 지면·홍보 사용 범위" },
-  { no: "07", title: "금지 행위", scope: "외부 채널 유도, 개인 계좌 직거래, 허위 정보" },
-  { no: "08", title: "분쟁 해결", scope: "이의 제기 절차, 준거법과 관할" },
-];
-
-/** 지금 실제로 공개돼 있고 서비스가 그대로 운영되는 문서들. */
-const PUBLISHED = [
-  { href: "/trust", label: "안전하게 촬영하기", desc: "작가 심사 · 결제 · 연락처 · 취소와 환불 기준" },
-  { href: "/privacy", label: "개인정보 처리방침", desc: "수집 항목 · 보관과 파기" },
-  { href: "/terms/ad-consent", label: "광고 소재 사용 동의", desc: "작가 포트폴리오의 홍보 사용 범위" },
-];
+/** 지면에 게시하는 날. 배포일과 반드시 일치시킬 것. */
+const EFFECTIVE_DATE = "2026-09-09";
 
 export default function TermsPage() {
   return (
     <main className="mx-auto max-w-2xl px-5 py-10 font-kr">
-      <h1 className="text-2xl font-bold tracking-tight">서비스 이용약관</h1>
-      <p className="mt-2 text-sm text-muted">{STATUS}</p>
+      <Link
+        href="/"
+        className="mb-6 inline-block text-sm font-medium text-muted transition-colors hover:text-fg"
+      >
+        ← 홈으로
+      </Link>
 
-      {/* 없는 약관을 있는 것처럼 보이게 하지 않는다. 대신 지금 무엇이 유효한지 바로 말한다. */}
-      <div className="mt-6 rounded-xl border border-line bg-surface-2 p-4">
-        <p className="text-sm leading-relaxed text-fg/80">
-          전문(全文)을 준비하고 있습니다. 그전까지 사매가 실제로 지키는 기준은 아래 문서에
-          적힌 그대로이며, 촬영·결제·환불은 모두 그 기준으로 처리됩니다.
-        </p>
+      <h1 className="text-2xl font-bold tracking-tight">서비스 이용약관</h1>
+      <p className="mt-2 text-sm text-muted">시행일 {EFFECTIVE_DATE}</p>
+
+      <div className="mt-9 space-y-8 text-sm leading-relaxed text-fg/85">
+        <Article n="제1조" title="목적">
+          <P>
+            이 약관은 사매(이하 &ldquo;회사&rdquo;)가 제공하는 사진 촬영 중개 서비스(이하
+            &ldquo;서비스&rdquo;)의 이용과 관련하여 회사와 이용자의 권리·의무 및 책임사항을
+            정함을 목적으로 합니다.
+          </P>
+        </Article>
+
+        <Article n="제2조" title="용어의 정의">
+          <Ol>
+            <li>
+              <B>서비스</B> — 회사가 운영하는 웹사이트(samae.ai)와 이에 부수하는 일체의 서비스
+            </li>
+            <li>
+              <B>회원</B> — 이 약관에 동의하고 계정을 만든 자
+            </li>
+            <li>
+              <B>작가</B> — 회사의 등록 절차를 거쳐 승인된 사진작가 회원
+            </li>
+            <li>
+              <B>문의</B> — 회원이 촬영을 희망하여 작가에게 남기는 상담 요청
+            </li>
+            <li>
+              <B>촬영 계약</B> — 회원과 작가 사이에 성립하는 촬영 용역 계약
+            </li>
+            <li>
+              <B>촬영 대금</B> — 촬영 계약에 따라 회원이 지급하는 금액(촬영비와 출장비를
+              포함합니다)
+            </li>
+            <li>
+              <B>중개 수수료</B> — 회사가 중개 대가로 촬영 대금에서 공제하는 금액
+            </li>
+            <li>
+              <B>정산</B> — 회사가 촬영 대금에서 중개 수수료를 공제한 금액을 작가에게 지급하는 것
+            </li>
+          </Ol>
+        </Article>
+
+        <Article n="제3조" title="약관의 효력과 변경">
+          <Ol>
+            <li>이 약관은 서비스 화면에 게시함으로써 효력이 발생합니다.</li>
+            <li>
+              회사는 관련 법령을 위반하지 않는 범위에서 약관을 변경할 수 있으며, 변경 시 적용일과
+              변경 사유를 명시하여 적용일 7일 전부터 공지합니다. 회원에게 불리한 변경은 30일
+              전부터 공지하고 개별 통지합니다.
+            </li>
+            <li>회원이 변경된 약관에 동의하지 않는 경우 이용계약을 해지할 수 있습니다.</li>
+          </Ol>
+        </Article>
+
+        <Article n="제4조" title="회사의 지위">
+          <Ol>
+            <li>
+              <B>
+                회사는 회원과 작가 사이의 촬영 계약을 중개하는 통신판매중개자이며, 촬영 계약의
+                당사자가 아닙니다.
+              </B>{" "}
+              촬영의 이행(일정 조율, 촬영, 결과물의 제작과 인도)은 작가가 합니다.
+            </li>
+            <li>
+              <B>
+                회사는 촬영 대금을 회원으로부터 수령하여 보관하고, 중개 수수료를 공제한 금액을
+                작가에게 정산합니다.
+              </B>{" "}
+              이는 거래의 안전을 위한 것이며, 회사가 촬영 계약의 당사자가 되는 것은 아닙니다.
+            </li>
+            <li>
+              <B>촬영 계약의 취소와 환불은 제9조가 정한 기준에 따라 회사가 판정하고 처리합니다.</B>
+            </li>
+            <li>
+              회사는 작가가 등록한 정보와 회원이 입력한 정보의 정확성을 보증하지 않으며, 촬영
+              계약의 내용과 이행에 대해 책임지지 않습니다. 다만 제16조 및 제17조에 따른 회사의
+              책임과 조치 의무는 그대로 적용됩니다.
+            </li>
+          </Ol>
+        </Article>
+
+        <Article n="제5조" title="회원가입과 계정">
+          <Ol>
+            <li>서비스 이용을 원하는 자는 회사가 정한 절차에 따라 계정을 만들어 회원이 됩니다.</li>
+            <li>
+              회원은 계정 정보를 최신으로 유지해야 하며, 계정을 타인에게 양도하거나 대여할 수
+              없습니다.
+            </li>
+            <li>
+              회원은 언제든지 서비스 내 설정 화면에서 탈퇴할 수 있습니다. 다만 진행 중인 문의나
+              예약이 있는 경우 그 절차가 끝난 뒤에 처리됩니다.
+            </li>
+          </Ol>
+        </Article>
+
+        <Article n="제6조" title="작가의 등록과 승인">
+          <Ol>
+            <li>
+              작가로 활동하려는 회원은 회사가 정한 절차에 따라 등록을 신청하고, 회사의{" "}
+              <B>승인을 받아야</B> 작가로 활동할 수 있습니다.
+            </li>
+            <li>회사는 신청 내용과 포트폴리오를 확인하여 승인 여부를 결정합니다.</li>
+            <li>승인이 취소되면 해당 작가의 사진과 프로필은 서비스에 노출되지 않습니다.</li>
+          </Ol>
+        </Article>
+
+        <Article n="제7조" title="상담과 연락처">
+          <Ol>
+            <li>
+              회원은 <B>무료로</B> 작가에게 문의를 남기고 상담할 수 있습니다.
+            </li>
+            <li>
+              상담은 서비스 내 채팅에서 이루어집니다.{" "}
+              <B>회원의 전화번호 등 연락처는 작가에게 제공되지 않으며</B>, 작가에게는 상담·예약에
+              필요한 범위에서 회원의 표시 이름과 문의·예약 내용만 표시됩니다.
+            </li>
+            <li>
+              <B>작가의 연락처는 촬영 대금의 입금이 확인된 뒤</B>, 작가가 전달을 선택하고 회원이
+              안내를 확인한 경우에 한해 회원에게 전달됩니다. 회원이 연락처를 받은 시점의 효과는
+              제9조가 정합니다.
+            </li>
+            <li>
+              회원과 작가는 상대방의 연락처를 해당 촬영의 상담·이행 목적으로만 사용해야 하며,
+              다른 목적으로 이용하거나 제3자에게 제공할 수 없습니다.
+            </li>
+          </Ol>
+        </Article>
+
+        <Article n="제8조" title="촬영 예약과 결제">
+          <Ol>
+            <li>
+              회원과 작가는 서비스 내 채팅에서 촬영 일정과 조건을 정합니다. 작가가 예약을
+              제안하고 회원이 이를 수락하면 예약이 성립합니다.
+            </li>
+            <li>
+              <B>회원은 회사가 제공하는 결제수단으로 촬영 대금을 지급합니다.</B> 회사가 대금의
+              수령을 확인하면 예약이 확정됩니다.
+            </li>
+            <li>
+              <B>
+                회사는 수령한 촬영 대금을 보관하다가, 중개 수수료를 공제한 금액을 작가에게
+                정산합니다.
+              </B>{" "}
+              중개 수수료는 회사가 정하여 서비스 화면에 안내하며,{" "}
+              <B>회원이 화면에 표시된 금액 외에 추가로 부담하는 수수료는 없습니다.</B>
+            </li>
+            <li>
+              촬영 대금에 관한 세금계산서·현금영수증 등의 증빙은 작가가 발급합니다. 다만 회사가
+              법령에 따라 발급 의무를 지는 경우에는 회사가 발급합니다.
+            </li>
+          </Ol>
+        </Article>
+
+        <Article n="제9조" title="취소와 환불">
+          <Ol>
+            <li>
+              회원은 서비스 내 <B>［사매에 문의］</B> 로 취소·환불을 신청합니다.{" "}
+              <B>
+                환불 여부와 금액은 작가가 아니라 회사가 이 조의 기준에 따라 판정하고, 회사가
+                회원에게 직접 지급합니다.
+              </B>
+            </li>
+            <li>대금 지급 전에는 위약금 없이 취소할 수 있습니다.</li>
+            <li>
+              대금 지급 후의 환불 비율은 다음과 같습니다. 위에서부터 먼저 해당하는 기준을
+              적용합니다.
+              <Table
+                head={["사유", "환불", "중개 수수료"]}
+                rows={[
+                  ["작가의 사정으로 촬영이 이행되지 않은 경우", "100%", "작가가 부담"],
+                  ["이동이 불가능한 정도의 천재지변", "100%", "면제"],
+                  ["대금 지급일부터 7일 이내(청약철회)", "100%", "면제"],
+                  ["촬영일까지 7일 미만이 남은 경우", "0%", "—"],
+                  ["작가의 연락처를 전달받은 뒤", "50%", "—"],
+                  ["그 밖에 대금 지급일부터 7일이 지난 경우", "50%", "—"],
+                ]}
+              />
+            </li>
+            <li>
+              제3항의 청약철회는 전자상거래 등에서의 소비자보호에 관한 법률 제17조에 따른 것으로,{" "}
+              <B>이 기간에는 위약금이나 손해배상을 청구하지 않습니다.</B> 다만 촬영일까지 7일
+              미만이 남은 예약에 대해 회사가 결제 전에 환불이 제한된다는 사실을 별도로 고지하고
+              회원의 동의를 받아 둔 경우에는 그 동의에 따릅니다.
+            </li>
+            <li>
+              <B>회원이 작가의 연락처를 전달받으면 회사의 중개 용역이 제공된 것으로 보아</B>{" "}
+              제3항의 100% 환불 구간이 종료됩니다. 회사는 연락처를 전달하기 전에 이 사실을
+              고지합니다.
+            </li>
+            <li>
+              회사는 환불 사유가 확정된 날부터 <B>3영업일 이내</B>에 환급합니다. 이를 지연한
+              경우 관련 법령이 정한 지연이자를 지급합니다.
+            </li>
+            <li>
+              촬영이 일부 이행된 뒤의 취소 등 위 기준으로 정해지지 않는 경우, 회사는 이행 정도와
+              당사자의 사정을 고려하여 환불 금액을 정하고 그 근거를 회원과 작가에게 알립니다.
+            </li>
+          </Ol>
+        </Article>
+
+        <Article n="제10조" title="촬영 결과물과 저작권">
+          <Ol>
+            <li>
+              촬영 결과물의 저작권은 저작권법에 따라 이를 촬영한 작가에게 있습니다. 결과물에 담긴
+              회원의 초상에 관한 권리는 회원에게 있습니다.
+            </li>
+            <li>
+              <B>회원은 전달받은 결과물을 자유롭게 이용할 수 있습니다.</B> 개인적 이용은 물론,
+              회원 본인이나 회원이 운영하는 사업의 소개·홍보에 사용하는 것을 포함합니다.
+            </li>
+            <li>
+              다만 회원은 다음 행위를 하려는 경우 작가와 별도로 협의해야 합니다.
+              <ul className="mt-1.5 list-disc space-y-1 pl-5">
+                <li>
+                  결과물 자체를 제3자에게 <B>판매하거나 사용권을 넘기는 것</B>
+                </li>
+                <li>
+                  결과물을 <B>제3자의 상품·서비스 광고</B>에 제공하는 것
+                </li>
+              </ul>
+            </li>
+            <li>
+              회원은 결과물을 이용할 때 작가의 성명을 표시할 수 있으며, 작가가 요청하는 경우
+              합리적인 범위에서 표시합니다. 결과물의 내용을 왜곡하는 정도로 변형하지 않습니다.
+            </li>
+            <li>
+              <B>
+                결과물의 제공 범위(보정본 수량, 원본 파일 제공 여부, 추가 보정 조건 등)는 작가가
+                정한 촬영 상품의 내용에 따릅니다.
+              </B>{" "}
+              회원은 예약 전에 해당 내용을 확인해야 합니다.
+            </li>
+            <li>
+              작가는 회원의 초상이 포함된 결과물을 자신의 포트폴리오로 사용할 수 있으나, 회원이
+              이를 원하지 않는다는 의사를 밝힌 경우에는 사용하지 않습니다.
+            </li>
+          </Ol>
+        </Article>
+
+        <Article n="제11조" title="사진의 서비스 게재와 홍보 사용">
+          <Ol>
+            <li>
+              작가는 자신이 촬영한 사진을 서비스에 게재할 수 있으며, 게재한 사진이 서비스 내에서
+              노출되는 것에 동의합니다.
+            </li>
+            <li>
+              회사가 사진을 광고에 사용하는 범위와 조건은 별도의{" "}
+              <Link href="/terms/ad-consent" className="underline underline-offset-2">
+                광고 소재 사용 동의
+              </Link>
+              에 따릅니다.
+            </li>
+            <li>작가는 게재하는 사진에 대해 촬영 대상자의 동의를 받았음을 보증합니다.</li>
+          </Ol>
+        </Article>
+
+        <Article n="제12조" title="금지 행위">
+          <P>회원과 작가는 다음 행위를 해서는 안 됩니다.</P>
+          <Ol>
+            <li>허위 정보를 등록하거나 타인을 사칭하는 행위</li>
+            <li>타인이 촬영한 사진을 자신의 것으로 게재하는 행위</li>
+            <li>정당한 이유 없이 약속한 촬영에 응하지 않는 행위</li>
+            <li>
+              <B>촬영 대금을 회사가 제공하는 결제수단이 아닌 방법으로 주고받는 행위.</B> 작가가
+              회원에게 개인 계좌로의 입금을 요구하거나 안내하는 행위를 포함합니다.
+            </li>
+            <li>
+              서비스를 통해 알게 된 상대방에게 <B>예약이 확정되기 전에</B> 서비스 외부 경로(전화,
+              문자, 메신저, 사회관계망서비스 등)로 연락하거나, 그렇게 하도록 요구하는 행위
+            </li>
+            <li>서비스의 정상적인 운영을 방해하거나 자동화된 수단으로 접근하는 행위</li>
+            <li>법령을 위반하거나 타인의 권리를 침해하는 행위</li>
+          </Ol>
+        </Article>
+
+        <Article n="제13조" title="서비스 이용의 제한">
+          <Ol>
+            <li>
+              회사는 회원이 제12조를 위반한 경우 사전 통지 후 서비스 이용을 제한할 수 있습니다.
+              다만 긴급한 경우에는 조치 후 통지할 수 있습니다.
+            </li>
+            <li>
+              조치의 종류는 시정 요구, 일부 기능 제한, 일정 기간 이용 정지, 이용계약 해지이며,
+              위반의 내용과 반복 여부를 고려하여 정합니다. 대표적인 기준은 다음과 같습니다.
+              <Table
+                head={["행위", "1회", "반복"]}
+                rows={[
+                  ["프로필·상품 정보의 사실과 다른 기재", "시정 요구", "노출 제한"],
+                  ["정당한 이유 없는 촬영 불이행(노쇼)", "시정 요구", "이용 정지"],
+                  ["제12조 4·5호(결제 우회·외부 유도)", "이용 정지", "이용계약 해지"],
+                  ["타인이 촬영한 사진의 게재", "게시물 삭제 및 이용 정지", "이용계약 해지"],
+                  ["법령 위반 또는 타인의 권리 침해", "이용계약 해지", "—"],
+                ]}
+              />
+            </li>
+            <li>회원은 조치에 대해 이의를 제기할 수 있고, 회사는 그 내용을 검토해 회신합니다.</li>
+          </Ol>
+        </Article>
+
+        <Article n="제14조" title="개인정보의 보호">
+          <P>
+            회사는 관련 법령에 따라 회원의 개인정보를 보호하며, 구체적인 내용은{" "}
+            <Link href="/privacy" className="underline underline-offset-2">
+              개인정보 처리방침
+            </Link>
+            에 따릅니다.
+          </P>
+        </Article>
+
+        <Article n="제15조" title="서비스의 변경과 중단">
+          <Ol>
+            <li>
+              회사는 서비스의 내용을 변경하거나 일부를 중단할 수 있으며, 중대한 변경은 사전에
+              공지합니다.
+            </li>
+            <li>시스템 점검, 천재지변 등 부득이한 사유로 서비스가 일시 중단될 수 있습니다.</li>
+          </Ol>
+        </Article>
+
+        <Article n="제16조" title="회사의 면책">
+          <Ol>
+            <li>
+              회사는 제4조에 따라 촬영 계약의 당사자가 아니므로, 촬영의 품질·일정·결과물 등 촬영
+              계약의 이행에 관한 책임을 지지 않습니다.{" "}
+              <B>
+                다만 회사는 제17조에 따라 회원과 작가 사이에 발생한 분쟁의 해결을 위하여 필요한
+                조치를 시행합니다.
+              </B>
+            </li>
+            <li>
+              회사는 회원과 작가가 <B>서비스 밖에서</B> 한 거래나 약속에 대해 책임지지 않습니다.
+              다만 제4조 2항에 따라 회사가 보관하는 대금에 관하여는 그러하지 아니합니다.
+            </li>
+            <li>
+              앞의 각 항에도 불구하고 회사의 고의 또는 중대한 과실로 발생한 손해, 회사가 제공하는
+              서비스 자체의 하자로 발생한 손해,{" "}
+              <B>대금의 보관·정산 과정에서 회사의 잘못으로 발생한 손해</B>에 대해서는 책임을
+              집니다.
+            </li>
+          </Ol>
+        </Article>
+
+        <Article n="제17조" title="분쟁의 해결">
+          <Ol>
+            <li>
+              회사는 회원의 불만과 의견을 처리하기 위한 창구를 운영하며,{" "}
+              <B>
+                서비스를 이용함으로써 발생한 분쟁에 대하여 그 원인과 피해를 파악하는 등 해결에
+                필요한 조치를 신속히 시행합니다.
+              </B>
+            </li>
+            <li>회원은 소비자기본법에 따른 소비자분쟁조정기구에 조정을 신청할 수 있습니다.</li>
+          </Ol>
+        </Article>
+
+        <Article n="제18조" title="준거법과 관할">
+          <Ol>
+            <li>이 약관과 서비스 이용에 관하여는 대한민국 법령을 적용합니다.</li>
+            <li>서비스 이용과 관련한 분쟁의 관할은 민사소송법에 따릅니다.</li>
+          </Ol>
+        </Article>
+
+        <section>
+          <h2 className="mb-2 text-base font-semibold text-fg">부칙</h2>
+          <P>이 약관은 {EFFECTIVE_DATE}부터 적용합니다.</P>
+          <P className="mt-2">
+            이 약관은 시행 전에 가입한 회원에게도 적용됩니다. 회사는 시행일 7일 전부터 서비스
+            화면에 이 약관의 내용과 시행일을 공지하며, 회원이 시행일까지 이의를 제기하지 않으면
+            동의한 것으로 봅니다. 동의하지 않는 회원은 시행일 전에 이용계약을 해지할 수 있습니다.
+          </P>
+        </section>
       </div>
 
-      <nav aria-label="공개된 기준" className="mt-4 border-t border-line">
-        {PUBLISHED.map((p) => (
-          <Link
-            key={p.href}
-            href={p.href}
-            className="group flex items-baseline justify-between gap-4 border-b border-line py-3.5"
-          >
-            <span className="shrink-0 text-sm font-bold tracking-tight transition-colors group-hover:text-brand">
-              {p.label}
-            </span>
-            <span className="min-w-0 truncate text-xs text-faint">{p.desc}</span>
-          </Link>
-        ))}
-      </nav>
-
-      <section className="mt-12">
-        <h2 className="text-base font-semibold">약관이 다룰 내용</h2>
-        <p className="mt-1.5 text-sm text-muted">
-          아래 여덟 항목으로 정리해 공지 후 시행합니다.
-        </p>
-        <ol className="mt-5 space-y-4">
-          {OUTLINE.map((o) => (
-            <li key={o.no} className="flex gap-3.5">
-              <span className="w-6 shrink-0 font-display text-xs italic tabular-nums text-brand">
-                {o.no}
-              </span>
-              <div className="min-w-0">
-                <p className="text-sm font-bold tracking-tight">{o.title}</p>
-                <p className="mt-0.5 text-sm leading-relaxed text-muted">{o.scope}</p>
-              </div>
-            </li>
-          ))}
-        </ol>
-      </section>
-
       <p className="mt-12 border-t border-line pt-5 text-xs leading-relaxed text-faint">
-        약관이 시행되면 시행일 전에 공지하고, 이미 가입한 회원에게도 알립니다.
+        결제·연락처·환불이 실제로 어떻게 처리되는지는{" "}
+        <Link href="/trust" className="underline underline-offset-2">
+          안전하게 촬영하기
+        </Link>
+        에 더 자세히 적어 두었습니다.
       </p>
     </main>
+  );
+}
+
+function Article({
+  n,
+  title,
+  children,
+}: {
+  n: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section>
+      <h2 className="mb-2 text-base font-semibold text-fg">
+        <span className="font-display italic tabular-nums text-brand">{n}</span>{" "}
+        <span>({title})</span>
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+function P({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <p className={className}>{children}</p>;
+}
+
+function Ol({ children }: { children: React.ReactNode }) {
+  return <ol className="list-decimal space-y-1.5 pl-5">{children}</ol>;
+}
+
+function B({ children }: { children: React.ReactNode }) {
+  return <strong className="font-semibold text-fg">{children}</strong>;
+}
+
+/** 조문 안의 표 — 좁은 화면에서 본문이 가로로 밀리지 않게 표만 스크롤시킨다 */
+function Table({ head, rows }: { head: string[]; rows: string[][] }) {
+  return (
+    <div className="mt-2.5 overflow-x-auto">
+      <table className="w-full min-w-[22rem] border-collapse text-xs">
+        <thead>
+          <tr className="border-y border-line text-left text-muted">
+            {head.map((h) => (
+              <th key={h} className="py-2 pr-3 font-medium">
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r[0]} className="border-b border-line">
+              {r.map((c, i) => (
+                <td key={i} className={`py-2 pr-3 align-top ${i === 0 ? "" : "tabular-nums"}`}>
+                  {c}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
