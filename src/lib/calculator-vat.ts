@@ -19,6 +19,8 @@ export type VatSettings = {
   feeIncludesVat: boolean;
   /** 광고비 매입세액 공제 여부 — 세금계산서를 받는 매체면 켠다 */
   adDeductible: boolean;
+  /** PG 수수료 매입세액 공제 여부 — 국내 PG 는 세금계산서를 주므로 보통 켠다 */
+  pgDeductible: boolean;
   /** 콘텐츠 월 고정비 중 매입세액 공제가 되는 비중 (%) — 급여·인건비는 공제 대상이 아니다 */
   contentDeductiblePct: number;
   /**
@@ -35,6 +37,7 @@ export const DEFAULT_VAT: VatSettings = {
   pct: VAT_PCT,
   feeIncludesVat: true,
   adDeductible: true,
+  pgDeductible: true,
   contentDeductiblePct: 40,
   grossBilling: false,
   taxInvoicePct: 30,
@@ -138,9 +141,11 @@ export function unitEconomics(input: UnitInput): UnitResult {
   const feeIncl = vat.on && vat.feeIncludesVat;
   const feeSupply = feeIncl ? toSupply(billedFee, v) : billedFee;
 
-  // PG 수수료는 결제 전액에 붙고, 세금계산서를 받으므로 매입세액 공제 대상
+  // PG 수수료는 결제 전액에 붙는다. 세금계산서를 받으면 매입세액을 공제받아
+  // 실제 비용은 공급가액만 남고, 못 받으면 청구액 전체가 비용이다.
   const pgBilled = pgOn ? shoot * (pgPct / 100) : 0;
-  const pgSupply = toSupply(pgBilled, v);
+  const pgDeduct = vat.on && vat.pgDeductible;
+  const pgSupply = pgDeduct ? toSupply(pgBilled, v) : pgBilled;
   const pgInputVat = pgBilled - pgSupply;
 
   const netFee = feeSupply - pgSupply;
@@ -222,6 +227,12 @@ export type MonthlyVatResult = {
   contentInputVat: number;
   /** 손익에 잡히는 콘텐츠 비용 (공급가액 + 공제 못 받은 세액) */
   contentSupply: number;
+  /** 광고비에서 돌려받는 매입세액 */
+  adInputVat: number;
+  /** PG 수수료에서 돌려받는 매입세액 */
+  pgInputVat: number;
+  /** 작가 정산액에서 돌려받는 매입세액 (총액 인식일 때만) */
+  payoutInputVat: number;
   outputVat: number;
   inputVat: number;
   /** 납부세액 = 매출세액 − 매입세액. 음수면 환급 */
@@ -241,9 +252,21 @@ export function monthlyVat({
   const contentInputVat = vatOf(contentCost * share, v);
   const contentSupply = contentCost - contentInputVat;
 
-  const outputVat = shoots * unit.outputVat;
-  const inputVat =
-    shoots * (unit.pgInputVat + unit.payoutInputVat) + inquiries * unit.adInputVat + contentInputVat;
+  const adInputVat = inquiries * unit.adInputVat;
+  const pgInputVat = shoots * unit.pgInputVat;
+  const payoutInputVat = shoots * unit.payoutInputVat;
 
-  return { contentInputVat, contentSupply, outputVat, inputVat, payable: outputVat - inputVat };
+  const outputVat = shoots * unit.outputVat;
+  const inputVat = adInputVat + pgInputVat + payoutInputVat + contentInputVat;
+
+  return {
+    contentInputVat,
+    contentSupply,
+    adInputVat,
+    pgInputVat,
+    payoutInputVat,
+    outputVat,
+    inputVat,
+    payable: outputVat - inputVat,
+  };
 }

@@ -307,6 +307,12 @@ export default function CalculatorPage() {
             <p className="mt-2 text-label leading-relaxed text-muted">
               PG 수수료는 우리 몫이 아니라 <b className="text-fg">결제 전액</b>에 붙어요. 작가에게
               줄 돈은 그대로 나가므로 {pgOn ? "지금" : ""} 그만큼이 통째로 마진에서 빠집니다.
+              {vat.on && vat.pgDeductible && (
+                <>
+                  {" "}
+                  다만 매입세액은 공제되니 실제 부담은 {(pgPct / 1.1).toFixed(2)}% 예요.
+                </>
+              )}
             </p>
           </div>
           {/* 부가세 — 손익은 공급가액으로, 납부세액은 따로 */}
@@ -349,6 +355,16 @@ export default function CalculatorPage() {
                   onChange={(b) => patchVat({ adDeductible: b })}
                   label="광고비 매입세액 공제"
                   hint="세금계산서를 받는 매체면 켜요. 광고비의 1/11 이 돌아옵니다."
+                />
+                <VatToggle
+                  checked={vat.pgDeductible}
+                  onChange={(b) => patchVat({ pgDeductible: b })}
+                  label="PG 수수료 매입세액 공제"
+                  hint={
+                    pgOn
+                      ? `국내 PG 는 세금계산서를 주니 보통 켭니다. 건당 ${won(d.pgInputVat)} 가 돌아와요.`
+                      : "국내 PG 는 세금계산서를 주니 보통 켭니다. 지금은 PG 가 꺼져 있어요."
+                  }
                 />
                 <div>
                   <div className="flex items-baseline justify-between gap-3">
@@ -516,7 +532,12 @@ export default function CalculatorPage() {
                 ...(vat.on && vat.feeIncludesVat
                   ? ([[`부가세 ${vat.pct}%`, `−${won(d.billedFee - d.feeSupply)}`]] as const)
                   : []),
-                [pgOn ? `PG ${pgPct}%` : "PG (꺼짐)", pgOn ? `−${won(d.pgSupply)}` : "—"],
+                [
+                  pgOn
+                    ? `PG ${pgPct}%${vat.on && vat.pgDeductible ? " (공제 후)" : ""}`
+                    : "PG (꺼짐)",
+                  pgOn ? `−${won(d.pgSupply)}` : "—",
+                ],
                 ["순수수료", won(d.netFee)],
                 ...(d.unrecoveredVat > 0.5
                   ? ([["미공제 부가세", `−${won(d.unrecoveredVat)}`]] as const)
@@ -692,9 +713,11 @@ export default function CalculatorPage() {
           성사당 CPA는 문의당 CPA ÷ 성사율이므로, 성사율이 낮을수록 같은 광고비가 몇 배로
           불어나요. 회수율 1.0× 미만은 성사 1건마다 그만큼 손실이 난다는 뜻.
           <br />
-          PG 를 붙이면 요율에서 {pgPct}%p 를 그냥 뺀 것과 같아요 — 결제 전액에 붙는데 작가
-          정산액은 줄지 않으니까요. 요율 10%에 PG 를 켜면 실제로 남는 건 {(10 - pgPct).toFixed(1)}%
-          입니다. 지금 계좌이체(에스크로)로 받는 건 이 비용이 없다는 뜻이기도 해요.
+          PG 를 붙이면 요율에서{" "}
+          {vat.on && vat.pgDeductible ? (pgPct / 1.1).toFixed(2) : pgPct.toFixed(2)}%p 를 그냥 뺀
+          것과 같아요 — 결제 전액에 붙는데 작가 정산액은 줄지 않으니까요.
+          {vat.on && vat.pgDeductible && " (매입세액 공제 후 기준)"} 지금 계좌이체(에스크로)로 받는
+          건 이 비용이 없다는 뜻이기도 해요.
           <br />
           출장비는 수수료 대상이 아니라 촬영비만 넣으면 되고, 부가 매출(무빙컷 등)이 있으면
           촬영비에 더해서, 유기 유입 비중이 있으면 문의당 CPA에 유료 비중을 곱한 blended 값으로
@@ -1055,13 +1078,17 @@ export default function CalculatorPage() {
                 <b className="tabular-nums text-fg">{won(t.tax.payable * 12)}</b>
               </span>
             </div>
-            <dl className="mt-3 grid grid-cols-2 overflow-hidden rounded-lg border border-line bg-surface sm:grid-cols-4">
+            <dl className="mt-3 grid grid-cols-2 overflow-hidden rounded-lg border border-line bg-surface sm:grid-cols-3 lg:grid-cols-5">
               {(
                 [
                   ["매출세액", won(t.tax.outputVat)],
                   ["매입세액", `−${won(t.tax.inputVat)}`],
-                  ["ㄴ 광고비분", won(vol * d.adInputVat)],
+                  ["ㄴ 광고비분", won(t.tax.adInputVat)],
+                  ["ㄴ PG 수수료분", pgOn ? won(t.tax.pgInputVat) : "—"],
                   ["ㄴ 콘텐츠 고정비분", won(t.tax.contentInputVat)],
+                  ...(t.tax.payoutInputVat > 0.5
+                    ? ([["ㄴ 작가 정산분", won(t.tax.payoutInputVat)]] as const)
+                    : []),
                 ] as [string, string][]
               ).map(([k, v]) => (
                 <div

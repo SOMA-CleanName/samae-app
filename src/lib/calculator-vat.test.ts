@@ -48,6 +48,17 @@ test("PG 수수료는 매입세액 공제 — 순수수료에서 공급가액만
   near(on.netFee, off.netFee - on.pgSupply);
 });
 
+test("PG 매입세액을 공제하지 않으면 청구액 전체가 순수수료에서 빠진다", () => {
+  const input = { ...base({ pgDeductible: false }), pgOn: true };
+  const r = unitEconomics(input);
+  const billed = 150000 * 0.033;
+  near(r.pgSupply, billed);
+  assert.equal(r.pgInputVat, 0);
+  // 공제할 때보다 순수수료가 부가세만큼 더 깎인다
+  const deducted = unitEconomics({ ...base(), pgOn: true });
+  near(r.netFee, deducted.netFee - (billed - billed / 1.1));
+});
+
 test("순액 인식이면 작가 정산액은 세금에 영향이 없다", () => {
   const r = unitEconomics(base({ grossBilling: false, taxInvoicePct: 0 }));
   assert.equal(r.unrecoveredVat, 0);
@@ -80,6 +91,7 @@ test("손익분기 요율을 넣으면 건당 손익이 0 이 된다", () => {
     { grossBilling: true, taxInvoicePct: 0 },
     { grossBilling: true, taxInvoicePct: 55 },
     { feeIncludesVat: false },
+    { pgDeductible: false },
   ] as Partial<VatSettings>[]) {
     const input = { ...base(vat), pgOn: true };
     const { needTake } = unitEconomics(input);
@@ -111,7 +123,10 @@ test("월 납부세액 — 매출세액에서 광고·PG·콘텐츠 매입세액
   near(m.contentInputVat, ((500000 * 0.4) / 1.1) * 0.1);
   near(m.contentSupply, 500000 - m.contentInputVat);
   near(m.outputVat, 20 * unit.outputVat);
-  near(m.inputVat, 20 * unit.pgInputVat + 60 * unit.adInputVat + m.contentInputVat);
+  near(m.pgInputVat, 20 * unit.pgInputVat);
+  near(m.adInputVat, 60 * unit.adInputVat);
+  assert.ok(m.pgInputVat > 0, "PG 매입세액이 잡혀야 한다");
+  near(m.inputVat, m.adInputVat + m.pgInputVat + m.payoutInputVat + m.contentInputVat);
   near(m.payable, m.outputVat - m.inputVat);
 });
 
@@ -121,5 +136,6 @@ test("VAT 를 끄면 월 부가세는 전부 0 이고 콘텐츠 비용도 그대
   const m = monthlyVat({ unit, vat, shoots: 20, inquiries: 60, contentCost: 500000 });
   assert.equal(m.contentInputVat, 0);
   assert.equal(m.contentSupply, 500000);
+  assert.equal(m.inputVat, 0);
   assert.equal(m.payable, 0);
 });
