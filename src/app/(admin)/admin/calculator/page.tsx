@@ -61,13 +61,13 @@ const PRESETS: Preset[] = [
     vat: { on: false },
   },
   {
-    label: "총액 인식 · 계산서 0%",
+    label: "판매자로 잡힘 · 증빙 0%",
     shoot: 150000,
     take: 10,
     pg: false,
     rate: 33,
     cpa: 11529,
-    vat: { grossBilling: true, taxInvoicePct: 0 },
+    vat: { model: "reseller", proofPct: 0 },
   },
 ];
 
@@ -163,7 +163,7 @@ export default function CalculatorPage() {
     const gmv = shoots * shoot;
     const gross = shoots * d.billedFee; // 청구 기준 총수수료
     const net = shoots * d.netFee; // 월 순매출 = 순수수료(공급가액) 합
-    const unrecovered = shoots * d.unrecoveredVat; // 총액 인식에서 떠안는 부가세
+    const structure = shoots * d.structureCost; // 판매자로 잡혔을 때 새는 돈
     const { contentSupply, contentInputVat } = monthlyVat({
       unit: d,
       vat,
@@ -171,9 +171,9 @@ export default function CalculatorPage() {
       inquiries: 0,
       contentCost,
     });
-    const profit = net - unrecovered - contentSupply;
+    const profit = net - structure - contentSupply;
     // 손익분기 — 고정비를 덮으려면 하루에 몇 건이 필요한가 (입력과 같은 기준으로 환산)
-    const per = d.netFee - d.unrecoveredVat; // 촬영 1건이 실제로 남기는 돈
+    const per = d.netFee - d.structureCost; // 촬영 1건이 실제로 남기는 돈
     const bepShoots = per > 0 ? contentSupply / per / days : Infinity;
     const bepPerDay = byInquiry ? (d.rate > 0 ? bepShoots / d.rate : Infinity) : bepShoots;
     return {
@@ -182,7 +182,7 @@ export default function CalculatorPage() {
       gmv,
       gross,
       net,
-      unrecovered,
+      structure,
       contentSupply,
       contentInputVat,
       profit,
@@ -199,13 +199,13 @@ export default function CalculatorPage() {
   const t = useMemo(() => {
     const paidShoots = vol * d.rate;
     const paidNet = paidShoots * d.netFee;
-    const paidUnrecovered = paidShoots * d.unrecoveredVat;
-    const paidCost = vol * d.adSupply + paidUnrecovered; // 광고비는 문의 전부에 든다 (공급가액)
+    const paidStructure = paidShoots * d.structureCost;
+    const paidCost = vol * d.adSupply + paidStructure; // 광고비는 문의 전부에 든다 (공급가액)
     const paid = { shoots: paidShoots, net: paidNet, cost: paidCost, profit: paidNet - paidCost };
     const content = {
       shoots: c.shoots,
       net: c.net,
-      cost: c.contentSupply + c.unrecovered,
+      cost: c.contentSupply + c.structure,
       profit: c.profit,
     };
 
@@ -249,6 +249,12 @@ export default function CalculatorPage() {
           <>
             {" "}
             · 모든 금액은 <b className="text-fg">부가세 {vat.pct}% 를 뺀 공급가액</b>
+            {vat.model === "reseller" && (
+              <>
+                {" "}
+                · <b className="text-danger">판매자 인정</b> 시나리오
+              </>
+            )}
           </>
         )}
       </p>
@@ -401,48 +407,107 @@ export default function CalculatorPage() {
                   </p>
                 </div>
 
+                {/* 세무상 구조 — 이 계산기에서 가장 큰 갈림길 */}
                 <div className="rounded-lg border border-line bg-surface p-2.5">
-                  <VatToggle
-                    checked={vat.grossBilling}
-                    onChange={(b) => patchVat({ grossBilling: b })}
-                    label="에스크로 총액 인식"
-                    hint="결제 전액을 우리 매출로 잡는 경우. 촬영비 전부에 매출세액이 붙고, 작가에게서 세금계산서를 받은 만큼만 공제돼요."
-                  />
-                  {vat.grossBilling && (
-                    <>
-                      <div className="mt-2 flex items-baseline justify-between gap-3">
-                        <span className="text-body-sm text-fg">작가 세금계산서 수취율</span>
-                        <span className="flex items-baseline gap-1 rounded-lg border border-line-strong bg-surface-2 px-2 py-1">
-                          <input
-                            type="number"
-                            value={vat.taxInvoicePct}
-                            step={5}
-                            min={0}
-                            max={100}
-                            onChange={(e) => {
-                              const v = parseFloat(e.target.value);
-                              if (!isNaN(v)) patchVat({ taxInvoicePct: clamp(v, 0, 100) });
-                            }}
-                            className="w-12 bg-transparent text-right text-body-sm font-semibold tabular-nums text-fg outline-none"
-                          />
-                          <span className="text-caption text-faint">%</span>
+                  <p className="text-body-sm font-medium text-fg">세무상 우리가 판 것</p>
+                  <div className="mt-2 grid grid-cols-2 gap-1.5">
+                    {(
+                      [
+                        ["brokerage", "중개", "수수료만 매출"],
+                        ["reseller", "판매자로 인정", "촬영비 전액 매출"],
+                      ] as const
+                    ).map(([key, name, sub]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => patchVat({ model: key })}
+                        aria-pressed={vat.model === key}
+                        className={`cursor-pointer rounded-lg border px-2.5 py-2 text-left transition-colors ${
+                          vat.model === key
+                            ? "border-fg/40 bg-fg/[0.06]"
+                            : "border-line bg-surface-2 hover:border-fg/25"
+                        }`}
+                      >
+                        <span
+                          className={`block text-body-sm font-semibold ${
+                            vat.model === key ? "text-fg" : "text-muted"
+                          }`}
+                        >
+                          {name}
                         </span>
-                      </div>
-                      <input
-                        type="range"
-                        min={0}
-                        max={100}
-                        step={5}
-                        value={vat.taxInvoicePct}
-                        onChange={(e) => patchVat({ taxInvoicePct: +e.target.value })}
-                        className="mt-2 w-full cursor-pointer accent-fg"
-                        aria-label="작가 세금계산서 수취율"
-                      />
-                      <p className="mt-1 text-label leading-relaxed text-danger">
-                        못 받은 만큼은 우리가 떠안아요 — 지금 건당{" "}
-                        <b className="tabular-nums">{won(d.unrecoveredVat)}</b>. 작가 대부분이
-                        프리랜서·간이과세라면 이 구조는 위험합니다.
+                        <span className="mt-0.5 block text-label text-faint">{sub}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {vat.model === "brokerage" ? (
+                    <p className="mt-2.5 text-label leading-relaxed text-muted">
+                      작가가 고객에게 촬영을 팔고, 우리는 작가에게 수수료를 판 구조예요. 세금계산서는{" "}
+                      <b className="text-fg">사매 → 작가</b> 한 방향뿐이라{" "}
+                      <b className="text-fg">작가에게서 받을 증빙은 없습니다.</b> 이걸 지키는 건
+                      통신판매중개업 신고 · 약관의 중개자 조항 · PG 분리정산(작가 몫이 작가 매출로
+                      기록) · 정산 내역서의 촬영비/수수료 분리, 이 넷이에요.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="mt-2.5 text-label leading-relaxed text-danger">
+                        PG 가맹이 사매 단독 명의라 카드매출 전액이 사매 사업자로 잡히면 이렇게 봐요
+                        — 우리가 {won(shoot)}짜리 촬영을 팔고 작가에게서 {won(d.payout)}에 사 온
+                        것. 그 {won(d.payout)}을 비용으로 인정받으려면 적격증빙이 필요해집니다.
                       </p>
+
+                      <div className="mt-3 space-y-3 border-t border-line pt-3">
+                        <VatSlider
+                          label="적격증빙 수취율"
+                          value={vat.proofPct}
+                          onChange={(n) => patchVat({ proofPct: n })}
+                          hint="세금계산서·계산서·원천징수영수증 중 아무거나 받은 비율. 못 받은 만큼은 비용 인정이 안 돼요."
+                        />
+                        <VatSlider
+                          label="ㄴ 그중 세금계산서 (과세 작가)"
+                          value={vat.taxableSharePct}
+                          onChange={(n) => patchVat({ taxableSharePct: n })}
+                          hint="매입세액 공제는 여기까지만 돼요. 면세 프리랜서는 증빙을 줘도 부가세가 따라오지 않습니다."
+                        />
+                        <div className="grid grid-cols-2 gap-2">
+                          <VatNum
+                            label="소득세·법인세 실효세율"
+                            value={vat.incomeTaxPct}
+                            onChange={(n) => patchVat({ incomeTaxPct: n })}
+                          />
+                          <VatNum
+                            label="증빙 미수취 가산세"
+                            value={vat.penaltyPct}
+                            onChange={(n) => patchVat({ penaltyPct: n })}
+                          />
+                        </div>
+
+                        <dl className="space-y-1 rounded-lg border border-danger/30 bg-danger-soft/40 px-2.5 py-2 text-label tabular-nums">
+                          <div className="flex justify-between gap-2">
+                            <dt className="text-muted">떠안는 부가세</dt>
+                            <dd className="font-medium text-fg">{won(d.unrecoveredVat)}</dd>
+                          </div>
+                          <div className="flex justify-between gap-2">
+                            <dt className="text-muted">비용 불인정 → 추가 소득세</dt>
+                            <dd className="font-medium text-fg">{won(d.disallowedTax)}</dd>
+                          </div>
+                          <div className="flex justify-between gap-2">
+                            <dt className="text-muted">미수취 가산세</dt>
+                            <dd className="font-medium text-fg">{won(d.penalty)}</dd>
+                          </div>
+                          <div className="flex justify-between gap-2 border-t border-danger/25 pt-1">
+                            <dt className="font-semibold text-fg">건당 구조 비용</dt>
+                            <dd className="font-bold text-danger">{won(d.structureCost)}</dd>
+                          </div>
+                        </dl>
+
+                        <p className="text-label leading-relaxed text-muted">
+                          수취율은 올려서 해결하는 값이 아니에요 — 작가 풀이 면세 프리랜서 위주면
+                          구조적으로 낮을 수밖에 없습니다.{" "}
+                          <b className="text-fg">수취율이 필요 없는 구조(중개)를 확정하는 것</b>이
+                          답이고, 이 화면은 그게 무너졌을 때 얼마가 새는지 보는 용도예요.
+                        </p>
+                      </div>
                     </>
                   )}
                 </div>
@@ -520,7 +585,7 @@ export default function CalculatorPage() {
             <span className="w-full text-caption text-muted">
               성사 1건마다 {d.positive ? "남는" : "까먹는"} 금액이에요. 순수수료 {won(fee)} −
               획득비용 {won(d.acq)}
-              {d.unrecoveredVat > 0.5 && <> − 미공제 부가세 {won(d.unrecoveredVat)}</>}.
+              {d.structureCost > 0.5 && <> − 구조 비용 {won(d.structureCost)}</>}.
               {vat.on && <> 금액은 모두 부가세를 뺀 공급가액이에요.</>}
             </span>
           </div>
@@ -539,8 +604,8 @@ export default function CalculatorPage() {
                   pgOn ? `−${won(d.pgSupply)}` : "—",
                 ],
                 ["순수수료", won(d.netFee)],
-                ...(d.unrecoveredVat > 0.5
-                  ? ([["미공제 부가세", `−${won(d.unrecoveredVat)}`]] as const)
+                ...(d.structureCost > 0.5
+                  ? ([["구조 비용 (판매자 인정)", `−${won(d.structureCost)}`]] as const)
                   : []),
                 ["성사당 CPA", won(d.acq)],
                 ["회수율 (매출÷비용)", `${isFinite(d.roas) ? d.roas.toFixed(2) : "∞"}×`],
@@ -641,7 +706,13 @@ export default function CalculatorPage() {
             촬영비 <b className="tabular-nums text-fg">{won(shoot)}</b> · 문의당 CPA{" "}
             <b className="tabular-nums text-fg">{won(cpa)}</b>
             {pgOn && <> · PG {pgPct}% 포함</>}
-            {vat.on && <> · 부가세 {vat.pct}% 반영</>} 기준 · 셀은 건당 손익
+            {vat.on && (
+              <>
+                {" "}
+                · 부가세 {vat.pct}%{vat.model === "reseller" && " · 판매자 인정"} 반영
+              </>
+            )}{" "}
+            기준 · 셀은 건당 손익
           </p>
         </div>
         <div className="mt-3 overflow-x-auto">
@@ -855,8 +926,8 @@ export default function CalculatorPage() {
                     pgOn ? `−${won(c.shoots * d.pgSupply)}` : "—",
                   ],
                   ["월 순매출", won(c.net)],
-                  ...(c.unrecovered > 0.5
-                    ? ([["미공제 부가세", `−${won(c.unrecovered)}`]] as const)
+                  ...(c.structure > 0.5
+                    ? ([["구조 비용", `−${won(c.structure)}`]] as const)
                     : []),
                   [
                     vat.on && c.contentInputVat > 0.5 ? "콘텐츠 고정비 (공제 후)" : "콘텐츠 고정비",
@@ -900,7 +971,7 @@ export default function CalculatorPage() {
                   {[0.5, 1, 2, 3, 5, 10, 20].map((n) => {
                     const shoots = (byInquiry ? n * d.rate : n) * days;
                     const net = shoots * fee;
-                    const profit = net - shoots * d.unrecoveredVat - c.contentSupply;
+                    const profit = net - shoots * d.structureCost - c.contentSupply;
                     const here = Math.abs(n - perDay) < 0.26;
                     return (
                       <tr key={n} className={here ? "bg-fg/[0.05] font-semibold" : ""}>
@@ -1105,14 +1176,12 @@ export default function CalculatorPage() {
               <b className="tabular-nums text-fg">{signWon(t.profit)}</b> 에서 또 빼면 안 됩니다.
               다만 <b className="text-fg">현금은 실제로 나가니까</b> 분기 납부일에 맞춰 남겨둬야
               해요.
-              {vat.grossBilling && t.shoots * d.unrecoveredVat > 0.5 && (
+              {t.shoots * d.structureCost > 0.5 && (
                 <>
                   {" "}
-                  반대로 작가에게서 세금계산서를 못 받은{" "}
-                  <b className="tabular-nums text-danger">
-                    {won(t.shoots * d.unrecoveredVat)}
-                  </b>{" "}
-                  는 공제가 안 되니 그건 진짜 비용이고, 이미 위 손익에 반영돼 있어요.
+                  반대로 판매자로 잡혀서 새는{" "}
+                  <b className="tabular-nums text-danger">{won(t.shoots * d.structureCost)}</b> 는
+                  돌려받을 수 없는 진짜 비용이라, 이미 위 손익에 반영돼 있어요.
                 </>
               )}
             </p>
@@ -1180,6 +1249,85 @@ function VatToggle({
       <span className="min-w-0 flex-1">
         <span className="block text-body-sm text-fg">{label}</span>
         <span className="mt-0.5 block text-label leading-relaxed text-muted">{hint}</span>
+      </span>
+    </label>
+  );
+}
+
+// 부가세 세부 슬라이더 (0~100%)
+function VatSlider({
+  label,
+  value,
+  onChange,
+  hint,
+}: {
+  label: string;
+  value: number;
+  onChange: (n: number) => void;
+  hint: string;
+}) {
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-body-sm text-fg">{label}</span>
+        <span className="flex items-baseline gap-1 rounded-lg border border-line-strong bg-surface-2 px-2 py-1">
+          <input
+            type="number"
+            value={value}
+            step={5}
+            min={0}
+            max={100}
+            onChange={(e) => {
+              const n = parseFloat(e.target.value);
+              if (!isNaN(n)) onChange(clamp(n, 0, 100));
+            }}
+            className="w-12 bg-transparent text-right text-body-sm font-semibold tabular-nums text-fg outline-none"
+          />
+          <span className="text-caption text-faint">%</span>
+        </span>
+      </div>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        step={5}
+        value={value}
+        onChange={(e) => onChange(+e.target.value)}
+        className="mt-1.5 w-full cursor-pointer accent-fg"
+        aria-label={label}
+      />
+      <p className="text-label leading-relaxed text-muted">{hint}</p>
+    </div>
+  );
+}
+
+// 세율 같은 짧은 숫자 입력
+function VatNum({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (n: number) => void;
+}) {
+  return (
+    <label className="block rounded-lg border border-line bg-surface-2 px-2.5 py-2">
+      <span className="block text-label text-muted">{label}</span>
+      <span className="mt-0.5 flex items-baseline gap-1">
+        <input
+          type="number"
+          value={value}
+          step={0.5}
+          min={0}
+          max={100}
+          onChange={(e) => {
+            const n = parseFloat(e.target.value);
+            if (!isNaN(n)) onChange(clamp(n, 0, 100));
+          }}
+          className="w-12 bg-transparent text-body-sm font-semibold tabular-nums text-fg outline-none"
+        />
+        <span className="text-caption text-faint">%</span>
       </span>
     </label>
   );
