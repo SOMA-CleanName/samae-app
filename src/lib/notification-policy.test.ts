@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   decideChatReplyNotification,
   NOTIFY_COOLDOWN_MS,
+  READ_HEARTBEAT_MS,
   VIEWING_WINDOW_MS,
 } from "./notification-policy";
 
@@ -32,13 +33,13 @@ test("안 읽은 채로 답장이 더 와도 알림은 한 번뿐", () => {
   assert.deepEqual(decide({ lastSentAt: sent }), { send: false, reason: "cooldown" });
 });
 
-test("하루가 지나면 안 읽고 있어도 한 번 더 보낸다", () => {
+test("쿨다운이 지나면 안 읽고 있어도 한 번 더 보낸다", () => {
   const sent = ago(NOTIFY_COOLDOWN_MS + 1000);
   assert.deepEqual(decide({ lastSentAt: sent }), { send: true });
 });
 
 test("알림을 받고 읽었으면 쿨다운이 풀린다", () => {
-  // 읽고 나간 뒤 온 새 답장은 다시 알려야 한다 — 이게 24시간에 묶이면 안 된다
+  // 읽고 나간 뒤 온 새 답장은 다시 알려야 한다 — 이게 쿨다운에 묶이면 안 된다
   const sent = ago(3 * 3600_000);
   const read = ago(2 * 3600_000); // 알림 뒤에 읽음
   assert.deepEqual(decide({ lastSentAt: sent, lastReadAt: read }), { send: true });
@@ -65,4 +66,17 @@ test("보고 있는 판정이 쿨다운 리셋보다 먼저다", () => {
 
 test("보고 있는 창의 경계에서는 보낸다", () => {
   assert.deepEqual(decide({ lastReadAt: ago(VIEWING_WINDOW_MS) }), { send: true });
+});
+
+test("하트비트 한 번을 걸러도 보고 있는 것으로 남는다", () => {
+  // 이 부등식이 깨지면 화면을 보고 있는 사람에게 알림이 날아간다.
+  // 하트비트가 한 번 밀리거나 요청이 느려도 버티도록 여유가 있어야 한다.
+  assert.ok(
+    READ_HEARTBEAT_MS * 1.5 < VIEWING_WINDOW_MS,
+    `하트비트(${READ_HEARTBEAT_MS}ms)가 열람창(${VIEWING_WINDOW_MS}ms) 대비 너무 길다`
+  );
+  assert.deepEqual(decide({ lastReadAt: ago(READ_HEARTBEAT_MS + 5_000) }), {
+    send: false,
+    reason: "viewing",
+  });
 });
