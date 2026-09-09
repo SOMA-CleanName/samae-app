@@ -2,9 +2,20 @@
 
 import { useMemo, useState } from "react";
 
+import {
+  DEFAULT_VAT,
+  monthlyVat,
+  unitEconomics,
+  type VatSettings,
+} from "@/lib/calculator-vat";
+
 // 사매 건당 손익 계산기 — 광고비(CPA)·성사율·수수료로 성사 1건당 손익을 본다.
-//   성사당 CPA = 문의당 CPA ÷ 성사율 · 건당 손익 = 평균 수수료 − 성사당 CPA
-// (외부 HTML 프로토타입을 어드민 페이지로 포팅 — 로직 동일, 스타일은 앱 토큰 사용)
+//   성사당 CPA = 문의당 CPA ÷ 성사율 · 건당 손익 = 순수수료 − 성사당 CPA
+// 계산은 전부 src/lib/calculator-vat.ts (테스트 있음) 에 있고, 여기는 화면만 그린다.
+//
+// 부가세(VAT): 손익은 **공급가액(VAT 제외)** 으로 본다. 수수료 15,000원을 받아도
+// 1,364원은 국세청 몫이고, 광고비·PG 에 낸 부가세는 매입세액으로 돌려받는다.
+// 토글을 끄면 예전(세전) 계산과 정확히 같은 값이 나온다.
 
 const fmt = new Intl.NumberFormat("ko-KR");
 const won = (n: number) => `${fmt.format(Math.round(n))}원`;
@@ -28,6 +39,8 @@ type Preset = {
   pg: boolean;
   rate: number;
   cpa: number;
+  /** 부가세 설정까지 바꾸는 시나리오 (기본값 위에 덮어쓴다) */
+  vat?: Partial<VatSettings>;
 };
 const PRESETS: Preset[] = [
   // 지금은 건당 정액 6,000원 — 촬영비 15만 기준이면 4% 에 해당한다
@@ -37,6 +50,25 @@ const PRESETS: Preset[] = [
   { label: "요율 15%", shoot: 150000, take: 15, pg: false, rate: 33, cpa: 11529 },
   { label: "촬영비 30만", shoot: 300000, take: 10, pg: false, rate: 33, cpa: 11529 },
   { label: "성사율 50%", shoot: 150000, take: 10, pg: false, rate: 50, cpa: 11529 },
+  // 세금 시나리오 — 부가세를 아예 안 보는 경우와, 총액 인식이 최악으로 도는 경우
+  {
+    label: "세전 (VAT 무시)",
+    shoot: 150000,
+    take: 10,
+    pg: false,
+    rate: 33,
+    cpa: 11529,
+    vat: { on: false },
+  },
+  {
+    label: "총액 인식 · 계산서 0%",
+    shoot: 150000,
+    take: 10,
+    pg: false,
+    rate: 33,
+    cpa: 11529,
+    vat: { grossBilling: true, taxInvoicePct: 0 },
+  },
 ];
 
 // 숫자 입력 + 슬라이더 페어
@@ -112,71 +144,76 @@ export default function CalculatorPage() {
   const [days, setDays] = useState(30); // 한 달 영업일
   const [contentCost, setContentCost] = useState(500000); // 콘텐츠 제작·운영 월 고정비
 
+  // 부가세 설정
+  const [vat, setVat] = useState<VatSettings>(DEFAULT_VAT);
+  const patchVat = (patch: Partial<VatSettings>) => setVat((v) => ({ ...v, ...patch }));
+
   const d = useMemo(() => {
-    const rate = clamp(ratePct, 1, 100) / 100;
-
-    // 수수료는 더 이상 직접 넣는 값이 아니다 — 촬영비 × 요율에서 나온다.
-    // PG 를 붙이면 그 비용은 **우리 몫이 아니라 결제 전액**에 붙는다.
-    // 작가에게 줄 돈은 그대로 나가므로, PG 수수료는 통째로 우리 마진에서 빠진다.
-    const gross = shoot * (clamp(takePct, 0, 100) / 100); // 총수수료
-    const pgCost = pgOn ? shoot * (clamp(pgPct, 0, 100) / 100) : 0;
-    const fee = gross - pgCost; // 순수수료 = 실제로 우리에게 남는 매출
-
-    const acq = cpa / rate; // 성사당 CPA
-    const pl = fee - acq; // 건당 손익
-    const needRate = fee > 0 ? (cpa / fee) * 100 : Infinity; // 손익분기 성사율
-    const needCpa = fee * rate; // 손익분기 CPA
-    // 손익분기 요율 — 성사당 CPA 를 덮으려면 촬영비의 몇 %를 떼야 하는가 (PG 몫 포함)
-    const needTake =
-      shoot > 0 ? (acq / shoot) * 100 + (pgOn ? clamp(pgPct, 0, 100) : 0) : Infinity;
-    return {
-      rate,
-      gross,
-      pgCost,
-      fee,
-      acq,
-      pl,
-      positive: pl >= 0,
-      roas: acq > 0 ? fee / acq : Infinity,
-      needRate,
-      needCpa,
-      needTake,
-      monthly: vol * rate * pl,
-    };
-  }, [shoot, takePct, pgOn, pgPct, ratePct, cpa, vol]);
-  const fee = d.fee;
+    const u = unitEconomics({ shoot, takePct, pgOn, pgPct, ratePct, cpa, vat });
+    return { ...u, rate: clamp(ratePct, 1, 100) / 100, monthly: vol * (clamp(ratePct, 1, 100) / 100) * u.pl };
+  }, [shoot, takePct, pgOn, pgPct, ratePct, cpa, vol, vat]);
+  const fee = d.netFee; // 건당 순수수료 (공급가액)
 
   // 콘텐츠 마케팅 수익 — 건당 순수수료(위 입력)를 그대로 쓰고 물량만 바꿔 끼운다.
   // 유료 광고와 달리 건당 CPA 가 아니라 **월 고정비**(제작·운영)로 잡는 게 맞다.
+  // 고정비도 부가세 포함 청구액이라, 공제되는 비중만큼은 비용에서 빠진다.
   const c = useMemo(() => {
     const shootsPerDay = byInquiry ? perDay * d.rate : perDay; // 실제 성사되는 촬영 건수/일
     const shoots = shootsPerDay * days;
     const gmv = shoots * shoot;
-    const gross = shoots * d.gross;
-    const pgCost = shoots * d.pgCost;
-    const net = shoots * d.fee; // 월 순매출 = 순수수료 합
-    const profit = net - contentCost;
+    const gross = shoots * d.billedFee; // 청구 기준 총수수료
+    const net = shoots * d.netFee; // 월 순매출 = 순수수료(공급가액) 합
+    const unrecovered = shoots * d.unrecoveredVat; // 총액 인식에서 떠안는 부가세
+    const { contentSupply, contentInputVat } = monthlyVat({
+      unit: d,
+      vat,
+      shoots: 0,
+      inquiries: 0,
+      contentCost,
+    });
+    const profit = net - unrecovered - contentSupply;
     // 손익분기 — 고정비를 덮으려면 하루에 몇 건이 필요한가 (입력과 같은 기준으로 환산)
-    const bepShoots = d.fee > 0 ? contentCost / d.fee / days : Infinity;
+    const per = d.netFee - d.unrecoveredVat; // 촬영 1건이 실제로 남기는 돈
+    const bepShoots = per > 0 ? contentSupply / per / days : Infinity;
     const bepPerDay = byInquiry ? (d.rate > 0 ? bepShoots / d.rate : Infinity) : bepShoots;
-    return { shootsPerDay, shoots, gmv, gross, pgCost, net, profit, bepPerDay };
-  }, [perDay, byInquiry, days, contentCost, shoot, d.rate, d.gross, d.pgCost, d.fee]);
+    return {
+      shootsPerDay,
+      shoots,
+      gmv,
+      gross,
+      net,
+      unrecovered,
+      contentSupply,
+      contentInputVat,
+      profit,
+      bepPerDay,
+    };
+  }, [perDay, byInquiry, days, contentCost, shoot, vat, d]);
   const cProfitColor = c.profit >= 0 ? "text-success" : "text-danger";
 
   // 합산 대시보드 — 유료(광고) 채널 + 콘텐츠 채널의 한 달 순이익
   //   유료: 문의 vol 건 × 성사율 = 촬영 건수, 비용은 문의 전체에 붙는 CPA
   //   콘텐츠: 위 섹션 그대로 (비용은 월 고정비)
+  // 부가세는 손익에 넣지 않는다 — 대신 걷어서 내는 돈이라 따로 표시한다.
+  // 단 공제받지 못하는 부가세(작가 세금계산서 미수취분)는 진짜 비용이라 손익에 넣는다.
   const t = useMemo(() => {
     const paidShoots = vol * d.rate;
-    const paidNet = paidShoots * d.fee;
-    const paidCost = vol * cpa; // 광고비는 성사 여부와 무관하게 문의 전부에 든다
+    const paidNet = paidShoots * d.netFee;
+    const paidUnrecovered = paidShoots * d.unrecoveredVat;
+    const paidCost = vol * d.adSupply + paidUnrecovered; // 광고비는 문의 전부에 든다 (공급가액)
     const paid = { shoots: paidShoots, net: paidNet, cost: paidCost, profit: paidNet - paidCost };
-    const content = { shoots: c.shoots, net: c.net, cost: contentCost, profit: c.profit };
+    const content = {
+      shoots: c.shoots,
+      net: c.net,
+      cost: c.contentSupply + c.unrecovered,
+      profit: c.profit,
+    };
 
     const shoots = paid.shoots + content.shoots;
     const net = paid.net + content.net;
     const cost = paid.cost + content.cost;
     const profit = net - cost;
+    const tax = monthlyVat({ unit: d, vat, shoots, inquiries: vol, contentCost });
     return {
       paid,
       content,
@@ -184,12 +221,13 @@ export default function CalculatorPage() {
       net,
       cost,
       profit,
+      tax,
       gmv: shoots * shoot,
       margin: net > 0 ? (profit / net) * 100 : 0,
       blendedCac: shoots > 0 ? cost / shoots : 0, // 촬영 1건 따오는 데 실제로 든 돈
       perShoot: shoots > 0 ? profit / shoots : 0,
     };
-  }, [vol, cpa, shoot, d.rate, d.fee, c.shoots, c.net, c.profit, contentCost]);
+  }, [vol, shoot, contentCost, vat, d, c]);
   const tProfitColor = t.profit >= 0 ? "text-success" : "text-danger";
 
   const stateColor = d.positive ? "text-success" : "text-danger";
@@ -207,6 +245,12 @@ export default function CalculatorPage() {
         순수수료 = <b className="text-fg">촬영비 × 요율 − PG</b> · 성사당 CPA ={" "}
         <b className="text-fg">문의당 CPA ÷ 성사율</b> · 건당 손익 ={" "}
         <b className="text-fg">순수수료 − 성사당 CPA</b>
+        {vat.on && (
+          <>
+            {" "}
+            · 모든 금액은 <b className="text-fg">부가세 {vat.pct}% 를 뺀 공급가액</b>
+          </>
+        )}
       </p>
 
       <div className="mt-5 grid gap-5 md:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
@@ -265,6 +309,134 @@ export default function CalculatorPage() {
               줄 돈은 그대로 나가므로 {pgOn ? "지금" : ""} 그만큼이 통째로 마진에서 빠집니다.
             </p>
           </div>
+          {/* 부가세 — 손익은 공급가액으로, 납부세액은 따로 */}
+          <div className="rounded-xl border border-line bg-surface-2 p-3">
+            <label className="flex cursor-pointer items-center gap-2.5">
+              <input
+                type="checkbox"
+                checked={vat.on}
+                onChange={(e) => patchVat({ on: e.target.checked })}
+                className="h-4 w-4 shrink-0 accent-brand"
+              />
+              <span className="flex-1 text-body-sm font-medium text-fg">부가세(VAT) 반영</span>
+              <span className="flex items-baseline gap-1 rounded-lg border border-line-strong bg-surface px-2 py-1">
+                <input
+                  type="number"
+                  value={vat.pct}
+                  step={1}
+                  min={0}
+                  disabled={!vat.on}
+                  onChange={(e) => {
+                    const v = parseFloat(e.target.value);
+                    if (!isNaN(v)) patchVat({ pct: clamp(v, 0, 100) });
+                  }}
+                  className="w-12 bg-transparent text-right text-body-sm font-semibold tabular-nums text-fg outline-none disabled:opacity-40"
+                />
+                <span className="text-caption text-faint">%</span>
+              </span>
+            </label>
+
+            {vat.on ? (
+              <div className="mt-3 space-y-2.5 border-t border-line pt-3">
+                <VatToggle
+                  checked={vat.feeIncludesVat}
+                  onChange={(b) => patchVat({ feeIncludesVat: b })}
+                  label="수수료는 VAT 포함 금액"
+                  hint={`받는 ${won(d.billedFee)} 안에 ${won(d.billedFee - d.billedFee / (1 + d.v))}가 세금이에요. 끄면 별도로 더 받는다는 뜻.`}
+                />
+                <VatToggle
+                  checked={vat.adDeductible}
+                  onChange={(b) => patchVat({ adDeductible: b })}
+                  label="광고비 매입세액 공제"
+                  hint="세금계산서를 받는 매체면 켜요. 광고비의 1/11 이 돌아옵니다."
+                />
+                <div>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="text-body-sm text-fg">콘텐츠 고정비 중 공제 가능</span>
+                    <span className="flex items-baseline gap-1 rounded-lg border border-line-strong bg-surface px-2 py-1">
+                      <input
+                        type="number"
+                        value={vat.contentDeductiblePct}
+                        step={5}
+                        min={0}
+                        max={100}
+                        onChange={(e) => {
+                          const v = parseFloat(e.target.value);
+                          if (!isNaN(v)) patchVat({ contentDeductiblePct: clamp(v, 0, 100) });
+                        }}
+                        className="w-12 bg-transparent text-right text-body-sm font-semibold tabular-nums text-fg outline-none"
+                      />
+                      <span className="text-caption text-faint">%</span>
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={5}
+                    value={vat.contentDeductiblePct}
+                    onChange={(e) => patchVat({ contentDeductiblePct: +e.target.value })}
+                    className="mt-2 w-full cursor-pointer accent-fg"
+                    aria-label="콘텐츠 고정비 중 공제 가능 비중"
+                  />
+                  <p className="text-label leading-relaxed text-muted">
+                    급여·인건비는 매입세액 공제 대상이 아니에요. 외주·툴·광고 제작처럼 세금계산서를
+                    받는 비중만 넣으세요.
+                  </p>
+                </div>
+
+                <div className="rounded-lg border border-line bg-surface p-2.5">
+                  <VatToggle
+                    checked={vat.grossBilling}
+                    onChange={(b) => patchVat({ grossBilling: b })}
+                    label="에스크로 총액 인식"
+                    hint="결제 전액을 우리 매출로 잡는 경우. 촬영비 전부에 매출세액이 붙고, 작가에게서 세금계산서를 받은 만큼만 공제돼요."
+                  />
+                  {vat.grossBilling && (
+                    <>
+                      <div className="mt-2 flex items-baseline justify-between gap-3">
+                        <span className="text-body-sm text-fg">작가 세금계산서 수취율</span>
+                        <span className="flex items-baseline gap-1 rounded-lg border border-line-strong bg-surface-2 px-2 py-1">
+                          <input
+                            type="number"
+                            value={vat.taxInvoicePct}
+                            step={5}
+                            min={0}
+                            max={100}
+                            onChange={(e) => {
+                              const v = parseFloat(e.target.value);
+                              if (!isNaN(v)) patchVat({ taxInvoicePct: clamp(v, 0, 100) });
+                            }}
+                            className="w-12 bg-transparent text-right text-body-sm font-semibold tabular-nums text-fg outline-none"
+                          />
+                          <span className="text-caption text-faint">%</span>
+                        </span>
+                      </div>
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={5}
+                        value={vat.taxInvoicePct}
+                        onChange={(e) => patchVat({ taxInvoicePct: +e.target.value })}
+                        className="mt-2 w-full cursor-pointer accent-fg"
+                        aria-label="작가 세금계산서 수취율"
+                      />
+                      <p className="mt-1 text-label leading-relaxed text-danger">
+                        못 받은 만큼은 우리가 떠안아요 — 지금 건당{" "}
+                        <b className="tabular-nums">{won(d.unrecoveredVat)}</b>. 작가 대부분이
+                        프리랜서·간이과세라면 이 구조는 위험합니다.
+                      </p>
+                    </>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <p className="mt-2 text-label leading-relaxed text-muted">
+                끄면 세금을 없는 셈 치고 봅니다 — 예전 계산과 같은 값이에요.
+              </p>
+            )}
+          </div>
           <Ctrl
             label="문의 후 성사율"
             value={ratePct}
@@ -300,6 +472,7 @@ export default function CalculatorPage() {
                     setPgOn(p.pg);
                     setRatePct(p.rate);
                     setCpa(p.cpa);
+                    setVat({ ...DEFAULT_VAT, ...p.vat });
                   }}
                   className="cursor-pointer rounded-full border border-line bg-surface-2 px-3 py-1.5 text-caption text-muted transition-colors hover:border-fg/30 hover:text-fg"
                 >
@@ -330,19 +503,27 @@ export default function CalculatorPage() {
             </span>
             <span className="w-full text-caption text-muted">
               성사 1건마다 {d.positive ? "남는" : "까먹는"} 금액이에요. 순수수료 {won(fee)} −
-              획득비용 {won(d.acq)}.
+              획득비용 {won(d.acq)}
+              {d.unrecoveredVat > 0.5 && <> − 미공제 부가세 {won(d.unrecoveredVat)}</>}.
+              {vat.on && <> 금액은 모두 부가세를 뺀 공급가액이에요.</>}
             </span>
           </div>
 
-          <dl className="grid grid-cols-2 overflow-hidden rounded-xl border border-line bg-surface-2 sm:grid-cols-5">
+          <dl className="grid grid-cols-2 overflow-hidden rounded-xl border border-line bg-surface-2 sm:grid-cols-3 lg:grid-cols-5">
             {(
               [
-                ["총수수료 (촬영비×요율)", won(d.gross)],
-                [pgOn ? `PG ${pgPct}%` : "PG (꺼짐)", pgOn ? `−${won(d.pgCost)}` : "—"],
-                ["순수수료", won(d.fee)],
+                ["총수수료 (촬영비×요율)", won(d.billedFee)],
+                ...(vat.on && vat.feeIncludesVat
+                  ? ([[`부가세 ${vat.pct}%`, `−${won(d.billedFee - d.feeSupply)}`]] as const)
+                  : []),
+                [pgOn ? `PG ${pgPct}%` : "PG (꺼짐)", pgOn ? `−${won(d.pgSupply)}` : "—"],
+                ["순수수료", won(d.netFee)],
+                ...(d.unrecoveredVat > 0.5
+                  ? ([["미공제 부가세", `−${won(d.unrecoveredVat)}`]] as const)
+                  : []),
                 ["성사당 CPA", won(d.acq)],
                 ["회수율 (매출÷비용)", `${isFinite(d.roas) ? d.roas.toFixed(2) : "∞"}×`],
-              ] as const
+              ] as [string, string][]
             ).map(([k, v]) => (
               <div
                 key={k}
@@ -438,7 +619,8 @@ export default function CalculatorPage() {
           <p className="text-caption text-muted">
             촬영비 <b className="tabular-nums text-fg">{won(shoot)}</b> · 문의당 CPA{" "}
             <b className="tabular-nums text-fg">{won(cpa)}</b>
-            {pgOn && <> · PG {pgPct}% 포함</>} 기준 · 셀은 건당 손익
+            {pgOn && <> · PG {pgPct}% 포함</>}
+            {vat.on && <> · 부가세 {vat.pct}% 반영</>} 기준 · 셀은 건당 손익
           </p>
         </div>
         <div className="mt-3 overflow-x-auto">
@@ -464,13 +646,23 @@ export default function CalculatorPage() {
                   <th className="border border-line bg-surface-2 px-2.5 py-2 text-left font-semibold text-muted">
                     {t}%
                     <span className="ml-1 font-normal text-faint">
-                      {won(shoot * ((t - (pgOn ? pgPct : 0)) / 100))}
+                      {won(
+                        unitEconomics({ shoot, takePct: t, pgOn, pgPct, ratePct, cpa, vat }).netFee
+                      )}
                     </span>
                   </th>
                   {RATES.map((rp) => {
-                    // 셀마다 요율이 다르므로 순수수료를 다시 구한다 (PG 는 켜져 있으면 전부에 적용)
-                    const cellFee = shoot * ((t - (pgOn ? pgPct : 0)) / 100);
-                    const pl = cellFee - cpa / (rp / 100);
+                    // 셀마다 요율·성사율이 다르므로 건당 손익을 통째로 다시 구한다
+                    // (PG·부가세 설정은 위 입력을 그대로 따라간다)
+                    const pl = unitEconomics({
+                      shoot,
+                      takePct: t,
+                      pgOn,
+                      pgPct,
+                      ratePct: rp,
+                      cpa,
+                      vat,
+                    }).pl;
                     const mag = Math.min(1, Math.abs(pl) / MAXMAG);
                     const alpha = (mag * 0.9 + 0.06) * 0.35;
                     const here = t === nearTake && rp === nearRate;
@@ -507,6 +699,15 @@ export default function CalculatorPage() {
           출장비는 수수료 대상이 아니라 촬영비만 넣으면 되고, 부가 매출(무빙컷 등)이 있으면
           촬영비에 더해서, 유기 유입 비중이 있으면 문의당 CPA에 유료 비중을 곱한 blended 값으로
           넣으면 돼요.
+          {vat.on && (
+            <>
+              <br />
+              부가세를 켜면 셀 값이 전부 공급가액 기준으로 내려앉아요. 수수료가 VAT 포함이면 요율
+              {" "}
+              {takePct}% 는 실질 {(takePct / 1.1).toFixed(1)}% 와 같습니다 — 손익분기 요율이 그만큼
+              위로 올라가요.
+            </>
+          )}
         </p>
       </section>
 
@@ -519,13 +720,15 @@ export default function CalculatorPage() {
           <p className="text-caption text-muted">
             위 입력의 촬영비 <b className="tabular-nums text-fg">{won(shoot)}</b> · 요율{" "}
             <b className="tabular-nums text-fg">{takePct}%</b>
-            {pgOn && <> · PG {pgPct}%</>} → 건당 순수수료{" "}
+            {pgOn && <> · PG {pgPct}%</>}
+            {vat.on && <> · 부가세 {vat.pct}%</>} → 건당 순수수료{" "}
             <b className="tabular-nums text-fg">{won(fee)}</b>
           </p>
         </div>
         <p className="mt-2 w-fit rounded-lg border border-line bg-surface-2 px-3 py-2 text-caption tabular-nums text-muted">
           월 순매출 = <b className="text-fg">하루 촬영 건수 × 영업일 × 순수수료</b> · 월 순이익 ={" "}
           <b className="text-fg">월 순매출 − 콘텐츠 고정비</b>
+          {vat.on && <> · 모두 부가세를 뺀 공급가액</>}
         </p>
 
         <div className="mt-4 grid gap-5 md:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
@@ -576,6 +779,13 @@ export default function CalculatorPage() {
             <p className="text-label leading-relaxed text-faint">
               콘텐츠는 건당 광고비가 아니라 제작·운영에 매달 나가는 고정비로 잡아요 (인건비·외주·툴).
               유료 광고를 같이 돌리면 위쪽 CPA 계산기와 따로 보고 합치면 됩니다.
+              {vat.on && (
+                <>
+                  {" "}
+                  부가세는 공제 가능 비중 {vat.contentDeductiblePct}% 만큼만 빠져서, 실제 비용은{" "}
+                  <b className="tabular-nums text-fg">{won(c.contentSupply)}</b> 로 잡혀요.
+                </>
+              )}
             </p>
           </div>
 
@@ -609,16 +819,33 @@ export default function CalculatorPage() {
                 [
                   ["월 거래액 (GMV)", won(c.gmv)],
                   ["월 총수수료", won(c.gross)],
-                  [pgOn ? `월 PG ${pgPct}%` : "월 PG (꺼짐)", pgOn ? `−${won(c.pgCost)}` : "—"],
+                  ...(vat.on && vat.feeIncludesVat
+                    ? ([
+                        [
+                          `월 매출부가세 ${vat.pct}%`,
+                          `−${won(c.shoots * (d.billedFee - d.feeSupply))}`,
+                        ],
+                      ] as const)
+                    : []),
+                  [
+                    pgOn ? `월 PG ${pgPct}%` : "월 PG (꺼짐)",
+                    pgOn ? `−${won(c.shoots * d.pgSupply)}` : "—",
+                  ],
                   ["월 순매출", won(c.net)],
-                  ["콘텐츠 고정비", `−${won(contentCost)}`],
+                  ...(c.unrecovered > 0.5
+                    ? ([["미공제 부가세", `−${won(c.unrecovered)}`]] as const)
+                    : []),
+                  [
+                    vat.on && c.contentInputVat > 0.5 ? "콘텐츠 고정비 (공제 후)" : "콘텐츠 고정비",
+                    `−${won(c.contentSupply)}`,
+                  ],
                   [
                     "손익분기",
                     isFinite(c.bepPerDay)
                       ? `하루 ${c.bepPerDay.toFixed(2)}건`
                       : "불가능",
                   ],
-                ] as const
+                ] as [string, string][]
               ).map(([k, v]) => (
                 <div key={k} className="border-b border-line px-3.5 py-2.5 sm:border-r sm:last:border-r-0">
                   <dt className="text-caption text-muted">{k}</dt>
@@ -650,7 +877,7 @@ export default function CalculatorPage() {
                   {[0.5, 1, 2, 3, 5, 10, 20].map((n) => {
                     const shoots = (byInquiry ? n * d.rate : n) * days;
                     const net = shoots * fee;
-                    const profit = net - contentCost;
+                    const profit = net - shoots * d.unrecoveredVat - c.contentSupply;
                     const here = Math.abs(n - perDay) < 0.26;
                     return (
                       <tr key={n} className={here ? "bg-fg/[0.05] font-semibold" : ""}>
@@ -728,7 +955,9 @@ export default function CalculatorPage() {
               {
                 key: "paid",
                 name: "유료 광고",
-                sub: `월 문의 ${vol}건 · 성사율 ${ratePct}% · 문의당 CPA ${won(cpa)}`,
+                sub: `월 문의 ${vol}건 · 성사율 ${ratePct}% · 문의당 CPA ${won(cpa)}${
+                  vat.on && vat.adDeductible ? ` (공제 후 ${won(d.adSupply)})` : ""
+                }`,
                 costLabel: "광고비",
                 ch: t.paid,
               },
@@ -806,6 +1035,63 @@ export default function CalculatorPage() {
           ))}
         </dl>
 
+        {/* 부가세 — 손익이 아니라 대신 걷어서 내는 돈 */}
+        {vat.on && (
+          <div className="mt-4 rounded-xl border border-line bg-surface-2 p-4">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <p className="text-label font-semibold uppercase tracking-wider text-faint">
+                월 부가세 — 손익과 별개로 통장에서 빠져나갈 돈
+              </p>
+              <p className="text-caption text-muted">
+                납부세액 = <b className="text-fg">매출세액 − 매입세액</b> · 분기마다 신고
+              </p>
+            </div>
+            <div className="mt-2 flex flex-wrap items-baseline gap-3">
+              <span className="text-2xl font-bold tabular-nums text-fg sm:text-3xl">
+                {t.tax.payable >= 0 ? won(t.tax.payable) : `환급 ${won(-t.tax.payable)}`}
+              </span>
+              <span className="text-caption text-muted">
+                분기 환산 <b className="tabular-nums text-fg">{won(t.tax.payable * 3)}</b> · 연{" "}
+                <b className="tabular-nums text-fg">{won(t.tax.payable * 12)}</b>
+              </span>
+            </div>
+            <dl className="mt-3 grid grid-cols-2 overflow-hidden rounded-lg border border-line bg-surface sm:grid-cols-4">
+              {(
+                [
+                  ["매출세액", won(t.tax.outputVat)],
+                  ["매입세액", `−${won(t.tax.inputVat)}`],
+                  ["ㄴ 광고비분", won(vol * d.adInputVat)],
+                  ["ㄴ 콘텐츠 고정비분", won(t.tax.contentInputVat)],
+                ] as [string, string][]
+              ).map(([k, v]) => (
+                <div
+                  key={k}
+                  className="border-b border-line px-3.5 py-2.5 last:border-b-0 sm:border-b-0 sm:border-r sm:last:border-r-0"
+                >
+                  <dt className="text-caption text-muted">{k}</dt>
+                  <dd className="text-body-sm font-semibold tabular-nums text-fg">{v}</dd>
+                </div>
+              ))}
+            </dl>
+            <p className="mt-2.5 text-caption leading-relaxed text-faint">
+              이 돈은 손익에 들어가지 않아요 — 고객에게서 대신 걷어 국세청에 내는 돈이라, 위 순이익{" "}
+              <b className="tabular-nums text-fg">{signWon(t.profit)}</b> 에서 또 빼면 안 됩니다.
+              다만 <b className="text-fg">현금은 실제로 나가니까</b> 분기 납부일에 맞춰 남겨둬야
+              해요.
+              {vat.grossBilling && t.shoots * d.unrecoveredVat > 0.5 && (
+                <>
+                  {" "}
+                  반대로 작가에게서 세금계산서를 못 받은{" "}
+                  <b className="tabular-nums text-danger">
+                    {won(t.shoots * d.unrecoveredVat)}
+                  </b>{" "}
+                  는 공제가 안 되니 그건 진짜 비용이고, 이미 위 손익에 반영돼 있어요.
+                </>
+              )}
+            </p>
+          </div>
+        )}
+
         <p className="mt-3 text-caption leading-relaxed text-faint">
           유료는 물량을 돈으로 살 수 있는 대신 건당 비용이 그대로 따라붙고, 콘텐츠는 고정비를
           넘긴 다음부터 건당 순수수료가 거의 통째로 남아요. 그래서 합산 순이익률은 콘텐츠 비중이
@@ -841,5 +1127,33 @@ function TargetRow({
         {gap.text}
       </span>
     </div>
+  );
+}
+
+// 부가세 세부 토글 한 줄
+function VatToggle({
+  checked,
+  onChange,
+  label,
+  hint,
+}: {
+  checked: boolean;
+  onChange: (b: boolean) => void;
+  label: string;
+  hint: string;
+}) {
+  return (
+    <label className="flex cursor-pointer items-start gap-2.5">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
+      />
+      <span className="min-w-0 flex-1">
+        <span className="block text-body-sm text-fg">{label}</span>
+        <span className="mt-0.5 block text-label leading-relaxed text-muted">{hint}</span>
+      </span>
+    </label>
   );
 }
