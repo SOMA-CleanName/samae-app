@@ -24,6 +24,7 @@ import { ReviewForm } from "./ReviewForm";
 import { DeliveryUploader } from "./DeliveryUploader";
 import { DeliveryGallery } from "./DeliveryGallery";
 import { TrustLink } from "@/components/user/TrustLink";
+import { SupportButton } from "@/components/user/SupportButton";
 import { MpTrackOnce } from "@/components/MpTrackOnce";
 
 // 예약 상세 + 역할·상태별 액션
@@ -288,13 +289,20 @@ export default async function BookingDetail({
           </form>
         )}
 
-        {/* 결제 후 환불 — 자세한 안내·신청은 환불 페이지에서 (req6) */}
-        {canRefund && (
+        {/* 결제 후 환불 — 접수 창구를 [사매에 문의] 하나로 모은다.
+            전에는 /bookings/[id]/refund 로 보냈는데, 그 화면은 리드 모델(작가가 촬영비를
+            직접 받던 때) 것이라 "환불 금액도 작가가 직접 송금한다" 고 안내했다. 지금은
+            사매가 대금을 보관하고 환불도 사매가 판정한다(/trust · docs/32).
+            구간별 금액 계산과 실제 처리는 어드민 거래 관리(adminRefund)가 맡는다. */}
+        {canRefund && isBuyer && (
+          <SupportButton bookingId={b.id} conversationId={convId} variant="list" />
+        )}
+        {canRefund && isAdmin && !isBuyer && (
           <Link
-            href={`/bookings/${b.id}/refund`}
+            href="/admin/transactions"
             className="w-full rounded-xl px-4 py-2.5 text-center text-sm text-brand hover:bg-brand/[0.06]"
           >
-            {isAdmin && !isBuyer ? "환불 처리 (운영자)" : "환불 요청"}
+            환불 처리 (거래 관리)
           </Link>
         )}
       </div>
