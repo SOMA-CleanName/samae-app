@@ -307,22 +307,25 @@ export default async function BookingDetail({
         )}
       </div>
 
-      {/* 작가: 환불 신청됨 → 직접 송금 안내 (req7) */}
+      {/* 작가: 환불 처리됨 안내.
+          ⚠️ 여기 있던 문구는 리드 시절 것이었다 — *"고객에게 직접 송금해 환불해주세요"*.
+             작가가 촬영비를 자기 계좌로 받던 때의 안내다. 지금은 사매가 대금을 들고 있고
+             환불도 사매가 한다(adminRefund). 그 문구를 보고 작가가 실제로 송금하면
+             **이중 환불**이 된다. 정산 조정 금액은 알림으로 이미 안내된다
+             (lib/payments.ts: "정산 금액은 ₩X 이에요" / "수수료 ₩X 이 작가님 부담으로 남아요"). */}
       {isOwner && b.status === "refunded" && (
         <section className="mt-6 rounded-xl border border-warning/30 bg-warning-soft p-5">
-          <p className="text-sm font-semibold text-warning">↩️ 환불 신청이 접수됐어요</p>
-          <p className="mt-1.5 text-sm text-warning/90">
-            고객에게 <b>₩{fmt.format(b.amount_krw ?? 0)}</b>을(를) 직접 송금해 환불해주세요.
-            계좌가 필요하면 채팅으로 문의할 수 있어요.
+          <p className="text-sm font-semibold text-warning">↩️ 환불 처리된 예약이에요</p>
+          <p className="mt-1.5 text-sm leading-relaxed text-warning/90">
+            <b>작가님이 따로 송금하실 것은 없어요.</b> 사매가 고객에게 직접 환급하고, 이 예약의
+            정산 금액은 그에 맞춰 조정됩니다. 조정된 금액은 정산 내역에서 확인할 수 있어요.
           </p>
-          {convId && (
-            <Link
-              href={`/chat/${convId}`}
-              className="mt-3 inline-block rounded-full bg-fg px-4 py-2 text-xs font-semibold text-bg hover:opacity-90"
-            >
-              채팅으로 계좌 확인하기
-            </Link>
-          )}
+          <Link
+            href="/studio/settlements"
+            className="mt-3 inline-block rounded-full bg-fg px-4 py-2 text-xs font-semibold text-bg hover:opacity-90"
+          >
+            정산 내역 보기
+          </Link>
         </section>
       )}
 

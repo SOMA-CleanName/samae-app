@@ -14,8 +14,12 @@ import { coreSlotsFilled, type LlmSlots } from "@/lib/inquiry-bot-llm";
 import { finalizeBotInquiryFor } from "@/app/(user)/inquiry/actions";
 import { handlePhotographerTakeover } from "@/lib/bot-handoff";
 
-// 송금 단계(수락 이후)에서만 작가 수취 계좌를 공개 — 채팅 진입만으로 계좌가 응답에 실리지 않게 한다(리드/보안).
+// 입금 단계(수락 이후)에서만 계좌를 공개 — 채팅 진입만으로 계좌가 응답에 실리지 않게 한다.
 //   · 고객 본인 + 해당 예약이 accepted 이상일 때만 반환, 그 외엔 null.
+//
+// ⚠️ 공개하는 것은 **사매 계좌**(getPlatformAccount)다. 주석에 "작가 수취 계좌" 라고 적혀
+//    있었는데 리드 시절 표현이다 — 그때는 고객이 작가 계좌로 직접 보냈다. 지금은 에스크로라
+//    고객이 사매에 내고 사매가 수수료를 뗀 뒤 작가에게 정산한다.
 const PAYOUT_VISIBLE_STATUSES = ["accepted", "paid", "shot", "delivered", "completed"];
 
 export async function getBookingPayoutAccount(bookingId: string): Promise<PayoutAccount | null> {

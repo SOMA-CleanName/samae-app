@@ -160,28 +160,13 @@ export async function getFeeByBooking(bookingId: string): Promise<FeeRow | null>
   return (data as unknown as FeeRow) ?? null;
 }
 
-// 예약 구매자에게 작가 수취 계좌 노출.
-// 호출자가 이 예약의 참여자일 때만(= booking 이 RLS 로 보일 때만) 계좌를 반환한다.
-// 계좌 자체는 소유자만 RLS 조회 가능하므로 admin 으로 읽되, 노출 게이트는 위 검증이 담당.
-export async function getPayoutAccountForBooking(bookingId: string): Promise<PayoutAccount | null> {
-  const supabase = await createClient();
-  const { data: booking } = await supabase
-    .from("bookings")
-    .select("photographer_id")
-    .eq("id", bookingId)
-    .maybeSingle();
-  if (!booking) return null; // 참여자 아님 또는 없음
+// ── 삭제됨: getPayoutAccountForBooking ───────────────────────────
+// *"예약 구매자에게 작가 수취 계좌 노출"* — 고객이 작가 계좌로 직접 보내던 리드 시절
+// 함수다. 에스크로 전환 뒤로 호출부가 하나도 남지 않았고(고객이 보는 계좌는 전부
+// getPlatformAccount = 사매 계좌), **고객에게 작가 계좌를 내주는 함수가 살아 있는 것
+// 자체가 위험**해서 지웠다. 작가 본인/정산용 조회는 아래 getPhotographerPayoutAccount.
 
-  const admin = createAdminClient();
-  const { data } = await admin
-    .from("payout_accounts")
-    .select("bank, number, holder")
-    .eq("photographer_id", booking.photographer_id)
-    .maybeSingle();
-  return (data as PayoutAccount) ?? null;
-}
-
-// 작가 수취 계좌를 photographer_id 로 조회 (채팅 송금 카드용).
+// 작가 수취 계좌를 photographer_id 로 조회 (정산 송금용).
 // ⚠️ 계좌는 민감정보다. 호출자가 '이 작가와의 대화 참여자'임을 반드시 먼저 보장해야 한다
 //    (채팅방 진입 시 getConversation 이 RLS 로 참여 여부를 이미 검증).
 export async function getPhotographerPayoutAccount(
