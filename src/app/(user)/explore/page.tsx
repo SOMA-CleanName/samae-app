@@ -22,6 +22,7 @@ import { Masthead } from "@/components/editorial/Masthead";
 import { SectionHead } from "@/components/editorial/SectionHead";
 import { IndexList } from "@/components/editorial/IndexList";
 import { Marquee } from "@/components/editorial/Marquee";
+import { SiteFooter } from "@/components/SiteFooter";
 
 export const dynamic = "force-dynamic";
 
@@ -56,7 +57,7 @@ export const metadata: Metadata = {
   하단 내비에서 '탐색'이라 부르고 아이콘도 돋보기였다. 둘 다 이 지면이 하는 일과
   달랐다 — 여기엔 검색창이 없고(진짜 검색은 홈 상단 SearchDock 이다), 사진을
   훑는 일(무드 고르기·전체 피드)도 홈이 맡는다.
-  이름과 아이콘을 지면에 맞췄다(마스트헤드가 이미 STORIES 다).
+  이름과 아이콘을 지면에 맞췄다(마스트헤드가 MAGAZINE 이다).
 
   ⚠️ 취향 테스트(/explore/quiz)는 예외다 — 경로상 여기 아래에 있고, 하단 내비의
      힌트 말풍선도 이 탭을 가리킨다. 한때 이 주석이 "취향 테스트도 홈이 맡는다"고
@@ -113,23 +114,16 @@ export default async function ExplorePage() {
   const list = articles.slice(DECK_N, DECK_N + LIST_N);
   const restCount = Math.max(0, articles.length - (DECK_N + LIST_N));
 
-  const numbered = [
-    { id: "sec-articles", label: "스냅 촬영 이야기", show: articles.length > 0 },
-    { id: "sec-featured", label: "이번 호의 사진", show: featured.length > 0 },
-    { id: "sec-spots", label: "촬영 장소", show: spots.length > 0 },
-    { id: "sec-guide", label: "자주 묻는 것", show: guidePeek.length > 0 },
+  const sections: RunningSection[] = [
+    { id: "sec-articles", label: "ARTICLES", show: articles.length > 0 },
+    { id: "sec-featured", label: "TREND", show: featured.length > 0 },
+    { id: "sec-spots", label: "SPOTS", show: spots.length > 0 },
+    { id: "sec-guide", label: "Q&A", show: guidePeek.length > 0 },
   ]
     .filter((d) => d.show)
-    .map((d, i) => ({ ...d, no: String(i + 1).padStart(2, "0") }));
+    .map(({ id, label }) => ({ id, label }));
 
-  const no = (id: string) => numbered.find((d) => d.id === id)?.no ?? "";
-  const sections: RunningSection[] = numbered.map((d) => ({
-    id: d.id,
-    no: d.no,
-    label: d.label,
-  }));
-
-  const empty = numbered.length === 0;
+  const empty = sections.length === 0;
 
   /*
     이 지면이 무엇의 목록인지 기계에 알려 준다.
@@ -160,24 +154,21 @@ export default async function ExplorePage() {
       <ScrollMemory />
 
       {/* ── 표제 ─────────────────────────────────────────────── */}
-      <div className="mx-auto w-full max-w-[1280px] px-4 pt-5 sm:px-6 sm:pt-7">
-        <Masthead
-          word="STORIES"
-          size="compact"
-          // 브랜드명·날짜는 뺐다. 매번 같은 값이라 자리만 차지하고 아무것도 안 알려준다.
-          // 대신 이 지면이 실제로 무엇을 다루는지 한 줄로 못 박는다.
-          lead="가격이 왜 다른지, 뭘 입어야 하는지, 어디서 찍는지."
-          // 계정 진입 — 홈·카테고리 지면과 같은 자리(표제 위 오른쪽).
-          // 좌하단 아바타를 없앤 뒤로 계정에 닿는 문이 홈에만 있었다. 이 지면은
-          // 읽다 보면 오래 머무는 곳이라, 로그아웃 한 번 하려고 홈으로 돌아가야 했다.
-          action={
-            <ProfileButton
-              loggedIn={!!me}
-              avatarUrl={me?.avatarUrl ?? null}
-              me={toProfileMe(me)}
-            />
-          }
-        />
+      {/*
+        표제를 최대한 위로 올린다 — action 행을 표제 위에 따로 세우면 그만큼
+        빈 띠가 생겨서, 계정 버튼은 표제와 같은 높이의 오른쪽에 겹쳐 세운다.
+        (계정 진입 자체는 홈·카테고리 지면과 같은 장치 — 읽다 보면 오래 머무는
+         지면이라 로그아웃 한 번 하려고 홈으로 돌아가지 않게)
+      */}
+      <div className="relative mx-auto w-full max-w-[1280px] px-4 pt-2 sm:px-6 sm:pt-3">
+        <div className="absolute right-4 top-2 z-10 sm:right-6 sm:top-3">
+          <ProfileButton
+            loggedIn={!!me}
+            avatarUrl={me?.avatarUrl ?? null}
+            me={toProfileMe(me)}
+          />
+        </div>
+        <Masthead word="MAGAZINE" size="compact" />
       </div>
 
       {/*
@@ -187,7 +178,7 @@ export default async function ExplorePage() {
         지면을 묶는 띠라서, 짧은 라틴 대문자로 바꿨다.
       */}
       <Marquee className="mt-5 border-y border-line py-2" speed={40}>
-        {["SNAP STORIES", "PHOTOGRAPHS", "LOCATIONS", "Q & A"].map((w, i) => (
+        {["ARTICLES", "TREND", "SPOTS", "Q & A"].map((w, i) => (
           <span key={i} className="flex items-center">
             <span className="px-6 text-[11px] font-bold uppercase tracking-[0.28em]">{w}</span>
             <span className="text-brand">✳</span>
@@ -206,15 +197,10 @@ export default async function ExplorePage() {
           </p>
         ) : (
           <>
-            {/* ── 스냅 촬영 이야기 ──────────────────────────── */}
+            {/* ── ARTICLES ─────────────────────────────────── */}
             {articles.length > 0 && (
               <section id="sec-articles" data-pid="sec-articles" className="scroll-mt-24">
-                <SectionHead
-                  no={no("sec-articles")}
-                  title="스냅 촬영 이야기"
-                  lead="가격도 준비물도 모르는 채 시작하지 않게, 하나씩 적어 둡니다."
-                  more="/articles"
-                />
+                <SectionHead title="ARTICLES" more="/articles" />
 
                 {/*
                   카드를 한 장씩 넘겨 본다.
@@ -239,40 +225,26 @@ export default async function ExplorePage() {
               </section>
             )}
 
-            {/* ── 이번 호의 사진 ───────────────────────────── */}
+            {/* ── TREND ────────────────────────────────────── */}
             {featured.length > 0 && (
               <section id="sec-featured" data-pid="sec-featured" className="mt-20 scroll-mt-24">
-                <SectionHead
-                  no={no("sec-featured")}
-                  title="이번 호의 사진"
-                  lead="요즘 사매에서 가장 많이 열린 사진이에요. 누르면 어떻게 찍었는지 볼 수 있어요."
-                />
+                <SectionHead title="TREND" />
                 <PhotoFeature photos={featured} />
               </section>
             )}
 
-            {/* ── 촬영 장소 ────────────────────────────────── */}
+            {/* ── SPOTS ────────────────────────────────────── */}
             {spots.length > 0 && (
               <section id="sec-spots" data-pid="sec-spots" className="mt-20 scroll-mt-24">
-                <SectionHead
-                  no={no("sec-spots")}
-                  title="촬영 장소"
-                  lead="장소 소개만 있는 글은 많아요. 여기엔 그곳에서 실제로 찍힌 사진이 같이 있어요."
-                  more="/spots"
-                />
+                <SectionHead title="SPOTS" more="/spots" />
                 <SpotsRail spots={spots.slice(0, SPOTS_RAIL_MAX)} total={spots.length} />
               </section>
             )}
 
-            {/* ── 자주 묻는 것 ─────────────────────────────── */}
+            {/* ── Q&A ──────────────────────────────────────── */}
             {guidePeek.length > 0 && (
               <section id="sec-guide" data-pid="sec-guide" className="mt-20 scroll-mt-24">
-                <SectionHead
-                  no={no("sec-guide")}
-                  title="자주 묻는 것"
-                  lead="촬영을 준비하면서 자주 막히는 것들이에요."
-                  more="/guide"
-                />
+                <SectionHead title="Q&A" more="/guide" />
                 <IndexList
                   entries={guidePeek.map((g) => ({
                     href: `/guide/${encodeURIComponent(g.slug)}`,
@@ -283,46 +255,11 @@ export default async function ExplorePage() {
             )}
 
             {/*
-              판권면(콜로폰) — 잡지 맨 뒤의 그 페이지.
-
-              전에는 "사진부터 보고 싶다면 홈에서" 마퀴가 있었는데, 탭 하나만 누르면
-              갈 수 있는 곳을 큰 배너로 안내하는 셈이라 자리만 먹었다.
-              대신 이 호에 뭐가 실렸는지를 적는다 — 끝났다는 신호이자 사실이다.
-              나중에 광고를 넣는다면 이 위가 그 자리다.
+              푸터 — 다른 지면들과 같은 공통 SiteFooter.
+              한때 자체 판권면(콜로폰: 실린 글·장소·Q&A 수)이 있었는데, 지면마다
+              푸터가 달라 보이는 게 더 손해라 공통으로 통일했다.
             */}
-            <footer className="mt-24 border-t border-line pt-6">
-              <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-3">
-                <span className="font-display text-xl italic leading-none text-brand">samae</span>
-                <dl className="flex flex-wrap gap-x-5 gap-y-1 text-[11px] uppercase tracking-[0.14em] text-faint">
-                  <span className="flex items-baseline gap-1.5">
-                    <dt>Stories</dt>
-                    <dd className="font-bold tabular-nums text-muted">{articles.length}</dd>
-                  </span>
-                  <span className="flex items-baseline gap-1.5">
-                    <dt>Locations</dt>
-                    <dd className="font-bold tabular-nums text-muted">{spots.length}</dd>
-                  </span>
-                  <span className="flex items-baseline gap-1.5">
-                    <dt>Q &amp; A</dt>
-                    <dd className="font-bold tabular-nums text-muted">
-                      {GUIDE_PAGE_ITEMS.length}
-                    </dd>
-                  </span>
-                </dl>
-              </div>
-              <p className="mt-3 text-[11px] leading-relaxed text-faint">
-                사진을 고르면 그 사진을 찍은 작가로 이어집니다.
-              </p>
-              {/* 판권면이 이 지면의 푸터 역할을 한다. 공통 푸터를 또 얹지 않고 링크만 얹는다. */}
-              <nav aria-label="사매 안내" className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-[11px]">
-                <Link href="/trust" className="text-muted transition-colors hover:text-brand">
-                  안전하게 촬영하기
-                </Link>
-                <Link href="/privacy" className="text-muted transition-colors hover:text-brand">
-                  개인정보 처리방침
-                </Link>
-              </nav>
-            </footer>
+            <SiteFooter />
           </>
         )}
       </div>

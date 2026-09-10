@@ -27,7 +27,7 @@ import { REFUND_WINDOW_DAYS, WITHDRAWAL_DAYS } from "@/lib/refund";
 export const revalidate = 86400;
 
 export const metadata: Metadata = {
-  title: "안전하게 촬영하기",
+  title: "안전 촬영 정책",
   description:
     "사매가 작가를 어떻게 심사하고, 결제와 연락처를 어떻게 지키며, 취소·환불을 어떤 기준으로 처리하는지 정리했습니다.",
   alternates: { canonical: "/trust" },
@@ -76,7 +76,7 @@ export default function TrustPage() {
       <JsonLd
         data={breadcrumbJsonLd([
           { name: "홈", path: "/" },
-          { name: "안전하게 촬영하기", path: "/trust" },
+          { name: "안전 촬영 정책", path: "/trust" },
         ])}
       />
 

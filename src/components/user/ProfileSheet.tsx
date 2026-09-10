@@ -147,7 +147,7 @@ export function ProfileSheet({
         <div className="border-t border-line" />
         <nav aria-label="사매 안내" className="flex flex-wrap gap-x-4 gap-y-1 px-5 py-3">
           {[
-            { href: "/trust", label: "안전하게 촬영하기" },
+            { href: "/trust", label: "안전 촬영 정책" },
             { href: "/privacy", label: "개인정보 처리방침" },
           ].map((l) => (
             <Link
