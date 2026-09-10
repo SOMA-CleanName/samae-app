@@ -9,8 +9,11 @@ import { sendChatReminders } from "@/lib/chat-reminder";
 // 규칙 자체는 변하지 않는다.
 //
 // 호출자는 누구든 된다 —
-//   · Vercel 크론 (vercel.json). Hobby 는 하루 1회 제한이라 정밀도가 나쁘다
-//   · Supabase pg_cron + pg_net 으로 이 URL 을 직접 때려도 된다(빈도 제한 없음)
+//   · Vercel 크론 (vercel.json). **지금 계정은 Hobby 라 하루 1회가 상한이다.**
+//     매시간(`0 * * * *`)으로 걸었다가 배포가 통째로 거부됐다(cron-jobs/usage-and-pricing).
+//     그래서 10:00 KST 하루 1회로 두었고, 그만큼 리마인더가 12~36시간 사이에 도착한다.
+//   · Supabase pg_cron + pg_net 으로 이 URL 을 직접 때려도 된다 — **빈도 제한이 없어서
+//     매시간 부르면 12~13시간으로 좁혀진다.** 그쪽을 붙이면 vercel.json 항목은 빼도 된다.
 //
 // 멱등: 보낼 때마다 notification_queue 에 새 발송 시각이 남고 그게 다음 회차의 기준이 된다.
 // 같은 대화에 대해 12시간 안에 두 번 나가지 않는다.
