@@ -4,6 +4,9 @@ import {
   DEFAULT_VAT,
   PAYOUT_FEE,
   paymentSplit,
+  photographerTakes,
+  incomeTaxRate,
+  INCOME_TAX_BRACKETS,
   monthlyVat,
   unitEconomics,
   type UnitInput,
@@ -281,4 +284,193 @@ test("촬영비가 쌀수록 지급대행 비중이 커진다", () => {
   const cheap = splitOf({ ...base(), shoot: 50000 });
   const rich = splitOf({ ...base(), shoot: 500000 });
   assert.ok(cheap.payoutAgent.pct > rich.payoutAgent.pct * 5);
+});
+
+// ── 작가 유형별 실수령 ──────────────────────────────────────────────
+
+const takesOf = (input: UnitInput) => {
+  const u = unitEconomics(input);
+  const rows = photographerTakes(u, input.shoot, input.vat);
+  return Object.fromEntries(rows.map((r) => [r.key, r]));
+};
+
+// 검산 기준: 촬영비 150,000 · 요율 22% → 수수료 33,000(공급가 30,000 + VAT 3,000) · 작가 117,000
+const case22 = (patch: Partial<VatSettings> = {}) => ({
+  ...base(patch),
+  shoot: 150000,
+  takePct: 22,
+  pgOn: true,
+});
+
+test("일반과세자 — 매출세액 13,636 − 수수료 매입세액 3,000 = 10,636 납부", () => {
+  const t = takesOf(case22());
+  near(t.general.tax, 150000 / 11 - 33000 / 11, 1); // 10,636
+  near(t.general.net, 117000 - t.general.tax, 1); // 106,364
+});
+
+test("간이과세자 — 기준은 정산액이 아니라 고객이 낸 공급대가 전액", () => {
+  const t = takesOf(case22());
+  // 150,000 × 30% × 10% = 4,500 − (33,000 × 0.5% = 165) = 4,335
+  near(t.simplified.tax, 150000 * 0.3 * 0.1 - 33000 * 0.005, 1);
+  near(t.simplified.tax, 4335, 1);
+  near(t.simplified.net, 112665, 1);
+  near(t.simplified.pct, 75.1, 0.1);
+});
+
+test("간이 세액은 정산액 기준으로 잘못 잡던 값과 다르다 — 촬영비가 클수록 벌어진다", () => {
+  for (const shoot of [150000, 500000]) {
+    const input = { ...case22(), shoot };
+    const t = takesOf(input);
+    const u = unitEconomics(input);
+    const wrong = u.payout * 0.3 * 0.1; // 예전(틀린) 방식
+    assert.ok(t.simplified.tax > wrong, "공급대가 기준이 더 크다");
+  }
+  const gap = (shoot: number) => {
+    const input = { ...case22(), shoot };
+    const t = takesOf(input);
+    return t.simplified.tax - unitEconomics(input).payout * 0.3 * 0.1;
+  };
+  assert.ok(gap(500000) > gap(150000) * 3, "촬영비가 커지면 오차도 커진다");
+});
+
+test("간이과세자는 일반과세자의 약 40% 를 낸다 (30% 가 아니다)", () => {
+  const t = takesOf(case22());
+  const ratio = t.simplified.tax / t.general.tax;
+  assert.ok(ratio > 0.38 && ratio < 0.43, `실제 비율 ${ratio}`);
+});
+
+test("프리랜서 원천징수 — 기본은 수입금액 기준(원칙), 토글하면 정산액 기준(관행)", () => {
+  const principle = takesOf(case22());
+  near(principle.freelancer.tax, 150000 * 0.033); // 4,950
+  const practice = takesOf(case22({ withholdingOnPayout: true }));
+  near(practice.freelancer.tax, 117000 * 0.033); // 3,861
+  assert.ok(principle.freelancer.tax > practice.freelancer.tax);
+});
+
+test("실수령 = 정산액 − 세금, 비중은 고객 결제액 기준", () => {
+  const input = case22();
+  const payout = unitEconomics(input).payout;
+  for (const r of Object.values(takesOf(input))) {
+    near(r.net, payout - r.tax);
+    near(r.pct, (r.net / 150000) * 100);
+  }
+});
+
+test("세금을 끄면 유형과 무관하게 정산액을 그대로 쥔다", () => {
+  const input = case22({ on: false });
+  const payout = unitEconomics(input).payout;
+  for (const r of Object.values(takesOf(input))) {
+    assert.equal(r.tax, 0);
+    near(r.net, payout);
+  }
+});
+
+test("요율을 올리면 세 유형 모두 실수령이 함께 준다", () => {
+  const low = takesOf({ ...case22(), takePct: 5 });
+  const high = takesOf({ ...case22(), takePct: 25 });
+  for (const k of ["general", "simplified", "freelancer"] as const) {
+    assert.ok(high[k].net < low[k].net);
+  }
+});
+
+test("작가 세금을 넘기면 작가 몫에서 국세청으로 옮겨간다 — 합은 그대로", () => {
+  const input = case22();
+  const u = unitEconomics(input);
+  const before = Object.fromEntries(paymentSplit(150000, u).map((r) => [r.key, r.amount]));
+  for (const t of photographerTakes(u, 150000, input.vat)) {
+    const after = Object.fromEntries(
+      paymentSplit(150000, u, t.tax).map((r) => [r.key, r.amount])
+    );
+    near(after.photographer, before.photographer - t.tax);
+    near(after.tax, before.tax + t.tax);
+    near(after.samae, before.samae); // 사매·PG·지급대행은 그대로
+    near(after.pg, before.pg);
+    near(
+      paymentSplit(150000, u, t.tax).reduce((a, r) => a + r.amount, 0),
+      150000,
+      0.01
+    );
+  }
+});
+
+test("거래 전체 부가세 — 일반과세자 작가면 고객이 낸 돈의 1/11 이 국세청行", () => {
+  const input = case22();
+  const u = unitEconomics(input);
+  const general = photographerTakes(u, 150000, input.vat)[0];
+  const rows = paymentSplit(150000, u, general.tax);
+  const tax = rows.find((r) => r.key === "tax")!;
+  near(tax.amount, 150000 / 11, 1); // 13,636원
+  near(tax.pct, 9.09, 0.05);
+});
+
+// ── 작가 소득세 ─────────────────────────────────────────────────────
+
+const takesWith = (bracket?: number, otherPct = 30, patch: Partial<VatSettings> = {}) => {
+  const input = case22(patch);
+  const u = unitEconomics(input);
+  return Object.fromEntries(
+    photographerTakes(u, 150000, input.vat, bracket, otherPct).map((r) => [r.key, r])
+  );
+};
+
+test("한계세율을 고르면 확정값, 안 고르면 구간 전체 범위", () => {
+  const fixed = takesWith(15);
+  assert.equal(fixed.general.income.fixed, true);
+  near(fixed.general.income.min, fixed.general.income.max);
+
+  const range = takesWith();
+  assert.equal(range.general.income.fixed, false);
+  assert.ok(range.general.income.min < range.general.income.max);
+  assert.equal(range.general.income.minRate, Math.min(...INCOME_TAX_BRACKETS.map((b) => b.rate)));
+  assert.equal(range.general.income.maxRate, Math.max(...INCOME_TAX_BRACKETS.map((b) => b.rate)));
+});
+
+test("지방소득세 10% 가 얹힌다 — 15% 구간이면 실효 16.5%", () => {
+  near(incomeTaxRate(15), 0.165, 0.0001);
+  const t = takesWith(15);
+  near(t.general.income.min, t.general.income.base * 0.165, 1);
+});
+
+test("일반과세자 과세소득 — 부가세 뺀 수입에서 수수료 공급가와 기타경비를 뺀다", () => {
+  const t = takesWith(15, 30);
+  const revenue = 150000 / 1.1; // 136,364
+  near(t.general.income.base, revenue - 30000 - revenue * 0.3, 1); // 65,455
+});
+
+test("프리랜서 — 원천징수는 선납이라 소득세에서 차감되고, 낮은 구간이면 환급", () => {
+  const low = takesWith(6);
+  assert.ok(low.freelancer.income.min < 0, "6% 구간에서는 환급이 나온다");
+  const high = takesWith(24);
+  assert.ok(high.freelancer.income.min > 0);
+  // 차감이 실제로 원천징수액만큼인지
+  const base = low.freelancer.income.base;
+  near(low.freelancer.income.min, base * incomeTaxRate(6) - 4950, 1);
+});
+
+test("최종 실수령 = 정산액 − 부가세/원천징수 − 소득세", () => {
+  const t = takesWith(15);
+  for (const r of Object.values(t)) {
+    near(r.finalMin, r.net - r.income.max);
+    near(r.finalMax, r.net - r.income.min);
+    near(r.finalMinPct, (r.finalMin / 150000) * 100);
+  }
+});
+
+test("경비율을 올리면 과세소득과 소득세가 함께 준다", () => {
+  const lean = takesWith(24, 10);
+  const fat = takesWith(24, 60);
+  for (const k of ["general", "simplified", "freelancer"] as const) {
+    assert.ok(fat[k].income.base < lean[k].income.base);
+    assert.ok(fat[k].income.min < lean[k].income.min);
+  }
+});
+
+test("세금을 끄면 소득세도 0 이고 최종 실수령이 정산액과 같다", () => {
+  const t = takesWith(15, 30, { on: false });
+  const payout = unitEconomics(case22({ on: false })).payout;
+  for (const r of Object.values(t)) {
+    assert.equal(r.income.min, 0);
+    near(r.finalMin, payout);
+    near(r.finalMax, payout);
+  }
 });
