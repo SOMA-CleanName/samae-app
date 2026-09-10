@@ -2,6 +2,7 @@ import { randomUUID } from "crypto";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { handlePhotographerTakeover } from "@/lib/bot-handoff";
 
 export const runtime = "nodejs";
 
@@ -45,6 +46,9 @@ export async function POST(req: Request) {
   const up = await admin.storage.from(BUCKET).upload(path, buf, { contentType: "image/jpeg" });
   if (up.error) return Response.json({ error: up.error.message }, { status: 500 });
   const url = admin.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+
+  // 작가가 사진으로 먼저 답한 경우도 인계 — 봇 정지 + 안내를 메시지보다 먼저 깐다
+  await handlePhotographerTakeover(admin, conversationId, me.id);
 
   // image 메시지 생성 (트리거가 대화 갱신·알림 처리, Realtime 전파)
   const { error } = await admin.from("messages").insert({

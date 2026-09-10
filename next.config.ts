@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
+  // dev 전용 — Tailscale 등 localhost 외 origin 에서 원격 로컬 접속 시 HMR·dev 리소스 차단 해제.
+  // 프로덕션 빌드에는 영향 없음.
+  allowedDevOrigins: ["100.79.41.65", "mac-mini.tailf8a21e.ts.net"],
   images: {
     // Supabase Storage 공개 URL 허용 (실제 프로젝트 호스트로 교체됨)
     remotePatterns: [
@@ -13,6 +16,12 @@ const nextConfig: NextConfig = {
     // 이미지는 전부 업로드 시 생성한 500px 썸네일(thumb_url, ~30~80KB)이라
     // Supabase CDN에서 그대로 서빙해도 충분하다(추가 변환 불필요·비용 0).
     unoptimized: true,
+    // ⚠️ unoptimized:true 라 quality 는 실제로 아무 일도 하지 않는다(srcset 자체를
+    //    안 만든다). 그런데 코드 곳곳의 quality={80|88|90} 이 기본 목록([75])에
+    //    없다고 이미지마다 경고를 뱉어, 한 화면 로드에 로그 수십 줄이 깔렸다.
+    //    진짜 경고가 그 사이에 묻힌다. 실제로 쓰는 값을 등록해 조용히 시킨다.
+    //    (최적화를 다시 켜는 날 이 목록이 그대로 유효하다)
+    qualities: [75, 80, 88, 90],
   },
   experimental: {
     // 서버액션 본문 한계 상향(기본 1MB) — 문의 레퍼런스 이미지 첨부 대응.

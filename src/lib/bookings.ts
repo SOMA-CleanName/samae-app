@@ -3,36 +3,23 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-export type BookingStatus =
-  | "requested" | "accepted" | "paid" | "shot"
-  | "delivered" | "completed" | "rejected" | "cancelled" | "refunded";
-
-// 상태 한글 라벨 + 색조
-export const STATUS_LABEL: Record<BookingStatus, string> = {
-  requested: "요청됨",
-  accepted: "수락됨 · 송금 대기",
-  paid: "입금 확인됨",
-  shot: "촬영 완료",
-  delivered: "보정본 전달됨",
-  completed: "완료",
-  rejected: "거절됨",
-  cancelled: "취소됨",
-  refunded: "환불됨",
-};
-
-export function statusTone(s: BookingStatus): string {
-  if (s === "completed" || s === "paid") return "bg-emerald-500/15 text-emerald-700";
-  if (s === "requested" || s === "accepted") return "bg-amber-500/15 text-amber-700";
-  if (s === "rejected" || s === "cancelled" || s === "refunded") return "bg-brand/15 text-brand";
-  return "bg-fg/10 text-fg/60";
-}
+// 상태 타입·라벨·색조는 booking-status.ts 에 있다 (클라이언트 공용). 호출부 편의를 위해 재수출.
+export {
+  STATUS_LABEL,
+  statusTone,
+  bookingStatusLabel,
+  type BookingStatus,
+} from "./booking-status";
+import type { BookingStatus } from "./booking-status";
 
 export type BookingRow = {
   id: string;
   status: BookingStatus;
   shoot_at: string | null;
+  shoot_date: string | null;
   location_text: string | null;
   amount_krw: number | null;
+  travel_fee_krw: number; // 출장비 — 예약 카드·상세에서 촬영비와 분리 표기
   memo: string;
   user_id: string;
   photographer_id: string;
@@ -47,7 +34,7 @@ export type BookingRow = {
 };
 
 const SELECT =
-  "id, status, shoot_at, location_text, amount_krw, memo, user_id, photographer_id, created_at, accepted_at, transfer_marked_at, proposed_by_photographer, package_snapshot, " +
+  "id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, memo, user_id, photographer_id, created_at, accepted_at, transfer_marked_at, proposed_by_photographer, package_snapshot, " +
   "photographer:photographers(display_name), " +
   "user:profiles!bookings_user_id_fkey(display_name), " +
   "package:packages(name)";
@@ -115,11 +102,22 @@ export async function getConversationIdFor(
   return (data?.id as string) ?? null;
 }
 
-// KST 일시 표시
-export function fmtShootAt(iso: string | null): string {
-  if (!iso) return "미정";
-  return new Intl.DateTimeFormat("ko-KR", {
-    month: "long", day: "numeric", weekday: "short",
-    hour: "2-digit", minute: "2-digit", timeZone: "Asia/Seoul",
-  }).format(new Date(iso));
+// KST 일시 표시 — 시각 미정이어도 날짜(shoot_date)가 있으면 날짜까지는 보여준다.
+export function fmtShootAt(iso: string | null, dateOnly?: string | null): string {
+  if (iso) {
+    return new Intl.DateTimeFormat("ko-KR", {
+      month: "long", day: "numeric", weekday: "short",
+      hour: "2-digit", minute: "2-digit", timeZone: "Asia/Seoul",
+    }).format(new Date(iso));
+  }
+  if (dateOnly) {
+    const d = new Date(`${dateOnly}T00:00:00+09:00`);
+    if (!isNaN(d.getTime())) {
+      const day = new Intl.DateTimeFormat("ko-KR", {
+        month: "long", day: "numeric", weekday: "short", timeZone: "Asia/Seoul",
+      }).format(d);
+      return `${day} · 시간 협의`;
+    }
+  }
+  return "미정";
 }

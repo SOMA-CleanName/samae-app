@@ -6,10 +6,10 @@ export type MyInquiry = {
   createdTime: string; // "14:11 제출" (KST) — 서버 계산이라 하이드레이션 안전
   status: string;
   photoThumb: string | null;
-  phone: string | null;
-  kakao: string | null;
-  email: string | null;
-  name: string | null;
+  /** 채팅방 재진입용 — /inquiry/bot?photographerId&photoId */
+  photographerId: string;
+  photoId: string | null;
+  photographerName: string | null;
   partySize: string | null;
   purpose: string;
   preferredDate: string;

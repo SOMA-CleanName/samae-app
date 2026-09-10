@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
-
-// 채팅 기능은 보존하되 현재 서비스 흐름에서는 직접 접근을 막는다.
-export default function DisabledUserChatLayout() {
-  redirect("/");
+// 채팅 부활 (8/26 회의 결정) — 비활성 가드 해제.
+// 접근 제어는 각 페이지가 담당한다 (/chat 은 로그인 필수 → /login?next=/chat).
+export default function UserChatLayout({ children }: { children: React.ReactNode }) {
+  return children;
 }

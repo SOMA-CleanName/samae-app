@@ -172,6 +172,20 @@ export function SearchIcon({ className }: IconProps) {
   );
 }
 
+// 매거진(펼친 지면) — 하단 내비 '매거진' 탭.
+// 전에는 이 탭이 '탐색'이고 아이콘이 돋보기였다. 그런데 실제 검색창(SearchDock)은
+// 홈에 있고 /explore 는 읽는 지면이라, 돋보기를 누른 사람은 매번 검색을 못 찾았다.
+// 가운데 접힘선을 살려 '한 장'이 아니라 '펼친 지면'으로 읽히게 한다 —
+// 접힘선이 없으면 20px 에서 그냥 사각형(LayersIcon·ImageIcon)과 구분이 안 된다.
+export function MagazineIcon({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className ?? "h-5 w-5"}>
+      <path d="M12 6.6C10.2 5.2 7.7 4.5 4 4.5v13c3.7 0 6.2.7 8 2.1 1.8-1.4 4.3-2.1 8-2.1v-13c-3.7 0-6.2.7-8 2.1Z" />
+      <path d="M12 6.6v13" />
+    </svg>
+  );
+}
+
 // 더보기(점 세 개)
 export function MoreIcon({ className }: IconProps) {
   return (

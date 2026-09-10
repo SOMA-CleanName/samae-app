@@ -6,12 +6,19 @@ import { createClient } from "@/lib/supabase/server";
 import { fetchPhotographerPackages, fetchPhotographerPhotos } from "@/lib/discovery";
 import { getRules, getBlocks, getBusyRanges } from "@/lib/availability";
 import { ChatRoom } from "./ChatRoom";
-import { BriefPanel } from "./BriefPanel";
-import { BriefBanner } from "./BriefBanner";
-import { ProposeBookingButton } from "./ProposeBookingButton";
 import type { ComposerData } from "./BookingComposer";
 import { Avatar } from "@/components/ui";
 import { BackButton } from "./BackButton";
+import { ProposeBookingButton } from "./ProposeBookingButton";
+import { GuideImagesButton } from "./GuideImagesButton";
+import { fetchGuideImages } from "@/lib/guide-images";
+import { photographerHasKb, resolveGreeting } from "@/lib/bot-kb-db";
+import { listOpenQuestions } from "@/lib/bot-handoff";
+import { fetchBotSettings } from "@/lib/bot-settings";
+import { getPlatformAccount, hasAccount } from "@/lib/platform-account";
+import { normalizeBookingFields } from "@/lib/booking-fields";
+import { seedQaGreetingIfMissing } from "@/lib/inquiry-bot-room";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 // 채팅방
 export default async function ChatRoomPage({
@@ -26,15 +33,70 @@ export default async function ChatRoomPage({
   const conv = await getConversation(conversationId);
   if (!conv) notFound(); // RLS상 참여자 아니면 조회 안 됨 → 404
 
+  const amCustomer = conv.user_id === me.id; // 내가 고객(예약 제안 측)
+  // 상담(Q&A) 모드 — 작가 KB 가 등록돼 있으면 봇은 수집이 아니라 답변을 한다.
+  const [qaMode, botSettings, guideImages] = await Promise.all([
+    photographerHasKb(conv.photographer_id),
+    fetchBotSettings(),
+    // 촬영 안내 이미지 — 손님에게만 (작가는 자기가 올린 자료라 헤더가 붐빌 이유가 없다)
+    amCustomer ? fetchGuideImages(conv.photographer_id) : Promise.resolve([]),
+  ]);
+
+  // 숨고형 폼(/inquiry)으로 만들어진 방에는 봇 발화가 하나도 없다(방 생성 + 요약 카드뿐).
+  // 그 방에서도 작가가 오기 전까지는 봇이 응대해야 하므로 인사 한 줄을 여기서 깐다.
+  // 메시지를 읽기 **전에** 넣어야 이번 렌더에 바로 보인다. (봇 발화가 있으면 no-op)
+  if (amCustomer && qaMode && conv.bot_disabled_at == null && conv.photographer?.profile_id) {
+    await seedQaGreetingIfMissing({
+      conversationId,
+      photographerProfileId: conv.photographer.profile_id,
+      photographerName: conv.photographer.display_name ?? "작가",
+      greeting: await resolveGreeting(conv.photographer_id, conv.photographer.display_name ?? "작가"),
+    });
+  }
+
   const [messages, brief] = await Promise.all([
     getMessages(conversationId),
     getBrief(conversationId),
   ]);
   const title = counterpartName(conv, me);
   const titleAvatar = counterpartAvatar(conv, me);
-  const amCustomer = conv.user_id === me.id; // 내가 고객(예약 제안 측)
   // 작가가 채팅을 한 번이라도 보냈는지 (참여자는 둘뿐 → 고객 외 발신=작가)
-  const photographerHasMessaged = messages.some((m) => m.sender_id !== conv.user_id);
+  // 예약 제안 노출 조건 — 작가는 항상, 고객은 작가가 실제로 대화를 이어받은 뒤에만
+  const photographerHasMessaged = messages.some(
+    (m) => (m.type === "text" || m.type === "image") && m.sender_id !== conv.user_id
+  );
+
+  // 봇 정지 판정 — conversations.bot_disabled_at 이 진실(단방향). 이력 파생은 구방 폴백.
+  const photographerIntervened =
+    conv.bot_disabled_at != null ||
+    messages.some((m) => (m.type === "text" || m.type === "image") && m.sender_id !== conv.user_id);
+  // 봇이 이 방에서 응대할 것인가 — 작가가 이어받기 전까지는 언제나 그렇다.
+  // 봇은 묻지 않고 답만 하므로 '접수 완료' 여부와 무관하다 (수집 모드 폐지).
+  // KB 가 없는 작가여도 봇은 응대한다 — 답하는 대신 "작가님께 전달드릴게요" 로 받는다.
+  const botMode =
+    amCustomer && !photographerIntervened
+      ? { slots: conv.bot_slots ?? null, intervened: false, qa: true }
+      : null;
+
+  // 입금 안내에 쓸 사매 계좌 — 손님에게 결제가 걸린 방에서만 미리 실어 보낸다.
+  // 클라이언트에서 뒤늦게 불러오면 다이얼로그가 열리자마자 "계좌 불러오는 중…" 이 깜빡인다.
+  // (아무 방에나 계좌를 싣지 않는다는 원칙은 이 조건으로 지킨다)
+  const needsAccount =
+    amCustomer &&
+    messages.some(
+      (m) =>
+        m.booking &&
+        (m.booking.status === "requested" ||
+          (m.booking.status === "accepted" && !m.booking.transfer_marked_at))
+    );
+  const platformAccount = needsAccount ? await getPlatformAccount() : null;
+  const payoutAccount =
+    platformAccount && hasAccount(platformAccount)
+      ? { bank: platformAccount.bank, number: platformAccount.number, holder: platformAccount.holder }
+      : null;
+
+  // 작가에게만 — 봇이 답하지 못하고 넘긴 질문 (방에 들어오면 무엇에 답해야 하는지 보인다)
+  const openQuestions = amCustomer ? [] : await listOpenQuestions(createAdminClient(), conversationId);
 
   // 작가 수취 계좌는 여기서 미리 내려보내지 않는다 — 수락(accepted) 이후 송금 카드에서
   // getBookingPayoutAccount 서버액션으로 지연 로딩(채팅 진입만으로 계좌가 응답에 실리는 것 방지).
@@ -57,7 +119,7 @@ export default async function ChatRoomPage({
       getBusyRanges(conv.photographer_id),
       supabase
         .from("photographers")
-        .select("booking_note, travel_fee_krw, travel_fee_note")
+        .select("travel_fee_krw, booking_fields")
         .eq("id", conv.photographer_id)
         .single(),
     ]);
@@ -73,9 +135,8 @@ export default async function ChatRoomPage({
       rules,
       blocks,
       busy,
-      bookingNote: phRes.data?.booking_note ?? null,
       travelFeeKrw: phRes.data?.travel_fee_krw ?? 0,
-      travelFeeNote: phRes.data?.travel_fee_note ?? null,
+      bookingFields: normalizeBookingFields(phRes.data?.booking_fields).fields,
     };
   }
 
@@ -103,27 +164,15 @@ export default async function ChatRoomPage({
             </span>
           )}
 
+          {/* 예약 제안 (에스크로 플로우의 시작) — 상담정보 작성/열람은 요약 카드가 대체해 제거 */}
           <div className="ml-auto flex shrink-0 items-center gap-1">
-            {/* 예약 제안 — 작가는 항상, 고객은 작가가 먼저 채팅한 이후에만 노출 */}
+            {/* 촬영 안내 — 상시. 예약 제안 왼쪽(정보 → 행동 순) */}
+            <GuideImagesButton images={guideImages} />
             {composerData && (!amCustomer || photographerHasMessaged) && (
               <ProposeBookingButton data={composerData} />
             )}
-            {/* 상담 정보 — 고객은 작성/수정, 작가는 열람(수시로) */}
-            <BriefPanel
-              conversationId={conversationId}
-              amCustomer={amCustomer}
-              initialBrief={brief}
-              sourcePhotoPath={conv.source_photo_path}
-            />
           </div>
         </header>
-
-        {/* 상담 정보 미작성 고객 — 인라인 권유 배너(자동 모달 대체) */}
-        {amCustomer && !brief && (
-          <div className="shrink-0 px-3 pt-3 sm:px-4">
-            <BriefBanner />
-          </div>
-        )}
 
         <ChatRoom
           conversationId={conversationId}
@@ -134,6 +183,20 @@ export default async function ChatRoomPage({
           portfolioPhotos={portfolioPhotos}
           brief={brief}
           sourcePhotoPath={conv.source_photo_path}
+          // 작가에게만 — 봇 수집 현황 체크리스트 (고객 화면에는 봇 대화가 곧 그 정보)
+          initialBotSlots={!amCustomer ? conv.bot_slots ?? null : null}
+          botMode={botMode}
+          // 봇/작가를 아바타로 구분 — 참여자는 둘뿐이라 '내 것이 아닌' 말풍선의 주인은
+          // 봇(type='bot') 이거나 상대(작가/고객) 둘 중 하나다.
+          customerId={conv.user_id}
+          counterpartName={title}
+          counterpartAvatar={titleAvatar}
+          botDisabled={conv.bot_disabled_at != null}
+          openQuestions={openQuestions}
+          guideImages={guideImages}
+          payoutAccount={payoutAccount}
+          botName={botSettings.messages.botName}
+          handoffNotice={botSettings.messages.handoff}
         />
       </div>
     </main>

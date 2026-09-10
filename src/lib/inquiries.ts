@@ -117,10 +117,11 @@ export async function listMyAcceptedInquiries(): Promise<AcceptedInquiry[]> {
       display_name: (profile?.display_name as string | null | undefined) ?? null,
       // 이름은 연락처 게이트 밖 — 입금 확인 전에도 노출
       name: (row.name as string | null) ?? null,
-      // 입금 확인 전에는 연락처 비공개
-      phone: confirmed ? (row.phone as string | null) : null,
-      kakao_id: confirmed ? (row.kakao_id as string | null) : null,
-      contact_email: confirmed ? (row.contact_email as string | null) : null,
+      // 에스크로 전환 — 고객 연락처는 작가에게 어떤 단계에서도 공개하지 않는다.
+      // 대화는 사매 채팅에서만, 알림은 사매가 SMS 로 대신 보낸다 (오프플랫폼 이탈 차단).
+      phone: null,
+      kakao_id: null,
+      contact_email: null,
       purpose: row.purpose as string,
       preferred_date: row.preferred_date as string,
       region: (row.region as string | null) ?? "",

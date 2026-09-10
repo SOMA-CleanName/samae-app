@@ -9,6 +9,8 @@ import type { GalleryPhoto } from "@/lib/discovery";
 import { cn } from "@/lib/cn";
 import { assignColumnAccents, seededShuffle, type AccentColor } from "@/lib/seeded-shuffle";
 import { buildDiverseMasonryColumns } from "@/lib/masonry-columns";
+import { FeedInterstitialCard } from "./FeedInterstitialCard";
+import type { FeedInterstitial } from "@/lib/feed-interstitials";
 import { expandSearchResultLoop, shouldKeepGallerySentinel } from "@/lib/search-feed-loop";
 import {
   routeSessionKey,
@@ -28,6 +30,10 @@ const fmt = new Intl.NumberFormat("ko-KR");
 const STEP = 48; // 스크롤마다 더 보여줄 사진 수(메모리에서 즉시 노출)
 const PERSONALIZED_STEP = 36; // 동적 개인화 상한 — 실제 장수는 서버가 6~36장으로 결정
 const TUTORIAL_SEEN_KEY = "samae:tutorial-seen"; // 일반 유저 첫 방문 튜토리얼 열람 여부
+/** 온보딩: 강조 사진 아랫변과 화면 바닥 사이 여백(px). 하단 내비 + '탭해서 둘러보기' 안내가 들어간다. */
+const OB_BOTTOM_INSET = 124;
+/** 온보딩: 강조 사진이 화면에서 차지할 최대 높이 비율. 위쪽 절반은 문구 자리다. */
+const OB_CARD_MAX_VH = 0.42;
 const FEED_RESTORING_KEY = "samae:feed-return-restoring";
 const FEED_RESTORED_EVENT = "samae:feed-return-restored";
 const FEED_SESSION_PREFIX = "samae:gallery-session:";
@@ -139,6 +145,7 @@ export function ExploreGallery({
   loadMore,
   loadPersonalized,
   loadDemoted,
+  interstitials,
 }: {
   photos: GalleryPhoto[];
   query?: string;
@@ -165,6 +172,13 @@ export function ExploreGallery({
     excludedPhotoIds: string[]
   ) => Promise<GalleryPhoto[]>;
   loadDemoted?: (seed: string, page: number) => Promise<GalleryPhoto[]>;
+  /**
+   * 피드 사이에 끼울 카드(읽을거리·작가).
+   *
+   * 홈 전체 피드에서만 넘긴다. 검색 결과와 카테고리 지면은 목적이 뚜렷해서
+   * 중간에 다른 걸 끼우면 방해만 된다.
+   */
+  interstitials?: FeedInterstitial[];
 }) {
   const pathname = usePathname();
   const routeKey = routeSessionKey(pathname, query);
@@ -318,19 +332,71 @@ export function ExploreGallery({
 
   // 온보딩 중 스크롤 잠금 — 활성화되면 잠그고, 종료(또는 언마운트) 시 자동 복구.
   // 실제 스크롤 루트는 <html>(layout 의 h-full) 이라 documentElement 까지 잠가야 먹힘.
+  const obScrolled = useRef(false);
   useEffect(() => {
     if (!obActive) return;
     const html = document.documentElement;
     const { body } = document;
     const prevHtml = html.style.overflow;
     const prevBody = body.style.overflow;
-    html.style.overflow = "hidden";
-    body.style.overflow = "hidden";
+    let raf = 0;
+    let tries = 0;
+
+    const lock = () => {
+      html.style.overflow = "hidden";
+      body.style.overflow = "hidden";
+    };
+
+    /*
+      강조할 사진을 화면 아래쪽에 '전부 보이게' 앉힌 뒤 스크롤을 잠근다.
+
+      홈 위쪽에 배너·바로가기·무드가 깔리면서 그 사진이 화면 밖으로 밀려났다.
+      그대로 오버레이를 띄우면 정작 보여줄 사진이 안 보인다.
+
+      주의할 점 둘:
+        ① overflow:hidden 을 건 뒤에는 scrollTo 가 먹지 않는다 → 잠그기 전에 옮긴다.
+        ② 이 이펙트가 도는 시점에 카드가 아직 안 그려져 있을 수 있다.
+           한 번 보고 포기하면 스크롤이 통째로 안 걸린다(실제로 그랬다).
+           카드가 나타날 때까지 프레임마다 다시 본다.
+
+      위치는 '윗변'이 아니라 **아랫변** 기준으로 잡는다. 윗변으로 맞추면 사진 길이에 따라
+      아래가 하단 내비·안내문에 잘린다. 아랫변을 내비 위에 붙이면 길이와 무관하게 다 보인다.
+    */
+    const place = () => {
+      raf = 0;
+      if (obScrolled.current || !spotlightTargetId) {
+        lock();
+        return;
+      }
+      const el = document.querySelector(`[data-cart-card][data-pid="${spotlightTargetId}"]`);
+      if (!el) {
+        // 아직 안 그려졌다. 잠그지 않고 다음 프레임에 다시 본다(약 1.5초까지).
+        if (tries++ < 90) {
+          raf = requestAnimationFrame(place);
+          return;
+        }
+        lock();
+        return;
+      }
+      obScrolled.current = true;
+      const r = el.getBoundingClientRect();
+      const cardH = Math.min(r.height, window.innerHeight * OB_CARD_MAX_VH);
+      const desiredTop = window.innerHeight - OB_BOTTOM_INSET - cardH;
+      window.scrollTo({
+        top: Math.max(0, window.scrollY + r.top - desiredTop),
+        behavior: "auto",
+      });
+      lock();
+    };
+
+    place();
+
     return () => {
+      if (raf) cancelAnimationFrame(raf);
       html.style.overflow = prevHtml;
       body.style.overflow = prevBody;
     };
-  }, [obActive]);
+  }, [obActive, spotlightTargetId]);
 
   function dismissOnboard() {
     if (obPhase !== "ready") return; // 약 1.5초 전엔 강제(닫기 불가)
@@ -691,6 +757,56 @@ export function ExploreGallery({
       .forEach((el) => io.observe(el));
   }, [columnsReady, visible, items.length]);
 
+  /*
+    피드 카드 등장 — 관찰자 하나로 전부 처리한다.
+
+    처음엔 CSS animation-timeline: view() 로 했는데, 크롬 계열에서만 돌고
+    범위가 뷰포트에 묶여 "들어왔을 땐 이미 다 보임"이 되기 일쑤였다.
+    관찰자는 어디서나 같게 돌고 rootMargin 으로 시점을 내가 정한다.
+
+    한 번 보이면 관찰을 끊는다 — 무한스크롤이라 카드가 수백 장까지 늘어나는데
+    계속 붙들고 있으면 스크롤할수록 무거워진다.
+  */
+  useLayoutEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+
+    const grid = document.querySelector<HTMLElement>("[data-feed-grid]");
+    if (!grid) return;
+    // 여기서 처음 숨김이 걸린다. 이 표식이 붙기 전까지 카드는 그냥 보인다.
+    grid.dataset.revealOn = "1";
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (!e.isIntersecting) continue;
+          (e.target as HTMLElement).dataset.shown = "1";
+          io.unobserve(e.target);
+        }
+      },
+      // 아래쪽에서 조금 일찍 시작해, 화면에 닿을 때쯤 자리를 잡게 한다.
+      { rootMargin: "0px 0px -8% 0px", threshold: 0.01 }
+    );
+
+    grid
+      .querySelectorAll<HTMLElement>(".feed-rise:not([data-shown])")
+      .forEach((el) => io.observe(el));
+
+    return () => io.disconnect();
+  }, [columnsReady, visible, items.length]);
+
+  /*
+    삽입 간격. 사진 14장마다 한 장, 첫 삽입은 12번째 뒤.
+
+    첫 화면(대개 8~10장)에는 안 나오게 잡았다. 들어오자마자 사진 아닌 게 끼면
+    광고처럼 읽힌다. 간격이 짧으면 피드가 아니라 카탈로그가 된다.
+  */
+  const FIRST_INTERSTITIAL_AT = 12;
+  const INTERSTITIAL_EVERY = 14;
+
+  // 검색 결과에는 넣지 않는다 — 찾으러 온 사람에게 다른 걸 들이미는 건 방해다.
+  const interstitialList = query ? [] : (interstitials ?? []);
+
   const columns = useMemo(
     () => {
       const visibleItems = query
@@ -790,15 +906,52 @@ export function ExploreGallery({
                       // fly 폴라로이드(도크로 날아가는 z-50)가 카드에 가려지지 않게 한다.
                       (obPhase === "enter" || obPhase === "ready") && "relative z-[110]",
                       // 세로 긴 사진/작은 화면에서 카드가 하단 문구를 덮지 않게 높이 캡(모바일만).
-                      obShown && "max-h-[44svh] overflow-hidden rounded-2xl ring-2 ring-white/70 ring-offset-2 ring-offset-black md:max-h-none"
+                      // 윗변이 화면 50% 에 오므로 46svh 까지만 — 하단 내비까지 덮지 않게
+                        obShown && "max-h-[42svh] overflow-hidden rounded-2xl ring-2 ring-white/70 ring-offset-2 ring-offset-black md:max-h-none"
                     )}
                   >
                     {card}
                   </div>
                 );
               }
+              /*
+                삽입 카드 — 사진 N장마다 한 장.
+
+                자리를 feedIndex 로 정한다. 어느 열에 떨어지든 "피드에서 몇 번째냐"가
+                기준이라 화면 폭이 바뀌어도 나오는 지점이 흔들리지 않는다.
+                (열 인덱스로 정하면 2열·3열에서 개수가 달라진다)
+              */
+              const slot =
+                interstitialList.length > 0 &&
+                !obActive &&
+                feedIndex >= FIRST_INTERSTITIAL_AT &&
+                (feedIndex - FIRST_INTERSTITIAL_AT) % INTERSTITIAL_EVERY === 0
+                  ? interstitialList[
+                      Math.floor((feedIndex - FIRST_INTERSTITIAL_AT) / INTERSTITIAL_EVERY) %
+                        interstitialList.length
+                    ]
+                  : null;
+
               // 나머지 카드 — 흩어지지 않고 제자리 유지(오버레이의 블러+딤으로만 살짝 가려짐).
-              return <div key={feedInstanceId}>{card}</div>;
+              // 온보딩 중에는 떠오르는 연출을 끈다. 딤/블러 위에서 같이 움직이면 어수선하다.
+              return (
+                <div key={feedInstanceId} className="contents">
+                  <div
+                    className={obActive ? undefined : "feed-rise"}
+                    style={obActive ? undefined : ({ ["--c"]: ci } as React.CSSProperties)}
+                  >
+                    {card}
+                  </div>
+                  {slot && (
+                    <div
+                      className={obActive ? undefined : "feed-rise"}
+                      style={obActive ? undefined : ({ ["--c"]: ci } as React.CSSProperties)}
+                    >
+                      <FeedInterstitialCard item={slot} />
+                    </div>
+                  )}
+                </div>
+              );
             })}
           </div>
         ))}
@@ -842,41 +995,43 @@ export function ExploreGallery({
             />
           </div>
 
-          {/* 하단 스크림 — 작은 화면·긴 사진에서 문구가 밝은 스포트라이트 사진 위로 겹쳐도 읽히게(모바일만). */}
-          <div
-            aria-hidden
-            className={cn(
-              "pointer-events-none fixed inset-x-0 bottom-0 z-[114] h-72 bg-gradient-to-t from-black/75 via-black/40 to-transparent transition-opacity duration-500 md:hidden",
-              obShown && obPhase !== "adding" ? "opacity-100" : "opacity-0"
-            )}
-          />
+          {/*
+            하단 스크림을 걷어냈다.
+            문구가 사진 위에 겹칠 때 읽히라고 깔았던 건데, 이제 문구는 위 절반·사진은
+            아래 절반이라 겹치지 않는다. 그대로 두면 보여줄 사진만 어두워진다.
+          */}
 
           {/* 핵심 문구 — 모바일은 하단 에디토리얼, 데스크탑은 화면 가운데 인트로. 라인 마스크 reveal + 스태거.
               z-[115]: 스포트라이트 사진(z-110) 위에 올려 작은 화면에서 사진에 가려지지 않게. */}
           <div
             className={cn(
-              "pointer-events-none fixed inset-0 z-[115] flex flex-col justify-end px-7 pb-24 transition-opacity duration-300 sm:pb-28 md:justify-center md:pb-0",
+              "pointer-events-none fixed inset-x-0 top-0 z-[115] flex flex-col justify-center px-7 transition-opacity duration-300",
+              // 강조 사진이 아래 절반을 차지하므로 문구는 위 절반 한가운데.
+              // 강조 사진이 없는 모드(데스크탑 일반)에서는 화면 전체 가운데.
+              spotlightTargetId ? "h-[50svh]" : "h-[100svh]",
               obPhase === "adding" || obPhase === "leaving" ? "opacity-0" : "opacity-100"
             )}
           >
-            <div className="mx-auto w-full max-w-md md:text-center">
+            {/* 첫 방문 튜토리얼 — 홈 상단에 있던 헤드라인을 여기로 옮겼다.
+                작은 화면에서도 가운데 정렬한다. 한 번 크게 말하는 자리라 왼쪽 정렬은 약하다. */}
+            <div className="mx-auto w-full max-w-lg text-center">
               {/* 액센트 라인 — 폭이 그어지듯 (데스크탑은 가운데 정렬) */}
               <span
                 aria-hidden
-                className="mt-3 block h-px bg-white/30 transition-all duration-[900ms] ease-[cubic-bezier(.16,1,.3,1)] md:mx-auto"
+                className="mx-auto mt-3 block h-px bg-white/30 transition-all duration-[900ms] ease-[cubic-bezier(.16,1,.3,1)]"
                 style={{ width: obShown ? "2.75rem" : "0px", transitionDelay: "140ms" }}
               />
 
               {/* 헤드라인 — 라인이 아래에서 솟아오름(마스크) */}
-              <h2 className="mt-4 text-[1.6rem] font-semibold leading-[1.18] tracking-tight text-white sm:text-[2.05rem]">
+              <h2 className="mt-5 text-[clamp(1.75rem,7.2vw,2.75rem)] font-bold leading-[1.2] tracking-[-0.03em] text-white">
                 {[
-                  { key: "l1", node: "마음에 든 이 느낌 그대로," },
+                  { key: "l1", node: "원하는 사진을 고르고," },
                   // 핵심 단어 '작가'를 로고 컬러로 강조 (튜토리얼 목적: 작가 인식)
                   {
                     key: "l2",
                     node: (
                       <>
-                        그 <span className="text-brand">작가</span>가 당신을 담아요.
+                        그 <span className="text-brand">작가</span>에게 촬영을 문의하세요.
                       </>
                     ),
                   },
@@ -903,8 +1058,7 @@ export function ExploreGallery({
                   obShown ? "translate-y-0 text-white/72 opacity-100" : "translate-y-3 opacity-0"
                 )}
               >
-                지금 보는 사진을 찍은 바로 그 작가와
-                <br />같은 무드로 촬영을 진행해보세요.
+                마음에 든 사진을 누르면 그 사진을 찍은 작가로 이어져요.
               </p>
             </div>
           </div>
@@ -993,7 +1147,10 @@ function PhotoCard({
       className={cn(
         // 저빈도 악센트 테두리 — border(안쪽)라 사진만 살짝 줄고 바깥 크기는 열 폭 그대로
         // (ring 바깥쪽이면 옆으로 삐져나와 더 커 보였음). 기본은 테두리 없음.
-        "group relative break-inside-avoid overflow-hidden bg-fg/[0.05]",
+        "group relative break-inside-avoid overflow-hidden",
+        // 스켈레톤 배경은 **로드 전에만**. 사진이 들어온 뒤에도 깔아 두면
+        // 등장 애니메이션 중 가장자리 틈으로 이 색이 비쳐 얇은 선이 된다.
+        !loaded && "bg-fg/[0.05]",
         accent === "brand" ? "border-[6px] border-brand" : accent === "ink" ? "border-[6px] border-fg" : ""
       )}
     >

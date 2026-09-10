@@ -1,0 +1,96 @@
+// 오프플랫폼 유도 감지 — 채팅에서 개인 SNS·연락처로 대화를 빼돌리는 텍스트를 잡는다.
+// 순수 함수 (클라이언트·서버 공용). 매칭된 규칙 라벨 목록을 돌려준다 — 비면 통과.
+//
+// 우회 대응 (실측된 시도 기반):
+//   "공일공77155195"      → 한글 숫자 정규화 후 전화번호 매칭
+//   "카톡jh011010"        → 플랫폼 단어에 붙은 ID
+//   "@kimjazz99로 연락주세요" → 핸들 + 연락 유도어 (플랫폼 단어 없어도)
+//   "kimjazz99 잉스타연락"  → 플랫폼 오탈자 변형(잉스타 등) + 유도어
+// 원칙: 가격("150,000원")·일정("오후 3시")·단순 언급("인스타에 올리신 사진")은 통과.
+
+// 한글 숫자 → 디지트 (전화번호 위장 해제)
+const KO_DIGITS: Record<string, string> = {
+  공: "0", 영: "0", 빵: "0", 일: "1", 이: "2", 삼: "3", 사: "4",
+  오: "5", 육: "6", 륙: "6", 칠: "7", 팔: "8", 구: "9",
+};
+
+function normalize(text: string): string {
+  let t = text.toLowerCase();
+  // 한글 숫자 치환 — "일정", "삼각대" 같은 일반 단어 오탐을 줄이기 위해
+  // 숫자·한글숫자가 3자 이상 연속되는 구간만 치환한다
+  t = t.replace(/[공영빵일이삼사오육륙칠팔구\d][\s\-.,]*(?:[공영빵일이삼사오육륙칠팔구\d][\s\-.,]*){2,}/g, (run) =>
+    run.replace(/[\s\-.,]/g, "").replace(/[공영빵일이삼사오육륙칠팔구]/g, (c) => KO_DIGITS[c] ?? c)
+  );
+  return t;
+}
+
+// 플랫폼 언급 (오탈자·변형 포함)
+const PLATFORM_RE =
+  /(카톡|카카오톡|카카오|까톡|께톡|ㅋㅌ|kakao|인스타|잉스타|인쓰타|인스따|스타그램|insta|\big\b|디엠|\bdm\b|텔레그램|텔레|telegram|라인|line)/i;
+// 연락 유도어
+const LURE_RE =
+  /(아이디|계정|친추|친구\s*추가|팔로우|팔로|검색|연락|추가|주세요|주삼|주세염|남겨|보내|알려|드릴게|주시면|받을게|찾아|하세요|해주|해요|주면|ㄱㄱ)/i;
+// 핸들·아이디 패턴
+const AT_HANDLE_RE = /@[a-z0-9._\-]{3,30}/i;
+// 플랫폼 단어에 바로 붙은 ID: "카톡jh011010", "인스타 kimjazz99", "카톡: abc123"
+const PLATFORM_ID_RE =
+  /(카톡|카카오톡|카카오|까톡|ㅋㅌ|kakao|인스타|잉스타|인쓰타|insta|디엠|dm|텔레그램|텔레|telegram|라인)\s*[:은는]?\s*@?[a-z0-9._\-]{4,30}/i;
+
+const URL_RES: [RegExp, string][] = [
+  [/open\.kakao\.com|kakao\.com\/o\//i, "오픈채팅 링크"],
+  [/instagram\.com|instagr\.am/i, "인스타 링크"],
+  [/t\.me\/|telegram\.me/i, "텔레그램 링크"],
+  [/linktr\.ee|litt\.ly|link\.inpock/i, "프로필 링크"],
+];
+const EMAIL_RE = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/i;
+const PHONE_RE = /01[016789]\d{7,8}/;
+// 단독 숫자 덩어리 (7~16자리) — 가격·시각 단위가 붙지 않은 맨숫자는 연락처/계좌 파편으로 간주
+// (계좌번호는 하이픈이 normalize에서 붕괴돼 10~14자리 덩어리가 된다)
+const BARE_DIGITS_RE = /(?<![\d원장분시월일년,])\d{7,16}(?![\d원장분시월일년,])/;
+
+// 개인 계좌 유도 — 에스크로(사매 계좌) 우회 차단.
+// 은행명 또는 계좌 단어 + 10자리 이상 숫자 덩어리(하이픈은 normalize에서 붕괴됨).
+const BANK_RE =
+  /(국민은행|신한은행|우리은행|하나은행|농협|기업은행|카카오\s*뱅크|카뱅|토스\s*뱅크|토뱅|케이\s*뱅크|케뱅|새마을금고|우체국|수협|신협|씨티은행|sc제일|\bkb\b|\bnh\b|\bibk\b|은행)/i;
+const ACCOUNT_WORD_RE = /(계좌|무통장|입금|송금|이체)/;
+const ACCT_DIGITS_RE = /\d{10,16}/;
+
+export function detectOffPlatform(text: string): string[] {
+  const raw = text.trim();
+  if (!raw) return [];
+  const t = normalize(raw);
+  const matched: string[] = [];
+
+  if (PHONE_RE.test(t)) matched.push("전화번호");
+  else if (BARE_DIGITS_RE.test(t) && !/[원장,]/.test(raw)) matched.push("연락처 의심 숫자");
+
+  // 개인 계좌 공유 — 가격 표기("150,000원")는 10자리 미만이라 걸리지 않는다
+  if ((BANK_RE.test(t) || ACCOUNT_WORD_RE.test(t)) && ACCT_DIGITS_RE.test(t))
+    matched.push("계좌번호 공유");
+
+  for (const [re, label] of URL_RES) if (re.test(t)) matched.push(label);
+  if (EMAIL_RE.test(t)) matched.push("이메일");
+  if (PLATFORM_ID_RE.test(t)) matched.push("SNS 계정 공유");
+  if (AT_HANDLE_RE.test(t) && (LURE_RE.test(t) || PLATFORM_RE.test(t))) matched.push("SNS 계정 공유");
+  if (PLATFORM_RE.test(t) && LURE_RE.test(t)) matched.push("SNS·메신저 유도");
+
+  return [...new Set(matched)];
+}
+
+/** 차단 시 사용자에게 보여줄 안내문 */
+/**
+ * 이 대화에서 연락처 교환을 허용해도 되는가.
+ *
+ * 시간이 지나면 저절로 열리는 방식은 폐기했다(구 '결제 후 7일 자동 개방'). 저절로 열리면
+ * 고지도 동의도 기록도 없이 추적만 끊긴다 — 정작 그 기록이 있어야 청약철회 제한을
+ * 주장할 수 있다.
+ *
+ * 지금은 **작가가 보내고 고객이 동의해 받은 뒤**에만 열린다 (docs/32 §3-3).
+ * 그 전까지는 양쪽 다 막는다 — 한쪽만 막으면 반대 방향으로 새어 나간다.
+ */
+export function contactExchangeAllowed(contactDeliveredAt: string | null | undefined): boolean {
+  return !!contactDeliveredAt;
+}
+
+export const MODERATION_NOTICE =
+  "개인 연락처·SNS·계좌번호 안내는 보낼 수 없어요. 대화는 사매 채팅에서, 결제는 사매 안전결제로 진행해 주세요.";

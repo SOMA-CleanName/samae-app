@@ -5,7 +5,7 @@ import {
   circularPhotoId,
   reconciledFocusedPhotoId,
   shouldShowCartSwipeHint,
-  verticalSwipeDirection,
+  horizontalSwipeDirection,
   wheelNavigationDirection,
 } from "./cart-detail-navigation.ts";
 
@@ -33,15 +33,15 @@ test("a missing current photo recovers to the first photo", () => {
   assert.equal(circularPhotoId(["a", "b"], "missing", "next"), "a");
 });
 
-test("vertical swipe accepts dominant upward and downward movement beyond 56px", () => {
-  assert.equal(verticalSwipeDirection(10, 100, 18, 40), "next");
-  assert.equal(verticalSwipeDirection(10, 40, 14, 100), "previous");
+test("horizontal swipe accepts dominant upward and downward movement beyond 56px", () => {
+  assert.equal(horizontalSwipeDirection(100, 10, 30, 18), "next");
+  assert.equal(horizontalSwipeDirection(40, 10, 110, 14), "previous");
 });
 
-test("vertical swipe ignores short and horizontally dominant movement", () => {
-  assert.equal(verticalSwipeDirection(10, 100, 10, 45), null);
-  assert.equal(verticalSwipeDirection(10, 100, 50, 60), null);
-  assert.equal(verticalSwipeDirection(10, 100, 80, 40), null);
+test("horizontal swipe ignores short and horizontally dominant movement", () => {
+  assert.equal(horizontalSwipeDirection(100, 10, 55, 10), null);
+  assert.equal(horizontalSwipeDirection(100, 10, 60, 50), null);
+  assert.equal(horizontalSwipeDirection(100, 10, 40, 80), null);
 });
 
 test("swipe hint appears only for multiple photos before it has been seen", () => {
@@ -62,9 +62,12 @@ test("wheel navigation normalizes pixel and line deltas", () => {
   assert.equal(wheelNavigationDirection(0, 2, 1), "next");
 });
 
-test("wheel navigation ignores small and horizontally dominant movement", () => {
+test("wheel navigation ignores small movement and follows the dominant axis", () => {
   assert.equal(wheelNavigationDirection(0, 10, 0), null);
-  assert.equal(wheelNavigationDirection(40, 30, 0), null);
+  assert.equal(wheelNavigationDirection(10, 8, 0), null);
+  // 가로가 우세하면 가로를 따른다(트랙패드).
+  assert.equal(wheelNavigationDirection(40, 30, 0), "next");
+  assert.equal(wheelNavigationDirection(-40, 30, 0), "previous");
 });
 
 test("missing price and location use one negotiation headline", () => {

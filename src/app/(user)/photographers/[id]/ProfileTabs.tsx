@@ -134,7 +134,7 @@ function PackageCard({
   return (
     <li>
       <Link
-        href={`/inquiry?photographerId=${encodeURIComponent(viewer.photographerId)}`}
+        href={`/inquiry/bot?photographerId=${encodeURIComponent(viewer.photographerId)}`}
         className="block rounded-2xl border border-line bg-surface p-4 transition-colors hover:border-fg/25 hover:bg-surface-2"
       >
         {content}

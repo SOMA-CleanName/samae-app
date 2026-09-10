@@ -1,7 +1,7 @@
 import { type EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { safeNext } from "@/lib/safe-redirect";
+import { requestOrigin, safeNext } from "@/lib/safe-redirect";
 
 /**
  * 이메일 인증 확인 — 메일 링크의 token_hash 를 검증(verifyOtp).
@@ -9,7 +9,8 @@ import { safeNext } from "@/lib/safe-redirect";
  * 검증 후에는 세션을 두지 않고 로그인 페이지로 보내 다시 로그인하도록 유도한다.
  */
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
+  const origin = requestOrigin(request); // request.url 의 origin 은 dev 원격 접속에서 localhost 로 보고됨
   const token_hash = searchParams.get("token_hash");
   const type = searchParams.get("type") as EmailOtpType | null;
   const next = safeNext(searchParams.get("next"), "/login?verified=1"); // 오픈 리다이렉트 방지

@@ -14,9 +14,10 @@ for (const line of envText.split(/\r?\n/)) {
   const m = line.match(/^([A-Z_]+)=(.*)$/);
   if (m) env[m[1]] = m[2];
 }
-const dbUrl = env.SUPABASE_DB_URL;
+// 풀러 URL 을 먼저 본다 — 직결(SUPABASE_DB_URL)은 프로젝트를 옮기면 먼저 죽는다
+const dbUrl = env.SUPABASE_DB_POOLER_URL || env.SUPABASE_DB_URL;
 if (!dbUrl) {
-  console.error("❌ .env.local 에 SUPABASE_DB_URL 이 없습니다.");
+  console.error("❌ .env.local 에 SUPABASE_DB_POOLER_URL 또는 SUPABASE_DB_URL 이 없습니다.");
   process.exit(1);
 }
 

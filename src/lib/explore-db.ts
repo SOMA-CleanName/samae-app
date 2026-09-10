@@ -80,6 +80,63 @@ export async function getExploreCategoryPhotoIds(categoryId: string): Promise<st
 
 // ── 프론트(사용자) 읽기 — RLS(published·승인작가) 를 태워 안전하게 노출 ──
 
+/**
+ * sitemap 용 — 공개 탐색 카테고리의 slug 만 가볍게 가져온다.
+ *
+ * 요청 컨텍스트(쿠키)가 없는 sitemap 에서 도는 코드라 admin 클라이언트를 쓴다.
+ * admin 은 RLS 를 우회하므로 `published` 를 **명시적으로 걸어야 한다** —
+ * 안 걸면 비공개 카테고리 URL 이 sitemap 에 실려 검색엔진에 404/빈 페이지를 먹인다.
+ * (categories.ts 의 listPublishedCategories 와 같은 규약)
+ *
+ * ⚠️ 2026-08-31 이전까지 sitemap 에 탐색 카테고리가 통째로 빠져 있었다.
+ *    무드·장면 큐레이션이라 SEO 가치가 가장 높은 페이지인데 색인 대상이 아니었다.
+ */
+export async function listPublishedExploreSlugs(): Promise<
+  Array<{ id: string; slug: string; sort: number }>
+> {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("explore_categories")
+    .select("id, slug, sort")
+    .eq("published", true)
+    .order("sort", { ascending: true });
+  return (data ?? [])
+    .map((r) => ({ id: String(r.id), slug: String(r.slug ?? ""), sort: Number(r.sort ?? 0) }))
+    .filter((r) => r.slug.length > 0);
+}
+
+/**
+ * sitemap 용 — 주어진 사진 id 중 **로그아웃 방문자(=검색봇)에게 실제로 보이는** 것의 수.
+ *
+ * `resolveExplorePhotoIds` 는 배정만 볼 뿐 노출 가능 여부를 보지 않는다.
+ * 그래서 "배정은 300장인데 페이지는 0장"인 카테고리가 존재한다(2026-08-31 확인:
+ * our-vibe·vintage-memories·natural-look 등). 그런 페이지를 sitemap 에 실으면
+ * 검색엔진에 빈 페이지를 먹이는 셈이다.
+ *
+ * 조건은 fetchExploreCategoryGalleryPhotos 와 **같게 맞춘다** — published + feed_hidden=false.
+ * 어긋나면 sitemap 과 실제 페이지가 다른 말을 하게 된다.
+ * (작가 승인 여부는 RLS 가 보지만 여기선 태울 수 없다. 승인 안 된 작가의 사진이
+ *  카테고리에 배정되는 경우가 드물어 실용상 차이가 없다고 보고 생략한다.)
+ *
+ * ⚠️ id 는 100개씩 끊어 조회한다. 한 번에 넣으면 URL 길이를 넘겨 조용히 0이 된다.
+ */
+export async function countVisiblePhotos(photoIds: string[]): Promise<number> {
+  if (photoIds.length === 0) return 0;
+  const admin = createAdminClient();
+  let total = 0;
+  for (let i = 0; i < photoIds.length; i += 100) {
+    const { count } = await admin
+      .from("photos")
+      .select("id", { count: "exact", head: true })
+      .in("id", photoIds.slice(i, i + 100))
+      .eq("visibility", "published")
+      .eq("feed_hidden", false);
+    total += count ?? 0;
+    if (total > 0) break; // sitemap 판정엔 "0인가 아닌가"만 필요하다
+  }
+  return total;
+}
+
 // 공개 카테고리 1건 (slug). 비공개/미존재는 null.
 export async function getPublishedExploreCategory(slug: string): Promise<ExploreCategory | null> {
   const supabase = await createClient();
@@ -100,15 +157,24 @@ export async function fetchExploreCategoryGalleryPhotos(
   const ids = await getExploreCategoryPhotoIds(categoryId);
   if (ids.length === 0) return [];
   const supabase = await createClient();
-  const { data } = await supabase
-    .from("photos")
-    .select(GALLERY_SELECT)
-    .in("id", ids)
-    .eq("visibility", "published")
-    .eq("feed_hidden", false); // 운영자 피드 숨김 제외
-  const byId = new Map(
-    ((data ?? []) as unknown as GalleryPhoto[]).map((p) => [p.id, p])
-  );
+
+  // ⚠️ id 를 한 번에 .in() 으로 넣으면 안 된다. PostgREST 는 쿼리스트링으로 나가서
+  //    id 가 수백 개면 URL 길이 한계를 넘고, 그러면 **에러도 없이 data 가 null 로 돌아온다.**
+  //    → 카테고리 전체가 빈 페이지가 된다. (2026-08-31 확인: our-vibe·vintage-memories·
+  //      natural-look 등 10개가 배정 300+ 인데 0장으로 렌더되고 있었다)
+  //    같은 파일 publishedPhotoIdsOfAlbums 가 이미 100개씩 끊는 이유가 이것이다.
+  const CHUNK = 100;
+  const rows: GalleryPhoto[] = [];
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const { data } = await supabase
+      .from("photos")
+      .select(GALLERY_SELECT)
+      .in("id", ids.slice(i, i + CHUNK))
+      .eq("visibility", "published")
+      .eq("feed_hidden", false); // 운영자 피드 숨김 제외
+    rows.push(...((data ?? []) as unknown as GalleryPhoto[]));
+  }
+  const byId = new Map(rows.map((p) => [p.id, p]));
   const ordered = ids
     .map((id) => byId.get(id))
     .filter((p): p is GalleryPhoto => !!p);
@@ -261,19 +327,31 @@ export async function listPublishedExploreSections(
 // 카드 미리보기는 앞쪽 몇 장만 순환하고, 탭해 열리는 뷰어에서 전체 사진을 본다.
 export type RecentPost = { id: string; shots: { id: string; url: string }[] };
 
-// 사매 인기 스냅 — 게시물(앨범)을 최근 windowDays 간의 조회·문의·찜 신호로 랭킹.
-// 사진 풀은 anon 클라이언트로(RLS=승인·published), 신호 집계만 admin 으로 읽어 합산한다.
-// (반환은 RecentPost 와 동일 — 사진 id·url 공개 데이터뿐, 개인정보 노출 없음)
-// 신호가 없으면 점수 0 동점 → 최신순으로 자연 폴백(초기 데이터가 적어도 안전).
-export async function listPopularPosts(
-  limit = 12,
-  windowDays = 30,
-  scopeCategoryIds?: string[] // 광고 유입: 이 explore 카테고리들에 담긴 사진만 대상(비면 전역)
-): Promise<RecentPost[]> {
+/*
+  인기 신호 집계 — 사진 한 장당 점수.
+
+  사진 풀은 anon 클라이언트로(RLS = 승인 작가·published), 신호 집계만 admin 으로 읽는다.
+  게시물 랭킹(listPopularPosts)과 작가 랭킹(listFeaturedPhotographers)이 같은 점수를
+  써야 지면끼리 말이 안 어긋나서, 계산은 여기 한 곳에만 둔다.
+*/
+type ScoredRow = {
+  id: string;
+  src_url: string;
+  album_id: string | null;
+  sort_order: number | null;
+  created_at: string;
+  photographerId: string;
+  locationText: string | null;
+};
+
+async function loadScoredPhotos(
+  windowDays: number,
+  scopeCategoryIds?: string[]
+): Promise<{ rows: ScoredRow[]; scoreOf: (photoId: string) => number }> {
   const supabase = await createClient();
   const admin = createAdminClient();
   const PHOTO_SELECT =
-    "id, src_url, album_id, sort_order, created_at, photographer:photographers!photos_photographer_id_fkey!inner(id, profile_id)";
+    "id, src_url, album_id, sort_order, created_at, location_text, photographer:photographers!photos_photographer_id_fkey!inner(id, profile_id)";
   type PhotographerRef = { id: string; profile_id: string };
   type PhotoRow = {
     id: string;
@@ -281,10 +359,11 @@ export async function listPopularPosts(
     album_id: string | null;
     sort_order: number | null;
     created_at: string;
+    location_text: string | null;
     photographer: PhotographerRef | PhotographerRef[];
   };
 
-  let rows: PhotoRow[];
+  let raw: PhotoRow[];
   if (scopeCategoryIds && scopeCategoryIds.length > 0) {
     // 광고 유입 — 그 광고의 explore 카테고리들에 담긴 사진만 풀로(없으면 빈 결과 → 호출부가 전역 폴백)
     const { data: mem } = await admin
@@ -293,8 +372,8 @@ export async function listPopularPosts(
       .in("category_id", scopeCategoryIds)
       .limit(100000);
     const ids = [...new Set((mem ?? []).map((m) => m.photo_id as string))];
-    if (ids.length === 0) return [];
-    rows = [];
+    if (ids.length === 0) return { rows: [], scoreOf: () => 0 };
+    raw = [];
     // 긴 .in URL 회피 — 100개씩 청크 조회(RLS 로 승인·published 만 통과)
     for (let i = 0; i < ids.length; i += 100) {
       const { data } = await supabase
@@ -303,7 +382,7 @@ export async function listPopularPosts(
         .eq("visibility", "published")
         .eq("feed_hidden", false) // 운영자 피드 숨김 제외
         .in("id", ids.slice(i, i + 100));
-      if (data) rows.push(...(data as unknown as PhotoRow[]));
+      if (data) raw.push(...(data as unknown as PhotoRow[]));
     }
   } else {
     const { data } = await supabase
@@ -313,15 +392,26 @@ export async function listPopularPosts(
       .eq("feed_hidden", false) // 운영자 피드 숨김 제외
       .order("created_at", { ascending: false })
       .limit(500);
-    rows = (data ?? []) as unknown as PhotoRow[];
+    raw = (data ?? []) as unknown as PhotoRow[];
   }
-  if (rows.length === 0) return [];
+  if (raw.length === 0) return { rows: [], scoreOf: () => 0 };
 
+  const rows: ScoredRow[] = [];
   // 사진 → 작가 계정(profile_id) 맵 — 작가 본인의 조회·찜·문의를 인기 신호에서 제외하기 위함
   const ownerByPhoto = new Map<string, string>();
-  for (const p of rows) {
+  for (const p of raw) {
     const ph = Array.isArray(p.photographer) ? p.photographer[0] : p.photographer;
-    if (ph?.profile_id) ownerByPhoto.set(p.id, ph.profile_id);
+    if (!ph?.id) continue;
+    if (ph.profile_id) ownerByPhoto.set(p.id, ph.profile_id);
+    rows.push({
+      id: p.id,
+      src_url: p.src_url,
+      album_id: p.album_id,
+      sort_order: p.sort_order,
+      created_at: p.created_at,
+      photographerId: ph.id,
+      locationText: p.location_text ?? null,
+    });
   }
 
   const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
@@ -359,17 +449,35 @@ export async function listPopularPosts(
     viewByPhoto.set(m[1], (viewByPhoto.get(m[1]) ?? 0) + 1);
   }
 
-  // 게시물(앨범) 단위 그룹핑 + 사진별 점수 합산 (문의 최우선, 찜 중간, 조회 기본 — 튜닝 포인트)
-  const groups = new Map<string, { photos: typeof rows; recency: string; score: number }>();
+  // 문의 최우선, 찜 중간, 조회 기본 — 튜닝 포인트
+  const scoreOf = (photoId: string) =>
+    (viewByPhoto.get(photoId) ?? 0) +
+    (inqByPhoto.get(photoId) ?? 0) * 30 +
+    (likeByPhoto.get(photoId) ?? 0) * 8;
+
+  return { rows, scoreOf };
+}
+
+// 사매 인기 스냅 — 게시물(앨범)을 최근 windowDays 간의 조회·문의·찜 신호로 랭킹.
+// (반환은 사진 id·url 공개 데이터뿐, 개인정보 노출 없음)
+// 신호가 없으면 점수 0 동점 → 최신순으로 자연 폴백(초기 데이터가 적어도 안전).
+export async function listPopularPosts(
+  limit = 12,
+  windowDays = 30,
+  scopeCategoryIds?: string[] // 광고 유입: 이 explore 카테고리들에 담긴 사진만 대상(비면 전역)
+): Promise<RecentPost[]> {
+  const { rows, scoreOf } = await loadScoredPhotos(windowDays, scopeCategoryIds);
+  if (rows.length === 0) return [];
+
+  // 게시물(앨범) 단위 그룹핑 + 사진별 점수 합산
+  const groups = new Map<string, { photos: ScoredRow[]; recency: string; score: number }>();
   for (const p of rows) {
     const key = p.album_id ?? `photo:${p.id}`;
-    const s =
-      (viewByPhoto.get(p.id) ?? 0) + (inqByPhoto.get(p.id) ?? 0) * 30 + (likeByPhoto.get(p.id) ?? 0) * 8;
     const g = groups.get(key);
-    if (!g) groups.set(key, { photos: [p], recency: p.created_at, score: s });
+    if (!g) groups.set(key, { photos: [p], recency: p.created_at, score: scoreOf(p.id) });
     else {
       g.photos.push(p);
-      g.score += s;
+      g.score += scoreOf(p.id);
       if (p.created_at > g.recency) g.recency = p.created_at;
     }
   }
@@ -383,6 +491,87 @@ export async function listPopularPosts(
         .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
         .map((p) => ({ id: p.id, url: p.src_url }));
       return { id: shots[0]?.id ?? g.photos[0].id, shots };
+    });
+}
+
+/**
+ * 이번 호의 사진 — 최근 windowDays 동안 가장 많이 열린 게시물.
+ *
+ * 잠깐 '이번 호의 작가'로 만들었다가 되돌렸다. 형식(전면 화보)은 그대로 두고
+ * 주인공만 사진으로 바꾼다 — **사매는 개별 작가를 띄우는 서비스가 아니다.**
+ * 특정 작가를 스타로 만들면 플랫폼이 아니라 그 사람의 채널이 되고,
+ * "사진을 고르면 그 사진을 찍은 작가로 이어진다"는 명제가 뒤집힌다.
+ *
+ * 그래서 이름·가격 대신 **어디서 찍혔는지**를 싣는다. 사진을 보고 "나도 여기서"가
+ * 되는 게 이 지면이 할 수 있는 일이고, 장소 지면·문의로 그대로 이어진다.
+ */
+export type FeaturedPhoto = {
+  /** 대표 컷 사진 id — 누르면 이 사진 상세로 */
+  id: string;
+  coverUrl: string;
+  /** 같은 게시물(앨범)의 다른 컷 */
+  moreUrls: string[];
+  /** 촬영지. 구체적으로 적힌 것만. 없으면 null — 지어내지 않는다. */
+  location: string | null;
+};
+
+/**
+ * location_text 가 촬영지로 쓸 만한가.
+ *
+ * 실제 값에 "협의", "스튜디오 협의", "수도권 내 협의 후 진행" 같은 게 많다.
+ * 그건 촬영지가 아니라 협의 조건이라, 화보 위에 큰 글씨로 걸면 거짓말이 된다.
+ * 여러 곳을 나열한 것도 뺀다 — 어디서 찍혔는지 알 수 없다(spots 와 같은 기준).
+ */
+function usableLocation(text: string | null): string | null {
+  if (!text) return null;
+  const t = text.trim();
+  if (t.length < 2 || t.length > 24) return null;
+  if (/협의|별도|안내|미정|추후|등\s*$/.test(t)) return null;
+  if (t.split(/[,·\/]/).map((s) => s.trim()).filter(Boolean).length > 1) return null;
+  return t;
+}
+
+export async function listFeaturedPhotos(
+  limit = 2,
+  windowDays = 30
+): Promise<FeaturedPhoto[]> {
+  const { rows, scoreOf } = await loadScoredPhotos(windowDays);
+  if (rows.length === 0) return [];
+
+  // 게시물(앨범) 단위로 묶는다 — 같은 촬영의 컷들이 화보 하나가 된다.
+  const groups = new Map<string, { photos: ScoredRow[]; score: number; recency: string }>();
+  for (const p of rows) {
+    const key = p.album_id ?? `photo:${p.id}`;
+    const g = groups.get(key);
+    if (!g) groups.set(key, { photos: [p], score: scoreOf(p.id), recency: p.created_at });
+    else {
+      g.photos.push(p);
+      g.score += scoreOf(p.id);
+      if (p.created_at > g.recency) g.recency = p.created_at;
+    }
+  }
+
+  return [...groups.values()]
+    .sort((a, b) => b.score - a.score || (a.recency < b.recency ? 1 : -1))
+    .slice(0, limit)
+    .map((g) => {
+      // 대표는 점수가 가장 높은 컷. 동점이면 앨범 순서 앞쪽.
+      const sorted = g.photos
+        .slice()
+        .sort(
+          (a, b) => scoreOf(b.id) - scoreOf(a.id) || (a.sort_order ?? 0) - (b.sort_order ?? 0)
+        );
+      const cover = sorted[0];
+      return {
+        id: cover.id,
+        coverUrl: cover.src_url,
+        moreUrls: sorted.slice(1, 5).map((p) => p.src_url),
+        // 앨범 안에서 쓸 만한 촬영지 표기가 하나라도 있으면 그걸 쓴다
+        location:
+          usableLocation(cover.locationText) ??
+          sorted.map((p) => usableLocation(p.locationText)).find(Boolean) ??
+          null,
+      };
     });
 }
 

@@ -13,7 +13,7 @@ export default function TasteQuizPage() {
       <div className="flex shrink-0 items-center gap-2.5">
         <Link
           href="/explore"
-          aria-label="탐색으로 돌아가기"
+          aria-label="매거진으로 돌아가기"
           className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-line bg-surface text-fg shadow-card transition-colors hover:bg-surface-2"
         >
           <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">

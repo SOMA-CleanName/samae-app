@@ -12,12 +12,19 @@ const TABS = [
   { href: "/admin/transactions", label: "거래·정산" },
   { href: "/admin/users", label: "회원" },
   { href: "/admin/inquiries", label: "문의" },
+  { href: "/admin/support", label: "사매 문의" },
+  { href: "/admin/chats", label: "채팅" },
+  { href: "/admin/notifications", label: "알림" },
+  { href: "/admin/bot-kb", label: "상담봇" },
   { href: "/admin/photos", label: "사진 노출" },
+  { href: "/admin/banners", label: "홈 배너" },
+  { href: "/admin/articles", label: "아티클" },
   { href: "/admin/categories", label: "타겟 카테고리" },
   { href: "/admin/explore", label: "무드(탐색)" },
   { href: "/admin/tags", label: "태그" },
   { href: "/admin/search", label: "검색" },
   { href: "/admin/analytics", label: "분석" },
+  { href: "/admin/calculator", label: "손익 계산기" },
   { href: "/admin/trash", label: "휴지통" },
 ];
 
@@ -27,7 +34,7 @@ export function AdminNav() {
     exact ? pathname === href : pathname.startsWith(href);
 
   return (
-    <nav className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-3 scrollbar-none sm:px-5">
+    <nav className="mx-auto flex max-w-5xl gap-1 overflow-x-auto px-3 scrollbar-none sm:flex-wrap sm:overflow-visible sm:px-5">
       {TABS.map((t) => {
         const active = isActive(t.href, t.exact);
         return (

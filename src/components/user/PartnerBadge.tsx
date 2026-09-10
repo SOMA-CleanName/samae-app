@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { mpTrack } from "@/lib/mixpanel";
 
@@ -74,8 +75,20 @@ export function PartnerBadge({
             사매가 직접 인터뷰하고 심사해 선별한 작가입니다.
           </p>
           <p className="mt-1.5 text-body-sm leading-relaxed text-muted">
-            안전하고 퀄리티 높은 촬영을 믿고 맡기세요.
+            결제는 사매 계좌로 받고, 연락처는 채팅 밖으로 나가지 않습니다.
           </p>
+
+          {/* 한 줄로 끝내면 그건 광고 문구다. 실제 근거를 볼 수 있는 문을 둔다. */}
+          <Link
+            href="/trust"
+            onClick={() => mpTrack("Open Trust Page", { from: "partner_badge" })}
+            className="ed-more mt-3 flex w-full items-center justify-center gap-1.5 rounded-full border border-line bg-surface py-2 text-body-sm font-semibold"
+          >
+            자세히 보기
+            <span aria-hidden className="ed-more-arrow text-[11px]">
+              →
+            </span>
+          </Link>
         </div>
       )}
     </div>

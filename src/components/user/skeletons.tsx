@@ -26,7 +26,9 @@ export function MasonrySkeleton({ count = 16 }: { count?: number }) {
 const RECS_HEIGHTS = [200, 260, 180, 240, 220, 280, 190, 250, 210, 270, 200, 240];
 export function RecsSkeleton({ count = 10 }: { count?: number }) {
   return (
-    <section className="mt-6">
+    // 바깥 여백은 호출부가 준다. 여기서 mt-6 을 들고 있었더니, 실제 추천(PhotoMasonry)에는
+    // 그 여백이 없어서 로드가 끝나는 순간 그리드가 24px 위로 뛰었다.
+    <section>
       {/* 실제 추천(PhotoMasonry)은 flex gap-3 · 폭 기반 JS 컬럼 · 정사각(라운드 없음).
           gap·컬럼 수를 맞춰 로드 시 튐 최소화. */}
       <div className="columns-2 gap-3 sm:columns-3 md:columns-4 lg:columns-6 [&>*]:mb-3">
