@@ -12,6 +12,7 @@
 
 export type NotifyKind =
   | "chat_reply" // 작가 답장 → 고객 (보는 중이면 스킵 · 안 읽은 채로는 24h 쿨다운)
+  | "chat_message_to_photographer" // 고객 메시지 → 작가 (억제 정책 적용)
   | "inquiry_received" // 새 문의 첫 발화 → 작가 (대화당 1회)
   | "booking_proposed" // 예약 제안 → 상대방 (예약당 1회)
   | "booking_accepted" // 예약 수락 → 제안자 (예약당 1회)
@@ -53,6 +54,23 @@ export const NOTIFY_TEMPLATES: Record<NotifyKind, NotifyTemplate> = {
 채팅방에서 확인해 주세요.
 #{링크}`,
     button: { name: "답장 확인하기", url: "https://samae.ai/chat/#{채팅방ID}", urlVariable: "채팅방ID" },
+  },
+  // 고객이 상담 중 보낸 메시지 → 작가. chat_reply 의 반대 방향이고 판정 규칙은 같다.
+  //
+  // ⚠️ **아직 검수 전이다.** ALIMTALK_TPL_CHAT_MESSAGE_TO_PHOTOGRAPHER 가 비어 있으면
+  //    dispatchNotify 가 이 body 를 그대로 문자로 보낸다. 승인되면 ID 만 채우면 된다.
+  //
+  // 문구는 승인된 6종과 같은 "~하신" 패턴이다 — 수신자(작가)가 한 행위를 첫 줄에 박는다.
+  // 이걸 벗어난 예약 제안 템플릿 하나가 "수신 대상을 확인하기 어렵다" 로 반려됐었다.
+  chat_message_to_photographer: {
+    kind: "chat_message_to_photographer",
+    label: "고객 메시지",
+    recipient: "photographer",
+    variables: ["고객명", "링크"],
+    body: `[사매] 상담하신 촬영 건에 #{고객명}님이 새 메시지를 보냈어요.
+채팅방에서 확인해 주세요.
+#{링크}`,
+    button: { name: "메시지 확인하기", url: "https://samae.ai/chat/#{채팅방ID}", urlVariable: "채팅방ID" },
   },
   inquiry_received: {
     kind: "inquiry_received",
