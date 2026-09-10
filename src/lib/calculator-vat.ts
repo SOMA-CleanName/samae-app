@@ -348,3 +348,51 @@ export function monthlyVat({
     payable: outputVat - inputVat,
   };
 }
+
+/** 고객이 낸 돈이 나뉘어 가는 곳 */
+export type SplitKey = "photographer" | "samae" | "pg" | "payoutAgent" | "tax";
+
+export type SplitRow = {
+  key: SplitKey;
+  label: string;
+  /** 금액 (원) */
+  amount: number;
+  /** 고객 결제액 대비 비중 (%) */
+  pct: number;
+};
+
+/**
+ * 고객이 낸 촬영비 전액이 누구에게 얼마씩 가는가.
+ *
+ * 항등식: 촬영비 = 작가 + 사매 + PG사 + 지급대행사 + 국세청
+ *
+ * PG·지급대행은 **공급가액**만 그들의 몫으로 잡는다 — 청구액에 붙은 부가세는
+ * 그들이 국세청에 내고 우리가 매입세액으로 공제받으므로, 최종 귀속처는 국세청이다.
+ * 같은 이유로 국세청 몫은 나머지를 뺀 잔액으로 구한다 — 어떤 설정에서도 합이 100% 가 되고,
+ * 판매자 인정 시나리오에서 새는 소득세·가산세까지 자동으로 여기에 잡힌다.
+ *
+ * 작가 몫은 우리가 보내는 금액 그대로다. 그 안에서 작가가 낼 세금은 작가 사정이라
+ * (과세사업자면 1/11 이 부가세) 여기서는 나누지 않는다 — 단, 총액 인식이라
+ * 우리가 작가에게서 세금계산서를 받는 몫은 국세청으로 넘어간 게 확인되므로 뺀다.
+ */
+export function paymentSplit(shoot: number, u: UnitResult): SplitRow[] {
+  const photographer = Math.max(0, u.payout - u.payoutInputVat);
+  const samae = u.netFee - u.structureCost;
+  const pg = u.pgSupply;
+  const payoutAgent = u.payoutFeeSupply;
+  const tax = shoot - photographer - samae - pg - payoutAgent;
+
+  const rows: Array<[SplitKey, string, number]> = [
+    ["photographer", "작가", photographer],
+    ["samae", "사매", samae],
+    ["pg", "PG사", pg],
+    ["payoutAgent", "지급대행사", payoutAgent],
+    ["tax", "국세청 (부가세)", tax],
+  ];
+  return rows.map(([key, label, amount]) => ({
+    key,
+    label,
+    amount,
+    pct: shoot > 0 ? (amount / shoot) * 100 : 0,
+  }));
+}

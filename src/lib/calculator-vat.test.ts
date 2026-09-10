@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   DEFAULT_VAT,
   PAYOUT_FEE,
+  paymentSplit,
   monthlyVat,
   unitEconomics,
   type UnitInput,
@@ -210,4 +211,74 @@ test("VAT 를 끄면 월 부가세는 전부 0 이고 콘텐츠 비용도 그대
   assert.equal(m.contentSupply, 500000);
   assert.equal(m.inputVat, 0);
   assert.equal(m.payable, 0);
+});
+
+// ── 고객이 낸 돈의 분배 ────────────────────────────────────────────
+
+const splitOf = (input: UnitInput) => {
+  const rows = paymentSplit(input.shoot, unitEconomics(input));
+  return Object.fromEntries(rows.map((r) => [r.key, r]));
+};
+
+test("분배 합계는 언제나 고객 결제액과 정확히 같다", () => {
+  for (const [shoot, patch] of [
+    [150000, {}],
+    [50000, { on: false }],
+    [300000, { model: "reseller" as const, proofPct: 0 }],
+    [150000, { model: "reseller" as const, proofPct: 100, taxableSharePct: 100 }],
+    [80000, { feeIncludesVat: false }],
+  ] as [number, Partial<VatSettings>][]) {
+    const input = { ...base(patch), shoot, pgOn: true };
+    const rows = paymentSplit(shoot, unitEconomics(input));
+    near(
+      rows.reduce((a, r) => a + r.amount, 0),
+      shoot,
+      0.01
+    );
+    near(
+      rows.reduce((a, r) => a + r.pct, 0),
+      100,
+      0.01
+    );
+  }
+});
+
+test("중개 · PG 없음 — 국세청 몫은 우리 수수료에 붙은 부가세뿐", () => {
+  const s = splitOf(base());
+  near(s.photographer.amount, 135000); // 촬영비 − 수수료
+  near(s.samae.amount, 15000 / 1.1 - PAYOUT_FEE);
+  near(s.pg.amount, 0);
+  near(s.payoutAgent.amount, PAYOUT_FEE);
+  near(s.tax.amount, 15000 - 15000 / 1.1); // 1,364원
+  near(s.photographer.pct, 90);
+});
+
+test("PG 를 붙여도 국세청 몫은 그대로 — PG 부가세는 공제로 상쇄된다", () => {
+  const off = splitOf(base());
+  const on = splitOf({ ...base(), pgOn: true });
+  near(on.tax.amount, off.tax.amount, 0.01);
+  // PG 가 가져가는 만큼 사매 몫이 줄어든다
+  near(on.pg.amount, (150000 * 0.033) / 1.1);
+  near(on.samae.amount, off.samae.amount - on.pg.amount);
+  near(on.photographer.amount, off.photographer.amount);
+});
+
+test("부가세를 끄면 국세청 몫이 0 이고 사매가 그만큼 더 가진다", () => {
+  const s = splitOf(base({ on: false }));
+  assert.equal(s.tax.amount, 0);
+  near(s.samae.amount, 15000 - PAYOUT_FEE);
+});
+
+test("판매자로 잡히면 국세청 몫이 사매 몫을 앞지른다", () => {
+  const s = splitOf(base({ model: "reseller", proofPct: 0 }));
+  assert.ok(s.tax.amount > s.samae.amount);
+  // 새는 돈이 순수수료보다 커서 사매 몫이 마이너스로 간다
+  assert.ok(s.samae.amount < 0);
+  near(s.photographer.amount, 135000); // 작가가 받는 돈은 그대로
+});
+
+test("촬영비가 쌀수록 지급대행 비중이 커진다", () => {
+  const cheap = splitOf({ ...base(), shoot: 50000 });
+  const rich = splitOf({ ...base(), shoot: 500000 });
+  assert.ok(cheap.payoutAgent.pct > rich.payoutAgent.pct * 5);
 });

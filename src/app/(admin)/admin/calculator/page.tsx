@@ -5,6 +5,8 @@ import { useMemo, useState } from "react";
 import {
   DEFAULT_VAT,
   PAYOUT_FEE,
+  paymentSplit,
+  type SplitKey,
   monthlyVat,
   unitEconomics,
   type VatSettings,
@@ -28,6 +30,15 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
 
 const TAKES = [4, 6, 8, 10, 12, 15, 20]; // 매트릭스 세로축 — 우리가 떼는 요율(%)
 const RATES = [20, 30, 40, 50, 60, 70, 80];
+/** 분배 막대·점 색 — 사매만 브랜드색, 나머지는 회색조, 세금은 경고색 */
+const SPLIT_COLOR: Record<SplitKey, string> = {
+  photographer: "bg-fg/25",
+  samae: "bg-brand",
+  pg: "bg-fg/45",
+  payoutAgent: "bg-fg/60",
+  tax: "bg-danger/60",
+};
+
 const MAXMAG = 30000; // 매트릭스 셀 색 농도 기준 최대 손익 폭
 
 /** PG 수수료 기본값 — 카드 결제를 붙이면 결제 **전액**에 붙는다(우리 몫이 아니라) */
@@ -246,6 +257,9 @@ export default function CalculatorPage() {
       bepPerDay,
     };
   }, [perDay, byInquiry, days, contentCost, shoot, vat, d]);
+  // 고객이 낸 돈이 어디로 가는가 — 합은 항상 촬영비와 같다
+  const split = useMemo(() => paymentSplit(shoot, d), [shoot, d]);
+
   const cProfitColor = c.profit >= 0 ? "text-success" : "text-danger";
 
   // 합산 대시보드 — 유료(광고) 채널 + 콘텐츠 채널의 한 달 순이익
@@ -676,6 +690,75 @@ export default function CalculatorPage() {
                   {vat.on && <> 금액은 부가세를 뺀 공급가액입니다.</>}
                 </span>
               </div>
+            </div>
+
+            {/* 고객이 낸 100% 가 누구에게 가는가 */}
+            <div className="rounded-xl border border-line bg-surface-2 p-4">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <p className="text-body-sm font-semibold text-fg">
+                  고객이 낸 {won(shoot)} 은 어디로 가나
+                </p>
+                <p className="text-label text-faint">합계는 항상 100%</p>
+              </div>
+
+              {/* 누적 막대 */}
+              <div className="mt-3 flex h-2.5 overflow-hidden rounded-full bg-fg/[0.08]">
+                {split.map((r) => (
+                  <div
+                    key={r.key}
+                    className={SPLIT_COLOR[r.key]}
+                    style={{ width: `${clamp(r.pct, 0, 100).toFixed(2)}%` }}
+                    title={`${r.label} ${r.pct.toFixed(1)}%`}
+                  />
+                ))}
+              </div>
+
+              <dl className="mt-3 space-y-1.5">
+                {split.map((r) => (
+                  <div key={r.key} className="flex items-baseline gap-2.5">
+                    <span
+                      className={`mt-1 h-2 w-2 shrink-0 rounded-full ${SPLIT_COLOR[r.key]}`}
+                      aria-hidden
+                    />
+                    <dt
+                      className={`flex-1 text-caption ${
+                        r.key === "samae" ? "font-semibold text-fg" : "text-muted"
+                      }`}
+                    >
+                      {r.label}
+                    </dt>
+                    <dd
+                      className={`w-16 text-right text-body-sm font-bold tabular-nums ${
+                        r.amount < 0 ? "text-danger" : r.key === "samae" ? "text-brand" : "text-fg"
+                      }`}
+                    >
+                      {r.pct.toFixed(1)}%
+                    </dd>
+                    <dd className="w-24 text-right text-caption tabular-nums text-muted">
+                      {signWon(r.amount)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+
+              <p className="mt-3 text-label leading-relaxed text-faint">
+                PG·지급대행은 부가세를 뺀 공급가액만 그들의 몫이에요 — 청구액에 붙은 부가세는
+                그들이 내고 우리가 공제받으니 결국 국세청으로 갑니다.
+                {split[0].amount > 0 && (
+                  <>
+                    {" "}
+                    작가 몫 <b className="tabular-nums text-fg">{won(split[0].amount)}</b> 안에서
+                    작가가 낼 세금은 작가 사정이라 여기서 나누지 않았어요.
+                  </>
+                )}
+                {vat.model === "reseller" && (
+                  <>
+                    {" "}
+                    <b className="text-danger">판매자로 잡히면</b> 새는 소득세·가산세까지 국세청
+                    몫으로 잡힙니다.
+                  </>
+                )}
+              </p>
             </div>
 
             {/* 어디서 얼마가 빠지는지 한 줄씩 */}
