@@ -1113,8 +1113,8 @@ export default function CalculatorPage() {
                   Math.abs(d.pl) < 500
                     ? "bg-fg/[0.06] text-muted"
                     : d.positive
-                      ? "bg-success-soft text-success"
-                      : "bg-danger-soft text-danger"
+                      ? "bg-success-soft text-success-ink"
+                      : "bg-danger-soft text-danger-ink"
                 }`}
               >
                 {Math.abs(d.pl) < 500 ? "손익분기" : d.positive ? "흑자" : "적자"}
@@ -1427,7 +1427,7 @@ export default function CalculatorPage() {
                 </span>
                 <span
                   className={`rounded-full px-2.5 py-0.5 text-caption font-semibold ${
-                    c.profit >= 0 ? "bg-success-soft text-success" : "bg-danger-soft text-danger"
+                    c.profit >= 0 ? "bg-success-soft text-success-ink" : "bg-danger-soft text-danger-ink"
                   }`}
                 >
                   {c.profit >= 0 ? "흑자" : "적자"}
@@ -1562,7 +1562,7 @@ export default function CalculatorPage() {
             </span>
             <span
               className={`rounded-full px-2.5 py-0.5 text-caption font-semibold ${
-                t.profit >= 0 ? "bg-success-soft text-success" : "bg-danger-soft text-danger"
+                t.profit >= 0 ? "bg-success-soft text-success-ink" : "bg-danger-soft text-danger-ink"
               }`}
             >
               {t.profit >= 0 ? "흑자" : "적자"}
@@ -1754,7 +1754,7 @@ function TargetRow({
       <span className="text-body-sm font-semibold tabular-nums text-fg">{value}</span>
       <span
         className={`rounded-md px-2 py-0.5 text-label font-medium tabular-nums ${
-          gap.tone === "ok" ? "bg-success-soft text-success" : "bg-danger-soft text-danger"
+          gap.tone === "ok" ? "bg-success-soft text-success-ink" : "bg-danger-soft text-danger-ink"
         }`}
       >
         {gap.text}

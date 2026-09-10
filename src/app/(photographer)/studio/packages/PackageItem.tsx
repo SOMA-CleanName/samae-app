@@ -135,7 +135,7 @@ function StatusPill({ active }: { active: boolean }) {
   return (
     <span
       className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] ${
-        active ? "bg-success-soft text-success" : "bg-fg/10 text-fg/50"
+        active ? "bg-success-soft text-success-ink" : "bg-fg/10 text-fg/50"
       }`}
     >
       {active ? "노출 중" : "비활성"}

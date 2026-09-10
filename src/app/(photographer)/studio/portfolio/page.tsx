@@ -151,9 +151,9 @@ function GroupCard({ g }: { g: Group }) {
         <span
           className={`rounded-full px-2 py-0.5 text-[11px] ${
             allPublished
-              ? "bg-success-soft text-success"
+              ? "bg-success-soft text-success-ink"
               : anyPublished
-              ? "bg-warning-soft text-warning"
+              ? "bg-warning-soft text-warning-ink"
               : "bg-fg/10 text-fg/50"
           }`}
         >
