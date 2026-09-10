@@ -28,6 +28,13 @@ import { nextFeedPhase, type FeedPhase } from "@/lib/feed-demotion";
 
 const fmt = new Intl.NumberFormat("ko-KR");
 const STEP = 48; // 스크롤마다 더 보여줄 사진 수(메모리에서 즉시 노출)
+/**
+ * 자동으로 이어붙일 횟수. 이만큼 지나면 멈추고 [사진 더 보기] 버튼으로 넘긴다.
+ *
+ * 3회 × STEP(48) ≈ 첫 진입에서 190여 장. 취향을 파악하기에 충분하고, 그쯤이면
+ * 대부분 이미 사진을 눌러 상세로 빠진다. 버튼을 누르면 예산이 다시 채워진다.
+ */
+const AUTO_ADVANCE_BUDGET = 3;
 const PERSONALIZED_STEP = 36; // 동적 개인화 상한 — 실제 장수는 서버가 6~36장으로 결정
 const TUTORIAL_SEEN_KEY = "samae:tutorial-seen"; // 일반 유저 첫 방문 튜토리얼 열람 여부
 /** 온보딩: 강조 사진 아랫변과 화면 바닥 사이 여백(px). 하단 내비 + '탭해서 둘러보기' 안내가 들어간다. */
@@ -203,6 +210,53 @@ export function ExploreGallery({
   );
   const sentinel = useRef<HTMLDivElement>(null);
   const { cols: colCount, ready: columnsReady, setNode: setGridRef } = useColumnCount();
+
+  // 자동 이어붙이기 예산 — 이만큼 채우면 멈추고 [사진 더 보기] 를 띄운다.
+  //
+  // **끝이 없는 피드에는 푸터가 없다.** 이 피드는 소진되면 cycle 을 올려 처음부터 다시
+  // 흘리므로(nextFeedPhase) 스크롤로는 바닥에 영영 못 닿는다. 그래서 사업자 정보·약관 같은
+  // "어디서든 닿아야 하는 것" 이 지면 맨 위로 밀려 올라가 있었다(SiteInfoBar).
+  //
+  // 여기서 한 번 끊어 주면 푸터가 **도달 가능한 자리**로 돌아온다. 벽돌 그리드는 손대지
+  // 않는다 — 컬럼이 세로로 독립이라 중간에 전폭 띠를 끼울 수 없고, 억지로 쪼개면 컬럼 높이
+  // 균형이 리셋돼 이음매에 계단이 생긴다.
+  const [autoPaused, setAutoPaused] = useState(false);
+  const autoBudget = useRef(AUTO_ADVANCE_BUDGET);
+  /** [더 보기] 가 부를 수 있게 effect 안의 advance 를 밖으로 내어 둔다 */
+  const advanceRef = useRef<((manual?: boolean) => void) | null>(null);
+  /** 멈춘 자리를 가지런히 자를 높이(px). null 이면 자르지 않는다. */
+  const [trimHeight, setTrimHeight] = useState<number | null>(null);
+  /** 밑단 계산용 실제 그리드 엘리먼트 (useColumnCount 의 setGridRef 와 함께 단다) */
+  const gridEl = useRef<HTMLDivElement | null>(null);
+
+  /*
+    멈춘 자리의 밑단 정리.
+
+    페이드만으로는 못 가린다. 컬럼마다 마지막 사진이 끝나는 높이가 크게 다르고(실측 878px),
+    페이드는 그리드 **바닥**에 붙어 있어서 얕은 컬럼은 페이드 위에서 그냥 툭 끊긴다.
+
+    그래서 **가장 얕은 컬럼의 마지막 사진**에 맞춰 그리드를 자른다. 깊은 컬럼의 사진은
+    아래가 잘리는데, 그 잘린 선을 바로 위 페이드가 덮는다. 결과적으로 네 컬럼이 같은
+    높이에서 배경으로 녹아든다.
+
+    잘라낸 사진은 사라지는 게 아니다 — [사진 더 보기] 를 누르면 trim 이 풀리고 이어서 흐른다.
+  */
+  useIsoLayoutEffect(() => {
+    if (!autoPaused) {
+      setTrimHeight(null);
+      return;
+    }
+    const grid = gridEl.current;
+    if (!grid) return;
+    const top = grid.getBoundingClientRect().top;
+    const ends = [...grid.children].map((col) => {
+      const cards = col.querySelectorAll<HTMLElement>("[data-pid]");
+      const last = cards[cards.length - 1];
+      return last ? last.getBoundingClientRect().bottom - top : 0;
+    });
+    const shallowest = Math.min(...ends.filter((n) => n > 0));
+    if (Number.isFinite(shallowest) && shallowest > 0) setTrimHeight(Math.round(shallowest));
+  }, [autoPaused, visible, columnsReady, colCount]);
 
   function recordPhotoClick(photoId: string) {
     const next = recordFeedClick(photoId);
@@ -529,8 +583,20 @@ export function ExploreGallery({
     let busy = false; // 이 사이클당 1회만 진행 — 폭주/중복 방지
     let retryTimer: number | null = null;
     let disposed = false;
-    const advance = async () => {
+    const advance = async (manual = false) => {
       if (busy) return;
+      // 자동 예산 소진 → 멈추고 버튼에 넘긴다. 버튼(manual)은 예산을 다시 채우고 통과한다.
+      // 검색 결과에는 걸지 않는다 — 찾던 걸 보는 중에 버튼이 끼면 흐름이 끊긴다.
+      if (!query) {
+        if (manual) {
+          autoBudget.current = AUTO_ADVANCE_BUDGET;
+          setAutoPaused(false);
+        } else if (autoBudget.current <= 0) {
+          setAutoPaused(true);
+          return;
+        }
+        autoBudget.current -= 1;
+      }
       // 사진 상세에서 돌아오는 동안에는 센티넬이 잠깐 화면 가까이에 있어도
       // 페이지를 추가하지 않는다. 복원이 끝난 뒤 아래 이벤트로 다시 검사한다.
       if (isFeedReturnRestoring()) return;
@@ -639,6 +705,8 @@ export function ExploreGallery({
         feedLoading.current = false;
       }
     };
+
+    advanceRef.current = advance;
 
     const io = new IntersectionObserver(
       (entries) => {
@@ -853,12 +921,17 @@ export function ExploreGallery({
     <>
       {/* 메이슨리 갤러리 — JS 컬럼 버킷(추가 시 기존 사진 위치 고정) */}
       <div
-        ref={setGridRef}
+        ref={(node) => {
+          gridEl.current = node;
+          setGridRef(node);
+        }}
         data-feed-grid
         className={cn(
           "flex gap-2.5 transition-opacity sm:gap-4",
           columnsReady && feedSessionReady ? "opacity-100" : "opacity-0"
         )}
+        // 멈춘 자리에서만 밑단을 가지런히 자른다 — 잘린 선은 바로 아래 페이드가 덮는다
+        style={trimHeight ? { height: trimHeight, overflow: "hidden" } : undefined}
       >
         {columns.map((col, ci) => (
           <div key={ci} className="flex min-w-0 flex-1 flex-col gap-2.5 sm:gap-4">
@@ -957,14 +1030,45 @@ export function ExploreGallery({
         ))}
       </div>
 
-      {/* 점진 노출 센티넬 */}
+      {/*
+        피드가 멈춘 자리의 마감 — 벽돌 바닥으로 페이드.
+
+        메이슨리는 컬럼마다 높이가 달라 바닥이 톱니처럼 들쭉날쭉하다. 무한 스크롤일 땐
+        어차피 화면 밖이라 안 보였는데, 여기서 끊는 순간 **잘려 나간 것처럼** 보인다.
+        마지막 한 뼘을 배경색으로 녹여 그 톱니를 지운다 — "여기가 끝" 이 아니라
+        "여기서 잠깐 쉬어간다" 로 읽히게.
+
+        음수 마진으로 그리드 위에 겹친다(높이 상쇄 → 레이아웃 밀림 없음).
+        `relative z-10` 은 카드의 등장 애니메이션(transform)이 만드는 스택 위로 올리기 위한 것.
+      */}
+      {autoPaused && (
+        <div
+          aria-hidden
+          className="pointer-events-none relative z-10 -mt-28 h-28 bg-gradient-to-b from-transparent to-bg sm:-mt-36 sm:h-36"
+        />
+      )}
+
+      {/* 점진 노출 센티넬 — 자동 예산이 남아 있을 때만. 멈춘 뒤에는 아래 버튼이 이어받는다. */}
       {shouldKeepGallerySentinel({
         searchMode: !!query,
         poolSize: items.length,
         visibleCount: visible,
         canLoadServer: !!loadMore && !!activeFeedSeed,
-      }) && (
-        <div ref={sentinel} className="h-1" />
+      }) && <div ref={sentinel} className="h-1" />}
+
+      {/* 자동 이어붙이기가 멈춘 자리 — 여기서 지면이 한 번 끝나고 푸터가 도달 가능해진다.
+          누르면 예산이 다시 채워져 이어서 흐른다(닫힌 목록이 아니라 쉼표다). */}
+      {autoPaused && (
+        <div className="mt-8 flex justify-center">
+          <button
+            type="button"
+            onClick={() => advanceRef.current?.(true)}
+            data-track="cta:feed_load_more"
+            className="min-h-11 cursor-pointer rounded-full border border-line-strong bg-surface px-7 text-body-sm font-semibold text-fg transition-colors hover:border-fg/40 hover:bg-fg/[0.04]"
+          >
+            사진 더 보기
+          </button>
+        </div>
       )}
 
       {/* ── 온보딩 스포트라이트 오버레이 ── */}

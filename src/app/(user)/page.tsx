@@ -37,6 +37,7 @@ import { toProfileMe } from "@/lib/profile-me";
 import { buildFeedInterstitials } from "@/lib/feed-interstitials";
 import { JsonLd } from "@/components/JsonLd";
 import { siteJsonLd } from "@/lib/seo";
+import { SiteFooter } from "@/components/SiteFooter";
 import type { Metadata } from "next";
 import type { GalleryPhoto } from "@/lib/discovery";
 
@@ -231,6 +232,12 @@ export default async function ExploreHome({
         loadDemoted={loadDemotedHomePhotos}
         interstitials={interstitials}
       />
+
+      {/* 지면의 끝 — 피드가 자동 이어붙이기를 멈춘 자리(ExploreGallery AUTO_ADVANCE_BUDGET)
+          바로 아래다. 사업자 정보·약관·처리방침이 여기 있고, 전자상거래법 제10조가 요구하는
+          '초기화면 표시' 를 **모바일에서도** 충족한다(예전 SiteInfoBar 는 데스크톱 전용이라
+          모바일에는 사업자 정보가 아예 없었다). */}
+      <SiteFooter />
     </section>
   );
 }
