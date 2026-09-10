@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requestOrigin, safeNext } from "@/lib/safe-redirect";
 import { readAnonFavPhotoIds, ANON_FAV_COOKIE } from "@/lib/anon-favorites";
+import { extractKakaoPhone } from "@/lib/kakao-phone";
 
 const OAUTH_NEXT_COOKIE = "samae_oauth_next";
 
@@ -26,6 +27,10 @@ export async function GET(request: Request) {
     if (!error) {
       // 비로그인 중 쿠키에 쌓인 관심사진 → 계정 favorites 로 병합(중복 무시) 후 쿠키 비움
       await mergeAnonFavorites(supabase);
+      // 카카오싱크 동의로 번호가 넘어왔으면 여기서 채운다 — 카카오가 검증한 번호라
+      // 우리 OTP 를 다시 받을 이유가 없다. 그러면 아래 needsContact 가 false 가 되어
+      // /signup/contact 를 통째로 건너뛴다(간편가입이 실제로 간편해지는 지점).
+      await adoptKakaoPhone(supabase);
       // 연락처 없는 계정(첫 소셜 가입 포함) → 가입 마무리(전화번호 등록)를 거쳐 복귀.
       // SMS(작가 답장 알림)가 profiles.phone 에 의존하므로 이 단계는 건너뛸 수 없다.
       const dest = (await needsContact(supabase))
@@ -70,6 +75,40 @@ async function needsContact(
     return !profile?.phone;
   } catch {
     return false;
+  }
+}
+
+/**
+ * 카카오싱크 동의로 받은 전화번호를 profiles.phone 에 채운다.
+ *
+ * 세 가지를 지킨다 —
+ *   · **덮어쓰지 않는다.** 이미 번호가 있으면 그게 우선(사용자가 OTP 로 직접 인증했거나,
+ *     카카오 계정 번호와 실제 쓰는 번호가 다를 수 있다)
+ *   · **실패해도 로그인을 막지 않는다.** 못 채우면 기존 OTP 화면으로 떨어질 뿐이다
+ *   · **동의 전에도 안전하다.** 검수 통과 전에는 metadata 에 번호가 없어 그냥 no-op 이다
+ */
+async function adoptKakaoPhone(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<void> {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const phone = extractKakaoPhone(user.user_metadata);
+    if (!phone) return;
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("phone")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (profile?.phone) return; // 이미 있는 번호를 카카오 번호로 갈아치우지 않는다
+
+    await supabase.from("profiles").update({ phone }).eq("id", user.id);
+  } catch {
+    /* 못 채우면 /signup/contact 가 받는다 — 로그인은 계속되어야 한다 */
   }
 }
 

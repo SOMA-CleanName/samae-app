@@ -34,10 +34,11 @@ const STATIC_ROUTES = [
   "/spots",
   "/trust",
   "/privacy",
+  "/terms",
 ];
 
 /** 법적 고지는 콘텐츠가 아니다 — 실려는 있되 우선순위는 낮게. */
-const LOW_PRIORITY = new Set(["/privacy", "/apply"]);
+const LOW_PRIORITY = new Set(["/privacy", "/terms", "/apply"]);
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticEntries: MetadataRoute.Sitemap = STATIC_ROUTES.map((path) => ({

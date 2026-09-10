@@ -20,6 +20,7 @@ import { recordOpenQuestion } from "@/lib/bot-handoff";
 import { fetchBotSettings, renderBotMessage } from "@/lib/bot-settings";
 import { fetchPhotographerTone } from "@/lib/photographer-scripts-db";
 import { notifyPhotographer } from "@/lib/inquiry-bot-notify";
+import { notifyPhotographerOfNewInquiry } from "@/lib/notify-user";
 
 export type BotTurnResult =
   | { ok: false; blocked: true; reason: string }
@@ -137,6 +138,9 @@ export async function sendBotTurn(conversationId: string, body: string): Promise
         photographerName: photographerName0,
         photoId: conv.bot_photo_id ?? undefined,
       });
+      // 작가 본인에게도 — 디스코드는 운영이 보는 채널이지 작가가 보는 채널이 아니다.
+      // (대화당 1회는 dispatch 의 dedupe 가 보장한다)
+      await notifyPhotographerOfNewInquiry(conversationId, conv.photographer_id);
     }
     return { ok: true, replied: true, asking: "none", quickReplies: [], done: false };
   }
@@ -185,6 +189,9 @@ export async function sendBotTurn(conversationId: string, body: string): Promise
       photographerName: photographerName0,
       photoId: conv.bot_photo_id ?? undefined,
     });
+    // 작가 본인에게도 — 디스코드는 운영이 보는 채널이지 작가가 보는 채널이 아니다.
+    // (대화당 1회는 dispatch 의 dedupe 가 보장한다)
+    await notifyPhotographerOfNewInquiry(conversationId, conv.photographer_id);
   }
 
   return {

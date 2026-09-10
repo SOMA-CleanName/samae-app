@@ -188,6 +188,15 @@ export default function TrustPage() {
             여기 적힌 내용과 다르게 진행되는 일이 있으면 예약 카드의 [사매에 문의]로 알려
             주세요. 사매가 확인합니다.
           </p>
+          {/* 이 지면은 읽기 쉬운 요약이고, 구속력 있는 문장은 약관에 있다.
+              둘이 어긋나면 그 자체가 분쟁의 소재라 서로를 가리키게 해 둔다. */}
+          <p className="mt-2 text-body-sm leading-relaxed text-muted">
+            이 문서는 실제 운영 기준을 쉽게 정리한 것입니다. 조항으로 정해진 내용은{" "}
+            <Link href="/terms" className="underline underline-offset-2 hover:text-fg">
+              서비스 이용약관
+            </Link>
+            을 확인해 주세요.
+          </p>
         </footer>
 
         <SiteFooter />

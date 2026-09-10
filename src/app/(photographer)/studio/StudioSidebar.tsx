@@ -20,13 +20,21 @@ export function StudioSidebar({ chatUnread = 0 }: { chatUnread?: number }) {
   const ops: Item[] = [
     { href: "/studio/chat", label: "채팅", badge: chatUnread },
     { href: "/studio", label: "문의" },
+    // 정산은 에스크로 전환(2026-09)으로 되살렸다. 리드 모델 때 숨겼던 항목인데,
+    // 지금은 사매가 촬영비를 받아 수수료를 떼고 작가에게 보내므로 작가가 확인할 지면이
+    // 다시 필요하다. **알림톡 「정산 완료」 버튼도 이 경로로 온다** — 메뉴에 없으면
+    // 작가가 그 화면을 두 번 다시 찾아갈 수 없다(notify-templates.ts).
+    { href: "/studio/bookings", label: "예약 관리" },
+    { href: "/studio/settlements", label: "정산" },
     // 후기 탭 숨김(되돌리려면 아래 주석 해제):
     // { href: "/studio/reviews", label: "후기" },
   ];
-  // 리드 모델 전환으로 인앱 예약/정산 기반 항목은 숨김(되돌리려면 hidden 제거):
+  // 계속 숨김 — **예약은 채팅방에서만 잡는다.** 작가가 일정·예약 조건을 따로 설정하는
+  // 화면은 리드 모델 때 쓰던 것이고, 지금은 상담 중에 작가가 예약을 제안하고 고객이
+  // 수락하는 흐름 하나뿐이다. 두 경로가 공존하면 어느 쪽이 진실인지 알 수 없어진다.
+  // 위의 '예약 관리'(/studio/bookings)는 잡힌 예약을 **보는** 지면이라 성격이 다르다.
   //   { href: "/studio/availability", label: "일정" },
   //   { href: "/studio/booking", label: "예약 설정" },
-  //   { href: "/studio/settlements", label: "수수료" },
   const settings: Item[] = [
     { href: "/studio/guide", label: "고객 안내 이미지" }, // 사진 상세에 노출되는 촬영 안내 이미지
     { href: "/studio/profile", label: "프로필" },

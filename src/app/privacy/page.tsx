@@ -11,6 +11,12 @@ export const metadata: Metadata = {
 };
 
 // 개인정보 처리방침 — 표준안. ※ 실제 시행 전 법무 검토 권장.
+//
+// ⚠️ 개정일은 "배포되는 날" 이어야 한다. 처리방침은 게시된 시점부터 효력이 있는데,
+//    아직 안 올라간 문서에 과거 날짜를 박아두면 그 사이 기간을 소급해 약속한 꼴이 된다.
+//    머지·배포일이 아래와 다르면 반드시 맞춰서 고칠 것.
+const REVISED_AT = "2026-09-09";
+
 export default function PrivacyPage() {
   return (
     <main className="mx-auto max-w-2xl px-5 py-10 font-kr">
@@ -28,12 +34,27 @@ export default function PrivacyPage() {
       </p>
 
       <div className="mt-8 space-y-7 text-sm leading-relaxed text-fg/85">
-        <Section title="1. 수집하는 개인정보 항목">
+        <Section title="1. 수집하는 개인정보 항목과 수집 방법">
+          <p className="mb-2">서비스가 수집하는 항목은 다음과 같습니다.</p>
           <ul className="list-disc space-y-1 pl-5">
-            <li>연락처: 전화번호, 카카오톡 ID, 인스타그램 ID, 이메일 등 이용자가 입력한 연락 수단</li>
+            <li>계정 정보: 표시 이름(닉네임), 이메일, 프로필 이미지</li>
+            <li>연락처: 전화번호, 카카오톡 ID, 인스타그램 ID 등 연락 수단</li>
             <li>상담 정보: 촬영 목적, 희망 일정, 희망 지역, 인원, 요청 사항 등 문의 시 입력한 내용</li>
             <li>자동 수집: 서비스 이용 기록, 접속 로그, 기기·브라우저 정보, 쿠키</li>
           </ul>
+          <p className="mt-3 mb-2">수집 방법은 두 가지입니다.</p>
+          <ul className="list-disc space-y-1 pl-5">
+            <li>이용자가 서비스 화면에서 직접 입력하는 경우</li>
+            <li>
+              카카오 로그인(카카오싱크)으로 가입·로그인하는 경우, 이용자가 동의한 범위에서
+              주식회사 카카오로부터 제공받습니다 — 표시 이름, 이메일, 전화번호
+            </li>
+          </ul>
+          <p className="mt-3">
+            전화번호는 상담·예약 진행 상황을 알리기 위해 수집하며, 제공에 동의하지 않아도 서비스 가입과
+            둘러보기는 가능합니다. 다만 알림을 보낼 수단이 없으므로 문의·예약 진행 시에는 별도로
+            전화번호 등록을 요청할 수 있습니다.
+          </p>
         </Section>
 
         <Section title="2. 개인정보의 수집·이용 목적">
@@ -46,9 +67,21 @@ export default function PrivacyPage() {
 
         <Section title="3. 개인정보의 제3자 제공">
           <p>
-            서비스는 이용자의 상담·예약 연결을 위해, 이용자가 선택한(또는 매칭된) 사진작가에게 연락처 및
-            상담 정보를 제공할 수 있습니다. 제공받는 자는 해당 사진작가이며, 제공 목적은 촬영 상담·예약 진행에
-            한정됩니다. 이 외의 목적으로는 동의 없이 제3자에게 제공하지 않습니다.
+            <strong className="font-semibold text-fg">
+              이용자의 전화번호 등 연락처는 사진작가에게 제공되지 않습니다.
+            </strong>{" "}
+            상담은 서비스 내 채팅에서만 이루어지며, 작가에게는 상담·예약 진행에 필요한 범위에서
+            이용자의 표시 이름과 문의·예약 내용만 표시됩니다.
+          </p>
+          <p className="mt-2">
+            반대 방향으로, <strong className="font-semibold text-fg">작가의 연락처</strong>는 예약 대금
+            입금이 확인된 뒤 작가가 전달을 선택하고 이용자가 안내를 확인해 동의한 경우에 한해 이용자에게
+            전달됩니다. 이때 전달되는 것은 작가의 연락 수단이며, 이 절차로 이용자의 개인정보가 작가에게
+            제공되지는 않습니다.
+          </p>
+          <p className="mt-2">
+            그 밖에 이용자의 동의가 있거나 법령에 근거가 있는 경우, 수사기관이 관련 법령이 정한 절차에
+            따라 요청하는 경우 외에는 개인정보를 제3자에게 제공하지 않습니다.
           </p>
         </Section>
 
@@ -87,7 +120,10 @@ export default function PrivacyPage() {
         </Section>
       </div>
 
-      <p className="mt-10 text-xs text-faint">시행일: 2026-06-26 · 본 방침은 관련 법령 및 서비스 변경에 따라 개정될 수 있습니다.</p>
+      <p className="mt-10 text-xs text-faint">
+        시행일: 2026-06-26 · 최종 개정일: {REVISED_AT} · 본 방침은 관련 법령 및 서비스 변경에 따라
+        개정될 수 있습니다.
+      </p>
 
       <SiteFooter />
     </main>

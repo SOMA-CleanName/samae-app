@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { mpTrackServer } from "@/lib/mixpanel-server";
 import { notifyOpsBookingAccepted } from "@/lib/ops-alert";
+import { notifyBookingAccepted, notifyBookingProposed } from "@/lib/notify-user";
 import { normalizeBookingFields, readBookingFieldValues } from "@/lib/booking-fields";
 import { snapshotFeeForBooking } from "@/lib/payments";
 import { REFUND_WINDOW_DAYS } from "@/lib/refund";
@@ -204,6 +205,25 @@ export async function proposeBooking(formData: FormData) {
     type: "system",
     body: amPhotographer ? "📋 작가가 예약을 제안했어요" : "📋 예약을 제안했어요",
     booking_id: booking.id,
+  });
+
+  // 제안은 상대가 앱을 닫아둔 사이에 도착한다 — 알림톡으로도 한 번 (예약당 1회).
+  // redirect() 전에 보내야 한다. 실패해도 제안 자체는 이미 성립했다(내부에서 삼킨다).
+  const { data: phNotify } = await admin
+    .from("photographers")
+    .select("profile_id, display_name")
+    .eq("id", photographerId)
+    .maybeSingle();
+  await notifyBookingProposed({
+    bookingId: booking.id,
+    // 받는 쪽은 '제안하지 않은 쪽'
+    recipientProfileId: amPhotographer ? userId : phNotify?.profile_id,
+    counterpartName: amPhotographer
+      ? phNotify?.display_name ?? "작가"
+      : me.displayName ?? "고객",
+    shootAt,
+    shootDate,
+    amountKrw: amount,
   });
 
   // 예약 이벤트는 고객 타임라인에 귀속(수요 퍼널). redirect() 전에 발화.
@@ -404,7 +424,7 @@ export async function acceptBooking(formData: FormData) {
   const { data: b } = await admin
     .from("bookings")
     .select(
-      "id, status, photographer_id, user_id, shoot_at, duration_min, package_snapshot, proposed_by_photographer, amount_krw"
+      "id, status, photographer_id, user_id, shoot_at, shoot_date, duration_min, package_snapshot, proposed_by_photographer, amount_krw"
     )
     .eq("id", id)
     .single();
@@ -452,12 +472,25 @@ export async function acceptBooking(formData: FormData) {
   }
 
   // 제안자(상대)에게 알림
-  const proposerId = accepterIsCustomer
-    ? (await admin.from("photographers").select("profile_id").eq("id", b.photographer_id).single())
-        .data?.profile_id
-    : b.user_id;
+  const { data: phAccept } = await admin
+    .from("photographers")
+    .select("profile_id, display_name")
+    .eq("id", b.photographer_id)
+    .maybeSingle();
+  const proposerId = accepterIsCustomer ? phAccept?.profile_id : b.user_id;
   if (proposerId)
     await notify(admin, proposerId, "예약이 수락됐어요", "고객이 입금하면 예약이 잡혀요.", `/bookings/${id}`);
+  // 수락은 제안자가 다음 행동(입금·준비)을 해야 하는 지점이라 밖으로도 알린다 (예약당 1회)
+  await notifyBookingAccepted({
+    bookingId: id,
+    recipientProfileId: proposerId,
+    // 수락한 쪽 이름 — 작가가 수락했으면 스튜디오 이름으로 부른다
+    counterpartName: accepterIsCustomer
+      ? me.displayName ?? "고객"
+      : phAccept?.display_name ?? "작가",
+    shootAt: b.shoot_at,
+    shootDate: b.shoot_date,
+  });
   await postSystemMessage(admin, b.user_id, b.photographer_id, me.id, "✅ 예약이 수락됐어요 — 입금하시면 예약이 잡혀요.");
 
   // 운영 디스코드 — 수락이 거래의 실제 시작 트리거 (문의 접수 시점엔 울리지 않는다)

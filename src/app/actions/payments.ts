@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { confirmBankTransfer, waiveFee, ensureTransferRecord } from "@/lib/payments";
-import { notifyOpsBookingDeposit } from "@/lib/ops-alert";
+import { notifyOpsBookingDeposit, notifyOpsSettlementDispute } from "@/lib/ops-alert";
 import { DELIVERY_BUCKET, signDeliveryAssets } from "@/lib/deliveries";
 import { mpTrackServer, mpRevenueServer } from "@/lib/mixpanel-server";
 import { isLateBooking } from "@/lib/refund";
@@ -364,106 +364,6 @@ export async function confirmCompletion(formData: FormData) {
   revalidateBooking(id);
 }
 
-// ── 환불 (구매자 요청 / 운영자) : 오프플랫폼 ─────────────────────────
-// 실제 환불 송금은 작가가 직접 사용자에게 한다. 시스템은 상태만 정리:
-// 예약 refunded, 결제 환불 표시, 플랫폼 수수료 면제(waived), 슬롯 해제.
-export async function refundBooking(formData: FormData) {
-  const id = String(formData.get("id"));
-  const me = await getCurrentUser();
-  if (!me) throw new Error("로그인이 필요합니다.");
-
-  const admin = createAdminClient();
-  const { data: b } = await admin
-    .from("bookings")
-    .select("id, status, user_id, photographer_id, availability_id")
-    .eq("id", id)
-    .single();
-  if (!b) throw new Error("예약을 찾을 수 없습니다.");
-
-  const isBuyer = b.user_id === me.id;
-  if (!isBuyer && me.role !== "admin") throw new Error("권한이 없습니다.");
-  if (!["paid", "shot", "delivered"].includes(b.status)) throw new Error("환불할 수 없는 상태입니다.");
-
-  // 예약·결제 상태 정리 (전액 환불 기준 — 직접이체라 부분환불은 당사자 간 처리)
-  // TOCTOU 방지 — read 이후 상태 변경 경쟁 차단. 환불 가능 상태일 때만 원자적으로 전이.
-  const { data: refunded } = await admin
-    .from("bookings")
-    .update({ status: "refunded" })
-    .eq("id", id)
-    .in("status", ["paid", "shot", "delivered"])
-    .select("id");
-  if (!refunded || refunded.length === 0) throw new Error("환불할 수 없는 상태입니다.");
-  const { data: payment } = await admin
-    .from("payments")
-    .select("id, amount_krw")
-    .eq("booking_id", id)
-    .maybeSingle();
-  if (payment) {
-    await admin
-      .from("payments")
-      .update({
-        status: "refunded",
-        refunded_krw: payment.amount_krw,
-        cancelled_at: new Date().toISOString(),
-      })
-      .eq("id", payment.id);
-  }
-
-  // 매칭 수수료 면제
-  await waiveFee(admin, id);
-
-  // 슬롯 해제
-  if (b.availability_id) {
-    await admin.from("availability").update({ is_booked: false }).eq("id", b.availability_id);
-  }
-
-  const refundedByBuyer = isBuyer;
-  await notify(
-    admin,
-    b.user_id,
-    "환불이 접수됐어요",
-    "작가가 환불 금액을 직접 송금할 예정이에요.",
-    `/bookings/${id}`,
-    "payment"
-  );
-  const { data: ph } = await admin.from("photographers").select("profile_id").eq("id", b.photographer_id).single();
-  if (ph)
-    await notify(
-      admin,
-      ph.profile_id,
-      "환불 신청이 들어왔어요",
-      "환불 금액을 고객에게 직접 송금해주세요.",
-      `/bookings/${id}`,
-      "payment"
-    );
-
-  // 채팅 타임라인에도 환불 신청 기록
-  await postSystemMessage(
-    admin,
-    b.user_id,
-    b.photographer_id,
-    me.id,
-    refundedByBuyer
-      ? "↩️ 환불이 신청되었어요. 작가가 환불 금액을 직접 송금해드립니다."
-      : "↩️ 환불이 처리되었어요. 작가가 환불 금액을 직접 송금해드립니다."
-  );
-
-  await mpTrackServer(
-    "Refund Booking",
-    b.user_id,
-    {
-      booking_id: id,
-      photographer_id: b.photographer_id,
-      amount_krw: payment?.amount_krw,
-      actor: refundedByBuyer ? "customer" : "admin",
-    },
-    `Refund Booking:${id}`,
-  );
-
-  revalidateBooking(id);
-  revalidatePath("/chat");
-}
-
 /**
  * 임박 예약 환불불가 동의 기록 (docs/32 §1-1 ③ · §6-2).
  *
@@ -499,4 +399,88 @@ export async function agreeLateBooking(formData: FormData): Promise<void> {
     .update({ late_booking_consent_at: new Date().toISOString() })
     .eq("id", id)
     .is("late_booking_consent_at", null);
+}
+
+// ── 정산 수령 확인 (작가) ──────────────────────────────────────────
+//
+// 사매가 정산금을 보냈다고 기록(settled_at)한 뒤, 작가가 실제로 받았는지 닫아주는 고리다.
+// 이게 없으면 "보냈다" 는 사매 기록만 남고 **돈이 중간에 멈춰도 아무도 모른다.**
+//
+// 고객에게는 알리지 않는다. 사매와 작가 사이의 정산이고, 고객이 알 필요도 알아서
+// 좋을 것도 없다(lib/payments.ts 의 같은 판단).
+
+/** 이 예약의 정산을 확인/이의제기할 수 있는 작가인지 + 아직 답하지 않았는지 */
+async function loadSettlementForAck(bookingId: string, photographerId: string) {
+  const admin = createAdminClient();
+  const { data } = await admin
+    .from("bookings")
+    .select("id, photographer_id, settled_at, settlement_ack_at, settlement_dispute_at")
+    .eq("id", bookingId)
+    .maybeSingle();
+  if (!data) throw new Error("예약을 찾을 수 없습니다.");
+  if (data.photographer_id !== photographerId) throw new Error("이 예약의 작가가 아니에요.");
+  if (!data.settled_at) throw new Error("아직 정산이 시작되지 않았어요.");
+  if (data.settlement_ack_at || data.settlement_dispute_at)
+    throw new Error("이미 처리된 건이에요.");
+  return admin;
+}
+
+/** 작가: 정산금을 받았다 */
+export async function ackSettlement(formData: FormData) {
+  const id = String(formData.get("id"));
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가만 가능합니다.");
+
+  const admin = await loadSettlementForAck(id, me.photographer.id);
+  // 조건부 update — 두 번 눌러도 한 번만 기록된다
+  const { data: moved } = await admin
+    .from("bookings")
+    .update({ settlement_ack_at: new Date().toISOString() })
+    .eq("id", id)
+    .is("settlement_ack_at", null)
+    .is("settlement_dispute_at", null)
+    .select("id");
+  if (!moved || moved.length === 0) throw new Error("이미 처리된 건이에요.");
+
+  await mpTrackServer(
+    "Settlement Acked",
+    me.id,
+    { booking_id: id, photographer_id: me.photographer.id },
+    `Settlement Acked:${id}`,
+  );
+
+  revalidatePath("/studio/settlements");
+  revalidateBooking(id);
+}
+
+/** 작가: 정산금을 못 받았다 — 운영이 송금 내역을 다시 본다 */
+export async function disputeSettlement(formData: FormData) {
+  const id = String(formData.get("id"));
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가만 가능합니다.");
+
+  const admin = await loadSettlementForAck(id, me.photographer.id);
+  const { data: moved } = await admin
+    .from("bookings")
+    .update({ settlement_dispute_at: new Date().toISOString() })
+    .eq("id", id)
+    .is("settlement_ack_at", null)
+    .is("settlement_dispute_at", null)
+    .select("id");
+  if (!moved || moved.length === 0) throw new Error("이미 처리된 건이에요.");
+
+  // 사람이 봐야 하는 건이라 운영 채널로 즉시 올린다. 실패해도 신고 자체는 남는다.
+  await notifyOpsSettlementDispute({ bookingId: id }).catch((e) =>
+    console.error("[ops] 정산 미수령 알림 실패:", e instanceof Error ? e.message : e)
+  );
+
+  await mpTrackServer(
+    "Settlement Disputed",
+    me.id,
+    { booking_id: id, photographer_id: me.photographer.id },
+    `Settlement Disputed:${id}`,
+  );
+
+  revalidatePath("/studio/settlements");
+  revalidateBooking(id);
 }

@@ -21,6 +21,7 @@
 30초 요약:
 - 리드 모델 폐지 → **채팅 상주**: 문의하기 = 방 생성 + 봇 시드 → `/chat/[id]` 안에서 자동응답 봇이 수집(칩 포함) → 작가 개입 가능 → 4/4 자동 접수(요약 카드) → 예약 제안 → **사매 계좌 에스크로** → 어드민 입금확인 → 수수료(6,000) 차감 정산 → 작가 수령 확인 버튼
 - 봇의 진실은 DB: 대화=`messages`(type `bot`/`summary_card` 추가), 슬롯=`conversations.bot_slots`
+- 앱 밖 알림(카카오 알림톡·문자)은 `docs/34-kakao-alimtalk.md` — 문안을 바꾸면 템플릿 재심사다. `notify-templates.ts` 함부로 손대지 말 것
 - 핵심 파일: `src/lib/inquiry-bot-room.ts`(LLM 턴) · `src/app/(user)/chat/bot-actions.ts`(sendBotTurn) · `ChatRoom.tsx`(봇 모드·체크리스트·에스크로 카드) · `src/lib/moderation.ts`(연락처·SNS·계좌 검열)
 - `/inquiry/bot` 페이지와 `InquiryBotChat.tsx` 는 **레거시**(비로그인 게이트 프리뷰 전용) — 본 플로우 수정은 ChatRoom/bot-actions 쪽에서
 - 테스트: 고객 `roleplay-customer@samae.test` / `samae-test-2026` (시크릿 창) + 본인 작가 계정 2창 역할극. `npx tsx --test src/lib/*.test.ts`
