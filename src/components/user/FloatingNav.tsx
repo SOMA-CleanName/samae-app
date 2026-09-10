@@ -6,6 +6,7 @@ import { HomeIcon, MagazineIcon, ClipboardIcon, CameraIcon } from "@/components/
 import { homeNavMode, searchSessionStorageKeys } from "@/lib/search-navigation";
 import { type ProfileMe } from "./ProfileSheet";
 import { useNavReveal } from "./NavReveal";
+import { NAV_FRESH_KEY } from "@/lib/nav-fresh";
 
 // 하단 플로팅 내비 — 기존 하단바/레일 대체.
 // 가운데: 문의/스튜디오/홈/매거진 알약. 우측 하단: 장바구니(FloatingCart).
@@ -297,8 +298,26 @@ function NavPill({
   return (
     <Link
       href={href}
-      scroll={false} // 탭 전환 시 최상단 강제 스크롤 방지 — 위치 복원은 ScrollMemory 가 담당
-      onClick={onClick}
+      // 탭을 누르면 **목적지 최상단**에서 시작한다(Next 기본 동작).
+      //
+      // 예전엔 scroll={false} 로 두고 ScrollMemory 의 복원에 맡겼는데, 스크롤 직후 탭을
+      // 누르면 **이전 탭의 스크롤 위치가 그대로 남았다.** 트랙패드 관성이 이동 후에도
+      // wheel 을 계속 쏘고, ScrollMemory 는 그걸 "사용자가 직접 스크롤했다" 로 보고
+      // 복원을 취소하기 때문이다(그 파일의 stop()). 결과는 "매거진 갔는데 하단에 떨어짐".
+      //
+      // 탭 전환은 **새로 보러 가는 행위**라 최상단이 맞다. 보던 자리로 돌아가야 하는 건
+      // 사진 상세에서의 복귀뿐이고, 그건 PhotoReturnScroll 이 따로 맡는다.
+      onClick={(e) => {
+        // 이번 이동은 '탭 누름' 이라는 표식. ScrollMemory 가 이걸 보면 저장 위치를 복원하지
+        // 않고 최상단에서 시작한다(그쪽에서 읽고 지운다). key 계산을 여기서 되풀이하지
+        // 않으려고 플래그로 넘긴다 — 홈은 routeSessionKey, 나머지는 pathname 이라 규칙이 다르다.
+        try {
+          sessionStorage.setItem(NAV_FRESH_KEY, href);
+        } catch {
+          /* 세션 저장이 막혀 있으면 그냥 기존 동작(복원)으로 둔다 */
+        }
+        onClick?.(e);
+      }}
       aria-current={active ? "page" : undefined}
       aria-label={badge > 0 ? `${label} — 안읽음 ${badge}개` : undefined}
       className={[
