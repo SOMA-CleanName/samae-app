@@ -10,7 +10,7 @@ import { FeedHero } from "@/components/user/FeedHero";
 import { ProfileButton } from "@/components/user/ProfileButton";
 import { toProfileMe } from "@/lib/profile-me";
 import { HomeBannerSlot } from "@/components/user/HomeBannerSlot";
-import { SiteLinksRow } from "@/components/user/SiteLinksRow";
+import { SiteFooter } from "@/components/SiteFooter";
 import { EmptyState } from "@/components/ui";
 import { LayersIcon } from "@/components/user/icons";
 import type { Metadata } from "next";
@@ -129,7 +129,7 @@ export default async function CategoryPage({
       </div>
 
       {/* 여기도 무한 스크롤이라 푸터에 못 닿는다 — 피드 시작 전에 안내 링크 (홈과 같은 이유) */}
-      <SiteLinksRow />
+      <SiteFooter />
 
       {photos.length === 0 ? (
         <EmptyState
