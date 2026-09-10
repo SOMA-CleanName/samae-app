@@ -19,10 +19,80 @@ function ymd(iso: string | null) {
   ).padStart(2, "0")}`;
 }
 
-/** 2단 — 작은 사진 왼쪽, 글 오른쪽. */
-export function ArticleRows({ articles }: { articles: ArticleCard[] }) {
+/** 날짜 · 조회수 한 줄 — 색인 카드와 공지 카드가 같은 규격을 쓴다. */
+function RowMeta({ article, views }: { article: ArticleCard; views?: Record<string, number> }) {
+  const date = ymd(article.published_at);
+  const n = views?.[article.slug] ?? 0;
+  if (!date && n === 0) return null;
   return (
-    <ul className="mt-8 grid gap-2.5 lg:grid-cols-2 lg:gap-3">
+    <span className="mt-1 flex items-center gap-2 text-[10.5px] tabular-nums text-faint">
+      {date && <span>{date}</span>}
+      {n > 0 && <span title="누적 조회수">조회 {n.toLocaleString("ko-KR")}</span>}
+    </span>
+  );
+}
+
+/**
+ * 공지 — 색인 맨 위에 세우는 대표 글 한 편.
+ *
+ * "스냅 촬영, 처음이라면" 같은 입문 글은 색인에 섞이면 다른 글과 같은 무게로
+ * 읽히는데, 처음 온 사람에겐 이 글이 출발점이다. 어느 글이 공지가 될지는
+ * DB 컬럼이 아니라 **sort_order 1위**로 정한다 — 어드민이 순서만 바꾸면 된다.
+ */
+export function ArticleNotice({
+  article,
+  views,
+}: {
+  article: ArticleCard;
+  views?: Record<string, number>;
+}) {
+  return (
+    <Link
+      href={`/articles/${encodeURIComponent(article.slug)}`}
+      className="ar-row mt-8 flex items-stretch gap-3.5 overflow-hidden rounded-xl border border-brand/45 bg-brand/[0.05] p-3.5"
+    >
+      <span className="relative block h-[92px] w-[92px] shrink-0 overflow-hidden rounded-lg bg-surface-2 sm:h-[104px] sm:w-[104px]">
+        {article.cover_url && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={article.cover_url}
+            alt=""
+            className="ar-img h-full w-full object-cover"
+          />
+        )}
+      </span>
+
+      <span className="flex min-w-0 flex-1 flex-col justify-center py-0.5">
+        <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-brand">
+          Notice
+        </span>
+        <span className="ar-title mt-1 line-clamp-2 block text-body font-bold leading-snug tracking-tight">
+          {article.title}
+        </span>
+        {article.summary && (
+          <span className="mt-1 line-clamp-2 block text-[11.5px] leading-relaxed text-muted">
+            {article.summary}
+          </span>
+        )}
+        <RowMeta article={article} views={views} />
+      </span>
+
+      <span className="ar-arrow shrink-0 self-center pr-1 text-[11px] text-faint">↗</span>
+    </Link>
+  );
+}
+
+/** 2단 — 작은 사진 왼쪽, 글 오른쪽. views 를 주면 날짜·조회수 줄이 붙는다. */
+export function ArticleRows({
+  articles,
+  views,
+}: {
+  articles: ArticleCard[];
+  views?: Record<string, number>;
+}) {
+  if (articles.length === 0) return null;
+  return (
+    <ul className="mt-4 grid gap-2.5 lg:grid-cols-2 lg:gap-3">
       {articles.map((a) => (
         <li key={a.id}>
           <Link
@@ -50,6 +120,7 @@ export function ArticleRows({ articles }: { articles: ArticleCard[] }) {
                   {a.summary}
                 </span>
               )}
+              <RowMeta article={a} views={views} />
             </span>
 
             <span className="ar-arrow shrink-0 self-center pr-1 text-[11px] text-faint">↗</span>

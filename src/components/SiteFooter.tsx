@@ -26,10 +26,10 @@ export function SiteFooter() {
 
         <nav aria-label="사매 안내" className="flex flex-wrap gap-x-5 gap-y-2 text-body-sm">
           {[
-            { href: "/articles", label: "스냅 촬영 이야기" },
+            { href: "/articles", label: "아티클" },
             { href: "/spots", label: "촬영 장소" },
-            { href: "/guide", label: "자주 묻는 것" },
-            { href: "/trust", label: "안전하게 촬영하기" },
+            { href: "/guide", label: "Q&A" },
+            { href: "/trust", label: "안전 촬영 정책" },
             { href: "/privacy", label: "개인정보 처리방침" },
           ].map((l) => (
             <Link
@@ -69,8 +69,7 @@ export function SiteFooter() {
       )}
 
       <p className="mt-5 text-[11px] leading-relaxed text-faint">
-        사진을 고르면 그 사진을 찍은 작가로 이어집니다. 결제는 사매 계좌로 받고, 연락처는
-        채팅 밖으로 나가지 않아요.
+        나만의 무드, 나만의 촬영. 사매
       </p>
     </footer>
   );

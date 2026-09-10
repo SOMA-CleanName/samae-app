@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { JsonLd } from "@/components/JsonLd";
 import { breadcrumbJsonLd } from "@/lib/seo";
-import { listPublishedArticles } from "@/lib/articles";
+import { countArticleViews, listPublishedArticles } from "@/lib/articles";
 import { Masthead } from "@/components/editorial/Masthead";
 import { StickyBack } from "@/components/editorial/StickyBack";
 import { SiteFooter } from "@/components/SiteFooter";
-import { ArticleRows } from "@/components/editorial/ArticleTiers";
+import { ArticleNotice, ArticleRows } from "@/components/editorial/ArticleTiers";
 
 /*
   아티클 색인.
@@ -27,7 +27,14 @@ export const metadata: Metadata = {
 };
 
 export default async function ArticlesIndexPage() {
-  const articles = await listPublishedArticles();
+  const [articles, views] = await Promise.all([
+    listPublishedArticles(),
+    countArticleViews().catch(() => ({}) as Record<string, number>),
+  ]);
+
+  // 공지 — sort_order 1위 글(입문 글)을 색인 위에 따로 세운다. 어드민이 순서로 제어.
+  const notice = articles[0];
+  const rest = articles.slice(1);
 
   return (
     <main className="min-h-dvh bg-bg font-kr">
@@ -38,17 +45,16 @@ export default async function ArticlesIndexPage() {
         ])}
       />
 
-      <StickyBack href="/explore" meta="All stories" />
+      <StickyBack href="/explore" meta="Articles" />
 
       <div className="mx-auto w-full max-w-[880px] px-4 pb-24 pt-6 sm:px-6 sm:pt-8">
         <Masthead
-          word="ALL STORIES"
+          word="ARTICLES"
           size="compact"
-          lead="가격이 왜 다른지, 뭘 입어야 하는지, 어디서 찍는지."
-          // meta 는 justify-between 이라 조각을 여럿 넘기면 양끝으로 벌어진다. 한 덩어리로.
+          // 글 개수는 발행 정보라 표제 위 오른쪽에 붙인다(왼쪽은 비워 둔다).
           meta={
             articles.length > 0 ? (
-              <span className="tabular-nums">글 {articles.length}편</span>
+              <span className="ml-auto tabular-nums">글 {articles.length}편</span>
             ) : undefined
           }
         />
@@ -56,7 +62,10 @@ export default async function ArticlesIndexPage() {
         {articles.length === 0 ? (
           <p className="py-24 text-center text-body-sm text-muted">아직 올라온 글이 없어요.</p>
         ) : (
-          <ArticleRows articles={articles} />
+          <>
+            <ArticleNotice article={notice} views={views} />
+            <ArticleRows articles={rest} views={views} />
+          </>
         )}
 
         <SiteFooter />

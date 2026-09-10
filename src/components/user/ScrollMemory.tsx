@@ -147,9 +147,35 @@ export function ScrollMemory({
     const locked = () => document.documentElement.style.overflow === "hidden";
 
     // 저장 — 복원 중(클램프될 수 있음)엔 덮어쓰지 않는다.
+    //
+    // ⚠️ 0 으로의 '순간 점프'는 바로 기록하지 않는다.
+    // 다른 지면으로 나가는 일반 Link 네비게이션(예: 탐색 → 아티클)에서 Next 가
+    // 언마운트 직전에 스크롤을 0 으로 만드는데, 그 scroll 이벤트가 여기로 들어와
+    // lastKnownY 와 저장값을 둘 다 0 으로 덮었다 — cleanup 의 y>0 가드가 있어도
+    // lastKnownY 가 이미 0 이라 소용없었고, 뒤로 돌아오면 최상단에서 시작했다.
+    // 유예(250ms) 뒤에도 여전히 0 이면 그때 기록한다 — 전환이었다면 그 사이
+    // cleanup 이 타이머를 지우므로 자연히 버려지고, 사용자가 실제로 맨 위로
+    // 올린 경우엔 잠깐 늦게 0 이 기록될 뿐이다.
+    let zeroTimer: number | null = null;
     const onScroll = () => {
       if (restoring || locked()) return;
-      lastKnownY.current = Math.round(window.scrollY);
+      const y = Math.round(window.scrollY);
+      if (y === 0 && lastKnownY.current > 0) {
+        if (zeroTimer === null) {
+          zeroTimer = window.setTimeout(() => {
+            zeroTimer = null;
+            if (restoring || locked() || Math.round(window.scrollY) !== 0) return;
+            lastKnownY.current = 0;
+            sessionStorage.setItem(key, "0");
+          }, 250);
+        }
+        return;
+      }
+      if (zeroTimer !== null) {
+        window.clearTimeout(zeroTimer);
+        zeroTimer = null;
+      }
+      lastKnownY.current = y;
       sessionStorage.setItem(key, String(lastKnownY.current));
     };
     const onPhotoReturnRestored = () => {
@@ -167,6 +193,7 @@ export function ScrollMemory({
       // (stop() 은 현재 scrollY 로 덮어쓰므로 여기선 쓰지 않는다 — 그게 저장값을 0으로 날리던 원인.
       //  실제로 최상단까지 스크롤한 경우는 onScroll 이 이미 0 을 기록해 둔다.)
       cancelRestore();
+      if (zeroTimer !== null) window.clearTimeout(zeroTimer); // 전환 직전의 0 점프는 버린다
       const y = Math.round(window.scrollY);
       if (y > 0 && !locked()) lastKnownY.current = y;
       sessionStorage.setItem(key, String(lastKnownY.current));

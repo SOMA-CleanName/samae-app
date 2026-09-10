@@ -19,8 +19,8 @@ import Link from "next/link";
  * 이미 거기 있다. 같은 곳으로 가는 문을 한 화면에 두 번 만들지 않는다.
  */
 const LINKS = [
-  { href: "/articles", label: "스냅 촬영 이야기" },
-  { href: "/trust", label: "안전하게 촬영하기" },
+  { href: "/articles", label: "아티클" },
+  { href: "/trust", label: "안전 촬영 정책" },
   { href: "/privacy", label: "개인정보 처리방침" },
 ];
 

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
 
-export type RunningSection = { id: string; no: string; label: string };
+export type RunningSection = { id: string; label: string };
 
 /**
  * 러닝 헤드 — 잡지 페이지 위쪽에 붙는 그 한 줄.
@@ -96,9 +96,8 @@ export function ExploreRunningHead({ sections }: { sections: RunningSection[] })
           <div className="mx-auto flex h-11 max-w-[1280px] items-center justify-between gap-3 px-4 sm:px-6">
             <span className="font-display text-lg italic leading-none text-brand">samae</span>
             {active && (
-              <span className="flex min-w-0 items-baseline gap-1.5 text-[11px] font-bold uppercase tracking-[0.14em] text-muted">
-                <span className="tabular-nums text-faint">{active.no}</span>
-                <span className="truncate">{active.label}</span>
+              <span className="min-w-0 truncate text-[11px] font-bold uppercase tracking-[0.14em] text-muted">
+                {active.label}
               </span>
             )}
           </div>
