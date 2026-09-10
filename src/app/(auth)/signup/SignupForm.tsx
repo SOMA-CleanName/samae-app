@@ -8,6 +8,7 @@ import { mpTrack } from "@/lib/mixpanel";
 import { readNextParam, setOauthNextCookie } from "@/lib/safe-redirect-client";
 import { MailIcon } from "@/components/user/icons";
 import { Divider, Field, KakaoButton, Note, SubmitButton } from "../AuthBits";
+import { kakaoScopes } from "@/lib/kakao-phone";
 
 /** 가입 후 복귀 경로 — 로그인 페이지에서 next 를 이어받는다(문의 흐름 이탈 방지). */
 const DEFAULT_SIGNUP_NEXT = "/";
@@ -57,7 +58,9 @@ export function SignupForm() {
     setOauthNextCookie(signupNext());
     await supabase.auth.signInWithOAuth({
       provider: "kakao",
-      options: { redirectTo: `${location.origin}/auth/callback` },
+      // scopes 는 카카오싱크 검수 통과 후에만 붙는다(lib/kakao-phone) — 검수 안 된
+      // 동의항목을 요청하면 카카오가 로그인 자체를 거절한다(KOE205).
+      options: { redirectTo: `${location.origin}/auth/callback`, scopes: kakaoScopes() },
     });
   }
 
