@@ -183,7 +183,7 @@ export default async function AdminChatsPage({
                     <p className="mt-0.5">
                       {msgCount}개
                       {r.photographer_unread > 0 && (
-                        <span className="ml-1.5 rounded bg-danger-soft px-1 py-0.5 font-semibold text-danger">
+                        <span className="ml-1.5 rounded bg-danger-soft px-1 py-0.5 font-semibold text-danger-ink">
                           작가 미확인 {r.photographer_unread}
                         </span>
                       )}

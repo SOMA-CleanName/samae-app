@@ -127,7 +127,7 @@ export function AboutEditor({
         </button>
       </div>
       {error && (
-        <p className="mb-3 rounded-xl bg-danger-soft px-3.5 py-2.5 text-body-sm text-danger">{error}</p>
+        <p className="mb-3 rounded-xl bg-danger-soft px-3.5 py-2.5 text-body-sm text-danger-ink">{error}</p>
       )}
 
       {sections.length === 0 && !pickerOpen && (

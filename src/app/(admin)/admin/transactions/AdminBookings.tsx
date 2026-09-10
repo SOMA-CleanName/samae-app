@@ -210,7 +210,7 @@ function BookingDetail({ b }: { b: BookingRow }) {
           className={`mt-3 rounded-lg px-3 py-2 text-caption ${
             b.refundOverdue
               ? "bg-danger/10 font-semibold text-danger"
-              : "bg-warning-soft text-warning"
+              : "bg-warning-soft text-warning-ink"
           }`}
         >
           환불 요청 접수 {stamp(b.refundDueAt)} ·{" "}
@@ -271,7 +271,7 @@ function BookingDetail({ b }: { b: BookingRow }) {
         {["paid", "shot", "delivered", "completed"].includes(b.status) && !b.settled_at && (
           <form action={adminMarkSettled}>
             <input type="hidden" name="id" value={b.id} />
-            <button className="cursor-pointer rounded-lg border border-warning/40 bg-warning-soft px-3 py-1.5 text-caption font-semibold text-warning hover:opacity-90">
+            <button className="cursor-pointer rounded-lg border border-warning/40 bg-warning-soft px-3 py-1.5 text-caption font-semibold text-warning-ink hover:opacity-90">
               정산 완료 마킹
             </button>
           </form>

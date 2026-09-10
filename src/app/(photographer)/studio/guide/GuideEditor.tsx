@@ -130,7 +130,7 @@ export function GuideEditor({ initialImages }: { initialImages: Row[] }) {
       </div>
 
       {error && (
-        <p className="mb-3 rounded-xl bg-danger-soft px-3.5 py-2.5 text-body-sm text-danger">
+        <p className="mb-3 rounded-xl bg-danger-soft px-3.5 py-2.5 text-body-sm text-danger-ink">
           {error}
         </p>
       )}
@@ -198,7 +198,7 @@ export function GuideEditor({ initialImages }: { initialImages: Row[] }) {
                   <button
                     type="button"
                     onClick={() => void onDelete(row.id)}
-                    className="ml-auto cursor-pointer rounded-full px-3 py-1 text-caption text-danger hover:bg-danger-soft"
+                    className="ml-auto cursor-pointer rounded-full px-3 py-1 text-caption text-danger-ink hover:bg-danger-soft"
                   >
                     삭제
                   </button>

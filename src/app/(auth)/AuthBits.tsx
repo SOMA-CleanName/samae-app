@@ -96,7 +96,7 @@ export function Note({
     <p
       role={tone === "bad" ? "alert" : undefined}
       className={`rounded-xl px-4 py-3 text-body-sm ${
-        tone === "ok" ? "bg-success-soft text-success" : "bg-danger-soft text-danger"
+        tone === "ok" ? "bg-success-soft text-success-ink" : "bg-danger-soft text-danger-ink"
       }`}
     >
       {children}

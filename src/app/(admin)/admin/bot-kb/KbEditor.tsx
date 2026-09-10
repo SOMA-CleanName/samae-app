@@ -256,7 +256,7 @@ export function KbEditor(props: Props) {
             className={
               "rounded-full px-2.5 py-1 text-caption font-medium transition-colors " +
               (has
-                ? "bg-success-soft text-success"
+                ? "bg-success-soft text-success-ink"
                 : "cursor-pointer bg-fg/[0.06] text-muted ring-1 ring-line hover:bg-fg/10")
             }
           >

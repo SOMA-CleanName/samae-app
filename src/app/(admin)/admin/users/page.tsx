@@ -212,7 +212,7 @@ function BanButton({ id, banned }: { id: string; banned: boolean }) {
           "shrink-0 cursor-pointer rounded-full px-3 py-1 text-caption font-medium transition-colors disabled:opacity-50 " +
           (banned
             ? "bg-fg/[0.06] text-fg hover:bg-fg/10"
-            : "border border-line-strong text-danger hover:bg-danger-soft")
+            : "border border-line-strong text-danger-ink hover:bg-danger-soft")
         }
       >
         {banned ? "정지 해제" : "정지"}
