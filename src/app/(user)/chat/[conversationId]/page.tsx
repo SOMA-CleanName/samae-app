@@ -19,6 +19,8 @@ import { getPlatformAccount, hasAccount } from "@/lib/platform-account";
 import { normalizeBookingFields } from "@/lib/booking-fields";
 import { seedQaGreetingIfMissing } from "@/lib/inquiry-bot-room";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { loadPhoneConsentState } from "@/lib/phone-consent";
+import { PhoneConsentBanner } from "./PhoneConsentBanner";
 
 // 채팅방
 export default async function ChatRoomPage({
@@ -35,11 +37,13 @@ export default async function ChatRoomPage({
 
   const amCustomer = conv.user_id === me.id; // 내가 고객(예약 제안 측)
   // 상담(Q&A) 모드 — 작가 KB 가 등록돼 있으면 봇은 수집이 아니라 답변을 한다.
-  const [qaMode, botSettings, guideImages] = await Promise.all([
+  const [qaMode, botSettings, guideImages, phoneConsent] = await Promise.all([
     photographerHasKb(conv.photographer_id),
     fetchBotSettings(),
     // 촬영 안내 이미지 — 손님에게만 (작가는 자기가 올린 자료라 헤더가 붐빌 이유가 없다)
     amCustomer ? fetchGuideImages(conv.photographer_id) : Promise.resolve([]),
+    // 번호가 없으면 이 방의 알림이 통째로 안 간다 → 상단 배너로 회수 (양측 모두 해당)
+    loadPhoneConsentState(),
   ]);
 
   // 숨고형 폼(/inquiry)으로 만들어진 방에는 봇 발화가 하나도 없다(방 생성 + 요약 카드뿐).
@@ -173,6 +177,15 @@ export default async function ChatRoomPage({
             )}
           </div>
         </header>
+
+        {/* 번호가 없으면 이 방의 알림이 한 통도 안 나간다(dispatchNotify 가 no_phone 으로 스킵).
+            헤더 바로 아래 — 대화를 가리지 않으면서 처음 눈에 걸리는 자리 */}
+        {!phoneConsent.hasPhone && (
+          <PhoneConsentBanner
+            conversationId={conversationId}
+            canAskKakao={phoneConsent.canAskKakao}
+          />
+        )}
 
         <ChatRoom
           conversationId={conversationId}

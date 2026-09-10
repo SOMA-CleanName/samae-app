@@ -11,15 +11,23 @@ import {
   type VerifyCodeState,
 } from "./actions";
 import { CheckIcon } from "@/components/user/icons";
+import { KakaoPhoneConsentButton } from "@/components/user/KakaoPhoneConsentButton";
 
-// 가입 마무리 — 전화번호 OTP 2단계: ①번호 입력→인증번호 받기 ②6자리 확인→저장.
-// 문자가 실제로 도착하는 번호만 저장한다 (답장 SMS 알림의 도달 보장).
+// 가입 마무리 — 연락처 등록.
+//
+// 길이 둘이다. 카카오 계정이면 **동의 한 번**이 먼저고(카카오가 이미 검증한 번호를 그대로
+// 가져온다), 그게 안 되는 사람에게만 OTP 2단계가 남는다:
+//   ①번호 입력→인증번호 받기 ②6자리 확인→저장
+// OTP 는 문자가 실제로 도착하는 번호만 저장한다 (알림 도달 보장).
 export default function ContactForm({
   next,
   displayName,
+  canAskKakao = false,
 }: {
   next: string;
   displayName: string | null;
+  /** 카카오 재동의로 받을 수 있는가 (판정은 lib/phone-consent) */
+  canAskKakao?: boolean;
 }) {
   const router = useRouter();
   const [phone, setPhone] = useState("");
@@ -82,14 +90,40 @@ export default function ContactForm({
           {`${displayName ? `${displayName}님,\n` : ""}거의 다 왔어요`}
         </h1>
         <p className="mt-3 text-body-sm leading-relaxed text-muted">
-          작가님이 답장을 남기면 <strong className="font-semibold text-fg">문자로 알려드려요.</strong>
+          작가님이 답장을 남기면{" "}
+          <strong className="font-semibold text-fg">카카오톡으로 알려드려요.</strong>
           <br />
-          알림받을 전화번호를 인증해 주세요.
+          알림받을 연락처만 등록하면 끝이에요.
         </p>
       </div>
 
+      {/* 카카오 재동의 — 있으면 이게 가장 빠른 길이다. 번호 입력도 문자 확인도 없다. */}
+      {canAskKakao && (
+        <>
+          <div className="mt-8">
+            <KakaoPhoneConsentButton
+              next={next}
+              context="signup_contact"
+              label="카카오로 연락처 등록"
+            />
+            <p className="mt-2 text-center text-caption text-faint">
+              카카오에 등록된 번호를 그대로 가져와요. 입력할 것이 없어요.
+            </p>
+          </div>
+
+          <div className="mt-7 flex items-center gap-3">
+            <span className="h-px flex-1 bg-line" />
+            <span className="text-caption text-faint">직접 인증하기</span>
+            <span className="h-px flex-1 bg-line" />
+          </div>
+        </>
+      )}
+
       {/* ① 번호 입력 + 인증번호 받기 */}
-      <form action={requestAction} className="mt-8 flex flex-col gap-2.5">
+      <form
+        action={requestAction}
+        className={`flex flex-col gap-2.5 ${canAskKakao ? "mt-5" : "mt-8"}`}
+      >
         <div className="flex gap-2">
           <input
             type="tel"
@@ -185,10 +219,14 @@ export default function ContactForm({
 
       <p className="mt-4 flex items-start gap-1.5 text-caption leading-relaxed text-faint">
         <CheckIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
-        번호는 답장 알림에만 쓰여요. 광고 문자는 보내지 않아요.
+        번호는 거래 알림에만 쓰여요. 광고는 보내지 않아요.
+      </p>
+      <p className="mt-2 flex items-start gap-1.5 text-caption leading-relaxed text-faint">
+        <CheckIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
+        연락처는 작가에게 공개되지 않아요.
       </p>
       <p className="mt-2 text-caption leading-relaxed text-faint">
-        인증을 완료하면 문의 시 작가에게 연락처가 전달되는 것과 상담을 위한{" "}
+        등록을 완료하면 상담·예약 진행을 위한{" "}
         <a href="/privacy" target="_blank" className="underline underline-offset-2 hover:text-muted">
           개인정보 수집·이용
         </a>

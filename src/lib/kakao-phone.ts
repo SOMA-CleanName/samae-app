@@ -69,16 +69,43 @@ export function extractKakaoPhone(metadata: unknown): string | null {
   return null;
 }
 
+/** 전화번호 동의항목 이름 — 가입 때도, 나중에 다시 물을 때도 같은 값을 쓴다. */
+export const KAKAO_PHONE_SCOPE = "phone_number";
+
 /**
- * 로그인 요청에 실을 카카오 동의항목.
+ * 전화번호 동의항목을 요청해도 되는가.
  *
  * ⚠️ **검수 안 된 scope 를 요청하면 카카오가 로그인 자체를 거절한다**(KOE205).
- *    그래서 `phone_number` 는 env 스위치 뒤에 둔다 — 카카오싱크 검수가 통과한 뒤
- *    `NEXT_PUBLIC_KAKAO_PHONE_SCOPE=on` 을 켜면 코드 수정 없이 활성화된다.
- *    떨어지면 스위치를 끈 채로 두면 되고, 그때는 지금과 완전히 같이 동작한다.
+ *    그래서 env 스위치 뒤에 둔다 — 검수가 통과한 뒤 `NEXT_PUBLIC_KAKAO_PHONE_SCOPE=on`
+ *    을 켜면 코드 수정 없이 활성화된다. 떨어지면 끈 채로 두면 되고, 그때는 지금과
+ *    완전히 같이 동작한다(= OTP 경로만 남는다).
+ *
+ * 스위치가 꺼져 있으면 재동의 버튼도 **화면에 뜨면 안 된다.** 눌러 봐야 로그인이 깨진다.
+ */
+export function kakaoPhoneScopeEnabled(): boolean {
+  return process.env.NEXT_PUBLIC_KAKAO_PHONE_SCOPE === "on";
+}
+
+/**
+ * 최초 로그인 요청에 실을 동의항목.
+ *
+ * 전화번호는 **선택 동의**로 심사받았다(2026-09-10). 필수로 걸면 동의를 거부한 사람이
+ * 가입 자체를 못 하고, 카카오 심사도 "없으면 서비스가 불가능한 항목"만 필수로 인정한다.
+ * 대신 간편가입 동의 화면의 [전체 동의하기]로 대부분 함께 수집되고, 빠진 사람은
+ * `KakaoPhoneConsentButton` 이 나중에 다시 묻는다.
  */
 export function kakaoScopes(): string | undefined {
-  return process.env.NEXT_PUBLIC_KAKAO_PHONE_SCOPE === "on"
-    ? "profile_nickname account_email phone_number"
+  return kakaoPhoneScopeEnabled()
+    ? `profile_nickname account_email ${KAKAO_PHONE_SCOPE}`
     : undefined;
+}
+
+/**
+ * 나중에 전화번호만 다시 물을 때 실을 동의항목.
+ *
+ * 이미 동의한 항목은 카카오가 화면에서 빼 주므로 **전화번호 한 줄만** 뜬다.
+ * 이미 다 동의한 사람이 눌러도 그냥 통과해서 돌아온다(무해).
+ */
+export function kakaoPhoneReconsentScopes(): string | undefined {
+  return kakaoPhoneScopeEnabled() ? KAKAO_PHONE_SCOPE : undefined;
 }

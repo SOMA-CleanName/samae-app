@@ -1,17 +1,22 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { updateDisplayName } from "./actions";
 import { AvatarUploader } from "./AvatarUploader";
 import { DeleteAccount } from "./DeleteAccount";
+import { loadPhoneConsentState, maskPhone } from "@/lib/phone-consent";
+import { KakaoPhoneConsentButton } from "@/components/user/KakaoPhoneConsentButton";
 
 export const dynamic = "force-dynamic";
 
-// 계정 설정 — 닉네임·아바타 (1차)
+// 계정 설정 — 닉네임·아바타 + 알림 연락처
 export default async function SettingsPage() {
   const me = await getCurrentUser();
   if (!me) redirect("/login?next=/settings");
 
   const fallback = (me.displayName || me.email || "?").trim().charAt(0).toUpperCase();
+  // 채팅방 배너를 접었거나 놓친 사람이 "언제든" 돌아올 수 있는 자리
+  const phoneConsent = await loadPhoneConsentState();
 
   return (
     <main className="mx-auto max-w-lg px-3.5 sm:px-5 py-8 font-kr">
@@ -45,6 +50,38 @@ export default async function SettingsPage() {
             변경 사항 저장
           </button>
         </form>
+      </section>
+
+      {/* 알림 연락처 — 번호가 없으면 알림톡·문자가 한 통도 안 나간다.
+          채팅방 배너를 접은 사람이 다시 찾아올 수 있는 상시 경로다. */}
+      <section className="mt-8">
+        <p className="text-sm font-medium">알림 받을 연락처</p>
+        {phoneConsent.hasPhone ? (
+          <div className="mt-2 flex items-center justify-between rounded-xl border border-fg/15 px-3 py-2.5">
+            <span className="text-sm tabular-nums">{maskPhone(phoneConsent.phone!)}</span>
+            <span className="text-xs text-success">알림 받는 중</span>
+          </div>
+        ) : (
+          <div className="mt-2 rounded-xl border border-fg/15 bg-brand/[0.05] p-3">
+            <p className="text-xs leading-relaxed text-fg/60">
+              연락처가 없어서 <strong className="font-semibold text-fg">답장·예약 알림을 받지 못하고 있어요.</strong>
+              <br />
+              등록하면 카카오톡으로 알려드려요. 광고는 보내지 않아요.
+            </p>
+            <div className="mt-3">
+              {phoneConsent.canAskKakao ? (
+                <KakaoPhoneConsentButton next="/settings" context="settings" />
+              ) : (
+                <Link
+                  href="/signup/contact?next=/settings"
+                  className="block w-full rounded-xl bg-fg py-3 text-center text-sm font-semibold text-bg transition-opacity hover:opacity-90"
+                >
+                  번호 인증하기
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
       </section>
 
       <p className="mt-8 text-xs text-fg/40">
