@@ -1,11 +1,13 @@
 "use client";
 
-// 경로별 스크롤 위치 기억 — 홈↔탐색 탭을 왔다 갔다 해도 각 탭의 스크롤이 초기화되지 않게.
-// Next 는 네비게이션마다 최상단으로 스크롤하므로, 저장해 둔 위치로 되돌린다.
-// (NavPill 링크의 scroll={false} 와 함께 동작. 상세 페이지의 ScrollTop 과 충돌하지 않도록
-//  이 컴포넌트는 홈·탐색 페이지에서만 마운트한다.)
+// 경로별 스크롤 위치 기억 — 뒤로가기·사진 상세 복귀에서 보던 자리로 되돌린다.
+//
+// ⚠️ **하단 탭 누름은 예외다.** 탭 전환은 새로 보러 가는 행위라 최상단에서 시작한다.
+//    FloatingNav 가 NAV_FRESH_KEY 를 남기고 여기서 읽어 소비한다.
+//    (상세 페이지의 ScrollTop 과 충돌하지 않도록 이 컴포넌트는 홈·탐색에서만 마운트한다)
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
+import { NAV_FRESH_KEY } from "@/lib/nav-fresh";
 
 const PHOTO_RETURN_RESTORING_KEY = "samae:feed-return-restoring";
 const PHOTO_RETURN_RESTORED_EVENT = "samae:feed-return-restored";
@@ -47,8 +49,23 @@ export function ScrollMemory({
     } catch {
       sessionStorage.removeItem(anchorKey);
     }
+    // 하단 탭을 눌러 들어온 이동인가 — 그렇다면 **보던 자리로 되돌리지 않는다.**
+    // 탭 전환은 새로 보러 가는 행위라 최상단이 맞다(FloatingNav 주석 참고).
+    // 표식은 이번 한 번만 쓰고 지운다 — 뒤로가기·상세 복귀까지 최상단이 되면 안 된다.
+    let navFresh = false;
+    try {
+      const dest = sessionStorage.getItem(NAV_FRESH_KEY);
+      if (dest) {
+        sessionStorage.removeItem(NAV_FRESH_KEY);
+        navFresh = dest === pathname; // 홈 "/" · 매거진 "/explore" — 이 컴포넌트가 붙는 두 곳
+      }
+    } catch {
+      /* 세션이 막혀 있으면 기존 동작(복원) */
+    }
+
     // freshTop: 사진 상세에서 돌아온 게(anchor) 아니면, 저장 위치 무시하고 최상단부터 시작.
-    const saved = freshTop && !anchor ? 0 : Number(sessionStorage.getItem(key) || "0");
+    const saved =
+      (freshTop || navFresh) && !anchor ? 0 : Number(sessionStorage.getItem(key) || "0");
     lastKnownY.current = saved;
 
     // 복원 — 피드 세션과 이미지 레이아웃이 돌아올 시간을 고려해 최대 2초간 재시도.
