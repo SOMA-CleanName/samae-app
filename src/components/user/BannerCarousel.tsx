@@ -31,21 +31,58 @@ const ARROW =
 // 홈·카테고리 상단 배너 캐러셀 — 자동 슬라이드 + 스와이프 + 도트.
 // 이미지는 업로드 시 만든 2000px JPG 를 그대로 쓴다(next/image 최적화는 프로젝트 전역 off).
 export function BannerCarousel({ items }: { items: BannerItem[] }) {
-  const [idx, setIdx] = useState(0);
+  /**
+   * `pos` 는 0..count 다 — **count 까지 갈 수 있다.**
+   *
+   * 예전엔 `idx` 를 모듈러로 접었다. 그러면 마지막(2)에서 처음(0)으로 갈 때 translateX 가
+   * -200% → 0% 로 움직여 **왼쪽으로 좍 되감긴다.** 넘길 때마다 오른쪽으로 가다가 마지막에만
+   * 거꾸로 달리니 흐름이 끊긴다.
+   *
+   * 그래서 트랙 끝에 **첫 장을 한 번 더 붙이고**(아래 loop) count 자리까지 오른쪽으로 계속
+   * 밀고 간다. 도착하면 전환을 끄고 0 으로 되돌린다 — 그림이 같으니 눈에는 안 보인다.
+   */
+  const [pos, setPos] = useState(0);
+  const [snapping, setSnapping] = useState(false); // 되돌리는 그 한 프레임만 전환 off
   const [paused, setPaused] = useState(false);
   const touchX = useRef<number | null>(null);
   const count = items.length;
+  /** 화면에 표시되는 실제 장 번호 — 복제본(count)에 있을 땐 0 */
+  const idx = pos % count;
+  /** 트랙에 그릴 목록 — 2장 이상일 때만 첫 장을 끝에 복제한다 */
+  const loop = count > 1 ? [...items, items[0]] : items;
 
   const go = useCallback(
-    (next: number) => setIdx(((next % count) + count) % count),
+    (next: number) => {
+      // 뒤로 가다 0 을 넘어서면 복제본을 거치지 않고 마지막으로 접는다
+      // (뒤로는 되감기는 게 자연스럽다 — 사용자가 방향을 되돌린 것이므로)
+      setSnapping(false);
+      setPos(next < 0 ? count - 1 : next);
+    },
     [count]
   );
+
+  // 복제본(끝)에 도착하면 전환이 끝난 뒤 조용히 0 으로 되돌린다.
+  useEffect(() => {
+    if (pos !== count || count < 2) return;
+    const t = setTimeout(() => {
+      setSnapping(true);
+      setPos(0);
+    }, 520); // 트랙 전환(500ms)이 끝난 직후
+    return () => clearTimeout(t);
+  }, [pos, count]);
+
+  // 되돌린 다음 프레임에 전환을 다시 켠다 — 켠 채로 두면 다음 넘김이 순간이동한다
+  useEffect(() => {
+    if (!snapping) return;
+    const f = requestAnimationFrame(() => setSnapping(false));
+    return () => cancelAnimationFrame(f);
+  }, [snapping]);
 
   // 자동 넘김 — 1장이거나 정지 상태(호버·스와이프 중)면 멈춘다. 모션 최소화 설정도 존중.
   useEffect(() => {
     if (count < 2 || paused) return;
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-    const t = setInterval(() => setIdx((i) => (i + 1) % count), AUTO_MS);
+    const t = setInterval(() => setPos((p) => (p >= count ? 1 : p + 1)), AUTO_MS);
     return () => clearInterval(t);
   }, [count, paused]);
 
@@ -70,15 +107,19 @@ export function BannerCarousel({ items }: { items: BannerItem[] }) {
           setPaused(false);
           if (start == null || count < 2) return;
           const dx = e.changedTouches[0].clientX - start;
-          if (Math.abs(dx) >= SWIPE_PX) go(idx + (dx < 0 ? 1 : -1));
+          if (Math.abs(dx) >= SWIPE_PX) go(pos + (dx < 0 ? 1 : -1));
         }}
       >
         {/* 트랙 — 전체를 가로로 이어붙이고 translateX 로 이동 */}
         <div
-          className="flex transition-transform duration-500 ease-out motion-reduce:transition-none"
-          style={{ transform: `translateX(-${idx * 100}%)` }}
+          className={cn(
+            "flex ease-out motion-reduce:transition-none",
+            // 복제본에서 0 으로 되돌리는 그 프레임만 전환을 끈다 — 켜 두면 되감기가 보인다
+            snapping ? "transition-none" : "transition-transform duration-500"
+          )}
+          style={{ transform: `translateX(-${pos * 100}%)` }}
         >
-          {items.map((b, i) => {
+          {loop.map((b, i) => {
             const img = (
               <>
                 <Image
@@ -113,14 +154,14 @@ export function BannerCarousel({ items }: { items: BannerItem[] }) {
             // sm:max-h — 초광폭 모니터에서 배너만 화면을 다 먹지 않도록 높이 상한
             return (
               <div
-                key={b.id}
+                key={`${b.id}:${i}`} // 끝의 복제본이 같은 id 를 갖는다
                 className="relative aspect-[16/9] w-full shrink-0 sm:aspect-[21/9] sm:max-h-[520px]"
               >
                 {b.href ? (
                   <Link
                     href={b.href}
-                    aria-hidden={i !== idx}
-                    tabIndex={i === idx ? 0 : -1}
+                    aria-hidden={i !== pos}
+                    tabIndex={i === pos ? 0 : -1}
                     className="absolute inset-0 block"
                   >
                     {img}
@@ -145,7 +186,7 @@ export function BannerCarousel({ items }: { items: BannerItem[] }) {
             <button
               type="button"
               aria-label="이전 배너"
-              onClick={() => go(idx - 1)}
+              onClick={() => go(pos - 1)}
               className={cn(ARROW, "left-3")}
             >
               <ChevronLeftIcon className="h-5 w-5" />
@@ -153,7 +194,7 @@ export function BannerCarousel({ items }: { items: BannerItem[] }) {
             <button
               type="button"
               aria-label="다음 배너"
-              onClick={() => go(idx + 1)}
+              onClick={() => go(pos + 1)}
               className={cn(ARROW, "right-3")}
             >
               <ChevronRightIcon className="h-5 w-5" />
