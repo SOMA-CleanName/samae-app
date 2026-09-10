@@ -30,6 +30,7 @@ export function SiteFooter() {
             { href: "/spots", label: "촬영 장소" },
             { href: "/guide", label: "자주 묻는 것" },
             { href: "/trust", label: "안전하게 촬영하기" },
+            { href: "/terms", label: "서비스 이용약관" },
             { href: "/privacy", label: "개인정보 처리방침" },
           ].map((l) => (
             <Link
