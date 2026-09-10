@@ -5,6 +5,11 @@ import { useMemo, useState } from "react";
 import {
   DEFAULT_VAT,
   PAYOUT_FEE,
+  paymentSplit,
+  photographerTakes,
+  INCOME_TAX_BRACKETS,
+  type PhotographerType,
+  type SplitKey,
   monthlyVat,
   unitEconomics,
   type VatSettings,
@@ -28,6 +33,19 @@ const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v
 
 const TAKES = [4, 6, 8, 10, 12, 15, 20]; // 매트릭스 세로축 — 우리가 떼는 요율(%)
 const RATES = [20, 30, 40, 50, 60, 70, 80];
+/**
+ * 분배 막대·점 색 — 이 표의 목적은 "우리 몫이 얼마인가" 라서
+ * 사매만 브랜드색을 쓰고 나머지는 회색 농도로 구분한다.
+ * (국세청을 danger 로 두면 브랜드 레드와 구별이 안 됐다)
+ */
+const SPLIT_COLOR: Record<SplitKey, string> = {
+  photographer: "bg-fg/20",
+  samae: "bg-brand",
+  pg: "bg-fg/40",
+  payoutAgent: "bg-fg/55",
+  tax: "bg-fg/75",
+};
+
 const MAXMAG = 30000; // 매트릭스 셀 색 농도 기준 최대 손익 폭
 
 /** PG 수수료 기본값 — 카드 결제를 붙이면 결제 **전액**에 붙는다(우리 몫이 아니라) */
@@ -188,6 +206,13 @@ export default function CalculatorPage() {
   const [days, setDays] = useState(30); // 한 달 영업일
   const [contentCost, setContentCost] = useState(500000); // 콘텐츠 제작·운영 월 고정비
 
+  // 작가 소득세 — 연 소득으로 정해져서 모르면 범위로 낸다
+  const [bracket, setBracket] = useState<number | undefined>(undefined);
+  const [otherExpensePct, setOtherExpensePct] = useState(30);
+
+  // 분배표에 작가 세금까지 반영할지 — null 이면 '우리가 보내는 금액' 기준
+  const [splitType, setSplitType] = useState<PhotographerType | null>(null);
+
   // 부가세 설정
   const [vat, setVat] = useState<VatSettings>(DEFAULT_VAT);
   const patchVat = (patch: Partial<VatSettings>) => setVat((v) => ({ ...v, ...patch }));
@@ -246,6 +271,18 @@ export default function CalculatorPage() {
       bepPerDay,
     };
   }, [perDay, byInquiry, days, contentCost, shoot, vat, d]);
+  // 고객이 낸 돈이 어디로 가는가 — 합은 항상 촬영비와 같다
+  // 작가 몫도 그대로 남는 게 아니다 — 사업자 유형에 따라 세금이 다르다
+  const takes = useMemo(
+    () => photographerTakes(d, shoot, vat, bracket, otherExpensePct),
+    [d, shoot, vat, bracket, otherExpensePct]
+  );
+  const pickedTake = splitType ? takes.find((t) => t.key === splitType) : undefined;
+  const split = useMemo(
+    () => paymentSplit(shoot, d, pickedTake?.tax ?? 0),
+    [shoot, d, pickedTake]
+  );
+
   const cProfitColor = c.profit >= 0 ? "text-success" : "text-danger";
 
   // 합산 대시보드 — 유료(광고) 채널 + 콘텐츠 채널의 한 달 순이익
@@ -668,14 +705,285 @@ export default function CalculatorPage() {
                   촬영비의 {shoot > 0 ? ((d.netFee / shoot) * 100).toFixed(1) : "—"}%
                 </span>
                 <span className="w-full text-caption text-muted">
-                  명목 요율은 {takePct}% 인데 실질은{" "}
+                  명목 요율 {takePct}%
+                  {vat.on && vat.feeIncludesVat && (
+                    <>
+                      {" "}
+                      → 부가세 뺀 공급가 기준{" "}
+                      <b className="tabular-nums text-fg">
+                        {shoot > 0 ? ((d.feeSupply / shoot) * 100).toFixed(1) : "—"}%
+                      </b>
+                    </>
+                  )}{" "}
+                  → PG·지급대행까지 빼면 실질{" "}
                   <b className="tabular-nums text-fg">
                     {shoot > 0 ? ((d.netFee / shoot) * 100).toFixed(1) : "—"}%
-                  </b>{" "}
-                  예요.
-                  {vat.on && <> 금액은 부가세를 뺀 공급가액입니다.</>}
+                  </b>
+                  .
+                  {vat.on && vat.feeIncludesVat && (
+                    <> 명목은 VAT 포함, 나머지는 VAT 제외라 기준을 맞춰 적었어요.</>
+                  )}
                 </span>
               </div>
+            </div>
+
+            {/* 고객이 낸 100% 가 누구에게 가는가 */}
+            <div className="rounded-xl border border-line bg-surface-2 p-4">
+              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                <p className="text-body-sm font-semibold text-fg">
+                  고객이 낸 {won(shoot)} 은 어디로 가나
+                </p>
+                <p className="text-label text-faint">합계는 항상 100%</p>
+              </div>
+
+              {/* 작가 세금까지 반영할지 — 안 고르면 우리가 보내는 금액 기준 */}
+              <div className="mt-2.5 flex flex-wrap gap-1.5">
+                {(
+                  [
+                    [null, "보내는 금액 기준"],
+                    ["general", "작가 일반과세"],
+                    ["simplified", "작가 간이과세"],
+                    ["freelancer", "작가 프리랜서"],
+                  ] as [PhotographerType | null, string][]
+                ).map(([key, label]) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={() => setSplitType(key)}
+                    aria-pressed={splitType === key}
+                    className={`cursor-pointer rounded-full border px-2.5 py-1 text-label transition-colors ${
+                      splitType === key
+                        ? "border-fg/40 bg-fg/[0.08] font-semibold text-fg"
+                        : "border-line bg-surface text-muted hover:border-fg/25 hover:text-fg"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* 누적 막대 */}
+              <div className="mt-3 flex h-2.5 gap-px overflow-hidden rounded-full bg-fg/[0.08]">
+                {split.map((r) => (
+                  <div
+                    key={r.key}
+                    className={SPLIT_COLOR[r.key]}
+                    // 0.3% 같은 조각도 한 줄은 보이게 — 없는 것과 구별돼야 한다
+                    style={{
+                      width: `${clamp(r.pct, 0, 100).toFixed(2)}%`,
+                      minWidth: r.amount > 0 ? 3 : 0,
+                    }}
+                    title={`${r.label} ${r.pct.toFixed(1)}%`}
+                  />
+                ))}
+              </div>
+
+              <dl className="mt-3 space-y-1.5">
+                {split.map((r) => (
+                  <div key={r.key} className="flex items-baseline gap-2.5">
+                    <span
+                      className={`mt-1 h-2 w-2 shrink-0 rounded-full ${SPLIT_COLOR[r.key]}`}
+                      aria-hidden
+                    />
+                    <dt
+                      className={`flex-1 text-caption ${
+                        r.key === "samae" ? "font-semibold text-fg" : "text-muted"
+                      }`}
+                    >
+                      {r.label}
+                    </dt>
+                    <dd
+                      className={`w-16 text-right text-body-sm font-bold tabular-nums ${
+                        r.amount < 0 ? "text-danger" : r.key === "samae" ? "text-brand" : "text-fg"
+                      }`}
+                    >
+                      {r.pct.toFixed(1)}%
+                    </dd>
+                    <dd className="w-24 text-right text-caption tabular-nums text-muted">
+                      {r.amount < 0 ? signWon(r.amount) : won(r.amount)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+
+              <p className="mt-3 text-label leading-relaxed text-faint">
+                PG·지급대행은 부가세를 뺀 공급가액만 그들의 몫이에요 — 청구액에 붙은 부가세는
+                그들이 내고 우리가 공제받으니 결국 국세청으로 갑니다.{" "}
+                {pickedTake ? (
+                  <>
+                    작가 세금 <b className="tabular-nums text-fg">{won(pickedTake.tax)}</b> 까지
+                    국세청 몫으로 옮겨 봤어요 — 이게 이 거래에서 세금이 실제로 빠져나가는 총량이에요.
+                    {splitType === "freelancer" && (
+                      <>
+                        {" "}
+                        다만 원천징수분은 선납이라, 연말 정산에서 작가가 돌려받을 수도 있고 더 낼
+                        수도 있어요.
+                      </>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    지금 국세청 몫은 <b className="text-fg">사매 라인에서 생기는 부가세만</b>이에요.
+                    작가가 낼 세금은 작가 몫 안에 그대로 남아 있습니다 — 위 칩으로 유형을 고르면
+                    거래 전체 세금이 보여요.
+                    {vat.on && vat.feeIncludesVat && d.billedFee > 0 && (
+                      <>
+                        {" "}
+                        그리고 이 중 우리 수수료에 붙은{" "}
+                        <b className="tabular-nums text-fg">
+                          {won(d.billedFee - d.feeSupply)}
+                        </b>{" "}
+                        은 <b className="text-fg">일반과세자 작가라면 매입세액으로 돌려받아요</b> —
+                        그 작가에게는 국세청에 최종 귀속되는 돈이 아닙니다.
+                      </>
+                    )}
+                  </>
+                )}
+                {vat.model === "reseller" && (
+                  <>
+                    {" "}
+                    <b className="text-danger">판매자로 잡히면</b> 새는 소득세·가산세까지 국세청
+                    몫으로 잡힙니다.
+                  </>
+                )}
+              </p>
+
+              {/* 작가 몫도 그대로 남지 않는다 — 사업자 유형별 실수령 */}
+              {d.payout > 0 && (
+                <div className="mt-4 border-t border-line pt-3">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <p className="text-body-sm font-semibold text-fg">
+                      작가 몫 {won(d.payout)} 에서 작가가 실제로 쥐는 돈
+                    </p>
+                    <p className="text-label text-faint">사업자 유형에 따라 다름</p>
+                  </div>
+
+                  {vat.on && (
+                    <div className="mt-2.5 rounded-lg border border-line bg-surface p-2.5">
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <span className="text-caption font-medium text-fg">
+                          작가의 연 과세표준 구간
+                        </span>
+                        <label className="flex items-baseline gap-1.5 text-label text-muted">
+                          기타 경비율
+                          <span className="flex items-baseline gap-1 rounded-md border border-line-strong bg-surface-2 px-1.5 py-0.5">
+                            <input
+                              type="number"
+                              value={otherExpensePct}
+                              step={5}
+                              min={0}
+                              max={100}
+                              onChange={(e) => {
+                                const n = parseFloat(e.target.value);
+                                if (!isNaN(n)) setOtherExpensePct(clamp(n, 0, 100));
+                              }}
+                              className="w-10 bg-transparent text-right text-caption font-semibold tabular-nums text-fg outline-none"
+                            />
+                            <span className="text-label text-faint">%</span>
+                          </span>
+                        </label>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {[
+                          { rate: undefined, label: "모름 (범위)" },
+                          ...INCOME_TAX_BRACKETS.map((b) => ({
+                            rate: b.rate as number | undefined,
+                            label: `${b.label} ${b.rate}%`,
+                          })),
+                        ].map((b) => (
+                          <button
+                            key={b.label}
+                            type="button"
+                            onClick={() => setBracket(b.rate)}
+                            aria-pressed={bracket === b.rate}
+                            className={`cursor-pointer rounded-full border px-2 py-0.5 text-label transition-colors ${
+                              bracket === b.rate
+                                ? "border-fg/40 bg-fg/[0.08] font-semibold text-fg"
+                                : "border-line bg-surface-2 text-muted hover:border-fg/25 hover:text-fg"
+                            }`}
+                          >
+                            {b.label}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="mt-1.5 text-label leading-relaxed text-faint">
+                        소득세는 작가의 연 소득 전체로 정해져서 건당으로 못 박을 수 없어요. 이미
+                        다른 소득이 있는 작가에게 이 건이 얹히는 세금이라 한계세율로 계산합니다
+                        (지방소득세 10% 포함). 경비율은 장비·이동·보정처럼 우리가 알 수 없는 몫이라
+                        가정값이에요.
+                      </p>
+                    </div>
+                  )}
+
+                  <dl className="mt-2.5 space-y-1.5">
+                    {takes.map((r) => (
+                      <div
+                        key={r.key}
+                        className="rounded-lg border border-line bg-surface px-3 py-2"
+                      >
+                        <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1">
+                          <dt className="flex-1 text-caption font-medium text-fg">{r.label}</dt>
+                          <dd className="text-caption tabular-nums text-muted">
+                            {r.taxLabel} −{won(r.tax)}
+                          </dd>
+                          <dd className="w-24 text-right text-body-sm font-bold tabular-nums text-fg">
+                            {won(r.net)}
+                          </dd>
+                          <dd className="w-14 text-right text-caption tabular-nums text-faint">
+                            {r.pct.toFixed(1)}%
+                          </dd>
+                        </div>
+                        {vat.on && (
+                          <div className="mt-1.5 flex flex-wrap items-baseline gap-x-2.5 gap-y-1 border-t border-line pt-1.5">
+                            <dt className="flex-1 text-caption text-muted">
+                              소득세 {r.income.fixed ? `(${r.income.minRate}% 구간)` : "(구간 미정)"}
+                              <span className="ml-1 text-label text-faint">
+                                과세소득 {won(r.income.base)}
+                              </span>
+                            </dt>
+                            <dd className="text-caption tabular-nums text-muted">
+                              {r.income.fixed
+                                ? r.income.min < 0
+                                  ? `환급 ${won(-r.income.min)}`
+                                  : `−${won(r.income.min)}`
+                                : `−${won(Math.max(0, r.income.min))} ~ ${won(r.income.max)}`}
+                            </dd>
+                            <dd className="w-24 text-right text-body-sm font-bold tabular-nums text-fg">
+                              {r.income.fixed
+                                ? won(r.finalMin)
+                                : `${won(r.finalMin)}~`}
+                            </dd>
+                            <dd className="w-14 text-right text-caption tabular-nums text-faint">
+                              {r.income.fixed
+                                ? `${r.finalMinPct.toFixed(1)}%`
+                                : `${r.finalMinPct.toFixed(0)}~${r.finalMaxPct.toFixed(0)}%`}
+                            </dd>
+                          </div>
+                        )}
+                        <p className="mt-1 text-label leading-relaxed text-faint">{r.note}</p>
+                        {!r.income.fixed && vat.on && (
+                          <p className="mt-0.5 text-label leading-relaxed text-faint">
+                            소득세는 최종{" "}
+                            <b className="tabular-nums text-fg">{won(r.finalMin)}</b> ~{" "}
+                            <b className="tabular-nums text-fg">{won(r.finalMax)}</b> 사이로
+                            갈려요 — 위에서 구간을 고르면 확정됩니다.
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </dl>
+
+                  <p className="mt-2.5 text-label leading-relaxed text-faint">
+                    오른쪽 %는 고객이 낸 {won(shoot)} 대비 비중이에요. 같은 금액을 보내도 유형에
+                    따라 <b className="tabular-nums text-fg">{won(takes[0].net)}</b> ~{" "}
+                    <b className="tabular-nums text-fg">
+                      {won(Math.max(...takes.map((t) => t.net)))}
+                    </b>{" "}
+                    로 갈립니다. 소득세·종합소득세는 작가의 연간 소득 전체로 정해져서 건당으로
+                    나누지 않았어요 — 어디까지나 어림값입니다.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* 어디서 얼마가 빠지는지 한 줄씩 */}
