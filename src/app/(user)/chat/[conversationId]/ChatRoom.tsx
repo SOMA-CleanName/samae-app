@@ -9,6 +9,7 @@ import { sendMessage, markRead, sendPortfolioPhoto } from "../actions";
 import { sendBotTurn } from "../bot-actions";
 import { KB_EXAMPLE_QUESTIONS } from "@/lib/bot-kb";
 import { BOT_DISPLAY_NAME, isHandoffNotice } from "@/lib/bot-identity";
+import { READ_HEARTBEAT_MS } from "@/lib/notification-policy";
 import { acceptBooking, rejectBooking, cancelBooking } from "@/app/actions/bookings";
 import { mpTrack } from "@/lib/mixpanel";
 import type { ChatMessage, BookingSnapshot, ConsultationBrief, BotSlots } from "@/lib/chat";
@@ -149,9 +150,26 @@ export function ChatRoom({
   const fileRef = useRef<HTMLInputElement>(null);
   const optionsRef = useRef<HTMLDivElement>(null);
 
-  // 안읽음 초기화
+  // 안읽음 초기화 + 재실 하트비트.
+  //
+  // 알림톡 발송 판정은 conversations.user_read_at 하나로 "지금 보고 있는가" 를 추정한다
+  // (src/lib/notification-policy.ts). 진입할 때만 찍으면 **조용히 읽고 있는 사람이
+  // 나간 것으로 보이고**, 반대로 나간 뒤에도 한동안 보는 중으로 남는다.
+  //
+  // 그래서 화면이 보이는 동안 주기적으로 갱신한다. 탭을 닫거나 백그라운드로 보내면
+  // 하트비트가 끊기고, 열람창이 지나면 그때부터 알림이 나간다. visibilitychange 를
+  // 같이 듣는 건 탭으로 돌아온 순간 바로 한 번 찍어 공백을 없애기 위해서다.
   useEffect(() => {
-    markRead(conversationId);
+    const beat = () => {
+      if (document.visibilityState === "visible") markRead(conversationId);
+    };
+    beat();
+    const timer = setInterval(beat, READ_HEARTBEAT_MS);
+    document.addEventListener("visibilitychange", beat);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", beat);
+    };
   }, [conversationId]);
 
   // 대화방 진입 — 방마다 1회 (채팅 engagement)

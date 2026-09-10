@@ -1,27 +1,29 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendSms } from "@/lib/sms";
+import { dispatchNotify, notifyLink, photographerNotifyTarget } from "@/lib/notify-dispatch";
+import { formatKrwVar, formatShootDateVar, nameVar } from "@/lib/notify-templates";
+import { decideChatReplyNotification } from "@/lib/notification-policy";
 
-// 사용자 재소환 알림 (서비스 밖 채널) — 현재 SMS, 사업자 후 알림톡으로 교체 예정.
-// 설계(챗봇_설계 §5): 호출부는 큐에 넣기만 하고, 발송·중복 억제·이력은 여기서 책임진다.
+// 서비스 밖 채널(알림톡·문자) 재소환 — "언제 보낼지" 를 정하는 층.
+// "어떻게 보낼지"(채널 선택·중복 억제·큐 기록)는 notify-dispatch.ts 가 맡는다.
 //
-// 발송 정책 (chat_reply):
-//   · 작가가 보낸 메시지로 사용자 안읽음이 0→1 이 된 순간에만 (밀린 안읽음에 연타 금지)
-//   · 대화당 쿨다운 4시간 — 작가가 연속으로 여러 줄을 보내도 문자는 1통
-//   · dev 에서는 NOTIFY_SMS_DEV=on 일 때만 실발송 (그 외엔 큐에 skipped 로 기록)
+// 원칙: 앱을 닫아둔 사람이 놓치면 거래가 멈추는 순간에만 보낸다.
+// 채팅 한 줄마다 울리면 알림이 소음이 되고, 소음이 되면 정작 입금·정산 알림도 안 읽힌다.
 
-const CHAT_REPLY_COOLDOWN_MS = 4 * 3600_000;
-
-function smsAllowed(): boolean {
-  return process.env.NODE_ENV === "production" || process.env.NOTIFY_SMS_DEV === "on";
-}
-
-function chatLink(conversationId: string): string {
-  const base = process.env.NEXT_PUBLIC_SITE_URL ?? "https://samae.co.kr";
-  return `${base.replace(/\/$/, "")}/chat/${conversationId}`;
-}
-
-/** 작가 답장 → 사용자 SMS 재소환. 메시지 insert 성공 직후 호출 (실패해도 채팅 흐름은 계속). */
+/**
+ * 작가 답장 → 고객 재소환. 메시지 insert 성공 직후 호출 (실패해도 채팅 흐름은 계속).
+ *
+ * 다른 알림과 달리 **보낼지 말지를 여기서 먼저 따진다** (판정은 notification-policy.ts):
+ *   · 최근 2분 안에 읽은 방이면 보내지 않는다 — 지금 보고 있다는 뜻이다.
+ *     방을 열어두면 상대 메시지가 올 때마다 markRead 가 불려(ChatRoom.tsx) 값이 갱신된다.
+ *   · 직전 알림 뒤로 읽은 적이 없으면 24시간 동안 다시 보내지 않는다.
+ *     작가가 연달아 여러 줄을 보내도 알림은 1통.
+ *   · 읽었으면 쿨다운은 풀린다 — 읽고 나간 뒤 온 새 답장은 다시 알려야 한다.
+ *
+ * `user_unread` 로는 이 판정을 못 한다. 트리거가 +1 한 직후에 이 함수가 도는데
+ * 고객 브라우저의 읽음 처리는 그 뒤에 도착하므로, 여기서는 늘 "안 읽음" 으로 보인다.
+ * 그래서 안읽음 수가 아니라 `user_read_at`(0110)을 본다.
+ */
 export async function notifyUserOfPhotographerReply(
   conversationId: string,
   senderProfileId: string
@@ -32,7 +34,7 @@ export async function notifyUserOfPhotographerReply(
     // 대화·발신자 검증 — 이 대화의 작가가 보낸 게 맞을 때만
     const { data: conv } = await admin
       .from("conversations")
-      .select("id, user_id, photographer_id, user_unread")
+      .select("id, user_id, photographer_id, user_read_at")
       .eq("id", conversationId)
       .maybeSingle();
     if (!conv) return;
@@ -43,65 +45,170 @@ export async function notifyUserOfPhotographerReply(
       .maybeSingle();
     if (!photographer || photographer.profile_id !== senderProfileId) return; // 사용자 발신이면 무시
 
-    // 안읽음 0→1 순간에만 — 트리거(0004)가 insert 와 같은 트랜잭션에서 +1 하므로
-    // 이 시점의 user_unread=1 은 "방금 그 메시지가 첫 안읽음"이라는 뜻
-    if ((conv.user_unread as number) !== 1) return;
-
     const dedupeKey = `chat_reply:${conversationId}`;
 
-    // 쿨다운 — 4시간 내 발송(sent) 이력이 있으면 스킵
-    const { data: recent } = await admin
+    const { data: lastSent } = await admin
       .from("notification_queue")
-      .select("id")
+      .select("sent_at")
       .eq("dedupe_key", dedupeKey)
       .eq("status", "sent")
-      .gte("created_at", new Date(Date.now() - CHAT_REPLY_COOLDOWN_MS).toISOString())
+      .not("sent_at", "is", null)
+      .order("sent_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (recent) return;
 
-    const { data: profile } = await admin
-      .from("profiles")
-      .select("phone")
-      .eq("id", conv.user_id)
-      .maybeSingle();
+    const decision = decideChatReplyNotification({
+      lastReadAt: conv.user_read_at ? new Date(conv.user_read_at) : null,
+      lastSentAt: lastSent?.sent_at ? new Date(lastSent.sent_at) : null,
+      now: new Date(),
+    });
+    if (!decision.send) return;
 
-    const body = `[사매] ${photographer.display_name ?? "작가"}님 답장이 도착했어요. 확인: ${chatLink(conversationId)}`;
-
-    // 큐 기록 먼저 (감사 로그) → 발송 → 상태 갱신
-    const { data: queued } = await admin
-      .from("notification_queue")
-      .insert({
-        kind: "chat_reply",
-        profile_id: conv.user_id,
-        phone: profile?.phone ?? null,
-        body,
-        dedupe_key: dedupeKey,
-        status: "pending",
-      })
-      .select("id")
-      .single();
-    if (!queued) return;
-
-    const finish = (status: string, error?: string) =>
-      admin
-        .from("notification_queue")
-        .update({ status, error: error ?? null, sent_at: status === "sent" ? new Date().toISOString() : null })
-        .eq("id", queued.id);
-
-    if (!profile?.phone) {
-      await finish("skipped", "no_phone");
-      return;
-    }
-    if (!smsAllowed()) {
-      await finish("skipped", "dev");
-      return;
-    }
-
-    const res = await sendSms(profile.phone, body);
-    await finish(res.ok ? "sent" : "failed", res.ok ? undefined : res.error);
+    // 억제 판정은 위에서 끝냈다 — dispatchNotify 의 쿨다운은 걸지 않는다.
+    // (여기 규칙은 "읽으면 리셋" 이라 단순 시간 창으로 표현되지 않는다)
+    await dispatchNotify({
+      kind: "chat_reply",
+      profileId: conv.user_id,
+      dedupeKey,
+      variables: {
+        작가명: nameVar(photographer.display_name, "작가"),
+        링크: notifyLink(`/chat/${conversationId}`),
+        // 알림톡 버튼 URL(https://samae.ai/chat/#{채팅방ID})용 — 본문에는 안 쓰인다
+        채팅방ID: conversationId,
+      },
+    });
   } catch (err) {
-    // 알림 실패가 채팅을 막으면 안 된다 — 로그만
     console.error("[notify] chat_reply 실패:", err instanceof Error ? err.message : err);
   }
+}
+
+/**
+ * 새 문의 첫 발화 → 작가 재소환. 봇이 응대 중이어도 작가는 "손님이 왔다" 는 걸 알아야 한다.
+ * 대화당 1회 — 인앱 알림(chat-notify.ts)의 첫 발화 규칙과 같은 시점이다.
+ */
+export async function notifyPhotographerOfNewInquiry(
+  conversationId: string,
+  photographerId: string
+): Promise<void> {
+  const target = await photographerNotifyTarget(photographerId);
+  if (!target) return;
+  await dispatchNotify({
+    kind: "inquiry_received",
+    profileId: target.profileId,
+    dedupeKey: `inquiry_received:${conversationId}`,
+    variables: {
+      링크: notifyLink(`/chat/${conversationId}`),
+      채팅방ID: conversationId, // 버튼 URL 용
+    },
+  });
+}
+
+// ── 예약 ────────────────────────────────────────────────────
+
+type BookingNotifyInfo = {
+  bookingId: string;
+  /** 받는 사람의 프로필 id */
+  recipientProfileId: string | null | undefined;
+  /** 알림 문안에 들어갈 '상대' 이름 */
+  counterpartName: string;
+  shootAt: string | null;
+  shootDate?: string | null;
+  amountKrw?: number | null;
+};
+
+/** 예약 제안 → 상대방. 예약당 1회. */
+export async function notifyBookingProposed(info: BookingNotifyInfo): Promise<void> {
+  await dispatchNotify({
+    kind: "booking_proposed",
+    profileId: info.recipientProfileId,
+    dedupeKey: `booking_proposed:${info.bookingId}`,
+    variables: {
+      예약ID: info.bookingId, // 버튼 URL 용
+      상대명: nameVar(info.counterpartName, "상대방"),
+      촬영일: formatShootDateVar(info.shootAt, info.shootDate),
+      금액: formatKrwVar(info.amountKrw),
+      링크: notifyLink(`/bookings/${info.bookingId}`),
+    },
+  });
+}
+
+/** 예약 수락 → 제안자. 예약당 1회. */
+export async function notifyBookingAccepted(
+  info: Omit<BookingNotifyInfo, "amountKrw">
+): Promise<void> {
+  await dispatchNotify({
+    kind: "booking_accepted",
+    profileId: info.recipientProfileId,
+    dedupeKey: `booking_accepted:${info.bookingId}`,
+    variables: {
+      예약ID: info.bookingId, // 버튼 URL 용
+      상대명: nameVar(info.counterpartName, "상대방"),
+      촬영일: formatShootDateVar(info.shootAt, info.shootDate),
+      링크: notifyLink(`/bookings/${info.bookingId}`),
+    },
+  });
+}
+
+/** 운영 입금 확인 → 고객. 예약당 1회. */
+export async function notifyDepositConfirmed(params: {
+  bookingId: string;
+  userProfileId: string;
+  photographerName: string;
+  shootAt: string | null;
+  shootDate?: string | null;
+}): Promise<void> {
+  await dispatchNotify({
+    kind: "deposit_confirmed",
+    profileId: params.userProfileId,
+    dedupeKey: `deposit_confirmed:${params.bookingId}`,
+    variables: {
+      예약ID: params.bookingId, // 버튼 URL 용
+      작가명: nameVar(params.photographerName, "작가"),
+      촬영일: formatShootDateVar(params.shootAt, params.shootDate),
+      링크: notifyLink(`/bookings/${params.bookingId}`),
+    },
+  });
+}
+
+/** 운영 입금 확인 → 작가. 예약당 1회. */
+export async function notifyBookingConfirmedToPhotographer(params: {
+  bookingId: string;
+  photographerProfileId: string;
+  customerName: string;
+  shootAt: string | null;
+  shootDate?: string | null;
+  settlementKrw: number;
+}): Promise<void> {
+  await dispatchNotify({
+    kind: "booking_confirmed",
+    profileId: params.photographerProfileId,
+    dedupeKey: `booking_confirmed:${params.bookingId}`,
+    variables: {
+      예약ID: params.bookingId, // 버튼 URL 용
+      고객명: nameVar(params.customerName, "고객"),
+      촬영일: formatShootDateVar(params.shootAt, params.shootDate),
+      정산금액: formatKrwVar(params.settlementKrw),
+      링크: notifyLink("/studio/settlements"),
+    },
+  });
+}
+
+/** 정산 완료 → 작가. 예약당 1회. 돈이 실제로 나간 사실은 반드시 밖으로 알린다. */
+export async function notifySettlementPaid(params: {
+  bookingId: string;
+  photographerProfileId: string;
+  shootAt: string | null;
+  shootDate?: string | null;
+  settlementKrw: number;
+}): Promise<void> {
+  await dispatchNotify({
+    kind: "settlement_paid",
+    profileId: params.photographerProfileId,
+    dedupeKey: `settlement_paid:${params.bookingId}`,
+    variables: {
+      촬영일: formatShootDateVar(params.shootAt, params.shootDate),
+      정산금액: formatKrwVar(params.settlementKrw),
+      링크: notifyLink("/studio/settlements"),
+    },
+  });
 }

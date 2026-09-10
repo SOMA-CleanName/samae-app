@@ -30,12 +30,22 @@ export function SiteInfoBar() {
           ))}
         </dl>
 
-        <Link
-          href="/privacy"
-          className="ml-auto text-[11px] leading-none text-muted transition-colors hover:text-brand"
-        >
-          개인정보 처리방침
-        </Link>
+        {/*
+          약관과 처리방침은 여기서만 상시 노출된다 — 홈·탐색이 무한 스크롤이라 푸터로는
+          닿지 않는다(위 주석). 전자상거래법 제10조가 사이버몰 초기화면에 이용약관을
+          표시하도록 하고, 결제채널 심사도 접근성을 본다. ⚠️ 지우지 말 것.
+        */}
+        <div className="ml-auto flex items-center gap-3 text-[11px] leading-none text-muted">
+          <Link href="/terms" className="transition-colors hover:text-brand">
+            서비스 이용약관
+          </Link>
+          <span aria-hidden className="text-faint">
+            ·
+          </span>
+          <Link href="/privacy" className="transition-colors hover:text-brand">
+            개인정보 처리방침
+          </Link>
+        </div>
       </div>
     </div>
   );

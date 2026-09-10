@@ -8,6 +8,7 @@ import { mpTrack } from "@/lib/mixpanel";
 import { readNextParam, setOauthNextCookie } from "@/lib/safe-redirect-client";
 import { MailIcon } from "@/components/user/icons";
 import { Divider, Field, KakaoButton, Note, SubmitButton } from "../AuthBits";
+import { kakaoScopes } from "@/lib/kakao-phone";
 
 /** 가입 후 복귀 경로 — 로그인 페이지에서 next 를 이어받는다(문의 흐름 이탈 방지). */
 const DEFAULT_SIGNUP_NEXT = "/";
@@ -57,7 +58,9 @@ export function SignupForm() {
     setOauthNextCookie(signupNext());
     await supabase.auth.signInWithOAuth({
       provider: "kakao",
-      options: { redirectTo: `${location.origin}/auth/callback` },
+      // scopes 는 카카오싱크 검수 통과 후에만 붙는다(lib/kakao-phone) — 검수 안 된
+      // 동의항목을 요청하면 카카오가 로그인 자체를 거절한다(KOE205).
+      options: { redirectTo: `${location.origin}/auth/callback`, scopes: kakaoScopes() },
     });
   }
 
@@ -207,8 +210,11 @@ export function SignupForm() {
       )}
 
       {/* 전에는 '서비스 이용약관'이 링크 없는 평문이었다 — /terms 가 404 였기 때문.
-          이제 페이지가 있다. 다만 전문은 법무 검토 전이라, 그 페이지가 준비 중임을
-          밝히고 지금 유효한 기준(/trust·/privacy)으로 안내한다. */}
+          2026-09 에 본문 18개 조를 게시했으므로 이제 실재하는 문서를 가리킨다.
+
+          ⚠️ 동의 체크박스는 아직 없다 — 가입하면 동의한 것으로 보는 구조다. 약관이 껍데기일
+             때는 체크박스가 오히려 이상했지만 본문이 생겼으므로 필수 동의로 올릴지 다시
+             판단할 것. 가입 전환율과 맞바꾸는 문제라 제품 결정이다. */}
       <p className="mt-4 text-caption leading-relaxed text-faint">
         가입하면{" "}
         <Link href="/terms" className="underline underline-offset-2 hover:text-muted">

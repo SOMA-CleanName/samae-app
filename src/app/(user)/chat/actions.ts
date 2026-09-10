@@ -14,8 +14,12 @@ import { coreSlotsFilled, type LlmSlots } from "@/lib/inquiry-bot-llm";
 import { finalizeBotInquiryFor } from "@/app/(user)/inquiry/actions";
 import { handlePhotographerTakeover } from "@/lib/bot-handoff";
 
-// 송금 단계(수락 이후)에서만 작가 수취 계좌를 공개 — 채팅 진입만으로 계좌가 응답에 실리지 않게 한다(리드/보안).
+// 입금 단계(수락 이후)에서만 계좌를 공개 — 채팅 진입만으로 계좌가 응답에 실리지 않게 한다.
 //   · 고객 본인 + 해당 예약이 accepted 이상일 때만 반환, 그 외엔 null.
+//
+// ⚠️ 공개하는 것은 **사매 계좌**(getPlatformAccount)다. 주석에 "작가 수취 계좌" 라고 적혀
+//    있었는데 리드 시절 표현이다 — 그때는 고객이 작가 계좌로 직접 보냈다. 지금은 에스크로라
+//    고객이 사매에 내고 사매가 수수료를 뗀 뒤 작가에게 정산한다.
 const PAYOUT_VISIBLE_STATUSES = ["accepted", "paid", "shot", "delivered", "completed"];
 
 export async function getBookingPayoutAccount(bookingId: string): Promise<PayoutAccount | null> {
@@ -249,8 +253,13 @@ export async function markRead(conversationId: string) {
     .maybeSingle();
   if (!conv) return;
 
+  // user_read_at 은 답장 알림 판정에 쓴다 — "지금 이 방을 보고 있는가".
+  // 방을 열어두면 상대 메시지가 도착할 때마다 이 액션이 불리므로(ChatRoom.tsx) 계속 갱신된다.
+  // 작가 쪽은 아직 이 판정을 쓰지 않아 대응 컬럼을 두지 않았다.
   const patch =
-    conv.user_id === me.id ? { user_unread: 0 } : { photographer_unread: 0 };
+    conv.user_id === me.id
+      ? { user_unread: 0, user_read_at: new Date().toISOString() }
+      : { photographer_unread: 0 };
   await supabase.from("conversations").update(patch).eq("id", conversationId);
   revalidatePath("/chat");
 }
