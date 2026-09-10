@@ -876,15 +876,58 @@ export function ExploreGallery({
           io.unobserve(e.target);
         }
       },
-      // 아래쪽에서 조금 일찍 시작해, 화면에 닿을 때쯤 자리를 잡게 한다.
-      { rootMargin: "0px 0px -8% 0px", threshold: 0.01 }
+      // 카드가 화면에 **닿기 직전** 시작한다.
+      //
+      // 예전엔 `-8%` 였다. 음수 하단 마진은 "화면 안으로 8% 들어와야 시작" 이라는 뜻이라,
+      // 스크롤을 멈춘 순간 화면 맨 아래 줄이 아직 그 선을 못 넘어 **opacity:0 인 채로 남았다**
+      // (`[data-reveal-on] .feed-rise:not([data-shown])`). 사진이 안 불러와진 것처럼
+      // 검은 빈 공간이 보이던 원인이다.
+      //
+      // 양수로 뒤집어 살짝 미리 켠다. 등장 연출은 그대로 보이면서(카드가 올라오는 동안
+      // 스크롤이 이어진다) 멈춰도 빈칸이 남지 않는다.
+      { rootMargin: "0px 0px 6% 0px", threshold: 0.01 }
     );
 
-    grid
-      .querySelectorAll<HTMLElement>(".feed-rise:not([data-shown])")
-      .forEach((el) => io.observe(el));
+    // 관찰은 "앞으로 들어올" 카드에만 의미가 있다. **이미 화면에 있거나 지나간 카드**는
+    // 관찰자가 영영 안 깨운다 — IntersectionObserver 는 교차 상태가 *바뀔 때* 부르는데,
+    // 마운트 시점에 이미 위쪽에 있던 카드는 다시 들어올 일이 없기 때문이다.
+    // 그런 카드는 `opacity:0` 인 채 남아 **빈칸으로 보인다**(실측: 화면 안 12장 중 8장).
+    // 스크롤 복원·해시 점프·리사이즈처럼 위치가 한 번에 튀는 경우마다 생긴다.
+    //
+    // 그래서 지금 기준으로 이미 지났거나 닿은 것은 즉시 켜고, 아직 아래에 있는 것만 관찰한다.
+    const sweep = () => {
+      const line = window.innerHeight * 1.06; // rootMargin 과 같은 기준선
+      const rest = grid.querySelectorAll<HTMLElement>(".feed-rise:not([data-shown])");
+      rest.forEach((el) => {
+        if (el.getBoundingClientRect().top < line) {
+          el.dataset.shown = "1";
+          io.unobserve(el);
+        }
+      });
+      return rest.length;
+    };
 
-    return () => io.disconnect();
+    grid.querySelectorAll<HTMLElement>(".feed-rise:not([data-shown])").forEach((el) => io.observe(el));
+    sweep();
+
+    // 스크롤이 한 번에 튀면(복원·해시 점프·리사이즈) 관찰자는 교차 '변화' 를 못 봐서
+    // 침묵한다. 이 효과의 의존성은 [columnsReady, visible, items.length] 뿐이라 스크롤만으로는
+    // 다시 돌지도 않는다. 그래서 스크롤에 얹어 훑는다 — 남은 카드가 없으면 스스로 뗀다.
+    let frame: number | null = null;
+    const onScroll = () => {
+      if (frame !== null) return;
+      frame = requestAnimationFrame(() => {
+        frame = null;
+        if (sweep() === 0) window.removeEventListener("scroll", onScroll);
+      });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+
+    return () => {
+      io.disconnect();
+      if (frame !== null) cancelAnimationFrame(frame);
+      window.removeEventListener("scroll", onScroll);
+    };
   }, [columnsReady, visible, items.length]);
 
   /*
