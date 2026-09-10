@@ -240,6 +240,11 @@ export function ExploreGallery({
     높이에서 배경으로 녹아든다.
 
     잘라낸 사진은 사라지는 게 아니다 — [사진 더 보기] 를 누르면 trim 이 풀리고 이어서 흐른다.
+
+    ⚠️ **폭이 바뀌면 다시 재야 한다.** 카드 높이가 컬럼 폭에 비례하므로, 컬럼 **수**가 그대로인
+       리사이즈(1020→900px 같은)에서도 마지막 사진의 끝은 통째로 움직인다. colCount 만 의존성에
+       두면 그때 잘린 높이가 낡아서, 사진이 잘려 나가거나 아래에 빈 공간이 남는다.
+       그래서 ResizeObserver 로 그리드 폭 자체를 지켜본다.
   */
   useIsoLayoutEffect(() => {
     if (!autoPaused) {
@@ -248,14 +253,28 @@ export function ExploreGallery({
     }
     const grid = gridEl.current;
     if (!grid) return;
-    const top = grid.getBoundingClientRect().top;
-    const ends = [...grid.children].map((col) => {
-      const cards = col.querySelectorAll<HTMLElement>("[data-pid]");
-      const last = cards[cards.length - 1];
-      return last ? last.getBoundingClientRect().bottom - top : 0;
-    });
-    const shallowest = Math.min(...ends.filter((n) => n > 0));
-    if (Number.isFinite(shallowest) && shallowest > 0) setTrimHeight(Math.round(shallowest));
+
+    const measure = () => {
+      // 이번 프레임의 clip 을 빼고 실제 콘텐츠 위치를 잰다 — 지난 trim 이 껴 있으면
+      // 잘린 아래쪽 카드의 bottom 을 못 읽어 값이 계속 작아진다.
+      const prev = grid.style.height;
+      grid.style.height = "";
+      const top = grid.getBoundingClientRect().top;
+      const ends = [...grid.children].map((col) => {
+        const cards = col.querySelectorAll<HTMLElement>("[data-pid]");
+        const last = cards[cards.length - 1];
+        return last ? last.getBoundingClientRect().bottom - top : 0;
+      });
+      grid.style.height = prev;
+
+      const shallowest = Math.min(...ends.filter((n) => n > 0));
+      if (Number.isFinite(shallowest) && shallowest > 0) setTrimHeight(Math.round(shallowest));
+    };
+
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(grid);
+    return () => ro.disconnect();
   }, [autoPaused, visible, columnsReady, colCount]);
 
   function recordPhotoClick(photoId: string) {
@@ -586,8 +605,13 @@ export function ExploreGallery({
     const advance = async (manual = false) => {
       if (busy) return;
       // 자동 예산 소진 → 멈추고 버튼에 넘긴다. 버튼(manual)은 예산을 다시 채우고 통과한다.
-      // 검색 결과에는 걸지 않는다 — 찾던 걸 보는 중에 버튼이 끼면 흐름이 끊긴다.
-      if (!query) {
+      //
+      // **서버 페이지네이션이 있는 지면에서만 건다.**
+      //   · 검색 결과 — 찾던 걸 보는 중에 버튼이 끼면 흐름이 끊긴다
+      //   · loadMore 가 없는 지면(카테고리 `/c/[slug]` 등) — 애초에 유한 목록이라 스크롤만으로
+      //     끝에 닿는다. 여기에 걸면 **아무것도 못 불러오는 [더 보기] 버튼**이 뜨고, 밑단 trim 이
+      //     마지막 사진보다 아래를 잘라 빈 공간만 남는다(실측: /c/couple 에서 452px).
+      if (!query && loadMore && activeFeedSeed) {
         if (manual) {
           autoBudget.current = AUTO_ADVANCE_BUDGET;
           setAutoPaused(false);
