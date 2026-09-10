@@ -156,7 +156,7 @@ export default async function BookingDetail({
 
       {/* 정체 단계 넛지 */}
       {nudge && (
-        <p className="mt-3 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning">
+        <p className="mt-3 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning-ink">
           {nudge}
         </p>
       )}
@@ -204,13 +204,13 @@ export default async function BookingDetail({
                 </div>
               </div>
             ) : (
-              <p className="mt-3 rounded-xl bg-warning-soft px-3 py-2 text-xs text-warning">
+              <p className="mt-3 rounded-xl bg-warning-soft px-3 py-2 text-xs text-warning-ink">
                 입금 계좌 안내를 준비 중이에요. 잠시 후 다시 확인해주세요.
               </p>
             )}
 
             {b.transfer_marked_at ? (
-              <p className="mt-3 rounded-full bg-success-soft px-3 py-2 text-center text-xs text-success">
+              <p className="mt-3 rounded-full bg-success-soft px-3 py-2 text-center text-xs text-success-ink">
                 ✅ 입금 완료를 알렸어요 · 사매가 확인하면 예약이 확정돼요
               </p>
             ) : (

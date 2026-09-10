@@ -518,7 +518,7 @@ export function ChatRoom({
             m.id === firstPhotographerMsgId ? (
               <div key={`handoff-${m.id}`} className="flex items-center gap-3 py-1.5">
                 <span className="h-px flex-1 bg-line" />
-                <span className="rounded-full bg-success-soft px-3 py-1 text-caption font-medium text-success">
+                <span className="rounded-full bg-success-soft px-3 py-1 text-caption font-medium text-success-ink">
                   여기서부터 작가님이 직접 답해요
                 </span>
                 <span className="h-px flex-1 bg-line" />
@@ -781,7 +781,7 @@ export function ChatRoom({
 
       {/* 수집 완주했는데 프로필 연락처가 없어 접수 보류 — 등록 동선 제공 */}
       {botNeedContact && (
-        <div className="mx-3 mb-1.5 rounded-xl bg-warning-soft px-3.5 py-2.5 text-caption text-warning sm:mx-4">
+        <div className="mx-3 mb-1.5 rounded-xl bg-warning-soft px-3.5 py-2.5 text-caption text-warning-ink sm:mx-4">
           알림을 받을 연락처가 필요해요.{" "}
           <Link
             href={`/signup/contact?next=/chat/${conversationId}`}
@@ -794,7 +794,7 @@ export function ChatRoom({
 
       {/* 오프플랫폼 유도 차단 안내 — 입력은 유지된 채 문구만 고치게 */}
       {blockedNotice && (
-        <div className="mx-3 mb-1.5 flex items-start justify-between gap-2 rounded-xl bg-danger-soft px-3.5 py-2.5 text-caption text-danger sm:mx-4">
+        <div className="mx-3 mb-1.5 flex items-start justify-between gap-2 rounded-xl bg-danger-soft px-3.5 py-2.5 text-caption text-danger-ink sm:mx-4">
           <span>{blockedNotice}</span>
           <button
             type="button"
@@ -1245,10 +1245,10 @@ function BookingCard({
         <span
           className={`rounded-full px-2 py-0.5 text-label font-semibold ${
             POSITIVE_STATUSES.has(status)
-              ? "bg-success-soft text-success"
+              ? "bg-success-soft text-success-ink"
               : CLOSED_STATUSES.has(status)
               ? "bg-fg/[0.06] text-faint"
-              : "bg-warning-soft text-warning"
+              : "bg-warning-soft text-warning-ink"
           }`}
         >
           {/* 라벨 규칙은 lib/bookings 의 bookingStatusLabel 이 진실 — 낙관적 상태(acted)일 때만 로컬 표기 */}
