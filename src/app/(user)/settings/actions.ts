@@ -26,7 +26,14 @@ export async function updateDisplayName(formData: FormData) {
   revalidatePath("/", "layout"); // 헤더 아바타 메뉴 등 갱신
 }
 
-// 프로필 사진을 기본(이니셜)으로 되돌리기 — avatar_url 비우기.
+// 프로필 사진을 기본(이니셜)으로 되돌리기.
+//
+// ⚠️ null 이 아니라 **빈 문자열**을 쓴다. 로그인 콜백이 카카오 프로필 사진으로 빈 아바타를
+//    채우는데(adoptKakaoAvatar), null 로 두면 "아직 정해진 적 없음" 과 구분이 안 돼서
+//    **다음 로그인에 카카오 사진이 되살아난다** — 사용자가 방금 지운 것을.
+//      null → 아직 정해진 적 없음 (채워도 된다)
+//      ""   → 사용자가 이니셜을 택했다 (건드리지 않는다)
+//    화면에서는 둘 다 falsy 라 똑같이 이니셜이 나온다.
 export async function removeAvatar() {
   const me = await getCurrentUser();
   if (!me) redirect("/login?next=/settings");
@@ -34,7 +41,7 @@ export async function removeAvatar() {
   const supabase = await createClient();
   const { error } = await supabase
     .from("profiles")
-    .update({ avatar_url: null })
+    .update({ avatar_url: "" })
     .eq("id", me.id);
   if (error) throw new Error(error.message);
 

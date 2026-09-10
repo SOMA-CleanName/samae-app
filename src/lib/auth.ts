@@ -46,7 +46,8 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
     email: user.email ?? null,
     role: (profile?.role as "user" | "admin") ?? "user",
     displayName: profile?.display_name ?? null,
-    avatarUrl: profile?.avatar_url ?? null,
+    // `""` 는 "이니셜을 택함"(settings removeAvatar) — 화면에서는 null 과 같이 다룬다
+    avatarUrl: profile?.avatar_url || null,
     photographer: photographer
       ? {
           id: photographer.id,
