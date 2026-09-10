@@ -162,9 +162,11 @@ export function BannerCarousel({ items }: { items: BannerItem[] }) {
         )}
       </div>
 
-      {/* 도트 — 사진 아래. 현재/비현재 차이는 색만(크기·모양 동일). 2장 이상일 때만 */}
+      {/* 도트 — 사진 아래. 현재/비현재 차이는 색만(크기·모양 동일). 2장 이상일 때만.
+          점은 6px 그대로 두고 **버튼을 32×44 로 키운다** — 6px 은 손가락으로 못 누른다
+          (권장 44px 의 1/7). 가로는 점 간격에 갇혀 32px 이 한계라 세로로 벌었다. */}
       {count > 1 && (
-        <div className="mt-2.5 flex justify-center gap-1.5">
+        <div className="-mt-0.5 flex justify-center">
           {items.map((b, i) => (
             <button
               key={b.id}
@@ -172,11 +174,16 @@ export function BannerCarousel({ items }: { items: BannerItem[] }) {
               aria-label={`${i + 1}번째 배너 보기`}
               aria-current={i === idx ? "true" : undefined}
               onClick={() => go(i)}
-              className={cn(
-                "h-1.5 w-1.5 rounded-full transition-colors",
-                i === idx ? "bg-fg" : "bg-line-strong hover:bg-fg/40"
-              )}
-            />
+              className="group grid h-11 w-8 cursor-pointer place-items-center"
+            >
+              <span
+                aria-hidden
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full transition-colors",
+                  i === idx ? "bg-fg" : "bg-line-strong group-hover:bg-fg/40"
+                )}
+              />
+            </button>
           ))}
         </div>
       )}

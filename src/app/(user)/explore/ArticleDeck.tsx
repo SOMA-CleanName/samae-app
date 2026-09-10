@@ -173,7 +173,7 @@ export function ArticleDeck({ articles }: { articles: ArticleCard[] }) {
 
       {/* 점 — 어디쯤인지. 눌러서 이동도 된다. */}
       {articles.length > 1 && (
-        <div className="mt-1 flex justify-center gap-1.5">
+        <div className="-mt-1 flex justify-center">
           {articles.map((a, i) => (
             <button
               key={a.id}
@@ -181,11 +181,16 @@ export function ArticleDeck({ articles }: { articles: ArticleCard[] }) {
               aria-label={`${i + 1}번째 글 보기`}
               aria-current={i === active ? "true" : undefined}
               onClick={() => goTo(i)}
-              // 점 규격은 BannerCarousel 과 동일 — 크기·모양은 고정, 색만 바뀐다.
-              className={`h-1.5 w-1.5 rounded-full transition-colors ${
-                i === active ? "bg-fg" : "bg-line-strong hover:bg-fg/40"
-              }`}
-            />
+              // 점 규격은 BannerCarousel 과 동일 — 점은 6px, 버튼은 32×44.
+              className="group grid h-11 w-8 cursor-pointer place-items-center"
+            >
+              <span
+                aria-hidden
+                className={`h-1.5 w-1.5 rounded-full transition-colors ${
+                  i === active ? "bg-fg" : "bg-line-strong group-hover:bg-fg/40"
+                }`}
+              />
+            </button>
           ))}
         </div>
       )}
