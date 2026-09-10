@@ -5,20 +5,12 @@
   ],
   "crons": [
     {
-      "path": "/api/cron/daily-digest",
-      "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/cron/expire-inquiries",
-      "schedule": "30 0 * * *"
-    },
-    {
       "path": "/api/cron/refund-notices",
       "schedule": "0 0 * * *"
     },
     {
-      "path": "/api/cron/booking-sweep",
-      "schedule": "0 20 * * *"
+      "path": "/api/cron/chat-reminder",
+      "schedule": "0 * * * *"
     }
   ]
 }
