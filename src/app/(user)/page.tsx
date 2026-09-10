@@ -18,9 +18,6 @@ import { getCurrentUser } from "@/lib/auth";
 import { TASTE_V2_COOKIE, parseTasteV2 } from "@/lib/category-constants";
 import { rerankByPersonaVector } from "@/lib/persona/feed-rerank";
 import {
-  TASTE_TEST_NUDGE_COOKIE,
-  TASTE_TEST_NUDGE_PERSISTENCE_ENABLED,
-  TASTE_TEST_NUDGE_PREVIEW_ENABLED,
 } from "@/lib/taste-test-nudge";
 import { ExploreGallery } from "@/components/user/ExploreGallery";
 import { ScrollMemory } from "@/components/user/ScrollMemory";
@@ -31,7 +28,6 @@ import { SearchResultsHead } from "@/components/user/SearchResultsHead";
 import { pickSearchPlaceholder } from "@/lib/search-copy";
 import { routeSessionKey } from "@/lib/search-navigation";
 import { shouldShowSearchUi } from "@/lib/search-ui-visibility";
-import { TasteTestNudge } from "@/components/user/TasteTestNudge";
 import { HomeBannerSlot } from "@/components/user/HomeBannerSlot";
 import { HomeQuickNav } from "@/components/user/HomeQuickNav";
 import { HomeDiscoverySections } from "./HomeDiscoverySections";
@@ -109,10 +105,6 @@ export default async function ExploreHome({
   // 목적∩무드(가장 먼저) → 목적만 → 무드만 → 일반 시드 피드. (fetchHomeFeedPage 공용)
   const cookieStore = await cookies();
   const { purposeIds, moodIds } = parseTasteV2(cookieStore.get(TASTE_V2_COOKIE)?.value);
-  const tasteCatIds = [...purposeIds, ...moodIds];
-  const tasteNudgeHidden =
-    TASTE_TEST_NUDGE_PERSISTENCE_ENABLED &&
-    cookieStore.get(TASTE_TEST_NUDGE_COOKIE)?.value === "1";
 
   let photos: GalleryPhoto[];
   if (isAllFeed && feedSeed) {
@@ -222,11 +214,6 @@ export default async function ExploreHome({
            온 거라, 큐레이션을 먼저 깔면 정작 클릭한 사진이 두 화면 아래로 밀린다.
       */}
       {isAllFeed && <HomeDiscoverySections />}
-
-      {/* 취향 미설정 사용자 — 홈 피드를 5초간 둘러본 뒤 하단 내비 위에서 테스트 안내 */}
-      {isAllFeed &&
-        (TASTE_TEST_NUDGE_PREVIEW_ENABLED ||
-          (tasteCatIds.length === 0 && !tasteNudgeHidden)) && <TasteTestNudge />}
 
       {/* 맨 위로 — '전체 사진' 머리를 지나야 나타난다 */}
       {isAllFeed && <ScrollTopButton anchorId="sec-all-photos" />}

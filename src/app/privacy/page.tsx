@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 // ⚠️ 개정일은 "배포되는 날" 이어야 한다. 처리방침은 게시된 시점부터 효력이 있는데,
 //    아직 안 올라간 문서에 과거 날짜를 박아두면 그 사이 기간을 소급해 약속한 꼴이 된다.
 //    머지·배포일이 아래와 다르면 반드시 맞춰서 고칠 것.
-const REVISED_AT = "2026-09-09";
+const REVISED_AT = "2026-09-10";
 
 export default function PrivacyPage() {
   return (
