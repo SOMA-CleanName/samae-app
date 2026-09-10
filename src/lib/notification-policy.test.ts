@@ -19,8 +19,12 @@ test("앱을 닫아둔 사람에게는 보낸다", () => {
 });
 
 test("방을 보고 있는 중이면 보내지 않는다", () => {
-  // 열어두고 대화 중이면 상대 메시지마다 markRead 가 불려 이 값이 갱신된다
-  assert.deepEqual(decide({ lastReadAt: ago(30_000) }), { send: false, reason: "viewing" });
+  // 열어두면 하트비트가 markRead 를 계속 불러 이 값이 갱신된다.
+  // 창 길이는 상수에서 파생시킨다 — 숫자를 박아 두면 창을 줄일 때마다 테스트가 깨진다.
+  assert.deepEqual(decide({ lastReadAt: ago(VIEWING_WINDOW_MS / 2) }), {
+    send: false,
+    reason: "viewing",
+  });
 });
 
 test("읽은 지 오래됐으면 보고 있는 게 아니다", () => {
