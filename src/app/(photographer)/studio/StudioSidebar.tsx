@@ -85,7 +85,9 @@ export function StudioSidebar({ chatUnread = 0 }: { chatUnread?: number }) {
               <Link
                 key={it.href}
                 href={it.href}
-                className={`relative shrink-0 rounded-full px-3 py-1.5 text-sm transition-colors ${
+                // 알약은 32px 그대로. 투명 ::before 로 위아래만 6px 씩 벌려 탭 영역을 44px 로.
+                // (알약 자체를 44px 로 키우면 상단 바가 통째로 두꺼워진다)
+                className={`relative shrink-0 rounded-full px-3 py-1.5 text-sm transition-colors before:absolute before:inset-x-0 before:-inset-y-1.5 before:content-[''] ${
                   active ? "bg-fg text-bg" : "text-fg/60 hover:bg-fg/[0.05]"
                 }`}
               >
@@ -117,7 +119,9 @@ function SideLink({ item, active }: { item: Item; active: boolean }) {
   return (
     <Link
       href={item.href}
-      className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${
+      // 세로 패딩 대신 min-h-11 — 작가가 매일 쓰는 내비라 36px 은 좁다.
+      // py 를 올리면 항목 간 간격까지 벌어져 목록이 길어진다.
+      className={`flex min-h-11 items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${
         active ? "bg-fg/[0.08] font-medium text-fg" : "text-fg/65 hover:bg-fg/[0.05] hover:text-fg"
       }`}
     >
