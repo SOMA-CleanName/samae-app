@@ -8,6 +8,7 @@ import { Parallax } from "@/components/editorial/Parallax";
 import { ReadingProgress } from "@/components/editorial/ReadingProgress";
 import { StickyBack } from "@/components/editorial/StickyBack";
 import { ChannelCard } from "@/components/ChannelCard";
+import { SiteFooter } from "@/components/SiteFooter";
 import { articleJsonLd, breadcrumbJsonLd } from "@/lib/seo";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { getPublishedArticle, listPublishedArticles, readingMinutes } from "@/lib/articles";
@@ -216,6 +217,11 @@ export default async function ArticleDetailPage({
       {/* 글을 끝까지 읽은 사람은 이미 "더 볼" 의향이 있다. 그 자리에 문만 열어 둔다. */}
       <div className="mx-auto max-w-[760px] px-5 md:px-8">
         <ChannelCard />
+
+        {/* 목록(/articles)엔 푸터가 있는데 정작 글에는 없었다. 검색·인스타로 들어오는
+            사람은 대부분 목록이 아니라 여기로 바로 떨어지는데, 그 자리에 사업자 정보도
+            약관도 처리방침도 없었다. */}
+        <SiteFooter />
       </div>
     </main>
   );

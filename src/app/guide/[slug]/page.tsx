@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { JsonLd } from "@/components/JsonLd";
 import { StickyBack } from "@/components/editorial/StickyBack";
+import { SiteFooter } from "@/components/SiteFooter";
 import { faqJsonLd, breadcrumbJsonLd } from "@/lib/seo";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { findGuideItem, GUIDE_PAGE_ITEMS } from "@/lib/guide-data";
@@ -115,6 +116,10 @@ export default async function GuideDetailPage({
           </ul>
         </section>
       )}
+
+      {/* 목록(/guide)엔 있고 문답 낱개엔 없었다. 검색으로 바로 들어오는 지면이라
+          여기서도 사업자 정보·약관에 닿아야 한다. */}
+      <SiteFooter />
       </div>
     </main>
   );

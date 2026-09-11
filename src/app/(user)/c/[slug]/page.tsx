@@ -128,9 +128,6 @@ export default async function CategoryPage({
         </a>
       </div>
 
-      {/* 여기도 무한 스크롤이라 푸터에 못 닿는다 — 피드 시작 전에 안내 링크 (홈과 같은 이유) */}
-      <SiteFooter />
-
       {photos.length === 0 ? (
         <EmptyState
           icon={<LayersIcon className="h-7 w-7" />}
@@ -146,6 +143,13 @@ export default async function CategoryPage({
           spotlightFirstOnGeneral
         />
       )}
+
+      {/* 지면의 끝 — 홈과 같은 자리다.
+          예전엔 피드 **앞**에 있었다. "여기도 무한 스크롤이라 푸터에 못 닿는다"는 이유였는데,
+          그 결과 광고로 들어온 사람의 첫 화면 바로 아래에 사업자 정보가 박혔다
+          (실측: 푸터 top 422px, 그 아래에 사진 48장). 페이지가 거기서 끝난 것처럼 읽힌다.
+          이제 갤러리가 3회에서 멈추고 [사진 더 보기]로 넘기므로 푸터에 닿는다. */}
+      <SiteFooter />
     </section>
   );
 }

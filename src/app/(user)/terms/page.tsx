@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SiteFooter } from "@/components/SiteFooter";
 
 /*
   서비스 이용약관 — 본문.
@@ -418,6 +419,10 @@ export default function TermsPage() {
         </Link>
         에 더 자세히 적어 두었습니다.
       </p>
+
+      {/* 약관 지면에 푸터가 없었다. 사업자 정보·처리방침이 가장 붙어 있어야 할 자리인데,
+          여기까지 읽고 내려온 사람에게 나갈 문이 하나도 없었다. */}
+      <SiteFooter />
     </main>
   );
 }

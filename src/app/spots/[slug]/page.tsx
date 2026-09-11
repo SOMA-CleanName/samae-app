@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { JsonLd } from "@/components/JsonLd";
 import { StickyBack } from "@/components/editorial/StickyBack";
+import { SiteFooter } from "@/components/SiteFooter";
 import { SectionHead } from "@/components/editorial/SectionHead";
 import { breadcrumbJsonLd, faqJsonLd, placeJsonLd } from "@/lib/seo";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
@@ -303,6 +304,9 @@ export default async function SpotDetailPage({
             </ul>
           </section>
         )}
+
+        {/* 목록(/spots)엔 있고 장소 낱개엔 없었다. 검색 유입이 가장 많은 지면 중 하나다. */}
+        <SiteFooter />
       </div>
     </main>
   );

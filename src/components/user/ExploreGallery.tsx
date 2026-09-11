@@ -606,12 +606,20 @@ export function ExploreGallery({
       if (busy) return;
       // 자동 예산 소진 → 멈추고 버튼에 넘긴다. 버튼(manual)은 예산을 다시 채우고 통과한다.
       //
-      // **서버 페이지네이션이 있는 지면에서만 건다.**
-      //   · 검색 결과 — 찾던 걸 보는 중에 버튼이 끼면 흐름이 끊긴다
-      //   · loadMore 가 없는 지면(카테고리 `/c/[slug]` 등) — 애초에 유한 목록이라 스크롤만으로
-      //     끝에 닿는다. 여기에 걸면 **아무것도 못 불러오는 [더 보기] 버튼**이 뜨고, 밑단 trim 이
-      //     마지막 사진보다 아래를 잘라 빈 공간만 남는다(실측: /c/couple 에서 452px).
-      if (!query && loadMore && activeFeedSeed) {
+      // 기준은 **"아직 보여 줄 게 남았느냐"** 다. 검색 결과에서만 빼 둔다 —
+      // 찾던 걸 보는 중에 버튼이 끼면 흐름이 끊긴다.
+      //
+      // 예전엔 `loadMore` 유무로 갈랐다(= 서버 페이지네이션이 있는 지면에서만). 그러면
+      // 유한 목록인 카테고리 `/c/[slug]` 는 예산 없이 끝까지 흘러서 **534장·64,000px 을
+      // 다 내려야 푸터에 닿는다** — 못 닿는 것과 같다.
+      // 그렇다고 `loadMore` 로 가르는 걸 그냥 지우면 예전 회귀가 돌아온다. 목록 끝에서도
+      // 버튼이 떠 아무 일도 안 하고, 밑단 trim 이 마지막 사진 아래를 잘라 빈 공간만
+      // 남았다(실측 /c/couple 452px). 그건 "불러올 곳이 없다"가 아니라 **"남은 게 없다"**
+      // 는 상황이었다. 그래서 조건을 그 말 그대로 쓴다.
+      const hasMoreToShow =
+        visible < items.length ||
+        (!!loadMore && !!activeFeedSeed && !feedExhausted.current);
+      if (!query && hasMoreToShow) {
         if (manual) {
           autoBudget.current = AUTO_ADVANCE_BUDGET;
           setAutoPaused(false);
