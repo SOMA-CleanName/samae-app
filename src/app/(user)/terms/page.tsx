@@ -439,7 +439,7 @@ function Article({
   return (
     <section>
       <h2 className="mb-2 text-base font-semibold text-fg">
-        <span className="font-display italic tabular-nums text-brand">{n}</span>{" "}
+        <span className="font-display italic tabular-nums text-brand-ink">{n}</span>{" "}
         <span>({title})</span>
       </h2>
       {children}

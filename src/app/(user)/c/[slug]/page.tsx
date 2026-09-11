@@ -111,7 +111,7 @@ export default async function CategoryPage({
 
       {/* 카테고리 추천 보는 중 + 전체 보기 해제(쿠키도 해제됨 → /?nocat=1) */}
       <div className="mx-auto mt-1 mb-3 flex max-w-screen-2xl items-center gap-2 px-1 sm:mb-4">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-brand/10 px-3 py-1 text-caption font-medium text-brand">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-brand/10 px-3 py-1 text-caption font-medium text-brand-ink">
           <span className="h-1.5 w-1.5 rounded-full bg-brand" />
           {category.name} 추천 보는 중
         </span>

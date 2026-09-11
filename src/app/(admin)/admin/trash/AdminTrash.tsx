@@ -111,7 +111,7 @@ export function AdminTrash({ groups }: { groups: TrashGroup[] }) {
                 type="button"
                 disabled={pending}
                 onClick={() => restore(ids)}
-                className="shrink-0 cursor-pointer rounded-full border border-brand/50 px-3 py-1.5 text-caption font-semibold text-brand transition-colors hover:bg-brand/10 disabled:opacity-50"
+                className="shrink-0 cursor-pointer rounded-full border border-brand/50 px-3 py-1.5 text-caption font-semibold text-brand-ink transition-colors hover:bg-brand/10 disabled:opacity-50"
               >
                 이 작업 복구
               </button>

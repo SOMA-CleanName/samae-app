@@ -157,7 +157,7 @@ export default async function AdminUsersPage({
                   <p className="truncate text-body-sm font-semibold text-fg">
                     {m.displayName || "이름 없음"}
                   </p>
-                  {m.id === me?.id && <span className="shrink-0 text-caption text-brand">나</span>}
+                  {m.id === me?.id && <span className="shrink-0 text-caption text-brand-ink">나</span>}
                 </div>
                 <p className="truncate text-caption text-faint">{m.email ?? "이메일 없음"}</p>
               </div>

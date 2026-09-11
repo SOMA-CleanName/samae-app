@@ -513,7 +513,7 @@ function HighlightEditor({
                   <div className="flex gap-0.5">
                     <button type="button" onClick={() => move(it.key, -1)} aria-label="앞으로" className="grid h-5 w-5 place-items-center rounded border border-fg/15 text-[10px] text-fg/60 hover:bg-fg/[0.04]">←</button>
                     <button type="button" onClick={() => move(it.key, 1)} aria-label="뒤로" className="grid h-5 w-5 place-items-center rounded border border-fg/15 text-[10px] text-fg/60 hover:bg-fg/[0.04]">→</button>
-                    <button type="button" onClick={() => removeItem(it.key)} aria-label="삭제" className="grid h-5 w-5 place-items-center rounded border border-fg/15 text-[10px] text-brand hover:bg-brand/[0.06]">×</button>
+                    <button type="button" onClick={() => removeItem(it.key)} aria-label="삭제" className="grid h-5 w-5 place-items-center rounded border border-fg/15 text-[10px] text-brand-ink hover:bg-brand/[0.06]">×</button>
                   </div>
                 </div>
               ))}

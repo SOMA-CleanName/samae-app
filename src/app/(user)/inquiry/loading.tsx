@@ -16,7 +16,7 @@ export default function Loading() {
           <div className="px-4 pb-3 pt-2">
             <div className="mb-1.5 flex items-baseline justify-between">
               <span className="text-sm font-semibold text-muted">답변 진행률</span>
-              <span className="text-lg font-extrabold tabular-nums leading-none text-brand">0%</span>
+              <span className="text-lg font-extrabold tabular-nums leading-none text-brand-ink">0%</span>
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-fg/[0.08]" />
           </div>

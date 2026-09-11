@@ -146,7 +146,7 @@ function SortableChip({
         (dim ? "text-faint" : "text-fg")
       }
     >
-      <span className="text-[10px] font-bold text-brand">{index + 1}</span>
+      <span className="text-[10px] font-bold text-brand-ink">{index + 1}</span>
       {/* 라벨 영역이 드래그 핸들 */}
       <span {...listeners} {...attributes} className="cursor-grab touch-none select-none">
         {label}

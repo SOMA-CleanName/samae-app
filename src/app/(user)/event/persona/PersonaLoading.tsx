@@ -79,7 +79,7 @@ export function PersonaLoading({
           className="pointer-events-none absolute inset-x-0 top-0 h-32"
           style={{ background: "radial-gradient(100% 90% at 50% 0%, var(--brand-soft) 0%, transparent 75%)", opacity: 0.6 }}
         />
-        <p className="relative font-display text-body-sm italic text-brand">samae · 촬영 페르소나</p>
+        <p className="relative font-display text-body-sm italic text-brand-ink">samae · 촬영 페르소나</p>
         <h1 className="relative mt-1.5 text-h2 font-bold">
           {target}의 미감을 읽고 있어요
         </h1>

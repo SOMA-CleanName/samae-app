@@ -331,7 +331,7 @@ export function ExplorePhotoAssigner({
                     {albumFlags[g.albumId]!.moods.map((m) => (
                       <span
                         key={m}
-                        className="rounded-full border border-dashed border-brand/50 bg-brand/[0.06] px-2 py-0.5 text-[11px] font-medium text-brand"
+                        className="rounded-full border border-dashed border-brand/50 bg-brand/[0.06] px-2 py-0.5 text-[11px] font-medium text-brand-ink"
                       >
                         {m}
                       </span>

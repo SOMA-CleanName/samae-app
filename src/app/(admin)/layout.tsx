@@ -15,7 +15,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       <header className="sticky top-0 z-30 border-b border-line bg-bg/90 backdrop-blur">
         <div className="mx-auto flex max-w-5xl items-center gap-2 px-4 py-3 sm:px-5">
           <ShieldIcon className="h-5 w-5 text-brand" />
-          <span className="font-display text-lg italic text-brand">samae</span>
+          <span className="font-display text-lg italic text-brand-ink">samae</span>
           <span className="text-title font-semibold">어드민</span>
           <Link
             href="/"

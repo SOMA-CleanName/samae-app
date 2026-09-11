@@ -83,7 +83,7 @@ export default function GuideHubPage() {
                 <section key={axis} id={`axis-${axis}`} className="scroll-mt-16">
                   {/* 축 머리 — 브랜드 규칙선 + 번호. 아티클 지면의 SectionHead 와 같은 리듬. */}
                   <div className="flex items-baseline gap-2">
-                    <span className="font-display text-body-sm italic tabular-nums text-brand">
+                    <span className="font-display text-body-sm italic tabular-nums text-brand-ink">
                       {String(gi + 1).padStart(2, "0")}
                     </span>
                     <h2 className="text-title font-bold tracking-tight">
@@ -129,7 +129,7 @@ export default function GuideHubPage() {
                           {pageSlugs.has(g.slug) && (
                             <Link
                               href={`/guide/${encodeURIComponent(g.slug)}`}
-                              className="ed-more-arrow mt-3 ml-4 inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.14em] text-brand"
+                              className="ed-more-arrow mt-3 ml-4 inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.14em] text-brand-ink"
                             >
                               따로 보기 →
                             </Link>

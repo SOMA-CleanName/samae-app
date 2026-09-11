@@ -100,7 +100,7 @@ export function PhotoFeature({ photos }: { photos: FeaturedPhoto[] }) {
                 */}
                 <figcaption className="mt-2">
                   <span className="flex items-center gap-1.5">
-                    <span className="font-display text-[11px] italic tabular-nums leading-none text-brand">
+                    <span className="font-display text-[11px] italic tabular-nums leading-none text-brand-ink">
                       {String(i + 1).padStart(2, "0")}
                     </span>
                     {/* 괘선 — 손을 대면 브랜드색이 왼쪽에서 차오른다 */}

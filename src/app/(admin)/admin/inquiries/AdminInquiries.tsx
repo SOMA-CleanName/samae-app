@@ -143,7 +143,7 @@ export function AdminInquiries({ rows }: { rows: InquiryRow[] }) {
               >
                 <Badge tone={st.tone} className="shrink-0">{st.label}</Badge>
                 {r.channelKind === "ad" && (
-                  <span className="shrink-0 rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-semibold text-brand">
+                  <span className="shrink-0 rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-semibold text-brand-ink">
                     광고
                   </span>
                 )}

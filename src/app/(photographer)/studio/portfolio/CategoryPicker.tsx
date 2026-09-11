@@ -132,7 +132,7 @@ export function CategoryPicker({
             {requestedMoods.map((m) => (
               <span
                 key={m}
-                className="inline-flex h-8 items-center gap-1 rounded-full border border-dashed border-brand/50 bg-brand/[0.06] px-3 text-[13px] font-medium text-brand"
+                className="inline-flex h-8 items-center gap-1 rounded-full border border-dashed border-brand/50 bg-brand/[0.06] px-3 text-[13px] font-medium text-brand-ink"
               >
                 {m}
                 <button

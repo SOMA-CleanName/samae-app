@@ -22,7 +22,7 @@ export function SiteFooter() {
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-4">
         <Link
           href="/"
-          className="font-display text-xl italic leading-none text-brand transition-opacity hover:opacity-80"
+          className="font-display text-xl italic leading-none text-brand-ink transition-opacity hover:opacity-80"
         >
           samae
         </Link>

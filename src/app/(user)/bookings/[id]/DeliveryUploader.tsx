@@ -124,7 +124,7 @@ export function DeliveryUploader({
       >
         {busy ? "처리 중…" : assets.length > 0 ? "파일 더 올리기" : "사진 파일 올리기"}
       </button>
-      {error && <p className="mt-2 text-xs text-brand">{error}</p>}
+      {error && <p className="mt-2 text-xs text-brand-ink">{error}</p>}
 
       <form
         action={delivered ? redeliverNotify : deliverFinals}

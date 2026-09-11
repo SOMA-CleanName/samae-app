@@ -54,7 +54,7 @@ export default async function AnalyticsJourneysPage({
                   </span>
                 ))}
                 <span className="text-faint">→</span>
-                <span className="rounded-md bg-brand/10 px-2 py-1 text-caption font-semibold text-brand">문의 완료 ✓</span>
+                <span className="rounded-md bg-brand/10 px-2 py-1 text-caption font-semibold text-brand-ink">문의 완료 ✓</span>
               </div>
             </li>
           ))}

@@ -30,7 +30,7 @@ export function SectionHead({
     <div className="mb-4 px-1">
       <div className="flex items-baseline gap-2">
         {no && (
-          <span className="font-display text-body-sm italic tabular-nums text-brand">{no}</span>
+          <span className="font-display text-body-sm italic tabular-nums text-brand-ink">{no}</span>
         )}
         <h2 className="border-b-[3px] border-brand pb-1 text-title font-bold tracking-tight">
           {title}

@@ -30,7 +30,7 @@ const WAYS_OUT = [
 export function NotFoundPage() {
   return (
     <main className="mx-auto flex min-h-[70svh] max-w-xl flex-col justify-center px-5 py-16 font-kr">
-      <p className="font-display text-body-sm italic tabular-nums text-brand">404</p>
+      <p className="font-display text-body-sm italic tabular-nums text-brand-ink">404</p>
       <span aria-hidden className="mt-3 block h-[2px] w-6 bg-brand" />
 
       <h1 className="mt-4 text-h1 font-bold tracking-tight">없는 지면이에요</h1>

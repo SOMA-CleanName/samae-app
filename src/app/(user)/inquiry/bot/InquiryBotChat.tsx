@@ -1334,7 +1334,7 @@ export function InquiryBotChat({
           </p>
           {/* E4: 진행 표시 — 체크 나열 대신 간결한 카운터 */}
           {handedOff ? (
-            <p className="truncate text-xs font-medium text-brand">작가님이 대화를 이어받았어요</p>
+            <p className="truncate text-xs font-medium text-brand-ink">작가님이 대화를 이어받았어요</p>
           ) : (
             <p className="truncate text-xs text-muted">
               {answeredCount(STEPS, answers) > 0
@@ -1430,12 +1430,12 @@ export function InquiryBotChat({
                 {photographerAvatar ? (
                   <img src={photographerAvatar} alt="" className="mt-0.5 h-8 w-8 shrink-0 rounded-full object-cover" />
                 ) : (
-                  <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand/15 text-xs font-semibold text-brand">
+                  <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand/15 text-xs font-semibold text-brand-ink">
                     {photographerName.slice(0, 1)}
                   </span>
                 )}
                 <div className="mr-auto max-w-[82%]">
-                  <p className="mb-0.5 text-[11px] font-semibold text-brand">{photographerName} · 작가</p>
+                  <p className="mb-0.5 text-[11px] font-semibold text-brand-ink">{photographerName} · 작가</p>
                   <div className="rounded-2xl rounded-tl-md bg-brand/[0.08] px-3.5 py-2.5 text-[16px] leading-relaxed text-fg ring-1 ring-brand/20">
                     {item.text}
                   </div>

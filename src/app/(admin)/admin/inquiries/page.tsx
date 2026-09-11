@@ -267,7 +267,7 @@ function PlatformAccountEditor({
             {account.bank} {account.number} · {account.holder}
           </span>
         ) : (
-          <span className="text-caption font-semibold text-brand">미설정 — 입금 안내가 표시되지 않아요</span>
+          <span className="text-caption font-semibold text-brand-ink">미설정 — 입금 안내가 표시되지 않아요</span>
         )}
       </summary>
       <form action={updatePlatformAccount} className="grid grid-cols-1 gap-2.5 px-4 pb-4 sm:grid-cols-3">

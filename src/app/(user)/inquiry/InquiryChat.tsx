@@ -779,7 +779,7 @@ function DoneModal({ onExplore, onSave }: { onExplore: () => void; onSave: () =>
         <ol className="mt-5 space-y-2.5 text-left">
           {nextSteps.map((s, i) => (
             <li key={i} className="flex items-center gap-2.5">
-              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand/10 text-xs font-bold text-brand">
+              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand/10 text-xs font-bold text-brand-ink">
                 {i + 1}
               </span>
               <span className="text-sm text-fg/80">{s}</span>

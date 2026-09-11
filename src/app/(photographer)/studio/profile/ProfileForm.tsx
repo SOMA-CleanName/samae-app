@@ -104,7 +104,7 @@ export function ProfileForm({ initial }: { initial: ProfileInitial }) {
                   </span>
                 </div>
                 {state.fieldErrors?.bankName && (
-                  <p className="text-xs text-brand">{state.fieldErrors.bankName}</p>
+                  <p className="text-xs text-brand-ink">{state.fieldErrors.bankName}</p>
                 )}
               </div>
               <Field name="accountNumber" label="계좌번호" value={f.accountNumber} onChange={set("accountNumber")} error={state.fieldErrors?.accountNumber} />
@@ -186,7 +186,7 @@ function Field({
         className="rounded-xl border border-fg/15 bg-surface px-4 py-3 text-sm outline-none focus:border-fg/40"
       />
       {hint && !error && <p className="text-xs text-fg/45">{hint}</p>}
-      {error && <p className="text-xs text-brand">{error}</p>}
+      {error && <p className="text-xs text-brand-ink">{error}</p>}
     </div>
   );
 }

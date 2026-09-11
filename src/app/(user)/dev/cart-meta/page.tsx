@@ -113,7 +113,7 @@ export default async function CartMetaDevPage() {
   return (
     <div className="mx-auto min-h-screen max-w-6xl px-4 py-10 sm:px-6">
       <header className="mb-10 space-y-3">
-        <p className="text-body-sm font-bold text-brand">LOCAL QA</p>
+        <p className="text-body-sm font-bold text-brand-ink">LOCAL QA</p>
         <h1 className="text-3xl font-black tracking-tight text-fg">관심사진 가격·장소 협의 확인</h1>
         <p className="max-w-2xl text-body text-muted">
           사진의 + 버튼으로 관심사진에 담은 뒤 우측 하단 도크를 열어 실제 메타 패널을 확인하세요.

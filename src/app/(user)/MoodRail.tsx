@@ -130,7 +130,7 @@ function Chip({ item, rank }: { item: MoodItem; rank: number }) {
       </div>
       <p className="mt-1.5 flex items-center gap-1 px-0.5">
         {item.curated && (
-          <span aria-label="오늘의 큐레이션" className="text-[10px] text-brand">
+          <span aria-label="오늘의 큐레이션" className="text-[10px] text-brand-ink">
             ✳︎
           </span>
         )}

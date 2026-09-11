@@ -170,7 +170,7 @@ function Row({ b, action }: { b: StudioBooking; action?: string }) {
         </span>
         <span className="shrink-0 text-right">
           <span className="block text-body-sm font-semibold text-fg">₩{fmt.format(b.amountKrw)}</span>
-          {action && <span className="mt-0.5 block text-caption text-brand">{action}</span>}
+          {action && <span className="mt-0.5 block text-caption text-brand-ink">{action}</span>}
         </span>
       </Link>
     </li>

@@ -321,7 +321,7 @@ export default async function StudioDetailPage({ params }: { params: Promise<{ i
                 <li key={r.id} className="py-2.5">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-body-sm font-medium text-fg">{userName.get(r.user_id) ?? "—"}</span>
-                    <span className="text-caption text-brand">{"★".repeat(r.rating)}<span className="text-faint">{"★".repeat(5 - r.rating)}</span></span>
+                    <span className="text-caption text-brand-ink">{"★".repeat(r.rating)}<span className="text-faint">{"★".repeat(5 - r.rating)}</span></span>
                   </div>
                   {r.body && <p className="mt-1 text-caption leading-relaxed text-fg/80">{r.body}</p>}
                   <p className="mt-0.5 text-[11px] text-faint">{when(r.created_at)}</p>
@@ -378,7 +378,7 @@ function Row({ k, v, mono, accent }: { k: string; v: string; mono?: boolean; acc
   return (
     <div className="flex items-center justify-between gap-3 py-1.5 text-body-sm">
       <span className="shrink-0 text-muted">{k}</span>
-      <span className={`min-w-0 truncate text-right ${accent ? "font-semibold text-brand" : "text-fg"} ${mono ? "font-mono text-caption" : ""}`}>
+      <span className={`min-w-0 truncate text-right ${accent ? "font-semibold text-brand-ink" : "text-fg"} ${mono ? "font-mono text-caption" : ""}`}>
         {v}
       </span>
     </div>

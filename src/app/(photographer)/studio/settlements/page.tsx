@@ -67,7 +67,7 @@ export default async function SettlementsPage() {
       <div className="mt-6 grid grid-cols-2 gap-3">
         <div className="rounded-xl border border-fg/10 p-4">
           <p className="text-xs text-fg/50">정산 예정</p>
-          <p className="mt-1 text-lg font-semibold text-brand">₩{fmt.format(pendingTotal)}</p>
+          <p className="mt-1 text-lg font-semibold text-brand-ink">₩{fmt.format(pendingTotal)}</p>
         </div>
         <div className="rounded-xl border border-fg/10 p-4">
           <p className="text-xs text-fg/50">정산 완료</p>

@@ -183,7 +183,9 @@ export function FloatingNav({
           >
             <span
               aria-hidden
-              className="absolute bottom-1 left-1 top-1 w-[var(--nav-tab-w)] rounded-full bg-brand shadow-sm transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+              // bg-brand(#ff3d2e) 위 흰 라벨은 3.52:1 이라 본문 기준(4.5) 아래였다.
+              // 채움색만 한 단계 진하게(--brand-solid) — 흰 글씨 대비 5.68:1.
+              className="absolute bottom-1 left-1 top-1 w-[var(--nav-tab-w)] rounded-full bg-brand-solid shadow-sm transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
               style={{
                 opacity: activeNavIndex >= 0 ? 1 : 0,
                 transform: `translate3d(calc(${indicatorIndex * 100}% + ${indicatorIndex * 0.25}rem), 0, 0)`,

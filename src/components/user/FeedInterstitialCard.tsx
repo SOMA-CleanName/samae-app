@@ -110,7 +110,7 @@ export function FeedInterstitialCard({ item }: { item: FeedInterstitial }) {
           <span className="min-w-0 truncate text-body-sm font-bold tracking-tight">
             {item.displayName}
           </span>
-          <span className="fi-more shrink-0 text-[11px] text-brand" aria-hidden>
+          <span className="fi-more shrink-0 text-[11px] text-brand-ink" aria-hidden>
             →
           </span>
         </span>

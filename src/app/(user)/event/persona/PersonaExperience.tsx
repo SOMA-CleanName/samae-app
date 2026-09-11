@@ -176,7 +176,7 @@ export default function PersonaExperience({ defaultUsername = "" }: { defaultUse
             opacity: 0.55,
           }}
         />
-        <p style={reveal(0)} className="relative font-display text-body-sm italic text-brand">
+        <p style={reveal(0)} className="relative font-display text-body-sm italic text-brand-ink">
           samae · 촬영 페르소나
         </p>
         {/* 한글에 font-display(Fraunces)를 씌우면 합성 이탤릭이라 지저분하다.

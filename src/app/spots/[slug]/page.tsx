@@ -268,7 +268,7 @@ export default async function SpotDetailPage({
                   {f.href && (
                     <Link
                       href={f.href}
-                      className="ed-more-arrow mt-2 inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.14em] text-brand"
+                      className="ed-more-arrow mt-2 inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.14em] text-brand-ink"
                     >
                       자세히 보기 →
                     </Link>

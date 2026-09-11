@@ -88,7 +88,7 @@ export function PackageItem({ p }: { p: Pkg }) {
           }}
         >
           <input type="hidden" name="id" value={p.id} />
-          <SubmitButton pendingText="삭제 중…" className="rounded-full px-3 py-1.5 text-xs text-brand hover:bg-brand/[0.06] disabled:opacity-50">
+          <SubmitButton pendingText="삭제 중…" className="rounded-full px-3 py-1.5 text-xs text-brand-ink hover:bg-brand/[0.06] disabled:opacity-50">
             삭제
           </SubmitButton>
         </form>
