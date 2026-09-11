@@ -49,7 +49,7 @@ export function StudioSidebar({ chatUnread = 0 }: { chatUnread?: number }) {
       {/* 데스크톱: 좌측 세로 사이드바 */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-52 flex-col border-r border-fg/8 bg-bg px-3 py-5 md:flex">
         <Link href="/" className="px-2 text-lg font-semibold">
-          사매 <span className="text-xs font-normal text-fg/45">스튜디오</span>
+          사매 <span className="text-xs font-normal text-faint">스튜디오</span>
         </Link>
 
         <nav className="mt-6 flex flex-1 flex-col gap-1">
@@ -63,7 +63,7 @@ export function StudioSidebar({ chatUnread = 0 }: { chatUnread?: number }) {
           ))}
         </nav>
 
-        <Link href="/" className="px-3 py-2 text-xs text-fg/45 hover:text-fg">
+        <Link href="/" className="px-3 py-2 text-xs text-faint hover:text-fg">
           ← 홈으로
         </Link>
       </aside>
@@ -109,7 +109,7 @@ export function StudioSidebar({ chatUnread = 0 }: { chatUnread?: number }) {
 
 function GroupLabel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <p className={`px-3 pb-1 text-[11px] font-medium uppercase tracking-wide text-fg/35 ${className}`}>
+    <p className={`px-3 pb-1 text-[11px] font-medium uppercase tracking-wide text-faint ${className}`}>
       {children}
     </p>
   );

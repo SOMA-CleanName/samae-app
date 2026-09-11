@@ -134,7 +134,7 @@ export function HighlightsManager({
   return (
     <>
       <div className="mt-5 flex items-start justify-between gap-3">
-        <p className="text-xs leading-relaxed text-fg/50">
+        <p className="text-xs leading-relaxed text-muted">
           {selectMode
             ? "삭제할 하이라이트를 눌러 선택하세요."
             : "위 5개가 프로필에 보여요. 끌어서 순서·노출을 바꾸고(구분선 아래는 숨김), 탭하면 수정돼요."}
@@ -184,7 +184,7 @@ export function HighlightsManager({
           return (
             <Fragment key={id}>
               {i === 5 && (
-                <div className="col-span-5 my-1 flex items-center gap-2 text-[11px] text-fg/40">
+                <div className="col-span-5 my-1 flex items-center gap-2 text-[11px] text-faint">
                   <span className="h-px flex-1 bg-fg/15" />
                   숨김 · 프로필 미노출
                   <span className="h-px flex-1 bg-fg/15" />
@@ -254,7 +254,7 @@ function HighlightCircle({
         {cover ? (
           <img src={cover} alt="" draggable={false} className="pointer-events-none h-full w-full rounded-full object-cover" />
         ) : (
-          <span className="pointer-events-none text-fg/30">＋</span>
+          <span className="pointer-events-none text-faint">＋</span>
         )}
       </div>
       <span className="w-full truncate text-center text-caption text-muted">{h.title || "하이라이트"}</span>
@@ -276,10 +276,10 @@ function HighlightCircle({
 function AddCircle({ onClick }: { onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} className="flex flex-col items-center gap-1.5">
-      <span className="grid aspect-square w-full place-items-center rounded-full border-2 border-dashed border-fg/25 text-2xl font-light text-fg/40 transition-colors hover:border-fg/45 hover:text-fg/60">
+      <span className="grid aspect-square w-full place-items-center rounded-full border-2 border-dashed border-fg/25 text-2xl font-light text-faint transition-colors hover:border-fg/45 hover:text-fg/60">
         +
       </span>
-      <span className="text-caption text-fg/40">추가</span>
+      <span className="text-caption text-faint">추가</span>
     </button>
   );
 }
@@ -422,7 +422,7 @@ function HighlightEditor({
       >
         <div className="flex items-center justify-between">
           <h3 className="text-base font-semibold">{isEdit ? "하이라이트 수정" : "새 하이라이트"}</h3>
-          <button type="button" onClick={onClose} className="text-sm text-fg/50 hover:text-fg">
+          <button type="button" onClick={onClose} className="text-sm text-muted hover:text-fg">
             닫기
           </button>
         </div>
@@ -438,7 +438,7 @@ function HighlightEditor({
             {coverPreview ? (
               <img src={coverPreview} alt="" className="h-full w-full object-cover" />
             ) : (
-              <span className="text-fg/30 text-xs">커버</span>
+              <span className="text-faint text-xs">커버</span>
             )}
           </span>
           <div className="flex-1">
@@ -455,7 +455,7 @@ function HighlightEditor({
               type="button"
               disabled={coverUploading}
               onClick={() => coverFileRef.current?.click()}
-              className="mt-1.5 text-xs text-fg/50 underline hover:text-fg disabled:opacity-50"
+              className="mt-1.5 text-xs text-muted underline hover:text-fg disabled:opacity-50"
             >
               {coverUploading ? "업로드 중…" : "커버 직접 올리기"}
             </button>
@@ -465,7 +465,7 @@ function HighlightEditor({
         {/* 사진 추가 — 직접 업로드(9:16 크롭) */}
         <div className="mt-5 flex items-center justify-between">
           <p className="text-sm font-medium">
-            사진 <span className="text-xs font-normal text-fg/45">{items.length}장 · 9:16</span>
+            사진 <span className="text-xs font-normal text-faint">{items.length}장 · 9:16</span>
           </p>
           <input ref={itemFileRef} type="file" accept="image/*" hidden onChange={(e) => onItemFile(e.target.files)} />
           <button
@@ -480,7 +480,7 @@ function HighlightEditor({
         {/* 선택/업로드된 항목 — 순서 조정 + 커버 지정 */}
         {items.length > 0 && (
           <div className="mt-3">
-            <p className="text-xs text-fg/45">끌어서 순서 변경 · 사진을 눌러 커버 지정</p>
+            <p className="text-xs text-faint">끌어서 순서 변경 · 사진을 눌러 커버 지정</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {items.map((it, i) => (
                 <div
@@ -523,10 +523,10 @@ function HighlightEditor({
 
         {/* 포트폴리오에서 고르기 */}
         <p className="mt-5 text-sm font-medium">
-          포트폴리오에서 고르기 <span className="text-xs font-normal text-fg/45">· 누르면 9:16으로 맞춰 추가</span>
+          포트폴리오에서 고르기 <span className="text-xs font-normal text-faint">· 누르면 9:16으로 맞춰 추가</span>
         </p>
         {photos.length === 0 ? (
-          <p className="mt-2 text-sm text-fg/45">공개된 포트폴리오 사진이 없어요.</p>
+          <p className="mt-2 text-sm text-faint">공개된 포트폴리오 사진이 없어요.</p>
         ) : (
           <div className="mt-2 max-h-52 overflow-y-auto rounded-xl border border-fg/10 p-2">
             <div className="grid grid-cols-4 gap-2 sm:grid-cols-5">
@@ -623,7 +623,7 @@ function CropModal({
       <div onClick={(e) => e.stopPropagation()} className="w-full max-w-sm overflow-hidden rounded-2xl bg-bg">
         <div className="flex items-center justify-between px-4 py-3">
           <h4 className="text-sm font-semibold">9:16에 담기</h4>
-          <button type="button" onClick={onCancel} className="text-sm text-fg/50 hover:text-fg">취소</button>
+          <button type="button" onClick={onCancel} className="text-sm text-muted hover:text-fg">취소</button>
         </div>
 
         {/* 9:16 프레임 = 업로드될 화면 그대로. 이미지 전체가 보이고 여백은 단색(뷰어와 동일) */}
@@ -645,7 +645,7 @@ function CropModal({
         </div>
 
         <div className="flex items-center gap-3 px-4 py-3">
-          <span className="text-xs text-fg/45">확대</span>
+          <span className="text-xs text-faint">확대</span>
           <input
             type="range"
             min={0.4}

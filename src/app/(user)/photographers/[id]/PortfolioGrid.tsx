@@ -229,7 +229,7 @@ function ModalLikeButton({ photoId }: { photoId: string }) {
           "grid h-10 w-10 cursor-pointer place-items-center rounded-full border transition-colors disabled:opacity-50",
           liked
             ? "border-brand bg-brand/[0.08] text-brand"
-            : "border-line-strong text-fg/55 hover:bg-surface-2"
+            : "border-line-strong text-muted hover:bg-surface-2"
         )}
       >
         <HeartIcon className="h-5 w-5" filled={liked} />

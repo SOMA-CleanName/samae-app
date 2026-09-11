@@ -84,7 +84,7 @@ export function DeliveryGallery({
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm font-semibold">
           📸 전달된 보정본
-          {images.length > 0 && <span className="ml-1 text-fg/45">{images.length}장</span>}
+          {images.length > 0 && <span className="ml-1 text-faint">{images.length}장</span>}
         </p>
         {items.length > 0 && (
           <button
@@ -141,7 +141,7 @@ export function DeliveryGallery({
                 className="flex w-full items-center justify-between gap-3 rounded-lg bg-fg/[0.04] px-3 py-2 text-sm hover:bg-fg/[0.07]"
               >
                 <span className="truncate">{f.name}</span>
-                <span className="shrink-0 text-xs text-fg/50">저장 ↓</span>
+                <span className="shrink-0 text-xs text-muted">저장 ↓</span>
               </button>
             </li>
           ))}
@@ -160,7 +160,7 @@ export function DeliveryGallery({
       )}
 
       {expiresAt && (
-        <p className="mt-3 text-[11px] text-fg/45">
+        <p className="mt-3 text-[11px] text-faint">
           다운로드 링크는 보안을 위해 일정 시간이 지나면 만료돼요. 만료 시 새로고침하면 다시
           생성됩니다. 파일 보관은 {new Date(expiresAt).toLocaleDateString("ko-KR")}까지 권장돼요.
         </p>

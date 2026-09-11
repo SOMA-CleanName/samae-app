@@ -92,14 +92,14 @@ export default async function PortfolioPage() {
 
   return (
     <main className="mx-auto max-w-4xl px-4 sm:px-6 py-10 font-kr">
-      <Link href="/studio" className="text-sm text-fg/50 hover:text-fg">
+      <Link href="/studio" className="text-sm text-muted hover:text-fg">
         ← 스튜디오
       </Link>
 
       <div className="mt-4 flex items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">포트폴리오</h1>
-          <p className="mt-1 text-sm text-fg/55">
+          <p className="mt-1 text-sm text-muted">
             게시물 단위로 묶여 있어요. 공개한 사진이 탐색에 노출됩니다. (공개 {publishedCount} / 전체 {photos.length}장)
           </p>
         </div>
@@ -108,8 +108,8 @@ export default async function PortfolioPage() {
 
       {photos.length === 0 ? (
         <div className="mt-10 rounded-2xl border border-dashed border-fg/20 py-16 text-center">
-          <p className="text-sm text-fg/55">아직 사진이 없어요.</p>
-          <p className="mt-1 text-xs text-fg/40">‘+ 추가’를 눌러 첫 사진을 올려보세요.</p>
+          <p className="text-sm text-muted">아직 사진이 없어요.</p>
+          <p className="mt-1 text-xs text-faint">‘+ 추가’를 눌러 첫 사진을 올려보세요.</p>
         </div>
       ) : (
         <div className="mt-7 flex flex-col gap-5">
@@ -146,7 +146,7 @@ function GroupCard({ g }: { g: Group }) {
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 px-1">
         <span className="text-sm font-medium">
           {g.albumId ? "📷 게시물" : "📷 단일 사진"}
-          <span className="ml-1.5 text-xs font-normal text-fg/45">{count}장</span>
+          <span className="ml-1.5 text-xs font-normal text-faint">{count}장</span>
         </span>
         <span
           className={`rounded-full px-2 py-0.5 text-[11px] ${
@@ -184,16 +184,16 @@ function GroupCard({ g }: { g: Group }) {
       <div className="mt-3 flex flex-col gap-2.5 border-t border-fg/10 pt-3">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
           <span className="inline-flex items-center gap-1.5 text-sm">
-            <WalletIcon className="h-4 w-4 text-fg/40" />
+            <WalletIcon className="h-4 w-4 text-faint" />
             {rep.price_krw != null ? (
               <span className="font-semibold text-fg">₩{fmt.format(rep.price_krw)}</span>
             ) : (
-              <span className="text-fg/40">가격 미표시</span>
+              <span className="text-faint">가격 미표시</span>
             )}
           </span>
           {rep.location_text && (
             <span className="inline-flex min-w-0 items-center gap-1.5 text-sm text-fg/70">
-              <MapPinIcon className="h-4 w-4 shrink-0 text-fg/40" />
+              <MapPinIcon className="h-4 w-4 shrink-0 text-faint" />
               <span className="truncate">{rep.location_text}</span>
             </span>
           )}

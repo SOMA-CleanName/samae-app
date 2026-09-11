@@ -29,9 +29,9 @@ export function PhotographerCardView({ p }: { p: PhotographerCard }) {
           <span>₩{fmt.format(p.price_from_krw)}~</span>
           {p.regions[0] && (
             <>
-              <span className="text-fg/25">·</span>
+              <span className="text-faint">·</span>
               <span className="inline-flex items-center gap-0.5">
-                <MapPinIcon className="h-3.5 w-3.5 text-fg/45" />
+                <MapPinIcon className="h-3.5 w-3.5 text-faint" />
                 {p.regions[0]}
               </span>
             </>

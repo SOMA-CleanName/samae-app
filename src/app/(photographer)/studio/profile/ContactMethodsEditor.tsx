@@ -50,7 +50,7 @@ export function ContactMethodsEditor({ initial }: { initial: ContactMethod[] }) 
       <input type="hidden" name="contact_methods" value={payload} />
 
       {rows.length === 0 && (
-        <p className="rounded-xl border border-dashed border-fg/15 px-4 py-5 text-center text-sm text-fg/50">
+        <p className="rounded-xl border border-dashed border-fg/15 px-4 py-5 text-center text-sm text-muted">
           아직 등록한 연락 수단이 없어요.
         </p>
       )}
@@ -106,7 +106,7 @@ export function ContactMethodsEditor({ initial }: { initial: ContactMethod[] }) 
       )}
 
       {empty > 0 && (
-        <p className="text-xs text-fg/45">빈 칸은 저장할 때 자동으로 빠져요.</p>
+        <p className="text-xs text-faint">빈 칸은 저장할 때 자동으로 빠져요.</p>
       )}
       <SaveButton />
     </div>

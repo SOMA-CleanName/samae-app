@@ -142,7 +142,7 @@ export function PortfolioUploader({
         >
           <span className="grid h-12 w-12 place-items-center rounded-full bg-fg/[0.06] text-2xl">📷</span>
           <span className="text-sm font-medium">사진을 끌어다 놓거나 클릭해 선택</span>
-          <span className="text-xs text-fg/55">JPG·PNG · 장당 15MB 이하 · 여러 장 = 한 피드</span>
+          <span className="text-xs text-muted">JPG·PNG · 장당 15MB 이하 · 여러 장 = 한 피드</span>
         </button>
       ) : (
         <>
@@ -155,7 +155,7 @@ export function PortfolioUploader({
               <button
                 type="button"
                 onClick={() => inputRef.current?.click()}
-                className="grid aspect-square place-items-center rounded-lg border border-dashed border-fg/25 text-xl text-fg/40 hover:border-fg/40 hover:text-fg/60"
+                className="grid aspect-square place-items-center rounded-lg border border-dashed border-fg/25 text-xl text-faint hover:border-fg/40 hover:text-fg/60"
               >
                 +
               </button>
@@ -210,7 +210,7 @@ export function PortfolioUploader({
               );
             }}
           </SortableGrid>
-          <p className="mt-2 text-xs text-fg/50">
+          <p className="mt-2 text-xs text-muted">
             {files.length}장 선택됨{files.length > 1 ? " · 첫 번째 사진이 대표예요" : ""}
           </p>
         </>
@@ -235,7 +235,7 @@ export function PortfolioUploader({
             rows={3}
             maxLength={1000}
             placeholder="이 촬영에 대한 설명을 적어주세요."
-            className="resize-none rounded-lg border border-fg/15 bg-surface px-3 py-2 text-sm text-fg outline-none placeholder:text-fg/45 focus:border-fg/40"
+            className="resize-none rounded-lg border border-fg/15 bg-surface px-3 py-2 text-sm text-fg outline-none placeholder:text-faint focus:border-fg/40"
           />
         </label>
         <div className="flex flex-col gap-3">
@@ -280,7 +280,7 @@ export function PortfolioUploader({
               onChange={(e) => setLocation(e.target.value)}
               maxLength={120}
               placeholder="예: 성수동 카페, 골목 어귀"
-              className="rounded-lg border border-fg/15 bg-surface px-3 py-2 text-sm text-fg outline-none placeholder:text-fg/45 focus:border-fg/40"
+              className="rounded-lg border border-fg/15 bg-surface px-3 py-2 text-sm text-fg outline-none placeholder:text-faint focus:border-fg/40"
             />
           </label>
         </div>

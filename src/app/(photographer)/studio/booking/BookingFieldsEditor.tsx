@@ -77,7 +77,7 @@ export function BookingFieldsEditor({ initial }: { initial: BookingField[] }) {
       <input type="hidden" name="booking_fields" value={payload} />
 
       {fields.length === 0 && (
-        <p className="rounded-xl border border-dashed border-fg/15 px-4 py-5 text-center text-sm text-fg/50">
+        <p className="rounded-xl border border-dashed border-fg/15 px-4 py-5 text-center text-sm text-muted">
           아직 추가 항목이 없어요.
         </p>
       )}
@@ -145,7 +145,7 @@ export function BookingFieldsEditor({ initial }: { initial: BookingField[] }) {
             ))}
 
             {f.type !== "checkbox" && (
-              <label className="ml-auto flex cursor-pointer items-center gap-1.5 text-xs text-fg/55">
+              <label className="ml-auto flex cursor-pointer items-center gap-1.5 text-xs text-muted">
                 <input
                   type="checkbox"
                   checked={!!f.required}

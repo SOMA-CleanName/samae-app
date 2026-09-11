@@ -15,7 +15,7 @@ export default async function StudioGuidePage() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 sm:py-8">
-      <Link href="/studio" className="text-sm text-fg/50 hover:text-fg">
+      <Link href="/studio" className="text-sm text-muted hover:text-fg">
         ← 스튜디오
       </Link>
       <h1 className="mt-4 text-xl font-bold">고객 안내 이미지</h1>

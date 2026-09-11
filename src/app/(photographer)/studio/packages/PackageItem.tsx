@@ -59,7 +59,7 @@ export function PackageItem({ p }: { p: Pkg }) {
             <span className="truncate">{p.name}</span>
             <StatusPill active={p.is_active} />
           </p>
-          {p.description && <p className="mt-0.5 text-sm text-fg/55">{p.description}</p>}
+          {p.description && <p className="mt-0.5 text-sm text-muted">{p.description}</p>}
           <p className="mt-1 text-sm text-fg/70">
             ₩{fmt.format(p.price_krw)} · {p.duration_min}분 · 보정 {p.edited_count}장
           </p>
@@ -115,7 +115,7 @@ function LabeledInput({
   required?: boolean;
 }) {
   return (
-    <label className="flex flex-col gap-1 text-[11px] text-fg/55">
+    <label className="flex flex-col gap-1 text-[11px] text-muted">
       {label}
       <input
         name={name}

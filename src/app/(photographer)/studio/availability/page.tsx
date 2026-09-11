@@ -78,11 +78,11 @@ export default async function AvailabilityPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-10 font-kr sm:px-6">
-      <Link href="/studio" className="text-sm text-fg/50 hover:text-fg">
+      <Link href="/studio" className="text-sm text-muted hover:text-fg">
         ← 스튜디오
       </Link>
       <h1 className="mt-4 text-2xl font-semibold">일정 관리</h1>
-      <p className="mt-1 text-sm text-fg/55">
+      <p className="mt-1 text-sm text-muted">
         주 단위로 가능한 시간을 정하고, 특정 시간을 막을 수 있어요. 예약이 수락되면 그 시간은 자동으로 막힙니다.
       </p>
 
@@ -98,7 +98,7 @@ export default async function AvailabilityPage() {
       <section className="mt-8">
         <h2 className="text-sm font-medium text-fg/70">특정 시간 차단</h2>
         {blocks.length === 0 ? (
-          <p className="mt-2 text-sm text-fg/45">차단된 시간이 없어요.</p>
+          <p className="mt-2 text-sm text-faint">차단된 시간이 없어요.</p>
         ) : (
           <ul className="mt-2 flex flex-col gap-2">
             {blocks.map((b) => (
@@ -124,15 +124,15 @@ export default async function AvailabilityPage() {
           action={addBlock}
           className="mt-3 grid grid-cols-2 items-end gap-2 rounded-xl border border-fg/15 p-3 sm:grid-cols-[1.3fr_1fr_1fr_auto]"
         >
-          <label className="col-span-2 flex flex-col gap-1 text-xs text-fg/55 sm:col-span-1">
+          <label className="col-span-2 flex flex-col gap-1 text-xs text-muted sm:col-span-1">
             날짜
             <input type="date" name="date" required className="rounded-lg border border-fg/15 bg-surface px-2 py-2 text-sm outline-none focus:border-fg/40" />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-fg/55">
+          <label className="flex flex-col gap-1 text-xs text-muted">
             시작
             <input type="time" name="start_time" required className="rounded-lg border border-fg/15 bg-surface px-2 py-2 text-sm outline-none focus:border-fg/40" />
           </label>
-          <label className="flex flex-col gap-1 text-xs text-fg/55">
+          <label className="flex flex-col gap-1 text-xs text-muted">
             종료
             <input type="time" name="end_time" required className="rounded-lg border border-fg/15 bg-surface px-2 py-2 text-sm outline-none focus:border-fg/40" />
           </label>
@@ -147,7 +147,7 @@ export default async function AvailabilityPage() {
         <h2 className="text-sm font-medium text-fg/70">{yy}년 {mm}월 예약</h2>
         <div className="mt-3 grid grid-cols-7 gap-1 text-center text-xs">
           {WD.map((d) => (
-            <div key={d} className="py-1 font-medium text-fg/45">{d}</div>
+            <div key={d} className="py-1 font-medium text-faint">{d}</div>
           ))}
           {Array.from({ length: firstWeekday }).map((_, i) => (
             <div key={`blank-${i}`} />
@@ -172,7 +172,7 @@ export default async function AvailabilityPage() {
         {/* 다가오는 예약 */}
         <h3 className="mt-6 text-sm font-medium text-fg/70">다가오는 예약 {upcoming.length}</h3>
         {upcoming.length === 0 ? (
-          <p className="mt-2 text-sm text-fg/45">예정된 예약이 없어요.</p>
+          <p className="mt-2 text-sm text-faint">예정된 예약이 없어요.</p>
         ) : (
           <ul className="mt-2 flex flex-col gap-2">
             {upcoming.map((b) => (
@@ -180,7 +180,7 @@ export default async function AvailabilityPage() {
                 <span className="font-medium">
                   {kstDate(b.shoot_at)} {kstTime(b.shoot_at)}
                 </span>
-                <span className="text-fg/55">
+                <span className="text-muted">
                   {" · "}
                   {b.package_snapshot?.name ?? "촬영"}
                   {b.location_text ? ` · 📍 ${b.location_text}` : ""}

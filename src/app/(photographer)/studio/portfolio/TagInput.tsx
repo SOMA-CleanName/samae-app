@@ -89,11 +89,11 @@ export function TagInput({
             onKeyDown={onKeyDown}
             onBlur={() => addTag(draft)}
             placeholder={tags.length === 0 ? placeholder : ""}
-            className="min-w-[7rem] flex-1 bg-transparent px-1 py-0.5 text-sm text-fg outline-none placeholder:text-fg/45"
+            className="min-w-[7rem] flex-1 bg-transparent px-1 py-0.5 text-sm text-fg outline-none placeholder:text-faint"
           />
         )}
       </div>
-      <p className="mt-1 text-[11px] text-fg/40">
+      <p className="mt-1 text-[11px] text-faint">
         {tags.length}/{max}
         {full ? " · 최대 개수예요" : ""}
       </p>

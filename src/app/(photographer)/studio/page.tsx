@@ -18,7 +18,7 @@ export default async function StudioHome() {
   if (!ph || ph.status !== "approved") {
     return (
       <main className="mx-auto max-w-3xl px-4 sm:px-6 py-10 font-kr">
-        <Link href="/" className="text-sm text-fg/50 hover:text-fg">
+        <Link href="/" className="text-sm text-muted hover:text-fg">
           ← 홈으로
         </Link>
         <h1 className="mt-4 text-2xl font-semibold">작가 스튜디오</h1>
@@ -55,7 +55,7 @@ export default async function StudioHome() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-8 font-kr sm:px-6">
       <h1 className="text-2xl font-semibold">스튜디오</h1>
-      <p className="mt-1 text-sm text-fg/50">
+      <p className="mt-1 text-sm text-muted">
         <b className="text-fg/70">{ph.displayName}</b> 작가님, 오늘 할 일이에요.
       </p>
 
@@ -169,7 +169,7 @@ function StatusCard({
     <div className={`mt-6 rounded-xl border p-6 ${color}`}>
       <p className="text-sm font-semibold">{title}</p>
       <p className="mt-1 text-sm text-fg/65">{desc}</p>
-      <p className="mt-3 text-xs text-fg/45">작가명: {displayName}</p>
+      <p className="mt-3 text-xs text-faint">작가명: {displayName}</p>
     </div>
   );
 }

@@ -199,7 +199,7 @@ export function AdminInquiries({ rows }: { rows: InquiryRow[] }) {
                     .filter(([, v]) => v)
                     .map(([k, v]) => (
                       <span key={k} className="inline-flex items-center gap-1 rounded-full bg-fg/[0.06] px-2.5 py-1 text-caption text-fg/70">
-                        {k === "지역" && <MapPinIcon className="h-3 w-3 text-fg/45" />}
+                        {k === "지역" && <MapPinIcon className="h-3 w-3 text-faint" />}
                         <span className="text-faint">{k}</span> {v}
                       </span>
                     ))}

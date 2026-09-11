@@ -31,11 +31,11 @@ const STAGE_LABEL: Record<SettlementStage, string> = {
 };
 
 const STAGE_TONE: Record<SettlementStage, string> = {
-  awaiting_transfer: "text-fg/45",
+  awaiting_transfer: "text-faint",
   checking: "text-warning",
   settling: "text-brand-ink",
   settled: "text-success-ink",
-  refunded: "text-fg/45",
+  refunded: "text-faint",
 };
 
 export default async function SettlementsPage() {
@@ -56,21 +56,21 @@ export default async function SettlementsPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 sm:px-6 py-10 font-kr">
-      <Link href="/studio" className="text-sm text-fg/50 hover:text-fg">
+      <Link href="/studio" className="text-sm text-muted hover:text-fg">
         ← 스튜디오
       </Link>
       <h1 className="mt-4 text-2xl font-semibold">정산 내역</h1>
-      <p className="mt-1 text-xs leading-relaxed text-fg/45">
+      <p className="mt-1 text-xs leading-relaxed text-faint">
         촬영비는 사매가 받아 두고, 중개 수수료를 뺀 금액을 작가님 계좌로 보내드려요.
       </p>
 
       <div className="mt-6 grid grid-cols-2 gap-3">
         <div className="rounded-xl border border-fg/10 p-4">
-          <p className="text-xs text-fg/50">정산 예정</p>
+          <p className="text-xs text-muted">정산 예정</p>
           <p className="mt-1 text-lg font-semibold text-brand-ink">₩{fmt.format(pendingTotal)}</p>
         </div>
         <div className="rounded-xl border border-fg/10 p-4">
-          <p className="text-xs text-fg/50">정산 완료</p>
+          <p className="text-xs text-muted">정산 완료</p>
           <p className="mt-1 text-lg font-semibold text-success-ink">₩{fmt.format(settledTotal)}</p>
         </div>
       </div>
@@ -87,7 +87,7 @@ export default async function SettlementsPage() {
         </ul>
       )}
 
-      <p className="mt-8 text-xs leading-relaxed text-fg/40">
+      <p className="mt-8 text-xs leading-relaxed text-faint">
         정산이 실제와 다르면 채팅방의 예약 카드에서 알려주세요. 금액 확인과 재처리는 사매가
         합니다.
       </p>
@@ -107,11 +107,11 @@ function SettlementItem({ row, fmt }: { row: SettlementRow; fmt: Intl.NumberForm
           >
             {row.customerName}
           </Link>
-          <p className="mt-0.5 text-xs text-fg/50">{fmtShootAt(row.shootAt, row.shootDate)}</p>
+          <p className="mt-0.5 text-xs text-muted">{fmtShootAt(row.shootAt, row.shootDate)}</p>
         </div>
         <div className="shrink-0 text-right">
           <p className={`text-xs ${STAGE_TONE[row.stage]}`}>{STAGE_LABEL[row.stage]}</p>
-          <p className={`mt-0.5 font-semibold ${refunded ? "text-fg/35 line-through" : ""}`}>
+          <p className={`mt-0.5 font-semibold ${refunded ? "text-faint line-through" : ""}`}>
             ₩{fmt.format(row.netKrw)}
           </p>
         </div>
@@ -119,7 +119,7 @@ function SettlementItem({ row, fmt }: { row: SettlementRow; fmt: Intl.NumberForm
 
       {/* 금액이 어떻게 나왔는지 — 수수료를 감추면 정산 문의가 늘어난다 */}
       {!refunded && (
-        <p className="mt-2 border-t border-fg/[0.06] pt-2 text-xs tabular-nums text-fg/45">
+        <p className="mt-2 border-t border-fg/[0.06] pt-2 text-xs tabular-nums text-faint">
           고객 결제 ₩{fmt.format(row.paidKrw)} · 사매 수수료 ₩{fmt.format(row.feeKrw)}
         </p>
       )}
