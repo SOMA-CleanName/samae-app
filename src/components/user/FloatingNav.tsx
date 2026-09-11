@@ -174,7 +174,17 @@ export function FloatingNav({
         //    그 오른쪽에 '맨 위로' 를 세운다. 없으면 querySelector 가 빈손으로 돌아와
         //    버튼이 영영 hidden 상태로 남는다(에러는 안 난다 — 그래서 더 안 보인다).
         data-floating-nav
-        className="fixed bottom-5 left-1/2 z-40 -translate-x-1/2"
+        /*
+          폰에서는 하단 **가운데** — 엄지가 닿는 자리다.
+
+          데스크톱(lg~)에서는 **왼쪽 아래**로 비킨다. 가운데에 떠 있으면 시선이 머무는
+          한복판을 계속 가린다(인계노트: "데스크톱에서도 FloatingNav 가 하단 중앙에 떠
+          콘텐츠를 가림"). 마우스는 어디든 갈 수 있어서 가운데일 이유도 없다.
+
+          오른쪽이 아니라 왼쪽인 이유: '맨 위로' 버튼이 이 알약의 **오른쪽 끝을 재서**
+          그 옆에 선다(ScrollTopButton). 오른쪽으로 보내면 둘이 화면 끝에서 겹친다.
+        */
+        className="fixed bottom-5 left-1/2 z-40 -translate-x-1/2 lg:left-6 lg:translate-x-0"
         style={{ pointerEvents: visible ? "auto" : "none" }}
       >
         <div style={revealStyle}>
@@ -183,7 +193,9 @@ export function FloatingNav({
           >
             <span
               aria-hidden
-              className="absolute bottom-1 left-1 top-1 w-[var(--nav-tab-w)] rounded-full bg-brand shadow-sm transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+              // bg-brand(#ff3d2e) 위 흰 라벨은 3.52:1 이라 본문 기준(4.5) 아래였다.
+              // 채움색만 한 단계 진하게(--brand-solid) — 흰 글씨 대비 5.68:1.
+              className="absolute bottom-1 left-1 top-1 w-[var(--nav-tab-w)] rounded-full bg-brand-solid shadow-sm transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
               style={{
                 opacity: activeNavIndex >= 0 ? 1 : 0,
                 transform: `translate3d(calc(${indicatorIndex * 100}% + ${indicatorIndex * 0.25}rem), 0, 0)`,
@@ -323,7 +335,9 @@ function NavPill({
       className={[
         // 탭 균등 너비 — 라벨 길이 달라도 같은 크기.
         // 폭은 부모가 --nav-tab-w 로 준다(표시기와 같은 값이어야 어긋나지 않는다).
-        "relative z-10 flex w-[var(--nav-tab-w)] shrink-0 items-center justify-center gap-1 rounded-full py-2 font-semibold transition-colors duration-300 sm:gap-1.5 sm:py-2.5",
+        // 높이가 36px 였다(실측 88×36). 앱에서 제일 많이 누르는 컨트롤인데 권장 44px 에
+        // 8px 모자랐다. 폭은 --nav-tab-w 가 정하므로 세로만 min-h-11 로 올린다.
+        "relative z-10 flex min-h-11 w-[var(--nav-tab-w)] shrink-0 items-center justify-center gap-1 rounded-full py-2 font-semibold transition-colors duration-300 sm:gap-1.5 sm:py-2.5",
         compact ? "px-1.5 text-xs sm:text-sm" : "px-2 text-sm",
         active ? "text-white" : "text-fg/65 hover:text-brand",
         attention ? "samae-explore-tab-attention text-brand" : "",
@@ -336,7 +350,7 @@ function NavPill({
       {badge > 0 && (
         <span
           aria-hidden
-          className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[10px] font-bold leading-none text-white ring-2 ring-bg"
+          className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-brand-solid px-1 text-[10px] font-bold leading-none text-white ring-2 ring-bg"
         >
           {badge > 99 ? "99+" : badge}
         </span>

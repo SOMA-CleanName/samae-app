@@ -58,7 +58,7 @@ export function PhotoInsights({ photos, totalClicks }: { photos: PhotoStat[]; to
               <span
                 className={cn(
                   "absolute left-2 top-2 grid h-7 min-w-7 place-items-center rounded-full px-2 text-caption font-bold tabular-nums shadow",
-                  i === 0 ? "bg-brand text-white" : "bg-black/65 text-white"
+                  i === 0 ? "bg-brand-solid text-white" : "bg-black/65 text-white"
                 )}
               >
                 {i + 1}
@@ -143,7 +143,7 @@ function PhotoModal({ photo, onClose }: { photo: PhotoStat; onClose: () => void 
             <div className="flex shrink-0 gap-2">
               <div className="rounded-xl bg-brand/[0.08] px-3 py-1.5 text-center">
                 <p className="text-h3 font-bold tabular-nums text-brand">{won.format(photo.count)}</p>
-                <p className="text-[11px] text-brand/80">회 클릭</p>
+                <p className="text-[11px] text-brand-ink/80">회 클릭</p>
               </div>
               {photo.views != null && (
                 <div className="rounded-xl bg-fg/[0.05] px-3 py-1.5 text-center">

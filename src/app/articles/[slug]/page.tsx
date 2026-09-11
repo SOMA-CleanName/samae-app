@@ -8,6 +8,7 @@ import { Parallax } from "@/components/editorial/Parallax";
 import { ReadingProgress } from "@/components/editorial/ReadingProgress";
 import { StickyBack } from "@/components/editorial/StickyBack";
 import { ChannelCard } from "@/components/ChannelCard";
+import { SiteFooter } from "@/components/SiteFooter";
 import { articleJsonLd, breadcrumbJsonLd } from "@/lib/seo";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { getPublishedArticle, listPublishedArticles, readingMinutes } from "@/lib/articles";
@@ -75,7 +76,7 @@ export default async function ArticleDetailPage({
           }),
           breadcrumbJsonLd([
             { name: "홈", path: "/" },
-            { name: "스냅 촬영 이야기", path: "/articles" },
+            { name: "읽을거리", path: "/articles" },
             { name: a.title, path },
           ]),
         ]}
@@ -102,20 +103,26 @@ export default async function ArticleDetailPage({
                 />
               </Parallax>
               <div className="ed-tile-veil absolute inset-0" />
+              {/* 사진 위에는 제목만 얹는다.
+                  날짜·읽는 시간까지 올려 두니 사진을 가리기도 했고, 흰 글씨 작은 대문자라
+                  "이게 발행일인지 뭔지" 한 번에 안 읽혔다(팀원 QA). 사실 정보는 사진 밖
+                  본문 쪽으로 내린다 — 거기선 배경이 단색이라 그냥 읽힌다. */}
               <div className="absolute inset-x-0 bottom-0 p-5 md:p-10">
-                <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[10px] font-bold uppercase tracking-[0.16em] text-white/75">
-                  <span className="rounded-full bg-brand px-2.5 py-1 text-white">Article</span>
-                  {dateText && <span className="tabular-nums">{dateText}</span>}
-                  <span>·</span>
-                  <span className="tabular-nums">{readingMinutes(a.body_md)} min read</span>
-                </div>
-                <h1 className="ed-drift mt-3 max-w-4xl text-[clamp(1.9rem,5.2vw,3.6rem)] font-extrabold leading-[1.08] tracking-[-0.04em] text-white">
+                <h1 className="ed-drift max-w-4xl text-[clamp(1.9rem,5.2vw,3.6rem)] font-extrabold leading-[1.08] tracking-[-0.04em] text-white">
                   {a.title}
                 </h1>
               </div>
             </div>
+
+            {/* 발행 정보 — 사진 아래 첫 줄 */}
+            <div className="mx-auto mt-5 flex max-w-[760px] flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] font-bold uppercase tracking-[0.14em] text-muted">
+              <span className="rounded-full bg-brand-soft px-2.5 py-1 text-brand-ink">Article</span>
+              {dateText && <span className="tabular-nums">{dateText}</span>}
+              <span aria-hidden>·</span>
+              <span className="tabular-nums">{readingMinutes(a.body_md)} min read</span>
+            </div>
             {a.summary && (
-              <p className="mx-auto mt-8 max-w-[760px] text-[clamp(1rem,1.6vw,1.15rem)] leading-relaxed text-muted">
+              <p className="mx-auto mt-4 max-w-[760px] text-[clamp(1rem,1.6vw,1.15rem)] leading-relaxed text-muted">
                 {a.summary}
               </p>
             )}
@@ -125,7 +132,7 @@ export default async function ArticleDetailPage({
         <header className="px-4 pb-2 pt-10 md:px-6 md:pt-14">
           <div className="mx-auto max-w-[760px]">
             <div className="flex flex-wrap items-center gap-x-2.5 text-[10px] font-bold uppercase tracking-[0.16em] text-muted">
-              <span className="rounded-full bg-brand px-2.5 py-1 text-white">Article</span>
+              <span className="rounded-full bg-brand-soft px-2.5 py-1 text-brand-ink">Article</span>
               {dateText && <span className="tabular-nums">{dateText}</span>}
               <span>·</span>
               <span className="tabular-nums">{readingMinutes(a.body_md)} min read</span>
@@ -158,10 +165,12 @@ export default async function ArticleDetailPage({
         <div className="mx-auto max-w-[760px]">
           <Reveal>
             <div className="border-y border-line py-10 text-center">
+              {/* 브랜드 한 줄과 같은 말로 맞춘다 — 푸터·소개에서 쓰는 문장이 여기서도 나와야
+                  한 서비스로 읽힌다. 기능 설명("물어볼 수 있어요")보다 앞세운다. */}
               <p className="mx-auto max-w-sm text-body leading-relaxed">
-                마음에 든 사진이 있으면
+                <b className="font-semibold">나만의 무드로 나만의 촬영을.</b>
                 <br />
-                <b className="font-semibold">그 사진을 찍은 작가</b>에게 바로 물어볼 수 있어요.
+                마음에 든 사진이 있으면 그 사진을 찍은 작가에게 바로 물어볼 수 있어요.
               </p>
               <Link
                 href="/"
@@ -216,6 +225,11 @@ export default async function ArticleDetailPage({
       {/* 글을 끝까지 읽은 사람은 이미 "더 볼" 의향이 있다. 그 자리에 문만 열어 둔다. */}
       <div className="mx-auto max-w-[760px] px-5 md:px-8">
         <ChannelCard />
+
+        {/* 목록(/articles)엔 푸터가 있는데 정작 글에는 없었다. 검색·인스타로 들어오는
+            사람은 대부분 목록이 아니라 여기로 바로 떨어지는데, 그 자리에 사업자 정보도
+            약관도 처리방침도 없었다. */}
+        <SiteFooter />
       </div>
     </main>
   );

@@ -39,7 +39,9 @@ export async function HomeBannerSlot() {
       src: a.cover_url as string,
       alt: a.cover_alt || a.title,
       href: `/articles/${encodeURIComponent(a.slug)}`,
-      kicker: "스냅 촬영 이야기",
+      // "스냅 촬영 이야기" 였다. 배너 위 작은 라벨은 **이게 뭔지 한 단어로** 말해야 하는
+      // 자리인데 다섯 음절을 쓰면서 정작 "읽는 것"이라는 건 안 알려 줬다.
+      kicker: "읽을거리",
       title: a.title,
     }));
 

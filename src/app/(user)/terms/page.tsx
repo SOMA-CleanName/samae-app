@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SiteFooter } from "@/components/SiteFooter";
 
 /*
   서비스 이용약관 — 본문.
@@ -414,10 +415,14 @@ export default function TermsPage() {
       <p className="mt-12 border-t border-line pt-5 text-xs leading-relaxed text-faint">
         결제·연락처·환불이 실제로 어떻게 처리되는지는{" "}
         <Link href="/trust" className="underline underline-offset-2">
-          안전하게 촬영하기
+          안전 촬영 정책
         </Link>
         에 더 자세히 적어 두었습니다.
       </p>
+
+      {/* 약관 지면에 푸터가 없었다. 사업자 정보·처리방침이 가장 붙어 있어야 할 자리인데,
+          여기까지 읽고 내려온 사람에게 나갈 문이 하나도 없었다. */}
+      <SiteFooter />
     </main>
   );
 }
@@ -434,7 +439,7 @@ function Article({
   return (
     <section>
       <h2 className="mb-2 text-base font-semibold text-fg">
-        <span className="font-display italic tabular-nums text-brand">{n}</span>{" "}
+        <span className="font-display italic tabular-nums text-brand-ink">{n}</span>{" "}
         <span>({title})</span>
       </h2>
       {children}

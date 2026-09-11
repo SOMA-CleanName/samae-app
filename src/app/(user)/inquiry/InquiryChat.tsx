@@ -779,7 +779,7 @@ function DoneModal({ onExplore, onSave }: { onExplore: () => void; onSave: () =>
         <ol className="mt-5 space-y-2.5 text-left">
           {nextSteps.map((s, i) => (
             <li key={i} className="flex items-center gap-2.5">
-              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand/10 text-xs font-bold text-brand">
+              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand/10 text-xs font-bold text-brand-ink">
                 {i + 1}
               </span>
               <span className="text-sm text-fg/80">{s}</span>
@@ -790,7 +790,7 @@ function DoneModal({ onExplore, onSave }: { onExplore: () => void; onSave: () =>
         <button
           type="button"
           onClick={onExplore}
-          className="mt-6 block w-full cursor-pointer rounded-2xl bg-brand py-3.5 text-base font-bold text-white transition-opacity hover:opacity-90"
+          className="mt-6 block w-full cursor-pointer rounded-2xl bg-brand-solid py-3.5 text-base font-bold text-white transition-opacity hover:opacity-90"
         >
           더 많은 사진 탐색하기
         </button>
@@ -838,7 +838,7 @@ function SubmitBlock({
           type="button"
           onClick={onSubmit}
           disabled={pending}
-          className="h-12 w-full cursor-pointer rounded-xl bg-brand text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          className="h-12 w-full cursor-pointer rounded-xl bg-brand-solid text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {pending ? "전달 중…" : multi ? "작가님들께 문의 보내기" : "작가님께 문의 보내기"}
         </button>
@@ -919,7 +919,7 @@ function TextField({
         type="button"
         onClick={() => trimmed && onPick(trimmed)}
         disabled={!trimmed}
-        className="h-11 w-full cursor-pointer rounded-xl bg-brand text-[15px] font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+        className="h-11 w-full cursor-pointer rounded-xl bg-brand-solid text-[15px] font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
       >
         답변 보내기
       </button>
@@ -952,7 +952,7 @@ function OptionButton({
         // 색은 선택 시에만 brand. 탭 피드백은 active 스케일.
         "cursor-pointer rounded-xl px-3.5 py-3 text-[15px] font-medium transition-transform active:scale-[0.97]",
         active
-          ? "bg-brand text-white"
+          ? "bg-brand-solid text-white"
           : "bg-surface text-fg ring-1 ring-line-strong active:bg-surface-2",
       ].join(" ")}
     >
@@ -1097,7 +1097,7 @@ function DateSheet({
             type="button"
             onClick={() => sel && onConfirm(sel)}
             disabled={!sel}
-            className="mt-5 h-12 w-full cursor-pointer rounded-xl bg-brand text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            className="mt-5 h-12 w-full cursor-pointer rounded-xl bg-brand-solid text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             이 날짜로 선택
           </button>
@@ -1189,7 +1189,7 @@ function Calendar({ value, onSelect }: { value: string; onSelect: (iso: string) 
               className={[
                 "mx-auto grid h-9 w-9 place-items-center rounded-full text-sm tabular-nums transition-colors",
                 selected
-                  ? "bg-brand font-semibold text-white"
+                  ? "bg-brand-solid font-semibold text-white"
                   : past
                     ? "cursor-not-allowed text-faint/40"
                     : "cursor-pointer text-fg hover:bg-brand/[0.08]",
@@ -1240,7 +1240,7 @@ function SentBubble({ children, muted }: { children: React.ReactNode; muted?: bo
       className={[
         "w-fit rounded-2xl rounded-tr-md px-3.5 py-2.5 text-[17px] font-medium",
         // 수정 중: 강조된 질문 말풍선과 동일한 배경(브랜드 틴트 + 링) — 라이트/다크 모두 읽히는 적응형 텍스트
-        muted ? "bg-brand/[0.08] text-brand-ink ring-1 ring-brand/25" : "bg-brand text-white",
+        muted ? "bg-brand/[0.08] text-brand-ink ring-1 ring-brand/25" : "bg-brand-solid text-white",
       ].join(" ")}
     >
       {children}

@@ -61,7 +61,7 @@ export function ApplyLeadForm({ kakaoChannelUrl }: { kakaoChannelUrl: string }) 
           <button
             type="submit"
             disabled={pending}
-            className="mt-1 w-full rounded-xl bg-brand py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="mt-1 w-full rounded-xl bg-brand-solid py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {pending ? "보내는 중…" : "작가 신청 보내기"}
           </button>
@@ -141,7 +141,7 @@ function Field({
     <div className="flex flex-col gap-1.5">
       <label htmlFor={name} className="flex items-center gap-1.5 text-sm font-medium text-fg/80">
         {label}
-        {required && <span className="text-xs font-medium text-brand">필수</span>}
+        {required && <span className="text-xs font-medium text-brand-ink">필수</span>}
       </label>
       <input
         id={name}
@@ -152,7 +152,7 @@ function Field({
         className="h-12 rounded-xl border border-line-strong bg-surface px-4 text-sm outline-none transition-colors placeholder:text-fg/30 focus:border-fg/45"
       />
       {error ? (
-        <p className="text-xs text-brand">{error}</p>
+        <p className="text-xs text-brand-ink">{error}</p>
       ) : hint ? (
         <p className="text-xs text-fg/45">{hint}</p>
       ) : null}

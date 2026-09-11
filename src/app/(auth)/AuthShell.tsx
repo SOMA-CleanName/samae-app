@@ -95,7 +95,9 @@ export async function AuthShell({
           */}
           <Link
             href="/"
-            className="ed-back group -ml-1 mb-5 inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-faint transition-colors hover:text-brand"
+            // 높이 17px 였다(실측 100×17). 로그인 화면에서 빠져나가는 유일한 문이라
+            // 세로만 44px 로 키운다 — `-mt-3` 로 늘어난 위쪽은 상쇄.
+            className="ed-back group -ml-1 -mt-3 mb-2 inline-flex min-h-11 items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-faint transition-colors hover:text-brand"
           >
             <span aria-hidden className="ed-back-arrow">
               ←

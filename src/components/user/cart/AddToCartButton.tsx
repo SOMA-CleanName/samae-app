@@ -50,7 +50,7 @@ export function AddToCartButton({
           ? "h-9 w-9"
           : "h-6 w-6 backdrop-blur-sm before:absolute before:-inset-2.5 before:content-['']",
         inCart
-          ? "bg-brand text-white"
+          ? "bg-brand-solid text-white"
           : row
             ? "bg-bg/80 text-fg shadow-sm ring-1 ring-line hover:bg-bg"
             : "bg-black/30 text-white hover:bg-black/55",

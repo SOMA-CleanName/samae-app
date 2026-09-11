@@ -108,7 +108,7 @@ export default async function AvailabilityPage() {
                 </span>
                 <form action={removeBlock}>
                   <input type="hidden" name="id" value={b.id} />
-                  <button className="rounded-full px-3 py-1 text-xs text-brand hover:bg-brand/[0.06]">해제</button>
+                  <button className="rounded-full px-3 py-1 text-xs text-brand-ink hover:bg-brand/[0.06]">해제</button>
                 </form>
               </li>
             ))}

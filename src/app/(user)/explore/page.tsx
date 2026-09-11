@@ -38,13 +38,13 @@ export const dynamic = "force-dynamic";
    그때는 하위 페이지만 고치고 이 인덱스를 빠뜨렸다.)
 */
 export const metadata: Metadata = {
-  title: "스냅 촬영 이야기와 장소",
+  title: "스냅 촬영 읽을거리와 장소",
   description:
-    "가격이 왜 다른지, 뭘 입어야 하는지, 어디서 찍는지. 스냅 촬영을 처음 알아보는 사람이 궁금해할 것들을 사매가 아티클·촬영 장소·자주 묻는 것으로 정리했어요.",
+    "가격이 왜 다른지, 뭘 입어야 하는지, 어디서 찍는지. 스냅 촬영을 처음 알아보는 사람이 궁금해할 것들을 사매가 아티클·촬영 장소·자주 묻는 질문으로 정리했어요.",
   keywords: ["스냅 촬영", "스냅 가격", "촬영 준비물", "촬영 장소", "스냅 매거진"],
   alternates: { canonical: "/explore" },
   openGraph: {
-    title: "스냅 촬영 이야기와 장소 · samae",
+    title: "스냅 촬영 읽을거리와 장소 · samae",
     description: "가격이 왜 다른지, 뭘 입어야 하는지, 어디서 찍는지.",
     url: `${SITE_URL}/explore`,
     type: "website",
@@ -131,7 +131,7 @@ export default async function ExplorePage() {
     (개별 글의 Article 스키마는 /articles/{slug} 가 각자 들고 있다)
   */
   const articleList = itemListJsonLd(
-    "스냅 촬영 이야기",
+    "스냅 촬영 읽을거리",
     [...deck, ...list].map((a) => ({
       name: a.title,
       path: `/articles/${encodeURIComponent(a.slug)}`,

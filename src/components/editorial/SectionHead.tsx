@@ -30,7 +30,7 @@ export function SectionHead({
     <div className="mb-4 px-1">
       <div className="flex items-baseline gap-2">
         {no && (
-          <span className="font-display text-body-sm italic tabular-nums text-brand">{no}</span>
+          <span className="font-display text-body-sm italic tabular-nums text-brand-ink">{no}</span>
         )}
         <h2 className="border-b-[3px] border-brand pb-1 text-title font-bold tracking-tight">
           {title}
@@ -38,7 +38,9 @@ export function SectionHead({
         {more && (
           <Link
             href={more}
-            className="ml-auto shrink-0 text-xs text-muted underline underline-offset-4 transition-colors hover:text-brand"
+            // 높이가 16px 였다(실측 48×16). 글자는 그대로 두고 눌리는 세로만 44px 로.
+            // `-my-3` 로 늘어난 만큼 상쇄해 제목 줄의 baseline 정렬은 그대로 유지한다.
+            className="-my-3 ml-auto inline-flex min-h-11 shrink-0 items-center text-xs text-muted underline underline-offset-4 transition-colors hover:text-brand"
           >
             {moreLabel}
           </Link>

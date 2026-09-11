@@ -74,7 +74,7 @@ export function ChatRoomRow({
           <span className="mt-0.5 block text-caption text-faint">{when(c.last_message_at)}</span>
         </span>
         {unread > 0 && (
-          <span className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-brand px-1.5 text-label font-semibold text-white">
+          <span className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-brand-solid px-1.5 text-label font-semibold text-white">
             {unread > 99 ? "99+" : unread}
           </span>
         )}

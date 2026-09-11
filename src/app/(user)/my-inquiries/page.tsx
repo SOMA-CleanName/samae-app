@@ -128,7 +128,7 @@ export default async function MyInquiriesPage() {
                     </p>
                   </div>
                   {r.user_unread > 0 && (
-                    <span className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-brand px-1.5 text-label font-bold text-white">
+                    <span className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-brand-solid px-1.5 text-label font-bold text-white">
                       {r.user_unread}
                     </span>
                   )}

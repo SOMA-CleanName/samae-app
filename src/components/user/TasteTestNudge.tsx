@@ -129,7 +129,7 @@ export function TasteTestNudge() {
               type="button"
               onClick={goToTasteTest}
               disabled={navigating}
-              className="whitespace-nowrap rounded-lg border border-brand bg-brand px-2 py-2 text-[0.7rem] font-semibold text-white transition-opacity hover:opacity-90 sm:px-2.5 sm:text-caption"
+              className="whitespace-nowrap rounded-lg border border-brand bg-brand-solid px-2 py-2 text-[0.7rem] font-semibold text-white transition-opacity hover:opacity-90 sm:px-2.5 sm:text-caption"
             >
               하러가기 →
             </button>

@@ -57,7 +57,7 @@ export function SearchDebug() {
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline gap-2">
-                      <span className="tabular-nums text-body-sm font-semibold text-brand">{r.score}</span>
+                      <span className="tabular-nums text-body-sm font-semibold text-brand-ink">{r.score}</span>
                       <span className="truncate text-caption text-muted">{r.photo.display_name ?? "작가"}</span>
                     </div>
                     <div className="mt-1 flex flex-wrap gap-1">

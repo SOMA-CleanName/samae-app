@@ -308,7 +308,7 @@ export function PortfolioUploader({
           </HelpTip>
         </div>
 
-        {error && <p className="text-xs text-brand">{error}</p>}
+        {error && <p className="text-xs text-brand-ink">{error}</p>}
 
         <button
           type="button"

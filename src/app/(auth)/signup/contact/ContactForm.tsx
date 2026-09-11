@@ -77,7 +77,7 @@ export default function ContactForm({
     <main className="mx-auto flex min-h-[100svh] w-full max-w-sm flex-col bg-surface px-6 pb-8 pt-4 font-kr">
       {/* 필수 단계라 뒤로가기 없음 — 헤드라인·폼을 상단에 붙여 키보드에 안 가리게 */}
       <div className="mt-12">
-        <p className="font-display text-xl italic text-brand">samae</p>
+        <p className="font-display text-xl italic text-brand-ink">samae</p>
         <h1 className="mt-4 whitespace-pre-line text-[1.75rem] font-bold leading-[1.3] tracking-tight">
           {`${displayName ? `${displayName}님,\n` : ""}거의 다 왔어요`}
         </h1>

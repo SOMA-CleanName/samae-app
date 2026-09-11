@@ -36,7 +36,8 @@ export function ProfileButton({
 
   // 테두리를 진한 선으로. 기본 line 은 배경과 대비가 약해 버튼이 안 보였다.
   const shell =
-    "pb-btn grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full border border-line-strong bg-surface text-fg shadow-sm transition-colors hover:border-brand hover:text-brand";
+    // 보이는 원은 36px 그대로, 눌리는 면만 ::before 로 44px 까지 넓힌다(권장치 충족).
+    "pb-btn relative grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-full border border-line-strong bg-surface text-fg shadow-sm transition-colors before:absolute before:-inset-1 before:content-[''] hover:border-brand hover:text-brand";
 
   const face =
     loggedIn && avatarUrl ? (

@@ -86,7 +86,7 @@ export function AvatarUploader({
             </button>
           )}
         </div>
-        {error && <p className="mt-1.5 text-xs text-brand">{error}</p>}
+        {error && <p className="mt-1.5 text-xs text-brand-ink">{error}</p>}
       </div>
     </div>
   );

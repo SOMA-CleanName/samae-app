@@ -1334,7 +1334,7 @@ export function InquiryBotChat({
           </p>
           {/* E4: 진행 표시 — 체크 나열 대신 간결한 카운터 */}
           {handedOff ? (
-            <p className="truncate text-xs font-medium text-brand">작가님이 대화를 이어받았어요</p>
+            <p className="truncate text-xs font-medium text-brand-ink">작가님이 대화를 이어받았어요</p>
           ) : (
             <p className="truncate text-xs text-muted">
               {answeredCount(STEPS, answers) > 0
@@ -1391,7 +1391,7 @@ export function InquiryBotChat({
           if (item.kind === "user") {
             return (
               <div key={item.id} className={`ml-auto w-fit max-w-[85%] ${ITEM_ANIM}`}>
-                <div className="rounded-2xl rounded-tr-md bg-brand px-3.5 py-2.5 text-[16px] font-medium text-white">
+                <div className="rounded-2xl rounded-tr-md bg-brand-solid px-3.5 py-2.5 text-[16px] font-medium text-white">
                   {item.text}
                 </div>
               </div>
@@ -1416,7 +1416,7 @@ export function InquiryBotChat({
                   ))}
                 </div>
                 {item.caption && (
-                  <div className="ml-auto w-fit max-w-full rounded-2xl rounded-tr-md bg-brand px-3.5 py-2.5 text-[16px] font-medium text-white">
+                  <div className="ml-auto w-fit max-w-full rounded-2xl rounded-tr-md bg-brand-solid px-3.5 py-2.5 text-[16px] font-medium text-white">
                     {item.caption}
                   </div>
                 )}
@@ -1430,12 +1430,12 @@ export function InquiryBotChat({
                 {photographerAvatar ? (
                   <img src={photographerAvatar} alt="" className="mt-0.5 h-8 w-8 shrink-0 rounded-full object-cover" />
                 ) : (
-                  <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand/15 text-xs font-semibold text-brand">
+                  <span className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-brand/15 text-xs font-semibold text-brand-ink">
                     {photographerName.slice(0, 1)}
                   </span>
                 )}
                 <div className="mr-auto max-w-[82%]">
-                  <p className="mb-0.5 text-[11px] font-semibold text-brand">{photographerName} · 작가</p>
+                  <p className="mb-0.5 text-[11px] font-semibold text-brand-ink">{photographerName} · 작가</p>
                   <div className="rounded-2xl rounded-tl-md bg-brand/[0.08] px-3.5 py-2.5 text-[16px] leading-relaxed text-fg ring-1 ring-brand/20">
                     {item.text}
                   </div>
@@ -1470,7 +1470,7 @@ export function InquiryBotChat({
                 <div className="ml-11 flex flex-wrap gap-2">
                   <Link
                     href="/"
-                    className="rounded-xl bg-brand px-3.5 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                    className="rounded-xl bg-brand-solid px-3.5 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
                   >
                     다른 사진 탐색
                   </Link>
@@ -1662,7 +1662,7 @@ export function InquiryBotChat({
           type="submit"
           disabled={done || (!freeText.trim() && pendingImages.length === 0)}
           aria-label="보내기"
-          className="grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-full bg-brand text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          className="grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-full bg-brand-solid text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {/* E4: 실채팅(ChatRoom)과 같은 전송 아이콘으로 통일 */}
           <SendIcon className="h-5 w-5" />
@@ -1736,7 +1736,7 @@ function SummaryCard({
   return (
     <div className="ml-10 mr-auto w-full max-w-[85%] overflow-hidden rounded-2xl border border-line bg-surface">
       <div className="flex items-center gap-2 border-b border-line bg-brand/[0.06] px-4 py-2.5">
-        <span className="grid h-5 w-5 place-items-center rounded-full bg-brand text-white">
+        <span className="grid h-5 w-5 place-items-center rounded-full bg-brand-solid text-white">
           <CheckIcon className="h-3 w-3" />
         </span>
         <p className="text-sm font-bold text-fg">문의 내용 정리</p>
@@ -1852,7 +1852,7 @@ function ContactCard({
           type="button"
           onClick={() => onSubmit("phone", registeredPhone)}
           disabled={pending}
-          className="h-11 w-full cursor-pointer rounded-xl bg-brand text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          className="h-11 w-full cursor-pointer rounded-xl bg-brand-solid text-base font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {pending ? "전달 중…" : "문의 보내기"}
         </button>
@@ -1917,7 +1917,7 @@ function ContactCard({
               }}
               className={[
                 "cursor-pointer rounded-xl py-2.5 text-sm font-medium transition-transform active:scale-[0.97]",
-                on ? "bg-brand text-white" : "bg-surface text-fg ring-1 ring-line-strong active:bg-surface-2",
+                on ? "bg-brand-solid text-white" : "bg-surface text-fg ring-1 ring-line-strong active:bg-surface-2",
               ].join(" ")}
             >
               {t.label}
@@ -1958,7 +1958,7 @@ function ContactCard({
             onClick={handleSubmit}
             disabled={pending}
             className={[
-              "mt-2 h-11 w-full cursor-pointer rounded-xl bg-brand text-base font-semibold text-white transition-opacity",
+              "mt-2 h-11 w-full cursor-pointer rounded-xl bg-brand-solid text-base font-semibold text-white transition-opacity",
               check.valid ? "opacity-100 hover:opacity-90" : "opacity-40",
               "disabled:cursor-not-allowed",
             ].join(" ")}

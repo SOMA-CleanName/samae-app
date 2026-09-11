@@ -128,13 +128,21 @@ function Chip({ item, rank }: { item: MoodItem; rank: number }) {
           className="object-cover transition-transform duration-700 group-hover:scale-[1.06]"
         />
       </div>
-      <p className="mt-1.5 flex items-center gap-1 px-0.5">
+      {/*
+        제목이 `truncate` 라 카드 폭(모바일 87px)을 넘기면 "이색적인 분…" 으로 잘렸다.
+        무드 이름은 **그 카드를 누를지 말지를 정하는 유일한 단서**라 잘리면 곤란하다.
+
+        두 줄까지 풀되 줄 수를 고정(`min-h`)해 카드 밑단이 들쭉날쭉해지지 않게 한다.
+        제목 길이는 운영자가 정하는 값이라 코드에서 짧게 강제하지 않는다 — 길면 두 줄로 앉는다.
+        `items-start` — 두 줄이 되면 ✳︎ 는 첫 줄에 맞춰야 한다.
+      */}
+      <p className="mt-1.5 flex min-h-[2.1rem] items-start gap-1 px-0.5">
         {item.curated && (
-          <span aria-label="오늘의 큐레이션" className="text-[10px] text-brand">
+          <span aria-label="오늘의 큐레이션" className="mt-px text-[10px] leading-[1.4] text-brand-ink">
             ✳︎
           </span>
         )}
-        <span className="truncate text-[12px] font-bold tracking-tight transition-colors group-hover:text-brand">
+        <span className="line-clamp-2 text-[12px] font-bold leading-[1.4] tracking-tight transition-colors group-hover:text-brand">
           {item.title}
         </span>
       </p>

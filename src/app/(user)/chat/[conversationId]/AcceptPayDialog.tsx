@@ -175,13 +175,13 @@ export function AcceptPayDialog({
             순서를 번호로 끊어 보여준다. 문장으로 흘리면 읽히지 않는다. */}
         <ol className="mt-4 flex flex-col gap-2 rounded-xl bg-brand/[0.08] p-3.5 ring-1 ring-brand/25">
           <li className="flex items-start gap-2 text-body-sm text-fg">
-            <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-brand text-caption font-bold text-white">
+            <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-brand-solid text-caption font-bold text-white">
               1
             </span>
             위 계좌로 <b>₩{fmt.format(amountKrw)}</b> 입금하기
           </li>
           <li className="flex items-start gap-2 text-body-sm text-fg">
-            <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-brand text-caption font-bold text-white">
+            <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-brand-solid text-caption font-bold text-white">
               2
             </span>
             <span>

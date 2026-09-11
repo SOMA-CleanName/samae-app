@@ -51,7 +51,7 @@ function Block({
   return (
     <section className="mt-11 border-t border-line pt-7 first:mt-8">
       <div className="flex items-baseline gap-2">
-        <span className="font-display text-body-sm italic tabular-nums text-brand">{no}</span>
+        <span className="font-display text-body-sm italic tabular-nums text-brand-ink">{no}</span>
         <h2 className="text-title font-bold tracking-tight">{title}</h2>
       </div>
       <p className="mt-1.5 text-body-sm leading-relaxed text-muted">{lead}</p>

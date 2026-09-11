@@ -27,8 +27,11 @@ export function ChannelCard() {
         <span className="block text-body font-bold tracking-tight text-fg">
           사매 {ig.label}
         </span>
+        {/* "새로 올라온 사진과 촬영 이야기를 먼저 봅니다." 였다 — 읽는 사람이 아니라
+            **우리가** 무엇을 한다는 설명이라, 왜 눌러야 하는지가 없었다.
+            받는 것(새 사진·촬영 이야기)을 읽는 사람 쪽에서 말한다. */}
         <span className="mt-0.5 block text-body-sm leading-relaxed text-muted">
-          새로 올라온 사진과 촬영 이야기를 먼저 봅니다.
+          팔로우하면 새 사진과 촬영 이야기를 먼저 받아 봐요.
         </span>
       </span>
 

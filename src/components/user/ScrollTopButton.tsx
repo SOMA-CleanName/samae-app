@@ -86,7 +86,7 @@ export function ScrollTopButton({ anchorId }: { anchorId: string }) {
             : "smooth",
         })
       }
-      className="stt fixed bottom-5 z-40 grid h-9 w-9 place-items-center rounded-full bg-bg/95 text-fg shadow-lg ring-1 ring-line backdrop-blur"
+      className="stt fixed bottom-5 z-40 grid h-9 w-9 place-items-center rounded-full bg-bg/95 text-fg shadow-lg ring-1 ring-line backdrop-blur before:absolute before:-inset-1 before:content-['']"
       /* 알약과 같은 높이(bottom-5)·같은 표면 처리. 한 줄에 나란히 앉게. */
       style={{ left: left ?? -9999 }}
     >

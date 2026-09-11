@@ -714,7 +714,12 @@ export async function loadCurationSlides(
       slug: c.slug,
       title: c.title,
       subtitle: c.subtitle,
-      shots: shots.map((id) => ({ id, url: lites.get(id)!.src_url })),
+      // 무드 레일 커버는 모바일에서 **87×87px** 로 그려진다. 원본(src_url)을 걸면
+      // 그 칸에 800KB 대 JPG 를 내려받는다(실측 852KB). 썸네일이 이미 있으니 그걸 쓴다.
+      shots: shots.map((id) => ({
+        id,
+        url: lites.get(id)!.thumb_url ?? lites.get(id)!.src_url,
+      })),
     });
   }
   return slides;
@@ -748,7 +753,13 @@ export async function loadMoodItemsForTarget(targetCategoryId: string): Promise<
   for (const c of cats) {
     const photo = lites.get(coverIds.get(c.id) ?? "");
     if (!photo) continue;
-    items.push({ slug: c.slug, title: c.title, subtitle: c.subtitle, url: photo.src_url });
+    // 위와 같은 이유 — 무드 카드는 작다. 썸네일 우선.
+    items.push({
+      slug: c.slug,
+      title: c.title,
+      subtitle: c.subtitle,
+      url: photo.thumb_url ?? photo.src_url,
+    });
   }
   return items;
 }

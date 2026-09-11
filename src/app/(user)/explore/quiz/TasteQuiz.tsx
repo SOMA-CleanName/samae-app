@@ -190,7 +190,7 @@ export function TasteQuiz() {
                 window.location.href = "/?nocat=1";
               });
             }}
-            className="inline-flex items-center gap-1.5 rounded-full bg-brand px-8 py-2 text-body font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-full bg-brand-solid px-8 py-2 text-body font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
           >
             내 취향 사진 더 보러가기
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
@@ -226,8 +226,9 @@ export function TasteQuiz() {
     return (
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pt-6">
         <div className="w-full max-w-[440px] self-center text-center">
-          <p className="font-display text-body-sm italic text-brand">30초 취향 테스트</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight">어떤 스냅을 찾으세요?</h1>
+          <p className="font-display text-body-sm italic text-brand-ink">30초 취향 테스트</p>
+          {/* 지면 제목(h1)은 상단 바가 이미 쓴다. 단계 제목은 그 아래 단계라 h2. */}
+          <h2 className="mt-1 text-2xl font-bold tracking-tight">어떤 스냅을 찾으세요?</h2>
           <p className="mt-1.5 text-body-sm text-muted">하나를 골라주세요.</p>
         </div>
 
@@ -277,8 +278,8 @@ export function TasteQuiz() {
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center pt-4">
       <div className="w-full max-w-[340px] shrink-0 text-center">
-        <p className="font-display text-body-sm italic text-brand">어떤 무드가 끌리나요?</p>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight">끌리면 오른쪽, 아니면 왼쪽</h1>
+        <p className="font-display text-body-sm italic text-brand-ink">어떤 무드가 끌리나요?</p>
+        <h2 className="mt-1 text-2xl font-bold tracking-tight">끌리면 오른쪽, 아니면 왼쪽</h2>
         <p className="mt-1.5 text-body-sm text-muted">
           카드를 밀거나 아래 버튼으로 골라주세요.
           <br />
@@ -402,7 +403,7 @@ export function TasteQuiz() {
           type="button"
           onClick={() => decide("like")}
           aria-label="좋아요"
-          className="grid h-14 w-14 place-items-center rounded-full bg-brand text-white shadow-pop transition-transform hover:scale-105 active:scale-95"
+          className="grid h-14 w-14 place-items-center rounded-full bg-brand-solid text-white shadow-pop transition-transform hover:scale-105 active:scale-95"
         >
           <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6">
             <path d="M12 20.3l-1.45-1.32C5.4 14.24 2 11.16 2 7.5 2 4.42 4.42 2 7.5 2c1.74 0 3.41.81 4.5 2.09C13.09 2.81 14.76 2 16.5 2 19.58 2 22 4.42 22 7.5c0 3.66-3.4 6.74-8.55 11.49L12 20.3z" />
