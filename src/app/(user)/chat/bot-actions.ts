@@ -20,7 +20,7 @@ import { recordOpenQuestion } from "@/lib/bot-handoff";
 import { fetchBotSettings, renderBotMessage } from "@/lib/bot-settings";
 import { fetchPhotographerTone } from "@/lib/photographer-scripts-db";
 import { notifyPhotographer } from "@/lib/inquiry-bot-notify";
-import { notifyPhotographerOfNewInquiry } from "@/lib/notify-user";
+import { notifyChatMessage, notifyPhotographerOfNewInquiry } from "@/lib/notify-user";
 
 export type BotTurnResult =
   | { ok: false; blocked: true; reason: string }
@@ -93,7 +93,7 @@ export async function sendBotTurn(conversationId: string, body: string): Promise
   const intervened = conv.bot_disabled_at != null || mapped.intervened;
   const isFirstUserTurn = !history.some((m) => m.role === "user");
 
-  // 사용자 발화 저장 — 개입 전엔 수집 대화(type='bot', 무알림), 개입 후엔 일반 채팅(작가 알림)
+  // 사용자 발화 저장 — 개입 전엔 봇 대화(type='bot'), 개입 후엔 일반 채팅(type='text')
   const { error: insErr } = await admin.from("messages").insert({
     conversation_id: conversationId,
     sender_id: me.id,
@@ -101,6 +101,32 @@ export async function sendBotTurn(conversationId: string, body: string): Promise
     body: text,
   });
   if (insErr) throw new Error(insErr.message);
+
+  // 고객 발화 → 작가 재소환. **봇이 응대 중이어도 보낸다.**
+  //
+  // 예전엔 개입 전 발화를 '무알림' 으로 뒀다. 봇이 답하고 있으니 작가를 부를 이유가 없다는
+  // 판단이었는데, 결과는 **작가가 손님이 온 것 자체를 모르는** 상태였다. 봇은 KB 안에서만
+  // 답하고 손님이 실제로 원하는 건 작가다 — 봇이 응대 중인 구간이야말로 작가가 들어와야
+  // 하는 구간이다.
+  //
+  // 규칙이 구간별로 다르다:
+  //   · 봇 모드   — **방당 1회.** 손님이 봇과 얼마나 길게 대화하든 "새 문의가 왔다" 한 통이면
+  //                 족하다. 작가는 그걸 보고 들어오면 된다
+  //   · 개입 후   — 일반 채팅 규칙(열람창 20초 · 12시간 쿨다운). 작가가 대화 중이므로
+  //                 손님의 새 말은 그때그때 알려야 한다
+  if (intervened) {
+    await notifyChatMessage(conversationId, me.id);
+  } else {
+    // ⚠️ `isFirstUserTurn` 으로 감싸지 않는다. 방당 1회는 dispatchNotify 의 dedupe_key
+    //    (`inquiry_received:{conversationId}`)가 이미 보장한다.
+    //
+    //    예전엔 아래 두 분기에서 `isFirstUserTurn` 일 때만 불렀는데, 그 조건이 **영원히
+    //    참이 되지 않는다** — /chat/start 가 방을 만들 때 "이 사진 보고 문의드려요" 를
+    //    고객 명의 image 메시지로 시드하기 때문에, 손님이 처음 타이핑하는 시점엔 이미
+    //    user 발화가 이력에 있다. 그래서 이 알림은 **한 번도 나간 적이 없었다**
+    //    (notification_queue 에 kind='inquiry_received' 0건, 09-10 확인).
+    await notifyPhotographerOfNewInquiry(conversationId, conv.photographer_id);
+  }
 
   const photographerName0 = ph.display_name ?? "작가";
 
@@ -131,6 +157,10 @@ export async function sendBotTurn(conversationId: string, body: string): Promise
       photographerId: conv.photographer_id,
       question: text,
     });
+    // 운영 채널(디스코드) — 작가 알림은 위에서 이미 보냈다.
+    // ⚠️ inquiry-bot-notify 에는 dedupe 가 없다(그 파일 15행 TODO). 가드를 떼면 발화마다
+    //    도배된다. `isFirstUserTurn` 은 시드 메시지 때문에 거의 안 맞지만, 틀린 방향이
+    //    "안 울림" 이라 그대로 둔다 — 여기는 운영이 보는 채널이지 거래가 걸린 알림이 아니다.
     if (isFirstUserTurn) {
       await notifyPhotographer({
         event: "bot_inquiry_started",
@@ -138,9 +168,6 @@ export async function sendBotTurn(conversationId: string, body: string): Promise
         photographerName: photographerName0,
         photoId: conv.bot_photo_id ?? undefined,
       });
-      // 작가 본인에게도 — 디스코드는 운영이 보는 채널이지 작가가 보는 채널이 아니다.
-      // (대화당 1회는 dispatch 의 dedupe 가 보장한다)
-      await notifyPhotographerOfNewInquiry(conversationId, conv.photographer_id);
     }
     return { ok: true, replied: true, asking: "none", quickReplies: [], done: false };
   }
@@ -182,6 +209,7 @@ export async function sendBotTurn(conversationId: string, body: string): Promise
       question: text,
     });
   }
+  // 운영 채널(디스코드) — 작가 알림은 위에서 이미 보냈다. dedupe 가 없어 가드가 필요하다.
   if (isFirstUserTurn) {
     await notifyPhotographer({
       event: "bot_inquiry_started",
@@ -189,9 +217,6 @@ export async function sendBotTurn(conversationId: string, body: string): Promise
       photographerName: photographerName0,
       photoId: conv.bot_photo_id ?? undefined,
     });
-    // 작가 본인에게도 — 디스코드는 운영이 보는 채널이지 작가가 보는 채널이 아니다.
-    // (대화당 1회는 dispatch 의 dedupe 가 보장한다)
-    await notifyPhotographerOfNewInquiry(conversationId, conv.photographer_id);
   }
 
   return {
