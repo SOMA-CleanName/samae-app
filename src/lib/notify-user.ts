@@ -187,15 +187,34 @@ type BookingNotifyInfo = {
   amountKrw?: number | null;
 };
 
-/** 예약 제안 → 상대방. 예약당 1회. */
-export async function notifyBookingProposed(info: BookingNotifyInfo): Promise<void> {
+/**
+ * 예약 제안 → 상대방. 예약당 1회.
+ *
+ * ⚠️ **방향별로 템플릿이 다르다.** 하나로 묶은 템플릿이 "수신 대상 불명확" 으로 두 번
+ *    반려됐다(notify-templates.ts 의 booking_proposed_* 주석). 카카오가 묻는 건
+ *    "수신자가 무엇을 해서 이 메시지를 받는가" 인데, 양방향이면 그 답이 안 나온다.
+ *
+ *    dedupeKey 는 방향과 무관하게 예약 하나당 하나다 — 방향이 바뀔 일은 없고,
+ *    키에 방향을 섞으면 같은 예약에 두 통이 나갈 수 있다.
+ */
+export async function notifyBookingProposed(
+  info: BookingNotifyInfo & {
+    /** 받는 쪽이 작가인가. 즉 **고객이 제안**했는가 (actions/bookings.ts 의 !amPhotographer) */
+    toPhotographer: boolean;
+  }
+): Promise<void> {
+  // 변수 이름도 템플릿마다 다르다 — 수신자를 특정하려고 "상대명" 을 버렸기 때문이다
+  const 상대: Record<string, string> = info.toPhotographer
+    ? { 고객명: nameVar(info.counterpartName, "고객") }
+    : { 작가명: nameVar(info.counterpartName, "작가") };
+
   await dispatchNotify({
-    kind: "booking_proposed",
+    kind: info.toPhotographer ? "booking_proposed_to_photographer" : "booking_proposed_to_customer",
     profileId: info.recipientProfileId,
     dedupeKey: `booking_proposed:${info.bookingId}`,
     variables: {
       예약ID: info.bookingId, // 버튼 URL 용
-      상대명: nameVar(info.counterpartName, "상대방"),
+      ...상대,
       촬영일: formatShootDateVar(info.shootAt, info.shootDate),
       금액: formatKrwVar(info.amountKrw),
       링크: notifyLink(`/bookings/${info.bookingId}`),

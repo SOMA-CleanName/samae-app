@@ -218,6 +218,9 @@ export async function proposeBooking(formData: FormData) {
     bookingId: booking.id,
     // 받는 쪽은 '제안하지 않은 쪽'
     recipientProfileId: amPhotographer ? userId : phNotify?.profile_id,
+    // 내가 작가가 아니면 = 고객이 제안한 것 = 작가가 받는다.
+    // 알림톡 템플릿이 방향별로 갈려서 이 값이 문안을 고른다(notify-user.ts).
+    toPhotographer: !amPhotographer,
     counterpartName: amPhotographer
       ? phNotify?.display_name ?? "작가"
       : me.displayName ?? "고객",

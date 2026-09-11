@@ -83,3 +83,41 @@ test("이름이 비면 역할명", () => {
   assert.equal(nameVar(null, "작가"), "작가");
   assert.equal(nameVar("", "고객"), "고객");
 });
+
+// ── 카카오 심사에서 배운 것 (2026-09-11 반려 2건) ──────────────────
+//
+// 아래 두 규칙은 **디자인 취향이 아니라 승인 조건**이다. 어기면 재심사에서 떨어지고
+// 그동안 해당 알림이 통째로 안 나간다. 문구를 다듬다가 조용히 지우기 쉬워서 고정한다.
+
+test("메시지마다 나가는 알림은 발송 조건을 고정값으로 밝힌다 — 다발성 반려 방지", () => {
+  // 사유: "새로운 채팅이 도착할 때마다 발송되는 다발성 메시지인 경우, 수신자가
+  //        동의·요청하여 발송된다는 내용을 메시지 내 고정값으로 추가 기재"
+  const body = NOTIFY_TEMPLATES.chat_message_to_photographer.body;
+  assert.ok(
+    body.includes("해당 메시지는") && body.includes("발송됩니다"),
+    "다발성 알림 고지 문구가 사라졌다 — 이대로 재심사를 넣으면 반려된다"
+  );
+});
+
+test("예약 제안은 방향별로 갈리고, 각자 수신자의 행위를 첫 줄에 박는다", () => {
+  // 사유: "수신 대상을 명확하게 확인하기 어렵다. 수신자의 어떠한 액션으로 발송되는지"
+  //        → 양방향 한 종으로는 답이 안 나와 두 번 반려됐다.
+  const toPh = NOTIFY_TEMPLATES.booking_proposed_to_photographer;
+  const toCu = NOTIFY_TEMPLATES.booking_proposed_to_customer;
+
+  // 수신자가 한 행위로 시작 (승인된 6종의 공통 패턴)
+  assert.ok(toPh.body.startsWith("[사매] 등록하신 스튜디오에"), toPh.body.slice(0, 30));
+  assert.ok(toCu.body.startsWith("[사매] 문의하신 촬영 건에"), toCu.body.slice(0, 30));
+
+  // 발송 조건 고정값
+  for (const t of [toPh, toCu]) {
+    assert.ok(t.body.includes("발송됩니다"), `${t.kind}: 발송 조건 고정값이 없다`);
+  }
+
+  // 수신자를 특정하는 변수여야 한다 — "상대명" 으로 뭉뚱그리면 반려 사유로 되돌아간다
+  assert.ok(toPh.variables.includes("고객명"), "작가용은 고객명을 써야 한다");
+  assert.ok(toCu.variables.includes("작가명"), "고객용은 작가명을 써야 한다");
+  for (const t of [toPh, toCu]) {
+    assert.ok(!t.variables.includes("상대명"), `${t.kind}: 상대명은 수신 대상을 흐린다`);
+  }
+});
