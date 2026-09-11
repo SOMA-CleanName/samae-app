@@ -72,6 +72,13 @@ export function BannerCarousel({ items }: { items: BannerItem[] }) {
   }, [pos, count]);
 
   // 되돌린 다음 프레임에 전환을 다시 켠다 — 켠 채로 두면 다음 넘김이 순간이동한다
+  //
+  // ⚠️ 여기 rAF 를 두 번으로 바꾸려다 되돌렸다(2026-09-11). "2바퀴째부터 되감기가
+  //    보인다"는 관측이 있었는데, **500ms 폴링이 만든 오탐**이었다. 스냅 창은 두 프레임
+  //    (~32ms)이라 폴링은 거의 항상 그 뒤를 읽는다 — 이미 전환이 되살아난 상태를.
+  //    페이지 안에서 `transitionstart` 로 다시 재니 50초 동안 transform 전환은
+  //    자동 넘김 10회뿐이고 되감기 전환은 **0회**였다. 지금 코드가 맞다.
+  //    다시 의심되면 폴링 말고 transitionstart 로 잴 것.
   useEffect(() => {
     if (!snapping) return;
     const f = requestAnimationFrame(() => setSnapping(false));
