@@ -414,7 +414,7 @@ export default function TermsPage() {
       <p className="mt-12 border-t border-line pt-5 text-xs leading-relaxed text-faint">
         결제·연락처·환불이 실제로 어떻게 처리되는지는{" "}
         <Link href="/trust" className="underline underline-offset-2">
-          안전하게 촬영하기
+          안전 촬영 정책
         </Link>
         에 더 자세히 적어 두었습니다.
       </p>

@@ -20,7 +20,7 @@ import { ArticleNotice, ArticleRows } from "@/components/editorial/ArticleTiers"
 export const revalidate = 86400;
 
 export const metadata: Metadata = {
-  title: "스냅 촬영 이야기",
+  title: "스냅 촬영 읽을거리",
   description:
     "스냅 촬영을 처음 알아보는 사람이 궁금해할 것들. 가격·준비물·장소·보정까지 사매(samae)가 정리했어요.",
   alternates: { canonical: "/articles" },
@@ -41,7 +41,7 @@ export default async function ArticlesIndexPage() {
       <JsonLd
         data={breadcrumbJsonLd([
           { name: "홈", path: "/" },
-          { name: "스냅 촬영 이야기", path: "/articles" },
+          { name: "읽을거리", path: "/articles" },
         ])}
       />
 

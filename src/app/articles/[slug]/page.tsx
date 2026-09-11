@@ -75,7 +75,7 @@ export default async function ArticleDetailPage({
           }),
           breadcrumbJsonLd([
             { name: "홈", path: "/" },
-            { name: "스냅 촬영 이야기", path: "/articles" },
+            { name: "읽을거리", path: "/articles" },
             { name: a.title, path },
           ]),
         ]}
