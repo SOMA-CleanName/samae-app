@@ -43,10 +43,14 @@ export function normalizeKakaoPhone(raw: string | null | undefined): string | nu
 /**
  * Supabase user_metadata 에서 카카오 전화번호를 꺼낸다.
  *
- * 키 이름을 하나로 못 박지 않은 이유 — Supabase 의 카카오 provider 가 `kakao_account`
- * 를 어떤 키로 펼치는지가 버전에 따라 다르고, 검수 통과 전에는 실물을 볼 수 없다.
- * 후보를 훑고 **하나라도 정규화에 성공하면 채택**한다. 못 찾으면 null 이고,
- * 그때는 기존 OTP 흐름이 그대로 돈다(§callback/route.ts).
+ * ⚠️ **실제로는 여기서 거의 안 나온다**(2026-09-11 실측). Supabase GoTrue 의 카카오
+ *    provider 는 닉네임·이메일·프로필사진만 user_metadata 로 매핑하고
+ *    `kakao_account.phone_number` 는 버린다. 동의를 받아도 metadata 키 목록에
+ *    전화번호가 아예 없다(`phone_verified` 만 덩그러니 남는다).
+ *    그래서 실질적인 수집 경로는 `fetchKakaoPhoneFromApi()` 다.
+ *
+ * 그럼에도 이 함수를 남겨 두는 이유 — GoTrue 가 나중에 매핑을 넓히면 API 왕복
+ * 없이 끝나고, 그때 코드를 고칠 필요가 없다. 먼저 여기를 보고 없으면 API 로 간다.
  */
 export function extractKakaoPhone(metadata: unknown): string | null {
   if (!metadata || typeof metadata !== "object") return null;
@@ -67,6 +71,42 @@ export function extractKakaoPhone(metadata: unknown): string | null {
   }
 
   return null;
+}
+
+/**
+ * 카카오 API 를 직접 쳐서 전화번호를 가져온다. **이게 실제로 번호가 오는 경로다.**
+ *
+ * Supabase 가 `kakao_account.phone_number` 를 user_metadata 로 안 넘겨 주기 때문에
+ * (위 extractKakaoPhone 주석 참고), 로그인 콜백에서 받은 provider_token 으로
+ * 카카오에 한 번 더 묻는다. 사용자가 동의를 이미 했으므로 이 토큰에는 권한이 있다.
+ *
+ * 실패는 전부 null 로 접는다 — 로그인 흐름을 막을 이유가 없다. 못 받으면
+ * `/signup/contact` 의 OTP 가 받아 준다.
+ *
+ * @param providerToken `exchangeCodeForSession` 응답의 `session.provider_token`.
+ *                      Supabase 는 이걸 저장하지 않으므로 **콜백 그 순간에만** 쓸 수 있다.
+ */
+export async function fetchKakaoPhoneFromApi(
+  providerToken: string | null | undefined
+): Promise<string | null> {
+  if (!providerToken) return null;
+
+  try {
+    // 로그인 흐름 한복판이라 카카오가 느릴 때 무한정 기다리면 안 된다.
+    const res = await fetch("https://kapi.kakao.com/v2/user/me", {
+      headers: { Authorization: `Bearer ${providerToken}` },
+      // 토큰이 매번 다르므로 캐시가 섞이면 남의 번호를 집는다
+      cache: "no-store",
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!res.ok) return null;
+
+    // 응답은 `{ id, kakao_account: { phone_number: "+82 10-1234-5678", ... } }`.
+    // 중첩 처리는 extractKakaoPhone 이 이미 한다.
+    return extractKakaoPhone(await res.json());
+  } catch {
+    return null; // 타임아웃·네트워크·JSON 파싱 전부 여기로
+  }
 }
 
 /** 전화번호 동의항목 이름 — 가입 때도, 나중에 다시 물을 때도 같은 값을 쓴다. */

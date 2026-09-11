@@ -23,11 +23,14 @@ export default function ContactForm({
   next,
   displayName,
   canAskKakao = false,
+  kakaoFailed = false,
 }: {
   next: string;
   displayName: string | null;
   /** 카카오 재동의로 받을 수 있는가 (판정은 lib/phone-consent) */
   canAskKakao?: boolean;
+  /** 카카오로 시도했는데 번호를 못 받고 되돌아왔는가 (§auth/callback 의 `kakao=nophone`) */
+  kakaoFailed?: boolean;
 }) {
   const router = useRouter();
   const [phone, setPhone] = useState("");
@@ -97,8 +100,26 @@ export default function ContactForm({
         </p>
       </div>
 
-      {/* 카카오 재동의 — 있으면 이게 가장 빠른 길이다. 번호 입력도 문자 확인도 없다. */}
-      {canAskKakao && (
+      {/* 카카오로 시도했는데 빈손으로 돌아온 경우. 같은 버튼을 다시 권하면 안 된다 —
+          두 번째도 똑같이 실패하고, 사용자는 자기가 뭘 잘못했는지 모른 채 갇힌다. */}
+      {kakaoFailed && (
+        <div
+          role="status"
+          className="mt-8 rounded-xl border border-warning/30 bg-warning-soft px-3.5 py-3"
+        >
+          <p className="text-body-sm font-semibold text-warning-ink">
+            카카오에서 번호를 가져오지 못했어요.
+          </p>
+          <p className="mt-1 text-caption leading-relaxed text-warning-ink/80">
+            카카오계정에 전화번호가 등록되어 있지 않거나, 전화번호 제공에 동의하지 않으셨을 수
+            있어요. 아래에서 직접 인증해 주세요.
+          </p>
+        </div>
+      )}
+
+      {/* 카카오 재동의 — 있으면 이게 가장 빠른 길이다. 번호 입력도 문자 확인도 없다.
+          단 방금 실패한 경우엔 숨긴다(위 안내 참고). */}
+      {canAskKakao && !kakaoFailed && (
         <>
           <div className="mt-8">
             <KakaoPhoneConsentButton
@@ -122,7 +143,7 @@ export default function ContactForm({
       {/* ① 번호 입력 + 인증번호 받기 */}
       <form
         action={requestAction}
-        className={`flex flex-col gap-2.5 ${canAskKakao ? "mt-5" : "mt-8"}`}
+        className={`flex flex-col gap-2.5 ${canAskKakao && !kakaoFailed ? "mt-5" : "mt-8"}`}
       >
         <div className="flex gap-2">
           <input

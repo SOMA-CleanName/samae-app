@@ -10,10 +10,13 @@ import ContactForm from "./ContactForm";
 export default async function SignupContactPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; preview?: string }>;
+  searchParams: Promise<{ next?: string; preview?: string; kakao?: string }>;
 }) {
   const sp = await searchParams;
   const next = safeNext(sp.next, "/");
+  // 콜백이 카카오에서 번호를 못 받아 되돌려보낸 경우(§auth/callback). 이 표시가 없으면
+  // 버튼을 눌러도 같은 화면이 다시 떠서 고장 난 것처럼 보인다.
+  const kakaoFailed = sp.kakao === "nophone";
 
   // dev 편의 토글 — ?preview=1 이면 가드(로그인·번호 보유) 없이 UI 만 확인 (봇의 gate=1 과 동일 패턴)
   if (process.env.NODE_ENV !== "production" && sp.preview === "1")
@@ -35,6 +38,11 @@ export default async function SignupContactPage({
   const { canAskKakao } = await loadPhoneConsentState();
 
   return (
-    <ContactForm next={next} displayName={me.displayName ?? null} canAskKakao={canAskKakao} />
+    <ContactForm
+      next={next}
+      displayName={me.displayName ?? null}
+      canAskKakao={canAskKakao}
+      kakaoFailed={kakaoFailed}
+    />
   );
 }
