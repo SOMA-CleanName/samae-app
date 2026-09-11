@@ -142,7 +142,7 @@ export default async function AdminNotificationsPage({
         <ul className="mt-3 grid gap-1 text-caption text-muted sm:grid-cols-2">
           {kindReady.map((k) => (
             <li key={k.kind} className="flex items-center gap-2">
-              <span className={k.ready ? "text-success" : "text-faint"}>{k.ready ? "●" : "○"}</span>
+              <span className={k.ready ? "text-success-ink" : "text-faint"}>{k.ready ? "●" : "○"}</span>
               <span className="text-fg">{NOTIFY_TEMPLATES[k.kind].label}</span>
               <span className="font-mono text-faint">{k.kind}</span>
               {!k.ready && <span className="text-faint">→ 문자</span>}
@@ -203,7 +203,7 @@ export default async function AdminNotificationsPage({
                     </p>
                     <p className="mt-1 whitespace-pre-line text-caption text-muted">{r.body}</p>
                     {reason && (
-                      <p className={`mt-1 text-caption ${r.status === "failed" ? "text-danger" : "text-faint"}`}>
+                      <p className={`mt-1 text-caption ${r.status === "failed" ? "text-danger-ink" : "text-faint"}`}>
                         {reason}
                       </p>
                     )}

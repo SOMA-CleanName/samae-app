@@ -64,7 +64,7 @@ export function ExploreCoverPicker({
     <details className="mt-3" onToggle={onToggle}>
       <summary className="cursor-pointer text-caption font-medium text-fg">
         🏷 목적별 대표 사진 (무드 테스트)
-        <span className="ml-1 text-brand">
+        <span className="ml-1 text-brand-ink">
           · {setCount}/{PURPOSE_OPTIONS.length} 지정
         </span>
         {saving && <span className="ml-1 text-muted">저장 중…</span>}

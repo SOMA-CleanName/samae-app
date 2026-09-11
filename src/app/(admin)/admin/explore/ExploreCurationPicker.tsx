@@ -54,7 +54,7 @@ export function ExploreCurationPicker({
       <summary className="cursor-pointer text-caption font-medium text-fg">
         ✨ 오늘의 큐레이션 3컷
         {picked.length > 0 ? (
-          <span className="ml-1 text-brand">· {picked.length}장 지정</span>
+          <span className="ml-1 text-brand-ink">· {picked.length}장 지정</span>
         ) : (
           <span className="ml-1 text-muted">· 자동</span>
         )}

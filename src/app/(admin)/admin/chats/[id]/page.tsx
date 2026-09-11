@@ -74,7 +74,7 @@ export default async function AdminChatViewerPage({
 
   // 화자 라벨 — sender + type 으로 구분
   const speaker = (m: Msg): { label: string; tone: string } => {
-    if (m.type === "summary_card") return { label: "요약", tone: "text-brand" };
+    if (m.type === "summary_card") return { label: "요약", tone: "text-brand-ink" };
     if (m.type === "system") return { label: "시스템", tone: "text-faint" };
     const isCustomer = m.sender_id === conv.user_id;
     if (m.type === "bot")
@@ -83,7 +83,7 @@ export default async function AdminChatViewerPage({
         : { label: "봇 (자동 응답)", tone: "text-muted" };
     return isCustomer
       ? { label: customer?.display_name ?? "고객", tone: "text-fg" }
-      : { label: `${photographer?.display_name ?? "작가"} ✍️`, tone: "text-success" };
+      : { label: `${photographer?.display_name ?? "작가"} ✍️`, tone: "text-success-ink" };
   };
 
   return (
@@ -102,12 +102,12 @@ export default async function AdminChatViewerPage({
       {/* 오프플랫폼 유도 차단 시도 — 메시지는 저장되지 않았고 여기에만 원문이 남는다 */}
       {(modRows ?? []).length > 0 && (
         <div className="mt-4 rounded-xl bg-danger-soft px-4 py-3 text-caption leading-relaxed">
-          <p className="font-semibold text-danger">
+          <p className="font-semibold text-danger-ink">
             ⚠️ 오프플랫폼 유도 차단 {(modRows ?? []).length}건
           </p>
           {(modRows ?? []).map((e, i) => (
             <div key={i} className="mt-2 border-t border-danger/20 pt-2">
-              <p className="text-danger">
+              <p className="text-danger-ink">
                 {ts(e.created_at as string)} ·{" "}
                 <b className="font-semibold">
                   {e.sender_role === "photographer" ? "작가" : "고객"}

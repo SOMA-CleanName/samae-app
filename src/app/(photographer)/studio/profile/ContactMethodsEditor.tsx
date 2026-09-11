@@ -80,7 +80,7 @@ export function ContactMethodsEditor({ initial }: { initial: ContactMethod[] }) 
               type="button"
               onClick={() => remove(r.key)}
               aria-label="삭제"
-              className="grid h-7 w-7 shrink-0 cursor-pointer place-items-center rounded-lg text-xs text-danger hover:bg-danger/10"
+              className="grid h-7 w-7 shrink-0 cursor-pointer place-items-center rounded-lg text-xs text-danger-ink hover:bg-danger/10"
             >
               ×
             </button>

@@ -318,9 +318,9 @@ export function ExplorePhotoAssigner({
                     {g.title}
                     <span className="ml-1.5 text-caption font-normal text-muted">
                       {g.photographer ? `· ${g.photographer} ` : ""}· {g.items.length}장
-                      {inCat > 0 && <span className="text-brand"> · {inCat} 담김</span>}
+                      {inCat > 0 && <span className="text-brand-ink"> · {inCat} 담김</span>}
                       {g.albumId && albumFlags[g.albumId]?.adConsent && (
-                        <span className="ml-1 text-success"> · 광고 사용 동의</span>
+                        <span className="ml-1 text-success-ink"> · 광고 사용 동의</span>
                       )}
                     </span>
                   </p>

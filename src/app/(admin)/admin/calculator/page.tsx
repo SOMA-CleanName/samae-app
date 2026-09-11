@@ -289,7 +289,7 @@ export default function CalculatorPage() {
     [shoot, d, pickedTake]
   );
 
-  const cProfitColor = c.profit >= 0 ? "text-success" : "text-danger";
+  const cProfitColor = c.profit >= 0 ? "text-success-ink" : "text-danger-ink";
 
   // 합산 대시보드 — 유료(광고) 채널 + 콘텐츠 채널의 한 달 순이익
   //   유료: 문의 vol 건 × 성사율 = 촬영 건수, 비용은 문의 전체에 붙는 CPA
@@ -339,9 +339,9 @@ export default function CalculatorPage() {
       perShoot: shoots > 0 ? profit / shoots : 0,
     };
   }, [vol, shoot, contentCost, vat, d, c]);
-  const tProfitColor = t.profit >= 0 ? "text-success" : "text-danger";
+  const tProfitColor = t.profit >= 0 ? "text-success-ink" : "text-danger-ink";
 
-  const stateColor = d.positive ? "text-success" : "text-danger";
+  const stateColor = d.positive ? "text-success-ink" : "text-danger-ink";
   const nearTake = TAKES.reduce((a, b) => (Math.abs(b - takePct) < Math.abs(a - takePct) ? b : a));
   const nearRate = RATES.reduce((a, b) => (Math.abs(b - ratePct) < Math.abs(a - ratePct) ? b : a));
 
@@ -359,7 +359,7 @@ export default function CalculatorPage() {
             {vat.model === "reseller" && (
               <>
                 {" "}
-                · <b className="text-danger">판매자 인정</b> 시나리오
+                · <b className="text-danger-ink">판매자 인정</b> 시나리오
               </>
             )}
           </>
@@ -630,7 +630,7 @@ export default function CalculatorPage() {
                       </p>
                     ) : (
                       <>
-                        <p className="mt-2.5 text-label leading-relaxed text-danger">
+                        <p className="mt-2.5 text-label leading-relaxed text-danger-ink">
                           PG 가맹이 사매 단독 명의라 카드매출 전액이 사매 사업자로 잡히면 이렇게
                           봐요 — 우리가 {won(shoot)}짜리 촬영을 팔고 작가에게서 {won(d.payout)}에 사
                           온 것. 그 {won(d.payout)}을 비용으로 인정받으려면 적격증빙이 필요해집니다.
@@ -677,7 +677,7 @@ export default function CalculatorPage() {
                             </div>
                             <div className="flex justify-between gap-2 border-t border-danger/25 pt-1">
                               <dt className="font-semibold text-fg">건당 구조 비용</dt>
-                              <dd className="font-bold text-danger">{won(d.structureCost)}</dd>
+                              <dd className="font-bold text-danger-ink">{won(d.structureCost)}</dd>
                             </div>
                           </dl>
 
@@ -800,7 +800,7 @@ export default function CalculatorPage() {
                     </dt>
                     <dd
                       className={`w-16 text-right text-body-sm font-bold tabular-nums ${
-                        r.amount < 0 ? "text-danger" : r.key === "samae" ? "text-brand" : "text-fg"
+                        r.amount < 0 ? "text-danger-ink" : r.key === "samae" ? "text-brand-ink" : "text-fg"
                       }`}
                     >
                       {r.pct.toFixed(1)}%
@@ -848,7 +848,7 @@ export default function CalculatorPage() {
                 {vat.model === "reseller" && (
                   <>
                     {" "}
-                    <b className="text-danger">판매자로 잡히면</b> 새는 소득세·가산세까지 국세청
+                    <b className="text-danger-ink">판매자로 잡히면</b> 새는 소득세·가산세까지 국세청
                     몫으로 잡힙니다.
                   </>
                 )}
@@ -1526,7 +1526,7 @@ export default function CalculatorPage() {
                         </td>
                         <td
                           className={`border-b border-line px-3 py-2 text-right ${
-                            profit >= 0 ? "text-success" : "text-danger"
+                            profit >= 0 ? "text-success-ink" : "text-danger-ink"
                           }`}
                         >
                           {signWon(profit)}
@@ -1611,7 +1611,7 @@ export default function CalculatorPage() {
                 <div className="flex items-baseline justify-between gap-2">
                   <span className="text-body-sm font-semibold text-fg">{name}</span>
                   <span
-                    className={`text-body font-bold tabular-nums ${good ? "text-success" : "text-danger"}`}
+                    className={`text-body font-bold tabular-nums ${good ? "text-success-ink" : "text-danger-ink"}`}
                   >
                     {signWon(ch.profit)}
                   </span>
@@ -1723,7 +1723,7 @@ export default function CalculatorPage() {
                 <>
                   {" "}
                   반대로 판매자로 잡혀서 새는{" "}
-                  <b className="tabular-nums text-danger">{won(t.shoots * d.structureCost)}</b> 는
+                  <b className="tabular-nums text-danger-ink">{won(t.shoots * d.structureCost)}</b> 는
                   돌려받을 수 없는 진짜 비용이라, 이미 위 손익에 반영돼 있어요.
                 </>
               )}

@@ -126,7 +126,7 @@ export function AdminRefundButton({
           <p className="mt-1 text-caption text-faint">{preview.reason}</p>
         </div>
 
-        <p className="mt-3 text-caption text-danger">
+        <p className="mt-3 text-caption text-danger-ink">
           되돌릴 수 없어요. <b>실제 송금은 사람이 합니다</b> — 이 버튼은 기록만 남겨요.
         </p>
 

@@ -177,7 +177,7 @@ function ShareCard({
               <p className="mt-1.5 text-caption text-muted">
                 <b className="tabular-nums text-fg">{fmt.format(b.sessions)}</b> 세션 · 문의{" "}
                 <b className="tabular-nums text-fg">{fmt.format(b.conv)}</b>
-                <span className={conv > 0 ? "ml-1 font-semibold text-brand" : "ml-1 text-faint"}>(전환 {conv}%)</span>
+                <span className={conv > 0 ? "ml-1 font-semibold text-brand-ink" : "ml-1 text-faint"}>(전환 {conv}%)</span>
               </p>
             </li>
           );
@@ -218,7 +218,7 @@ function AcqCard({
                   <span className="shrink-0 text-caption text-muted">
                     <b className="tabular-nums text-fg">{fmt.format(v.sessions)}</b> 세션 · 문의{" "}
                     <b className="tabular-nums text-fg">{fmt.format(v.conv)}</b>
-                    <span className={conv > 0 ? "ml-1 font-semibold text-brand" : "ml-1 text-faint"}>({conv}%)</span>
+                    <span className={conv > 0 ? "ml-1 font-semibold text-brand-ink" : "ml-1 text-faint"}>({conv}%)</span>
                   </span>
                 </div>
                 <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-fg/[0.06]">

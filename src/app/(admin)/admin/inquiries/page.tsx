@@ -204,11 +204,11 @@ export default async function AdminInquiriesPage({
       <div className="mt-5 grid grid-cols-2 gap-3">
         <div className="rounded-xl border border-line p-4">
           <p className="text-caption text-muted">입금 확인 누계</p>
-          <p className="mt-1 text-h2 font-semibold text-success">₩{fmt.format(revenue)}</p>
+          <p className="mt-1 text-h2 font-semibold text-success-ink">₩{fmt.format(revenue)}</p>
         </div>
         <div className="rounded-xl border border-line p-4">
           <p className="text-caption text-muted">입금 대기</p>
-          <p className="mt-1 text-h2 font-semibold text-brand">₩{fmt.format(pending)}</p>
+          <p className="mt-1 text-h2 font-semibold text-brand-ink">₩{fmt.format(pending)}</p>
         </div>
       </div>
 

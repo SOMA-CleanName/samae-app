@@ -30,7 +30,7 @@ export function MoodRequestList({ requests }: { requests: AlbumMoodRequest[] }) 
   return (
     <section className="mb-6 rounded-xl border border-brand/25 bg-brand/[0.04] p-4">
       <h2 className="text-body-sm font-semibold text-fg">
-        작가 요청 무드 <span className="text-brand">{items.length}건</span>
+        작가 요청 무드 <span className="text-brand-ink">{items.length}건</span>
       </h2>
       <p className="mt-0.5 text-caption text-muted">
         목록에 없는 무드를 작가가 직접 적어 보낸 거예요. 기존 무드에 담아주거나 새로 만든 뒤
@@ -51,7 +51,7 @@ export function MoodRequestList({ requests }: { requests: AlbumMoodRequest[] }) 
                     · {r.photographer}
                   </span>
                 )}
-                {r.adConsent && <span className="ml-1.5 text-caption text-success">· 광고 동의</span>}
+                {r.adConsent && <span className="ml-1.5 text-caption text-success-ink">· 광고 동의</span>}
               </p>
               <div className="mt-1 flex flex-wrap gap-1">
                 {r.moods.map((m) => (

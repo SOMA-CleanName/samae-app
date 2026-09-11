@@ -28,7 +28,7 @@ export function SearchDebug() {
         </button>
       </form>
 
-      {state.error && <p className="mt-3 text-body-sm text-danger">{state.error}</p>}
+      {state.error && <p className="mt-3 text-body-sm text-danger-ink">{state.error}</p>}
 
       {data && (
         <>

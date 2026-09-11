@@ -107,7 +107,7 @@ export function CategoryAdPicker({
       {selected.length > 0 && (
         <div className="mt-3 rounded-lg border border-line bg-surface-2 p-2.5">
           <p className="text-caption font-semibold text-fg">
-            채택한 광고 소재 · <span className="text-brand">★ 대표</span>가{" "}
+            채택한 광고 소재 · <span className="text-brand-ink">★ 대표</span>가{" "}
             <code className="rounded bg-fg/[0.06] px-1 text-[11px]">/c/{slug}</code> 진입 시 온보딩 강조 이미지
           </p>
           <ul className="mt-2 flex flex-col gap-2">

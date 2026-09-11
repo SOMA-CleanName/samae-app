@@ -134,8 +134,8 @@ export function ProfileForm({ initial }: { initial: ProfileInitial }) {
         )}
       </fieldset>
 
-      {state.error && <p className="text-sm text-brand">{state.error}</p>}
-      {state.ok && <p className="text-sm text-success">저장됐어요.</p>}
+      {state.error && <p className="text-sm text-brand-ink">{state.error}</p>}
+      {state.ok && <p className="text-sm text-success-ink">저장됐어요.</p>}
 
       <button
         type="submit"

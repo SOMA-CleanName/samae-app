@@ -103,7 +103,7 @@ export function AnalyticsChrome({ active, data }: { active: string; data: Analyt
             className={cn(
               "shrink-0 rounded-t-lg border-b-2 px-3.5 py-2 text-body-sm font-medium transition-colors",
               t.key === active
-                ? "border-brand text-brand"
+                ? "border-brand text-brand-ink"
                 : "border-transparent text-muted hover:text-fg"
             )}
           >

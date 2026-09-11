@@ -142,7 +142,7 @@ function PhotoModal({ photo, onClose }: { photo: PhotoStat; onClose: () => void 
             </div>
             <div className="flex shrink-0 gap-2">
               <div className="rounded-xl bg-brand/[0.08] px-3 py-1.5 text-center">
-                <p className="text-h3 font-bold tabular-nums text-brand">{won.format(photo.count)}</p>
+                <p className="text-h3 font-bold tabular-nums text-brand-ink">{won.format(photo.count)}</p>
                 <p className="text-[11px] text-brand-ink/80">회 클릭</p>
               </div>
               {photo.views != null && (

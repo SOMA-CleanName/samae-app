@@ -70,7 +70,7 @@ export function ExploreTargetCoverPicker({
     <details className="mt-3" onToggle={(e) => e.currentTarget.open && void ensureCands()}>
       <summary className="cursor-pointer text-caption font-medium text-fg">
         🖼 추천 무드 타일 대표 사진
-        {setCount > 0 && <span className="ml-1 text-brand">· {setCount}개 타겟 지정됨</span>}
+        {setCount > 0 && <span className="ml-1 text-brand-ink">· {setCount}개 타겟 지정됨</span>}
         {saving && <span className="ml-1 text-muted">저장 중…</span>}
       </summary>
 
@@ -88,7 +88,7 @@ export function ExploreTargetCoverPicker({
               }`}
             >
               {t.name}
-              {covers[t.id] && <span className="ml-1 text-brand">●</span>}
+              {covers[t.id] && <span className="ml-1 text-brand-ink">●</span>}
             </button>
           );
         })}

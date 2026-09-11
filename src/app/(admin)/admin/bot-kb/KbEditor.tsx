@@ -280,7 +280,7 @@ export function KbEditor(props: Props) {
             placeholder="[]"
             className="mt-1.5 w-full rounded-lg border border-line bg-bg px-3 py-2 font-mono text-caption leading-relaxed outline-none focus:border-fg/40"
           />
-          {jsonError && <p className="mt-1.5 text-caption text-danger">{jsonError}</p>}
+          {jsonError && <p className="mt-1.5 text-caption text-danger-ink">{jsonError}</p>}
           <button
             type="button"
             onClick={applyJson}
@@ -338,7 +338,7 @@ export function KbEditor(props: Props) {
                     </div>
                   </div>
 
-                  {err && <p className="px-3 pb-2 text-caption text-danger">{err}</p>}
+                  {err && <p className="px-3 pb-2 text-caption text-danger-ink">{err}</p>}
 
                   {open && (
                     <div className="border-t border-line px-3 py-3">
@@ -433,17 +433,17 @@ export function KbEditor(props: Props) {
       )}
 
       {cards.length > MAX_CARDS && (
-        <p className="mt-2 text-caption text-danger">
+        <p className="mt-2 text-caption text-danger-ink">
           카드는 최대 {MAX_CARDS}장까지예요 (현재 {cards.length}장).
         </p>
       )}
 
       {serverErrors.length > 0 && (
         <div className="mt-3 rounded-lg border border-danger/30 bg-danger/[0.06] p-3">
-          <p className="text-caption font-semibold text-danger">
+          <p className="text-caption font-semibold text-danger-ink">
             저장하지 않았어요 — 아래를 고쳐주세요 ({serverErrors.length}건)
           </p>
-          <ul className="mt-1.5 flex list-disc flex-col gap-1 pl-4 text-caption text-danger">
+          <ul className="mt-1.5 flex list-disc flex-col gap-1 pl-4 text-caption text-danger-ink">
             {serverErrors.map((e, i) => (
               <li key={i}>{e}</li>
             ))}
@@ -451,7 +451,7 @@ export function KbEditor(props: Props) {
         </div>
       )}
       {state?.ok && serverErrors.length === 0 && (
-        <p className="mt-3 text-caption text-success">저장했어요 — 카드 {state?.count}장.</p>
+        <p className="mt-3 text-caption text-success-ink">저장했어요 — 카드 {state?.count}장.</p>
       )}
 
       <label className="mt-4 flex flex-col gap-1">
@@ -484,7 +484,7 @@ export function KbEditor(props: Props) {
       </p>
 
       <SaveButton blocked={blocked} />
-      {blocked && <p className="mt-1.5 text-caption text-danger">빨간 카드를 먼저 고쳐야 저장할 수 있어요.</p>}
+      {blocked && <p className="mt-1.5 text-caption text-danger-ink">빨간 카드를 먼저 고쳐야 저장할 수 있어요.</p>}
     </form>
   );
 }

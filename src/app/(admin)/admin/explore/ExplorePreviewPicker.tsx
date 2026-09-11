@@ -74,7 +74,7 @@ export function ExplorePreviewPicker({
     <details className="mt-3" onToggle={onToggle}>
       <summary className="cursor-pointer text-caption font-medium text-fg">
         🖼 피드 상단 고정 순서 (홈 스트립)
-        {picked.length > 0 && <span className="ml-1 text-brand">· {picked.length}장 지정</span>}
+        {picked.length > 0 && <span className="ml-1 text-brand-ink">· {picked.length}장 지정</span>}
       </summary>
 
       <form action={setExplorePreviewPhotos} className="mt-3">

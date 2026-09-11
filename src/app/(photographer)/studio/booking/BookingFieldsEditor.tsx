@@ -119,7 +119,7 @@ export function BookingFieldsEditor({ initial }: { initial: BookingField[] }) {
               type="button"
               onClick={() => remove(f.key)}
               aria-label="삭제"
-              className="grid h-7 w-7 shrink-0 cursor-pointer place-items-center rounded-lg text-xs text-danger hover:bg-danger/10"
+              className="grid h-7 w-7 shrink-0 cursor-pointer place-items-center rounded-lg text-xs text-danger-ink hover:bg-danger/10"
             >
               ×
             </button>
@@ -195,7 +195,7 @@ export function BookingFieldsEditor({ initial }: { initial: BookingField[] }) {
             </div>
           )}
 
-          {problem(f) && <p className="mt-2 text-xs text-danger">{problem(f)}</p>}
+          {problem(f) && <p className="mt-2 text-xs text-danger-ink">{problem(f)}</p>}
         </div>
       ))}
 
@@ -211,7 +211,7 @@ export function BookingFieldsEditor({ initial }: { initial: BookingField[] }) {
 
       <SaveButton blocked={incomplete.length > 0} />
       {incomplete.length > 0 && (
-        <p className="text-xs text-danger">
+        <p className="text-xs text-danger-ink">
           덜 채운 항목 {incomplete.length}개를 마저 적거나 지워주세요.
         </p>
       )}

@@ -133,7 +133,7 @@ export default async function AdminUsersPage({
             href={tabHref(t.key)}
             className={cn(
               "shrink-0 border-b-2 px-3.5 py-2 text-body-sm font-medium transition-colors",
-              t.key === tab ? "border-brand text-brand" : "border-transparent text-muted hover:text-fg"
+              t.key === tab ? "border-brand text-brand-ink" : "border-transparent text-muted hover:text-fg"
             )}
           >
             {t.label} <span className="tabular-nums opacity-70">{count[t.key]}</span>

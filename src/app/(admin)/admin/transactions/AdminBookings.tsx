@@ -196,7 +196,7 @@ function BookingDetail({ b }: { b: BookingRow }) {
           ))}
         </ol>
         {b.cancelled_at && (
-          <p className="mt-1.5 text-caption text-danger">
+          <p className="mt-1.5 text-caption text-danger-ink">
             {b.refunded_at ? "환불됨" : "취소됨"} {stamp(b.cancelled_at)}
             {b.cancel_reason ? ` — ${b.cancel_reason}` : ""}
           </p>
@@ -209,7 +209,7 @@ function BookingDetail({ b }: { b: BookingRow }) {
         <p
           className={`mt-3 rounded-lg px-3 py-2 text-caption ${
             b.refundOverdue
-              ? "bg-danger/10 font-semibold text-danger"
+              ? "bg-danger/10 font-semibold text-danger-ink"
               : "bg-warning-soft text-warning-ink"
           }`}
         >
@@ -227,7 +227,7 @@ function BookingDetail({ b }: { b: BookingRow }) {
             <b>{b.refund.percent}% · ₩{fmt.format(b.refund.refundKrw)}</b> 고객 환불 ·{" "}
             수수료 {b.refund.feeWaived ? "면제" : `₩${fmt.format(b.refund.feeKrw)} 유지`} ·{" "}
             작가{" "}
-            <b className={b.refund.photographerNetKrw < 0 ? "text-danger" : ""}>
+            <b className={b.refund.photographerNetKrw < 0 ? "text-danger-ink" : ""}>
               {b.refund.photographerNetKrw < 0 ? "−" : ""}₩
               {fmt.format(Math.abs(b.refund.photographerNetKrw))}
             </b>

@@ -227,7 +227,7 @@ export default async function AdminTransactionsPage() {
       {awaitingDeposit.length > 0 && (
         <section className="mt-5 rounded-2xl bg-surface p-4 ring-1 ring-line">
           <h2 className="text-body-sm font-semibold text-fg">
-            ⏳ 입금 대기 <span className="text-brand">{awaitingDeposit.length}</span>
+            ⏳ 입금 대기 <span className="text-brand-ink">{awaitingDeposit.length}</span>
           </h2>
           <p className="mt-0.5 text-caption text-muted">
             수락됐지만 고객이 아직 입금 완료를 알리지 않았어요. 오래 멈춰 있으면 연락하거나 취소하세요.
@@ -271,7 +271,7 @@ export default async function AdminTransactionsPage() {
         <div className="mt-5">
           <section className="rounded-2xl bg-surface p-4 ring-1 ring-line">
             <h2 className="text-body-sm font-semibold text-fg">
-              💰 입금 확인 대기 <span className="text-brand">{awaitingConfirm.length}</span>
+              💰 입금 확인 대기 <span className="text-brand-ink">{awaitingConfirm.length}</span>
             </h2>
             <p className="mt-0.5 text-caption text-muted">
               입금 확인 + 수수료 차감 정산까지 한 번에 처리돼요 (작가 송금은 직접)
@@ -340,7 +340,7 @@ function SummaryCard({
 }) {
   return (
     <div className={cn("rounded-2xl border p-4", accent ? "border-brand/30 bg-brand/[0.04]" : "border-line bg-surface")}>
-      <p className={cn("text-h2 font-semibold tabular-nums", accent ? "text-brand" : "text-fg")}>{value}</p>
+      <p className={cn("text-h2 font-semibold tabular-nums", accent ? "text-brand-ink" : "text-fg")}>{value}</p>
       <p className="mt-0.5 text-caption text-muted">{label}</p>
       {sub && <p className="mt-0.5 text-caption tabular-nums text-faint">{sub}</p>}
     </div>

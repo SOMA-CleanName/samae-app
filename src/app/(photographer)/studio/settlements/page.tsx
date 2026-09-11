@@ -33,8 +33,8 @@ const STAGE_LABEL: Record<SettlementStage, string> = {
 const STAGE_TONE: Record<SettlementStage, string> = {
   awaiting_transfer: "text-fg/45",
   checking: "text-warning",
-  settling: "text-brand",
-  settled: "text-success",
+  settling: "text-brand-ink",
+  settled: "text-success-ink",
   refunded: "text-fg/45",
 };
 
@@ -71,7 +71,7 @@ export default async function SettlementsPage() {
         </div>
         <div className="rounded-xl border border-fg/10 p-4">
           <p className="text-xs text-fg/50">정산 완료</p>
-          <p className="mt-1 text-lg font-semibold text-success">₩{fmt.format(settledTotal)}</p>
+          <p className="mt-1 text-lg font-semibold text-success-ink">₩{fmt.format(settledTotal)}</p>
         </div>
       </div>
 
@@ -130,7 +130,7 @@ function SettlementItem({ row, fmt }: { row: SettlementRow; fmt: Intl.NumberForm
         <div className="mt-2.5 flex gap-2 border-t border-fg/[0.06] pt-2.5">
           <form action={ackSettlement} className="flex-1">
             <input type="hidden" name="id" value={row.bookingId} />
-            <button className="w-full cursor-pointer rounded-lg bg-success/10 py-2 text-xs font-semibold text-success transition-colors hover:bg-success/[0.16]">
+            <button className="w-full cursor-pointer rounded-lg bg-success/10 py-2 text-xs font-semibold text-success-ink transition-colors hover:bg-success/[0.16]">
               받았어요
             </button>
           </form>
@@ -148,7 +148,7 @@ function SettlementItem({ row, fmt }: { row: SettlementRow; fmt: Intl.NumberForm
           확인 요청하신 건이에요. 사매가 송금 내역을 확인하고 다시 연락드립니다.
         </p>
       )}
-      {row.ackAt && <p className="mt-2 text-xs text-success">수령 확인 완료</p>}
+      {row.ackAt && <p className="mt-2 text-xs text-success-ink">수령 확인 완료</p>}
     </li>
   );
 }

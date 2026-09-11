@@ -124,7 +124,7 @@ export default async function AdminExplorePage() {
                     message={`"${c.title}" 카테고리를 삭제할까요? 되돌릴 수 없어요(백업은 보관).`}
                   >
                     <input type="hidden" name="id" value={c.id} />
-                    <SubmitButton pendingText="삭제 중…" className="cursor-pointer rounded-full border border-danger/30 px-3 py-1 text-caption font-medium text-danger transition-colors hover:bg-danger/[0.06] disabled:opacity-50">
+                    <SubmitButton pendingText="삭제 중…" className="cursor-pointer rounded-full border border-danger/30 px-3 py-1 text-caption font-medium text-danger-ink transition-colors hover:bg-danger/[0.06] disabled:opacity-50">
                       삭제
                     </SubmitButton>
                   </ConfirmForm>

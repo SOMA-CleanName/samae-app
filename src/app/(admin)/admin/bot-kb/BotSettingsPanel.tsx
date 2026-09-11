@@ -51,7 +51,7 @@ export function BotSettingsPanel(props: Props) {
             봇 동작 중
           </span>
         ) : (
-          <span className="ml-auto rounded-full bg-danger/10 px-2.5 py-1 text-caption font-semibold text-danger">
+          <span className="ml-auto rounded-full bg-danger/10 px-2.5 py-1 text-caption font-semibold text-danger-ink">
             봇 정지됨
           </span>
         )}
@@ -164,9 +164,9 @@ export function BotSettingsPanel(props: Props) {
             />
           </div>
 
-          {state.error && <p className="mt-3 text-caption text-danger">{state.error}</p>}
+          {state.error && <p className="mt-3 text-caption text-danger-ink">{state.error}</p>}
           {state.ok && !state.error && (
-            <p className="mt-3 text-caption text-success">저장했어요 — 다음 응답부터 바로 적용돼요.</p>
+            <p className="mt-3 text-caption text-success-ink">저장했어요 — 다음 응답부터 바로 적용돼요.</p>
           )}
 
           <div className="mt-4 flex items-center gap-3">

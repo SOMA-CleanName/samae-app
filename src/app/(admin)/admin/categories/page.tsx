@@ -107,7 +107,7 @@ export default async function AdminCategoriesPage() {
                 <summary className="cursor-pointer text-caption font-medium text-fg">
                   📣 광고 소재 채택
                   {c.adPhotoIds.length > 0 && (
-                    <span className="ml-1 text-brand">· {c.adPhotoIds.length}장 채택됨</span>
+                    <span className="ml-1 text-brand-ink">· {c.adPhotoIds.length}장 채택됨</span>
                   )}
                 </summary>
                 <CategoryAdPicker
@@ -123,7 +123,7 @@ export default async function AdminCategoriesPage() {
                 <summary className="cursor-pointer text-caption font-medium text-fg">
                   🎯 첫 진입 사진 순서
                   {c.orderedPhotoIds.length > 0 && (
-                    <span className="ml-1 text-brand">· {c.orderedPhotoIds.length}장 고정</span>
+                    <span className="ml-1 text-brand-ink">· {c.orderedPhotoIds.length}장 고정</span>
                   )}
                 </summary>
                 <CategoryPhotoOrder
@@ -140,7 +140,7 @@ export default async function AdminCategoriesPage() {
                 <summary className="cursor-pointer text-caption font-medium text-fg">
                   🧭 추천 무드 (이 타겟의 탐색 카테고리)
                   {c.exploreSectionIds.length > 0 && (
-                    <span className="ml-1 text-brand">· {c.exploreSectionIds.length}개 지정</span>
+                    <span className="ml-1 text-brand-ink">· {c.exploreSectionIds.length}개 지정</span>
                   )}
                 </summary>
                 <CategoryExploreSections
@@ -205,7 +205,7 @@ export default async function AdminCategoriesPage() {
                   className="mt-2"
                 >
                   <input type="hidden" name="id" value={c.id} />
-                  <SubmitButton pendingText="삭제 중…" className="cursor-pointer text-caption font-medium text-danger hover:underline disabled:opacity-50">
+                  <SubmitButton pendingText="삭제 중…" className="cursor-pointer text-caption font-medium text-danger-ink hover:underline disabled:opacity-50">
                     카테고리 삭제
                   </SubmitButton>
                 </ConfirmForm>

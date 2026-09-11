@@ -47,10 +47,15 @@
   /* 틴트 위에 얹는 글자색. 라이트에서는 채움색과 같지만 다크에서는 갈라진다 —
      채움색은 흰 글자를 받아야 해서 어둡게 유지되는데, 그 색을 어두운 틴트 위에
      그대로 쓰면 배경과 붙어 안 읽힌다(인계 안내가 그랬다). */
-  --success-ink: var(--success);
-  --warning-ink: var(--warning);
-  --danger-ink:  var(--danger);
-  --info-ink:    var(--info);
+  /* success 도 soft 위(4.57)는 통과하지만, 중립 표면(surface-2 #ebecee) 위에서는
+     4.24:1 로 떨어진다 — 어드민 계산기의 손익 숫자가 그 자리다. 한 단계 어둡게. */
+  --success-ink: #166534;
+  --warning-ink: var(--warning);  /* soft 위 4.51:1 */
+  /* danger 만 채움색을 그대로 쓰면 **3.95:1** 로 기준(4.5) 아래다 — soft 틴트가
+     넷 중 가장 밝아서 그렇다(#fee2e2). 이것만 한 단계 어둡게 가른다 → soft 위 5.30:1.
+     (실측 2026-09-11, /admin/chats 의 "작가 미확인" 배지) */
+  --danger-ink:  #b91c1c;
+  --info-ink:    var(--info);     /* soft 위 5.49:1 */
 
   /* 반경 / 그림자 — 일관 스케일 */
   --radius-sm: 0.5rem;   /* 칩·작은 배지 */

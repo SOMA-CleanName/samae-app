@@ -75,7 +75,7 @@ export function CategoryPicker({
     <div className="flex flex-col gap-3">
       <div>
         <p className="mb-1.5 text-xs font-medium text-fg/70">
-          촬영 종류 <span className="text-brand">*</span>
+          촬영 종류 <span className="text-brand-ink">*</span>
           <span className="ml-1 font-normal text-fg/45">1개만 선택 · 필수</span>
         </p>
         <div className="flex flex-wrap gap-1.5">
@@ -140,7 +140,7 @@ export function CategoryPicker({
                   disabled={disabled}
                   onClick={() => removeRequested(m)}
                   aria-label={`${m} 요청 취소`}
-                  className="cursor-pointer text-brand/60 hover:text-brand"
+                  className="cursor-pointer text-brand-ink/60 hover:text-brand"
                 >
                   ✕
                 </button>

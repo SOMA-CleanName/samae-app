@@ -87,8 +87,8 @@ export function AdminTrash({ groups }: { groups: TrashGroup[] }) {
         </div>
       )}
 
-      {msg?.error && <p className="text-caption text-danger">{msg.error}</p>}
-      {msg?.ok && <p className="text-caption text-success">{msg.ok}</p>}
+      {msg?.error && <p className="text-caption text-danger-ink">{msg.error}</p>}
+      {msg?.ok && <p className="text-caption text-success-ink">{msg.ok}</p>}
 
       {groups.map((g) => {
         const ids = g.items.map((i) => i.id);
@@ -131,7 +131,7 @@ export function AdminTrash({ groups }: { groups: TrashGroup[] }) {
                       className={cn(
                         "cursor-pointer rounded-full border px-2.5 py-1 text-caption transition-colors",
                         on
-                          ? "border-brand bg-brand/[0.08] font-medium text-brand"
+                          ? "border-brand bg-brand/[0.08] font-medium text-brand-ink"
                           : "border-line-strong text-muted hover:bg-fg/[0.04]"
                       )}
                     >

@@ -122,7 +122,7 @@ export default async function AdminPhotographersPage() {
                             href={l.portfolio_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="break-all text-brand hover:underline"
+                            className="break-all text-brand-ink hover:underline"
                           >
                             {l.portfolio_url}
                           </a>
