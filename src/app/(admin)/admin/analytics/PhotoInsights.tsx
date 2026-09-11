@@ -58,7 +58,7 @@ export function PhotoInsights({ photos, totalClicks }: { photos: PhotoStat[]; to
               <span
                 className={cn(
                   "absolute left-2 top-2 grid h-7 min-w-7 place-items-center rounded-full px-2 text-caption font-bold tabular-nums shadow",
-                  i === 0 ? "bg-brand text-white" : "bg-black/65 text-white"
+                  i === 0 ? "bg-brand-solid text-white" : "bg-black/65 text-white"
                 )}
               >
                 {i + 1}

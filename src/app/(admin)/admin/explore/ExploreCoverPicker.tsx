@@ -80,7 +80,7 @@ export function ExploreCoverPicker({
             className={
               "rounded-full border px-3 py-1 text-caption font-medium transition-colors " +
               (active === p.key
-                ? "border-brand bg-brand text-white"
+                ? "border-brand bg-brand-solid text-white"
                 : "border-line-strong bg-surface text-fg hover:bg-fg/[0.04]")
             }
           >
@@ -117,7 +117,7 @@ export function ExploreCoverPicker({
               >
                 <img src={src(p)} alt="" className="h-full w-full object-cover" loading="lazy" />
                 {on && (
-                  <span className="absolute right-0.5 top-0.5 grid h-5 w-5 place-items-center rounded-full bg-brand text-xs font-bold text-white">
+                  <span className="absolute right-0.5 top-0.5 grid h-5 w-5 place-items-center rounded-full bg-brand-solid text-xs font-bold text-white">
                     ★
                   </span>
                 )}

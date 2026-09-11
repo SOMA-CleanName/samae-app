@@ -147,7 +147,7 @@ export function PhotoSortGrid({
                   </form>
                   <form action={deletePhoto}>
                     <input type="hidden" name="id" value={p.id} />
-                    <button className="rounded bg-brand/90 px-2 py-1 text-[11px] font-medium text-white hover:bg-brand">
+                    <button className="rounded bg-brand/90 px-2 py-1 text-[11px] font-medium text-white hover:bg-brand-solid">
                       삭제
                     </button>
                   </form>

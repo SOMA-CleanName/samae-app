@@ -290,7 +290,7 @@ export default function PersonaExperience({ defaultUsername = "" }: { defaultUse
                 {compact.format(preview.profile.followers)}
               </span>
             </span>
-            <span className="shrink-0 rounded-full bg-brand px-3.5 py-1.5 text-caption font-semibold text-white">
+            <span className="shrink-0 rounded-full bg-brand-solid px-3.5 py-1.5 text-caption font-semibold text-white">
               이 계정으로{" "}
               <span
                 aria-hidden

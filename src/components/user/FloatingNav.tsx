@@ -350,7 +350,7 @@ function NavPill({
       {badge > 0 && (
         <span
           aria-hidden
-          className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[10px] font-bold leading-none text-white ring-2 ring-bg"
+          className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-brand-solid px-1 text-[10px] font-bold leading-none text-white ring-2 ring-bg"
         >
           {badge > 99 ? "99+" : badge}
         </span>

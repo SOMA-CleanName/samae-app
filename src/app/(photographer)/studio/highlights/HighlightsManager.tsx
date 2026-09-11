@@ -152,7 +152,7 @@ export function HighlightsManager({
               type="button"
               onClick={removeSelected}
               disabled={selected.size === 0}
-              className="rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-40"
+              className="rounded-full bg-brand-solid px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-40"
             >
               삭제{selected.size > 0 ? ` ${selected.size}` : ""}
             </button>
@@ -262,7 +262,7 @@ function HighlightCircle({
       {selectMode && (
         <span
           className={`pointer-events-none absolute -right-0.5 -top-0.5 grid h-5 w-5 place-items-center rounded-full border text-[10px] leading-none ${
-            selected ? "border-brand bg-brand text-white" : "border-fg/40 bg-surface text-transparent"
+            selected ? "border-brand bg-brand-solid text-white" : "border-fg/40 bg-surface text-transparent"
           }`}
         >
           ✓

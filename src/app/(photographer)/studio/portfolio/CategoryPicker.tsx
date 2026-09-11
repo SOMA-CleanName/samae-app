@@ -119,7 +119,7 @@ export function CategoryPicker({
                   onClick={() => toggleExplore(e.id)}
                   className={`h-8 cursor-pointer rounded-full px-3 text-[13px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                     on
-                      ? "bg-brand text-white"
+                      ? "bg-brand-solid text-white"
                       : "bg-transparent text-fg/70 ring-1 ring-fg/15 hover:bg-fg/[0.05]"
                   }`}
                 >

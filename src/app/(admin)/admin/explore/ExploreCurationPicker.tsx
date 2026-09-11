@@ -112,7 +112,7 @@ export function ExploreCurationPicker({
               >
                 <img src={src(p)} alt="" className="h-full w-full object-cover" />
                 {on && (
-                  <span className="absolute left-1 top-1 grid h-4 w-4 place-items-center rounded-full bg-brand text-[10px] font-bold text-white">
+                  <span className="absolute left-1 top-1 grid h-4 w-4 place-items-center rounded-full bg-brand-solid text-[10px] font-bold text-white">
                     {idx + 1}
                   </span>
                 )}

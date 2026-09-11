@@ -70,7 +70,7 @@ export function StudioHomeBoard({
           href="/studio/chat"
           className="flex items-center gap-3 rounded-2xl border border-brand/25 bg-brand/[0.06] p-4 transition-colors hover:bg-brand/[0.1]"
         >
-          <span className="grid h-9 min-w-9 shrink-0 place-items-center rounded-full bg-brand px-2 text-body-sm font-bold text-white">
+          <span className="grid h-9 min-w-9 shrink-0 place-items-center rounded-full bg-brand-solid px-2 text-body-sm font-bold text-white">
             {unreadTotal > 99 ? "99+" : unreadTotal}
           </span>
           <span className="min-w-0 flex-1">

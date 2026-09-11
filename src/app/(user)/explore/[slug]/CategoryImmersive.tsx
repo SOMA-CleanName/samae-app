@@ -204,7 +204,7 @@ export function CategoryImmersive({
           <Link
             href={inquiryHref(cur.photographer.id, cur.id)}
             data-quote-lead=""
-            className="pointer-events-auto flex h-11 flex-1 items-center justify-center rounded-full bg-brand text-sm font-bold text-white shadow-lg transition-opacity hover:opacity-90"
+            className="pointer-events-auto flex h-11 flex-1 items-center justify-center rounded-full bg-brand-solid text-sm font-bold text-white shadow-lg transition-opacity hover:opacity-90"
           >
             무료로 견적 받아보기
           </Link>

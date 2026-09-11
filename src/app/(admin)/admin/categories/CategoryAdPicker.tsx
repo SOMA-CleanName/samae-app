@@ -93,7 +93,7 @@ export function CategoryAdPicker({
                   </span>
                 )}
                 {on && (
-                  <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-brand text-[10px] font-bold text-white">
+                  <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-brand-solid text-[10px] font-bold text-white">
                     ✓
                   </span>
                 )}
@@ -125,7 +125,7 @@ export function CategoryAdPicker({
                   )}
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
                     {rep ? (
-                      <span className="inline-flex w-fit items-center gap-1 rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white">
+                      <span className="inline-flex w-fit items-center gap-1 rounded-full bg-brand-solid px-2 py-0.5 text-[11px] font-bold text-white">
                         ★ 대표 · 온보딩 강조
                       </span>
                     ) : (

@@ -43,7 +43,7 @@ export function NotFoundPage() {
 
       <Link
         href="/"
-        className="mt-7 inline-flex w-fit items-center gap-2 rounded-full bg-brand px-5 py-2.5 text-body-sm font-bold text-white transition-opacity hover:opacity-90"
+        className="mt-7 inline-flex w-fit items-center gap-2 rounded-full bg-brand-solid px-5 py-2.5 text-body-sm font-bold text-white transition-opacity hover:opacity-90"
       >
         사진 보러 가기
         <span aria-hidden>→</span>

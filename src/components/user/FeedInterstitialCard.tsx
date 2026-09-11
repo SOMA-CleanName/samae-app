@@ -118,7 +118,11 @@ export function FeedInterstitialCard({ item }: { item: FeedInterstitial }) {
           <span className="min-w-0 truncate text-body-sm font-bold tracking-tight">
             이 작가는 어떠세요
           </span>
-          <span className="fi-more shrink-0 text-[11px] text-brand-ink" aria-hidden>
+          {/* 여기만 `--brand-ink` 가 아니라 `--brand` 다.
+              작가 카드는 배경이 어둡다(`bg-fg`). 밝은 배경용으로 진하게 만든 `brand-ink` 를
+              그대로 얹으면 오히려 안 보인다 — #c42a1e on #0f0e0c = **3.40:1**,
+              #ff3d2e 는 **5.47:1**. 대비는 색이 아니라 **쌍**으로 정해진다. */}
+          <span className="fi-more shrink-0 text-[11px] text-brand" aria-hidden>
             →
           </span>
         </span>

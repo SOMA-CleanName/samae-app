@@ -93,7 +93,7 @@ export function StudioSidebar({ chatUnread = 0 }: { chatUnread?: number }) {
               >
                 {it.label}
                 {it.badge ? (
-                  <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[10px] font-bold leading-none text-white ring-2 ring-bg">
+                  <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-brand-solid px-1 text-[10px] font-bold leading-none text-white ring-2 ring-bg">
                     {it.badge > 99 ? "99+" : it.badge}
                   </span>
                 ) : null}
@@ -127,7 +127,7 @@ function SideLink({ item, active }: { item: Item; active: boolean }) {
     >
       {item.label}
       {item.badge ? (
-        <span className="min-w-[18px] rounded-full bg-brand px-1 text-center text-[10px] font-bold leading-[18px] text-white">
+        <span className="min-w-[18px] rounded-full bg-brand-solid px-1 text-center text-[10px] font-bold leading-[18px] text-white">
           {item.badge > 99 ? "99+" : item.badge}
         </span>
       ) : null}

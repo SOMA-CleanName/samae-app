@@ -378,7 +378,7 @@ export function ExplorePhotoAssigner({
                       <img src={src(p)} alt="" className="h-full w-full object-cover" loading="lazy" />
                       {/* 담김 체크 */}
                       {on && (
-                        <span className="absolute right-0.5 top-0.5 grid h-5 w-5 place-items-center rounded-full bg-brand text-xs font-bold text-white">
+                        <span className="absolute right-0.5 top-0.5 grid h-5 w-5 place-items-center rounded-full bg-brand-solid text-xs font-bold text-white">
                           ✓
                         </span>
                       )}

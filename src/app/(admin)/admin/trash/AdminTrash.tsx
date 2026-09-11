@@ -72,7 +72,7 @@ export function AdminTrash({ groups }: { groups: TrashGroup[] }) {
               type="button"
               disabled={pending}
               onClick={() => restore(selectedIds)}
-              className="cursor-pointer rounded-full bg-brand px-3 py-1.5 text-caption font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="cursor-pointer rounded-full bg-brand-solid px-3 py-1.5 text-caption font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
             >
               {pending ? "복구 중…" : "선택 복구"}
             </button>

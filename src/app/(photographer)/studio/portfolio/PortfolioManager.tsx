@@ -147,7 +147,7 @@ function UploadToast({ status, onClose }: { status: Status; onClose: () => void 
   if (status.kind === "error") {
     return (
       <div className="flex items-center gap-3 rounded-xl border border-brand/30 bg-brand/[0.06] px-4 py-3 shadow-lg">
-        <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-brand text-xs text-white">!</span>
+        <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-brand-solid text-xs text-white">!</span>
         <span className="text-sm text-brand">{status.msg}</span>
         <button type="button" onClick={onClose} aria-label="닫기" className="ml-1 text-fg/40 hover:text-fg">
           ✕

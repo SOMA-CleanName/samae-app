@@ -190,7 +190,7 @@ export function TasteQuiz() {
                 window.location.href = "/?nocat=1";
               });
             }}
-            className="inline-flex items-center gap-1.5 rounded-full bg-brand px-8 py-2 text-body font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
+            className="inline-flex items-center gap-1.5 rounded-full bg-brand-solid px-8 py-2 text-body font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
           >
             내 취향 사진 더 보러가기
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
@@ -403,7 +403,7 @@ export function TasteQuiz() {
           type="button"
           onClick={() => decide("like")}
           aria-label="좋아요"
-          className="grid h-14 w-14 place-items-center rounded-full bg-brand text-white shadow-pop transition-transform hover:scale-105 active:scale-95"
+          className="grid h-14 w-14 place-items-center rounded-full bg-brand-solid text-white shadow-pop transition-transform hover:scale-105 active:scale-95"
         >
           <svg viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6">
             <path d="M12 20.3l-1.45-1.32C5.4 14.24 2 11.16 2 7.5 2 4.42 4.42 2 7.5 2c1.74 0 3.41.81 4.5 2.09C13.09 2.81 14.76 2 16.5 2 19.58 2 22 4.42 22 7.5c0 3.66-3.4 6.74-8.55 11.49L12 20.3z" />

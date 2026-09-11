@@ -163,7 +163,7 @@ export default async function StudioDetailPage({ params }: { params: Promise<{ i
             href={`/photographers/${id}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-1.5 rounded-xl bg-brand px-4 py-2.5 text-body-sm font-semibold text-white transition-opacity hover:opacity-90"
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-brand-solid px-4 py-2.5 text-body-sm font-semibold text-white transition-opacity hover:opacity-90"
           >
             작가 프로필 열기
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
