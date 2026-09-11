@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requestOrigin, safeNext } from "@/lib/safe-redirect";
 import { readAnonFavPhotoIds, ANON_FAV_COOKIE } from "@/lib/anon-favorites";
-import { extractKakaoPhone } from "@/lib/kakao-phone";
+import { extractKakaoPhone, fetchKakaoPhoneFromApi } from "@/lib/kakao-phone";
 
 const OAUTH_NEXT_COOKIE = "samae_oauth_next";
 
@@ -30,11 +30,22 @@ export async function GET(request: Request) {
       // 카카오싱크 동의로 번호가 넘어왔으면 여기서 채운다 — 카카오가 검증한 번호라
       // 우리 OTP 를 다시 받을 이유가 없다. 그러면 아래 needsContact 가 false 가 되어
       // /signup/contact 를 통째로 건너뛴다(간편가입이 실제로 간편해지는 지점).
-      await adoptKakaoPhone(supabase);
+      //
+      // provider_token 을 같이 넘기는 이유는 adoptKakaoPhone 주석 참고. 이 토큰은
+      // Supabase 가 보관하지 않으므로 **지금 이 순간에만** 손에 있다.
+      const adopted = await adoptKakaoPhone(supabase, data?.session?.provider_token);
       // 연락처 없는 계정(첫 소셜 가입 포함) → 가입 마무리(전화번호 등록)를 거쳐 복귀.
       // SMS(작가 답장 알림)가 profiles.phone 에 의존하므로 이 단계는 건너뛸 수 없다.
+      //
+      // ⚠️ 카카오로 왔는데 번호를 못 받았으면 `kakao=nophone` 을 달아 보낸다.
+      //    안 달면 [카카오로 연락처 등록] 을 눌러도 같은 화면으로 되돌아올 뿐이라
+      //    **버튼이 고장 난 것처럼 보인다**(2026-09-11 실제로 그렇게 보고됨).
+      //    사용자는 자기가 뭘 잘못했는지 모른 채 같은 버튼만 다시 누른다.
+      const viaKakao = !!data?.session?.provider_token;
       const dest = (await needsContact(supabase))
-        ? `/signup/contact?next=${encodeURIComponent(next)}`
+        ? `/signup/contact?next=${encodeURIComponent(next)}${
+            viaKakao && !adopted ? "&kakao=nophone" : ""
+          }`
         : next;
       const res = NextResponse.redirect(`${origin}${dest}`);
       res.cookies.delete(OAUTH_NEXT_COOKIE);
@@ -85,30 +96,49 @@ async function needsContact(
  *   · **덮어쓰지 않는다.** 이미 번호가 있으면 그게 우선(사용자가 OTP 로 직접 인증했거나,
  *     카카오 계정 번호와 실제 쓰는 번호가 다를 수 있다)
  *   · **실패해도 로그인을 막지 않는다.** 못 채우면 기존 OTP 화면으로 떨어질 뿐이다
- *   · **동의 전에도 안전하다.** 검수 통과 전에는 metadata 에 번호가 없어 그냥 no-op 이다
+ *   · **동의 전에도 안전하다.** 동의를 안 했으면 카카오가 번호를 안 주므로 no-op 이다
+ *
+ * ⚠️ **번호는 두 군데서 찾는다. 순서가 중요하다.**
+ *
+ *   1. `user_metadata` — 공짜지만 **거의 안 들어 있다.** Supabase GoTrue 의 카카오
+ *      provider 가 `kakao_account.phone_number` 를 매핑하지 않는다(2026-09-11 실측:
+ *      동의 후에도 metadata 키에 전화번호가 없고 `phone_verified` 만 남았다)
+ *   2. `kapi.kakao.com/v2/user/me` — 실제로 번호가 오는 경로. 로그인당 한 번 왕복
+ *
+ * 1 을 먼저 보는 건 공짜여서지, 거기서 나올 거라 기대해서가 아니다. GoTrue 가
+ * 나중에 매핑을 넓히면 왕복이 저절로 사라진다.
+ *
+ * @returns 이 로그인을 마친 시점에 **번호가 있는 상태인가**. 이미 있던 경우도 true —
+ *          호출부가 알고 싶은 건 누가 채웠는지가 아니라 문제가 해결됐는지다.
  */
 async function adoptKakaoPhone(
-  supabase: Awaited<ReturnType<typeof createClient>>
-): Promise<void> {
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  providerToken?: string | null
+): Promise<boolean> {
   try {
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!user) return false;
 
-    const phone = extractKakaoPhone(user.user_metadata);
-    if (!phone) return;
-
+    // 이미 번호가 있으면 카카오에 물어볼 것도 없다 — 왕복부터 아낀다
     const { data: profile } = await supabase
       .from("profiles")
       .select("phone")
       .eq("id", user.id)
       .maybeSingle();
-    if (profile?.phone) return; // 이미 있는 번호를 카카오 번호로 갈아치우지 않는다
+    if (profile?.phone) return true; // 이미 있는 번호를 카카오 번호로 갈아치우지 않는다
 
-    await supabase.from("profiles").update({ phone }).eq("id", user.id);
+    const phone =
+      extractKakaoPhone(user.user_metadata) ??
+      (await fetchKakaoPhoneFromApi(providerToken));
+    if (!phone) return false;
+
+    const { error } = await supabase.from("profiles").update({ phone }).eq("id", user.id);
+    return !error;
   } catch {
     /* 못 채우면 /signup/contact 가 받는다 — 로그인은 계속되어야 한다 */
+    return false;
   }
 }
 
