@@ -89,30 +89,21 @@ export async function HomeDiscoverySections() {
 
   if (moods.length === 0) return null;
 
+  if (moods.length === 0) return null;
+
+  /*
+    "전체 사진" 머리는 여기서 그리지 않는다 — 그건 이 컴포넌트가 아니라 **아래 피드의
+    머리**다. 데스크톱에서 바로가기(좌) + 무드(우) 2단으로 묶으면서, 피드 머리까지
+    오른쪽 칸에 딸려 들어가면 안 돼서 호출부(page.tsx)로 옮겼다.
+  */
   return (
-    <div className="mb-4">
-      {moods.length > 0 && (
-        <section className="ed-scroll-in mb-8">
-          {/* 부제("같은 결의 사진끼리 묶어 뒀어요.")는 뺐다 —
-              "무드로 보기" 아래 무드 카드가 깔린 지면에서 그 문장이 더 알려 주는 게 없다.
-              한 줄을 줄이면 카드가 그만큼 위로 올라와 첫 화면에 더 들어온다. */}
-          <Head title="무드로 보기" />
-          <MoodRail items={moods} />
-        </section>
-      )}
-
-      {/*
-        아래부터는 전체 피드.
-
-        전에는 가느다란 줄 가운데 라벨을 얹었는데, 경계도 아니고 섹션도 아닌
-        어중간한 물건이 됐다. 위의 두 섹션과 똑같은 머리로 맞춰 확실히 끊는다.
-        id 는 '맨 위로' 버튼이 나타날 기준점이기도 하다.
-      */}
-      <div id="sec-all-photos" className="scroll-mt-20 px-1">
-        <span aria-hidden className="mb-2 block h-[2px] w-6 bg-brand" />
-        <h2 className="text-body font-bold tracking-tight">전체 사진</h2>
-      </div>
-    </div>
+    <section className="ed-scroll-in">
+      {/* 부제("같은 결의 사진끼리 묶어 뒀어요.")는 뺐다 —
+          "무드로 보기" 아래 무드 카드가 깔린 지면에서 그 문장이 더 알려 주는 게 없다.
+          한 줄을 줄이면 카드가 그만큼 위로 올라와 첫 화면에 더 들어온다. */}
+      <Head title="무드로 보기" />
+      <MoodRail items={moods} />
+    </section>
   );
 }
 

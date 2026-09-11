@@ -99,7 +99,8 @@ function Icon({ kind }: { kind: Chip["icon"] }) {
 
 export function HomeQuickNav() {
   return (
-    <nav aria-label="바로가기" className="mb-6">
+    // lg 이상에서는 좌측 칸(17rem)에 들어간다 — 아래 여백은 바깥 2단 컨테이너가 준다.
+    <nav aria-label="바로가기" className="mb-6 lg:mb-0">
       <ul className="grid grid-cols-5 gap-1 sm:flex sm:flex-wrap sm:gap-2">
         {CHIPS.map((c, i) => (
           // 로드 때 순서대로 자리를 잡는다

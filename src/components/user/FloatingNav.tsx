@@ -174,7 +174,17 @@ export function FloatingNav({
         //    그 오른쪽에 '맨 위로' 를 세운다. 없으면 querySelector 가 빈손으로 돌아와
         //    버튼이 영영 hidden 상태로 남는다(에러는 안 난다 — 그래서 더 안 보인다).
         data-floating-nav
-        className="fixed bottom-5 left-1/2 z-40 -translate-x-1/2"
+        /*
+          폰에서는 하단 **가운데** — 엄지가 닿는 자리다.
+
+          데스크톱(lg~)에서는 **왼쪽 아래**로 비킨다. 가운데에 떠 있으면 시선이 머무는
+          한복판을 계속 가린다(인계노트: "데스크톱에서도 FloatingNav 가 하단 중앙에 떠
+          콘텐츠를 가림"). 마우스는 어디든 갈 수 있어서 가운데일 이유도 없다.
+
+          오른쪽이 아니라 왼쪽인 이유: '맨 위로' 버튼이 이 알약의 **오른쪽 끝을 재서**
+          그 옆에 선다(ScrollTopButton). 오른쪽으로 보내면 둘이 화면 끝에서 겹친다.
+        */
+        className="fixed bottom-5 left-1/2 z-40 -translate-x-1/2 lg:left-6 lg:translate-x-0"
         style={{ pointerEvents: visible ? "auto" : "none" }}
       >
         <div style={revealStyle}>
