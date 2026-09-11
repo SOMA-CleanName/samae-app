@@ -75,7 +75,7 @@ export default async function ExploreHome({
   const query = sp.q?.trim();
   const showSearchUi = shouldShowSearchUi(query ? "results" : "home");
   const searchPlaceholder = showSearchUi
-    ? pickSearchPlaceholder(Number.parseInt(newFeedSeed(), 36) / 2 ** 31)
+    ? pickSearchPlaceholder()
     : "";
   // 카테고리 컨텍스트(?cat·쿠키)는 proxy 가 /c/<slug> 로 리다이렉트 → 여기(홈)는 검색·전체 피드만.
 

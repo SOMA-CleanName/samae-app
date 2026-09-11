@@ -2,23 +2,17 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import * as searchCopy from "./search-copy.ts";
 
-test("uses common co-occurring Korean photo tags without an example prefix", () => {
-  assert.deepEqual(searchCopy.SEARCH_PLACEHOLDER_EXAMPLES, [
-    "개인스냅 빈티지스냅",
-    "데이트 커플스냅",
-    "패션 화보",
-    "야외웨딩스냅 웨딩스냅",
-    "빈티지 필름",
-    "가을 감성",
-  ]);
-  assert.ok(searchCopy.SEARCH_PLACEHOLDER_EXAMPLES.every((example) => !example.startsWith("예:")));
-  assert.ok(searchCopy.SEARCH_PLACEHOLDER_EXAMPLES.every((example) => /[가-힣]/.test(example)));
+test("tells the reader what to type instead of listing bare tags", () => {
+  assert.equal(searchCopy.SEARCH_PLACEHOLDER, "찍어보고 싶은 사진의 무드를 입력해보세요");
+  assert.ok(!searchCopy.SEARCH_PLACEHOLDER.startsWith("예:"));
+  assert.ok(/[가-힣]/.test(searchCopy.SEARCH_PLACEHOLDER));
+  // 태그 나열로 되돌아가면 "이게 예시인지 지금 걸린 필터인지" 를 다시 못 읽는다
+  assert.ok(searchCopy.SEARCH_PLACEHOLDER.includes("입력"));
 });
 
-test("picks one placeholder deterministically from a random fraction", () => {
-  assert.equal(searchCopy.pickSearchPlaceholder(0), "개인스냅 빈티지스냅");
-  assert.equal(searchCopy.pickSearchPlaceholder(0.5), "야외웨딩스냅 웨딩스냅");
-  assert.equal(searchCopy.pickSearchPlaceholder(0.999999), "가을 감성");
+test("hands every caller the one hint, with no seed to keep in sync", () => {
+  assert.equal(searchCopy.pickSearchPlaceholder(), searchCopy.SEARCH_PLACEHOLDER);
+  assert.equal(searchCopy.pickSearchPlaceholder.length, 0);
 });
 
 test("floats a search only after its original position reaches the top offset", () => {

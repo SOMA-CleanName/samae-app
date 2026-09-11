@@ -92,7 +92,10 @@ export async function HomeDiscoverySections() {
     <div className="mb-4">
       {moods.length > 0 && (
         <section className="ed-scroll-in mb-8">
-          <Head title="무드로 보기" lead="같은 결의 사진끼리 묶어 뒀어요." />
+          {/* 부제("같은 결의 사진끼리 묶어 뒀어요.")는 뺐다 —
+              "무드로 보기" 아래 무드 카드가 깔린 지면에서 그 문장이 더 알려 주는 게 없다.
+              한 줄을 줄이면 카드가 그만큼 위로 올라와 첫 화면에 더 들어온다. */}
+          <Head title="무드로 보기" />
           <MoodRail items={moods} />
         </section>
       )}

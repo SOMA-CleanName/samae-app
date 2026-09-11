@@ -78,7 +78,7 @@ export default async function PhotoDetail({
   const { id } = await params;
   const showSearchUi = shouldShowSearchUi("photo");
   const searchPlaceholder = showSearchUi
-    ? pickSearchPlaceholder(Number.parseInt(newFeedSeed(), 36) / 2 ** 31)
+    ? pickSearchPlaceholder()
     : "";
   const sp = (await searchParams) ?? {};
   const photo = await fetchPhotoById(id);
