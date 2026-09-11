@@ -14,7 +14,10 @@ export type NotifyKind =
   | "chat_reply" // 작가 답장 → 고객 (보는 중이면 스킵 · 안 읽은 채로는 24h 쿨다운)
   | "chat_message_to_photographer" // 고객 메시지 → 작가 (억제 정책 적용)
   | "inquiry_received" // 새 문의 첫 발화 → 작가 (대화당 1회)
-  | "booking_proposed" // 예약 제안 → 상대방 (예약당 1회)
+  // 예약 제안은 **방향별로 나뉜다**(예약당 1회). 하나로 묶었다가 두 번 반려됐다 —
+  // 카카오는 "수신자의 어떤 액션으로 발송되는가" 를 묻는데 양방향 문구로는 답이 안 된다.
+  | "booking_proposed_to_photographer" // 고객이 제안 → 작가
+  | "booking_proposed_to_customer" // 작가가 제안 → 고객
   | "booking_accepted" // 예약 수락 → 제안자 (예약당 1회)
   | "deposit_confirmed" // 운영 입금 확인 → 고객 (예약당 1회)
   | "booking_confirmed" // 운영 입금 확인 → 작가 (예약당 1회)
@@ -61,7 +64,14 @@ export const NOTIFY_TEMPLATES: Record<NotifyKind, NotifyTemplate> = {
   //    dispatchNotify 가 이 body 를 그대로 문자로 보낸다. 승인되면 ID 만 채우면 된다.
   //
   // 문구는 승인된 6종과 같은 "~하신" 패턴이다 — 수신자(작가)가 한 행위를 첫 줄에 박는다.
-  // 이걸 벗어난 예약 제안 템플릿 하나가 "수신 대상을 확인하기 어렵다" 로 반려됐었다.
+  //
+  // ⚠️ 그런데도 09-11 에 반려됐다. 사유는 수신 대상이 아니라 **다발성**이었다 —
+  //    *"새로운 채팅이 도착할 때마다 발송되는 다발성 메시지인가? 그렇다면 수신자가
+  //    다발성 알림을 동의·요청하여 발송된다는 내용을 메시지 내 **고정값**으로 추가하라."*
+  //
+  //    메시지가 올 때마다 나가는 알림은 전부 이 심사를 받는다고 보면 된다. 그래서
+  //    마지막 줄의 고지 문구는 **장식이 아니라 승인 조건**이다. 지우면 다시 반려된다.
+  //    (같은 성격인 chat_reply 는 이 고지 없이 통과했지만, 기준이 조여진 쪽에 맞춘다)
   chat_message_to_photographer: {
     kind: "chat_message_to_photographer",
     label: "고객 메시지",
@@ -69,7 +79,9 @@ export const NOTIFY_TEMPLATES: Record<NotifyKind, NotifyTemplate> = {
     variables: ["고객명", "링크"],
     body: `[사매] 상담하신 촬영 건에 #{고객명}님이 새 메시지를 보냈어요.
 채팅방에서 확인해 주세요.
-#{링크}`,
+#{링크}
+
+해당 메시지는 작가님이 상담 중인 촬영 건에 새 메시지가 도착한 경우 발송됩니다.`,
     button: { name: "메시지 확인하기", url: "https://samae.ai/chat/#{채팅방ID}", urlVariable: "채팅방ID" },
   },
   inquiry_received: {
@@ -82,30 +94,47 @@ export const NOTIFY_TEMPLATES: Record<NotifyKind, NotifyTemplate> = {
 #{링크}`,
     button: { name: "문의 확인하기", url: "https://samae.ai/chat/#{채팅방ID}", urlVariable: "채팅방ID" },
   },
-  booking_proposed: {
-    kind: "booking_proposed",
-    label: "예약 제안",
-    recipient: "counterparty",
-    variables: ["상대명", "촬영일", "금액", "링크"],
-    // ⚠️ 이 문구는 **반려 후 고친 것**이다 (2026-09-09). 원문은 "상담 중인 촬영 건에…" 였고,
-    //    반려 사유가 *"수신 대상을 명확하게 확인하기 어렵다. 사내 관리자 대상 메시지인가?"* 였다.
-    //
-    //    "상담 중인" 은 상태라 수신자의 **액션**이 아니다. 승인된 6종은 전부 "~하신" 으로
-    //    수신자가 한 일을 특정한다(문의하신 / 등록하신 / 제안하신 / 입금하신 / 수락하신 / 예약하신).
-    //    그래서 "채팅으로 상담하신" 으로 바꿨다 — 수신자가 서비스 이용자임도 같이 드러난다.
-    //
-    //    ⚠️ **이 문장은 솔라피에 등록된 템플릿 본문과 글자까지 같아야 한다.** 알림톡 자체는
-    //       templateId + 변수만 보내므로 여기 body 가 달라도 발송은 되지만, 이 body 가
-    //       **문자 폴백 문구**로 그대로 나간다(renderNotifyBody). 어긋나면 같은 알림이
-    //       채널에 따라 다른 문장으로 도착한다.
-    //
-    //    역할어("작가님")를 못 붙이는 이유: 이 알림은 **양방향**이다. 작가가 제안하면 고객이,
-    //    고객이 제안하면 작가가 받는다(actions/bookings.ts:220).
-    body: `[사매] 채팅으로 상담하신 촬영 건에 #{상대명}님이 예약을 제안했어요.
+  // ── 예약 제안 (방향별 2종) ──────────────────────────────────
+  //
+  // ⚠️ **하나로 묶었다가 두 번 반려됐다.** 이력:
+  //
+  //   09-09  "상담 중인 촬영 건에…"        → "수신 대상 불명확. 사내 관리자용인가?"
+  //   09-11  "채팅으로 상담하신 촬영 건에…" → "수신자의 **어떠한 액션**으로 발송되는지 답변"
+  //
+  // 문구를 다듬어 풀 문제가 아니었다. 알림톡 심사는 "이 메시지를 받는 사람이 **무엇을
+  // 해서** 받게 되는가" 를 묻는데, 제안은 작가→고객·고객→작가 양방향이라 한 문장으로는
+  // 그 답을 쓸 수가 없다. "상담하신" 은 양쪽 다 해당돼서 결국 아무도 특정하지 못한다.
+  //
+  // 그래서 방향별로 쪼갠다. 각 템플릿은 수신자가 한 행위를 첫 줄에 박고(등록하신 /
+  // 문의하신), 발송 조건을 마지막 줄에 고정값으로 명시한다.
+  //
+  // 갈림길은 `actions/bookings.ts` 의 `amPhotographer` — 이미 있는 값이다.
+  booking_proposed_to_photographer: {
+    kind: "booking_proposed_to_photographer",
+    label: "예약 제안 도착 알림 (작가)",
+    recipient: "photographer",
+    variables: ["고객명", "촬영일", "금액", "링크"],
+    body: `[사매] 등록하신 스튜디오에 #{고객명}님이 예약을 제안했어요.
 · 촬영일: #{촬영일}
 · 금액: #{금액}원
 채팅방에서 제안 내용을 확인하고 수락 여부를 결정해 주세요.
-#{링크}`,
+#{링크}
+
+해당 메시지는 작가님이 등록하신 스튜디오에 예약 제안이 도착한 경우 발송됩니다.`,
+    button: { name: "제안 확인하기", url: "https://samae.ai/bookings/#{예약ID}", urlVariable: "예약ID" },
+  },
+  booking_proposed_to_customer: {
+    kind: "booking_proposed_to_customer",
+    label: "예약 제안 도착 알림 (고객)",
+    recipient: "customer",
+    variables: ["작가명", "촬영일", "금액", "링크"],
+    body: `[사매] 문의하신 촬영 건에 #{작가명} 작가님이 예약을 제안했어요.
+· 촬영일: #{촬영일}
+· 금액: #{금액}원
+채팅방에서 제안 내용을 확인하고 수락 여부를 결정해 주세요.
+#{링크}
+
+해당 메시지는 고객님께서 문의하신 촬영 건에 예약 제안이 도착한 경우 발송됩니다.`,
     button: { name: "제안 확인하기", url: "https://samae.ai/bookings/#{예약ID}", urlVariable: "예약ID" },
   },
   booking_accepted: {
