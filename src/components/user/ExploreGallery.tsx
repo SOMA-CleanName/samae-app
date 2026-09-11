@@ -921,20 +921,45 @@ export function ExploreGallery({
     // 스크롤이 한 번에 튀면(복원·해시 점프·리사이즈) 관찰자는 교차 '변화' 를 못 봐서
     // 침묵한다. 이 효과의 의존성은 [columnsReady, visible, items.length] 뿐이라 스크롤만으로는
     // 다시 돌지도 않는다. 그래서 스크롤에 얹어 훑는다 — 남은 카드가 없으면 스스로 뗀다.
+    //
+    // **리사이즈도 같이 듣는다.** 위 주석은 처음부터 리사이즈를 적어 놨는데 정작 리스너는
+    // 스크롤뿐이었다. 창이 넓어지면 컬럼이 늘면서 아래에 있던 카드가 한꺼번에 화면 안으로
+    // 올라오는데, 스크롤 위치는 그대로라 scroll 이벤트가 안 난다. 그러면 아무도 sweep 을
+    // 깨우지 않아 그 카드들이 `opacity:0` 인 채 **빈칸으로 남는다.**
+    // 실측(2026-09-11, /c/couple): 1024 → 1920 에서 27장이 6초 넘게 빈칸.
+    // (390 → 1440 은 레이아웃이 바뀌며 스크롤이 따라 움직여 우연히 300ms 안에 복구됐다 —
+    //  그래서 폭에 따라 되기도 하고 안 되기도 하는 것처럼 보였다.)
+    // 모바일 화면 회전도 같은 경로다.
+    //
+    // 리사이즈 쪽은 `window.resize` 가 아니라 **그리드의 ResizeObserver** 로 듣는다.
+    // window 이벤트는 컬럼이 다시 계산되기 **전**에 오는 경우가 있어, 그때 sweep 을 돌면
+    // 아직 옛 위치를 보고 지나친다(실측: 그 방식으로 고쳤더니 1024→1920 은 잡혔는데
+    // 390→1024 에서 12장이 그대로 남았다). ResizeObserver 는 레이아웃 뒤에 오므로
+    // 카드가 실제로 옮겨 앉은 자리를 본다.
     let frame: number | null = null;
-    const onScroll = () => {
+    let ro: ResizeObserver | null = null;
+    const stop = () => {
+      window.removeEventListener("scroll", onNudge);
+      ro?.disconnect();
+      ro = null;
+    };
+    const onNudge = () => {
       if (frame !== null) return;
       frame = requestAnimationFrame(() => {
         frame = null;
-        if (sweep() === 0) window.removeEventListener("scroll", onScroll);
+        if (sweep() === 0) stop();
       });
     };
-    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("scroll", onNudge, { passive: true });
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(onNudge);
+      ro.observe(grid);
+    }
 
     return () => {
       io.disconnect();
       if (frame !== null) cancelAnimationFrame(frame);
-      window.removeEventListener("scroll", onScroll);
+      stop();
     };
   }, [columnsReady, visible, items.length]);
 
