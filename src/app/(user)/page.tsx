@@ -171,6 +171,19 @@ export default async function ExploreHome({
           (검색 모드에서는 로고 줄부터 아래 층까지 걷어내고 결과에 집중) */}
       {!query && (
         <FeedHero
+          // 데스크톱은 로고 ─ 검색 ─ 프로필 **한 줄**. 아래 모바일용 SearchDock 은
+          // sm 이상에서 숨는다(둘 다 DOM 에 있지만 화면당 하나만 산다).
+          search={
+            showSearchUi ? (
+              <SearchDock
+                key="home-inline"
+                initial=""
+                placeholder={searchPlaceholder}
+                variant="home"
+                inline
+              />
+            ) : undefined
+          }
           right={
             <ProfileButton
               loggedIn={!!me}
@@ -184,15 +197,18 @@ export default async function ExploreHome({
       )}
 
       {/* 검색 — 로고 줄 바로 아래 한 줄. 스크롤하면 상단에 붙는다(SearchDock 자체 sticky).
-          결과 화면에서는 나가는 버튼을 같은 줄 왼쪽에 세운다. */}
+          결과 화면에서는 나가는 버튼을 같은 줄 왼쪽에 세운다.
+          검색 모드(?q=)에서는 로고 줄을 걷어내므로 데스크톱에서도 이 줄이 유일한 검색창이다. */}
       {showSearchUi ? (
-        <SearchDock
-          key={query ?? "home"}
-          initial={query ?? ""}
-          placeholder={searchPlaceholder}
-          variant={query ? "detail" : "home"}
-          back={query ? <SearchBackButton query={query} /> : undefined}
-        />
+        <div className={query ? undefined : "sm:hidden"}>
+          <SearchDock
+            key={query ?? "home"}
+            initial={query ?? ""}
+            placeholder={searchPlaceholder}
+            variant={query ? "detail" : "home"}
+            back={query ? <SearchBackButton query={query} /> : undefined}
+          />
+        </div>
       ) : null}
 
       {/* 무엇을 찾았고 몇 장인지 — 전에는 이 화면에 글자가 하나도 없었다 */}
