@@ -154,9 +154,15 @@ function Ctrl({
 }) {
   return (
     <div>
+      {/*
+        flex 항목은 기본이 `min-width:auto` 라 **글자 길이 밑으로 안 줄어든다.**
+        라벨("하루 평균 촬영 건수")과 숫자칸이 각자 안 줄어들면서 카드가 422px 이 됐고,
+        390px 화면에서 지면이 통째로 가로로 넘쳤다(실측 61px).
+        라벨만 줄어들게(`min-w-0`) 하고 숫자칸은 고정(`shrink-0`)한다.
+      */}
       <div className="flex items-baseline justify-between gap-3">
-        <span className="text-body-sm font-medium text-fg">{label}</span>
-        <span className="flex items-baseline gap-1 rounded-lg border border-line-strong bg-surface-2 px-2 py-1">
+        <span className="min-w-0 flex-1 text-body-sm font-medium text-fg">{label}</span>
+        <span className="flex shrink-0 items-baseline gap-1 rounded-lg border border-line-strong bg-surface-2 px-2 py-1">
           <input
             type="number"
             value={value}
@@ -396,7 +402,7 @@ export default function CalculatorPage() {
           </p>
         </div>
 
-        <div className="mt-4 grid gap-5 md:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+        <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-5 md:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
           <div className="space-y-5">
             <Ctrl
               label="건당 평균 촬영비"
@@ -1069,7 +1075,7 @@ export default function CalculatorPage() {
           {d.structureCost > 0.5 && <> − 구조 비용</>}
         </p>
 
-        <div className="mt-4 grid gap-5 md:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+        <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-5 md:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
           <div className="space-y-5">
             <Ctrl
               label="문의 후 성사율"
@@ -1359,7 +1365,7 @@ export default function CalculatorPage() {
           {vat.on && <> · 모두 부가세를 뺀 공급가액</>}
         </p>
 
-        <div className="mt-4 grid gap-5 md:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
+        <div className="mt-4 grid grid-cols-[minmax(0,1fr)] gap-5 md:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
           {/* 입력 */}
           <div className="space-y-5 rounded-xl border border-line bg-surface-2 p-4">
             <Ctrl

@@ -114,8 +114,17 @@ export default async function AvailabilityPage() {
             ))}
           </ul>
         )}
-        <form action={addBlock} className="mt-3 grid grid-cols-[1.3fr_1fr_1fr_auto] items-end gap-2 rounded-xl border border-fg/15 p-3">
-          <label className="flex flex-col gap-1 text-xs text-fg/55">
+        {/*
+          네 칸을 한 줄에 두면 **모바일에서 지면이 가로로 넘친다**(실측 390px 에서 83px).
+          `fr` 로 나눠도 소용없다 — `input[type=date]`·`input[type=time]` 은 네이티브 최소
+          너비(~118px)가 있어서 그 아래로는 안 줄어든다.
+          폰에서는 날짜 한 줄 / 시작·종료 한 줄 / 버튼 한 줄로 접는다.
+        */}
+        <form
+          action={addBlock}
+          className="mt-3 grid grid-cols-2 items-end gap-2 rounded-xl border border-fg/15 p-3 sm:grid-cols-[1.3fr_1fr_1fr_auto]"
+        >
+          <label className="col-span-2 flex flex-col gap-1 text-xs text-fg/55 sm:col-span-1">
             날짜
             <input type="date" name="date" required className="rounded-lg border border-fg/15 bg-surface px-2 py-2 text-sm outline-none focus:border-fg/40" />
           </label>
@@ -127,7 +136,9 @@ export default async function AvailabilityPage() {
             종료
             <input type="time" name="end_time" required className="rounded-lg border border-fg/15 bg-surface px-2 py-2 text-sm outline-none focus:border-fg/40" />
           </label>
-          <button className="rounded-full bg-fg px-4 py-2 text-sm font-semibold text-bg hover:opacity-90">차단</button>
+          <button className="col-span-2 min-h-11 rounded-full bg-fg px-4 py-2 text-sm font-semibold text-bg hover:opacity-90 sm:col-span-1">
+            차단
+          </button>
         </form>
       </section>
 
