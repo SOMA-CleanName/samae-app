@@ -325,7 +325,9 @@ function NavPill({
       className={[
         // 탭 균등 너비 — 라벨 길이 달라도 같은 크기.
         // 폭은 부모가 --nav-tab-w 로 준다(표시기와 같은 값이어야 어긋나지 않는다).
-        "relative z-10 flex w-[var(--nav-tab-w)] shrink-0 items-center justify-center gap-1 rounded-full py-2 font-semibold transition-colors duration-300 sm:gap-1.5 sm:py-2.5",
+        // 높이가 36px 였다(실측 88×36). 앱에서 제일 많이 누르는 컨트롤인데 권장 44px 에
+        // 8px 모자랐다. 폭은 --nav-tab-w 가 정하므로 세로만 min-h-11 로 올린다.
+        "relative z-10 flex min-h-11 w-[var(--nav-tab-w)] shrink-0 items-center justify-center gap-1 rounded-full py-2 font-semibold transition-colors duration-300 sm:gap-1.5 sm:py-2.5",
         compact ? "px-1.5 text-xs sm:text-sm" : "px-2 text-sm",
         active ? "text-white" : "text-fg/65 hover:text-brand",
         attention ? "samae-explore-tab-attention text-brand" : "",

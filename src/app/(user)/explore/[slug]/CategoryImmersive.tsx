@@ -117,14 +117,16 @@ export function CategoryImmersive({
           type="button"
           onClick={back}
           aria-label="뒤로"
-          className="pointer-events-auto grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors hover:bg-white/25"
+          className="pointer-events-auto relative grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/15 text-white backdrop-blur transition-colors before:absolute before:-inset-1 before:content-[''] hover:bg-white/25"
         >
           <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M15 19l-7-7 7-7" />
           </svg>
         </button>
         <div className="min-w-0">
-          <p className="truncate text-sm font-extrabold tracking-tight">{title}</p>
+          {/* 이 지면에는 h1 이 하나도 없었다 — 스크린리더·검색엔진에 "여기가 무슨 지면인지"
+              말해 주는 게 없었다는 뜻이다. 보이는 모양은 그대로 두고 태그만 h1 로 올린다. */}
+          <h1 className="truncate text-sm font-extrabold tracking-tight">{title}</h1>
         </div>
       </div>
 

@@ -22,12 +22,18 @@ export function SiteFooter() {
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-4">
         <Link
           href="/"
-          className="font-display text-xl italic leading-none text-brand-ink transition-opacity hover:opacity-80"
+          // 로고도 링크다 — 실측 57×20 이었다. 글자는 그대로, 눌리는 면만 44px.
+          className="-my-3 inline-flex min-h-11 items-center font-display text-xl italic leading-none text-brand-ink transition-opacity hover:opacity-80"
         >
           samae
         </Link>
 
-        <nav aria-label="사매 안내" className="flex flex-wrap gap-x-5 gap-y-2 text-body-sm">
+        {/*
+          링크 높이가 20px 였다 — 권장 44px 의 절반 이하다(실측: `아티클 36×20`,
+          `Q&A 26×20`). 글자 크기는 그대로 두고 **세로 패딩으로만** 44px 을 만든다.
+          `-my-3` 로 늘어난 만큼을 상쇄해 줄 간격은 보이던 그대로 유지한다.
+        */}
+        <nav aria-label="사매 안내" className="-my-3 flex flex-wrap gap-x-5 text-body-sm">
           {[
             { href: "/articles", label: "아티클" },
             { href: "/spots", label: "촬영 장소" },
@@ -39,7 +45,7 @@ export function SiteFooter() {
             <Link
               key={l.href}
               href={l.href}
-              className="text-muted transition-colors hover:text-brand"
+              className="inline-flex min-h-11 items-center text-muted transition-colors hover:text-brand"
             >
               {l.label}
             </Link>
@@ -54,7 +60,7 @@ export function SiteFooter() {
            주소가 비면 이 줄이 통째로 안 그려진다(lib/channels).
       */}
       {channels.length > 0 && (
-        <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="mt-2 flex flex-wrap items-center gap-x-4">
           <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-faint">
             사매 공식 채널
           </span>
@@ -64,7 +70,8 @@ export function SiteFooter() {
               href={c.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-body-sm text-muted underline decoration-line-strong underline-offset-4 transition-colors hover:text-brand"
+              // 위 안내 링크와 같은 이유로 44px (실측 `인스타그램 60×20`)
+              className="inline-flex min-h-11 items-center text-body-sm text-muted underline decoration-line-strong underline-offset-4 transition-colors hover:text-brand"
             >
               {c.label}
             </a>

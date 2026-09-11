@@ -164,7 +164,8 @@ export function PhotoCarousel({
         <button
           type="button"
           onClick={() => go(idx - 1)}
-          className="absolute left-2 top-1/2 grid h-8 w-8 -translate-y-1/2 cursor-pointer place-items-center rounded-full bg-black/40 text-white transition-colors hover:bg-black/60"
+          // 보이는 원은 32px 그대로, 눌리는 면만 ::before 로 44px (사진 위라 원을 키우면 사진을 더 가린다)
+          className="absolute left-2 top-1/2 grid h-8 w-8 -translate-y-1/2 cursor-pointer place-items-center rounded-full bg-black/40 text-white transition-colors before:absolute before:-inset-1.5 before:content-[''] hover:bg-black/60"
           aria-label="이전 사진"
         >
           <ChevronLeftIcon />
@@ -174,7 +175,7 @@ export function PhotoCarousel({
         <button
           type="button"
           onClick={() => go(idx + 1)}
-          className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 cursor-pointer place-items-center rounded-full bg-black/40 text-white transition-colors hover:bg-black/60"
+          className="absolute right-2 top-1/2 grid h-8 w-8 -translate-y-1/2 cursor-pointer place-items-center rounded-full bg-black/40 text-white transition-colors before:absolute before:-inset-1.5 before:content-[''] hover:bg-black/60"
           aria-label="다음 사진"
         >
           <ChevronRightIcon />

@@ -54,7 +54,9 @@ export function StickyBack({
             e.preventDefault();
             router.back();
           }}
-          className="ed-back group -ml-1 inline-flex min-w-0 items-center gap-1.5 rounded-full py-1.5 pl-1 pr-2.5 text-body-sm font-semibold tracking-tight text-fg transition-colors hover:text-brand"
+          // 높이가 36px 였다(실측 67×36). 지면에서 나가는 유일한 문인데 권장 44px 에
+          // 모자랐다. 바 자체가 48px 이라 세로를 44 로 채워도 넘치지 않는다.
+          className="ed-back group -ml-1 inline-flex min-h-11 min-w-0 items-center gap-1.5 rounded-full pl-1 pr-2.5 text-body-sm font-semibold tracking-tight text-fg transition-colors hover:text-brand"
         >
           <span
             aria-hidden

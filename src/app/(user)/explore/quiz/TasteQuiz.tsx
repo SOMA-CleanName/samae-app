@@ -227,7 +227,8 @@ export function TasteQuiz() {
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pt-6">
         <div className="w-full max-w-[440px] self-center text-center">
           <p className="font-display text-body-sm italic text-brand-ink">30초 취향 테스트</p>
-          <h1 className="mt-1 text-2xl font-bold tracking-tight">어떤 스냅을 찾으세요?</h1>
+          {/* 지면 제목(h1)은 상단 바가 이미 쓴다. 단계 제목은 그 아래 단계라 h2. */}
+          <h2 className="mt-1 text-2xl font-bold tracking-tight">어떤 스냅을 찾으세요?</h2>
           <p className="mt-1.5 text-body-sm text-muted">하나를 골라주세요.</p>
         </div>
 
@@ -278,7 +279,7 @@ export function TasteQuiz() {
     <div className="flex min-h-0 flex-1 flex-col items-center pt-4">
       <div className="w-full max-w-[340px] shrink-0 text-center">
         <p className="font-display text-body-sm italic text-brand-ink">어떤 무드가 끌리나요?</p>
-        <h1 className="mt-1 text-2xl font-bold tracking-tight">끌리면 오른쪽, 아니면 왼쪽</h1>
+        <h2 className="mt-1 text-2xl font-bold tracking-tight">끌리면 오른쪽, 아니면 왼쪽</h2>
         <p className="mt-1.5 text-body-sm text-muted">
           카드를 밀거나 아래 버튼으로 골라주세요.
           <br />
