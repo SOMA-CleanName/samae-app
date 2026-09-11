@@ -61,8 +61,9 @@ function topPhotographers(photos: GalleryPhoto[], limit: number) {
     }
   }
   return [...by.entries()]
-    // 사진 3장은 있어야 카드가 허전하지 않다
-    .filter(([, v]) => v.urls.length >= 3)
+    // 카드가 2분할로 바뀌어 2장이면 채워진다. 3장을 요구하면 사진이 적은 작가가
+    // 이유 없이 빠진다.
+    .filter(([, v]) => v.urls.length >= 2)
     .sort((a, b) => b[1].n - a[1].n)
     .slice(0, limit)
     .map(([id, v]) => ({ id, ...v }));

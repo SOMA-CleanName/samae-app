@@ -54,7 +54,8 @@ export async function HomeDiscoverySections() {
               title: s.category.title,
               subtitle: s.category.subtitle,
               // 미리보기 지정 1번 → 담긴 첫 장 (요청마다 바뀌지 않게 고정)
-              url: s.photos[0].src_url,
+              // 87px 카드라 썸네일로 충분하다 — 원본을 걸면 852KB 를 받는다(실측)
+              url: s.photos[0].thumb_url ?? s.photos[0].src_url,
             }))
     ),
   ]);
