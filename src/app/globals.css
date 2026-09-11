@@ -838,6 +838,19 @@ select:focus-visible {
 .fi-cover:active .fi-img {
   filter: grayscale(0) contrast(1) brightness(1);
 }
+/*
+  ⚠️ 위 "손을 대면 원래 색으로 돌아온다" 는 **마우스에서만** 성립한다.
+     폰에는 hover 가 없다. 그래서 모바일 사용자에게 이 카드는 영원히 빛바랜 채로 남고,
+     "컬러가 안에 있다" 는 신호는 전달되지 않는다. 눌러 볼 이유가 사라진다는 뜻이다.
+
+     그렇다고 터치에서 채도를 다 풀면 이 카드가 주변 사진과 구분되지 않는다 —
+     구분이 이 장치의 목적이다. 절반쯤(0.35)만 눌러 **구분은 남기고 생기는 되찾는다.**
+*/
+@media (hover: none) {
+  .fi-cover .fi-img {
+    filter: grayscale(0.35) contrast(1.03) brightness(0.96);
+  }
+}
 /* 잉크 — 위(라벨)와 아래(제목) 양쪽을 눌러 흰 글씨가 어디서나 읽히게 */
 .fi-cover .fi-ink {
   background: linear-gradient(
