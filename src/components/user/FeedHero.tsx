@@ -8,34 +8,76 @@ import type { ReactNode } from "react";
 //
 // h1 은 남긴다. 홈에 제목이 하나도 없으면 검색엔진이 이 페이지가 무엇인지 못 읽는다.
 // 그래서 워드마크 줄 자체를 제목으로 올렸다.
+/*
+  ⚠️ 이 줄은 **붙이지 않는다**(sticky 금지).
+
+  한때 줄 전체를 상단에 붙여 검색이 따라오게 했다. 두 가지가 틀렸다.
+    ① 로고·프로필까지 같이 붙어 56px 이 화면에서 영구히 사라진다. 지금 하는 일이
+       첫 화면에 사진을 올리는 것인데 정반대다.
+    ② 붙은 줄에 배경을 깔아야 하는데 `mx-auto` 와 `-mx-2.5` 가 같은 속성을 놓고
+       싸워 좌우가 끝까지 안 갔다(정훈: "헤더가 좌우 풀블리드로 안되어있어서").
+
+  따라오는 건 **검색 알약뿐**이다 — 화면 밖으로 나가는 순간 `fixed` 로 떠오르고,
+  내려갈 때는 투명, 올리거나 누르면 다시 또렷해진다(SearchDock inline).
+*/
 export function FeedHero({
   right,
   search,
 }: {
   right?: ReactNode;
   /**
-   * 데스크톱에서 **같은 줄 가운데**에 세울 검색창 (sm 이상에서만 그린다).
+   * 같은 줄 가운데에 세울 검색창 — **모바일·데스크톱 모두**.
    *
-   * 데스크톱에서는 로고와 프로필 버튼 사이 1400px 가 통째로 비어 있었고, 검색창은
-   * 그 아래 한 줄을 전폭으로 또 먹었다. 둘을 합쳐 ~130px 짜리 빈 띠를 없앤다(실측 1440px).
-   * 모바일은 그대로 둔다 — 폭이 좁아 한 줄에 셋을 넣으면 검색창이 쥐어짜인다.
+   * 전에는 검색이 로고 줄 아래 한 줄을 전폭으로 따로 먹었다. 모바일 390 에서
+   * 로고 줄(39) + 검색 줄(42) + 사이 여백까지 **115px** 이고, 그 아래 배너·바로가기·
+   * 무드를 지나면 첫 사진이 y=800 — 844 화면에서 44px 만 보였다(실측 2026-09-12).
+   *
+   * 한 줄로 합치면 그 115px 이 56px 이 된다. 좁은 폭에서 셋을 한 줄에 넣는 대가는
+   * 검색창이 짧아지는 것인데, 검색창은 **누르면 펼쳐지는 문**이지 거기서 다 읽는
+   * 자리가 아니다. 그래서 짧아도 된다. 대신 안내 문구는 폭에 맞춰 짧은 걸 쓴다
+   * (`SEARCH_PLACEHOLDER_SHORT` — lib/search-copy).
    */
   search?: ReactNode;
 }) {
   return (
     // 제목은 왼쪽, 오른쪽 빈자리는 슬롯으로 열어 둔다(홈은 프로필 버튼이 들어온다).
     // 여백을 바싹 조였다. 로고 줄은 브랜드를 알리는 자리지 공간을 차지하는 자리가 아니다.
-    <div className="mx-auto flex max-w-screen-2xl items-center justify-between gap-3 px-1 pb-2 pt-1.5 sm:gap-5 sm:pb-2.5 sm:pt-2">
-      <h1 className="shrink-0 font-display text-[1.6rem] italic leading-none text-brand sm:text-[1.7rem]">
+    //
+    /*
+      위 여백은 **지면이 준다**(호출부 section 의 `pt-3.5 / sm:pt-5`). 여기서 또 주면
+      위가 두 겹이 된다 — 실측 390px 에서 위 16px(10+6) 대 아래 8px 로 어긋나 있었고,
+      sm 에서는 24 대 10 까지 벌어졌다(정훈 2026-09-12: "상단 간격이랑 하단 배너와의
+      간격이 불일치하는게 거슬려").
+
+      그래서 위는 0 으로 두고 **아래만** 지면 패딩과 같은 값으로 준다.
+      결과: 헤더 위아래가 14 / 14 (sm 은 20 / 20).
+
+      ⚠️ 지면의 `pt` 를 바꾸면 여기 `pb` 도 같이 바꿔야 대칭이 유지된다.
+         (`(user)/page.tsx` · `c/[slug]/page.tsx` · `skeletons.tsx` 세 곳)
+    */
+    <div className="mx-auto flex max-w-screen-2xl items-center justify-between gap-2 px-1 pb-3.5 pt-0 sm:gap-5 sm:pb-5">
+      {/*
+        워드마크는 **상자가 아니라 글자를** 가운데 맞춰야 한다.
+
+        `flex items-center` 는 요소 상자를 맞춘다. 그런데 "samae" 는 대문자도 디센더도
+        없는 소문자뿐이라, 글자가 행상자 안에서 아래쪽(x-높이 띠)에 앉는다.
+        실측(390px): 요소 상자 중심 37 로 검색창과 같은데, **잉크 중심은 40.01** —
+        3px 내려가 보였다(정훈: "samae 로고 여전히 조금 아래에 위치하는것 같아").
+
+        그래서 글자만 위로 올린다. `em` 으로 주면 sm 에서 글자가 커져도(1.5→1.7rem)
+        같은 비율로 따라온다 — px 로 박으면 큰 화면에서 다시 어긋난다.
+        (0.125em = 24px 기준 3px)
+
+        오른쪽 `pr-1` 은 이탤릭이 기운 만큼의 자리다.
+      */}
+      <h1 className="flex shrink-0 translate-y-[-0.125em] items-center pr-1 font-display text-[1.5rem] italic leading-none text-brand sm:text-[1.7rem]">
         samae
         {/* 화면에는 안 보이지만 검색엔진·스크린리더에는 이 페이지가 무엇인지 남긴다.
             워드마크만 남기면 제목이 브랜드명 한 단어뿐이라 무슨 서비스인지 읽히지 않는다. */}
         <span className="sr-only"> — 사진으로 고르는 촬영, 사진작가 매칭</span>
       </h1>
 
-      {/* `hidden` 은 display:none 이라 접근성 트리·탭 순서에서도 빠진다 —
-          모바일 검색창과 둘 다 DOM 에 있어도 화면당 하나만 살아 있다. */}
-      {search && <div className="hidden min-w-0 flex-1 sm:flex">{search}</div>}
+      {search && <div className="flex min-w-0 flex-1">{search}</div>}
 
       {right}
     </div>
