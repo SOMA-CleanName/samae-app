@@ -6,7 +6,7 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { ChannelCard } from "@/components/ChannelCard";
 import { Masthead } from "@/components/editorial/Masthead";
 import { faqJsonLd, breadcrumbJsonLd } from "@/lib/seo";
-import { PUBLISHED_GUIDE_ITEMS, GUIDE_PAGE_ITEMS, AXIS_ORDER } from "@/lib/guide-data";
+import { listPublishedGuideItems, listGuidePageItems, AXIS_ORDER } from "@/lib/guide";
 
 // 스냅 촬영 가이드 허브.
 //
@@ -26,9 +26,9 @@ export const metadata: Metadata = {
   alternates: { canonical: "/guide" },
 };
 
-export default function GuideHubPage() {
-  const items = PUBLISHED_GUIDE_ITEMS;
-  const pageSlugs = new Set(GUIDE_PAGE_ITEMS.map((g) => g.slug));
+export default async function GuideHubPage() {
+  const items = await listPublishedGuideItems();
+  const pageSlugs = new Set((await listGuidePageItems()).map((g) => g.slug));
 
   const faq = faqJsonLd(items.map((g) => ({ q: g.question, a: g.answer })));
   const breadcrumb = breadcrumbJsonLd([

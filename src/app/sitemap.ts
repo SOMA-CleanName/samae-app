@@ -4,9 +4,9 @@ import { listPublishedCategories } from "@/lib/categories";
 import { listPublishedExploreSlugs, countVisiblePhotos } from "@/lib/explore-db";
 import { resolveExplorePhotoIds } from "@/lib/target-categories";
 import { SITE_URL } from "@/lib/site";
-import { GUIDE_PAGE_ITEMS } from "@/lib/guide-data";
+import { listGuidePageItems } from "@/lib/guide";
 import { listPublishedArticleSlugs } from "@/lib/articles";
-import { PUBLISHED_SPOTS } from "@/lib/spots-data";
+import { listPublishedSpots } from "@/lib/spots-db";
 import { countSpotPhotos } from "@/lib/spots";
 
 // 하루 1회 재생성 — 공개 작가·사진은 자주 바뀌므로.
@@ -49,7 +49,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // 촬영 가이드 — 질문-답 페이지. AI 답변이 가장 잘 인용하는 형식이라 우선순위를 높게 준다.
   // published 로 켠 것 중 본문이 충분한 것만 개별 URL 을 갖는다(GUIDE_PAGE_ITEMS).
-  const guideEntries: MetadataRoute.Sitemap = GUIDE_PAGE_ITEMS.map((g) => ({
+  const guidePageItems = await listGuidePageItems();
+  const guideEntries: MetadataRoute.Sitemap = guidePageItems.map((g) => ({
     url: `${SITE_URL}/guide/${encodeURIComponent(g.slug)}`,
     changeFrequency: "monthly",
     priority: 0.8,
@@ -98,7 +99,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     // 촬영 장소 — 사진이 실제로 잡히는 곳만. 소개글만 남는 페이지는 블로그가 더 잘 쓴다.
     const spotResolved = await Promise.all(
-      PUBLISHED_SPOTS.map(async (s) => ({ s, n: await countSpotPhotos(s) }))
+      (await listPublishedSpots()).map(async (s) => ({ s, n: await countSpotPhotos(s) }))
     );
     const spotEntries: MetadataRoute.Sitemap = spotResolved
       .filter((x) => x.n > 0)
