@@ -82,6 +82,32 @@ export default function RootLayout({
       lang="ko"
       className={`${fraunces.variable} ${inter.variable} ${notoKr.variable} h-full antialiased`}
     >
+      <head>
+        {/*
+          브라우저의 자동 스크롤 복원을 끈다.
+
+          새로고침하면 브라우저가 이전 scrollY 를 되돌리는데, 그 순간 화면에 있는 건
+          **로딩 스켈레톤**이라 문서가 훨씬 짧다(홈 실측: 본문 7291px vs 스켈레톤 1806px).
+          되돌릴 자리가 없으니 최대 스크롤로 잘리고, 사용자는 스켈레톤 밑부분을 보게 된다.
+          게다가 그 잘린 값이 ScrollMemory 에 다시 저장돼(1500 → 962) 새로고침할 때마다
+          위치가 깎여 내려간다(실측 2026-09-12).
+
+          스켈레톤과 본문의 높이를 맞추는 건 불가능하다 — 본문 길이는 사진 수에 달렸다.
+          그래서 **새로고침은 항상 최상단에서 시작**한다. 스켈레톤이 보이는 동안과
+          로드된 뒤의 위치가 같아진다.
+
+          앱 안에서의 이동(뒤로가기·사진 상세 복귀)은 문서가 그대로라 영향이 없다 —
+          그 복원은 ScrollMemory 가 sessionStorage 로 따로 한다.
+
+          ⚠️ 인라인 스크립트여야 한다. 컴포넌트에서 켜면 하이드레이션 뒤라 이미 늦다.
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "if('scrollRestoration' in history)history.scrollRestoration='manual'",
+          }}
+        />
+      </head>
       <body className="min-h-full flex flex-col bg-bg text-fg">
         {children}
         {/* 뒤로가기가 "온 곳"으로 갈 수 있는지 판정하려면 문서 진입 시점을 잡아야 한다 */}
