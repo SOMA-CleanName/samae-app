@@ -8,6 +8,7 @@ import {
   SIGLIP_SEARCH_MAX_RESULTS,
 } from "@/lib/siglip-text-search-core";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { PHOTO_SEARCH_TIMEOUT_MS } from "@/lib/photo-search-state";
 
 const DEFAULT_LIMIT = SIGLIP_SEARCH_MAX_RESULTS;
 
@@ -29,21 +30,23 @@ function embedBaseUrl(): string | null {
 }
 
 /** 검색어 한 개를 SigLIP2 텍스트 벡터로 변환한다. 실패는 null로 무해화한다. */
-export async function embedSearchText(query: string): Promise<number[] | null> {
+export async function embedSearchText(query: string, signal?: AbortSignal): Promise<number[] | null> {
   return requestTextEmbedding(query, {
     baseUrl: embedBaseUrl(),
     token: process.env.PERSONA_SERVICE_TOKEN,
     timeoutMs: 4_000,
+    signal,
   });
 }
 
-/** SigLIP2 텍스트→이미지 거리순을 그대로 보존한 공개 사진 검색. */
+/** 정상 0건은 [], 장애는 예외로 전달해 고객에게 재시도 화면을 보여준다. */
 export async function searchPhotosBySiglip(
   query: string,
-  limit = DEFAULT_LIMIT
+  limit = DEFAULT_LIMIT,
+  signal = AbortSignal.timeout(PHOTO_SEARCH_TIMEOUT_MS),
 ): Promise<GalleryPhoto[]> {
-  const vector = await embedSearchText(query);
-  if (!vector) return [];
+  const vector = await embedSearchText(query, signal);
+  if (!vector) throw new Error("SigLIP 검색어 임베딩을 받지 못했습니다");
 
   const admin = createAdminClient();
   const safeLimit = normalizeSiglipSearchLimit(limit);
@@ -53,10 +56,10 @@ export async function searchPhotosBySiglip(
       p_embedding: JSON.stringify(vector),
       p_limit: safeLimit,
     }
-  );
+  ).abortSignal(signal);
   if (nearestError) {
     console.error("[siglip-search] 벡터 RPC 실패:", nearestError.message);
-    return [];
+    throw nearestError;
   }
 
   const ids = ((nearest ?? []) as VectorSearchRow[]).map((row) => row.id);
@@ -70,10 +73,11 @@ export async function searchPhotosBySiglip(
     .in("id", ids)
     .eq("visibility", "published")
     .eq("feed_hidden", false)
-    .eq("photographer.status", "approved");
+    .eq("photographer.status", "approved")
+    .abortSignal(signal);
   if (photoError) {
     console.error("[siglip-search] 사진 메타데이터 조회 실패:", photoError.message);
-    return [];
+    throw photoError;
   }
 
   return orderVectorMatches(

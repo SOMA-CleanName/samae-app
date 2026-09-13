@@ -1,4 +1,5 @@
 import { getCurrentUser } from "@/lib/auth";
+import { Suspense } from "react";
 import { CartProvider } from "@/components/user/cart/CartProvider";
 import { FloatingCart } from "@/components/user/cart/FloatingCart";
 import { FloatingNav } from "@/components/user/FloatingNav";
@@ -14,11 +15,7 @@ import { toProfileMe } from "@/lib/profile-me";
 // 사용자(탐색) 영역 공통 셸 — 기존 하단바/레일 제거.
 // 하단 중앙 플로팅 내비 + 우측 하단 장바구니.
 // 계정은 여기 없다 — 홈/카테고리 지면 상단 오른쪽 ProfileButton 이 맡는다.
-export default async function UserLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+async function UserSessionChrome() {
   const me = await getCurrentUser();
   // '문의' 탭 노출 — 로그인했으면 항상(대화 허브라 상시 진입점 필요, 빈 상태 화면 있음),
   // 비로그인은 쿠키(기기)에 문의 내역이 있을 때만
@@ -33,24 +30,28 @@ export default async function UserLayout({
   const profileMe = toProfileMe(me);
 
   return (
+    <>
+      {me && <RealtimeListRefresh />}
+      {me && <ChatToast meId={me.id} />}
+      <FloatingNav me={profileMe} hasInquiries={hasInquiries} unreadCount={unreadCount} studioUnread={studioUnread} />
+    </>
+  );
+}
+
+export default function UserLayout({ children }: { children: React.ReactNode }) {
+
+  return (
     <CartProvider>
       <NavRevealProvider>
         <PhotoReturnScroll />
-        {/* 새 메시지가 오면 셸을 다시 그린다 — 내비 배지가 어느 화면에서나 살아 있어야 한다
-            (목록 페이지에도 있던 구독을 여기로 올렸다. 채널이 둘이면 같은 이름으로 겹친다) */}
-        {me && <RealtimeListRefresh />}
-        {/* 배지는 '어딘가에 왔다' 만 말한다 — 누가 뭐라고 했는지까지 띄워야 바로 답한다 */}
-        {me && <ChatToast meId={me.id} />}
         {/* 운영 주체 — 지면 맨 위, 데스크톱에서만 (SiteInfoBar 주석 참조) */}
         <SiteInfoBar />
         {/* 하단 플로팅 내비 높이만큼 여백 확보 */}
         <main className="pb-28">{children}</main>
-        <FloatingNav
-          me={profileMe}
-          hasInquiries={hasInquiries}
-          unreadCount={unreadCount}
-          studioUnread={studioUnread}
-        />
+        {/* 세션·안읽음 조회가 느려도 검색창·사진 영역의 대기 안내는 먼저 렌더한다. */}
+        <Suspense fallback={<FloatingNav me={null} />}>
+          <UserSessionChrome />
+        </Suspense>
         <FloatingCart />
       </NavRevealProvider>
     </CartProvider>

@@ -46,7 +46,8 @@ notify() {  # $1 = 메시지
     exit 1
   fi
   cd "$ROOT" || exit 1
-  "$VENV" scripts/embed/embed_photos.py --apply
+  # 검색과 같은 모델을 공유한다. 서버 장애 시 독립 모델로 우회하지 않는다.
+  "$VENV" scripts/embed/embed_photos.py --apply --embed-url http://127.0.0.1:8077
 } >>"$LOG" 2>&1
 STATUS=$?
 

@@ -7,7 +7,7 @@ type CookieToSet = { name: string; value: string; options: CookieOptions };
  * 매 요청마다 Supabase 세션 쿠키를 갱신한다.
  * (App Router 권장 패턴 — 서버 컴포넌트는 쿠키 set이 제한되므로 미들웨어가 담당)
  */
-export async function updateSession(request: NextRequest) {
+export async function updateSession(request: NextRequest, signal?: AbortSignal) {
   let response = NextResponse.next({ request });
 
   // 세션 쿠키가 없으면(비로그인·프리패치 등) 갱신할 토큰이 없으므로
@@ -21,6 +21,9 @@ export async function updateSession(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      ...(signal ? { global: { fetch: (input: RequestInfo | URL, init?: RequestInit) =>
+        fetch(input, { ...init, signal: init?.signal ? AbortSignal.any([signal, init.signal]) : signal }),
+      } } : {}),
       cookies: {
         getAll() {
           return request.cookies.getAll();

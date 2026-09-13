@@ -52,13 +52,22 @@ if [ ! -f "$ROOT/.env.local" ]; then
   die ".env.local 이 없습니다. NEXT_PUBLIC_SUPABASE_URL·SUPABASE_SERVICE_ROLE_KEY 를 넣어 만드세요."
 fi
 grep -q '^SUPABASE_SERVICE_ROLE_KEY=' "$ROOT/.env.local" || die ".env.local 에 SUPABASE_SERVICE_ROLE_KEY 가 없습니다."
+# 백필도 상주 서버를 쓰므로 서비스 토큰은 필수다. 작업 등록 전에 확인한다.
+"$VENV_DIR/bin/python" - "$ROOT" <<'PY' || die ".env.local 에 비어 있지 않은 PERSONA_SERVICE_TOKEN 을 설정하세요."
+import os
+import sys
+sys.path.insert(0, os.path.join(sys.argv[1], "scripts", "embed"))
+from check_db import load_env
+token = load_env(os.path.join(sys.argv[1], ".env.local")).get("PERSONA_SERVICE_TOKEN", "")
+sys.exit(0 if token.strip() else 1)
+PY
 # service_role 키는 RLS 를 우회한다. 이 기계에 평문으로 두므로 권한을 좁힌다.
 chmod 600 "$ROOT/.env.local"
 ok ".env.local 확인 (권한 600)"
 
 echo
 echo "⑤ 모델 캐시 예열 (약 4.4GB · 첫 실행만)"
-"$VENV_DIR/bin/python" - <<'PY' || { echo "  ⚠️  예열 실패 — 첫 배치에서 받게 됩니다."; }
+"$VENV_DIR/bin/python" - <<'PY' || { echo "  ⚠️  예열 실패 — 상주 서버 시작 시 다시 받게 됩니다."; }
 import sys; sys.path.insert(0, "scripts/embed")
 import siglip
 siglip.load()
@@ -74,16 +83,12 @@ launchctl load "$AGENT" || die "launchctl load 실패"
 ok "$AGENT"
 
 echo
-echo "⑦ 페르소나 상주 서비스 (serve.py — 프로덕션이 Funnel 로 부른다)"
+echo "⑦ 검색·백필·페르소나 상주 서비스 (serve.py — 공유 모델, 검색 우선)"
 SERVE_AGENT="$HOME/Library/LaunchAgents/com.samae.serve.plist"
-if grep -q '^PERSONA_SERVICE_TOKEN=' "$ROOT/.env.local"; then
-  sed "s|__REPO__|$ROOT|g" "$ROOT/scripts/embed/com.samae.serve.plist.template" > "$SERVE_AGENT"
-  launchctl unload "$SERVE_AGENT" 2>/dev/null
-  launchctl load "$SERVE_AGENT" || die "com.samae.serve load 실패"
-  ok "$SERVE_AGENT (로그인 시 자동시작 + 죽으면 재시작)"
-else
-  warn "PERSONA_SERVICE_TOKEN 이 .env.local 에 없어 상주 서비스는 건너뜁니다"
-fi
+sed "s|__REPO__|$ROOT|g" "$ROOT/scripts/embed/com.samae.serve.plist.template" > "$SERVE_AGENT"
+launchctl unload "$SERVE_AGENT" 2>/dev/null
+launchctl load "$SERVE_AGENT" || die "com.samae.serve load 실패"
+ok "$SERVE_AGENT (로그인 시 자동시작 + 죽으면 재시작)"
 
 echo
 echo "───────────────────────────────────────────────"
@@ -93,7 +98,7 @@ echo "1) 잠들지 않게 설정 (관리자 권한 필요 — 직접 실행하�
 echo "     sudo pmset -a sleep 0 disksleep 0"
 echo "     sudo pmset -a womp 1          # 네트워크로 깨우기"
 echo
-echo "2) 지금 한 번 돌려 확인"
+echo "2) docs/28 §8.3의 인증된 /health 확인 후 지금 한 번 돌려 확인"
 echo "     bash scripts/embed/run-embed.sh"
 echo "     tail -f scripts/embed/logs/embed-*.log"
 echo

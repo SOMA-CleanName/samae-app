@@ -152,6 +152,26 @@ test("clamps SigLIP2 search results to the 300-photo infinite-scroll pool", () =
   assert.equal(normalizeSiglipSearchLimit(0), 1);
 });
 
+test("cancels the embedding request when the enclosing photo search expires", async () => {
+  const controller = new AbortController();
+  const fetcher: typeof fetch = async (_input, init) => new Promise((_, reject) => {
+    init?.signal?.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+  });
+  const pending = requestTextEmbedding("검색", {
+    baseUrl: "https://embed.example.com", fetcher, signal: controller.signal,
+  });
+  controller.abort();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    assert.equal(await Promise.race([
+      pending,
+      new Promise((resolve) => { timer = setTimeout(() => resolve("still waiting"), 100); }),
+    ]), null);
+  } finally {
+    clearTimeout(timer);
+  }
+});
+
 test("promotes metadata matches before SigLIP results without duplicates", () => {
   const metadata = [
     { id: "metadata-only", source: "metadata" },

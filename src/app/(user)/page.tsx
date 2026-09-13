@@ -4,16 +4,10 @@ import {
   fetchPhotoById,
   fetchHomeFeedPage,
   newFeedSeed,
-  searchPhotosByTag,
 } from "@/lib/discovery";
-import {
-  diversifySearchResults,
-  searchPhotosBySiglip,
-  SIGLIP_SEARCH_MAX_RESULTS,
-} from "@/lib/siglip-text-search";
+import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { loadDemotedHomePhotos, loadMorePhotos, loadPersonalizedPhotos } from "./feed-actions";
-import { logSearch } from "@/lib/search-log";
 import { getCurrentUser } from "@/lib/auth";
 import { TASTE_V2_COOKIE, parseTasteV2 } from "@/lib/category-constants";
 import { rerankByPersonaVector } from "@/lib/persona/feed-rerank";
@@ -24,7 +18,9 @@ import { ScrollMemory } from "@/components/user/ScrollMemory";
 import { FeedHero } from "@/components/user/FeedHero";
 import { SearchDock } from "@/components/user/SearchDock";
 import { SearchBackButton } from "@/components/user/SearchBackButton";
-import { SearchResultsHead } from "@/components/user/SearchResultsHead";
+import { SearchResultsPending } from "@/components/user/SearchResultsPending";
+import { SearchResultsFrame } from "@/components/user/SearchResultsFrame";
+import { SearchPhotoResults } from "./SearchPhotoResults";
 import { pickSearchPlaceholder } from "@/lib/search-copy";
 import { routeSessionKey } from "@/lib/search-navigation";
 import { shouldShowSearchUi } from "@/lib/search-ui-visibility";
@@ -78,6 +74,28 @@ export default async function ExploreHome({
     : "";
   // 카테고리 컨텍스트(?cat·쿠키)는 proxy 가 /c/<slug> 로 리다이렉트 → 여기(홈)는 검색·전체 피드만.
 
+  if (query) {
+    return (
+      <section className="mx-auto max-w-screen-2xl px-2.5 pb-2.5 pt-2.5 font-kr sm:px-4 sm:pt-4">
+        <ScrollMemory routeKey={routeSessionKey("/", query)} />
+        {showSearchUi ? (
+          <SearchDock
+            key={query}
+            initial={query}
+            placeholder={searchPlaceholder}
+            variant="detail"
+            back={<SearchBackButton query={query} />}
+          />
+        ) : null}
+        <SearchResultsFrame key={query} query={query}>
+          <Suspense key={query} fallback={<SearchResultsPending />}>
+            <SearchPhotoResults query={query} />
+          </Suspense>
+        </SearchResultsFrame>
+      </section>
+    );
+  }
+
   const me = await getCurrentUser();
   // 광고 유입 온보딩(카테고리 없는 /?ad=<사진ID>) — 좌상단 첫 카드로 고정. (검색 모드 아닐 때)
   const adPhoto = !query && sp.ad ? await fetchPhotoById(sp.ad) : null;
@@ -116,27 +134,11 @@ export default async function ExploreHome({
     // 페르소나 분석을 거친 방문자면 페이지 안 순서를 시각 유사도순으로 (0080, 실패 무해)
     photos = await rerankByPersonaVector(photos);
   } else {
-    const basePhotos = query
-      ? diversifySearchResults(
-          query,
-          ...(await Promise.all([
-            searchPhotosByTag(query, {
-              directOnly: true,
-              limit: SIGLIP_SEARCH_MAX_RESULTS,
-            }),
-            searchPhotosBySiglip(query, SIGLIP_SEARCH_MAX_RESULTS),
-          ])),
-          SIGLIP_SEARCH_MAX_RESULTS
-        )
-      : await fetchPublishedPhotos({});
-    if (query) await logSearch(query, basePhotos.length, me?.id);
+    const basePhotos = await fetchPublishedPhotos({});
     const merged = adAsGallery
       ? [adAsGallery, ...basePhotos.filter((p) => p.id !== adAsGallery.id)]
       : basePhotos;
-    photos = merged.slice(
-      0,
-      query ? SIGLIP_SEARCH_MAX_RESULTS : FEED_CAP
-    );
+    photos = merged.slice(0, FEED_CAP);
   }
   const spotlightId = adAsGallery?.id;
 
@@ -194,15 +196,6 @@ export default async function ExploreHome({
         />
       ) : null}
 
-      {/* 무엇을 찾았고 몇 장인지 — 전에는 이 화면에 글자가 하나도 없었다 */}
-      {query ? (
-        <SearchResultsHead
-          query={query}
-          count={photos.length}
-          // 상한(300)에 딱 걸렸으면 그건 찾은 수가 아니라 잘린 수다 — "+"로 표시한다.
-          capped={photos.length >= SIGLIP_SEARCH_MAX_RESULTS}
-        />
-      ) : null}
       {!query && <HomeBannerSlot />}
       {!query && <HomeQuickNav />}
 
