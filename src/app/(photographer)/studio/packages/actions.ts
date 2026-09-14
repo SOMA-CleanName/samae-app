@@ -27,6 +27,8 @@ const PackageSchema = z.object({
   priceKrw: z.coerce.number().int().catch(0),
   durationMin: z.coerce.number().int().catch(60),
   editedCount: z.coerce.number().int().catch(10),
+  // 결과물 전달 기한(일) — 회원약관 10조 5항. 비우면 21일
+  deliveryDays: z.coerce.number().int().min(1).max(90).catch(21),
 });
 
 function parsePackage(formData: FormData) {
@@ -36,6 +38,7 @@ function parsePackage(formData: FormData) {
     priceKrw: formData.get("priceKrw"),
     durationMin: formData.get("durationMin"),
     editedCount: formData.get("editedCount"),
+    deliveryDays: formData.get("deliveryDays") ?? 21,
   });
   if (!parsed.success) throw new Error("패키지 정보를 확인해주세요.");
   const v = parsed.data;
@@ -63,6 +66,7 @@ export async function createPackage(formData: FormData) {
       price_krw: v.priceKrw,
       duration_min: v.durationMin,
       edited_count: v.editedCount,
+      delivery_days: v.deliveryDays,
     })
     .select("id")
     .single();
@@ -93,6 +97,7 @@ export async function updatePackage(formData: FormData) {
       price_krw: v.priceKrw,
       duration_min: v.durationMin,
       edited_count: v.editedCount,
+      delivery_days: v.deliveryDays,
     })
     .eq("id", id);
   if (error) throw new Error(error.message);

@@ -8,6 +8,7 @@ import { notifyOpsBookingDeposit, notifyOpsSettlementDispute } from "@/lib/ops-a
 import { DELIVERY_BUCKET, signDeliveryAssets } from "@/lib/deliveries";
 import { mpTrackServer, mpRevenueServer } from "@/lib/mixpanel-server";
 import { isLateBooking } from "@/lib/refund";
+import { overdueDays } from "@/lib/delivery-deadline";
 
 // 알림 헬퍼 (service_role)
 async function notify(
@@ -188,7 +189,7 @@ export async function deliverFinals(formData: FormData) {
   // 소유 + 결제 이후 단계만
   const { data: b } = await admin
     .from("bookings")
-    .select("id, status, user_id, photographer_id, amount_krw")
+    .select("id, status, user_id, photographer_id, amount_krw, delivery_due_at")
     .eq("id", id)
     .single();
   if (!b || b.photographer_id !== me.photographer.id) throw new Error("권한이 없습니다.");
@@ -232,12 +233,15 @@ export async function deliverFinals(formData: FormData) {
     day: "numeric",
     timeZone: "Asia/Seoul",
   }).format(new Date(now));
+  // 기한을 넘겼으면 그 사실도 남긴다 — 분쟁 때 "언제까지였고 언제 줬는지" 가 한 줄로 보인다
+  const late = overdueDays(b.delivery_due_at, new Date(now));
+  const lateNote = late != null && late > 0 ? ` (전달 기한을 ${late}일 넘겼어요)` : "";
   await postSystemMessage(
     admin,
     b.user_id,
     b.photographer_id,
     me.id,
-    `📸 ${deliveredDay} 보정본 전달이 완료되었습니다. 촬영은 어떠셨나요? 후기를 남겨주세요.`
+    `📸 ${deliveredDay} 보정본 전달이 완료되었습니다.${lateNote} 촬영은 어떠셨나요? 후기를 남겨주세요.`
   );
   await notify(
     admin,

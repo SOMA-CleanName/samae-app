@@ -78,8 +78,11 @@ export type BookingSnapshot = {
   location_text: string | null;
   amount_krw: number | null;
   travel_fee_krw: number;
-  package_snapshot: { name?: string } | null;
+  package_snapshot: { name?: string; delivery_days?: number } | null;
   package_id: string | null;
+  delivery_due_at: string | null; // 결과물 전달 기한 (lib/delivery-deadline.ts)
+  delivery_extension_proposed_to: string | null; // 작가가 제안한 연장 기한 (고객 동의 전)
+  delivered_at: string | null;
   memo: string | null;
   custom_fields: unknown; // 작가 정의 추가 항목 값 스냅샷 (readStoredFieldValues 로 읽는다)
   transfer_marked_at: string | null; // 구매자가 송금 완료를 알린 시각
@@ -97,7 +100,7 @@ export type BookingSnapshot = {
 export type ChatMessage = {
   id: string;
   sender_id: string;
-  type: "text" | "image" | "system" | "bot" | "summary_card" | "contact_card";
+  type: "text" | "image" | "system" | "bot" | "summary_card" | "contact_card" | "extension_card";
   body: string;
   image_path: string | null;
   created_at: string;
@@ -247,7 +250,7 @@ export async function getMessages(conversationId: string): Promise<ChatMessage[]
     .from("messages")
     .select(
       "id, sender_id, type, body, image_path, created_at, booking_id, " +
-        "booking:bookings(id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, custom_fields, transfer_marked_at, late_booking_consent_at, contact_sent_at, contact_delivered_at, contact_payload, proposed_by_photographer, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at)"
+        "booking:bookings(id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, custom_fields, transfer_marked_at, late_booking_consent_at, contact_sent_at, contact_delivered_at, contact_payload, proposed_by_photographer, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at, delivery_due_at, delivery_extension_proposed_to, delivered_at)"
     )
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true });

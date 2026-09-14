@@ -11,6 +11,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui";
 import { SelectCheckbox } from "@/components/admin/DeleteMode";
 import { refundBasisLabel, type RefundQuote } from "@/lib/refund";
+import { OVERDUE_REFUND_DAYS, overdueDays } from "@/lib/delivery-deadline";
 import type { BookingFieldValue } from "@/lib/booking-fields";
 import { adminConfirmTransfer, adminMarkSettled, adminMarkDepositAndConfirm } from "./actions";
 import { AdminRefundButton } from "./AdminRefundButton";
@@ -52,6 +53,7 @@ export type BookingRow = {
   paid_at: string | null;
   settled_at: string | null;
   delivered_at: string | null;
+  delivery_due_at: string | null;
   settlement_amount_krw: number | null;
   cancelled_at: string | null;
   cancel_reason: string | null;
@@ -204,6 +206,17 @@ function BookingDetail({ b }: { b: BookingRow }) {
           </p>
         )}
       </section>
+
+      {/* 결과물 전달 기한 초과 — 14일 이상이면 고객이 전액 환불을 요구할 수 있다 (취소환불 10조 2항) */}
+      {!b.delivered_at && !b.refunded_at && ["paid", "shot"].includes(b.status) && b.delivery_due_at && (() => {
+        const late = overdueDays(b.delivery_due_at);
+        if (late == null || late <= 0) return null;
+        return (
+          <p className={`mt-3 rounded-lg px-3 py-2 text-caption ${late >= OVERDUE_REFUND_DAYS ? "bg-danger/10 font-semibold text-danger" : "bg-warning-soft text-warning"}`}>
+            결과물 전달 기한 {late}일 초과 · {late >= OVERDUE_REFUND_DAYS ? "고객 전액 환불 요구 가능 — 작가 귀책 처리" : "작가에게 전달을 재촉하세요"}
+          </p>
+        );
+      })()}
 
       {/* 환불 요청이 접수돼 있으면 기한을 먼저 보여준다 — 초과하면 연 15% 지연이자가
           법정 의무로 붙는다(제18조 제2항). 주말이 끼면 달력 3일로는 그냥 넘어간다. */}

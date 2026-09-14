@@ -162,7 +162,7 @@ function RequestCard({
   return (
     <li className="rounded-2xl border border-line bg-surface p-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge tone={r.kind === "refund" ? "warning" : "info"}>
+        <Badge tone={r.kind === "refund" || r.kind === "photographer_cancel" ? "warning" : "info"}>
           {SUPPORT_KIND_LABEL[r.kind as SupportKind] ?? r.kind}
         </Badge>
         <span className="text-caption text-muted">

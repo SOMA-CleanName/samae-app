@@ -23,6 +23,10 @@ import { getDelivery, getDeliveryDownloads, signDeliveryAssets } from "@/lib/del
 import { ReviewForm } from "./ReviewForm";
 import { DeliveryUploader } from "./DeliveryUploader";
 import { DeliveryGallery } from "./DeliveryGallery";
+import { overdueDays } from "@/lib/delivery-deadline";
+
+const fmtDay = (iso: string) =>
+  new Intl.DateTimeFormat("ko-KR", { month: "long", day: "numeric", timeZone: "Asia/Seoul" }).format(new Date(iso));
 import { TrustLink } from "@/components/user/TrustLink";
 import { SupportButton } from "@/components/user/SupportButton";
 import { MpTrackOnce } from "@/components/MpTrackOnce";
@@ -135,6 +139,12 @@ export default async function BookingDetail({
         <Row label="패키지" value={b.package?.name ?? b.package_snapshot?.name ?? "—"} />
         <Row label="일시" value={fmtShootAt(b.shoot_at, b.shoot_date)} />
         <Row label="장소" value={b.location_text || "—"} />
+        {b.delivery_due_at && !b.delivered_at && ["paid", "shot"].includes(b.status) && (
+          <Row
+            label="전달 기한"
+            value={`${fmtDay(b.delivery_due_at)}${(overdueDays(b.delivery_due_at) ?? 0) > 0 ? ` · ${overdueDays(b.delivery_due_at)}일 지남` : ""}`}
+          />
+        )}
         <Row label="금액" value={b.amount_krw ? `₩${fmt.format(b.amount_krw)}` : "—"} />
         {b.memo && <Row label="메모" value={b.memo} />}
         {payment && (

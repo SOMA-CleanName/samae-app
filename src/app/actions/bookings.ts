@@ -158,7 +158,7 @@ export async function proposeBooking(formData: FormData) {
   // 패키지 스냅샷 — 제안이 어느 패키지에서 출발했는지 기록(금액의 근거는 아니다)
   const { data: pkg } = await supabase
     .from("packages")
-    .select("name, description, price_krw, duration_min, edited_count")
+    .select("name, description, price_krw, duration_min, edited_count, delivery_days")
     .eq("id", packageId)
     .eq("photographer_id", photographerId) // 타작가 패키지 id로 예약 생성(폼 위조) 차단
     .single();
@@ -324,7 +324,7 @@ export async function updateBooking(formData: FormData) {
   // 패키지 스냅샷 재기록 (금액은 폼의 촬영비·출장비가 진실)
   const { data: pkg } = await admin
     .from("packages")
-    .select("name, description, price_krw, duration_min, edited_count")
+    .select("name, description, price_krw, duration_min, edited_count, delivery_days")
     .eq("id", packageId)
     .eq("photographer_id", b.photographer_id) // 타작가 패키지 id로 수정(폼 위조) 차단
     .single();

@@ -20,7 +20,8 @@ P1 중 계산 규칙과 그 소비처를 `feat/policy-p1-refund-fee` 브랜치�
 - P1 은 전부 끝났다. 결과물 전달 완료 문구(전달일 표기), 촬영 상품의 수수료 안내, 어드민 수수료 설정 기본값까지 반영했다.
 - P2 도 끝났다(마이그레이션 0112). 약관 4종 페이지(`/terms/refund`, `/terms/fees`, `/terms/photographer`, `/terms/photographer-contract`), 회원 동의 기록(이메일 가입 체크박스, 카카오 가입은 `/signup/consent` 게이트), 입점 동의 게이트(`studio/layout.tsx` 가 현재 버전 동의가 없으면 `AgreeGate` 를 그린다), 작가 사업자 정보(입점 동의 화면과 프로필), 광고 동의 문구를 입점계약 7조에 맞춤, 탈퇴 시 미정산 차단, 예약서 메모·추가 항목 검열, `/privacy` 작가 제공 항목 표.
 - P2 에서 남긴 것: 광고 동의 버전이 올라갔지만 기존 앨범에 다시 동의를 권하는 안내는 아직 없다. 시행일(`POLICY_EFFECTIVE_DATE`)이 비어 있어 새 정책 페이지가 "게시 공지 후 확정"으로 보인다.
-- 다음은 P3. 그 중 일정 변경 거절 처리, 추가 결제분의 위약금 기준, 정산 주기는 정책 문서 쪽 답(6장)이 있어야 코드로 옮길 수 있다.
+- P3 중 정책 답이 필요 없는 둘을 끝냈다(마이그레이션 0113). 결과물 전달 기한(상품 `delivery_days`, 입금 확인 시 `delivery_due_at` 계산, 채팅 카드로 연장 요청·동의, 초과 알림은 `booking-sweep` 크론에, 어드민 14일 초과 강조, `lib/delivery-deadline.ts` 순수 함수와 테스트)과 작가측 촬영 취소 접수(`support_requests` 종류 `photographer_cancel`, 작가 예약 카드의 버튼).
+- P3 에서 남은 것: 추가 결제, 일정 변경 카드, 월 정산 배치. 일정 변경 거절 처리, 추가 결제분의 위약금 기준, 정산 주기는 정책 문서 쪽 답(6장)이 있어야 코드로 옮길 수 있다.
 - dev 에 먼저 들어온 것: 옛 환불 페이지는 리다이렉트만 남았고, 작가 정산 페이지는 다시 작성돼 있었고, 회원약관은 본문이 게시돼 있었다(9조 표는 옛 규정이라 이번에 바꿨다). 아래 표의 "지금" 칸은 그 전 상태를 적은 것이다.
 
 배포 주의. 회원약관 9조를 바꿨으므로 약관 개정 절차(회원약관 3조 2항: 7일 전 공지, 불리한 변경은 30일)가 필요하다. 고객에게는 유리한 변경이지만 작가 수수료(6,000원 또는 10% → 20%와 부가세)는 불리한 변경이라 작가 개별 통지 30일이 필요하다. 코드 배포일과 시행일을 맞춰야 한다.
@@ -61,8 +62,8 @@ P1 중 계산 규칙과 그 소비처를 `feat/policy-p1-refund-fee` 브랜치�
 | 연락처 카드 (P1) | 연락처를 받으면 환불이 50%로 줄어든다고 안내한다. | 새 정책에서 연락처를 받는 것은 환불과 무관하다. "촬영 상담과 진행 목적으로만 쓴다"는 안내로 바꾸고, 받은 뒤 나가는 시스템 메시지에서도 환불 문구를 뺀다. | 회원약관 6조 3항, 4항 |
 | 일정 변경 요청 (P3) | 고객이 "날짜 변경 요청"을 보내면 어드민 접수함으로 간다. | 연락처 카드와 같은 방식으로 `messages.type`에 `reschedule_card`를 추가한다. 제안한 날짜와 제안자는 `bookings.reschedule_proposed_at`, `reschedule_proposed_by`에 둔다. 작가가 동의하면 촬영일을 바꾸고 알림 발송 기록(`notice_*`)을 초기화한다. 예약이 바뀌면 카드는 기존 실시간 구독으로 갱신된다. 작가가 거절하면 고객이 원래 일정을 유지할지, 취소를 신청할지 고른다(6장 5번 참고). | 취소환불 7조 |
 | 추가 결제 카드 (P3) | 없다. 입금 후에는 금액을 바꿀 수 없게 막혀 있다. | 작가가 항목과 금액을 적어 보내면 고객이 수락하거나 거절한다. 돈이 오가고 어드민 확인이 필요하므로 `booking_extras` 테이블에 행을 두고, 채팅 카드는 `messages.type`에 `extra_card`를 추가해 그 행을 가리키게 한다. 수락하면 사매 계좌를 안내하고, 어드민이 입금을 확인하면 예약 총액과 수수료 스냅샷을 다시 계산한다. `platform_fees`는 예약당 한 행이라 추가금 수수료를 따로 만들지 않는다. | 회원약관 8조, 작가약관 7조 4항 |
-| 결과물 전달 안내 (P3) | "보정본 전달까지 완료되었습니다" 메시지가 나간다. | 전달일을 적는다. 기한을 14일 넘긴 경우에는 전액 환불을 요청할 수 있다고 안내한다. | 회원약관 10조 5항, 취소환불 10조 2항 |
-| 전달 기한 연장 카드 (P3) | 없다. | `messages.type`에 `extension_card`를 추가한다. 제안한 기한은 `bookings.delivery_extension_proposed_to`에 두고, 고객이 동의하면 `delivery_due_at`을 바꾼다. | 회원약관 10조 5항 |
+| 결과물 전달 안내 (P3, 끝남) | "보정본 전달까지 완료되었습니다" 메시지가 나간다. | 전달일을 적는다. 기한을 14일 넘긴 경우에는 전액 환불을 요청할 수 있다고 안내한다. | 회원약관 10조 5항, 취소환불 10조 2항 |
+| 전달 기한 연장 카드 (P3, 끝남) | 없다. | `messages.type`에 `extension_card`를 추가한다. 제안한 기한은 `bookings.delivery_extension_proposed_to`에 두고, 고객이 동의하면 `delivery_due_at`을 바꾼다. | 회원약관 10조 5항 |
 | 신고 (P4) | 없다. 검열에 걸린 메시지만 자동으로 기록된다. | 채팅 메뉴에 신고를 넣는다. 사유는 개인 계좌 유도, 외부 연락 요구, 괴롭힘, 기타. 새 테이블 대신 `support_requests`에 종류 `report`를 추가하고, 신고 대상은 `conversation_id`로 안다. | 회원약관 8조 4항, 11조 |
 
 ### 예약 상세 `/bookings/[id]`
@@ -70,7 +71,7 @@ P1 중 계산 규칙과 그 소비처를 `feat/policy-p1-refund-fee` 브랜치�
 | 기능 | 지금 | 해야 할 것 |
 |---|---|---|
 | 취소 진입 (삭제) | dev 에서 이미 정리됐다. 옛 `/bookings/[id]/refund` 페이지는 예약 상세로 리다이렉트만 하고, 옛 환불 액션은 없다. | 리다이렉트 파일만 지우면 된다. |
-| 결과물 (P3) | `DeliveryGallery`가 있다. | 전달 기한과 전달일을 보여준다. 기한이 지났으면 환불 요청 버튼을 보여준다. |
+| 결과물 (P3, 끝남) | `DeliveryGallery`가 있다. | 전달 기한과 전달일을 보여준다. 기한이 지났으면 환불 요청 버튼을 보여준다. |
 | 추가 결제 내역 (P3) | 없다. | 촬영비, 출장비, 추가금을 나눠 보여주고 합계를 촬영 대금으로 표시한다. |
 | 초상 사용 거부 (P4) | 없다. | "내 사진을 포트폴리오에 쓰지 않기" 스위치를 만든다. `bookings.portrait_optout_at`에 저장하고, 작가가 앨범에 올릴 때 경고한다. |
 
@@ -112,15 +113,15 @@ P1 중 계산 규칙과 그 소비처를 `feat/policy-p1-refund-fee` 브랜치�
 | 연락처 보내기 (P1) | 있다. | 문구만 고객 카드에 맞춰 바꾼다. | 작가약관 8조 2항 |
 | 추가 결제 요청 (P3) | 없다. | 입력창 메뉴에 넣는다. 항목명과 금액을 적으면 고객에게 카드가 간다. | 작가약관 7조 4항 |
 | 일정 변경 동의 (P3) | 입금 후에는 작가만 `updateBooking`으로 날짜를 바꿀 수 있고, 기존 날짜와 새 날짜 모두 7일 이상 남아야 한다. | `reschedule_card`에 동의와 거절 버튼을 둔다. 작가가 먼저 제안하는 변경도 같은 카드를 쓰고 고객이 동의한다. `updateBooking`의 7일 조건은 없애고, 입금 후 날짜 변경은 카드를 통해서만 되게 한다. | 취소환불 7조 |
-| 작가 취소 (P3) | 입금 후에는 취소 버튼이 없다. `submitSupportRequest`는 고객만 받는다. | `SupportButton`을 작가에게도 보여주되 종류는 `photographer_cancel` 하나만 둔다. `support_requests.requester_role`에 작가가 이미 있으므로 서버의 고객 제한만 이 종류에 한해 푼다. 고객에게 전액 환불되고 수수료 상당액이 청구된다는 안내를 붙인다. | 취소환불 8조, 수수료 8조 |
-| 전달 기한 연장 요청 (P3) | 없다. | 입력창 메뉴에서 새 기한을 고르면 `extension_card`가 고객에게 간다. | 작가약관 10조 2항 |
+| 작가 취소 (P3, 끝남) | 입금 후에는 취소 버튼이 없다. `submitSupportRequest`는 고객만 받는다. | `SupportButton`을 작가에게도 보여주되 종류는 `photographer_cancel` 하나만 둔다. `support_requests.requester_role`에 작가가 이미 있으므로 서버의 고객 제한만 이 종류에 한해 푼다. 고객에게 전액 환불되고 수수료 상당액이 청구된다는 안내를 붙인다. | 취소환불 8조, 수수료 8조 |
+| 전달 기한 연장 요청 (P3, 끝남) | 없다. | 입력창 메뉴에서 새 기한을 고르면 `extension_card`가 고객에게 간다. | 작가약관 10조 2항 |
 
 ### 촬영 상품 `/studio/packages`
 
 | 기능 | 지금 | 해야 할 것 | 근거 |
 |---|---|---|---|
 | 수수료 안내 (P1, 끝남) | 없다. | "촬영 대금 전체(출장비 포함)의 20%와 부가세"라는 안내를 넣는다. | 작가약관 7조 2항 |
-| 상품 정보 (P3) | 이름, 가격, 설명, 촬영 시간, 보정본 수량이 있다. | 결과물 전달 기한(일)을 추가한다. 비우면 21일로 본다. 원본 제공 여부와 추가 보정 조건도 넣는 것이 좋다. | 작가약관 7조 1항, 회원약관 7조 4항 |
+| 상품 정보 (P3, 전달 기한은 끝남) | 이름, 가격, 설명, 촬영 시간, 보정본 수량이 있다. | 결과물 전달 기한(일)을 추가한다. 비우면 21일로 본다. 원본 제공 여부와 추가 보정 조건도 넣는 것이 좋다. | 작가약관 7조 1항, 회원약관 7조 4항 |
 
 ### 프로필 `/studio/profile`
 
@@ -194,21 +195,21 @@ dev 에서 이미 다시 작성돼 있다(`listMySettlements`, 읽기 전용, �
 | `platform-fee.ts` (P1) | 기본 요율을 20%로 바꾼다. 기준 금액은 촬영비, 출장비, 추가금을 더한 값이다. 스냅샷에 `baseKrw`와 `vatKrw`를 추가하되 `shootFeeKrw`는 남겨서 `readFeeSnapshot`이 옛 행을 그대로 읽게 한다. 사업자 유형별 실질 부담(20% 또는 22%)을 보여주는 함수와 위약금 배분 함수를 만든다. |
 | `payments.ts` (P1) | `quoteRefund`에 `refund_due_at`을 기준 시각으로 넘긴다. 입금 확인 때 수수료 스냅샷과 정책 버전을 다시 확정한다. 지금은 제안 시점에 찍혀서 그 사이 요율이 바뀌면 옛 요율이 남는다. 정산 대상은 `delivered_at`이 있는 예약이다. 지급액은 대금에서 수수료, 부가세, 원천징수(미등록 3.3%), 공제를 뺀 값이다. `refundBooking`은 위약금 구간이면 `platform_fees.fee_krw`를 사매 몫으로 바꾸고, 0%나 불가항력이면 면제하고, 작가 귀책이면 공제 행을 만든다. 입금 확인과 연락처 수령 메시지도 새 문구로 바꾼다. |
 | `refund-notices.ts` (P1) | 알림을 두 개로 줄인다. 촬영 8일 전에 "내일부터 40%", 4일 전에 "내일부터 90%". 청약철회 알림은 지운다. 일정이 바뀌면 발송 기록을 초기화한다. |
-| `booking-sweep.ts` (P3) | 같은 크론 안에 전달 기한 확인을 넣는다. 기한이 지나면 고객에게 알리고, 14일을 넘기면 어드민 거래 화면에서 처리 기한 초과와 같은 방식으로 강조한다. 새 크론은 만들지 않는다. |
+| `booking-sweep.ts` (P3, 끝남) | 같은 크론 안에 전달 기한 확인을 넣는다. 기한이 지나면 고객에게 알리고, 14일을 넘기면 어드민 거래 화면에서 처리 기한 초과와 같은 방식으로 강조한다. 새 크론은 만들지 않는다. |
 | `bookings.ts` (P2) | 예약 제안과 수정 때 메모와 작가 정의 추가 항목에도 `detectOffPlatform`을 적용한다. 지금은 채팅만 검열하고 예약서는 그대로 저장해서, 작가가 "연락처" 항목을 만들면 고객 번호가 실린다. |
 | `support.ts` (P1) | 안내 문구를 새 정책으로 바꾼다. |
 | `policy-version.ts` (P2, 새 파일) | 약관과 정책 버전 상수를 두고 예약 확정 때 `bookings.policy_snapshot`에 기록한다. |
 | `moderation.ts` (유지) | 그대로 둔다. |
 
-### 마이그레이션 (0111·0112 는 만들어짐, 나머지는 제안)
+### 마이그레이션 (0111~0113 은 만들어짐, 나머지는 제안)
 
 | 번호 | 내용 |
 |---|---|
 | 0111 (P1, 끝남) | `bookings.refund_krw`, `penalty_krw`, `penalty_photographer_krw`, `penalty_company_krw`, `fee_claim_krw`, `policy_snapshot`, `notice_penalty_90_at`. `support_requests.refund_account`. `photographers.fee_mode` 기본값을 `rate` 20%로. |
 | 0112 (P2, 끝남) | `profiles.terms_agreed_at`, `terms_version`. `photographers.legal_name`, `business_type`, `business_no`, `promo_consent`, `promo_consent_at`. `photographer_agreements` 테이블(작가, 버전, 홍보 동의, IP, UA, 시각). |
-| 0113 (P3) | `packages.delivery_days`(기본 21). `bookings.delivery_due_at`, `delivery_extension_proposed_to`. `delivered_at`은 이미 있다. `message_type`에 `extension_card`. |
+| 0113 (P3, 끝남) | `packages.delivery_days`(기본 21). `bookings.delivery_due_at`, `delivery_extension_proposed_to`, `notice_delivery_overdue_at`. `message_type`에 `extension_card`. `support_requests` 종류에 `photographer_cancel`. |
 | 0114 (P3) | `booking_extras` 테이블(예약, 항목명, 금액, 상태, 입금 시각). `message_type`에 `extra_card`, `reschedule_card`. `bookings.reschedule_proposed_at`, `reschedule_proposed_by`. |
-| 0115 (P3) | `support_requests` 종류 제약에 `photographer_cancel`, `report` 추가. |
+| 0115 (P4) | `support_requests` 종류 제약에 `report` 추가. |
 | 0116 (P3) | `settlement_batches` 테이블, `bookings.settlement_batch_id`, `settlement_breakdown`(jsonb), `settlement_deductions` 테이블. |
 | 0117 (P4) | `sanctions` 테이블. |
 | 0118 (P4) | `bookings.portrait_optout_at`. |

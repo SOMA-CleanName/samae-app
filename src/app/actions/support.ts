@@ -34,10 +34,17 @@ export async function submitSupportRequest(formData: FormData): Promise<void> {
       .eq("id", bookingId)
       .maybeSingle();
     if (!b) throw new Error("예약을 찾을 수 없습니다.");
-    // 창구는 고객 전용이다. 작가는 사매와 카톡으로 이어져 있어 여기로 받지 않는다
+    // 창구는 고객 전용이다. 작가는 사매와 카톡으로 이어져 있어 여기로 받지 않는다 —
+    // 예외는 작가측 촬영 취소(취소환불 8조) 하나. 기록이 남아야 수수료 청구와 이력 집계가 된다.
     // (버튼만 감추면 폼 위조로 들어올 수 있으므로 서버에서도 막는다).
-    if (b.user_id !== me.id) throw new Error("이 예약의 고객만 문의할 수 있어요.");
-    role = "customer";
+    const amPhotographer = !!me.photographer && me.photographer.id === b.photographer_id;
+    if (kind === "photographer_cancel") {
+      if (!amPhotographer) throw new Error("이 예약의 작가만 취소를 접수할 수 있어요.");
+      role = "photographer";
+    } else {
+      if (b.user_id !== me.id) throw new Error("이 예약의 고객만 문의할 수 있어요.");
+      role = "customer";
+    }
   }
 
   // 취소 신청이면 환불 계좌를 함께 받는다 — 사매 계좌로 이체한 돈을 돌려줄 곳 (취소환불 11조 2항)
@@ -60,7 +67,7 @@ export async function submitSupportRequest(formData: FormData): Promise<void> {
   // 취소 신청이 들어온 순간이 곧 '취소 시점'(취소환불 5조 3항)이자 환급 기한의 기산점이다 —
   // 위약금 구간은 이 시각으로 판정하고(lib/refund.ts requestedAt), 여기서부터 3영업일 안에 환급해야 한다.
   // 넘기면 연 15% 지연이자가 법정 의무로 붙는다(전자상거래법 제18조 제2항).
-  if (kind === "refund" && bookingId) {
+  if ((kind === "refund" || kind === "photographer_cancel") && bookingId) {
     await admin
       .from("bookings")
       .update({ refund_due_at: new Date().toISOString() })

@@ -18,7 +18,7 @@ export default async function PackagesPage() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("packages")
-    .select("id, name, description, price_krw, duration_min, edited_count, is_active")
+    .select("id, name, description, price_krw, duration_min, edited_count, delivery_days, is_active")
     .eq("photographer_id", me.photographer.id)
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true });
@@ -51,6 +51,7 @@ export default async function PackagesPage() {
             <LabeledInput name="priceKrw" label="가격(원)" defaultValue="100000" min={0} max={100_000_000} step={10_000} required />
             <LabeledInput name="durationMin" label="소요(분)" defaultValue="60" min={10} max={1440} step={5} required />
             <LabeledInput name="editedCount" label="보정본(장)" defaultValue="10" min={0} max={1000} step={1} required />
+            <LabeledInput name="deliveryDays" label="전달 기한(일)" defaultValue="21" min={1} max={90} step={1} required />
           </div>
           <SubmitButton pendingText="추가 중…" className="justify-self-start rounded-full bg-fg px-5 py-2 text-sm font-semibold text-bg hover:opacity-90 disabled:opacity-50">
             추가
