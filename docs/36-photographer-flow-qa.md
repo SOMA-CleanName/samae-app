@@ -1,0 +1,120 @@
+# 작가 플로우 QA 가이드 (2026-09-15)
+
+작가 온보딩은 **한 번 지나면 다시 못 보는 관문들**로 이어져 있다. 입점 동의는 한 번 누르면 끝이고, 신청은 한 계정에 하나만 열린다. 눈으로 확인하려면 매번 계정을 새로 파야 했다.
+
+`scripts/qa-photographer.cjs` 가 그 되감기를 대신한다.
+
+---
+
+## 0. 계정
+
+| | |
+|---|---|
+| 로그인 | `qa-photographer@samae.test` / `samae-test-2026` |
+| 이름 | QA작가 |
+| 번호 | `01000000001` — **실제 번호가 아니다.** 알림이 누구에게도 안 간다 |
+
+> ⚠️ **이 계정은 사진이 하나도 없다.** 그래서 공개 피드·탐색에 뜨지 않는다. 일부러 그렇게 뒀다 —
+> 같은 DB 에 **실제 작가 17명**이 들어 있어서, QA 계정이 공개 지면에 섞이면 안 된다.
+
+> ⚠️ 스크립트는 **이 계정 하나만** 만진다. `QA_EMAIL` 과 거기 딸린 `photographers` ·
+> `photographer_applications` · `photographer_agreements` 행 외에는 어떤 조건으로도 건드리지 않는다.
+
+---
+
+## 1. 단계 되감기
+
+```bash
+node scripts/qa-photographer.cjs status     # 지금 어느 단계인지
+node scripts/qa-photographer.cjs apply      # ① 신청 전
+node scripts/qa-photographer.cjs approve    # ② 승인 대기
+node scripts/qa-photographer.cjs agree      # ③ 입점 동의 전   ★ 가장 자주
+node scripts/qa-photographer.cjs profile    # ④ 동의 완료
+node scripts/qa-photographer.cjs destroy    # 계정·데이터 삭제
+```
+
+| 단계 | 상태 | 어디부터 보나 |
+|---|---|---|
+| ① 신청 전 | 신청·작가·동의 전부 없음 | `/apply` 폼부터 |
+| ② 승인 대기 | 신청 `new` | `/admin/photographers` 에서 [승인] |
+| ③ 입점 동의 전 | 작가 `approved`, 동의 0건 | `/studio` 진입 → **입점 동의 화면** |
+| ④ 동의 완료 | 현재 버전 동의 기록 있음 | `/studio/profile` 사업자 정보 수정 |
+
+`setup` 은 계정을 만들고 바로 ③ 으로 열어 둔다.
+
+---
+
+## 2. 관문이 열리고 닫히는 조건
+
+게이트는 `src/app/(photographer)/studio/layout.tsx` 가 잡는다. 판정은 딱 하나다 —
+
+> `photographer_agreements` 의 **최신 행** `versions` 가 현재 버전과 **전부** 같은가
+> (`lib/consent.ts` → `agreementIsCurrent`)
+
+```
+terms    PHOTOGRAPHER_TERMS_VERSION      1.0
+fee      FEE_POLICY_VERSION              1.0
+refund   REFUND_POLICY_VERSION           1.0
+contract PHOTOGRAPHER_CONTRACT_VERSION   2.0
+```
+
+따라서 **네 중 하나라도 버전이 올라가면 전 작가가 다시 동의 화면을 본다.** 정책 문서를 고칠 때 버전을 올릴지 말지가 곧 "재동의를 받을지"의 결정이다.
+
+`profile` 단계는 `policy-version.ts` 를 **읽어서** 심는다 — 상수를 스크립트에 복제하지 않았다. 복제하면 버전이 올라갈 때 조용히 어긋난다.
+
+---
+
+## 3. 입점 동의 화면에서 볼 것
+
+`/studio` 진입 시 뜨는 `AgreeGate` 의 구성:
+
+1. **꼭 알아야 할 것** — 수수료율·정산 시점·작가 귀책 취소·오프플랫폼 금지·연락처 파기 (약관규제법 3조 설명 의무)
+2. **문서 동의 (필수)** — 체크박스 4개, 각각 새 탭 링크 + 버전 표기
+   - 작가 입점 계약 `/terms/photographer-contract`
+   - 작가 이용약관 `/terms/photographer`
+   - 수수료·정산 정책 `/terms/fees`
+   - 취소·환불 정책 `/terms/refund`
+3. **작가 정보 (계약 당사자)** — 성명/상호 · 사업자 유형 · 사업자등록번호
+4. **홍보 사용 동의 (선택)** — 입점계약 7조
+
+### 🔴 아직 안 된 것 — 이번 QA 의 주 대상
+
+- **[모두 동의] 버튼이 있다.** 네 문서를 한 번에 체크한다. "전부 읽고 동의" 와 정면으로 어긋난다
+- **문서를 안 열어도 동의가 된다.** 링크는 새 탭일 뿐, 열었는지 읽었는지 확인하지 않는다
+- **전용 열람 페이지가 없다.** 흐름 안에서 끝까지 스크롤해야 동의가 열리는 지면이 필요하다
+- **동의 기록에 문서별 열람·동의 시각이 없다.** 지금은 `versions` 묶음 하나 + `agreed_at` 하나뿐이라, "어느 문서를 언제 읽고 언제 동의했는가" 를 문서별로 주장할 수 없다
+- **주민등록번호(§3-4)** 미구현 — 사업자 미등록 작가의 3.3% 원천징수 대상
+
+---
+
+## 4. 확인 항목
+
+### ③ 입점 동의
+
+- [ ] 체크 하나라도 빠지면 제출이 막히는가
+- [ ] 성명·사업자 유형이 비면 막히는가
+- [ ] 사업자 유형이 `사업자 미등록` 이면 등록번호 입력란이 사라지는가
+- [ ] 사업자등록번호 형식 검증이 도는가
+- [ ] 제출 후 `photographer_agreements` 에 `ip` · `user_agent` 가 남는가 (`status` 로 확인)
+- [ ] 홍보 동의 O/X 가 `photographers.promo_consent` 와 동의 기록 **양쪽**에 남는가
+- [ ] 동의 후 `/studio` 재진입 시 화면이 다시 안 뜨는가
+
+### ④ 사업자 정보 수정
+
+- [ ] `/studio/profile` 에서 유형을 바꿔도 동의 기록은 그대로인가
+- [ ] 유형 전환 시 안내가 맞는가 (일반과세자 = 매입세액 공제 / 미등록 = 3.3% 원천징수)
+
+### ① ② 신청·승인
+
+- [ ] `/apply` 중복 접수가 막히는가 (같은 계정으로 두 번)
+- [ ] 승인 시 `photographers` 행이 생기고 `approved_at` 이 찍히는가
+- [ ] 승인 직후 `/studio` 가 곧장 동의 화면으로 가는가
+
+---
+
+## 5. 주의
+
+- **디스코드 웹훅이 없으면** 신청 알림이 안 울린다 — `/admin/photographers` 목록으로 확인
+- **어드민 권한**이 필요한 단계(②)는 `jeong01101095@gmail.com` 으로. 작가 창과 분리하려면 시크릿 창을 쓴다
+- 실제 작가 17명 중 **입점 동의 기록이 있는 계정은 0건**이다. 이 기능이 아직 배포되지 않아서다 —
+  배포하는 순간 **전원이 동의 화면을 한 번씩 본다.** 공지 없이 켜면 안 된다
