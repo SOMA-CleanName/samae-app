@@ -1,16 +1,12 @@
-import { cookies } from "next/headers";
 import {
   listPublishedExploreSections,
   rankExploreCategoriesByPopularity,
 } from "@/lib/explore-db";
-import { getPublishedCategory } from "@/lib/categories";
 import {
   loadCurationSlides,
-  loadMoodItemsForTarget,
   type CurationSlide,
   type MoodGridItem,
 } from "@/lib/target-categories";
-import { CATEGORY_COOKIE } from "@/lib/category-constants";
 import { memoTtl } from "@/lib/server-memo";
 import { MoodRail, type MoodItem } from "./MoodRail";
 
@@ -35,28 +31,33 @@ import { MoodRail, type MoodItem } from "./MoodRail";
 const MAX_MOODS = 12;
 
 export async function HomeDiscoverySections() {
-  const adSlug = (await cookies()).get(CATEGORY_COOKIE)?.value;
-  const adCat = adSlug ? await getPublishedCategory(adSlug) : null;
-  const ctx = adCat?.id ?? "all";
+  /*
+    무드는 **카테고리와 무관하게 항상 전체**를 건다.
 
+    전에는 카테고리 컨텍스트(쿠키)가 있으면 `loadMoodItemsForTarget` 으로 그 타겟에
+    묶인 무드만 걸었다. 그러면 커플 지면에서 무드가 1개(데이트)만 남아 레일이
+    카드 한 장짜리가 된다 — 있으나 마나다.
+
+    지금 타겟팅 방향은 개인 스냅 하나라 무드를 카테고리로 가를 실익이 없다.
+    카테고리는 **아래 피드의 필터**고, 무드는 거기서 빠져나가는 다른 문이다.
+    (카테고리별로 무드를 좁히려면 무드가 카테고리마다 충분히 쌓인 뒤에 다시 본다)
+  */
   const [coverCats, gridItems]: [CurationSlide[], MoodGridItem[]] = await Promise.all([
     // 오늘의 큐레이션 — 운영자가 무드마다 골라 둔 3컷. 여기선 순서·표식으로만 쓴다.
-    memoTtl(`explore:cover:${ctx}`, 60_000, () => loadCurationSlides(adCat?.id ?? null)),
+    memoTtl("explore:cover:all", 60_000, () => loadCurationSlides(null)),
 
-    // 무드 — 타겟에 연결된 것. 타겟이 없으면 전체 공개 무드를 인기순으로
-    memoTtl(`explore:grid:${ctx}`, 60_000, async () =>
-      adCat
-        ? loadMoodItemsForTarget(adCat.id)
-        : (await listPublishedExploreSections(10, await rankExploreCategoriesByPopularity()))
-            .filter((s) => s.photos.length >= 1)
-            .map((s) => ({
-              slug: s.category.slug,
-              title: s.category.title,
-              subtitle: s.category.subtitle,
-              // 미리보기 지정 1번 → 담긴 첫 장 (요청마다 바뀌지 않게 고정)
-              // 87px 카드라 썸네일로 충분하다 — 원본을 걸면 852KB 를 받는다(실측)
-              url: s.photos[0].thumb_url ?? s.photos[0].src_url,
-            }))
+    // 무드 — 전체 공개 무드를 인기순으로
+    memoTtl("explore:grid:all", 60_000, async () =>
+      (await listPublishedExploreSections(10, await rankExploreCategoriesByPopularity()))
+        .filter((s) => s.photos.length >= 1)
+        .map((s) => ({
+          slug: s.category.slug,
+          title: s.category.title,
+          subtitle: s.category.subtitle,
+          // 미리보기 지정 1번 → 담긴 첫 장 (요청마다 바뀌지 않게 고정)
+          // 87px 카드라 썸네일로 충분하다 — 원본을 걸면 852KB 를 받는다(실측)
+          url: s.photos[0].thumb_url ?? s.photos[0].src_url,
+        }))
     ),
   ]);
   /*
@@ -89,46 +90,20 @@ export async function HomeDiscoverySections() {
 
   if (moods.length === 0) return null;
 
-  if (moods.length === 0) return null;
-
   /*
-    "전체 사진" 머리는 여기서 그리지 않는다 — 그건 이 컴포넌트가 아니라 **아래 피드의
-    머리**다. 데스크톱에서 바로가기(좌) + 무드(우) 2단으로 묶으면서, 피드 머리까지
-    오른쪽 칸에 딸려 들어가면 안 돼서 호출부(page.tsx)로 옮겼다.
+    섹션 머리("무드로 보기")는 여기서 그리지 않는다 — `MoodRail` 이 그린다.
+    펼침 토글이 그 줄 오른쪽에 서야 하는데, 토글은 클라이언트 상태라
+    서버 컴포넌트인 여기서는 같은 줄에 세울 수 없다(MoodRail 주석 참고).
+
+    "전체 사진" 머리도 여기 없다 — 그건 아래 피드의 머리라 호출부(page.tsx)에 있다.
+    데스크톱 2단(바로가기 좌 / 무드 우)에서 오른쪽 칸에 딸려 들어가면 안 된다.
+
+    경계선은 긋지 않는다 — 섹션의 경계는 머리 위의 **빨간 눈금**이 맡는다.
+    (회색 실선을 그어 봤더니 지면이 표처럼 답답해졌다. 근거는 HomeQuickNav 주석에)
   */
   return (
     <section className="ed-scroll-in">
-      {/* 부제("같은 결의 사진끼리 묶어 뒀어요.")는 뺐다 —
-          "무드로 보기" 아래 무드 카드가 깔린 지면에서 그 문장이 더 알려 주는 게 없다.
-          한 줄을 줄이면 카드가 그만큼 위로 올라와 첫 화면에 더 들어온다. */}
-      <Head title="무드로 보기" />
       <MoodRail items={moods} />
     </section>
-  );
-}
-
-/**
- * 홈용 섹션 머리 — 탐색·매거진의 SectionHead 보다 얇다.
- * 번호도 규칙선도 없다. 여기 섹션은 셋뿐이고 목차도 없어서 번호가 가리킬 데가 없다.
- */
-function Head({
-  title,
-  lead,
-  right,
-}: {
-  title: string;
-  lead?: string;
-  right?: React.ReactNode;
-}) {
-  return (
-    <div className="mb-2.5 flex items-baseline justify-between gap-3 px-1">
-      <div className="min-w-0">
-        {/* 매거진·탐색의 섹션 머리와 같은 규칙선. 지면이 하나로 읽히게 한다. */}
-        <span aria-hidden className="mb-2 block h-[2px] w-6 bg-brand" />
-        <h2 className="text-body font-bold tracking-tight">{title}</h2>
-        {lead && <p className="mt-0.5 truncate text-[11px] text-muted">{lead}</p>}
-      </div>
-      {right}
-    </div>
   );
 }

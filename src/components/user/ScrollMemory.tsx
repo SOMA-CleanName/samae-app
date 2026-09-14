@@ -12,6 +12,37 @@ import { NAV_FRESH_KEY } from "@/lib/nav-fresh";
 const PHOTO_RETURN_RESTORING_KEY = "samae:feed-return-restoring";
 const PHOTO_RETURN_RESTORED_EVENT = "samae:feed-return-restored";
 
+/*
+  이 문서에서 "첫 마운트"를 이미 처리했나.
+
+  모듈 스코프라 **문서 하나당 한 번**만 true 가 된다. 앱 안에서 라우트를 옮기는 건
+  같은 문서 안의 일이라 이 값이 유지되고, 새로고침하면 모듈이 다시 평가돼 false 로 돌아온다.
+*/
+let documentEntryHandled = false;
+
+/**
+ * 이번 문서가 **새로 열린 것**인가 (새로고침 / 주소 입력 / 외부 링크).
+ *
+ * 그럴 때는 저장된 위치로 되돌리지 않는다. 되돌릴 시점에 화면에 있는 건 로딩
+ * 스켈레톤이고, 스켈레톤은 본문보다 훨씬 짧아서(홈 실측 1806 vs 7291) 브라우저가
+ * 위치를 잘라 버린다 — 사용자는 스켈레톤 밑부분을 보다가 본문이 뜨면 딴 데로 튄다.
+ * 게다가 잘린 값이 그대로 다시 저장돼 새로고침할 때마다 위치가 깎였다(1500 → 962).
+ *
+ * 뒤로/앞으로(`back_forward`)는 예외다 — 그건 "보던 자리로"가 맞다.
+ * (판정에 실패하면 기존 동작인 복원을 택한다)
+ */
+function isFreshDocumentEntry(): boolean {
+  try {
+    const nav = performance.getEntriesByType("navigation")[0] as
+      | PerformanceNavigationTiming
+      | undefined;
+    if (!nav) return false;
+    return nav.type === "reload" || nav.type === "navigate";
+  } catch {
+    return false;
+  }
+}
+
 export function ScrollMemory({
   routeKey,
   freshTop = false,
@@ -63,9 +94,19 @@ export function ScrollMemory({
       /* 세션이 막혀 있으면 기존 동작(복원) */
     }
 
+    // 새로 열린 문서(새로고침·주소 입력·외부 링크)의 첫 마운트인가 — 그렇다면 최상단.
+    // 문서당 한 번만 판정한다(앱 안 이동은 같은 문서라 해당 없음).
+    let freshDocument = false;
+    if (!documentEntryHandled) {
+      documentEntryHandled = true;
+      freshDocument = isFreshDocumentEntry();
+    }
+
     // freshTop: 사진 상세에서 돌아온 게(anchor) 아니면, 저장 위치 무시하고 최상단부터 시작.
     const saved =
-      (freshTop || navFresh) && !anchor ? 0 : Number(sessionStorage.getItem(key) || "0");
+      (freshTop || navFresh || freshDocument) && !anchor
+        ? 0
+        : Number(sessionStorage.getItem(key) || "0");
     lastKnownY.current = saved;
 
     // 복원 — 피드 세션과 이미지 레이아웃이 돌아올 시간을 고려해 최대 2초간 재시도.

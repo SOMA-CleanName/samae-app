@@ -12,31 +12,31 @@ const MASONRY_HEIGHTS = [180, 240, 200, 280, 160, 220, 260, 190, 230, 170, 250, 
  *
  * 그 뒤로도 어긋나 있었다. 층 **순서**는 맞췄는데 **높이와 층 사이 간격**이 눈대중이라,
  * 아래로 갈수록 오차가 쌓여 "전체 사진" 머리에서 158px 이 밀렸다(실측 2026-09-11).
- * 빠진 게 셋이었다 — 배너 아래 여백(12 vs 실제 54), 무드 밑 [모두 보기] 버튼(통째로 없음),
- * 칩 높이(64 vs 75).
  *
- * 그래서 아래 숫자는 **모바일 390px 에서 실제로 잰 값**이다. 층을 건드리면 같이 고쳐야 한다.
+ * 아래 숫자는 **모바일 390px 에서 실제로 잰 값**이다. 층을 건드리면 여기도 같이 고쳐야 한다.
  *
- *   y=10  로고줄 39 → 61 검색 42 → 115 배너 219 → 388 칩 75 → 487 무드머리 34
- *       → 531 무드카드 111 → 723 전체머리 34 → 767 격자
+ *   2026-09-12 기준 — 로고·검색·프로필을 한 줄로 합치고, 배너를 2:1 로 낮추고,
+ *   무드 라벨을 사진 안으로 넣고 [모두 보기] 를 제목 줄로 흡수한 뒤:
+ *
+ *     y=16 검색줄 42 → 66 배너 195 → 273 칩 75 → 372 무드머리 34 → 416 무드카드(정사각)
+ *        → 532 전체머리 34 → 602 격자      (첫 사진 y≈602, 전에는 800)
  *
  * sm 이상은 배너 비율과 카드 크기만 대략 맞춘다 — 데스크톱은 첫 화면이 길어
  * 같은 크기의 어긋남이 훨씬 덜 보인다.
  */
 export function HomeSkeleton() {
   return (
-    <section className="px-2.5 pb-2.5 pt-2.5 font-kr sm:px-4 sm:pt-4 sm:pb-4">
-      {/* 로고 줄 + 프로필 버튼 — 실측 39px (로고 글자의 행높이가 아바타보다 크다) */}
-      <div className="mb-3 flex h-[39px] items-center justify-between">
-        <div className="h-7 w-24 animate-pulse rounded bg-surface-2" />
-        <div className="h-9 w-9 animate-pulse rounded-full bg-surface-2" />
+    <section className="px-2.5 pb-2.5 pt-3.5 font-kr sm:px-4 sm:pt-5 sm:pb-4">
+      {/* 로고 ─ 검색 ─ 프로필 **한 줄** (2026-09-12 병합). 전에는 로고 줄과 검색 줄이
+          따로여서 115px 이었다. */}
+      <div className="mb-3.5 flex items-center gap-2">
+        <div className="h-7 w-20 shrink-0 animate-pulse rounded bg-surface-2" />
+        <div className="h-[42px] min-w-0 flex-1 animate-pulse rounded-xl bg-surface-2" />
+        <div className="h-9 w-9 shrink-0 animate-pulse rounded-full bg-surface-2" />
       </div>
 
-      {/* 검색 한 줄 */}
-      <div className="mb-3 h-[42px] w-full animate-pulse rounded-xl bg-surface-2" />
-
-      {/* 배너 — 비율뿐 아니라 **아래 여백(54px)** 까지 맞춰야 칩이 안 밀린다 */}
-      <div className="-mx-2.5 mb-[54px] aspect-[16/9] animate-pulse bg-surface-2 sm:-mx-4 sm:aspect-[21/9] sm:max-h-[520px]" />
+      {/* 배너 — 모바일 2:1 (390 에서 195px), 데스크톱 21:9. 아래 여백까지 맞춰야 칩이 안 밀린다 */}
+      <div className="-mx-2.5 mb-3 aspect-[2/1] animate-pulse bg-surface-2 sm:-mx-4 sm:aspect-[21/9] sm:max-h-[520px]" />
 
       {/* 바로가기 칩 — 아이콘 + 라벨 두 줄이라 75px */}
       <div className="mb-6 flex h-[75px] items-stretch gap-2 overflow-hidden">
@@ -45,24 +45,22 @@ export function HomeSkeleton() {
         ))}
       </div>
 
-      {/* 무드 머리 — 규칙선(2px) + 아래 8px + 제목 24px = 34px */}
-      <div className="mb-2.5">
-        <div className="mb-2 h-[2px] w-6 bg-surface-2" />
-        <div className="h-6 w-24 animate-pulse rounded bg-surface-2" />
+      {/* 무드 머리 — 규칙선(2px) + 아래 8px + 제목 24px = 34px.
+          오른쪽 [N개 모두] 토글은 이 줄 안에 있다(전폭 버튼은 없어졌다). */}
+      <div className="mb-2.5 flex items-end justify-between">
+        <div>
+          <div className="mb-2 h-[2px] w-6 bg-surface-2" />
+          <div className="h-6 w-24 animate-pulse rounded bg-surface-2" />
+        </div>
+        <div className="h-6 w-16 animate-pulse rounded-full bg-surface-2" />
       </div>
 
-      {/* 무드 카드 줄 — 모바일 87×111 (4장이 살짝 넘치게 보인다) */}
-      <div className="flex gap-2 overflow-hidden sm:gap-4">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div
-            key={i}
-            className="h-[111px] w-[87px] shrink-0 animate-pulse bg-surface-2 sm:h-[172px] sm:w-[158px]"
-          />
+      {/* 무드 카드 — 정사각. 라벨이 사진 안으로 들어가 아래 별도 줄이 없다 */}
+      <div className="mb-6 grid grid-cols-4 gap-2 sm:grid-cols-6 lg:grid-cols-8">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="aspect-square animate-pulse rounded-lg bg-surface-2" />
         ))}
       </div>
-
-      {/* [무드 N개 모두 보기] — 전폭 버튼. 이게 빠져 있어서 아래가 통째로 당겨졌다 */}
-      <div className="mb-7 mt-3 h-[41px] w-full animate-pulse rounded-full bg-surface-2" />
 
       {/* 전체 사진 머리 + 격자 */}
       <div className="mb-2.5">
