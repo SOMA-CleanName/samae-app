@@ -408,15 +408,13 @@ select:focus-visible {
   .cart-tip-in { animation: none; }
 }
 
-/* 관심사진 작가 줄 — 아래에서 살짝 올라오며 차례로 놓인다(펼침 스태거의 대역) */
-@keyframes cart-row-card-in {
-  from { opacity: 0; transform: translateY(14px) scale(0.96); }
-  to { opacity: 1; transform: none; }
-}
-.cart-row-card { animation: cart-row-card-in 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
-@media (prefers-reduced-motion: reduce) {
-  .cart-row-card { animation: none; }
-}
+/*
+  (제거됨) `.cart-row-card` — 줄 카드가 아래에서 14px 떠오르던 등장 애니메이션.
+
+  지금은 **카드가 도크에서 날아와 그 자리에 앉는 것**이 등장 연출이다(FloatingCart 의
+  slots). 둘을 같이 두면 역할이 겹치고, 그 애니메이션이 `fill: both` 라 첫 프레임이
+  `translateY(14px)` 여서 착지점 측정까지 14px 밀렸다.
+*/
 
 /* 관심 사진 상세 최초 안내 — 문구는 잠깐 머물고, 화살표는 위로 차례로 흩어진다. */
 @keyframes cart-swipe-hint {
