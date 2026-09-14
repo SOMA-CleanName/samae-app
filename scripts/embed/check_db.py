@@ -146,6 +146,26 @@ def main():
     for k, v in c.most_common():
         print(f"  {k:20s} {v:5d}  {v/total*100:5.1f}%")
 
+    # ── 운영자 목적 분류 ──────────────────────────────────
+    # 0113 적용 전에는 전용 컬럼이 없으므로 선택 항목처럼 — 로 표시한다.
+    print("\n■ 운영자 목적 분류")
+    purpose_rows = [
+        ("앨범 분류됨", "albums?select=id&admin_purpose=not.is.null"),
+        ("앨범 미분류", "albums?select=id&admin_purpose=is.null"),
+        ("앨범 SigLIP", "albums?select=id&admin_purpose_source=eq.siglip"),
+        ("앨범 수동", "albums?select=id&admin_purpose_source=eq.manual"),
+        ("앨범 검수 완료", "albums?select=id&admin_purpose_reviewed=eq.true"),
+        ("사진 분류됨", "photos?select=id&admin_purpose=not.is.null"),
+        ("사진 미분류", "photos?select=id&admin_purpose=is.null"),
+        ("사진 SigLIP", "photos?select=id&admin_purpose_source=eq.siglip"),
+        ("사진 수동", "photos?select=id&admin_purpose_source=eq.manual"),
+        ("사진 검수 완료", "photos?select=id&admin_purpose_reviewed=eq.true"),
+        ("사진 개별 예외", "photos?select=id&admin_purpose_overridden=eq.true"),
+    ]
+    for label, path in purpose_rows:
+        n = count(env, path, optional=True)
+        print(f"  {label:32s} {n if n is not None else '— (0113 미적용)'}")
+
     print("\n■ pgvector — SQL Editor 에서 직접 확인")
     print("  select extname, extversion from pg_extension where extname = 'vector';")
 
