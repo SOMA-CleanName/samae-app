@@ -35,6 +35,12 @@ export default async function PackagesPage() {
         촬영 상품을 등록하세요. 활성화된 패키지가 예약 시 선택지로 노출됩니다.
       </p>
 
+      {/* 수수료 안내 — 작가약관 7조 2항. 가격을 정할 때 수수료를 알고 정해야 정산 문의가 안 생긴다 */}
+      <p className="mt-3 rounded-xl bg-fg/[0.04] px-4 py-3 text-xs leading-relaxed text-fg/60">
+        사매 중개 수수료는 촬영 대금 전체(출장비·추가금 포함)의 20%이고 부가세는 별도예요. 결과물 전달이
+        끝나면 수수료와 부가세를 뺀 금액을 정산해 드리니, 이를 감안해 가격을 정해 주세요.
+      </p>
+
       {/* 새 패키지 추가 */}
       <section className="mt-6 rounded-xl border border-fg/15 p-4">
         <h2 className="text-sm font-semibold">새 패키지 추가</h2>

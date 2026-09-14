@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
-import { confirmBankTransfer, waiveFee, ensureTransferRecord } from "@/lib/payments";
+import { confirmBankTransfer, ensureTransferRecord } from "@/lib/payments";
 import { notifyOpsBookingDeposit, notifyOpsSettlementDispute } from "@/lib/ops-alert";
 import { DELIVERY_BUCKET, signDeliveryAssets } from "@/lib/deliveries";
 import { mpTrackServer, mpRevenueServer } from "@/lib/mixpanel-server";
@@ -225,13 +225,19 @@ export async function deliverFinals(formData: FormData) {
     .select("id");
   if (!completed || completed.length === 0) throw new Error("전달할 수 없는 상태입니다.");
 
-  // 채팅 완료 안내 + 알림 (후기 유도는 카드가 담당)
+  // 채팅 완료 안내 + 알림 (후기 유도는 카드가 담당).
+  // 전달일을 날짜로 남긴다 — 정산 대상이 되는 시점(수수료정책 3조 1항)이자, 전달 기한 분쟁의 근거다.
+  const deliveredDay = new Intl.DateTimeFormat("ko-KR", {
+    month: "long",
+    day: "numeric",
+    timeZone: "Asia/Seoul",
+  }).format(new Date(now));
   await postSystemMessage(
     admin,
     b.user_id,
     b.photographer_id,
     me.id,
-    "📸 보정본 전달까지 완료되었습니다! 촬영은 어떠셨나요? 후기를 남겨주세요."
+    `📸 ${deliveredDay} 보정본 전달이 완료되었습니다. 촬영은 어떠셨나요? 후기를 남겨주세요.`
   );
   await notify(
     admin,
