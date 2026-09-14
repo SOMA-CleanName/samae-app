@@ -21,7 +21,7 @@ export default async function SettingsPage() {
   return (
     <main className="mx-auto max-w-lg px-3.5 sm:px-5 py-8 font-kr">
       <h1 className="text-2xl font-semibold">계정 설정</h1>
-      <p className="mt-1 text-sm text-fg/50">채팅·예약에 표시되는 이름과 프로필 사진이에요.</p>
+      <p className="mt-1 text-sm text-muted">채팅·예약에 표시되는 이름과 프로필 사진이에요.</p>
 
       {/* 아바타 */}
       <section className="mt-6">
@@ -84,7 +84,7 @@ export default async function SettingsPage() {
         )}
       </section>
 
-      <p className="mt-8 text-xs text-fg/40">
+      <p className="mt-8 text-xs text-faint">
         작가 활동용 공개 이름·소개는 스튜디오 → 프로필에서 따로 관리해요.
       </p>
 
@@ -108,7 +108,7 @@ export default async function SettingsPage() {
       {/* 회원 탈퇴 */}
       <section className="mt-10 border-t border-fg/10 pt-6">
         <p className="text-sm font-medium">회원 탈퇴</p>
-        <p className="mt-1 text-xs text-fg/50">
+        <p className="mt-1 text-xs text-muted">
           계정과 대화·예약·찜·후기 등 모든 데이터가 삭제되며 되돌릴 수 없어요. 진행 중인 문의나 예약,
           정산이 끝나지 않은 건이 있으면 마무리한 뒤에 탈퇴할 수 있어요.
         </p>

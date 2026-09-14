@@ -75,8 +75,8 @@ export function CategoryPicker({
     <div className="flex flex-col gap-3">
       <div>
         <p className="mb-1.5 text-xs font-medium text-fg/70">
-          촬영 종류 <span className="text-brand">*</span>
-          <span className="ml-1 font-normal text-fg/45">1개만 선택 · 필수</span>
+          촬영 종류 <span className="text-brand-ink">*</span>
+          <span className="ml-1 font-normal text-faint">1개만 선택 · 필수</span>
         </p>
         <div className="flex flex-wrap gap-1.5">
           {targets.map((t) => {
@@ -102,8 +102,8 @@ export function CategoryPicker({
       {current && (
         <div>
           <p className="mb-1.5 text-xs font-medium text-fg/70">
-            무드 <span className="font-normal text-fg/45">(선택)</span>
-            <span className="ml-1 font-normal text-fg/45">
+            무드 <span className="font-normal text-faint">(선택)</span>
+            <span className="ml-1 font-normal text-faint">
               여러 개 선택 · 탐색탭에서 이 무드로 노출돼요
             </span>
           </p>
@@ -119,7 +119,7 @@ export function CategoryPicker({
                   onClick={() => toggleExplore(e.id)}
                   className={`h-8 cursor-pointer rounded-full px-3 text-[13px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                     on
-                      ? "bg-brand text-white"
+                      ? "bg-brand-solid text-white"
                       : "bg-transparent text-fg/70 ring-1 ring-fg/15 hover:bg-fg/[0.05]"
                   }`}
                 >
@@ -132,7 +132,7 @@ export function CategoryPicker({
             {requestedMoods.map((m) => (
               <span
                 key={m}
-                className="inline-flex h-8 items-center gap-1 rounded-full border border-dashed border-brand/50 bg-brand/[0.06] px-3 text-[13px] font-medium text-brand"
+                className="inline-flex h-8 items-center gap-1 rounded-full border border-dashed border-brand/50 bg-brand/[0.06] px-3 text-[13px] font-medium text-brand-ink"
               >
                 {m}
                 <button
@@ -140,7 +140,7 @@ export function CategoryPicker({
                   disabled={disabled}
                   onClick={() => removeRequested(m)}
                   aria-label={`${m} 요청 취소`}
-                  className="cursor-pointer text-brand/60 hover:text-brand"
+                  className="cursor-pointer text-brand-ink/60 hover:text-brand"
                 >
                   ✕
                 </button>
@@ -169,7 +169,7 @@ export function CategoryPicker({
                   autoFocus
                   maxLength={20}
                   placeholder="원하는 무드"
-                  className="w-24 bg-transparent text-[13px] text-fg outline-none placeholder:text-fg/40"
+                  className="w-24 bg-transparent text-[13px] text-fg outline-none placeholder:text-faint"
                 />
               </span>
             ) : (
@@ -178,7 +178,7 @@ export function CategoryPicker({
                   type="button"
                   disabled={disabled}
                   onClick={() => setAdding(true)}
-                  className="h-8 cursor-pointer rounded-full border border-dashed border-fg/25 px-3 text-[13px] font-medium text-fg/55 transition-colors hover:border-fg/40 hover:text-fg/75 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="h-8 cursor-pointer rounded-full border border-dashed border-fg/25 px-3 text-[13px] font-medium text-muted transition-colors hover:border-fg/40 hover:text-fg/75 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   + 직접 입력
                 </button>
@@ -186,12 +186,12 @@ export function CategoryPicker({
             )}
           </div>
           {requestedMoods.length > 0 && (
-            <p className="mt-1.5 text-[11px] leading-tight text-fg/45">
+            <p className="mt-1.5 text-[11px] leading-tight text-faint">
               직접 입력한 무드는 바로 노출되지 않고, 운영자가 확인한 뒤 반영돼요.
             </p>
           )}
           {current.explores.length === 0 && requestedMoods.length === 0 && (
-            <p className="mt-1.5 text-[11px] text-fg/45">
+            <p className="mt-1.5 text-[11px] text-faint">
               이 종류에 연결된 무드가 아직 없어요. 원하는 무드를 직접 적어주시면 운영자가 확인해요.
             </p>
           )}
@@ -201,11 +201,11 @@ export function CategoryPicker({
       {/* 사매 광고 소재 사용 동의 — 범위를 먼저 보여주고 체크(초상권 보증 포함) */}
       <div className="rounded-xl border border-fg/12 bg-fg/[0.02] p-3">
         <p className="text-xs font-medium text-fg/70">
-          사매 광고 소재 사용 동의 <span className="font-normal text-fg/45">(선택)</span>
+          사매 광고 소재 사용 동의 <span className="font-normal text-faint">(선택)</span>
         </p>
         <ul className="mt-1.5 space-y-0.5">
           {AD_CONSENT_TERMS.map((t) => (
-            <li key={t.label} className="flex gap-1.5 text-[11px] leading-relaxed text-fg/55">
+            <li key={t.label} className="flex gap-1.5 text-[11px] leading-relaxed text-muted">
               <span className="shrink-0 font-medium text-fg/70">{t.label}</span>
               <span>{t.body}</span>
             </li>

@@ -39,9 +39,9 @@ export default async function ApplyPage() {
           <p className="mt-1.5 text-sm text-fg/65">
             운영자 검토 후 안내드려요. 보통 영업일 기준 1~2일 소요됩니다.
           </p>
-          <p className="mt-3 text-xs text-fg/45">신청 작가명: {open.display_name}</p>
+          <p className="mt-3 text-xs text-faint">신청 작가명: {open.display_name}</p>
         </div>
-        <Link href="/" className="mt-6 inline-block text-sm text-fg/50 hover:text-fg">
+        <Link href="/" className="mt-6 inline-block text-sm text-muted hover:text-fg">
           ← 홈으로
         </Link>
       </main>

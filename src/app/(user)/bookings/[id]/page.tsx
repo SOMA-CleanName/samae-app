@@ -103,7 +103,7 @@ export default async function BookingDetail({
         event="View Booking Detail"
         props={{ booking_id: id, status: b.status, viewer: isBuyer ? "buyer" : isOwner ? "photographer" : "admin" }}
       />
-      <Link href={back.href} className="text-sm text-fg/50 hover:text-fg">
+      <Link href={back.href} className="text-sm text-muted hover:text-fg">
         {back.label}
       </Link>
 
@@ -166,7 +166,7 @@ export default async function BookingDetail({
 
       {/* 정체 단계 넛지 */}
       {nudge && (
-        <p className="mt-3 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning">
+        <p className="mt-3 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning-ink">
           {nudge}
         </p>
       )}
@@ -196,7 +196,7 @@ export default async function BookingDetail({
         {isBuyer && b.status === "accepted" && (
           <section className="rounded-xl border border-fg/12 bg-surface p-5">
             <p className="text-sm font-semibold">💸 입금 안내 — 사매 계좌로 안전하게</p>
-            <p className="mt-1 text-xs text-fg/55">
+            <p className="mt-1 text-xs text-muted">
               아래 사매 계좌로 입금해주세요. 사매가 입금을 확인하면 예약이 확정됩니다.
             </p>
             {/* 돈이 실제로 나가는 자리. "이거 믿어도 되나"가 가장 크게 드는 순간이라
@@ -209,18 +209,18 @@ export default async function BookingDetail({
                 <Row label="계좌번호" value={platformAccount.number} />
                 <Row label="예금주" value={platformAccount.holder} />
                 <div className="mt-2 flex items-center justify-between border-t border-fg/10 pt-2">
-                  <span className="text-fg/50">보낼 금액</span>
+                  <span className="text-muted">보낼 금액</span>
                   <span className="text-base font-bold">₩{fmt.format(b.amount_krw ?? 0)}</span>
                 </div>
               </div>
             ) : (
-              <p className="mt-3 rounded-xl bg-warning-soft px-3 py-2 text-xs text-warning">
+              <p className="mt-3 rounded-xl bg-warning-soft px-3 py-2 text-xs text-warning-ink">
                 입금 계좌 안내를 준비 중이에요. 잠시 후 다시 확인해주세요.
               </p>
             )}
 
             {b.transfer_marked_at ? (
-              <p className="mt-3 rounded-full bg-success-soft px-3 py-2 text-center text-xs text-success">
+              <p className="mt-3 rounded-full bg-success-soft px-3 py-2 text-center text-xs text-success-ink">
                 ✅ 입금 완료를 알렸어요 · 사매가 확인하면 예약이 확정돼요
               </p>
             ) : (
@@ -235,7 +235,7 @@ export default async function BookingDetail({
               )
             )}
 
-            <p className="mt-3 text-[11px] text-fg/45">
+            <p className="mt-3 text-[11px] text-faint">
               · 받는 분 통장에 <b>예약자 본인 이름</b>으로 보내면 확인이 빨라요.<br />
               · 촬영비는 사매가 보관했다가 촬영 후 작가에게 정산해요. 작가 개인 계좌로의 직접
               송금은 보호받지 못해요.
@@ -253,7 +253,7 @@ export default async function BookingDetail({
             ) : (
               <p className="text-sm text-fg/60">고객의 입금을 기다리는 중이에요</p>
             )}
-            <p className="mt-1.5 text-xs text-fg/45">
+            <p className="mt-1.5 text-xs text-faint">
               입금은 사매 계좌로 받고, 사매가 확인하면 예약이 확정돼요. 촬영비는 수수료 차감 후
               정산해드려요.
             </p>
@@ -375,11 +375,11 @@ export default async function BookingDetail({
             // 그 외(작가 등): 읽기 전용
             <div className="rounded-xl border border-fg/10 p-5">
               <p className="text-sm font-semibold">고객 후기</p>
-              <p className="mt-1 text-warning">{"★".repeat(review.rating)}<span className="text-fg/20">{"★".repeat(5 - review.rating)}</span></p>
+              <p className="mt-1 text-warning">{"★".repeat(review.rating)}<span className="text-faint">{"★".repeat(5 - review.rating)}</span></p>
               {review.body && <p className="mt-2 text-sm text-fg/70">{review.body}</p>}
             </div>
           ) : (
-            <p className="text-center text-sm text-fg/40">아직 후기가 없어요.</p>
+            <p className="text-center text-sm text-faint">아직 후기가 없어요.</p>
           )}
         </section>
       )}
@@ -390,7 +390,7 @@ export default async function BookingDetail({
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-4">
-      <dt className="shrink-0 text-fg/50">{label}</dt>
+      <dt className="shrink-0 text-muted">{label}</dt>
       <dd className="text-right">{value}</dd>
     </div>
   );

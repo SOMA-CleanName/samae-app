@@ -103,10 +103,10 @@ export function ProfileForm({ initial }: { initial: ProfileInitial }) {
 
       {/* 촬영비 수취 계좌 — 예약 확정 시 해당 고객에게 노출됨 */}
       <fieldset className="mt-2 rounded-xl border border-fg/10 p-4">
-        <legend className="px-1 text-xs text-fg/55">촬영비 수취 계좌</legend>
+        <legend className="px-1 text-xs text-muted">촬영비 수취 계좌</legend>
         {acctOpen ? (
           <>
-            <p className="mb-2 text-xs leading-relaxed text-fg/45">
+            <p className="mb-2 text-xs leading-relaxed text-faint">
               예약이 확정되면 고객이 이 계좌로 촬영비를 직접 송금합니다.
               <br />
               환불이 발생하는 경우에도 이 계좌로 입금돼요.
@@ -131,12 +131,12 @@ export function ProfileForm({ initial }: { initial: ProfileInitial }) {
                       <option key={b} value={b}>{b}</option>
                     ))}
                   </select>
-                  <span className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-xs text-fg/45">
+                  <span className="pointer-events-none absolute right-5 top-1/2 -translate-y-1/2 text-xs text-faint">
                     ▼
                   </span>
                 </div>
                 {state.fieldErrors?.bankName && (
-                  <p className="text-xs text-brand">{state.fieldErrors.bankName}</p>
+                  <p className="text-xs text-brand-ink">{state.fieldErrors.bankName}</p>
                 )}
               </div>
               <Field name="accountNumber" label="계좌번호" value={f.accountNumber} onChange={set("accountNumber")} error={state.fieldErrors?.accountNumber} />
@@ -149,7 +149,7 @@ export function ProfileForm({ initial }: { initial: ProfileInitial }) {
               <p className="truncate text-sm font-medium text-fg">
                 {f.bankName} {f.accountNumber}
               </p>
-              <p className="mt-0.5 text-xs text-fg/45">예금주 {f.accountHolder} · 환불도 이 계좌로 입금</p>
+              <p className="mt-0.5 text-xs text-faint">예금주 {f.accountHolder} · 환불도 이 계좌로 입금</p>
             </div>
             <button
               type="button"
@@ -166,8 +166,8 @@ export function ProfileForm({ initial }: { initial: ProfileInitial }) {
         )}
       </fieldset>
 
-      {state.error && <p className="text-sm text-brand">{state.error}</p>}
-      {state.ok && <p className="text-sm text-success">저장됐어요.</p>}
+      {state.error && <p className="text-sm text-brand-ink">{state.error}</p>}
+      {state.ok && <p className="text-sm text-success-ink">저장됐어요.</p>}
 
       <button
         type="submit"
@@ -217,8 +217,8 @@ function Field({
         step={step}
         className="rounded-xl border border-fg/15 bg-surface px-4 py-3 text-sm outline-none focus:border-fg/40"
       />
-      {hint && !error && <p className="text-xs text-fg/45">{hint}</p>}
-      {error && <p className="text-xs text-brand">{error}</p>}
+      {hint && !error && <p className="text-xs text-faint">{hint}</p>}
+      {error && <p className="text-xs text-brand-ink">{error}</p>}
     </div>
   );
 }

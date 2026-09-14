@@ -27,11 +27,11 @@ export default async function PackagesPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 sm:px-6 py-10 font-kr">
-      <Link href="/studio" className="text-sm text-fg/50 hover:text-fg">
+      <Link href="/studio" className="text-sm text-muted hover:text-fg">
         ← 스튜디오
       </Link>
       <h1 className="mt-4 text-2xl font-semibold">패키지 관리</h1>
-      <p className="mt-1 text-sm text-fg/55">
+      <p className="mt-1 text-sm text-muted">
         촬영 상품을 등록하세요. 활성화된 패키지가 예약 시 선택지로 노출됩니다.
       </p>
 
@@ -63,7 +63,7 @@ export default async function PackagesPage() {
       <section className="mt-8">
         <h2 className="text-sm font-medium text-fg/70">등록된 패키지 {packages.length}</h2>
         {packages.length === 0 ? (
-          <p className="mt-3 text-sm text-fg/45">아직 패키지가 없어요.</p>
+          <p className="mt-3 text-sm text-faint">아직 패키지가 없어요.</p>
         ) : (
           <ul className="mt-3 flex flex-col gap-4">
             {packages.map((p) => (
@@ -94,7 +94,7 @@ function LabeledInput({
   required?: boolean;
 }) {
   return (
-    <label className="flex flex-col gap-1 text-[11px] text-fg/55">
+    <label className="flex flex-col gap-1 text-[11px] text-muted">
       {label}
       <input
         name={name}

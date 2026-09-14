@@ -135,9 +135,7 @@ export function SpotsRail({
                   </p>
 
                   <dl className="mt-3 flex items-baseline justify-between border-t border-line pt-2.5 text-[11px]">
-                    <dt className="uppercase tracking-[0.12em] text-faint">
-                      여기서 찍힌 사진
-                    </dt>
+                    <dt className="uppercase tracking-[0.12em] text-faint">사진</dt>
                     <dd className="font-bold tabular-nums">{s.count}</dd>
                   </dl>
                 </div>

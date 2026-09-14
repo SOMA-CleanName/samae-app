@@ -80,13 +80,13 @@ export function AvatarUploader({
               type="button"
               disabled={busy || removing}
               onClick={onRemove}
-              className="rounded-full px-3 py-2 text-sm text-fg/50 hover:text-brand disabled:opacity-50"
+              className="rounded-full px-3 py-2 text-sm text-muted hover:text-brand disabled:opacity-50"
             >
               {removing ? "되돌리는 중…" : "기본 사진으로"}
             </button>
           )}
         </div>
-        {error && <p className="mt-1.5 text-xs text-brand">{error}</p>}
+        {error && <p className="mt-1.5 text-xs text-brand-ink">{error}</p>}
       </div>
     </div>
   );

@@ -25,13 +25,20 @@ type Chip = {
   icon: "story" | "place" | "qna" | "taste" | "persona";
 };
 
+/*
+  라벨은 **누르면 뭐가 나오는지**를 말해야 한다. 두 글자로 줄이면 짧고 단정해 보이지만
+  "장소"·"취향" 만으로는 눌러 볼 이유가 안 생긴다(팀원 QA: "텍스트와 아이콘만 봐서는
+  뭐가 있는지 모르겠음 안눌러볼듯"). 한 단어 더 붙여 목적어를 준다.
+
+  · 매거진   — 하단 내비 탭과 **같은 이름을 유지한다.** 같은 곳(/explore)인데 이름이 다르면
+               두 군데인 줄 안다. (아티클 콘텐츠 자체는 '읽을거리'로 부른다 — 지면 이름과 다른 층)
+  · 페르소나 — 캠페인 고유명이라 개발이 바꾸지 않는다. 바꾸려면 마케팅과 같이 정해야 한다.
+*/
 const CHIPS: Chip[] = [
-  // 하단 내비 탭과 같은 곳(/explore)이다 — 이름이 다르면 두 군데인 줄 안다.
-  // 탭이 '탐색'에서 '매거진'으로 바뀌면서 여기 '이야기'도 같이 맞췄다.
   { href: "/explore", label: "매거진", icon: "story" },
-  { href: "/spots", label: "장소", icon: "place" },
-  { href: "/guide", label: "가이드", icon: "qna" },
-  { href: "/explore/quiz", label: "취향", icon: "taste" },
+  { href: "/spots", label: "촬영 장소", icon: "place" },
+  { href: "/guide", label: "Q&A", icon: "qna" },
+  { href: "/explore/quiz", label: "취향 테스트", icon: "taste" },
   { href: "/event/persona", label: "페르소나", icon: "persona" },
 ];
 
@@ -92,7 +99,8 @@ function Icon({ kind }: { kind: Chip["icon"] }) {
 
 export function HomeQuickNav() {
   return (
-    <nav aria-label="바로가기" className="mb-6">
+    // lg 이상에서는 좌측 칸(17rem)에 들어간다 — 아래 여백은 바깥 2단 컨테이너가 준다.
+    <nav aria-label="바로가기" className="mb-6 lg:mb-0">
       <ul className="grid grid-cols-5 gap-1 sm:flex sm:flex-wrap sm:gap-2">
         {CHIPS.map((c, i) => (
           // 로드 때 순서대로 자리를 잡는다

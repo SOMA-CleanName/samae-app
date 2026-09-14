@@ -176,7 +176,7 @@ export default function PersonaExperience({ defaultUsername = "" }: { defaultUse
             opacity: 0.55,
           }}
         />
-        <p style={reveal(0)} className="relative font-display text-body-sm italic text-brand">
+        <p style={reveal(0)} className="relative font-display text-body-sm italic text-brand-ink">
           samae · 촬영 페르소나
         </p>
         {/* 한글에 font-display(Fraunces)를 씌우면 합성 이탤릭이라 지저분하다.
@@ -290,7 +290,7 @@ export default function PersonaExperience({ defaultUsername = "" }: { defaultUse
                 {compact.format(preview.profile.followers)}
               </span>
             </span>
-            <span className="shrink-0 rounded-full bg-brand px-3.5 py-1.5 text-caption font-semibold text-white">
+            <span className="shrink-0 rounded-full bg-brand-solid px-3.5 py-1.5 text-caption font-semibold text-white">
               이 계정으로{" "}
               <span
                 aria-hidden

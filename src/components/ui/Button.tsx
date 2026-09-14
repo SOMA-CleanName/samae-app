@@ -11,7 +11,12 @@ const VARIANTS: Record<Variant, string> = {
   // 기본 1차 액션 — 잉크(검정) 채움
   primary: "bg-fg text-bg hover:bg-fg/90 active:bg-fg/80",
   // 강조 액션 — 브랜드 레드 (예약·문의 등 전환 CTA)
-  brand: "bg-brand text-white hover:bg-brand/90 active:bg-brand/80",
+  //
+  // 채움색은 `--brand` 가 아니라 `--brand-solid` 다. `--brand`(#ff3d2e) 위의 흰 글씨는
+  // **3.52:1** 로 본문 기준(4.5) 아래다 — 전환 동선의 제일 중요한 버튼이 거기 걸렸다
+  // (실측: 작가 프로필 "예약·문의하기" 16px). `--brand-solid`(#c42a1e)면 5.68:1.
+  // 배너처럼 글자가 없는 큰 면은 그대로 `--brand` 를 쓴다.
+  brand: "bg-brand-solid text-white hover:bg-brand-solid/90 active:bg-brand-solid/80",
   // 보조 액션 — 외곽선
   secondary: "border border-line-strong bg-surface text-fg hover:bg-surface-2 active:bg-line/60",
   // 약한 액션 — 배경 없음

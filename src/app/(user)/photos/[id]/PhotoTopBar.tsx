@@ -60,7 +60,7 @@ export function PhotoTopBar() {
       data-mode={mode}
       data-surface={onPhoto ? "photo" : "page"}
       className={cn(
-        "fixed left-3 top-3 z-30 grid h-9 w-9 cursor-pointer place-items-center rounded-full backdrop-blur-sm transition-colors",
+        "fixed left-3 top-3 z-30 grid h-9 w-9 cursor-pointer place-items-center rounded-full backdrop-blur-sm transition-colors before:absolute before:-inset-1 before:content-['']",
         onPhoto
           ? "bg-black/35 text-white hover:bg-black/60"
           : "border border-line-strong bg-surface/90 text-fg shadow-sm hover:border-brand hover:text-brand"

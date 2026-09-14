@@ -63,7 +63,7 @@ export default async function StudioBookingsPage() {
   return (
     <main className="mx-auto max-w-2xl px-4 sm:px-6 py-8 font-kr">
       <h1 className="text-2xl font-semibold">예약</h1>
-      <p className="mt-1 text-sm text-fg/50">받은 제안과 진행 중인 촬영을 한눈에 관리하세요.</p>
+      <p className="mt-1 text-sm text-muted">받은 제안과 진행 중인 촬영을 한눈에 관리하세요.</p>
 
       {/* 받은 제안 — 수락 대기 (액션 필요) */}
       {received.length > 0 && (
@@ -84,7 +84,7 @@ export default async function StudioBookingsPage() {
         return (
           <section key={group.label} className="mt-7">
             <h2 className="text-sm font-medium text-fg/70">
-              {group.label} <span className="text-fg/40">{rows.length}</span>
+              {group.label} <span className="text-faint">{rows.length}</span>
             </h2>
             <ul className="mt-2 flex flex-col gap-2">
               {rows.map((b) => (
@@ -97,13 +97,13 @@ export default async function StudioBookingsPage() {
 
       {/* 내가 보낸 제안 대기 */}
       {myPending.length > 0 && (
-        <p className="mt-7 text-xs text-fg/45">
+        <p className="mt-7 text-xs text-faint">
           내가 보낸 제안 {myPending.length}건이 고객 수락을 기다리고 있어요.
         </p>
       )}
 
       {mine.length === 0 && (
-        <p className="mt-10 text-center text-sm text-fg/45">아직 예약이 없어요.</p>
+        <p className="mt-10 text-center text-sm text-faint">아직 예약이 없어요.</p>
       )}
     </main>
   );
@@ -138,12 +138,12 @@ function BookingItem({
               {bookingStatusLabel(b, false)}
             </span>
           </div>
-          <p className="mt-1 text-xs text-fg/55">
+          <p className="mt-1 text-xs text-muted">
             {b.package?.name ?? b.package_snapshot?.name ?? "패키지"} · {fmtShootAt(b.shoot_at, b.shoot_date)}
           </p>
           <p className="mt-1 text-xs text-fg/70">
             ₩{fmt.format(b.amount_krw ?? 0)}
-            {waiting && <span className="ml-2 font-normal text-fg/45">{waiting}</span>}
+            {waiting && <span className="ml-2 font-normal text-faint">{waiting}</span>}
           </p>
         </Link>
         {convId && (

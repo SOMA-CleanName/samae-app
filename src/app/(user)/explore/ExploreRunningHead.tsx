@@ -94,7 +94,7 @@ export function ExploreRunningHead({ sections }: { sections: RunningSection[] })
           aria-hidden={!stuck}
         >
           <div className="mx-auto flex h-11 max-w-[1280px] items-center justify-between gap-3 px-4 sm:px-6">
-            <span className="font-display text-lg italic leading-none text-brand">samae</span>
+            <span className="font-display text-lg italic leading-none text-brand-ink">samae</span>
             {active && (
               <span className="min-w-0 truncate text-[11px] font-bold uppercase tracking-[0.14em] text-muted">
                 {active.label}

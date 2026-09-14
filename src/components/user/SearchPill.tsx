@@ -10,7 +10,7 @@ import {
   getSearchBorderTraceMotion,
   getSearchBorderTraceRect,
   getSearchPillPlaceholder,
-  SEARCH_PLACEHOLDER_EXAMPLES,
+  SEARCH_PLACEHOLDER,
   startSearchBorderMotion,
   type SearchDockSurface,
   type SearchBorderMotionState,
@@ -32,7 +32,7 @@ const SEARCH_BORDER_TRACE_STYLE = {
 /** 홈·검색 결과·사진 상세에서 사용하는 자연어 사진 검색창. */
 export function SearchPill({
   initial = "",
-  placeholder = SEARCH_PLACEHOLDER_EXAMPLES[0],
+  placeholder = SEARCH_PLACEHOLDER,
   surface = "filled",
   appearance = "surface",
 }: {

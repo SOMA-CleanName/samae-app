@@ -74,7 +74,7 @@ export function GeneratedTagTable({ tags }: { tags: GeneratedTagUsage[] }) {
                       <input type="hidden" name="tag" value={t.tag} />
                       <button
                         type="submit"
-                        className="h-8 rounded-md border border-danger/40 px-3 text-caption font-medium text-danger transition-colors hover:bg-danger/[0.06]"
+                        className="h-8 rounded-md border border-danger/40 px-3 text-caption font-medium text-danger-ink transition-colors hover:bg-danger/[0.06]"
                       >
                         전역 삭제
                       </button>
