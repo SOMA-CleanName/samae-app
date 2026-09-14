@@ -414,13 +414,30 @@ export default function TermsPage() {
         </section>
       </div>
 
-      <p className="mt-12 border-t border-line pt-5 text-xs leading-relaxed text-faint">
-        결제·연락처·환불이 실제로 어떻게 처리되는지는{" "}
-        <Link href="/trust" className="underline underline-offset-2">
-          안전하게 촬영하기
-        </Link>
-        에 더 자세히 적어 두었습니다.
-      </p>
+      <section className="mt-12 border-t border-line pt-5 text-xs leading-relaxed text-faint">
+        <p className="font-semibold text-muted">함께 적용되는 문서</p>
+        <ul className="mt-1.5 space-y-1">
+          <li>
+            <Link href="/terms/refund" className="underline underline-offset-2">취소·환불 정책</Link> — 이 약관 제9조의
+            구체적 기준과 절차
+          </li>
+          <li>
+            <Link href="/privacy" className="underline underline-offset-2">개인정보 처리방침</Link>
+          </li>
+          <li>
+            작가에게 적용되는 문서: <Link href="/terms/photographer" className="underline underline-offset-2">작가 이용약관</Link>,{" "}
+            <Link href="/terms/fees" className="underline underline-offset-2">수수료·정산 정책</Link>,{" "}
+            <Link href="/terms/photographer-contract" className="underline underline-offset-2">작가 입점 계약</Link>
+          </li>
+        </ul>
+        <p className="mt-3">
+          결제·연락처·환불이 실제로 어떻게 처리되는지는{" "}
+          <Link href="/trust" className="underline underline-offset-2">
+            안전하게 촬영하기
+          </Link>
+          에 더 자세히 적어 두었습니다.
+        </p>
+      </section>
     </main>
   );
 }

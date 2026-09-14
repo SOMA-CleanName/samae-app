@@ -7,6 +7,12 @@
 // 문안을 고치면 여기 버전도 올린다. 시행일은 실제 배포·공지 일정에 맞춘다.
 
 export const TERMS_VERSION = "2026-09-10"; // 회원 이용약관 (src/app/(user)/terms/page.tsx EFFECTIVE_DATE 와 맞춘다)
+/**
+ * 취소환불정책·수수료정산정책·작가약관·입점계약의 시행일.
+ * ⚠️ 비워 두면 각 페이지가 "게시 공지 후 확정" 으로 보여준다. 배포일과 공지 기간(회원 유리 7일,
+ *    작가 불리 30일)을 맞춘 날짜를 넣을 것. 지면에 적힌 시행일이 곧 약속이다.
+ */
+export const POLICY_EFFECTIVE_DATE = "";
 export const REFUND_POLICY_VERSION = "1.0";
 export const FEE_POLICY_VERSION = "1.0";
 export const PHOTOGRAPHER_TERMS_VERSION = "1.0";
