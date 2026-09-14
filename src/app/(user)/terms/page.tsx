@@ -205,27 +205,30 @@ export default function TermsPage() {
               대금 지급 후의 환불 비율은 다음과 같습니다. 위에서부터 먼저 해당하는 기준을
               적용합니다.
               <Table
-                head={["사유", "환불", "중개 수수료"]}
+                head={["사유", "위약금", "환불"]}
                 rows={[
-                  ["작가의 사정으로 촬영이 이행되지 않은 경우", "100%", "작가가 부담"],
-                  ["이동이 불가능한 정도의 천재지변", "100%", "면제"],
-                  ["대금 지급일부터 7일 이내(청약철회)", "100%", "면제"],
-                  ["촬영일까지 7일 미만이 남은 경우", "0%", "—"],
-                  ["작가의 연락처를 전달받은 뒤", "50%", "—"],
-                  ["그 밖에 대금 지급일부터 7일이 지난 경우", "50%", "—"],
+                  ["작가의 사정으로 촬영이 이행되지 않은 경우", "—", "100%"],
+                  ["이동이 불가능한 정도의 천재지변", "—", "100%"],
+                  ["대금 지급일부터 7일 이내(청약철회)", "0%", "100%"],
+                  ["촬영 8일 이상 전", "0%", "100%"],
+                  ["촬영 4~7일 전", "40%", "60%"],
+                  ["촬영 3일 전부터 촬영 당일까지(취소 통보가 있는 경우)", "90%", "10%"],
+                  ["무단 노쇼(취소 통보 없이 촬영에 불참)", "100%", "0%"],
                 ]}
               />
+              남은 기간은 촬영 예정일의 날짜를 기준으로 계산하며, 취소 시점은 회원이 서비스 내에서
+              취소 신청을 제출한 시각으로 합니다.
             </li>
             <li>
               제3항의 청약철회는 전자상거래 등에서의 소비자보호에 관한 법률 제17조에 따른 것으로,{" "}
-              <B>이 기간에는 위약금이나 손해배상을 청구하지 않습니다.</B> 다만 촬영일까지 7일
-              미만이 남은 예약에 대해 회사가 결제 전에 환불이 제한된다는 사실을 별도로 고지하고
-              회원의 동의를 받아 둔 경우에는 그 동의에 따릅니다.
+              <B>이 기간에는 위약금이나 손해배상을 청구하지 않습니다.</B> 다만 취소 시점에 촬영일까지
+              남은 기간이 7일 이내인 경우에는 같은 법 제17조 제2항 제3호에 따라 청약철회가 제한되며
+              위 표의 위약금 기준을 적용합니다. 회사는 결제 전에 이 사실을 표시합니다.
             </li>
             <li>
-              <B>회원이 작가의 연락처를 전달받으면 회사의 중개 용역이 제공된 것으로 보아</B>{" "}
-              제3항의 100% 환불 구간이 종료됩니다. 회사는 연락처를 전달하기 전에 이 사실을
-              고지합니다.
+              회원이 지급한 위약금은 서비스를 통해 발생한 작가의 수익으로 보아 작가와 회사가 중개
+              수수료율(작가 80%, 회사 20%)로 나누어 가집니다. 위약금이 발생하지 않는 취소에는 회원과
+              작가 어느 쪽에도 중개 수수료를 부과하지 않습니다.
             </li>
             <li>
               회사는 환불 사유가 확정된 날부터 <B>3영업일 이내</B>에 환급합니다. 이를 지연한
@@ -411,13 +414,30 @@ export default function TermsPage() {
         </section>
       </div>
 
-      <p className="mt-12 border-t border-line pt-5 text-xs leading-relaxed text-faint">
-        결제·연락처·환불이 실제로 어떻게 처리되는지는{" "}
-        <Link href="/trust" className="underline underline-offset-2">
-          안전하게 촬영하기
-        </Link>
-        에 더 자세히 적어 두었습니다.
-      </p>
+      <section className="mt-12 border-t border-line pt-5 text-xs leading-relaxed text-faint">
+        <p className="font-semibold text-muted">함께 적용되는 문서</p>
+        <ul className="mt-1.5 space-y-1">
+          <li>
+            <Link href="/terms/refund" className="underline underline-offset-2">취소·환불 정책</Link> — 이 약관 제9조의
+            구체적 기준과 절차
+          </li>
+          <li>
+            <Link href="/privacy" className="underline underline-offset-2">개인정보 처리방침</Link>
+          </li>
+          <li>
+            작가에게 적용되는 문서: <Link href="/terms/photographer" className="underline underline-offset-2">작가 이용약관</Link>,{" "}
+            <Link href="/terms/fees" className="underline underline-offset-2">수수료·정산 정책</Link>,{" "}
+            <Link href="/terms/photographer-contract" className="underline underline-offset-2">작가 입점 계약</Link>
+          </li>
+        </ul>
+        <p className="mt-3">
+          결제·연락처·환불이 실제로 어떻게 처리되는지는{" "}
+          <Link href="/trust" className="underline underline-offset-2">
+            안전하게 촬영하기
+          </Link>
+          에 더 자세히 적어 두었습니다.
+        </p>
+      </section>
     </main>
   );
 }

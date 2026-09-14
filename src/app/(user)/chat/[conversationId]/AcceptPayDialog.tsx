@@ -15,7 +15,7 @@ import { Spinner } from "@/components/ui";
 import type { PayoutAccount } from "@/lib/payments";
 import { PolicyNote } from "./PolicyNote";
 import { LateBookingConsent } from "./LateBookingConsent";
-import { isLateBooking } from "@/lib/refund";
+import { isLateBooking, lateBookingPenaltyPct } from "@/lib/refund";
 
 const fmt = new Intl.NumberFormat("ko-KR");
 
@@ -54,8 +54,9 @@ export function AcceptPayDialog({
   const [consented, setConsented] = useState(!!lateBookingConsentAt);
   const lateBooking = isLateBooking(shootAt, shootDate);
   const needsLateConsent = !consented && lateBooking;
-  // 임박 + 동의 완료 = 환불이 없는 건. 안내와 체크 문구가 여기에 맞춰 바뀐다.
-  const noRefund = consented && lateBooking;
+  // 임박 + 동의 완료 = 결제 직후라도 위약금(40% 또는 90%)이 붙는 건. 안내와 체크 문구가 여기에 맞춰 바뀐다.
+  const latePct = lateBooking ? (lateBookingPenaltyPct(shootAt, shootDate) ?? 90) : null;
+  const lateConsented = consented && lateBooking && latePct != null;
 
   // 입금하고 돌아온 손님이 이 창에서 바로 끝낼 수 있게 — 카드까지 내려가 다시 찾지 않는다
   function markPaid() {
@@ -98,6 +99,8 @@ export function AcceptPayDialog({
       <LateBookingConsent
         bookingId={bookingId}
         shootAt={shootAt}
+        amountKrw={amountKrw}
+        penaltyPct={latePct ?? 90}
         onAgreed={() => setConsented(true)}
         onCancel={onClose}
       />
@@ -193,7 +196,12 @@ export function AcceptPayDialog({
         </ol>
 
         {/* 무엇에 동의하고 보내는지 — 입금 버튼 바로 위가 유일하게 읽히는 자리다 */}
-        <PolicyNote shootAt={shootAt} shootDate={shootDate} noRefund={noRefund} />
+        <PolicyNote
+          shootAt={shootAt}
+          shootDate={shootDate}
+          amountKrw={amountKrw}
+          lateBookingPct={lateConsented ? latePct : null}
+        />
 
         <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-xl bg-surface-2 p-3">
           <input
@@ -203,9 +211,9 @@ export function AcceptPayDialog({
             className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
           />
           <span className="text-caption font-medium leading-relaxed text-fg">
-            {noRefund
-              ? "입금 후에는 취소해도 환불되지 않는다는 점을 확인했습니다."
-              : "촬영 7일 전부터는 취소해도 환불되지 않는다는 점을 확인했습니다."}
+            {lateConsented
+              ? `입금 후 취소하면 위약금 ${latePct}%가 빠진다는 점을 확인했습니다.`
+              : "촬영 4~7일 전 취소는 위약금 40%, 3일 전부터 촬영 당일까지는 위약금 90%가 빠진다는 점을 확인했습니다."}
           </span>
         </label>
 

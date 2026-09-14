@@ -51,6 +51,9 @@ const ProfileSchema = z.object({
   bankName: z.string().trim().max(40).optional().default(""),
   accountNumber: z.string().trim().max(40).optional().default(""),
   accountHolder: z.string().trim().max(40).optional().default(""),
+  legalName: z.string().trim().max(60).optional().default(""),
+  businessType: z.enum(["", "general", "simplified", "unregistered"]).optional().default(""),
+  businessNo: z.string().trim().max(14).optional().default(""),
 });
 
 export type ProfileState = {
@@ -79,6 +82,9 @@ export async function updateProfile(
     bankName: formData.get("bankName"),
     accountNumber: formData.get("accountNumber"),
     accountHolder: formData.get("accountHolder"),
+    legalName: formData.get("legalName") ?? "",
+    businessType: formData.get("businessType") ?? "",
+    businessNo: formData.get("businessNo") ?? "",
   });
   if (!parsed.success) {
     const fieldErrors: Record<string, string> = {};
@@ -102,6 +108,16 @@ export async function updateProfile(
     return { error: "정산 계좌는 은행·계좌번호·예금주를 모두 입력해주세요.", fieldErrors };
   }
 
+  // 사업자 정보 — 유형을 골랐고 미등록이 아니면 등록번호 10자리가 있어야 한다
+  const bizDigits = v.businessNo.replace(/[^0-9]/g, "");
+  if (v.businessType && v.businessType !== "unregistered" && bizDigits.length !== 10) {
+    return { error: "사업자등록번호 10자리를 입력해주세요.", fieldErrors: { businessNo: "10자리 숫자" } };
+  }
+  const businessNo =
+    v.businessType && v.businessType !== "unregistered"
+      ? `${bizDigits.slice(0, 3)}-${bizDigits.slice(3, 5)}-${bizDigits.slice(5)}`
+      : null;
+
   // 작가명 중복 불가 (본인 제외)
   if (await isDisplayNameTaken(v.displayName, user.id)) {
     return { error: "이미 사용 중인 작가명이에요.", fieldErrors: { displayName: "이미 사용 중인 작가명이에요." } };
@@ -115,6 +131,9 @@ export async function updateProfile(
       regions: parseList(v.regions),
       mood_tags: parseList(v.moodTags),
       price_from_krw: v.priceFrom,
+      legal_name: v.legalName || null,
+      business_type: v.businessType || null,
+      business_no: businessNo,
     })
     .eq("profile_id", user.id);
 
@@ -289,4 +308,72 @@ export async function updateContactMethods(formData: FormData): Promise<void> {
   if (error) throw new Error(error.message);
 
   revalidatePath("/studio/profile");
+}
+
+// ── 입점 계약 동의 (작가약관 5조 2항, 입점계약 전문) ─────────────────
+// 문서 4종 체크 + 작가 정보란 + 홍보 사용 동의(선택) → photographers 갱신 + photographer_agreements 기록.
+// 버전이 올라가면 studio/layout.tsx 가 다시 이 화면을 띄운다.
+import { headers } from "next/headers";
+import { PHOTOGRAPHER_AGREEMENT_VERSIONS } from "@/lib/consent";
+import type { BusinessType } from "@/lib/platform-fee";
+
+const BUSINESS_TYPES: BusinessType[] = ["general", "simplified", "unregistered"];
+
+export async function agreePhotographerContract(formData: FormData): Promise<void> {
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가만 동의할 수 있어요.");
+
+  for (const key of ["contract", "terms", "fee", "refund"]) {
+    if (formData.get(`agree_${key}`) !== "on") throw new Error("문서 4종에 모두 동의해야 해요.");
+  }
+
+  const legalName = String(formData.get("legalName") || "").trim().slice(0, 60);
+  if (!legalName) throw new Error("성명 또는 상호를 입력해주세요.");
+  const typeRaw = String(formData.get("businessType") || "");
+  if (!BUSINESS_TYPES.includes(typeRaw as BusinessType)) throw new Error("사업자 유형을 골라주세요.");
+  const businessType = typeRaw as BusinessType;
+  let businessNo: string | null = null;
+  if (businessType !== "unregistered") {
+    const digits = String(formData.get("businessNo") || "").replace(/[^0-9]/g, "");
+    if (digits.length !== 10) throw new Error("사업자등록번호 10자리를 입력해주세요.");
+    businessNo = `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
+  }
+  const promoConsent = formData.get("promoConsent") === "on";
+
+  const h = await headers();
+  const ip = (h.get("x-forwarded-for") ?? "").split(",")[0].trim() || null;
+  const userAgent = h.get("user-agent")?.slice(0, 300) ?? null;
+  const now = new Date().toISOString();
+
+  const admin = createAdminClient();
+  const { error: phErr } = await admin
+    .from("photographers")
+    .update({
+      legal_name: legalName,
+      business_type: businessType,
+      business_no: businessNo,
+      promo_consent: promoConsent,
+      promo_consent_at: promoConsent ? now : null,
+    })
+    .eq("id", me.photographer.id);
+  if (phErr) throw new Error("작가 정보를 저장하지 못했어요.");
+
+  const { error } = await admin.from("photographer_agreements").insert({
+    photographer_id: me.photographer.id,
+    profile_id: me.id,
+    versions: PHOTOGRAPHER_AGREEMENT_VERSIONS,
+    promo_consent: promoConsent,
+    ip,
+    user_agent: userAgent,
+    agreed_at: now,
+  });
+  if (error) throw new Error("동의를 기록하지 못했어요. 다시 시도해주세요.");
+
+  await mpTrackServer("Agree Photographer Contract", me.id, {
+    contract_version: PHOTOGRAPHER_AGREEMENT_VERSIONS.contract,
+    business_type: businessType,
+    promo_consent: promoConsent,
+  });
+
+  revalidatePath("/studio", "layout");
 }

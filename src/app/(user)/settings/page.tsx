@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { updateDisplayName } from "./actions";
@@ -51,12 +52,29 @@ export default async function SettingsPage() {
         작가 활동용 공개 이름·소개는 스튜디오 → 프로필에서 따로 관리해요.
       </p>
 
+      {/* 약관 — 회원약관 3조: 게시된 문서를 언제든 찾아볼 수 있어야 한다 */}
+      <section className="mt-8 border-t border-fg/10 pt-6">
+        <p className="text-sm font-medium">약관과 정책</p>
+        <ul className="mt-2 flex flex-col gap-1.5 text-sm text-fg/70">
+          <li><Link href="/terms" className="underline underline-offset-2">서비스 이용약관</Link></li>
+          <li><Link href="/terms/refund" className="underline underline-offset-2">취소·환불 정책</Link></li>
+          <li><Link href="/privacy" className="underline underline-offset-2">개인정보 처리방침</Link></li>
+          {me.photographer && (
+            <>
+              <li><Link href="/terms/photographer" className="underline underline-offset-2">작가 이용약관</Link></li>
+              <li><Link href="/terms/fees" className="underline underline-offset-2">수수료·정산 정책</Link></li>
+              <li><Link href="/terms/photographer-contract" className="underline underline-offset-2">작가 입점 계약</Link></li>
+            </>
+          )}
+        </ul>
+      </section>
+
       {/* 회원 탈퇴 */}
       <section className="mt-10 border-t border-fg/10 pt-6">
         <p className="text-sm font-medium">회원 탈퇴</p>
         <p className="mt-1 text-xs text-fg/50">
-          계정과 대화·예약·찜·후기 등 모든 데이터가 삭제되며 되돌릴 수 없어요. 진행 중인 예약이
-          있으면 마무리한 뒤에 탈퇴할 수 있어요.
+          계정과 대화·예약·찜·후기 등 모든 데이터가 삭제되며 되돌릴 수 없어요. 진행 중인 문의나 예약,
+          정산이 끝나지 않은 건이 있으면 마무리한 뒤에 탈퇴할 수 있어요.
         </p>
         <div className="mt-3">
           <DeleteAccount />

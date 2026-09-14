@@ -61,7 +61,7 @@ export default async function SettlementsPage() {
       </Link>
       <h1 className="mt-4 text-2xl font-semibold">정산 내역</h1>
       <p className="mt-1 text-xs leading-relaxed text-fg/45">
-        촬영비는 사매가 받아 두고, 중개 수수료를 뺀 금액을 작가님 계좌로 보내드려요.
+        촬영비는 사매가 받아 두고, 결과물 전달이 끝나면 중개 수수료(20%)와 부가세를 뺀 금액을 작가님 계좌로 보내드려요.
       </p>
 
       <div className="mt-6 grid grid-cols-2 gap-3">
@@ -120,7 +120,7 @@ function SettlementItem({ row, fmt }: { row: SettlementRow; fmt: Intl.NumberForm
       {/* 금액이 어떻게 나왔는지 — 수수료를 감추면 정산 문의가 늘어난다 */}
       {!refunded && (
         <p className="mt-2 border-t border-fg/[0.06] pt-2 text-xs tabular-nums text-fg/45">
-          고객 결제 ₩{fmt.format(row.paidKrw)} · 사매 수수료 ₩{fmt.format(row.feeKrw)}
+          고객 결제 ₩{fmt.format(row.paidKrw)} · 사매 수수료·부가세 ₩{fmt.format(row.feeKrw)}
         </p>
       )}
 

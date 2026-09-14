@@ -50,7 +50,7 @@ function parseIds(raw: FormDataEntryValue | null): string[] {
 }
 
 // ── 에스크로 운영 액션 ─────────────────────────────────────────
-// 고객이 사매 계좌로 입금 → 운영자가 확인(accepted→paid) → 수수료 차감 송금 후 정산 완료 마킹.
+// 고객이 사매 계좌로 입금 → 운영자가 확인(accepted→paid) → 결과물 전달 뒤 수수료·부가세 차감 송금 → 정산 완료 마킹.
 import { confirmBankTransferAdmin, markSettlementPaid, markTransferByOps } from "@/lib/payments";
 
 export async function adminConfirmTransfer(formData: FormData): Promise<void> {
@@ -67,28 +67,7 @@ export async function adminMarkSettled(formData: FormData): Promise<void> {
   if (!me || me.role !== "admin") throw new Error("운영자 권한이 필요합니다.");
   const id = String(formData.get("id"));
   const res = await markSettlementPaid(id);
-  if (!res.ok) throw new Error("처리할 수 없는 상태예요 (미확정이거나 이미 정산됨).");
-  revalidatePath("/admin/transactions");
-}
-
-/**
- * 입금 확인 + 작가 정산을 한 번에.
- *
- * 실제 운영은 은행 앱에서 입금을 확인한 그 자리에서 수수료를 떼고 작가에게 보낸다.
- * 확인만 하고 정산을 미루는 경우가 없어서, 버튼 두 개는 클릭만 늘릴 뿐이었다.
- * (정산 실송금은 사람이 하고, 이 버튼은 그걸 기록한다)
- */
-export async function adminSettleNow(formData: FormData): Promise<void> {
-  const me = await getCurrentUser();
-  if (!me || me.role !== "admin") throw new Error("운영자 권한이 필요합니다.");
-  const id = String(formData.get("id"));
-
-  const confirmed = await confirmBankTransferAdmin(id);
-  if (!confirmed.ok) throw new Error("처리할 수 없는 상태예요 (이미 확인됐거나 수락 전).");
-
-  const settled = await markSettlementPaid(id);
-  if (!settled.ok) throw new Error("입금은 확인됐지만 정산 기록에 실패했어요 — 정산 대기에서 다시 시도해주세요.");
-
+  if (!res.ok) throw new Error("처리할 수 없는 상태예요 (결과물 전달 전이거나 이미 정산됨).");
   revalidatePath("/admin/transactions");
 }
 
@@ -96,7 +75,7 @@ export async function adminSettleNow(formData: FormData): Promise<void> {
 // 판정은 lib/refund.ts 가 하고, 운영은 그 결과를 확인한 뒤 실행만 한다.
 // 사람이 은행에서 실제로 돈을 보내고, 이 액션은 원장을 정리한다.
 import { refundBooking } from "@/lib/payments";
-import type { RefundOverride } from "@/lib/refund";
+import { isRefundOverride, type RefundOverride } from "@/lib/refund";
 
 export async function adminRefund(formData: FormData): Promise<void> {
   const me = await getCurrentUser();
@@ -105,10 +84,17 @@ export async function adminRefund(formData: FormData): Promise<void> {
 
   // 운영 판정 — 없으면 시간 규칙대로
   const raw = String(formData.get("override") ?? "");
-  const override: RefundOverride | null =
-    raw === "force_majeure" || raw === "photographer_fault" ? raw : null;
+  const override: RefundOverride | null = isRefundOverride(raw) ? raw : null;
+  // 부분 이행 — 운영이 환불액을 직접 적는다 (취소환불 10조 4항)
+  const manualRaw = Number(String(formData.get("manualRefundKrw") ?? "").replace(/[^0-9]/g, ""));
+  const manualRefundKrw = override === "partial" && Number.isFinite(manualRaw) ? manualRaw : null;
+  if (override === "partial" && manualRefundKrw == null) throw new Error("부분 이행은 환불액을 적어야 해요.");
 
-  const res = await refundBooking(id, { override, note: String(formData.get("note") ?? "") });
+  const res = await refundBooking(id, {
+    override,
+    manualRefundKrw,
+    note: String(formData.get("note") ?? ""),
+  });
   if (!res.ok) throw new Error("환불할 수 없는 상태예요 (이미 환불됐거나 입금 전).");
 
   revalidatePath("/admin/transactions");
@@ -121,7 +107,11 @@ export async function adminRefund(formData: FormData): Promise<void> {
  * 확인 주체는 어차피 사매이므로, 고객의 버튼이 없다고 정산을 막을 이유가 없다.
  * (adminSettleNow 와 같은 자리로 합류한다 — 앞에 '고객 대신 표시' 한 단계만 더 있다)
  */
-export async function adminMarkDepositAndSettle(formData: FormData): Promise<void> {
+/**
+ * 운영이 고객 대신 입금 표시 + 확인 (고객이 [입금 완료] 를 누르지 않은 건).
+ * 정산은 하지 않는다 — 결과물 전달 뒤 정산 대기 큐에서 따로 한다(수수료정책 3조 1항).
+ */
+export async function adminMarkDepositAndConfirm(formData: FormData): Promise<void> {
   const me = await getCurrentUser();
   if (!me || me.role !== "admin") throw new Error("운영자 권한이 필요합니다.");
   const id = String(formData.get("id"));
@@ -130,10 +120,7 @@ export async function adminMarkDepositAndSettle(formData: FormData): Promise<voi
   if (!marked.ok) throw new Error("처리할 수 없는 상태예요 (수락 전이거나 이미 입금 표시됨).");
 
   const confirmed = await confirmBankTransferAdmin(id);
-  if (!confirmed.ok) throw new Error("입금 표시는 됐지만 확인에 실패했어요 — 확인·정산에서 다시 시도해주세요.");
-
-  const settled = await markSettlementPaid(id);
-  if (!settled.ok) throw new Error("입금은 확인됐지만 정산 기록에 실패했어요 — 정산 대기에서 다시 시도해주세요.");
+  if (!confirmed.ok) throw new Error("입금 표시는 됐지만 확인에 실패했어요 — 입금 확인 대기에서 다시 시도해주세요.");
 
   revalidatePath("/admin/transactions");
 }

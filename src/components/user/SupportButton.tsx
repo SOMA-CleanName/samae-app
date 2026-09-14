@@ -89,7 +89,7 @@ export function SupportButton({
           <div>
             <p className="text-title font-semibold text-fg">사매에 문의</p>
             <p className="mt-1 text-body-sm text-muted">
-              환불·날짜 변경은 사매가 확인하고 안내드려요.
+              취소·날짜 변경은 사매가 확인하고 안내드려요.
             </p>
           </div>
           <button
@@ -136,17 +136,51 @@ export function SupportButton({
             )}
             <p className="mt-1 text-caption text-muted">
               결제 ₩{fmt.format(quote.amountKrw)}
-              {quote.percent > 0 && quote.percent < 100 && ` · ${quote.percent}% 환불`}
+              {quote.penaltyKrw > 0 && ` · 위약금 ${quote.penaltyPct}% (₩${fmt.format(quote.penaltyKrw)})`}
             </p>
             {/* 왜 이 금액인지 — 이유를 안 적으면 숫자만 남고, 그게 곧 문의이고 분쟁이다 */}
             <p className="mt-1.5 text-caption text-fg/70">{quote.reason}</p>
-            {quote.penaltyStartsAt && quote.refundKrw > 0 && (
+            {quote.penalty40StartsAt && quote.penalty90StartsAt && quote.penaltyPct < 90 && (
               <p className="mt-1.5 border-t border-brand/15 pt-1.5 text-caption text-muted">
-                촬영 7일 전({dateFmt.format(new Date(quote.penaltyStartsAt))})부터는 환불되지
-                않습니다.
+                {quote.penaltyPct === 0 &&
+                  `${dateFmt.format(new Date(quote.penalty40StartsAt))}부터는 위약금 40%, `}
+                {dateFmt.format(new Date(quote.penalty90StartsAt))}부터는 위약금 90%가 빠집니다.
               </p>
             )}
           </div>
+        )}
+
+        {/* 환불 계좌 — 고객은 사매 계좌로 이체했으므로 돌려줄 계좌를 여기서 받는다 (취소환불 11조 2항).
+            채팅으로 물으면 검열(moderation)에 막혀 막다른 길이 된다. */}
+        {kind === "refund" && quote && quote.refundKrw > 0 && (
+          <fieldset className="mt-3 rounded-xl border border-line-strong p-3">
+            <legend className="px-1 text-caption text-muted">환불받을 계좌</legend>
+            <div className="flex flex-col gap-2">
+              <input
+                name="refundBank"
+                required
+                maxLength={30}
+                placeholder="은행 (예: 국민은행)"
+                className="rounded-lg border border-line bg-surface px-3 py-2 text-body-sm outline-none focus:border-fg/40"
+              />
+              <input
+                name="refundNumber"
+                required
+                inputMode="numeric"
+                maxLength={30}
+                placeholder="계좌번호"
+                className="rounded-lg border border-line bg-surface px-3 py-2 text-body-sm outline-none focus:border-fg/40"
+              />
+              <input
+                name="refundHolder"
+                required
+                maxLength={30}
+                placeholder="예금주"
+                className="rounded-lg border border-line bg-surface px-3 py-2 text-body-sm outline-none focus:border-fg/40"
+              />
+            </div>
+            <p className="mt-1.5 text-caption text-faint">환불은 사매가 판정한 날부터 3영업일 안에 이 계좌로 보내드려요.</p>
+          </fieldset>
         )}
 
         <label className="mt-3 block">

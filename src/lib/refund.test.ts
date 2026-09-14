@@ -1,232 +1,326 @@
-// 환불 판정 — docs/32(v2) 의 표가 그대로 통과해야 한다.
+// 환불 판정 — 취소환불정책 1.0 의 표와 5조 예시가 그대로 통과해야 한다.
 //
-// 시계가 둘이라 경계도 둘이다(결제+7일 / 촬영−7일). 겹치는 구간(§1-1)이 이 정책의
-// 가장 어려운 자리이므로 동의 유무까지 네 경우를 모두 못박는다.
+// 남은 기간은 달력 날짜(KST) 기준이다. 정책 5조의 예시(촬영 9/20)를 그대로 옮겨
+// 경계를 못박는다: 9/12 23:59 까지 = 8일 이상, 9/13~9/16 = 4~7일, 9/17~당일 = 3일 이내.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { refundQuote } from "./refund.ts";
-import { resolveFee, readFeeSnapshot, feeSpecFromRow } from "./platform-fee.ts";
+import {
+  refundQuote,
+  daysUntilShoot,
+  penaltyStarts,
+  isLateBooking,
+  lateBookingPenaltyPct,
+  refundBasisLabel,
+} from "./refund.ts";
+import {
+  resolveFee,
+  readFeeSnapshot,
+  feeSpecFromRow,
+  penaltySplit,
+  feeWithVat,
+  effectiveBurdenPct,
+} from "./platform-fee.ts";
 
-const NOW = new Date("2026-09-01T12:00:00+09:00");
+const kst = (s: string) => new Date(`${s}+09:00`);
 const iso = (d: Date) => d.toISOString();
-const shift = (base: Date, ms: number) => new Date(base.getTime() + ms);
 const DAY = 24 * 60 * 60 * 1000;
-const HOUR = 60 * 60 * 1000;
 
-// 촬영비 100,000 + 출장비 20,000, 정률 10% → 수수료 10,000
+// 촬영 9/20 14:00. 고객 지불 120,000 (촬영비 100,000 + 출장비 20,000). 수수료 20% = 24,000
+const SHOOT = kst("2026-09-20T14:00:00");
 const base = {
+  shootAt: iso(SHOOT),
   amountKrw: 120000,
   travelFeeKrw: 20000,
-  feeKrw: 10000,
-  now: NOW,
+  feeKrw: 24000,
+  feeRate: 0.2,
 };
+/** 청약철회 기간이 끝난 지 오래된 결제 */
+const PAID_LONG_AGO = iso(kst("2026-08-01T10:00:00"));
+
+// ── 남은 날수 (5조) ──────────────────────────────────────────────
+
+test("달력 날짜 차이 — 9/12 23:59 는 8일, 9/13 00:00 은 7일", () => {
+  assert.equal(daysUntilShoot(base.shootAt, null, kst("2026-09-12T23:59:00")), 8);
+  assert.equal(daysUntilShoot(base.shootAt, null, kst("2026-09-13T00:00:00")), 7);
+  assert.equal(daysUntilShoot(base.shootAt, null, kst("2026-09-16T23:59:00")), 4);
+  assert.equal(daysUntilShoot(base.shootAt, null, kst("2026-09-17T00:00:00")), 3);
+  assert.equal(daysUntilShoot(base.shootAt, null, kst("2026-09-20T09:00:00")), 0);
+  assert.equal(daysUntilShoot(base.shootAt, null, kst("2026-09-21T00:00:00")), -1);
+});
+
+test("촬영 시각이 UTC 로 날짜가 바뀌어도 KST 날짜로 센다", () => {
+  // 9/20 00:30 KST = 9/19 15:30 UTC. KST 로는 9/20 이다
+  const early = iso(kst("2026-09-20T00:30:00"));
+  assert.equal(daysUntilShoot(early, null, kst("2026-09-12T23:59:00")), 8);
+});
+
+test("구간 시작일 — 40% 는 9/13, 90% 는 9/17 (둘 다 KST 자정)", () => {
+  const s = penaltyStarts(base.shootAt, null)!;
+  assert.equal(iso(s.at40), iso(kst("2026-09-13T00:00:00")));
+  assert.equal(iso(s.at90), iso(kst("2026-09-17T00:00:00")));
+});
+
+// ── 입금 전 ──────────────────────────────────────────────────────
 
 test("입금 전이면 환불이 아니라 취소", () => {
-  const q = refundQuote({ ...base, shootAt: iso(shift(NOW, 30 * DAY)), transferMarkedAt: null });
+  const q = refundQuote({ ...base, transferMarkedAt: null, now: kst("2026-09-01T12:00:00") });
   assert.equal(q.basis, "not_paid");
   assert.equal(q.refundKrw, 0);
   assert.equal(q.feeWaived, true);
 });
 
-test("결제 7일 이내 · 촬영 7일 이상 → 100%, 아무도 손해 없음", () => {
-  const q = refundQuote({
-    ...base,
-    shootAt: iso(shift(NOW, 30 * DAY)),
-    transferMarkedAt: iso(shift(NOW, -2 * HOUR)),
-  });
-  assert.equal(q.basis, "withdrawal");
-  assert.equal(q.refundKrw, 120000);
-  assert.equal(q.feeWaived, true);
-  assert.equal(q.photographerNetKrw, 0); // 작가도 0 — 손실 없음
-});
+// ── 위약금 구간 (4조) ────────────────────────────────────────────
 
-test("청약철회 경계는 포함 — 정확히 7일 전 결제면 아직 100%", () => {
-  const q = refundQuote({
-    ...base,
-    shootAt: iso(shift(NOW, 30 * DAY)),
-    transferMarkedAt: iso(shift(NOW, -7 * DAY)),
-  });
-  assert.equal(q.basis, "withdrawal");
-});
-
-test("결제 7일 1분 경과 → 위약금 50%", () => {
-  const q = refundQuote({
-    ...base,
-    shootAt: iso(shift(NOW, 30 * DAY)),
-    transferMarkedAt: iso(shift(NOW, -7 * DAY - 60_000)),
-  });
-  assert.equal(q.basis, "penalty_50");
-  assert.equal(q.refundKrw, 60000);
-  assert.equal(q.feeKrw, 10000); // 수수료는 유지
-  assert.equal(q.photographerNetKrw, 50000); // 120,000 − 10,000 − 60,000
-});
-
-// ── 연락처 전달 (§3-3) ────────────────────────────────────────
-
-test("연락처를 받으면 청약철회 기간이 남아 있어도 구간이 닫힌다", () => {
-  // 중개 용역이 제공 완료된 시점이라 100% 구간이 끝난다
-  const q = refundQuote({
-    ...base,
-    shootAt: iso(shift(NOW, 30 * DAY)),
-    transferMarkedAt: iso(shift(NOW, -1 * HOUR)),
-    contactDeliveredAt: iso(shift(NOW, -10 * 60_000)),
-  });
-  assert.equal(q.basis, "contact_delivered");
-  assert.equal(q.refundKrw, 60000);
-  assert.match(q.reason, /연락처를 받으신 뒤라/);
-});
-
-test("작가가 보내기만 하고 고객이 받지 않았으면 그대로 100%", () => {
-  // 보낸 사실만으로는 아무것도 달라지지 않는다 — 고지·동의를 거쳐 받아야 한다
-  const q = refundQuote({
-    ...base,
-    shootAt: iso(shift(NOW, 30 * DAY)),
-    transferMarkedAt: iso(shift(NOW, -1 * HOUR)),
-    contactDeliveredAt: null,
-  });
-  assert.equal(q.basis, "withdrawal");
+test("8일 이상 전 → 0%, 전액 환불, 아무에게도 수수료 없음", () => {
+  const q = refundQuote({ ...base, transferMarkedAt: PAID_LONG_AGO, now: kst("2026-09-12T23:59:00") });
+  assert.equal(q.basis, "penalty_0");
   assert.equal(q.percent, 100);
+  assert.equal(q.refundKrw, 120000);
+  assert.equal(q.penaltyKrw, 0);
+  assert.equal(q.feeWaived, true);
+  assert.equal(q.feeKrw, 0);
+  assert.equal(q.photographerNetKrw, 0);
 });
 
-test("연락처를 받았어도 작가 귀책이면 전액 환불", () => {
+test("4~7일 전 → 40% 위약금, 60% 환불, 위약금은 작가 80 : 사매 20", () => {
+  const q = refundQuote({ ...base, transferMarkedAt: PAID_LONG_AGO, now: kst("2026-09-13T00:00:00") });
+  assert.equal(q.basis, "penalty_40");
+  assert.equal(q.percent, 60);
+  assert.equal(q.refundKrw, 72000);
+  assert.equal(q.penaltyKrw, 48000);
+  assert.equal(q.penaltyCompanyKrw, 9600);
+  assert.equal(q.penaltyPhotographerKrw, 38400);
+  // 정상 수수료(24,000)는 붙지 않는다 — 사매 몫은 위약금 배분뿐
+  assert.equal(q.feeWaived, true);
+  assert.equal(q.feeKrw, 9600);
+  assert.equal(q.photographerNetKrw, 38400);
+  // 돈이 새지 않는다
+  assert.equal(q.refundKrw + q.penaltyCompanyKrw + q.penaltyPhotographerKrw, 120000);
+});
+
+test("4일 전(9/16)까지는 40%, 3일 전(9/17)부터는 90%", () => {
+  const d4 = refundQuote({ ...base, transferMarkedAt: PAID_LONG_AGO, now: kst("2026-09-16T23:59:00") });
+  assert.equal(d4.basis, "penalty_40");
+  const d3 = refundQuote({ ...base, transferMarkedAt: PAID_LONG_AGO, now: kst("2026-09-17T00:00:00") });
+  assert.equal(d3.basis, "penalty_90");
+  assert.equal(d3.percent, 10);
+  assert.equal(d3.refundKrw, 12000);
+  assert.equal(d3.penaltyKrw, 108000);
+  assert.equal(d3.penaltyCompanyKrw, 21600);
+  assert.equal(d3.penaltyPhotographerKrw, 86400);
+});
+
+test("촬영 당일 촬영 전 취소 → 90% (노쇼가 아니다)", () => {
+  const q = refundQuote({ ...base, transferMarkedAt: PAID_LONG_AGO, now: kst("2026-09-20T09:00:00") });
+  assert.equal(q.basis, "penalty_90");
+});
+
+test("촬영이 지난 뒤 → 환불 없음, 정상 수수료 유지", () => {
+  const q = refundQuote({ ...base, transferMarkedAt: PAID_LONG_AGO, now: kst("2026-09-21T00:00:00") });
+  assert.equal(q.basis, "after_shoot");
+  assert.equal(q.refundKrw, 0);
+  assert.equal(q.feeWaived, false);
+  assert.equal(q.feeKrw, 24000);
+  assert.equal(q.photographerNetKrw, 96000);
+});
+
+// ── 취소 시점 = 신청 시각 (5조 3항) ──────────────────────────────
+
+test("신청 시각이 있으면 판정 시각이 아니라 신청 시각으로 센다", () => {
+  // 9/12 에 신청했는데 어드민이 9/15 에 판정 — 8일 구간이 맞다
   const q = refundQuote({
     ...base,
-    shootAt: iso(shift(NOW, 30 * DAY)),
-    transferMarkedAt: iso(shift(NOW, -1 * HOUR)),
-    contactDeliveredAt: iso(shift(NOW, -10 * 60_000)),
-    override: "photographer_fault",
+    transferMarkedAt: PAID_LONG_AGO,
+    requestedAt: iso(kst("2026-09-12T18:00:00")),
+    now: kst("2026-09-15T10:00:00"),
   });
+  assert.equal(q.basis, "penalty_0");
   assert.equal(q.refundKrw, 120000);
 });
 
-test("촬영 7일 경계는 고객 쪽으로 — 정확히 7일 남으면 위약금 50%", () => {
+// ── 청약철회와 임박 예약 (3조) ───────────────────────────────────
+
+test("결제 7일 이내 · 촬영 8일 이상 → 청약철회 라벨, 돈은 0% 구간과 같다", () => {
   const q = refundQuote({
     ...base,
-    shootAt: iso(shift(NOW, 7 * DAY)),
-    transferMarkedAt: iso(shift(NOW, -10 * DAY)),
-  });
-  assert.equal(q.basis, "penalty_50");
-});
-
-test("촬영 7일 1분 안쪽이면 위약금 100%", () => {
-  const q = refundQuote({
-    ...base,
-    shootAt: iso(shift(NOW, 7 * DAY - 60_000)),
-    transferMarkedAt: iso(shift(NOW, -10 * DAY)),
-  });
-  assert.equal(q.basis, "penalty_100");
-  assert.equal(q.refundKrw, 0);
-});
-
-// ── 두 시계가 겹칠 때 (§1-1) ──────────────────────────────────
-
-test("임박 예약 + 동의 없음 → 청약철회가 이긴다 (전액 환불)", () => {
-  const q = refundQuote({
-    ...base,
-    shootAt: iso(shift(NOW, 2 * DAY)), // 촬영 임박
-    transferMarkedAt: iso(shift(NOW, -1 * HOUR)), // 결제 직후
+    transferMarkedAt: iso(kst("2026-09-10T10:00:00")),
+    now: kst("2026-09-12T10:00:00"),
   });
   assert.equal(q.basis, "withdrawal");
   assert.equal(q.refundKrw, 120000);
   assert.equal(q.feeWaived, true);
 });
 
-test("임박 예약 + 동의 있음 → 위약금 100% 를 주장할 수 있다", () => {
+test("임박 예약(결제 시 촬영 7일 이하) + 동의 없음 → 결제 직후라도 전액 환불", () => {
   const q = refundQuote({
     ...base,
-    shootAt: iso(shift(NOW, 2 * DAY)),
-    transferMarkedAt: iso(shift(NOW, -1 * HOUR)),
-    lateBookingConsentAt: iso(shift(NOW, -1 * HOUR)),
+    transferMarkedAt: iso(kst("2026-09-14T10:00:00")),
+    lateBookingConsentAt: null,
+    now: kst("2026-09-15T10:00:00"), // 5일 남음
   });
-  assert.equal(q.basis, "penalty_100");
-  assert.equal(q.refundKrw, 0);
+  assert.equal(q.basis, "withdrawal");
+  assert.equal(q.refundKrw, 120000);
 });
 
-test("동의가 있어도 촬영이 멀면 청약철회가 그대로 적용된다", () => {
-  // 여유 있게 잡은 예약에 동의 기록이 남아 있어도, 촬영이 임박하지 않으면 위약금 근거가 없다
+test("임박 예약 + 동의 있음 → 결제 직후라도 구간 위약금(40%)", () => {
   const q = refundQuote({
     ...base,
-    shootAt: iso(shift(NOW, 30 * DAY)),
-    transferMarkedAt: iso(shift(NOW, -1 * HOUR)),
-    lateBookingConsentAt: iso(shift(NOW, -1 * HOUR)),
+    transferMarkedAt: iso(kst("2026-09-14T10:00:00")),
+    lateBookingConsentAt: iso(kst("2026-09-14T09:59:00")),
+    now: kst("2026-09-15T10:00:00"),
+  });
+  assert.equal(q.basis, "penalty_40");
+  assert.equal(q.refundKrw, 72000);
+});
+
+test("결제 7일이 지나면 동의가 없어도 구간 위약금이 그대로 적용된다", () => {
+  const q = refundQuote({
+    ...base,
+    transferMarkedAt: iso(kst("2026-09-05T10:00:00")),
+    lateBookingConsentAt: null,
+    now: kst("2026-09-15T10:00:00"),
+  });
+  assert.equal(q.basis, "penalty_40");
+});
+
+test("청약철회 경계 — 정확히 7일째는 아직 기간 안", () => {
+  const paid = kst("2026-09-01T10:00:00");
+  const q = refundQuote({
+    ...base,
+    transferMarkedAt: iso(paid),
+    lateBookingConsentAt: null,
+    now: new Date(paid.getTime() + 7 * DAY), // 9/8 — 촬영까지 12일
   });
   assert.equal(q.basis, "withdrawal");
 });
 
-test("동의 있는 임박 예약도 청약철회 기간이 지나면 같은 결론(위약금 100%)", () => {
-  const q = refundQuote({
-    ...base,
-    shootAt: iso(shift(NOW, 2 * DAY)),
-    transferMarkedAt: iso(shift(NOW, -10 * DAY)),
-    lateBookingConsentAt: iso(shift(NOW, -10 * DAY)),
-  });
-  assert.equal(q.basis, "penalty_100");
-});
+// ── 운영 판정 ────────────────────────────────────────────────────
 
-test("시각 없는 옛 예약은 그날 23:59 기준 — 경계가 고객에게 유리하게 잡힌다", () => {
-  // 9/8 23:59 는 9/1 12:00 에서 7일 이상 뒤 → 위약금 50% 구간
-  const q = refundQuote({
-    ...base,
-    shootAt: null,
-    shootDate: "2026-09-08",
-    transferMarkedAt: iso(shift(NOW, -10 * DAY)),
-  });
-  assert.equal(q.basis, "penalty_50");
-});
-
-test("작가 귀책 — 촬영 임박이어도 전액 환불하고 수수료는 작가가 문다", () => {
-  const q = refundQuote({
-    ...base,
-    shootAt: iso(shift(NOW, 1 * DAY)),
-    transferMarkedAt: iso(shift(NOW, -10 * DAY)),
-    override: "photographer_fault",
-  });
-  assert.equal(q.refundKrw, 120000);
-  assert.equal(q.feeWaived, false);
-  assert.equal(q.photographerNetKrw, -10000); // 수수료만큼 마이너스
-});
-
-test("천재지변 — 전액 환불에 수수료도 면제, 작가는 0", () => {
-  const q = refundQuote({
-    ...base,
-    shootAt: iso(shift(NOW, 1 * DAY)),
-    transferMarkedAt: iso(shift(NOW, -10 * DAY)),
-    override: "force_majeure",
-  });
+test("천재지변 — 전액 환불, 수수료 없음, 작가 0", () => {
+  const q = refundQuote({ ...base, transferMarkedAt: PAID_LONG_AGO, override: "force_majeure", now: kst("2026-09-19T10:00:00") });
+  assert.equal(q.basis, "force_majeure");
   assert.equal(q.refundKrw, 120000);
   assert.equal(q.feeWaived, true);
   assert.equal(q.photographerNetKrw, 0);
 });
 
-// ── 수수료 모델 ────────────────────────────────────────────────
+test("작가 사정 — 촬영 임박이어도 전액 환불하고 수수료 상당액을 작가에게 청구", () => {
+  const q = refundQuote({ ...base, transferMarkedAt: PAID_LONG_AGO, override: "photographer_fault", now: kst("2026-09-19T10:00:00") });
+  assert.equal(q.basis, "photographer_fault");
+  assert.equal(q.refundKrw, 120000);
+  assert.equal(q.feeClaimKrw, 24000);
+  assert.equal(q.photographerNetKrw, -24000);
+});
 
-test("설정 없는 작가는 전역 정액 6,000", () => {
-  const f = resolveFee(null, 100000);
-  assert.equal(f.mode, "flat");
+test("작가 노쇼 — 작가 사정과 같은 돈, 이력용 라벨만 다르다", () => {
+  const q = refundQuote({ ...base, transferMarkedAt: PAID_LONG_AGO, override: "photographer_no_show", now: kst("2026-09-21T10:00:00") });
+  assert.equal(q.basis, "photographer_no_show");
+  assert.equal(q.refundKrw, 120000);
+  assert.equal(q.feeClaimKrw, 24000);
+});
+
+test("고객 노쇼 — 위약금 100%, 작가 80 : 사매 20", () => {
+  const q = refundQuote({ ...base, transferMarkedAt: PAID_LONG_AGO, override: "customer_no_show", now: kst("2026-09-21T10:00:00") });
+  assert.equal(q.basis, "customer_no_show");
+  assert.equal(q.refundKrw, 0);
+  assert.equal(q.penaltyKrw, 120000);
+  assert.equal(q.penaltyCompanyKrw, 24000);
+  assert.equal(q.photographerNetKrw, 96000);
+});
+
+test("부분 이행 — 운영이 정한 환불액, 나머지는 위약금처럼 배분", () => {
+  const q = refundQuote({ ...base, transferMarkedAt: PAID_LONG_AGO, override: "partial", manualRefundKrw: 30000, now: kst("2026-09-21T10:00:00") });
+  assert.equal(q.basis, "partial");
+  assert.equal(q.refundKrw, 30000);
+  assert.equal(q.penaltyKrw, 90000);
+  assert.equal(q.penaltyCompanyKrw, 18000);
+  assert.equal(q.penaltyPhotographerKrw, 72000);
+});
+
+test("부분 이행 환불액이 총액을 넘으면 총액까지만", () => {
+  const q = refundQuote({ ...base, transferMarkedAt: PAID_LONG_AGO, override: "partial", manualRefundKrw: 999999, now: kst("2026-09-21T10:00:00") });
+  assert.equal(q.refundKrw, 120000);
+});
+
+// ── 기타 ─────────────────────────────────────────────────────────
+
+test("시각 없는 예약은 그날 23:59 기준 — 촬영 당일 자정 직전까지 90%", () => {
+  const q = refundQuote({
+    ...base,
+    shootAt: null,
+    shootDate: "2026-09-20",
+    transferMarkedAt: PAID_LONG_AGO,
+    now: kst("2026-09-20T23:00:00"),
+  });
+  assert.equal(q.basis, "penalty_90");
+});
+
+test("촬영일을 모르면 고객에게 유리하게 전액", () => {
+  const q = refundQuote({ ...base, shootAt: null, shootDate: null, transferMarkedAt: PAID_LONG_AGO, now: kst("2026-09-01T10:00:00") });
+  assert.equal(q.basis, "penalty_0");
+  assert.equal(q.refundKrw, 120000);
+});
+
+test("요율이 10% 인 작가는 위약금 사매 몫도 10%", () => {
+  const q = refundQuote({ ...base, feeRate: 0.1, transferMarkedAt: PAID_LONG_AGO, now: kst("2026-09-13T00:00:00") });
+  assert.equal(q.penaltyCompanyKrw, 4800);
+  assert.equal(q.penaltyPhotographerKrw, 43200);
+});
+
+test("임박 예약 판정과 그때의 위약금 비율", () => {
+  assert.equal(isLateBooking(base.shootAt, null, kst("2026-09-12T10:00:00")), false); // 8일
+  assert.equal(isLateBooking(base.shootAt, null, kst("2026-09-13T10:00:00")), true); // 7일
+  assert.equal(lateBookingPenaltyPct(base.shootAt, null, kst("2026-09-13T10:00:00")), 40);
+  assert.equal(lateBookingPenaltyPct(base.shootAt, null, kst("2026-09-18T10:00:00")), 90);
+});
+
+test("옛 규정의 basis 값도 라벨이 있다 — refund_reason 에 남아 있는 행", () => {
+  assert.match(refundBasisLabel("penalty_50"), /옛 규정/);
+  assert.match(refundBasisLabel("contact_delivered"), /옛 규정/);
+  assert.equal(refundBasisLabel("penalty_40"), "촬영 4~7일 전 (위약금 40%)");
+  assert.equal(refundBasisLabel(null), "");
+});
+
+// ── 수수료 (platform-fee.ts) ────────────────────────────────────
+
+test("설정 없는 작가는 정률 20%, 기준은 촬영 대금 전체", () => {
+  const f = resolveFee(null, 120000);
+  assert.equal(f.mode, "rate");
+  assert.equal(f.feeKrw, 24000);
+  assert.equal(f.vatKrw, 2400);
+  assert.equal(feeWithVat(f), 26400);
+  assert.equal(f.baseKrw, 120000);
+});
+
+test("정액을 명시한 작가는 정액, 대금보다 크면 대금까지만", () => {
+  const f = resolveFee({ mode: "flat", amountKrw: 6000 }, 120000);
   assert.equal(f.feeKrw, 6000);
+  assert.equal(f.vatKrw, 600);
+  assert.equal(resolveFee({ mode: "flat", amountKrw: 6000 }, 4000).feeKrw, 4000);
 });
 
-test("정률 10% 는 촬영비에만 붙는다", () => {
-  const f = resolveFee({ mode: "rate", rate: 0.1 }, 100000);
-  assert.equal(f.feeKrw, 10000);
-  assert.equal(f.shootFeeKrw, 100000);
+test("정률인데 요율이 비면 기본 20% 로 받는다 — 매출이 조용히 0 이 되지 않게", () => {
+  assert.equal(resolveFee({ mode: "rate", rate: null }, 100000).feeKrw, 20000);
 });
 
-test("정률인데 요율이 비면 기본 10% 로 받는다 — 매출이 조용히 0 이 되지 않게", () => {
-  assert.equal(resolveFee({ mode: "rate", rate: null }, 100000).feeKrw, 10000);
+test("row → spec — fee_mode 가 비어 있으면 정률(기본)", () => {
+  assert.equal(feeSpecFromRow({ fee_mode: null }).mode, "rate");
+  assert.equal(feeSpecFromRow({ fee_mode: "flat", fee_amount_krw: 6000 }).mode, "flat");
+  assert.equal(feeSpecFromRow({ fee_mode: "rate", fee_rate: "0.1000" as unknown as number }).rate, 0.1);
 });
 
-test("정액이 촬영비보다 크면 촬영비까지만", () => {
-  assert.equal(resolveFee({ mode: "flat", amountKrw: 6000 }, 3000).feeKrw, 3000);
+test("옛 스냅샷(baseKrw·vatKrw 없음)도 읽힌다 — 수수료 금액은 그대로, 부가세는 계산해 채운다", () => {
+  const old = readFeeSnapshot({ mode: "rate", rate: 0.1, shootFeeKrw: 100000, feeKrw: 10000 });
+  assert.ok(old);
+  assert.equal(old.feeKrw, 10000);
+  assert.equal(old.baseKrw, 100000);
+  assert.equal(old.vatKrw, 1000);
+  assert.equal(readFeeSnapshot({ feeKrw: "x" }), null);
 });
 
-test("row → spec 변환은 numeric 문자열도 받는다", () => {
-  const spec = feeSpecFromRow({ fee_mode: "rate", fee_rate: 0.15 as unknown as number });
-  assert.equal(resolveFee(spec, 100000).feeKrw, 15000);
-});
-
-test("스냅샷은 깨져 있어도 화면을 죽이지 않는다", () => {
-  assert.equal(readFeeSnapshot(null), null);
-  assert.equal(readFeeSnapshot({ nope: 1 }), null);
-  assert.equal(readFeeSnapshot({ mode: "rate", rate: 0.1, shootFeeKrw: 100000, feeKrw: 10000 })?.feeKrw, 10000);
+test("위약금 배분과 사업자 유형별 실질 부담", () => {
+  assert.deepEqual(penaltySplit(48000, 0.2), { companyKrw: 9600, photographerKrw: 38400 });
+  assert.equal(effectiveBurdenPct("general"), 20);
+  assert.equal(effectiveBurdenPct("simplified"), 22);
+  assert.equal(effectiveBurdenPct("unregistered"), 22);
 });

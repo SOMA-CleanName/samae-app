@@ -29,6 +29,7 @@ type Row = {
   body: string;
   status: string;
   admin_note: string | null;
+  refund_account: { bank?: string; number?: string; holder?: string } | null;
   created_at: string;
   resolved_at: string | null;
 };
@@ -171,6 +172,14 @@ function RequestCard({
       </div>
 
       <p className="mt-2 whitespace-pre-wrap text-body-sm text-fg">{r.body}</p>
+
+      {/* 환불 계좌 — 취소 신청 때 고객이 적은 것. 거래 화면에서 환불 처리한 뒤 여기로 송금한다 */}
+      {r.refund_account?.number && (
+        <p className="mt-2 rounded-lg bg-surface-2 px-3 py-2 text-caption text-fg">
+          환불 계좌 · {r.refund_account.bank} <span className="font-mono">{r.refund_account.number}</span>{" "}
+          {r.refund_account.holder}
+        </p>
+      )}
 
       {booking && (
         <p className="mt-2 text-caption text-faint">

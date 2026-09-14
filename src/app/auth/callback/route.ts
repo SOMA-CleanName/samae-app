@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requestOrigin, safeNext } from "@/lib/safe-redirect";
 import { readAnonFavPhotoIds, ANON_FAV_COOKIE } from "@/lib/anon-favorites";
 import { extractKakaoPhone } from "@/lib/kakao-phone";
+import { needsTermsConsent } from "@/lib/consent";
 
 const OAUTH_NEXT_COOKIE = "samae_oauth_next";
 
@@ -33,9 +34,14 @@ export async function GET(request: Request) {
       await adoptKakaoPhone(supabase);
       // 연락처 없는 계정(첫 소셜 가입 포함) → 가입 마무리(전화번호 등록)를 거쳐 복귀.
       // SMS(작가 답장 알림)가 profiles.phone 에 의존하므로 이 단계는 건너뛸 수 없다.
-      const dest = (await needsContact(supabase))
+      let dest = (await needsContact(supabase))
         ? `/signup/contact?next=${encodeURIComponent(next)}`
         : next;
+      // 약관 동의가 없는 계정(첫 소셜 가입) → 동의 화면을 먼저 거친다. 연락처보다 앞이다 —
+      // 개인정보(전화번호)를 받기 전에 처리방침 동의가 있어야 한다.
+      if (await needsTermsConsent(supabase)) {
+        dest = `/signup/consent?next=${encodeURIComponent(dest)}`;
+      }
       const res = NextResponse.redirect(`${origin}${dest}`);
       res.cookies.delete(OAUTH_NEXT_COOKIE);
       res.cookies.delete(ANON_FAV_COOKIE);

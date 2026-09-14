@@ -40,6 +40,12 @@ export async function submitSupportRequest(formData: FormData): Promise<void> {
     role = "customer";
   }
 
+  // 취소 신청이면 환불 계좌를 함께 받는다 — 사매 계좌로 이체한 돈을 돌려줄 곳 (취소환불 11조 2항)
+  const bank = String(formData.get("refundBank") || "").trim().slice(0, 30);
+  const number = String(formData.get("refundNumber") || "").replace(/[^0-9-]/g, "").slice(0, 30);
+  const holder = String(formData.get("refundHolder") || "").trim().slice(0, 30);
+  const refundAccount = kind === "refund" && bank && number && holder ? { bank, number, holder } : null;
+
   const { error } = await admin.from("support_requests").insert({
     booking_id: bookingId,
     conversation_id: conversationId,
@@ -47,12 +53,13 @@ export async function submitSupportRequest(formData: FormData): Promise<void> {
     requester_role: role,
     kind,
     body,
+    refund_account: refundAccount,
   });
   if (error) throw new Error(error.message);
 
-  // 환불 요청이 들어온 순간이 곧 '사유 확정일' 이다 — 여기서부터 3영업일 안에 환급해야 하고,
+  // 취소 신청이 들어온 순간이 곧 '취소 시점'(취소환불 5조 3항)이자 환급 기한의 기산점이다 —
+  // 위약금 구간은 이 시각으로 판정하고(lib/refund.ts requestedAt), 여기서부터 3영업일 안에 환급해야 한다.
   // 넘기면 연 15% 지연이자가 법정 의무로 붙는다(전자상거래법 제18조 제2항).
-  // 수동 처리라 주말이 끼면 그냥 넘어가므로, 기산 시각을 남겨 어드민이 볼 수 있게 한다.
   if (kind === "refund" && bookingId) {
     await admin
       .from("bookings")

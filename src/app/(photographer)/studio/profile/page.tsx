@@ -17,6 +17,9 @@ export type ProfileInitial = {
   bankName: string;
   accountNumber: string;
   accountHolder: string;
+  legalName: string;
+  businessType: string;
+  businessNo: string;
 };
 
 // 작가 프로필 편집
@@ -28,7 +31,7 @@ export default async function ProfilePage() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("photographers")
-    .select("display_name, bio, regions, mood_tags, price_from_krw, contact_methods")
+    .select("display_name, bio, regions, mood_tags, price_from_krw, contact_methods, legal_name, business_type, business_no")
     .eq("id", me.photographer.id)
     .single();
 
@@ -48,6 +51,9 @@ export default async function ProfilePage() {
     bankName: acct?.bank ?? "",
     accountNumber: acct?.number ?? "",
     accountHolder: acct?.holder ?? "",
+    legalName: data?.legal_name ?? "",
+    businessType: data?.business_type ?? "",
+    businessNo: data?.business_no ?? "",
   };
 
   return (

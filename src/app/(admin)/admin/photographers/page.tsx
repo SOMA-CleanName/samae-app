@@ -13,7 +13,7 @@ import {
   updateDefaultLeadPrice,
   updatePhotographerFee,
 } from "./actions";
-import { feeSpecFromRow, feeSpecLabel } from "@/lib/platform-fee";
+import { DEFAULT_FEE_RATE, feeSpecFromRow, feeSpecLabel } from "@/lib/platform-fee";
 
 export const dynamic = "force-dynamic";
 
@@ -26,7 +26,7 @@ type Row = {
   price_from_krw: number;
   // 리드 단가 — null 이면 기본 단가를 따른다
   lead_price_krw: number | null;
-  // 중개 수수료 — 미설정이면 전역 기본(정액 6,000). docs/32
+  // 중개 수수료 — 기본은 정률 20%(수수료정책 1조). 정액은 옛 모델로 명시한 작가만.
   fee_mode: string | null;
   fee_amount_krw: number | null;
   fee_rate: number | null;
@@ -231,7 +231,7 @@ export default async function AdminPhotographersPage() {
                       {r.lead_price_krw === null && " (기본)"}
                       {" · 수수료 "}
                       {feeSpecLabel(feeSpecFromRow(r))}
-                      {r.fee_mode !== "rate" && r.fee_amount_krw === null && " (기본)"}
+                      {r.fee_mode === "rate" && Number(r.fee_rate ?? DEFAULT_FEE_RATE) === DEFAULT_FEE_RATE && " (기본)"}
                     </p>
                   </div>
                 </div>
@@ -333,13 +333,13 @@ function LeadPriceForm({ row, defaultLeadPrice }: { row: Row; defaultLeadPrice: 
   );
 }
 
-// 작가별 중개 수수료 — 정액(원)과 정률(%)을 한 자리에서 고른다.
+// 작가별 중개 수수료 — 정률(%)이 기본이고, 정액(원)은 옛 모델로 남겨둔 것이다.
 //
-// 요율은 퍼센트로 받고 저장할 때 비율로 바꾼다 (0.1 대신 10 을 넣는 사고가 잦아서다).
-// 정액을 비우고 저장하면 전역 기본값으로 되돌아간다. 이미 제안된 예약은 스냅샷으로
-// 굳어 있어 여기서 바꿔도 소급되지 않는다. (docs/32 §2)
+// 요율은 퍼센트로 받고 저장할 때 비율로 바꾼다 (0.2 대신 20 을 넣는 사고가 잦아서다).
+// 부가세는 여기 요율에 포함되지 않는다 — 정산 때 별도로 뺀다. 이미 제안된 예약은 스냅샷으로
+// 굳어 있어 여기서 바꿔도 소급되지 않는다. (수수료정책 1조·2조)
 function FeeForm({ row }: { row: Row }) {
-  const isRate = row.fee_mode === "rate";
+  const isRate = row.fee_mode !== "flat";
   return (
     <form action={updatePhotographerFee} className="flex items-center gap-1.5">
       <input type="hidden" name="id" value={row.id} />
@@ -349,14 +349,14 @@ function FeeForm({ row }: { row: Row }) {
         aria-label={`${row.display_name || "작가"} 수수료 방식`}
         className="cursor-pointer rounded-full border border-line-strong bg-bg px-2.5 py-1.5 text-caption text-fg focus:border-fg/30 focus:outline-none"
       >
-        <option value="flat">정액</option>
-        <option value="rate">정률</option>
+        <option value="rate">정률 (%, 부가세 별도)</option>
+        <option value="flat">정액 (옛 모델)</option>
       </select>
       <input
         name="value"
         inputMode="numeric"
-        defaultValue={isRate ? String(+(Number(row.fee_rate ?? 0) * 100).toFixed(2)) : row.fee_amount_krw === null ? "" : String(row.fee_amount_krw)}
-        placeholder={isRate ? "10" : fmt.format(6000)}
+        defaultValue={isRate ? String(+(Number(row.fee_rate ?? DEFAULT_FEE_RATE) * 100).toFixed(2)) : row.fee_amount_krw === null ? "" : String(row.fee_amount_krw)}
+        placeholder={isRate ? String(DEFAULT_FEE_RATE * 100) : fmt.format(6000)}
         aria-label={`${row.display_name || "작가"} 수수료 값`}
         className="w-20 rounded-full border border-line-strong bg-bg px-3 py-1.5 text-body-sm text-fg placeholder:text-faint focus:border-fg/30 focus:outline-none"
       />

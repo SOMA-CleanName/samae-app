@@ -10,9 +10,9 @@ import { useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui";
 import { SelectCheckbox } from "@/components/admin/DeleteMode";
-import type { RefundQuote } from "@/lib/refund";
+import { refundBasisLabel, type RefundQuote } from "@/lib/refund";
 import type { BookingFieldValue } from "@/lib/booking-fields";
-import { adminSettleNow, adminMarkSettled, adminMarkDepositAndSettle } from "./actions";
+import { adminConfirmTransfer, adminMarkSettled, adminMarkDepositAndConfirm } from "./actions";
 import { AdminRefundButton } from "./AdminRefundButton";
 import { AdminCancelButton } from "./AdminCancelButton";
 
@@ -51,6 +51,7 @@ export type BookingRow = {
   transfer_marked_at: string | null;
   paid_at: string | null;
   settled_at: string | null;
+  delivered_at: string | null;
   settlement_amount_krw: number | null;
   cancelled_at: string | null;
   cancel_reason: string | null;
@@ -198,6 +199,7 @@ function BookingDetail({ b }: { b: BookingRow }) {
         {b.cancelled_at && (
           <p className="mt-1.5 text-caption text-danger">
             {b.refunded_at ? "환불됨" : "취소됨"} {stamp(b.cancelled_at)}
+            {b.refund_reason ? ` · ${refundBasisLabel(b.refund_reason)}` : ""}
             {b.cancel_reason ? ` — ${b.cancel_reason}` : ""}
           </p>
         )}
@@ -225,12 +227,14 @@ function BookingDetail({ b }: { b: BookingRow }) {
           <p className="text-caption font-semibold text-muted">지금 환불하면</p>
           <p className="mt-1 text-caption text-fg">
             <b>{b.refund.percent}% · ₩{fmt.format(b.refund.refundKrw)}</b> 고객 환불 ·{" "}
-            수수료 {b.refund.feeWaived ? "면제" : `₩${fmt.format(b.refund.feeKrw)} 유지`} ·{" "}
-            작가{" "}
-            <b className={b.refund.photographerNetKrw < 0 ? "text-danger" : ""}>
-              {b.refund.photographerNetKrw < 0 ? "−" : ""}₩
-              {fmt.format(Math.abs(b.refund.photographerNetKrw))}
-            </b>
+            {b.refund.penaltyKrw > 0
+              ? `위약금 ₩${fmt.format(b.refund.penaltyKrw)} (작가 ₩${fmt.format(b.refund.penaltyPhotographerKrw)} · 사매 ₩${fmt.format(b.refund.penaltyCompanyKrw)})`
+              : b.refund.feeClaimKrw > 0
+                ? `작가에게 수수료 상당액 ₩${fmt.format(b.refund.feeClaimKrw)} 청구`
+                : b.refund.feeWaived
+                  ? "수수료 없음"
+                  : `수수료 ₩${fmt.format(b.refund.feeKrw)} 유지`}
+            {b.refund.daysUntilShoot != null && ` · 촬영까지 ${b.refund.daysUntilShoot}일`}
           </p>
           <p className="mt-0.5 text-caption text-faint">{b.refund.reason}</p>
         </section>
@@ -249,29 +253,29 @@ function BookingDetail({ b }: { b: BookingRow }) {
         {/* 고객이 [입금 완료] 를 안 누른 건 — 통장에 돈이 들어왔으면 운영이 대신 표시한다.
             버튼은 '고객이 알렸다' 는 신호일 뿐이고 확인 주체는 어차피 사매다. */}
         {b.status === "accepted" && !b.transfer_marked_at && (
-          <form action={adminMarkDepositAndSettle}>
+          <form action={adminMarkDepositAndConfirm}>
             <input type="hidden" name="id" value={b.id} />
             <button className="cursor-pointer rounded-lg bg-fg px-3 py-1.5 text-caption font-semibold text-bg hover:opacity-90">
-              입금 확인 · 정산 (고객 미표시)
+              입금 확인 (고객 미표시)
             </button>
           </form>
         )}
 
-        {/* 입금 확인 + 정산 — 고객이 입금을 알린 건만 */}
+        {/* 입금 확인 — 고객이 입금을 알린 건만. 정산은 결과물 전달 뒤에 따로 */}
         {b.status === "accepted" && b.transfer_marked_at && (
-          <form action={adminSettleNow}>
+          <form action={adminConfirmTransfer}>
             <input type="hidden" name="id" value={b.id} />
             <button className="cursor-pointer rounded-lg bg-fg px-3 py-1.5 text-caption font-semibold text-bg hover:opacity-90">
-              확인 · 정산
+              입금 확인
             </button>
           </form>
         )}
 
-        {/* 정산 누락 보정 — 확인은 됐는데 기록이 없는 건 */}
-        {["paid", "shot", "delivered", "completed"].includes(b.status) && !b.settled_at && (
+        {/* 정산 완료 — 결과물이 전달된 건만 (수수료정책 3조 1항). 실제 송금은 사람이 하고 여기서 기록한다 */}
+        {["paid", "shot", "delivered", "completed"].includes(b.status) && !!b.delivered_at && !b.settled_at && (
           <form action={adminMarkSettled}>
             <input type="hidden" name="id" value={b.id} />
-            <button className="cursor-pointer rounded-lg border border-warning/40 bg-warning-soft px-3 py-1.5 text-caption font-semibold text-warning hover:opacity-90">
+            <button className="cursor-pointer rounded-lg border border-line-strong px-3 py-1.5 text-caption font-semibold text-fg hover:bg-fg/[0.04]">
               정산 완료 마킹
             </button>
           </form>
