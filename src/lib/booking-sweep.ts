@@ -45,3 +45,56 @@ export async function markPastShootsAsShot(): Promise<{
 
   return { ok: true, moved: rows.length };
 }
+
+// ── 결과물 전달 기한 초과 알림 ───────────────────────────────────
+// 기한이 지났는데 아직 전달이 없으면 양쪽에 한 번 알린다. 14일 이상 넘기면 고객은
+// 전액 환불을 요구할 수 있다(취소환불 10조 2항) — 그 사실도 고객 알림에 적는다.
+// 어드민 강조는 거래 화면이 delivery_due_at 을 보고 직접 그린다.
+export async function notifyDeliveryOverdue(now: Date = new Date()): Promise<{
+  ok: boolean;
+  notified: number;
+  error?: string;
+}> {
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("bookings")
+    .select("id, user_id, photographer_id, delivery_due_at")
+    .in("status", ["paid", "shot"])
+    .is("delivered_at", null)
+    .is("notice_delivery_overdue_at", null)
+    .not("delivery_due_at", "is", null)
+    .lt("delivery_due_at", now.toISOString());
+  if (error) return { ok: false, notified: 0, error: error.message };
+
+  const rows = (data ?? []) as { id: string; user_id: string; photographer_id: string; delivery_due_at: string }[];
+  const stamp = now.toISOString();
+  for (const b of rows) {
+    const { data: ph } = await admin
+      .from("photographers")
+      .select("profile_id")
+      .eq("id", b.photographer_id)
+      .maybeSingle();
+    await admin.from("notifications").insert([
+      {
+        recipient_id: b.user_id,
+        type: "booking",
+        title: "결과물 전달 기한이 지났어요",
+        body: "작가님께 전달을 요청해 주세요. 기한을 14일 이상 넘기면 사매에 전액 환불을 요청할 수 있어요.",
+        link: `/bookings/${b.id}`,
+      },
+      ...(ph
+        ? [
+            {
+              recipient_id: ph.profile_id,
+              type: "booking",
+              title: "결과물 전달 기한이 지났어요",
+              body: "결과물을 전달하고 채팅의 [전달 완료]를 눌러주세요. 14일 이상 늦으면 고객이 전액 환불을 요구할 수 있어요.",
+              link: `/bookings/${b.id}`,
+            },
+          ]
+        : []),
+    ]);
+    await admin.from("bookings").update({ notice_delivery_overdue_at: stamp }).eq("id", b.id);
+  }
+  return { ok: true, notified: rows.length };
+}

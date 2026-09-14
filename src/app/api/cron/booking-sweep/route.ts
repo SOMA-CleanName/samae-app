@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { markPastShootsAsShot } from "@/lib/booking-sweep";
+import { markPastShootsAsShot, notifyDeliveryOverdue } from "@/lib/booking-sweep";
 
 // 예약 자동 전이 크론 — 매일 05:00 KST(= 20:00 UTC 전날).
 // 촬영 시각이 지난 예약을 '촬영 완료' 로 넘긴다. 작가가 버튼을 누르지 않아
@@ -20,5 +20,7 @@ export async function GET(request: Request) {
   }
 
   const result = await markPastShootsAsShot();
-  return NextResponse.json(result, { status: result.ok ? 200 : 500 });
+  // 같은 크론 안에서 전달 기한 초과도 본다 — 새 크론을 늘리지 않는다 (docs/35)
+  const overdue = await notifyDeliveryOverdue();
+  return NextResponse.json({ ...result, overdue }, { status: result.ok && overdue.ok ? 200 : 500 });
 }

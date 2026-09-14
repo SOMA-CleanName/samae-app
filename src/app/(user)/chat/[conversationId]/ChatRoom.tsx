@@ -28,6 +28,7 @@ import { AcceptPayDialog } from "./AcceptPayDialog";
 import { SupportButton } from "@/components/user/SupportButton";
 import { BookingDetailDialog, bookingWhen } from "./BookingDetailDialog";
 import { ContactCardBubble, SendContactCardButton, SendContactMenuItem } from "./ContactHandover";
+import { DeliveryDueLine, ExtensionCardBubble, ExtensionRequestButton } from "./DeliveryExtension";
 import type { GuideImage } from "@/lib/guide-images";
 import { readStoredFieldValues } from "@/lib/booking-fields";
 import {
@@ -48,7 +49,7 @@ import {
 const fmt = new Intl.NumberFormat("ko-KR");
 
 const BOOKING_COLS =
-  "id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, custom_fields, transfer_marked_at, late_booking_consent_at, contact_sent_at, contact_delivered_at, contact_payload, proposed_by_photographer, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at";
+  "id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, custom_fields, transfer_marked_at, late_booking_consent_at, contact_sent_at, contact_delivered_at, contact_payload, proposed_by_photographer, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at, delivery_due_at, delivery_extension_proposed_to, delivered_at";
 
 // 메시지 작성 시각 (카카오톡식 HH:MM)
 function timeLabel(iso: string) {
@@ -525,6 +526,19 @@ export function ChatRoom({
               </div>
             ) : null;
           const rendered = (() => {
+          // 전달 기한 연장 요청 카드 — 고객이 동의/거절한다
+          if (m.type === "extension_card" && m.booking) {
+            return (
+              <ExtensionCardBubble
+                key={m.id}
+                bookingId={m.booking.id}
+                proposedTo={m.booking.delivery_extension_proposed_to}
+                dueAt={m.booking.delivery_due_at}
+                amCustomer={amCustomer}
+                requestedLabel={m.body}
+              />
+            );
+          }
           // 연락처 전달 카드 — 대화의 한 사건이므로 타임라인에 남는다
           if (m.type === "contact_card" && m.booking) {
             return (
@@ -1309,6 +1323,25 @@ function BookingCard({
         />
       )}
 
+      {/* 결과물 전달 기한 — 입금 확인 뒤부터 전달 전까지. 작가는 여기서 연장을 요청한다 */}
+      {["paid", "shot"].includes(status) && (
+        <>
+          <DeliveryDueLine
+            dueAt={booking.delivery_due_at}
+            deliveredAt={booking.delivered_at}
+            proposedTo={booking.delivery_extension_proposed_to}
+            amCustomer={amCustomer}
+          />
+          {amPhotographer && !booking.delivered_at && (
+            <ExtensionRequestButton
+              bookingId={booking.id}
+              dueAt={booking.delivery_due_at}
+              proposedTo={booking.delivery_extension_proposed_to}
+            />
+          )}
+        </>
+      )}
+
       {/* 작가: 연락처 보내기 — + 메뉴와 같은 일. 예약을 확인하다 떠올리는 자리이기도 하다 */}
       {amPhotographer && ["paid", "shot", "delivered"].includes(status) && (
         <SendContactCardButton
@@ -1404,6 +1437,10 @@ function BookingCard({
           서비스 안에 창구를 하나 더 만들면 어디로 말해야 할지만 헷갈린다. */}
       {amCustomer && (paidMarked || ["paid", "shot"].includes(status)) && (
         <SupportButton bookingId={booking.id} conversationId={conversationId} />
+      )}
+      {/* 작가: 입금 후 촬영 취소는 사매에 접수한다 — 전액 환불·수수료 청구가 걸린 사안 (취소환불 8조) */}
+      {amPhotographer && ["paid", "shot"].includes(status) && (
+        <SupportButton bookingId={booking.id} conversationId={conversationId} role="photographer" />
       )}
 
       {!paidMarked && ((amProposer && status === "requested") || status === "accepted") && (

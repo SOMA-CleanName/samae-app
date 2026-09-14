@@ -49,6 +49,7 @@ type DbBooking = {
   transfer_marked_at: string | null;
   settled_at: string | null;
   delivered_at: string | null;
+  delivery_due_at: string | null;
   settlement_amount_krw: number | null;
   settlement_ack_at: string | null;
   settlement_dispute_at: string | null;
@@ -66,7 +67,7 @@ export default async function AdminTransactionsPage() {
   const { data: bData } = await admin
     .from("bookings")
     .select(
-      "id, status, amount_krw, shoot_at, shoot_date, fee_snapshot, refunded_at, refund_reason, late_booking_consent_at, contact_delivered_at, refund_due_at, created_at, accepted_at, requested_at, paid_at, cancelled_at, cancel_reason, location_text, travel_fee_krw, memo, custom_fields, proposed_by_photographer, photographer_id, package_snapshot, transfer_marked_at, settled_at, delivered_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at, user:profiles!bookings_user_id_fkey(display_name), photographer:photographers(display_name)"
+      "id, status, amount_krw, shoot_at, shoot_date, fee_snapshot, refunded_at, refund_reason, late_booking_consent_at, contact_delivered_at, refund_due_at, created_at, accepted_at, requested_at, paid_at, cancelled_at, cancel_reason, location_text, travel_fee_krw, memo, custom_fields, proposed_by_photographer, photographer_id, package_snapshot, transfer_marked_at, settled_at, delivered_at, delivery_due_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at, user:profiles!bookings_user_id_fkey(display_name), photographer:photographers(display_name)"
     )
     .order("created_at", { ascending: false })
     .limit(500);
@@ -145,6 +146,7 @@ export default async function AdminTransactionsPage() {
     paid_at: b.paid_at,
     settled_at: b.settled_at,
     delivered_at: b.delivered_at,
+    delivery_due_at: b.delivery_due_at,
     settlement_amount_krw: b.settlement_amount_krw,
     cancelled_at: b.cancelled_at,
     cancel_reason: b.cancel_reason,

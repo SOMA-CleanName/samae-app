@@ -27,14 +27,16 @@ export type BookingRow = {
   accepted_at: string | null;
   transfer_marked_at: string | null;
   proposed_by_photographer: boolean;
-  package_snapshot: { name?: string } | null;
+  package_snapshot: { name?: string; delivery_days?: number } | null;
+  delivery_due_at: string | null;
+  delivered_at: string | null;
   photographer: { display_name: string | null } | null;
   user: { display_name: string | null } | null;
   package: { name: string } | null;
 };
 
 const SELECT =
-  "id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, memo, user_id, photographer_id, created_at, accepted_at, transfer_marked_at, proposed_by_photographer, package_snapshot, " +
+  "id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, memo, user_id, photographer_id, created_at, accepted_at, transfer_marked_at, proposed_by_photographer, package_snapshot, delivery_due_at, delivered_at, " +
   "photographer:photographers(display_name), " +
   "user:profiles!bookings_user_id_fkey(display_name), " +
   "package:packages(name)";

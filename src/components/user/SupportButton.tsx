@@ -11,7 +11,7 @@
 import { useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { submitSupportRequest } from "@/app/actions/support";
-import { SUPPORT_KINDS, SUPPORT_KIND_HINT, SUPPORT_KIND_LABEL, type SupportKind } from "@/lib/support";
+import { PHOTOGRAPHER_SUPPORT_KINDS, SUPPORT_KINDS, SUPPORT_KIND_HINT, SUPPORT_KIND_LABEL, type SupportKind } from "@/lib/support";
 import { XIcon } from "@/components/user/icons";
 import { getCustomerRefundQuote, type CustomerRefundQuote } from "@/app/actions/refund-quote";
 
@@ -26,14 +26,18 @@ export function SupportButton({
   bookingId,
   conversationId,
   variant = "card",
+  role = "customer",
 }: {
   bookingId: string;
   conversationId: string | null;
   /** card = 예약 카드 안(테두리 버튼) · list = 목록 카드 안(연한 버튼) */
   variant?: "card" | "list";
+  /** 작가는 촬영 취소 접수만 할 수 있다 (취소환불 8조) */
+  role?: "customer" | "photographer";
 }) {
+  const kinds = role === "photographer" ? PHOTOGRAPHER_SUPPORT_KINDS : SUPPORT_KINDS;
   const [open, setOpen] = useState(false);
-  const [kind, setKind] = useState<SupportKind>("refund");
+  const [kind, setKind] = useState<SupportKind>(kinds[0]);
   // 환불을 고른 순간 '지금 취소하면 얼마인지' 를 먼저 보여준다 (docs/32 §6-6).
   // 요청을 넣고 나서 금액을 아는 구조면, 기대와 다른 숫자가 나올 때 그게 곧 분쟁이 된다.
   const [quote, setQuote] = useState<CustomerRefundQuote | null>(null);
@@ -60,7 +64,7 @@ export function SupportButton({
             : "mt-2 w-full cursor-pointer rounded-full border border-line-strong py-2.5 text-body-sm font-medium text-muted transition-colors hover:bg-fg/[0.04]"
         }
       >
-        사매에 문의
+        {role === "photographer" ? "촬영 취소 접수" : "사매에 문의"}
       </button>
     );
   }
@@ -89,7 +93,9 @@ export function SupportButton({
           <div>
             <p className="text-title font-semibold text-fg">사매에 문의</p>
             <p className="mt-1 text-body-sm text-muted">
-              취소·날짜 변경은 사매가 확인하고 안내드려요.
+              {role === "photographer"
+                ? "접수되면 사매가 고객에게 환불하고 작가님께 안내드려요."
+                : "취소·날짜 변경은 사매가 확인하고 안내드려요."}
             </p>
           </div>
           <button
@@ -103,7 +109,7 @@ export function SupportButton({
         </div>
 
         <div className="mt-4 flex flex-wrap gap-1.5">
-          {SUPPORT_KINDS.map((k) => (
+          {kinds.map((k) => (
             <button
               key={k}
               type="button"

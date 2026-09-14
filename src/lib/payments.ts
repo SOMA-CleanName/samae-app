@@ -32,6 +32,7 @@ import {
 } from "./platform-fee";
 import { refundQuote, penaltyStarts, type RefundOverride, type RefundQuote } from "./refund";
 import { currentPolicySnapshot } from "./policy-version";
+import { computeDeliveryDueAt, deliveryDaysOf } from "./delivery-deadline";
 
 const fmtKrw = (n: number) => new Intl.NumberFormat("ko-KR").format(n);
 
@@ -302,7 +303,7 @@ export async function confirmBankTransferAdmin(bookingId: string): Promise<Confi
     .eq("id", bookingId)
     .eq("status", "accepted")
     .select(
-      "id, user_id, photographer_id, amount_krw, travel_fee_krw, fee_snapshot, transfer_marked_at, shoot_at, shoot_date, policy_snapshot"
+      "id, user_id, photographer_id, amount_krw, travel_fee_krw, fee_snapshot, transfer_marked_at, shoot_at, shoot_date, policy_snapshot, package_snapshot"
     );
   if (!moved || moved.length === 0) return { ok: false, reason: "bad_state" };
   const b = moved[0];
@@ -310,11 +311,14 @@ export async function confirmBankTransferAdmin(bookingId: string): Promise<Confi
   // 확정 시점의 근거를 굳힌다 — 요율(수수료정책 2조 4항)과 정책 버전(취소환불 14조 2항).
   // 제안 때 찍은 스냅샷이 있어도 여기서 다시 확정한다: 그 사이 요율이 바뀌었으면 확정 시점이 진실이다.
   const confirmedFee = await snapshotFeeForBooking(admin, b.photographer_id, b.amount_krw ?? 0);
+  // 결과물 전달 기한 — 촬영일 + 상품에 적은 일수(없으면 21일). 회원약관 10조 5항
+  const deliveryDue = computeDeliveryDueAt(b.shoot_at, b.shoot_date, deliveryDaysOf(b.package_snapshot));
   await admin
     .from("bookings")
     .update({
       fee_snapshot: confirmedFee,
       policy_snapshot: b.policy_snapshot ?? currentPolicySnapshot(),
+      delivery_due_at: deliveryDue ? deliveryDue.toISOString() : null,
     })
     .eq("id", bookingId);
   b.fee_snapshot = confirmedFee;
