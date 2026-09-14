@@ -10,7 +10,6 @@ import { notifyOpsBookingAccepted } from "@/lib/ops-alert";
 import { notifyBookingAccepted, notifyBookingProposed } from "@/lib/notify-user";
 import { normalizeBookingFields, readBookingFieldValues } from "@/lib/booking-fields";
 import { snapshotFeeForBooking } from "@/lib/payments";
-import { REFUND_WINDOW_DAYS } from "@/lib/refund";
 import { contactExchangeAllowed, detectOffPlatform, MODERATION_NOTICE } from "@/lib/moderation";
 
 // 희망 날짜 정규화 — shoot_at(시각 확정)이 있으면 그 KST 날짜, 없으면 폼의 YYYY-MM-DD.
@@ -353,21 +352,10 @@ export async function updateBooking(formData: FormData) {
   assertBookingTextClean(memo, customFields, b.contact_delivered_at);
   const shootDate = resolveShootDate(shootAt, shootDateRaw);
 
-  // 입금 후 날짜 변경은 조건이 있다 (docs/32 §3-6):
-  // 기존 촬영일까지 7일 이상 남아 있고, 새로 잡는 날짜도 7일 이상 뒤여야 한다.
-  // 어느 한쪽이라도 안쪽이면 작가 재량으로도 못 바꾼다 — 그 구간은 환불도 안 되는 구간이라,
-  // 여기서 열어주면 "환불 대신 날짜만 미루기" 로 규정을 우회하는 길이 된다.
+  // 입금 후 날짜 변경은 여기서 하지 않는다 — 상대 동의가 필요한 일이라 일정 변경 카드로만 한다
+  // (취소환불 7조, actions/reschedule.ts). 작가는 장소·메모·추가 항목만 고칠 수 있다.
   if (afterPayment && b.shoot_at && shootAt !== b.shoot_at) {
-    const week = REFUND_WINDOW_DAYS * 24 * 60 * 60 * 1000;
-    const now = Date.now();
-    const oldAt = new Date(b.shoot_at).getTime();
-    const newAt = new Date(shootAt).getTime();
-    if (oldAt - now < week)
-      throw new Error(
-        `기존 촬영일까지 ${REFUND_WINDOW_DAYS}일이 안 남아 날짜를 바꿀 수 없어요. 사매에 문의해주세요.`
-      );
-    if (newAt - now < week)
-      throw new Error(`새 촬영일은 지금부터 ${REFUND_WINDOW_DAYS}일 이후로 잡아주세요.`);
+    throw new Error("입금이 끝난 예약의 일정은 예약 카드의 [일정 변경 요청]으로 상대 동의를 받아 바꿔주세요.");
   }
 
   // TOCTOU 방지 — read 이후 accept 와 경쟁 시 accepted 예약에 편집이 적용되지 않도록

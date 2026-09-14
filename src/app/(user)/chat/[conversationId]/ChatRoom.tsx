@@ -29,6 +29,9 @@ import { SupportButton } from "@/components/user/SupportButton";
 import { BookingDetailDialog, bookingWhen } from "./BookingDetailDialog";
 import { ContactCardBubble, SendContactCardButton, SendContactMenuItem } from "./ContactHandover";
 import { DeliveryDueLine, ExtensionCardBubble, ExtensionRequestButton } from "./DeliveryExtension";
+import { RescheduleCardBubble, RescheduleRequestButton } from "./RescheduleCard";
+import { ExtraCardBubble, ExtraRequestButton } from "./ExtraCard";
+import { parseExtraCardBody, type BookingExtra } from "@/lib/extras";
 import type { GuideImage } from "@/lib/guide-images";
 import { readStoredFieldValues } from "@/lib/booking-fields";
 import {
@@ -49,7 +52,7 @@ import {
 const fmt = new Intl.NumberFormat("ko-KR");
 
 const BOOKING_COLS =
-  "id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, custom_fields, transfer_marked_at, late_booking_consent_at, contact_sent_at, contact_delivered_at, contact_payload, proposed_by_photographer, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at, delivery_due_at, delivery_extension_proposed_to, delivered_at";
+  "id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, custom_fields, transfer_marked_at, late_booking_consent_at, contact_sent_at, contact_delivered_at, contact_payload, proposed_by_photographer, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at, delivery_due_at, delivery_extension_proposed_to, delivered_at, reschedule_proposed_at, reschedule_proposed_by";
 
 // 메시지 작성 시각 (카카오톡식 HH:MM)
 function timeLabel(iso: string) {
@@ -79,6 +82,7 @@ export function ChatRoom({
   openQuestions,
   guideImages,
   payoutAccount,
+  extras = [],
   botName,
   handoffNotice,
 }: {
@@ -107,6 +111,8 @@ export function ChatRoom({
   guideImages?: GuideImage[];
   /** 사매 입금 계좌 — 결제가 걸린 방에서만 서버가 미리 실어 보낸다 (없으면 필요할 때 조회) */
   payoutAccount?: PayoutAccount | null;
+  /** 이 방 예약들의 추가 결제 행 — extra_card 의 상태 (회원약관 8조) */
+  extras?: BookingExtra[];
   /** 봇 표시 이름 — 운영이 어드민에서 바꾼다 (없으면 코드 기본) */
   botName?: string;
   /** 현재 인계 안내 문구 — 이 말풍선만 다르게 그린다 (문구가 바뀌어도 옛 방이 깨지지 않게 코드 상수도 함께 본다) */
@@ -526,6 +532,35 @@ export function ChatRoom({
               </div>
             ) : null;
           const rendered = (() => {
+          // 추가 결제 카드 — 고객 수락·입금, 작가 전달 완료 (회원약관 8조)
+          if (m.type === "extra_card") {
+            const body = parseExtraCardBody(m.body);
+            if (!body) return null;
+            return (
+              <ExtraCardBubble
+                key={m.id}
+                body={body}
+                extra={extras.find((e) => e.id === body.extraId) ?? null}
+                amCustomer={amCustomer}
+                amPhotographer={amPhotographer}
+                account={payoutAccount ?? null}
+              />
+            );
+          }
+          // 일정 변경 요청 카드 — 상대가 동의/거절한다 (취소환불 7조)
+          if (m.type === "reschedule_card" && m.booking) {
+            return (
+              <RescheduleCardBubble
+                key={m.id}
+                bookingId={m.booking.id}
+                proposedAt={m.booking.reschedule_proposed_at}
+                proposedBy={m.booking.reschedule_proposed_by}
+                currentShootAt={m.booking.shoot_at}
+                amCustomer={amCustomer}
+                requestedLabel={m.body}
+              />
+            );
+          }
           // 전달 기한 연장 요청 카드 — 고객이 동의/거절한다
           if (m.type === "extension_card" && m.booking) {
             return (
@@ -1342,6 +1377,14 @@ function BookingCard({
         </>
       )}
 
+      {/* 작가: 추가 결제 요청 — 입금 확인 후. 촬영 전이면 예약에 합산, 촬영 후면 결과물 추가금 (회원약관 8조) */}
+      {amPhotographer && ["paid", "shot", "completed"].includes(status) && (
+        <ExtraRequestButton
+          bookingId={booking.id}
+          shootPassed={status !== "paid"}
+        />
+      )}
+
       {/* 작가: 연락처 보내기 — + 메뉴와 같은 일. 예약을 확인하다 떠올리는 자리이기도 하다 */}
       {amPhotographer && ["paid", "shot", "delivered"].includes(status) && (
         <SendContactCardButton
@@ -1406,7 +1449,7 @@ function BookingCard({
           입금액과 어긋난다. */}
       {onEdit &&
         ((amProposer && status === "requested") ||
-          // 촬영이 끝난 뒤에는 바꿀 것이 없다 — 일시·장소를 고쳐도 이미 지난 일이다
+          // 입금 후에는 작가가 장소·메모만 고친다. 날짜는 아래 일정 변경 요청(상대 동의)으로만 (취소환불 7조)
           (amPhotographer && status === "paid")) && (
         <div className="mt-3">
           <button
@@ -1414,9 +1457,20 @@ function BookingCard({
             onClick={onEdit}
             className="w-full cursor-pointer rounded-full border border-line-strong py-2.5 text-body-sm font-medium text-muted transition-colors hover:bg-fg/[0.04]"
           >
-            {status === "requested" ? "수정" : "예약 변경"}
+            {status === "requested" ? "수정" : "장소·메모 변경"}
           </button>
         </div>
+      )}
+
+      {/* 일정 변경 — 입금 확인 후 촬영 전, 어느 쪽이든 제안하고 상대가 동의한다 (취소환불 7조) */}
+      {status === "paid" && (amCustomer || amPhotographer) && (
+        <RescheduleRequestButton
+          bookingId={booking.id}
+          proposedAt={booking.reschedule_proposed_at}
+          proposedByMe={
+            booking.reschedule_proposed_by === (amCustomer ? "customer" : "photographer")
+          }
+        />
       )}
 
       {/* 취소 — 대기 중이면 제안자, 수락된 뒤에는 양측 모두. 단 입금을 알린 뒤에는 감춘다.

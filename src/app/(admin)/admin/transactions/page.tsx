@@ -7,6 +7,9 @@ import {
   adminConfirmTransfer,
   adminMarkSettled,
   adminMarkDepositAndConfirm,
+  adminConfirmExtra,
+  adminRefundExtra,
+  adminSettleExtra,
 } from "./actions";
 import { cn } from "@/lib/cn";
 import { DeleteModeProvider, DeleteModeToolbar } from "@/components/admin/DeleteMode";
@@ -15,6 +18,8 @@ import { AdminCancelButton } from "./AdminCancelButton";
 import { feeRateOf, feeSpecFromRow, feeSpecLabel, readFeeSnapshot, resolveFee } from "@/lib/platform-fee";
 import { refundQuote, refundSlaOverdue } from "@/lib/refund";
 import { readStoredFieldValues } from "@/lib/booking-fields";
+import { listExtrasForAdmin } from "@/lib/extras-admin";
+import { EXTRA_KIND_LABEL, extraStatusLabel } from "@/lib/extras";
 
 export const dynamic = "force-dynamic";
 
@@ -112,6 +117,12 @@ export default async function AdminTransactionsPage() {
   }[]) {
     feeSpecById.set(p.id, feeSpecFromRow(p));
   }
+
+  // 추가 결제 큐 — 입금 확인 대기(수락 + 입금 알림), 환불 가능(촬영 후·전달 전), 정산 대기(촬영 후·전달됨)
+  const extrasAll = await listExtrasForAdmin();
+  const extrasToConfirm = extrasAll.filter((e) => e.status === "accepted" && e.transfer_marked_at);
+  const extrasToSettle = extrasAll.filter((e) => e.kind === "post_shoot" && e.status === "paid" && e.delivered_at && !e.settled_at);
+  const extrasRefundable = extrasAll.filter((e) => e.kind === "post_shoot" && e.status === "paid" && !e.delivered_at);
 
   const gmv = raw.filter((b) => PAID_BOOKING.includes(b.status)).reduce((s, b) => s + (b.amount_krw ?? 0), 0);
   const inProgress = raw.filter((b) => IN_PROGRESS.includes(b.status)).length;
@@ -226,6 +237,59 @@ export default async function AdminTransactionsPage() {
                 </form>
               </li>
             ))}
+          </ul>
+        </section>
+      )}
+
+      {/* 추가 결제 — 회원약관 8조. 촬영 전 추가금은 확인 즉시 예약에 합산되고, 촬영 후 추가금은 전달 후 따로 정산한다 */}
+      {(extrasToConfirm.length > 0 || extrasToSettle.length > 0 || extrasRefundable.length > 0) && (
+        <section className="mt-5 rounded-2xl bg-surface p-4 ring-1 ring-line">
+          <h2 className="text-body-sm font-semibold text-fg">
+            ➕ 추가 결제{" "}
+            <span className="text-brand">{extrasToConfirm.length + extrasToSettle.length + extrasRefundable.length}</span>
+          </h2>
+          <ul className="mt-2 space-y-2">
+            {[...extrasToConfirm, ...extrasRefundable, ...extrasToSettle].map((e) => {
+              const canConfirm = e.status === "accepted" && !!e.transfer_marked_at;
+              const canSettle = e.kind === "post_shoot" && e.status === "paid" && !!e.delivered_at && !e.settled_at;
+              const canRefund = e.kind === "post_shoot" && e.status === "paid" && !e.delivered_at;
+              return (
+                <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-surface-2 px-3 py-2">
+                  <div className="min-w-0 text-caption">
+                    <p className="font-semibold text-fg">
+                      {e.title} · ₩{fmt.format(e.amount_krw)}{" "}
+                      <span className="font-normal text-faint">
+                        {EXTRA_KIND_LABEL[e.kind]} · {extraStatusLabel(e)}
+                      </span>
+                    </p>
+                    <p className="text-muted">
+                      예약 <span className="font-mono">{e.booking_id.slice(0, 8)}</span>
+                      {e.kind === "pre_shoot" && canConfirm && " · 확인하면 예약 총액에 합산돼요"}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    {canConfirm && (
+                      <form action={adminConfirmExtra}>
+                        <input type="hidden" name="id" value={e.id} />
+                        <button className="cursor-pointer rounded-lg bg-fg px-3 py-1.5 text-caption font-semibold text-bg hover:opacity-90">입금 확인</button>
+                      </form>
+                    )}
+                    {canRefund && (
+                      <form action={adminRefundExtra}>
+                        <input type="hidden" name="id" value={e.id} />
+                        <button className="cursor-pointer rounded-lg border border-line-strong px-3 py-1.5 text-caption font-medium text-fg hover:bg-fg/[0.04]">전액 환불</button>
+                      </form>
+                    )}
+                    {canSettle && (
+                      <form action={adminSettleExtra}>
+                        <input type="hidden" name="id" value={e.id} />
+                        <button className="cursor-pointer rounded-lg border border-line-strong px-3 py-1.5 text-caption font-semibold text-fg hover:bg-fg/[0.04]">정산 완료</button>
+                      </form>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </section>
       )}

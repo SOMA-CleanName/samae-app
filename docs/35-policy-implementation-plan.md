@@ -21,7 +21,8 @@ P1 중 계산 규칙과 그 소비처를 `feat/policy-p1-refund-fee` 브랜치�
 - P2 도 끝났다(마이그레이션 0112). 약관 4종 페이지(`/terms/refund`, `/terms/fees`, `/terms/photographer`, `/terms/photographer-contract`), 회원 동의 기록(이메일 가입 체크박스, 카카오 가입은 `/signup/consent` 게이트), 입점 동의 게이트(`studio/layout.tsx` 가 현재 버전 동의가 없으면 `AgreeGate` 를 그린다), 작가 사업자 정보(입점 동의 화면과 프로필), 광고 동의 문구를 입점계약 7조에 맞춤, 탈퇴 시 미정산 차단, 예약서 메모·추가 항목 검열, `/privacy` 작가 제공 항목 표.
 - P2 에서 남긴 것: 광고 동의 버전이 올라갔지만 기존 앨범에 다시 동의를 권하는 안내는 아직 없다. 시행일(`POLICY_EFFECTIVE_DATE`)이 비어 있어 새 정책 페이지가 "게시 공지 후 확정"으로 보인다.
 - P3 중 정책 답이 필요 없는 둘을 끝냈다(마이그레이션 0113). 결과물 전달 기한(상품 `delivery_days`, 입금 확인 시 `delivery_due_at` 계산, 채팅 카드로 연장 요청·동의, 초과 알림은 `booking-sweep` 크론에, 어드민 14일 초과 강조, `lib/delivery-deadline.ts` 순수 함수와 테스트)과 작가측 촬영 취소 접수(`support_requests` 종류 `photographer_cancel`, 작가 예약 카드의 버튼).
-- P3 에서 남은 것: 추가 결제, 일정 변경 카드, 월 정산 배치. 일정 변경 거절 처리, 추가 결제분의 위약금 기준, 정산 주기는 정책 문서 쪽 답(6장)이 있어야 코드로 옮길 수 있다.
+- 정책팀 답(2026-09-14)을 받아 일정 변경 카드(0114)와 추가 결제(0115)도 끝냈다. 일정 변경은 어느 쪽이든 제안하고 상대가 동의하며, 작가가 거절하면 고객은 원래 일정에 촬영하거나 취소 신청으로 고객 사정 취소를 한다. 추가 결제는 촬영 전이면 입금 확인 때 예약 총액에 합산돼 위약금·수수료가 합산 기준이 되고, 촬영 후 결과물 추가금은 전달 전 전액 환불·전달 후 환불 없음이다. 회원약관 8조에 그 문안을 넣었다.
+- P3 에서 남은 것: 월 정산 배치(정산 주기 날짜가 정해지면). 작가 정산 페이지에 촬영 후 추가금 행을 아직 합치지 않았다.
 - dev 에 먼저 들어온 것: 옛 환불 페이지는 리다이렉트만 남았고, 작가 정산 페이지는 다시 작성돼 있었고, 회원약관은 본문이 게시돼 있었다(9조 표는 옛 규정이라 이번에 바꿨다). 아래 표의 "지금" 칸은 그 전 상태를 적은 것이다.
 
 배포 주의. 회원약관 9조를 바꿨으므로 약관 개정 절차(회원약관 3조 2항: 7일 전 공지, 불리한 변경은 30일)가 필요하다. 고객에게는 유리한 변경이지만 작가 수수료(6,000원 또는 10% → 20%와 부가세)는 불리한 변경이라 작가 개별 통지 30일이 필요하다. 코드 배포일과 시행일을 맞춰야 한다.
@@ -201,18 +202,19 @@ dev 에서 이미 다시 작성돼 있다(`listMySettlements`, 읽기 전용, �
 | `policy-version.ts` (P2, 새 파일) | 약관과 정책 버전 상수를 두고 예약 확정 때 `bookings.policy_snapshot`에 기록한다. |
 | `moderation.ts` (유지) | 그대로 둔다. |
 
-### 마이그레이션 (0111~0113 은 만들어짐, 나머지는 제안)
+### 마이그레이션 (0111~0115 는 만들어짐, 나머지는 제안)
 
 | 번호 | 내용 |
 |---|---|
 | 0111 (P1, 끝남) | `bookings.refund_krw`, `penalty_krw`, `penalty_photographer_krw`, `penalty_company_krw`, `fee_claim_krw`, `policy_snapshot`, `notice_penalty_90_at`. `support_requests.refund_account`. `photographers.fee_mode` 기본값을 `rate` 20%로. |
 | 0112 (P2, 끝남) | `profiles.terms_agreed_at`, `terms_version`. `photographers.legal_name`, `business_type`, `business_no`, `promo_consent`, `promo_consent_at`. `photographer_agreements` 테이블(작가, 버전, 홍보 동의, IP, UA, 시각). |
 | 0113 (P3, 끝남) | `packages.delivery_days`(기본 21). `bookings.delivery_due_at`, `delivery_extension_proposed_to`, `notice_delivery_overdue_at`. `message_type`에 `extension_card`. `support_requests` 종류에 `photographer_cancel`. |
-| 0114 (P3) | `booking_extras` 테이블(예약, 항목명, 금액, 상태, 입금 시각). `message_type`에 `extra_card`, `reschedule_card`. `bookings.reschedule_proposed_at`, `reschedule_proposed_by`. |
-| 0115 (P4) | `support_requests` 종류 제약에 `report` 추가. |
-| 0116 (P3) | `settlement_batches` 테이블, `bookings.settlement_batch_id`, `settlement_breakdown`(jsonb), `settlement_deductions` 테이블. |
-| 0117 (P4) | `sanctions` 테이블. |
-| 0118 (P4) | `bookings.portrait_optout_at`. |
+| 0114 (P3, 끝남) | `bookings.reschedule_proposed_at`, `_date`, `_by`, `_on`. `message_type`에 `reschedule_card`. |
+| 0115 (P3, 끝남) | `booking_extras` 테이블(항목, 금액, kind pre_shoot/post_shoot, 상태, 입금·확인·전달·환불·정산 시각, 수수료 스냅샷). `message_type`에 `extra_card`. |
+| 0116 (P4) | `support_requests` 종류 제약에 `report` 추가. |
+| 0117 (P3) | `settlement_batches` 테이블, `bookings.settlement_batch_id`, `settlement_breakdown`(jsonb), `settlement_deductions` 테이블. |
+| 0118 (P4) | `sanctions` 테이블. |
+| 0119 (P4) | `bookings.portrait_optout_at`. |
 
 ### 알림톡
 
@@ -235,8 +237,8 @@ dev 에서 이미 다시 작성돼 있다(`listMySettlements`, 읽기 전용, �
 1. 정산 주기. 문서에 "매월 XX일 마감, 익월 XX일 지급"으로 비어 있다. 날짜가 있어야 배치를 만들 수 있다.
 2. 회사명, 시행일, 통신판매업 신고번호.
 3. 결제 시점에 촬영까지 7일 이하인 예약. 정책 3조 2항과 4항은 결제 전에 표시만 하면 된다고 적었다. 그런데 전자상거래법 시행령 21조에 따르면 별도 동의 없이 결제 직후 위약금을 받기는 어렵다(`docs/32` 1-1 참고). 지금의 동의 모달을 유지하고 문구만 실제 구간으로 바꾸는 쪽을 권한다.
-4. 위약금 기준에 추가 결제분이 들어가는지. 취소환불 4조 3항은 "촬영 대금 전액"이라 하고 회원약관 8조 3항은 "추가 작업 기준으로 따로 적용"이라 한다. 코드는 하나만 고를 수 있다.
-5. 일정 변경을 작가가 거절했을 때. 취소환불 7조 4항은 "취소로 처리"라고 적었다. 자동으로 취소할지, 고객이 원래 일정을 유지할 수 있는지 정해야 한다. 후자를 권하고, 취소하는 경우 시점은 변경 요청을 낸 시각으로 본다.
+4. (답 받음) 추가 결제 금액은 촬영 대금에 포함된다. 촬영 전 추가 결제는 원 예약과 합산해 위약금 규정을 적용하고, 촬영 후 결과물 추가 결제는 전달 전 전액 환불, 전달 후 환불 없음.
+5. (답 받음) 작가가 거절하면 고객은 원래 날짜에 촬영하거나 고객 귀책으로 취소한다. 자동 취소는 하지 않는다.
 6. 원천징수 기준액과 식별정보. 3.3%를 촬영 대금에 매기는지 수수료를 뺀 정산금에 매기는지 문서로는 후자로 읽힌다. 원천징수영수증과 지급명세서에는 생년월일이 아니라 주민등록번호가 필요하다. 저장하면 암호화와 별도 보관 의무가 생기므로, 세무 대행에 맡기고 서비스는 보관하지 않는 방법도 있다.
 7. 취소나 일정 변경 판정을 어드민이 3영업일 안에 못 볼 때 자동 처리를 둘지. 지금은 모두 수동이다.
 
