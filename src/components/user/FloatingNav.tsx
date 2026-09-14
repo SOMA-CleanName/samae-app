@@ -1,14 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { HomeIcon, MagazineIcon, ClipboardIcon, CameraIcon } from "@/components/user/icons";
 import { homeNavMode, searchSessionStorageKeys } from "@/lib/search-navigation";
 import { type ProfileMe } from "./ProfileSheet";
 import { useNavReveal } from "./NavReveal";
-
-const EXPLORE_HINT_DURATION_MS = 3_000;
 
 // 하단 플로팅 내비 — 기존 하단바/레일 대체.
 // 가운데: 문의/스튜디오/홈/매거진 알약. 우측 하단: 장바구니(FloatingCart).
@@ -28,39 +25,11 @@ export function FloatingNav({
   studioUnread?: number;
 }) {
   const pathname = usePathname();
-  const [previewExplore, setPreviewExplore] = useState(false);
-  const [exploreHintVisible, setExploreHintVisible] = useState(false);
   const { forced } = useNavReveal();
 
-  useEffect(() => {
-    let resetTimer: number | null = null;
-    let hintTimer: number | null = null;
-    const previewTasteTestNavigation = () => {
-      setPreviewExplore(true);
-      if (resetTimer !== null) window.clearTimeout(resetTimer);
-      resetTimer = window.setTimeout(() => setPreviewExplore(false), 900);
-    };
-    const showExploreHint = () => {
-      if (hintTimer !== null) window.clearTimeout(hintTimer);
-      setExploreHintVisible(true);
-      hintTimer = window.setTimeout(
-        () => setExploreHintVisible(false),
-        EXPLORE_HINT_DURATION_MS
-      );
-    };
-    window.addEventListener("samae:taste-test-navigation", previewTasteTestNavigation);
-    window.addEventListener("samae:taste-test-dismissed", showExploreHint);
-    return () => {
-      window.removeEventListener("samae:taste-test-navigation", previewTasteTestNavigation);
-      window.removeEventListener("samae:taste-test-dismissed", showExploreHint);
-      if (resetTimer !== null) window.clearTimeout(resetTimer);
-      if (hintTimer !== null) window.clearTimeout(hintTimer);
-    };
-  }, []);
-
   // 홈 = 메인 피드(카테고리 컨텍스트는 쿠키로 복원), 매거진 = /explore
-  const homeActive = !previewExplore && (pathname === "/" || pathname.startsWith("/c/"));
-  const exploreActive = previewExplore || pathname.startsWith("/explore");
+  const homeActive = pathname === "/" || pathname.startsWith("/c/");
+  const exploreActive = pathname.startsWith("/explore");
   const inquiriesActive = pathname.startsWith("/my-inquiries");
   const studioActive = pathname.startsWith("/studio");
 
@@ -152,7 +121,6 @@ export function FloatingNav({
     label: "매거진",
     icon: <MagazineIcon className="h-5 w-5" />,
     active: exploreActive,
-    attention: exploreHintVisible,
   });
 
   const activeNavIndex = tabs.findIndex((t) => t.active);
@@ -170,10 +138,6 @@ export function FloatingNav({
   const tabWVar = compact
     ? "[--nav-tab-w:5.25rem] sm:[--nav-tab-w:6.25rem]"
     : "[--nav-tab-w:5.5rem] sm:[--nav-tab-w:6.5rem]";
-  // 힌트 말풍선 꼬리 계산용 — 폰 기준값이면 된다(말풍선은 폰에서만 뜬다)
-  const tabStep = (compact ? 5.25 : 5.5) + 0.25; // gap-1
-  // 탐색 힌트 말풍선 꼬리 — 마지막 탭 중심을 가리킨다
-  const hintArrowRight = ((tabs.length - 1) / 2) * tabStep + 1;
 
   // 문의·채팅 같은 풀스크린 몰입 플로우에선 내비를 아예 렌더하지 않음 — 전환·애니메이션 중
   // 그 위(z-50)로 잠깐 새어 보이던 문제 방지.
@@ -203,30 +167,6 @@ export function FloatingNav({
 
   return (
     <>
-      {exploreHintVisible ? (
-        <div
-          role="status"
-          aria-live="polite"
-          className="samae-explore-hint pointer-events-none fixed bottom-20 right-2.5 z-[41] w-max rounded-lg border border-line-strong bg-surface/95 px-3.5 py-2.5 text-right shadow-pop backdrop-blur-xl"
-          style={{ maxWidth: "min(18rem, calc(100vw - 1.25rem))" }}
-        >
-          <p className="text-caption font-semibold leading-relaxed text-fg">
-            매거진 탭에{" "}
-            <strong className="font-bold text-brand">무료 취향 테스트가 준비</strong>
-            되어 있어요.
-            <br />
-            <span className="font-normal text-muted">천천히 둘러보세요.</span>
-          </p>
-          <span
-            aria-hidden
-            className="absolute -bottom-1.5 h-3 w-3 rotate-45 border-b border-r border-line-strong bg-surface"
-            style={{
-              right: `clamp(1.5rem, calc(50vw - ${hintArrowRight}rem), calc(100% - 1.5rem))`,
-            }}
-          />
-        </div>
-      ) : null}
-
       {/* 가운데 홈/탐색 pill — 바깥 nav 의 레이아웃 박스도 숨김 시 터치 통과시킴 */}
       <nav
         // ⚠️ 이 속성을 지우지 말 것. ScrollTopButton 이 알약의 실제 폭을 재서

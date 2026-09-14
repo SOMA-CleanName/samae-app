@@ -8,7 +8,7 @@ import { getCurrentUser } from "@/lib/auth";
 import type { PayoutAccount } from "@/lib/payments";
 import { getPlatformAccount, hasAccount } from "@/lib/platform-account";
 import { archiveAndDelete } from "@/lib/soft-delete";
-import { notifyUserOfPhotographerReply } from "@/lib/notify-user";
+import { notifyChatMessage } from "@/lib/notify-user";
 import { detectOffPlatform, contactExchangeAllowed, MODERATION_NOTICE } from "@/lib/moderation";
 import { coreSlotsFilled, type LlmSlots } from "@/lib/inquiry-bot-llm";
 import { finalizeBotInquiryFor } from "@/app/(user)/inquiry/actions";
@@ -142,8 +142,9 @@ export async function sendMessage(conversationId: string, body: string): Promise
   });
   if (error) throw new Error(error.message);
 
-  // 작가 발신이면 사용자에게 SMS 재소환 (내부에서 발신자 검증·쿨다운, 실패해도 무시)
-  await notifyUserOfPhotographerReply(conversationId, user.id);
+  // 상대방 재소환 — **양방향**이다. 작가가 보내면 고객이, 고객이 보내면 작가가 받는다.
+  // (내부에서 방향 판정·열람창·쿨다운을 다 본다. 실패해도 채팅 흐름은 계속)
+  await notifyChatMessage(conversationId, user.id);
   // 작가 개입 + 봇 수집 완료(4/4) 상태면 요약 카드 자동 접수
   await finalizeIfBotCollectionComplete(conversationId, user.id);
   return { ok: true };
@@ -186,8 +187,8 @@ export async function sendPortfolioPhoto(conversationId: string, photoId: string
   });
   if (error) throw new Error(error.message);
 
-  // 작가가 사진으로 답한 경우도 재소환 대상
-  await notifyUserOfPhotographerReply(conversationId, me.id);
+  // 사진으로 답한 경우도 재소환 대상 (양방향)
+  await notifyChatMessage(conversationId, me.id);
 }
 
 // 진행 중으로 볼 예약 상태(거절/취소/환불 제외) — 이 상태의 예약이 있으면 대화를 지우지 않는다.
@@ -253,13 +254,14 @@ export async function markRead(conversationId: string) {
     .maybeSingle();
   if (!conv) return;
 
-  // user_read_at 은 답장 알림 판정에 쓴다 — "지금 이 방을 보고 있는가".
-  // 방을 열어두면 상대 메시지가 도착할 때마다 이 액션이 불리므로(ChatRoom.tsx) 계속 갱신된다.
-  // 작가 쪽은 아직 이 판정을 쓰지 않아 대응 컬럼을 두지 않았다.
+  // *_read_at 은 메시지 알림 판정에 쓴다 — "지금 이 방을 보고 있는가".
+  // 방을 열어두면 하트비트가 이 액션을 주기적으로 부르므로(ChatRoom.tsx) 계속 갱신된다.
+  // 알림이 양방향이 되면서 작가 쪽에도 같은 컬럼이 생겼다(0111).
+  const now = new Date().toISOString();
   const patch =
     conv.user_id === me.id
-      ? { user_unread: 0, user_read_at: new Date().toISOString() }
-      : { photographer_unread: 0 };
+      ? { user_unread: 0, user_read_at: now }
+      : { photographer_unread: 0, photographer_read_at: now };
   await supabase.from("conversations").update(patch).eq("id", conversationId);
   revalidatePath("/chat");
 }

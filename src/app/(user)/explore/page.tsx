@@ -181,7 +181,7 @@ export default async function ExplorePage() {
         {["ARTICLES", "TREND", "SPOTS", "Q & A"].map((w, i) => (
           <span key={i} className="flex items-center">
             <span className="px-6 text-[11px] font-bold uppercase tracking-[0.28em]">{w}</span>
-            <span className="text-brand">✳</span>
+            <span className="text-brand">✳︎</span>
           </span>
         ))}
       </Marquee>
