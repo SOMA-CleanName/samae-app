@@ -189,7 +189,7 @@ export async function proposeBooking(formData: FormData) {
       package_snapshot: pkg,
       // 수수료 근거를 제안 시점에 굳힌다 — 뒤에 작가 요율이 바뀌어도
       // 이미 협의된 이 거래의 정산·환불 금액은 흔들리면 안 된다 (docs/32 §2)
-      fee_snapshot: await snapshotFeeForBooking(admin, photographerId, amount, travelFee),
+      fee_snapshot: await snapshotFeeForBooking(admin, photographerId, amount),
       memo,
       proposed_by_photographer: amPhotographer,
     })
@@ -365,7 +365,7 @@ export async function updateBooking(formData: FormData) {
       travel_fee_krw: travelFee,
       package_snapshot: pkg,
       // 금액이 바뀌면 수수료도 달라진다 — 스냅샷을 다시 굳힌다
-      fee_snapshot: await snapshotFeeForBooking(admin, b.photographer_id, amount, travelFee),
+      fee_snapshot: await snapshotFeeForBooking(admin, b.photographer_id, amount),
       memo,
     })
     .eq("id", id)

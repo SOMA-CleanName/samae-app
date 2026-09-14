@@ -25,15 +25,13 @@ import {
   resolveFee,
   feeSpecFromRow,
   readFeeSnapshot,
+  feeRateOf,
+  feeWithVat,
+  vatOnFee,
   type FeeSnapshot,
 } from "./platform-fee";
-import {
-  refundQuote,
-  withdrawalDeadline,
-  penaltyStart,
-  type RefundOverride,
-  type RefundQuote,
-} from "./refund";
+import { refundQuote, penaltyStarts, type RefundOverride, type RefundQuote } from "./refund";
+import { currentPolicySnapshot } from "./policy-version";
 
 const fmtKrw = (n: number) => new Intl.NumberFormat("ko-KR").format(n);
 
@@ -110,28 +108,31 @@ async function feeForBooking(
   const stored = readFeeSnapshot(booking.fee_snapshot);
   if (stored) return stored;
 
-  const shootFee = Math.max(0, (booking.amount_krw ?? 0) - (booking.travel_fee_krw ?? 0));
+  // 기준은 촬영 대금 전체(출장비 포함) — 수수료정책 1조 3항
   const { data: ph } = await admin
     .from("photographers")
     .select("fee_mode, fee_amount_krw, fee_rate")
     .eq("id", booking.photographer_id)
     .maybeSingle();
-  return resolveFee(feeSpecFromRow(ph), shootFee);
+  return resolveFee(feeSpecFromRow(ph), booking.amount_krw ?? 0);
 }
 
-/** 제안 시점에 수수료 근거를 굳힌다 — 예약 생성·수정에서 호출 */
+/**
+ * 수수료 근거를 굳힌다 — 예약 생성·수정에서 호출하고, 입금 확인 때 한 번 더 확정한다.
+ * 정책은 "확정 시점 요율"(수수료정책 2조 4항)이라 제안~입금 사이에 요율이 바뀌면 입금 확인 쪽이 진실이다.
+ * 기준은 촬영 대금 전체다 — 출장비를 빼지 않는다 (수수료정책 1조 3항).
+ */
 export async function snapshotFeeForBooking(
   admin: ReturnType<typeof createAdminClient>,
   photographerId: string,
-  amountKrw: number,
-  travelFeeKrw: number
+  amountKrw: number
 ): Promise<FeeSnapshot> {
   const { data: ph } = await admin
     .from("photographers")
     .select("fee_mode, fee_amount_krw, fee_rate")
     .eq("id", photographerId)
     .maybeSingle();
-  return resolveFee(feeSpecFromRow(ph), Math.max(0, amountKrw - travelFeeKrw));
+  return resolveFee(feeSpecFromRow(ph), amountKrw);
 }
 
 // ─────────────────────────────────────────────
@@ -233,7 +234,7 @@ export async function confirmBankTransfer(
     .eq("photographer_id", photographerId)
     .eq("status", "accepted")
     .select(
-      "id, user_id, photographer_id, amount_krw, travel_fee_krw, fee_snapshot, transfer_marked_at"
+      "id, user_id, photographer_id, amount_krw, travel_fee_krw, fee_snapshot, transfer_marked_at, shoot_at, shoot_date"
     );
   if (!moved || moved.length === 0) return { ok: false, reason: "bad_state" };
   const b = moved[0];
@@ -269,7 +270,7 @@ export async function confirmBankTransfer(
   // 양측 알림
   const link = `/bookings/${bookingId}`;
   await notify(admin, b.user_id, "입금이 확인됐어요", "작가가 촬영을 준비합니다.", link);
-  await postDepositNotice(admin, bookingId, b.transfer_marked_at ?? null);
+  await postDepositNotice(admin, bookingId, b.shoot_at ?? null, b.shoot_date ?? null);
   const { data: ph } = await admin
     .from("photographers")
     .select("profile_id")
@@ -301,10 +302,22 @@ export async function confirmBankTransferAdmin(bookingId: string): Promise<Confi
     .eq("id", bookingId)
     .eq("status", "accepted")
     .select(
-      "id, user_id, photographer_id, amount_krw, travel_fee_krw, fee_snapshot, transfer_marked_at, shoot_at, shoot_date"
+      "id, user_id, photographer_id, amount_krw, travel_fee_krw, fee_snapshot, transfer_marked_at, shoot_at, shoot_date, policy_snapshot"
     );
   if (!moved || moved.length === 0) return { ok: false, reason: "bad_state" };
   const b = moved[0];
+
+  // 확정 시점의 근거를 굳힌다 — 요율(수수료정책 2조 4항)과 정책 버전(취소환불 14조 2항).
+  // 제안 때 찍은 스냅샷이 있어도 여기서 다시 확정한다: 그 사이 요율이 바뀌었으면 확정 시점이 진실이다.
+  const confirmedFee = await snapshotFeeForBooking(admin, b.photographer_id, b.amount_krw ?? 0);
+  await admin
+    .from("bookings")
+    .update({
+      fee_snapshot: confirmedFee,
+      policy_snapshot: b.policy_snapshot ?? currentPolicySnapshot(),
+    })
+    .eq("id", bookingId);
+  b.fee_snapshot = confirmedFee;
 
   await admin.from("payments").upsert(
     {
@@ -334,7 +347,7 @@ export async function confirmBankTransferAdmin(bookingId: string): Promise<Confi
 
   const link = `/bookings/${bookingId}`;
   await notify(admin, b.user_id, "입금이 확인됐어요", "예약이 확정됐어요. 작가가 촬영을 준비합니다.", link);
-  await postDepositNotice(admin, bookingId, b.transfer_marked_at ?? null);
+  await postDepositNotice(admin, bookingId, b.shoot_at ?? null, b.shoot_date ?? null);
   const { data: ph } = await admin
     .from("photographers")
     .select("profile_id, display_name")
@@ -345,7 +358,7 @@ export async function confirmBankTransferAdmin(bookingId: string): Promise<Confi
       admin,
       ph.profile_id,
       "예약이 확정됐어요",
-      `사매가 입금을 확인했어요. 촬영비는 수수료(₩${fmtKrw(fee.feeKrw)}) 차감 후 정산해드려요.`,
+      `사매가 입금을 확인했어요. 촬영비는 수수료(₩${fmtKrw(fee.feeKrw)}, 부가세 ₩${fmtKrw(fee.vatKrw)}) 차감 후 정산해드려요.`,
       "/studio/settlements",
       "settlement"
     );
@@ -371,7 +384,7 @@ export async function confirmBankTransferAdmin(bookingId: string): Promise<Confi
       customerName: customer?.display_name ?? "고객",
       shootAt: b.shoot_at,
       shootDate: b.shoot_date,
-      settlementKrw: Math.max(0, (b.amount_krw ?? 0) - fee.feeKrw),
+      settlementKrw: Math.max(0, (b.amount_krw ?? 0) - feeWithVat(fee)),
     });
   return { ok: true };
 }
@@ -384,13 +397,15 @@ export async function markSettlementPaid(bookingId: string): Promise<ConfirmResu
   const { data: booking } = await admin
     .from("bookings")
     .select(
-      "id, status, amount_krw, travel_fee_krw, fee_snapshot, user_id, photographer_id, settled_at, shoot_at, shoot_date"
+      "id, status, amount_krw, travel_fee_krw, fee_snapshot, user_id, photographer_id, settled_at, shoot_at, shoot_date, delivered_at"
     )
     .eq("id", bookingId)
     .maybeSingle();
   if (!booking || booking.settled_at) return { ok: false, reason: "bad_state" };
   if (!["paid", "shot", "delivered", "completed"].includes(booking.status as string))
     return { ok: false, reason: "bad_state" };
+  // 정산은 결과물을 전달한 뒤에만 (수수료정책 3조 1항). 촬영 전 정산은 막는다.
+  if (!booking.delivered_at) return { ok: false, reason: "bad_state" };
 
   const { data: feeRow } = await admin
     .from("platform_fees")
@@ -398,7 +413,8 @@ export async function markSettlementPaid(bookingId: string): Promise<ConfirmResu
     .eq("booking_id", bookingId)
     .maybeSingle();
   const feeKrw = feeRow?.fee_krw ?? (await feeForBooking(admin, booking)).feeKrw;
-  const settlementAmount = Math.max(0, (booking.amount_krw ?? 0) - feeKrw);
+  // 정산액 = 대금 − 수수료 − 부가세. 원천징수·공제는 사업자 정보가 들어오면 여기에 더한다.
+  const settlementAmount = Math.max(0, (booking.amount_krw ?? 0) - feeKrw - vatOnFee(feeKrw));
 
   await admin
     .from("bookings")
@@ -453,11 +469,9 @@ export async function markSettlementPaid(bookingId: string): Promise<ConfirmResu
 async function postDepositNotice(
   admin: ReturnType<typeof createAdminClient>,
   bookingId: string,
-  transferMarkedAt: string | null
+  shootAt: string | null,
+  shootDate: string | null
 ): Promise<void> {
-  const deadline = withdrawalDeadline(transferMarkedAt);
-  if (!deadline) return;
-
   const { data: conv } = await admin
     .from("conversations")
     .select("id, user_id")
@@ -465,28 +479,27 @@ async function postDepositNotice(
     .maybeSingle();
   if (!conv) return;
 
-  const dt = new Intl.DateTimeFormat("ko-KR", {
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Asia/Seoul",
-  }).format(deadline);
+  const day = (d: Date) =>
+    new Intl.DateTimeFormat("ko-KR", { month: "long", day: "numeric", timeZone: "Asia/Seoul" }).format(d);
+  // 구간이 바뀌는 날을 날짜로 박는다 — "7일 전" 은 고객이 계산해야 하고, 계산하지 않은 고객은 "몰랐다" 고 말한다
+  const starts = penaltyStarts(shootAt, shootDate);
+  const lines = ["입금이 확인되었습니다. 예약이 확정됐어요.", ""];
+  if (starts) {
+    // 40% 시작일 전날까지 = 8일 이상 구간
+    const lastFree = new Date(starts.at40.getTime() - 24 * 60 * 60 * 1000);
+    lines.push(`· ${day(lastFree)}까지 취소하시면 전액 환불됩니다`);
+    lines.push(`· ${day(starts.at40)}부터는 지불 금액의 60%, ${day(starts.at90)}부터는 10%가 환불됩니다`);
+  }
+  lines.push("· 촬영 준비는 이 채팅으로 이야기해주세요");
+  lines.push("  작가님 연락처는 작가님이 보내주시면 받을 수 있어요");
 
   // sender_id 는 NOT NULL 이다. 시스템 안내는 고객을 발신자로 둔다 —
   // 가운데 정렬 회색 칩으로 그려져 누가 보냈는지는 화면에 드러나지 않는다.
-  //
-  // ⚠️ 연락처는 시간이 지나도 저절로 열리지 않는다(docs/32 §3-3 개정) —
-  //    작가가 보내고 고객이 동의해야 전달된다. 날짜를 예고하면 오고지가 된다.
   await admin.from("messages").insert({
     conversation_id: conv.id,
     sender_id: conv.user_id,
     type: "system",
-    body:
-      `입금이 확인되었습니다. 예약이 확정됐어요.\n\n` +
-      `· ${dt}까지 취소하시면 전액 환불됩니다\n` +
-      `· 촬영 준비는 이 채팅으로 이야기해주세요\n` +
-      `  작가님 연락처는 작가님이 보내주시면 받을 수 있어요`,
+    body: lines.join("\n"),
   });
 }
 
@@ -508,35 +521,14 @@ export async function postContactDeliveredNotice(bookingId: string): Promise<voi
     .maybeSingle();
   if (!conv) return;
 
-  // 이 시점의 견적 — contact_delivered_at 이 찍힌 뒤라 basis 는 이미 '연락처 수령'이다
-  const quote = await quoteRefund(bookingId);
-  const { data: b } = await admin
-    .from("bookings")
-    .select("shoot_at, shoot_date")
-    .eq("id", bookingId)
-    .maybeSingle();
-
-  const day = (d: Date) =>
-    new Intl.DateTimeFormat("ko-KR", {
-      month: "long",
-      day: "numeric",
-      timeZone: "Asia/Seoul",
-    }).format(d);
-
-  const lines = ["연락처를 받으셨어요. 이제부터 환불 조건이 달라집니다.", ""];
-  if (quote && quote.refundKrw > 0) {
-    lines.push(
-      `· 지금 취소하시면 ₩${fmtKrw(quote.refundKrw)}이 환불됩니다 (지불 금액의 ${quote.percent}%)`
-    );
-  } else {
-    // 이미 촬영 7일 안쪽으로 들어온 건 — 없는 환불을 있는 것처럼 적지 않는다
-    lines.push("· 지금 취소하셔도 환불되지 않습니다");
-  }
-  const cutoff = b ? penaltyStart(b.shoot_at, b.shoot_date) : null;
-  if (cutoff && cutoff.getTime() > Date.now()) {
-    lines.push(`· ${day(cutoff)}부터는 환불되지 않습니다`);
-  }
-  lines.push("· 촬영 준비는 작가님과 직접 이야기하셔도 되고, 이 채팅도 그대로 쓰실 수 있어요");
+  // 연락처 수령은 환불과 무관하다(취소환불정책 1.0 — 옛 규정의 '연락처 = 50% 구간' 은 폐지).
+  // 여기서는 용도 제한(회원약관 6조 4항)만 남긴다.
+  const lines = [
+    "작가님 연락처를 받으셨어요.",
+    "",
+    "· 연락처는 이 촬영의 상담과 진행에만 사용해 주세요. 다른 목적으로 쓰거나 다른 사람에게 알려주시면 안 돼요",
+    "· 촬영 준비는 작가님과 직접 이야기하셔도 되고, 이 채팅도 그대로 쓰실 수 있어요",
+  ];
 
   // sender_id 는 NOT NULL — 시스템 안내는 고객을 발신자로 둔다(가운데 회색 칩으로 그려진다)
   await admin.from("messages").insert({
@@ -580,13 +572,14 @@ export async function markTransferByOps(bookingId: string): Promise<ConfirmResul
 /** 환불 견적 — 판정만 하고 아무것도 바꾸지 않는다 (어드민 화면이 먼저 보여주는 값) */
 export async function quoteRefund(
   bookingId: string,
-  override?: RefundOverride | null
+  override?: RefundOverride | null,
+  opts: { manualRefundKrw?: number | null } = {}
 ): Promise<(RefundQuote & { amountKrw: number }) | null> {
   const admin = createAdminClient();
   const { data: b } = await admin
     .from("bookings")
     .select(
-      "id, status, amount_krw, travel_fee_krw, fee_snapshot, shoot_at, shoot_date, transfer_marked_at, late_booking_consent_at, contact_delivered_at, photographer_id"
+      "id, status, amount_krw, travel_fee_krw, fee_snapshot, shoot_at, shoot_date, transfer_marked_at, late_booking_consent_at, refund_due_at, photographer_id"
     )
     .eq("id", bookingId)
     .maybeSingle();
@@ -598,14 +591,16 @@ export async function quoteRefund(
     shootAt: b.shoot_at,
     shootDate: b.shoot_date,
     transferMarkedAt: b.transfer_marked_at,
-    // 임박 예약의 환불불가 동의 — 없으면 청약철회가 이긴다 (docs/32 §1-1)
+    // 임박 예약의 위약금 별도 동의 — 없으면 청약철회가 이긴다 (취소환불 3조 2항)
     lateBookingConsentAt: b.late_booking_consent_at,
-    // 연락처를 받았으면 중개가 끝난 것 — 청약철회 구간이 닫힌다
-    contactDeliveredAt: b.contact_delivered_at,
+    // 취소 시점 = 고객이 취소를 신청한 시각 (5조 3항). 어드민이 늦게 봐도 구간이 밀리지 않는다
+    requestedAt: b.refund_due_at,
     amountKrw: b.amount_krw ?? 0,
     travelFeeKrw: b.travel_fee_krw ?? 0,
     feeKrw: fee.feeKrw,
+    feeRate: feeRateOf(fee),
     override,
+    manualRefundKrw: opts.manualRefundKrw,
   });
   return { ...quote, amountKrw: b.amount_krw ?? 0 };
 }
@@ -619,12 +614,12 @@ export async function quoteRefund(
  */
 export async function refundBooking(
   bookingId: string,
-  opts: { override?: RefundOverride | null; note?: string } = {}
+  opts: { override?: RefundOverride | null; note?: string; manualRefundKrw?: number | null } = {}
 ): Promise<ConfirmResult> {
   const admin = createAdminClient();
   const now = new Date().toISOString();
 
-  const quote = await quoteRefund(bookingId, opts.override);
+  const quote = await quoteRefund(bookingId, opts.override, { manualRefundKrw: opts.manualRefundKrw });
   if (!quote) return { ok: false, reason: "bad_state" };
 
   const { data: b } = await admin
@@ -642,6 +637,12 @@ export async function refundBooking(
       refund_reason: quote.basis,
       cancel_reason: opts.note?.trim() || quote.reason,
       cancelled_at: now,
+      // 판정 결과를 숫자로 남긴다 — 정산 내역서와 위약금 배분이 여기서 읽는다
+      refund_krw: quote.refundKrw,
+      penalty_krw: quote.penaltyKrw,
+      penalty_photographer_krw: quote.penaltyPhotographerKrw,
+      penalty_company_krw: quote.penaltyCompanyKrw,
+      fee_claim_krw: quote.feeClaimKrw,
     })
     .eq("id", bookingId);
 
@@ -654,8 +655,20 @@ export async function refundBooking(
     })
     .eq("booking_id", bookingId);
 
+  // 수수료 원장 — 판정에 따라 셋 중 하나다 (취소환불 13조).
+  //  · 위약금 구간: 정상 수수료 대신 위약금의 사매 몫. 사매가 보관 중인 돈에서 갖는다 → paid
+  //  · 위약금 없음(0%·청약철회·불가항력): 누구에게도 수수료 없음 → waived
+  //  · 작가 귀책: 수수료 상당액을 작가에게 청구 → accrued 로 남겨 공제 원장이 이어받는다
   if (quote.feeWaived) {
-    await waiveFee(admin, bookingId);
+    if (quote.penaltyCompanyKrw > 0) {
+      await admin
+        .from("platform_fees")
+        .update({ fee_krw: quote.penaltyCompanyKrw, status: "paid", paid_at: now })
+        .eq("booking_id", bookingId)
+        .in("status", ["accrued", "billed"]);
+    } else {
+      await waiveFee(admin, bookingId);
+    }
   }
 
   const link = `/bookings/${bookingId}`;
@@ -679,9 +692,11 @@ export async function refundBooking(
       admin,
       ph.profile_id,
       "예약이 환불 처리됐어요",
-      quote.photographerNetKrw >= 0
-        ? `정산 금액은 ₩${fmtKrw(quote.photographerNetKrw)} 이에요.`
-        : `수수료 ₩${fmtKrw(-quote.photographerNetKrw)} 이 작가님 부담으로 남아요.`,
+      quote.penaltyKrw > 0
+        ? `위약금 ₩${fmtKrw(quote.penaltyKrw)} 중 작가님 몫 ₩${fmtKrw(quote.penaltyPhotographerKrw)} 을 정산해드려요.`
+        : quote.photographerNetKrw >= 0
+          ? `정산 금액은 ₩${fmtKrw(quote.photographerNetKrw)} 이에요.`
+          : `수수료 상당액 ₩${fmtKrw(-quote.photographerNetKrw)} 을 작가님께 청구해요.`,
       "/studio/settlements",
       "settlement"
     );
@@ -767,8 +782,9 @@ export async function listMySettlements(photographerId: string): Promise<Settlem
   const feeByBooking = new Map(
     (fees ?? []).map((f) => [
       f.booking_id as string,
-      // 면제된 수수료는 0 으로 본다 — 환불 건에서 작가가 물지 않는다
-      (f.status as string) === "waived" ? 0 : (f.fee_krw as number),
+      // 면제된 수수료는 0 으로 본다 — 환불 건에서 작가가 물지 않는다.
+      // 작가에게 빠지는 돈은 수수료 + 부가세다 (수수료정책 1조 "부가가치세 별도")
+      (f.status as string) === "waived" ? 0 : feeWithVat({ feeKrw: f.fee_krw as number, vatKrw: vatOnFee(f.fee_krw as number) }),
     ])
   );
   const nameById = new Map((profiles ?? []).map((p) => [p.id as string, p.display_name as string | null]));
