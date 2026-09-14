@@ -19,6 +19,7 @@ import { getPlatformAccount, hasAccount } from "@/lib/platform-account";
 import { normalizeBookingFields } from "@/lib/booking-fields";
 import { seedQaGreetingIfMissing } from "@/lib/inquiry-bot-room";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { EXTRA_COLS, type BookingExtra } from "@/lib/extras";
 
 // 채팅방
 export default async function ChatRoomPage({
@@ -81,14 +82,22 @@ export default async function ChatRoomPage({
   // 입금 안내에 쓸 사매 계좌 — 손님에게 결제가 걸린 방에서만 미리 실어 보낸다.
   // 클라이언트에서 뒤늦게 불러오면 다이얼로그가 열리자마자 "계좌 불러오는 중…" 이 깜빡인다.
   // (아무 방에나 계좌를 싣지 않는다는 원칙은 이 조건으로 지킨다)
+  // 추가 결제 (booking_extras) — 이 방의 예약에 붙은 것. 카드 상태의 진실이다 (회원약관 8조)
+  const bookingIds = [...new Set(messages.map((m) => m.booking?.id).filter((v): v is string => !!v))];
+  const extras: BookingExtra[] = bookingIds.length
+    ? (((await createAdminClient().from("booking_extras").select(EXTRA_COLS).in("booking_id", bookingIds)).data ?? []) as BookingExtra[])
+    : [];
+
   const needsAccount =
     amCustomer &&
-    messages.some(
+    (messages.some(
       (m) =>
         m.booking &&
         (m.booking.status === "requested" ||
           (m.booking.status === "accepted" && !m.booking.transfer_marked_at))
-    );
+    ) ||
+      // 수락했는데 아직 입금 전인 추가금이 있으면 계좌가 필요하다
+      extras.some((e) => e.status === "accepted" && !e.transfer_marked_at));
   const platformAccount = needsAccount ? await getPlatformAccount() : null;
   const payoutAccount =
     platformAccount && hasAccount(platformAccount)
@@ -195,6 +204,7 @@ export default async function ChatRoomPage({
           openQuestions={openQuestions}
           guideImages={guideImages}
           payoutAccount={payoutAccount}
+          extras={extras}
           botName={botSettings.messages.botName}
           handoffNotice={botSettings.messages.handoff}
         />

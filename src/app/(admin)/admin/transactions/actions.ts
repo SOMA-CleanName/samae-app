@@ -124,3 +124,37 @@ export async function adminMarkDepositAndConfirm(formData: FormData): Promise<vo
 
   revalidatePath("/admin/transactions");
 }
+
+// ── 추가 결제 (booking_extras) — 회원약관 8조 ───────────────────────
+import { confirmExtraPaid, refundExtra, settleExtra } from "@/lib/extras-admin";
+
+export async function adminConfirmExtra(formData: FormData): Promise<void> {
+  const me = await getCurrentUser();
+  if (!me || me.role !== "admin") throw new Error("운영자 권한이 필요합니다.");
+  const ok = await confirmExtraPaid(String(formData.get("id")));
+  if (!ok) throw new Error("처리할 수 없는 상태예요 (수락 전이거나 이미 확인됨).");
+  revalidatePath("/admin/transactions");
+}
+
+export async function adminRefundExtra(formData: FormData): Promise<void> {
+  const me = await getCurrentUser();
+  if (!me || me.role !== "admin") throw new Error("운영자 권한이 필요합니다.");
+  const res = await refundExtra(String(formData.get("id")));
+  if (!res.ok)
+    throw new Error(
+      res.reason === "delivered"
+        ? "결과물이 전달된 추가금은 환불하지 않아요 (회원약관 8조 3항)."
+        : res.reason === "pre_shoot_merged"
+          ? "촬영 전 추가금은 예약에 합산돼 있어요 — 예약 환불로 처리하세요."
+          : "처리할 수 없는 상태예요."
+    );
+  revalidatePath("/admin/transactions");
+}
+
+export async function adminSettleExtra(formData: FormData): Promise<void> {
+  const me = await getCurrentUser();
+  if (!me || me.role !== "admin") throw new Error("운영자 권한이 필요합니다.");
+  const res = await settleExtra(String(formData.get("id")));
+  if (!res.ok) throw new Error("처리할 수 없는 상태예요 (전달 전이거나 이미 정산됨).");
+  revalidatePath("/admin/transactions");
+}

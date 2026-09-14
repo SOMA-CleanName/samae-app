@@ -30,6 +30,8 @@ import { BookingDetailDialog, bookingWhen } from "./BookingDetailDialog";
 import { ContactCardBubble, SendContactCardButton, SendContactMenuItem } from "./ContactHandover";
 import { DeliveryDueLine, ExtensionCardBubble, ExtensionRequestButton } from "./DeliveryExtension";
 import { RescheduleCardBubble, RescheduleRequestButton } from "./RescheduleCard";
+import { ExtraCardBubble, ExtraRequestButton } from "./ExtraCard";
+import { parseExtraCardBody, type BookingExtra } from "@/lib/extras";
 import type { GuideImage } from "@/lib/guide-images";
 import { readStoredFieldValues } from "@/lib/booking-fields";
 import {
@@ -80,6 +82,7 @@ export function ChatRoom({
   openQuestions,
   guideImages,
   payoutAccount,
+  extras = [],
   botName,
   handoffNotice,
 }: {
@@ -108,6 +111,8 @@ export function ChatRoom({
   guideImages?: GuideImage[];
   /** 사매 입금 계좌 — 결제가 걸린 방에서만 서버가 미리 실어 보낸다 (없으면 필요할 때 조회) */
   payoutAccount?: PayoutAccount | null;
+  /** 이 방 예약들의 추가 결제 행 — extra_card 의 상태 (회원약관 8조) */
+  extras?: BookingExtra[];
   /** 봇 표시 이름 — 운영이 어드민에서 바꾼다 (없으면 코드 기본) */
   botName?: string;
   /** 현재 인계 안내 문구 — 이 말풍선만 다르게 그린다 (문구가 바뀌어도 옛 방이 깨지지 않게 코드 상수도 함께 본다) */
@@ -527,6 +532,21 @@ export function ChatRoom({
               </div>
             ) : null;
           const rendered = (() => {
+          // 추가 결제 카드 — 고객 수락·입금, 작가 전달 완료 (회원약관 8조)
+          if (m.type === "extra_card") {
+            const body = parseExtraCardBody(m.body);
+            if (!body) return null;
+            return (
+              <ExtraCardBubble
+                key={m.id}
+                body={body}
+                extra={extras.find((e) => e.id === body.extraId) ?? null}
+                amCustomer={amCustomer}
+                amPhotographer={amPhotographer}
+                account={payoutAccount ?? null}
+              />
+            );
+          }
           // 일정 변경 요청 카드 — 상대가 동의/거절한다 (취소환불 7조)
           if (m.type === "reschedule_card" && m.booking) {
             return (
@@ -1355,6 +1375,14 @@ function BookingCard({
             />
           )}
         </>
+      )}
+
+      {/* 작가: 추가 결제 요청 — 입금 확인 후. 촬영 전이면 예약에 합산, 촬영 후면 결과물 추가금 (회원약관 8조) */}
+      {amPhotographer && ["paid", "shot", "completed"].includes(status) && (
+        <ExtraRequestButton
+          bookingId={booking.id}
+          shootPassed={status !== "paid"}
+        />
       )}
 
       {/* 작가: 연락처 보내기 — + 메뉴와 같은 일. 예약을 확인하다 떠올리는 자리이기도 하다 */}
