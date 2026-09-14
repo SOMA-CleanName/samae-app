@@ -37,6 +37,7 @@ export type FlowState = {
     businessNo: string;
     promoConsent: boolean;
     agreedAt: string;
+    docRecords?: Record<string, { openedAt?: string; agreedAt?: string }>;
   } | null;
 };
 

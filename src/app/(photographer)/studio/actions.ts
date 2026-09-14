@@ -315,6 +315,7 @@ export async function updateContactMethods(formData: FormData): Promise<void> {
 // 버전이 올라가면 studio/layout.tsx 가 다시 이 화면을 띄운다.
 import { headers } from "next/headers";
 import { PHOTOGRAPHER_AGREEMENT_VERSIONS } from "@/lib/consent";
+import { DOC_ORDER } from "@/components/legal/photographerDocs";
 import type { BusinessType } from "@/lib/platform-fee";
 
 const BUSINESS_TYPES: BusinessType[] = ["general", "simplified", "unregistered"];
@@ -323,9 +324,14 @@ export async function agreePhotographerContract(formData: FormData): Promise<voi
   const me = await getCurrentUser();
   if (!me?.photographer) throw new Error("작가만 동의할 수 있어요.");
 
-  for (const key of ["contract", "terms", "fee", "refund"]) {
+  for (const key of DOC_ORDER) {
     if (formData.get(`agree_${key}`) !== "on") throw new Error("문서 4종에 모두 동의해야 해요.");
   }
+
+  // 문서별 열람·동의 증적 — 화면이 "전문을 끝까지 연 시각" 과 "동의한 시각" 을 따로 보낸다.
+  // **하나라도 없으면 거절한다.** 없다는 건 전문 화면을 거치지 않고 제출됐다는 뜻이고,
+  // 그건 약관규제법 3조에서 우리가 대야 할 근거("읽을 기회를 줬다")가 비는 것이다.
+  const docRecords = parseDocRecords(formData.get("docRecords"));
 
   const legalName = String(formData.get("legalName") || "").trim().slice(0, 60);
   if (!legalName) throw new Error("성명 또는 상호를 입력해주세요.");
@@ -363,6 +369,7 @@ export async function agreePhotographerContract(formData: FormData): Promise<voi
     profile_id: me.id,
     versions: PHOTOGRAPHER_AGREEMENT_VERSIONS,
     promo_consent: promoConsent,
+    doc_records: docRecords,
     ip,
     user_agent: userAgent,
     agreed_at: now,
@@ -376,4 +383,43 @@ export async function agreePhotographerContract(formData: FormData): Promise<voi
   });
 
   revalidatePath("/studio", "layout");
+}
+
+/**
+ * 문서별 열람·동의 증적을 검사한다.
+ *
+ * 화면이 보내는 모양: {key: {openedAt, agreedAt}}. 여기서 버전을 붙여 굳힌다 —
+ * 클라이언트가 보낸 버전을 믿으면 "낡은 문서를 읽고 새 버전에 동의한" 기록이 만들어진다.
+ *
+ * 넷 중 하나라도 빠지거나 시각이 이상하면 던진다. 조용히 null 로 넘기면 증적 없는
+ * 동의가 쌓이고, 그건 나중에 복구할 방법이 없다.
+ */
+function parseDocRecords(raw: FormDataEntryValue | null): Record<string, unknown> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(String(raw ?? ""));
+  } catch {
+    throw new Error("열람 기록이 없어요. 문서를 전문으로 읽고 다시 동의해주세요.");
+  }
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error("열람 기록이 없어요. 문서를 전문으로 읽고 다시 동의해주세요.");
+  }
+  const src = parsed as Record<string, { openedAt?: unknown; agreedAt?: unknown }>;
+  const out: Record<string, { openedAt: string; agreedAt: string; version: string }> = {};
+
+  for (const key of DOC_ORDER) {
+    const rec = src[key];
+    const openedAt = typeof rec?.openedAt === "string" ? rec.openedAt : "";
+    const agreedAt = typeof rec?.agreedAt === "string" ? rec.agreedAt : "";
+    if (!openedAt || !agreedAt || Number.isNaN(Date.parse(openedAt)) || Number.isNaN(Date.parse(agreedAt))) {
+      throw new Error("문서를 전문으로 읽어야 동의할 수 있어요.");
+    }
+    out[key] = {
+      openedAt,
+      agreedAt,
+      // 버전은 **서버가 붙인다** — 지금 게시 중인 문서의 버전이 진실이다
+      version: PHOTOGRAPHER_AGREEMENT_VERSIONS[key],
+    };
+  }
+  return out;
 }

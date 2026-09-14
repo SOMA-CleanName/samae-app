@@ -1,7 +1,7 @@
 import { getCurrentUser } from "@/lib/auth";
 import { fetchUnreadTotalForPhotographer } from "@/lib/chat";
 import { createClient } from "@/lib/supabase/server";
-import { hasCurrentPhotographerAgreement, PHOTOGRAPHER_AGREEMENT_VERSIONS } from "@/lib/consent";
+import { hasCurrentPhotographerAgreement } from "@/lib/consent";
 import type { BusinessType } from "@/lib/platform-fee";
 import { RealtimeListRefresh } from "@/components/user/RealtimeListRefresh";
 import { ChatToast } from "@/components/user/ChatToast";
@@ -39,7 +39,6 @@ export default async function StudioLayout({ children }: { children: React.React
     return (
       <AgreeGate
         displayName={me.photographer.displayName}
-        versions={PHOTOGRAPHER_AGREEMENT_VERSIONS}
         initial={{
           legalName: ph?.legal_name ?? "",
           businessType: (ph?.business_type as BusinessType | null) ?? "",

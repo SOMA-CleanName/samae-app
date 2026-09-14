@@ -266,8 +266,20 @@ export function SandboxAgree() {
   const go = useGo();
   const flow = useFlow();
   const submit = async (fd: FormData): Promise<void> => {
+    // 실제 액션과 같은 조건으로 막는다 — 문서별 열람 증적이 없으면 거절
     for (const key of ["contract", "terms", "fee", "refund"]) {
       if (fd.get(`agree_${key}`) !== "on") throw new Error("문서 4종에 모두 동의해야 해요.");
+    }
+    let docRecords: Record<string, { openedAt?: string; agreedAt?: string }> = {};
+    try {
+      docRecords = JSON.parse(String(fd.get("docRecords") ?? ""));
+    } catch {
+      throw new Error("열람 기록이 없어요. 문서를 전문으로 읽고 다시 동의해주세요.");
+    }
+    for (const key of ["contract", "terms", "fee", "refund"]) {
+      if (!docRecords[key]?.openedAt || !docRecords[key]?.agreedAt) {
+        throw new Error("문서를 전문으로 읽어야 동의할 수 있어요.");
+      }
     }
     const legalName = String(fd.get("legalName") ?? "").trim();
     const businessType = String(fd.get("businessType") ?? "");
@@ -283,6 +295,7 @@ export function SandboxAgree() {
         businessNo: String(fd.get("businessNo") ?? ""),
         promoConsent: fd.get("promoConsent") === "on",
         agreedAt: new Date().toISOString(),
+        docRecords,
       },
     });
     go("done");
@@ -290,7 +303,6 @@ export function SandboxAgree() {
   return (
     <AgreeGate
       displayName={flow.application?.displayName ?? "QA작가"}
-      versions={PHOTOGRAPHER_AGREEMENT_VERSIONS}
       initial={{
         legalName: "",
         businessType: "" as BusinessType | "",
@@ -338,6 +350,14 @@ export function SandboxDone() {
         <Row k="홍보 동의" v={g?.promoConsent ? "O" : "X"} />
         <Row k="동의 시각" v={g?.agreedAt} />
         <Row k="버전" v={g ? JSON.stringify(g.versions) : "—"} />
+      </Block>
+
+      <Block title="문서별 열람·동의 증적">
+        {g?.docRecords
+          ? Object.entries(g.docRecords).map(([k, v]) => (
+              <Row key={k} k={k} v={`읽음 ${v.openedAt?.slice(11, 19)} · 동의 ${v.agreedAt?.slice(11, 19)}`} />
+            ))
+          : <Row k="—" v="없음" />}
       </Block>
 
       <button
