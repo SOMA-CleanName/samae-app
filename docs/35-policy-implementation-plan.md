@@ -17,7 +17,10 @@
 P1 중 계산 규칙과 그 소비처를 `feat/policy-p1-refund-fee` 브랜치에서 끝냈다. 마이그레이션 0111 하나에 담았다.
 
 - 끝남: `refund.ts` 4단 위약금과 배분, `platform-fee.ts` 20%와 부가세, 취소 시점을 신청 시각으로, 임박 예약 동의 문구, 결제 전 안내(위약금 표·통신판매중개자), 취소 신청의 환불 계좌, 연락처 카드 문구, 구간 예고 알림 2개, 어드민 환불 사유 확장(노쇼·부분 이행), 촬영 전 정산 차단과 큐 정리, 봇 정책과 KB, `/trust`, 회원약관 9조 표.
-- P1 은 전부 끝났다. 결과물 전달 완료 문구(전달일 표기), 촬영 상품의 수수료 안내, 어드민 수수료 설정 기본값까지 반영했다. 다음은 P2(약관·동의 기록, 사업자 정보, 홍보 동의 문구, 탈퇴 시 미정산 차단, 예약서 검열).
+- P1 은 전부 끝났다. 결과물 전달 완료 문구(전달일 표기), 촬영 상품의 수수료 안내, 어드민 수수료 설정 기본값까지 반영했다.
+- P2 도 끝났다(마이그레이션 0112). 약관 4종 페이지(`/terms/refund`, `/terms/fees`, `/terms/photographer`, `/terms/photographer-contract`), 회원 동의 기록(이메일 가입 체크박스, 카카오 가입은 `/signup/consent` 게이트), 입점 동의 게이트(`studio/layout.tsx` 가 현재 버전 동의가 없으면 `AgreeGate` 를 그린다), 작가 사업자 정보(입점 동의 화면과 프로필), 광고 동의 문구를 입점계약 7조에 맞춤, 탈퇴 시 미정산 차단, 예약서 메모·추가 항목 검열, `/privacy` 작가 제공 항목 표.
+- P2 에서 남긴 것: 광고 동의 버전이 올라갔지만 기존 앨범에 다시 동의를 권하는 안내는 아직 없다. 시행일(`POLICY_EFFECTIVE_DATE`)이 비어 있어 새 정책 페이지가 "게시 공지 후 확정"으로 보인다.
+- 다음은 P3. 그 중 일정 변경 거절 처리, 추가 결제분의 위약금 기준, 정산 주기는 정책 문서 쪽 답(6장)이 있어야 코드로 옮길 수 있다.
 - dev 에 먼저 들어온 것: 옛 환불 페이지는 리다이렉트만 남았고, 작가 정산 페이지는 다시 작성돼 있었고, 회원약관은 본문이 게시돼 있었다(9조 표는 옛 규정이라 이번에 바꿨다). 아래 표의 "지금" 칸은 그 전 상태를 적은 것이다.
 
 배포 주의. 회원약관 9조를 바꿨으므로 약관 개정 절차(회원약관 3조 2항: 7일 전 공지, 불리한 변경은 30일)가 필요하다. 고객에게는 유리한 변경이지만 작가 수수료(6,000원 또는 10% → 20%와 부가세)는 불리한 변경이라 작가 개별 통지 30일이 필요하다. 코드 배포일과 시행일을 맞춰야 한다.
@@ -197,19 +200,18 @@ dev 에서 이미 다시 작성돼 있다(`listMySettlements`, 읽기 전용, �
 | `policy-version.ts` (P2, 새 파일) | 약관과 정책 버전 상수를 두고 예약 확정 때 `bookings.policy_snapshot`에 기록한다. |
 | `moderation.ts` (유지) | 그대로 둔다. |
 
-### 마이그레이션 (0111 은 적용됨, 나머지는 제안)
+### 마이그레이션 (0111·0112 는 만들어짐, 나머지는 제안)
 
 | 번호 | 내용 |
 |---|---|
 | 0111 (P1, 끝남) | `bookings.refund_krw`, `penalty_krw`, `penalty_photographer_krw`, `penalty_company_krw`, `fee_claim_krw`, `policy_snapshot`, `notice_penalty_90_at`. `support_requests.refund_account`. `photographers.fee_mode` 기본값을 `rate` 20%로. |
-| 0112 (P2) | `profiles.terms_agreed_at`, `terms_version`. `photographer_agreements` 테이블(작가, 버전, 시각, IP). |
-| 0113 (P2) | `photographers.legal_name`, `business_type`, `business_no`, `promo_consent`, `promo_consent_at`. 입점 동의 화면에서 함께 받는다. |
-| 0114 (P3) | `packages.delivery_days`(기본 21). `bookings.delivery_due_at`, `delivery_extension_proposed_to`. `delivered_at`은 이미 있다. `message_type`에 `extension_card`. |
-| 0115 (P3) | `booking_extras` 테이블(예약, 항목명, 금액, 상태, 입금 시각). `message_type`에 `extra_card`, `reschedule_card`. `bookings.reschedule_proposed_at`, `reschedule_proposed_by`. |
-| 0116 (P3) | `support_requests` 종류 제약에 `photographer_cancel`, `report` 추가. |
-| 0117 (P3) | `settlement_batches` 테이블, `bookings.settlement_batch_id`, `settlement_breakdown`(jsonb), `settlement_deductions` 테이블. |
-| 0118 (P4) | `sanctions` 테이블. |
-| 0119 (P4) | `bookings.portrait_optout_at`. |
+| 0112 (P2, 끝남) | `profiles.terms_agreed_at`, `terms_version`. `photographers.legal_name`, `business_type`, `business_no`, `promo_consent`, `promo_consent_at`. `photographer_agreements` 테이블(작가, 버전, 홍보 동의, IP, UA, 시각). |
+| 0113 (P3) | `packages.delivery_days`(기본 21). `bookings.delivery_due_at`, `delivery_extension_proposed_to`. `delivered_at`은 이미 있다. `message_type`에 `extension_card`. |
+| 0114 (P3) | `booking_extras` 테이블(예약, 항목명, 금액, 상태, 입금 시각). `message_type`에 `extra_card`, `reschedule_card`. `bookings.reschedule_proposed_at`, `reschedule_proposed_by`. |
+| 0115 (P3) | `support_requests` 종류 제약에 `photographer_cancel`, `report` 추가. |
+| 0116 (P3) | `settlement_batches` 테이블, `bookings.settlement_batch_id`, `settlement_breakdown`(jsonb), `settlement_deductions` 테이블. |
+| 0117 (P4) | `sanctions` 테이블. |
+| 0118 (P4) | `bookings.portrait_optout_at`. |
 
 ### 알림톡
 

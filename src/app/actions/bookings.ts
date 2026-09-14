@@ -11,6 +11,7 @@ import { notifyBookingAccepted, notifyBookingProposed } from "@/lib/notify-user"
 import { normalizeBookingFields, readBookingFieldValues } from "@/lib/booking-fields";
 import { snapshotFeeForBooking } from "@/lib/payments";
 import { REFUND_WINDOW_DAYS } from "@/lib/refund";
+import { contactExchangeAllowed, detectOffPlatform, MODERATION_NOTICE } from "@/lib/moderation";
 
 // 희망 날짜 정규화 — shoot_at(시각 확정)이 있으면 그 KST 날짜, 없으면 폼의 YYYY-MM-DD.
 function resolveShootDate(shootAtIso: string | null, dateRaw: string): string | null {
@@ -34,6 +35,23 @@ function parseFee(raw: FormDataEntryValue | null, label: string): number {
 }
 
 // 알림 생성 헬퍼 (service_role)
+// 예약서 검열 — 메모와 작가 정의 추가 항목도 채팅과 같은 규칙으로 막는다.
+// 채팅만 막으면 예약서의 "연락처" 항목으로 번호가 그대로 넘어간다 (회원약관 6조 2항 위반 경로).
+// 연락처 전달이 끝난 예약(contact_delivered_at)은 이미 열린 방이므로 검열하지 않는다.
+function assertBookingTextClean(
+  memo: string,
+  customFields: Array<{ label: string; value: string }>,
+  contactDeliveredAt: string | null | undefined
+) {
+  if (contactExchangeAllowed(contactDeliveredAt)) return;
+  const texts = [memo, ...customFields.map((f) => f.value)];
+  for (const t of texts) {
+    if (t && detectOffPlatform(t).length > 0) {
+      throw new Error(`예약서에는 ${MODERATION_NOTICE}`);
+    }
+  }
+}
+
 async function notify(
   admin: ReturnType<typeof createAdminClient>,
   recipientId: string,
@@ -167,6 +185,7 @@ export async function proposeBooking(formData: FormData) {
     formData.get(n) == null ? null : String(formData.get(n))
   );
   if (fieldErrors.length > 0) throw new Error(fieldErrors[0]);
+  assertBookingTextClean(memo, customFields, null);
   // 희망 날짜 — 시간이 미정이어도 날짜는 카드에 남긴다 (shoot_at이 있으면 그 KST 날짜로 통일)
   const shootDate = resolveShootDate(shootAt, shootDateRaw);
 
@@ -275,7 +294,7 @@ export async function updateBooking(formData: FormData) {
   const { data: b } = await admin
     .from("bookings")
     .select(
-      "id, user_id, photographer_id, status, proposed_by_photographer, amount_krw, travel_fee_krw, shoot_at, package_id"
+      "id, user_id, photographer_id, status, proposed_by_photographer, amount_krw, travel_fee_krw, shoot_at, package_id, contact_delivered_at"
     )
     .eq("id", id)
     .single();
@@ -331,6 +350,7 @@ export async function updateBooking(formData: FormData) {
     formData.get(n) == null ? null : String(formData.get(n))
   );
   if (fieldErrors.length > 0) throw new Error(fieldErrors[0]);
+  assertBookingTextClean(memo, customFields, b.contact_delivered_at);
   const shootDate = resolveShootDate(shootAt, shootDateRaw);
 
   // 입금 후 날짜 변경은 조건이 있다 (docs/32 §3-6):

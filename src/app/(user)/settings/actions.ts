@@ -70,6 +70,33 @@ export async function deleteAccount() {
     );
   }
 
+  // 2-1) 작가는 정산·청구가 남아 있으면 차단 (입점계약 10조 2항).
+  //      completed 는 '진행 중' 이 아니라서 위 검사를 통과하는데, 정산이 안 끝난 채 계정을 지우면
+  //      아래에서 예약·수수료 행을 아카이브 후 삭제해 지급 기록이 사라진다.
+  if (phId) {
+    const [{ data: unsettled }, { data: owed }] = await Promise.all([
+      admin
+        .from("bookings")
+        .select("id")
+        .eq("photographer_id", phId)
+        .not("delivered_at", "is", null)
+        .is("settled_at", null)
+        .is("refunded_at", null)
+        .limit(1),
+      admin
+        .from("platform_fees")
+        .select("id")
+        .eq("photographer_id", phId)
+        .in("status", ["accrued", "billed"])
+        .limit(1),
+    ]);
+    if ((unsettled?.length ?? 0) > 0 || (owed?.length ?? 0) > 0) {
+      throw new Error(
+        "정산이 끝나지 않은 촬영이 있어 탈퇴할 수 없어요. 정산이 완료된 뒤 다시 시도하거나 사매에 문의해주세요."
+      );
+    }
+  }
+
   // 3) RESTRICT 자식(결제·수수료) 정리 → 예약 (소프트딜리트: 아카이브 후 제거)
   const bookingIds = [...new Set(all.map((b) => b.id as string))];
   if (bookingIds.length > 0) {
