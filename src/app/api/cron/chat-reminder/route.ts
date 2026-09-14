@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { cronAuthorized } from "@/lib/cron-auth";
 import { sendChatReminders } from "@/lib/chat-reminder";
 
 // 미열람 채팅 리마인더 크론.
@@ -9,9 +10,10 @@ import { sendChatReminders } from "@/lib/chat-reminder";
 // 규칙 자체는 변하지 않는다.
 //
 // 호출자는 누구든 된다 —
-//   · Vercel 크론 (vercel.json). **지금 계정은 Hobby 라 하루 1회가 상한이다.**
-//     매시간(`0 * * * *`)으로 걸었다가 배포가 통째로 거부됐다(cron-jobs/usage-and-pricing).
-//     그래서 10:00 KST 하루 1회로 두었고, 그만큼 리마인더가 12~36시간 사이에 도착한다.
+//   · `/api/cron/daily` — 하루 한 번(09:00 KST). **지금 계정은 Hobby 라 하루 1회가 상한**이고
+//     크론 개수도 묶여 있어서, 일과를 그 하나로 합쳤다. 매시간(`0 * * * *`)으로 걸었다가
+//     배포가 통째로 거부된 적이 있다(cron-jobs/usage-and-pricing).
+//     하루 1회인 만큼 리마인더는 12~36시간 사이에 도착한다.
 //   · Supabase pg_cron + pg_net 으로 이 URL 을 직접 때려도 된다 — **빈도 제한이 없어서
 //     매시간 부르면 12~13시간으로 좁혀진다.** 그쪽을 붙이면 vercel.json 항목은 빼도 된다.
 //
@@ -24,12 +26,8 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs"; // service_role 키 필요
 
 export async function GET(request: Request) {
-  const secret = process.env.CRON_SECRET;
-  if (secret) {
-    const auth = request.headers.get("authorization");
-    if (auth !== `Bearer ${secret}`) {
-      return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    }
+  if (!cronAuthorized(request)) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
   const result = await sendChatReminders();
