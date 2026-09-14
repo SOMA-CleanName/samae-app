@@ -18,7 +18,7 @@ import { PhotoFeature } from "./PhotoFeature";
 import { listFeaturedPhotos, type FeaturedPhoto } from "@/lib/explore-db";
 import { listPublishedArticles, type ArticleCard } from "@/lib/articles";
 import { listSpotCards, type SpotCard } from "@/lib/spots";
-import { GUIDE_PAGE_ITEMS } from "@/lib/guide-data";
+import { listGuidePageItems } from "@/lib/guide";
 import { Masthead } from "@/components/editorial/Masthead";
 import { SectionHead } from "@/components/editorial/SectionHead";
 import { IndexList } from "@/components/editorial/IndexList";
@@ -88,7 +88,7 @@ export default async function ExplorePage() {
     ),
   ]);
 
-  const guidePeek = GUIDE_PAGE_ITEMS.slice(0, 6);
+  const guidePeek = (await listGuidePageItems()).slice(0, 6);
 
   /*
     레일에 세우는 장소 수. 나머지는 끝에서 당겨 넘어가는 전체보기가 받는다.
