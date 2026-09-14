@@ -88,9 +88,13 @@ PROMPTS = {
     ),
 }
 
-VERSION = "purpose-v1"
-AUTO_THRESHOLD = 0.80
-AUTO_ENABLED = PURPOSE_KEYS
+VERSION = "purpose-v2"
+AUTO_THRESHOLD = 0.90
+
+# 첫 dry-run 수동 검토 결과, 시각만으로 촬영 의도를 안정적으로 나눌 수 있었던
+# 범주만 자동 적용한다. personal/friendship/pet/commercial 후보는 점수와 무관하게
+# 운영자 큐에 남긴다(특히 반려동물이 포함된 웨딩과 개인 콘셉트/룩북이 충돌함).
+AUTO_ENABLED = ("couple", "wedding", "event")
 
 
 def check_prompts():
@@ -107,4 +111,3 @@ def check_prompts():
     if len(lowered) != len(set(lowered)):
         raise ValueError("purpose prompts must be unique")
     return len(flattened)
-

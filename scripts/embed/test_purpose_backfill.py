@@ -39,7 +39,7 @@ class PurposeBackfillTest(unittest.TestCase):
 
     def test_apply_calls_only_atomic_album_rpc(self):
         backfill.apply_predictions(
-            [prediction("a1")],
+            [prediction("a1", purpose="wedding")],
             request=self.request,
             apply=True,
             threshold=0.8,
@@ -49,7 +49,7 @@ class PurposeBackfillTest(unittest.TestCase):
             ("POST", "rpc/apply_siglip_album_purpose"),
         ])
         self.assertEqual(self.calls[0][2]["p_album_id"], "a1")
-        self.assertEqual(self.calls[0][2]["p_purpose"], "personal")
+        self.assertEqual(self.calls[0][2]["p_purpose"], "wedding")
 
     def test_threshold_leaves_low_confidence_purpose_null(self):
         backfill.apply_predictions(
@@ -57,6 +57,16 @@ class PurposeBackfillTest(unittest.TestCase):
             request=self.request,
             apply=True,
             threshold=0.8,
+            limit=None,
+        )
+        self.assertIsNone(self.calls[0][2]["p_purpose"])
+
+    def test_visually_ambiguous_category_is_kept_for_manual_review(self):
+        backfill.apply_predictions(
+            [prediction("a1", purpose="pet", confidence=0.99)],
+            request=self.request,
+            apply=True,
+            threshold=0.9,
             limit=None,
         )
         self.assertIsNone(self.calls[0][2]["p_purpose"])
@@ -84,6 +94,19 @@ class PurposeBackfillTest(unittest.TestCase):
         )
         self.assertEqual(len(self.calls), 1)
         self.assertEqual(self.calls[0][2]["p_album_id"], "a1")
+
+    def test_limit_prioritizes_highest_confidence_portfolios(self):
+        backfill.apply_predictions(
+            [
+                prediction("low", purpose="wedding", confidence=0.91),
+                prediction("high", purpose="event", confidence=1.0),
+            ],
+            request=self.request,
+            apply=True,
+            threshold=0.9,
+            limit=1,
+        )
+        self.assertEqual(self.calls[0][2]["p_album_id"], "high")
 
     def test_output_contains_json_csv_and_contact_sheet_manifest(self):
         with tempfile.TemporaryDirectory() as directory:

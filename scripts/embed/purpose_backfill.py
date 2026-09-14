@@ -130,7 +130,8 @@ def apply_predictions(
         raise ValueError("threshold must be between zero and one")
     if limit is not None and limit < 0:
         raise ValueError("limit cannot be negative")
-    selected = list(predictions[:limit] if limit is not None else predictions)
+    ordered = sorted(predictions, key=lambda item: (-item.confidence, item.album_id))
+    selected = list(ordered[:limit] if limit is not None else ordered)
     classified = sum(prediction_purpose(item, threshold) is not None for item in selected)
     if not apply:
         return ApplyResult(len(selected), classified, len(selected) - classified, 0, 0)

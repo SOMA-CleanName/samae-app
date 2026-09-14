@@ -2,7 +2,7 @@
 
 > 작성일: 2026-09-14
 >
-> 상태: 설계 확정 · 사용자 문서 검토 대기 · 구현 미착수
+> 상태: 구현 및 1차 백필 완료
 >
 > 기준 문서: [사진 목적 분류 원칙](../../35-photo-purpose-taxonomy.md)
 
@@ -251,3 +251,52 @@ dry-run 산출물은 JSON/CSV 요약과 포트폴리오 대표 이미지 시트�
 분류 결과만 되돌릴 때는 `admin_purpose_source='siglip'`이면서 `admin_purpose_reviewed=false`인 값만 초기화한다. 운영자 수동값과 사진 예외는 유지한다.
 
 기능 전체를 되돌릴 때는 어드민 코드와 배치를 먼저 제거한 뒤 신규 목적 컬럼과 인덱스·제약조건을 제거한다. 기존 무드·검색·카테고리 스키마에는 롤백 작업이 없어야 한다.
+
+## 12. 구현 및 운영 결과 (2026-09-14)
+
+### 12.1 확정된 자동 적용 정책
+
+- 모델: `google/siglip2-so400m-patch16-naflex`
+- 분류기 버전: `purpose-v2`
+- 자동 적용 임계값: 상대 확신도 `0.90`
+- 자동 적용 허용 목적: `couple`, `wedding`, `event`
+- 수동 검수 전용 목적: `personal`, `friendship`, `pet`, `commercial`
+
+초기 `purpose-v1` dry-run 이미지 시트를 목적별·경계 사례별로 전수 확인했다. 반려동물이 등장하는 웨딩, 개인 콘셉트 촬영과 상업 룩북처럼 시각적 대상만으로 구매 목적을 구분할 수 없는 고득점 사례가 있었다. 그 결과 임계값을 0.80에서 0.90으로 높이고, 시각 단서로 목적을 비교적 명확하게 판정할 수 있는 세 범주만 자동 적용하도록 `purpose-v2`로 올렸다.
+
+### 12.2 백필 실측
+
+| 항목 | 결과 |
+|---|---:|
+| 공개 사진 | 1,780장 |
+| 판정 대상 포트폴리오 | 173개 |
+| 판정에 사용한 사진 | 1,780장 |
+| 앨범값을 실제 복사한 소속 사진 | 1,809장 |
+| 자동 분류 포트폴리오 | 9개 |
+| 자동 분류 사진 | 119장 |
+| 처리 후 미분류 포트폴리오 | 164개 |
+| 중앙값·다수결 충돌 포트폴리오 | 36개 |
+| 앨범-사진 목적 불일치 | 0건 |
+| 저장 실패 | 0건 |
+
+자동 분류 포트폴리오에서 판정 입력으로 사용한 공개 사진 분포는 커플 1개/10장, 웨딩 6개/78장, 행사 2개/29장이다. 저장 시에는 공개 여부와 관계없이 해당 포트폴리오의 소속 사진 전체에 복사하므로 실제 분류된 사진 DB 행은 119장이다. 전체 앨범 177개 중 판정 가능한 공개·호환 사진이 없는 4개는 배치가 건드리지 않았다.
+
+적용 순서는 전체 dry-run, 상위 확신도 5개 제한 적용, DB 불변식 확인, 전체 적용 순서로 진행했다. 제한 적용은 확신도가 높은 포트폴리오부터 선택하도록 정렬한다.
+
+### 12.3 데이터 보호 및 UI 검증
+
+- 1,817개 사진의 `mood_tags`, `generated_tags`, `auto_mood_tags`와 177개 앨범의 `target_category_id`를 적용 전후 직렬화해 비교했으며 차이는 0건이었다.
+- 마이그레이션의 DB 함수는 포트폴리오와 비예외 사진을 한 트랜잭션에서 갱신한다.
+- 어드민에서 사진 예외를 설정하고 해제한 뒤 앨범-사진 불일치 0건, 남은 사진 예외 0건을 확인했다.
+- `/admin/photo-purpose`를 데스크톱·모바일에서 점검했고, 상태·목적 필터와 포트폴리오 일괄 적용, 사진별 예외 설정·해제를 확인했다.
+- `/`, `/c/couple`, `/explore`, 사진 상세 공개 경로에서 목적 필드가 화면에 노출되지 않음을 확인했다.
+- 실제 화면은 기존 어드민의 가로형 상단 내비게이션을 유지했다. 초기 디자인 콘셉트의 새 좌측 전역 사이드바는 기존 정보 구조와 충돌하므로 도입하지 않았다.
+
+검증 산출물:
+
+- `/private/tmp/samae-purpose-analysis/purpose-v1/calibrated/`
+- `/private/tmp/samae-purpose-analysis/purpose-v1/applied/`
+- `/private/tmp/samae-purpose-analysis/purpose-v1/ui/photo-purpose-desktop.png`
+- `/private/tmp/samae-purpose-analysis/purpose-v1/ui/photo-purpose-mobile.png`
+- `/private/tmp/samae-purpose-analysis/purpose-v1/protected-before.json`
+- `/private/tmp/samae-purpose-analysis/purpose-v1/protected-final.json`
