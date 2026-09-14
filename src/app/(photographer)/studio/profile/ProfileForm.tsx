@@ -75,7 +75,7 @@ export function ProfileForm({ initial }: { initial: ProfileInitial }) {
 
       {/* 사업자 정보 — 입점 계약 당사자·세무 처리 기준 (수수료정책 1조 2항·6조). 입점 동의 때 받은 값을 여기서 고친다 */}
       <fieldset className="mt-2 rounded-xl border border-fg/10 p-4">
-        <legend className="px-1 text-xs text-fg/55">사업자 정보</legend>
+        <legend className="px-1 text-xs text-muted">사업자 정보</legend>
         <div className="flex flex-col gap-3">
           <Field name="legalName" label="성명 또는 상호" value={f.legalName} onChange={set("legalName")} hint="계약과 정산 서류에 쓰여요. 활동명과 별개" error={state.fieldErrors?.legalName} />
           <div className="flex flex-col gap-1">
@@ -92,7 +92,7 @@ export function ProfileForm({ initial }: { initial: ProfileInitial }) {
                 <option key={t} value={t}>{BUSINESS_TYPE_LABEL[t]}</option>
               ))}
             </select>
-            <p className="text-xs text-fg/45">일반과세자는 실질 20%, 간이·미등록은 22%(부가세 포함). 미등록은 정산금에서 3.3% 원천징수</p>
+            <p className="text-xs text-faint">일반과세자는 실질 20%, 간이·미등록은 22%(부가세 포함). 미등록은 정산금에서 3.3% 원천징수</p>
             {state.fieldErrors?.businessType && <p className="text-xs text-brand">{state.fieldErrors.businessType}</p>}
           </div>
           {f.businessType && f.businessType !== "unregistered" && (
