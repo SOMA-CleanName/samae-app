@@ -273,9 +273,32 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  v_album_id uuid;
 begin
   if not public.is_service_context() and not public.is_admin() then
     raise exception '운영자만 사진 목적 예외를 해제할 수 있습니다';
+  end if;
+
+  select album_id into v_album_id
+    from public.photos
+   where id = p_photo_id;
+
+  if not found then
+    raise exception '사진을 찾을 수 없습니다';
+  end if;
+
+  if v_album_id is null then
+    update public.photos
+       set admin_purpose = null,
+           admin_purpose_confidence = null,
+           admin_purpose_source = null,
+           admin_purpose_reviewed = false,
+           admin_purpose_version = null,
+           admin_purpose_at = null,
+           admin_purpose_overridden = false
+     where id = p_photo_id;
+    return;
   end if;
 
   update public.photos p
@@ -290,9 +313,6 @@ begin
    where p.id = p_photo_id
      and p.album_id = a.id;
 
-  if not found then
-    raise exception '앨범에 속한 사진을 찾을 수 없습니다';
-  end if;
 end;
 $$;
 

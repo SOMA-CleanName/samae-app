@@ -17,6 +17,7 @@ const TABS = [
   { href: "/admin/notifications", label: "알림" },
   { href: "/admin/bot-kb", label: "상담봇" },
   { href: "/admin/photos", label: "사진 노출" },
+  { href: "/admin/photo-purpose", label: "사진 목적&무드" },
   { href: "/admin/banners", label: "홈 배너" },
   { href: "/admin/articles", label: "아티클" },
   { href: "/admin/categories", label: "타겟 카테고리" },
