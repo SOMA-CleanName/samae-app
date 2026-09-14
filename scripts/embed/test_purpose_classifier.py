@@ -56,6 +56,7 @@ class PurposeClassifierTest(unittest.TestCase):
         result = classifier.aggregate_album("album-1", scores, ("personal", "wedding"))
         self.assertIsNone(result.candidate)
         self.assertTrue(result.conflict)
+        self.assertEqual(result.top_purpose, "wedding")
 
     def test_album_vote_tie_is_kept_unclassified(self):
         scores = np.array([[3.0, 0.0], [0.0, 3.0]])

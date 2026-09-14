@@ -2,6 +2,7 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 from scripts.embed.purpose_classifier import AlbumPrediction
 from scripts.embed import purpose_backfill as backfill
@@ -71,6 +72,52 @@ class PurposeBackfillTest(unittest.TestCase):
         )
         self.assertIsNone(self.calls[0][2]["p_purpose"])
 
+    def test_force_all_assigns_median_winner_despite_conflict_and_confidence(self):
+        forced = SimpleNamespace(
+            album_id="a1",
+            purpose=None,
+            top_purpose="pet",
+            confidence=0.01,
+            conflict=True,
+            photo_count=3,
+            top_scores=(1.5, 0.5),
+        )
+        result = backfill.apply_predictions(
+            [forced],
+            request=self.request,
+            apply=True,
+            threshold=0.9,
+            limit=None,
+            force_all=True,
+        )
+        self.assertEqual(result.classified, 1)
+        self.assertEqual(result.unclassified, 0)
+        self.assertEqual(self.calls[0][2]["p_purpose"], "pet")
+        self.assertEqual(self.calls[0][2]["p_version"], "purpose-v3")
+
+    def test_force_all_fetches_unpublished_compatible_photos(self):
+        requested_paths = []
+
+        def request(method, path, body=None, extra=None):
+            requested_paths.append(path)
+            if path.startswith("albums?"):
+                return [{"id": "a1", "admin_purpose_source": None,
+                         "admin_purpose_reviewed": False}]
+            if "offset=0" in path:
+                return [{
+                    "id": "p1",
+                    "album_id": "a1",
+                    "visibility": "private",
+                    "embedding_model": backfill.EMBEDDING_PREFIX + "1024",
+                }]
+            return []
+
+        _, photos, _, _ = backfill.fetch_inputs(request, include_unpublished=True)
+        photo_path = next(path for path in requested_paths if path.startswith("photos?"))
+        self.assertNotIn("visibility=eq.published", photo_path)
+        self.assertIn("album_id=not.is.null", photo_path)
+        self.assertEqual([photo["id"] for photo in photos], ["p1"])
+
     def test_manual_reviewed_album_is_excluded_before_classification(self):
         albums = [
             {"id": "a1", "admin_purpose_source": "manual", "admin_purpose_reviewed": True},
@@ -83,6 +130,17 @@ class PurposeBackfillTest(unittest.TestCase):
         eligible, excluded = backfill.filter_eligible_rows(albums, photos)
         self.assertEqual([row["id"] for row in eligible], ["p2"])
         self.assertEqual(excluded, 1)
+
+    def test_manual_and_overridden_photos_are_excluded_from_force_all_input(self):
+        photos = [
+            {"id": "manual", "album_id": None, "admin_purpose_source": "manual"},
+            {"id": "reviewed", "album_id": None, "admin_purpose_reviewed": True},
+            {"id": "override", "album_id": "a1", "admin_purpose_overridden": True},
+            {"id": "eligible", "album_id": "a1"},
+        ]
+        eligible, excluded = backfill.filter_eligible_rows([], photos)
+        self.assertEqual([row["id"] for row in eligible], ["eligible"])
+        self.assertEqual(excluded, 3)
 
     def test_limit_caps_album_writes_not_photo_rows(self):
         backfill.apply_predictions(

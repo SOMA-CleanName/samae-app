@@ -20,6 +20,7 @@ class AlbumEvidence:
     conflict: bool
     photo_count: int
     top_scores: tuple[float, float]
+    top_purpose: str | None = None
 
 
 @dataclass(frozen=True)
@@ -30,6 +31,7 @@ class AlbumPrediction:
     conflict: bool
     photo_count: int
     top_scores: tuple[float, float]
+    top_purpose: str | None = None
 
 
 def zscore_columns(cosine: np.ndarray) -> np.ndarray:
@@ -103,6 +105,7 @@ def aggregate_album(
             float(medians[median_order[0]]),
             float(medians[median_order[1]]),
         ),
+        top_purpose=keys[int(median_order[0])],
     )
 
 
@@ -125,6 +128,7 @@ def calibrate_evidence(items: Sequence[AlbumEvidence]) -> list[AlbumPrediction]:
             conflict=item.conflict,
             photo_count=item.photo_count,
             top_scores=item.top_scores,
+            top_purpose=item.top_purpose or item.candidate,
         ))
     return output
 
@@ -171,4 +175,3 @@ def classify_catalog(
         for album_id, indexes in sorted(indexes_by_album.items())
     ]
     return calibrate_evidence(evidence)
-

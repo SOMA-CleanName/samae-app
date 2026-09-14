@@ -94,8 +94,17 @@ def filter_eligible_rows(
         if album.get("admin_purpose_reviewed") is True
         or album.get("admin_purpose_source") == "manual"
     }
-    eligible = [row for row in photos if str(row.get("album_id")) not in protected]
-    return eligible, len(protected)
+    eligible = [
+        row for row in photos
+        if str(row.get("album_id")) not in protected
+        and row.get("admin_purpose_reviewed") is not True
+        and row.get("admin_purpose_source") != "manual"
+        and row.get("admin_purpose_overridden") is not True
+    ]
+    excluded_photo_count = len(photos) - len(eligible) - sum(
+        1 for row in photos if str(row.get("album_id")) in protected
+    )
+    return eligible, len(protected) + excluded_photo_count
 
 
 def parse_embedding(value) -> np.ndarray:
@@ -110,7 +119,12 @@ def parse_embedding(value) -> np.ndarray:
     return vector / norm
 
 
-def prediction_purpose(prediction, threshold: float) -> str | None:
+def prediction_purpose(prediction, threshold: float, *, force_all: bool = False) -> str | None:
+    if force_all:
+        top_purpose = prediction.top_purpose or prediction.purpose
+        if top_purpose not in purposes.PURPOSE_KEYS:
+            raise ValueError("force-all prediction must have a valid top purpose")
+        return top_purpose
     if prediction.conflict or prediction.confidence < threshold:
         return None
     if prediction.purpose not in purposes.AUTO_ENABLED:
@@ -125,6 +139,7 @@ def apply_predictions(
     apply: bool,
     threshold: float,
     limit: int | None,
+    force_all: bool = False,
 ) -> ApplyResult:
     if not 0 <= threshold <= 1:
         raise ValueError("threshold must be between zero and one")
@@ -132,7 +147,10 @@ def apply_predictions(
         raise ValueError("limit cannot be negative")
     ordered = sorted(predictions, key=lambda item: (-item.confidence, item.album_id))
     selected = list(ordered[:limit] if limit is not None else ordered)
-    classified = sum(prediction_purpose(item, threshold) is not None for item in selected)
+    classified = sum(
+        prediction_purpose(item, threshold, force_all=force_all) is not None
+        for item in selected
+    )
     if not apply:
         return ApplyResult(len(selected), classified, len(selected) - classified, 0, 0)
 
@@ -145,9 +163,11 @@ def apply_predictions(
                 "rpc/apply_siglip_album_purpose",
                 {
                     "p_album_id": item.album_id,
-                    "p_purpose": prediction_purpose(item, threshold),
+                    "p_purpose": prediction_purpose(item, threshold, force_all=force_all),
                     "p_confidence": item.confidence,
-                    "p_version": purposes.VERSION,
+                    "p_version": (
+                        purposes.FULL_AUTO_VERSION if force_all else purposes.VERSION
+                    ),
                 },
                 {"Prefer": "return=representation"},
             )
@@ -165,12 +185,14 @@ def apply_predictions(
     )
 
 
-def _json_record(prediction, album, threshold):
+def _json_record(prediction, album, threshold, *, force_all=False):
     record = asdict(prediction)
     record["top_scores"] = list(prediction.top_scores)
     record["title"] = album.get("title")
     record["description"] = album.get("description")
-    record["applied_purpose"] = prediction_purpose(prediction, threshold)
+    record["applied_purpose"] = prediction_purpose(
+        prediction, threshold, force_all=force_all
+    )
     return record
 
 
@@ -214,11 +236,17 @@ def write_artifacts(
     output_dir: Path,
     fetch_thumbnail: Callable[[str], bytes] | None = _default_fetch_thumbnail,
     threshold: float = purposes.AUTO_THRESHOLD,
+    force_all: bool = False,
 ) -> list[Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     ordered = sorted(predictions, key=lambda item: (-item.confidence, item.album_id))
     records = [
-        _json_record(item, albums_by_id.get(item.album_id, {}), threshold)
+        _json_record(
+            item,
+            albums_by_id.get(item.album_id, {}),
+            threshold,
+            force_all=force_all,
+        )
         for item in ordered
     ]
 
@@ -253,7 +281,13 @@ def write_artifacts(
                 "margin": f"{item.top_scores[0] - item.top_scores[1]:.6f}",
             })
 
-    manifest = {"version": purposes.VERSION, "threshold": threshold, "albums": [], "sheets": []}
+    manifest = {
+        "version": purposes.FULL_AUTO_VERSION if force_all else purposes.VERSION,
+        "threshold": None if force_all else threshold,
+        "force_all": force_all,
+        "albums": [],
+        "sheets": [],
+    }
     sheet_groups = defaultdict(list)
     boundary = []
     for item in ordered:
@@ -267,7 +301,10 @@ def write_artifacts(
         })
         if representative and fetch_thumbnail:
             entry = {"prediction": item, "photo": representative}
-            sheet_groups[item.purpose or "unclassified"].append(entry)
+            sheet_purpose = prediction_purpose(
+                item, threshold, force_all=force_all
+            )
+            sheet_groups[sheet_purpose or "unclassified"].append(entry)
             if abs(item.confidence - threshold) <= 0.1 or item.conflict:
                 boundary.append(entry)
 
@@ -301,17 +338,20 @@ def write_artifacts(
     return generated
 
 
-def fetch_inputs(request):
+def fetch_inputs(request, *, include_unpublished: bool = False):
     albums = fetch_pages(
         request,
         "albums?select=id,title,description,admin_purpose_source,"
         "admin_purpose_reviewed,admin_purpose_version",
     )
+    photo_filters = "&album_id=not.is.null&embedding=not.is.null"
+    if not include_unpublished:
+        photo_filters += "&visibility=eq.published"
     photos = fetch_pages(
         request,
         "photos?select=id,album_id,src_url,thumb_url,embedding,embedding_model,visibility,"
         "admin_purpose_source,admin_purpose_reviewed,admin_purpose_overridden"
-        "&visibility=eq.published&album_id=not.is.null&embedding=not.is.null",
+        + photo_filters,
     )
     compatible = []
     for photo in photos:
@@ -325,6 +365,11 @@ def fetch_inputs(request):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--apply", action="store_true", help="원자 RPC로 DB에 저장")
+    parser.add_argument(
+        "--force-all",
+        action="store_true",
+        help="비공개 사진까지 포함하고 임계값·충돌과 무관하게 중앙값 1위를 저장",
+    )
     parser.add_argument("--limit", type=int, help="저장할 최대 포트폴리오 수")
     parser.add_argument("--threshold", type=float, default=purposes.AUTO_THRESHOLD)
     parser.add_argument(
@@ -343,12 +388,15 @@ def main():
     request = lambda method, path, body=None, extra=None: api_request(  # noqa: E731
         env, method, path, body, extra
     )
-    albums, rows, excluded, incompatible = fetch_inputs(request)
+    albums, rows, excluded, incompatible = fetch_inputs(
+        request, include_unpublished=args.force_all
+    )
     if len(rows) < 2:
         raise RuntimeError("분류 가능한 공개 사진이 두 장보다 적습니다")
     print(
-        f"모드 {'APPLY' if args.apply else 'DRY-RUN'} · 사진 {len(rows)}장 · "
-        f"보호 앨범 {excluded}개 · 비호환 임베딩 {incompatible}장"
+        f"모드 {'APPLY' if args.apply else 'DRY-RUN'}"
+        f"{' FORCE-ALL' if args.force_all else ''} · 사진 {len(rows)}장 · "
+        f"보호 대상 {excluded}개 · 비호환 임베딩 {incompatible}장"
     )
 
     image_vectors = np.stack([parse_embedding(row["embedding"]) for row in rows])
@@ -367,6 +415,7 @@ def main():
         photos_by_album=photos_by_album,
         output_dir=args.output,
         threshold=args.threshold,
+        force_all=args.force_all,
     )
     result = apply_predictions(
         predictions,
@@ -374,6 +423,7 @@ def main():
         apply=args.apply,
         threshold=args.threshold,
         limit=args.limit,
+        force_all=args.force_all,
     )
     print(
         f"포트폴리오 {result.processed}개 · 분류 {result.classified} · "

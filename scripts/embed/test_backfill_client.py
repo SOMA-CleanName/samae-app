@@ -183,6 +183,31 @@ class BackfillClientTest(unittest.TestCase):
         self.assertEqual([w[0] for w in writes], ["photos?id=eq.photo-2"])
         self.assertEqual([r[0] for r in self.requests], ["/health", "/embed-backfill"])
 
+    def test_all_visibility_mode_fetches_every_photo_missing_an_embedding(self):
+        paths = []
+
+        def api(env, method, path, body=None, headers=None):
+            paths.append(path)
+            return []
+
+        with patch.object(backfill, "api", side_effect=api):
+            backfill.fetch_pending({}, None, all_visibility=True)
+        self.assertEqual(len(paths), 1)
+        self.assertIn("embedding=is.null", paths[0])
+        self.assertNotIn("visibility=eq.published", paths[0])
+
+    def test_default_pending_query_remains_public_only(self):
+        paths = []
+
+        def api(env, method, path, body=None, headers=None):
+            paths.append(path)
+            return []
+
+        with patch.object(backfill, "api", side_effect=api):
+            backfill.fetch_pending({}, None, all_visibility=False)
+        self.assertIn("visibility=eq.published", paths[0])
+        self.assertIn("embedded_at=is.null", paths[0])
+
 
 if __name__ == "__main__":
     unittest.main()

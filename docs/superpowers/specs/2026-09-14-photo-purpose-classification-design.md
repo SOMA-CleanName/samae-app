@@ -300,3 +300,26 @@ dry-run 산출물은 JSON/CSV 요약과 포트폴리오 대표 이미지 시트�
 - `/private/tmp/samae-purpose-analysis/purpose-v1/ui/photo-purpose-mobile.png`
 - `/private/tmp/samae-purpose-analysis/purpose-v1/protected-before.json`
 - `/private/tmp/samae-purpose-analysis/purpose-v1/protected-final.json`
+
+### 12.4 전량 자동 분류 모드와 적용 결과
+
+추가 운영 결정에 따라 기존 보수적 기본 동작을 유지하면서 명시적인 `--force-all` 모드를 추가했다. 이 모드는 다음 차이만 가진다.
+
+- 공개 여부와 관계없이 임베딩이 있는 모든 앨범 소속 사진을 판정에 사용한다.
+- 임계값과 자동 허용 목적 제한을 적용하지 않는다.
+- 중앙값 1위와 사진 다수결 1위가 충돌해도 중앙값 1위를 저장한다.
+- 저장 버전은 `purpose-v3`다.
+- 기존 수동 검수 앨범, 수동 사진, 사진별 예외는 계속 제외한다.
+
+draft 사진 37장은 임베딩이 없어 기존 `embed_photos.py`에 opt-in `--all-visibility`를 추가해 먼저 채웠다. 기본 임베딩 배치는 여전히 공개 사진만 처리한다. 37장 적용 후 전체 임베딩 커버리지는 1,817/1,817장이 됐다.
+
+전량 dry-run과 적용 결과는 사진이 있는 포트폴리오 175개와 사진 1,817장 전부 분류, 실패 0건이다. 빈 포트폴리오 2개는 판정할 사진이 없어 `null`로 유지했다. 충돌 포트폴리오 37개와 상대 확신도 0.90 미만 포트폴리오 158개도 승인된 전량 분류 원칙에 따라 중앙값 1위로 저장했다.
+
+최종 사진 분포는 개인 536장, 상업/브랜드 324장, 커플 253장, 웨딩 222장, 반려동물 214장, 행사 143장, 우정 125장이다. DB 재조회 결과 모든 사진의 `admin_purpose`와 `admin_purpose_version='purpose-v3'`가 존재했고, 앨범-사진 불일치와 임베딩 누락은 각각 0건이었다.
+
+전량 적용 전후 보호 필드 스냅샷도 완전히 동일했다.
+
+- `/private/tmp/samae-purpose-analysis/purpose-v3/final-dry-run/`
+- `/private/tmp/samae-purpose-analysis/purpose-v3/applied/`
+- `/private/tmp/samae-purpose-analysis/purpose-v3/protected-before.json`
+- `/private/tmp/samae-purpose-analysis/purpose-v3/protected-after.json`
