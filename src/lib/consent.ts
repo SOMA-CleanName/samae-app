@@ -7,23 +7,16 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
-import {
-  FEE_POLICY_VERSION,
-  PHOTOGRAPHER_CONTRACT_VERSION,
-  PHOTOGRAPHER_TERMS_VERSION,
-  REFUND_POLICY_VERSION,
-  TERMS_VERSION,
+import { agreementIsCurrent, TERMS_VERSION } from "@/lib/policy-version";
+
+// 버전 묶음과 비교 규칙은 policy-version.ts 에 있다 — 클라이언트 컴포넌트(AgreeGate,
+// /dev/flow)도 가져다 써야 해서 server-only 인 이 파일에 둘 수 없었다.
+// 기존 import 경로가 깨지지 않게 여기서 그대로 다시 내보낸다.
+export {
+  PHOTOGRAPHER_AGREEMENT_VERSIONS,
+  agreementIsCurrent,
+  type AgreementVersions,
 } from "@/lib/policy-version";
-
-/** 작가가 동의해야 하는 문서 묶음의 현재 버전 */
-export const PHOTOGRAPHER_AGREEMENT_VERSIONS = {
-  terms: PHOTOGRAPHER_TERMS_VERSION,
-  fee: FEE_POLICY_VERSION,
-  refund: REFUND_POLICY_VERSION,
-  contract: PHOTOGRAPHER_CONTRACT_VERSION,
-} as const;
-
-export type AgreementVersions = { terms: string; fee: string; refund: string; contract: string };
 
 /** 회원약관 동의가 없는 계정인가 — 조회 실패 시 false (로그인 흐름을 막지 않는다) */
 export async function needsTermsConsent(supabase: SupabaseClient): Promise<boolean> {
@@ -51,18 +44,6 @@ export async function recordTermsConsent(userId: string): Promise<void> {
     .update({ terms_agreed_at: new Date().toISOString(), terms_version: TERMS_VERSION })
     .eq("id", userId)
     .is("terms_agreed_at", null);
-}
-
-/** 최신 입점 동의가 현재 버전과 같은가 */
-export function agreementIsCurrent(versions: unknown): boolean {
-  if (!versions || typeof versions !== "object") return false;
-  const v = versions as Partial<AgreementVersions>;
-  return (
-    v.terms === PHOTOGRAPHER_AGREEMENT_VERSIONS.terms &&
-    v.fee === PHOTOGRAPHER_AGREEMENT_VERSIONS.fee &&
-    v.refund === PHOTOGRAPHER_AGREEMENT_VERSIONS.refund &&
-    v.contract === PHOTOGRAPHER_AGREEMENT_VERSIONS.contract
-  );
 }
 
 /** 이 작가가 현재 버전의 입점 계약에 동의했는가 */

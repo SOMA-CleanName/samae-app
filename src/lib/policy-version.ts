@@ -34,3 +34,30 @@ export function currentPolicySnapshot(now: Date = new Date()): PolicySnapshot {
     at: now.toISOString(),
   };
 }
+
+// ── 작가 입점 동의 묶음 ─────────────────────────────────────────
+// consent.ts 에 있던 걸 여기로 옮겼다. 거기는 "server-only" 라 **클라이언트 컴포넌트가
+// 가져다 쓸 수 없다** — AgreeGate 를 그대로 쓰는 /dev/flow 샌드박스가 막혔다.
+// 값과 비교 규칙일 뿐 서버 자원을 안 쓰므로 여기가 맞는 자리다.
+
+/** 작가가 동의해야 하는 문서 묶음의 현재 버전 */
+export const PHOTOGRAPHER_AGREEMENT_VERSIONS = {
+  terms: PHOTOGRAPHER_TERMS_VERSION,
+  fee: FEE_POLICY_VERSION,
+  refund: REFUND_POLICY_VERSION,
+  contract: PHOTOGRAPHER_CONTRACT_VERSION,
+} as const;
+
+export type AgreementVersions = { terms: string; fee: string; refund: string; contract: string };
+
+/** 최신 입점 동의가 현재 버전과 같은가 — 넷 중 하나라도 다르면 다시 받는다 */
+export function agreementIsCurrent(versions: unknown): boolean {
+  if (!versions || typeof versions !== "object") return false;
+  const v = versions as Partial<AgreementVersions>;
+  return (
+    v.terms === PHOTOGRAPHER_AGREEMENT_VERSIONS.terms &&
+    v.fee === PHOTOGRAPHER_AGREEMENT_VERSIONS.fee &&
+    v.refund === PHOTOGRAPHER_AGREEMENT_VERSIONS.refund &&
+    v.contract === PHOTOGRAPHER_AGREEMENT_VERSIONS.contract
+  );
+}

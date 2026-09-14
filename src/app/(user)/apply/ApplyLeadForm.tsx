@@ -1,13 +1,24 @@
 "use client";
 
 import { useActionState } from "react";
-import { submitPhotographerApplication, type ApplyLeadState } from "./actions";
+import { submitPhotographerApplication } from "./actions";
+import type { ApplyLeadState } from "./schema";
 
 const initial: ApplyLeadState = {};
 
 // 작가 신청 폼(공개) — 작가명·포트폴리오 링크·전화·소개 + 카카오 채널 단계
-export function ApplyLeadForm({ kakaoChannelUrl }: { kakaoChannelUrl: string }) {
-  const [state, formAction, pending] = useActionState(submitPhotographerApplication, initial);
+//
+// `action` 은 기본이 실제 서버 액션이다. 주입할 수 있게 열어 둔 건 /dev/flow(샌드박스)가
+// **같은 컴포넌트**를 쓰면서 저장만 localStorage 로 돌리기 위해서다 — 화면을 복제하면
+// 둘이 조용히 어긋나고, 어긋난 쪽을 QA 하게 된다.
+export function ApplyLeadForm({
+  kakaoChannelUrl,
+  action = submitPhotographerApplication,
+}: {
+  kakaoChannelUrl: string;
+  action?: (prev: ApplyLeadState, formData: FormData) => Promise<ApplyLeadState>;
+}) {
+  const [state, formAction, pending] = useActionState(action, initial);
 
   return (
     <div className="mt-6 flex flex-col gap-6">

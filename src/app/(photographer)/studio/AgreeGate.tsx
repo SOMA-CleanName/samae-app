@@ -18,12 +18,19 @@ export function AgreeGate({
   versions,
   initial,
   reason,
+  submit = agreePhotographerContract,
 }: {
   displayName: string;
   versions: { terms: string; fee: string; refund: string; contract: string };
   initial: { legalName: string; businessType: BusinessType | ""; businessNo: string; promoConsent: boolean };
   /** "first" 처음 동의 · "updated" 버전이 올라가 다시 동의 */
   reason: "first" | "updated";
+  /**
+   * 기본은 실제 서버 액션. 주입할 수 있게 열어 둔 건 /dev/flow(샌드박스)가 **같은
+   * 컴포넌트**를 쓰면서 저장만 localStorage 로 돌리기 위해서다 — 화면을 복제하면
+   * 둘이 조용히 어긋나고, 어긋난 쪽을 QA 하게 된다.
+   */
+  submit?: (formData: FormData) => Promise<void>;
 }) {
   const docs = [
     { key: "contract", label: "작가 입점 계약", href: "/terms/photographer-contract", version: versions.contract },
@@ -50,7 +57,7 @@ export function AgreeGate({
         action={async (fd) => {
           setError(null);
           try {
-            await agreePhotographerContract(fd);
+            await submit(fd);
           } catch (e) {
             setError(e instanceof Error ? e.message : "저장하지 못했어요. 다시 시도해주세요.");
           }
