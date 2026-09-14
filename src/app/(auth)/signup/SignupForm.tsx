@@ -255,6 +255,50 @@ export function SignupForm() {
   );
 }
 
+/**
+ * 진입 맥락별 표제 — 로그인 지면과 같은 장치(LoginForm 의 contextCopy).
+ *
+ * 기본 카피는 손님을 향한다("사진부터 고르고, 작가는 그다음"). 그런데 작가 모집
+ * 링크(/apply)를 타고 온 사람이 [작가 신청 시작하기] 를 누르면 그 카피를 만난다 —
+ * **잘못 눌렀나 싶은 화면**이다. 가입 이유가 첫 줄에 보여야 한다.
+ */
+function signupContextCopy(next: string): { title: string; sub: string } {
+  if (next.startsWith("/apply"))
+    return {
+      title: "작가로 시작하기",
+      sub: "가입하면 바로 신청서로 이어져요. 검토 후 사진이 지면에 노출됩니다.",
+    };
+  return {
+    title: "사진부터 고르고, 작가는 그다음",
+    sub: "마음에 든 사진을 누르면 그걸 찍은 작가로 이어져요. 담아두고 한 번에 물어볼 수 있어요.",
+  };
+}
+
+function SignupHeadlineShell({ title, sub }: { title: string; sub: string }) {
+  return (
+    <>
+      <h1 className="mt-6 text-[clamp(1.5rem,6vw,2rem)] font-extrabold leading-[1.2] tracking-[-0.035em]">
+        {title}
+      </h1>
+      <p className="mt-2.5 text-body-sm leading-relaxed text-muted">{sub}</p>
+    </>
+  );
+}
+
+/** useSearchParams 는 Suspense 안에서만 — 밖에 두면 정적 지면이 매 요청 렌더로 떨어진다. */
+export function SignupHeadline() {
+  return (
+    <Suspense fallback={<SignupHeadlineShell {...signupContextCopy(DEFAULT_SIGNUP_NEXT)} />}>
+      <SignupContextHeadline />
+    </Suspense>
+  );
+}
+
+function SignupContextHeadline() {
+  const next = useSearchParams().get("next") ?? DEFAULT_SIGNUP_NEXT;
+  return <SignupHeadlineShell {...signupContextCopy(next)} />;
+}
+
 export function SignupFooter() {
   return (
     <p className="text-center text-body-sm text-muted">

@@ -42,12 +42,36 @@ node scripts/qa-photographer.cjs destroy    # 계정·데이터 삭제
 
 `setup` 은 계정을 만들고 바로 ③ 으로 열어 둔다.
 
-### 🔴 접속은 반드시 `http://localhost:3001`
+### 🔴 접속은 반드시 `http://localhost:3000` — 포트까지 맞아야 한다
 
-`192.168.0.18` 같은 **IP 로 열면 로그인이 조용히 실패한다.** 평문 HTTP + 비-localhost 는
-보안 컨텍스트가 아니라 `window.crypto.subtle` 이 아예 없고, Supabase 의 PKCE 로그인이
-SHA-256 을 못 구해 터진다. 화면에는 그냥 **로그인 페이지에 머무는 걸로** 보여서
-계정이 잘못된 줄 알기 딱 좋다 (2026-09-15 실제로 그렇게 헤맸다).
+로그인이 깨지는 방식이 **두 가지**다. 둘 다 "계정이 잘못됐다" 처럼 보여서 엉뚱한 데를 판다.
+
+**① IP 로 열면 이메일 로그인이 죽는다.** `192.168.0.18:3001` 같은 주소는 평문 HTTP +
+비-localhost 라 보안 컨텍스트가 아니고, `window.crypto.subtle` 이 아예 없다. Supabase 의
+PKCE 가 SHA-256 을 못 구해 터지는데 **화면은 그냥 로그인 페이지에 머문다.**
+
+```
+192.168.0.18:3001  →  crypto.subtle: undefined   ❌
+localhost:3000     →  crypto.subtle: 있음        ✅
+```
+
+**② 포트가 3000 이 아니면 카카오 로그인이 운영 사이트로 튄다.** Supabase 의 허용
+리다이렉트 목록에 `localhost:3000` 만 들어 있다. 다른 포트면 Supabase 가 Site URL 로
+떨어뜨려서 **`https://samae.ai` 로 날아간다** (거기 `samae_cat` 쿠키가 있으면 `/c/wedding`
+같은 데로 한 번 더 간다).
+
+```
+localhost:3000/auth/callback  →  그대로              ✅
+localhost:3001/auth/callback  →  https://samae.ai    ❌
+127.0.0.1:3000/auth/callback  →  그대로              ✅
+```
+
+> 3000 이 이미 물려 있으면 Next 가 조용히 3001 로 올라간다. `npm run dev` 로그의
+> `Local:` 줄을 꼭 확인할 것. 3001 이면 그 프로세스를 죽이고 3000 을 비운 뒤 다시 띄운다.
+> (허용 목록을 늘리려면 Supabase 대시보드 → Authentication → URL Configuration)
+
+**이메일 가입은 꺼져 있다** (`EMAIL_SIGNUP_ENABLED = false`, docs/15 — SMTP 준비 전).
+그래서 `/signup` 은 카카오만 보인다. 의도된 상태지 고장이 아니다.
 
 ---
 
