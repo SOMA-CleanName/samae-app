@@ -1,5 +1,5 @@
 -- ════════════════════════════════════════════════════════════════
--- 0112 · Q&A · 촬영 장소를 DB 로 (2026-09-12)
+-- 0116 · Q&A · 촬영 장소를 DB 로 (2026-09-12)
 --
 --   둘 다 레포 안 하드코딩이었다 — `src/lib/guide-data.ts`(317줄, 33건),
 --   `src/lib/spots-data.ts`(366줄, 22건). 아티클은 이미 DB(0107)인데 이 둘만 남아,
@@ -13,10 +13,15 @@
 --
 --   ⚠️ 기존 데이터는 이 파일 아래쪽에서 그대로 심는다(seed). 레포의 .ts 는 이 마이그레이션이
 --      원격에 적용된 뒤 지운다 — 먼저 지우면 적용 전까지 지면이 빈다.
+--
+--   ⚠️ 번호를 0112 → 0116 으로 옮겼다(2026-09-15). 세현의 4단계가 0112_consent_records 를
+--      먼저 썼고 dev 는 0115 까지 차 있었다. **이 파일은 원격에 이미 적용된 상태**라
+--      전부 멱등(if not exists · drop policy if exists)으로 바꿨다 — 누가 다시 돌려도
+--      깨지지 않는다. 시드도 on conflict do nothing 이라 중복되지 않는다.
 -- ════════════════════════════════════════════════════════════════
 
 -- ── Q&A ─────────────────────────────────────────────────────────
-create table public.guide_items (
+create table if not exists public.guide_items (
   id          uuid primary key default gen_random_uuid(),
   slug        text not null unique,           -- URL. 한글 허용(검색 키워드가 URL 에 들어가는 게 유리)
   question    text not null,
@@ -39,18 +44,21 @@ create table public.guide_items (
 );
 
 -- 공개 목록 조회용(published + 축 + 정렬). slug 는 unique 인덱스가 이미 있다.
-create index idx_guide_items_live on public.guide_items (published, axis, sort_order);
+create index if not exists idx_guide_items_live on public.guide_items (published, axis, sort_order);
 
 alter table public.guide_items enable row level security;
 
 -- 조회: 공개된 것은 누구나 / 운영자는 전부(비공개 초안 포함)
+drop policy if exists guide_items_select on public.guide_items;
 create policy guide_items_select on public.guide_items for select using (
   published or public.is_admin()
 );
+drop policy if exists guide_items_write on public.guide_items;
 create policy guide_items_write on public.guide_items for all
   using (public.is_admin())
   with check (public.is_admin());
 
+drop trigger if exists trg_guide_items_updated on public.guide_items;
 create trigger trg_guide_items_updated
   before update on public.guide_items
   for each row execute function public.set_updated_at();
@@ -59,7 +67,7 @@ grant select on public.guide_items to anon, authenticated;
 grant insert, update, delete on public.guide_items to authenticated;
 
 -- ── 촬영 장소 ───────────────────────────────────────────────────
-create table public.spots (
+create table if not exists public.spots (
   id          uuid primary key default gen_random_uuid(),
   /*
     URL 조각. **영문만** 쓴다 — 한글 slug 는 인코딩/디코딩 사고가 날 자리를 만든다
@@ -96,17 +104,20 @@ create table public.spots (
   updated_at  timestamptz not null default now()
 );
 
-create index idx_spots_live on public.spots (published, city, sort_order);
+create index if not exists idx_spots_live on public.spots (published, city, sort_order);
 
 alter table public.spots enable row level security;
 
+drop policy if exists spots_select on public.spots;
 create policy spots_select on public.spots for select using (
   published or public.is_admin()
 );
+drop policy if exists spots_write on public.spots;
 create policy spots_write on public.spots for all
   using (public.is_admin())
   with check (public.is_admin());
 
+drop trigger if exists trg_spots_updated on public.spots;
 create trigger trg_spots_updated
   before update on public.spots
   for each row execute function public.set_updated_at();
