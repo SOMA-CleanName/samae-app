@@ -6,6 +6,7 @@ import { SITE_URL } from "@/lib/site";
 import { getCurrentUser } from "@/lib/auth";
 import { toProfileMe } from "@/lib/profile-me";
 import { ProfileButton } from "@/components/user/ProfileButton";
+import { RevealOnView } from "@/components/user/RevealOnView";
 import { memoTtl } from "@/lib/server-memo";
 import { ScrollMemory } from "@/components/user/ScrollMemory";
 import { MpTrackOnce } from "@/components/MpTrackOnce";
@@ -160,8 +161,8 @@ export default async function ExplorePage() {
         (계정 진입 자체는 홈·카테고리 지면과 같은 장치 — 읽다 보면 오래 머무는
          지면이라 로그아웃 한 번 하려고 홈으로 돌아가지 않게)
       */}
-      <div className="relative mx-auto w-full max-w-[1280px] px-4 pt-2 sm:px-6 sm:pt-3">
-        <div className="absolute right-4 top-2 z-10 sm:right-6 sm:top-3">
+      <div className="relative mx-auto w-full max-w-[1280px] px-4 pt-8 sm:px-6 sm:pt-10">
+        <div className="absolute right-4 top-8 z-10 sm:right-6 sm:top-10">
           <ProfileButton
             loggedIn={!!me}
             avatarUrl={me?.avatarUrl ?? null}
@@ -190,6 +191,9 @@ export default async function ExplorePage() {
           (sticky 가 지면 전체 구간 동안 고정되려면 래퍼로 감싸지 말 것) */}
       <ExploreRunningHead sections={sections} />
 
+      {/* 등장 연출 감시자 — 지면의 data-reveal 전부를 이 하나가 맡는다 */}
+      <RevealOnView />
+
       <div className="mx-auto w-full max-w-[1280px] px-4 pb-24 pt-7 sm:px-6">
         {empty ? (
           <p className="py-20 text-center text-body-sm text-muted">
@@ -199,7 +203,7 @@ export default async function ExplorePage() {
           <>
             {/* ── ARTICLES ─────────────────────────────────── */}
             {articles.length > 0 && (
-              <section id="sec-articles" data-pid="sec-articles" className="scroll-mt-24">
+              <section id="sec-articles" data-pid="sec-articles" data-reveal className="scroll-mt-24">
                 <SectionHead title="ARTICLES" more="/articles" />
 
                 {/*
@@ -227,7 +231,7 @@ export default async function ExplorePage() {
 
             {/* ── TREND ────────────────────────────────────── */}
             {featured.length > 0 && (
-              <section id="sec-featured" data-pid="sec-featured" className="mt-20 scroll-mt-24">
+              <section id="sec-featured" data-pid="sec-featured" data-reveal className="mt-8 scroll-mt-24 sm:mt-12">
                 <SectionHead title="TREND" />
                 <PhotoFeature photos={featured} />
               </section>
@@ -235,7 +239,7 @@ export default async function ExplorePage() {
 
             {/* ── SPOTS ────────────────────────────────────── */}
             {spots.length > 0 && (
-              <section id="sec-spots" data-pid="sec-spots" className="mt-20 scroll-mt-24">
+              <section id="sec-spots" data-pid="sec-spots" data-reveal className="mt-8 scroll-mt-24 sm:mt-12">
                 <SectionHead title="SPOTS" more="/spots" />
                 <SpotsRail spots={spots.slice(0, SPOTS_RAIL_MAX)} total={spots.length} />
               </section>
@@ -243,7 +247,7 @@ export default async function ExplorePage() {
 
             {/* ── Q&A ──────────────────────────────────────── */}
             {guidePeek.length > 0 && (
-              <section id="sec-guide" data-pid="sec-guide" className="mt-20 scroll-mt-24">
+              <section id="sec-guide" data-pid="sec-guide" data-reveal className="mt-8 scroll-mt-24 sm:mt-12">
                 <SectionHead title="Q&A" more="/guide" />
                 <IndexList
                   entries={guidePeek.map((g) => ({
