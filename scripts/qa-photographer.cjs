@@ -6,11 +6,16 @@
 //
 //   node scripts/qa-photographer.cjs setup      계정 생성 (최초 1회)
 //   node scripts/qa-photographer.cjs status     지금 어느 단계인지
-//   node scripts/qa-photographer.cjs apply      ① 신청 전    — /apply 폼부터
+//   node scripts/qa-photographer.cjs apply      ① 신청 전    — 프로필 탭 → [작가 신청] 부터
 //   node scripts/qa-photographer.cjs approve    ② 승인 대기  — 어드민 승인 버튼부터
-//   node scripts/qa-photographer.cjs agree      ③ 동의 전    — /studio 입점 동의부터  ★가장 자주
+//   node scripts/qa-photographer.cjs agree      ③ 동의 전    — 프로필 탭 → [스튜디오] 부터  ★가장 자주
 //   node scripts/qa-photographer.cjs profile    ④ 동의 완료  — 사업자 정보 수정만
 //   node scripts/qa-photographer.cjs destroy    계정·데이터 전부 삭제
+//
+// ⚠️ **반드시 http://localhost 로 접속할 것.** `192.168.0.18` 같은 IP 로 열면 로그인이
+//    조용히 실패한다 — 평문 HTTP + 비-localhost 는 보안 컨텍스트가 아니라 `crypto.subtle`
+//    이 없고, Supabase 의 PKCE 로그인이 SHA-256 을 못 구해 터진다. 화면에는 그냥
+//    로그인 페이지에 머무는 걸로 보여서 계정 문제로 오해하기 쉽다 (2026-09-15 실제로 그랬다).
 //
 // ⚠️ **이 스크립트는 QA 계정 하나만 만진다.** 아래 QA_EMAIL 과 그 계정에 딸린
 //    photographers·applications·agreements 행 외에는 어떤 조건으로도 건드리지 않는다.
@@ -196,7 +201,8 @@ const STAGES = {
   async apply(user) {
     await wipe(user.id);
     console.log("① 신청 전 — 신청·작가·동의 기록 전부 지웠습니다.");
-    console.log("   → /apply 에서 폼부터 시작하세요.");
+    console.log("   → 프로필 탭(우상단) 을 열면 [작가 신청] 이 보입니다. 거기서 시작하세요.");
+    console.log("     · 일반 회원과 똑같은 상태입니다 — 작가 전용 진입로가 따로 있는 게 아닙니다.");
   },
   async approve(user) {
     await wipe(user.id);
@@ -209,7 +215,8 @@ const STAGES = {
     await makeApplication(user.id, "approved");
     await makePhotographer(user.id, "approved");
     console.log("③ 입점 동의 전 — 승인된 작가이고, 동의 기록이 없습니다.");
-    console.log("   → /studio 에 들어가면 입점 동의 화면이 뜹니다. 사업자 정보도 여기서 처음 받습니다.");
+    console.log("   → 프로필 탭에 [스튜디오] 가 떴을 겁니다. 누르면 입점 동의 화면이 나옵니다.");
+    console.log("     사업자 정보도 여기서 처음 받습니다.");
   },
   async profile(user) {
     await wipe(user.id, { keepApplication: true });
@@ -239,7 +246,7 @@ const STAGES = {
       .eq("id", phId);
     console.log("④ 동의 완료 — 관문을 통과한 상태입니다.");
     console.log(`   심은 버전: ${JSON.stringify(versions)}`);
-    console.log("   → /studio/profile 에서 사업자 정보 수정만 봅니다.");
+    console.log("   → 프로필 탭 → [스튜디오] → 프로필 에서 사업자 정보 수정만 봅니다.");
   },
 };
 
