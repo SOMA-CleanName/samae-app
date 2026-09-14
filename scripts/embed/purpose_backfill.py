@@ -27,6 +27,7 @@ if str(HERE) not in sys.path:
 
 import purpose_classifier  # noqa: E402
 import purposes  # noqa: E402
+import purpose_text  # noqa: E402
 import siglip  # noqa: E402
 
 PAGE_SIZE = 300
@@ -120,8 +121,10 @@ def parse_embedding(value) -> np.ndarray:
 
 
 def prediction_purpose(prediction, threshold: float, *, force_all: bool = False) -> str | None:
+    if prediction.source in ("text", "hybrid"):
+        return prediction.purpose
     if force_all:
-        top_purpose = prediction.top_purpose or prediction.purpose
+        top_purpose = prediction.purpose or prediction.image_purpose
         if top_purpose not in purposes.PURPOSE_KEYS:
             raise ValueError("force-all prediction must have a valid top purpose")
         return top_purpose
@@ -160,14 +163,14 @@ def apply_predictions(
         try:
             response = request(
                 "POST",
-                "rpc/apply_siglip_album_purpose",
+                "rpc/apply_album_purpose_classification",
                 {
                     "p_album_id": item.album_id,
                     "p_purpose": prediction_purpose(item, threshold, force_all=force_all),
                     "p_confidence": item.confidence,
-                    "p_version": (
-                        purposes.FULL_AUTO_VERSION if force_all else purposes.VERSION
-                    ),
+                    "p_source": item.source,
+                    "p_version": purposes.TEXT_FIRST_VERSION,
+                    "p_evidence": item.evidence,
                 },
                 {"Prefer": "return=representation"},
             )
@@ -263,10 +266,13 @@ def write_artifacts(
             "title",
             "candidate",
             "applied_purpose",
+            "source",
             "confidence",
             "conflict",
             "photo_count",
             "margin",
+            "image_purpose",
+            "text_candidates",
         ])
         writer.writeheader()
         for item, record in zip(ordered, records, strict=True):
@@ -275,14 +281,17 @@ def write_artifacts(
                 "title": record.get("title") or "",
                 "candidate": item.purpose or "",
                 "applied_purpose": record.get("applied_purpose") or "",
+                "source": item.source,
                 "confidence": f"{item.confidence:.6f}",
                 "conflict": str(item.conflict).lower(),
                 "photo_count": item.photo_count,
                 "margin": f"{item.top_scores[0] - item.top_scores[1]:.6f}",
+                "image_purpose": item.image_purpose or "",
+                "text_candidates": "|".join(item.evidence.get("text_candidates", [])),
             })
 
     manifest = {
-        "version": purposes.FULL_AUTO_VERSION if force_all else purposes.VERSION,
+        "version": purposes.TEXT_FIRST_VERSION,
         "threshold": None if force_all else threshold,
         "force_all": force_all,
         "albums": [],
@@ -341,7 +350,7 @@ def write_artifacts(
 def fetch_inputs(request, *, include_unpublished: bool = False):
     albums = fetch_pages(
         request,
-        "albums?select=id,title,description,admin_purpose_source,"
+        "albums?select=id,title,description,package_id,target_category_id,admin_purpose_source,"
         "admin_purpose_reviewed,admin_purpose_version",
     )
     photo_filters = "&album_id=not.is.null&embedding=not.is.null"
@@ -349,10 +358,35 @@ def fetch_inputs(request, *, include_unpublished: bool = False):
         photo_filters += "&visibility=eq.published"
     photos = fetch_pages(
         request,
-        "photos?select=id,album_id,src_url,thumb_url,embedding,embedding_model,visibility,"
+        "photos?select=id,album_id,src_url,thumb_url,title,caption,mood_tags,embedding,embedding_model,visibility,"
         "admin_purpose_source,admin_purpose_reviewed,admin_purpose_overridden"
         + photo_filters,
     )
+    packages = fetch_pages(request, "packages?select=id,name,description")
+    categories = fetch_pages(request, "categories?select=id,name")
+    memberships = fetch_pages(
+        request,
+        "album_explore_categories?select=album_id,explore_category_id",
+    )
+    explore_categories = fetch_pages(request, "explore_categories?select=id,title")
+
+    packages_by_id = {str(row["id"]): row for row in packages}
+    categories_by_id = {str(row["id"]): row for row in categories}
+    explores_by_id = {str(row["id"]): row for row in explore_categories}
+    explore_ids_by_album = defaultdict(list)
+    for row in memberships:
+        explore_ids_by_album[str(row["album_id"])].append(str(row["explore_category_id"]))
+    for album in albums:
+        package_id = album.get("package_id")
+        target_id = album.get("target_category_id")
+        album["package"] = packages_by_id.get(str(package_id)) if package_id else None
+        target = categories_by_id.get(str(target_id)) if target_id else None
+        album["target_category_name"] = target.get("name") if target else None
+        album["explore_category_names"] = [
+            explores_by_id[explore_id]["title"]
+            for explore_id in explore_ids_by_album.get(str(album["id"]), [])
+            if explore_id in explores_by_id
+        ]
     compatible = []
     for photo in photos:
         model = photo.get("embedding_model")
@@ -360,6 +394,35 @@ def fetch_inputs(request, *, include_unpublished: bool = False):
             compatible.append(photo)
     eligible, excluded = filter_eligible_rows(albums, compatible)
     return albums, eligible, excluded, len(photos) - len(compatible)
+
+
+def build_text_fields(album, photos):
+    fields = []
+
+    def add(source, value, priority):
+        if isinstance(value, str) and value.strip():
+            fields.append(purpose_text.TextField(source, value, priority))
+
+    for photo in photos:
+        add("photo_title", photo.get("title"), 5)
+        add("photo_caption", photo.get("caption"), 5)
+    add("album_title", album.get("title"), 4)
+    add("album_description", album.get("description"), 4)
+    add("target_category", album.get("target_category_name"), 3)
+    for name in album.get("explore_category_names") or []:
+        add("explore_category", name, 3)
+    package = album.get("package")
+    if isinstance(package, Mapping):
+        add("package_name", package.get("name"), 2)
+        add("package_description", package.get("description"), 2)
+    hashtags = []
+    for photo in photos:
+        for tag in photo.get("mood_tags") or []:
+            if isinstance(tag, str) and tag.strip():
+                hashtags.append(tag.strip())
+    if hashtags:
+        add("hashtags", " ".join(dict.fromkeys(hashtags)), 1)
+    return fields
 
 
 def main():
@@ -403,12 +466,25 @@ def main():
     processor, model, device = siglip.load()
     prompt_texts = [text for key in purposes.PURPOSE_KEYS for text in purposes.PROMPTS[key]]
     text_vectors = siglip.encode_text(processor, model, prompt_texts, device).float().cpu().numpy()
-    predictions = purpose_classifier.classify_catalog(rows, image_vectors, text_vectors)
-
     albums_by_id = {str(album["id"]): album for album in albums}
     photos_by_album = defaultdict(list)
     for row in rows:
         photos_by_album[str(row["album_id"])].append(row)
+    image_predictions = purpose_classifier.classify_catalog(
+        rows, image_vectors, text_vectors
+    )
+    predictions = [
+        purpose_classifier.combine_prediction(
+            purpose_text.classify_text(
+                build_text_fields(
+                    albums_by_id.get(item.album_id, {}),
+                    photos_by_album.get(item.album_id, ()),
+                )
+            ),
+            item,
+        )
+        for item in image_predictions
+    ]
     paths = write_artifacts(
         predictions,
         albums_by_id=albums_by_id,

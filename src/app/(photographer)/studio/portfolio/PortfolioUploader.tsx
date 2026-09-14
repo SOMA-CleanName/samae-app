@@ -11,15 +11,19 @@ import {
   type CategorySelection,
   type TargetOption,
 } from "./CategoryPicker";
+import type { PortfolioPackageOption } from "@/lib/portfolio-package";
 
-// 가격 선택지로 쓰는 작가 패키지 (활성 패키지만)
-export type PackageOption = { id: string; name: string; price_krw: number };
+// 작가가 실제 연결할 수 있는 활성 패키지
+export type PackageOption = PortfolioPackageOption;
+
+export type PhotoUploadText = { title: string; caption: string };
 
 // 업로드에 필요한 입력 묶음 — 실제 업로드는 PortfolioManager가 수행(모달 닫혀도 계속).
 export type UploadPayload = {
   files: File[];
   description: string;
-  price: string;
+  packageId: string;
+  photoTextByKey: Record<string, PhotoUploadText>;
   location: string;
   moods: string;
   publish: boolean;
@@ -46,7 +50,9 @@ export function PortfolioUploader({
   const [dragOver, setDragOver] = useState(false);
 
   const [description, setDescription] = useState("");
-  const [price, setPrice] = useState("");
+  const [packageId, setPackageId] = useState("");
+  const [photoTextByKey, setPhotoTextByKey] = useState<Record<string, PhotoUploadText>>({});
+  const [textFileKey, setTextFileKey] = useState("");
   const [location, setLocation] = useState("");
   const [moodTags, setMoodTags] = useState<string[]>([]);
   const [publish, setPublish] = useState(true);
@@ -68,6 +74,16 @@ export function PortfolioUploader({
     if (imgs.length) setFiles((prev) => [...prev, ...imgs]);
   }
   function removeAt(i: number) {
+    const removed = files[i];
+    if (removed) {
+      const key = fileKey(removed);
+      setPhotoTextByKey((texts) => {
+        const next = { ...texts };
+        delete next[key];
+        return next;
+      });
+      if (textFileKey === key) setTextFileKey("");
+    }
     setFiles((prev) => prev.filter((_, idx) => idx !== i));
   }
   function reorderFiles(ids: string[]) {
@@ -96,7 +112,8 @@ export function PortfolioUploader({
     onStart({
       files,
       description,
-      price,
+      packageId,
+      photoTextByKey,
       location,
       moods: moodTags.join(", "),
       publish,
@@ -105,6 +122,21 @@ export function PortfolioUploader({
       requestedMoods: cat.requestedMoods,
       adConsent: cat.adConsent,
     });
+  }
+
+  const activeTextKey = files.some((file) => fileKey(file) === textFileKey)
+    ? textFileKey
+    : files[0]
+      ? fileKey(files[0])
+      : "";
+  const activeText = photoTextByKey[activeTextKey] ?? { title: "", caption: "" };
+
+  function setActivePhotoText(patch: Partial<PhotoUploadText>) {
+    if (!activeTextKey) return;
+    setPhotoTextByKey((current) => ({
+      ...current,
+      [activeTextKey]: { ...(current[activeTextKey] ?? { title: "", caption: "" }), ...patch },
+    }));
   }
 
   return (
@@ -213,6 +245,39 @@ export function PortfolioUploader({
           <p className="mt-2 text-xs text-fg/50">
             {files.length}장 선택됨{files.length > 1 ? " · 첫 번째 사진이 대표예요" : ""}
           </p>
+          <div className="mt-3 rounded-xl border border-fg/10 bg-fg/[0.02] p-3">
+            <label className="flex flex-col gap-1 text-xs text-fg/60">
+              사진별 제목·설명 대상
+              <select
+                value={activeTextKey}
+                onChange={(event) => setTextFileKey(event.target.value)}
+                className="h-[38px] rounded-lg border border-fg/15 bg-surface px-3 text-sm text-fg outline-none focus:border-fg/40"
+              >
+                {files.map((file, index) => (
+                  <option key={fileKey(file)} value={fileKey(file)}>
+                    {index + 1}. {file.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="mt-2 grid gap-2">
+              <input
+                value={activeText.title}
+                onChange={(event) => setActivePhotoText({ title: event.target.value })}
+                maxLength={120}
+                placeholder="사진 제목 (선택)"
+                className="rounded-lg border border-fg/15 bg-surface px-3 py-2 text-sm text-fg outline-none placeholder:text-fg/45 focus:border-fg/40"
+              />
+              <textarea
+                value={activeText.caption}
+                onChange={(event) => setActivePhotoText({ caption: event.target.value })}
+                rows={2}
+                maxLength={1000}
+                placeholder="사진별 설명·캡션 (선택)"
+                className="resize-none rounded-lg border border-fg/15 bg-surface px-3 py-2 text-sm text-fg outline-none placeholder:text-fg/45 focus:border-fg/40"
+              />
+            </div>
+          </div>
         </>
       )}
 
@@ -241,20 +306,20 @@ export function PortfolioUploader({
         <div className="flex flex-col gap-3">
           <label className="flex flex-col gap-1 text-xs text-fg/60">
             <span className="flex items-center gap-1">
-              가격
-              <HelpTip label="가격 안내">
-                패키지로 등록한 가격 중에서만 선택할 수 있어요. ‘가격 미표시’는 가급적 피하고 가격을 함께 보여주세요.
+              패키지
+              <HelpTip label="패키지 안내">
+                실제 패키지를 연결하면 패키지 설명과 가격이 포트폴리오에 함께 반영돼요.
               </HelpTip>
             </span>
             {packages.length > 0 ? (
               <select
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
+                value={packageId}
+                onChange={(e) => setPackageId(e.target.value)}
                 className="h-[38px] rounded-lg border border-fg/15 bg-surface px-3 text-sm text-fg outline-none focus:border-fg/40"
               >
-                <option value="">가격 미표시</option>
+                <option value="">패키지 미연결</option>
                 {packages.map((pk) => (
-                  <option key={pk.id} value={String(pk.price_krw)}>
+                  <option key={pk.id} value={pk.id}>
                     {pk.name} · ₩{fmt.format(pk.price_krw)}
                   </option>
                 ))}

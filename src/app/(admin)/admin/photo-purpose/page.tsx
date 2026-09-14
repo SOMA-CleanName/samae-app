@@ -2,6 +2,7 @@ import { isPurposeKey } from "@/lib/photo-purpose";
 import {
   groupPurposeRows,
   type AdminPurposeRow,
+  type AdminPurposeEvidence,
   type PurposeSource,
 } from "@/lib/photo-purpose-admin";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -21,6 +22,9 @@ type DatabaseRow = {
   admin_purpose_source: string | null;
   admin_purpose_reviewed: boolean;
   admin_purpose_overridden: boolean;
+  title: string | null;
+  caption: string | null;
+  admin_purpose_evidence: unknown;
   album: {
     id: string;
     title: string | null;
@@ -30,6 +34,8 @@ type DatabaseRow = {
     admin_purpose_confidence: number | null;
     admin_purpose_source: string | null;
     admin_purpose_reviewed: boolean;
+    package_id: string | null;
+    admin_purpose_evidence: unknown;
   } | null;
   photographer: {
     id: string;
@@ -42,22 +48,30 @@ function purpose(value: string | null) {
 }
 
 function source(value: string | null): PurposeSource {
-  return value === "siglip" || value === "manual" ? value : null;
+  return value === "siglip" || value === "text" || value === "hybrid" || value === "manual"
+    ? value
+    : null;
+}
+
+function evidence(value: unknown): AdminPurposeEvidence | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as AdminPurposeEvidence)
+    : null;
 }
 
 async function fetchPurposeRows(): Promise<AdminPurposeRow[]> {
   const admin = createAdminClient();
   const pageSize = 1000;
-  const rows: AdminPurposeRow[] = [];
+  const databaseRows: DatabaseRow[] = [];
 
   for (let from = 0; ; from += pageSize) {
     const { data, error } = await admin
       .from("photos")
       .select(
-        "id,album_id,thumb_url,src_url,created_at,admin_purpose,admin_purpose_confidence," +
-          "admin_purpose_source,admin_purpose_reviewed,admin_purpose_overridden," +
+        "id,album_id,thumb_url,src_url,title,caption,created_at,admin_purpose,admin_purpose_confidence," +
+          "admin_purpose_source,admin_purpose_reviewed,admin_purpose_overridden,admin_purpose_evidence," +
           "album:albums(id,title,description,created_at,admin_purpose,admin_purpose_confidence," +
-          "admin_purpose_source,admin_purpose_reviewed)," +
+          "admin_purpose_source,admin_purpose_reviewed,package_id,admin_purpose_evidence)," +
           "photographer:photographers!photos_photographer_id_fkey(id,display_name)",
       )
       .eq("visibility", "published")
@@ -66,8 +80,41 @@ async function fetchPurposeRows(): Promise<AdminPurposeRow[]> {
 
     if (error) throw new Error(`사진 목적 데이터를 불러오지 못했습니다: ${error.message}`);
     const batch = (data ?? []) as unknown as DatabaseRow[];
-    for (const row of batch) {
-      rows.push({
+    databaseRows.push(...batch);
+    if (batch.length < pageSize) break;
+  }
+
+  const photographerIds = [...new Set(
+    databaseRows.map((row) => row.photographer?.id).filter((id): id is string => !!id),
+  )];
+  const { data: packageData, error: packageError } = photographerIds.length
+    ? await admin
+        .from("packages")
+        .select("id,photographer_id,name,description")
+        .in("photographer_id", photographerIds)
+        .order("sort_order", { ascending: true })
+    : { data: [], error: null };
+  if (packageError) throw new Error(`패키지 데이터를 불러오지 못했습니다: ${packageError.message}`);
+  const packages = (packageData ?? []) as Array<{
+    id: string;
+    photographer_id: string;
+    name: string;
+    description: string;
+  }>;
+  const packageById = new Map(packages.map((item) => [item.id, item]));
+  const packagesByPhotographer = new Map<string, typeof packages>();
+  for (const item of packages) {
+    const list = packagesByPhotographer.get(item.photographer_id) ?? [];
+    list.push(item);
+    packagesByPhotographer.set(item.photographer_id, list);
+  }
+
+  return databaseRows.map((row) => {
+      const linkedPackage = row.album?.package_id
+        ? packageById.get(row.album.package_id) ?? null
+        : null;
+      const availablePackages = packagesByPhotographer.get(row.photographer?.id ?? "") ?? [];
+      return {
         photoId: row.id,
         albumId: row.album_id,
         albumTitle: row.album?.title ?? null,
@@ -82,15 +129,24 @@ async function fetchPurposeRows(): Promise<AdminPurposeRow[]> {
         photoSource: source(row.admin_purpose_source),
         photoReviewed: row.admin_purpose_reviewed,
         photoOverridden: row.admin_purpose_overridden,
+        photoTitle: row.title,
+        photoCaption: row.caption,
+        photoEvidence: evidence(row.admin_purpose_evidence),
         albumPurpose: purpose(row.album?.admin_purpose ?? null),
         albumConfidence: row.album?.admin_purpose_confidence ?? null,
         albumSource: source(row.album?.admin_purpose_source ?? null),
         albumReviewed: row.album?.admin_purpose_reviewed ?? false,
-      });
-    }
-    if (batch.length < pageSize) break;
-  }
-  return rows;
+        albumEvidence: evidence(row.album?.admin_purpose_evidence),
+        packageId: row.album?.package_id ?? null,
+        packageName: linkedPackage?.name ?? null,
+        packageDescription: linkedPackage?.description ?? null,
+        availablePackages: availablePackages.map((item) => ({
+          id: item.id,
+          name: item.name,
+          description: item.description,
+        })),
+      };
+    });
 }
 
 export default async function AdminPhotoPurposePage() {

@@ -4,6 +4,7 @@ import numpy as np
 
 from scripts.embed import purpose_classifier as classifier
 from scripts.embed import purposes
+from scripts.embed.purpose_text import TextEvidence
 
 
 class PurposeClassifierTest(unittest.TestCase):
@@ -97,6 +98,66 @@ class PurposeClassifierTest(unittest.TestCase):
 
         self.assertEqual([item.album_id for item in got], ["a", "b"])
         self.assertEqual([item.photo_count for item in got], [2, 1])
+
+    def test_explicit_text_cannot_be_overturned_by_visual_friendship_score(self):
+        text = TextEvidence(
+            purpose="couple",
+            candidates=("couple",),
+            confidence=0.95,
+            conflict=False,
+            matches=({"source": "album_description", "purpose": "couple", "phrase": "커플 스냅"},),
+        )
+        image = classifier.AlbumPrediction(
+            "album", "friendship", 0.43, False, 5, (2.1, 1.96), "friendship"
+        )
+
+        got = classifier.combine_prediction(text, image)
+
+        self.assertEqual(got.purpose, "couple")
+        self.assertEqual(got.source, "text")
+        self.assertEqual(got.image_purpose, "friendship")
+
+    def test_no_useful_text_falls_back_to_visual_top_purpose(self):
+        text = TextEvidence(None, (), 0.0, False, ())
+        image = classifier.AlbumPrediction(
+            "album", None, 0.3, True, 4, (1.2, 1.1), "wedding"
+        )
+
+        got = classifier.combine_prediction(text, image)
+
+        self.assertEqual(got.purpose, "wedding")
+        self.assertEqual(got.source, "siglip")
+        self.assertTrue(got.conflict)
+
+    def test_ambiguous_text_listing_constrains_visual_choice(self):
+        text = TextEvidence(None, ("couple", "friendship", "event"), 0.72, False, ())
+        image = classifier.AlbumPrediction(
+            "album",
+            "pet",
+            0.7,
+            False,
+            3,
+            (2.0, 1.8),
+            "pet",
+            (("pet", 2.0), ("friendship", 1.8), ("couple", 1.5), ("event", 1.0)),
+        )
+
+        got = classifier.combine_prediction(text, image)
+
+        self.assertEqual(got.purpose, "friendship")
+        self.assertEqual(got.source, "hybrid")
+
+    def test_unresolved_strong_text_conflict_stays_unclassified(self):
+        text = TextEvidence(None, ("couple", "friendship"), 0.0, True, ())
+        image = classifier.AlbumPrediction(
+            "album", "couple", 0.99, False, 3, (2.0, 1.0), "couple"
+        )
+
+        got = classifier.combine_prediction(text, image)
+
+        self.assertIsNone(got.purpose)
+        self.assertEqual(got.source, "hybrid")
+        self.assertTrue(got.conflict)
 
 
 if __name__ == "__main__":

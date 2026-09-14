@@ -7,8 +7,10 @@ import numpy as np
 
 try:
     from . import purposes
+    from .purpose_text import TextEvidence
 except ImportError:  # direct execution from scripts/embed
     import purposes
+    from purpose_text import TextEvidence
 
 
 @dataclass(frozen=True)
@@ -21,6 +23,7 @@ class AlbumEvidence:
     photo_count: int
     top_scores: tuple[float, float]
     top_purpose: str | None = None
+    purpose_scores: tuple[tuple[str, float], ...] = ()
 
 
 @dataclass(frozen=True)
@@ -32,6 +35,20 @@ class AlbumPrediction:
     photo_count: int
     top_scores: tuple[float, float]
     top_purpose: str | None = None
+    purpose_scores: tuple[tuple[str, float], ...] = ()
+
+
+@dataclass(frozen=True)
+class FinalPurposePrediction:
+    album_id: str
+    purpose: str | None
+    confidence: float
+    source: str
+    conflict: bool
+    photo_count: int
+    top_scores: tuple[float, float]
+    image_purpose: str | None
+    evidence: dict[str, object]
 
 
 def zscore_columns(cosine: np.ndarray) -> np.ndarray:
@@ -106,6 +123,9 @@ def aggregate_album(
             float(medians[median_order[1]]),
         ),
         top_purpose=keys[int(median_order[0])],
+        purpose_scores=tuple(
+            (key, float(medians[index])) for index, key in enumerate(keys)
+        ),
     )
 
 
@@ -129,6 +149,7 @@ def calibrate_evidence(items: Sequence[AlbumEvidence]) -> list[AlbumPrediction]:
             photo_count=item.photo_count,
             top_scores=item.top_scores,
             top_purpose=item.top_purpose or item.candidate,
+            purpose_scores=item.purpose_scores,
         ))
     return output
 
@@ -175,3 +196,62 @@ def classify_catalog(
         for album_id, indexes in sorted(indexes_by_album.items())
     ]
     return calibrate_evidence(evidence)
+
+
+def combine_prediction(
+    text: TextEvidence,
+    image: AlbumPrediction,
+) -> FinalPurposePrediction:
+    image_purpose = image.top_purpose or image.purpose
+    evidence = {
+        "text_candidates": list(text.candidates),
+        "text_matches": list(text.matches),
+        "text_conflict": text.conflict,
+        "image_purpose": image_purpose,
+        "image_confidence": image.confidence,
+        "image_scores": dict(image.purpose_scores),
+    }
+
+    if text.conflict:
+        return FinalPurposePrediction(
+            image.album_id, None, 0.0, "hybrid", True, image.photo_count,
+            image.top_scores, image_purpose, evidence,
+        )
+
+    if text.purpose is not None:
+        return FinalPurposePrediction(
+            image.album_id, text.purpose, text.confidence, "text", False,
+            image.photo_count, image.top_scores, image_purpose, evidence,
+        )
+
+    if text.candidates:
+        scores = dict(image.purpose_scores)
+        if scores:
+            chosen = max(text.candidates, key=lambda purpose: scores.get(purpose, float("-inf")))
+        elif image_purpose in text.candidates:
+            chosen = image_purpose
+        else:
+            chosen = None
+        return FinalPurposePrediction(
+            image.album_id,
+            chosen,
+            min(1.0, (text.confidence + image.confidence) / 2.0),
+            "hybrid",
+            chosen is None,
+            image.photo_count,
+            image.top_scores,
+            image_purpose,
+            evidence,
+        )
+
+    return FinalPurposePrediction(
+        image.album_id,
+        image_purpose,
+        image.confidence,
+        "siglip",
+        image.conflict,
+        image.photo_count,
+        image.top_scores,
+        image_purpose,
+        evidence,
+    )

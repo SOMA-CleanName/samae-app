@@ -7,13 +7,18 @@ import { cn } from "@/lib/cn";
 import { PURPOSE_OPTIONS, purposeLabel, type PurposeKey } from "@/lib/photo-purpose";
 import {
   filterPurposeAlbums,
+  reviewAlbumOptimistically,
+  reviewPhotoOptimistically,
   type AdminPurposeAlbum,
   type PurposeFilter,
 } from "@/lib/photo-purpose-admin";
 
 import {
   clearPhotoPurposeOverride,
+  reviewAlbumPurpose,
+  reviewPhotoPurpose,
   setAlbumPurpose,
+  setAlbumPackage,
   setPhotoPurpose,
 } from "./actions";
 
@@ -23,10 +28,14 @@ const STATE_OPTIONS: Array<{ key: PurposeFilter["state"]; label: string }> = [
   { key: "low-confidence", label: "저신뢰" },
   { key: "auto", label: "자동 분류" },
   { key: "reviewed", label: "검수 완료" },
+  { key: "text-conflict", label: "텍스트 충돌" },
+  { key: "package-unlinked", label: "패키지 미연결" },
 ];
 
 function sourceLabel(source: AdminPurposeAlbum["source"]) {
   if (source === "siglip") return "SigLIP 자동 분류";
+  if (source === "text") return "텍스트 자동 분류";
+  if (source === "hybrid") return "텍스트+SigLIP 분류";
   if (source === "manual") return "운영자 수동 분류";
   return "분류 전";
 }
@@ -244,6 +253,69 @@ export function PhotoPurposeWorkspace({ initialAlbums }: { initialAlbums: AdminP
     });
   }
 
+  function reviewPortfolio() {
+    if (!selectedAlbum || !selectedPhoto || !selectedAlbum.purpose) return;
+    const snapshot = albums;
+    const groupId = selectedAlbum.id;
+    setError(null);
+    setAlbums((current) => reviewAlbumOptimistically(current, groupId));
+    startTransition(async () => {
+      try {
+        if (selectedAlbum.albumId) {
+          await reviewAlbumPurpose(selectedAlbum.albumId);
+        } else {
+          await reviewPhotoPurpose(selectedPhoto.id);
+        }
+      } catch (caught) {
+        setAlbums(snapshot);
+        setError(caught instanceof Error ? caught.message : "포트폴리오 검수를 완료하지 못했습니다.");
+      }
+    });
+  }
+
+  function reviewSelectedPhoto() {
+    if (!selectedAlbum || !selectedPhoto || !selectedPhoto.purpose) return;
+    const snapshot = albums;
+    const groupId = selectedAlbum.id;
+    setError(null);
+    setAlbums((current) => reviewPhotoOptimistically(current, groupId, selectedPhoto.id));
+    startTransition(async () => {
+      try {
+        await reviewPhotoPurpose(selectedPhoto.id);
+      } catch (caught) {
+        setAlbums(snapshot);
+        setError(caught instanceof Error ? caught.message : "사진 검수를 완료하지 못했습니다.");
+      }
+    });
+  }
+
+  function changePackage(packageId: string) {
+    if (!selectedAlbum?.albumId) return;
+    const snapshot = albums;
+    const selectedPackage = selectedAlbum.availablePackages.find((item) => item.id === packageId);
+    setError(null);
+    setAlbums((current) =>
+      current.map((album) =>
+        album.id === selectedAlbum.id
+          ? {
+              ...album,
+              packageId: selectedPackage?.id ?? null,
+              packageName: selectedPackage?.name ?? null,
+              packageDescription: selectedPackage?.description ?? null,
+            }
+          : album,
+      ),
+    );
+    startTransition(async () => {
+      try {
+        await setAlbumPackage(selectedAlbum.albumId!, selectedPackage?.id ?? null);
+      } catch (caught) {
+        setAlbums(snapshot);
+        setError(caught instanceof Error ? caught.message : "패키지를 연결하지 못했습니다.");
+      }
+    });
+  }
+
   return (
     <div className="grid min-h-[680px] gap-3 xl:grid-cols-[300px_minmax(420px,1fr)_330px]">
       <section className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-line bg-surface">
@@ -330,6 +402,9 @@ export function PhotoPurposeWorkspace({ initialAlbums }: { initialAlbums: AdminP
                   {album.purpose ? (
                     <span className="truncate text-[11px] text-muted">{purposeLabel(album.purpose)}</span>
                   ) : null}
+                  {album.source && album.source !== "manual" ? (
+                    <span className="truncate text-[11px] text-muted">{sourceLabel(album.source)}</span>
+                  ) : null}
                   {album.overrideCount ? (
                     <span className="text-[11px] text-brand">개별 {album.overrideCount}</span>
                   ) : null}
@@ -380,6 +455,11 @@ export function PhotoPurposeWorkspace({ initialAlbums }: { initialAlbums: AdminP
                       개별
                     </span>
                   ) : null}
+                  {photo.reviewed ? (
+                    <span className="absolute right-2 top-2 rounded-md bg-success px-2 py-1 text-[11px] font-semibold text-white shadow-card">
+                      검수
+                    </span>
+                  ) : null}
                   {photo.purpose ? (
                     <span className="absolute inset-x-2 bottom-2 truncate rounded-md bg-black/65 px-2 py-1 text-left text-[11px] font-medium text-white backdrop-blur-sm">
                       {purposeLabel(photo.purpose)}
@@ -411,10 +491,68 @@ export function PhotoPurposeWorkspace({ initialAlbums }: { initialAlbums: AdminP
                   <div className="flex justify-between gap-2"><dt className="text-muted">사진</dt><dd className="truncate">{selectedPhoto.id.slice(0, 8)}</dd></div>
                   <div className="flex justify-between gap-2"><dt className="text-muted">신뢰도</dt><dd>{confidenceLabel(selectedAlbum.confidence)}</dd></div>
                   <div className="flex justify-between gap-2"><dt className="text-muted">출처</dt><dd className="truncate">{sourceLabel(selectedAlbum.source)}</dd></div>
-                  <div className="flex justify-between gap-2"><dt className="text-muted">검수</dt><dd>{selectedAlbum.reviewed ? "완료" : "미검수"}</dd></div>
+                  <div className="flex justify-between gap-2"><dt className="text-muted">포트폴리오 검수</dt><dd>{selectedAlbum.reviewed ? "완료" : "미검수"}</dd></div>
+                  <div className="flex justify-between gap-2"><dt className="text-muted">선택 사진 검수</dt><dd>{selectedPhoto.reviewed ? "완료" : "미검수"}</dd></div>
+                  {selectedPhoto.title ? (
+                    <div className="flex justify-between gap-2"><dt className="text-muted">사진 제목</dt><dd className="truncate">{selectedPhoto.title}</dd></div>
+                  ) : null}
                 </dl>
               </div>
             </div>
+
+            {selectedAlbum.albumId ? (
+              <div className="p-4">
+                <label className="text-body-sm font-semibold" htmlFor="purpose-package-select">
+                  연결 패키지
+                </label>
+                <select
+                  id="purpose-package-select"
+                  value={selectedAlbum.packageId ?? ""}
+                  onChange={(event) => changePackage(event.target.value)}
+                  disabled={pending}
+                  className="mt-2 w-full rounded-lg border border-line bg-bg px-3 py-2 text-caption outline-none focus:border-brand disabled:opacity-50"
+                >
+                  <option value="">패키지 미연결</option>
+                  {selectedAlbum.availablePackages.map((item) => (
+                    <option key={item.id} value={item.id}>{item.name}</option>
+                  ))}
+                </select>
+                {selectedAlbum.packageDescription ? (
+                  <p className="mt-2 line-clamp-3 text-caption leading-relaxed text-muted">
+                    {selectedAlbum.packageDescription}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {selectedAlbum.evidence ? (
+              <div className="p-4">
+                <p className="text-body-sm font-semibold">자동 분류 근거</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {(selectedAlbum.evidence.text_matches ?? []).map((match, index) => (
+                    <span
+                      key={`${match.source}:${match.phrase}:${index}`}
+                      className="rounded-full border border-line bg-bg px-2 py-1 text-[11px] text-muted"
+                    >
+                      {match.source} · {match.phrase} → {purposeLabel(match.purpose)}
+                    </span>
+                  ))}
+                </div>
+                {selectedAlbum.evidence.image_purpose ? (
+                  <p className="mt-2 text-caption text-muted">
+                    SigLIP 후보: {purposeLabel(selectedAlbum.evidence.image_purpose)}
+                    {selectedAlbum.evidence.image_confidence != null
+                      ? ` · ${confidenceLabel(selectedAlbum.evidence.image_confidence)}`
+                      : ""}
+                  </p>
+                ) : null}
+                {selectedAlbum.evidence.text_conflict ? (
+                  <p className="mt-2 rounded-lg bg-danger-soft px-2.5 py-2 text-caption text-danger-ink">
+                    강한 텍스트 근거가 충돌해 수동 검수가 필요합니다.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
 
             <fieldset className="p-4" disabled={pending}>
               <legend className="text-body-sm font-semibold">사진 목적</legend>
@@ -441,6 +579,31 @@ export function PhotoPurposeWorkspace({ initialAlbums }: { initialAlbums: AdminP
                 })}
               </div>
             </fieldset>
+
+            <div className="p-4">
+              <p className="text-body-sm font-semibold">검수 완료</p>
+              <p className="mt-1 text-caption leading-relaxed text-muted">
+                포트폴리오 검수는 포함된 모든 사진을 함께 검수 완료 처리합니다.
+              </p>
+              <div className="mt-3 space-y-2">
+                <button
+                  type="button"
+                  onClick={reviewPortfolio}
+                  disabled={pending || !selectedAlbum.purpose || selectedAlbum.reviewed}
+                  className="w-full rounded-xl bg-fg px-4 py-3 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {selectedAlbum.reviewed ? "포트폴리오 검수 완료됨" : "포트폴리오 검수 완료"}
+                </button>
+                <button
+                  type="button"
+                  onClick={reviewSelectedPhoto}
+                  disabled={pending || !selectedPhoto.purpose || selectedPhoto.reviewed}
+                  className="w-full rounded-xl border border-line-strong px-4 py-3 text-body-sm font-semibold text-fg transition-colors hover:bg-fg/[0.04] disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {selectedPhoto.reviewed ? "선택 사진 검수 완료됨" : "선택 사진 검수 완료"}
+                </button>
+              </div>
+            </div>
 
             <div className="p-4">
               <p className="text-body-sm font-semibold">적용 방식</p>

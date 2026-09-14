@@ -25,6 +25,8 @@ export type EditPhoto = {
   location_text: string | null;
   mood_tags: string[];
   visibility: string;
+  title: string | null;
+  caption: string | null;
 };
 
 type Status =
@@ -40,12 +42,14 @@ export type AlbumCategorySelection = CategorySelection;
 export function PortfolioEditManager({
   photos,
   descriptions,
+  packageIds,
   packages,
   targets,
   albumCategories,
 }: {
   photos: EditPhoto[];
   descriptions: Record<string, string | null>;
+  packageIds: Record<string, string | null>;
   packages: PackageOption[];
   targets: TargetOption[];
   albumCategories: Record<string, AlbumCategorySelection>;
@@ -98,11 +102,7 @@ export function PortfolioEditManager({
   const anchor = feed.find((p) => p.id === target?.anchorId) ?? feed[0];
   const albumId = target?.albumId ?? null;
   const description = albumId ? descriptions[albumId] ?? null : null;
-
-  // 피드가 비면(다 삭제) 모달 닫기
-  useEffect(() => {
-    if (target && feed.length === 0) setTarget(null);
-  }, [target, feed.length]);
+  const packageId = albumId ? packageIds[albumId] ?? null : null;
 
   async function onReplaceFile(files: FileList | null) {
     const file = files?.[0];
@@ -237,6 +237,16 @@ export function PortfolioEditManager({
                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/45 opacity-0 transition-opacity group-hover:opacity-100">
                     <button
                       type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setTarget({ anchorId: p.id, albumId });
+                      }}
+                      className="rounded bg-surface/90 px-2 py-0.5 text-[10px] font-medium text-fg hover:bg-surface"
+                    >
+                      제목·설명
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => {
                         setReplaceId(p.id);
                         replaceRef.current?.click();
@@ -270,6 +280,26 @@ export function PortfolioEditManager({
 
             {/* 공유 정보 — 피드 전체에 적용 */}
             <form key={anchor.id} action={onSave} className="mt-4 flex flex-col gap-3 border-t border-fg/10 pt-4">
+              <input type="hidden" name="photo_id" value={anchor.id} />
+              <div className="grid gap-2 rounded-xl border border-fg/10 bg-fg/[0.02] p-3">
+                <p className="text-xs font-medium text-fg/65">선택 사진 제목·설명</p>
+                <input
+                  name="photo_title"
+                  type="text"
+                  maxLength={120}
+                  defaultValue={anchor.title ?? ""}
+                  placeholder="사진 제목 (선택)"
+                  className="rounded-lg border border-fg/15 bg-surface px-3 py-2 text-sm outline-none focus:border-fg/40"
+                />
+                <textarea
+                  name="photo_caption"
+                  rows={2}
+                  maxLength={1000}
+                  defaultValue={anchor.caption ?? ""}
+                  placeholder="사진별 설명·캡션 (선택)"
+                  className="resize-none rounded-lg border border-fg/15 bg-surface px-3 py-2 text-sm outline-none focus:border-fg/40"
+                />
+              </div>
               {albumId && (
                 <label className="flex flex-col gap-1 text-xs text-fg/55">
                   설명 (피드 공유)
@@ -286,27 +316,20 @@ export function PortfolioEditManager({
               <div className="grid grid-cols-2 gap-3">
                 <label className="flex flex-col gap-1 text-xs text-fg/55">
                   <span className="flex items-center gap-1">
-                    가격
-                    <HelpTip label="가격 안내">
-                      패키지로 등록한 가격 중에서만 선택할 수 있어요. ‘가격 미표시’는 가급적 피하고 가격을 함께 보여주세요.
+                    패키지
+                    <HelpTip label="패키지 안내">
+                      실제 패키지를 연결하면 패키지 설명과 가격이 포트폴리오에 함께 반영돼요.
                     </HelpTip>
                   </span>
-                  {packages.length > 0 || anchor.price_krw != null ? (
+                  {packages.length > 0 ? (
                     <select
-                      name="price_krw"
-                      defaultValue={anchor.price_krw != null ? String(anchor.price_krw) : ""}
+                      name="package_id"
+                      defaultValue={packageId ?? ""}
                       className="h-[38px] rounded-lg border border-fg/15 bg-surface px-3 text-sm outline-none focus:border-fg/40"
                     >
-                      <option value="">가격 미표시</option>
-                      {/* 현재 가격이 활성 패키지에 없으면(커스텀·비활성) 보존용 항목 추가 */}
-                      {anchor.price_krw != null &&
-                        !packages.some((pk) => pk.price_krw === anchor.price_krw) && (
-                          <option value={String(anchor.price_krw)}>
-                            현재가 · ₩{fmt.format(anchor.price_krw)}
-                          </option>
-                        )}
+                      <option value="">패키지 미연결</option>
                       {packages.map((pk) => (
-                        <option key={pk.id} value={String(pk.price_krw)}>
+                        <option key={pk.id} value={pk.id}>
                           {pk.name} · ₩{fmt.format(pk.price_krw)}
                         </option>
                       ))}

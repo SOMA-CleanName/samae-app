@@ -67,3 +67,65 @@ export async function clearPhotoPurposeOverride(photoId: string): Promise<void> 
   if (error) throw new Error(error.message);
   revalidatePath("/admin/photo-purpose");
 }
+
+export async function reviewAlbumPurpose(albumId: string): Promise<number> {
+  await assertAdmin();
+  assertId(albumId, "포트폴리오");
+
+  const admin = createAdminClient();
+  const { data, error } = await admin.rpc("review_album_admin_purpose", {
+    p_album_id: albumId,
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/photo-purpose");
+  return typeof data === "number" ? data : 0;
+}
+
+export async function reviewPhotoPurpose(photoId: string): Promise<void> {
+  await assertAdmin();
+  assertId(photoId, "사진");
+
+  const admin = createAdminClient();
+  const { error } = await admin.rpc("review_photo_admin_purpose", {
+    p_photo_id: photoId,
+  });
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/photo-purpose");
+}
+
+export async function setAlbumPackage(
+  albumId: string,
+  packageId: string | null,
+): Promise<void> {
+  await assertAdmin();
+  assertId(albumId, "포트폴리오");
+  if (packageId !== null) assertId(packageId, "패키지");
+
+  const admin = createAdminClient();
+  const { data: album, error: albumError } = await admin
+    .from("albums")
+    .select("photographer_id")
+    .eq("id", albumId)
+    .maybeSingle();
+  if (albumError) throw new Error(albumError.message);
+  if (!album) throw new Error("포트폴리오를 찾을 수 없습니다.");
+
+  if (packageId !== null) {
+    const { data: selectedPackage, error: packageError } = await admin
+      .from("packages")
+      .select("photographer_id")
+      .eq("id", packageId)
+      .maybeSingle();
+    if (packageError) throw new Error(packageError.message);
+    if (!selectedPackage || selectedPackage.photographer_id !== album.photographer_id) {
+      throw new Error("해당 작가의 패키지만 연결할 수 있습니다.");
+    }
+  }
+
+  const { error } = await admin
+    .from("albums")
+    .update({ package_id: packageId })
+    .eq("id", albumId);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/photo-purpose");
+}
