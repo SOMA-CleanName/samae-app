@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { MpTrackOnce } from "@/components/MpTrackOnce";
 import { ApplyLeadForm } from "./ApplyLeadForm";
+import { ApplyIntro } from "./ApplyIntro";
 
 // canonical 없이 sitemap 에만 올라 있었다 → 루트의 canonical:"/" 를 상속해 홈의 복제본
 export const metadata: Metadata = {
@@ -15,10 +16,16 @@ export const metadata: Metadata = {
 };
 export const dynamic = "force-dynamic";
 
-// 작가 신청 — 로그인 필수. 신청은 계정에 연결되고, 운영자 승인 시 작가로 등록된다.
+// 작가 신청 — **작가에게 뿌리는 주소**. 가입부터 신청까지 여기서 이어진다.
+//
+// 예전에는 로그인 게이트라 처음 온 사람은 로그인 화면만 봤고, 신청 버튼은 가입 뒤
+// 프로필 메뉴를 뒤져야 나왔다. 링크 하나로 끝날 일이 세 단계였다.
+// 이제 비로그인은 안내 지면을 보고, 가입/로그인 뒤 이 자리로 돌아와 바로 폼을 만난다.
+//
+// 신청 자체는 여전히 계정에 연결된다(profile_id) — 승인·알림·스튜디오가 전부 그걸 탄다.
 export default async function ApplyPage() {
   const me = await getCurrentUser();
-  if (!me) redirect("/login?next=/apply");
+  if (!me) return <ApplyIntro />;
   if (me.photographer) redirect("/studio"); // 이미 작가(신청/승인 내역 있음)
 
   // 처리 전(new·contacted) 신청이 있으면 대기 화면

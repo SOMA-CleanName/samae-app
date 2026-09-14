@@ -6,7 +6,7 @@
 //
 //   node scripts/qa-photographer.cjs setup      계정 생성 (최초 1회)
 //   node scripts/qa-photographer.cjs status     지금 어느 단계인지
-//   node scripts/qa-photographer.cjs apply      ① 신청 전    — 프로필 탭 → [작가 신청] 부터
+//   node scripts/qa-photographer.cjs apply      ① 신청 전    — /apply 부터 (작가에게 뿌리는 주소)
 //   node scripts/qa-photographer.cjs approve    ② 승인 대기  — 어드민 승인 버튼부터
 //   node scripts/qa-photographer.cjs agree      ③ 동의 전    — 프로필 탭 → [스튜디오] 부터  ★가장 자주
 //   node scripts/qa-photographer.cjs profile    ④ 동의 완료  — 사업자 정보 수정만
@@ -201,8 +201,9 @@ const STAGES = {
   async apply(user) {
     await wipe(user.id);
     console.log("① 신청 전 — 신청·작가·동의 기록 전부 지웠습니다.");
-    console.log("   → 프로필 탭(우상단) 을 열면 [작가 신청] 이 보입니다. 거기서 시작하세요.");
-    console.log("     · 일반 회원과 똑같은 상태입니다 — 작가 전용 진입로가 따로 있는 게 아닙니다.");
+    console.log("   → http://localhost:3001/apply 로 가세요. 작가에게 뿌리는 주소입니다.");
+    console.log("     · 로그아웃 상태로 열면 안내 지면 → 가입 → 다시 /apply(폼) 으로 이어집니다.");
+    console.log("     · 프로필 탭에는 [작가 신청] 이 없습니다 — 진입로는 이 주소 하나뿐입니다.");
   },
   async approve(user) {
     await wipe(user.id);

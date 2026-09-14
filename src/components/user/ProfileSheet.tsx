@@ -126,9 +126,19 @@ export function ProfileSheet({
         <div className="border-t border-line" />
 
         <nav className="py-1.5">
-          <SheetLink href={me.isPhotographer ? "/studio" : "/apply"} onClick={requestClose}>
-            {me.isPhotographer ? "스튜디오" : "작가 신청"}
-          </SheetLink>
+          {/*
+            작가인 사람에게만 [스튜디오]. **[작가 신청] 은 여기 두지 않는다.**
+
+            작가 모집은 /apply 링크를 직접 뿌리는 방식으로 간다 — 그 지면이 가입까지
+            안에서 처리한다. 두 진입로를 다 두면 문구·조건·추적을 두 군데서 맞춰야 하고,
+            한쪽만 고치면 조용히 어긋난다. 일반 회원 메뉴에 작가 메뉴가 섞이지 않는 것도
+            덤이다 — 손님의 99%는 작가가 될 생각이 없다.
+          */}
+          {me.isPhotographer && (
+            <SheetLink href="/studio" onClick={requestClose}>
+              스튜디오
+            </SheetLink>
+          )}
           {me.isAdmin && (
             <SheetLink href="/admin" onClick={requestClose}>
               어드민
