@@ -5,6 +5,11 @@ import { ApplyIntro } from "@/app/(user)/apply/ApplyIntro";
 import { ApplyLeadForm } from "@/app/(user)/apply/ApplyLeadForm";
 import { applyFieldErrors, parseApplyForm, type ApplyLeadState } from "@/app/(user)/apply/schema";
 import { AgreeGate } from "@/app/(photographer)/studio/AgreeGate";
+import { ConsentForm } from "@/app/(auth)/signup/consent/ConsentForm";
+import ContactForm from "@/app/(auth)/signup/contact/ContactForm";
+import type { RequestCodeState, VerifyCodeState } from "@/app/(auth)/signup/contact/actions";
+import { KakaoButton } from "@/app/(auth)/AuthBits";
+import { TERMS_VERSION } from "@/lib/policy-version";
 import { PHOTOGRAPHER_AGREEMENT_VERSIONS } from "@/lib/policy-version";
 import type { BusinessType } from "@/lib/platform-fee";
 import { readFlow, resetFlow, setStage, writeFlow, EMPTY, type FlowState, type FlowStage } from "./store";
@@ -22,10 +27,13 @@ import { readFlow, resetFlow, setStage, writeFlow, EMPTY, type FlowState, type F
 
 const STAGES: { key: FlowStage; label: string }[] = [
   { key: "intro", label: "① 안내" },
-  { key: "form", label: "② 신청 폼" },
-  { key: "pending", label: "③ 승인 대기" },
-  { key: "agree", label: "④ 입점 동의" },
-  { key: "done", label: "⑤ 완료" },
+  { key: "signup", label: "② 가입" },
+  { key: "consent", label: "③ 약관" },
+  { key: "contact", label: "④ 연락처" },
+  { key: "form", label: "⑤ 신청 폼" },
+  { key: "pending", label: "⑥ 승인 대기" },
+  { key: "agree", label: "⑦ 입점 동의" },
+  { key: "done", label: "⑧ 완료" },
 ];
 
 export function FlowSandbox() {
@@ -49,6 +57,54 @@ export function FlowSandbox() {
       window.removeEventListener("storage", sync);
     };
   }, []);
+
+  /** 약관 동의 — 실제 액션과 같은 조건으로 막는다 */
+  const sandboxConsent = async (fd: FormData): Promise<void> => {
+    if (fd.get("terms") !== "on" || fd.get("privacy") !== "on") {
+      throw new Error("서비스 이용약관과 개인정보 처리방침에 모두 동의해야 계속할 수 있어요.");
+    }
+    const prev = readFlow();
+    writeFlow({
+      ...prev,
+      stage: "contact",
+      signup: {
+        agreedTerms: true,
+        agreedPrivacy: true,
+        phone: prev.signup?.phone ?? "",
+        at: new Date().toISOString(),
+      },
+    });
+  };
+
+  /** 연락처 OTP — **문자를 보내지 않는다.** 인증번호는 화면에 적어 둔 고정값 */
+  const sandboxRequestCode = async (
+    _p: RequestCodeState | null,
+    fd: FormData
+  ): Promise<RequestCodeState> => {
+    const raw = String(fd.get("phone") ?? "").replace(/\D/g, "");
+    if (raw.length < 10) return { ok: false, error: "휴대폰 번호를 정확히 입력해주세요." };
+    // devCode 는 실제 액션도 dev 스텁 발송에서 쓰는 필드다 — 화면이 그대로 코드를 보여준다
+    return { ok: true, error: null, phone: raw, devCode: SANDBOX_OTP };
+  };
+  const sandboxVerifyCode = async (
+    _p: VerifyCodeState | null,
+    fd: FormData
+  ): Promise<VerifyCodeState> => {
+    if (String(fd.get("code") ?? "") !== SANDBOX_OTP) {
+      return { ok: false, error: `샌드박스 인증번호는 ${SANDBOX_OTP} 입니다.` };
+    }
+    const prev = readFlow();
+    writeFlow({
+      ...prev,
+      signup: {
+        agreedTerms: prev.signup?.agreedTerms ?? true,
+        agreedPrivacy: prev.signup?.agreedPrivacy ?? true,
+        phone: String(fd.get("phone") ?? ""),
+        at: prev.signup?.at ?? new Date().toISOString(),
+      },
+    });
+    return { ok: true, error: null };
+  };
 
   /** 신청 제출 — 검증은 실제 스키마, 저장은 localStorage */
   const sandboxApply = async (
@@ -105,6 +161,30 @@ export function FlowSandbox() {
       <FlowBar flow={flow} />
       <div className="pt-[4.5rem]">
         {flow.stage === "intro" && <SandboxIntro />}
+        {flow.stage === "signup" && <SandboxSignup />}
+        {flow.stage === "consent" && (
+          <main className="mx-auto max-w-sm px-5 py-12 font-kr">
+            <h1 className="text-2xl font-bold tracking-tight">약관에 동의해 주세요</h1>
+            <p className="mt-2 text-sm text-muted">
+              사매를 이용하려면 아래 두 문서에 동의가 필요해요. 본문은 링크에서 읽을 수 있어요.
+            </p>
+            <ConsentForm next="/apply" termsVersion={TERMS_VERSION} action={sandboxConsent} />
+          </main>
+        )}
+        {flow.stage === "contact" && (
+          <>
+            <p className="mx-auto max-w-sm px-6 pt-4 text-xs text-brand">
+              샌드박스 — 문자는 나가지 않습니다. 인증번호는 <b>{SANDBOX_OTP}</b>
+            </p>
+            <ContactForm
+              next="/apply"
+              displayName="QA작가"
+              requestAction={sandboxRequestCode}
+              verifyAction={sandboxVerifyCode}
+              onDone={() => setStage("form")}
+            />
+          </>
+        )}
         {flow.stage === "form" && (
           <main className="mx-auto max-w-lg px-3.5 py-10 font-kr sm:px-5">
             <h1 className="text-2xl font-semibold">작가 신청</h1>
@@ -130,6 +210,36 @@ export function FlowSandbox() {
   );
 }
 
+/** 샌드박스 인증번호 — 문자를 안 보내므로 고정값을 화면에 적어 둔다 */
+const SANDBOX_OTP = "000000";
+
+/**
+ * 카카오 가입 — **여기만 실제와 다르다.**
+ *
+ * 카카오는 진짜 계정으로 진짜 인가를 받아야 해서 샌드박스가 태울 수 없다. 버튼 모양은
+ * 실제 가입 지면(AuthShell + KakaoButton)과 같게 두고, 누르면 "가입됐다 치고" 통과시킨다.
+ * 그 뒤의 약관 동의·연락처 등록은 전부 실제 화면이다 — 카카오 가입자가 실제로 밟는 순서다.
+ */
+function SandboxSignup() {
+  return (
+    <main className="mx-auto max-w-sm px-5 py-12 font-kr">
+      <p className="font-display text-xl italic text-brand-ink">samae</p>
+      <h1 className="mt-4 text-[1.75rem] font-bold leading-[1.3] tracking-tight">작가로 시작하기</h1>
+      <p className="mt-3 text-body-sm leading-relaxed text-muted">
+        가입하면 바로 신청서로 이어져요. 검토 후 사진이 지면에 노출됩니다.
+      </p>
+      <div className="mt-8">
+        <KakaoButton onClick={() => setStage("consent")} label="카카오로 시작하기" track="cta:sandbox_kakao" />
+        <p className="mt-2 text-center text-xs text-muted">별도 입력 없이 카카오 계정으로 바로 가입돼요</p>
+      </div>
+      <p className="mt-6 rounded-xl border border-dashed border-line-strong p-3 text-xs leading-relaxed text-brand">
+        샌드박스 — 이 단계만 실제와 다릅니다. 카카오는 진짜 인가가 필요해 태울 수 없어서
+        <b> 가입됐다 치고</b> 넘어갑니다. 다음 화면(약관·연락처)부터는 전부 실제 화면이에요.
+      </p>
+    </main>
+  );
+}
+
 /** 안내 지면은 실제 컴포넌트를 그대로 쓰되, 버튼만 샌드박스 안에서 다음 단계로 간다 */
 function SandboxIntro() {
   return (
@@ -143,7 +253,7 @@ function SandboxIntro() {
         const href = a.getAttribute("href") ?? "";
         if (href.startsWith("/signup") || href.startsWith("/login")) {
           e.preventDefault();
-          setStage("form");
+          setStage("signup");
         }
       }}
     >
@@ -190,6 +300,13 @@ function SandboxDone({ flow }: { flow: FlowState }) {
       <p className="mt-2 text-sm text-muted">
         실제라면 여기서 스튜디오가 열립니다. 아래는 이번 회차에 <b className="font-semibold text-fg">기록됐을</b> 내용이에요.
       </p>
+
+      <Block title="가입">
+        <Row k="약관 동의" v={flow.signup?.agreedTerms ? "O" : "—"} />
+        <Row k="처리방침" v={flow.signup?.agreedPrivacy ? "O" : "—"} />
+        <Row k="연락처" v={flow.signup?.phone || "—"} />
+        <Row k="시각" v={flow.signup?.at} />
+      </Block>
 
       <Block title="신청서">
         <Row k="작가명" v={flow.application?.displayName} />

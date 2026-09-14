@@ -24,6 +24,9 @@ export default function ContactForm({
   displayName,
   canAskKakao = false,
   kakaoFailed = false,
+  requestAction: requestActionProp = requestPhoneCode,
+  verifyAction: verifyActionProp = verifyPhoneCode,
+  onDone,
 }: {
   next: string;
   displayName: string | null;
@@ -31,6 +34,14 @@ export default function ContactForm({
   canAskKakao?: boolean;
   /** 카카오로 시도했는데 번호를 못 받고 되돌아왔는가 (§auth/callback 의 `kakao=nophone`) */
   kakaoFailed?: boolean;
+  /**
+   * OTP 액션 둘. 기본은 실제 서버 액션이고 **진짜 문자가 나간다**(솔라피).
+   * /dev/flow(샌드박스)가 같은 화면을 쓰면서 발송만 끊기 위해 열어 뒀다.
+   */
+  requestAction?: (prev: RequestCodeState | null, fd: FormData) => Promise<RequestCodeState>;
+  verifyAction?: (prev: VerifyCodeState | null, fd: FormData) => Promise<VerifyCodeState>;
+  /** 인증 성공 후 처리. 기본은 next 로 이동 — 샌드박스는 다음 단계로 넘긴다 */
+  onDone?: () => void;
 }) {
   const router = useRouter();
   const [phone, setPhone] = useState("");
@@ -40,11 +51,11 @@ export default function ContactForm({
   const codeRef = useRef<HTMLInputElement>(null);
 
   const [reqState, requestAction, requesting] = useActionState<RequestCodeState | null, FormData>(
-    requestPhoneCode,
+    requestActionProp,
     null
   );
   const [verState, verifyAction, verifying] = useActionState<VerifyCodeState | null, FormData>(
-    verifyPhoneCode,
+    verifyActionProp,
     null
   );
 
@@ -77,12 +88,15 @@ export default function ContactForm({
 
   // 인증 성공 → 하던 흐름으로 복귀
   useEffect(() => {
-    if (verState?.ok) {
-      mpTrack("Submit Signup Contact");
-      router.replace(next);
-      router.refresh();
+    if (!verState?.ok) return;
+    if (onDone) {
+      onDone(); // 샌드박스 — 라우팅 없이 다음 단계로
+      return;
     }
-  }, [verState, next, router]);
+    mpTrack("Submit Signup Contact");
+    router.replace(next);
+    router.refresh();
+  }, [verState, next, router, onDone]);
 
   return (
     <main className="mx-auto flex min-h-[100svh] w-full max-w-sm flex-col bg-surface px-6 pb-8 pt-4 font-kr">

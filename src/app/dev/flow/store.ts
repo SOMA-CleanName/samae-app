@@ -10,7 +10,15 @@
 // 여기는 그 전부를 끊는다. 화면과 검증 로직은 실제 컴포넌트를 그대로 쓰고,
 // 저장만 이 파일로 돌린다.
 
-export type FlowStage = "intro" | "form" | "pending" | "agree" | "done";
+export type FlowStage =
+  | "intro"    // /apply 안내 (비로그인)
+  | "signup"   // 카카오 가입 — 실제 카카오는 샌드박스가 못 태운다. 버튼만 같고 통과시킨다
+  | "consent"  // 약관 동의 (/signup/consent)
+  | "contact"  // 연락처 등록 (/signup/contact)
+  | "form"     // 신청 폼 (/apply)
+  | "pending"  // 승인 대기
+  | "agree"    // 입점 동의 (/studio)
+  | "done";
 
 export type FlowState = {
   stage: FlowStage;
@@ -21,6 +29,7 @@ export type FlowState = {
     bio: string;
     submittedAt: string;
   } | null;
+  signup: { agreedTerms: boolean; agreedPrivacy: boolean; phone: string; at: string } | null;
   agreement: {
     versions: Record<string, string>;
     legalName: string;
@@ -33,7 +42,12 @@ export type FlowState = {
 
 const KEY = "samae:dev-flow";
 
-export const EMPTY: FlowState = { stage: "intro", application: null, agreement: null };
+export const EMPTY: FlowState = {
+  stage: "intro",
+  signup: null,
+  application: null,
+  agreement: null,
+};
 
 export function readFlow(): FlowState {
   if (typeof window === "undefined") return EMPTY;

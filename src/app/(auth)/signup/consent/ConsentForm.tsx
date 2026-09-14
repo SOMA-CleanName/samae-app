@@ -5,13 +5,25 @@ import Link from "next/link";
 import { useFormStatus } from "react-dom";
 import { agreeTerms } from "./actions";
 
-export function ConsentForm({ next, termsVersion }: { next: string; termsVersion: string }) {
+export function ConsentForm({
+  next,
+  termsVersion,
+  action = agreeTerms,
+}: {
+  next: string;
+  termsVersion: string;
+  /**
+   * 기본은 실제 서버 액션. 주입할 수 있게 연 건 /dev/flow(샌드박스)가 **같은 컴포넌트**를
+   * 쓰면서 저장만 localStorage 로 돌리기 위해서다 — 복제하면 조용히 어긋난다.
+   */
+  action?: (formData: FormData) => Promise<void>;
+}) {
   const [terms, setTerms] = useState(false);
   const [privacy, setPrivacy] = useState(false);
   const both = terms && privacy;
 
   return (
-    <form action={agreeTerms} className="mt-6">
+    <form action={action} className="mt-6">
       <input type="hidden" name="next" value={next} />
 
       <div className="flex flex-col gap-2">
