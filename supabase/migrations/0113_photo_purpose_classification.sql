@@ -193,7 +193,7 @@ declare
   v_album_count integer;
   v_photo_count integer;
 begin
-  if not public.is_admin() then
+  if not public.is_service_context() and not public.is_admin() then
     raise exception '운영자만 앨범 목적을 변경할 수 있습니다';
   end if;
   if p_purpose is null or p_purpose not in (
@@ -240,7 +240,7 @@ security definer
 set search_path = public
 as $$
 begin
-  if not public.is_admin() then
+  if not public.is_service_context() and not public.is_admin() then
     raise exception '운영자만 사진 목적을 변경할 수 있습니다';
   end if;
   if p_purpose is null or p_purpose not in (
@@ -274,7 +274,7 @@ security definer
 set search_path = public
 as $$
 begin
-  if not public.is_admin() then
+  if not public.is_service_context() and not public.is_admin() then
     raise exception '운영자만 사진 목적 예외를 해제할 수 있습니다';
   end if;
 
