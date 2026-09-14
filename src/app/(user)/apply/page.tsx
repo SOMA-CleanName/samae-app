@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { MpTrackOnce } from "@/components/MpTrackOnce";
-import { ApplyLeadForm } from "./ApplyLeadForm";
 import { ApplyIntro } from "./ApplyIntro";
+import { ApplyFormBody, ApplyPendingBody } from "./ApplyBodies";
 
 // canonical 없이 sitemap 에만 올라 있었다 → 루트의 canonical:"/" 를 상속해 홈의 복제본
 export const metadata: Metadata = {
@@ -37,33 +36,12 @@ export default async function ApplyPage() {
     .in("status", ["new", "contacted"])
     .maybeSingle();
 
-  if (open) {
-    return (
-      <main className="mx-auto max-w-lg px-3.5 py-10 sm:px-5 font-kr">
-        <h1 className="text-2xl font-semibold">작가 신청</h1>
-        <div className="mt-6 rounded-2xl border border-warning/20 bg-warning-soft p-6">
-          <p className="text-base font-semibold">승인 대기 중이에요</p>
-          <p className="mt-1.5 text-sm text-fg/65">
-            운영자 검토 후 안내드려요. 보통 영업일 기준 1~2일 소요됩니다.
-          </p>
-          <p className="mt-3 text-xs text-faint">신청 작가명: {open.display_name}</p>
-        </div>
-        <Link href="/" className="mt-6 inline-block text-sm text-muted hover:text-fg">
-          ← 홈으로
-        </Link>
-      </main>
-    );
-  }
+  if (open) return <ApplyPendingBody displayName={open.display_name} />;
 
   return (
-    <main className="mx-auto max-w-lg px-3.5 py-10 sm:px-5 font-kr">
+    <ApplyFormBody kakaoChannelUrl={process.env.NEXT_PUBLIC_KAKAO_CHANNEL_URL ?? ""}>
       {/* 작가 지원 폼 진입 — 공급측 온보딩 퍼널 시작(제출=Apply Photographer) */}
       <MpTrackOnce event="Start Apply Photographer" />
-      <h1 className="text-2xl font-semibold">작가 신청</h1>
-      <p className="mt-2 text-sm text-fg/60">
-        아래 정보를 남기고 신청하면, 운영자 검토 후 작가로 등록돼 사진이 지면에 노출되고 의뢰를 받을 수 있어요.
-      </p>
-      <ApplyLeadForm kakaoChannelUrl={process.env.NEXT_PUBLIC_KAKAO_CHANNEL_URL ?? ""} />
-    </main>
+    </ApplyFormBody>
   );
 }
