@@ -80,6 +80,8 @@ export type BookingSnapshot = {
   travel_fee_krw: number;
   package_snapshot: { name?: string; delivery_days?: number } | null;
   package_id: string | null;
+  reschedule_proposed_at: string | null; // 답을 기다리는 일정 변경 제안 (취소환불 7조)
+  reschedule_proposed_by: string | null; // customer | photographer
   delivery_due_at: string | null; // 결과물 전달 기한 (lib/delivery-deadline.ts)
   delivery_extension_proposed_to: string | null; // 작가가 제안한 연장 기한 (고객 동의 전)
   delivered_at: string | null;
@@ -100,7 +102,7 @@ export type BookingSnapshot = {
 export type ChatMessage = {
   id: string;
   sender_id: string;
-  type: "text" | "image" | "system" | "bot" | "summary_card" | "contact_card" | "extension_card";
+  type: "text" | "image" | "system" | "bot" | "summary_card" | "contact_card" | "extension_card" | "reschedule_card";
   body: string;
   image_path: string | null;
   created_at: string;
@@ -250,7 +252,7 @@ export async function getMessages(conversationId: string): Promise<ChatMessage[]
     .from("messages")
     .select(
       "id, sender_id, type, body, image_path, created_at, booking_id, " +
-        "booking:bookings(id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, custom_fields, transfer_marked_at, late_booking_consent_at, contact_sent_at, contact_delivered_at, contact_payload, proposed_by_photographer, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at, delivery_due_at, delivery_extension_proposed_to, delivered_at)"
+        "booking:bookings(id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, custom_fields, transfer_marked_at, late_booking_consent_at, contact_sent_at, contact_delivered_at, contact_payload, proposed_by_photographer, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at, delivery_due_at, delivery_extension_proposed_to, delivered_at, reschedule_proposed_at, reschedule_proposed_by)"
     )
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true });
