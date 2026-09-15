@@ -564,6 +564,7 @@ export function ChatRoom({
                 currentShootAt={m.booking.shoot_at}
                 amCustomer={amCustomer}
                 requestedLabel={m.body}
+                respondAction={io.respondReschedule}
               />
             );
           }
@@ -589,6 +590,7 @@ export function ChatRoom({
                 payload={m.booking.contact_payload}
                 deliveredAt={m.booking.contact_delivered_at}
                 amCustomer={amCustomer}
+                acceptAction={io.acceptPhotographerContact}
               />
             );
           }
@@ -916,6 +918,7 @@ export function ChatRoom({
                 <SendContactMenuItem
                   bookingId={contactTarget.id}
                   sentAt={contactTarget.contact_sent_at}
+                  sendAction={io.sendPhotographerContact}
                   onDone={() => setOptionsOpen(false)}
                   icon={<UserIcon className="h-5 w-5 text-muted" />}
                 />
@@ -1401,6 +1404,7 @@ function BookingCard({
           bookingId={booking.id}
           sentAt={booking.contact_sent_at}
           deliveredAt={booking.contact_delivered_at}
+          sendAction={io.sendPhotographerContact}
         />
       )}
 
@@ -1480,6 +1484,7 @@ function BookingCard({
           proposedByMe={
             booking.reschedule_proposed_by === (amCustomer ? "customer" : "photographer")
           }
+          proposeAction={io.proposeReschedule}
         />
       )}
 

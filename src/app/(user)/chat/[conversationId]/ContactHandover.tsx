@@ -31,11 +31,14 @@ export function SendContactMenuItem({
   sentAt,
   onDone,
   icon,
+  sendAction = sendPhotographerContact,
 }: {
   bookingId: string;
   sentAt: string | null;
   onDone: () => void;
   icon: React.ReactNode;
+  /** 기본은 진짜 서버 액션. QA 샌드박스만 갈아 끼운다 (chat-io.ts) */
+  sendAction?: (formData: FormData) => Promise<void>;
 }) {
   const router = useRouter();
   const [sending, start] = useTransition();
@@ -52,7 +55,7 @@ export function SendContactMenuItem({
             try {
               const fd = new FormData();
               fd.set("id", bookingId);
-              await sendPhotographerContact(fd);
+              await sendAction(fd);
               onDone();
               router.refresh();
             } catch (e) {
@@ -82,10 +85,13 @@ export function SendContactCardButton({
   bookingId,
   sentAt,
   deliveredAt,
+  sendAction = sendPhotographerContact,
 }: {
   bookingId: string;
   sentAt: string | null;
   deliveredAt: string | null;
+  /** 기본은 진짜 서버 액션. QA 샌드박스만 갈아 끼운다 (chat-io.ts) */
+  sendAction?: (formData: FormData) => Promise<void>;
 }) {
   const router = useRouter();
   const [sending, start] = useTransition();
@@ -115,7 +121,7 @@ export function SendContactCardButton({
             try {
               const fd = new FormData();
               fd.set("id", bookingId);
-              await sendPhotographerContact(fd);
+              await sendAction(fd);
               router.refresh();
             } catch (e) {
               setError(e instanceof Error ? e.message : "보내지 못했습니다.");
@@ -140,11 +146,14 @@ export function ContactCardBubble({
   payload,
   deliveredAt,
   amCustomer,
+  acceptAction = acceptPhotographerContact,
 }: {
   bookingId: string;
   payload: unknown;
   deliveredAt: string | null;
   amCustomer: boolean;
+  /** 기본은 진짜 서버 액션. QA 샌드박스만 갈아 끼운다 (chat-io.ts) */
+  acceptAction?: (formData: FormData) => Promise<void>;
 }) {
   const router = useRouter();
   const [accepting, start] = useTransition();
@@ -209,7 +218,7 @@ export function ContactCardBubble({
             start(async () => {
               const fd = new FormData();
               fd.set("id", bookingId);
-              await acceptPhotographerContact(fd);
+              await acceptAction(fd);
               router.refresh();
             })
           }

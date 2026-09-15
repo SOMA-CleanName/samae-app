@@ -14,6 +14,8 @@ import { sendBotTurn } from "../bot-actions";
 import { acceptBooking, rejectBooking, cancelBooking } from "@/app/actions/bookings";
 import { agreeLateBooking, markTransferSent } from "@/app/actions/payments";
 import { submitSupportRequest } from "@/app/actions/support";
+import { acceptPhotographerContact, sendPhotographerContact } from "@/app/actions/contact-handover";
+import { proposeReschedule, respondReschedule } from "@/app/actions/reschedule";
 import { getCustomerRefundQuote, type CustomerRefundQuote } from "@/app/actions/refund-quote";
 import { mpTrack } from "@/lib/mixpanel";
 
@@ -33,6 +35,12 @@ export type ChatIO = {
   // [사매에 문의] — 가짜 예약에 붙은 문의가 실제 support_requests 에 쌓이면 안 된다
   submitSupportRequest: (formData: FormData) => Promise<void>;
   getCustomerRefundQuote: (bookingId: string) => Promise<CustomerRefundQuote | null>;
+  // 연락처 전달 (docs/32 §3-3) — 받는 순간 중개가 끝나는 지점이라 기록이 남아야 한다
+  sendPhotographerContact: (formData: FormData) => Promise<void>;
+  acceptPhotographerContact: (formData: FormData) => Promise<void>;
+  // 일정 변경 (취소환불 7조) — 동의하면 환불 기준이 새 날짜로 다시 계산된다
+  proposeReschedule: (formData: FormData) => Promise<void>;
+  respondReschedule: (formData: FormData) => Promise<void>;
   /** Realtime 을 붙일 것인가. 샌드박스는 구독할 방이 없다 */
   realtime: boolean;
 };
@@ -50,5 +58,9 @@ export const REAL_CHAT_IO: ChatIO = {
   markTransferSent,
   submitSupportRequest,
   getCustomerRefundQuote,
+  sendPhotographerContact,
+  acceptPhotographerContact,
+  proposeReschedule,
+  respondReschedule,
   realtime: true,
 };
