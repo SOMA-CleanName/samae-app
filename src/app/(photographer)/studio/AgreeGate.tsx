@@ -272,6 +272,40 @@ export function AgreeGate({
                   />
                 </label>
               )}
+
+              {/* 주민등록번호 — **사업자 미등록일 때만.**
+                  사업자 등록을 한 작가는 세금계산서로 처리되어 원천징수 대상이 아니다.
+                  근거가 없으면 받지 않는다(개인정보보호법 제24조의2). */}
+              {businessType === "unregistered" && (
+                <label className="block">
+                  <span className="text-body-sm font-semibold">주민등록번호</span>
+                  <input
+                    id="residentNo"
+                    name="residentNo"
+                    required
+                    inputMode="numeric"
+                    maxLength={14}
+                    autoComplete="off"
+                    placeholder="000000-0000000"
+                    className={FIELD}
+                  />
+                  {/* 수집 목적 고지 — 고유식별정보는 "무엇에 왜 쓰는지" 를 그 자리에서
+                      알려야 한다. 링크로 빼면 안 읽는다. */}
+                  <span className="mt-2 block rounded-xl bg-surface-2 px-3.5 py-3 text-caption leading-relaxed text-muted">
+                    <b className="font-semibold text-fg">왜 필요한가요?</b>
+                    <br />
+                    사업자 미등록 작가님께 정산할 때 사매가 소득세 3.3%를 대신 신고·납부해요
+                    (소득세법 제127조). 그 지급명세서에 주민등록번호가 들어갑니다.
+                    <br />
+                    <br />
+                    <b className="font-semibold text-fg">어떻게 보관하나요?</b>
+                    <br />
+                    암호화해서 저장하고, 화면에는 <span className="tabular-nums">000000-0******</span>{" "}
+                    처럼 가려서만 보여드려요. 지급명세서를 만들 때만 열어보고 그 기록도 남겨요.
+                    사업자 등록을 하시면 더 필요하지 않으므로 바로 파기합니다.
+                  </span>
+                </label>
+              )}
             </div>
           </fieldset>
 
