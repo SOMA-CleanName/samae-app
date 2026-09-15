@@ -13,12 +13,20 @@ import { SelectCheckbox } from "@/components/admin/DeleteMode";
 import { refundBasisLabel, type RefundQuote } from "@/lib/refund";
 import { OVERDUE_REFUND_DAYS, overdueDays } from "@/lib/delivery-deadline";
 import type { BookingFieldValue } from "@/lib/booking-fields";
-import { adminConfirmTransfer, adminMarkSettled, adminMarkDepositAndConfirm } from "./actions";
+import {
+  adminConfirmTransfer,
+  adminMarkSettled,
+  adminMarkDepositAndConfirm,
+  adminMarkRefundPaid,
+} from "./actions";
 import { BookingMoney } from "@/components/booking/BookingMoney";
 import { AdminRefundButton } from "./AdminRefundButton";
 import { AdminCancelButton } from "./AdminCancelButton";
 
 const fmt = new Intl.NumberFormat("ko-KR");
+
+// PG 지급대행 관리자 주소 — 계약사마다 다르므로 env 로 둔다. 비면 버튼을 안 그린다.
+const PG_PAYOUT_URL = process.env.NEXT_PUBLIC_PG_PAYOUT_URL ?? "";
 
 const BOOKING_STATUS: Record<
   string,
@@ -60,6 +68,8 @@ export type BookingRow = {
   cancel_reason: string | null;
   conversationId: string | null;
   refunded_at: string | null;
+  /** PG 지급대행에서 실제로 보낸 시각 — refunded_at(원장)과 다른 사건이다 */
+  refund_paid_at: string | null;
   refund_reason: string | null;
   /** 환불 요청 접수 시각 — 3영업일 SLA 기산점 */
   refundDueAt: string | null;
@@ -79,6 +89,12 @@ export type BookingRow = {
   payoutKrw: number;
   /** 지금 환불하면 어떻게 되는지 (docs/32) */
   refund: RefundQuote;
+  /** 고객이 낸 환불 신청이 열려 있는가 */
+  refundRequested: boolean;
+  /** 그 건을 작가와 합의한 시각 — 없으면 [환불] 이 잠긴다 */
+  photographerAckAt: string | null;
+  /** 고객이 적은 환불 계좌 — 송금할 곳 */
+  refundAccount: { bank?: string; number?: string; holder?: string } | null;
 };
 
 const day = (iso: string | null) =>
@@ -200,6 +216,51 @@ function BookingDetail({ b }: { b: BookingRow }) {
         )}
       </section>
 
+      {/* 환불 판정이 끝났는데 아직 돈이 안 나간 건 — **여기가 실제 송금 자리다.**
+          refundBooking() 은 원장 정리일 뿐이라, 이 블록이 없으면 "환불됨" 으로 닫힌 건이
+          실은 입금이 안 된 상태로 남고 고객이 항의하기 전까지 아무도 모른다. */}
+      {b.refunded_at && !b.refund_paid_at && b.refund.refundKrw > 0 && (
+        <section className="mt-3 rounded-xl bg-warning-soft p-3.5 ring-1 ring-warning/30">
+          <p className="text-caption font-semibold text-warning-ink">
+            아직 송금 전이에요 — PG 지급대행에서 보내주세요
+          </p>
+          <dl className="mt-2 flex flex-col gap-1 text-caption">
+            <Row k="보낼 금액" v={`₩${fmt.format(b.refund.refundKrw)}`} strong />
+            <Row
+              k="받는 계좌"
+              v={
+                b.refundAccount?.number
+                  ? `${b.refundAccount.bank ?? ""} ${b.refundAccount.number} ${b.refundAccount.holder ?? ""}`
+                  : "고객이 계좌를 안 적었어요 — 채팅으로 물어보세요"
+              }
+            />
+          </dl>
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            {PG_PAYOUT_URL && (
+              <a
+                href={PG_PAYOUT_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-lg border border-line-strong bg-surface px-3 py-1.5 text-caption font-medium text-fg transition-colors hover:bg-fg/[0.05]"
+              >
+                PG 지급대행 열기 ↗
+              </a>
+            )}
+            <form action={adminMarkRefundPaid} className="ml-auto">
+              <input type="hidden" name="id" value={b.id} />
+              <button className="cursor-pointer rounded-lg bg-fg px-3 py-1.5 text-caption font-semibold text-bg hover:opacity-90">
+                송금 완료로 기록
+              </button>
+            </form>
+          </div>
+        </section>
+      )}
+      {b.refund_paid_at && (
+        <p className="mt-3 rounded-lg bg-success-soft px-3 py-2 text-caption text-success-ink">
+          ✅ 환불금 송금 완료 · {stamp(b.refund_paid_at)}
+        </p>
+      )}
+
       {/* 결과물 전달 기한 초과 — 14일 이상이면 고객이 전액 환불을 요구할 수 있다 (취소환불 10조 2항) */}
       {!b.delivered_at && !b.refunded_at && ["paid", "shot"].includes(b.status) && b.delivery_due_at && (() => {
         const late = overdueDays(b.delivery_due_at);
@@ -287,15 +348,25 @@ function BookingDetail({ b }: { b: BookingRow }) {
           </form>
         )}
 
-        {!b.refunded_at && b.transfer_marked_at && (
-          <AdminRefundButton
-            bookingId={b.id}
-            quote={b.refund}
-            amountKrw={b.amount_krw ?? 0}
-            feeRate={b.feeRate}
-            label={`${b.userName ?? "고객"} → ${b.photographerName ?? "작가"} · ₩${fmt.format(b.amount_krw ?? 0)}`}
-          />
-        )}
+        {!b.refunded_at && b.transfer_marked_at &&
+          // 작가 합의가 먼저다 — 고객이 낸 환불 신청이 열려 있으면 합의를 찍기 전까지 잠근다.
+          // 서버(adminRefund)도 같은 조건으로 막으므로 버튼만 되살려도 통과하지 않는다.
+          (b.refundRequested && !b.photographerAckAt ? (
+            <span
+              title="접수함(/admin/support)에서 [작가 합의 확인] 을 찍으면 열려요"
+              className="shrink-0 cursor-not-allowed rounded-lg border border-line px-3 py-1.5 text-caption font-medium text-faint"
+            >
+              환불 · 작가 합의 대기
+            </span>
+          ) : (
+            <AdminRefundButton
+              bookingId={b.id}
+              quote={b.refund}
+              amountKrw={b.amount_krw ?? 0}
+              feeRate={b.feeRate}
+              label={`${b.userName ?? "고객"} → ${b.photographerName ?? "작가"} · ₩${fmt.format(b.amount_krw ?? 0)}`}
+            />
+          ))}
 
         {["requested", "accepted"].includes(b.status) && (
           <span className="ml-auto">

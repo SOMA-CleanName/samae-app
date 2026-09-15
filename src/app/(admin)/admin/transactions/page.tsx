@@ -35,6 +35,7 @@ type DbBooking = {
   shoot_date: string | null;
   fee_snapshot: unknown;
   refunded_at: string | null;
+  refund_paid_at: string | null;
   refund_reason: string | null;
   late_booking_consent_at: string | null;
   contact_delivered_at: string | null;
@@ -73,7 +74,7 @@ export default async function AdminTransactionsPage() {
   const { data: bData } = await admin
     .from("bookings")
     .select(
-      "id, status, amount_krw, shoot_at, shoot_date, fee_snapshot, refunded_at, refund_reason, late_booking_consent_at, contact_delivered_at, refund_due_at, created_at, accepted_at, requested_at, paid_at, cancelled_at, cancel_reason, location_text, travel_fee_krw, memo, custom_fields, proposed_by_photographer, photographer_id, package_snapshot, transfer_marked_at, settled_at, delivered_at, delivery_due_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at, user:profiles!bookings_user_id_fkey(display_name), photographer:photographers(display_name)"
+      "id, status, amount_krw, shoot_at, shoot_date, fee_snapshot, refunded_at, refund_paid_at, refund_reason, late_booking_consent_at, contact_delivered_at, refund_due_at, created_at, accepted_at, requested_at, paid_at, cancelled_at, cancel_reason, location_text, travel_fee_krw, memo, custom_fields, proposed_by_photographer, photographer_id, package_snapshot, transfer_marked_at, settled_at, delivered_at, delivery_due_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at, user:profiles!bookings_user_id_fkey(display_name), photographer:photographers(display_name)"
     )
     .order("created_at", { ascending: false })
     .limit(500);
@@ -94,6 +95,25 @@ export default async function AdminTransactionsPage() {
     .filter((f) => f.status !== "waived" && f.accrued_at?.slice(0, 7) === monthKey)
     .reduce((sum, f) => sum + (f.fee_krw ?? 0), 0);
 
+
+  // 환불 신청이 열려 있는 예약 — 작가 합의 전에는 [환불] 을 잠근다.
+  // 환불 계좌도 여기서 같이 가져온다. 접수함에만 있으면 두 화면을 오가야 한다.
+  const { data: reqRows } = await admin
+    .from("support_requests")
+    .select("booking_id, photographer_ack_at, photographer_ack_note, refund_account, created_at")
+    .eq("kind", "refund")
+    .eq("status", "open")
+    .order("created_at", { ascending: false });
+  type ReqRow = {
+    booking_id: string | null;
+    photographer_ack_at: string | null;
+    photographer_ack_note: string | null;
+    refund_account: { bank?: string; number?: string; holder?: string } | null;
+  };
+  const refundReqByBooking = new Map<string, ReqRow>();
+  for (const r of (reqRows ?? []) as ReqRow[]) {
+    if (r.booking_id && !refundReqByBooking.has(r.booking_id)) refundReqByBooking.set(r.booking_id, r);
+  }
 
   // 예약 → 대화 매핑. 어드민이 "이 건이 어떤 대화에서 나왔나" 를 바로 열어볼 수 있어야
   // 금액 불일치·특이사항 판단이 된다 (채팅을 안 보고 확정하면 사고가 난다).
@@ -168,6 +188,7 @@ export default async function AdminTransactionsPage() {
     cancel_reason: b.cancel_reason,
     conversationId: convByBooking.get(b.id) ?? null,
     refunded_at: b.refunded_at,
+    refund_paid_at: b.refund_paid_at,
     refund_reason: b.refund_reason,
     refundDueAt: b.refund_due_at,
     // 3영업일을 넘긴 환불 요청 — 넘기면 연 15% 지연이자가 법정 의무다 (docs/32 §6-7)
@@ -202,6 +223,10 @@ export default async function AdminTransactionsPage() {
         withholdingKrw: withholding.totalKrw,
         payoutKrw,
         refund: quote,
+        // 고객이 낸 환불 신청이 열려 있는가 / 작가와 합의했는가
+        refundRequested: refundReqByBooking.has(b.id),
+        photographerAckAt: refundReqByBooking.get(b.id)?.photographer_ack_at ?? null,
+        refundAccount: refundReqByBooking.get(b.id)?.refund_account ?? null,
       };
     })(),
   }));

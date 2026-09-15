@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupportKind, SUPPORT_KIND_LABEL } from "@/lib/support";
+import { notifyOpsRefundRequested } from "@/lib/ops-alert";
 
 /**
  * 사매 문의 접수.
@@ -53,15 +54,19 @@ export async function submitSupportRequest(formData: FormData): Promise<void> {
   const holder = String(formData.get("refundHolder") || "").trim().slice(0, 30);
   const refundAccount = kind === "refund" && bank && number && holder ? { bank, number, holder } : null;
 
-  const { error } = await admin.from("support_requests").insert({
-    booking_id: bookingId,
-    conversation_id: conversationId,
-    requester_id: me.id,
-    requester_role: role,
-    kind,
-    body,
-    refund_account: refundAccount,
-  });
+  const { data: inserted, error } = await admin
+    .from("support_requests")
+    .insert({
+      booking_id: bookingId,
+      conversation_id: conversationId,
+      requester_id: me.id,
+      requester_role: role,
+      kind,
+      body,
+      refund_account: refundAccount,
+    })
+    .select("id")
+    .single();
   if (error) throw new Error(error.message);
 
   // 취소 신청이 들어온 순간이 곧 '취소 시점'(취소환불 5조 3항)이자 환급 기한의 기산점이다 —
@@ -85,6 +90,18 @@ export async function submitSupportRequest(formData: FormData): Promise<void> {
     });
   }
 
+  // 운영에게 알린다 — **접수함에 행만 쌓이면 아무도 모른다.**
+  // 3영업일 환급 시계가 방금 돌기 시작했고, 그 전에 작가와 이야기까지 해야 한다.
+  if (kind === "refund" || kind === "photographer_cancel") {
+    await notifyOpsRefundRequested({
+      bookingId,
+      requestId: inserted.id as string,
+      body,
+      byPhotographer: kind === "photographer_cancel",
+    });
+  }
+
   if (conversationId) revalidatePath(`/chat/${conversationId}`);
   revalidatePath("/my-inquiries"); // 목록 카드에서 넣은 경우도 즉시 반영
+  revalidatePath("/admin/support");
 }
