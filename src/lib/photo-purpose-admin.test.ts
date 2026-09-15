@@ -6,9 +6,115 @@ import {
   groupPurposeRows,
   reviewAlbumOptimistically,
   reviewPhotoOptimistically,
+  applyAlbumPurposes,
+  applyPhotoPurposes,
+  clearPhotoPurposes,
+  formatPurposePrice,
+  summarizePurposeCounts,
   type AdminPurposeEvidence,
   type AdminPurposeRow,
 } from "./photo-purpose-admin";
+
+test("purpose counts separate portfolio assignments from photo exceptions and standalone photos", () => {
+  const albums = groupPurposeRows([
+    { ...rows[0], albumPurposes: ["wedding", "pet"], photoPurposes: ["wedding", "pet"] },
+    { ...rows[1], albumPurposes: ["wedding", "pet"], photoPurposes: ["couple", "pet"] },
+    rows[2],
+    rows[3],
+  ]);
+  const summary = summarizePurposeCounts(albums);
+  const count = (purpose: string) => summary.purposes.find((item) => item.purpose === purpose);
+  assert.equal(summary.portfolioCount, 2);
+  assert.equal(summary.photoCount, 4);
+  assert.deepEqual(count("wedding"), { purpose: "wedding", portfolioCount: 1, photoCount: 1 });
+  assert.deepEqual(count("pet"), { purpose: "pet", portfolioCount: 1, photoCount: 2 });
+  assert.deepEqual(count("couple"), { purpose: "couple", portfolioCount: 0, photoCount: 1 });
+  assert.deepEqual(count("personal"), { purpose: "personal", portfolioCount: 0, photoCount: 1 });
+});
+
+test("purpose counts follow saved portfolio changes and individual photo changes independently", () => {
+  const albums = applyAlbumPurposes(groupPurposeRows(rows), "a1", ["event"]);
+  const before = summarizePurposeCounts(albums);
+  const after = summarizePurposeCounts(applyPhotoPurposes(albums, "a1", "p1", ["wedding", "pet"]));
+  assert.deepEqual(before.purposes.find((item) => item.purpose === "event"), {
+    purpose: "event", portfolioCount: 1, photoCount: 1,
+  });
+  assert.deepEqual(after.purposes.find((item) => item.purpose === "event"), {
+    purpose: "event", portfolioCount: 1, photoCount: 0,
+  });
+  assert.deepEqual(after.purposes.find((item) => item.purpose === "pet"), {
+    purpose: "pet", portfolioCount: 0, photoCount: 1,
+  });
+});
+
+test("purpose counts include every category even when there are no photos", () => {
+  const summary = summarizePurposeCounts([]);
+  assert.equal(summary.portfolioCount, 0);
+  assert.equal(summary.photoCount, 0);
+  assert.deepEqual(summary.purposes.map((item) => item.purpose), [
+    "personal", "couple", "friendship", "wedding", "pet", "commercial", "event",
+  ]);
+  assert.ok(summary.purposes.every((item) => item.portfolioCount === 0 && item.photoCount === 0));
+});
+
+test("purpose price labels preserve real prices including zero", () => {
+  assert.equal(formatPurposePrice(120_000), "₩120,000");
+  assert.equal(formatPurposePrice(0), "₩0");
+});
+
+test("missing or invalid purpose prices never become NaN or a false zero price", () => {
+  for (const value of [undefined, null, NaN, Infinity, -1, "120000"]) {
+    assert.equal(formatPurposePrice(value), null);
+  }
+});
+
+test("grouping retains multiple purposes and migrates legacy singles", () => {
+  const album = groupPurposeRows([{ ...rows[0], albumPurposes: ["wedding", "pet"], photoPurposes: ["wedding", "pet"] }])[0];
+  assert.deepEqual(album.purposes, ["wedding", "pet"]);
+  assert.deepEqual(album.photos[0].purposes, ["wedding", "pet"]);
+  assert.deepEqual(groupPurposeRows(rows)[0].purposes, ["wedding"]);
+});
+
+test("portfolio application replaces the purpose set but protects photo exceptions", () => {
+  const original = groupPurposeRows(rows);
+  const album = applyAlbumPurposes(original, "a1", ["wedding", "pet"])[0];
+  assert.deepEqual(album.purposes, ["wedding", "pet"]);
+  assert.deepEqual(album.photos.map(photo => photo.purposes), [["wedding", "pet"], ["personal"]]);
+  assert.equal(album.evidence, null);
+  assert.equal(album.reviewed, true);
+  assert.deepEqual(original[0].purposes, ["wedding"]);
+});
+
+test("photo application retains the portfolio set and clearing inherits every purpose", () => {
+  const original = applyAlbumPurposes(groupPurposeRows(rows), "a1", ["wedding", "pet"]);
+  const overridden = applyPhotoPurposes(original, "a1", "p1", ["couple", "pet"]);
+  assert.deepEqual(overridden[0].purposes, ["wedding", "pet"]);
+  assert.deepEqual(overridden[0].photos[0].purposes, ["couple", "pet"]);
+  assert.equal(overridden[0].overrideCount, 2);
+  const restored = clearPhotoPurposes(overridden, "a1", "p1");
+  assert.deepEqual(restored[0].photos[0].purposes, ["wedding", "pet"]);
+  assert.equal(restored[0].photos[0].overridden, false);
+  assert.deepEqual(overridden[0].photos[0].purposes, ["couple", "pet"]);
+});
+
+test("standalone photos expose all saved purposes and clear to unclassified", () => {
+  const changed = applyPhotoPurposes(groupPurposeRows(rows), "photo:solo", "solo", ["wedding", "pet"]);
+  const standalone = changed.find(album => album.id === "photo:solo")!;
+  assert.deepEqual(standalone.purposes, ["wedding", "pet"]);
+  const reset = clearPhotoPurposes(changed, "photo:solo", "solo").find(album => album.id === "photo:solo")!;
+  assert.deepEqual(reset.purposes, []);
+  assert.deepEqual(reset.photos[0].purposes, []);
+  assert.equal(reset.purpose, null);
+  assert.equal(reset.reviewed, false);
+});
+
+test("purpose filter finds secondary purposes and photo-only exceptions", () => {
+  const grouped = groupPurposeRows(rows);
+  const albums = applyPhotoPurposes(grouped, "a1", "p1", ["wedding", "pet"]);
+  assert.deepEqual(filterPurposeAlbums(albums, { state: "all", purpose: "pet", photographer: "" }).map(album => album.id), ["a1"]);
+  const applied = applyAlbumPurposes(grouped, "a1", ["wedding", "pet"]);
+  assert.deepEqual(filterPurposeAlbums(applied, { state: "all", purpose: "pet", photographer: "" }).map(album => album.id), ["a1"]);
+});
 
 const rows: AdminPurposeRow[] = [
   {
@@ -129,6 +235,31 @@ test("low-confidence filter only includes automatic portfolios below threshold",
   );
 });
 
+test("low-confidence excludes reviewed portfolios for every automatic source", () => {
+  for (const source of ["siglip", "text", "hybrid"] as const) {
+    const albums = groupPurposeRows([
+      { ...rows[0], albumSource: source, albumConfidence: 0.6, albumReviewed: true },
+      { ...rows[2], albumSource: source, albumConfidence: 0.6 },
+    ]);
+    assert.deepEqual(
+      filterPurposeAlbums(albums, { state: "low-confidence", purpose: "all", photographer: "" })
+        .map((album) => album.id),
+      ["a2"],
+      source,
+    );
+  }
+});
+
+test("reviewing a low-confidence portfolio immediately removes it from the review queue", () => {
+  const albums = groupPurposeRows([{ ...rows[0], albumConfidence: 0.6 }]);
+  const filter = { state: "low-confidence", purpose: "all", photographer: "" } as const;
+  assert.equal(filterPurposeAlbums(albums, filter).length, 1);
+  const reviewed = reviewAlbumOptimistically(albums, "a1");
+  assert.equal(filterPurposeAlbums(reviewed, filter).length, 0);
+  assert.equal(reviewed[0].confidence, 0.6);
+  assert.equal(albums[0].reviewed, false);
+});
+
 test("purpose and photographer filters compose", () => {
   const albums = groupPurposeRows(rows);
   assert.deepEqual(
@@ -235,8 +366,9 @@ test("grouping keeps evidence and the package actually linked to the album", () 
       packageId: "pkg-couple",
       packageName: "커플 야외",
       packageDescription: "커플 스냅 상품",
+      photoPriceKrw: 90_000,
       availablePackages: [
-        { id: "pkg-couple", name: "커플 야외", description: "커플 스냅 상품" },
+        { id: "pkg-couple", name: "커플 야외", description: "커플 스냅 상품", priceKrw: 90_000 },
       ],
     },
   ])[0];
@@ -246,6 +378,38 @@ test("grouping keeps evidence and the package actually linked to the album", () 
   assert.equal(album.packageId, "pkg-couple");
   assert.equal(album.packageName, "커플 야외");
   assert.deepEqual(album.availablePackages.map((item) => item.id), ["pkg-couple"]);
+  assert.equal(album.photos[0].priceKrw, 90_000);
+  assert.equal(album.availablePackages[0].priceKrw, 90_000);
+});
+
+test("legacy photo prices survive grouping without inventing a package link", () => {
+  const album = groupPurposeRows([
+    { ...rows[0], photoPriceKrw: 120_000 },
+    { ...rows[1], photoPriceKrw: 90_000 },
+  ])[0];
+  assert.equal(album.packageId, null);
+  assert.deepEqual(album.photos.map((photo) => photo.priceKrw), [120_000, 90_000]);
+});
+
+test("admin package assignments are internal fallbacks and photographer assignments take priority", () => {
+  const availablePackages = [
+    { id: "admin-pkg", name: "관리자 상품", description: "내부 지정", priceKrw: 90_000 },
+    { id: "author-pkg", name: "작가 상품", description: "직접 지정", priceKrw: 120_000 },
+  ];
+  const [internal] = groupPurposeRows([{ ...rows[0], adminPackageId: "admin-pkg", availablePackages }]);
+  assert.equal(internal.packageId, "admin-pkg");
+  assert.equal(internal.packageSource, "admin");
+  assert.equal(internal.packageName, "관리자 상품");
+  assert.equal(filterPurposeAlbums([internal], { state: "package-unlinked", purpose: "all", photographer: "" }).length, 0);
+
+  const [author] = groupPurposeRows([{
+    ...rows[0], packageId: "author-pkg", adminPackageId: "admin-pkg", availablePackages,
+  }]);
+  assert.equal(author.packageId, "author-pkg");
+  assert.equal(author.packageSource, "photographer");
+  assert.equal(author.packageName, "작가 상품");
+  assert.equal(author.packageDescription, "직접 지정");
+  assert.equal(groupPurposeRows([rows[0]])[0].packageSource, null);
 });
 
 test("text-conflict filter isolates unresolved metadata disagreements", () => {

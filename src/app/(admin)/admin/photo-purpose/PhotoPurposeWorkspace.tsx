@@ -4,9 +4,14 @@
 import { useDeferredValue, useMemo, useState, useTransition } from "react";
 
 import { cn } from "@/lib/cn";
-import { PURPOSE_OPTIONS, purposeLabel, type PurposeKey } from "@/lib/photo-purpose";
+import { PURPOSE_OPTIONS, purposeLabel, togglePurpose, type PurposeKey } from "@/lib/photo-purpose";
 import {
   filterPurposeAlbums,
+  formatPurposePrice,
+  summarizePurposeCounts,
+  applyAlbumPurposes,
+  applyPhotoPurposes,
+  clearPhotoPurposes,
   reviewAlbumOptimistically,
   reviewPhotoOptimistically,
   type AdminPurposeAlbum,
@@ -17,9 +22,9 @@ import {
   clearPhotoPurposeOverride,
   reviewAlbumPurpose,
   reviewPhotoPurpose,
-  setAlbumPurpose,
+  setAlbumPurposes,
   setAlbumPackage,
-  setPhotoPurpose,
+  setPhotoPurposes,
 } from "./actions";
 
 const STATE_OPTIONS: Array<{ key: PurposeFilter["state"]; label: string }> = [
@@ -27,10 +32,14 @@ const STATE_OPTIONS: Array<{ key: PurposeFilter["state"]; label: string }> = [
   { key: "unclassified", label: "미분류" },
   { key: "low-confidence", label: "저신뢰" },
   { key: "auto", label: "자동 분류" },
+  { key: "unreviewed", label: "검수 미완료" },
   { key: "reviewed", label: "검수 완료" },
   { key: "text-conflict", label: "텍스트 충돌" },
-  { key: "package-unlinked", label: "패키지 미연결" },
+  { key: "package-linked", label: "상품 지정" },
+  { key: "package-unlinked", label: "상품 미지정" },
 ];
+
+const countFormatter = new Intl.NumberFormat("ko-KR");
 
 function sourceLabel(source: AdminPurposeAlbum["source"]) {
   if (source === "siglip") return "SigLIP 자동 분류";
@@ -45,115 +54,35 @@ function confidenceLabel(value: number | null) {
 }
 
 function stateTone(album: AdminPurposeAlbum) {
-  if (album.purpose === null) return "border-danger/40 bg-danger-soft text-danger-ink";
+  if (album.purposes.length === 0) return "border-danger/40 bg-danger-soft text-danger-ink";
   if (album.reviewed) return "border-success/40 bg-success-soft text-success-ink";
   return "border-line-strong bg-surface-2 text-muted";
 }
 
 function stateLabel(album: AdminPurposeAlbum) {
-  if (album.purpose === null) return "미분류";
+  if (album.purposes.length === 0) return "미분류";
   if (album.reviewed) return "검수 완료";
   return "자동 분류";
 }
 
-function applyAlbumOptimistically(
-  albums: AdminPurposeAlbum[],
-  groupId: string,
-  purpose: PurposeKey,
-) {
-  return albums.map((album) =>
-    album.id !== groupId
-      ? album
-      : {
-          ...album,
-          purpose,
-          confidence: 1,
-          source: "manual" as const,
-          reviewed: true,
-          photos: album.photos.map((photo) =>
-            photo.overridden
-              ? photo
-              : {
-                  ...photo,
-                  purpose,
-                  confidence: 1,
-                  source: "manual" as const,
-                  reviewed: true,
-                },
-          ),
-        },
-  );
-}
-
-function applyPhotoOptimistically(
-  albums: AdminPurposeAlbum[],
-  groupId: string,
-  photoId: string,
-  purpose: PurposeKey,
-) {
-  return albums.map((album) => {
-    if (album.id !== groupId) return album;
-    const photos = album.photos.map((photo) =>
-      photo.id === photoId
-        ? {
-            ...photo,
-            purpose,
-            confidence: 1,
-            source: "manual" as const,
-            reviewed: true,
-            overridden: true,
-          }
-        : photo,
-    );
-    return {
-      ...album,
-      ...(album.albumId === null
-        ? { purpose, confidence: 1, source: "manual" as const, reviewed: true }
-        : {}),
-      photos,
-      overrideCount: photos.filter((photo) => photo.overridden).length,
-    };
-  });
-}
-
-function clearPhotoOptimistically(
-  albums: AdminPurposeAlbum[],
-  groupId: string,
-  photoId: string,
-) {
-  return albums.map((album) => {
-    if (album.id !== groupId) return album;
-    const inherited = album.albumId === null
-      ? { purpose: null, confidence: null, source: null, reviewed: false }
-      : {
-          purpose: album.purpose,
-          confidence: album.confidence,
-          source: album.source,
-          reviewed: album.reviewed,
-        };
-    const photos = album.photos.map((photo) =>
-      photo.id === photoId ? { ...photo, ...inherited, overridden: false } : photo,
-    );
-    return {
-      ...album,
-      ...(album.albumId === null ? inherited : {}),
-      photos,
-      overrideCount: photos.filter((photo) => photo.overridden).length,
-    };
-  });
-}
-
-export function PhotoPurposeWorkspace({ initialAlbums }: { initialAlbums: AdminPurposeAlbum[] }) {
+export function PhotoPurposeWorkspace({ initialAlbums, multiplePurposesReady = true }: { initialAlbums: AdminPurposeAlbum[]; multiplePurposesReady?: boolean }) {
   const [albums, setAlbums] = useState(initialAlbums);
+  const [previousInitialAlbums, setPreviousInitialAlbums] = useState(initialAlbums);
   const [state, setState] = useState<PurposeFilter["state"]>("unclassified");
   const [purposeFilter, setPurposeFilter] = useState<PurposeFilter["purpose"]>("all");
   const [photographer, setPhotographer] = useState("");
   const deferredPhotographer = useDeferredValue(photographer);
   const [selectedAlbumId, setSelectedAlbumId] = useState(initialAlbums[0]?.id ?? "");
   const [selectedPhotoId, setSelectedPhotoId] = useState("");
-  const [choice, setChoice] = useState<{ context: string; purpose: PurposeKey } | null>(null);
+  const [choice, setChoice] = useState<{ context: string; purposes: PurposeKey[] } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  // 새 서버 데이터는 반영하되 현재 필터와 선택은 유지한다.
+  if (initialAlbums !== previousInitialAlbums) {
+    setPreviousInitialAlbums(initialAlbums);
+    setAlbums(initialAlbums);
+  }
 
   const filtered = useMemo(
     () =>
@@ -169,13 +98,19 @@ export function PhotoPurposeWorkspace({ initialAlbums }: { initialAlbums: AdminP
   const selectedPhoto = selectedAlbum
     ? selectedAlbum.photos.find((photo) => photo.id === selectedPhotoId) ?? selectedAlbum.photos[0]
     : null;
+  const selectedPhotoPrice = formatPurposePrice(selectedPhoto?.priceKrw);
   const context = selectedAlbum && selectedPhoto ? `${selectedAlbum.id}:${selectedPhoto.id}` : "";
-  const selectedPurpose =
+  const selectedPurposes =
     choice?.context === context
-      ? choice.purpose
+      ? choice.purposes
       : selectedPhoto?.overridden
-        ? selectedPhoto.purpose
-        : selectedAlbum?.purpose;
+        ? selectedPhoto.purposes
+        : selectedAlbum?.purposes ?? [];
+  const savedPurposes = selectedPhoto?.overridden ? selectedPhoto.purposes : selectedAlbum?.purposes ?? [];
+  const hasUnappliedChanges = selectedPurposes.length !== savedPurposes.length ||
+    selectedPurposes.some((purpose, index) => purpose !== savedPurposes[index]);
+  const cannotApply = pending || selectedPurposes.length === 0 || (!multiplePurposesReady && selectedPurposes.length > 1);
+  const selectedEvidence = selectedPhoto?.overridden ? selectedPhoto.evidence : selectedAlbum?.evidence;
 
   const counts = useMemo(
     () =>
@@ -192,6 +127,8 @@ export function PhotoPurposeWorkspace({ initialAlbums }: { initialAlbums: AdminP
     [albums],
   );
 
+  const purposeCounts = useMemo(() => summarizePurposeCounts(albums), [albums]);
+
   function selectAlbum(album: AdminPurposeAlbum) {
     setSelectedAlbumId(album.id);
     setSelectedPhotoId(album.photos[0]?.id ?? "");
@@ -199,19 +136,19 @@ export function PhotoPurposeWorkspace({ initialAlbums }: { initialAlbums: AdminP
   }
 
   function savePortfolio() {
-    if (!selectedAlbum || !selectedPhoto || !selectedPurpose) return;
+    if (!selectedAlbum || !selectedPhoto || cannotApply) return;
     const snapshot = albums;
     const groupId = selectedAlbum.id;
     setError(null);
-    setAlbums(applyAlbumOptimistically(albums, groupId, selectedPurpose));
+    setAlbums(applyAlbumPurposes(albums, groupId, selectedPurposes));
     startTransition(async () => {
       try {
         if (selectedAlbum.albumId) {
-          await setAlbumPurpose(selectedAlbum.albumId, selectedPurpose);
+          await setAlbumPurposes(selectedAlbum.albumId, selectedPurposes);
         } else {
-          await setPhotoPurpose(selectedPhoto.id, selectedPurpose);
+          await setPhotoPurposes(selectedPhoto.id, selectedPurposes);
           setAlbums((current) =>
-            applyPhotoOptimistically(current, groupId, selectedPhoto.id, selectedPurpose),
+            applyPhotoPurposes(current, groupId, selectedPhoto.id, selectedPurposes),
           );
         }
       } catch (caught) {
@@ -222,14 +159,14 @@ export function PhotoPurposeWorkspace({ initialAlbums }: { initialAlbums: AdminP
   }
 
   function savePhoto() {
-    if (!selectedAlbum || !selectedPhoto || !selectedPurpose) return;
+    if (!selectedAlbum || !selectedPhoto || cannotApply) return;
     const snapshot = albums;
     const groupId = selectedAlbum.id;
     setError(null);
-    setAlbums(applyPhotoOptimistically(albums, groupId, selectedPhoto.id, selectedPurpose));
+    setAlbums(applyPhotoPurposes(albums, groupId, selectedPhoto.id, selectedPurposes));
     startTransition(async () => {
       try {
-        await setPhotoPurpose(selectedPhoto.id, selectedPurpose);
+        await setPhotoPurposes(selectedPhoto.id, selectedPurposes);
       } catch (caught) {
         setAlbums(snapshot);
         setError(caught instanceof Error ? caught.message : "사진 목적을 저장하지 못했습니다.");
@@ -242,10 +179,11 @@ export function PhotoPurposeWorkspace({ initialAlbums }: { initialAlbums: AdminP
     const snapshot = albums;
     const groupId = selectedAlbum.id;
     setError(null);
-    setAlbums(clearPhotoOptimistically(albums, groupId, selectedPhoto.id));
+    setAlbums(clearPhotoPurposes(albums, groupId, selectedPhoto.id));
     startTransition(async () => {
       try {
         await clearPhotoPurposeOverride(selectedPhoto.id);
+        setChoice(null);
       } catch (caught) {
         setAlbums(snapshot);
         setError(caught instanceof Error ? caught.message : "사진 예외를 해제하지 못했습니다.");
@@ -290,7 +228,7 @@ export function PhotoPurposeWorkspace({ initialAlbums }: { initialAlbums: AdminP
   }
 
   function changePackage(packageId: string) {
-    if (!selectedAlbum?.albumId) return;
+    if (!selectedAlbum?.albumId || selectedAlbum.packageSource === "photographer") return;
     const snapshot = albums;
     const selectedPackage = selectedAlbum.availablePackages.find((item) => item.id === packageId);
     setError(null);
@@ -300,6 +238,7 @@ export function PhotoPurposeWorkspace({ initialAlbums }: { initialAlbums: AdminP
           ? {
               ...album,
               packageId: selectedPackage?.id ?? null,
+              packageSource: selectedPackage ? "admin" : null,
               packageName: selectedPackage?.name ?? null,
               packageDescription: selectedPackage?.description ?? null,
             }
@@ -332,6 +271,7 @@ export function PhotoPurposeWorkspace({ initialAlbums }: { initialAlbums: AdminP
                 onClick={() => setState(option.key)}
                 className={cn(
                   "rounded-lg border px-2.5 py-2 text-left text-caption font-medium transition-colors",
+                  option.key === "package-linked" && "col-start-1",
                   state === option.key
                     ? "border-brand bg-brand-soft text-brand-ink"
                     : "border-line bg-bg text-muted hover:border-line-strong hover:text-fg",
@@ -363,6 +303,44 @@ export function PhotoPurposeWorkspace({ initialAlbums }: { initialAlbums: AdminP
             />
           </div>
         </div>
+
+        <section className="border-b border-line px-3.5 py-3" aria-label="목적별 집계">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-body-sm font-semibold">목적별 집계</h3>
+            <span className="text-[11px] text-muted">전체 공개 사진 기준</span>
+          </div>
+          <table className="mt-2 w-full text-caption">
+            <caption className="sr-only">목적별 포트폴리오 개수와 사진 장수</caption>
+            <thead className="text-[11px] text-muted">
+              <tr>
+                <th scope="col" className="py-1.5 text-left font-medium">목적</th>
+                <th scope="col" className="py-1.5 text-right font-medium">포트폴리오</th>
+                <th scope="col" className="py-1.5 text-right font-medium">사진</th>
+              </tr>
+            </thead>
+            <tbody>
+              {purposeCounts.purposes.map((item) => (
+                <tr key={item.purpose} className="border-t border-line">
+                  <th scope="row" className="py-1.5 text-left font-medium text-muted">
+                    {purposeLabel(item.purpose)}
+                  </th>
+                  <td className="py-1.5 text-right tabular-nums">{countFormatter.format(item.portfolioCount)}개</td>
+                  <td className="py-1.5 text-right tabular-nums">{countFormatter.format(item.photoCount)}장</td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="border-t border-line-strong font-semibold">
+              <tr>
+                <th scope="row" className="pt-2 text-left">전체</th>
+                <td className="pt-2 text-right tabular-nums">{countFormatter.format(purposeCounts.portfolioCount)}개</td>
+                <td className="pt-2 text-right tabular-nums">{countFormatter.format(purposeCounts.photoCount)}장</td>
+              </tr>
+            </tfoot>
+          </table>
+          <p className="mt-2 text-[11px] leading-relaxed text-muted">
+            포트폴리오와 사진에 지정한 목적을 각각 셉니다. 복수 목적은 각각 집계하며, 전체는 중복을 제외합니다.
+          </p>
+        </section>
 
         <div className="max-h-[760px] flex-1 space-y-1.5 overflow-y-auto p-2">
           {filtered.length === 0 ? (
@@ -399,8 +377,8 @@ export function PhotoPurposeWorkspace({ initialAlbums }: { initialAlbums: AdminP
                   <span className={cn("rounded-md border px-1.5 py-0.5 text-[11px] font-medium", stateTone(album))}>
                     {stateLabel(album)}
                   </span>
-                  {album.purpose ? (
-                    <span className="truncate text-[11px] text-muted">{purposeLabel(album.purpose)}</span>
+                  {album.purposes.length ? (
+                    <span className="truncate text-[11px] text-muted">{album.purposes.map(purposeLabel).join(" · ")}</span>
                   ) : null}
                   {album.source && album.source !== "manual" ? (
                     <span className="truncate text-[11px] text-muted">{sourceLabel(album.source)}</span>
@@ -460,9 +438,11 @@ export function PhotoPurposeWorkspace({ initialAlbums }: { initialAlbums: AdminP
                       검수
                     </span>
                   ) : null}
-                  {photo.purpose ? (
-                    <span className="absolute inset-x-2 bottom-2 truncate rounded-md bg-black/65 px-2 py-1 text-left text-[11px] font-medium text-white backdrop-blur-sm">
-                      {purposeLabel(photo.purpose)}
+                  {photo.purposes.length ? (
+                    <span className="absolute inset-x-2 bottom-2 flex flex-wrap gap-1 text-left text-[11px] font-medium text-white">
+                      {photo.purposes.map((purpose) => (
+                        <span key={purpose} className="rounded-md bg-black/65 px-2 py-1 backdrop-blur-sm">{purposeLabel(purpose)}</span>
+                      ))}
                     </span>
                   ) : null}
                 </button>
@@ -489,8 +469,8 @@ export function PhotoPurposeWorkspace({ initialAlbums }: { initialAlbums: AdminP
                 />
                 <dl className="min-w-0 flex-1 space-y-1 text-caption">
                   <div className="flex justify-between gap-2"><dt className="text-muted">사진</dt><dd className="truncate">{selectedPhoto.id.slice(0, 8)}</dd></div>
-                  <div className="flex justify-between gap-2"><dt className="text-muted">신뢰도</dt><dd>{confidenceLabel(selectedAlbum.confidence)}</dd></div>
-                  <div className="flex justify-between gap-2"><dt className="text-muted">출처</dt><dd className="truncate">{sourceLabel(selectedAlbum.source)}</dd></div>
+                  <div className="flex justify-between gap-2"><dt className="text-muted">신뢰도</dt><dd>{confidenceLabel(selectedPhoto.confidence)}</dd></div>
+                  <div className="flex justify-between gap-2"><dt className="text-muted">출처</dt><dd className="truncate">{sourceLabel(selectedPhoto.source)}</dd></div>
                   <div className="flex justify-between gap-2"><dt className="text-muted">포트폴리오 검수</dt><dd>{selectedAlbum.reviewed ? "완료" : "미검수"}</dd></div>
                   <div className="flex justify-between gap-2"><dt className="text-muted">선택 사진 검수</dt><dd>{selectedPhoto.reviewed ? "완료" : "미검수"}</dd></div>
                   {selectedPhoto.title ? (
@@ -503,20 +483,45 @@ export function PhotoPurposeWorkspace({ initialAlbums }: { initialAlbums: AdminP
             {selectedAlbum.albumId ? (
               <div className="p-4">
                 <label className="text-body-sm font-semibold" htmlFor="purpose-package-select">
-                  연결 패키지
+                  포트폴리오 패키지
                 </label>
+                <p className="mt-1 text-caption text-muted">
+                  작가 등록 패키지 {countFormatter.format(selectedAlbum.availablePackages.length)}개
+                </p>
+                <p className="mt-1 text-caption text-muted">
+                  {selectedAlbum.packageSource === "photographer"
+                    ? "작가 지정 · 작가가 직접 선택한 패키지를 사용합니다."
+                    : selectedAlbum.packageSource === "admin"
+                      ? "관리자 지정 · 작가에게 표시되지 않습니다."
+                      : "관리자 지정은 작가에게 표시되지 않습니다."}
+                </p>
                 <select
                   id="purpose-package-select"
                   value={selectedAlbum.packageId ?? ""}
                   onChange={(event) => changePackage(event.target.value)}
-                  disabled={pending}
+                  disabled={pending || selectedAlbum.packageSource === "photographer"}
                   className="mt-2 w-full rounded-lg border border-line bg-bg px-3 py-2 text-caption outline-none focus:border-brand disabled:opacity-50"
                 >
-                  <option value="">패키지 미연결</option>
+                  <option value="">포트폴리오 상품 미지정</option>
                   {selectedAlbum.availablePackages.map((item) => (
-                    <option key={item.id} value={item.id}>{item.name}</option>
+                    <option key={item.id} value={item.id}>
+                      {item.name} · {formatPurposePrice(item.priceKrw) ?? "가격 확인 필요"}
+                    </option>
                   ))}
                 </select>
+                {selectedAlbum.packageSource !== "photographer" ? (
+                  <p className="mt-2 text-caption leading-relaxed text-muted">
+                    작가가 직접 패키지를 선택하면 그 값으로 대체됩니다.
+                  </p>
+                ) : null}
+                {!selectedAlbum.packageId && selectedPhotoPrice !== null ? (
+                  <div className="mt-2 space-y-1 text-caption leading-relaxed text-muted">
+                    <p className="font-medium text-fg">
+                      기존 선택 가격 · {selectedPhotoPrice}
+                    </p>
+                    <p>저장된 가격을 참고해 이 포트폴리오의 상품을 지정해주세요.</p>
+                  </div>
+                ) : null}
                 {selectedAlbum.packageDescription ? (
                   <p className="mt-2 line-clamp-3 text-caption leading-relaxed text-muted">
                     {selectedAlbum.packageDescription}
@@ -525,11 +530,11 @@ export function PhotoPurposeWorkspace({ initialAlbums }: { initialAlbums: AdminP
               </div>
             ) : null}
 
-            {selectedAlbum.evidence ? (
+            {selectedEvidence ? (
               <div className="p-4">
                 <p className="text-body-sm font-semibold">자동 분류 근거</p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {(selectedAlbum.evidence.text_matches ?? []).map((match, index) => (
+                  {(selectedEvidence.text_matches ?? []).map((match, index) => (
                     <span
                       key={`${match.source}:${match.phrase}:${index}`}
                       className="rounded-full border border-line bg-bg px-2 py-1 text-[11px] text-muted"
@@ -538,15 +543,15 @@ export function PhotoPurposeWorkspace({ initialAlbums }: { initialAlbums: AdminP
                     </span>
                   ))}
                 </div>
-                {selectedAlbum.evidence.image_purpose ? (
+                {selectedEvidence.image_purpose ? (
                   <p className="mt-2 text-caption text-muted">
-                    SigLIP 후보: {purposeLabel(selectedAlbum.evidence.image_purpose)}
-                    {selectedAlbum.evidence.image_confidence != null
-                      ? ` · ${confidenceLabel(selectedAlbum.evidence.image_confidence)}`
+                    SigLIP 후보: {purposeLabel(selectedEvidence.image_purpose)}
+                    {selectedEvidence.image_confidence != null
+                      ? ` · ${confidenceLabel(selectedEvidence.image_confidence)}`
                       : ""}
                   </p>
                 ) : null}
-                {selectedAlbum.evidence.text_conflict ? (
+                {selectedEvidence.text_conflict ? (
                   <p className="mt-2 rounded-lg bg-danger-soft px-2.5 py-2 text-caption text-danger-ink">
                     강한 텍스트 근거가 충돌해 수동 검수가 필요합니다.
                   </p>
@@ -555,16 +560,18 @@ export function PhotoPurposeWorkspace({ initialAlbums }: { initialAlbums: AdminP
             ) : null}
 
             <fieldset className="p-4" disabled={pending}>
-              <legend className="text-body-sm font-semibold">사진 목적</legend>
+              <legend className="text-body-sm font-semibold">사진 목적 · 여러 개 선택</legend>
+              <p className="mt-1 text-caption leading-relaxed text-muted">해당하는 목적을 모두 고른 뒤 아래 적용 버튼으로 저장하세요.</p>
               <div className="mt-2 grid grid-cols-2 gap-1.5">
                 {PURPOSE_OPTIONS.map((option) => {
-                  const active = selectedPurpose === option.key;
+                  const active = selectedPurposes.includes(option.key);
                   return (
                     <button
                       key={option.key}
                       type="button"
-                      aria-pressed={active}
-                      onClick={() => setChoice({ context, purpose: option.key })}
+                      role="checkbox"
+                      aria-checked={active}
+                      onClick={() => { setChoice({ context, purposes: togglePurpose(selectedPurposes, option.key) }); setError(null); }}
                       className={cn(
                         "rounded-lg border px-3 py-2.5 text-left text-caption font-medium transition-colors",
                         active
@@ -572,13 +579,59 @@ export function PhotoPurposeWorkspace({ initialAlbums }: { initialAlbums: AdminP
                           : "border-line bg-bg text-muted hover:border-line-strong hover:text-fg",
                       )}
                     >
-                      <span className={cn("mr-2 inline-block h-2.5 w-2.5 rounded-full border", active ? "border-brand bg-brand" : "border-faint")} />
+                      <span className={cn("mr-2 inline-block h-2.5 w-2.5 rounded-sm border", active ? "border-brand bg-brand" : "border-faint")} />
                       {option.label}
                     </button>
                   );
                 })}
               </div>
             </fieldset>
+
+            <div className="p-4">
+              <p className="text-body-sm font-semibold">선택한 목적 적용</p>
+              <p role="status" className={cn("mt-1 text-caption", hasUnappliedChanges ? "text-brand" : "text-muted")}>
+                {pending ? "저장 중…" : selectedPurposes.length ? `${selectedPurposes.map(purposeLabel).join(" · ")}${hasUnappliedChanges ? " — 아직 적용하지 않았어요" : ""}` : "목적을 한 개 이상 선택해주세요."}
+              </p>
+              {!multiplePurposesReady ? (
+                <p role="alert" className="mt-2 rounded-lg bg-danger-soft px-3 py-2 text-caption text-danger-ink">
+                  여러 목적을 저장하려면 DB 업데이트가 필요합니다. 기존 단일 목적은 계속 적용할 수 있습니다.
+                </p>
+              ) : null}
+              <p className="mt-1 text-caption leading-relaxed text-muted">
+                포트폴리오 적용은 개별 예외를 제외한 모든 사진에 저장됩니다.
+              </p>
+              <div className="mt-3 space-y-2">
+                <button
+                  type="button"
+                  onClick={savePortfolio}
+                  disabled={cannotApply}
+                  className="w-full rounded-xl bg-fg px-4 py-3 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  {pending ? "저장 중…" : selectedAlbum.albumId ? "포트폴리오 전체에 적용" : "단독 사진에 적용"}
+                </button>
+                <button
+                  type="button"
+                  onClick={savePhoto}
+                  disabled={cannotApply}
+                  className="w-full rounded-xl bg-brand px-4 py-3 text-body-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  선택한 사진만 개별 적용
+                </button>
+                <button
+                  type="button"
+                  onClick={resetPhoto}
+                  disabled={pending || !selectedPhoto.overridden}
+                  className="w-full rounded-xl border border-line-strong px-4 py-3 text-body-sm font-medium text-muted transition-colors hover:bg-fg/[0.04] hover:text-fg disabled:cursor-not-allowed disabled:opacity-35"
+                >
+                  선택한 사진의 개별 분류 해제
+                </button>
+              </div>
+              {error ? (
+                <p role="alert" className="mt-3 rounded-lg bg-danger-soft px-3 py-2 text-caption text-danger-ink">
+                  {error}
+                </p>
+              ) : null}
+            </div>
 
             <div className="p-4">
               <p className="text-body-sm font-semibold">검수 완료</p>
@@ -603,44 +656,6 @@ export function PhotoPurposeWorkspace({ initialAlbums }: { initialAlbums: AdminP
                   {selectedPhoto.reviewed ? "선택 사진 검수 완료됨" : "선택 사진 검수 완료"}
                 </button>
               </div>
-            </div>
-
-            <div className="p-4">
-              <p className="text-body-sm font-semibold">적용 방식</p>
-              <p className="mt-1 text-caption leading-relaxed text-muted">
-                포트폴리오 적용은 개별 예외를 제외한 모든 사진에 저장됩니다.
-              </p>
-              <div className="mt-3 space-y-2">
-                <button
-                  type="button"
-                  onClick={savePortfolio}
-                  disabled={pending || !selectedPurpose}
-                  className="w-full rounded-xl bg-fg px-4 py-3 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {pending ? "저장 중…" : selectedAlbum.albumId ? "포트폴리오 전체에 적용" : "단독 사진에 적용"}
-                </button>
-                <button
-                  type="button"
-                  onClick={savePhoto}
-                  disabled={pending || !selectedPurpose}
-                  className="w-full rounded-xl bg-brand px-4 py-3 text-body-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  선택한 사진만 개별 적용
-                </button>
-                <button
-                  type="button"
-                  onClick={resetPhoto}
-                  disabled={pending || !selectedPhoto.overridden}
-                  className="w-full rounded-xl border border-line-strong px-4 py-3 text-body-sm font-medium text-muted transition-colors hover:bg-fg/[0.04] hover:text-fg disabled:cursor-not-allowed disabled:opacity-35"
-                >
-                  선택한 사진의 개별 분류 해제
-                </button>
-              </div>
-              {error ? (
-                <p role="alert" className="mt-3 rounded-lg bg-danger-soft px-3 py-2 text-caption text-danger-ink">
-                  {error}
-                </p>
-              ) : null}
             </div>
 
             <div className="p-4">

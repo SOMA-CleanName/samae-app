@@ -91,6 +91,7 @@ PROMPTS = {
 VERSION = "purpose-v2"
 FULL_AUTO_VERSION = "purpose-v3"
 TEXT_FIRST_VERSION = "purpose-v4-text-first"
+DAILY_VERSION = "purpose-v5-daily"
 AUTO_THRESHOLD = 0.90
 
 # 첫 dry-run 수동 검토 결과, 시각만으로 촬영 의도를 안정적으로 나눌 수 있었던

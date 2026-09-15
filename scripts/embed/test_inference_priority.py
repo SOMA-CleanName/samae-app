@@ -158,6 +158,28 @@ class BackfillEndpointTest(unittest.TestCase):
         with patch.object(serve, "embed_texts", side_effect=TimeoutError("busy")):
             self.assertEqual(self.request({"texts": ["검색"]}, path="/embed-text")[0], 503)
 
+    def test_purpose_prompts_wait_behind_searches(self):
+        order = []
+        class Tensor:
+            def __init__(self, label): self.label = label
+            def cpu(self): return self
+            def tolist(self):
+                order.append(self.label)
+                return [[1.0] + [0.0] * 1151]
+
+        with patch.object(serve.siglip, "encode_text", side_effect=lambda p, m, texts, d: Tensor(texts[0])), \
+             concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+            with serve._inference.slot("backfill"):
+                purpose = pool.submit(self.request, {"texts": ["purpose"]}, path="/embed-text-backfill")
+                search = pool.submit(self.request, {"texts": ["search"]}, path="/embed-text")
+                wait_for(self, lambda: serve._inference.snapshot()["waiting"]["backfill"] == 1)
+                wait_for(self, lambda: serve._inference.snapshot()["waiting"]["search"] == 1)
+            self.assertEqual(search.result(timeout=3)[0], 200)
+            status, payload = purpose.result(timeout=3)
+            self.assertEqual(status, 200)
+            self.assertEqual(payload["patch_budget"], 256)
+        self.assertEqual(order, ["search", "purpose"])
+
 
 if __name__ == "__main__":
     unittest.main()

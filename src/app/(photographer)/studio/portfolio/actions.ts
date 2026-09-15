@@ -167,6 +167,7 @@ export async function updateFeedMeta(formData: FormData) {
   }
 
   revalidatePath("/studio/portfolio");
+  revalidatePath("/admin/photo-purpose");
 }
 
 // 게시물(피드) 전체 공개/비공개 — 앨범의 모든 사진을 일괄 전환 (RLS: 본인 작가)

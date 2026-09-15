@@ -62,18 +62,22 @@ class EmbedAutomationTest(unittest.TestCase):
         self.assertTrue(any("com.samae.embed.plist" in line for line in loads))
         self.assertTrue(any("com.samae.serve.plist" in line for line in loads))
 
-    def test_wrapper_uses_local_service_and_preserves_failure_status(self):
+    def test_wrapper_runs_embedding_then_daily_purposes_and_preserves_failure_status(self):
         (self.root / ".env.local").write_text("")
         (self.bin / "python").unlink()
-        self.executable(self.bin / "python", '#!/bin/sh\nprintf "%s\\n" "$@" > "$FAKE_ARGS"\nexit "${FAKE_STATUS:-0}"\n')
-        for status in [0, 7]:
-            with self.subTest(status=status):
-                self.env["FAKE_STATUS"] = str(status)
+        self.executable(self.bin / "python", '#!/bin/sh\nprintf "%s\\n" "$*" >> "$FAKE_ARGS"\ncase "$1" in *embed_photos.py) exit "${FAKE_EMBED_STATUS:-0}";; *) exit "${FAKE_PURPOSE_STATUS:-0}";; esac\n')
+        for embed_status, purpose_status, expected in [(0, 0, 0), (7, 0, 7), (0, 9, 9)]:
+            with self.subTest(embed_status=embed_status, purpose_status=purpose_status):
+                (self.root / "args").write_text("")
+                self.env["FAKE_EMBED_STATUS"] = str(embed_status)
+                self.env["FAKE_PURPOSE_STATUS"] = str(purpose_status)
                 result = self.run_script("run-embed.sh")
-                self.assertEqual(result.returncode, status, result.stdout + result.stderr)
-                self.assertEqual((self.root / "args").read_text().splitlines(), [
-                    "scripts/embed/embed_photos.py", "--apply", "--embed-url", "http://127.0.0.1:8077",
-                ])
+                self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
+                calls = (self.root / "args").read_text().splitlines()
+                self.assertEqual(calls[0], "scripts/embed/embed_photos.py --apply --embed-url http://127.0.0.1:8077")
+                self.assertEqual(len(calls), 2)
+                self.assertIn("purpose_backfill.py --apply --daily --embed-url http://127.0.0.1:8077", calls[1])
+                self.assertIn("--output ", calls[1])
                 self.assertFalse((self.embed / "logs" / ".running").exists())
 
 

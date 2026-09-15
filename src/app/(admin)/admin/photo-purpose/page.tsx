@@ -1,4 +1,4 @@
-import { isPurposeKey } from "@/lib/photo-purpose";
+import { isPurposeKey, normalizePurposes } from "@/lib/photo-purpose";
 import {
   groupPurposeRows,
   type AdminPurposeRow,
@@ -18,12 +18,14 @@ type DatabaseRow = {
   src_url: string;
   created_at: string;
   admin_purpose: string | null;
+  admin_purposes?: string[];
   admin_purpose_confidence: number | null;
   admin_purpose_source: string | null;
   admin_purpose_reviewed: boolean;
   admin_purpose_overridden: boolean;
   title: string | null;
   caption: string | null;
+  price_krw: number | null;
   admin_purpose_evidence: unknown;
   album: {
     id: string;
@@ -31,10 +33,12 @@ type DatabaseRow = {
     description: string | null;
     created_at: string;
     admin_purpose: string | null;
+    admin_purposes?: string[];
     admin_purpose_confidence: number | null;
     admin_purpose_source: string | null;
     admin_purpose_reviewed: boolean;
     package_id: string | null;
+    admin_package: { package_id: string } | null;
     admin_purpose_evidence: unknown;
   } | null;
   photographer: {
@@ -59,24 +63,34 @@ function evidence(value: unknown): AdminPurposeEvidence | null {
     : null;
 }
 
-async function fetchPurposeRows(): Promise<AdminPurposeRow[]> {
+async function fetchPurposeRows(): Promise<{ rows: AdminPurposeRow[]; multiplePurposesReady: boolean }> {
   const admin = createAdminClient();
   const pageSize = 1000;
   const databaseRows: DatabaseRow[] = [];
+  let multiplePurposesReady = true;
 
   for (let from = 0; ; from += pageSize) {
-    const { data, error } = await admin
+    const query = (multiple: boolean) => admin
       .from("photos")
       .select(
-        "id,album_id,thumb_url,src_url,title,caption,created_at,admin_purpose,admin_purpose_confidence," +
+        "id,album_id,thumb_url,src_url,title,caption,price_krw,created_at,admin_purpose,admin_purpose_confidence," +
+          (multiple ? "admin_purposes," : "") +
           "admin_purpose_source,admin_purpose_reviewed,admin_purpose_overridden,admin_purpose_evidence," +
           "album:albums(id,title,description,created_at,admin_purpose,admin_purpose_confidence," +
-          "admin_purpose_source,admin_purpose_reviewed,package_id,admin_purpose_evidence)," +
+          (multiple ? "admin_purposes," : "") +
+          "admin_purpose_source,admin_purpose_reviewed,package_id,admin_package:album_admin_packages(package_id),admin_purpose_evidence)," +
           "photographer:photographers!photos_photographer_id_fkey(id,display_name)",
       )
       .eq("visibility", "published")
       .order("created_at", { ascending: false })
       .range(from, from + pageSize - 1);
+
+    let { data, error } = await query(multiplePurposesReady);
+    // 새 열 반영 전에도 기존 단일 목적 검수 화면을 계속 사용할 수 있다.
+    if (from === 0 && error?.code === "42703") {
+      multiplePurposesReady = false;
+      ({ data, error } = await query(false));
+    }
 
     if (error) throw new Error(`사진 목적 데이터를 불러오지 못했습니다: ${error.message}`);
     const batch = (data ?? []) as unknown as DatabaseRow[];
@@ -90,7 +104,7 @@ async function fetchPurposeRows(): Promise<AdminPurposeRow[]> {
   const { data: packageData, error: packageError } = photographerIds.length
     ? await admin
         .from("packages")
-        .select("id,photographer_id,name,description")
+        .select("id,photographer_id,name,description,price_krw")
         .in("photographer_id", photographerIds)
         .order("sort_order", { ascending: true })
     : { data: [], error: null };
@@ -100,6 +114,7 @@ async function fetchPurposeRows(): Promise<AdminPurposeRow[]> {
     photographer_id: string;
     name: string;
     description: string;
+    price_krw: number;
   }>;
   const packageById = new Map(packages.map((item) => [item.id, item]));
   const packagesByPhotographer = new Map<string, typeof packages>();
@@ -109,9 +124,10 @@ async function fetchPurposeRows(): Promise<AdminPurposeRow[]> {
     packagesByPhotographer.set(item.photographer_id, list);
   }
 
-  return databaseRows.map((row) => {
-      const linkedPackage = row.album?.package_id
-        ? packageById.get(row.album.package_id) ?? null
+  return { multiplePurposesReady, rows: databaseRows.map((row) => {
+      const effectivePackageId = row.album?.package_id ?? row.album?.admin_package?.package_id;
+      const linkedPackage = effectivePackageId
+        ? packageById.get(effectivePackageId) ?? null
         : null;
       const availablePackages = packagesByPhotographer.get(row.photographer?.id ?? "") ?? [];
       return {
@@ -125,43 +141,49 @@ async function fetchPurposeRows(): Promise<AdminPurposeRow[]> {
         thumbUrl: row.thumb_url,
         srcUrl: row.src_url,
         photoPurpose: purpose(row.admin_purpose),
+        photoPurposes: normalizePurposes(row.admin_purposes, purpose(row.admin_purpose)),
         photoConfidence: row.admin_purpose_confidence,
         photoSource: source(row.admin_purpose_source),
         photoReviewed: row.admin_purpose_reviewed,
         photoOverridden: row.admin_purpose_overridden,
         photoTitle: row.title,
         photoCaption: row.caption,
+        photoPriceKrw: row.price_krw,
         photoEvidence: evidence(row.admin_purpose_evidence),
         albumPurpose: purpose(row.album?.admin_purpose ?? null),
+        albumPurposes: normalizePurposes(row.album?.admin_purposes, purpose(row.album?.admin_purpose ?? null)),
         albumConfidence: row.album?.admin_purpose_confidence ?? null,
         albumSource: source(row.album?.admin_purpose_source ?? null),
         albumReviewed: row.album?.admin_purpose_reviewed ?? false,
         albumEvidence: evidence(row.album?.admin_purpose_evidence),
         packageId: row.album?.package_id ?? null,
+        adminPackageId: row.album?.admin_package?.package_id ?? null,
         packageName: linkedPackage?.name ?? null,
         packageDescription: linkedPackage?.description ?? null,
         availablePackages: availablePackages.map((item) => ({
           id: item.id,
           name: item.name,
           description: item.description,
+          priceKrw: item.price_krw,
         })),
       };
-    });
+    }) };
 }
 
 export default async function AdminPhotoPurposePage() {
-  const albums = groupPurposeRows(await fetchPurposeRows());
+  const { rows, multiplePurposesReady } = await fetchPurposeRows();
+  const albums = groupPurposeRows(rows);
 
   return (
-    <main className="mx-auto max-w-[1500px] px-4 py-7 sm:px-5">
+    <section aria-labelledby="purpose-heading">
       <div className="mb-5">
-        <h1 className="text-h1 font-semibold">사진 목적&amp;무드</h1>
+        <h2 id="purpose-heading" className="text-h2 font-semibold">목적</h2>
         <p className="mt-1 text-body-sm text-muted">
-          포트폴리오 목적을 검토하고, 섞여 들어간 사진만 개별 예외로 분류하세요. 이 값은 운영자
+          포트폴리오에 해당하는 목적을 모두 선택하고, 다른 목적의 사진은 개별 예외로 분류하세요. 이 값은 운영자
           화면에서만 표시됩니다.
         </p>
       </div>
-      <PhotoPurposeWorkspace initialAlbums={albums} />
-    </main>
+      <PhotoPurposeWorkspace initialAlbums={albums} multiplePurposesReady={multiplePurposesReady} />
+    </section>
   );
 }

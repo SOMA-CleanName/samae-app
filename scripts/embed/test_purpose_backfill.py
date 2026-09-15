@@ -1,8 +1,14 @@
 import json
+import contextlib
+import io
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
+
+import numpy as np
 
 from scripts.embed.purpose_classifier import FinalPurposePrediction
 from scripts.embed import purpose_backfill as backfill
@@ -120,6 +126,8 @@ class PurposeBackfillTest(unittest.TestCase):
                 return [{"id": "a1", "admin_purpose_source": None,
                          "admin_purpose_reviewed": False, "package_id": "pkg",
                          "target_category_id": "target"}]
+            if path.startswith("album_admin_packages?"):
+                return []
             if path.startswith("packages?"):
                 return [{"id": "pkg", "name": "커플", "description": "커플 스냅"}]
             if path.startswith("categories?"):
@@ -174,6 +182,49 @@ class PurposeBackfillTest(unittest.TestCase):
         self.assertEqual(albums[0]["target_category_name"], "커플·우정")
         self.assertEqual(albums[0]["explore_category_names"], ["데이트"])
         self.assertNotIn("unlinked", str(albums[0]))
+
+    def test_internal_package_is_a_fallback_and_author_package_wins(self):
+        def request(method, path, body=None, extra=None):
+            if path.startswith("albums?"):
+                return [
+                    {"id": "internal", "package_id": None},
+                    {"id": "author", "package_id": "author-pkg"},
+                    {"id": "empty", "package_id": None},
+                ]
+            if path.startswith("album_admin_packages?"):
+                return [
+                    {"album_id": "internal", "package_id": "admin-pkg"},
+                    {"album_id": "author", "package_id": "admin-pkg"},
+                ]
+            if path.startswith("packages?"):
+                return [
+                    {"id": "admin-pkg", "name": "개인", "description": "내부 지정"},
+                    {"id": "author-pkg", "name": "웨딩", "description": "작가 지정"},
+                ]
+            return []
+
+        albums, _, _, _ = backfill.fetch_inputs(request)
+        by_id = {album["id"]: album for album in albums}
+        self.assertEqual(by_id["internal"]["package"]["id"], "admin-pkg")
+        self.assertIsNone(by_id["internal"]["package_id"])
+        self.assertEqual(by_id["author"]["package"]["id"], "author-pkg")
+        self.assertIsNone(by_id["empty"]["package"])
+
+    def test_internal_package_evidence_is_not_published_with_classification(self):
+        fields = backfill.build_text_fields({
+            "package_is_internal": True,
+            "package": {"name": "웨딩", "description": "웨딩 스냅"},
+        }, [])
+        self.assertEqual({field.source for field in fields}, {"internal_package_name", "internal_package_description"})
+        item = prediction("a1", purpose="wedding", source="text")
+        item.evidence["text_matches"] = [
+            {"source": "internal_package_name", "phrase": "웨딩", "purpose": "wedding"},
+            {"source": "album_description", "phrase": "웨딩", "purpose": "wedding"},
+        ]
+        backfill.apply_predictions([item], request=self.request, apply=True, threshold=0.8, limit=None)
+        saved = self.calls[0][2]["p_evidence"]
+        self.assertEqual([match["source"] for match in saved["text_matches"]], ["album_description"])
+        self.assertEqual(len(item.evidence["text_matches"]), 2)
 
     def test_album_text_fields_include_all_approved_author_sources(self):
         fields = backfill.build_text_fields(
@@ -236,6 +287,17 @@ class PurposeBackfillTest(unittest.TestCase):
         self.assertEqual(len(self.calls), 1)
         self.assertEqual(self.calls[0][2]["p_album_id"], "a1")
 
+    def test_daily_reconsiders_thresholded_legacy_results_and_metadata_changes(self):
+        version = "purpose-v5-daily"
+        now = "2026-09-15T06:00:00+09:00"
+        albums = [{"id": "a", "admin_purpose_version": version, "admin_purpose_at": now, "updated_at": now}]
+        photos = [{"id": "p", "album_id": "a", "admin_purpose_version": version, "admin_purpose_at": now, "updated_at": now}]
+        self.assertEqual(backfill.pending_album_ids(albums, photos), set())
+        for key in ("updated_at", "package_updated_at", "package_assigned_at"):
+            self.assertEqual(backfill.pending_album_ids([{**albums[0], key: "2026-09-14T21:00:01Z"}], photos), {"a"})
+        self.assertEqual(backfill.pending_album_ids(albums, [{**photos[0], "updated_at": "2026-09-14T21:00:01Z"}]), {"a"})
+        self.assertEqual(backfill.pending_album_ids([{**albums[0], "admin_purpose_version": backfill.purposes.TEXT_FIRST_VERSION}], photos), {"a"})
+
     def test_limit_prioritizes_highest_confidence_portfolios(self):
         backfill.apply_predictions(
             [
@@ -273,6 +335,74 @@ class PurposeBackfillTest(unittest.TestCase):
                 encoding="utf-8-sig"
             ).splitlines()[0]
             self.assertIn("source", csv_header)
+
+
+class DailyPurposeBackfillTest(unittest.TestCase):
+    def run_daily(self, albums, photos, *, fail_write=False):
+        calls = []
+        def fetch(request, *, include_unpublished=False, reference_rows=None):
+            self.assertFalse(include_unpublished)
+            if reference_rows is not None:
+                reference_rows.extend(photos)
+            eligible, excluded = backfill.filter_eligible_rows(albums, photos)
+            return albums, eligible, excluded, 0
+        def api(env, method, path, body=None, extra=None):
+            calls.append((method, path, body))
+            if path == "rpc/backfill_inherited_photo_purposes":
+                return 0
+            if fail_write:
+                raise RuntimeError("simulated database failure")
+            return 1
+        text_vectors = np.random.default_rng(7).normal(size=(56, 1152))
+        text_vectors /= np.linalg.norm(text_vectors, axis=1, keepdims=True)
+        with tempfile.TemporaryDirectory() as directory, \
+             patch.object(sys, "argv", ["purpose_backfill.py", "--daily", "--apply", "--output", directory]), \
+             patch.object(backfill, "load_env", return_value={"PERSONA_SERVICE_TOKEN": "test-token"}), \
+             patch.object(backfill, "api_request", side_effect=api), \
+             patch.object(backfill, "fetch_inputs", side_effect=fetch), \
+             patch.object(backfill, "BackfillClient", create=True) as client, \
+             patch.object(backfill.siglip, "load", side_effect=AssertionError("must use resident server")), \
+             contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            client.return_value.embed_texts.return_value = text_vectors.tolist()
+            code = backfill.main()
+            return code, calls, client.call_count
+
+    def photo(self, id, album_id, **changes):
+        return {"id": id, "album_id": album_id, "embedding": [1.] + [0.] * 1151,
+                "admin_purpose_version": "purpose-v5-daily", **changes}
+
+    def test_completed_catalog_is_a_successful_noop_without_loading_a_model(self):
+        code, calls, clients = self.run_daily(
+            [{"id": "done", "admin_purpose_version": "purpose-v5-daily"}],
+            [self.photo("done-photo", "done")],
+        )
+        self.assertEqual(code, 0)
+        self.assertEqual(clients, 0)
+        self.assertEqual([call[1] for call in calls], ["rpc/backfill_inherited_photo_purposes"])
+
+    def test_one_new_photo_is_classified_once_and_reviewed_albums_are_never_written(self):
+        code, calls, clients = self.run_daily(
+            [{"id": "new", "admin_purpose_version": "purpose-v5-daily"},
+             {"id": "reviewed", "admin_purpose_reviewed": True}],
+            [self.photo("new-photo", "new", admin_purpose_version=None),
+             self.photo("reference", "reviewed", embedding=[0., 1.] + [0.] * 1150)],
+        )
+        self.assertEqual(code, 0)
+        self.assertEqual(clients, 1)
+        writes = [call[2] for call in calls if call[1] == "rpc/apply_album_purpose_classification"]
+        self.assertEqual(len(writes), 1)
+        self.assertEqual(writes[0]["p_album_id"], "new")
+        self.assertEqual(writes[0]["p_version"], "purpose-v5-daily")
+        self.assertIn(writes[0]["p_purpose"], backfill.purposes.PURPOSE_KEYS)
+
+    def test_first_ever_single_photo_can_receive_one_purpose(self):
+        code, calls, _ = self.run_daily([{"id": "new"}], [self.photo("only", "new", admin_purpose_version=None)])
+        self.assertEqual(code, 0)
+        self.assertIn(calls[-1][2]["p_purpose"], backfill.purposes.PURPOSE_KEYS)
+
+    def test_partial_rpc_failure_produces_failure_exit_status(self):
+        code, _, _ = self.run_daily([{"id": "new"}], [self.photo("only", "new", admin_purpose_version=None)], fail_write=True)
+        self.assertEqual(code, 1)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,141 @@
+axis	label	description
+감정	행복한	joyful happiness
+감정	설레는	excited anticipation
+감정	즐거운	cheerful delight
+감정	평온한	peaceful serenity
+감정	쓸쓸한	lonely melancholy
+감정	아련한	wistful nostalgia
+감정	그리운	longing and nostalgia
+감정	슬픈	sadness and sorrow
+감정	애틋한	tender longing
+감정	뭉클한	moving heartfelt emotion
+감정	자유로운	carefree freedom
+감정	불안한	an uneasy unsettling atmosphere
+감정	긴장감 있는	tension and suspense
+감정	희망적인	hopeful optimism
+관계	다정한	tender affection
+관계	친밀한	close emotional intimacy
+관계	장난스러운	playful interaction
+관계	로맨틱한	romantic atmosphere
+관계	사랑스러운	adorable charm
+관계	수줍은	shy reserved gestures
+관계	편안한	relaxed ease
+관계	고독한	solitude and isolation
+관계	거리감 있는	emotional distance
+관계	자연스러운	unposed candid interaction
+관계	진솔한	authentic heartfelt expression
+관계	당당한	confident self assured presence
+관계	도도한	aloof elegant poise
+관계	친근한	friendly approachable atmosphere
+스타일	힙한	trendy edgy street style
+스타일	몽환적인	dreamy ethereal atmosphere
+스타일	빈티지한	vintage faded aesthetics
+스타일	레트로한	retro nostalgic styling
+스타일	우아한	elegant graceful styling
+스타일	세련된	sophisticated refined styling
+스타일	시크한	chic understated styling
+스타일	모던한	modern contemporary aesthetics
+스타일	클래식한	classic timeless styling
+스타일	감각적인	stylish artistic composition
+스타일	영화 같은	cinematic storytelling atmosphere
+스타일	동화 같은	fairytale whimsical atmosphere
+스타일	신비로운	mysterious enchanting atmosphere
+스타일	초현실적인	surreal dreamlike imagery
+온도	따뜻한 분위기	warm comforting atmosphere
+온도	포근한	cozy comforting warmth
+온도	서늘한	cool crisp atmosphere
+온도	차가운 분위기	cold icy atmosphere
+온도	쌀쌀한	chilly atmosphere
+온도	뜨거운	scorching summer heat
+온도	청량한	refreshing crisp atmosphere
+온도	상쾌한	fresh invigorating atmosphere
+온도	나른한	lazy languid atmosphere
+온도	촉촉한	dewy moist atmosphere
+온도	건조한	dry arid atmosphere
+온도	후덥지근한	humid sultry atmosphere
+온도	산뜻한	fresh light cheerful atmosphere
+온도	싸늘한	bleak frosty atmosphere
+계절	봄기운 있는	fresh springtime atmosphere
+계절	봄날 같은	gentle blooming spring atmosphere
+계절	여름다운	bright summery atmosphere
+계절	한여름 같은	intense midsummer atmosphere
+계절	가을빛의	golden autumn atmosphere
+계절	늦가을 같은	bare muted late autumn atmosphere
+계절	겨울다운	crisp wintry atmosphere
+계절	한겨울 같은	frozen deep winter atmosphere
+계절	초여름 같은	fresh early summer atmosphere
+계절	초가을 같은	mild early autumn atmosphere
+계절	꽃향기 나는	blooming floral spring atmosphere
+계절	녹음이 짙은	lush midsummer greenery
+계절	낙엽빛의	warm fallen autumn leaf colors
+계절	설경 같은	snowy white winter atmosphere
+빛	은은한 빛	gentle subdued lighting
+빛	부드러운 빛	soft diffused lighting
+빛	눈부신	brilliant dazzling light
+빛	어두운	dark low key lighting
+빛	화사한	bright airy luminous lighting
+빛	노을빛	golden sunset light
+빛	역광의	backlighting and glowing rim light
+빛	쨍한 햇빛	harsh direct sunlight
+빛	흐린 날의 빛	soft overcast daylight
+빛	푸른 새벽빛	blue hour twilight light
+빛	창가의 빛	natural window light
+빛	네온빛	colorful neon lighting
+빛	반짝이는	sparkling glistening highlights
+빛	드라마틱한 빛	dramatic directional lighting and shadows
+색감	따뜻한 색감	warm amber orange color tones
+색감	차가운 색감	cool blue teal color tones
+색감	파스텔톤	soft pastel colors
+색감	선명한 색감	vivid saturated colors
+색감	옅은 색감	pale delicate colors
+색감	빛바랜	faded washed out colors
+색감	차분한 색감	muted subdued colors
+색감	짙은 색감	deep rich colors
+색감	흑백의	black and white monochrome tones
+색감	베이지톤	beige cream neutral tones
+색감	푸른빛의	blue tinted color palette
+색감	초록빛의	green tinted color palette
+색감	분홍빛의	pink rosy color palette
+색감	황금빛의	golden amber color palette
+질감	부드러운 질감	soft delicate textures
+질감	거친 질감	rough gritty textures
+질감	매끈한	smooth polished surfaces
+질감	보송한	soft fluffy matte textures
+질감	선명한 윤곽	sharp crisp edges and details
+질감	흐릿한	blurred indistinct details
+질감	필름 감성	analog film grain aesthetics
+질감	입자감 있는	visible grainy texture
+질감	소프트포커스	soft focus dreamy blur
+질감	뿌연	hazy misty veiled details
+질감	매트한	matte low gloss finish
+질감	윤기 나는	glossy lustrous textures
+질감	강한 대비	high contrast deep shadows
+질감	낮은 대비	low contrast flat tonal range
+에너지	고요한	still tranquil atmosphere
+에너지	경쾌한	light upbeat energy
+에너지	역동적인	dynamic energetic movement
+에너지	느긋한	unhurried leisurely atmosphere
+에너지	발랄한	bubbly playful energy
+에너지	생동감 있는	lively vibrant energy
+에너지	정적인	static motionless composition
+에너지	격렬한	intense vigorous motion
+에너지	절제된	restrained understated expression
+에너지	강렬한	bold powerful visual impact
+에너지	잔잔한	quiet gentle mood
+에너지	분주한	busy bustling atmosphere
+에너지	유연한	fluid graceful movement
+에너지	흔들림 있는	motion blur and movement
+공간	탁 트인	wide open expansive space
+공간	아늑한	cozy intimate enclosed space
+공간	웅장한	grand monumental scale
+공간	여백이 많은	generous negative space
+공간	미니멀한	minimal simple composition
+공간	도시적인	urban architectural atmosphere
+공간	전원적인	rustic pastoral atmosphere
+공간	자연친화적인	organic natural surroundings
+공간	답답한	cramped confined space
+공간	깊이감 있는	deep layered perspective
+공간	밀도 높은	dense layered composition
+공간	소박한	modest simple surroundings
+공간	화려한	ornate luxurious surroundings
+공간	한적한	quiet secluded surroundings

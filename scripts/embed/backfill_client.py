@@ -1,4 +1,4 @@
-"""백필 전용 HTTP 클라이언트. 상주 모델에 사진 한 장씩 낮은 우선순위로 보낸다."""
+"""사진·목적 프롬프트 백필 클라이언트. 상주 모델을 검색보다 낮은 우선순위로 쓴다."""
 
 import base64
 import json
@@ -54,15 +54,26 @@ class BackfillClient:
         payload = self._request("/embed-backfill", {
             "images": [base64.b64encode(image_bytes).decode("ascii")],
         })
+        return self._validate_vectors(payload, 1)[0]
+
+    def embed_texts(self, texts):
+        vectors = []
+        for start in range(0, len(texts), 8):
+            chunk = texts[start:start + 8]
+            payload = self._request("/embed-text-backfill", {"texts": chunk})
+            vectors.extend(self._validate_vectors(payload, len(chunk)))
+        return vectors
+
+    def _validate_vectors(self, payload, count):
         self._validate_metadata(payload)
         vectors = payload.get("vectors")
-        if (payload.get("count") != 1 or not isinstance(vectors, list) or len(vectors) != 1
-                or not isinstance(vectors[0], list) or len(vectors[0]) != siglip.EMBED_DIM):
-            raise RuntimeError("백필 서버가 사진 한 장의 1152차원 벡터를 반환하지 않았습니다")
-        vector = vectors[0]
-        if any(type(x) not in (int, float) or not math.isfinite(x) for x in vector):
-            raise RuntimeError("백필 벡터에 잘못된 숫자가 있습니다")
-        norm = math.sqrt(sum(x * x for x in vector))
-        if not math.isclose(norm, 1.0, abs_tol=0.001):
-            raise RuntimeError("백필 벡터가 L2 정규화되어 있지 않습니다")
-        return vector
+        if (payload.get("count") != count or not isinstance(vectors, list) or len(vectors) != count
+                or any(not isinstance(vector, list) or len(vector) != siglip.EMBED_DIM for vector in vectors)):
+            raise RuntimeError("백필 서버의 벡터 개수 또는 1152차원 형식이 잘못됐습니다")
+        for vector in vectors:
+            if any(type(x) not in (int, float) or not math.isfinite(x) for x in vector):
+                raise RuntimeError("백필 벡터에 잘못된 숫자가 있습니다")
+            norm = math.sqrt(sum(x * x for x in vector))
+            if not math.isclose(norm, 1.0, abs_tol=0.001):
+                raise RuntimeError("백필 벡터가 L2 정규화되어 있지 않습니다")
+        return vectors

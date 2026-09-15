@@ -117,6 +117,26 @@ class PurposeClassifierTest(unittest.TestCase):
         self.assertEqual(got.source, "text")
         self.assertEqual(got.image_purpose, "friendship")
 
+    def test_catalog_reference_supports_one_pending_photo_without_using_its_override_for_votes(self):
+        rows = [{"id": "new", "album_id": "a"}, {"id": "override", "album_id": "a"},
+                {"id": "reference", "album_id": "b"}]
+        got = classifier.classify_catalog(
+            rows, np.array([[1., 0.], [0., 1.], [0., 1.]]), np.eye(2),
+            keys=("personal", "wedding"), prompt_slices={"personal": slice(0, 1), "wedding": slice(1, 2)},
+            target_photo_ids={"new"},
+        )
+        target = next(item for item in got if item.album_id == "a")
+        self.assertEqual(target.photo_count, 1)
+        self.assertEqual(target.top_purpose, "personal")
+
+    def test_single_photo_catalog_uses_cosine_without_false_high_confidence(self):
+        got = classifier.classify_catalog(
+            [{"id": "only", "album_id": "a"}], np.array([[0., 1.]]), np.eye(2),
+            keys=("personal", "wedding"), prompt_slices={"personal": slice(0, 1), "wedding": slice(1, 2)},
+        )
+        self.assertEqual(got[0].top_purpose, "wedding")
+        self.assertLessEqual(got[0].confidence, 0.5)
+
     def test_no_useful_text_falls_back_to_visual_top_purpose(self):
         text = TextEvidence(None, (), 0.0, False, ())
         image = classifier.AlbumPrediction(

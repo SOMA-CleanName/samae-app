@@ -112,6 +112,25 @@ class BackfillClientTest(unittest.TestCase):
             client.embed(b"photo")
         self.assertEqual(len(self.requests), 1)
 
+    def test_text_prompts_use_backfill_priority_in_bounded_batches(self):
+        texts = [f"purpose prompt {i}" for i in range(10)]
+        self.responses = [
+            (200, {**self.vector, "count": 8, "vectors": self.vector["vectors"] * 8}),
+            (200, {**self.vector, "count": 2, "vectors": self.vector["vectors"] * 2}),
+        ]
+        vectors = self.client().embed_texts(texts)
+        self.assertEqual(len(vectors), 10)
+        self.assertEqual(self.requests, [
+            ("/embed-text-backfill", "test-token", {"texts": texts[:8]}),
+            ("/embed-text-backfill", "test-token", {"texts": texts[8:]}),
+        ])
+
+    def test_text_vectors_reject_wrong_count_and_invalid_norm(self):
+        for payload in [{**self.vector, "count": 2}, {**self.vector, "vectors": [[0.0] * 1152]}]:
+            self.responses = [(200, payload)]
+            with self.assertRaises(RuntimeError):
+                self.client().embed_texts(["purpose prompt"])
+
     def run_main(self, apply=False, corrupt_first=False):
         from PIL import Image
 

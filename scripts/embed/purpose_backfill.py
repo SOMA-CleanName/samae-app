@@ -3,7 +3,7 @@
 
 기본 실행은 읽기 전용 dry-run이다. 저장된 photos.embedding만 분류에 사용하고,
 리포트용 썸네일은 점수 계산이 끝난 뒤에만 받는다. `--apply`를 명시한 경우에도
-DB 쓰기는 앨범 단위 원자 RPC 한 종류로만 수행한다.
+DB 쓰기는 앨범 단위 원자 RPC와 검수 목적 상속 RPC로만 수행한다.
 """
 
 import argparse
@@ -16,6 +16,7 @@ import sys
 import urllib.request
 from collections import defaultdict
 from dataclasses import asdict, dataclass
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Mapping, Sequence
 
@@ -29,6 +30,7 @@ import purpose_classifier  # noqa: E402
 import purposes  # noqa: E402
 import purpose_text  # noqa: E402
 import siglip  # noqa: E402
+from backfill_client import BackfillClient  # noqa: E402
 
 PAGE_SIZE = 300
 EMBEDDING_PREFIX = f"{siglip.MODEL_ID.split('/')[-1]}@"
@@ -143,6 +145,7 @@ def apply_predictions(
     threshold: float,
     limit: int | None,
     force_all: bool = False,
+    version: str = purposes.TEXT_FIRST_VERSION,
 ) -> ApplyResult:
     if not 0 <= threshold <= 1:
         raise ValueError("threshold must be between zero and one")
@@ -161,6 +164,14 @@ def apply_predictions(
     updated_photos = 0
     for item in selected:
         try:
+            # albums/photos evidence is readable by their owner; internal package links are not.
+            public_evidence = {
+                **item.evidence,
+                "text_matches": [
+                    match for match in item.evidence.get("text_matches", [])
+                    if match.get("source") not in ("internal_package_name", "internal_package_description")
+                ],
+            }
             response = request(
                 "POST",
                 "rpc/apply_album_purpose_classification",
@@ -169,8 +180,8 @@ def apply_predictions(
                     "p_purpose": prediction_purpose(item, threshold, force_all=force_all),
                     "p_confidence": item.confidence,
                     "p_source": item.source,
-                    "p_version": purposes.TEXT_FIRST_VERSION,
-                    "p_evidence": item.evidence,
+                    "p_version": version,
+                    "p_evidence": public_evidence,
                 },
                 {"Prefer": "return=representation"},
             )
@@ -240,6 +251,7 @@ def write_artifacts(
     fetch_thumbnail: Callable[[str], bytes] | None = _default_fetch_thumbnail,
     threshold: float = purposes.AUTO_THRESHOLD,
     force_all: bool = False,
+    version: str = purposes.TEXT_FIRST_VERSION,
 ) -> list[Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     ordered = sorted(predictions, key=lambda item: (-item.confidence, item.album_id))
@@ -291,7 +303,7 @@ def write_artifacts(
             })
 
     manifest = {
-        "version": purposes.TEXT_FIRST_VERSION,
+        "version": version,
         "threshold": None if force_all else threshold,
         "force_all": force_all,
         "albums": [],
@@ -347,11 +359,11 @@ def write_artifacts(
     return generated
 
 
-def fetch_inputs(request, *, include_unpublished: bool = False):
+def fetch_inputs(request, *, include_unpublished: bool = False, reference_rows: list | None = None):
     albums = fetch_pages(
         request,
         "albums?select=id,title,description,package_id,target_category_id,admin_purpose_source,"
-        "admin_purpose_reviewed,admin_purpose_version",
+        "admin_purpose_reviewed,admin_purpose_version,admin_purpose_at,updated_at",
     )
     photo_filters = "&album_id=not.is.null&embedding=not.is.null"
     if not include_unpublished:
@@ -359,10 +371,12 @@ def fetch_inputs(request, *, include_unpublished: bool = False):
     photos = fetch_pages(
         request,
         "photos?select=id,album_id,src_url,thumb_url,title,caption,mood_tags,embedding,embedding_model,visibility,"
-        "admin_purpose_source,admin_purpose_reviewed,admin_purpose_overridden"
+        "admin_purpose_source,admin_purpose_reviewed,admin_purpose_overridden,admin_purpose_version,"
+        "admin_purpose_at,updated_at"
         + photo_filters,
     )
-    packages = fetch_pages(request, "packages?select=id,name,description")
+    packages = fetch_pages(request, "packages?select=id,name,description,updated_at")
+    admin_packages = fetch_pages(request, "album_admin_packages?select=album_id,package_id,assigned_at")
     categories = fetch_pages(request, "categories?select=id,name")
     memberships = fetch_pages(
         request,
@@ -371,15 +385,20 @@ def fetch_inputs(request, *, include_unpublished: bool = False):
     explore_categories = fetch_pages(request, "explore_categories?select=id,title")
 
     packages_by_id = {str(row["id"]): row for row in packages}
+    admin_package_by_album = {str(row["album_id"]): row for row in admin_packages}
     categories_by_id = {str(row["id"]): row for row in categories}
     explores_by_id = {str(row["id"]): row for row in explore_categories}
     explore_ids_by_album = defaultdict(list)
     for row in memberships:
         explore_ids_by_album[str(row["album_id"])].append(str(row["explore_category_id"]))
     for album in albums:
-        package_id = album.get("package_id")
+        internal = admin_package_by_album.get(str(album["id"]), {})
+        package_id = album.get("package_id") or internal.get("package_id")
+        album["package_is_internal"] = not album.get("package_id") and bool(package_id)
         target_id = album.get("target_category_id")
         album["package"] = packages_by_id.get(str(package_id)) if package_id else None
+        album["package_updated_at"] = (album["package"] or {}).get("updated_at")
+        album["package_assigned_at"] = internal.get("assigned_at") if album["package_is_internal"] else None
         target = categories_by_id.get(str(target_id)) if target_id else None
         album["target_category_name"] = target.get("name") if target else None
         album["explore_category_names"] = [
@@ -393,7 +412,34 @@ def fetch_inputs(request, *, include_unpublished: bool = False):
         if isinstance(model, str) and model.startswith(EMBEDDING_PREFIX):
             compatible.append(photo)
     eligible, excluded = filter_eligible_rows(albums, compatible)
+    if reference_rows is not None:
+        reference_rows.extend(compatible)
     return albums, eligible, excluded, len(photos) - len(compatible)
+
+
+def changed_since_classification(row, *fields):
+    def timestamp(value):
+        if not value:
+            return None
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+    classified_at = timestamp(row.get("admin_purpose_at"))
+    return any(
+        changed_at is not None and (classified_at is None or changed_at > classified_at)
+        for changed_at in (timestamp(row.get(field)) for field in fields)
+    )
+
+
+def pending_album_ids(albums, eligible_photos):
+    eligible_ids = {str(row["album_id"]) for row in eligible_photos}
+    pending = {str(album["id"]) for album in albums
+               if album.get("admin_purpose_version") != purposes.DAILY_VERSION
+               or changed_since_classification(album, "updated_at", "package_updated_at", "package_assigned_at")}
+    pending.update(str(row["album_id"]) for row in eligible_photos
+                   if row.get("admin_purpose_version") != purposes.DAILY_VERSION
+                   or changed_since_classification(row, "updated_at"))
+    return pending & eligible_ids
 
 
 def build_text_fields(album, photos):
@@ -413,8 +459,9 @@ def build_text_fields(album, photos):
         add("explore_category", name, 3)
     package = album.get("package")
     if isinstance(package, Mapping):
-        add("package_name", package.get("name"), 2)
-        add("package_description", package.get("description"), 2)
+        prefix = "internal_" if album.get("package_is_internal") else ""
+        add(prefix + "package_name", package.get("name"), 2)
+        add(prefix + "package_description", package.get("description"), 2)
     hashtags = []
     for photo in photos:
         for tag in photo.get("mood_tags") or []:
@@ -428,6 +475,9 @@ def build_text_fields(album, photos):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--apply", action="store_true", help="원자 RPC로 DB에 저장")
+    parser.add_argument("--daily", action="store_true", help="공개 신규/미처리 목적만 처리, 시각 후보는 한 개 선택")
+    parser.add_argument("--embed-url", default="http://127.0.0.1:8077", help="검색 우선 상주 서버 주소")
+    parser.add_argument("--standalone", action="store_true", help="상주 서버를 끈 오프라인 분석용 별도 모델")
     parser.add_argument(
         "--force-all",
         action="store_true",
@@ -445,33 +495,64 @@ def main():
         parser.error("--limit은 0 이상이어야 합니다")
     if not 0 <= args.threshold <= 1:
         parser.error("--threshold는 0 이상 1 이하여야 합니다")
+    if args.daily and (args.force_all or args.standalone):
+        parser.error("--daily는 공개 사진·상주 서버만 사용하므로 --force-all/--standalone과 함께 사용할 수 없습니다")
 
     purposes.check_prompts()
     env = load_env()
     request = lambda method, path, body=None, extra=None: api_request(  # noqa: E731
         env, method, path, body, extra
     )
-    albums, rows, excluded, incompatible = fetch_inputs(
-        request, include_unpublished=args.force_all
+    inherited = 0
+    if args.daily and args.apply:
+        inherited = request("POST", "rpc/backfill_inherited_photo_purposes", {})
+        if type(inherited) is not int or inherited < 0:
+            raise RuntimeError("검수 목적 상속 RPC가 유효한 처리 개수를 반환하지 않았습니다")
+        print(f"기존 검수 목적 상속 {inherited}장", flush=True)
+    reference_rows = []
+    albums, eligible_rows, excluded, incompatible = fetch_inputs(
+        request, include_unpublished=args.force_all, reference_rows=reference_rows
     )
-    if len(rows) < 2:
-        raise RuntimeError("분류 가능한 공개 사진이 두 장보다 적습니다")
+    targets = (pending_album_ids(albums, eligible_rows) if args.daily
+               else {str(row["album_id"]) for row in eligible_rows})
+    rows = [row for row in eligible_rows if str(row["album_id"]) in targets]
+    force_top = args.force_all or args.daily
+    version = purposes.DAILY_VERSION if args.daily else purposes.TEXT_FIRST_VERSION
     print(
         f"모드 {'APPLY' if args.apply else 'DRY-RUN'}"
-        f"{' FORCE-ALL' if args.force_all else ''} · 사진 {len(rows)}장 · "
+        f"{' DAILY' if args.daily else ' FORCE-ALL' if args.force_all else ''} · 사진 {len(rows)}장 · "
         f"보호 대상 {excluded}개 · 비호환 임베딩 {incompatible}장"
     )
 
-    image_vectors = np.stack([parse_embedding(row["embedding"]) for row in rows])
-    processor, model, device = siglip.load()
+    if not rows:
+        write_artifacts([], albums_by_id={}, photos_by_album={}, output_dir=args.output,
+                        fetch_thumbnail=None, force_all=force_top, version=version)
+        (args.output / "purpose-result.json").write_text(
+            json.dumps({**asdict(ApplyResult(0, 0, 0, 0, 0)), "inherited_photos": inherited,
+                        "apply": args.apply, "version": version}), encoding="utf-8")
+        print("목적 대상 없음 — 검수·수동 지정 또는 현재 버전 처리 완료. 정상 종료.")
+        return 0
+
+    # 검수 데이터는 임베딩 점수 분포의 읽기 전용 기준으로만 쓴다.
+    # 대상의 투표·저장에는 검수/예외 사진을 넣지 않는다.
+    image_vectors = np.stack([parse_embedding(row["embedding"]) for row in reference_rows])
     prompt_texts = [text for key in purposes.PURPOSE_KEYS for text in purposes.PROMPTS[key]]
-    text_vectors = siglip.encode_text(processor, model, prompt_texts, device).float().cpu().numpy()
+    if args.standalone:
+        processor, model, device = siglip.load()
+        text_vectors = siglip.encode_text(processor, model, prompt_texts, device).float().cpu().numpy()
+    else:
+        token = os.environ.get("PERSONA_SERVICE_TOKEN") or env.get("PERSONA_SERVICE_TOKEN", "")
+        if not token.strip():
+            raise RuntimeError("목적 백필에 PERSONA_SERVICE_TOKEN이 필요합니다")
+        client = BackfillClient(args.embed_url, token, 256)
+        client.check_health()
+        text_vectors = np.asarray(client.embed_texts(prompt_texts), dtype=np.float64)
     albums_by_id = {str(album["id"]): album for album in albums}
     photos_by_album = defaultdict(list)
     for row in rows:
         photos_by_album[str(row["album_id"])].append(row)
     image_predictions = purpose_classifier.classify_catalog(
-        rows, image_vectors, text_vectors
+        reference_rows, image_vectors, text_vectors, target_photo_ids={str(row["id"]) for row in rows}
     )
     predictions = [
         purpose_classifier.combine_prediction(
@@ -483,7 +564,7 @@ def main():
             ),
             item,
         )
-        for item in image_predictions
+        for item in image_predictions if item.album_id in targets
     ]
     paths = write_artifacts(
         predictions,
@@ -491,7 +572,9 @@ def main():
         photos_by_album=photos_by_album,
         output_dir=args.output,
         threshold=args.threshold,
-        force_all=args.force_all,
+        force_all=force_top,
+        version=version,
+        **({"fetch_thumbnail": None} if args.daily else {}),
     )
     result = apply_predictions(
         predictions,
@@ -499,7 +582,8 @@ def main():
         apply=args.apply,
         threshold=args.threshold,
         limit=args.limit,
-        force_all=args.force_all,
+        force_all=force_top,
+        version=version,
     )
     print(
         f"포트폴리오 {result.processed}개 · 분류 {result.classified} · "
@@ -507,9 +591,14 @@ def main():
         f"갱신 사진 {result.updated_photos}장"
     )
     print("산출물 " + ", ".join(str(path) for path in paths))
+    (args.output / "purpose-result.json").write_text(
+        json.dumps({**asdict(result), "inherited_photos": inherited, "apply": args.apply, "version": version}, ensure_ascii=False),
+        encoding="utf-8",
+    )
     if not args.apply:
         print("DB 쓰기 없음. 적용하려면 --apply를 명시하세요.")
+    return 1 if result.failed else 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

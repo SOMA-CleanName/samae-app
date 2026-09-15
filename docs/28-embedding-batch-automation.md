@@ -1,10 +1,12 @@
-# 28. 임베딩 배치 자동화 (2026-08-19)
+# 28. 임베딩·목적 태그 배치 자동화 (2026-08-19)
 
 > 문서 상태: **운영 중 (2026-08-21 맥미니 설치 완료).** 런타임은 `~/srv/samae-app`, 매일 06:00 자동 실행. 설치 경위와 TCC 함정은 §4·§7 참고.
 >
 > 선행 문서: [22 시각 유사도 추천](22-visual-similarity.md) §7.4 — 이 작업이 그 문서의 **6단계**다.
 >
 > **검색용 상주 서버 운영 가이드: [§8](#search-server).** 사진 백필과 함께 켜둘 서비스, `/embed-text` 인증, Funnel 연결, 앱 설정, 점검·재시작 순서를 정리했다 (2026-09-14 추가).
+>
+> **2026-09-15 목적 태그 자동화 추가: [§9](#daily-purpose).** 기존 오전 6시 작업에서 사진 임베딩 다음에 목적도 처리한다. 맥미니 런타임 갱신·상주 서버 재시작이 필요하다.
 
 ---
 
@@ -43,6 +45,9 @@ launchd (매일 06:00)
    └─ run-embed.sh
         ├─ embed_photos.py --apply --embed-url http://127.0.0.1:8077
         │    └─ 상주 serve.py /embed-backfill로 한 장씩 추론 (검색 우선)
+        ├─ purpose_backfill.py --apply --daily --embed-url http://127.0.0.1:8077
+        │    ├─ 검수한 포트폴리오의 신규 사진에 기존 목적 상속
+        │    └─ /embed-text-backfill + 저장된 사진 벡터로 미처리 목적 분류
         ├─ 로그 기록 (최근 14개 유지)
         └─ 실패 시 디스코드 알림
 ```
@@ -50,7 +55,8 @@ launchd (매일 06:00)
 | 파일 | 역할 |
 |---|---|
 | `scripts/embed/macmini-setup.sh` | Python·venv·패키지·모델 캐시·launchd 등록. **재실행 안전** |
-| `scripts/embed/run-embed.sh` | 배치 실행 래퍼. 로그·락·실패 알림 |
+| `scripts/embed/run-embed.sh` | 사진 임베딩 → 목적 분류 실행 래퍼. 로그·락·실패 알림 |
+| `scripts/embed/purpose_backfill.py` | 신규·미처리 목적 분류 및 기존 검수 목적 상속 |
 | `scripts/embed/com.samae.embed.plist.template` | launchd 정의. `__REPO__` 를 설치 시 실제 경로로 치환 |
 
 plist 를 템플릿으로 둔 이유는 **저장소 경로가 기계마다 다르기 때문이다.** 경로를 박아 커밋하면 그 기계에서만 동작한다. 설치 스크립트가 자기 위치에서 저장소 루트를 계산해 렌더한다.
@@ -154,7 +160,7 @@ python3 scripts/embed/check_db.py        # "임베딩 대기" 줄
 
 | 구성요소 | 실행 시점 | 하는 일 |
 |---|---|---|
-| `com.samae.embed` → `run-embed.sh` | 매일 06:00 | 공개 사진을 `/embed-backfill`에 한 장씩 보내고 검증된 벡터를 Supabase에 저장 |
+| `com.samae.embed` → `run-embed.sh` | 매일 06:00 | 공개 사진 임베딩을 저장한 뒤 목적 태그도 백필 (§9) |
 | `com.samae.serve` → `run-serve.sh` → `serve.py` | 로그인 시 시작, 계속 상주 | `127.0.0.1:8077`에서 모델 하나로 검색·사용자 이미지·백필을 우선순위대로 추론 |
 | Tailscale Funnel | 외부 앱이 맥미니를 호출하는 동안 유지 | 공개 HTTPS 주소를 맥미니의 `127.0.0.1:8077` 로 연결 |
 | Next.js 앱 서버 | 사용자가 검색할 때 | 텍스트 벡터를 DB RPC 에 전달하고 사진 결과를 화면에 표시 |
@@ -344,6 +350,7 @@ tailscale funnel status
 | 로컬 8077 연결 실패 | `serve.log` 의 모델 다운로드·로딩 오류, 실행 PID, macOS 로그인·슬립 상태 |
 | `/health` 는 되지만 `/embed-text` 가 404 | 맥미니 런타임에 새 코드가 있는지와 갱신 후 서비스 재시작 여부 |
 | 백필이 서버 준비 오류·`/embed-backfill` 404로 종료 | 같은 런타임의 새 서버를 재시작했는지, `/health`에 `inference_queue`가 있는지 확인 |
+| 목적 백필의 `/embed-text-backfill`이 404 | §9 변경을 맥미니에 내려받고 상주 서비스를 재시작했는지 확인 |
 | 인증 요청이 401 | 양쪽 `PERSONA_SERVICE_TOKEN` 일치 여부, 맥미니 재시작과 앱 재시작·재배포 여부 |
 | 로컬은 정상인데 HTTPS 경로 실패 | Tailscale 연결과 `funnel status` 의 실제 주소·8077 프록시 대상 |
 | 검증 스크립트는 성공하지만 앱 검색 결과가 없음 | 앱의 URL·토큰·배포 환경, 4초 제한, 공개·승인·`feed_hidden=false` 조건 |
@@ -365,6 +372,7 @@ tailscale funnel status
 | 1 | `/embed-text` 사용자 검색 | 요청에 포함된 검색어 (최대 8개) |
 | 2 | `/embed` 사용자 이미지 | 기존 이미지 마이크로 배치 |
 | 3 | `/embed-backfill` 자동 백필 | 사진 한 장 |
+| 3 | `/embed-text-backfill` 목적 태그 백필 | 고정 목적 문장 최대 8개 |
 
 예를 들어 백필 사진 A를 추론하는 동안 검색 S가 도착하면 **A 완료 → S 처리 → 백필 사진 B** 순서다. 같은 우선순위에서는 도착 순서를 따른다. 이미 실행 중인 추론은 중간에 끊지 않고 GPU 결과를 CPU로 회수한 뒤 차례를 넘긴다. 따라서 검색도 현재 사진 한 장이 끝날 때까지는 기다릴 수 있다. 사용자 이미지 추론이 이미 시작된 경우에는 그 배치 완료를 기다린다.
 
@@ -388,3 +396,84 @@ scripts/embed/.venv/bin/python -m unittest discover -s scripts/embed -p 'test_*.
 ```
 
 로컬 Windows Docker/CUDA에서 합성 사진 8장 백필과 검색 4건을 겹쳐 호출했고 모두 완료됐다. 백필 중 검색의 HTTP 응답은 **34.0~58.3ms**였으며, 기존 `/embed` 이미지 2장 요청도 정상 반환했다. 이 수치는 로컬 검증값이며 **맥미니 MPS·Funnel 환경의 응답 시간은 별도로 측정해야 한다.**
+
+---
+
+<a id="daily-purpose"></a>
+
+## 9. 오전 6시 목적 태그 자동 백필 (2026-09-15)
+
+기존 `com.samae.embed` 한 개가 **매일 맥미니 현지 시간 06:00**에 사진 임베딩과 목적 태그를 순서대로 실행한다. 한국 오전 6시 운영은 맥미니 시간대가 `Asia/Seoul`인 상태를 기준으로 한다. 별도 크론이나 두 번째 모델은 필요 없다.
+
+### 9.1 대상과 보호 원칙
+
+1. 공개 사진의 누락된 SigLIP2 이미지 임베딩을 먼저 저장한다.
+2. 검수 완료·수동 지정 포트폴리오에 새로 추가된 공개 사진은 목적이 아직 비어 있고 검수·개별 예외가 없을 때만 포트폴리오의 목적 목록을 그대로 상속한다. 이 단계는 이미지 임베딩이 없어도 가능하다.
+3. 공개·호환 임베딩 사진이 있는 **미검수 포트폴리오** 중 신규 사진, 구버전/미처리 목적, 분류 후 변경된 포트폴리오·사진·연결 상품을 확인한다. `updated_at`과 내부 상품 연결의 `assigned_at`이 분류 시각보다 뒤인 경우 재처리한다.
+4. 기존 텍스트 우선 규칙과 SigLIP2를 사용해 자동 목적을 저장한다. **자동 목적은 한 개만** 선택하며, 여러 목적은 운영자가 검수할 때 지정한다. 강한 텍스트끼리 충돌하는 기존 예외는 미분류로 남겨 검수하도록 한다.
+
+검수 완료·수동 지정 포트폴리오와 검수·수동·개별 예외 사진은 자동 재분류하지 않는다. 검수한 웨딩·반려동물 복수 목적도 보존한다. 미검수 포트폴리오를 분류하면 기존 원자 RPC가 개별 예외를 제외한 소속 사진에 목적을 상속하므로, 해당 포트폴리오의 비공개·임베딩 대기 사진도 같은 목적을 받는다. 분류 입력은 공개·호환 사진만 사용한다.
+
+분류 버전은 `purpose-v5-daily`다. 기존 버전의 미검수 대상은 새 정책으로 한 번 처리하고, 이후 변화가 없으면 건너뛴다. 강한 텍스트 충돌도 처리 버전을 기록하므로 수정이 없는 한 매일 다시 계산하지 않는다. 검수 데이터는 전체 점수 분포의 읽기 전용 기준으로만 사용하며 투표·쓰기 대상에는 넣지 않는다. 카탈로그가 사진 한 장뿐이거나 분산이 없으면 코사인 점수로 한 후보를 고르고 낮은 확신도로 기록한다.
+
+### 9.2 검색 우선순위와 실패 처리
+
+목적 문장 56개(목적 7종 × 8개)를 `/embed-text-backfill`에 최대 8개씩 요청한다. 사용자 `/embed-text` 검색보다 낮은 백필 우선순위다. 진행 중인 한 묶음은 끝까지 실행하고, 기다리는 검색을 먼저 처리한 뒤 다음 묶음으로 넘어간다. 사진 벡터는 DB에 저장된 값을 재사용한다.
+
+사진 임베딩 일부가 실패해도 목적 단계는 이미 저장된 벡터로 진행한다. 목적 저장 일부가 실패해도 다른 포트폴리오는 계속 처리한다. **두 단계 중 하나라도 실패하면 전체 배치는 실패**이며, 단계별 종료 코드를 같은 로그에 남기고 기존 실패 알림 경로를 사용한다. 실패한 목적은 처리 버전이 갱신되지 않아 다음 실행에서 재시도한다. 처리 대상 0개는 정상 종료이고 상주 모델을 호출하지 않는다.
+
+### 9.3 기존 맥미니에 반영
+
+DB에는 `0116`·`0117` 이후 [0118 마이그레이션](../supabase/migrations/0118_daily_photo_purpose_inheritance.sql)이 필요하다. `0118`은 서비스 전용 목적 상속 함수와 내부 상품 연결 해제·삭제 시 앨범 수정 시각을 갱신하는 트리거를 추가한다. 마이그레이션 실행 자체로 기존 목적 데이터를 변경하지 않는다. 연결이 사라진 경우도 다음 배치가 재분류 대상으로 감지하되 작가의 상품 선택과 검수 목적은 보존한다. 적용 이력을 확인하고 아직 적용되지 않은 DB에만 프로젝트의 마이그레이션 실행기로 적용한다.
+
+```bash
+node scripts/apply-migration.cjs supabase/migrations/0118_daily_photo_purpose_inheritance.sql
+```
+
+변경이 원격 브랜치에 반영된 뒤, 맥미니의 운영 런타임에서 그 브랜치를 갱신한다. 실행 중인 이전 회차가 있다면 종료 후 갱신한다.
+
+```bash
+cd ~/srv/samae-app
+git status --short --branch
+git pull --ff-only
+launchctl kickstart -k "gui/$(id -u)/com.samae.serve"
+launchctl list | grep -E 'com\.samae\.(embed|serve)'
+```
+
+§8.3의 검색 점검 후, 아래 명령으로 신규 목적 엔드포인트를 점검한다. 토큰·벡터는 출력하지 않는다.
+
+```bash
+scripts/embed/.venv/bin/python - <<'PY'
+import sys
+sys.path.insert(0, "scripts/embed")
+from backfill_client import BackfillClient
+from purpose_backfill import load_env
+client = BackfillClient("http://127.0.0.1:8077", load_env()["PERSONA_SERVICE_TOKEN"], 256)
+client.check_health()
+vectors = client.embed_texts(["A wedding photography session."])
+print("목적 백필 엔드포인트 정상:", len(vectors), "문장 /", len(vectors[0]), "차원")
+PY
+```
+
+읽기 전용으로 대상·산출물을 먼저 확인하거나, 전체 체인을 한 번 실행한다. `--daily`만 쓰면 DB 쓰기가 없으며 검수 목적 상속도 실행하지 않는다.
+
+```bash
+# 읽기 전용 목적 점검
+scripts/embed/.venv/bin/python scripts/embed/purpose_backfill.py --daily \
+  --output scripts/embed/logs/purpose-preview
+
+# 실제 사진 임베딩 + 목적 저장 (오전 6시와 동일)
+bash scripts/embed/run-embed.sh
+```
+
+기존 등록 시각은 변경하지 않았으므로 LaunchAgent 재등록은 필요 없다. 설치가 없는 기계만 §4 setup을 실행한다. 새 목적 엔드포인트는 실행 중인 서버에 자동 반영되지 않으므로 **상주 서비스 재시작을 생략하지 않는다.**
+
+### 9.4 결과 확인
+
+- `scripts/embed/logs/embed-YYYYMMDD-HHMMSS.log`: 두 단계 결과, 상속 장수, 처리/실패 포트폴리오 수, 각 종료 코드. 최근 14회 유지.
+- `scripts/embed/logs/purpose-latest/purpose-result.json`: 최근 목적 단계의 처리·미분류·실패·사진 갱신·상속 수와 버전. 분류/상속 완료 후 갱신되므로 시작 도중 오류라면 이전 파일이 남을 수 있고 해당 회차 로그를 확인한다.
+- 같은 폴더의 `purpose-predictions.json`, `purpose-summary.csv`, `contact-sheet-manifest.json`: 최근 후보·근거. 자동 실행에서는 검토용 이미지 시트의 사진 다운로드를 생략한다.
+
+`purpose-result.json`의 `updated_photos`는 목적 분류 RPC의 사진 갱신 수, `inherited_photos`는 검수 목적 상속 수다. 검수 상태를 임의로 해제해서 일일 작업을 시험하지 않는다. 단일 신규 사진, 검수/예외 보호, 검색 우선순위, 빈 대상, 부분 실패는 §8.7의 Python 테스트와 [격리 SQL 테스트](../supabase/tests/purpose-daily-inheritance.sql)로 확인한다.
+
+2026-09-15 실제 앱 DB에 `0118` 적용 및 이력 기록을 완료했다. 적용 전후 포트폴리오·사진의 전체 행 해시가 동일했고, 서비스 역할의 상속·재실행 0건과 일반 사용자 호출 거부를 검증했다. 시험 데이터 변경은 전부 롤백했다. 로컬 Windows Docker/CUDA의 새 백필 텍스트 엔드포인트와 기존 검색 모두 1152차원 정규화 벡터를 반환했으며, 실제 DB 일일 dry-run은 보호 대상 173개·분류 대상 0장으로 정상 종료했다. **이 검증은 맥미니 런타임 갱신·재시작이나 오전 6시 실운영 실행을 대신하지 않는다.**

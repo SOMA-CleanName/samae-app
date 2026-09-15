@@ -137,7 +137,7 @@ def main():
     if not pending:
         scope = "모든 사진" if args.all_visibility else "모든 공개 사진"
         print(f"대상 없음 — {scope}에 임베딩이 있다.")
-        return
+        return 0
     pending_label = "embedding is null" if args.all_visibility else "embedded_at is null"
     print(f"대상 {len(pending)}장 ({pending_label})\n")
 
@@ -213,7 +213,7 @@ def main():
 
     if not args.apply:
         print("\n실제로 쓰려면 --apply 를 붙일 것. 먼저 --apply --limit 10 으로 검증 권장.")
-        return
+        return 1 if failed else 0
 
     # 전송 수를 반영 수로 믿으면 안 된다. PostgREST 는 매칭 0행인 PATCH 에도
     # 204 를 주므로, 배치 도중 삭제된 사진은 에러 없이 '성공'으로 세어진다.
@@ -228,7 +228,8 @@ def main():
     if left:
         print("  대기가 남았다면 배치 중 새로 올라왔거나 공개로 전환된 사진이다.")
         print("  같은 명령을 다시 실행하면 그것만 처리한다.")
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

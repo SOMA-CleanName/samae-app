@@ -1,6 +1,6 @@
 """Pure numerical helpers for album-level SigLIP purpose classification."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Mapping, Sequence
 
 import numpy as np
@@ -171,6 +171,7 @@ def classify_catalog(
     *,
     keys: Sequence[str] = purposes.PURPOSE_KEYS,
     prompt_slices: Mapping[str, slice] | None = None,
+    target_photo_ids: set[str] | None = None,
 ) -> list[AlbumPrediction]:
     if len(photo_rows) != len(embeddings):
         raise ValueError("photo row and embedding counts must match")
@@ -180,7 +181,10 @@ def classify_catalog(
         raise ValueError("image and text embedding dimensions must match")
 
     cosine = image_matrix @ text_matrix.T
-    zscores = zscore_columns(cosine)
+    # 초기 카탈로그 한 장 또는 동일한 벡터만 있으면 표준편차가 없다.
+    # 이 경우 코사인 순위는 사용하되 아래에서 신뢰도를 낮게 제한한다.
+    calibrated = len(cosine) >= 2 and bool(np.all(cosine.std(axis=0) > 1e-12))
+    zscores = zscore_columns(cosine) if calibrated else cosine
     slices = prompt_slices or globals()["prompt_slices"](keys)
     purpose_scores = scores_by_purpose(zscores, slices, keys)
 
@@ -191,11 +195,15 @@ def classify_catalog(
             raise ValueError("every classified photo must have an album_id")
         indexes_by_album.setdefault(album_id, []).append(index)
 
-    evidence = [
-        aggregate_album(album_id, purpose_scores[indexes], keys)
-        for album_id, indexes in sorted(indexes_by_album.items())
-    ]
-    return calibrate_evidence(evidence)
+    evidence = []
+    for album_id, indexes in sorted(indexes_by_album.items()):
+        if target_photo_ids is not None:
+            target_indexes = [index for index in indexes if photo_rows[index].get("id") in target_photo_ids]
+            # 다른 앨범은 점수 분포 보정에만 사용한다. 대상 앨범의 검수·예외 사진은 투표에서 제외한다.
+            indexes = target_indexes or indexes
+        evidence.append(aggregate_album(album_id, purpose_scores[indexes], keys))
+    predictions = calibrate_evidence(evidence)
+    return predictions if calibrated else [replace(item, confidence=min(item.confidence, 0.5)) for item in predictions]
 
 
 def combine_prediction(

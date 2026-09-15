@@ -21,3 +21,23 @@ export function isPurposeKey(value: unknown): value is PurposeKey {
 export function purposeLabel(key: PurposeKey): string {
   return PURPOSE_OPTIONS.find((option) => option.key === key)!.label;
 }
+
+/** 배열이 없는 기존 행만 단일 목적에서 복원한다. 빈 배열은 미분류다. */
+export function normalizePurposes(value: unknown, legacy?: PurposeKey | null): PurposeKey[] {
+  return Array.isArray(value)
+    ? [...new Set(value.filter(isPurposeKey))]
+    : legacy ? [legacy] : [];
+}
+
+export function parsePurposeSelection(value: unknown): PurposeKey[] {
+  if (!Array.isArray(value) || value.length === 0 || !value.every(isPurposeKey)) {
+    throw new Error("사진 목적을 한 개 이상 선택해주세요.");
+  }
+  return [...new Set(value)];
+}
+
+export function togglePurpose(selected: readonly PurposeKey[], purpose: PurposeKey): PurposeKey[] {
+  return selected.includes(purpose)
+    ? selected.filter((item) => item !== purpose)
+    : [...selected, purpose];
+}

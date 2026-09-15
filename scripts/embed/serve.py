@@ -17,6 +17,7 @@
   POST /embed           → {"images": ["<base64 jpeg>", ...]}
                           {vectors: [[1152]...], mean: [1152], count, infer_ms}
   POST /embed-text      → {"texts": ["푸른 숲속 커플 사진", ...]}
+  POST /embed-text-backfill → {"texts": ["purpose prompt", ...]} (최대 8개, 검색보다 낮은 우선순위)
                           {vectors: [[1152]...], count, infer_ms, model}
   POST /embed-backfill  → {"images": ["<base64 image>"]} (한 장, 검색보다 낮은 우선순위)
                           {vectors: [[1152]], count, dim, infer_ms, model, patch_budget}
@@ -161,11 +162,11 @@ def validate_texts(value):
     return texts
 
 
-def embed_texts(texts):
+def embed_texts(texts, *, priority="search"):
     """검색어를 현재 사진 임베딩과 같은 SigLIP2 공간의 벡터로 바꾼다."""
     t = time.perf_counter()
     # 앱의 4초 HTTP 제한보다 먼저 만료시켜 오래된 검색이 큐에 남지 않게 한다.
-    with _inference.slot("search", timeout=3):
+    with _inference.slot(priority, timeout=3 if priority == "search" else 60):
         vectors = siglip.encode_text(
             _state["processor"], _state["model"], texts, _state["device"]
         )
@@ -402,17 +403,20 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 self._send(500, {"error": f"copy 실패: {e}"})
             return
-        if path == "/embed-text":
+        if path in ("/embed-text", "/embed-text-backfill"):
             try:
                 n = int(self.headers.get("Content-Length", "0"))
                 payload = json.loads(self.rfile.read(n) or b"{}")
+                if not isinstance(payload, dict):
+                    raise ValueError("JSON 객체가 필요합니다")
                 texts = validate_texts(payload.get("texts"))
             except (ValueError, TypeError, json.JSONDecodeError) as e:
                 self._send(400, {"error": str(e)})
                 return
 
             try:
-                vectors, ms = embed_texts(texts)
+                vectors, ms = (embed_texts(texts, priority="backfill")
+                               if path == "/embed-text-backfill" else embed_texts(texts))
             except TimeoutError as e:
                 self._send(503, {"error": str(e)})
                 return
@@ -425,6 +429,7 @@ class Handler(BaseHTTPRequestHandler):
                 "dim": len(vectors[0]),
                 "infer_ms": round(ms, 1),
                 "model": siglip.MODEL_ID,
+                "patch_budget": PATCH_BUDGET,
                 "vectors": [[round(x, 6) for x in row] for row in vectors],
             })
             return

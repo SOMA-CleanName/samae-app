@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import { getCurrentUser } from "@/lib/auth";
-import { isPurposeKey, type PurposeKey } from "@/lib/photo-purpose";
+import { parsePurposeSelection } from "@/lib/photo-purpose";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -21,37 +21,39 @@ function assertId(value: string, label: string) {
   }
 }
 
-function assertPurpose(value: string): asserts value is PurposeKey {
-  if (!isPurposeKey(value)) {
-    throw new Error("허용되지 않은 사진 목적입니다.");
-  }
-}
-
-export async function setAlbumPurpose(albumId: string, purpose: string): Promise<number> {
+export async function setAlbumPurposes(albumId: string, value: unknown): Promise<number> {
   await assertAdmin();
   assertId(albumId, "포트폴리오");
-  assertPurpose(purpose);
+  const purposes = parsePurposeSelection(value);
 
   const admin = createAdminClient();
-  const { data, error } = await admin.rpc("set_album_admin_purpose", {
+  let { data, error } = await admin.rpc("set_album_admin_purposes", {
     p_album_id: albumId,
-    p_purpose: purpose,
+    p_purposes: purposes,
   });
+  if (error?.code === "PGRST202" && purposes.length === 1) {
+    ({ data, error } = await admin.rpc("set_album_admin_purpose", { p_album_id: albumId, p_purpose: purposes[0] }));
+  }
+  if (error?.code === "PGRST202") throw new Error("여러 목적을 저장하려면 DB 업데이트가 필요합니다.");
   if (error) throw new Error(error.message);
   revalidatePath("/admin/photo-purpose");
   return typeof data === "number" ? data : 0;
 }
 
-export async function setPhotoPurpose(photoId: string, purpose: string): Promise<void> {
+export async function setPhotoPurposes(photoId: string, value: unknown): Promise<void> {
   await assertAdmin();
   assertId(photoId, "사진");
-  assertPurpose(purpose);
+  const purposes = parsePurposeSelection(value);
 
   const admin = createAdminClient();
-  const { error } = await admin.rpc("set_photo_admin_purpose", {
+  let { error } = await admin.rpc("set_photo_admin_purposes", {
     p_photo_id: photoId,
-    p_purpose: purpose,
+    p_purposes: purposes,
   });
+  if (error?.code === "PGRST202" && purposes.length === 1) {
+    ({ error } = await admin.rpc("set_photo_admin_purpose", { p_photo_id: photoId, p_purpose: purposes[0] }));
+  }
+  if (error?.code === "PGRST202") throw new Error("여러 목적을 저장하려면 DB 업데이트가 필요합니다.");
   if (error) throw new Error(error.message);
   revalidatePath("/admin/photo-purpose");
 }
@@ -102,30 +104,11 @@ export async function setAlbumPackage(
   if (packageId !== null) assertId(packageId, "패키지");
 
   const admin = createAdminClient();
-  const { data: album, error: albumError } = await admin
-    .from("albums")
-    .select("photographer_id")
-    .eq("id", albumId)
-    .maybeSingle();
-  if (albumError) throw new Error(albumError.message);
-  if (!album) throw new Error("포트폴리오를 찾을 수 없습니다.");
-
-  if (packageId !== null) {
-    const { data: selectedPackage, error: packageError } = await admin
-      .from("packages")
-      .select("photographer_id")
-      .eq("id", packageId)
-      .maybeSingle();
-    if (packageError) throw new Error(packageError.message);
-    if (!selectedPackage || selectedPackage.photographer_id !== album.photographer_id) {
-      throw new Error("해당 작가의 패키지만 연결할 수 있습니다.");
-    }
-  }
-
-  const { error } = await admin
-    .from("albums")
-    .update({ package_id: packageId })
-    .eq("id", albumId);
+  // RPC가 소유 작가와 기존 작가 선택을 잠금 안에서 확인한다.
+  const { error } = await admin.rpc("set_album_admin_package", {
+    p_album_id: albumId,
+    p_package_id: packageId,
+  });
   if (error) throw new Error(error.message);
   revalidatePath("/admin/photo-purpose");
 }
