@@ -21,15 +21,28 @@ import { readFlow, resetFlow, stagePath, writeFlow, EMPTY, type FlowState, type 
 /** 샌드박스 인증번호 — 문자를 안 보내므로 고정값을 화면에 적어 둔다 */
 export const SANDBOX_OTP = "000000";
 
+/**
+ * `]` `[` 가 도는 **정규 흐름**.
+ *
+ * ⚠️ **약관·연락처가 여기 없다.** 카카오 간편가입이 켜진 뒤로 그 둘은 카카오 동의
+ *    화면에서 한 번에 받는다 — `/auth/callback` 이 `adoptKakaoServiceTerms()` 와
+ *    `adoptKakaoPhone()` 으로 우리 기록에 옮기고, 그러면 `needsTermsConsent` ·
+ *    `needsContact` 가 false 가 되어 두 화면을 **건너뛴다.**
+ *
+ *    정규 단계로 나열해 두면 **실제로는 안 보이는 화면을 온보딩 문서가 설명하게 된다.**
+ *    그래서 흐름에서 뺐다. 다만 지우지는 않았다 — 아래 조건에서 진짜로 뜨는 폴백이다.
+ *      · 전화번호(선택 동의)를 거부한 사람 → /signup/contact
+ *      · service_terms 조회 실패·타임아웃(4초), KAKAO_TERMS_TAGS 설정 오류
+ *      · 간편가입을 켜기 전에 가입한 기존 회원 → 다음 로그인에 /signup/consent
+ *    `?stage=consent` · `?stage=contact` 로 직접 열면 그대로 볼 수 있다.
+ */
 const STAGES: { key: FlowStage; label: string }[] = [
   { key: "intro", label: "① 안내" },
   { key: "signup", label: "② 가입" },
-  { key: "consent", label: "③ 약관" },
-  { key: "contact", label: "④ 연락처" },
-  { key: "form", label: "⑤ 신청 폼" },
-  { key: "pending", label: "⑥ 승인 대기" },
-  { key: "agree", label: "⑦ 입점 동의" },
-  { key: "done", label: "⑧ 완료" },
+  { key: "form", label: "③ 신청 폼" },
+  { key: "pending", label: "④ 승인 대기" },
+  { key: "agree", label: "⑤ 입점 동의" },
+  { key: "done", label: "⑥ 완료" },
 ];
 
 /**
