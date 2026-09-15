@@ -15,7 +15,8 @@ import { cn } from "@/lib/cn";
 import { DeleteModeProvider, DeleteModeToolbar } from "@/components/admin/DeleteMode";
 import { AdminBookings, type BookingRow } from "./AdminBookings";
 import { AdminCancelButton } from "./AdminCancelButton";
-import { feeRateOf, feeSpecFromRow, feeSpecLabel, readFeeSnapshot, resolveFee } from "@/lib/platform-fee";
+import { feeRateOf, feeSpecFromRow, feeSpecLabel, feeWithVat, readFeeSnapshot, resolveFee } from "@/lib/platform-fee";
+import { computeWithholding, type BusinessType } from "@/lib/withholding";
 import { refundQuote, refundSlaOverdue } from "@/lib/refund";
 import { readStoredFieldValues } from "@/lib/booking-fields";
 import { listExtrasForAdmin } from "@/lib/extras-admin";
@@ -107,15 +108,19 @@ export default async function AdminTransactionsPage() {
   // 작가별 수수료 설정 — 스냅샷이 없는 옛 예약의 폴백 계산에 쓴다
   const { data: phRows } = await admin
     .from("photographers")
-    .select("id, fee_mode, fee_amount_krw, fee_rate");
+    .select("id, fee_mode, fee_amount_krw, fee_rate, business_type");
   const feeSpecById = new Map<string, ReturnType<typeof feeSpecFromRow>>();
+  // 원천징수 여부는 작가의 사업자 유형이 가른다 — 송금 예정액을 여기서 같이 계산한다
+  const bizTypeById = new Map<string, BusinessType | null>();
   for (const p of (phRows ?? []) as {
     id: string;
     fee_mode: string | null;
     fee_amount_krw: number | null;
     fee_rate: number | null;
+    business_type: string | null;
   }[]) {
     feeSpecById.set(p.id, feeSpecFromRow(p));
+    bizTypeById.set(p.id, (p.business_type ?? null) as BusinessType | null);
   }
 
   // 추가 결제 큐 — 입금 확인 대기(수락 + 입금 알림), 환불 가능(촬영 후·전달 전), 정산 대기(촬영 후·전달됨)
@@ -185,7 +190,19 @@ export default async function AdminTransactionsPage() {
         feeKrw: fee.feeKrw,
         feeRate: feeRateOf(fee),
       });
-      return { feeKrw: fee.feeKrw, feeLabel: feeSpecLabel(fee), refund: quote };
+      // 작가에게 실제로 보낼 금액. 화면에서 대충 빼서 보여주면 안 된다 —
+      // 운영자는 이 숫자를 보고 은행 앱에 옮겨 적는다. markSettlementPaid 와 같은 식이어야 한다.
+      const withholding = computeWithholding(b.amount_krw ?? 0, bizTypeById.get(b.photographer_id) ?? null);
+      const payoutKrw = Math.max(0, (b.amount_krw ?? 0) - feeWithVat(fee) - withholding.totalKrw);
+      return {
+        feeKrw: fee.feeKrw,
+        feeLabel: feeSpecLabel(fee),
+        feeRate: feeRateOf(fee),
+        vatKrw: fee.vatKrw,
+        withholdingKrw: withholding.totalKrw,
+        payoutKrw,
+        refund: quote,
+      };
     })(),
   }));
 

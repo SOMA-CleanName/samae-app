@@ -68,6 +68,14 @@ export type BookingRow = {
   feeKrw: number;
   /** "정률 10%" 처럼 사람이 읽는 근거 */
   feeLabel: string;
+  /** 위약금을 작가·사매가 나누는 비율 — 예외 판정 미리보기가 이걸 써야 실행값과 같아진다 */
+  feeRate: number;
+  /** 수수료의 부가세 */
+  vatKrw: number;
+  /** 원천징수 (사업자 미등록 작가) */
+  withholdingKrw: number;
+  /** 작가에게 실제로 보낼 금액 — 운영자가 은행 앱에 옮겨 적는 숫자다. 서버에서 계산해 내려온다 */
+  payoutKrw: number;
   /** 지금 환불하면 어떻게 되는지 (docs/32) */
   refund: RefundQuote;
 };
@@ -141,7 +149,6 @@ export function AdminBookings({ bookings }: { bookings: BookingRow[] }) {
 
 function BookingDetail({ b }: { b: BookingRow }) {
   const shootFee = (b.amount_krw ?? 0) - (b.travel_fee_krw ?? 0);
-  const payout = Math.max(0, (b.amount_krw ?? 0) - b.feeKrw);
 
   // 진행 흐름 — 비어 있는 칸이 곧 '여기서 멈춰 있다'
   const steps: { label: string; at: string | null }[] = [
@@ -176,9 +183,14 @@ function BookingDetail({ b }: { b: BookingRow }) {
             {b.travel_fee_krw > 0 && <Row k="출장비" v={`₩${fmt.format(b.travel_fee_krw)}`} />}
             <Row k="고객 입금액" v={`₩${fmt.format(b.amount_krw ?? 0)}`} strong />
             <Row k="수수료" v={`− ₩${fmt.format(b.feeKrw)} (${b.feeLabel})`} />
+            <Row k="부가세" v={`− ₩${fmt.format(b.vatKrw)}`} />
+            {/* 원천징수는 작가 세금이지 우리 수입이 아니다 — 줄을 나눠야 나중에 근거를 댄다 */}
+            {b.withholdingKrw > 0 && (
+              <Row k="원천징수 3.3%" v={`− ₩${fmt.format(b.withholdingKrw)}`} />
+            )}
             <Row
               k="작가 송금액"
-              v={`₩${fmt.format(b.settlement_amount_krw ?? payout)}`}
+              v={`₩${fmt.format(b.settlement_amount_krw ?? b.payoutKrw)}`}
               strong
             />
           </dl>
@@ -299,6 +311,7 @@ function BookingDetail({ b }: { b: BookingRow }) {
             bookingId={b.id}
             quote={b.refund}
             amountKrw={b.amount_krw ?? 0}
+            feeRate={b.feeRate}
             label={`${b.userName ?? "고객"} → ${b.photographerName ?? "작가"} · ₩${fmt.format(b.amount_krw ?? 0)}`}
           />
         )}
