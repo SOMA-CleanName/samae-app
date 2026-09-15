@@ -71,9 +71,29 @@
 /dev/flow-auth?stage=contact&next=%2Fapply
 ```
 
-> ⚠️ **`needsTermsConsent()` 는 버전을 안 본다.** `terms_agreed_at` 이 있는지만 확인한다 —
-> **약관을 개정해도 기존 회원은 재동의하지 않는다.** 작가 입점 동의는 버전 4개를 다
-> 비교하는데(`agreementIsCurrent`) 회원 약관은 안 한다. 비대칭이고, 개정 전에 정해야 한다.
+### 회원 약관도 버전을 본다 (2026-09-15 수정)
+
+전에는 `terms_agreed_at` 이 **있는지만** 봐서 약관을 개정해도 기존 회원이 재동의하지
+않았다. 작가 입점 동의는 버전 4개를 다 비교하는데(`agreementIsCurrent`) 회원 약관만
+안 하고 있었다. `termsConsentIsCurrent()` 로 맞췄다 — `terms_version !== TERMS_VERSION`
+이면 재동의 대상이다. 버전이 비어 있는 옛 기록도 "현재 아님" 으로 본다.
+
+> ⚠️ `recordTermsConsent()` 에 있던 `.is("terms_agreed_at", null)` 가드도 같이 걷었다.
+> 그게 있으면 **재동의를 받아도 기록이 안 남아** 매 로그인마다 같은 화면을 다시 본다.
+> 대신 갱신이라 이전 동의 시각은 남지 않는다 — 버전별 이력이 필요하면
+> `photographer_agreements` 처럼 행을 쌓는 표가 있어야 한다.
+
+### 재동의도 카카오에서 받는다
+
+카카오 계정이면 `/signup/consent` 가 **체크박스를 다시 보이지 않고 카카오로 보낸다**
+(`KakaoTermsConsentButton` → `service_terms_tags`). 같은 약관을 두 군데서 받으면
+"어디서 받은 동의인가" 가 갈린다. 이메일 계정만 체크박스 폼을 쓴다.
+
+> ⚠️ **자동 리다이렉트로 만들지 않았다.** 동의를 거부하고 돌아오면 여전히 미동의라
+> 또 튕기고, 또 튕긴다 — 빠져나갈 수 없는 고리가 된다. 버튼 한 번이면 그 고리가 없다.
+
+📌 QA 계정의 `terms_version` 을 `"1.0"` 으로 박아 뒀던 걸 고쳤다. 버전 비교를 켜니
+   그 계정이 매번 약관 재동의로 튕겼다 — 스크립트가 `policy-version.ts` 를 읽는다.
 
 ### 화면에 샌드박스 표시가 없다 — 이동은 키보드로
 

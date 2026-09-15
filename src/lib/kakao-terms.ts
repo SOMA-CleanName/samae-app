@@ -30,6 +30,12 @@ function requiredTags(): string[] {
     .filter(Boolean);
 }
 
+/** 카카오에 "이 약관들만 다시 동의받아 달라" 고 실어 보낼 값 (쉼표 구분) */
+export function kakaoTermsTagsParam(): string | null {
+  const tags = requiredTags();
+  return tags.length ? tags.join(",") : null;
+}
+
 type ServiceTermsResponse = {
   allowed_service_terms?: { tag?: string; agreed_at?: string }[];
 };
@@ -86,7 +92,7 @@ export async function adoptKakaoServiceTerms(
   } = await supabase.auth.getUser();
   if (!user) return false;
 
-  // 이미 동의 기록이 있으면 덮어쓰지 않는다 (recordTermsConsent 가 is-null 조건부)
+  // 현재 버전으로 갱신한다 — 재동의도 여기로 들어온다
   await recordTermsConsent(user.id);
   return true;
 }

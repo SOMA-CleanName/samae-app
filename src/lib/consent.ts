@@ -27,23 +27,49 @@ export async function needsTermsConsent(supabase: SupabaseClient): Promise<boole
     if (!user) return false;
     const { data } = await supabase
       .from("profiles")
-      .select("terms_agreed_at")
+      .select("terms_agreed_at, terms_version")
       .eq("id", user.id)
       .maybeSingle();
-    return !data?.terms_agreed_at;
+    return !termsConsentIsCurrent(data);
   } catch {
     return false;
   }
 }
 
-/** 회원약관·개인정보처리방침 동의를 기록한다. 이미 있으면 덮어쓰지 않는다 */
+/**
+ * 이 회원의 동의가 **현재 버전**인가.
+ *
+ * ⚠️ 전에는 `terms_agreed_at` 이 있는지만 봤다. 그러면 **약관을 개정해도 기존 회원은
+ *    재동의하지 않는다** — 바뀐 내용을 아무도 안 보고 넘어가고, 그러면 개정한 의미가 없다.
+ *    작가 입점 동의는 버전 4개를 다 비교하는데(agreementIsCurrent) 회원 약관만 안 하고
+ *    있었다. 그 비대칭을 없앤다.
+ *
+ * 버전이 비어 있는 옛 기록도 "현재 아님" 으로 본다 — 어느 문안에 동의했는지 알 수 없는
+ * 기록은 있다고 칠 수 없다.
+ */
+export function termsConsentIsCurrent(
+  profile: { terms_agreed_at?: string | null; terms_version?: string | null } | null | undefined
+): boolean {
+  if (!profile?.terms_agreed_at) return false;
+  return profile.terms_version === TERMS_VERSION;
+}
+
+/**
+ * 회원약관·개인정보처리방침 동의를 기록한다.
+ *
+ * ⚠️ 전에는 `.is("terms_agreed_at", null)` 로 **이미 있으면 덮어쓰지 않았다.** 버전 비교를
+ *    켜면 그 가드가 곧바로 사고가 된다 — 재동의를 받아도 기록이 안 남아서 매 로그인마다
+ *    같은 화면을 다시 보게 된다. 지금은 조건 없이 현재 버전으로 갱신한다.
+ *
+ * 📌 갱신이므로 **이전 동의 시각은 남지 않는다.** 버전별 이력이 필요해지면
+ *    photographer_agreements 처럼 행을 쌓는 표가 있어야 한다 — 지금은 두 칸뿐이다.
+ */
 export async function recordTermsConsent(userId: string): Promise<void> {
   const admin = createAdminClient();
   await admin
     .from("profiles")
     .update({ terms_agreed_at: new Date().toISOString(), terms_version: TERMS_VERSION })
-    .eq("id", userId)
-    .is("terms_agreed_at", null);
+    .eq("id", userId);
 }
 
 /** 이 작가가 현재 버전의 입점 계약에 동의했는가 */

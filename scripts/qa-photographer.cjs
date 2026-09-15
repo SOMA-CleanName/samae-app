@@ -96,7 +96,9 @@ async function ensureUser() {
       display_name: QA_NAME,
       phone: QA_PHONE,
       terms_agreed_at: new Date().toISOString(),
-      terms_version: "1.0",
+      // ⚠️ 버전을 손으로 박으면 안 된다 — needsTermsConsent 가 버전을 비교하므로
+      //    엉뚱한 값이면 QA 계정이 매번 약관 재동의로 튕긴다(실제로 그랬다).
+      terms_version: readTermsVersion(),
     },
     { onConflict: "id" }
   );
@@ -250,6 +252,14 @@ const STAGES = {
     console.log("   → 프로필 탭 → [스튜디오] → 프로필 에서 사업자 정보 수정만 봅니다.");
   },
 };
+
+/** 회원 약관의 현재 버전 — 이것도 policy-version.ts 가 진실이다 */
+function readTermsVersion() {
+  const src = fs.readFileSync(path.join(__dirname, "..", "src", "lib", "policy-version.ts"), "utf8");
+  const m = src.match(/\bconst TERMS_VERSION\s*=\s*["'`]([^"'`]+)["'`]/);
+  if (!m) throw new Error("policy-version.ts 에서 TERMS_VERSION 을 못 찾았습니다.");
+  return m[1];
+}
 
 /** policy-version.ts 에서 현재 버전을 읽는다 — 값을 복제하지 않기 위해 */
 function readPolicyVersions() {
