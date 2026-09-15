@@ -26,6 +26,8 @@ export type BookingRow = {
   created_at: string;
   accepted_at: string | null;
   transfer_marked_at: string | null;
+  /** 임박 예약(결제 시 촬영 7일 이하)의 위약금 별도 동의 시각 — 없으면 결제 게이트가 먼저 받는다 */
+  late_booking_consent_at: string | null;
   proposed_by_photographer: boolean;
   package_snapshot: { name?: string; delivery_days?: number } | null;
   delivery_due_at: string | null;
@@ -36,7 +38,7 @@ export type BookingRow = {
 };
 
 const SELECT =
-  "id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, memo, user_id, photographer_id, created_at, accepted_at, transfer_marked_at, proposed_by_photographer, package_snapshot, delivery_due_at, delivered_at, " +
+  "id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, memo, user_id, photographer_id, created_at, accepted_at, transfer_marked_at, late_booking_consent_at, proposed_by_photographer, package_snapshot, delivery_due_at, delivered_at, " +
   "photographer:photographers(display_name), " +
   "user:profiles!bookings_user_id_fkey(display_name), " +
   "package:packages(name)";
@@ -102,6 +104,19 @@ export async function getConversationIdFor(
     .eq("photographer_id", photographerId)
     .maybeSingle();
   return (data?.id as string) ?? null;
+}
+
+/**
+ * 어떤 시점으로부터 며칠 지났나 — 예약 상세의 "입금 대기 중 · 3일째" 넛지가 쓴다.
+ *
+ * ⚠️ 서버 컴포넌트 렌더 안에서 `Date.now()` 를 직접 부르면 react-hooks/purity 에 걸린다.
+ *    기본 인자로 감싸 헬퍼에 가둔다 (lib/discovery.ts 의 newFeedSeed 와 같은 처리).
+ */
+export function daysSince(iso: string | null | undefined, now: Date = new Date()): number {
+  if (!iso) return 0;
+  const t = new Date(iso).getTime();
+  if (isNaN(t)) return 0;
+  return Math.max(0, Math.floor((now.getTime() - t) / 86_400_000));
 }
 
 // KST 일시 표시 — 시각 미정이어도 날짜(shoot_date)가 있으면 날짜까지는 보여준다.

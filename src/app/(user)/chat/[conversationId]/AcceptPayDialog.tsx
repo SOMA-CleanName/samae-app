@@ -13,8 +13,9 @@ import { markTransferSent } from "@/app/actions/payments";
 import { CheckIcon, WalletIcon, XIcon } from "@/components/user/icons";
 import { Spinner } from "@/components/ui";
 import type { PayoutAccount } from "@/lib/payments";
-import { PolicyNote } from "./PolicyNote";
-import { LateBookingConsent } from "./LateBookingConsent";
+// 채팅 다이얼로그와 예약 상세가 같은 고지·같은 동의를 쓴다 — 한쪽만 고치면 그쪽이 빈다
+import { PolicyNote } from "@/components/booking/PolicyNote";
+import { LateBookingConsent } from "@/components/booking/LateBookingConsent";
 import { isLateBooking, lateBookingPenaltyPct } from "@/lib/refund";
 
 const fmt = new Intl.NumberFormat("ko-KR");
