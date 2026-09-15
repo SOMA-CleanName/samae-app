@@ -15,8 +15,12 @@ chore/sync-dev-main           ← dev                           커밋 20 · 파
 ```
 
 PR 1~6 은 `next build` 통과. eslint 오류는 24개로 **dev 와 동일** — 이 스택이 새로 만든 건 없다.
-PR 7~9 는 `tsc --noEmit` · `eslint`(변경 파일) · 단위 테스트 **337개** 통과로 확인했다
-(로컬 dev 서버가 붙어 있어 `next build` 는 돌리지 않았다 — `.next/dev` 가 날아간다).
+PR 7~9 도 **`next build` 통과**(2026-09-16: `✓ Compiled successfully`, 정적 페이지 88개) ·
+`tsc --noEmit` · `eslint` · 단위 테스트 **337개** 통과.
+
+프로덕션 모드(`next start`)로 `/dev/*` 차단도 실측했다 — `/dev` · `/dev/chat` · `/dev/money` ·
+`/dev/refund-test` · `/dev/test-login` · `/dev/pay` 전부 **404**,
+`/admin/withholding/export` **403**(라우트 자체 가드), `/` **200**.
 
 ### 🔴 마이그레이션이 네 개 붙어 있다 — 머지 순서와 별개로 먼저 적용해야 한다
 
@@ -52,6 +56,10 @@ PR 7~9 는 `tsc --noEmit` · `eslint`(변경 파일) · 단위 테스트 **337�
 ### 🔴 그리고 dev 는 지금 배포가 안 된다
 
 `vercel.json` 에 크론이 4개인데 **Vercel Hobby 는 개수와 빈도가 둘 다 묶여 있다.** 전에 매시간 크론을 걸었다가 배포가 통째로 거부된 적이 있다(`b91785e`).
+
+> 📌 **빌드 자체는 멀쩡하다** (2026-09-16 실측: `origin/dev` 99393a1 → `✓ Compiled successfully`,
+> 정적 페이지 88개). 막히는 건 Vercel 의 크론 제한이지 코드가 아니다. 이 PR 이 4→1 로
+> 합치면서 그 제한을 푼다 — **그래서 이게 스택 맨 아래고, 여기가 막히면 나머지 8개가 멈춘다.**
 
 ### 충돌 해소 — 전부 "dev 쪽을 살린다"
 
