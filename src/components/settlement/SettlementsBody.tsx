@@ -52,6 +52,11 @@ export function SettlementsBody({
   // 원천징수 안내는 해당되는 작가에게만 보여준다 — 사업자 작가에게는 없는 이야기다
   const withheld = rows.some((r) => r.withholdingKrw > 0);
 
+  // 실제 부담률을 행에서 되짚는다. "20%" 로 박아 두면 요율이 다른 작가에게 거짓말이 되고,
+  // 부가세를 따로 붙여 쓰면 나중에 "또 붙네" 로 읽힌다 (HANDOFF §3-2).
+  const sample = rows.find((r) => r.paidKrw > 0 && r.feeKrw > 0);
+  const burdenPct = sample ? +((sample.feeKrw / sample.paidKrw) * 100).toFixed(1) : null;
+
   return (
     <main className="mx-auto max-w-3xl px-4 sm:px-6 py-10 font-kr">
       <Link href="/studio" className="text-sm text-muted hover:text-fg">
@@ -59,8 +64,9 @@ export function SettlementsBody({
       </Link>
       <h1 className="mt-4 text-2xl font-semibold">정산 내역</h1>
       <p className="mt-1 text-xs leading-relaxed text-faint">
-        촬영비는 사매가 받아 두고, 결과물 전달이 끝나면 중개 수수료(20%)와 부가세를 뺀 금액을
-        작가님 계좌로 보내드려요.
+        촬영비는 사매가 받아 두고, 결과물 전달이 끝나면 중개 수수료
+        {burdenPct != null && <b className="font-semibold text-muted"> {burdenPct}%(부가세 포함)</b>}를
+        뺀 금액을 작가님 계좌로 보내드려요. 결제대행 수수료는 사매가 부담해요.
       </p>
       {/* 원천징수는 안 물어보면 "왜 덜 들어왔지" 가 되는 항목이다. 뗀 세금이 사라지는 게
           아니라 내년 5월에 정산된다는 것까지 말해야 문의가 줄어든다. */}
