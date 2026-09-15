@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
+import { Button } from "@/components/ui";
 
 // 약관 전문 열람 화면 — **끝까지 내려야 동의 버튼이 열린다.**
 //
@@ -82,48 +83,53 @@ export function DocReader({
   const canAgree = reachedEnd || agreed;
 
   return (
-    <main className="mx-auto max-w-2xl px-5 pb-32 pt-6 font-kr">
+    <main className="mx-auto max-w-2xl px-5 pb-36 pt-6 font-kr">
       <button
         type="button"
         onClick={onBack}
-        className="mb-5 inline-block cursor-pointer text-sm font-medium text-muted transition-colors hover:text-fg"
+        className="mb-6 inline-block cursor-pointer text-body-sm font-medium text-muted transition-colors hover:text-fg"
       >
         ← 문서 목록
       </button>
 
-      <p className="text-xs font-semibold text-brand">
-        {step} / {total}
+      <p className="text-label uppercase tracking-wide text-brand">
+        문서 {step} / {total}
       </p>
-      <h1 className="mt-1 text-2xl font-bold tracking-tight">{label}</h1>
-      <p className="mt-1.5 text-sm text-muted">{summary}</p>
-      <p className="mt-1 text-xs text-faint">버전 {version}</p>
+      <h1 className="mt-2 text-h1 font-bold tracking-tight">{label}</h1>
+      <p className="mt-2 text-body-sm leading-relaxed text-muted">{summary}</p>
+      <p className="mt-1.5 text-caption text-faint">버전 {version}</p>
 
-      <div className="mt-7 border-t border-line pt-7">{children}</div>
+      <div className="mt-8 border-t border-line pt-8">{children}</div>
 
       {/* 끝 표지 — 이게 보이면 바닥까지 온 것이다 */}
-      <div ref={endRef} className="mt-10 border-t border-line pt-6">
-        <p className="text-sm font-semibold">여기까지가 {label} 전문입니다.</p>
-        <p className="mt-1 text-xs leading-relaxed text-muted">
+      <div ref={endRef} className="mt-12 rounded-2xl bg-surface-2 px-5 py-5">
+        <p className="text-body font-semibold">여기까지가 {label} 전문입니다.</p>
+        <p className="mt-1.5 text-body-sm leading-relaxed text-muted">
           동의하면 동의 시각과 버전({version})이 기록으로 남고, 나중에 언제든 다시 확인할 수 있어요.
         </p>
       </div>
 
       {/* 하단 고정 — 긴 문서에서 버튼을 찾아 다시 올라갈 이유가 없다 */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 backdrop-blur">
-        <div className="mx-auto max-w-2xl px-5 py-3.5">
+        <div className="mx-auto max-w-2xl px-5 pb-safe pt-3.5">
           {!canAgree && (
-            <p className="mb-2 text-center text-xs text-muted">
-              끝까지 읽으면 동의할 수 있어요
-            </p>
+            <p className="mb-2.5 text-center text-caption text-muted">끝까지 읽으면 동의할 수 있어요</p>
           )}
-          <button
+          {/* ⚠️ 잠긴 동안은 **브랜드 레드를 쓰지 않는다.** Button 의 disabled 는 opacity-50 인데,
+              빨강이 반투명해지면 "연한 빨강 버튼" 이 되어 눌릴 것처럼 보인다. 잠긴 건
+              잠겨 보여야 한다 — 그래서 secondary(외곽선)로 두고, 열릴 때 brand 로 바뀐다.
+              색이 바뀌는 것 자체가 "이제 누를 수 있다" 는 신호가 된다. */}
+          <Button
             type="button"
             onClick={onAgree}
             disabled={!canAgree}
-            className="w-full cursor-pointer rounded-xl bg-fg py-3.5 text-sm font-semibold text-bg transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-35"
+            variant={canAgree ? "brand" : "secondary"}
+            size="lg"
+            fullWidth
+            className="mb-3.5"
           >
             {agreed ? "동의함 — 목록으로" : "읽었고 동의합니다"}
-          </button>
+          </Button>
         </div>
       </div>
     </main>

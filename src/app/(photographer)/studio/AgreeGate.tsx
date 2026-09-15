@@ -20,6 +20,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useFormStatus } from "react-dom";
+import { Button, Card } from "@/components/ui";
 import { agreePhotographerContract } from "./actions";
 import { DocReader } from "./DocReader";
 import { PHOTOGRAPHER_DOCS, type DocKey } from "@/components/legal/photographerDocs";
@@ -51,6 +52,12 @@ export function AgreeGate({
   const [openedAt, setOpenedAt] = useState<Partial<Record<DocKey, string>>>({});
   const [businessType, setBusinessType] = useState<BusinessType | "">(initial.businessType);
   const [error, setError] = useState<string | null>(null);
+
+  /** 문서를 연다 — 연 시각을 그때 한 번만 찍는다(다시 열어도 처음 연 시각을 지킨다) */
+  const openDoc = (key: DocKey) => {
+    setOpenedAt((p) => ({ ...p, [key]: p[key] ?? new Date().toISOString() }));
+    setReading(key);
+  };
 
   const allRead = PHOTOGRAPHER_DOCS.every((d) => records[d.key]);
   const readCount = PHOTOGRAPHER_DOCS.filter((d) => records[d.key]).length;
@@ -96,75 +103,97 @@ export function AgreeGate({
 
   // ── ① 목록 + ③ 정보 ──
   return (
-    <main className="mx-auto max-w-lg px-4 py-10 font-kr sm:px-6">
-      <h1 className="text-2xl font-semibold">
+    <main className="mx-auto max-w-lg px-5 py-12 font-kr">
+      <p className="text-label uppercase tracking-wide text-brand">작가 입점</p>
+      <h1 className="mt-2.5 text-h1 font-bold tracking-tight">
         {reason === "first" ? "입점 계약에 동의해 주세요" : "계약 내용이 바뀌어 다시 동의가 필요해요"}
       </h1>
-      <p className="mt-2 text-sm leading-relaxed text-fg/60">
-        {displayName}님, 사매에서 작가로 활동하려면 아래 문서를 <b className="font-semibold text-fg">전문으로 읽고</b>{" "}
-        동의해 주세요. 동의한 날이 계약일이 되고, 문서별로 읽은 시각과 동의한 시각이 함께 기록돼요.
+      <p className="mt-3 text-body leading-relaxed text-muted">
+        {displayName}님, 사매에서 작가로 활동하려면 아래 문서를{" "}
+        <b className="font-semibold text-fg">전문으로 읽고</b> 동의해 주세요. 동의한 날이 계약일이 되고,
+        문서별로 읽은 시각과 동의한 시각이 함께 기록돼요.
       </p>
 
       {/* 핵심 조건 요약 — 문서를 열기 전에 가장 중요한 숫자는 보이게 (약관규제법 3조 설명 의무) */}
-      <section className="mt-6 rounded-2xl bg-fg/[0.04] p-4 text-sm leading-relaxed text-fg/75">
-        <p className="font-semibold text-fg">꼭 알아야 할 것</p>
-        <ul className="mt-2 list-disc space-y-1 pl-5">
-          <li>중개 수수료는 촬영 대금 전체(출장비·추가금 포함)의 {DEFAULT_FEE_RATE * 100}%이고 부가세는 별도예요.</li>
-          <li>정산은 결과물을 전달하고 서비스에서 전달 완료를 누른 뒤에 해요.</li>
-          <li>작가 사정으로 촬영이 취소되면 고객에게 전액 환불되고 수수료 상당액이 작가에게 청구돼요.</li>
-          <li>사매를 통해 만난 고객과는 서비스 밖에서 촬영 계약이나 대금을 주고받을 수 없어요.</li>
-          <li>고객의 연락처는 촬영 목적으로만 쓰고, 끝나면 지체 없이 지워야 해요.</li>
+      <section className="mt-8 rounded-2xl bg-surface-2 p-5">
+        <p className="text-body font-semibold">꼭 알아야 할 것</p>
+        <ul className="mt-3 flex flex-col gap-2.5">
+          {[
+            `중개 수수료는 촬영 대금 전체(출장비·추가금 포함)의 ${DEFAULT_FEE_RATE * 100}%이고 부가세는 별도예요.`,
+            "정산은 결과물을 전달하고 서비스에서 전달 완료를 누른 뒤에 해요.",
+            "작가 사정으로 촬영이 취소되면 고객에게 전액 환불되고 수수료 상당액이 작가에게 청구돼요.",
+            "사매를 통해 만난 고객과는 서비스 밖에서 촬영 계약이나 대금을 주고받을 수 없어요.",
+            "고객의 연락처는 촬영 목적으로만 쓰고, 끝나면 지체 없이 지워야 해요.",
+          ].map((line) => (
+            <li key={line} className="flex gap-2.5 text-body-sm leading-relaxed text-muted">
+              <span aria-hidden className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-line-strong" />
+              <span>{line}</span>
+            </li>
+          ))}
         </ul>
       </section>
 
       {/* ① 읽어야 할 문서 — 각 항목이 전문 화면으로 들어가는 문이다 */}
-      <section className="mt-7">
-        <div className="flex items-baseline justify-between">
-          <h2 className="text-sm font-semibold">읽고 동의할 문서</h2>
-          <p className="text-xs tabular-nums text-muted">
-            {readCount} / {PHOTOGRAPHER_DOCS.length}
+      <section className="mt-9">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="text-h2 font-semibold">읽고 동의할 문서</h2>
+          <p className="shrink-0 text-caption tabular-nums text-muted">
+            <b className="font-semibold text-fg">{readCount}</b> / {PHOTOGRAPHER_DOCS.length}
           </p>
         </div>
 
-        <ul className="mt-2.5 flex flex-col gap-2">
+        {/* 진행 막대 — 몇 개 남았는지 숫자보다 먼저 눈에 들어오게 */}
+        <div className="mt-3 h-1 overflow-hidden rounded-full bg-line" aria-hidden>
+          <div
+            className="h-full rounded-full bg-fg transition-[width] duration-300"
+            style={{ width: `${(readCount / PHOTOGRAPHER_DOCS.length) * 100}%` }}
+          />
+        </div>
+
+        <ul className="mt-4 flex flex-col gap-2.5">
           {PHOTOGRAPHER_DOCS.map((d, i) => {
             const rec = records[d.key];
             return (
               <li key={d.key}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOpenedAt((p) => ({ ...p, [d.key]: p[d.key] ?? new Date().toISOString() }));
-                    setReading(d.key);
+                <Card
+                  interactive
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => openDoc(d.key)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      openDoc(d.key);
+                    }
                   }}
-                  className={`flex w-full cursor-pointer items-center gap-3 rounded-xl border p-3.5 text-left transition-colors ${
-                    rec ? "border-fg bg-fg/[0.03]" : "border-line hover:bg-fg/[0.03]"
-                  }`}
+                  className={`flex items-center gap-3.5 p-4 ${rec ? "border-fg" : ""}`}
                 >
                   <span
-                    className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-xs font-semibold ${
-                      rec ? "bg-fg text-bg" : "bg-fg/10 text-muted"
+                    className={`grid h-7 w-7 shrink-0 place-items-center rounded-full text-caption font-semibold ${
+                      rec ? "bg-fg text-bg" : "bg-line text-muted"
                     }`}
                   >
-                    {rec ? "✓" : i + 1}
+                    {rec ? <CheckMark /> : i + 1}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block text-sm font-medium">{d.label}</span>
-                    <span className="mt-0.5 block text-xs text-muted">{d.summary}</span>
-                    <span className="mt-0.5 block text-xs text-faint">
+                    <span className="block text-body font-semibold">{d.label}</span>
+                    <span className="mt-0.5 block text-body-sm leading-relaxed text-muted">{d.summary}</span>
+                    <span className="mt-1 block text-caption text-faint">
                       버전 {d.version}
                       {rec ? " · 동의함" : ""}
                     </span>
                   </span>
-                  <span className="shrink-0 text-xs text-muted">{rec ? "다시 보기" : "읽기 →"}</span>
-                </button>
+                  <span className="shrink-0 text-caption font-medium text-muted">
+                    {rec ? "다시 보기" : "읽기 →"}
+                  </span>
+                </Card>
               </li>
             );
           })}
         </ul>
 
         {!allRead && (
-          <p className="mt-3 text-xs leading-relaxed text-muted">
+          <p className="mt-3.5 text-caption leading-relaxed text-muted">
             문서를 열면 전문이 화면에 그대로 나와요. 끝까지 읽으면 그 자리에서 동의할 수 있어요.
           </p>
         )}
@@ -184,13 +213,13 @@ export function AgreeGate({
               setError(e instanceof Error ? e.message : "저장하지 못했어요. 다시 시도해주세요.");
             }
           }}
-          className="mt-8 flex flex-col gap-6"
+          className="mt-10 flex flex-col gap-6"
         >
-          <fieldset className="rounded-2xl border border-fg/10 p-4">
-            <legend className="px-1 text-xs text-muted">작가 정보 (계약 당사자)</legend>
-            <div className="flex flex-col gap-3">
+          <fieldset className="rounded-2xl border border-line p-5">
+            <legend className="px-1.5 text-caption font-medium text-muted">작가 정보 (계약 당사자)</legend>
+            <div className="mt-1 flex flex-col gap-4">
               <label className="block">
-                <span className="text-sm font-medium">성명 또는 상호</span>
+                <span className="text-body-sm font-semibold">성명 또는 상호</span>
                 <input
                   id="legalName"
                   name="legalName"
@@ -198,22 +227,22 @@ export function AgreeGate({
                   maxLength={60}
                   defaultValue={initial.legalName}
                   placeholder="실명 또는 사업자등록증의 상호"
-                  className="mt-1.5 w-full rounded-xl border border-fg/15 bg-surface px-3 py-2.5 text-sm outline-none focus:border-fg/40"
+                  className={FIELD}
                 />
-                <span className="mt-1 block text-xs text-faint">
+                <span className="mt-1.5 block text-caption leading-relaxed text-muted">
                   활동명({displayName})과 별개로, 계약과 정산 서류에 쓰여요.
                 </span>
               </label>
 
               <label className="block">
-                <span className="text-sm font-medium">사업자 유형</span>
+                <span className="text-body-sm font-semibold">사업자 유형</span>
                 <select
                   id="businessType"
                   name="businessType"
                   required
                   value={businessType}
                   onChange={(e) => setBusinessType(e.target.value as BusinessType | "")}
-                  className="mt-1.5 w-full rounded-xl border border-fg/15 bg-surface px-3 py-2.5 text-sm outline-none focus:border-fg/40"
+                  className={FIELD}
                 >
                   <option value="">선택</option>
                   {(Object.keys(BUSINESS_TYPE_LABEL) as BusinessType[]).map((t) => (
@@ -222,7 +251,7 @@ export function AgreeGate({
                     </option>
                   ))}
                 </select>
-                <span className="mt-1 block text-xs text-faint">
+                <span className="mt-1.5 block text-caption leading-relaxed text-muted">
                   일반과세자는 수수료 세금계산서로 매입세액을 공제받아요. 사업자 미등록이면 정산금에서 3.3%를
                   원천징수해요.
                 </span>
@@ -230,7 +259,7 @@ export function AgreeGate({
 
               {businessType && businessType !== "unregistered" && (
                 <label className="block">
-                  <span className="text-sm font-medium">사업자등록번호</span>
+                  <span className="text-body-sm font-semibold">사업자등록번호</span>
                   <input
                     id="businessNo"
                     name="businessNo"
@@ -239,7 +268,7 @@ export function AgreeGate({
                     maxLength={12}
                     defaultValue={initial.businessNo}
                     placeholder="000-00-00000"
-                    className="mt-1.5 w-full rounded-xl border border-fg/15 bg-surface px-3 py-2.5 text-sm outline-none focus:border-fg/40"
+                    className={FIELD}
                   />
                 </label>
               )}
@@ -247,30 +276,34 @@ export function AgreeGate({
           </fieldset>
 
           {/* 홍보 사용 동의 — 선택 (입점계약 7조) */}
-          <fieldset className="rounded-2xl border border-fg/10 p-4">
-            <legend className="px-1 text-xs text-muted">홍보 사용 동의 (선택)</legend>
-            <label className="flex cursor-pointer items-start gap-2.5">
+          <fieldset className="rounded-2xl border border-line p-5">
+            <legend className="px-1.5 text-caption font-medium text-muted">홍보 사용 동의 (선택)</legend>
+            <label className="mt-1 flex cursor-pointer items-start gap-3">
               <input
                 type="checkbox"
                 name="promoConsent"
                 defaultChecked={initial.promoConsent}
-                className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
+                className="mt-0.5 h-[18px] w-[18px] shrink-0 accent-brand"
               />
-              <span className="text-sm leading-relaxed text-fg/80">
-                사매가 내가 게재한 사진과 활동명을 사매 웹·앱, SNS, 유료 광고, 보도자료에 홍보물별 12개월간 쓰는 것에
-                동의합니다. 언제든 철회할 수 있어요.{" "}
-                <Link href="/terms/ad-consent" target="_blank" className="underline underline-offset-2">
+              <span className="text-body-sm leading-relaxed text-muted">
+                사매가 내가 게재한 사진과 활동명을 사매 웹·앱, SNS, 유료 광고, 보도자료에 홍보물별 12개월간 쓰는
+                것에 동의합니다. 언제든 철회할 수 있어요.{" "}
+                <Link
+                  href="/terms/ad-consent"
+                  target="_blank"
+                  className="underline underline-offset-2 hover:text-fg"
+                >
                   범위와 조건
                 </Link>
               </span>
             </label>
           </fieldset>
 
-          {error && <p className="text-sm text-brand">{error}</p>}
+          {error && <p className="text-body-sm text-danger-ink">{error}</p>}
           <Submit />
         </form>
       ) : (
-        <p className="mt-8 rounded-xl border border-dashed border-line-strong p-4 text-center text-sm text-muted">
+        <p className="mt-10 rounded-2xl border border-dashed border-line-strong px-5 py-6 text-center text-body-sm text-muted">
           문서 {PHOTOGRAPHER_DOCS.length}종을 모두 읽으면 계약 정보를 입력할 수 있어요.
         </p>
       )}
@@ -278,15 +311,24 @@ export function AgreeGate({
   );
 }
 
+/** 입력 칸 — 프리미티브 Input 은 leftIcon/invalid 전용 래퍼라 여기선 같은 규격만 맞춘다 */
+const FIELD =
+  "mt-2 h-11 w-full rounded-xl border border-line-strong bg-surface px-3.5 text-body outline-none " +
+  "transition-colors focus:border-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
+
+function CheckMark() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={3}>
+      <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function Submit() {
   const { pending } = useFormStatus();
   return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="w-full cursor-pointer rounded-xl bg-fg py-3 text-sm font-semibold text-bg hover:opacity-90 disabled:opacity-40"
-    >
-      {pending ? "저장 중…" : "동의하고 스튜디오 시작"}
-    </button>
+    <Button type="submit" variant="brand" size="lg" fullWidth loading={pending}>
+      동의하고 스튜디오 시작
+    </Button>
   );
 }
