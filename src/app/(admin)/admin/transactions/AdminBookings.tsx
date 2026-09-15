@@ -75,6 +75,8 @@ export type BookingRow = {
   refundDueAt: string | null;
   /** 그 기한을 넘겼는가 */
   refundOverdue: boolean;
+  /** 정산 기한(전달 후 7영업일) — 아직 안 보낸 건만 값이 있다 */
+  settlementSla: { label: string; overdue: boolean; soon: boolean } | null;
   /** 이 예약에 부과된(또는 부과될) 사매 수수료 — 스냅샷 우선 */
   feeKrw: number;
   /** "정률 10%" 처럼 사람이 읽는 근거 */
@@ -150,6 +152,9 @@ export function AdminBookings({ bookings }: { bookings: BookingRow[] }) {
               {b.refundOverdue && (
                 <Badge tone="danger">환불 지연</Badge>
               )}
+              {/* 접어 둔 줄에서도 보여야 한다 — 펼쳐야 아는 기한은 안 지켜진다 */}
+              {b.settlementSla?.overdue && <Badge tone="danger">정산 지연</Badge>}
+              {b.settlementSla?.soon && <Badge tone="warning">정산 임박</Badge>}
               <Badge tone={s.tone}>{s.label}</Badge>
             </div>
 
@@ -193,6 +198,22 @@ function BookingDetail({ b }: { b: BookingRow }) {
 
         <BookingMoney b={b} />
       </div>
+
+      {/* 정산 기한 — 아직 안 보낸 건만. 언제까지인지가 안 보이면 지킬 수가 없다 */}
+      {b.settlementSla && (
+        <p
+          className={`mt-3 rounded-lg px-3 py-2 text-caption ${
+            b.settlementSla.overdue
+              ? "bg-danger/10 font-semibold text-danger"
+              : b.settlementSla.soon
+                ? "bg-warning-soft text-warning-ink"
+                : "bg-surface-2 text-muted"
+          }`}
+        >
+          📤 {b.settlementSla.label} · 전달 알림 {stamp(b.delivered_at)} 기준 7영업일
+          (수수료·정산 정책 2조)
+        </p>
+      )}
 
       {/* 진행 */}
       <section className="mt-4">

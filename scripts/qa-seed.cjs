@@ -149,6 +149,20 @@ const STAGE = [
     sees: "어드민 거래 → 「정산 대기」 큐 · 작가 정산 화면에 예정액",
   },
   {
+    key: "settle-overdue",
+    label: "⑩ 전달 후 12일 방치 · 정산 기한 초과",
+    shootIn: -20,
+    booking: {
+      status: "delivered",
+      accepted_at: agoHours(800),
+      transfer_marked_at: agoHours(798),
+      paid_at: agoHours(797),
+      delivered_at: agoHours(12 * 24),
+    },
+    fee: true,
+    sees: "어드민 거래 → 「정산 지연」 배지 + 붉은 줄 (전달 후 7영업일 초과)",
+  },
+  {
     key: "refund-open",
     label: "⑦ 환불 신청 접수됨 · 작가 합의 대기",
     shootIn: 5,

@@ -18,6 +18,7 @@ import { AdminCancelButton } from "./AdminCancelButton";
 import { feeRateOf, feeSpecFromRow, feeSpecLabel, feeWithVat, readFeeSnapshot, resolveFee } from "@/lib/platform-fee";
 import { computeWithholding, type BusinessType } from "@/lib/withholding";
 import { refundQuote, refundSlaOverdue } from "@/lib/refund";
+import { settlementSla } from "@/lib/settlement-sla";
 import { readStoredFieldValues } from "@/lib/booking-fields";
 import { listExtrasForAdmin } from "@/lib/extras-admin";
 import { EXTRA_KIND_LABEL, extraStatusLabel } from "@/lib/extras";
@@ -158,9 +159,12 @@ export default async function AdminTransactionsPage() {
   //      촬영 전 건은 여기 오지 않는다.
   //   ③ 입금 대기 — 수락만 해놓고 아무 소식 없는 건
   const awaitingConfirm = raw.filter((b) => b.status === "accepted" && b.transfer_marked_at);
-  const awaitingSettle = raw.filter(
-    (b) => PAID_BOOKING.includes(b.status) && !!b.delivered_at && !b.settled_at && !b.refunded_at
-  );
+  // 정산 대기 — 전달 알림으로부터 7영업일 안에 보내야 한다(수수료·정산 정책 2조).
+  // 기한이 급한 건을 위로 올린다. 목록 순서가 곧 처리 순서가 된다.
+  const awaitingSettle = raw
+    .filter((b) => PAID_BOOKING.includes(b.status) && !!b.delivered_at && !b.settled_at && !b.refunded_at)
+    .map((b) => ({ b, sla: settlementSla(b.delivered_at, b.settled_at) }))
+    .sort((x, y) => (x.sla?.daysLeft ?? 99) - (y.sla?.daysLeft ?? 99));
   const awaitingDeposit = raw.filter((b) => b.status === "accepted" && !b.transfer_marked_at);
 
   const bookings: BookingRow[] = raw.map((b) => ({
@@ -193,6 +197,11 @@ export default async function AdminTransactionsPage() {
     refundDueAt: b.refund_due_at,
     // 3영업일을 넘긴 환불 요청 — 넘기면 연 15% 지연이자가 법정 의무다 (docs/32 §6-7)
     refundOverdue: !b.refunded_at && refundSlaOverdue(b.refund_due_at),
+    // 정산 기한 — 전달 알림으로부터 7영업일 (수수료·정산 정책 2조)
+    settlementSla: (() => {
+      const sla = settlementSla(b.delivered_at, b.settled_at);
+      return sla ? { label: sla.label, overdue: sla.overdue, soon: sla.soon } : null;
+    })(),
     ...(() => {
       // 수수료: 스냅샷이 우선, 없으면 현재 설정으로 계산 (0101 이전 예약). 기준은 촬영 대금 전체
       const fee =
@@ -254,18 +263,40 @@ export default async function AdminTransactionsPage() {
         <section className="mt-5 rounded-2xl bg-surface p-4 ring-1 ring-line">
           <h2 className="text-body-sm font-semibold text-fg">
             📤 정산 대기 <span className="text-brand">{awaitingSettle.length}</span>
+            {awaitingSettle.some((x) => x.sla?.overdue) && (
+              <span className="ml-2 rounded-full bg-danger/10 px-2 py-0.5 text-caption font-semibold text-danger">
+                기한 초과 {awaitingSettle.filter((x) => x.sla?.overdue).length}
+              </span>
+            )}
           </h2>
           <p className="mt-0.5 text-caption text-muted">
-            결과물 전달이 끝난 건이에요. 수수료와 부가세를 뺀 금액을 작가에게 보낸 뒤 마킹하세요.
+            결과물 전달이 끝난 건이에요. 수수료·부가세(·원천징수)를 뺀 금액을 작가에게 보낸 뒤
+            마킹하세요. <b className="text-fg">전달 알림으로부터 7영업일</b> 안에 보내야 합니다.
           </p>
           <ul className="mt-2 space-y-2">
-            {awaitingSettle.map((b) => (
+            {awaitingSettle.map(({ b, sla }) => (
               <li
                 key={b.id}
-                className="flex items-center justify-between gap-2 rounded-xl bg-surface-2 px-3 py-2"
+                className={cn(
+                  "flex items-center justify-between gap-2 rounded-xl px-3 py-2",
+                  sla?.overdue ? "bg-danger/10 ring-1 ring-danger/30" : "bg-surface-2"
+                )}
               >
                 <div className="min-w-0 text-caption">
-                  <p className="font-semibold text-fg">{one(b.photographer)?.display_name ?? "작가"}</p>
+                  <p className="font-semibold text-fg">
+                    {one(b.photographer)?.display_name ?? "작가"}
+                    {/* 기한이 안 보이면 지킬 수가 없다 — 환불 3영업일과 같은 방식 */}
+                    {sla && (
+                      <span
+                        className={cn(
+                          "ml-2 font-medium",
+                          sla.overdue ? "text-danger" : sla.soon ? "text-warning" : "text-faint"
+                        )}
+                      >
+                        {sla.label}
+                      </span>
+                    )}
+                  </p>
                   <p className="text-muted">
                     입금액 ₩{fmt.format(b.amount_krw ?? 0)}{" "}
                     <span className="text-faint">(정산액은 아래 상세에서 확인)</span>
