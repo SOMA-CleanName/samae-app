@@ -29,7 +29,6 @@ import { overdueDays } from "@/lib/delivery-deadline";
 const fmtDay = (iso: string) =>
   new Intl.DateTimeFormat("ko-KR", { month: "long", day: "numeric", timeZone: "Asia/Seoul" }).format(new Date(iso));
 import { DepositGate } from "@/components/booking/DepositGate";
-import { TrustLink } from "@/components/user/TrustLink";
 import { SupportButton } from "@/components/user/SupportButton";
 import { MpTrackOnce } from "@/components/MpTrackOnce";
 
@@ -195,42 +194,26 @@ export default async function BookingDetail({
 
         {/* 구매자: 수락됨 → 입금 안내(사매 계좌·금액·입금완료) 인라인 노출 (req4) */}
         {isBuyer && b.status === "accepted" && (
-          <section className="rounded-xl border border-fg/12 bg-surface p-5">
-            <p className="text-sm font-semibold">💸 입금 안내 — 사매 계좌로 안전하게</p>
-            <p className="mt-1 text-xs text-muted">
-              아래 사매 계좌로 입금해주세요. 사매가 입금을 확인하면 예약이 확정됩니다.
-            </p>
-            {/* 돈이 실제로 나가는 자리. "이거 믿어도 되나"가 가장 크게 드는 순간이라
-                답으로 가는 문을 화면 안에 둔다. */}
-            <TrustLink from="booking_deposit" className="mt-2" />
-
-            {/* 계좌·고지·동의·[입금 완료] 는 한 덩어리다 — 채팅의 AcceptPayDialog 와 같은
-                게이트를 쓴다. 전에는 여기만 계좌와 버튼뿐이라 임박 예약 동의도 위약금 표도
-                없이 결제가 됐고, 그러면 나중에 위약금을 주장할 근거가 없다. */}
-            <DepositGate
-              bookingId={b.id}
-              amountKrw={b.amount_krw ?? 0}
-              shootAt={b.shoot_at}
-              shootDate={b.shoot_date}
-              lateBookingConsentAt={b.late_booking_consent_at}
-              transferMarkedAt={b.transfer_marked_at}
-              account={
-                platformAccount && hasAccount(platformAccount)
-                  ? {
-                      bank: platformAccount.bank,
-                      number: platformAccount.number,
-                      holder: platformAccount.holder,
-                    }
-                  : null
-              }
-            />
-
-            <p className="mt-3 text-[11px] text-faint">
-              · 받는 분 통장에 <b>예약자 본인 이름</b>으로 보내면 확인이 빨라요.<br />
-              · 촬영비는 사매가 보관했다가 촬영 후 작가에게 정산해요. 작가 개인 계좌로의 직접
-              송금은 보호받지 못해요.
-            </p>
-          </section>
+          // 계좌·고지·동의·[입금 완료] 가 한 덩어리다 — 채팅의 AcceptPayDialog 와 같은
+          // 게이트를 쓴다. 전에는 여기만 계좌와 버튼뿐이라 임박 예약 동의도 위약금 표도
+          // 없이 결제가 됐고, 그러면 나중에 위약금을 주장할 근거가 없다.
+          <DepositGate
+            bookingId={b.id}
+            amountKrw={b.amount_krw ?? 0}
+            shootAt={b.shoot_at}
+            shootDate={b.shoot_date}
+            lateBookingConsentAt={b.late_booking_consent_at}
+            transferMarkedAt={b.transfer_marked_at}
+            account={
+              platformAccount && hasAccount(platformAccount)
+                ? {
+                    bank: platformAccount.bank,
+                    number: platformAccount.number,
+                    holder: platformAccount.holder,
+                  }
+                : null
+            }
+          />
         )}
 
         {/* 작가: 수락됨 → 사매 입금 확인 대기 (확인 주체는 운영자 — 작가 직접 확인은 폐지) */}

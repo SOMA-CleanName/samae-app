@@ -14,6 +14,7 @@ import { refundBasisLabel, type RefundQuote } from "@/lib/refund";
 import { OVERDUE_REFUND_DAYS, overdueDays } from "@/lib/delivery-deadline";
 import type { BookingFieldValue } from "@/lib/booking-fields";
 import { adminConfirmTransfer, adminMarkSettled, adminMarkDepositAndConfirm } from "./actions";
+import { BookingMoney } from "@/components/booking/BookingMoney";
 import { AdminRefundButton } from "./AdminRefundButton";
 import { AdminCancelButton } from "./AdminCancelButton";
 
@@ -148,7 +149,6 @@ export function AdminBookings({ bookings }: { bookings: BookingRow[] }) {
 }
 
 function BookingDetail({ b }: { b: BookingRow }) {
-  const shootFee = (b.amount_krw ?? 0) - (b.travel_fee_krw ?? 0);
 
   // 진행 흐름 — 비어 있는 칸이 곧 '여기서 멈춰 있다'
   const steps: { label: string; at: string | null }[] = [
@@ -175,26 +175,7 @@ function BookingDetail({ b }: { b: BookingRow }) {
           </dl>
         </section>
 
-        {/* 금액 */}
-        <section>
-          <p className="text-caption font-semibold text-muted">금액</p>
-          <dl className="mt-1.5 flex flex-col gap-1 text-caption">
-            <Row k="촬영비" v={`₩${fmt.format(shootFee)}`} />
-            {b.travel_fee_krw > 0 && <Row k="출장비" v={`₩${fmt.format(b.travel_fee_krw)}`} />}
-            <Row k="고객 입금액" v={`₩${fmt.format(b.amount_krw ?? 0)}`} strong />
-            <Row k="수수료" v={`− ₩${fmt.format(b.feeKrw)} (${b.feeLabel})`} />
-            <Row k="부가세" v={`− ₩${fmt.format(b.vatKrw)}`} />
-            {/* 원천징수는 작가 세금이지 우리 수입이 아니다 — 줄을 나눠야 나중에 근거를 댄다 */}
-            {b.withholdingKrw > 0 && (
-              <Row k="원천징수 3.3%" v={`− ₩${fmt.format(b.withholdingKrw)}`} />
-            )}
-            <Row
-              k="작가 송금액"
-              v={`₩${fmt.format(b.settlement_amount_krw ?? b.payoutKrw)}`}
-              strong
-            />
-          </dl>
-        </section>
+        <BookingMoney b={b} />
       </div>
 
       {/* 진행 */}

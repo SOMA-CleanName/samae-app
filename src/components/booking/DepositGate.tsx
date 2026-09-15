@@ -19,6 +19,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { markTransferSent } from "@/app/actions/payments";
 import { isLateBooking, lateBookingPenaltyPct } from "@/lib/refund";
+import { TrustLink } from "@/components/user/TrustLink";
 import { PolicyNote } from "./PolicyNote";
 import { LateBookingConsent } from "./LateBookingConsent";
 
@@ -34,6 +35,8 @@ export function DepositGate({
   lateBookingConsentAt = null,
   transferMarkedAt = null,
   account,
+  markPaidAction = markTransferSent,
+  agreeAction,
 }: {
   bookingId: string;
   amountKrw: number;
@@ -45,6 +48,10 @@ export function DepositGate({
   transferMarkedAt?: string | null;
   /** 서버가 확인한 사매 계좌. 준비 전이면 null */
   account: DepositAccount | null;
+  /** 입금 완료를 기록하는 액션. 기본은 진짜 서버 액션이고, 샌드박스만 갈아 끼운다 */
+  markPaidAction?: (formData: FormData) => Promise<void>;
+  /** 임박 예약 동의 액션 — 그대로 LateBookingConsent 로 내려간다 */
+  agreeAction?: (formData: FormData) => Promise<void>;
 }) {
   const router = useRouter();
   // 가장 불리한 조항을 직접 읽고 체크해야 열린다 (약관규제법 3조 — 설명하지 않은 조항은
@@ -63,27 +70,31 @@ export function DepositGate({
     const fd = new FormData();
     fd.set("id", bookingId);
     startSend(async () => {
-      await markTransferSent(fd);
+      await markPaidAction(fd);
       router.refresh();
     });
   }
 
-  if (transferMarkedAt) {
-    return (
-      <p className="mt-3 rounded-full bg-success-soft px-3 py-2 text-center text-xs text-success-ink">
-        ✅ 입금 완료를 알렸어요 · 사매가 확인하면 예약이 확정돼요
-      </p>
-    );
-  }
+  // 이미 눌렀으면 결과만 — 지면(제목·신뢰 링크·주의사항)은 그대로 둔다
+  const done = !!transferMarkedAt;
 
   return (
-    <>
-      {askConsent && (
+    <section className="rounded-xl border border-fg/12 bg-surface p-5">
+      <p className="text-sm font-semibold">💸 입금 안내 — 사매 계좌로 안전하게</p>
+      <p className="mt-1 text-xs text-muted">
+        아래 사매 계좌로 입금해주세요. 사매가 입금을 확인하면 예약이 확정됩니다.
+      </p>
+      {/* 돈이 실제로 나가는 자리. "이거 믿어도 되나" 가 가장 크게 드는 순간이라
+          답으로 가는 문을 화면 안에 둔다. */}
+      <TrustLink from="booking_deposit" className="mt-2" />
+
+      {askConsent && !done && (
         <LateBookingConsent
           bookingId={bookingId}
           shootAt={shootAt}
           amountKrw={amountKrw}
           penaltyPct={latePct ?? 90}
+          {...(agreeAction ? { agreeAction } : {})}
           onAgreed={() => {
             setConsented(true);
             setAskConsent(false);
@@ -92,7 +103,11 @@ export function DepositGate({
         />
       )}
 
-      {locked ? (
+      {done ? (
+        <p className="mt-3 rounded-full bg-success-soft px-3 py-2 text-center text-xs text-success-ink">
+          ✅ 입금 완료를 알렸어요 · 사매가 확인하면 예약이 확정돼요
+        </p>
+      ) : locked ? (
         // 계좌 자리를 잠금 안내가 대신한다 — 번호가 보이면 동의 전에 송금해 버린다
         <div className="mt-3 rounded-xl bg-warning-soft p-3.5 ring-1 ring-warning/25">
           <p className="text-sm font-semibold text-warning-ink">
@@ -127,7 +142,7 @@ export function DepositGate({
       )}
 
       {/* 무엇에 동의하고 보내는지 — 입금 버튼 바로 위가 유일하게 읽히는 자리다 */}
-      {!locked && (
+      {!locked && !done && (
         <>
           <PolicyNote
             shootAt={shootAt}
@@ -160,7 +175,13 @@ export function DepositGate({
           </button>
         </>
       )}
-    </>
+
+      <p className="mt-3 text-[11px] text-faint">
+        · 받는 분 통장에 <b>예약자 본인 이름</b>으로 보내면 확인이 빨라요.
+        <br />· 촬영비는 사매가 보관했다가 촬영 후 작가에게 정산해요. 작가 개인 계좌로의 직접
+        송금은 보호받지 못해요.
+      </p>
+    </section>
   );
 }
 
