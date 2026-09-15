@@ -11,7 +11,7 @@ import type { RequestCodeState, VerifyCodeState } from "@/app/(auth)/signup/cont
 import { AgreeGate } from "@/app/(photographer)/studio/AgreeGate";
 import { PHOTOGRAPHER_AGREEMENT_VERSIONS } from "@/lib/policy-version";
 import type { BusinessType } from "@/lib/platform-fee";
-import { readFlow, resetFlow, writeFlow, EMPTY, type FlowState, type FlowStage } from "./store";
+import { readFlow, resetFlow, stagePath, writeFlow, EMPTY, type FlowState, type FlowStage } from "./store";
 
 // 샌드박스의 클라이언트 섬들 — **화면은 전부 실제 컴포넌트**이고 여기서는 액션만 갈아 끼운다.
 //
@@ -43,7 +43,8 @@ const STAGES: { key: FlowStage; label: string }[] = [
 function useGo() {
   const router = useRouter();
   return (stage: FlowStage) => {
-    router.push(`/dev/flow?stage=${stage}&next=%2Fapply`);
+    // 단계마다 사는 라우트가 다르다 — store 의 stagePath 참고
+    router.push(stagePath(stage));
     router.refresh();
   };
 }
@@ -65,40 +66,31 @@ function useFlow(): FlowState {
   return flow;
 }
 
-// ── 상단 단계 막대 ────────────────────────────────────────────
-export function FlowBar({ stage }: { stage: FlowStage }) {
+// ── 단계 이동 — **화면에 아무것도 그리지 않는다** ──────────────
+//
+// 전에는 상단에 단계 막대를 띄웠는데, 그게 지면을 밀어내서 **실제 화면과 좌표가 달라졌다.**
+// QA 의 목적이 "실제와 같은 화면을 보는 것" 인데 도구가 그걸 망치고 있었다.
+// 지금은 키보드로만 움직인다: `]` 다음 · `[` 이전 · `0` 처음으로.
+export function FlowKeys({ stage }: { stage: FlowStage }) {
   const go = useGo();
-  return (
-    <div className="fixed inset-x-0 top-0 z-50 border-b border-line bg-surface/95 backdrop-blur">
-      <div className="mx-auto flex max-w-3xl flex-wrap items-center gap-1.5 px-3 py-2.5">
-        <span className="mr-1 text-[0.65rem] font-semibold uppercase tracking-wider text-brand">
-          sandbox
-        </span>
-        {STAGES.map((s) => (
-          <button
-            key={s.key}
-            type="button"
-            onClick={() => go(s.key)}
-            className={`cursor-pointer rounded-lg px-2 py-1 text-[0.7rem] font-medium transition-colors ${
-              stage === s.key ? "bg-fg text-bg" : "bg-fg/[0.06] hover:bg-fg/10"
-            }`}
-          >
-            {s.label}
-          </button>
-        ))}
-        <button
-          type="button"
-          onClick={() => {
-            resetFlow();
-            go("intro");
-          }}
-          className="ml-auto cursor-pointer rounded-lg px-2 py-1 text-[0.7rem] text-muted underline underline-offset-2 hover:text-fg"
-        >
-          초기화
-        </button>
-      </div>
-    </div>
-  );
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      // 입력 중에는 가로채지 않는다 — 폼에 `]` 를 칠 수도 있다
+      const el = e.target as HTMLElement | null;
+      if (el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const i = STAGES.findIndex((x) => x.key === stage);
+      if (e.key === "]") go(STAGES[Math.min(i + 1, STAGES.length - 1)].key);
+      else if (e.key === "[") go(STAGES[Math.max(i - 1, 0)].key);
+      else if (e.key === "0") {
+        resetFlow();
+        go(STAGES[0].key);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [stage, go]);
+  return null;
 }
 
 // ── ① 안내 — 실제 ApplyIntro 를 그대로 받아 감싸기만 한다 ────────
@@ -126,15 +118,8 @@ export function SandboxIntroShim({ children }: { children: ReactNode }) {
 // ── ② 가입 — 실제 SignupForm, 카카오 동작만 교체 ────────────────
 export function SandboxSignupForm() {
   const go = useGo();
-  return (
-    <>
-      <SignupForm onKakaoOverride={() => go("consent")} />
-      <p className="mt-5 rounded-xl border border-dashed border-line-strong p-3 text-xs leading-relaxed text-brand">
-        샌드박스 — 이 버튼만 실제와 다릅니다. 카카오는 진짜 인가가 필요해 태울 수 없어서
-        <b> 가입됐다 치고</b> 넘어갑니다. 지면·버튼·문구는 실제 /signup 그대로예요.
-      </p>
-    </>
-  );
+  // 카카오 버튼 동작만 바꾼다. 화면에 덧붙이는 것은 없다 — 실제 /signup 과 같아야 한다.
+  return <SignupForm onKakaoOverride={() => go("consent")} />;
 }
 
 // ── ③ 약관 — 실제 ConsentBody ────────────────────────────────
@@ -179,7 +164,7 @@ export function SandboxContact() {
     fd: FormData
   ): Promise<VerifyCodeState> => {
     if (String(fd.get("code") ?? "") !== SANDBOX_OTP) {
-      return { ok: false, error: `샌드박스 인증번호는 ${SANDBOX_OTP} 입니다.` };
+      return { ok: false, error: "인증번호가 올바르지 않아요." };
     }
     const prev = readFlow();
     writeFlow({
@@ -193,11 +178,10 @@ export function SandboxContact() {
     });
     return { ok: true, error: null };
   };
+  // 인증번호는 실제 ContactForm 이 `dev 코드:` 로 스스로 보여준다(devCode 필드).
+  // 우리가 따로 안내를 덧붙이면 그만큼 실제 화면과 달라진다.
   return (
     <>
-      <p className="mx-auto max-w-sm px-6 pt-4 text-xs text-brand">
-        샌드박스 — 문자는 나가지 않습니다. 인증번호는 <b>{SANDBOX_OTP}</b>
-      </p>
       <ContactForm
         next="/apply"
         displayName="QA작가"
@@ -237,28 +221,10 @@ export function SandboxApply({ kakaoChannelUrl }: { kakaoChannelUrl: string }) {
 
 // ── ⑥ 승인 대기 — 실제 ApplyPendingBody + 운영자 역할 버튼 ──────
 export function SandboxPendingShim() {
-  const go = useGo();
   const flow = useFlow();
-  return (
-    <>
-      <ApplyPendingBody displayName={flow.application?.displayName ?? "QA작가"} />
-      <div className="mx-auto max-w-lg px-3.5 pb-10 sm:px-5">
-        <div className="rounded-2xl border border-dashed border-line-strong p-4">
-          <p className="text-xs font-semibold text-brand">샌드박스 — 운영자 역할</p>
-          <p className="mt-1 text-xs leading-relaxed text-muted">
-            실제로는 어드민이 <code>/admin/photographers</code> 에서 [승인] 을 누릅니다.
-          </p>
-          <button
-            type="button"
-            onClick={() => go("agree")}
-            className="mt-3 w-full cursor-pointer rounded-xl bg-fg py-2.5 text-sm font-semibold text-bg transition-opacity hover:opacity-90"
-          >
-            승인 처리하기
-          </button>
-        </div>
-      </div>
-    </>
-  );
+  // 실제로는 어드민이 승인해야 다음으로 간다. 그 버튼을 여기 두면 실제 화면과 달라지므로
+  // 화면에는 아무것도 덧붙이지 않고 `]` 키로 넘어간다.
+  return <ApplyPendingBody displayName={flow.application?.displayName ?? "QA작가"} />;
 }
 
 // ── ⑦ 입점 동의 — 실제 AgreeGate ─────────────────────────────
@@ -325,8 +291,7 @@ export function SandboxDone() {
       <h1 className="text-2xl font-semibold">동의 완료</h1>
       <p className="mt-2 text-sm text-muted">
         실제라면 여기서 스튜디오가 열립니다. 아래는{" "}
-        <b className="font-semibold text-fg">이번 회차에 기록됐을</b> 내용이에요 — 이 화면만
-        샌드박스 전용입니다.
+        <b className="font-semibold text-fg">이번 회차에 기록됐을</b> 내용이에요.
       </p>
 
       <Block title="가입">

@@ -82,3 +82,21 @@ export function resetFlow(): void {
 export function setStage(stage: FlowStage): void {
   writeFlow({ ...readFlow(), stage });
 }
+
+/**
+ * 단계마다 **사는 라우트가 다르다.**
+ *
+ * 실제 지면들이 서로 다른 레이아웃에 속해 있기 때문이다 —
+ *   · 안내·신청폼·승인대기  `(user)` 레이아웃 (하단 내비 + main pb-28)
+ *   · 가입·약관·연락처      `(auth)` — 레이아웃 없음(루트만)
+ *   · 입점 동의             studio/layout 이 동의 전이면 AgreeGate 만 그린다 → 루트와 같음
+ *
+ * 한 라우트에 몰아넣으면 셋 중 둘은 실제와 다른 껍데기를 쓰게 된다. 그래서 갈랐다.
+ * URL 은 달라지지만 **화면은 실제와 같아진다** — 우리가 맞춰야 하는 건 화면 쪽이다.
+ */
+const USER_STAGES: FlowStage[] = ["intro", "form", "pending", "done"];
+
+export function stagePath(stage: FlowStage): string {
+  const base = USER_STAGES.includes(stage) ? "/dev/flow" : "/dev/flow-auth";
+  return `${base}?stage=${stage}&next=%2Fapply`;
+}
