@@ -63,6 +63,7 @@ export default async function DevHubPage() {
     { href: "/admin/transactions", title: "거래와 정산", check: "④ 입금 확인 · ⑥ 정산 · ⑦ 환불 잠김 · ⑧ 송금 전 블록", live: true },
     { href: "/admin/support", title: "접수함", check: "⑦ 에서 [작가 합의 확인] → 거래 화면의 [환불] 이 열린다", live: true },
     { href: "/admin/photographers", title: "작가 관리", check: "신청 승인 · 수수료 설정", live: true },
+    { href: "/admin/withholding", title: "지급명세서", check: "원천징수 신고 대상 · CSV 내려받기(주민번호 열람은 로그가 남는다)", live: true },
     { href: "/dev/refund-test", title: "환불 알림 쏘기", check: "진짜 경로로 디스코드 발송. `?undo=` 로 되돌린다", live: true },
   ];
 
@@ -136,6 +137,10 @@ export default async function DevHubPage() {
           <li>3. 작가 시점(/studio)에서 연락처 보내기 → 고객 창에서 받기</li>
           <li>4. 고객 창에서 [사매에 문의 → 환불] → 디스코드 알림이 오는가</li>
           <li>5. 어드민 접수함에서 [작가 합의 확인] → 거래에서 [환불] → [송금 완료로 기록]</li>
+          <li>
+            6. 원천징수까지 보려면 — 작가 프로필에서 사업자 유형을 <b>미등록</b>으로 두고
+            주민번호를 넣은 뒤, 어드민에서 ⑥ 건을 <b>정산</b>하면 지급명세서에 잡힌다
+          </li>
         </ol>
         <p className="mt-2 text-caption text-faint">
           자세한 확인 항목은 <code>docs/36-photographer-flow-qa.md</code>
