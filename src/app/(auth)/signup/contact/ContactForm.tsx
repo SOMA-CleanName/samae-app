@@ -99,11 +99,14 @@ export default function ContactForm({
   }, [verState, next, router, onDone]);
 
   return (
-    <main className="mx-auto flex min-h-[100svh] w-full max-w-sm flex-col bg-surface px-6 pb-8 pt-4 font-kr">
+    // ⚠️ 이 지면만 `bg-surface`(흰 기둥) + `min-h-[100svh]` 를 쓰고 있었다. 페이지 배경이
+    //    회색이라 **가운데 흰 띠에 좌우 회색 여백**이 생겨, 같은 흐름의 다른 화면
+    //    (/signup/consent · /apply)과 혼자 달라 보였다. 형제 지면과 같은 껍데기로 맞춘다.
+    <main className="mx-auto flex max-w-md flex-col px-5 py-12 font-kr">
       {/* 필수 단계라 뒤로가기 없음 — 헤드라인·폼을 상단에 붙여 키보드에 안 가리게 */}
-      <div className="mt-12">
+      <div>
         <p className="font-display text-xl italic text-brand-ink">samae</p>
-        <h1 className="mt-4 whitespace-pre-line text-[1.75rem] font-bold leading-[1.3] tracking-tight">
+        <h1 className="mt-4 whitespace-pre-line text-h1 font-bold leading-[1.3] tracking-tight">
           {`${displayName ? `${displayName}님,\n` : ""}거의 다 왔어요`}
         </h1>
         <p className="mt-3 text-body-sm leading-relaxed text-muted">
