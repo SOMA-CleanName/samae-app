@@ -41,6 +41,17 @@ export async function submitPhotographerApplication(
   // service_role 로 삽입 (RLS: 운영자만 조회). 본인 계정(profile_id) 에 연결.
   const admin = createAdminClient();
 
+  // 이미 인증한 번호가 있으면 **그걸 쓴다.** 화면이 보내는 값은 믿지 않는다 —
+  // 입력란을 숨긴 대신 hidden 으로 실어 보내는데, 그건 얼마든지 고쳐 보낼 수 있다.
+  // 인증을 거친 번호(profiles.phone)가 있으면 그게 진실이다.
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("phone")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (profile?.phone) formData.set("phone", profile.phone);
+
+
   // 처리 전(new·contacted) 신청이 이미 있으면 중복 접수 막기
   const { data: open } = await admin
     .from("photographer_applications")

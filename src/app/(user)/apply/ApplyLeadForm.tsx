@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui";
 import { submitPhotographerApplication } from "./actions";
 import { ApplySubmitted } from "./ApplySubmitted";
@@ -55,17 +56,37 @@ export function ApplyLeadForm({
         hint="작업을 볼 수 있는 링크를 남겨주세요."
         error={state.fieldErrors?.portfolioUrl}
       />
-      <Field
-        name="phone"
-        label="전화번호"
-        required
-        type="tel"
-        inputMode="tel"
-        placeholder="010-1234-5678"
-        defaultValue={defaultPhone}
-        hint={defaultPhone ? "가입할 때 받은 번호예요. 다른 번호로 연락받으려면 고쳐주세요." : undefined}
-        error={state.fieldErrors?.phone}
-      />
+      {/* 이미 인증한 번호가 있으면 **입력란을 띄우지 않는다.**
+          가입 때 카카오 동의나 문자 인증으로 받아 둔 번호를 또 치게 할 이유가 없다.
+          서버도 화면이 보낸 값을 믿지 않고 profiles.phone 을 쓴다(actions.ts) — 고쳐도
+          반영되지 않는 입력란을 두면 그게 거짓말이 된다. */}
+      {defaultPhone ? (
+        <div className="flex flex-col gap-2">
+          <span className="text-body-sm font-semibold">전화번호</span>
+          <div className="flex items-center gap-2.5 rounded-xl border border-line bg-surface-2 px-3.5 py-3">
+            <CheckBadge />
+            <span className="text-body tabular-nums">{formatPhone(defaultPhone)}</span>
+            <span className="ml-auto text-caption text-muted">인증됨</span>
+          </div>
+          <p className="text-caption leading-relaxed text-muted">
+            가입할 때 인증한 번호예요. 바꾸려면{" "}
+            <Link href="/settings" className="underline underline-offset-2 hover:text-fg">
+              계정 설정
+            </Link>
+            에서 변경해주세요.
+          </p>
+        </div>
+      ) : (
+        <Field
+          name="phone"
+          label="전화번호"
+          required
+          type="tel"
+          inputMode="tel"
+          placeholder="010-1234-5678"
+          error={state.fieldErrors?.phone}
+        />
+      )}
 
       <div className="flex flex-col gap-2">
         <label htmlFor="bio" className="flex items-center gap-1.5 text-body-sm font-semibold">
@@ -142,5 +163,23 @@ function Field({
         <p className="text-caption leading-relaxed text-muted">{hint}</p>
       ) : null}
     </div>
+  );
+}
+
+/** 010-1234-5678 로 보기 좋게 — 저장은 숫자만 한다 */
+function formatPhone(raw: string): string {
+  const d = raw.replace(/\D/g, "");
+  if (d.length === 11) return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+  if (d.length === 10) return `${d.slice(0, 3)}-${d.slice(3, 6)}-${d.slice(6)}`;
+  return raw;
+}
+
+function CheckBadge() {
+  return (
+    <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-success-soft text-success-ink">
+      <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth={3.5}>
+        <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </span>
   );
 }
