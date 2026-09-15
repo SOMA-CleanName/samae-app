@@ -252,6 +252,43 @@ export async function notifyOpsNewApplication(params: {
 }
 
 /**
+ * 작가 입점 동의 완료 — **여기서부터 계약이 시작된다.**
+ *
+ * 신청 접수(notifyOpsNewApplication)와 승인은 운영이 직접 하는 일이라 이미 알고 있지만,
+ * **동의는 작가가 언제 누를지 모른다.** 그 시점이 계약일이고, 그때부터 사진을 올리고
+ * 의뢰를 받는다. 운영이 모르고 지나가면 "언제부터 활동 중인지" 를 나중에 되짚어야 한다.
+ *
+ * 사업자 유형을 같이 싣는 이유 — 정산 방식이 여기서 갈린다(미등록이면 3.3% 원천징수).
+ * 세금계산서·지급명세서 준비가 유형에 따라 달라서, 동의 시점에 알아야 뒤늦게 안 바뀐다.
+ */
+export async function notifyOpsPhotographerAgreed(params: {
+  photographerId: string;
+  displayName: string;
+  legalName: string;
+  businessType: string;
+  businessNo: string | null;
+  promoConsent: boolean;
+  contractVersion: string;
+}): Promise<void> {
+  const ref = params.photographerId.slice(0, 8);
+  const TYPE_LABEL: Record<string, string> = {
+    general: "일반과세자",
+    simplified: "간이과세자",
+    unregistered: "사업자 미등록 (정산 시 3.3% 원천징수)",
+  };
+  await postDiscord(APPLICATION_WEBHOOK, [
+    `✍️ **입점 계약 동의 완료** — ${params.displayName} 작가  (ID \`${ref}\`)`,
+    `• 계약 당사자: ${params.legalName}`,
+    `• 사업자 유형: ${TYPE_LABEL[params.businessType] ?? params.businessType}` +
+      (params.businessNo ? ` · ${params.businessNo}` : ""),
+    `• 홍보 사용 동의: ${params.promoConsent ? "동의" : "미동의"}`,
+    `• 계약 버전: ${params.contractVersion}`,
+    "",
+    "오늘이 계약일입니다. 이제부터 사진 게재와 의뢰 수신이 가능해요.",
+  ]);
+}
+
+/**
  * 작가 [정산 못 받았어요] — 사매가 보냈다고 기록했는데 작가는 받지 못한 건.
  *
  * 돈이 어디서 멈췄는지 아는 사람이 아무도 없는 상태라 **사람이 봐야 한다.**

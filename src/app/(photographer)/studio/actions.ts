@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { mpTrackServer } from "@/lib/mixpanel-server";
+import { notifyOpsPhotographerAgreed } from "@/lib/ops-alert";
 import { notifyOpsDepositReported } from "@/lib/ops-alert";
 
 // 최저가·가격 상한 (350만원)
@@ -375,6 +376,17 @@ export async function agreePhotographerContract(formData: FormData): Promise<voi
     agreed_at: now,
   });
   if (error) throw new Error("동의를 기록하지 못했어요. 다시 시도해주세요.");
+
+  // 운영에 알린다 — 동의 시점이 곧 계약일이고, 사업자 유형에 따라 정산 준비가 갈린다
+  await notifyOpsPhotographerAgreed({
+    photographerId: me.photographer.id,
+    displayName: me.photographer.displayName,
+    legalName,
+    businessType,
+    businessNo,
+    promoConsent,
+    contractVersion: PHOTOGRAPHER_AGREEMENT_VERSIONS.contract,
+  });
 
   await mpTrackServer("Agree Photographer Contract", me.id, {
     contract_version: PHOTOGRAPHER_AGREEMENT_VERSIONS.contract,

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
 import { Button } from "@/components/ui";
 
 // 신청 접수 완료 — **두 자리에서 같은 화면을 쓴다.**
@@ -13,7 +12,16 @@ import { Button } from "@/components/ui";
 // **같은 상태인데 두 번 다르게 보였다.** 하나로 합친다.
 //
 // 승인 전에는 스튜디오가 열리지 않는다(작가 행이 없어 프로필 탭에 [스튜디오]가 안 생긴다).
-// 그래서 여기서 할 일은 하나뿐이다: 카카오 채널로 메시지 보내기. 그게 끝나면 홈으로 보낸다.
+// 그래서 여기서 할 일은 하나뿐이다: **카카오 채널로 메시지 보내기.**
+//
+// ⚠️ 이건 선택이 아니라 **필수**다. 카카오 채널은 **사용자가 먼저 말을 걸어야** 우리가
+//    답할 수 있다(채널 정책). 작가가 안 보내면 승인이 나도 연락할 수단이 없다 —
+//    전에는 "조금 더 빠르게 받아보려면 ... 안 보내셔도 검토는 진행돼요" 라고 적어서
+//    안 해도 되는 일처럼 보였다. 그러면 연락 못 하는 신청이 쌓인다.
+//
+//    다만 **보냈는지 우리가 확인할 방법은 없다**(채널 대화는 우리 DB 밖이다). 그래서
+//    기술적으로 막는 대신, 보냈다고 확인해야 다음으로 넘어가게 한다. 억지로 막으면
+//    빠져나갈 길 없는 화면이 되고, 확인 버튼은 "안 했다" 는 사실을 본인이 알게 한다.
 
 export function ApplySubmitted({
   displayName,
@@ -24,6 +32,8 @@ export function ApplySubmitted({
 }) {
   const message = `${displayName} 작가 등록 요청합니다.`;
   const [copied, setCopied] = useState(false);
+  const [opened, setOpened] = useState(false); // 채널을 열어는 봤는가 (문구만 바꾼다)
+  const [sent, setSent] = useState(false); // 보냈다고 본인이 확인했는가
 
   async function copy() {
     try {
@@ -54,56 +64,78 @@ export function ApplySubmitted({
         </p>
       </section>
 
-      {/* 남은 한 가지 — 채널로 메시지 보내기 */}
-      <section className="rounded-2xl border border-line p-5">
-        <p className="text-body font-semibold">조금 더 빠르게 받아보려면</p>
+      {/* 마지막 필수 단계 — 채널 메시지. 이게 없으면 우리가 연락할 수단이 없다 */}
+      <section className="rounded-2xl border border-brand/30 bg-brand-soft p-5">
+        <p className="text-label uppercase tracking-wide text-brand-ink">마지막 단계 · 필수</p>
+        <p className="mt-2 text-body font-semibold">카카오 채널로 이 메시지를 보내주세요</p>
         <p className="mt-1.5 text-body-sm leading-relaxed text-muted">
-          카카오 채널로 아래 메시지를 보내주시면 운영자가 먼저 확인해요. 안 보내셔도 검토는 진행돼요.
+          카카오 채널은 <b className="font-semibold text-fg">작가님이 먼저 말을 걸어야</b> 저희가
+          답할 수 있어요. 안 보내시면 승인이 나도 연락드릴 방법이 없어요.
         </p>
 
-        <div className="mt-4 flex flex-col gap-2.5">
-          <div className="flex items-stretch gap-2">
-            <p className="min-w-0 flex-1 truncate rounded-xl border border-line bg-surface-2 px-3.5 py-3 text-body-sm">
-              {message}
-            </p>
-            <button
-              type="button"
-              onClick={copy}
-              className="shrink-0 cursor-pointer rounded-xl border border-line-strong bg-surface px-4 text-body-sm font-semibold transition-colors hover:bg-surface-2"
-            >
-              {copied ? "복사됨" : "복사"}
-            </button>
-          </div>
-
-          {kakaoChannelUrl ? (
-            <a
-              href={kakaoChannelUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#FEE500] px-4 py-3.5 text-body-sm font-semibold text-[#191600] transition hover:opacity-90"
-            >
-              <KakaoIcon />
-              카카오 채널 열기
-            </a>
-          ) : (
-            <p className="rounded-xl bg-surface-2 px-4 py-3.5 text-center text-body-sm text-faint">
-              채널 링크 준비중
-            </p>
-          )}
+        <div className="mt-4 flex items-stretch gap-2">
+          <p className="min-w-0 flex-1 truncate rounded-xl border border-line bg-surface px-3.5 py-3 text-body-sm">
+            {message}
+          </p>
+          <button
+            type="button"
+            onClick={copy}
+            className="shrink-0 cursor-pointer rounded-xl border border-line-strong bg-surface px-4 text-body-sm font-semibold transition-colors hover:bg-surface-2"
+          >
+            {copied ? "복사됨" : "복사"}
+          </button>
         </div>
+
+        {kakaoChannelUrl ? (
+          <a
+            href={kakaoChannelUrl}
+            target="_blank"
+            rel="noreferrer"
+            onClick={() => setOpened(true)}
+            className="mt-2.5 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#FEE500] px-4 py-3.5 text-body-sm font-semibold text-[#191600] transition hover:opacity-90"
+          >
+            <KakaoIcon />
+            카카오 채널 열고 보내기
+          </a>
+        ) : (
+          <p className="mt-2.5 rounded-xl bg-surface px-4 py-3.5 text-center text-body-sm text-danger-ink">
+            채널 링크가 설정되지 않았어요. 운영자에게 알려주세요.
+          </p>
+        )}
       </section>
 
-      <div className="flex flex-col gap-2.5">
-        <Button href="/" variant="secondary" size="lg" fullWidth>
-          홈으로 돌아가기
-        </Button>
-        <p className="text-center text-caption text-muted">
-          결과는 카카오로 알려드려요.{" "}
-          <Link href="/terms/fees" className="underline underline-offset-2 hover:text-fg">
-            수수료·정산 정책
-          </Link>
-          을 미리 읽어두셔도 좋아요.
-        </p>
+      {/* 보냈다고 확인해야 홈으로 넘어간다 — 우리가 확인할 방법이 없으니 본인이 짚게 한다 */}
+      <div className="flex flex-col gap-3">
+        <label className="flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            checked={sent}
+            onChange={(e) => setSent(e.target.checked)}
+            className="mt-0.5 h-[18px] w-[18px] shrink-0 accent-brand"
+          />
+          <span className="text-body-sm leading-relaxed text-muted">
+            카카오 채널로 메시지를 <b className="font-semibold text-fg">보냈어요</b>
+          </span>
+        </label>
+
+        {/* Button 은 href 가 있으면 <Link> 라 disabled 를 못 받는다 —
+            잠긴 동안은 링크가 아예 아니어야 키보드·새 탭으로도 못 빠져나간다 */}
+        {sent ? (
+          <Button href="/" variant="secondary" size="lg" fullWidth>
+            홈으로 돌아가기
+          </Button>
+        ) : (
+          <Button type="button" variant="secondary" size="lg" fullWidth disabled>
+            홈으로 돌아가기
+          </Button>
+        )}
+        {!sent && (
+          <p className="text-center text-caption text-muted">
+            {opened
+              ? "메시지를 보내셨다면 위를 체크해주세요."
+              : "채널로 메시지를 보낸 뒤 위를 체크해주세요."}
+          </p>
+        )}
       </div>
     </div>
   );
