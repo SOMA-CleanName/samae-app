@@ -22,9 +22,10 @@ export function shootInDays(n: number): string {
   return `${ymd}T14:00:00+09:00`;
 }
 
-export function daysAgo(n: number): string {
+export function daysAgo(n: number, minutes = 0): string {
   const d = new Date();
   d.setDate(d.getDate() - n);
+  d.setMinutes(d.getMinutes() - minutes);
   return d.toISOString();
 }
 
