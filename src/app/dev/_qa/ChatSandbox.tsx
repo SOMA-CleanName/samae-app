@@ -72,11 +72,32 @@ export function ChatSandbox({ stage }: { stage: string }) {
       sendBotTurn: async () => ({ ok: true }) as never,
       sendPortfolioPhoto: async () => {},
       track: () => {},
-      acceptBooking: async () => {},
-      rejectBooking: async () => {},
-      cancelBooking: async () => {},
-      agreeLateBooking: async () => {},
-      markTransferSent: async () => {},
+      // BookingCard 는 낙관적으로 먼저 반영하지만(setActed), 뒤이어 방이 다시 그려지면
+      // 그 state 가 날아간다. 예약 자체를 옮겨 놔야 카드가 되돌아가지 않는다.
+      //
+      // 수락은 다이얼로그를 여는 payFor state 도 같이 날리는데, 그래도 창은 뜬다 —
+      // pendingPay 가 `accepted && !transfer_marked_at` 에서 파생되기 때문이다(실제와 같다).
+      acceptBooking: async () => {
+        bump({ status: "accepted" });
+      },
+      rejectBooking: async () => {
+        bump({ status: "rejected" });
+      },
+      cancelBooking: async () => {
+        bump({ status: "cancelled" });
+      },
+
+      // 임박 예약 동의 — AcceptPayDialog 는 자체 state 로도 넘어가지만, 예약에 남겨야
+      // 다음에 이 방을 다시 그릴 때 "이미 동의함" 으로 보인다
+      agreeLateBooking: async () => {
+        bump({ late_booking_consent_at: new Date().toISOString() });
+      },
+      // [입금 완료] — 여기서 예약을 안 고치면 다이얼로그만 닫히고 아무 일도 안 일어난다.
+      // 게다가 pendingPay 가 `accepted && !transfer_marked_at` 이라 창이 곧바로 다시 뜬다.
+      markTransferSent: async () => {
+        bump({ transfer_marked_at: new Date().toISOString() });
+      },
+
       submitSupportRequest: async () => {},
       getCustomerRefundQuote: async () => null,
 
