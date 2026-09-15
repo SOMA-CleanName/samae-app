@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { AuthShell } from "@/app/(auth)/AuthShell";
-import { SignupFooter, SignupHeadline } from "@/app/(auth)/signup/SignupForm";
+import { SignupFooter, SignupForm, SignupHeadline } from "@/app/(auth)/signup/SignupForm";
 import { TERMS_VERSION } from "@/lib/policy-version";
 import {
   FlowKeys,
   SandboxAgree,
   SandboxConsent,
   SandboxContact,
-  SandboxSignupForm,
 } from "../_flow/FlowSandbox";
 import type { FlowStage } from "../_flow/store";
 
@@ -55,11 +54,11 @@ export default async function DevFlowAuthPage({
       {/* 화면에 아무것도 그리지 않는다 — ] 다음 · [ 이전 · 0 처음 */}
       <FlowKeys stage={stage} />
 
-      {/* 가입 — 실제 /signup 지면 그대로(AuthShell + 사진 벽 + 헤드라인 + 푸터).
-          카카오 버튼 동작만 갈아 끼운다(진짜 인가는 샌드박스가 태울 수 없다). */}
+      {/* 가입 — 실제 /signup 지면 **그대로**. 감싸는 것도 갈아 끼우는 것도 없다.
+          카카오 버튼은 진짜 OAuth 로 나가고, 돌아오면 ?next(=/apply)로 간다. */}
       {stage === "signup" && (
         <AuthShell header={<SignupHeadline />} footer={<SignupFooter />}>
-          <SandboxSignupForm />
+          <SignupForm />
         </AuthShell>
       )}
       {stage === "consent" && <SandboxConsent termsVersion={TERMS_VERSION} />}

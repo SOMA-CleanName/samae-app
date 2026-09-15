@@ -21,7 +21,7 @@ const EMAIL_SIGNUP_ENABLED = false;
 
 // 회원가입 폼 — 카카오 소셜 (이메일 가입은 SMTP 준비 후).
 // 이메일 인증 ON이면 가입 후 확인 메일 안내, OFF면 즉시 로그인.
-export function SignupForm({ onKakaoOverride }: { onKakaoOverride?: () => void } = {}) {
+export function SignupForm() {
   const router = useRouter();
   const supabase = createClient();
   const [name, setName] = useState("");
@@ -57,9 +57,6 @@ export function SignupForm({ onKakaoOverride }: { onKakaoOverride?: () => void }
     typeof window !== "undefined" ? `${location.origin}/login?verified=1` : "/login?verified=1";
 
   async function onKakao() {
-    // /dev/flow(샌드박스) 전용 — 카카오는 진짜 인가가 필요해 샌드박스가 태울 수 없다.
-    // 화면은 실제 그대로 두고 이 한 줄만 갈아 끼운다.
-    if (onKakaoOverride) return onKakaoOverride();
     setError(null);
     setKakaoLoading(true);
     mpTrack("Start Kakao Login", { context: "signup" });

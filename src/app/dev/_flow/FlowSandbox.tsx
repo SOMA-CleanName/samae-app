@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { ApplyFormBody, ApplyPendingBody } from "@/app/(user)/apply/ApplyBodies";
 import { applyFieldErrors, parseApplyForm, type ApplyLeadState } from "@/app/(user)/apply/schema";
 import { ConsentBody } from "@/app/(auth)/signup/consent/ConsentBody";
-import { SignupForm } from "@/app/(auth)/signup/SignupForm";
 import ContactForm from "@/app/(auth)/signup/contact/ContactForm";
 import type { RequestCodeState, VerifyCodeState } from "@/app/(auth)/signup/contact/actions";
 import { AgreeGate } from "@/app/(photographer)/studio/AgreeGate";
@@ -115,12 +114,9 @@ export function SandboxIntroShim({ children }: { children: ReactNode }) {
   );
 }
 
-// ── ② 가입 — 실제 SignupForm, 카카오 동작만 교체 ────────────────
-export function SandboxSignupForm() {
-  const go = useGo();
-  // 카카오 버튼 동작만 바꾼다. 화면에 덧붙이는 것은 없다 — 실제 /signup 과 같아야 한다.
-  return <SignupForm onKakaoOverride={() => go("consent")} />;
-}
+// ② 가입은 샌드박스가 감싸지 않는다 — 실제 SignupForm 을 페이지가 직접 쓴다.
+//    카카오 버튼도 **진짜 OAuth 로 나간다**(온보딩 문서용 실제 화면 촬영 때문).
+//    돌아오는 곳은 ?next 가 정한다(=/apply) — 그때부터는 실제 흐름이다.
 
 // ── ③ 약관 — 실제 ConsentBody ────────────────────────────────
 export function SandboxConsent({ termsVersion }: { termsVersion: string }) {
