@@ -28,6 +28,8 @@ export function AcceptPayDialog({
   lateBookingConsentAt = null,
   account: preloaded,
   onClose,
+  markPaidAction = markTransferSent,
+  agreeAction,
 }: {
   bookingId: string;
   amountKrw: number;
@@ -40,6 +42,10 @@ export function AcceptPayDialog({
    *  없으면 창이 열리자마자 "계좌 불러오는 중…" 이 깜빡인다. */
   account?: PayoutAccount | null;
   onClose: () => void;
+  /** 입금 완료를 기록하는 액션. 기본은 진짜 서버 액션, 샌드박스만 갈아 끼운다 */
+  markPaidAction?: (formData: FormData) => Promise<void>;
+  /** 임박 예약 동의 액션 — 그대로 LateBookingConsent 로 내려간다 */
+  agreeAction?: (formData: FormData) => Promise<void>;
 }) {
   const router = useRouter();
   const [fetched, setFetched] = useState<PayoutAccount | null>(null);
@@ -64,7 +70,7 @@ export function AcceptPayDialog({
     const fd = new FormData();
     fd.set("id", bookingId);
     startSend(async () => {
-      await markTransferSent(fd);
+      await markPaidAction(fd);
       router.refresh();
       onClose();
     });
@@ -102,6 +108,7 @@ export function AcceptPayDialog({
         shootAt={shootAt}
         amountKrw={amountKrw}
         penaltyPct={latePct ?? 90}
+        {...(agreeAction ? { agreeAction } : {})}
         onAgreed={() => setConsented(true)}
         onCancel={onClose}
       />

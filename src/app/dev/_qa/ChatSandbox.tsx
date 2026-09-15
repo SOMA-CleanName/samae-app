@@ -40,6 +40,10 @@ const SANDBOX_IO: ChatIO = {
   acceptBooking: async () => {},
   rejectBooking: async () => {},
   cancelBooking: async () => {},
+  agreeLateBooking: async () => {},
+  markTransferSent: async () => {},
+  submitSupportRequest: async () => {},
+  getCustomerRefundQuote: async () => null,
   realtime: false,
 };
 

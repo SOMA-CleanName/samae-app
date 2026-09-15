@@ -455,6 +455,8 @@ export function ChatRoom({
           shootAt={payDialogFor.shoot_at}
           shootDate={payDialogFor.shoot_date}
           lateBookingConsentAt={payDialogFor.late_booking_consent_at ?? null}
+          markPaidAction={io.markTransferSent}
+          agreeAction={io.agreeLateBooking}
           account={payoutAccount ?? null}
           onClose={() => {
             setPayFor(null);
@@ -1498,11 +1500,22 @@ function BookingCard({
           고객에게만 둔다. 작가는 이미 사매와 카톡으로 이어져 있어(정산도 그렇게 오간다)
           서비스 안에 창구를 하나 더 만들면 어디로 말해야 할지만 헷갈린다. */}
       {amCustomer && (paidMarked || ["paid", "shot"].includes(status)) && (
-        <SupportButton bookingId={booking.id} conversationId={conversationId} />
+        <SupportButton
+          bookingId={booking.id}
+          conversationId={conversationId}
+          submitAction={io.submitSupportRequest}
+          quoteAction={io.getCustomerRefundQuote}
+        />
       )}
       {/* 작가: 입금 후 촬영 취소는 사매에 접수한다 — 전액 환불·수수료 청구가 걸린 사안 (취소환불 8조) */}
       {amPhotographer && ["paid", "shot"].includes(status) && (
-        <SupportButton bookingId={booking.id} conversationId={conversationId} role="photographer" />
+        <SupportButton
+          bookingId={booking.id}
+          conversationId={conversationId}
+          role="photographer"
+          submitAction={io.submitSupportRequest}
+          quoteAction={io.getCustomerRefundQuote}
+        />
       )}
 
       {!paidMarked && ((amProposer && status === "requested") || status === "accepted") && (

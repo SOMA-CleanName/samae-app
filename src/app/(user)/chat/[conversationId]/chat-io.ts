@@ -12,6 +12,9 @@
 import { sendMessage, markRead, sendPortfolioPhoto } from "../actions";
 import { sendBotTurn } from "../bot-actions";
 import { acceptBooking, rejectBooking, cancelBooking } from "@/app/actions/bookings";
+import { agreeLateBooking, markTransferSent } from "@/app/actions/payments";
+import { submitSupportRequest } from "@/app/actions/support";
+import { getCustomerRefundQuote, type CustomerRefundQuote } from "@/app/actions/refund-quote";
 import { mpTrack } from "@/lib/mixpanel";
 
 export type ChatIO = {
@@ -23,6 +26,13 @@ export type ChatIO = {
   acceptBooking: (formData: FormData) => void | Promise<void>;
   rejectBooking: (formData: FormData) => void | Promise<void>;
   cancelBooking: (formData: FormData) => void | Promise<void>;
+  // 결제 팝업(AcceptPayDialog)이 부르는 둘. 여기까지 갈아 끼우지 않으면 샌드박스에서
+  // 수락 버튼을 누르는 순간 진짜 서버 액션이 나가 "로그인이 필요합니다" 로 터진다.
+  agreeLateBooking: (formData: FormData) => Promise<void>;
+  markTransferSent: (formData: FormData) => Promise<void>;
+  // [사매에 문의] — 가짜 예약에 붙은 문의가 실제 support_requests 에 쌓이면 안 된다
+  submitSupportRequest: (formData: FormData) => Promise<void>;
+  getCustomerRefundQuote: (bookingId: string) => Promise<CustomerRefundQuote | null>;
   /** Realtime 을 붙일 것인가. 샌드박스는 구독할 방이 없다 */
   realtime: boolean;
 };
@@ -36,5 +46,9 @@ export const REAL_CHAT_IO: ChatIO = {
   acceptBooking,
   rejectBooking,
   cancelBooking,
+  agreeLateBooking,
+  markTransferSent,
+  submitSupportRequest,
+  getCustomerRefundQuote,
   realtime: true,
 };
