@@ -61,7 +61,7 @@ export default async function DevFlowUserPage({
         </SandboxIntroShim>
       )}
       {stage === "form" && <SandboxApply kakaoChannelUrl={KAKAO_CHANNEL} />}
-      {stage === "pending" && <SandboxPendingShim />}
+      {stage === "pending" && <SandboxPendingShim kakaoChannelUrl={KAKAO_CHANNEL} />}
       {stage === "done" && <SandboxDone />}
     </>
   );

@@ -229,11 +229,16 @@ export function SandboxApply({ kakaoChannelUrl }: { kakaoChannelUrl: string }) {
 }
 
 // ── ⑥ 승인 대기 — 실제 ApplyPendingBody + 운영자 역할 버튼 ──────
-export function SandboxPendingShim() {
+export function SandboxPendingShim({ kakaoChannelUrl }: { kakaoChannelUrl: string }) {
   const flow = useFlow();
   // 실제로는 어드민이 승인해야 다음으로 간다. 그 버튼을 여기 두면 실제 화면과 달라지므로
   // 화면에는 아무것도 덧붙이지 않고 `]` 키로 넘어간다.
-  return <ApplyPendingBody displayName={flow.application?.displayName ?? "QA작가"} />;
+  return (
+    <ApplyPendingBody
+      displayName={flow.application?.displayName ?? "QA작가"}
+      kakaoChannelUrl={kakaoChannelUrl}
+    />
+  );
 }
 
 // ── ⑦ 입점 동의 — 실제 AgreeGate ─────────────────────────────
