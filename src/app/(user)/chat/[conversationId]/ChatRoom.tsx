@@ -9,6 +9,7 @@ import { KB_EXAMPLE_QUESTIONS } from "@/lib/bot-kb";
 import { BOT_DISPLAY_NAME, isHandoffNotice } from "@/lib/bot-identity";
 import { READ_HEARTBEAT_MS } from "@/lib/notification-policy";
 import { REAL_CHAT_IO, type ChatIO } from "./chat-io";
+import { contactSendGate } from "@/lib/contact-gate";
 import type { ChatMessage, BookingSnapshot, ConsultationBrief, BotSlots } from "@/lib/chat";
 import { bookingStatusLabel, type BookingStatus } from "@/lib/booking-status";
 import type { PayoutAccount } from "@/lib/payments";
@@ -918,6 +919,11 @@ export function ChatRoom({
                 <SendContactMenuItem
                   bookingId={contactTarget.id}
                   sentAt={contactTarget.contact_sent_at}
+                  gate={contactSendGate({
+                    status: contactTarget.status,
+                    shootAt: contactTarget.shoot_at,
+                    shootDate: contactTarget.shoot_date,
+                  })}
                   sendAction={io.sendPhotographerContact}
                   onDone={() => setOptionsOpen(false)}
                   icon={<UserIcon className="h-5 w-5 text-muted" />}
@@ -1404,6 +1410,11 @@ function BookingCard({
           bookingId={booking.id}
           sentAt={booking.contact_sent_at}
           deliveredAt={booking.contact_delivered_at}
+          gate={contactSendGate({
+            status,
+            shootAt: booking.shoot_at,
+            shootDate: booking.shoot_date,
+          })}
           sendAction={io.sendPhotographerContact}
         />
       )}

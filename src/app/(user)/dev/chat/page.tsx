@@ -15,11 +15,11 @@ export const dynamic = "force-dynamic";
 export default async function DevChatPage({
   searchParams,
 }: {
-  searchParams: Promise<{ stage?: string }>;
+  searchParams: Promise<{ stage?: string; role?: string }>;
 }) {
-  const { stage } = await searchParams;
+  const { stage, role } = await searchParams;
   // key 로 단계마다 새로 마운트한다 — 앞 단계에서 눌러 둔 상태(연락처 전달·일정 변경)가
   // 남으면 다음 단계를 처음 보는 화면이 아니게 된다
   const s = stage ?? "late";
-  return <ChatSandbox key={s} stage={s} />;
+  return <ChatSandbox key={`${s}-${role ?? ""}`} stage={s} role={role} />;
 }

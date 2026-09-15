@@ -18,7 +18,7 @@ export const QA_CONTACTS = [
   { id: "c2", kind: "instagram", value: "kim_photo" },
 ];
 
-export type QaStage = "late" | "normal" | "revisit" | "marked" | "paid";
+export type QaStage = "late" | "normal" | "revisit" | "marked" | "paid" | "paid-early";
 
 /**
  * 단계별 예약 스냅샷.
@@ -26,11 +26,13 @@ export type QaStage = "late" | "normal" | "revisit" | "marked" | "paid";
  * `late`/`normal`  수락 대기 — 촬영까지 3일 / 20일
  * `revisit`        수락만 하고 나간 방 (입금 전)
  * `marked`         고객이 [입금 완료] 를 누름 — 사매 확인 대기
- * `paid`           사매가 입금을 확인함 — 연락처·일정 변경이 열리는 구간
+ * `paid`           사매가 입금을 확인함 · 촬영 5일 뒤 — 연락처가 열린 구간
+ * `paid-early`     같은 상태인데 촬영 30일 뒤 — 연락처가 아직 닫힌 구간 (HANDOFF §3-1)
  */
 export function qaBooking(stage: QaStage): BookingSnapshot {
-  const paid = stage === "paid";
-  const daysUntil = stage === "normal" ? 20 : paid ? 12 : 3;
+  const paid = stage === "paid" || stage === "paid-early";
+  // paid 는 촬영 5일 뒤 — 연락처 전달이 열리는 구간이어야 그 흐름을 볼 수 있다(HANDOFF §3-1)
+  const daysUntil = stage === "normal" ? 20 : stage === "paid-early" ? 30 : paid ? 5 : 3;
 
   return {
     id: `qa-booking-${stage}`,

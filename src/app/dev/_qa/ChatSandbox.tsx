@@ -31,10 +31,11 @@ const STAGES: { key: QaStage; label: string }[] = [
   { key: "normal", label: "② 여유 예약(20일 뒤) 제안 도착 — 수락하면 바로 계좌" },
   { key: "revisit", label: "③ 수락만 하고 나갔다 돌아온 방 — 자동으로 다시 뜬다" },
   { key: "marked", label: "④ 입금 완료를 누른 뒤 — 사매 확인 대기" },
-  { key: "paid", label: "⑤ 입금 확인됨 — 연락처 전달 · 일정 변경 (r 로 역할 전환)" },
+  { key: "paid", label: "⑤ 입금 확인됨 · 촬영 5일 뒤 — 연락처 열림 (r 로 역할 전환)" },
+  { key: "paid-early", label: "⑥ 입금 확인됨 · 촬영 30일 뒤 — 연락처 아직 닫힘" },
 ];
 
-export function ChatSandbox({ stage }: { stage: string }) {
+export function ChatSandbox({ stage, role }: { stage: string; role?: string }) {
   const router = useRouter();
   const key = (STAGES.find((s) => s.key === stage) ?? STAGES[0]).key;
 
@@ -45,7 +46,7 @@ export function ChatSandbox({ stage }: { stage: string }) {
    * 옮기는 순간 방이 새로 마운트돼 **보낸 사실이 사라지고**, 고객은 받을 카드를 영영 못 본다.
    * 같은 방에서 시점만 바꿔야 "보냈다 → 받는다" 가 이어진다. 일정 변경도 같다.
    */
-  const [amPhotographer, setAmPhotographer] = useState(false);
+  const [amPhotographer, setAmPhotographer] = useState(role === "photographer");
 
   // 스텁이 고쳐 나가는 예약 상태. 단계를 옮기면 page.tsx 가 key 로 이 컴포넌트를
   // 새로 마운트하므로 여기서 따로 비울 필요가 없다.

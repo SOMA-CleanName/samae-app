@@ -46,6 +46,7 @@ export default async function DevHubPage() {
 
   const customer: Item[] = [
     { href: "/dev/chat?stage=late", title: "채팅 — 결제 팝업 (샌드박스)", check: "수락 → 임박 동의 → 계좌 → 입금완료. `]` `[` 로 단계, `r` 로 역할" },
+    { href: "/dev/chat?stage=paid&role=photographer", title: "채팅 — 연락처·일정 변경 (샌드박스)", check: "촬영 5일 뒤라 [연락처 보내기]가 열려 있다. ⑥단계(30일)는 닫혀 있다" },
     { href: "/dev/pay?stage=late", title: "예약 상세 — 결제 구간 (샌드박스)", check: "임박이면 계좌가 가려지는가. 알림 링크가 전부 이쪽이다" },
     ...(chat ? [{ href: chat, title: "실제 채팅방 — 깔린 예약 8건", check: "①~⑧ 카드가 순서대로 선다. 여기서 실제로 수락·결제한다", live: true }] : []),
     { href: "/bookings", title: "내 예약 목록", check: "상태별 카드와 [사매에 문의] 진입", live: true },

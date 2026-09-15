@@ -75,11 +75,13 @@ const patch = (t, row) => rest("PATCH", t, row, "return=representation");
 const del = (t) => rest("DELETE", t);
 
 // ── 날짜 ────────────────────────────────────────────────
-const days = (n) => {
+// 같은 작가가 같은 시간대에 두 건을 가질 수 없다(DB exclusion 제약) —
+// 같은 날짜를 쓰는 단계가 있으므로 단계마다 시각을 벌려 준다
+const days = (n, hour = 14) => {
   const d = new Date();
   d.setDate(d.getDate() + n);
   const ymd = d.toLocaleDateString("en-CA", { timeZone: "Asia/Seoul" });
-  return `${ymd}T14:00:00+09:00`;
+  return `${ymd}T${String(hour).padStart(2, "0")}:00:00+09:00`;
 };
 const agoHours = (h) => new Date(Date.now() - h * 3600_000).toISOString();
 
@@ -118,11 +120,19 @@ const STAGE = [
   },
   {
     key: "paid",
-    label: "⑤ 입금 확인됨 · 촬영 전",
-    shootIn: 12,
+    label: "⑤ 입금 확인됨 · 촬영 5일 뒤 (연락처 열림)",
+    shootIn: 5,
     booking: { status: "paid", accepted_at: agoHours(50), transfer_marked_at: agoHours(48), paid_at: agoHours(47) },
     fee: true,
     sees: "작가: [연락처 보내기]·[일정 변경 요청] / 고객: 받기·동의",
+  },
+  {
+    key: "paid-early",
+    label: "⑨ 입금 확인됨 · 촬영 30일 뒤 (연락처 아직 닫힘)",
+    shootIn: 30,
+    booking: { status: "paid", accepted_at: agoHours(50), transfer_marked_at: agoHours(48), paid_at: agoHours(47) },
+    fee: true,
+    sees: "작가 카드에 [연락처 보내기] 대신 «촬영 7일 전부터» 안내 (HANDOFF §3-1)",
   },
   {
     key: "delivered",
@@ -210,14 +220,14 @@ async function seed() {
   const pkg = (await get(`packages?select=*&id=eq.${PACKAGE}`))[0];
 
   console.log(`무대를 세웁니다 — 고객 roleplay-customer × 작가 김재즈\n`);
-  for (const s of STAGE) {
+  for (const [i, s] of STAGE.entries()) {
     const amount = AMOUNT + TRAVEL;
     const feeKrw = Math.round(amount * FEE_RATE);
     const [b] = await insert("bookings", {
       user_id: CUSTOMER,
       photographer_id: PHOTOGRAPHER,
       package_id: PACKAGE,
-      shoot_at: days(s.shootIn),
+      shoot_at: days(s.shootIn, 9 + (i % 9)),
       duration_min: pkg?.duration_min ?? 60,
       location_text: "서울 성동구 성수동",
       amount_krw: amount,

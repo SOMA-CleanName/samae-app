@@ -31,18 +31,24 @@ export function SendContactMenuItem({
   sentAt,
   onDone,
   icon,
+  gate,
   sendAction = sendPhotographerContact,
 }: {
   bookingId: string;
   sentAt: string | null;
   onDone: () => void;
   icon: React.ReactNode;
+  /** 아직 안 열렸으면 메뉴에 아예 올리지 않는다 (HANDOFF §3-1) */
+  gate?: { allowed: boolean };
   /** 기본은 진짜 서버 액션. QA 샌드박스만 갈아 끼운다 (chat-io.ts) */
   sendAction?: (formData: FormData) => Promise<void>;
 }) {
   const router = useRouter();
   const [sending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  // 닫혀 있으면 메뉴에서 뺀다 — 이유는 예약 카드 쪽이 말한다(한 자리에서만 설명한다)
+  if (gate && !gate.allowed) return null;
 
   return (
     <>
@@ -85,11 +91,14 @@ export function SendContactCardButton({
   bookingId,
   sentAt,
   deliveredAt,
+  gate,
   sendAction = sendPhotographerContact,
 }: {
   bookingId: string;
   sentAt: string | null;
   deliveredAt: string | null;
+  /** 아직 안 열렸으면 왜 닫혀 있는지 — 버튼 자리를 이 문구가 대신한다 (HANDOFF §3-1) */
+  gate?: { allowed: boolean; notice?: string };
   /** 기본은 진짜 서버 액션. QA 샌드박스만 갈아 끼운다 (chat-io.ts) */
   sendAction?: (formData: FormData) => Promise<void>;
 }) {
@@ -107,6 +116,18 @@ export function SendContactCardButton({
     return (
       <p className="mt-3 border-t border-line pt-3 text-caption text-muted">
         연락처를 보냈습니다. 고객이 확인하면 전달됩니다.
+      </p>
+    );
+
+  // 촬영이 멀면 아직 열리지 않는다. 버튼을 그냥 감추면 "왜 없지" 가 되므로 이유를 남긴다
+  if (gate && !gate.allowed)
+    return (
+      <p className="mt-3 border-t border-line pt-3 text-caption leading-relaxed text-muted">
+        📵 {gate.notice}
+        <br />
+        <span className="text-faint">
+          촬영이 가까워지면 열려요. 그 전까지는 이 채팅에서 이야기해주세요.
+        </span>
       </p>
     );
 
