@@ -28,10 +28,12 @@ export default async function SignupContactPage({
   const supabase = await createClient();
   const { data: profile } = await supabase
     .from("profiles")
-    .select("phone")
+    .select("phone, display_name")
     .eq("id", me.id)
     .maybeSingle();
-  if (profile?.phone) redirect(next);
+  const hasName = !!(profile?.display_name as string | null)?.trim();
+  // 둘 다 있어야 통과한다 — 번호만 보고 넘기면 이름 없는 계정이 그대로 굳는다
+  if (profile?.phone && hasName) redirect(next);
 
   // 카카오 계정이면 동의 한 번으로 끝난다 — OTP(번호 입력 + 문자 6자리)는 아래 대안으로 남긴다.
   // /chat/start 가 번호 없는 사용자를 여기로 떨어뜨리므로, 상담 진입의 마찰이 곧 이 화면이다.
@@ -41,6 +43,10 @@ export default async function SignupContactPage({
     <ContactForm
       next={next}
       displayName={me.displayName ?? null}
+      // 카카오에서 닉네임을 거부하면 이름이 비어 가입된다 — 여기서 한 번 묻는다.
+      // 안 물으면 작가 화면에 "?" 로 뜬다(2026-09-16 실측).
+      needsName={!hasName}
+      hasPhone={!!profile?.phone}
       canAskKakao={canAskKakao}
       kakaoFailed={kakaoFailed}
     />

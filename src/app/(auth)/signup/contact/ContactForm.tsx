@@ -6,8 +6,10 @@ import { mpTrack } from "@/lib/mixpanel";
 import { formatPhoneInput, validateContact } from "@/lib/inquiry-bot";
 import {
   requestPhoneCode,
+  saveDisplayName,
   verifyPhoneCode,
   type RequestCodeState,
+  type SaveNameState,
   type VerifyCodeState,
 } from "./actions";
 import { CheckIcon } from "@/components/user/icons";
@@ -22,6 +24,8 @@ import { KakaoPhoneConsentButton } from "@/components/user/KakaoPhoneConsentButt
 export default function ContactForm({
   next,
   displayName,
+  needsName = false,
+  hasPhone = false,
   canAskKakao = false,
   kakaoFailed = false,
   requestAction: requestActionProp = requestPhoneCode,
@@ -30,6 +34,10 @@ export default function ContactForm({
 }: {
   next: string;
   displayName: string | null;
+  /** 표시 이름이 비어 있는가 — 카카오 닉네임을 거부하면 그렇게 된다 */
+  needsName?: boolean;
+  /** 번호는 이미 있는가 — 이름만 받으면 끝나는 경우다 */
+  hasPhone?: boolean;
   /** 카카오 재동의로 받을 수 있는가 (판정은 lib/phone-consent) */
   canAskKakao?: boolean;
   /** 카카오로 시도했는데 번호를 못 받고 되돌아왔는가 (§auth/callback 의 `kakao=nophone`) */
@@ -44,6 +52,14 @@ export default function ContactForm({
   onDone?: () => void;
 }) {
   const router = useRouter();
+  // 이름이 없으면 **이름부터**. 연락처 칸을 같이 띄우면 카카오 버튼 한 번으로 이 화면을
+  // 떠나 버려서 이름을 영영 못 받는다(2026-09-16 실측: "? 사용자" 로 가입됨).
+  const [nameSaved, setNameSaved] = useState(false);
+  const [nameState, saveNameAction, savingName] = useActionState<SaveNameState | null, FormData>(
+    saveDisplayName,
+    null
+  );
+  const askName = needsName && !nameSaved;
   const [phone, setPhone] = useState("");
   const [touched, setTouched] = useState(false);
   const [code, setCode] = useState("");
@@ -68,6 +84,18 @@ export default function ContactForm({
   useEffect(() => {
     mpTrack("View Signup Contact", { next_path: next.split("?")[0] });
   }, [next]);
+
+  // 이름을 저장했으면 연락처 단계를 연다. 번호가 이미 있으면 받을 게 없으니 바로 복귀 —
+  // 빈 연락처 화면을 한 번 더 보여줄 이유가 없다(카카오에서 번호는 주고 닉네임만 거부한 경우).
+  useEffect(() => {
+    if (!nameState?.ok) return;
+    if (hasPhone) {
+      router.replace(next);
+      router.refresh();
+      return;
+    }
+    setNameSaved(true);
+  }, [nameState?.ok, hasPhone, next, router]);
 
   // 발송 직후 — 쿨다운 시작 + 코드 입력에 포커스
   useEffect(() => {
@@ -107,19 +135,70 @@ export default function ContactForm({
       <div>
         <p className="font-display text-xl italic text-brand-ink">samae</p>
         <h1 className="mt-4 whitespace-pre-line text-h1 font-bold leading-[1.3] tracking-tight">
-          {`${displayName ? `${displayName}님,\n` : ""}거의 다 왔어요`}
+          {askName ? "어떻게 불러드릴까요?" : `${displayName ? `${displayName}님,\n` : ""}거의 다 왔어요`}
         </h1>
         <p className="mt-3 text-body-sm leading-relaxed text-muted">
-          작가님이 답장을 남기면{" "}
-          <strong className="font-semibold text-fg">카카오톡으로 알려드려요.</strong>
-          <br />
-          알림받을 연락처만 등록하면 끝이에요.
+          {askName ? (
+            <>
+              작가님께 <strong className="font-semibold text-fg">이 이름으로 보여요.</strong>
+              <br />
+              본명이 아니어도 괜찮아요.
+            </>
+          ) : (
+            <>
+              작가님이 답장을 남기면{" "}
+              <strong className="font-semibold text-fg">카카오톡으로 알려드려요.</strong>
+              <br />
+              알림받을 연락처만 등록하면 끝이에요.
+            </>
+          )}
         </p>
       </div>
 
+      {/* ── 이름 단계 ────────────────────────────────────────────────
+          카카오에서 닉네임은 **선택 동의**라 거부할 수 있고, 거부하면 display_name 이
+          빈 채로 가입된다. 그러면 작가 화면과 채팅에 "?" 로 뜬다 — 작가는 누구와
+          이야기하는지 모른 채 답장을 써야 한다(2026-09-16 실측).
+
+          연락처와 **같이 띄우지 않는다.** 나란히 두면 카카오 버튼 한 번으로 이 화면을
+          떠나 이름을 영영 못 받는다. 이름을 저장해야 아래가 열린다. */}
+      {askName && (
+        <form action={saveNameAction} className="mt-8">
+          <label htmlFor="signup-display-name" className="sr-only">
+            표시할 이름
+          </label>
+          <input
+            id="signup-display-name"
+            name="displayName"
+            type="text"
+            required
+            maxLength={20}
+            autoComplete="nickname"
+            autoFocus
+            placeholder="예: 정훈"
+            className="h-12 w-full rounded-xl border border-line bg-bg px-3.5 text-body placeholder:text-faint focus:border-fg focus:outline-none"
+          />
+          {nameState?.error && (
+            <p role="alert" className="mt-2 text-caption text-danger">
+              {nameState.error}
+            </p>
+          )}
+          <button
+            type="submit"
+            disabled={savingName}
+            className="mt-3 h-12 w-full cursor-pointer rounded-xl bg-fg text-body-sm font-semibold text-bg transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            {savingName ? "저장 중…" : "다음"}
+          </button>
+          <p className="mt-3 text-caption leading-relaxed text-faint">
+            나중에 계정 설정에서 언제든 바꿀 수 있어요.
+          </p>
+        </form>
+      )}
+
       {/* 카카오로 시도했는데 빈손으로 돌아온 경우. 같은 버튼을 다시 권하면 안 된다 —
           두 번째도 똑같이 실패하고, 사용자는 자기가 뭘 잘못했는지 모른 채 갇힌다. */}
-      {kakaoFailed && (
+      {!askName && kakaoFailed && (
         <div
           role="status"
           className="mt-8 rounded-xl border border-warning/30 bg-warning-soft px-3.5 py-3"
@@ -136,7 +215,7 @@ export default function ContactForm({
 
       {/* 카카오 재동의 — 있으면 이게 가장 빠른 길이다. 번호 입력도 문자 확인도 없다.
           단 방금 실패한 경우엔 숨긴다(위 안내 참고). */}
-      {canAskKakao && !kakaoFailed && (
+      {!askName && canAskKakao && !kakaoFailed && (
         <>
           <div className="mt-8">
             <KakaoPhoneConsentButton
@@ -157,6 +236,8 @@ export default function ContactForm({
         </>
       )}
 
+      {!askName && (
+        <>
       {/* ① 번호 입력 + 인증번호 받기 */}
       <form
         action={requestAction}
@@ -270,6 +351,8 @@ export default function ContactForm({
         </a>
         에 동의하게 됩니다.
       </p>
+        </>
+      )}
     </main>
   );
 }
