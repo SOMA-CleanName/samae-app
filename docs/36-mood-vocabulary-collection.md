@@ -10,7 +10,8 @@
 > - **대표 무드 그래프 4층 완성** — 0.91층 기준 묶음 **2,647개**, 식구 5개 이상 146개는 대표를 손으로 검수함 (§9)
 > - **DB에는 아무것도 반영하지 않았다.** 사진 태그·검증 후보 140개도 그대로다
 > - **그래프 검수 종료 (2026-09-16).** 훑어본 뒤 자동 결과를 그대로 쓰기로 했다 — 판정 0건, 메모 4건 (§9-7)
-> - **다음: 축 배정.** 먼저 `compile_mood_review.py` 를 다축 형식으로 고쳐야 한다 (§10-5)
+> - **축 배정 도구 완성** — `build_mood_axis_input.py`(입력) + `compile_mood_axes.py`(다축 검증). 입력 2,647항목 생성 완료
+> - **다음: 축 배정 자체.** 대표 2,647개에 11축을 붙인다 (§10)
 
 | | |
 |---|---|
@@ -682,30 +683,37 @@ flickering light (31개)
 
 ### 10-2. 입력
 
-```
-scripts/embed/out/mood-vocabulary/
-  accepted-screen-priority.json   Y 5,176개
-  priority-pool.json              뜻풀이 원본 (11,578개)
-  screen-priority.txt             sense 번호가 매겨진 검토용 텍스트
-  screen-priority-index.json      항목 번호 → 후보 ID·sense 매핑
+```bash
+cd scripts/embed && python build_mood_axis_input.py        # → out/mood-vocabulary/axes.txt + axes-index.json
 ```
 
-> `scripts/embed/out/` 은 Git 제외 경로다. 없으면 §11의 재생성 순서를 따른다.
+**대표 2,647개만 담긴다** — 식구는 대표를 따라가므로 낱말 5,176번이 아니라 2,647번이다.
 
-검토용 텍스트의 한 항목은 이렇게 생겼다.
+자료는 저장소에 커밋된 `mood-review-bundle.json` 에서 나온다. **`out/` 이 없는 PC에서도 만들 수 있다** — 산출물을 만든 PC가 아니어도 축 배정을 시작할 수 있다는 뜻이다.
+
+한 항목은 이렇게 생겼다.
 
 ```
-[001] 기능성  |  층=P-우선 구간  |  v1=pending/- (semantic_category_not_specific_enough)  |  기존축=unassigned
-   · 명사 / 개념 > 성질 / 고급 / 단어  [37837, source_row]
-     s1. 제 기능을 발휘할 수 있는 성질.
-   · [KNU] 극성 -1
+[0001] 깜박이다  |  식구 24  |  blinking on and off
+   · 동사 / 중급
+     s1. 불빛이 밝았다 어두워졌다 하다. 또는 그렇게 되게 하다.
+     s2. 눈이 자꾸 감겼다 뜨였다 하다. 또는 그렇게 되게 하다.
+     s3. 기억이나 의식 등이 잠깐 흐려지다.
+   · 식구: 깜박 · 깜박거리다 · 깜빡이다 · 명멸 …
+   · 검수 메모: 명멸은 빛이 깜빡거리는 것인데 …
 ```
 
-- `[001]` — 항목 번호. **출력에 그대로 쓴다**
-- `v1=` — 예전 규칙 분류 결과. **자주 틀리니 따라가지 마라.** 참고만
-- `기존축=` — `unassigned` 가 아니면 사람이 정해 둔 축이다. **그 축을 유지한다**
-- `s1`, `s2` … — sense 번호. **여기 없는 번호를 쓰면 검증기가 거부한다**
-- `(사전 뜻풀이 없음 …)` — sense 칸을 `-` 로 둔다. **뜻풀이를 지어내지 마라**
+- `[0001]` — 항목 번호. **출력에 그대로 쓴다.** `1` 로 써도 받는다
+- `s1`, `s2` … — **대표의** sense 번호. **여기 없는 번호를 쓰면 컴파일러가 거부한다**
+- `· 식구` — 참고용이다. 식구의 뜻풀이에는 번호가 없다. **축의 근거는 대표의 뜻이다**
+- `· 검수 메모` — 그래프 검수에서 남긴 물음(§9-7). **여기가 답할 자리다**
+- 대표 2,647개는 **전부 뜻풀이가 있다.** sense 칸을 `-` 로 둘 일은 없다
+
+> 2,647개를 한 번에 다루기 버거우면 조각으로 나눈다. 번호는 전체 기준을 유지하므로 합칠 때 겹치지 않는다.
+> ```bash
+> python build_mood_axis_input.py --stem axes-1 --from 1 --to 500
+> ```
+> 다만 컴파일러는 **그 조각의 항목이 전부 채워졌는지**를 검사한다. 조각마다 따로 컴파일한다.
 
 ### 10-3. 출력
 
@@ -747,7 +755,13 @@ scripts/embed/out/mood-vocabulary/
 
 ### 10-5. 검증
 
-결과를 `out/mood-vocabulary/axes-raw.txt` 에 모으고 컴파일러를 돌린다. 컴파일러는 아래를 **거부한다.**
+결과를 `out/mood-vocabulary/axes-raw.txt` 에 모으고 컴파일러를 돌린다.
+
+```bash
+cd scripts/embed && python compile_mood_axes.py        # 조각이면 python compile_mood_axes.py axes-1
+```
+
+통과하면 `axes-v1.json` 을 쓰고, 축별 낱말 수와 **낱말당 축 개수 분포**를 찍는다 — 다축이 실제로 쓰였는지가 여기서 드러난다. 거부하는 것:
 
 - 항목 누락·중복·미지의 번호
 - §8 밖의 축, 축이 하나도 없는 항목
@@ -755,7 +769,8 @@ scripts/embed/out/mood-vocabulary/
 - 사진 용례 없음, 뜻풀이가 있는데 sense를 인용하지 않음
 - 근거 없음
 
-> 축 배정용 컴파일러는 아직 없다. `compile_mood_review.py`(대표/보조축 전제)를 다축 형식으로 고치거나 새로 만들어야 한다.
+> `compile_mood_review.py` 는 **고치지 않고 그대로 뒀다.** 파일럿 500개(`classification-v2.json`)를 그 형식으로 다시 읽어야 하기 때문이다(§13-6).
+> 다축용은 `compile_mood_axes.py` 로 새로 짰다.
 
 ### 10-6. 그 다음
 
@@ -812,11 +827,14 @@ scripts/embed/out/mood-vocabulary/
 | `scripts/embed/cluster_mood_graph.py` | 벡터 → 층별 군집. **SigLIP 컨테이너 안에서 실행**(numpy) (§9-4) |
 | `scripts/embed/pick_mood_heads.py` | 묶음마다 대표 뽑기 (§9-5) |
 | `scripts/embed/build_mood_review_bundle.py` | 검수 화면용 번들 생성 — **다른 PC에서도 뜨게 한다** (§9-6) |
+| `scripts/embed/build_mood_axis_input.py` | **축 배정용 검토 텍스트** — 대표 2,647개. 번들에서 만들어 `out/` 없이도 돈다 (§10-2) |
+| `scripts/embed/compile_mood_axes.py` | **다축 검증·컴파일** (§10-5). `compile_mood_review.py` 를 대신하지 않는다 — 파일럿은 옛 형식이다 |
 | `scripts/embed/test_mood_prompts.py` | 프롬프트 생성기 테스트 (5개) |
 | `src/lib/mood-review.ts` · `.test.ts` | 검수 화면의 순수 로직과 테스트 (4개) |
 | `scripts/embed/validate_mood_vocabulary.py` | 사진 유사도 검증 (§4) |
 | `scripts/embed/test_mood_screening.py` | 단위 테스트 6개 |
 | `scripts/embed/test_mood_review.py` | 단위 테스트 9개 |
+| `scripts/embed/test_mood_axes.py` | 축 배정 입력·컴파일러 테스트 11개 |
 
 ### 산출물 — `scripts/embed/out/mood-vocabulary/` (Git 제외)
 
@@ -845,6 +863,9 @@ scripts/embed/out/mood-vocabulary/
 | `head-overrides.tsv` | 대표를 바꾼 98개와 이유 (§9-5) |
 | `head-review.json` | 검수 화면이 쌓는 사람 판정 |
 | `mood-graph-draft.txt` | 초급·중급으로 손으로 짠 그래프 초안 (대표 79개) |
+| **`axes.txt` / `axes-index.json`** | **축 배정 검토 텍스트와 번호 매핑** — 대표 2,647개 (§10-2) |
+| `axes-raw.txt` | 축 배정 답안 원본. `\|\|\|` 구분 (§10-3) |
+| `axes-v1.json` | 컴파일 결과 — 대표별 축·인용 뜻풀이·용례·근거 |
 
 ### 판정을 바꾸려면
 
@@ -886,7 +907,7 @@ python build_mood_priority_pool.py
 python render_mood_review.py --screening priority-pool.json screen-priority
 
 # 테스트
-python -m unittest test_mood_screening test_mood_review test_mood_vocabulary
+python -m unittest test_mood_screening test_mood_review test_mood_vocabulary test_mood_axes
 ```
 
 사진 유사도 검증은 NumPy와 임베딩 패키지가 있는 Python이 필요하고, `.env.local` 의 Supabase URL·서비스 키와 상주 서버의 `PERSONA_SERVICE_TOKEN` 을 쓴다. Windows에서는 실행 중인 `samae-siglip2` 컨테이너의 Python으로 돌렸다.
@@ -898,8 +919,8 @@ python -m unittest test_mood_screening test_mood_review test_mood_vocabulary
 | # | 과제 | 왜 남았나 |
 |---:|---|---|
 | 1 | ~~대표 무드 그래프 사람 최종 검수~~ | **끝났다.** 훑어본 뒤 자동 결과를 그대로 쓰기로 했다. §9-7 |
-| 2 | **축 배정용 컴파일러** — `compile_mood_review.py` 를 다축 형식으로 | 지금 대표축/보조축 전제라 축 배정을 막고 있다. **다음 차례.** §10-5 |
-| 3 | **축 배정** — 대표 2,647개에 11축 다축 배정 | 컴파일러가 선 다음. §10 |
+| 2 | ~~축 배정용 컴파일러~~ | **끝났다.** `build_mood_axis_input.py` + `compile_mood_axes.py` 를 새로 짰다. §10-2·§10-5 |
+| 3 | **축 배정** — 대표 2,647개에 11축 다축 배정 | 도구는 섰다. **다음 차례.** §10 |
 | 4 | **마이그레이션 0121** — 다축 + 축 11개 + 버전 보존 + **대표-식구 그래프** | 설계 논의부터 필요. §3. 그래프를 담을 테이블이 아예 없다 — 식구까지 펼쳐 5,176행으로 넣을지, 그래프를 두고 대표 2,647행만 넣을지 정해야 한다 |
 | 5 | **뜻풀이 없음 12,812개** | 판단 근거가 없어 뺀 것이지 무드가 아니라서 뺀 게 아니다. 우리말샘·표준국어대사전을 추가 수집하면 다시 볼 수 있다 |
 | 6 | **파일럿 500개 병합** | `classification-v2.json` 과 이번 결과를 합쳐야 한다. `수려하다`·`예쁘장하다`·`곱다랗다`를 스타일로 보내는 처리도 이때 |
