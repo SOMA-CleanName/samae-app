@@ -20,6 +20,8 @@ export type ProfileInitial = {
   legalName: string;
   businessType: string;
   businessNo: string;
+  /** 마스킹된 주민등록번호(000000-0******). 보관 사실만 알린다 — 여기서 고치지 않는다 */
+  residentNoMasked?: string;
 };
 
 // 작가 프로필 편집
@@ -31,7 +33,7 @@ export default async function ProfilePage() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("photographers")
-    .select("display_name, bio, regions, mood_tags, price_from_krw, contact_methods, legal_name, business_type, business_no")
+    .select("display_name, bio, regions, mood_tags, price_from_krw, contact_methods, legal_name, business_type, business_no, resident_no_masked")
     .eq("id", me.photographer.id)
     .single();
 
@@ -54,6 +56,9 @@ export default async function ProfilePage() {
     legalName: data?.legal_name ?? "",
     businessType: data?.business_type ?? "",
     businessNo: data?.business_no ?? "",
+    // ⚠️ **마스킹된 값만** 내려보낸다. 암호문(resident_no_enc)은 화면 근처에도 오면 안 된다 —
+    //    한 번 클라이언트로 내려가면 그때부터 우리가 통제할 수 없다.
+    residentNoMasked: data?.resident_no_masked ?? "",
   };
 
   return (

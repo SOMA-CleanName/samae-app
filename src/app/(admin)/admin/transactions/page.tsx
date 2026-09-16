@@ -15,8 +15,10 @@ import { cn } from "@/lib/cn";
 import { DeleteModeProvider, DeleteModeToolbar } from "@/components/admin/DeleteMode";
 import { AdminBookings, type BookingRow } from "./AdminBookings";
 import { AdminCancelButton } from "./AdminCancelButton";
-import { feeRateOf, feeSpecFromRow, feeSpecLabel, readFeeSnapshot, resolveFee } from "@/lib/platform-fee";
+import { feeRateOf, feeSpecFromRow, feeSpecLabel, feeWithVat, readFeeSnapshot, resolveFee } from "@/lib/platform-fee";
+import { computeWithholding, type BusinessType } from "@/lib/withholding";
 import { refundQuote, refundSlaOverdue } from "@/lib/refund";
+import { settlementSla } from "@/lib/settlement-sla";
 import { readStoredFieldValues } from "@/lib/booking-fields";
 import { listExtrasForAdmin } from "@/lib/extras-admin";
 import { EXTRA_KIND_LABEL, extraStatusLabel } from "@/lib/extras";
@@ -34,6 +36,7 @@ type DbBooking = {
   shoot_date: string | null;
   fee_snapshot: unknown;
   refunded_at: string | null;
+  refund_paid_at: string | null;
   refund_reason: string | null;
   late_booking_consent_at: string | null;
   contact_delivered_at: string | null;
@@ -72,7 +75,7 @@ export default async function AdminTransactionsPage() {
   const { data: bData } = await admin
     .from("bookings")
     .select(
-      "id, status, amount_krw, shoot_at, shoot_date, fee_snapshot, refunded_at, refund_reason, late_booking_consent_at, contact_delivered_at, refund_due_at, created_at, accepted_at, requested_at, paid_at, cancelled_at, cancel_reason, location_text, travel_fee_krw, memo, custom_fields, proposed_by_photographer, photographer_id, package_snapshot, transfer_marked_at, settled_at, delivered_at, delivery_due_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at, user:profiles!bookings_user_id_fkey(display_name), photographer:photographers(display_name)"
+      "id, status, amount_krw, shoot_at, shoot_date, fee_snapshot, refunded_at, refund_paid_at, refund_reason, late_booking_consent_at, contact_delivered_at, refund_due_at, created_at, accepted_at, requested_at, paid_at, cancelled_at, cancel_reason, location_text, travel_fee_krw, memo, custom_fields, proposed_by_photographer, photographer_id, package_snapshot, transfer_marked_at, settled_at, delivered_at, delivery_due_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at, user:profiles!bookings_user_id_fkey(display_name), photographer:photographers(display_name)"
     )
     .order("created_at", { ascending: false })
     .limit(500);
@@ -94,6 +97,25 @@ export default async function AdminTransactionsPage() {
     .reduce((sum, f) => sum + (f.fee_krw ?? 0), 0);
 
 
+  // 환불 신청이 열려 있는 예약 — 작가 합의 전에는 [환불] 을 잠근다.
+  // 환불 계좌도 여기서 같이 가져온다. 접수함에만 있으면 두 화면을 오가야 한다.
+  const { data: reqRows } = await admin
+    .from("support_requests")
+    .select("booking_id, photographer_ack_at, photographer_ack_note, refund_account, created_at")
+    .eq("kind", "refund")
+    .eq("status", "open")
+    .order("created_at", { ascending: false });
+  type ReqRow = {
+    booking_id: string | null;
+    photographer_ack_at: string | null;
+    photographer_ack_note: string | null;
+    refund_account: { bank?: string; number?: string; holder?: string } | null;
+  };
+  const refundReqByBooking = new Map<string, ReqRow>();
+  for (const r of (reqRows ?? []) as ReqRow[]) {
+    if (r.booking_id && !refundReqByBooking.has(r.booking_id)) refundReqByBooking.set(r.booking_id, r);
+  }
+
   // 예약 → 대화 매핑. 어드민이 "이 건이 어떤 대화에서 나왔나" 를 바로 열어볼 수 있어야
   // 금액 불일치·특이사항 판단이 된다 (채팅을 안 보고 확정하면 사고가 난다).
   const { data: convData } = await admin
@@ -107,15 +129,19 @@ export default async function AdminTransactionsPage() {
   // 작가별 수수료 설정 — 스냅샷이 없는 옛 예약의 폴백 계산에 쓴다
   const { data: phRows } = await admin
     .from("photographers")
-    .select("id, fee_mode, fee_amount_krw, fee_rate");
+    .select("id, fee_mode, fee_amount_krw, fee_rate, business_type");
   const feeSpecById = new Map<string, ReturnType<typeof feeSpecFromRow>>();
+  // 원천징수 여부는 작가의 사업자 유형이 가른다 — 송금 예정액을 여기서 같이 계산한다
+  const bizTypeById = new Map<string, BusinessType | null>();
   for (const p of (phRows ?? []) as {
     id: string;
     fee_mode: string | null;
     fee_amount_krw: number | null;
     fee_rate: number | null;
+    business_type: string | null;
   }[]) {
     feeSpecById.set(p.id, feeSpecFromRow(p));
+    bizTypeById.set(p.id, (p.business_type ?? null) as BusinessType | null);
   }
 
   // 추가 결제 큐 — 입금 확인 대기(수락 + 입금 알림), 환불 가능(촬영 후·전달 전), 정산 대기(촬영 후·전달됨)
@@ -133,9 +159,12 @@ export default async function AdminTransactionsPage() {
   //      촬영 전 건은 여기 오지 않는다.
   //   ③ 입금 대기 — 수락만 해놓고 아무 소식 없는 건
   const awaitingConfirm = raw.filter((b) => b.status === "accepted" && b.transfer_marked_at);
-  const awaitingSettle = raw.filter(
-    (b) => PAID_BOOKING.includes(b.status) && !!b.delivered_at && !b.settled_at && !b.refunded_at
-  );
+  // 정산 대기 — 전달 알림으로부터 7영업일 안에 보내야 한다(수수료·정산 정책 2조).
+  // 기한이 급한 건을 위로 올린다. 목록 순서가 곧 처리 순서가 된다.
+  const awaitingSettle = raw
+    .filter((b) => PAID_BOOKING.includes(b.status) && !!b.delivered_at && !b.settled_at && !b.refunded_at)
+    .map((b) => ({ b, sla: settlementSla(b.delivered_at, b.settled_at) }))
+    .sort((x, y) => (x.sla?.daysLeft ?? 99) - (y.sla?.daysLeft ?? 99));
   const awaitingDeposit = raw.filter((b) => b.status === "accepted" && !b.transfer_marked_at);
 
   const bookings: BookingRow[] = raw.map((b) => ({
@@ -163,10 +192,16 @@ export default async function AdminTransactionsPage() {
     cancel_reason: b.cancel_reason,
     conversationId: convByBooking.get(b.id) ?? null,
     refunded_at: b.refunded_at,
+    refund_paid_at: b.refund_paid_at,
     refund_reason: b.refund_reason,
     refundDueAt: b.refund_due_at,
     // 3영업일을 넘긴 환불 요청 — 넘기면 연 15% 지연이자가 법정 의무다 (docs/32 §6-7)
     refundOverdue: !b.refunded_at && refundSlaOverdue(b.refund_due_at),
+    // 정산 기한 — 전달 알림으로부터 7영업일 (수수료·정산 정책 2조)
+    settlementSla: (() => {
+      const sla = settlementSla(b.delivered_at, b.settled_at);
+      return sla ? { label: sla.label, overdue: sla.overdue, soon: sla.soon } : null;
+    })(),
     ...(() => {
       // 수수료: 스냅샷이 우선, 없으면 현재 설정으로 계산 (0101 이전 예약). 기준은 촬영 대금 전체
       const fee =
@@ -185,7 +220,23 @@ export default async function AdminTransactionsPage() {
         feeKrw: fee.feeKrw,
         feeRate: feeRateOf(fee),
       });
-      return { feeKrw: fee.feeKrw, feeLabel: feeSpecLabel(fee), refund: quote };
+      // 작가에게 실제로 보낼 금액. 화면에서 대충 빼서 보여주면 안 된다 —
+      // 운영자는 이 숫자를 보고 은행 앱에 옮겨 적는다. markSettlementPaid 와 같은 식이어야 한다.
+      const withholding = computeWithholding(b.amount_krw ?? 0, bizTypeById.get(b.photographer_id) ?? null);
+      const payoutKrw = Math.max(0, (b.amount_krw ?? 0) - feeWithVat(fee) - withholding.totalKrw);
+      return {
+        feeKrw: fee.feeKrw,
+        feeLabel: feeSpecLabel(fee),
+        feeRate: feeRateOf(fee),
+        vatKrw: fee.vatKrw,
+        withholdingKrw: withholding.totalKrw,
+        payoutKrw,
+        refund: quote,
+        // 고객이 낸 환불 신청이 열려 있는가 / 작가와 합의했는가
+        refundRequested: refundReqByBooking.has(b.id),
+        photographerAckAt: refundReqByBooking.get(b.id)?.photographer_ack_at ?? null,
+        refundAccount: refundReqByBooking.get(b.id)?.refund_account ?? null,
+      };
     })(),
   }));
 
@@ -212,18 +263,40 @@ export default async function AdminTransactionsPage() {
         <section className="mt-5 rounded-2xl bg-surface p-4 ring-1 ring-line">
           <h2 className="text-body-sm font-semibold text-fg">
             📤 정산 대기 <span className="text-brand">{awaitingSettle.length}</span>
+            {awaitingSettle.some((x) => x.sla?.overdue) && (
+              <span className="ml-2 rounded-full bg-danger/10 px-2 py-0.5 text-caption font-semibold text-danger">
+                기한 초과 {awaitingSettle.filter((x) => x.sla?.overdue).length}
+              </span>
+            )}
           </h2>
           <p className="mt-0.5 text-caption text-muted">
-            결과물 전달이 끝난 건이에요. 수수료와 부가세를 뺀 금액을 작가에게 보낸 뒤 마킹하세요.
+            결과물 전달이 끝난 건이에요. 수수료·부가세(·원천징수)를 뺀 금액을 작가에게 보낸 뒤
+            마킹하세요. <b className="text-fg">전달 알림으로부터 7영업일</b> 안에 보내야 합니다.
           </p>
           <ul className="mt-2 space-y-2">
-            {awaitingSettle.map((b) => (
+            {awaitingSettle.map(({ b, sla }) => (
               <li
                 key={b.id}
-                className="flex items-center justify-between gap-2 rounded-xl bg-surface-2 px-3 py-2"
+                className={cn(
+                  "flex items-center justify-between gap-2 rounded-xl px-3 py-2",
+                  sla?.overdue ? "bg-danger/10 ring-1 ring-danger/30" : "bg-surface-2"
+                )}
               >
                 <div className="min-w-0 text-caption">
-                  <p className="font-semibold text-fg">{one(b.photographer)?.display_name ?? "작가"}</p>
+                  <p className="font-semibold text-fg">
+                    {one(b.photographer)?.display_name ?? "작가"}
+                    {/* 기한이 안 보이면 지킬 수가 없다 — 환불 3영업일과 같은 방식 */}
+                    {sla && (
+                      <span
+                        className={cn(
+                          "ml-2 font-medium",
+                          sla.overdue ? "text-danger" : sla.soon ? "text-warning" : "text-faint"
+                        )}
+                      >
+                        {sla.label}
+                      </span>
+                    )}
+                  </p>
                   <p className="text-muted">
                     입금액 ₩{fmt.format(b.amount_krw ?? 0)}{" "}
                     <span className="text-faint">(정산액은 아래 상세에서 확인)</span>

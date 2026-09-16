@@ -21,10 +21,13 @@ export function RescheduleRequestButton({
   bookingId,
   proposedAt,
   proposedByMe,
+  proposeAction = proposeReschedule,
 }: {
   bookingId: string;
   proposedAt: string | null;
   proposedByMe: boolean;
+  /** 기본은 진짜 서버 액션. QA 샌드박스만 갈아 끼운다 (chat-io.ts) */
+  proposeAction?: (formData: FormData) => Promise<void>;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -91,7 +94,7 @@ export function RescheduleRequestButton({
                 const fd = new FormData();
                 fd.set("id", bookingId);
                 fd.set("shootAt", value);
-                await proposeReschedule(fd);
+                await proposeAction(fd);
                 setOpen(false);
                 router.refresh();
               } catch (e) {
@@ -116,6 +119,7 @@ export function RescheduleCardBubble({
   currentShootAt,
   amCustomer,
   requestedLabel,
+  respondAction = respondReschedule,
 }: {
   bookingId: string;
   /** 답을 기다리는 제안. null 이면 처리된 카드 */
@@ -124,6 +128,8 @@ export function RescheduleCardBubble({
   currentShootAt: string | null;
   amCustomer: boolean;
   requestedLabel: string;
+  /** 기본은 진짜 서버 액션. QA 샌드박스만 갈아 끼운다 (chat-io.ts) */
+  respondAction?: (formData: FormData) => Promise<void>;
 }) {
   const router = useRouter();
   const [acting, start] = useTransition();
@@ -137,7 +143,7 @@ export function RescheduleCardBubble({
         const fd = new FormData();
         fd.set("id", bookingId);
         fd.set("accept", accept ? "1" : "0");
-        await respondReschedule(fd);
+        await respondAction(fd);
         router.refresh();
       } catch (e) {
         setError(e instanceof Error ? e.message : "처리하지 못했어요.");

@@ -138,6 +138,31 @@ test("신청 시각이 있으면 판정 시각이 아니라 신청 시각으로 
   assert.equal(q.refundKrw, 120000);
 });
 
+// 운영이 늦게 누르면 손해 보는 쪽이 고객이다. 작가와 이야기하고 합의를 받는 절차가
+// 들어오면서 접수와 실행 사이가 며칠씩 벌어지므로, 그 사이에 구간이 밀리지 않아야 한다.
+test("운영이 늦게 눌러도 구간이 밀리지 않는다 — 신청 9/13(40%), 실행 9/18", () => {
+  const q = refundQuote({
+    ...base,
+    transferMarkedAt: PAID_LONG_AGO,
+    requestedAt: iso(kst("2026-09-13T09:00:00")), // 남은 7일 → 40%
+    now: kst("2026-09-18T10:00:00"), // 이때 누르면 남은 2일 → 90% 가 될 뻔했다
+  });
+  assert.equal(q.basis, "penalty_40");
+  assert.equal(q.refundKrw, 72000); // 120,000 의 60%
+});
+
+test("촬영이 지난 뒤에 눌러도 신청이 촬영 전이면 환불된다", () => {
+  const q = refundQuote({
+    ...base,
+    transferMarkedAt: PAID_LONG_AGO,
+    requestedAt: iso(kst("2026-09-16T09:00:00")), // 남은 4일 → 40%
+    now: kst("2026-09-25T10:00:00"), // 촬영(9/20)이 지난 시점에 실행
+  });
+  assert.equal(q.basis, "penalty_40");
+  assert.notEqual(q.basis, "after_shoot"); // 늦게 눌렀다고 0원이 되면 안 된다
+  assert.equal(q.refundKrw, 72000);
+});
+
 // ── 청약철회와 임박 예약 (3조) ───────────────────────────────────
 
 test("결제 7일 이내 · 촬영 8일 이상 → 청약철회 라벨, 돈은 0% 구간과 같다", () => {

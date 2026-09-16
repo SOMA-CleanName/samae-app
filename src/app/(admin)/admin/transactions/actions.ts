@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { archiveAllAndDeleteMany, deleteBookingsByIds } from "@/lib/soft-delete";
 import { verifyResetPassword } from "@/lib/admin-reset";
 
@@ -90,6 +91,27 @@ export async function adminRefund(formData: FormData): Promise<void> {
   const manualRefundKrw = override === "partial" && Number.isFinite(manualRaw) ? manualRaw : null;
   if (override === "partial" && manualRefundKrw == null) throw new Error("부분 이행은 환불액을 적어야 해요.");
 
+  // 작가 합의가 먼저다 — 환불은 작가 수익이 걸린 일이라 통보가 아니라 합의여야 한다.
+  // 버튼만 잠그면 폼을 위조해 들어올 수 있으므로 여기서도 막는다.
+  //
+  // 고객이 낸 환불 신청이 열려 있을 때만 건다. 운영이 스스로 판단해 실행하는 건
+  // (작가 귀책·천재지변·노쇼)은 해당 없다 — 그건 작가와 합의할 성질이 아니다.
+  const admin = createAdminClient();
+  const { data: openReq } = await admin
+    .from("support_requests")
+    .select("id, photographer_ack_at")
+    .eq("booking_id", id)
+    .eq("kind", "refund")
+    .eq("status", "open")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (openReq && !openReq.photographer_ack_at && !override) {
+    throw new Error(
+      "작가와 먼저 합의해야 해요. 접수함(/admin/support)에서 [작가 합의 확인] 을 찍은 뒤 다시 시도하세요."
+    );
+  }
+
   const res = await refundBooking(id, {
     override,
     manualRefundKrw,
@@ -97,6 +119,32 @@ export async function adminRefund(formData: FormData): Promise<void> {
   });
   if (!res.ok) throw new Error("환불할 수 없는 상태예요 (이미 환불됐거나 입금 전).");
 
+  revalidatePath("/admin/transactions");
+}
+
+/**
+ * 환불금을 **실제로 보냈다**고 기록한다.
+ *
+ * `refundBooking()` 은 원장 정리일 뿐 돈을 옮기지 않는다 — 송금은 PG 지급대행에서 따로 한다.
+ * 그 둘을 구분해 남기지 않으면 "환불됨" 으로 닫힌 건이 실은 돈이 안 나간 상태일 수 있고,
+ * 고객이 항의하기 전에는 아무도 모른다. 3영업일 SLA 가 걸린 자리라 더욱 그렇다.
+ */
+export async function adminMarkRefundPaid(formData: FormData): Promise<void> {
+  const me = await getCurrentUser();
+  if (!me || me.role !== "admin") throw new Error("운영자 권한이 필요합니다.");
+  const id = String(formData.get("id"));
+
+  const admin = createAdminClient();
+  const { data: moved } = await admin
+    .from("bookings")
+    .update({ refund_paid_at: new Date().toISOString(), refund_paid_by: me.id })
+    .eq("id", id)
+    .not("refunded_at", "is", null) // 환불 판정이 끝난 건만
+    .is("refund_paid_at", null) // 멱등 — 첫 송금 시각을 유지한다
+    .select("id");
+  if (!moved || moved.length === 0) {
+    throw new Error("처리할 수 없는 상태예요 (환불 처리 전이거나 이미 송금 기록됨).");
+  }
   revalidatePath("/admin/transactions");
 }
 

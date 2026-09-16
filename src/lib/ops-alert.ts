@@ -2,7 +2,7 @@ import "server-only";
 
 import { createAdminClient } from "@/lib/supabase/admin";
 import { inquiryChannel } from "@/lib/inquiry-channel";
-import { getPhotographerPayoutAccount } from "@/lib/payments";
+import { getPhotographerPayoutAccount, quoteRefund } from "@/lib/payments";
 import { SITE_URL } from "@/lib/site";
 
 const won = (n: number) => new Intl.NumberFormat("ko-KR").format(n);
@@ -19,6 +19,8 @@ const OPS_FALLBACK = process.env.DISCORD_OPS_WEBHOOK_URL;
 const INQUIRY_WEBHOOK = process.env.DISCORD_INQUIRY_WEBHOOK_URL || OPS_FALLBACK; // 새 문의 · 장바구니 문의
 const DEPOSIT_WEBHOOK = process.env.DISCORD_DEPOSIT_WEBHOOK_URL || OPS_FALLBACK; // 입금완료 신고
 const APPLICATION_WEBHOOK = process.env.DISCORD_APPLICATION_WEBHOOK_URL || OPS_FALLBACK; // 작가 신청
+// 환불·취소 신청 — 3영업일 시계가 도는 건이라 입금 신고와 같은 "돈" 채널로 보낸다
+const REFUND_WEBHOOK = process.env.DISCORD_REFUND_WEBHOOK_URL || DEPOSIT_WEBHOOK;
 
 const one = <T,>(v: T | T[] | null | undefined): T | null =>
   Array.isArray(v) ? v[0] ?? null : v ?? null;
@@ -180,6 +182,7 @@ async function loadBookingContext(bookingId: string) {
 }
 
 const ADMIN_TX_LINK = SITE_URL ? `${SITE_URL}/admin/transactions` : "/admin/transactions";
+const ADMIN_SUPPORT_LINK = SITE_URL ? `${SITE_URL}/admin/support` : "/admin/support";
 
 async function postDiscord(webhook: string | undefined, lines: string[]) {
   if (!webhook) return; // 미설정이면 조용히 패스(로컬/미배포)
@@ -249,6 +252,107 @@ export async function notifyOpsNewApplication(params: {
   } catch {
     // 알림 실패가 신청 접수를 막지 않게 무시
   }
+}
+
+/**
+ * 작가 입점 동의 완료 — **여기서부터 계약이 시작된다.**
+ *
+ * 신청 접수(notifyOpsNewApplication)와 승인은 운영이 직접 하는 일이라 이미 알고 있지만,
+ * **동의는 작가가 언제 누를지 모른다.** 그 시점이 계약일이고, 그때부터 사진을 올리고
+ * 의뢰를 받는다. 운영이 모르고 지나가면 "언제부터 활동 중인지" 를 나중에 되짚어야 한다.
+ *
+ * 사업자 유형을 같이 싣는 이유 — 정산 방식이 여기서 갈린다(미등록이면 3.3% 원천징수).
+ * 세금계산서·지급명세서 준비가 유형에 따라 달라서, 동의 시점에 알아야 뒤늦게 안 바뀐다.
+ */
+export async function notifyOpsPhotographerAgreed(params: {
+  photographerId: string;
+  displayName: string;
+  legalName: string;
+  businessType: string;
+  businessNo: string | null;
+  promoConsent: boolean;
+  contractVersion: string;
+}): Promise<void> {
+  const ref = params.photographerId.slice(0, 8);
+  const TYPE_LABEL: Record<string, string> = {
+    general: "일반과세자",
+    simplified: "간이과세자",
+    unregistered: "사업자 미등록 (정산 시 3.3% 원천징수)",
+  };
+  await postDiscord(APPLICATION_WEBHOOK, [
+    `✍️ **입점 계약 동의 완료** — ${params.displayName} 작가  (ID \`${ref}\`)`,
+    `• 계약 당사자: ${params.legalName}`,
+    `• 사업자 유형: ${TYPE_LABEL[params.businessType] ?? params.businessType}` +
+      (params.businessNo ? ` · ${params.businessNo}` : ""),
+    `• 홍보 사용 동의: ${params.promoConsent ? "동의" : "미동의"}`,
+    `• 계약 버전: ${params.contractVersion}`,
+    "",
+    "오늘이 계약일입니다. 이제부터 사진 게재와 의뢰 수신이 가능해요.",
+  ]);
+}
+
+/**
+ * 고객 환불(취소) 신청 — **시계가 도는 알림이다.**
+ *
+ * 신청이 들어온 순간이 곧 취소 시점(취소환불 5조 3항)이고, 거기서부터 **3영업일 안에**
+ * 환급해야 한다(전자상거래법 18조 2항). 넘기면 연 15% 지연이자가 법정 의무로 붙는다.
+ * 전에는 support_requests 에 행만 쌓이고 아무도 몰랐다 — 그 자체가 기한 초과의 원인이다.
+ *
+ * 판정 금액을 같이 싣는다. 운영이 어드민을 열기 전에 "얼마짜리 건인지" 를 알아야
+ * 작가와 이야기를 시작할 수 있다. 계산은 화면·어드민과 같은 함수(quoteRefund)를 쓴다.
+ */
+export async function notifyOpsRefundRequested(params: {
+  bookingId: string | null;
+  requestId: string;
+  /** 고객이 적은 사유 */
+  body: string;
+  /** 취소 신청이 아니라 작가측 촬영 취소인가 (취소환불 8조) */
+  byPhotographer?: boolean;
+}): Promise<void> {
+  const webhook = REFUND_WEBHOOK;
+  if (!webhook) return;
+
+  const head = params.byPhotographer ? "🧨 **작가측 촬영 취소 접수**" : "💸 **환불(취소) 신청**";
+  const lines: string[] = [];
+
+  if (!params.bookingId) {
+    // 예약이 안 붙은 일반 문의 — 금액을 셀 수 없다
+    lines.push(head, `> ${params.body.slice(0, 300)}`, `🛠 ${ADMIN_SUPPORT_LINK}`);
+    await postDiscord(webhook, lines);
+    return;
+  }
+
+  const c = await loadBookingContext(params.bookingId);
+  const quote = await quoteRefund(params.bookingId);
+  const admin = createAdminClient();
+  const { data: req } = await admin
+    .from("support_requests")
+    .select("refund_account")
+    .eq("id", params.requestId)
+    .maybeSingle();
+  const acct = req?.refund_account as { bank?: string; number?: string; holder?: string } | null;
+
+  lines.push(`${head} — ${c?.photographer ?? "작가"} 작가 × ${c?.customer ?? "고객"}  (예약 \`${c?.ref ?? ""}\`)`);
+  if (c) lines.push(`📦 ${c.pkg} · 결제 **₩${won(c.amount)}** · 촬영 ${c.when}`);
+  lines.push(`> ${params.body.slice(0, 300)}`);
+
+  if (quote) {
+    // 남은 날수는 **신청 시각** 기준이다 — 운영이 며칠 뒤에 봐도 이 숫자는 안 바뀐다
+    const days = quote.daysUntilShoot;
+    lines.push(
+      `⚖️ 규정대로면 **₩${won(quote.refundKrw)} 환불** (위약금 ${quote.penaltyPct}%` +
+        `${days != null ? ` · 촬영까지 ${days}일` : ""})`
+    );
+    if (quote.penaltyKrw > 0) {
+      lines.push(`   └ 위약금 ₩${won(quote.penaltyKrw)} → 작가 ₩${won(quote.penaltyPhotographerKrw)} · 사매 ₩${won(quote.penaltyCompanyKrw)}`);
+    }
+  }
+  if (acct?.number) lines.push(`🏦 환불 계좌 ${acct.bank ?? ""} ${acct.number} (${acct.holder ?? ""})`);
+
+  lines.push(`⏰ **3영업일 안에 환급해야 합니다** — 넘기면 연 15% 지연이자`);
+  lines.push(`🗣 **먼저 작가와 이야기하고**, 합의되면 접수함에서 [작가 합의 확인]: ${ADMIN_SUPPORT_LINK}`);
+
+  await postDiscord(webhook, lines);
 }
 
 /**

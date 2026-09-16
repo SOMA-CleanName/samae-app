@@ -142,9 +142,12 @@ export function FloatingNav({
 
   // 문의·채팅 같은 풀스크린 몰입 플로우에선 내비를 아예 렌더하지 않음 — 전환·애니메이션 중
   // 그 위(z-50)로 잠깐 새어 보이던 문제 방지.
+  // /dev/chat 은 그 채팅방을 통째로 보는 QA 샌드박스다. 여기서 내비가 뜨면 실제와 다른
+  // 화면을 QA 하게 된다 — 껍데기까지 같아야 샌드박스가 쓸모 있다.
   if (
     pathname.startsWith("/inquiry") ||
     pathname.startsWith("/chat") ||
+    pathname.startsWith("/dev/chat") ||
     pathname.startsWith("/explore/quiz")
   )
     return null;

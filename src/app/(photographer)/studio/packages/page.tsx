@@ -3,6 +3,9 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createPackage } from "./actions";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { effectiveBurdenPct, feeSpecFromRow, feeRateOf, resolveFee } from "@/lib/platform-fee";
+import type { BusinessType } from "@/lib/withholding";
 import { PackageItem, type Pkg } from "./PackageItem";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 
@@ -25,6 +28,19 @@ export default async function PackagesPage() {
 
   const packages = (data ?? []) as Pkg[];
 
+  // 수수료 안내는 **이 작가의 실제 요율**로 말한다. 20% 라고 박아 두면 요율이 다른 작가에게
+  // 거짓말이 되고, 부가세를 따로 붙여 쓰면 나중에 "또 붙네" 로 읽힌다 (HANDOFF §3-2).
+  const admin = createAdminClient();
+  const { data: ph } = await admin
+    .from("photographers")
+    .select("fee_mode, fee_amount_krw, fee_rate, business_type")
+    .eq("id", me.photographer.id)
+    .maybeSingle();
+  const spec = feeSpecFromRow(ph ?? null);
+  const ratePct = +(feeRateOf(resolveFee(spec, 100_000)) * 100).toFixed(2);
+  const burdenPct = effectiveBurdenPct((ph?.business_type ?? null) as BusinessType | null, ratePct / 100);
+  const isFlat = spec.mode === "flat";
+
   return (
     <main className="mx-auto max-w-2xl px-4 sm:px-6 py-10 font-kr">
       <Link href="/studio" className="text-sm text-muted hover:text-fg">
@@ -37,8 +53,17 @@ export default async function PackagesPage() {
 
       {/* 수수료 안내 — 작가약관 7조 2항. 가격을 정할 때 수수료를 알고 정해야 정산 문의가 안 생긴다 */}
       <p className="mt-3 rounded-xl bg-fg/[0.04] px-4 py-3 text-xs leading-relaxed text-fg/60">
-        사매 중개 수수료는 촬영 대금 전체(출장비·추가금 포함)의 20%이고 부가세는 별도예요. 결과물 전달이
-        끝나면 수수료와 부가세를 뺀 금액을 정산해 드리니, 이를 감안해 가격을 정해 주세요.
+        {isFlat ? (
+          <>사매 중개 수수료는 건당 정액이에요.</>
+        ) : (
+          <>
+            사매 중개 수수료는 촬영 대금 전체(출장비·추가금 포함)의{" "}
+            <b className="text-fg/80">{burdenPct}% (부가세 포함)</b>
+            {burdenPct !== ratePct && <> · 일반과세자는 매입세액공제로 실질 {ratePct}%</>}예요.
+          </>
+        )}{" "}
+        결제대행 수수료는 사매가 부담해요. 결과물 전달이 끝나면 수수료를 뺀 금액을 정산해 드리니,
+        이를 감안해 가격을 정해 주세요.
       </p>
 
       {/* 새 패키지 추가 */}

@@ -3,10 +3,33 @@ import { updateSession } from "@/lib/supabase/middleware";
 import { CATEGORY_COOKIE } from "@/lib/category-constants";
 
 // Next.js 16: 구 middleware 규칙 → proxy 규칙.
-// ① 매 요청마다 Supabase 세션 갱신 ② 카테고리 광고 유입 컨텍스트 쿠키 set/clear.
+// ① 프로덕션에서 /dev 차단 ② 매 요청마다 Supabase 세션 갱신 ③ 카테고리 컨텍스트 쿠키.
 export async function proxy(request: NextRequest) {
+  const blocked = blockDevRoutes(request);
+  if (blocked) return blocked;
+
   const response = await updateSession(request);
   return applyCategoryContext(request, response);
+}
+
+/**
+ * 개발 전용 지면(`/dev/*`)을 프로덕션에서 막는다.
+ *
+ * ⚠️ **페이지 안의 `notFound()` 만으로는 부족하다.** `(user)` 그룹에 `loading.tsx` 가
+ *    있어서 하위 라우트는 Suspense 경계를 물려받는데, 그러면 셸이 **먼저 200 으로
+ *    나가고** 본문만 not-found 로 채워진다. 실측에서 `/dev/flow` 가 프로덕션 빌드에서
+ *    200 을 돌려줬다(본문은 비어 있었지만 상태코드가 열려 있었다).
+ *
+ *    프록시는 렌더가 시작되기 전에 돌아서 그 구멍이 없다. 페이지의 notFound() 는
+ *    이중 방어로 그대로 둔다.
+ */
+function blockDevRoutes(request: NextRequest): NextResponse | null {
+  if (process.env.NODE_ENV !== "production") return null;
+  const { pathname } = request.nextUrl;
+  if (pathname === "/dev" || pathname.startsWith("/dev/")) {
+    return new NextResponse(null, { status: 404 });
+  }
+  return null;
 }
 
 function safeDecode(s: string): string {

@@ -75,6 +75,23 @@ export async function approveApplication(formData: FormData) {
 
   const nowIso = new Date().toISOString();
 
+  // 승인하면서 요율을 같이 정한다.
+  //
+  // 작가는 승인 직후 **입점 신청(AgreeGate)에서 곧바로 등록**된다 — 그 사이에 요율을
+  // 손볼 자리가 없다. 나중에 고치면 이미 등록된 상품·예약이 옛 요율로 굳어 있고
+  // (fee_snapshot 은 제안 시점에 박힌다), 작가는 처음 본 숫자와 다른 정산을 받는다.
+  //
+  // 비워 두면 기본 요율. 손으로 적었으면 그 값으로 연다.
+  const rateRaw = String(formData.get("feeRate") ?? "").trim();
+  const ratePct = rateRaw === "" ? null : Number(rateRaw);
+  if (ratePct != null && (!Number.isFinite(ratePct) || ratePct <= 0 || ratePct > 50)) {
+    throw new Error("요율은 0 초과 50 이하로 적어주세요 (%).");
+  }
+  const feeFields =
+    ratePct == null
+      ? {}
+      : { fee_mode: "rate" as const, fee_rate: +(ratePct / 100).toFixed(4), fee_amount_krw: null };
+
   // 이미 photographers 행이 있으면 승인으로 갱신, 없으면 생성
   const { data: existing } = await admin
     .from("photographers")
@@ -85,7 +102,13 @@ export async function approveApplication(formData: FormData) {
   if (existing) {
     const { error } = await admin
       .from("photographers")
-      .update({ status: "approved", approved_at: nowIso, display_name: app.display_name, bio: app.bio ?? "" })
+      .update({
+        status: "approved",
+        approved_at: nowIso,
+        display_name: app.display_name,
+        bio: app.bio ?? "",
+        ...feeFields,
+      })
       .eq("id", existing.id);
     if (error) throw new Error(error.message);
   } else {
@@ -95,6 +118,7 @@ export async function approveApplication(formData: FormData) {
       bio: app.bio ?? "",
       status: "approved",
       approved_at: nowIso,
+      ...feeFields,
     });
     if (error) throw new Error(error.message);
   }

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Badge, EmptyState } from "@/components/ui";
 import { SUPPORT_KIND_LABEL, type SupportKind } from "@/lib/support";
-import { resolveSupportRequest, reopenSupportRequest } from "./actions";
+import { ackPhotographerForRefund, resolveSupportRequest, reopenSupportRequest } from "./actions";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +32,9 @@ type Row = {
   refund_account: { bank?: string; number?: string; holder?: string } | null;
   created_at: string;
   resolved_at: string | null;
+  /** 작가와 합의를 확인한 시각 — 환불 실행의 전제 (0120) */
+  photographer_ack_at: string | null;
+  photographer_ack_note: string | null;
 };
 
 // 사매 문의 — 환불·날짜 변경 요청 접수함.
@@ -186,6 +189,51 @@ function RequestCard({
           예약 ₩{fmt.format(booking.amount_krw ?? 0)} · 촬영 {stamp(booking.shoot_at)}
           {photographerName ? ` · ${photographerName}` : ""} · 상태 {booking.status}
         </p>
+      )}
+
+      {/* 작가 합의 — 환불 실행의 전제다. 환불은 작가 수익이 걸린 일이라 통보가 아니라 합의여야 하고,
+          그 대화는 카톡에서 벌어져 시스템 밖에 있다. 최소한 확인한 사실과 작가의 말은 남긴다.
+          이게 찍히기 전에는 거래 화면의 [환불] 이 잠긴다(서버에서도 막는다). */}
+      {r.kind === "refund" && r.status === "open" && (
+        <div
+          className={`mt-2 rounded-xl p-3 ${
+            r.photographer_ack_at ? "bg-success-soft" : "bg-warning-soft ring-1 ring-warning/25"
+          }`}
+        >
+          {r.photographer_ack_at ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-caption text-success-ink">
+                ✅ 작가 합의 확인 · {stamp(r.photographer_ack_at)}
+                {r.photographer_ack_note ? ` — ${r.photographer_ack_note}` : ""}
+              </p>
+              <form action={ackPhotographerForRefund} className="ml-auto">
+                <input type="hidden" name="id" value={r.id} />
+                <input type="hidden" name="undo" value="1" />
+                <button className="cursor-pointer text-caption text-muted underline underline-offset-2 hover:text-fg">
+                  되돌리기
+                </button>
+              </form>
+            </div>
+          ) : (
+            <>
+              <p className="text-caption font-semibold text-warning-ink">
+                작가와 먼저 이야기하세요 — 합의 전에는 환불을 실행할 수 없어요
+              </p>
+              <form action={ackPhotographerForRefund} className="mt-2 flex items-center gap-1.5">
+                <input type="hidden" name="id" value={r.id} />
+                <input
+                  name="ackNote"
+                  maxLength={500}
+                  placeholder="작가가 뭐라고 했는지 (분쟁 시 근거가 돼요)"
+                  className="min-w-0 flex-1 rounded-lg border border-line bg-bg px-2.5 py-1.5 text-caption outline-none focus:border-fg/40"
+                />
+                <button className="shrink-0 cursor-pointer rounded-lg bg-fg px-3 py-1.5 text-caption font-semibold text-bg hover:opacity-90">
+                  작가 합의 확인
+                </button>
+              </form>
+            </>
+          )}
+        </div>
       )}
 
       <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3">

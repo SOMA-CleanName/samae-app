@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isSupportKind, SUPPORT_KIND_LABEL } from "@/lib/support";
+import { isSupportKind } from "@/lib/support";
+import { createSupportRequest } from "@/lib/support-requests";
 
 /**
  * 사매 문의 접수.
@@ -53,38 +54,19 @@ export async function submitSupportRequest(formData: FormData): Promise<void> {
   const holder = String(formData.get("refundHolder") || "").trim().slice(0, 30);
   const refundAccount = kind === "refund" && bank && number && holder ? { bank, number, holder } : null;
 
-  const { error } = await admin.from("support_requests").insert({
-    booking_id: bookingId,
-    conversation_id: conversationId,
-    requester_id: me.id,
-    requester_role: role,
+  // 행 삽입·기한 기산·채팅 흔적·운영 알림은 한 덩어리다 — lib/support-requests 가 한다.
+  // (QA 가 같은 경로를 탈 수 있어야 해서 액션 밖으로 뺐다)
+  await createSupportRequest({
+    requesterId: me.id,
+    requesterRole: role,
+    bookingId,
+    conversationId,
     kind,
     body,
-    refund_account: refundAccount,
+    refundAccount,
   });
-  if (error) throw new Error(error.message);
-
-  // 취소 신청이 들어온 순간이 곧 '취소 시점'(취소환불 5조 3항)이자 환급 기한의 기산점이다 —
-  // 위약금 구간은 이 시각으로 판정하고(lib/refund.ts requestedAt), 여기서부터 3영업일 안에 환급해야 한다.
-  // 넘기면 연 15% 지연이자가 법정 의무로 붙는다(전자상거래법 제18조 제2항).
-  if ((kind === "refund" || kind === "photographer_cancel") && bookingId) {
-    await admin
-      .from("bookings")
-      .update({ refund_due_at: new Date().toISOString() })
-      .eq("id", bookingId)
-      .is("refund_due_at", null); // 첫 요청 시각을 유지 — 재요청으로 시계가 리셋되면 안 된다
-  }
-
-  // 채팅에 흔적 — 상대도 "지금 사매가 보고 있다" 를 알아야 기다릴 수 있다
-  if (conversationId) {
-    await admin.from("messages").insert({
-      conversation_id: conversationId,
-      sender_id: me.id,
-      type: "system",
-      body: `🛟 사매에 ${SUPPORT_KIND_LABEL[kind]}이 접수됐어요 — 사매가 확인 후 안내드릴게요.`,
-    });
-  }
 
   if (conversationId) revalidatePath(`/chat/${conversationId}`);
   revalidatePath("/my-inquiries"); // 목록 카드에서 넣은 경우도 즉시 반영
+  revalidatePath("/admin/support");
 }

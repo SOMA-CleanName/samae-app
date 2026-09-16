@@ -31,6 +31,7 @@ export function LateBookingConsent({
   penaltyPct,
   onAgreed,
   onCancel,
+  agreeAction = agreeLateBooking,
 }: {
   bookingId: string;
   shootAt: string | null;
@@ -40,6 +41,8 @@ export function LateBookingConsent({
   /** 동의가 기록된 뒤 — 호출부가 결제 안내로 넘어간다 */
   onAgreed: () => void;
   onCancel: () => void;
+  /** 동의를 기록하는 액션. 기본은 진짜 서버 액션이고, 샌드박스만 갈아 끼운다 */
+  agreeAction?: (formData: FormData) => Promise<void>;
 }) {
   const [checked, setChecked] = useState(false);
   const [sending, setSending] = useState(false);
@@ -51,7 +54,7 @@ export function LateBookingConsent({
     try {
       const fd = new FormData();
       fd.set("id", bookingId);
-      await agreeLateBooking(fd);
+      await agreeAction(fd);
       onAgreed();
     } finally {
       setSending(false);

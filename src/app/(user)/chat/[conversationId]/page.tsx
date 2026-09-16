@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { getConversation, getMessages, counterpartName, counterpartAvatar, getBrief } from "@/lib/chat";
@@ -7,8 +6,7 @@ import { fetchPhotographerPackages, fetchPhotographerPhotos } from "@/lib/discov
 import { getRules, getBlocks, getBusyRanges } from "@/lib/availability";
 import { ChatRoom } from "./ChatRoom";
 import type { ComposerData } from "./BookingComposer";
-import { Avatar } from "@/components/ui";
-import { BackButton } from "./BackButton";
+import { ChatShell } from "@/components/chat/ChatShell";
 import { ProposeBookingButton } from "./ProposeBookingButton";
 import { GuideImagesButton } from "./GuideImagesButton";
 import { fetchGuideImages } from "@/lib/guide-images";
@@ -157,71 +155,54 @@ export default async function ChatRoomPage({
   const headerHref = amCustomer && conv.photographer ? `/photographers/${conv.photographer_id}` : null;
 
   return (
-    <main className="font-kr">
-      {/* 뷰포트 전체를 채우는 고정 높이 컬럼 — 채팅방은 모바일 하단 탭바가 숨겨지므로(몰입형)
-          풀 dvh를 쓰고, 부모 pb-24만 상쇄. 내부에서 메시지 리스트만 스크롤 → 진입 시 윈도우가 통째로 밀리지 않음 */}
-      <div className="mx-auto flex h-dvh max-w-2xl flex-col -mb-24 md:mb-0">
-        <header className="flex shrink-0 items-center gap-2 border-b border-line px-2 py-2 sm:px-3">
-          <BackButton />
-
-          {/* 아바타 + 이름 (고객이면 작가 프로필로 이동) */}
-          {headerHref ? (
-            <Link href={headerHref} className="flex min-w-0 items-center gap-2.5">
-              <Avatar src={titleAvatar} name={title} size="sm" />
-              <span className="truncate text-title font-semibold">{title}</span>
-            </Link>
-          ) : (
-            <span className="flex min-w-0 items-center gap-2.5">
-              <Avatar src={titleAvatar} name={title} size="sm" />
-              <span className="truncate text-title font-semibold">{title}</span>
-            </span>
+    <ChatShell
+      title={title}
+      titleAvatar={titleAvatar}
+      headerHref={headerHref}
+      headerActions={
+        <>
+          {/* 촬영 안내 — 상시. 예약 제안 왼쪽(정보 → 행동 순) */}
+          <GuideImagesButton images={guideImages} />
+          {/* 예약 제안 (에스크로 플로우의 시작) */}
+          {composerData && (!amCustomer || photographerHasMessaged) && (
+            <ProposeBookingButton data={composerData} />
           )}
-
-          {/* 예약 제안 (에스크로 플로우의 시작) — 상담정보 작성/열람은 요약 카드가 대체해 제거 */}
-          <div className="ml-auto flex shrink-0 items-center gap-1">
-            {/* 촬영 안내 — 상시. 예약 제안 왼쪽(정보 → 행동 순) */}
-            <GuideImagesButton images={guideImages} />
-            {composerData && (!amCustomer || photographerHasMessaged) && (
-              <ProposeBookingButton data={composerData} />
-            )}
-          </div>
-        </header>
-
-        {/* 번호가 없으면 이 방의 알림이 한 통도 안 나간다(dispatchNotify 가 no_phone 으로 스킵).
-            헤더 바로 아래 — 대화를 가리지 않으면서 처음 눈에 걸리는 자리 */}
-        {!phoneConsent.hasPhone && (
+        </>
+      }
+      banner={
+        !phoneConsent.hasPhone ? (
           <PhoneConsentBanner
             conversationId={conversationId}
             canAskKakao={phoneConsent.canAskKakao}
           />
-        )}
-
-        <ChatRoom
-          conversationId={conversationId}
-          meId={me.id}
-          amPhotographer={!amCustomer}
-          initialMessages={messages}
-          composerData={composerData}
-          portfolioPhotos={portfolioPhotos}
-          brief={brief}
-          sourcePhotoPath={conv.source_photo_path}
-          // 작가에게만 — 봇 수집 현황 체크리스트 (고객 화면에는 봇 대화가 곧 그 정보)
-          initialBotSlots={!amCustomer ? conv.bot_slots ?? null : null}
-          botMode={botMode}
-          // 봇/작가를 아바타로 구분 — 참여자는 둘뿐이라 '내 것이 아닌' 말풍선의 주인은
-          // 봇(type='bot') 이거나 상대(작가/고객) 둘 중 하나다.
-          customerId={conv.user_id}
-          counterpartName={title}
-          counterpartAvatar={titleAvatar}
-          botDisabled={conv.bot_disabled_at != null}
-          openQuestions={openQuestions}
-          guideImages={guideImages}
-          payoutAccount={payoutAccount}
-          extras={extras}
-          botName={botSettings.messages.botName}
-          handoffNotice={botSettings.messages.handoff}
-        />
-      </div>
-    </main>
+        ) : null
+      }
+    >
+      <ChatRoom
+        conversationId={conversationId}
+        meId={me.id}
+        amPhotographer={!amCustomer}
+        initialMessages={messages}
+        composerData={composerData}
+        portfolioPhotos={portfolioPhotos}
+        brief={brief}
+        sourcePhotoPath={conv.source_photo_path}
+        // 작가에게만 — 봇 수집 현황 체크리스트 (고객 화면에는 봇 대화가 곧 그 정보)
+        initialBotSlots={!amCustomer ? conv.bot_slots ?? null : null}
+        botMode={botMode}
+        // 봇/작가를 아바타로 구분 — 참여자는 둘뿐이라 '내 것이 아닌' 말풍선의 주인은
+        // 봇(type='bot') 이거나 상대(작가/고객) 둘 중 하나다.
+        customerId={conv.user_id}
+        counterpartName={title}
+        counterpartAvatar={titleAvatar}
+        botDisabled={conv.bot_disabled_at != null}
+        openQuestions={openQuestions}
+        guideImages={guideImages}
+        payoutAccount={payoutAccount}
+        extras={extras}
+        botName={botSettings.messages.botName}
+        handoffNotice={botSettings.messages.handoff}
+      />
+    </ChatShell>
   );
 }

@@ -10,6 +10,7 @@ const TABS = [
   { href: "/admin/photographers", label: "작가 승인", exact: true },
   { href: "/admin/studios", label: "작가 관리" },
   { href: "/admin/transactions", label: "거래·정산" },
+  { href: "/admin/withholding", label: "지급명세서" },
   { href: "/admin/users", label: "회원" },
   { href: "/admin/inquiries", label: "문의" },
   { href: "/admin/support", label: "사매 문의" },

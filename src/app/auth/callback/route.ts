@@ -4,6 +4,7 @@ import { requestOrigin, safeNext } from "@/lib/safe-redirect";
 import { readAnonFavPhotoIds, ANON_FAV_COOKIE } from "@/lib/anon-favorites";
 import { extractKakaoPhone, fetchKakaoPhoneFromApi } from "@/lib/kakao-phone";
 import { needsTermsConsent } from "@/lib/consent";
+import { adoptKakaoServiceTerms } from "@/lib/kakao-terms";
 
 const OAUTH_NEXT_COOKIE = "samae_oauth_next";
 
@@ -37,6 +38,11 @@ export async function GET(request: Request) {
       const adopted = await adoptKakaoPhone(supabase, data?.session?.provider_token);
       // 카카오 프로필 사진 → profiles.avatar_url (본인이 올린 사진은 건드리지 않는다)
       await adoptKakaoAvatar(supabase);
+      // 카카오 간편가입에서 약관에 동의했으면 그걸 우리 기록으로 가져온다.
+      // 성공하면 아래 needsTermsConsent 가 false 가 되어 /signup/consent 를 건너뛴다 —
+      // **가입 시점에 이미 받은 동의를 한 번 더 받지 않는다.**
+      // (간편가입 미설정 = KAKAO_TERMS_TAGS 비어 있음 → no-op. 지금이 그 상태다)
+      await adoptKakaoServiceTerms(supabase, data?.session?.provider_token);
       // 연락처 없는 계정(첫 소셜 가입 포함) → 가입 마무리(전화번호 등록)를 거쳐 복귀.
       // SMS(작가 답장 알림)가 profiles.phone 에 의존하므로 이 단계는 건너뛸 수 없다.
       //

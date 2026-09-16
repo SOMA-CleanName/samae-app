@@ -10,7 +10,7 @@
 //   · 천재지변   — 전액 환불, 누구에게도 수수료 없음
 //   · 작가 사정  — 전액 환불, 수수료 상당액을 작가에게 청구
 //   · 작가 노쇼  — 작가 사정과 같은 돈. 이력 집계용으로 따로 둔다
-//   · 고객 노쇼  — 위약금 100%, 작가 80 : 사매 20
+//   · 고객 노쇼  — 위약금 100%. 배분은 그 작가의 수수료율을 따른다
 //   · 부분 이행  — 촬영이 일부 진행된 뒤의 취소. 운영이 환불액을 적는다 (10조 4항)
 
 import { useState } from "react";
@@ -26,7 +26,8 @@ const OVERRIDES: { value: "" | RefundOverride; label: string; hint: string }[] =
   { value: "force_majeure", label: "천재지변", hint: "교통이 마비되는 수준 — 전액 환불, 수수료 없음" },
   { value: "photographer_fault", label: "작가 사정", hint: "전액 환불, 수수료 상당액을 작가에게 청구" },
   { value: "photographer_no_show", label: "작가 노쇼", hint: "작가 사정과 같은 처리. 이력에 노쇼로 남는다" },
-  { value: "customer_no_show", label: "고객 노쇼", hint: "취소 통보 없이 불참 — 위약금 100%, 작가 80 : 사매 20" },
+  // 배분 비율은 작가마다 다르다(요율 연동) — 실제 숫자는 아래 moneyLine 이 보여준다
+  { value: "customer_no_show", label: "고객 노쇼", hint: "취소 통보 없이 불참 — 위약금 100%" },
   { value: "partial", label: "부분 이행", hint: "촬영이 일부 진행된 뒤의 취소 — 환불액을 직접 적는다" },
 ];
 
@@ -34,12 +35,16 @@ export function AdminRefundButton({
   bookingId,
   quote,
   amountKrw,
+  feeRate,
   label,
 }: {
   bookingId: string;
   quote: RefundQuote;
   /** 고객이 낸 총액 — 예외 판정 미리보기에 필요하다 */
   amountKrw: number;
+  /** 이 예약의 수수료율 — 위약금 배분(작가 : 사매)이 여기서 갈린다.
+   *  넘기지 않으면 기본 20%로 계산돼, 요율이 다른 작가의 건에서 화면과 실행값이 어긋난다. */
+  feeRate: number;
   label: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -69,6 +74,8 @@ export function AdminRefundButton({
           amountKrw,
           travelFeeKrw: 0,
           feeKrw: override === "partial" ? 0 : quote.feeClaimKrw || quote.feeKrw,
+          // 서버(quoteRefund)는 예약의 요율로 나눈다 — 여기서 빠뜨리면 미리보기만 20%가 된다
+          feeRate,
           override,
           manualRefundKrw: Number(manual.replace(/[^0-9]/g, "")) || 0,
         });

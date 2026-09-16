@@ -27,6 +27,8 @@ export function SupportButton({
   conversationId,
   variant = "card",
   role = "customer",
+  submitAction = submitSupportRequest,
+  quoteAction = getCustomerRefundQuote,
 }: {
   bookingId: string;
   conversationId: string | null;
@@ -34,6 +36,10 @@ export function SupportButton({
   variant?: "card" | "list";
   /** 작가는 촬영 취소 접수만 할 수 있다 (취소환불 8조) */
   role?: "customer" | "photographer";
+  // 기본은 진짜 서버 액션이다. QA 샌드박스만 갈아 끼운다 — 안 그러면 가짜 예약에
+  // 붙은 문의가 실제 support_requests 에 쌓인다.
+  submitAction?: (formData: FormData) => Promise<void>;
+  quoteAction?: (bookingId: string) => Promise<CustomerRefundQuote | null>;
 }) {
   const kinds = role === "photographer" ? PHOTOGRAPHER_SUPPORT_KINDS : SUPPORT_KINDS;
   const [open, setOpen] = useState(false);
@@ -45,13 +51,13 @@ export function SupportButton({
   useEffect(() => {
     if (!open || kind !== "refund") return;
     let active = true;
-    getCustomerRefundQuote(bookingId).then((q) => {
+    quoteAction(bookingId).then((q) => {
       if (active) setQuote(q);
     });
     return () => {
       active = false;
     };
-  }, [open, kind, bookingId]);
+  }, [open, kind, bookingId, quoteAction]);
 
   if (!open) {
     return (
@@ -79,7 +85,7 @@ export function SupportButton({
     >
       <form
         action={async (fd) => {
-          await submitSupportRequest(fd);
+          await submitAction(fd);
           setOpen(false);
         }}
         onClick={(e) => e.stopPropagation()}

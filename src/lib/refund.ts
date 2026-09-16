@@ -48,6 +48,8 @@ export const REFUND_WINDOW_DAYS = 7;
 /** 위약금을 작가와 사매가 나누는 기본 비율 — 수수료율과 연동된다 */
 export const DEFAULT_PENALTY_COMPANY_RATE = 0.2;
 
+import { addBusinessDays } from "./business-days";
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
@@ -441,13 +443,8 @@ export function refundSlaDueAt(refundDueAt: string | null): Date | null {
   if (!refundDueAt) return null;
   const d = new Date(refundDueAt);
   if (isNaN(d.getTime())) return null;
-  let left = REFUND_SLA_BUSINESS_DAYS;
-  while (left > 0) {
-    d.setDate(d.getDate() + 1);
-    const day = d.getDay();
-    if (day !== 0 && day !== 6) left--;
-  }
-  return d;
+  // 영업일 셈법은 정산(7영업일)과 같다 — lib/business-days 한 곳에서만 센다
+  return addBusinessDays(d, REFUND_SLA_BUSINESS_DAYS);
 }
 
 /** 기한을 넘겼는가 — 어드민 목록에서 강조할 건 */

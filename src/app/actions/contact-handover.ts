@@ -14,10 +14,8 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeContactMethods, type ContactMethod } from "@/lib/photographer-contacts";
+import { contactSendGate } from "@/lib/contact-gate";
 import { postContactDeliveredNotice } from "@/lib/payments";
-
-/** 연락처를 건넬 수 있는 단계 — 입금이 확인된 뒤에만 */
-const DELIVERABLE = ["paid", "shot", "delivered", "completed"];
 
 /** 작가: 등록해둔 연락 수단을 이 예약의 고객에게 보낸다 */
 export async function sendPhotographerContact(formData: FormData): Promise<void> {
@@ -28,13 +26,21 @@ export async function sendPhotographerContact(formData: FormData): Promise<void>
   const admin = createAdminClient();
   const { data: b } = await admin
     .from("bookings")
-    .select("id, status, photographer_id, user_id, contact_sent_at")
+    .select("id, status, photographer_id, user_id, contact_sent_at, shoot_at, shoot_date")
     .eq("id", bookingId)
     .maybeSingle();
   if (!b) throw new Error("예약을 찾을 수 없습니다.");
   if (b.photographer_id !== me.photographer.id) throw new Error("이 예약의 작가가 아니에요.");
-  if (!DELIVERABLE.includes(b.status as string))
-    throw new Error("입금이 확인된 뒤에 보낼 수 있어요.");
+
+  // 입금 확인 + **촬영 7일 이내** 여야 열린다 (HANDOFF §3-1).
+  // 8일 이상 전은 취소 위약금이 0% 라, 연락처가 먼저 나가면 "취소하고 직접 하시죠" 가
+  // 양쪽 모두에게 이득인 구간이 된다. 버튼만 감추면 폼 위조로 들어오므로 서버가 막는다.
+  const gate = contactSendGate({
+    status: b.status as string,
+    shootAt: (b.shoot_at as string | null) ?? null,
+    shootDate: (b.shoot_date as string | null) ?? null,
+  });
+  if (!gate.allowed) throw new Error(gate.notice);
 
   const { data: ph } = await admin
     .from("photographers")

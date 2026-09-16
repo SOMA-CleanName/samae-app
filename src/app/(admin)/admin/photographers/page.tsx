@@ -132,12 +132,31 @@ export default async function AdminPhotographersPage() {
                     {l.bio && <p className="mt-2 text-body-sm leading-relaxed text-fg/80">{l.bio}</p>}
                   </div>
                 </div>
-                <div className="mt-4 flex gap-2">
+                <div className="mt-4 flex flex-wrap items-end gap-2">
                   {l.profile_id ? (
                     <>
-                      <form action={approveApplication} className="flex-1 sm:flex-none">
+                      {/* 요율은 **승인하면서** 정한다. 승인 직후 작가가 입점 신청에서 바로
+                          등록되므로 그 사이에 손볼 자리가 없고, 나중에 고치면 이미 등록된
+                          상품·예약이 옛 요율로 굳어 있다(fee_snapshot 은 제안 시점에 박힌다) */}
+                      <form action={approveApplication} className="flex items-end gap-2">
                         <input type="hidden" name="id" value={l.id} />
-                        <PendingButton size="sm" fullWidth>승인</PendingButton>
+                        <label className="text-caption text-muted">
+                          수수료율
+                          <span className="ml-1 text-faint">(비우면 {DEFAULT_FEE_RATE * 100}%)</span>
+                          <div className="mt-1 flex items-center gap-1">
+                            <input
+                              name="feeRate"
+                              type="number"
+                              step="0.5"
+                              min="0.5"
+                              max="50"
+                              placeholder={String(DEFAULT_FEE_RATE * 100)}
+                              className="w-20 rounded-lg border border-line bg-bg px-2.5 py-1.5 text-caption tabular-nums outline-none focus:border-fg/40"
+                            />
+                            <span className="text-caption text-muted">%</span>
+                          </div>
+                        </label>
+                        <PendingButton size="sm">승인</PendingButton>
                       </form>
                       <form action={rejectApplication} className="flex-1 sm:flex-none">
                         <input type="hidden" name="id" value={l.id} />

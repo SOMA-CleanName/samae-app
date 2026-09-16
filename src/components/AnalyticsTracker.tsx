@@ -20,8 +20,10 @@ function appEnv(): "production" | "preview" | "development" {
 // 버튼마다 개별 계측 없이 위임 캡처로 "모든 액션"을 잡는다.
 // 싱크 2곳: 자체 /api/track(세션·전환경로) + Mixpanel(퍼널·리텐션·코호트).
 
-// 측정 제외 — 운영자·작가 페이지는 고객 행동이 아니므로 추적하지 않음
-const EXCLUDED = ["/admin", "/studio"];
+// 측정 제외 — 운영자·작가 페이지는 고객 행동이 아니므로 추적하지 않음.
+// /dev 는 개발 전용 지면(테스트 로그인·플로우 샌드박스)이라 더더욱 고객 행동이 아니다 —
+// 샌드박스를 스무 번 돌면 전환 경로에 가짜 pageview 가 스무 개 쌓인다.
+const EXCLUDED = ["/admin", "/studio", "/dev"];
 function isTracked(path: string): boolean {
   return !EXCLUDED.some((p) => path === p || path.startsWith(p + "/"));
 }

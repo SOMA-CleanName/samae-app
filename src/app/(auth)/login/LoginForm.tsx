@@ -16,6 +16,12 @@ const DEFAULT_LOGIN_NEXT = "/studio";
  * (로그인 벽은 이탈 지점이다 — 맥락 없는 "로그인하세요"가 가장 나쁜 카피)
  */
 function contextCopy(next: string): { title: string; sub: string } {
+  // 작가 모집 링크(/apply)를 타고 온 사람 — 여기서 손님용 카피를 보면 잘못 눌렀나 싶다
+  if (next.startsWith("/apply"))
+    return {
+      title: "작가 신청을 이어갈게요",
+      sub: "로그인하면 신청서 작성으로 바로 넘어가요.",
+    };
   if (next.startsWith("/inquiry/bot"))
     return {
       title: "로그인하고 대화를 이어가요",
