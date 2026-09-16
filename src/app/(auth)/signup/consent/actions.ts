@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { recordTermsConsent } from "@/lib/consent";
 import { safeNext } from "@/lib/safe-redirect";
@@ -20,6 +21,10 @@ export async function agreeTerms(formData: FormData): Promise<void> {
   if (!terms || !privacy) throw new Error("서비스 이용약관과 개인정보 처리방침에 모두 동의해야 계속할 수 있어요.");
 
   await recordTermsConsent(me.id);
+  // 덮개(TermsConsentGate)는 **레이아웃**이 그린다. 레이아웃 RSC 를 다시 안 그리면
+  // 돌아간 화면에 캐시된 옛 덮개가 잠깐 남는다 — 동의를 마쳤는데 팝업이 2초쯤
+  // 다시 떴다가 사라졌다(2026-09-16 신고). 동의는 곧 레이아웃 상태 변경이다.
+  revalidatePath("/", "layout");
   redirect(safeNext(String(formData.get("next") || ""), "/"));
 }
 

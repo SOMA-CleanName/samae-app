@@ -21,7 +21,7 @@ const EMAIL_SIGNUP_ENABLED = false;
 
 // 회원가입 폼 — 카카오 소셜 (이메일 가입은 SMTP 준비 후).
 // 이메일 인증 ON이면 가입 후 확인 메일 안내, OFF면 즉시 로그인.
-export function SignupForm() {
+export function SignupForm({ kakaoTermsTags }: { kakaoTermsTags?: string | null }) {
   const router = useRouter();
   const supabase = createClient();
   const [name, setName] = useState("");
@@ -66,7 +66,17 @@ export function SignupForm() {
       provider: "kakao",
       // scopes 는 카카오싱크 검수 통과 후에만 붙는다(lib/kakao-phone) — 검수 안 된
       // 동의항목을 요청하면 카카오가 로그인 자체를 거절한다(KOE205).
-      options: { redirectTo: `${location.origin}/auth/callback`, scopes: kakaoScopes() },
+      options: {
+        redirectTo: `${location.origin}/auth/callback`,
+        scopes: kakaoScopes(),
+        // 간편가입 약관 — **여기가 유일한 기회다.** 카카오는 최초 연결 때만 약관
+        // 화면을 띄운다(이미 연결된 계정에는 조용히 무시한다). 그래서 이 값을 안
+        // 보내면 아무도 카카오에서 약관에 동의하지 않게 되고, 전원이 우리 폼으로 온다.
+        //
+        // ⚠️ scope(동의항목)와 다르다. scope 는 기존 회원에게도 추가 동의를 받을 수
+        //    있지만(전화번호가 그 경우다), **서비스 약관은 그게 안 된다.**
+        ...(kakaoTermsTags ? { queryParams: { service_terms: kakaoTermsTags } } : {}),
+      },
     });
     // 조용히 실패하면 "버튼이 죽었다" 로 보인다 — 실제로 그렇게 신고됐다(09-16).
     // 카카오·Supabase 가 돌려준 말을 그대로 띄운다. 원인을 감추는 것보다 낫다.
