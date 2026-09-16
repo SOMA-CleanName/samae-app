@@ -8,6 +8,7 @@ const pages = [
   { href: "/admin/photo-purpose", label: "목적" },
   { href: "/admin/photo-purpose/mood", label: "무드" },
   { href: "/admin/photo-purpose/mood/axes", label: "축 배정" },
+  { href: "/admin/photo-purpose/mood/neighbors", label: "이웃 그래프" },
   // 임시 검수 화면. 무드 그래프가 확정되면 없앤다.
   { href: "/admin/photo-purpose/mood/review", label: "무드 검수" },
 ];
