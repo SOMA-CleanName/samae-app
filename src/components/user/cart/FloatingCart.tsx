@@ -24,7 +24,11 @@ import {
   toInterestRecommendationRows,
   type InterestRecommendationRow,
 } from "@/lib/interest-similar-recommendations";
-import { CartPhotographerRows } from "./CartPhotographerRows";
+import {
+  CartPhotographerRows,
+  cartRowCardBox,
+  cartRowCardRotation,
+} from "./CartPhotographerRows";
 import {
   cartOwnerMap,
   groupCartByPhotographer,
@@ -191,6 +195,8 @@ export function FloatingCart() {
   // 줄에서 확대로 넘어갈 때 출발점(누른 카드의 화면 위치) — 애니메이션 한 번에 소비.
   const focusFromRect = useRef<{ id: string; rect: DOMRect } | null>(null);
   const layerRef = useRef<HTMLDivElement>(null);
+  /** 카드들이 붙는 안쪽 상자 — 착지점 계산의 좌표 원점 */
+  const cardsBoxRef = useRef<HTMLDivElement>(null);
   const focusGesture = useRef({ active: false, pointerId: -1, startX: 0, startY: 0 });
   const focusTransitionLocked = useRef(false);
   const focusTransitionFrame = useRef<number | null>(null);
@@ -1059,7 +1065,29 @@ export function FloatingCart() {
       const j = spreadJitter(it.id);
       const x = p.cx + j.fx * Math.min(10, colW * 0.04);
       const y = p.cy + yOffset + j.fy * 5; // 세로는 누적 배치라 작은 흔들림만(겹침 방지)
-      return { it, x, y, rot: j.rot, photoW, photoH: p.photoH, side, bottom, z: i, g };
+      /*
+        작가 줄 화면에서는 카드를 **줄 규격으로** 그린다.
+
+        펼침의 착지점이 줄 카드라, 상자가 다르면 맞바꾸는 순간 크기가 변한다.
+        두 쪽이 종횡비를 반대로 다루기 때문에(여긴 폭 고정·높이 유도, 줄은 높이 고정·폭 유도)
+        균일 축소로는 못 맞춘다 — 폭을 맞추면 높이가 최대 19.5px 어긋났다(실측).
+        규격을 통째로 줄 것으로 쓰면 축소 없이 그대로 앉는다.
+
+        아래 x,y 는 이때 쓰지 않는다(자리는 slots 가 준다). 크기만 갈아끼운다.
+      */
+      const box = rowsMode ? cartRowCardBox(it.w, it.h) : null;
+      return {
+        it,
+        x,
+        y,
+        rot: j.rot,
+        photoW: box?.photoW ?? photoW,
+        photoH: box?.photoH ?? p.photoH,
+        side: box?.side ?? side,
+        bottom: box?.bottom ?? bottom,
+        z: i,
+        g,
+      };
     });
     return { cards, contentH, cardW, SCROLL };
   })();
@@ -1076,6 +1104,94 @@ export function FloatingCart() {
   const dockScale = cardW > 0 ? CART_W / cardW : 0.27;
   const cx = W / 2; // 중앙 스택 위치
   const cy = H / 2;
+
+  /*
+    ── 펼침 착지점(작가 줄) ────────────────────────────────────────────
+
+    원래 장바구니는 **카드 자체가** 도크 → 중앙 스택 → 최종 자리로 날아갔다.
+    최종 자리가 세로 나열이던 시절엔 이 파일이 그 좌표를 직접 계산했다(cards[].x/y).
+    작가 줄 UI 로 바뀌면서 최종 자리를 `CartPhotographerRows` 가 쥐게 됐고, 그때부터
+    카드는 도크에 숨고(op 0) 줄만 툭 나타났다 — 연출이 사라진 것이다(정훈 2026-09-13).
+
+    좌표를 다시 계산하지 않는다. **줄이 그린 자리를 재서** 거기로 날려보낸다.
+    줄은 날아오는 동안 숨어 있다가, 도착하는 순간 맞바꾼다. 둘은 같은 사진·같은
+    크기·같은 기울기라 바뀌는 순간이 안 보인다.
+  */
+  type Slot = { cx: number; cy: number; w: number };
+  const spreadRows = phase === "spread" && rowsMode;
+  /*
+    잰 자리에 **무엇을 재던 때인지**를 같이 달아 둔다.
+    다시 열었을 때 장수나 화면 크기가 달라졌으면 지난번 자리는 못 쓴다 — 키가 어긋나면
+    자동으로 무시된다. (이펙트에서 되돌리지 않아도 되는 이유)
+  */
+  const slotKey = `${groups.length}:${items.length}:${W}x${H}`;
+  const [slots, setSlots] = useState<{ key: string; map: Map<string, Slot> } | null>(null);
+  /** 착지 완료 — 줄에게 화면을 넘기고 카드는 투명해진다(자리는 그대로 둔다) */
+  const [landed, setLanded] = useState(false);
+
+  useLayoutEffect(() => {
+    if (!spreadRows) return; // 펼침이 아니면 아무것도 안 한다 — 되돌리기는 아래 파생값이 맡는다
+    const layer = layerRef.current;
+    if (!layer) return;
+
+    let timer = 0;
+    // 한 프레임 뒤에 잰다. 이 프레임의 카드는 아직 '중앙 스택'인데, 직전 단계가 바로
+    // 중앙이라 화면은 그대로다 — 한 프레임 더 머무는 것뿐이라 눈에 안 보인다.
+    const frame = requestAnimationFrame(() => {
+      /*
+        착지점은 **카드가 붙는 상자(cardsBoxRef) 기준**으로 잰다.
+
+        뷰포트 좌표를 그대로 쓰면 안 된다. 그 상자는 스크롤 컨테이너 안의
+        `absolute inset-0` 라 원점이 뷰포트 좌상단이 아니고, 스크롤과 함께 움직인다.
+        추측으로 scrollTop 을 더했다 뺐다 해봤지만 둘 다 **세로 14px** 이 남았다(실측).
+        상자의 실제 위치를 빼면 그런 보정이 필요 없다 — 브라우저가 답을 준다.
+
+        중심으로 잡는 이유: 카드도 줄도 `transform-origin: center` 로 기울어 있어
+        회전해도 **중심은 안 움직인다.** 좌상단은 회전하면 어긋난다.
+      */
+      const box = cardsBoxRef.current;
+      if (!box) return;
+      /*
+        재기 전에 스크롤을 먼저 0 으로 맞춘다.
+
+        펼칠 때 레이어는 맨 위에서 시작하도록 `scrollTop = 0` 으로 되돌리는데(아래 효과),
+        그게 이 측정보다 **늦게** 돌면 잰 자리와 실제 자리가 스크롤만큼 어긋난다.
+        실측에서 세로로 정확히 14px 밀려 있었고, 그 값이 리셋 직전의 scrollTop 이었다.
+        순서에 기대지 말고 여기서 확정한다 — 이미 0 이면 아무 일도 안 일어난다.
+      */
+      layer.scrollTop = 0;
+      const ox = box.getBoundingClientRect();
+      const map = new Map<string, Slot>();
+      layer.querySelectorAll<HTMLElement>("[data-cart-slot]").forEach((el) => {
+        const id = el.dataset.cartSlot;
+        if (!id) return;
+        const r = el.getBoundingClientRect();
+        map.set(id, {
+          cx: r.left + r.width / 2 - ox.left,
+          cy: r.top + r.height / 2 - ox.top,
+          // 폭은 `offsetWidth` — rect 는 기울어진 바깥 상자라 실제보다 몇 px 넓다
+          w: el.offsetWidth,
+        });
+      });
+      if (map.size === 0) return;
+      setSlots({ key: slotKey, map });
+      setLanded(false);
+      /*
+        도착 시점 — 가장 늦게 출발한 카드(스태거 최대)가 착지한 뒤.
+        아래 카드 트랜지션과 같은 값을 쓴다: 지연 min(g,16)×22 + 이동 460ms.
+      */
+      timer = window.setTimeout(() => setLanded(true), 16 * 22 + 460 + 40);
+    });
+
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+    };
+  }, [spreadRows, slotKey]);
+
+  // 펼침이 아니거나 잰 때와 조건이 달라졌으면 '자리를 모른다'로 친다
+  const activeSlots = spreadRows && slots?.key === slotKey ? slots.map : null;
+  const landedNow = activeSlots != null && landed;
 
   // 펼쳐질 때 항상 맨 위에서 시작(이전 스크롤 위치 리셋)
   useIsoLayout(() => {
@@ -1203,7 +1319,16 @@ export function FloatingCart() {
         {phase === "spread" && rowsMode && (
           // 확대 중에는 감추되 흐름에서 빼지 않는다(hidden 이면 스크롤 높이가 무너져
           // 보던 자리를 잃고, 확대 카드의 좌표 보정(focusScroll)도 어긋난다).
-          <div className={`w-full ${focused ? "invisible" : ""}`}>
+          <div
+            className={`w-full ${focused ? "invisible" : ""}`}
+            /*
+              날아오는 동안 줄은 숨는다 — 보이면 목적지에 사진이 미리 앉아 있어서
+              "날아와 앉는다"가 아니라 "겹쳐 보인다"가 된다.
+              자리는 재야 하므로 `hidden` 이 아니라 투명도로 감춘다(레이아웃 유지).
+              착지 순간 카드는 투명해지고 줄이 켜진다 — 같은 그림이라 바뀌는 게 안 보인다.
+            */
+            style={{ opacity: landedNow ? 1 : 0 }}
+          >
             <CartPhotographerRows
               groups={groups}
               selectMode={selectMode}
@@ -1229,6 +1354,9 @@ export function FloatingCart() {
             확대는 이 카드 자체가 커지는 것이라(복제본 없음) 사라지면 안 된다.
             대신 흐름에서 빼고(absolute) 탭을 통과시켜 줄이 화면을 갖게 한다. */}
         <div
+          /* 카드의 좌표 원점. 펼침 착지점을 **이 상자 기준**으로 잰다(slots 참고) —
+             레이어가 스크롤 컨테이너라 뷰포트 좌표를 그대로 쓰면 어긋난다(실측 14px). */
+          ref={cardsBoxRef}
           className={`w-full ${similarMode ? "hidden" : ""} ${
             phase === "spread" && rowsMode ? "absolute inset-0 pointer-events-none" : "relative"
           }`}
@@ -1280,9 +1408,28 @@ export function FloatingCart() {
               tf = tfAt(W / 2, focusScroll + H * 0.42, focusScale, 0);
               op = 1;
             } else if (phase === "spread" && rowsMode) {
-              // 줄이 화면을 맡는다 — 카드는 도크 자리에 숨어 확대 때만 나온다.
-              tf = tfAt(dockCx + j.dx, dockCy + j.dy, dockScale, jRot);
-              op = 0;
+              const slot = activeSlots?.get(it.id);
+              if (!slot) {
+                /*
+                  아직 줄 자리를 못 쟀다(이 화면의 첫 렌더) — **중앙 스택 그대로 둔다.**
+                  도크로 보내면 직전 프레임(중앙)에서 도크로 튀었다가 다시 나오는 게 보인다.
+                  측정은 같은 프레임(useLayoutEffect)에 끝나므로 이 상태는 칠해지지 않는다.
+                */
+                tf = tfAt(cx + j.dx, cy + j.dy, dockScale, jRot);
+                op = 1;
+              } else {
+                /*
+                  줄이 그린 자리·크기·**기울기**까지 그대로 맞춰 착지한다.
+
+                  기울기를 0 으로 두면 착지한 뒤 줄로 맞바꾸는 순간 사진이 −2~2도 돌아간다.
+                  그게 "다 펼쳐진 뒤 잠깐 재정렬되며 멈추는" 것처럼 보였다(정훈 2026-09-13).
+                  줄 카드와 **같은 함수**로 각도를 구해 애초에 그 자세로 내려놓는다.
+                */
+                tf = tfAt(slot.cx, slot.cy, slot.w / cardW, cartRowCardRotation(it.id));
+                // 착지하면 줄에게 넘기고 투명해진다. **자리는 그대로 둔다** —
+                // 도크로 치우면 닫을 때 되돌아오는 길이 사라진다.
+                op = landedNow ? 0 : 1;
+              }
             } else if (phase === "spread") {
               tf = tfAt(x, y, 1, rot);
               op = anyFocused ? 0 : gridMode && !gridSelectedIds.has(it.id) ? 0.5 : 1;
@@ -1378,9 +1525,17 @@ export function FloatingCart() {
                       focusTransition || (anyFocused && !isFocusParticipant) || op === 0 ? "none" : "auto",
                     touchAction: focused ? "none" : open ? "auto" : "none",
                     transition:
-                      rowsMode && !isFocusParticipant
-                        ? "none"
-                        : focusTransition && isFocusParticipant
+                      /*
+                        줄 화면에서도 카드는 **날아간다.**
+
+                        전에는 여기가 통째로 `none` 이었다. 줄 UI 에서는 카드가 도크에 숨는 게
+                        전제라 움직일 일이 없었기 때문이다. 이제 카드가 중앙 스택에서 줄 자리로
+                        이동하므로(위 slots 분기) 트랜지션을 꺼 두면 **순간이동**한다
+                        — 실측에서 spread 시작 20ms 만에 최종 위치였다.
+
+                        확대(포커스) 참여 카드는 아래 전용 트랜지션이 맡는다.
+                      */
+                      focusTransition && isFocusParticipant
                         ? reducedMotion
                           ? `opacity ${FOCUS_REDUCED_TRANSITION_MS}ms ease`
                           : `transform ${FOCUS_TRANSITION_MS}ms cubic-bezier(.22,.72,.2,1), opacity ${FOCUS_TRANSITION_MS}ms ease`
@@ -1409,7 +1564,7 @@ export function FloatingCart() {
                       style={{ top: side + 2, right: side + 2 }}
                       className={`absolute grid h-6 w-6 place-items-center rounded-full border-2 ${
                         gridSelectedIds.has(it.id)
-                          ? "border-brand bg-brand text-white"
+                          ? "border-brand bg-brand-solid text-white"
                           : "border-white bg-black/25 text-transparent"
                       }`}
                     >
@@ -1668,7 +1823,7 @@ export function FloatingCart() {
                         aria-label="관심사진과 비슷한 사진 보기"
                         aria-busy={similarState.status === "loading"}
                         onClick={startRecommendPick}
-                        className="pointer-events-auto grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-full bg-brand text-white shadow-pop transition-opacity hover:opacity-90"
+                        className="pointer-events-auto grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-full bg-brand-solid text-white shadow-pop transition-opacity hover:opacity-90"
                       >
                         {similarState.status === "loading" ? (
                           <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/35 border-t-white motion-reduce:animate-none" />
@@ -1724,7 +1879,7 @@ export function FloatingCart() {
                     type="button"
                     onClick={() => void openSimilarRecommendations()}
                     disabled={similarState.status === "loading"}
-                    className="pointer-events-auto flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90 disabled:cursor-default disabled:opacity-70"
+                    className="pointer-events-auto flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-brand-solid py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90 disabled:cursor-default disabled:opacity-70"
                   >
                     {similarState.status === "loading" && (
                       <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/35 border-t-white motion-reduce:animate-none" />
@@ -1790,7 +1945,7 @@ export function FloatingCart() {
                     onClick={() => leaveToInquiry(`/inquiry/photo/${focused}`)}
                     disabled={focusTransition != null}
                     data-quote-lead=""
-                    className="flex-1 cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
+                    className="flex-1 cursor-pointer rounded-2xl bg-brand-solid py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
                   >
                     무료 상담하기
                   </button>

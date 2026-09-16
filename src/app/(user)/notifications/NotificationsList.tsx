@@ -73,12 +73,12 @@ export function NotificationsList({ items }: { items: AppNotification[] }) {
       <h1 className="text-2xl font-semibold">알림</h1>
 
       {items.length === 0 ? (
-        <p className="mt-10 text-center text-sm text-fg/45">새 알림이 없어요.</p>
+        <p className="mt-10 text-center text-sm text-faint">새 알림이 없어요.</p>
       ) : (
         <div className="mt-5 space-y-5">
           {groupByDate(items, (n) => n.created_at).map((group) => (
             <section key={group.label}>
-              <h2 className="mb-1 text-xs font-semibold text-fg/45">{group.label}</h2>
+              <h2 className="mb-1 text-xs font-semibold text-faint">{group.label}</h2>
               <ul className="divide-y divide-fg/8">
                 {group.items.map((n) => {
                   const d = display(n);
@@ -95,7 +95,7 @@ export function NotificationsList({ items }: { items: AppNotification[] }) {
                           {d.title && <p className="truncate text-sm font-semibold text-fg">{d.title}</p>}
                           {d.body && <p className="mt-0.5 truncate text-sm text-fg/60">{d.body}</p>}
                         </div>
-                        <span className="shrink-0 text-xs text-fg/40">{itemTimeLabel(n.created_at)}</span>
+                        <span className="shrink-0 text-xs text-faint">{itemTimeLabel(n.created_at)}</span>
                       </Link>
                     </li>
                   );

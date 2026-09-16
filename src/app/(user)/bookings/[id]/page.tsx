@@ -7,9 +7,10 @@ import {
   bookingStatusLabel,
   statusTone,
   fmtShootAt,
+  daysSince,
 } from "@/lib/bookings";
 import { acceptBooking, rejectBooking, cancelBooking } from "@/app/actions/bookings";
-import { markShot, markTransferSent, confirmCompletion } from "@/app/actions/payments";
+import { markShot, confirmCompletion } from "@/app/actions/payments";
 import {
   getPaymentByBooking,
   getFeeByBooking,
@@ -23,7 +24,11 @@ import { getDelivery, getDeliveryDownloads, signDeliveryAssets } from "@/lib/del
 import { ReviewForm } from "./ReviewForm";
 import { DeliveryUploader } from "./DeliveryUploader";
 import { DeliveryGallery } from "./DeliveryGallery";
-import { TrustLink } from "@/components/user/TrustLink";
+import { overdueDays } from "@/lib/delivery-deadline";
+
+const fmtDay = (iso: string) =>
+  new Intl.DateTimeFormat("ko-KR", { month: "long", day: "numeric", timeZone: "Asia/Seoul" }).format(new Date(iso));
+import { DepositGate } from "@/components/booking/DepositGate";
 import { SupportButton } from "@/components/user/SupportButton";
 import { MpTrackOnce } from "@/components/MpTrackOnce";
 
@@ -74,10 +79,9 @@ export default async function BookingDetail({
       : { href: "/bookings", label: "← 예약" };
 
   // 정체 단계 넛지 (경량 인앱 리마인더)
-  const daysSince = (iso: string) => Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
   let nudge: string | null = null;
   if (b.status === "accepted") {
-    const d = b.accepted_at ? daysSince(b.accepted_at) : 0;
+    const d = daysSince(b.accepted_at);
     const tail = d > 0 ? ` · ${d}일째` : "";
     nudge = isBuyer
       ? `입금 대기 중${tail} — 사매 계좌로 입금 후 [입금 완료]를 눌러주세요.`
@@ -99,7 +103,7 @@ export default async function BookingDetail({
         event="View Booking Detail"
         props={{ booking_id: id, status: b.status, viewer: isBuyer ? "buyer" : isOwner ? "photographer" : "admin" }}
       />
-      <Link href={back.href} className="text-sm text-fg/50 hover:text-fg">
+      <Link href={back.href} className="text-sm text-muted hover:text-fg">
         {back.label}
       </Link>
 
@@ -135,6 +139,12 @@ export default async function BookingDetail({
         <Row label="패키지" value={b.package?.name ?? b.package_snapshot?.name ?? "—"} />
         <Row label="일시" value={fmtShootAt(b.shoot_at, b.shoot_date)} />
         <Row label="장소" value={b.location_text || "—"} />
+        {b.delivery_due_at && !b.delivered_at && ["paid", "shot"].includes(b.status) && (
+          <Row
+            label="전달 기한"
+            value={`${fmtDay(b.delivery_due_at)}${(overdueDays(b.delivery_due_at) ?? 0) > 0 ? ` · ${overdueDays(b.delivery_due_at)}일 지남` : ""}`}
+          />
+        )}
         <Row label="금액" value={b.amount_krw ? `₩${fmt.format(b.amount_krw)}` : "—"} />
         {b.memo && <Row label="메모" value={b.memo} />}
         {payment && (
@@ -156,7 +166,7 @@ export default async function BookingDetail({
 
       {/* 정체 단계 넛지 */}
       {nudge && (
-        <p className="mt-3 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning">
+        <p className="mt-3 rounded-xl border border-warning/30 bg-warning-soft px-4 py-3 text-sm text-warning-ink">
           {nudge}
         </p>
       )}
@@ -184,53 +194,26 @@ export default async function BookingDetail({
 
         {/* 구매자: 수락됨 → 입금 안내(사매 계좌·금액·입금완료) 인라인 노출 (req4) */}
         {isBuyer && b.status === "accepted" && (
-          <section className="rounded-xl border border-fg/12 bg-surface p-5">
-            <p className="text-sm font-semibold">💸 입금 안내 — 사매 계좌로 안전하게</p>
-            <p className="mt-1 text-xs text-fg/55">
-              아래 사매 계좌로 입금해주세요. 사매가 입금을 확인하면 예약이 확정됩니다.
-            </p>
-            {/* 돈이 실제로 나가는 자리. "이거 믿어도 되나"가 가장 크게 드는 순간이라
-                답으로 가는 문을 화면 안에 둔다. */}
-            <TrustLink from="booking_deposit" className="mt-2" />
-
-            {platformAccount && hasAccount(platformAccount) ? (
-              <div className="mt-3 rounded-xl bg-fg/[0.04] p-3 text-sm">
-                <Row label="은행" value={platformAccount.bank} />
-                <Row label="계좌번호" value={platformAccount.number} />
-                <Row label="예금주" value={platformAccount.holder} />
-                <div className="mt-2 flex items-center justify-between border-t border-fg/10 pt-2">
-                  <span className="text-fg/50">보낼 금액</span>
-                  <span className="text-base font-bold">₩{fmt.format(b.amount_krw ?? 0)}</span>
-                </div>
-              </div>
-            ) : (
-              <p className="mt-3 rounded-xl bg-warning-soft px-3 py-2 text-xs text-warning">
-                입금 계좌 안내를 준비 중이에요. 잠시 후 다시 확인해주세요.
-              </p>
-            )}
-
-            {b.transfer_marked_at ? (
-              <p className="mt-3 rounded-full bg-success-soft px-3 py-2 text-center text-xs text-success">
-                ✅ 입금 완료를 알렸어요 · 사매가 확인하면 예약이 확정돼요
-              </p>
-            ) : (
-              platformAccount &&
-              hasAccount(platformAccount) && (
-                <form action={markTransferSent} className="mt-3">
-                  <input type="hidden" name="id" value={b.id} />
-                  <button className="w-full rounded-xl bg-fg py-3 text-sm font-semibold text-bg hover:opacity-90">
-                    입금 완료
-                  </button>
-                </form>
-              )
-            )}
-
-            <p className="mt-3 text-[11px] text-fg/45">
-              · 받는 분 통장에 <b>예약자 본인 이름</b>으로 보내면 확인이 빨라요.<br />
-              · 촬영비는 사매가 보관했다가 촬영 후 작가에게 정산해요. 작가 개인 계좌로의 직접
-              송금은 보호받지 못해요.
-            </p>
-          </section>
+          // 계좌·고지·동의·[입금 완료] 가 한 덩어리다 — 채팅의 AcceptPayDialog 와 같은
+          // 게이트를 쓴다. 전에는 여기만 계좌와 버튼뿐이라 임박 예약 동의도 위약금 표도
+          // 없이 결제가 됐고, 그러면 나중에 위약금을 주장할 근거가 없다.
+          <DepositGate
+            bookingId={b.id}
+            amountKrw={b.amount_krw ?? 0}
+            shootAt={b.shoot_at}
+            shootDate={b.shoot_date}
+            lateBookingConsentAt={b.late_booking_consent_at}
+            transferMarkedAt={b.transfer_marked_at}
+            account={
+              platformAccount && hasAccount(platformAccount)
+                ? {
+                    bank: platformAccount.bank,
+                    number: platformAccount.number,
+                    holder: platformAccount.holder,
+                  }
+                : null
+            }
+          />
         )}
 
         {/* 작가: 수락됨 → 사매 입금 확인 대기 (확인 주체는 운영자 — 작가 직접 확인은 폐지) */}
@@ -243,7 +226,7 @@ export default async function BookingDetail({
             ) : (
               <p className="text-sm text-fg/60">고객의 입금을 기다리는 중이에요</p>
             )}
-            <p className="mt-1.5 text-xs text-fg/45">
+            <p className="mt-1.5 text-xs text-faint">
               입금은 사매 계좌로 받고, 사매가 확인하면 예약이 확정돼요. 촬영비는 수수료 차감 후
               정산해드려요.
             </p>
@@ -365,11 +348,11 @@ export default async function BookingDetail({
             // 그 외(작가 등): 읽기 전용
             <div className="rounded-xl border border-fg/10 p-5">
               <p className="text-sm font-semibold">고객 후기</p>
-              <p className="mt-1 text-warning">{"★".repeat(review.rating)}<span className="text-fg/20">{"★".repeat(5 - review.rating)}</span></p>
+              <p className="mt-1 text-warning">{"★".repeat(review.rating)}<span className="text-faint">{"★".repeat(5 - review.rating)}</span></p>
               {review.body && <p className="mt-2 text-sm text-fg/70">{review.body}</p>}
             </div>
           ) : (
-            <p className="text-center text-sm text-fg/40">아직 후기가 없어요.</p>
+            <p className="text-center text-sm text-faint">아직 후기가 없어요.</p>
           )}
         </section>
       )}
@@ -380,7 +363,7 @@ export default async function BookingDetail({
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex justify-between gap-4">
-      <dt className="shrink-0 text-fg/50">{label}</dt>
+      <dt className="shrink-0 text-muted">{label}</dt>
       <dd className="text-right">{value}</dd>
     </div>
   );

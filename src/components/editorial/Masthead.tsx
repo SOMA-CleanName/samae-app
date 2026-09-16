@@ -61,7 +61,16 @@ export function Masthead({
         마스크는 애니메이션에 필요하니 없앨 수 없어서, 자식에 아래 여백을 줘
         line box 자체를 글자보다 크게 만든다.
       */}
-      <h1 className="ed-mast mt-3 overflow-hidden leading-[0.82]">
+      {/*
+        `mt-3` 는 **메타 줄과 표제 사이** 간격이다. 그래서 메타 줄이 없을 땐 주지 않는다.
+
+        줬더니 위쪽에 막을 게 없어서 이 마진이 <header> 밖으로 마진 붕괴(margin collapse)
+        하고, 표제가 통째로 12px 내려갔다. 같은 `pt-6` 를 쓰는데도 /trust 만 표제 위가
+        36px 이고 /articles·/spots·/guide 는 24px 이던 이유다(실측 2026-09-11).
+      */}
+      <h1
+        className={`ed-mast overflow-hidden leading-[0.82] ${meta || action ? "mt-3" : ""}`}
+      >
         <span className={`block pb-[0.1em] font-extrabold tracking-[-0.05em] ${scale}`}>
           {word}
         </span>

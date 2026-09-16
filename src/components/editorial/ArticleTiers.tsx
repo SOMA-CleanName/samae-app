@@ -63,7 +63,7 @@ export function ArticleNotice({
       </span>
 
       <span className="flex min-w-0 flex-1 flex-col justify-center py-0.5">
-        <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-brand">
+        <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-brand-ink">
           Notice
         </span>
         <span className="ar-title mt-1 line-clamp-2 block text-body font-bold leading-snug tracking-tight">

@@ -6,6 +6,7 @@ import { HomeIcon, MagazineIcon, ClipboardIcon, CameraIcon } from "@/components/
 import { homeNavMode, searchSessionStorageKeys } from "@/lib/search-navigation";
 import { type ProfileMe } from "./ProfileSheet";
 import { useNavReveal } from "./NavReveal";
+import { NAV_FRESH_KEY } from "@/lib/nav-fresh";
 
 // 하단 플로팅 내비 — 기존 하단바/레일 대체.
 // 가운데: 문의/스튜디오/홈/매거진 알약. 우측 하단: 장바구니(FloatingCart).
@@ -141,9 +142,12 @@ export function FloatingNav({
 
   // 문의·채팅 같은 풀스크린 몰입 플로우에선 내비를 아예 렌더하지 않음 — 전환·애니메이션 중
   // 그 위(z-50)로 잠깐 새어 보이던 문제 방지.
+  // /dev/chat 은 그 채팅방을 통째로 보는 QA 샌드박스다. 여기서 내비가 뜨면 실제와 다른
+  // 화면을 QA 하게 된다 — 껍데기까지 같아야 샌드박스가 쓸모 있다.
   if (
     pathname.startsWith("/inquiry") ||
     pathname.startsWith("/chat") ||
+    pathname.startsWith("/dev/chat") ||
     pathname.startsWith("/explore/quiz")
   )
     return null;
@@ -173,7 +177,17 @@ export function FloatingNav({
         //    그 오른쪽에 '맨 위로' 를 세운다. 없으면 querySelector 가 빈손으로 돌아와
         //    버튼이 영영 hidden 상태로 남는다(에러는 안 난다 — 그래서 더 안 보인다).
         data-floating-nav
-        className="fixed bottom-5 left-1/2 z-40 -translate-x-1/2"
+        /*
+          폰에서는 하단 **가운데** — 엄지가 닿는 자리다.
+
+          데스크톱(lg~)에서는 **왼쪽 아래**로 비킨다. 가운데에 떠 있으면 시선이 머무는
+          한복판을 계속 가린다(인계노트: "데스크톱에서도 FloatingNav 가 하단 중앙에 떠
+          콘텐츠를 가림"). 마우스는 어디든 갈 수 있어서 가운데일 이유도 없다.
+
+          오른쪽이 아니라 왼쪽인 이유: '맨 위로' 버튼이 이 알약의 **오른쪽 끝을 재서**
+          그 옆에 선다(ScrollTopButton). 오른쪽으로 보내면 둘이 화면 끝에서 겹친다.
+        */
+        className="fixed bottom-5 left-1/2 z-40 -translate-x-1/2 lg:left-6 lg:translate-x-0"
         style={{ pointerEvents: visible ? "auto" : "none" }}
       >
         <div style={revealStyle}>
@@ -182,7 +196,9 @@ export function FloatingNav({
           >
             <span
               aria-hidden
-              className="absolute bottom-1 left-1 top-1 w-[var(--nav-tab-w)] rounded-full bg-brand shadow-sm transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+              // bg-brand(#ff3d2e) 위 흰 라벨은 3.52:1 이라 본문 기준(4.5) 아래였다.
+              // 채움색만 한 단계 진하게(--brand-solid) — 흰 글씨 대비 5.68:1.
+              className="absolute bottom-1 left-1 top-1 w-[var(--nav-tab-w)] rounded-full bg-brand-solid shadow-sm transition-[transform,opacity] duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
               style={{
                 opacity: activeNavIndex >= 0 ? 1 : 0,
                 transform: `translate3d(calc(${indicatorIndex * 100}% + ${indicatorIndex * 0.25}rem), 0, 0)`,
@@ -297,14 +313,34 @@ function NavPill({
   return (
     <Link
       href={href}
-      scroll={false} // 탭 전환 시 최상단 강제 스크롤 방지 — 위치 복원은 ScrollMemory 가 담당
-      onClick={onClick}
+      // 탭을 누르면 **목적지 최상단**에서 시작한다(Next 기본 동작).
+      //
+      // 예전엔 scroll={false} 로 두고 ScrollMemory 의 복원에 맡겼는데, 스크롤 직후 탭을
+      // 누르면 **이전 탭의 스크롤 위치가 그대로 남았다.** 트랙패드 관성이 이동 후에도
+      // wheel 을 계속 쏘고, ScrollMemory 는 그걸 "사용자가 직접 스크롤했다" 로 보고
+      // 복원을 취소하기 때문이다(그 파일의 stop()). 결과는 "매거진 갔는데 하단에 떨어짐".
+      //
+      // 탭 전환은 **새로 보러 가는 행위**라 최상단이 맞다. 보던 자리로 돌아가야 하는 건
+      // 사진 상세에서의 복귀뿐이고, 그건 PhotoReturnScroll 이 따로 맡는다.
+      onClick={(e) => {
+        // 이번 이동은 '탭 누름' 이라는 표식. ScrollMemory 가 이걸 보면 저장 위치를 복원하지
+        // 않고 최상단에서 시작한다(그쪽에서 읽고 지운다). key 계산을 여기서 되풀이하지
+        // 않으려고 플래그로 넘긴다 — 홈은 routeSessionKey, 나머지는 pathname 이라 규칙이 다르다.
+        try {
+          sessionStorage.setItem(NAV_FRESH_KEY, href);
+        } catch {
+          /* 세션 저장이 막혀 있으면 그냥 기존 동작(복원)으로 둔다 */
+        }
+        onClick?.(e);
+      }}
       aria-current={active ? "page" : undefined}
       aria-label={badge > 0 ? `${label} — 안읽음 ${badge}개` : undefined}
       className={[
         // 탭 균등 너비 — 라벨 길이 달라도 같은 크기.
         // 폭은 부모가 --nav-tab-w 로 준다(표시기와 같은 값이어야 어긋나지 않는다).
-        "relative z-10 flex w-[var(--nav-tab-w)] shrink-0 items-center justify-center gap-1 rounded-full py-2 font-semibold transition-colors duration-300 sm:gap-1.5 sm:py-2.5",
+        // 높이가 36px 였다(실측 88×36). 앱에서 제일 많이 누르는 컨트롤인데 권장 44px 에
+        // 8px 모자랐다. 폭은 --nav-tab-w 가 정하므로 세로만 min-h-11 로 올린다.
+        "relative z-10 flex min-h-11 w-[var(--nav-tab-w)] shrink-0 items-center justify-center gap-1 rounded-full py-2 font-semibold transition-colors duration-300 sm:gap-1.5 sm:py-2.5",
         compact ? "px-1.5 text-xs sm:text-sm" : "px-2 text-sm",
         active ? "text-white" : "text-fg/65 hover:text-brand",
         attention ? "samae-explore-tab-attention text-brand" : "",
@@ -317,7 +353,7 @@ function NavPill({
       {badge > 0 && (
         <span
           aria-hidden
-          className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[10px] font-bold leading-none text-white ring-2 ring-bg"
+          className="absolute -right-0.5 -top-0.5 grid h-4 min-w-4 place-items-center rounded-full bg-brand-solid px-1 text-[10px] font-bold leading-none text-white ring-2 ring-bg"
         >
           {badge > 99 ? "99+" : badge}
         </span>

@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { mpTrackServer } from "@/lib/mixpanel-server";
+import { notifyOpsPhotographerAgreed } from "@/lib/ops-alert";
 import { notifyOpsDepositReported } from "@/lib/ops-alert";
 
 // 최저가·가격 상한 (350만원)
@@ -51,6 +52,9 @@ const ProfileSchema = z.object({
   bankName: z.string().trim().max(40).optional().default(""),
   accountNumber: z.string().trim().max(40).optional().default(""),
   accountHolder: z.string().trim().max(40).optional().default(""),
+  legalName: z.string().trim().max(60).optional().default(""),
+  businessType: z.enum(["", "general", "simplified", "unregistered"]).optional().default(""),
+  businessNo: z.string().trim().max(14).optional().default(""),
 });
 
 export type ProfileState = {
@@ -79,6 +83,9 @@ export async function updateProfile(
     bankName: formData.get("bankName"),
     accountNumber: formData.get("accountNumber"),
     accountHolder: formData.get("accountHolder"),
+    legalName: formData.get("legalName") ?? "",
+    businessType: formData.get("businessType") ?? "",
+    businessNo: formData.get("businessNo") ?? "",
   });
   if (!parsed.success) {
     const fieldErrors: Record<string, string> = {};
@@ -102,6 +109,16 @@ export async function updateProfile(
     return { error: "정산 계좌는 은행·계좌번호·예금주를 모두 입력해주세요.", fieldErrors };
   }
 
+  // 사업자 정보 — 유형을 골랐고 미등록이 아니면 등록번호 10자리가 있어야 한다
+  const bizDigits = v.businessNo.replace(/[^0-9]/g, "");
+  if (v.businessType && v.businessType !== "unregistered" && bizDigits.length !== 10) {
+    return { error: "사업자등록번호 10자리를 입력해주세요.", fieldErrors: { businessNo: "10자리 숫자" } };
+  }
+  const businessNo =
+    v.businessType && v.businessType !== "unregistered"
+      ? `${bizDigits.slice(0, 3)}-${bizDigits.slice(3, 5)}-${bizDigits.slice(5)}`
+      : null;
+
   // 작가명 중복 불가 (본인 제외)
   if (await isDisplayNameTaken(v.displayName, user.id)) {
     return { error: "이미 사용 중인 작가명이에요.", fieldErrors: { displayName: "이미 사용 중인 작가명이에요." } };
@@ -115,6 +132,9 @@ export async function updateProfile(
       regions: parseList(v.regions),
       mood_tags: parseList(v.moodTags),
       price_from_krw: v.priceFrom,
+      legal_name: v.legalName || null,
+      business_type: v.businessType || null,
+      business_no: businessNo,
     })
     .eq("profile_id", user.id);
 
@@ -289,4 +309,130 @@ export async function updateContactMethods(formData: FormData): Promise<void> {
   if (error) throw new Error(error.message);
 
   revalidatePath("/studio/profile");
+}
+
+// ── 입점 계약 동의 (작가약관 5조 2항, 입점계약 전문) ─────────────────
+// 문서 4종 체크 + 작가 정보란 + 홍보 사용 동의(선택) → photographers 갱신 + photographer_agreements 기록.
+// 버전이 올라가면 studio/layout.tsx 가 다시 이 화면을 띄운다.
+import { headers } from "next/headers";
+import { PHOTOGRAPHER_AGREEMENT_VERSIONS } from "@/lib/consent";
+import { DOC_ORDER } from "@/components/legal/photographerDocs";
+import type { BusinessType } from "@/lib/platform-fee";
+
+const BUSINESS_TYPES: BusinessType[] = ["general", "simplified", "unregistered"];
+
+export async function agreePhotographerContract(formData: FormData): Promise<void> {
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가만 동의할 수 있어요.");
+
+  for (const key of DOC_ORDER) {
+    if (formData.get(`agree_${key}`) !== "on") throw new Error("문서 4종에 모두 동의해야 해요.");
+  }
+
+  // 문서별 열람·동의 증적 — 화면이 "전문을 끝까지 연 시각" 과 "동의한 시각" 을 따로 보낸다.
+  // **하나라도 없으면 거절한다.** 없다는 건 전문 화면을 거치지 않고 제출됐다는 뜻이고,
+  // 그건 약관규제법 3조에서 우리가 대야 할 근거("읽을 기회를 줬다")가 비는 것이다.
+  const docRecords = parseDocRecords(formData.get("docRecords"));
+
+  const legalName = String(formData.get("legalName") || "").trim().slice(0, 60);
+  if (!legalName) throw new Error("성명 또는 상호를 입력해주세요.");
+  const typeRaw = String(formData.get("businessType") || "");
+  if (!BUSINESS_TYPES.includes(typeRaw as BusinessType)) throw new Error("사업자 유형을 골라주세요.");
+  const businessType = typeRaw as BusinessType;
+  let businessNo: string | null = null;
+  if (businessType !== "unregistered") {
+    const digits = String(formData.get("businessNo") || "").replace(/[^0-9]/g, "");
+    if (digits.length !== 10) throw new Error("사업자등록번호 10자리를 입력해주세요.");
+    businessNo = `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
+  }
+
+  const promoConsent = formData.get("promoConsent") === "on";
+
+  const h = await headers();
+  const ip = (h.get("x-forwarded-for") ?? "").split(",")[0].trim() || null;
+  const userAgent = h.get("user-agent")?.slice(0, 300) ?? null;
+  const now = new Date().toISOString();
+
+  const admin = createAdminClient();
+  const { error: phErr } = await admin
+    .from("photographers")
+    .update({
+      legal_name: legalName,
+      business_type: businessType,
+      business_no: businessNo,
+      promo_consent: promoConsent,
+      promo_consent_at: promoConsent ? now : null,
+    })
+    .eq("id", me.photographer.id);
+  if (phErr) throw new Error("작가 정보를 저장하지 못했어요.");
+
+  const { error } = await admin.from("photographer_agreements").insert({
+    photographer_id: me.photographer.id,
+    profile_id: me.id,
+    versions: PHOTOGRAPHER_AGREEMENT_VERSIONS,
+    promo_consent: promoConsent,
+    doc_records: docRecords,
+    ip,
+    user_agent: userAgent,
+    agreed_at: now,
+  });
+  if (error) throw new Error("동의를 기록하지 못했어요. 다시 시도해주세요.");
+
+  // 운영에 알린다 — 동의 시점이 곧 계약일이고, 사업자 유형에 따라 정산 준비가 갈린다
+  await notifyOpsPhotographerAgreed({
+    photographerId: me.photographer.id,
+    displayName: me.photographer.displayName,
+    legalName,
+    businessType,
+    businessNo,
+    promoConsent,
+    contractVersion: PHOTOGRAPHER_AGREEMENT_VERSIONS.contract,
+  });
+
+  await mpTrackServer("Agree Photographer Contract", me.id, {
+    contract_version: PHOTOGRAPHER_AGREEMENT_VERSIONS.contract,
+    business_type: businessType,
+    promo_consent: promoConsent,
+  });
+
+  revalidatePath("/studio", "layout");
+}
+
+/**
+ * 문서별 열람·동의 증적을 검사한다.
+ *
+ * 화면이 보내는 모양: {key: {openedAt, agreedAt}}. 여기서 버전을 붙여 굳힌다 —
+ * 클라이언트가 보낸 버전을 믿으면 "낡은 문서를 읽고 새 버전에 동의한" 기록이 만들어진다.
+ *
+ * 넷 중 하나라도 빠지거나 시각이 이상하면 던진다. 조용히 null 로 넘기면 증적 없는
+ * 동의가 쌓이고, 그건 나중에 복구할 방법이 없다.
+ */
+function parseDocRecords(raw: FormDataEntryValue | null): Record<string, unknown> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(String(raw ?? ""));
+  } catch {
+    throw new Error("열람 기록이 없어요. 문서를 전문으로 읽고 다시 동의해주세요.");
+  }
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error("열람 기록이 없어요. 문서를 전문으로 읽고 다시 동의해주세요.");
+  }
+  const src = parsed as Record<string, { openedAt?: unknown; agreedAt?: unknown }>;
+  const out: Record<string, { openedAt: string; agreedAt: string; version: string }> = {};
+
+  for (const key of DOC_ORDER) {
+    const rec = src[key];
+    const openedAt = typeof rec?.openedAt === "string" ? rec.openedAt : "";
+    const agreedAt = typeof rec?.agreedAt === "string" ? rec.agreedAt : "";
+    if (!openedAt || !agreedAt || Number.isNaN(Date.parse(openedAt)) || Number.isNaN(Date.parse(agreedAt))) {
+      throw new Error("문서를 전문으로 읽어야 동의할 수 있어요.");
+    }
+    out[key] = {
+      openedAt,
+      agreedAt,
+      // 버전은 **서버가 붙인다** — 지금 게시 중인 문서의 버전이 진실이다
+      version: PHOTOGRAPHER_AGREEMENT_VERSIONS[key],
+    };
+  }
+  return out;
 }

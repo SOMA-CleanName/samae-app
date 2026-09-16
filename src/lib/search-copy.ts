@@ -1,19 +1,35 @@
-/** 공개 사진에서 함께 자주 쓰이는 한국어 태그 조합(2026-08-27 집계). */
-export const SEARCH_PLACEHOLDER_EXAMPLES = [
-  "개인스냅 빈티지스냅",
-  "데이트 커플스냅",
-  "패션 화보",
-  "야외웨딩스냅 웨딩스냅",
-  "빈티지 필름",
-  "가을 감성",
-] as const;
+/**
+ * 검색창 힌트.
+ *
+ * 예전엔 공개 사진의 태그 조합 6종("개인스냅 빈티지스냅", "가을 감성" …)을 난수로 돌렸다.
+ * 그런데 키워드만 덩그러니 놓이면 **입력칸에 뭘 하라는 건지가 안 읽힌다** — 검색어 예시인지
+ * 지금 걸려 있는 필터인지조차 헷갈린다. 한 문장으로 행동을 말해 주는 편이 낫다.
+ *
+ * 하나로 고정한 이유: 들어올 때마다 힌트가 바뀌면 "아까 그거"를 다시 못 찾는다.
+ */
+export const SEARCH_PLACEHOLDER = "찍어보고 싶은 사진의 무드를 입력해보세요";
 
-/** 서버에서 고른 난수를 인덱스로 바꿔 SSR과 hydration에 같은 문구를 사용한다. */
-export function pickSearchPlaceholder(randomFraction: number): string {
-  const fraction = Number.isFinite(randomFraction)
-    ? Math.min(Math.max(randomFraction, 0), 0.999999999999)
-    : 0;
-  return SEARCH_PLACEHOLDER_EXAMPLES[Math.floor(fraction * SEARCH_PLACEHOLDER_EXAMPLES.length)];
+/**
+ * 좁은 폭(로고 ─ 검색 ─ 프로필 한 줄)에서 쓰는 짧은 판.
+ *
+ * 모바일 390 에서 셋을 한 줄에 넣으면 검색칸에 **약 210px** 이 남는다. 위 문장은
+ * 그 폭에서 "찍어보고 싶은 사진의 무드를 입…" 으로 잘린다. 잘린 문장은 안 읽히고
+ * 잘렸다는 사실만 보인다.
+ *
+ * 같은 것을 말하되 그 폭에 들어가는 길이로 줄인다 — "무드"라는 단어는 살린다.
+ * 이 서비스에서 사진을 고르는 단위가 무드라, 그 말을 검색창에서 처음 만나야 한다.
+ */
+export const SEARCH_PLACEHOLDER_SHORT = "어떤 무드를 찾으세요?";
+
+/**
+ * 검색창에 쓸 힌트를 돌려준다.
+ *
+ * 지금은 문구가 하나라 고를 것이 없다. 그래도 함수를 남겨 둔 건 호출부(홈·사진 상세)가
+ * 여기 한 곳만 보게 하기 위해서다 — 다시 여러 문구를 돌리기로 하면 이 안만 고치면 된다.
+ * (예전엔 서버 난수를 인자로 받아 SSR/hydration 을 맞췄다. 문구가 하나면 그럴 일이 없다.)
+ */
+export function pickSearchPlaceholder(): string {
+  return SEARCH_PLACEHOLDER;
 }
 
 export type SearchDockMode = "inline" | "floating";

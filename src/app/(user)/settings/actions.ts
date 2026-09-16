@@ -26,7 +26,14 @@ export async function updateDisplayName(formData: FormData) {
   revalidatePath("/", "layout"); // 헤더 아바타 메뉴 등 갱신
 }
 
-// 프로필 사진을 기본(이니셜)으로 되돌리기 — avatar_url 비우기.
+// 프로필 사진을 기본(이니셜)으로 되돌리기.
+//
+// ⚠️ null 이 아니라 **빈 문자열**을 쓴다. 로그인 콜백이 카카오 프로필 사진으로 빈 아바타를
+//    채우는데(adoptKakaoAvatar), null 로 두면 "아직 정해진 적 없음" 과 구분이 안 돼서
+//    **다음 로그인에 카카오 사진이 되살아난다** — 사용자가 방금 지운 것을.
+//      null → 아직 정해진 적 없음 (채워도 된다)
+//      ""   → 사용자가 이니셜을 택했다 (건드리지 않는다)
+//    화면에서는 둘 다 falsy 라 똑같이 이니셜이 나온다.
 export async function removeAvatar() {
   const me = await getCurrentUser();
   if (!me) redirect("/login?next=/settings");
@@ -34,7 +41,7 @@ export async function removeAvatar() {
   const supabase = await createClient();
   const { error } = await supabase
     .from("profiles")
-    .update({ avatar_url: null })
+    .update({ avatar_url: "" })
     .eq("id", me.id);
   if (error) throw new Error(error.message);
 
@@ -68,6 +75,33 @@ export async function deleteAccount() {
     throw new Error(
       "진행 중인 예약이 있어 탈퇴할 수 없어요. 예약을 마무리하거나 취소·환불한 뒤 다시 시도해주세요."
     );
+  }
+
+  // 2-1) 작가는 정산·청구가 남아 있으면 차단 (입점계약 10조 2항).
+  //      completed 는 '진행 중' 이 아니라서 위 검사를 통과하는데, 정산이 안 끝난 채 계정을 지우면
+  //      아래에서 예약·수수료 행을 아카이브 후 삭제해 지급 기록이 사라진다.
+  if (phId) {
+    const [{ data: unsettled }, { data: owed }] = await Promise.all([
+      admin
+        .from("bookings")
+        .select("id")
+        .eq("photographer_id", phId)
+        .not("delivered_at", "is", null)
+        .is("settled_at", null)
+        .is("refunded_at", null)
+        .limit(1),
+      admin
+        .from("platform_fees")
+        .select("id")
+        .eq("photographer_id", phId)
+        .in("status", ["accrued", "billed"])
+        .limit(1),
+    ]);
+    if ((unsettled?.length ?? 0) > 0 || (owed?.length ?? 0) > 0) {
+      throw new Error(
+        "정산이 끝나지 않은 촬영이 있어 탈퇴할 수 없어요. 정산이 완료된 뒤 다시 시도하거나 사매에 문의해주세요."
+      );
+    }
   }
 
   // 3) RESTRICT 자식(결제·수수료) 정리 → 예약 (소프트딜리트: 아카이브 후 제거)

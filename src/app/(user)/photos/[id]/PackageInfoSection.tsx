@@ -34,7 +34,7 @@ export function PackageInfoSection({
   return (
     <section className="mt-5 overflow-hidden rounded-2xl border border-line bg-surface">
       <div className="p-4">
-        <p className="text-[11px] font-medium text-brand">이 사진을 찍은 패키지 정보</p>
+        <p className="text-[11px] font-medium text-brand-ink">이 사진을 찍은 패키지 정보</p>
 
         <div className="mt-1 flex items-end justify-between gap-3">
           <p className="min-w-0 truncate text-body font-semibold text-fg">

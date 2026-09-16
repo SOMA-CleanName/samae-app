@@ -5,7 +5,7 @@ import { StickyBack } from "@/components/editorial/StickyBack";
 import { SiteFooter } from "@/components/SiteFooter";
 import { Masthead } from "@/components/editorial/Masthead";
 import { breadcrumbJsonLd, itemListJsonLd } from "@/lib/seo";
-import { findSpot } from "@/lib/spots-data";
+import { listPublishedSpots, type Spot } from "@/lib/spots-db";
 import { listSpotCards } from "@/lib/spots";
 
 // 촬영 장소 목록.
@@ -34,9 +34,16 @@ export const metadata: Metadata = {
 export default async function SpotsIndexPage() {
   // 카드(장수·대표 3장)는 탐색 탭과 같은 함수를 쓴다 — 두 지면이 다른 숫자를 말하면 안 된다.
   const cards = await listSpotCards(50);
+  /*
+    장소 상세 정보를 slug 로 붙인다.
+
+    카드마다 `findSpot` 을 부르지 않는다 — 이제 DB 조회라 카드 수만큼 쿼리가 나간다
+    (50장이면 50번). 한 번에 다 읽어 Map 으로 맞춘다.
+  */
+  const bySlug = new Map((await listPublishedSpots()).map((s) => [s.slug, s]));
   const spots = cards
-    .map((c) => ({ card: c, spot: findSpot(c.slug) }))
-    .filter((x): x is { card: (typeof cards)[number]; spot: NonNullable<ReturnType<typeof findSpot>> } => !!x.spot);
+    .map((c) => ({ card: c, spot: bySlug.get(c.slug) }))
+    .filter((x): x is { card: (typeof cards)[number]; spot: Spot } => !!x.spot);
 
   const totalPhotos = spots.reduce((n, x) => n + x.card.count, 0);
 
@@ -72,7 +79,9 @@ export default async function SpotsIndexPage() {
         <Masthead
           word="LOCATIONS"
           size="compact"
-          lead="장소 소개만 있는 글은 많아요. 여기엔 그곳에서 실제로 찍힌 사진과, 그 사진을 찍은 작가가 같이 있어요."
+          // 부제를 뺐다 — "장소 소개만 있는 글은 많아요…" 는 이 지면이 왜 있는지를
+          // 변명하는 문장이었다. 바로 아래 카드마다 그 장소에서 찍힌 사진과 장수가
+          // 붙어 있어서, 변명하지 않아도 한 눈에 증명된다.
           meta={
             spots.length > 0 ? (
               <span className="tabular-nums">
@@ -175,9 +184,11 @@ export default async function SpotsIndexPage() {
                     <span className="mt-1.5 line-clamp-2 text-body-sm leading-relaxed text-muted sm:line-clamp-3">
                       {spot.desc}
                     </span>
-                    {/* 우리만 붙일 수 있는 사실 — 이게 이 목록의 존재 이유다 */}
+                    {/* 우리만 붙일 수 있는 사실 — 이게 이 목록의 존재 이유다.
+                        "여기서 찍힌 사진 50장" 이었는데 앞 네 글자가 군더더기였다.
+                        장소 카드 안이라 무엇의 장수인지는 말 안 해도 읽힌다. */}
                     <span className="mt-2.5 inline-flex w-fit items-baseline gap-1 rounded-full bg-brand-soft px-2.5 py-1 text-[11px] font-bold tabular-nums text-brand-ink">
-                      여기서 찍힌 사진 {count}장
+                      사진 {count}장
                     </span>
                   </span>
                 </Link>

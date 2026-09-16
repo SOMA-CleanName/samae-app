@@ -28,6 +28,19 @@ import { nextFeedPhase, type FeedPhase } from "@/lib/feed-demotion";
 
 const fmt = new Intl.NumberFormat("ko-KR");
 const STEP = 48; // 스크롤마다 더 보여줄 사진 수(메모리에서 즉시 노출)
+/**
+ * 자동으로 이어붙일 횟수. 이만큼 지나면 멈추고 [사진 더 보기] 버튼으로 넘긴다.
+ *
+ * 1회 × STEP(48) ≈ 첫 진입에서 96장.
+ *
+ * 전에는 3회(190여 장)였다. 데스크톱에서는 한 줄에 5~6장이 깔려 금방 지나가는데,
+ * **모바일은 한 줄에 두 장**이라 같은 장수가 열 배로 길어진다. 푸터(사업자 정보·약관)에
+ * 닿으려면 스크롤을 스무 번 넘게 해야 했다(정훈 2026-09-12).
+ *
+ * 그래서 한 번만 이어붙이고 버튼으로 넘긴다. 더 보고 싶은 사람은 누르면 되고
+ * (누르면 예산이 다시 채워진다), 끝을 보려던 사람은 그 자리에서 푸터에 닿는다.
+ */
+const AUTO_ADVANCE_BUDGET = 1;
 const PERSONALIZED_STEP = 36; // 동적 개인화 상한 — 실제 장수는 서버가 6~36장으로 결정
 const TUTORIAL_SEEN_KEY = "samae:tutorial-seen"; // 일반 유저 첫 방문 튜토리얼 열람 여부
 /** 온보딩: 강조 사진 아랫변과 화면 바닥 사이 여백(px). 하단 내비 + '탭해서 둘러보기' 안내가 들어간다. */
@@ -203,6 +216,72 @@ export function ExploreGallery({
   );
   const sentinel = useRef<HTMLDivElement>(null);
   const { cols: colCount, ready: columnsReady, setNode: setGridRef } = useColumnCount();
+
+  // 자동 이어붙이기 예산 — 이만큼 채우면 멈추고 [사진 더 보기] 를 띄운다.
+  //
+  // **끝이 없는 피드에는 푸터가 없다.** 이 피드는 소진되면 cycle 을 올려 처음부터 다시
+  // 흘리므로(nextFeedPhase) 스크롤로는 바닥에 영영 못 닿는다. 그래서 사업자 정보·약관 같은
+  // "어디서든 닿아야 하는 것" 이 지면 맨 위로 밀려 올라가 있었다(SiteInfoBar).
+  //
+  // 여기서 한 번 끊어 주면 푸터가 **도달 가능한 자리**로 돌아온다. 벽돌 그리드는 손대지
+  // 않는다 — 컬럼이 세로로 독립이라 중간에 전폭 띠를 끼울 수 없고, 억지로 쪼개면 컬럼 높이
+  // 균형이 리셋돼 이음매에 계단이 생긴다.
+  const [autoPaused, setAutoPaused] = useState(false);
+  const autoBudget = useRef(AUTO_ADVANCE_BUDGET);
+  /** [더 보기] 가 부를 수 있게 effect 안의 advance 를 밖으로 내어 둔다 */
+  const advanceRef = useRef<((manual?: boolean) => void) | null>(null);
+  /** 멈춘 자리를 가지런히 자를 높이(px). null 이면 자르지 않는다. */
+  const [trimHeight, setTrimHeight] = useState<number | null>(null);
+  /** 밑단 계산용 실제 그리드 엘리먼트 (useColumnCount 의 setGridRef 와 함께 단다) */
+  const gridEl = useRef<HTMLDivElement | null>(null);
+
+  /*
+    멈춘 자리의 밑단 정리.
+
+    페이드만으로는 못 가린다. 컬럼마다 마지막 사진이 끝나는 높이가 크게 다르고(실측 878px),
+    페이드는 그리드 **바닥**에 붙어 있어서 얕은 컬럼은 페이드 위에서 그냥 툭 끊긴다.
+
+    그래서 **가장 얕은 컬럼의 마지막 사진**에 맞춰 그리드를 자른다. 깊은 컬럼의 사진은
+    아래가 잘리는데, 그 잘린 선을 바로 위 페이드가 덮는다. 결과적으로 네 컬럼이 같은
+    높이에서 배경으로 녹아든다.
+
+    잘라낸 사진은 사라지는 게 아니다 — [사진 더 보기] 를 누르면 trim 이 풀리고 이어서 흐른다.
+
+    ⚠️ **폭이 바뀌면 다시 재야 한다.** 카드 높이가 컬럼 폭에 비례하므로, 컬럼 **수**가 그대로인
+       리사이즈(1020→900px 같은)에서도 마지막 사진의 끝은 통째로 움직인다. colCount 만 의존성에
+       두면 그때 잘린 높이가 낡아서, 사진이 잘려 나가거나 아래에 빈 공간이 남는다.
+       그래서 ResizeObserver 로 그리드 폭 자체를 지켜본다.
+  */
+  useIsoLayoutEffect(() => {
+    if (!autoPaused) {
+      setTrimHeight(null);
+      return;
+    }
+    const grid = gridEl.current;
+    if (!grid) return;
+
+    const measure = () => {
+      // 이번 프레임의 clip 을 빼고 실제 콘텐츠 위치를 잰다 — 지난 trim 이 껴 있으면
+      // 잘린 아래쪽 카드의 bottom 을 못 읽어 값이 계속 작아진다.
+      const prev = grid.style.height;
+      grid.style.height = "";
+      const top = grid.getBoundingClientRect().top;
+      const ends = [...grid.children].map((col) => {
+        const cards = col.querySelectorAll<HTMLElement>("[data-pid]");
+        const last = cards[cards.length - 1];
+        return last ? last.getBoundingClientRect().bottom - top : 0;
+      });
+      grid.style.height = prev;
+
+      const shallowest = Math.min(...ends.filter((n) => n > 0));
+      if (Number.isFinite(shallowest) && shallowest > 0) setTrimHeight(Math.round(shallowest));
+    };
+
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(grid);
+    return () => ro.disconnect();
+  }, [autoPaused, visible, columnsReady, colCount]);
 
   function recordPhotoClick(photoId: string) {
     const next = recordFeedClick(photoId);
@@ -529,8 +608,33 @@ export function ExploreGallery({
     let busy = false; // 이 사이클당 1회만 진행 — 폭주/중복 방지
     let retryTimer: number | null = null;
     let disposed = false;
-    const advance = async () => {
+    const advance = async (manual = false) => {
       if (busy) return;
+      // 자동 예산 소진 → 멈추고 버튼에 넘긴다. 버튼(manual)은 예산을 다시 채우고 통과한다.
+      //
+      // 기준은 **"아직 보여 줄 게 남았느냐"** 다. 검색 결과에서만 빼 둔다 —
+      // 찾던 걸 보는 중에 버튼이 끼면 흐름이 끊긴다.
+      //
+      // 예전엔 `loadMore` 유무로 갈랐다(= 서버 페이지네이션이 있는 지면에서만). 그러면
+      // 유한 목록인 카테고리 `/c/[slug]` 는 예산 없이 끝까지 흘러서 **534장·64,000px 을
+      // 다 내려야 푸터에 닿는다** — 못 닿는 것과 같다.
+      // 그렇다고 `loadMore` 로 가르는 걸 그냥 지우면 예전 회귀가 돌아온다. 목록 끝에서도
+      // 버튼이 떠 아무 일도 안 하고, 밑단 trim 이 마지막 사진 아래를 잘라 빈 공간만
+      // 남았다(실측 /c/couple 452px). 그건 "불러올 곳이 없다"가 아니라 **"남은 게 없다"**
+      // 는 상황이었다. 그래서 조건을 그 말 그대로 쓴다.
+      const hasMoreToShow =
+        visible < items.length ||
+        (!!loadMore && !!activeFeedSeed && !feedExhausted.current);
+      if (!query && hasMoreToShow) {
+        if (manual) {
+          autoBudget.current = AUTO_ADVANCE_BUDGET;
+          setAutoPaused(false);
+        } else if (autoBudget.current <= 0) {
+          setAutoPaused(true);
+          return;
+        }
+        autoBudget.current -= 1;
+      }
       // 사진 상세에서 돌아오는 동안에는 센티넬이 잠깐 화면 가까이에 있어도
       // 페이지를 추가하지 않는다. 복원이 끝난 뒤 아래 이벤트로 다시 검사한다.
       if (isFeedReturnRestoring()) return;
@@ -639,6 +743,8 @@ export function ExploreGallery({
         feedLoading.current = false;
       }
     };
+
+    advanceRef.current = advance;
 
     const io = new IntersectionObserver(
       (entries) => {
@@ -784,15 +890,83 @@ export function ExploreGallery({
           io.unobserve(e.target);
         }
       },
-      // 아래쪽에서 조금 일찍 시작해, 화면에 닿을 때쯤 자리를 잡게 한다.
-      { rootMargin: "0px 0px -8% 0px", threshold: 0.01 }
+      // 카드가 화면에 **닿기 직전** 시작한다.
+      //
+      // 예전엔 `-8%` 였다. 음수 하단 마진은 "화면 안으로 8% 들어와야 시작" 이라는 뜻이라,
+      // 스크롤을 멈춘 순간 화면 맨 아래 줄이 아직 그 선을 못 넘어 **opacity:0 인 채로 남았다**
+      // (`[data-reveal-on] .feed-rise:not([data-shown])`). 사진이 안 불러와진 것처럼
+      // 검은 빈 공간이 보이던 원인이다.
+      //
+      // 양수로 뒤집어 살짝 미리 켠다. 등장 연출은 그대로 보이면서(카드가 올라오는 동안
+      // 스크롤이 이어진다) 멈춰도 빈칸이 남지 않는다.
+      { rootMargin: "0px 0px 6% 0px", threshold: 0.01 }
     );
 
-    grid
-      .querySelectorAll<HTMLElement>(".feed-rise:not([data-shown])")
-      .forEach((el) => io.observe(el));
+    // 관찰은 "앞으로 들어올" 카드에만 의미가 있다. **이미 화면에 있거나 지나간 카드**는
+    // 관찰자가 영영 안 깨운다 — IntersectionObserver 는 교차 상태가 *바뀔 때* 부르는데,
+    // 마운트 시점에 이미 위쪽에 있던 카드는 다시 들어올 일이 없기 때문이다.
+    // 그런 카드는 `opacity:0` 인 채 남아 **빈칸으로 보인다**(실측: 화면 안 12장 중 8장).
+    // 스크롤 복원·해시 점프·리사이즈처럼 위치가 한 번에 튀는 경우마다 생긴다.
+    //
+    // 그래서 지금 기준으로 이미 지났거나 닿은 것은 즉시 켜고, 아직 아래에 있는 것만 관찰한다.
+    const sweep = () => {
+      const line = window.innerHeight * 1.06; // rootMargin 과 같은 기준선
+      const rest = grid.querySelectorAll<HTMLElement>(".feed-rise:not([data-shown])");
+      rest.forEach((el) => {
+        if (el.getBoundingClientRect().top < line) {
+          el.dataset.shown = "1";
+          io.unobserve(el);
+        }
+      });
+      return rest.length;
+    };
 
-    return () => io.disconnect();
+    grid.querySelectorAll<HTMLElement>(".feed-rise:not([data-shown])").forEach((el) => io.observe(el));
+    sweep();
+
+    // 스크롤이 한 번에 튀면(복원·해시 점프·리사이즈) 관찰자는 교차 '변화' 를 못 봐서
+    // 침묵한다. 이 효과의 의존성은 [columnsReady, visible, items.length] 뿐이라 스크롤만으로는
+    // 다시 돌지도 않는다. 그래서 스크롤에 얹어 훑는다 — 남은 카드가 없으면 스스로 뗀다.
+    //
+    // **리사이즈도 같이 듣는다.** 위 주석은 처음부터 리사이즈를 적어 놨는데 정작 리스너는
+    // 스크롤뿐이었다. 창이 넓어지면 컬럼이 늘면서 아래에 있던 카드가 한꺼번에 화면 안으로
+    // 올라오는데, 스크롤 위치는 그대로라 scroll 이벤트가 안 난다. 그러면 아무도 sweep 을
+    // 깨우지 않아 그 카드들이 `opacity:0` 인 채 **빈칸으로 남는다.**
+    // 실측(2026-09-11, /c/couple): 1024 → 1920 에서 27장이 6초 넘게 빈칸.
+    // (390 → 1440 은 레이아웃이 바뀌며 스크롤이 따라 움직여 우연히 300ms 안에 복구됐다 —
+    //  그래서 폭에 따라 되기도 하고 안 되기도 하는 것처럼 보였다.)
+    // 모바일 화면 회전도 같은 경로다.
+    //
+    // 리사이즈 쪽은 `window.resize` 가 아니라 **그리드의 ResizeObserver** 로 듣는다.
+    // window 이벤트는 컬럼이 다시 계산되기 **전**에 오는 경우가 있어, 그때 sweep 을 돌면
+    // 아직 옛 위치를 보고 지나친다(실측: 그 방식으로 고쳤더니 1024→1920 은 잡혔는데
+    // 390→1024 에서 12장이 그대로 남았다). ResizeObserver 는 레이아웃 뒤에 오므로
+    // 카드가 실제로 옮겨 앉은 자리를 본다.
+    let frame: number | null = null;
+    let ro: ResizeObserver | null = null;
+    const stop = () => {
+      window.removeEventListener("scroll", onNudge);
+      ro?.disconnect();
+      ro = null;
+    };
+    const onNudge = () => {
+      if (frame !== null) return;
+      frame = requestAnimationFrame(() => {
+        frame = null;
+        if (sweep() === 0) stop();
+      });
+    };
+    window.addEventListener("scroll", onNudge, { passive: true });
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(onNudge);
+      ro.observe(grid);
+    }
+
+    return () => {
+      io.disconnect();
+      if (frame !== null) cancelAnimationFrame(frame);
+      stop();
+    };
   }, [columnsReady, visible, items.length]);
 
   /*
@@ -853,12 +1027,17 @@ export function ExploreGallery({
     <>
       {/* 메이슨리 갤러리 — JS 컬럼 버킷(추가 시 기존 사진 위치 고정) */}
       <div
-        ref={setGridRef}
+        ref={(node) => {
+          gridEl.current = node;
+          setGridRef(node);
+        }}
         data-feed-grid
         className={cn(
           "flex gap-2.5 transition-opacity sm:gap-4",
           columnsReady && feedSessionReady ? "opacity-100" : "opacity-0"
         )}
+        // 멈춘 자리에서만 밑단을 가지런히 자른다 — 잘린 선은 바로 아래 페이드가 덮는다
+        style={trimHeight ? { height: trimHeight, overflow: "hidden" } : undefined}
       >
         {columns.map((col, ci) => (
           <div key={ci} className="flex min-w-0 flex-1 flex-col gap-2.5 sm:gap-4">
@@ -957,14 +1136,45 @@ export function ExploreGallery({
         ))}
       </div>
 
-      {/* 점진 노출 센티넬 */}
+      {/*
+        피드가 멈춘 자리의 마감 — 벽돌 바닥으로 페이드.
+
+        메이슨리는 컬럼마다 높이가 달라 바닥이 톱니처럼 들쭉날쭉하다. 무한 스크롤일 땐
+        어차피 화면 밖이라 안 보였는데, 여기서 끊는 순간 **잘려 나간 것처럼** 보인다.
+        마지막 한 뼘을 배경색으로 녹여 그 톱니를 지운다 — "여기가 끝" 이 아니라
+        "여기서 잠깐 쉬어간다" 로 읽히게.
+
+        음수 마진으로 그리드 위에 겹친다(높이 상쇄 → 레이아웃 밀림 없음).
+        `relative z-10` 은 카드의 등장 애니메이션(transform)이 만드는 스택 위로 올리기 위한 것.
+      */}
+      {autoPaused && (
+        <div
+          aria-hidden
+          className="pointer-events-none relative z-10 -mt-28 h-28 bg-gradient-to-b from-transparent to-bg sm:-mt-36 sm:h-36"
+        />
+      )}
+
+      {/* 점진 노출 센티넬 — 자동 예산이 남아 있을 때만. 멈춘 뒤에는 아래 버튼이 이어받는다. */}
       {shouldKeepGallerySentinel({
         searchMode: !!query,
         poolSize: items.length,
         visibleCount: visible,
         canLoadServer: !!loadMore && !!activeFeedSeed,
-      }) && (
-        <div ref={sentinel} className="h-1" />
+      }) && <div ref={sentinel} className="h-1" />}
+
+      {/* 자동 이어붙이기가 멈춘 자리 — 여기서 지면이 한 번 끝나고 푸터가 도달 가능해진다.
+          누르면 예산이 다시 채워져 이어서 흐른다(닫힌 목록이 아니라 쉼표다). */}
+      {autoPaused && (
+        <div className="mt-8 flex justify-center">
+          <button
+            type="button"
+            onClick={() => advanceRef.current?.(true)}
+            data-track="cta:feed_load_more"
+            className="min-h-11 cursor-pointer rounded-full border border-line-strong bg-surface px-7 text-body-sm font-semibold text-fg transition-colors hover:border-fg/40 hover:bg-fg/[0.04]"
+          >
+            사진 더 보기
+          </button>
+        </div>
       )}
 
       {/* ── 온보딩 스포트라이트 오버레이 ── */}

@@ -163,7 +163,7 @@ export default async function StudioDetailPage({ params }: { params: Promise<{ i
             href={`/photographers/${id}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-1.5 rounded-xl bg-brand px-4 py-2.5 text-body-sm font-semibold text-white transition-opacity hover:opacity-90"
+            className="flex items-center justify-center gap-1.5 rounded-xl bg-brand-solid px-4 py-2.5 text-body-sm font-semibold text-white transition-opacity hover:opacity-90"
           >
             작가 프로필 열기
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
@@ -321,7 +321,7 @@ export default async function StudioDetailPage({ params }: { params: Promise<{ i
                 <li key={r.id} className="py-2.5">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-body-sm font-medium text-fg">{userName.get(r.user_id) ?? "—"}</span>
-                    <span className="text-caption text-brand">{"★".repeat(r.rating)}<span className="text-faint">{"★".repeat(5 - r.rating)}</span></span>
+                    <span className="text-caption text-brand-ink">{"★".repeat(r.rating)}<span className="text-faint">{"★".repeat(5 - r.rating)}</span></span>
                   </div>
                   {r.body && <p className="mt-1 text-caption leading-relaxed text-fg/80">{r.body}</p>}
                   <p className="mt-0.5 text-[11px] text-faint">{when(r.created_at)}</p>
@@ -378,7 +378,7 @@ function Row({ k, v, mono, accent }: { k: string; v: string; mono?: boolean; acc
   return (
     <div className="flex items-center justify-between gap-3 py-1.5 text-body-sm">
       <span className="shrink-0 text-muted">{k}</span>
-      <span className={`min-w-0 truncate text-right ${accent ? "font-semibold text-brand" : "text-fg"} ${mono ? "font-mono text-caption" : ""}`}>
+      <span className={`min-w-0 truncate text-right ${accent ? "font-semibold text-brand-ink" : "text-fg"} ${mono ? "font-mono text-caption" : ""}`}>
         {v}
       </span>
     </div>

@@ -25,7 +25,7 @@ import { FeedHero } from "@/components/user/FeedHero";
 import { SearchDock } from "@/components/user/SearchDock";
 import { SearchBackButton } from "@/components/user/SearchBackButton";
 import { SearchResultsHead } from "@/components/user/SearchResultsHead";
-import { pickSearchPlaceholder } from "@/lib/search-copy";
+import { pickSearchPlaceholder, SEARCH_PLACEHOLDER_SHORT } from "@/lib/search-copy";
 import { routeSessionKey } from "@/lib/search-navigation";
 import { shouldShowSearchUi } from "@/lib/search-ui-visibility";
 import { HomeBannerSlot } from "@/components/user/HomeBannerSlot";
@@ -37,6 +37,7 @@ import { toProfileMe } from "@/lib/profile-me";
 import { buildFeedInterstitials } from "@/lib/feed-interstitials";
 import { JsonLd } from "@/components/JsonLd";
 import { siteJsonLd } from "@/lib/seo";
+import { SiteFooter } from "@/components/SiteFooter";
 import type { Metadata } from "next";
 import type { GalleryPhoto } from "@/lib/discovery";
 
@@ -74,7 +75,7 @@ export default async function ExploreHome({
   const query = sp.q?.trim();
   const showSearchUi = shouldShowSearchUi(query ? "results" : "home");
   const searchPlaceholder = showSearchUi
-    ? pickSearchPlaceholder(Number.parseInt(newFeedSeed(), 36) / 2 ** 31)
+    ? pickSearchPlaceholder()
     : "";
   // 카테고리 컨텍스트(?cat·쿠키)는 proxy 가 /c/<slug> 로 리다이렉트 → 여기(홈)는 검색·전체 피드만.
 
@@ -160,7 +161,7 @@ export default async function ExploreHome({
       게다가 갤러리 컬럼은 flex-1 이라 폭이 남으면 컬럼당 220px 설계치를 넘어
       2560px 에서는 한 장이 360px 까지 커진다. 상한을 지면 전체로 올린다.
     */
-    <section className="mx-auto max-w-screen-2xl px-2.5 pb-2.5 pt-2.5 font-kr sm:px-4 sm:pt-4 sm:pb-4">
+    <section className="mx-auto max-w-screen-2xl px-2.5 pb-2.5 pt-3.5 font-kr sm:px-4 sm:pt-5 sm:pb-4">
       {/* 브랜드 구조화데이터 — Organization(사매) + WebSite(검색박스) */}
       {!query && <JsonLd data={siteJsonLd()} />}
       {/* 탭 전환 시 스크롤 위치 유지 */}
@@ -170,6 +171,25 @@ export default async function ExploreHome({
           (검색 모드에서는 로고 줄부터 아래 층까지 걷어내고 결과에 집중) */}
       {!query && (
         <FeedHero
+          /*
+            로고 ─ 검색 ─ 프로필 **한 줄** (모바일 포함).
+
+            안내 문구는 짧은 판을 쓴다. 모바일 390 에서 이 줄의 검색칸은 ~210px 라
+            긴 문장이 잘린다. 잘린 문장은 안 읽히고 잘렸다는 사실만 보인다.
+            (데스크톱은 칸이 넓어 긴 문장도 들어가지만, 같은 자리에 폭에 따라 다른
+             말을 띄우려면 입력칸을 둘로 만들어야 한다 — 그만한 값어치가 없다)
+          */
+          search={
+            showSearchUi ? (
+              <SearchDock
+                key="home-inline"
+                initial=""
+                placeholder={SEARCH_PLACEHOLDER_SHORT}
+                variant="home"
+                inline
+              />
+            ) : undefined
+          }
           right={
             <ProfileButton
               loggedIn={!!me}
@@ -183,14 +203,17 @@ export default async function ExploreHome({
       )}
 
       {/* 검색 — 로고 줄 바로 아래 한 줄. 스크롤하면 상단에 붙는다(SearchDock 자체 sticky).
-          결과 화면에서는 나가는 버튼을 같은 줄 왼쪽에 세운다. */}
-      {showSearchUi ? (
+          결과 화면에서는 나가는 버튼을 같은 줄 왼쪽에 세운다.
+          검색 모드(?q=)에서는 로고 줄을 걷어내므로 데스크톱에서도 이 줄이 유일한 검색창이다. */}
+      {/* 검색 모드(?q=)에서만 남는 줄. 그때는 로고 줄을 통째로 걷어내므로 이게 유일한
+          검색창이고, 긴 안내 문구가 그대로 들어간다. */}
+      {showSearchUi && query ? (
         <SearchDock
-          key={query ?? "home"}
-          initial={query ?? ""}
+          key={query}
+          initial={query}
           placeholder={searchPlaceholder}
-          variant={query ? "detail" : "home"}
-          back={query ? <SearchBackButton query={query} /> : undefined}
+          variant="detail"
+          back={<SearchBackButton query={query} />}
         />
       ) : null}
 
@@ -204,16 +227,39 @@ export default async function ExploreHome({
         />
       ) : null}
       {!query && <HomeBannerSlot />}
-      {!query && <HomeQuickNav />}
 
       {/*
-        탐색 탭에 있던 사진 섹션들(오늘의 큐레이션·추천 무드·인기 스냅)을 여기로 옮겼다.
-        탐색은 이제 매거진이고 사진은 홈 한 곳에 모인다.
+        바로가기 + 무드 — 데스크톱에서는 **좌/우 2단**(인계노트 D2·D3).
 
-        ⚠️ 광고 유입(?ad=)에서는 렌더하지 않는다. 광고로 들어온 사람은 그 사진을 보러
-           온 거라, 큐레이션을 먼저 깔면 정작 클릭한 사진이 두 화면 아래로 밀린다.
+        세로로 쌓아 두니 데스크톱에서 칩 5개가 좌측 570px 에 몰리고 오른쪽 850px 가
+        통째로 비었다. 무드 레일도 한 줄을 따로 먹어 첫 화면이 그만큼 밀렸다.
+        둘을 나란히 놓으면 빈 공간이 채워지고 사진이 한 화면 위로 올라온다.
+
+        모바일은 그대로 세로다 — 좁은 폭에서 2단은 둘 다 쥐어짜인다.
+
+        ⚠️ 무드는 광고 유입(?ad=)에서 렌더하지 않는다. 광고로 들어온 사람은 그 사진을
+           보러 온 거라, 큐레이션을 먼저 깔면 정작 클릭한 사진이 두 화면 아래로 밀린다.
+           그때는 바로가기만 한 줄로 남는다.
       */}
-      {isAllFeed && <HomeDiscoverySections />}
+      {!query && (
+        <div className="mb-4 lg:grid lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)] lg:items-start lg:gap-8">
+          <HomeQuickNav />
+          {isAllFeed && <HomeDiscoverySections />}
+        </div>
+      )}
+
+      {/*
+        아래부터는 전체 피드. 그 머리는 피드의 것이라 여기서 그린다.
+        (전에는 HomeDiscoverySections 안에 있었는데, 위 2단으로 묶이면서 오른쪽 칸에
+         딸려 들어가면 안 돼서 옮겼다)
+        id 는 '맨 위로' 버튼이 나타날 기준점이기도 하다.
+      */}
+      {!query && (
+        <div id="sec-all-photos" className="mb-2.5 scroll-mt-20 px-1">
+          <span aria-hidden className="mb-2 block h-[2px] w-6 bg-brand" />
+          <h2 className="text-body font-bold tracking-tight">전체 사진</h2>
+        </div>
+      )}
 
       {/* 맨 위로 — '전체 사진' 머리를 지나야 나타난다 */}
       {isAllFeed && <ScrollTopButton anchorId="sec-all-photos" />}
@@ -231,6 +277,12 @@ export default async function ExploreHome({
         loadDemoted={loadDemotedHomePhotos}
         interstitials={interstitials}
       />
+
+      {/* 지면의 끝 — 피드가 자동 이어붙이기를 멈춘 자리(ExploreGallery AUTO_ADVANCE_BUDGET)
+          바로 아래다. 사업자 정보·약관·처리방침이 여기 있고, 전자상거래법 제10조가 요구하는
+          '초기화면 표시' 를 **모바일에서도** 충족한다(예전 SiteInfoBar 는 데스크톱 전용이라
+          모바일에는 사업자 정보가 아예 없었다). */}
+      <SiteFooter />
     </section>
   );
 }

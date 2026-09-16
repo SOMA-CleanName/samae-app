@@ -76,7 +76,7 @@ export function HelpTip({
         }}
         onMouseEnter={show}
         onMouseLeave={() => setOpen(false)}
-        className="grid h-4 w-4 place-items-center rounded-full border border-fg/25 text-[10px] font-semibold leading-none text-fg/50 transition-colors hover:border-fg/45 hover:text-fg/80"
+        className="grid h-4 w-4 place-items-center rounded-full border border-fg/25 text-[10px] font-semibold leading-none text-muted transition-colors hover:border-fg/45 hover:text-fg/80"
       >
         ?
       </button>

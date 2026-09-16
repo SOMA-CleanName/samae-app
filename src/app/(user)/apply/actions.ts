@@ -1,23 +1,15 @@
 "use server";
 
-import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { notifyOpsNewApplication } from "@/lib/ops-alert";
 import { mpTrackServer } from "@/lib/mixpanel-server";
+// 검증은 schema.ts 한 곳에 있다 — /dev/flow(샌드박스)가 같은 것을 쓴다.
+// "use server" 파일은 비동기 함수만 내보낼 수 있어서 여기 두면 클라이언트가 못 가져간다.
+import { applyFieldErrors, parseApplyForm } from "./schema";
 
-export type ApplyLeadState = {
-  ok?: boolean;
-  error?: string;
-  fieldErrors?: Record<string, string>;
-};
-
-const Schema = z.object({
-  displayName: z.string().trim().min(1, "작가명을 입력해주세요.").max(40),
-  portfolioUrl: z.string().trim().min(1, "포트폴리오 링크를 입력해주세요.").max(300),
-  phone: z.string().trim().min(1, "전화번호를 입력해주세요.").max(30),
-  bio: z.string().trim().max(500).optional(),
-});
+export type { ApplyLeadState } from "./schema";
+import type { ApplyLeadState } from "./schema";
 
 // 작가 신청 — 로그인 사용자의 신청을 계정(profile_id)에 연결해 저장하고 운영진에 알린다.
 export async function submitPhotographerApplication(
@@ -39,24 +31,26 @@ export async function submitPhotographerApplication(
     .maybeSingle();
   if (existingPh) return { error: "이미 작가로 등록되어 있어요." };
 
-  const parsed = Schema.safeParse({
-    displayName: formData.get("displayName"),
-    portfolioUrl: formData.get("portfolioUrl"),
-    phone: formData.get("phone"),
-    bio: formData.get("bio") ?? "",
-  });
+  const parsed = parseApplyForm(formData);
   if (!parsed.success) {
-    const fieldErrors: Record<string, string> = {};
-    for (const issue of parsed.error.issues) {
-      fieldErrors[String(issue.path[0])] = issue.message;
-    }
-    return { error: "입력값을 확인해주세요.", fieldErrors };
+    return { error: "입력값을 확인해주세요.", fieldErrors: applyFieldErrors(parsed.error.issues) };
   }
   const v = parsed.data;
   const bio = v.bio && v.bio.length > 0 ? v.bio : null;
 
   // service_role 로 삽입 (RLS: 운영자만 조회). 본인 계정(profile_id) 에 연결.
   const admin = createAdminClient();
+
+  // 이미 인증한 번호가 있으면 **그걸 쓴다.** 화면이 보내는 값은 믿지 않는다 —
+  // 입력란을 숨긴 대신 hidden 으로 실어 보내는데, 그건 얼마든지 고쳐 보낼 수 있다.
+  // 인증을 거친 번호(profiles.phone)가 있으면 그게 진실이다.
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("phone")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (profile?.phone) formData.set("phone", profile.phone);
+
 
   // 처리 전(new·contacted) 신청이 이미 있으면 중복 접수 막기
   const { data: open } = await admin

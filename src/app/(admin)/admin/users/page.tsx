@@ -133,7 +133,7 @@ export default async function AdminUsersPage({
             href={tabHref(t.key)}
             className={cn(
               "shrink-0 border-b-2 px-3.5 py-2 text-body-sm font-medium transition-colors",
-              t.key === tab ? "border-brand text-brand" : "border-transparent text-muted hover:text-fg"
+              t.key === tab ? "border-brand text-brand-ink" : "border-transparent text-muted hover:text-fg"
             )}
           >
             {t.label} <span className="tabular-nums opacity-70">{count[t.key]}</span>
@@ -157,7 +157,7 @@ export default async function AdminUsersPage({
                   <p className="truncate text-body-sm font-semibold text-fg">
                     {m.displayName || "이름 없음"}
                   </p>
-                  {m.id === me?.id && <span className="shrink-0 text-caption text-brand">나</span>}
+                  {m.id === me?.id && <span className="shrink-0 text-caption text-brand-ink">나</span>}
                 </div>
                 <p className="truncate text-caption text-faint">{m.email ?? "이메일 없음"}</p>
               </div>
@@ -212,7 +212,7 @@ function BanButton({ id, banned }: { id: string; banned: boolean }) {
           "shrink-0 cursor-pointer rounded-full px-3 py-1 text-caption font-medium transition-colors disabled:opacity-50 " +
           (banned
             ? "bg-fg/[0.06] text-fg hover:bg-fg/10"
-            : "border border-line-strong text-danger hover:bg-danger-soft")
+            : "border border-line-strong text-danger-ink hover:bg-danger-soft")
         }
       >
         {banned ? "정지 해제" : "정지"}

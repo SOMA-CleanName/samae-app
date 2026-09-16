@@ -93,7 +93,7 @@ export function CategoryAdPicker({
                   </span>
                 )}
                 {on && (
-                  <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-brand text-[10px] font-bold text-white">
+                  <span className="absolute right-1 top-1 flex h-4 w-4 items-center justify-center rounded-full bg-brand-solid text-[10px] font-bold text-white">
                     ✓
                   </span>
                 )}
@@ -107,7 +107,7 @@ export function CategoryAdPicker({
       {selected.length > 0 && (
         <div className="mt-3 rounded-lg border border-line bg-surface-2 p-2.5">
           <p className="text-caption font-semibold text-fg">
-            채택한 광고 소재 · <span className="text-brand">★ 대표</span>가{" "}
+            채택한 광고 소재 · <span className="text-brand-ink">★ 대표</span>가{" "}
             <code className="rounded bg-fg/[0.06] px-1 text-[11px]">/c/{slug}</code> 진입 시 온보딩 강조 이미지
           </p>
           <ul className="mt-2 flex flex-col gap-2">
@@ -125,7 +125,7 @@ export function CategoryAdPicker({
                   )}
                   <div className="flex min-w-0 flex-1 flex-col gap-1">
                     {rep ? (
-                      <span className="inline-flex w-fit items-center gap-1 rounded-full bg-brand px-2 py-0.5 text-[11px] font-bold text-white">
+                      <span className="inline-flex w-fit items-center gap-1 rounded-full bg-brand-solid px-2 py-0.5 text-[11px] font-bold text-white">
                         ★ 대표 · 온보딩 강조
                       </span>
                     ) : (

@@ -158,7 +158,7 @@ function SortableThumb({
         loading="lazy"
         draggable={false}
       />
-      <span className="pointer-events-none absolute left-0.5 top-0.5 rounded bg-brand px-1 text-[10px] font-bold leading-4 text-white">
+      <span className="pointer-events-none absolute left-0.5 top-0.5 rounded bg-brand-solid px-1 text-[10px] font-bold leading-4 text-white">
         {index + 1}
       </span>
       <button

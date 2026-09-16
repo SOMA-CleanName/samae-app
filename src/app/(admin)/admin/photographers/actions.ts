@@ -75,6 +75,23 @@ export async function approveApplication(formData: FormData) {
 
   const nowIso = new Date().toISOString();
 
+  // 승인하면서 요율을 같이 정한다.
+  //
+  // 작가는 승인 직후 **입점 신청(AgreeGate)에서 곧바로 등록**된다 — 그 사이에 요율을
+  // 손볼 자리가 없다. 나중에 고치면 이미 등록된 상품·예약이 옛 요율로 굳어 있고
+  // (fee_snapshot 은 제안 시점에 박힌다), 작가는 처음 본 숫자와 다른 정산을 받는다.
+  //
+  // 비워 두면 기본 요율. 손으로 적었으면 그 값으로 연다.
+  const rateRaw = String(formData.get("feeRate") ?? "").trim();
+  const ratePct = rateRaw === "" ? null : Number(rateRaw);
+  if (ratePct != null && (!Number.isFinite(ratePct) || ratePct <= 0 || ratePct > 50)) {
+    throw new Error("요율은 0 초과 50 이하로 적어주세요 (%).");
+  }
+  const feeFields =
+    ratePct == null
+      ? {}
+      : { fee_mode: "rate" as const, fee_rate: +(ratePct / 100).toFixed(4), fee_amount_krw: null };
+
   // 이미 photographers 행이 있으면 승인으로 갱신, 없으면 생성
   const { data: existing } = await admin
     .from("photographers")
@@ -85,7 +102,13 @@ export async function approveApplication(formData: FormData) {
   if (existing) {
     const { error } = await admin
       .from("photographers")
-      .update({ status: "approved", approved_at: nowIso, display_name: app.display_name, bio: app.bio ?? "" })
+      .update({
+        status: "approved",
+        approved_at: nowIso,
+        display_name: app.display_name,
+        bio: app.bio ?? "",
+        ...feeFields,
+      })
       .eq("id", existing.id);
     if (error) throw new Error(error.message);
   } else {
@@ -95,6 +118,7 @@ export async function approveApplication(formData: FormData) {
       bio: app.bio ?? "",
       status: "approved",
       approved_at: nowIso,
+      ...feeFields,
     });
     if (error) throw new Error(error.message);
   }
@@ -223,9 +247,8 @@ export async function updateDefaultLeadPrice(formData: FormData) {
   revalidatePath("/studio");
 }
 
-// ── 중개 수수료 (docs/32 §2) ───────────────────────────────────
-// 정액과 정률이 공존한다. 작가를 한 명씩 정률로 옮기기 위한 것이고,
-// 설정을 건드리지 않은 작가는 전역 기본(정액 6,000)을 그대로 따른다.
+// ── 중개 수수료 (수수료정책 1조·2조) ─────────────────────────────
+// 기본은 정률 20%(부가세 별도). 정액은 옛 모델이라 명시한 작가만 쓴다.
 //
 // 이미 제안된 예약은 fee_snapshot 으로 굳어 있어 여기서 바꿔도 소급되지 않는다.
 import { MAX_FEE_RATE, MIN_FEE_RATE } from "@/lib/platform-fee";
@@ -233,7 +256,7 @@ import { MAX_FEE_RATE, MIN_FEE_RATE } from "@/lib/platform-fee";
 export async function updatePhotographerFee(formData: FormData) {
   await assertAdmin();
   const id = String(formData.get("id"));
-  const mode = String(formData.get("mode") ?? "flat") === "rate" ? "rate" : "flat";
+  const mode = String(formData.get("mode") ?? "rate") === "flat" ? "flat" : "rate";
   const raw = String(formData.get("value") ?? "").trim();
 
   const patch: Record<string, unknown> = { fee_mode: mode };
@@ -242,7 +265,7 @@ export async function updatePhotographerFee(formData: FormData) {
     // 화면에서는 퍼센트(10)로 받고 DB 에는 비율(0.1)로 넣는다.
     // 0.1 대신 10 을 넣는 사고가 잦은 자리라 범위를 여기서도 막는다(DB 제약과 이중).
     const pct = Number(raw);
-    if (!Number.isFinite(pct) || pct <= 0) throw new Error("요율을 입력해주세요 (예: 10).");
+    if (!Number.isFinite(pct) || pct <= 0) throw new Error("요율을 입력해주세요 (예: 20).");
     const rate = pct / 100;
     if (rate < MIN_FEE_RATE || rate > MAX_FEE_RATE)
       throw new Error(`요율은 ${MIN_FEE_RATE * 100}% ~ ${MAX_FEE_RATE * 100}% 사이여야 해요.`);

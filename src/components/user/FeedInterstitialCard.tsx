@@ -87,8 +87,10 @@ export function FeedInterstitialCard({ item }: { item: FeedInterstitial }) {
       {/* 퍼포레이션 — 필름 가장자리 구멍. 페이지 배경색으로 뚫어 놓은 것처럼 보인다. */}
       <span aria-hidden className="fi-perf block" />
 
-      <span className="grid grid-cols-3 gap-1 px-1">
-        {item.imageUrls.slice(0, 3).map((u, i) => (
+      {/* 3장 → 2장. 한 칸 피드에서 3분할은 사진이 너무 작아 뭘 찍는 작가인지가 안 보였다
+          ("사진이 너무 작아서 클릭 욕구가 안 든다"). 장수보다 한 장의 크기가 먼저다. */}
+      <span className="grid grid-cols-2 gap-1 px-1">
+        {item.imageUrls.slice(0, 2).map((u, i) => (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             key={i}
@@ -102,18 +104,29 @@ export function FeedInterstitialCard({ item }: { item: FeedInterstitial }) {
 
       <span aria-hidden className="fi-perf block" />
 
+      {/*
+        예전엔 작가 이름이 굵게 앞에 섰다. 그런데 처음 보는 이름은 누를 이유가 못 된다 —
+        이름을 알아서 들어가는 게 아니라, 사진이 마음에 들어서 "이 사람은 어떤가" 보러 간다.
+        그래서 굵은 줄을 **권유**로 바꾸고 이름은 아래 작게 붙인다.
+        (지면의 주인공은 사진이라는 원칙과도 같은 방향이다 — 이름을 키우지 않는다)
+      */}
       <span className="block px-2.5 pb-2.5 pt-1.5">
         <span className="block text-[9.5px] font-bold uppercase tracking-[0.18em] text-bg/50">
           작가
         </span>
         <span className="mt-1 flex items-baseline justify-between gap-2">
           <span className="min-w-0 truncate text-body-sm font-bold tracking-tight">
-            {item.displayName}
+            이 작가는 어떠세요
           </span>
+          {/* 여기만 `--brand-ink` 가 아니라 `--brand` 다.
+              작가 카드는 배경이 어둡다(`bg-fg`). 밝은 배경용으로 진하게 만든 `brand-ink` 를
+              그대로 얹으면 오히려 안 보인다 — #c42a1e on #0f0e0c = **3.40:1**,
+              #ff3d2e 는 **5.47:1**. 대비는 색이 아니라 **쌍**으로 정해진다. */}
           <span className="fi-more shrink-0 text-[11px] text-brand" aria-hidden>
             →
           </span>
         </span>
+        <span className="mt-0.5 block truncate text-[11px] text-bg/55">{item.displayName}</span>
       </span>
     </Link>
   );

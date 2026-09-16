@@ -6,7 +6,7 @@ import { fmt } from "./_data";
 export function Stat({ label, value, hint, accent }: { label: string; value: string; hint?: string; accent?: boolean }) {
   return (
     <div className={cn("rounded-2xl border p-4", accent ? "border-brand/30 bg-brand/[0.04]" : "border-line bg-surface")}>
-      <p className={cn("text-h2 font-semibold tabular-nums", accent ? "text-brand" : "text-fg")}>{value}</p>
+      <p className={cn("text-h2 font-semibold tabular-nums", accent ? "text-brand-ink" : "text-fg")}>{value}</p>
       <p className="mt-0.5 text-caption font-medium text-fg">{label}</p>
       {hint && <p className="text-[11px] text-faint">{hint}</p>}
     </div>

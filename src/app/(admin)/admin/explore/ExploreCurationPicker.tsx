@@ -54,7 +54,7 @@ export function ExploreCurationPicker({
       <summary className="cursor-pointer text-caption font-medium text-fg">
         ✨ 오늘의 큐레이션 3컷
         {picked.length > 0 ? (
-          <span className="ml-1 text-brand">· {picked.length}장 지정</span>
+          <span className="ml-1 text-brand-ink">· {picked.length}장 지정</span>
         ) : (
           <span className="ml-1 text-muted">· 자동</span>
         )}
@@ -112,7 +112,7 @@ export function ExploreCurationPicker({
               >
                 <img src={src(p)} alt="" className="h-full w-full object-cover" />
                 {on && (
-                  <span className="absolute left-1 top-1 grid h-4 w-4 place-items-center rounded-full bg-brand text-[10px] font-bold text-white">
+                  <span className="absolute left-1 top-1 grid h-4 w-4 place-items-center rounded-full bg-brand-solid text-[10px] font-bold text-white">
                     {idx + 1}
                   </span>
                 )}

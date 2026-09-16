@@ -99,7 +99,33 @@ export default function PrivacyPage() {
               이용자의 전화번호 등 연락처는 사진작가에게 제공되지 않습니다.
             </strong>{" "}
             상담은 서비스 내 채팅에서만 이루어지며, 작가에게는 상담·예약 진행에 필요한 범위에서
-            이용자의 표시 이름과 문의·예약 내용만 표시됩니다.
+            이용자의 표시 이름과 문의·예약 내용만 표시됩니다. 작가에게 제공되는 항목과 근거는 다음과
+            같습니다.
+          </p>
+          <div className="mt-2 overflow-x-auto">
+            <table className="w-full min-w-[22rem] border-collapse text-xs">
+              <thead>
+                <tr className="border-y border-line text-left text-muted">
+                  <th className="py-2 pr-3 font-medium">제공받는 자</th>
+                  <th className="py-2 pr-3 font-medium">제공 항목</th>
+                  <th className="py-2 pr-3 font-medium">제공 목적·근거</th>
+                  <th className="py-2 pr-3 font-medium">보유 기간</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-line">
+                  <td className="py-2 pr-3 align-top">이용자가 문의·예약한 작가</td>
+                  <td className="py-2 pr-3 align-top">표시 이름, 문의 내용(촬영 종류·희망일·지역·인원·요청 사항), 예약 내용(촬영 일시·장소·금액·예약서에 적은 항목)</td>
+                  <td className="py-2 pr-3 align-top">촬영 계약의 상담·체결·이행 (개인정보 보호법 제17조 제1항 제2호, 계약 이행에 필요한 경우)</td>
+                  <td className="py-2 pr-3 align-top">촬영 계약 종료 후 작가가 지체 없이 파기 (작가 입점 계약 제8조)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-2">
+            전화번호·이메일·결제 계좌는 위 항목에 포함되지 않으며 작가에게 제공되지 않습니다. 이용자가 예약서의
+            메모나 채팅에 직접 적은 내용은 이용자의 의사에 따른 것으로 보되, 연락처로 보이는 문자열은 서비스가
+            자동으로 가립니다.
           </p>
           <p className="mt-2">
             반대 방향으로, <strong className="font-semibold text-fg">작가의 연락처</strong>는 예약 대금
