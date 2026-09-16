@@ -7,7 +7,7 @@ kept as is — the pilot's 500 rows still have to be read back in its format (§
 
 What changed, besides the axes being equal:
   - `kind` is gone. Every item here is already settled as a mood (§7)
-  - 11 axes, not 10 — 시간대 was added (§8)
+  - 11 axes, not 10 — 시간대 was added, and 계절 became 계절·날씨 (§8)
   - one row per representative, not per word. Members follow their head (§10)
 
 Format, `|||` separated (docs §10-3):
@@ -21,7 +21,9 @@ from pathlib import Path
 
 OUT = Path(__file__).resolve().parent / "out" / "mood-vocabulary"
 VERSION = "mood-axis-v1"
-AXES = {"감정", "관계", "스타일", "온도", "계절", "빛", "색감", "질감", "에너지", "공간", "시간대"}
+# 계절·날씨는 한 축이다. 비·눈·구름은 온도도 빛도 색감도 아니라 갈 데가 없었고,
+# 계절 낱말과 뿌리가 같아(봄비·겨울바람·가을볕) 나눌 실익이 없다 (docs/36 §8).
+AXES = {"감정", "관계", "스타일", "온도", "계절·날씨", "빛", "색감", "질감", "에너지", "공간", "시간대"}
 SEPARATOR = "|||"
 FIELDS = 5
 

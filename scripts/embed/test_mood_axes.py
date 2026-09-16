@@ -75,6 +75,14 @@ class CompileMoodAxesTest(unittest.TestCase):
         _, errors = parse(OK.replace("|||s1|||", "|||s1,s9|||"), INDEX)
         self.assertTrue(any("sense s9 does not exist" in e for e in errors))
 
+    def test_weather_shares_the_season_axis(self):
+        # 비·눈·구름은 온도도 빛도 아니라 갈 데가 없었다. 계절 낱말과 뿌리가 같아 한 축에 담는다.
+        rows, errors = parse(OK.replace("시간대,빛", "계절·날씨,에너지"), INDEX)
+        self.assertEqual(errors, [])
+        self.assertEqual(rows[0]["axes"], ["계절·날씨", "에너지"])
+        _, errors = parse(OK.replace("시간대,빛", "계절"), INDEX)
+        self.assertTrue(any("invalid axis '계절'" in e for e in errors), "옛 이름은 더 이상 받지 않는다")
+
     def test_rejects_unknown_axis_empty_axis_and_repeats(self):
         _, errors = parse(OK.replace("시간대,빛", "밝기"), INDEX)
         self.assertTrue(any("invalid axis '밝기'" in e for e in errors))
