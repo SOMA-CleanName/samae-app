@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { saveVerdict } from "@/lib/mood-review-data";
+import { clearVerdict, saveNote, saveVerdict } from "@/lib/mood-review-data";
 import type { Verdict } from "@/lib/mood-review";
 
 const PATH = "/admin/photo-purpose/mood/review";
@@ -16,16 +16,24 @@ export async function recordVerdict(formData: FormData) {
   const status = String(formData.get("status") ?? "");
   if (!key || !STATUSES.has(status)) return;
 
-  if (status === "ok" && formData.get("clear")) {
-    await saveVerdict(key, null);
+  if (formData.get("clear")) {
+    await clearVerdict(key);
     revalidatePath(PATH);
     return;
   }
   const verdict: Verdict = { status: status as Verdict["status"], at: new Date().toISOString() };
   const head = String(formData.get("head") ?? "").trim();
-  const note = String(formData.get("note") ?? "").trim().slice(0, 300);
   if (status === "head" && head) verdict.head = head;
-  if (note) verdict.note = note;
+  // 피드백 칸에 쳐 두고 저장을 안 눌렀어도 판정과 함께 넘어간다.
+  if (formData.has("note")) verdict.note = String(formData.get("note") ?? "").trim().slice(0, 300);
   await saveVerdict(key, verdict);
+  revalidatePath(PATH);
+}
+
+/** 피드백만 저장한다. 판정 상태는 그대로 둔다 — 아직 안 본 묶음에도 남길 수 있다. */
+export async function recordNote(formData: FormData) {
+  const key = String(formData.get("key") ?? "").trim();
+  if (!key) return;
+  await saveNote(key, String(formData.get("note") ?? "").trim().slice(0, 300));
   revalidatePath(PATH);
 }

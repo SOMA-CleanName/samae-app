@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { recordVerdict } from "./actions";
+import { recordNote, recordVerdict } from "./actions";
 
 type Sense = { label: string; pos: string; level: number; senses: string[] };
-type Verdict = { status: string; head?: string; note?: string };
+type Verdict = { status?: string; head?: string; note?: string };
 
 const LEVELS = ["초급", "중급", "고급", "없음"];
 const LEVEL_TONE = ["bg-brand/15 text-brand", "bg-fg/10 text-fg", "bg-fg/5 text-muted", "bg-fg/5 text-muted"];
@@ -25,10 +25,12 @@ export function GroupCard({
   verdict?: Verdict;
 }) {
   const [open, setOpen] = useState(false);
-  const [note, setNote] = useState(verdict?.note ?? "");
+  const saved = verdict?.note ?? "";
+  const [note, setNote] = useState(saved);
   const words = [head, ...members];
   const shown = verdict?.status === "head" && verdict.head ? verdict.head : head;
-  const badge = verdict ? BADGE[verdict.status] : null;
+  const badge = verdict?.status ? BADGE[verdict.status] : null;
+  const dirty = note.trim() !== saved;
 
   return (
     <li className="rounded-xl border border-line p-4">
@@ -68,7 +70,7 @@ export function GroupCard({
           className="rounded-xl border border-line px-3 py-1.5 text-body-sm text-muted hover:text-fg">
           {open ? "접기" : "뜻풀이·대표 바꾸기"}
         </button>
-        {verdict && (
+        {verdict?.status && (
           <form action={recordVerdict}>
             <input type="hidden" name="key" value={head} />
             <input type="hidden" name="clear" value="1" />
@@ -81,12 +83,7 @@ export function GroupCard({
 
       {open && (
         <div className="mt-4 rounded-xl border border-line bg-fg/[0.02] p-3">
-          <label className="block text-caption text-muted">메모 (판정과 함께 저장됩니다)</label>
-          <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={300}
-            placeholder="왜 그렇게 정했는지"
-            className="mt-1 w-full rounded-xl border border-line bg-bg px-3 py-2 text-body-sm" />
-
-          <p className="mt-4 text-caption text-muted">대표로 세울 낱말을 고르세요. 뜻풀이는 첫 두 개만 보입니다.</p>
+          <p className="text-caption text-muted">대표로 세울 낱말을 고르세요. 뜻풀이는 첫 두 개만 보입니다.</p>
           <ul className="mt-2 space-y-1">
             {words.map((word) => (
               <li key={word} className="flex flex-wrap items-baseline gap-2 border-b border-line py-1.5 last:border-0">
@@ -112,6 +109,19 @@ export function GroupCard({
           </ul>
         </div>
       )}
+
+      {/* 피드백은 판정과 따로 저장한다 — 판정 버튼을 다시 눌러 상태를 덮지 않아도 한 줄 덧붙일 수 있다. */}
+      <form action={recordNote} className="mt-3 flex items-center gap-2">
+        <input type="hidden" name="key" value={head} />
+        <input name="note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={300}
+          aria-label={`${shown} 묶음 피드백`} placeholder="피드백 — 걸리는 점이나 왜 그렇게 봤는지"
+          className="min-w-0 flex-1 rounded-xl border border-line bg-bg px-3 py-2 text-body-sm" />
+        <button disabled={!dirty}
+          className={`shrink-0 rounded-xl px-4 py-2 text-body-sm ${
+            dirty ? "bg-fg text-bg" : "border border-line text-muted"}`}>
+          {dirty ? "저장" : saved ? "저장됨" : "저장"}
+        </button>
+      </form>
     </li>
   );
 }

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { loadGraph, loadVerdicts } from "@/lib/mood-review-data";
-import { selectGroups, type Sense } from "@/lib/mood-review";
+import { isJudged, selectGroups, type Sense } from "@/lib/mood-review";
 import { GroupCard } from "./GroupCard";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +34,7 @@ export default async function MoodReviewPage({ searchParams }: { searchParams: P
     `${BASE}?${new URLSearchParams(Object.entries({ q, size, state, page: "1", ...changes }).filter(([, v]) => v))}`;
   const counts = {
     total: groups.length,
-    done: Object.keys(verdicts).length,
+    done: Object.values(verdicts).filter(isJudged).length,   // 메모만 남긴 묶음은 아직 안 본 것이다
     big: groups.filter((g) => g.members.length >= 5).length,
     mid: groups.filter((g) => g.members.length >= 1 && g.members.length <= 4).length,
     solo: groups.filter((g) => !g.members.length).length,

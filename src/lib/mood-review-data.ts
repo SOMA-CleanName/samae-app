@@ -36,11 +36,40 @@ export async function loadVerdicts(): Promise<Record<string, Verdict>> {
   }
 }
 
-export async function saveVerdict(key: string, verdict: Verdict | null) {
-  const all = await loadVerdicts();
-  if (verdict) all[key] = verdict;
-  else delete all[key];
+async function persist(all: Record<string, Verdict>) {
   await mkdir(path.dirname(DECISIONS), { recursive: true });
   await writeFile(DECISIONS, JSON.stringify(all, null, 1), "utf8");
   return all;
+}
+
+/** 판정을 적는다. 이미 적어 둔 메모는 함께 넘어오지 않으면 남긴다. */
+export async function saveVerdict(key: string, verdict: Verdict) {
+  const all = await loadVerdicts();
+  all[key] = { ...verdict, note: verdict.note ?? all[key]?.note };
+  return persist(all);
+}
+
+/**
+ * 메모만 고친다 — 판정 상태는 건드리지 않는다.
+ * 판정 버튼에 메모를 태워 보내면 쪼개기로 본 묶음에 한 줄 덧붙이려다
+ * 판정이 확인으로 덮인다. 그래서 저장 경로를 갈랐다.
+ */
+export async function saveNote(key: string, note: string) {
+  const all = await loadVerdicts();
+  const current = all[key];
+  if (note) all[key] = { ...current, note, at: current?.at ?? new Date().toISOString() };
+  else if (!current) return all;
+  else if (current.status) delete all[key].note;
+  else delete all[key];   // 메모만 있던 기록이면 통째로 지운다
+  return persist(all);
+}
+
+/** 판정만 지운다. 메모는 왜 그렇게 봤는지의 기록이라 남긴다. */
+export async function clearVerdict(key: string) {
+  const all = await loadVerdicts();
+  const current = all[key];
+  if (!current) return all;
+  if (current.note) all[key] = { note: current.note, at: current.at };
+  else delete all[key];
+  return persist(all);
 }
