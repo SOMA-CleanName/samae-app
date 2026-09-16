@@ -4,8 +4,9 @@ import "server-only";
 // admin(service_role)을 쓰면 그 키가 없는 Vercel Preview 스코프에서 빌드가 죽는다.
 // RLS 가 published·approved·is_active 를 대신 걸러 주므로 보안도 더 낫다.
 import { createPublicClient } from "@/lib/supabase/public";
+import { listPublishedSpots } from "@/lib/spots-db";
 import type { GalleryPhoto } from "@/lib/discovery";
-import type { Spot } from "@/lib/spots-data";
+import type { Spot } from "@/lib/spots-db";
 
 // 장소 페이지가 블로그와 갈리는 지점은 여기다.
 // 소개글은 블로그도 쓴다. **그 장소에서 실제로 찍힌 사진 · 찍은 작가 · 실제 패키지 가격**은
@@ -248,7 +249,7 @@ export type SpotCard = {
  * 탐색은 사진을 보러 오는 지면이라 더더욱 실을 이유가 없다.
  */
 export async function listSpotCards(limit = 6): Promise<SpotCard[]> {
-  const { PUBLISHED_SPOTS } = await import("@/lib/spots-data");
+  const PUBLISHED_SPOTS = await listPublishedSpots();
 
   const matchedBySpot = await Promise.all(
     PUBLISHED_SPOTS.map(async (s) => ({ spot: s, matched: await fetchMatched(s) }))

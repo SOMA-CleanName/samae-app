@@ -6,14 +6,14 @@ import { StickyBack } from "@/components/editorial/StickyBack";
 import { SiteFooter } from "@/components/SiteFooter";
 import { faqJsonLd, breadcrumbJsonLd } from "@/lib/seo";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
-import { findGuideItem, GUIDE_PAGE_ITEMS } from "@/lib/guide-data";
+import { findGuideItem, listGuidePageItems } from "@/lib/guide";
 
 // 가이드 개별 글. 본문이 충분한 항목만 여기로 온다(GUIDE_PAGE_ITEMS) —
 // 짧은 답은 허브에만 두고 단독 URL 을 주지 않는다. thin content 를 만들지 않기 위해서다.
 
 // Next.js 16: 동적 라우트 param 은 자동 디코딩되지 않는다. 한글 슬러그라 findGuideItem 이 직접 디코딩한다.
 export async function generateStaticParams() {
-  return GUIDE_PAGE_ITEMS.map((g) => ({ slug: encodeURIComponent(g.slug) }));
+  return (await listGuidePageItems()).map((g) => ({ slug: encodeURIComponent(g.slug) }));
 }
 
 export async function generateMetadata({
@@ -22,7 +22,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const item = findGuideItem(slug);
+  const item = await findGuideItem(slug);
   if (!item) return {};
   // 본문 앞부분을 설명으로. 검색 결과에 그대로 노출되는 자리라 문장 중간에서 자르지 않는다.
   const flat = item.answer.replace(/\s+/g, " ").trim();
@@ -48,7 +48,7 @@ export default async function GuideDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const item = findGuideItem(slug);
+  const item = await findGuideItem(slug);
   if (!item) notFound();
 
   const path = `/guide/${encodeURIComponent(item.slug)}`;
@@ -60,7 +60,7 @@ export default async function GuideDetailPage({
     { name: item.question, path },
   ]);
 
-  const related = GUIDE_PAGE_ITEMS.filter(
+  const related = (await listGuidePageItems()).filter(
     (g) => g.axis === item.axis && g.slug !== item.slug
   ).slice(0, 4);
 

@@ -5,7 +5,7 @@ import { StickyBack } from "@/components/editorial/StickyBack";
 import { SiteFooter } from "@/components/SiteFooter";
 import { Masthead } from "@/components/editorial/Masthead";
 import { breadcrumbJsonLd, itemListJsonLd } from "@/lib/seo";
-import { findSpot } from "@/lib/spots-data";
+import { listPublishedSpots, type Spot } from "@/lib/spots-db";
 import { listSpotCards } from "@/lib/spots";
 
 // 촬영 장소 목록.
@@ -34,9 +34,16 @@ export const metadata: Metadata = {
 export default async function SpotsIndexPage() {
   // 카드(장수·대표 3장)는 탐색 탭과 같은 함수를 쓴다 — 두 지면이 다른 숫자를 말하면 안 된다.
   const cards = await listSpotCards(50);
+  /*
+    장소 상세 정보를 slug 로 붙인다.
+
+    카드마다 `findSpot` 을 부르지 않는다 — 이제 DB 조회라 카드 수만큼 쿼리가 나간다
+    (50장이면 50번). 한 번에 다 읽어 Map 으로 맞춘다.
+  */
+  const bySlug = new Map((await listPublishedSpots()).map((s) => [s.slug, s]));
   const spots = cards
-    .map((c) => ({ card: c, spot: findSpot(c.slug) }))
-    .filter((x): x is { card: (typeof cards)[number]; spot: NonNullable<ReturnType<typeof findSpot>> } => !!x.spot);
+    .map((c) => ({ card: c, spot: bySlug.get(c.slug) }))
+    .filter((x): x is { card: (typeof cards)[number]; spot: Spot } => !!x.spot);
 
   const totalPhotos = spots.reduce((n, x) => n + x.card.count, 0);
 
