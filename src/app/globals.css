@@ -695,14 +695,19 @@ select:focus-visible {
 .qp:hover .qp-label {
   color: var(--brand-ink);
 }
-/* 아이콘 원 — 호버하면 브랜드색으로 채워진다 */
+/*
+  아이콘 — 호버하면 한 단계 진해진다.
+
+  예전엔 뒤의 틴트 원을 브랜드색으로 **채웠다.** 그 원을 걷어내면서(A안) 채울 면이
+  없어졌다 — 그대로 두면 44px 짜리 빨간 사각이 칠해진다. 색만 바꾼다.
+*/
 .qp-dot {
-  transition: background-color 0.25s ease, color 0.25s ease;
+  transition: color 0.25s ease, transform 0.25s ease;
 }
 .qp:hover .qp-dot,
 .qp:focus-visible .qp-dot {
-  background: var(--brand);
-  color: #fff;
+  color: var(--brand-ink);
+  transform: translateY(-1px);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -753,6 +758,40 @@ select:focus-visible {
   그래서 숨김은 관찰자가 실제로 설치된 뒤에만 걸린다(부모의 data-reveal-on).
   그 표식은 useLayoutEffect 에서 그리기 전에 붙어 깜빡임도 없다.
 */
+/*
+  등장 연출(범용) — `data-reveal` 을 붙인 요소가 화면에 들어오면 떠오른다.
+  감시자는 `RevealOnView` 컴포넌트 하나가 지면 전체를 맡는다.
+
+  ⚠️ `ed-scroll-in`(animation-timeline: view())을 쓰지 않는 이유:
+     그건 크롬 계열 전용이라 **사파리에서는 아무 일도 안 일어난다.**
+     사매 방문자 다수가 아이폰이라 그 연출은 사실상 없는 것과 같다.
+
+  ⚠️ 숨김은 `[data-reveal-on]` 아래에서만 걸린다 — 감시자가 실제로 설치된 뒤에
+     루트에 붙는 표식이다. IntersectionObserver 가 없으면 그냥 보이는 상태가 된다.
+
+  `--rd` 로 순서를 준다(ms). 섹션 안에서 머리 → 본문 순으로 살짝 늦추는 데 쓴다.
+*/
+[data-reveal] {
+  transition:
+    opacity 0.55s ease-out,
+    transform 0.78s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: calc(var(--rd, 0) * 1ms);
+}
+[data-reveal-on] [data-reveal]:not([data-shown]) {
+  opacity: 0;
+  /* 이동만 한다 — scale 을 섞으면 카드 가장자리에 얇은 선이 생긴다(.feed-rise 주석 참고) */
+  transform: translateY(22px);
+  backface-visibility: hidden;
+  will-change: opacity, transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
 .feed-rise {
   transition:
     opacity 0.5s ease-out,
