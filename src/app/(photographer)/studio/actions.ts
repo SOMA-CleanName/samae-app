@@ -7,7 +7,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { mpTrackServer } from "@/lib/mixpanel-server";
 import { notifyOpsPhotographerAgreed } from "@/lib/ops-alert";
-import { checkResidentNo, encryptResidentNo, residentNoKeyReady } from "@/lib/resident-no";
 import { notifyOpsDepositReported } from "@/lib/ops-alert";
 
 // 최저가·가격 상한 (350만원)
@@ -136,12 +135,6 @@ export async function updateProfile(
       legal_name: v.legalName || null,
       business_type: v.businessType || null,
       business_no: businessNo,
-      // 사업자로 전환하면 주민번호의 근거(원천징수)가 사라진다 → **즉시 파기**
-      // (개인정보보호법 제21조). 이 화면은 주민번호를 받지 않으므로 여기서 할 일은
-      // 지우는 것뿐이다 — 미등록으로 되돌리면 입점 동의 화면에서 다시 받는다.
-      ...(v.businessType && v.businessType !== "unregistered"
-        ? { resident_no_enc: null, resident_no_masked: null, resident_no_at: null }
-        : {}),
     })
     .eq("profile_id", user.id);
 
@@ -353,23 +346,6 @@ export async function agreePhotographerContract(formData: FormData): Promise<voi
     businessNo = `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
   }
 
-  // ── 주민등록번호 — **사업자 미등록일 때만** ───────────────────────
-  //
-  // 근거는 소득세법 제127조(원천징수)·제164조(지급명세서)다. 사업자 등록을 한 작가는
-  // 세금계산서로 처리되어 원천징수 대상이 아니므로 **근거가 없다** — 받으면 안 된다.
-  // 화면이 실수로 보내더라도 여기서 버린다.
-  let residentEnc: string | null = null;
-  let residentMasked: string | null = null;
-  if (businessType === "unregistered") {
-    if (!residentNoKeyReady()) {
-      // 키 없이 진행하면 평문으로 저장하거나 조용히 빠뜨리게 된다. 둘 다 안 된다.
-      throw new Error("주민등록번호를 저장할 수 없는 설정이에요. 운영자에게 알려주세요.");
-    }
-    const checked = checkResidentNo(String(formData.get("residentNo") || ""));
-    if (!checked.ok) throw new Error(checked.error);
-    residentEnc = encryptResidentNo(checked.digits);
-    residentMasked = checked.masked;
-  }
   const promoConsent = formData.get("promoConsent") === "on";
 
   const h = await headers();
@@ -386,12 +362,6 @@ export async function agreePhotographerContract(formData: FormData): Promise<voi
       business_no: businessNo,
       promo_consent: promoConsent,
       promo_consent_at: promoConsent ? now : null,
-      // 사업자로 전환하면 근거가 사라지므로 **null 로 덮어 파기한다**(법 제21조).
-      // 조건부로 두지 않고 매번 쓰는 이유 — 유형을 바꿔 다시 동의할 때 옛 값이 남으면
-      // "근거 없이 보관 중" 이 된다.
-      resident_no_enc: residentEnc,
-      resident_no_masked: residentMasked,
-      resident_no_at: residentEnc ? now : null,
     })
     .eq("id", me.photographer.id);
   if (phErr) throw new Error("작가 정보를 저장하지 못했어요.");

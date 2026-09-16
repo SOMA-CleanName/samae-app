@@ -11,6 +11,7 @@ import Link from "next/link";
 // lib/bookings 가 아니라 여기서 — 그쪽은 server-only 라 클라이언트에서 못 부른다
 import { fmtShootAt } from "@/lib/booking-format";
 import type { SettlementRow, SettlementStage } from "@/lib/payments";
+import { summarizeByYear } from "@/lib/settlement-summary";
 
 const STAGE_LABEL: Record<SettlementStage, string> = {
   awaiting_transfer: "고객 입금 대기",
@@ -49,8 +50,10 @@ export function SettlementsBody({
   const settledTotal = rows
     .filter((r) => r.stage === "settled")
     .reduce((sum, r) => sum + r.netKrw, 0);
-  // 원천징수 안내는 해당되는 작가에게만 보여준다 — 사업자 작가에게는 없는 이야기다
-  const withheld = rows.some((r) => r.withholdingKrw > 0);
+  // 연간 요약 — **작가가 5월에 이거 한 장으로 신고한다.**
+  // 우리가 원천징수를 안 하니 국세청이 우리에게서 받는 자료가 없다. 작가가 1년치를 혼자
+  // 긁어모아야 하는데, 채팅방을 거슬러 세는 건 사람이 할 일이 아니다.
+  const years = summarizeByYear(rows);
 
   // 실제 부담률을 행에서 되짚는다. "20%" 로 박아 두면 요율이 다른 작가에게 거짓말이 되고,
   // 부가세를 따로 붙여 쓰면 나중에 "또 붙네" 로 읽힌다 (HANDOFF §3-2).
@@ -68,16 +71,36 @@ export function SettlementsBody({
         {burdenPct != null && <b className="font-semibold text-muted"> {burdenPct}%(부가세 포함)</b>}를
         뺀 금액을 작가님 계좌로 보내드려요. 결제대행 수수료는 사매가 부담해요.
       </p>
-      {/* 원천징수는 안 물어보면 "왜 덜 들어왔지" 가 되는 항목이다. 뗀 세금이 사라지는 게
-          아니라 내년 5월에 정산된다는 것까지 말해야 문의가 줄어든다. */}
-      {withheld && (
-        <p className="mt-2 rounded-xl bg-surface-2 px-3.5 py-3 text-xs leading-relaxed text-muted">
-          사업자 등록이 없는 작가님께는 소득세법에 따라{" "}
-          <b className="font-semibold text-fg">사업소득세 3%와 지방소득세 0.3%</b>를 사매가
-          원천징수해 대신 신고·납부해요. 없어지는 돈이 아니라 미리 낸 세금이고, 다음 해 5월
-          종합소득세 신고 때 정산돼요. 사업자 등록 후 프로필에서 사업자 정보를 등록하시면
-          원천징수 없이 세금계산서로 처리됩니다.
-        </p>
+
+      {years.length > 0 && (
+        <section className="mt-5 rounded-2xl border border-fg/10 p-4">
+          <p className="text-sm font-semibold">연간 정산 요약</p>
+          <p className="mt-1 text-xs leading-relaxed text-faint">
+            5월 종합소득세 신고에 쓰세요. 사매는 원천징수를 하지 않으므로 국세청에 제출되는
+            자료가 없어요 — <b className="text-muted">사매 수수료를 필요경비로 빼야</b> 대금
+            전액에 세금을 내지 않습니다.
+          </p>
+          <ul className="mt-3 flex flex-col gap-2">
+            {years.map((y) => (
+              <li key={y.year} className="rounded-xl bg-fg/[0.04] p-3">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-sm font-semibold">{y.year}년</span>
+                  <a
+                    href={`/studio/settlements/summary?year=${y.year}`}
+                    className="text-xs text-muted underline underline-offset-2 hover:text-fg"
+                  >
+                    건별 내역 내려받기 (CSV)
+                  </a>
+                </div>
+                <dl className="mt-2 grid grid-cols-3 gap-2 text-xs tabular-nums">
+                  <Cell k="총수입금액" v={`₩${fmt.format(y.grossKrw)}`} hint={`${y.count}건`} />
+                  <Cell k="필요경비 (사매 수수료)" v={`₩${fmt.format(y.feeKrw)}`} />
+                  <Cell k="실수령" v={`₩${fmt.format(y.netKrw)}`} />
+                </dl>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       <div className="mt-6 grid grid-cols-2 gap-3">
@@ -108,6 +131,18 @@ export function SettlementsBody({
         합니다.
       </p>
     </main>
+  );
+}
+
+function Cell({ k, v, hint }: { k: string; v: string; hint?: string }) {
+  return (
+    <div>
+      <dt className="text-faint">{k}</dt>
+      <dd className="mt-0.5 font-semibold">
+        {v}
+        {hint && <span className="ml-1 font-normal text-faint">{hint}</span>}
+      </dd>
+    </div>
   );
 }
 
@@ -145,9 +180,6 @@ function SettlementItem({
       {!refunded && (
         <p className="mt-2 border-t border-fg/[0.06] pt-2 text-xs tabular-nums text-faint">
           고객 결제 ₩{fmt.format(row.paidKrw)} · 사매 수수료·부가세 ₩{fmt.format(row.feeKrw)}
-          {/* 원천징수는 수수료가 아니라 **작가님 세금을 사매가 대신 낸 것**이다.
-              한 줄에 뭉뚱그리면 "사매가 더 떼갔다" 로 읽힌다 — 그래서 따로 쓴다. */}
-          {row.withholdingKrw > 0 && ` · 원천징수 ₩${fmt.format(row.withholdingKrw)}`}
         </p>
       )}
 

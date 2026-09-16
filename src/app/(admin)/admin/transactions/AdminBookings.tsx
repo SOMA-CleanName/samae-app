@@ -85,8 +85,6 @@ export type BookingRow = {
   feeRate: number;
   /** 수수료의 부가세 */
   vatKrw: number;
-  /** 원천징수 (사업자 미등록 작가) */
-  withholdingKrw: number;
   /** 작가에게 실제로 보낼 금액 — 운영자가 은행 앱에 옮겨 적는 숫자다. 서버에서 계산해 내려온다 */
   payoutKrw: number;
   /** 지금 환불하면 어떻게 되는지 (docs/32) */

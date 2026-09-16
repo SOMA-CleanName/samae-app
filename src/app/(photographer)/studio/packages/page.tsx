@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createPackage } from "./actions";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { effectiveBurdenPct, feeSpecFromRow, feeRateOf, resolveFee } from "@/lib/platform-fee";
-import type { BusinessType } from "@/lib/withholding";
+import type { BusinessType } from "@/lib/platform-fee";
 import { PackageItem, type Pkg } from "./PackageItem";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 

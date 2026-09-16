@@ -11,7 +11,7 @@
 //    (lib/discovery.ts 의 newFeedSeed 와 같은 처리).
 
 import { feeWithVat, resolveFee, vatOnFee } from "@/lib/platform-fee";
-import { computeWithholding, type BusinessType } from "@/lib/withholding";
+import type { BusinessType } from "@/lib/platform-fee";
 import type { SettlementRow } from "@/lib/payments";
 
 /** 오늘로부터 n일 뒤 14:00 (KST) */
@@ -51,7 +51,6 @@ export function qaSettlementRows(businessType: BusinessType): SettlementRow[] {
   ): SettlementRow => {
     const fee = resolveFee(null, paidKrw);
     const feeKrw = feeWithVat(fee);
-    const withholdingKrw = computeWithholding(paidKrw, businessType).totalKrw;
     return {
       bookingId: `qa-${i}`,
       customerName: ["김고객", "이손님", "박의뢰"][i % 3],
@@ -59,8 +58,7 @@ export function qaSettlementRows(businessType: BusinessType): SettlementRow[] {
       shootDate: null,
       paidKrw,
       feeKrw,
-      withholdingKrw,
-      netKrw: Math.max(0, paidKrw - feeKrw - withholdingKrw),
+      netKrw: Math.max(0, paidKrw - feeKrw),
       stage,
       settledAt: stage === "settled" ? daysAgo(2) : null,
       ackAt: null,
@@ -80,15 +78,13 @@ export function qaSettlementRows(businessType: BusinessType): SettlementRow[] {
 export function qaAdminMoney(businessType: BusinessType) {
   const amount = QA_AMOUNT;
   const fee = resolveFee(null, amount);
-  const withholding = computeWithholding(amount, businessType);
   return {
     amount_krw: amount,
     travel_fee_krw: 30_000,
     feeKrw: fee.feeKrw,
     feeLabel: "정률 20%",
     vatKrw: vatOnFee(fee.feeKrw),
-    withholdingKrw: withholding.totalKrw,
-    payoutKrw: Math.max(0, amount - feeWithVat(fee) - withholding.totalKrw),
+    payoutKrw: Math.max(0, amount - feeWithVat(fee)),
     settlement_amount_krw: null,
   };
 }

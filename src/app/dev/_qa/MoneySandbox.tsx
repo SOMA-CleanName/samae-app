@@ -13,7 +13,7 @@
 import Link from "next/link";
 import { SettlementsBody } from "@/components/settlement/SettlementsBody";
 import { BookingMoney } from "@/components/booking/BookingMoney";
-import type { BusinessType } from "@/lib/withholding";
+import type { BusinessType } from "@/lib/platform-fee";
 import { qaAdminMoney, qaSettlementRows } from "./fixtures";
 
 /** 아무것도 하지 않는 액션 — 샌드박스는 밖으로 나가지 않는다 */
