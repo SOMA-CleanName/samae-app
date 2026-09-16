@@ -31,25 +31,33 @@ export async function submitPhotographerApplication(
     .maybeSingle();
   if (existingPh) return { error: "이미 작가로 등록되어 있어요." };
 
-  const parsed = parseApplyForm(formData);
-  if (!parsed.success) {
-    return { error: "입력값을 확인해주세요.", fieldErrors: applyFieldErrors(parsed.error.issues) };
-  }
-  const v = parsed.data;
-  const bio = v.bio && v.bio.length > 0 ? v.bio : null;
-
   // service_role 로 삽입 (RLS: 운영자만 조회). 본인 계정(profile_id) 에 연결.
   const admin = createAdminClient();
 
-  // 이미 인증한 번호가 있으면 **그걸 쓴다.** 화면이 보내는 값은 믿지 않는다 —
-  // 입력란을 숨긴 대신 hidden 으로 실어 보내는데, 그건 얼마든지 고쳐 보낼 수 있다.
-  // 인증을 거친 번호(profiles.phone)가 있으면 그게 진실이다.
+  // ⚠️ **검증보다 먼저** 인증된 번호를 채운다.
+  //
+  //    이미 번호가 있으면 화면은 입력란을 아예 그리지 않는다(ApplyLeadForm) — hidden 도
+  //    없다. 그래서 formData 에 phone 이 없고, 검증을 먼저 돌리면 "전화번호를 입력해주세요"
+  //    로 떨어진다. 화면에는 이유가 안 보이는 "입력값을 확인해주세요" 만 뜨고 입력칸이
+  //    초기화된다(2026-09-16 신고: 포폴 링크가 자꾸 비워짐).
+  //
+  //    **가입 때 번호를 받게 된 뒤로는 신청이 통째로 막혀 있었다.** 순서 하나 때문이다.
+  //
+  //    채워 넣는 김에 값도 이걸로 고정한다 — 화면이 보내는 번호는 얼마든지 고쳐 보낼 수
+  //    있지만, 인증을 거친 profiles.phone 은 우리가 확인한 값이다.
   const { data: profile } = await admin
     .from("profiles")
     .select("phone")
     .eq("id", user.id)
     .maybeSingle();
   if (profile?.phone) formData.set("phone", profile.phone);
+
+  const parsed = parseApplyForm(formData);
+  if (!parsed.success) {
+    return { error: "입력값을 확인해주세요.", fieldErrors: applyFieldErrors(parsed.error.issues) };
+  }
+  const v = parsed.data;
+  const bio = v.bio && v.bio.length > 0 ? v.bio : null;
 
 
   // 처리 전(new·contacted) 신청이 이미 있으면 중복 접수 막기

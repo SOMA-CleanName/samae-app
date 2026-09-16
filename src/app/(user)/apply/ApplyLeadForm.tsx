@@ -29,7 +29,13 @@ export function ApplyLeadForm({
   action?: (prev: ApplyLeadState, formData: FormData) => Promise<ApplyLeadState>;
 }) {
   const [state, formAction, pending] = useActionState(action, initial);
+  // 입력값을 붙잡아 둔다 — 액션이 실패하면 폼이 다시 그려지는데, 값을 안 들고 있으면
+  // **적어둔 게 통째로 날아간다.** 긴 링크를 다시 붙여넣게 만드는 건 사과가 아니라 벌이다
+  // (2026-09-16 신고: 신청 실패할 때마다 포폴 링크가 비워짐).
   const [name, setName] = useState("");
+  const [portfolioUrl, setPortfolioUrl] = useState("");
+  const [bio, setBio] = useState("");
+  const [phone, setPhone] = useState("");
 
   // 제출 직후엔 폼도 채널 안내도 걷고 **완료 화면 하나만** 보여준다.
   // 전에는 초록 배너 + 폼 자리 + 채널 카드가 뒤섞여 무엇을 해야 하는지 흐렸다.
@@ -54,6 +60,8 @@ export function ApplyLeadForm({
         required
         placeholder="인스타·블로그 등 (예: instagram.com/...)"
         hint="작업을 볼 수 있는 링크를 남겨주세요."
+        value={portfolioUrl}
+        onChange={(e) => setPortfolioUrl(e.target.value)}
         error={state.fieldErrors?.portfolioUrl}
       />
       {/* 이미 인증한 번호가 있으면 **입력란을 띄우지 않는다.**
@@ -84,6 +92,8 @@ export function ApplyLeadForm({
           type="tel"
           inputMode="tel"
           placeholder="010-1234-5678"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
           error={state.fieldErrors?.phone}
         />
       )}
@@ -98,6 +108,8 @@ export function ApplyLeadForm({
           rows={3}
           maxLength={500}
           placeholder="작업 스타일이나 소개를 자유롭게 적어주세요."
+          value={bio}
+          onChange={(e) => setBio(e.target.value)}
           className="resize-none rounded-xl border border-line-strong bg-surface px-3.5 py-3 text-body outline-none transition-colors placeholder:text-faint focus:border-fg"
         />
       </div>
