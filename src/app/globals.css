@@ -231,6 +231,28 @@ img {
 
 /* 폼 컨트롤: offset·고정 radius 아웃라인이 둥근 테두리와 어긋나 보인다.
    대신 요소의 실제 border-radius 를 따라가는(box-shadow) 중립 포커스 링으로 대체. */
+/* iOS 사파리는 입력 글씨가 16px 미만이면 **포커스할 때 화면을 확대한다.** 확대된 화면은
+   스스로 돌아오지 않아서, 입력할 때마다 사용자가 손으로 축소해야 한다(2026-09-16 신고).
+
+   뷰포트에 maximum-scale=1 을 박는 방법이 흔하지만 쓰지 않는다 — 그건 핀치 줌까지 막아
+   확대가 필요한 사람에게 지면을 통째로 잠근다(WCAG 1.4.4 · 접근성 위반).
+
+   대신 iOS 에서만 입력 글씨를 16px 로 올린다. `@supports (-webkit-touch-callout: none)`
+   은 iOS 사파리에서만 참이라 데스크톱·안드로이드 디자인은 그대로다.
+
+   ⚠️ 필드만 골라 예외를 두는 식으로는 못 막는다 — 토큰이 전부 16px 미만이다
+      (body 15px · body-sm 13px · caption 12px · Tailwind text-sm 14px).
+      입력에 쓰인 가장 큰 값이 text-body(15px)라 이 규칙으로 작아지는 필드는 없다.
+
+   체크박스·라디오·레인지·색상은 글씨를 쓰지 않으므로 뺀다 — 넣으면 크기만 흔들린다. */
+@supports (-webkit-touch-callout: none) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
