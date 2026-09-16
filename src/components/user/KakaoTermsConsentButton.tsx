@@ -39,23 +39,34 @@ export function KakaoTermsConsentButton({
 }) {
   const supabase = createClient();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function onClick() {
     setLoading(true);
+    setError(null);
     mpTrack("Start Kakao Terms Consent");
     setOauthNextCookie(next);
-    await supabase.auth.signInWithOAuth({
+    const { error: err } = await supabase.auth.signInWithOAuth({
       provider: "kakao",
       options: {
         redirectTo: `${location.origin}/auth/callback`,
-        // 약관은 scope 가 아니라 간편가입 항목이라 `service_terms_tags` 로 지정한다.
+        // 약관은 scope 가 아니라 간편가입 항목이라 `service_terms` 로 지정한다.
+        // ⚠️ 이름이 `service_terms_tags` 가 아니다 — 응답 필드(allowed_service_terms)와
+        //    헷갈리기 쉽고, 틀리면 카카오가 조용히 무시해 동의 화면이 안 뜬다.
+        //    (카카오 로그인 REST API 문서 · 인가 코드 받기)
         // 이미 동의한 항목은 카카오가 화면에서 빼 주므로 **필요한 줄만** 뜬다.
-        queryParams: { service_terms_tags: tags },
+        queryParams: { service_terms: tags },
       },
     });
+    // 조용히 실패하면 사용자는 버튼이 죽은 줄 안다 — 실제로 그런 신고가 있었다(09-16).
+    if (err) {
+      setError(err.message || "카카오로 이동하지 못했어요. 잠시 후 다시 시도해주세요.");
+      setLoading(false);
+    }
   }
 
   return (
+    <>
     <button
       type="button"
       onClick={onClick}
@@ -68,5 +79,7 @@ export function KakaoTermsConsentButton({
       </svg>
       {loading ? "카카오로 이동 중…" : label}
     </button>
+    {error && <p className="mt-2 text-caption text-danger">{error}</p>}
+    </>
   );
 }

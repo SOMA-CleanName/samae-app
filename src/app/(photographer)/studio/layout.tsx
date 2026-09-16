@@ -7,6 +7,8 @@ import { RealtimeListRefresh } from "@/components/user/RealtimeListRefresh";
 import { ChatToast } from "@/components/user/ChatToast";
 import { StudioSidebar } from "./StudioSidebar";
 import { AgreeGate } from "./AgreeGate";
+import { termsConsentIsCurrent } from "@/lib/consent";
+import { TermsConsentGate } from "@/components/user/TermsConsentGate";
 
 // 작가 스튜디오 공통 레이아웃 — 승인된 작가에게만 좌측 네비를 씌운다.
 // 미신청·승인대기·반려 등은 사이드바 없이 페이지(상태 카드)만 그대로 노출.
@@ -17,8 +19,22 @@ import { AgreeGate } from "./AgreeGate";
 export default async function StudioLayout({ children }: { children: React.ReactNode }) {
   const me = await getCurrentUser();
 
+  // 작가도 회원이다 — 스튜디오만 드나드는 사람은 (user) 레이아웃을 안 거치므로
+  // 회원 약관 덮개를 여기에도 얹는다. 입점 계약(AgreeGate)과는 다른 동의다.
+  let termsGate: { revisit: boolean } | null = null;
+  if (me) {
+    const sb = await createClient();
+    const { data: prof } = await sb
+      .from("profiles")
+      .select("terms_agreed_at, terms_version")
+      .eq("id", me.id)
+      .maybeSingle();
+    if (!termsConsentIsCurrent(prof)) termsGate = { revisit: !!prof?.terms_agreed_at };
+  }
+  const gate = termsGate && <TermsConsentGate revisit={termsGate.revisit} />;
+
   if (!me?.photographer || me.photographer.status !== "approved") {
-    return <>{children}</>;
+    return <>{gate}{children}</>;
   }
 
   const supabase = await createClient();
@@ -37,6 +53,8 @@ export default async function StudioLayout({ children }: { children: React.React
         .limit(1),
     ]);
     return (
+      <>
+      {gate}
       <AgreeGate
         displayName={me.photographer.displayName}
         initial={{
@@ -47,6 +65,7 @@ export default async function StudioLayout({ children }: { children: React.React
         }}
         reason={(prior?.length ?? 0) > 0 ? "updated" : "first"}
       />
+      </>
     );
   }
 
@@ -56,6 +75,7 @@ export default async function StudioLayout({ children }: { children: React.React
 
   return (
     <div className="md:pl-52">
+      {gate}
       {/* 새 메시지가 오면 배지를 다시 그린다 — 스튜디오에는 (user) 레이아웃의 구독이 없다 */}
       <RealtimeListRefresh />
       {/* 스튜디오 어느 탭에 있든 새 문의가 오면 바로 보인다 */}

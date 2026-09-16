@@ -4,8 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 import { safeNext } from "@/lib/safe-redirect";
 import { TERMS_VERSION } from "@/lib/policy-version";
 import { termsConsentIsCurrent } from "@/lib/consent";
+import { cookies } from "next/headers";
 import { kakaoTermsTagsParam } from "@/lib/kakao-terms";
 import { KakaoTermsConsentButton } from "@/components/user/KakaoTermsConsentButton";
+import { KakaoTermsAutoRedirect, KAKAO_TERMS_TRIED_COOKIE } from "@/components/user/KakaoTermsAutoRedirect";
 import { ConsentBody } from "./ConsentBody";
 
 // 가입 마무리 — 약관 동의. 로그인 콜백이 **현재 버전 동의가 없는** 사용자를 이리로 보낸다.
@@ -46,6 +48,14 @@ export default async function SignupConsentPage({
 
   if (viaKakao) {
     const revisit = !!profile?.terms_agreed_at; // 처음이 아니라 개정에 따른 재동의인가
+    // 카카오 계정이면 지면을 거치지 않고 바로 동의 화면으로 보낸다 — 여기서 읽을 것도
+    // 고를 것도 없어서 버튼을 한 번 더 누르게 할 뿐이다.
+    //
+    // 다만 **한 번만** 보낸다. 거부하고 돌아온 사람을 다시 보내면 빠져나갈 수 없는
+    // 고리가 된다. 보내기 직전에 심은 쿠키를 여기서 보고, 두 번째부터는 버튼 지면을 그린다.
+    const tried = (await cookies()).get(KAKAO_TERMS_TRIED_COOKIE)?.value === "1";
+    if (!tried) return <KakaoTermsAutoRedirect next={next} tags={tags!} />;
+
     return (
       <main className="mx-auto max-w-sm px-5 py-12 font-kr">
         <h1 className="text-h1 font-bold tracking-tight">
