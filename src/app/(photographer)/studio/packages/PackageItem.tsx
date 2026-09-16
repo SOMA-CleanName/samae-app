@@ -61,7 +61,7 @@ export function PackageItem({ p }: { p: Pkg }) {
             <span className="truncate">{p.name}</span>
             <StatusPill active={p.is_active} />
           </p>
-          {p.description && <p className="mt-0.5 text-sm text-fg/55">{p.description}</p>}
+          {p.description && <p className="mt-0.5 text-sm text-muted">{p.description}</p>}
           <p className="mt-1 text-sm text-fg/70">
             ₩{fmt.format(p.price_krw)} · {p.duration_min}분 · 보정 {p.edited_count}장 · 전달 {p.delivery_days ?? 21}일
           </p>
@@ -90,7 +90,7 @@ export function PackageItem({ p }: { p: Pkg }) {
           }}
         >
           <input type="hidden" name="id" value={p.id} />
-          <SubmitButton pendingText="삭제 중…" className="rounded-full px-3 py-1.5 text-xs text-brand hover:bg-brand/[0.06] disabled:opacity-50">
+          <SubmitButton pendingText="삭제 중…" className="rounded-full px-3 py-1.5 text-xs text-brand-ink hover:bg-brand/[0.06] disabled:opacity-50">
             삭제
           </SubmitButton>
         </form>
@@ -117,7 +117,7 @@ function LabeledInput({
   required?: boolean;
 }) {
   return (
-    <label className="flex flex-col gap-1 text-[11px] text-fg/55">
+    <label className="flex flex-col gap-1 text-[11px] text-muted">
       {label}
       <input
         name={name}
@@ -137,7 +137,7 @@ function StatusPill({ active }: { active: boolean }) {
   return (
     <span
       className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] ${
-        active ? "bg-success-soft text-success" : "bg-fg/10 text-fg/50"
+        active ? "bg-success-soft text-success-ink" : "bg-fg/10 text-fg/50"
       }`}
     >
       {active ? "노출 중" : "비활성"}

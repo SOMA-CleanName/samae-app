@@ -97,7 +97,7 @@ export default async function AdminBannersPage() {
                       <span className="text-caption text-faint">{i + 1}번째</span>
                     </div>
                     {b.link_url && !href && (
-                      <p className="mt-1 text-caption text-danger">
+                      <p className="mt-1 text-caption text-danger-ink">
                         링크 형식이 올바르지 않아 클릭이 비활성화돼요 (내부 경로 /… 또는 https:// 만 가능).
                       </p>
                     )}
@@ -151,7 +151,7 @@ export default async function AdminBannersPage() {
                         <input type="hidden" name="id" value={b.id} />
                         <SubmitButton
                           pendingText="삭제 중…"
-                          className="cursor-pointer rounded-lg border border-danger/30 px-3 py-1.5 text-caption font-semibold text-danger transition-colors hover:bg-danger/10 disabled:opacity-50"
+                          className="cursor-pointer rounded-lg border border-danger/30 px-3 py-1.5 text-caption font-semibold text-danger-ink transition-colors hover:bg-danger/10 disabled:opacity-50"
                         >
                           삭제
                         </SubmitButton>

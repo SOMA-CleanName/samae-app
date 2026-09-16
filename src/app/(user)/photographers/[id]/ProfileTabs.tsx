@@ -157,7 +157,9 @@ function TabButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "-mb-px cursor-pointer border-b-2 pb-2.5 text-body-sm transition-colors",
+        // 밑줄 위치(pb-2.5)는 그대로. 위쪽으로만 여백을 줘 탭 높이를 44px 로 채운다 —
+        // 밑줄 탭이라 ::before 로 벌리면 밑줄과 히트영역이 어긋나 보인다.
+        "-mb-px flex min-h-11 cursor-pointer items-end border-b-2 pb-2.5 text-body-sm transition-colors",
         active ? "border-fg font-semibold text-fg" : "border-transparent text-muted hover:text-fg"
       )}
     >

@@ -47,11 +47,11 @@ export function BotSettingsPanel(props: Props) {
         <span className="text-caption text-muted">모든 작가 봇에 동시에 적용돼요</span>
         {/* 상태는 접혀 있어도 보여야 한다 — 봇이 꺼져 있는 걸 모르는 게 제일 위험하다 */}
         {enabled ? (
-          <span className="ml-auto rounded-full bg-success-soft px-2.5 py-1 text-caption font-medium text-success">
+          <span className="ml-auto rounded-full bg-success-soft px-2.5 py-1 text-caption font-medium text-success-ink">
             봇 동작 중
           </span>
         ) : (
-          <span className="ml-auto rounded-full bg-danger/10 px-2.5 py-1 text-caption font-semibold text-danger">
+          <span className="ml-auto rounded-full bg-danger/10 px-2.5 py-1 text-caption font-semibold text-danger-ink">
             봇 정지됨
           </span>
         )}
@@ -164,9 +164,9 @@ export function BotSettingsPanel(props: Props) {
             />
           </div>
 
-          {state.error && <p className="mt-3 text-caption text-danger">{state.error}</p>}
+          {state.error && <p className="mt-3 text-caption text-danger-ink">{state.error}</p>}
           {state.ok && !state.error && (
-            <p className="mt-3 text-caption text-success">저장했어요 — 다음 응답부터 바로 적용돼요.</p>
+            <p className="mt-3 text-caption text-success-ink">저장했어요 — 다음 응답부터 바로 적용돼요.</p>
           )}
 
           <div className="mt-4 flex items-center gap-3">

@@ -73,7 +73,7 @@ export function DeliveryUploader({
   return (
     <div className="rounded-xl border border-fg/10 p-5">
       <p className="text-sm font-semibold">{delivered ? "보정본 관리 (재전달)" : "보정본 전달"}</p>
-      <p className="mt-1 text-xs text-fg/55">
+      <p className="mt-1 text-xs text-muted">
         {delivered
           ? "잘못 전달했다면 파일을 교체한 뒤 고객에게 다시 알릴 수 있어요."
           : "사진 파일을 올려 앱 안에서 전달하거나, 대용량은 외부 링크로 보낼 수 있어요."}
@@ -90,7 +90,7 @@ export function DeliveryUploader({
               {a.preview && IMG_RE.test(a.name) ? (
                 <img src={a.preview} alt={a.name} loading="lazy" className="h-full w-full object-cover" />
               ) : (
-                <div className="flex h-full w-full items-center justify-center px-2 text-center text-[10px] text-fg/55">
+                <div className="flex h-full w-full items-center justify-center px-2 text-center text-[10px] text-muted">
                   {a.name}
                 </div>
               )}
@@ -124,7 +124,7 @@ export function DeliveryUploader({
       >
         {busy ? "처리 중…" : assets.length > 0 ? "파일 더 올리기" : "사진 파일 올리기"}
       </button>
-      {error && <p className="mt-2 text-xs text-brand">{error}</p>}
+      {error && <p className="mt-2 text-xs text-brand-ink">{error}</p>}
 
       <form
         action={delivered ? redeliverNotify : deliverFinals}

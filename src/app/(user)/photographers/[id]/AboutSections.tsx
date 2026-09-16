@@ -47,7 +47,7 @@ const SIZE_CLS: Record<TextKind, Record<"sm" | "md" | "lg", string>> = {
 const COLOR_CLS: Record<NonNullable<AboutTextStyle["color"]>, string> = {
   ink: "text-fg",
   soft: "text-fg/60",
-  faint: "text-fg/40",
+  faint: "text-faint",
   brand: "text-brand",
 };
 
@@ -226,7 +226,7 @@ function QuoteMark() {
   return (
     <span
       aria-hidden
-      className="mb-1 block font-display text-6xl italic leading-none text-fg/20 @2xl:text-7xl"
+      className="mb-1 block font-display text-6xl italic leading-none text-faint @2xl:text-7xl"
     >
       “
     </span>

@@ -199,7 +199,7 @@ function BookingDetail({ b }: { b: BookingRow }) {
           ))}
         </ol>
         {b.cancelled_at && (
-          <p className="mt-1.5 text-caption text-danger">
+          <p className="mt-1.5 text-caption text-danger-ink">
             {b.refunded_at ? "환불됨" : "취소됨"} {stamp(b.cancelled_at)}
             {b.refund_reason ? ` · ${refundBasisLabel(b.refund_reason)}` : ""}
             {b.cancel_reason ? ` — ${b.cancel_reason}` : ""}
@@ -224,8 +224,8 @@ function BookingDetail({ b }: { b: BookingRow }) {
         <p
           className={`mt-3 rounded-lg px-3 py-2 text-caption ${
             b.refundOverdue
-              ? "bg-danger/10 font-semibold text-danger"
-              : "bg-warning-soft text-warning"
+              ? "bg-danger/10 font-semibold text-danger-ink"
+              : "bg-warning-soft text-warning-ink"
           }`}
         >
           환불 요청 접수 {stamp(b.refundDueAt)} ·{" "}

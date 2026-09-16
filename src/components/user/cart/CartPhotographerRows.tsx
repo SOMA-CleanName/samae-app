@@ -82,7 +82,7 @@ export function CartPhotographerRows({
                     e.stopPropagation();
                     onInquiry(group, inquiryPhotoId);
                   }}
-                  className="shrink-0 cursor-pointer rounded-full bg-brand px-3 py-1.5 text-xs font-bold text-white shadow-pop transition-opacity hover:opacity-90"
+                  className="shrink-0 cursor-pointer rounded-full bg-brand-solid px-3 py-1.5 text-xs font-bold text-white shadow-pop transition-opacity hover:opacity-90"
                 >
                   문의하기
                 </button>
@@ -275,7 +275,7 @@ function RowCard({
         <span
           style={{ top: FRAME_SIDE + 4, right: FRAME_SIDE + 4 }}
           className={`pointer-events-none absolute grid h-6 w-6 place-items-center rounded-full border-2 ${
-            selected ? "border-brand bg-brand text-white" : "border-white bg-black/25 text-transparent"
+            selected ? "border-brand bg-brand-solid text-white" : "border-white bg-black/25 text-transparent"
           }`}
         >
           <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3">

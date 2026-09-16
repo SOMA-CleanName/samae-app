@@ -17,7 +17,7 @@ export function AdminCancelButton({ bookingId, label }: { bookingId: string; lab
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="shrink-0 cursor-pointer rounded-lg px-2.5 py-1.5 text-caption text-danger transition-colors hover:bg-danger/10"
+        className="shrink-0 cursor-pointer rounded-lg px-2.5 py-1.5 text-caption text-danger-ink transition-colors hover:bg-danger/10"
       >
         취소
       </button>
@@ -37,7 +37,7 @@ export function AdminCancelButton({ bookingId, label }: { bookingId: string; lab
         <input type="hidden" name="id" value={bookingId} />
         <p className="text-body-sm font-semibold text-fg">예약을 취소할까요?</p>
         <p className="mt-1 text-caption text-muted">{label}</p>
-        <p className="mt-2 text-caption text-danger">
+        <p className="mt-2 text-caption text-danger-ink">
           되돌릴 수 없어요. 고객·작가 양쪽에 알림이 가고 채팅에도 기록됩니다.
         </p>
 

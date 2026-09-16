@@ -39,7 +39,7 @@ export function DeleteAccount() {
       >
         {pending ? "처리 중…" : "회원 탈퇴"}
       </button>
-      {error && <p className="mt-2 text-xs text-brand">{error}</p>}
+      {error && <p className="mt-2 text-xs text-brand-ink">{error}</p>}
     </div>
   );
 }

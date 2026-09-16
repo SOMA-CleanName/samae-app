@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AD_CONSENT_TERMS, AD_CONSENT_VERSION, AD_CONSENT_WARRANTY } from "@/lib/ad-consent";
+import { SiteFooter } from "@/components/SiteFooter";
 
 export const metadata: Metadata = {
   title: "광고 소재 사용 동의 | 사매",
@@ -58,6 +59,9 @@ export default function AdConsentTermsPage() {
       <p className="mt-10 text-xs text-faint">
         문의: 스튜디오 하단 고객센터 또는 사매 운영팀
       </p>
+
+      {/* 동의 지면에도 사업자 정보·처리방침에 닿을 길을 둔다 */}
+      <SiteFooter />
     </main>
   );
 }

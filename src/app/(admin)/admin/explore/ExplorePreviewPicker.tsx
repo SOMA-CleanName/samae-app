@@ -74,7 +74,7 @@ export function ExplorePreviewPicker({
     <details className="mt-3" onToggle={onToggle}>
       <summary className="cursor-pointer text-caption font-medium text-fg">
         🖼 피드 상단 고정 순서 (홈 스트립)
-        {picked.length > 0 && <span className="ml-1 text-brand">· {picked.length}장 지정</span>}
+        {picked.length > 0 && <span className="ml-1 text-brand-ink">· {picked.length}장 지정</span>}
       </summary>
 
       <form action={setExplorePreviewPhotos} className="mt-3">
@@ -190,7 +190,7 @@ function SortableThumb({
         // 멤버 로드 전이거나 멤버에서 빠진 사진 — 자리만 유지
         <div {...listeners} {...attributes} className="h-full w-full touch-none bg-fg/[0.06]" />
       )}
-      <span className="pointer-events-none absolute left-0.5 top-0.5 rounded bg-brand px-1 text-[10px] font-bold leading-4 text-white">
+      <span className="pointer-events-none absolute left-0.5 top-0.5 rounded bg-brand-solid px-1 text-[10px] font-bold leading-4 text-white">
         {index + 1}
       </span>
       <button

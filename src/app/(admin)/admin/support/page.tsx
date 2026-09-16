@@ -91,7 +91,7 @@ export default async function AdminSupportPage() {
 
       <section className="mt-6">
         <h2 className="text-body-sm font-semibold text-fg">
-          처리 대기 {open.length > 0 && <span className="text-brand">({open.length})</span>}
+          처리 대기 {open.length > 0 && <span className="text-brand-ink">({open.length})</span>}
         </h2>
         {open.length === 0 ? (
           <div className="mt-3">

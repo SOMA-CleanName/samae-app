@@ -204,11 +204,11 @@ export default async function AdminInquiriesPage({
       <div className="mt-5 grid grid-cols-2 gap-3">
         <div className="rounded-xl border border-line p-4">
           <p className="text-caption text-muted">입금 확인 누계</p>
-          <p className="mt-1 text-h2 font-semibold text-success">₩{fmt.format(revenue)}</p>
+          <p className="mt-1 text-h2 font-semibold text-success-ink">₩{fmt.format(revenue)}</p>
         </div>
         <div className="rounded-xl border border-line p-4">
           <p className="text-caption text-muted">입금 대기</p>
-          <p className="mt-1 text-h2 font-semibold text-brand">₩{fmt.format(pending)}</p>
+          <p className="mt-1 text-h2 font-semibold text-brand-ink">₩{fmt.format(pending)}</p>
         </div>
       </div>
 
@@ -267,7 +267,7 @@ function PlatformAccountEditor({
             {account.bank} {account.number} · {account.holder}
           </span>
         ) : (
-          <span className="text-caption font-semibold text-brand">미설정 — 입금 안내가 표시되지 않아요</span>
+          <span className="text-caption font-semibold text-brand-ink">미설정 — 입금 안내가 표시되지 않아요</span>
         )}
       </summary>
       <form action={updatePlatformAccount} className="grid grid-cols-1 gap-2.5 px-4 pb-4 sm:grid-cols-3">

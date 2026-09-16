@@ -92,6 +92,21 @@ function inline(text: string, keyPrefix = ""): ReactNode[] {
 
 export function Markdown({ source }: { source: string }) {
   const lines = source.replace(/\r\n/g, "\n").split("\n");
+
+  /*
+    글쓴이가 쓴 가장 얕은 제목을 h2 로 맞춘다.
+
+    페이지 제목이 h1 이라 본문 제목은 h2 부터 시작해야 한다. 그런데 마크다운 level 을
+    그대로 +1 해서 붙이면, 본문을 `##` 로만 쓴 글은 h2 없이 **h3 부터 시작**한다 —
+    h1 다음에 h3 가 오면서 단계가 건너뛴다(실측: /articles/스냅-촬영-처음이라면).
+    글쓴이가 `#` 을 쓰든 `##` 을 쓰든 문서 구조는 같아야 한다. 그래서 절대 level 이 아니라
+    **그 글 안에서의 상대 깊이**로 매긴다.
+  */
+  const usedLevels = lines
+    .map((l) => /^(#{1,3})\s+\S/.exec(l))
+    .filter((m): m is RegExpExecArray => m !== null)
+    .map((m) => m[1].length);
+  const topLevel = usedLevels.length > 0 ? Math.min(...usedLevels) : 1;
   const blocks: ReactNode[] = [];
   let para: string[] = [];
   let list: { ordered: boolean; items: string[] } | null = null;
@@ -180,7 +195,8 @@ export function Markdown({ source }: { source: string }) {
     const h = /^(#{1,3})\s+(.*)$/.exec(line);
     if (h) {
       flushAll();
-      const level = h[1].length;
+      // 그 글에서 가장 얕은 제목을 1 로 본다 (위 topLevel 주석 참고)
+      const level = Math.min(3, h[1].length - topLevel + 1);
       const cls =
         level === 1
           ? "mt-14 mb-4 text-[1.6em] font-extrabold leading-snug tracking-[-0.03em]"

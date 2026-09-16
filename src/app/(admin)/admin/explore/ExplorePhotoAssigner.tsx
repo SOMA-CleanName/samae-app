@@ -318,9 +318,9 @@ export function ExplorePhotoAssigner({
                     {g.title}
                     <span className="ml-1.5 text-caption font-normal text-muted">
                       {g.photographer ? `· ${g.photographer} ` : ""}· {g.items.length}장
-                      {inCat > 0 && <span className="text-brand"> · {inCat} 담김</span>}
+                      {inCat > 0 && <span className="text-brand-ink"> · {inCat} 담김</span>}
                       {g.albumId && albumFlags[g.albumId]?.adConsent && (
-                        <span className="ml-1 text-success"> · 광고 사용 동의</span>
+                        <span className="ml-1 text-success-ink"> · 광고 사용 동의</span>
                       )}
                     </span>
                   </p>
@@ -331,7 +331,7 @@ export function ExplorePhotoAssigner({
                     {albumFlags[g.albumId]!.moods.map((m) => (
                       <span
                         key={m}
-                        className="rounded-full border border-dashed border-brand/50 bg-brand/[0.06] px-2 py-0.5 text-[11px] font-medium text-brand"
+                        className="rounded-full border border-dashed border-brand/50 bg-brand/[0.06] px-2 py-0.5 text-[11px] font-medium text-brand-ink"
                       >
                         {m}
                       </span>
@@ -378,7 +378,7 @@ export function ExplorePhotoAssigner({
                       <img src={src(p)} alt="" className="h-full w-full object-cover" loading="lazy" />
                       {/* 담김 체크 */}
                       {on && (
-                        <span className="absolute right-0.5 top-0.5 grid h-5 w-5 place-items-center rounded-full bg-brand text-xs font-bold text-white">
+                        <span className="absolute right-0.5 top-0.5 grid h-5 w-5 place-items-center rounded-full bg-brand-solid text-xs font-bold text-white">
                           ✓
                         </span>
                       )}

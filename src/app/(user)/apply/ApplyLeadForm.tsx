@@ -44,7 +44,7 @@ export function ApplyLeadForm({ kakaoChannelUrl }: { kakaoChannelUrl: string }) 
           />
           <div className="flex flex-col gap-1.5">
             <label htmlFor="bio" className="flex items-center gap-1.5 text-sm font-medium text-fg/80">
-              본인 소개 <span className="text-xs font-normal text-fg/40">선택</span>
+              본인 소개 <span className="text-xs font-normal text-faint">선택</span>
             </label>
             <textarea
               id="bio"
@@ -52,7 +52,7 @@ export function ApplyLeadForm({ kakaoChannelUrl }: { kakaoChannelUrl: string }) 
               rows={3}
               maxLength={500}
               placeholder="작업 스타일이나 소개를 자유롭게 적어주세요."
-              className="resize-none rounded-xl border border-line-strong bg-surface px-4 py-3 text-sm outline-none transition-colors placeholder:text-fg/30 focus:border-fg/45"
+              className="resize-none rounded-xl border border-line-strong bg-surface px-4 py-3 text-sm outline-none transition-colors placeholder:text-faint focus:border-fg/45"
             />
           </div>
 
@@ -61,7 +61,7 @@ export function ApplyLeadForm({ kakaoChannelUrl }: { kakaoChannelUrl: string }) 
           <button
             type="submit"
             disabled={pending}
-            className="mt-1 w-full rounded-xl bg-brand py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="mt-1 w-full rounded-xl bg-brand-solid py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {pending ? "보내는 중…" : "작가 신청 보내기"}
           </button>
@@ -104,7 +104,7 @@ export function ApplyLeadForm({ kakaoChannelUrl }: { kakaoChannelUrl: string }) 
             </div>
           </li>
         </ol>
-        <p className="mt-3 text-xs text-fg/45">운영자가 확인 후 카카오로 안내드려요.</p>
+        <p className="mt-3 text-xs text-faint">운영자가 확인 후 카카오로 안내드려요.</p>
       </div>
     </div>
   );
@@ -141,7 +141,7 @@ function Field({
     <div className="flex flex-col gap-1.5">
       <label htmlFor={name} className="flex items-center gap-1.5 text-sm font-medium text-fg/80">
         {label}
-        {required && <span className="text-xs font-medium text-brand">필수</span>}
+        {required && <span className="text-xs font-medium text-brand-ink">필수</span>}
       </label>
       <input
         id={name}
@@ -149,12 +149,12 @@ function Field({
         type={type}
         inputMode={inputMode}
         placeholder={placeholder}
-        className="h-12 rounded-xl border border-line-strong bg-surface px-4 text-sm outline-none transition-colors placeholder:text-fg/30 focus:border-fg/45"
+        className="h-12 rounded-xl border border-line-strong bg-surface px-4 text-sm outline-none transition-colors placeholder:text-faint focus:border-fg/45"
       />
       {error ? (
-        <p className="text-xs text-brand">{error}</p>
+        <p className="text-xs text-brand-ink">{error}</p>
       ) : hint ? (
-        <p className="text-xs text-fg/45">{hint}</p>
+        <p className="text-xs text-faint">{hint}</p>
       ) : null}
     </div>
   );

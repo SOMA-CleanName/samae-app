@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { JsonLd } from "@/components/JsonLd";
 import { StickyBack } from "@/components/editorial/StickyBack";
+import { SiteFooter } from "@/components/SiteFooter";
 import { SectionHead } from "@/components/editorial/SectionHead";
 import { breadcrumbJsonLd, faqJsonLd, placeJsonLd } from "@/lib/seo";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
@@ -267,7 +268,7 @@ export default async function SpotDetailPage({
                   {f.href && (
                     <Link
                       href={f.href}
-                      className="ed-more-arrow mt-2 inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.14em] text-brand"
+                      className="ed-more-arrow mt-2 inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.14em] text-brand-ink"
                     >
                       자세히 보기 →
                     </Link>
@@ -303,6 +304,9 @@ export default async function SpotDetailPage({
             </ul>
           </section>
         )}
+
+        {/* 목록(/spots)엔 있고 장소 낱개엔 없었다. 검색 유입이 가장 많은 지면 중 하나다. */}
+        <SiteFooter />
       </div>
     </main>
   );

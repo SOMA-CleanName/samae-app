@@ -214,7 +214,7 @@ export function PortfolioEditManager({
           >
             <div className="flex items-center justify-between">
               <h3 className="flex items-center gap-1.5 text-base font-semibold">
-                사진 편집 {feed.length > 1 && <span className="text-sm font-normal text-fg/50">· 피드 {feed.length}장</span>}
+                사진 편집 {feed.length > 1 && <span className="text-sm font-normal text-muted">· 피드 {feed.length}장</span>}
                 <HelpTip label="사진 편집 안내">
                   하나의 촬영(같은 날·같은 콘셉트)에 해당하는 사진들만 한 게시물로 묶여요.
                 </HelpTip>
@@ -249,7 +249,7 @@ export function PortfolioEditManager({
                       <button
                         type="button"
                         onClick={() => onDelete(p.id)}
-                        className="rounded bg-brand/90 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-brand"
+                        className="rounded bg-brand/90 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-brand-solid"
                       >
                         삭제
                       </button>
@@ -261,7 +261,7 @@ export function PortfolioEditManager({
                 <button
                   type="button"
                   onClick={() => addRef.current?.click()}
-                  className="grid aspect-square place-items-center rounded-lg border border-dashed border-fg/25 text-xl text-fg/40 hover:border-fg/40 hover:text-fg/60"
+                  className="grid aspect-square place-items-center rounded-lg border border-dashed border-fg/25 text-xl text-faint hover:border-fg/40 hover:text-fg/60"
                 >
                   +
                 </button>
@@ -271,7 +271,7 @@ export function PortfolioEditManager({
             {/* 공유 정보 — 피드 전체에 적용 */}
             <form key={anchor.id} action={onSave} className="mt-4 flex flex-col gap-3 border-t border-fg/10 pt-4">
               {albumId && (
-                <label className="flex flex-col gap-1 text-xs text-fg/55">
+                <label className="flex flex-col gap-1 text-xs text-muted">
                   설명 (피드 공유)
                   <textarea
                     name="description"
@@ -284,7 +284,7 @@ export function PortfolioEditManager({
                 </label>
               )}
               <div className="grid grid-cols-2 gap-3">
-                <label className="flex flex-col gap-1 text-xs text-fg/55">
+                <label className="flex flex-col gap-1 text-xs text-muted">
                   <span className="flex items-center gap-1">
                     가격
                     <HelpTip label="가격 안내">
@@ -314,13 +314,13 @@ export function PortfolioEditManager({
                   ) : (
                     <a
                       href="/studio/packages"
-                      className="flex h-[38px] items-center rounded-lg border border-dashed border-fg/20 px-3 text-sm text-fg/45 hover:border-fg/35 hover:text-fg/70"
+                      className="flex h-[38px] items-center rounded-lg border border-dashed border-fg/20 px-3 text-sm text-faint hover:border-fg/35 hover:text-fg/70"
                     >
                       패키지를 먼저 등록하세요 →
                     </a>
                   )}
                 </label>
-                <label className="flex flex-col gap-1 text-xs text-fg/55">
+                <label className="flex flex-col gap-1 text-xs text-muted">
                   <span className="flex items-center gap-1">
                     장소
                     <HelpTip label="장소 안내">
@@ -348,10 +348,10 @@ export function PortfolioEditManager({
                       setCatError(null);
                     }}
                   />
-                  {catError && <p className="text-xs font-medium text-danger">{catError}</p>}
+                  {catError && <p className="text-xs font-medium text-danger-ink">{catError}</p>}
                 </div>
               )}
-              <div className="flex flex-col gap-1 text-xs text-fg/55">
+              <div className="flex flex-col gap-1 text-xs text-muted">
                 <span className="flex items-center gap-1">
                   태그
                   <HelpTip label="태그 안내">
@@ -376,7 +376,7 @@ export function PortfolioEditManager({
                 </HelpTip>
               </div>
               {feed.length > 1 && (
-                <p className="text-xs text-fg/45">가격·장소·태그·공개는 피드 {feed.length}장 전체에 적용돼요.</p>
+                <p className="text-xs text-faint">가격·장소·태그·공개는 피드 {feed.length}장 전체에 적용돼요.</p>
               )}
 
               <div className="mt-1 flex gap-2">
@@ -422,16 +422,16 @@ function EditToast({ status, onClose }: { status: Status; onClose: () => void })
     return (
       <div className="flex items-center gap-3 rounded-xl border border-success bg-success-soft px-4 py-3 shadow-lg">
         <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-success text-xs text-white">✓</span>
-        <span className="text-sm text-success">{status.label}</span>
+        <span className="text-sm text-success-ink">{status.label}</span>
       </div>
     );
   }
   if (status.kind === "error") {
     return (
       <div className="flex items-center gap-3 rounded-xl border border-brand/30 bg-brand/[0.06] px-4 py-3 shadow-lg">
-        <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-brand text-xs text-white">!</span>
-        <span className="text-sm text-brand">{status.msg}</span>
-        <button type="button" onClick={onClose} aria-label="닫기" className="ml-1 text-fg/40 hover:text-fg">
+        <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-brand-solid text-xs text-white">!</span>
+        <span className="text-sm text-brand-ink">{status.msg}</span>
+        <button type="button" onClick={onClose} aria-label="닫기" className="ml-1 text-faint hover:text-fg">
           ✕
         </button>
       </div>

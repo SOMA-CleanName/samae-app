@@ -1409,7 +1409,7 @@ export function FloatingCart() {
                       style={{ top: side + 2, right: side + 2 }}
                       className={`absolute grid h-6 w-6 place-items-center rounded-full border-2 ${
                         gridSelectedIds.has(it.id)
-                          ? "border-brand bg-brand text-white"
+                          ? "border-brand bg-brand-solid text-white"
                           : "border-white bg-black/25 text-transparent"
                       }`}
                     >
@@ -1668,7 +1668,7 @@ export function FloatingCart() {
                         aria-label="관심사진과 비슷한 사진 보기"
                         aria-busy={similarState.status === "loading"}
                         onClick={startRecommendPick}
-                        className="pointer-events-auto grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-full bg-brand text-white shadow-pop transition-opacity hover:opacity-90"
+                        className="pointer-events-auto grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-full bg-brand-solid text-white shadow-pop transition-opacity hover:opacity-90"
                       >
                         {similarState.status === "loading" ? (
                           <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/35 border-t-white motion-reduce:animate-none" />
@@ -1724,7 +1724,7 @@ export function FloatingCart() {
                     type="button"
                     onClick={() => void openSimilarRecommendations()}
                     disabled={similarState.status === "loading"}
-                    className="pointer-events-auto flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90 disabled:cursor-default disabled:opacity-70"
+                    className="pointer-events-auto flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl bg-brand-solid py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90 disabled:cursor-default disabled:opacity-70"
                   >
                     {similarState.status === "loading" && (
                       <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/35 border-t-white motion-reduce:animate-none" />
@@ -1790,7 +1790,7 @@ export function FloatingCart() {
                     onClick={() => leaveToInquiry(`/inquiry/photo/${focused}`)}
                     disabled={focusTransition != null}
                     data-quote-lead=""
-                    className="flex-1 cursor-pointer rounded-2xl bg-brand py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
+                    className="flex-1 cursor-pointer rounded-2xl bg-brand-solid py-4 text-base font-bold text-white shadow-pop transition-opacity hover:opacity-90"
                   >
                     무료 상담하기
                   </button>

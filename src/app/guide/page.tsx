@@ -20,7 +20,7 @@ import { PUBLISHED_GUIDE_ITEMS, GUIDE_PAGE_ITEMS, AXIS_ORDER } from "@/lib/guide
 //   · 접혀 있어도 답은 DOM 에 그대로 있다 — FAQPage 구조화데이터도 크롤러도 영향 없음
 //   · <details>/<summary> 라 JS 없이도 열린다. 키보드·스크린리더도 기본 동작 그대로
 export const metadata: Metadata = {
-  title: "스냅 촬영 가이드 — 자주 묻는 것들",
+  title: "스냅 촬영 자주 묻는 질문",
   description:
     "스냅 촬영을 준비하면서 자주 막히는 것들. 옷 색, 포즈, 레퍼런스, 비 오는 날, 보정본까지 — 사매(samae)가 정리했어요.",
   alternates: { canonical: "/guide" },
@@ -53,7 +53,10 @@ export default function GuideHubPage() {
         <Masthead
           word="Q & A"
           size="compact"
-          lead="촬영을 준비하면서 자주 막히는 것들. 질문을 누르면 답이 열려요."
+          // 앞 문장("촬영을 준비하면서 자주 막히는 것들")은 뺐다 — 표제가 Q & A 인데
+          // 자주 막히는 것들이라고 또 말할 필요가 없다. 접힘 UI 라는 건 눈으로 모르니
+          // 그 안내만 남긴다.
+          lead="질문을 누르면 답이 열려요."
           meta={<span className="tabular-nums">문답 {items.length}개</span>}
         />
 
@@ -80,7 +83,7 @@ export default function GuideHubPage() {
                 <section key={axis} id={`axis-${axis}`} className="scroll-mt-16">
                   {/* 축 머리 — 브랜드 규칙선 + 번호. 아티클 지면의 SectionHead 와 같은 리듬. */}
                   <div className="flex items-baseline gap-2">
-                    <span className="font-display text-body-sm italic tabular-nums text-brand">
+                    <span className="font-display text-body-sm italic tabular-nums text-brand-ink">
                       {String(gi + 1).padStart(2, "0")}
                     </span>
                     <h2 className="text-title font-bold tracking-tight">
@@ -126,7 +129,7 @@ export default function GuideHubPage() {
                           {pageSlugs.has(g.slug) && (
                             <Link
                               href={`/guide/${encodeURIComponent(g.slug)}`}
-                              className="ed-more-arrow mt-3 ml-4 inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.14em] text-brand"
+                              className="ed-more-arrow mt-3 ml-4 inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.14em] text-brand-ink"
                             >
                               따로 보기 →
                             </Link>

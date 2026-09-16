@@ -71,7 +71,7 @@ export function AgreeGate({
 
         {/* 문서별 동의 */}
         <fieldset className="rounded-2xl border border-fg/10 p-4">
-          <legend className="px-1 text-xs text-fg/55">문서 동의 (필수)</legend>
+          <legend className="px-1 text-xs text-muted">문서 동의 (필수)</legend>
           <div className="flex flex-col gap-2">
             {docs.map((d) => (
               <label
@@ -106,7 +106,7 @@ export function AgreeGate({
 
         {/* 작가 정보란 — 입점계약 표지 */}
         <fieldset className="rounded-2xl border border-fg/10 p-4">
-          <legend className="px-1 text-xs text-fg/55">작가 정보 (계약 당사자)</legend>
+          <legend className="px-1 text-xs text-muted">작가 정보 (계약 당사자)</legend>
           <div className="flex flex-col gap-3">
             <label className="block">
               <span className="text-sm font-medium">성명 또는 상호</span>
@@ -119,7 +119,7 @@ export function AgreeGate({
                 placeholder="실명 또는 사업자등록증의 상호"
                 className="mt-1.5 w-full rounded-xl border border-fg/15 bg-surface px-3 py-2.5 text-sm outline-none focus:border-fg/40"
               />
-              <span className="mt-1 block text-xs text-fg/45">활동명({displayName})과 별개로, 계약과 정산 서류에 쓰여요.</span>
+              <span className="mt-1 block text-xs text-faint">활동명({displayName})과 별개로, 계약과 정산 서류에 쓰여요.</span>
             </label>
 
             <label className="block">
@@ -139,7 +139,7 @@ export function AgreeGate({
                   </option>
                 ))}
               </select>
-              <span className="mt-1 block text-xs text-fg/45">
+              <span className="mt-1 block text-xs text-faint">
                 일반과세자는 수수료 세금계산서로 매입세액을 공제받아요. 사업자 미등록이면 정산금에서 3.3%를 원천징수해요.
               </span>
             </label>
@@ -164,7 +164,7 @@ export function AgreeGate({
 
         {/* 홍보 사용 동의 — 선택 (입점계약 7조) */}
         <fieldset className="rounded-2xl border border-fg/10 p-4">
-          <legend className="px-1 text-xs text-fg/55">홍보 사용 동의 (선택)</legend>
+          <legend className="px-1 text-xs text-muted">홍보 사용 동의 (선택)</legend>
           <label className="flex cursor-pointer items-start gap-2.5">
             <input
               type="checkbox"
