@@ -59,11 +59,15 @@ export function TermsConsentGate({ revisit }: { revisit: boolean }) {
             : "사매를 이용하려면 서비스 이용약관과 개인정보 처리방침에 동의가 필요해요."}
         </p>
 
+        {/* ⚠️ 문구가 동작과 어긋나면 안 된다. "확인하고 동의하기" 였는데, 누르는 순간
+            동의가 되는 줄 알았다는 신고가 있었다(2026-09-16). 실제로는 동의 화면으로
+            **이동만** 한다. 동의는 그 다음 화면에서 체크 두 개로 받는다 —
+            누르는 것만으로 동의가 되면 설명 의무를 못 채운다(약관규제법 3조). */}
         <a
           href={next}
           className="mt-5 flex w-full cursor-pointer items-center justify-center rounded-xl bg-fg py-3.5 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90"
         >
-          확인하고 동의하기
+          약관 확인하러 가기
         </a>
 
         <p className="mt-3 text-center text-caption leading-relaxed text-faint">

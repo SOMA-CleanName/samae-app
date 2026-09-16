@@ -38,7 +38,7 @@ export function ConsentForm({
           />
           <span className="text-sm leading-relaxed text-fg">
             <b className="font-semibold">(필수)</b>{" "}
-            <Link href="/terms" target="_blank" className="underline underline-offset-2">
+            <Link href="/terms?plain=1" target="_blank" className="underline underline-offset-2">
               서비스 이용약관
             </Link>
             에 동의합니다
@@ -57,7 +57,7 @@ export function ConsentForm({
           />
           <span className="text-sm leading-relaxed text-fg">
             <b className="font-semibold">(필수)</b>{" "}
-            <Link href="/privacy" target="_blank" className="underline underline-offset-2">
+            <Link href="/privacy?plain=1" target="_blank" className="underline underline-offset-2">
               개인정보 처리방침
             </Link>
             에 동의합니다

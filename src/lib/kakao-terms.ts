@@ -36,16 +36,34 @@ export function kakaoTermsTagsParam(): string | null {
   return tags.length ? tags.join(",") : null;
 }
 
+type TermEntry = { tag?: string; agreed_at?: string; agreed?: boolean };
 type ServiceTermsResponse = {
-  allowed_service_terms?: { tag?: string; agreed_at?: string }[];
+  /** 문서·SDK 기준 이름 */
+  allowed_service_terms?: TermEntry[];
+  /** 같은 목록을 이 이름으로 주는 응답도 있다 — 둘 다 받는다 */
+  service_terms?: TermEntry[];
 };
 
-/** 이 사용자가 카카오에서 동의한 약관 태그들 */
+/**
+ * 이 사용자가 카카오에서 동의한 약관 태그들.
+ *
+ * ⚠️ **응답 모양을 좁게 읽지 않는다.** 카카오는 목록을 `allowed_service_terms` 로도
+ *    `service_terms` 로도 주고, 동의 여부를 `agreed_at`(시각) 으로도 `agreed`(불리언)
+ *    으로도 표시한다. 하나만 보다가 못 알아보면 **조용히 빈 집합**이 되고, 사용자는
+ *    카카오에서 동의를 마쳤는데도 우리 폼에서 같은 약관을 또 받게 된다
+ *    (2026-09-16 실제로 그랬다 — 가입 1분 38초 뒤에 동의가 찍혔다).
+ *
+ * 실패는 **조용히 넘기지 않는다.** 이 함수가 빈손이면 사용자에게 화면이 하나 더 뜨는데,
+ * 그 이유가 로그에 안 남으면 다음에도 추측으로 쫓게 된다.
+ */
 export async function fetchKakaoAgreedTermTags(
   providerToken: string | null | undefined
 ): Promise<Set<string>> {
   const out = new Set<string>();
-  if (!providerToken) return out;
+  if (!providerToken) {
+    console.error("[kakao-terms] provider_token 이 없다 — 약관 동의를 가져올 수 없음");
+    return out;
+  }
 
   try {
     // 로그인 흐름 한복판이다 — 카카오가 느릴 때 무한정 기다리면 가입이 멈춘다.
@@ -55,15 +73,27 @@ export async function fetchKakaoAgreedTermTags(
       cache: "no-store",
       signal: AbortSignal.timeout(4000),
     });
-    if (!res.ok) return out;
+    if (!res.ok) {
+      console.error(
+        `[kakao-terms] service_terms 조회 실패 ${res.status}: ${(await res.text()).slice(0, 200)}`
+      );
+      return out;
+    }
 
     const json = (await res.json()) as ServiceTermsResponse;
-    for (const t of json.allowed_service_terms ?? []) {
-      // agreed_at 이 있는 것만 — 목록에 있다고 동의한 건 아니다
-      if (t.tag && t.agreed_at) out.add(t.tag);
+    const list = json.allowed_service_terms ?? json.service_terms ?? [];
+    for (const t of list) {
+      // 목록에 있다고 동의한 건 아니다 — 동의 표시가 있는 것만
+      if (t.tag && (t.agreed_at || t.agreed === true)) out.add(t.tag);
     }
-  } catch {
+    if (out.size === 0) {
+      console.error(
+        `[kakao-terms] 동의한 약관이 없다고 나옴. 응답 키=${Object.keys(json).join(",")} 항목수=${list.length}`
+      );
+    }
+  } catch (e) {
     // 타임아웃·네트워크·JSON 파싱 전부 여기로. 실패하면 /signup/consent 가 받는다.
+    console.error("[kakao-terms] service_terms 조회 중 예외:", e);
   }
   return out;
 }
@@ -82,10 +112,20 @@ export async function adoptKakaoServiceTerms(
   providerToken: string | null | undefined
 ): Promise<boolean> {
   const tags = requiredTags();
-  if (tags.length === 0) return false; // 간편가입 미설정 — 지금은 여기서 끝난다
+  if (tags.length === 0) {
+    console.error("[kakao-terms] KAKAO_TERMS_TAGS 가 비어 있다 — 간편가입 약관을 못 가져옴");
+    return false;
+  }
 
   const agreed = await fetchKakaoAgreedTermTags(providerToken);
-  if (!tags.every((t) => agreed.has(t))) return false;
+  const missing = tags.filter((t) => !agreed.has(t));
+  if (missing.length) {
+    // 어느 태그가 빠졌는지까지 남긴다 — 콘솔에서 태그를 바꾸면 여기서만 어긋난다
+    console.error(
+      `[kakao-terms] 동의 안 된 약관: ${missing.join(",")} (카카오가 준 것: ${[...agreed].join(",") || "없음"})`
+    );
+    return false;
+  }
 
   const {
     data: { user },

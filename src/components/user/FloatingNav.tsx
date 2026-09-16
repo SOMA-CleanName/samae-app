@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { HomeIcon, MagazineIcon, ClipboardIcon, CameraIcon } from "@/components/user/icons";
 import { homeNavMode, searchSessionStorageKeys } from "@/lib/search-navigation";
 import { type ProfileMe } from "./ProfileSheet";
@@ -26,6 +26,7 @@ export function FloatingNav({
   studioUnread?: number;
 }) {
   const pathname = usePathname();
+  const plain = useSearchParams().get("plain") === "1";
   const { forced } = useNavReveal();
 
   // 홈 = 메인 피드(카테고리 컨텍스트는 쿠키로 복원), 매거진 = /explore
@@ -144,11 +145,15 @@ export function FloatingNav({
   // 그 위(z-50)로 잠깐 새어 보이던 문제 방지.
   // /dev/chat 은 그 채팅방을 통째로 보는 QA 샌드박스다. 여기서 내비가 뜨면 실제와 다른
   // 화면을 QA 하게 된다 — 껍데기까지 같아야 샌드박스가 쓸모 있다.
+  // `?plain=1` — 약관 동의 흐름에서 연 **읽기 전용** 지면이다. 여기에 내비가 있으면
+  // 동의를 안 한 사람이 약관을 읽다가 홈·매거진으로 새어 나간다(2026-09-16 신고).
+  // 읽으러 온 탭은 읽고 닫는 곳이어야 한다.
   if (
     pathname.startsWith("/inquiry") ||
     pathname.startsWith("/chat") ||
     pathname.startsWith("/dev/chat") ||
-    pathname.startsWith("/explore/quiz")
+    pathname.startsWith("/explore/quiz") ||
+    plain
   )
     return null;
 

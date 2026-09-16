@@ -17,7 +17,13 @@ export const metadata: Metadata = {
 //    머지·배포일이 아래와 다르면 반드시 맞춰서 고칠 것.
 const REVISED_AT = "2026-09-11";
 
-export default function PrivacyPage() {
+// `?plain=1` — 약관 동의 흐름에서 연 **읽기 전용** 탭이다. 푸터(와 내비)를 빼는 이유:
+// 동의를 안 한 사람이 약관을 읽다가 링크를 타고 홈·매거진으로 새어 나갔다(2026-09-16 신고).
+// 읽으러 온 탭은 읽고 닫는 곳이어야 한다.
+export default async function PrivacyPage({ searchParams }: {
+  searchParams: Promise<{ plain?: string }>;
+}) {
+  const plain = (await searchParams).plain === "1";
   return (
     <main className="mx-auto max-w-2xl px-5 py-10 font-kr">
       <Link
@@ -179,7 +185,7 @@ export default function PrivacyPage() {
         개정될 수 있습니다.
       </p>
 
-      <SiteFooter />
+      {!plain && <SiteFooter />}
     </main>
   );
 }

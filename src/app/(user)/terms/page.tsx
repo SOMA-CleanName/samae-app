@@ -29,7 +29,13 @@ export const metadata: Metadata = {
 /** 지면에 게시하는 날. 배포일과 반드시 일치시킬 것. */
 const EFFECTIVE_DATE = "2026-09-10";
 
-export default function TermsPage() {
+// `?plain=1` — 약관 동의 흐름에서 연 **읽기 전용** 탭이다. 푸터(와 내비)를 빼는 이유:
+// 동의를 안 한 사람이 약관을 읽다가 링크를 타고 홈·매거진으로 새어 나갔다(2026-09-16 신고).
+// 읽으러 온 탭은 읽고 닫는 곳이어야 한다.
+export default async function TermsPage({ searchParams }: {
+  searchParams: Promise<{ plain?: string }>;
+}) {
+  const plain = (await searchParams).plain === "1";
   return (
     <main className="mx-auto max-w-2xl px-5 py-10 font-kr">
       <Link
@@ -457,7 +463,7 @@ export default function TermsPage() {
 
       {/* 약관 지면에 푸터가 없었다. 사업자 정보·처리방침이 가장 붙어 있어야 할 자리인데,
           여기까지 읽고 내려온 사람에게 나갈 문이 하나도 없었다. */}
-      <SiteFooter />
+      {!plain && <SiteFooter />}
     </main>
   );
 }
