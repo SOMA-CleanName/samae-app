@@ -32,12 +32,14 @@ export function KakaoPhoneConsentButton({
 }) {
   const supabase = createClient();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function onClick() {
     setLoading(true);
+    setError(null);
     mpTrack("Start Kakao Phone Consent", { context });
     setOauthNextCookie(next);
-    await supabase.auth.signInWithOAuth({
+    const { error: err } = await supabase.auth.signInWithOAuth({
       provider: "kakao",
       // 이미 동의한 항목은 카카오가 화면에서 빼 준다 → 전화번호 한 줄만 뜬다.
       // 스위치가 꺼져 있으면 undefined 라 아무 scope 도 안 붙는다(KOE205 방지).
@@ -46,9 +48,15 @@ export function KakaoPhoneConsentButton({
         scopes: kakaoPhoneReconsentScopes(),
       },
     });
+    // 조용히 실패하면 버튼이 죽은 줄 안다 — 약관 동의 쪽에서 실제로 그런 신고가 있었다(09-16)
+    if (err) {
+      setError(err.message || "카카오로 이동하지 못했어요. 잠시 후 다시 시도해주세요.");
+      setLoading(false);
+    }
   }
 
   return (
+    <>
     <button
       type="button"
       onClick={onClick}
@@ -68,5 +76,7 @@ export function KakaoPhoneConsentButton({
       </svg>
       {loading ? "카카오로 이동 중…" : label}
     </button>
+    {error && <p className="mt-2 text-caption text-danger">{error}</p>}
+    </>
   );
 }
