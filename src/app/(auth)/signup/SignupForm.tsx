@@ -62,12 +62,18 @@ export function SignupForm() {
     mpTrack("Start Kakao Login", { context: "signup" });
     // 가입 완료 후에도 하던 흐름(문의 등)으로 복귀
     setOauthNextCookie(signupNext());
-    await supabase.auth.signInWithOAuth({
+    const { error: oauthErr } = await supabase.auth.signInWithOAuth({
       provider: "kakao",
       // scopes 는 카카오싱크 검수 통과 후에만 붙는다(lib/kakao-phone) — 검수 안 된
       // 동의항목을 요청하면 카카오가 로그인 자체를 거절한다(KOE205).
       options: { redirectTo: `${location.origin}/auth/callback`, scopes: kakaoScopes() },
     });
+    // 조용히 실패하면 "버튼이 죽었다" 로 보인다 — 실제로 그렇게 신고됐다(09-16).
+    // 카카오·Supabase 가 돌려준 말을 그대로 띄운다. 원인을 감추는 것보다 낫다.
+    if (oauthErr) {
+      setError(oauthErr.message || "카카오로 이동하지 못했어요. 잠시 후 다시 시도해 주세요.");
+      setKakaoLoading(false);
+    }
   }
 
   async function onSubmit(e: React.FormEvent) {
