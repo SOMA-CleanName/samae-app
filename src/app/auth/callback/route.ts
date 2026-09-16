@@ -89,7 +89,11 @@ export async function GET(request: Request) {
   return res;
 }
 
-// profiles.phone 이 없으면 true — 조회 실패 시 false(로그인 흐름을 막지 않는다).
+// 가입 마무리(/signup/contact)가 필요한가 — 조회 실패 시 false(로그인 흐름을 막지 않는다).
+//
+// ⚠️ **번호만 보면 안 된다.** 카카오에서 번호는 주고 닉네임은 거부하는 조합이 흔한데
+//    (둘 다 선택 동의다), 번호만 검사하면 그 사람은 이 화면을 아예 안 거쳐 이름이
+//    빈 채로 남는다. 그러면 작가 화면과 채팅에 "?" 로 뜬다(2026-09-16 실측).
 async function needsContact(
   supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<boolean> {
@@ -100,10 +104,10 @@ async function needsContact(
     if (!user) return false;
     const { data: profile } = await supabase
       .from("profiles")
-      .select("phone")
+      .select("phone, display_name")
       .eq("id", user.id)
       .maybeSingle();
-    return !profile?.phone;
+    return !profile?.phone || !(profile?.display_name as string | null)?.trim();
   } catch {
     return false;
   }
