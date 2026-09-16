@@ -92,21 +92,9 @@ export function ProfileForm({ initial }: { initial: ProfileInitial }) {
                 <option key={t} value={t}>{BUSINESS_TYPE_LABEL[t]}</option>
               ))}
             </select>
-            <p className="text-xs text-faint">일반과세자는 실질 20%, 간이·미등록은 22%(부가세 포함). 미등록은 정산금에서 3.3% 원천징수</p>
+            <p className="text-xs text-faint">일반과세자는 실질 20%, 간이·미등록은 22%(부가세 포함). 사업자는 세금계산서, 미등록은 영수증을 발급해 드려요</p>
             {state.fieldErrors?.businessType && <p className="text-xs text-brand">{state.fieldErrors.businessType}</p>}
 
-            {/* 주민등록번호 — **여기서 고치지 않는다.** 보관 중이라는 사실과 가려진 값만 알린다.
-                고유식별정보를 여러 화면에서 받으면 그만큼 새는 면이 늘어난다. 입력은
-                입점 동의 화면 한 곳에서만 받는다. */}
-            {f.businessType === "unregistered" && initial.residentNoMasked && (
-              <div className="rounded-xl bg-fg/[0.04] px-3.5 py-3">
-                <p className="text-xs font-medium">주민등록번호 보관 중</p>
-                <p className="mt-1 text-xs tabular-nums text-muted">{initial.residentNoMasked}</p>
-                <p className="mt-1.5 text-xs leading-relaxed text-faint">
-                  원천징수 신고에만 써요. 사업자 유형을 바꾸면 바로 파기됩니다.
-                </p>
-              </div>
-            )}
           </div>
           {f.businessType && f.businessType !== "unregistered" && (
             <Field name="businessNo" label="사업자등록번호" value={f.businessNo} onChange={set("businessNo")} hint="000-00-00000" error={state.fieldErrors?.businessNo} />

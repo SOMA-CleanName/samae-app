@@ -31,7 +31,6 @@ import {
   type FeeSnapshot,
 } from "./platform-fee";
 import { refundQuote, penaltyStarts, type RefundOverride, type RefundQuote } from "./refund";
-import { computeWithholding, type BusinessType } from "./withholding";
 import { currentPolicySnapshot } from "./policy-version";
 import { computeDeliveryDueAt, deliveryDaysOf } from "./delivery-deadline";
 
@@ -355,23 +354,15 @@ export async function confirmBankTransferAdmin(bookingId: string): Promise<Confi
   await postDepositNotice(admin, bookingId, b.shoot_at ?? null, b.shoot_date ?? null);
   const { data: ph } = await admin
     .from("photographers")
-    .select("profile_id, display_name, business_type")
+    .select("profile_id, display_name")
     .eq("id", b.photographer_id)
     .single();
-  // 예고하는 정산 예정액에도 원천징수를 반영한다 — 여기서 뺀 금액과 실제 입금액이 다르면
-  // 작가는 통장을 보고 "덜 들어왔다" 고 느낀다. 뗀다는 사실을 미리 말해두는 자리가 여기다.
-  const preWithholding = computeWithholding(
-    b.amount_krw ?? 0,
-    ph?.business_type as BusinessType | null
-  );
   if (ph)
     await notify(
       admin,
       ph.profile_id,
       "예약이 확정됐어요",
-      `사매가 입금을 확인했어요. 촬영비는 수수료(₩${fmtKrw(fee.feeKrw)}, 부가세 ₩${fmtKrw(fee.vatKrw)})${
-        preWithholding.totalKrw > 0 ? ` 와 원천징수(₩${fmtKrw(preWithholding.totalKrw)})` : ""
-      } 차감 후 정산해드려요.`,
+      `사매가 입금을 확인했어요. 촬영비는 수수료(₩${fmtKrw(fee.feeKrw)}, 부가세 ₩${fmtKrw(fee.vatKrw)}) 차감 후 정산해드려요.`,
       "/studio/settlements",
       "settlement"
     );
@@ -397,7 +388,7 @@ export async function confirmBankTransferAdmin(bookingId: string): Promise<Confi
       customerName: customer?.display_name ?? "고객",
       shootAt: b.shoot_at,
       shootDate: b.shoot_date,
-      settlementKrw: Math.max(0, (b.amount_krw ?? 0) - feeWithVat(fee) - preWithholding.totalKrw),
+      settlementKrw: Math.max(0, (b.amount_krw ?? 0) - feeWithVat(fee)),
     });
   return { ok: true };
 }
@@ -428,33 +419,33 @@ export async function markSettlementPaid(bookingId: string): Promise<ConfirmResu
   const feeKrw = feeRow?.fee_krw ?? (await feeForBooking(admin, booking)).feeKrw;
   const vatKrw = vatOnFee(feeKrw);
 
-  // 원천징수 — 사업자 미등록 작가에게는 우리가 떼어 대신 신고·납부한다 (소득세법 127조).
-  // 고객 돈이 사매 계좌를 거쳐 나가므로 지급자는 사매다. 과세표준은 대금 전체다 (lib/withholding.ts).
+  // 사업자 유형은 **증빙 종류를 가른다** — 사업자면 세금계산서, 미등록이면 영수증
+  // (작가약관 14-2). 원천징수는 안 하지만 이건 남겨야 한다. 오히려 우리가 원천징수를
+  // 하지 않으니 작가가 5월에 경비로 뺄 유일한 증빙이라 더 중요해졌다.
   const { data: phBiz } = await admin
     .from("photographers")
     .select("business_type")
     .eq("id", booking.photographer_id)
     .maybeSingle();
   const amountKrw = booking.amount_krw ?? 0;
-  const withholding = computeWithholding(amountKrw, phBiz?.business_type as BusinessType | null);
 
-  // 정산액 = 대금 − 수수료 − 부가세 − 원천징수
-  const settlementAmount = Math.max(0, amountKrw - feeKrw - vatKrw - withholding.totalKrw);
+  // 정산액 = 대금 − 수수료 − 부가세.
+  // 원천징수는 하지 않는다 — 대금이 사매 계좌를 거치지 않아 우리가 '지급하는 자'(소득세법
+  // 127조)가 아니다. 작가가 5월에 직접 신고한다 (126 국세상담, 2026-09-16).
+  const settlementAmount = Math.max(0, amountKrw - feeKrw - vatKrw);
 
   await admin
     .from("bookings")
     .update({
       settled_at: now,
       settlement_amount_krw: settlementAmount,
-      withholding_krw: withholding.totalKrw,
       // 지급 시점의 계산을 통째로 붙잡아 둔다 — 요율·사업자 유형은 나중에 바뀌고,
-      // 그러면 "왜 이 금액이었나" 를 재현할 수 없다. 지급명세서도 여기서 읽는다.
+      // 그러면 "왜 이 금액이었나" 를 재현할 수 없다. 정산 내역서가 여기서 읽는다.
       settlement_breakdown: {
         amountKrw,
         feeKrw,
         vatKrw,
         businessType: phBiz?.business_type ?? null,
-        withholding,
         settlementKrw: settlementAmount,
         at: now,
       },
@@ -477,9 +468,7 @@ export async function markSettlementPaid(bookingId: string): Promise<ConfirmResu
       admin,
       ph.profile_id,
       "정산이 완료됐어요",
-      `촬영비 ₩${fmtKrw(settlementAmount)} 을 보내드렸어요 (수수료${
-        withholding.totalKrw > 0 ? `·원천징수 ₩${fmtKrw(withholding.totalKrw)}` : ""
-      } 차감 후).`,
+      `촬영비 ₩${fmtKrw(settlementAmount)} 을 보내드렸어요 (수수료 차감 후).`,
       "/studio/settlements",
       "settlement"
     );
@@ -783,8 +772,6 @@ export type SettlementRow = {
   paidKrw: number;
   /** 사매 중개 수수료 */
   feeKrw: number;
-  /** 원천징수 (사업소득세 3% + 지방소득세 0.3%). 사업자 등록 작가는 0 */
-  withholdingKrw: number;
   /** 작가 실수령 — 정산 전이면 예상액 */
   netKrw: number;
   stage: SettlementStage;
@@ -805,7 +792,7 @@ export async function listMySettlements(photographerId: string): Promise<Settlem
     .from("bookings")
     .select(
       "id, status, shoot_at, shoot_date, amount_krw, travel_fee_krw, user_id, " +
-        "transfer_marked_at, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at, withholding_krw"
+        "transfer_marked_at, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at"
     )
     .eq("photographer_id", photographerId)
     .in("status", ["accepted", "paid", "shot", "delivered", "completed", "refunded"])
@@ -818,13 +805,10 @@ export async function listMySettlements(photographerId: string): Promise<Settlem
   const bookingIds = rows.map((r) => r.id as string);
   const userIds = [...new Set(rows.map((r) => r.user_id as string))];
 
-  const [{ data: fees }, { data: profiles }, { data: biz }] = await Promise.all([
+  const [{ data: fees }, { data: profiles }] = await Promise.all([
     admin.from("platform_fees").select("booking_id, fee_krw, status").in("booking_id", bookingIds),
     admin.from("profiles").select("id, display_name").in("id", userIds),
-    // 정산 전 행의 예상 원천징수를 계산하려면 지금의 사업자 유형이 필요하다
-    admin.from("photographers").select("business_type").eq("id", photographerId).maybeSingle(),
   ]);
-  const businessType = (biz?.business_type ?? null) as BusinessType | null;
 
   const feeByBooking = new Map(
     (fees ?? []).map((f) => [
@@ -845,12 +829,9 @@ export async function listMySettlements(photographerId: string): Promise<Settlem
     // 정산이 끝났으면 그때 확정된 금액이 진실이다. 그 뒤 수수료 정책이나 사업자 유형이
     // 바뀌어도 흔들리면 안 된다 — 이미 통장에 들어간 금액이다.
     const settled = settledAt && r.settlement_amount_krw != null;
-    const withholdingKrw = settled
-      ? ((r.withholding_krw as number | null) ?? 0)
-      : computeWithholding(paidKrw, businessType).totalKrw;
     const netKrw = settled
       ? (r.settlement_amount_krw as number)
-      : Math.max(0, paidKrw - feeKrw - withholdingKrw);
+      : Math.max(0, paidKrw - feeKrw);
 
     let stage: SettlementStage;
     if (status === "refunded") stage = "refunded";
@@ -865,7 +846,6 @@ export async function listMySettlements(photographerId: string): Promise<Settlem
       shootDate: (r.shoot_date as string | null) ?? null,
       paidKrw,
       feeKrw,
-      withholdingKrw,
       netKrw,
       stage,
       settledAt,

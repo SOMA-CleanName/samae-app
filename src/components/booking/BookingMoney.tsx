@@ -18,8 +18,6 @@ export type BookingMoneyFields = {
   /** "정률 20%" 처럼 사람이 읽는 근거 */
   feeLabel: string;
   vatKrw: number;
-  /** 원천징수 (사업자 미등록 작가) */
-  withholdingKrw: number;
   /** 작가에게 실제로 보낼 금액 — 서버 계산 */
   payoutKrw: number;
   /** 정산이 끝났으면 그때 확정된 금액이 진실이다 */
@@ -37,8 +35,6 @@ export function BookingMoney({ b }: { b: BookingMoneyFields }) {
         <Row k="고객 입금액" v={`₩${fmt.format(b.amount_krw ?? 0)}`} strong />
         <Row k="수수료" v={`− ₩${fmt.format(b.feeKrw)} (${b.feeLabel})`} />
         <Row k="부가세" v={`− ₩${fmt.format(b.vatKrw)}`} />
-        {/* 원천징수는 작가 세금이지 우리 수입이 아니다 — 줄을 나눠야 나중에 근거를 댄다 */}
-        {b.withholdingKrw > 0 && <Row k="원천징수 3.3%" v={`− ₩${fmt.format(b.withholdingKrw)}`} />}
         <Row k="작가 송금액" v={`₩${fmt.format(b.settlement_amount_krw ?? b.payoutKrw)}`} strong />
       </dl>
     </section>
