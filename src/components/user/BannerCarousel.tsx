@@ -162,7 +162,17 @@ export function BannerCarousel({ items }: { items: BannerItem[] }) {
             return (
               <div
                 key={`${b.id}:${i}`} // 끝의 복제본이 같은 id 를 갖는다
-                className="relative aspect-[16/9] w-full shrink-0 sm:aspect-[21/9] sm:max-h-[520px]"
+                /*
+                  모바일 2:1, 데스크톱 21:9.
+
+                  원래 폰은 16:9(390px 에서 219px)였다. 그 아래 바로가기·무드를 지나면
+                  첫 사진이 y=709 인데 아이폰 가용 높이가 ~700 이라 사진이 한 장도 안 보였다.
+                  21:9(167px)까지 낮춰 봤더니 이번엔 배너가 띠처럼 납작해졌다.
+                  2:1 은 그 사이다 — 195px, 16:9 대비 24px 을 사진 쪽으로 넘긴다.
+
+                  데스크톱은 21:9 그대로다. 폭이 넓어 같은 비율이면 배너만 화면을 다 먹는다.
+                */
+                className="relative aspect-[2/1] w-full shrink-0 sm:aspect-[21/9] sm:max-h-[520px]"
               >
                 {b.href ? (
                   <Link
@@ -208,33 +218,44 @@ export function BannerCarousel({ items }: { items: BannerItem[] }) {
             </button>
           </>
         )}
-      </div>
+        {/*
+          도트 — **사진 안 오른쪽 아래**.
 
-      {/* 도트 — 사진 아래. 현재/비현재 차이는 색만(크기·모양 동일). 2장 이상일 때만.
-          점은 6px 그대로 두고 **버튼을 32×44 로 키운다** — 6px 은 손가락으로 못 누른다
-          (권장 44px 의 1/7). 가로는 점 간격에 갇혀 32px 이 한계라 세로로 벌었다. */}
-      {count > 1 && (
-        <div className="-mt-0.5 flex justify-center">
-          {items.map((b, i) => (
-            <button
-              key={b.id}
-              type="button"
-              aria-label={`${i + 1}번째 배너 보기`}
-              aria-current={i === idx ? "true" : undefined}
-              onClick={() => go(i)}
-              className="group grid h-11 w-8 cursor-pointer place-items-center"
-            >
-              <span
-                aria-hidden
-                className={cn(
-                  "h-1.5 w-1.5 rounded-full transition-colors",
-                  i === idx ? "bg-fg" : "bg-line-strong group-hover:bg-fg/40"
-                )}
-              />
-            </button>
-          ))}
-        </div>
-      )}
+          전에는 사진 아래 별도의 줄이었다. 터치 타겟을 44px 로 키우느라 그 줄이
+          통째로 42px 을 먹었는데, 모바일 홈에서 그건 첫 사진을 그만큼 밀어내는
+          값이다(실측 390: 도트줄 y=332 h=44). 점 다섯 개를 보여주려고 화면 높이의
+          5%를 쓰는 셈이라 사진 안으로 넣는다.
+
+          왼쪽이 아니라 **오른쪽**인 이유: 배너 제목·머리글이 왼쪽 아래에 깔린다.
+          가운데로 두면 좁은 폭에서 제목 위에 얹힌다.
+
+          터치 타겟(32×44)은 그대로 유지한다 — 점만 6px 이고 누를 수 있는 상자는
+          그대로다. 사진 위라 색을 흰 계열로 바꾸고 그림자를 준다(밝은 사진에서도
+          점이 보여야 한다).
+        */}
+        {count > 1 && (
+          <div className="absolute inset-x-0 bottom-0 flex justify-end pr-1.5">
+            {items.map((b, i) => (
+              <button
+                key={b.id}
+                type="button"
+                aria-label={`${i + 1}번째 배너 보기`}
+                aria-current={i === idx ? "true" : undefined}
+                onClick={() => go(i)}
+                className="group grid h-11 w-7 cursor-pointer place-items-center"
+              >
+                <span
+                  aria-hidden
+                  className={cn(
+                    "h-1.5 w-1.5 rounded-full shadow-[0_0_3px_rgba(0,0,0,0.6)] transition-colors",
+                    i === idx ? "bg-white" : "bg-white/45 group-hover:bg-white/75"
+                  )}
+                />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
