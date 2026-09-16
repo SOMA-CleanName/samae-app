@@ -22,7 +22,7 @@ export type MoodItem = {
  * 그마저도 접어 둔다. 홈에 온 사람의 목적은 사진 피드지 무드 고르기가 아니다.
  * 필요한 사람만 펼치면 되고, 접힌 한 줄만으로도 "이런 게 있다"는 읽힌다.
  *
- * 운영자 큐레이션은 버리지 않는다 — 큐레이션한 무드가 앞에 오고 ✳ 가 붙는다.
+ * 운영자 큐레이션은 버리지 않는다 — 큐레이션한 무드가 앞에 오고 ✳︎ 가 붙는다.
  */
 
 /*
@@ -131,7 +131,7 @@ function Chip({ item, rank }: { item: MoodItem; rank: number }) {
       <p className="mt-1.5 flex items-center gap-1 px-0.5">
         {item.curated && (
           <span aria-label="오늘의 큐레이션" className="text-[10px] text-brand">
-            ✳
+            ✳︎
           </span>
         )}
         <span className="truncate text-[12px] font-bold tracking-tight transition-colors group-hover:text-brand">
