@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { loadEdits, loadNeighborBundle } from "@/lib/mood-neighbors-data";
 import {
-  components, edgeKey, expand, resolveNeighbors, reviewQueue, searchHeads,
+  components, edgeKey, expand, resolveNeighbors, shakyEdges, searchHeads,
   type Neighbor,
 } from "@/lib/mood-neighbors";
 import { AXIS_TONE } from "@/lib/mood-axes";
@@ -23,7 +23,7 @@ export default async function MoodNeighborsPage({ searchParams }: { searchParams
   const known = new Set(bundle.heads);
   const head = params.head && known.has(params.head) ? params.head : "";
   const matches = searchHeads(bundle.heads, bundle.nodes, q);
-  const queue = reviewQueue(bundle, edits);
+  const queue = shakyEdges(bundle, edits);
   const url = (changes: Params) =>
     `${BASE}?${new URLSearchParams(Object.entries({ view, q, head, page: "1", ...changes }).filter(([, v]) => v))}`;
 
@@ -33,7 +33,7 @@ export default async function MoodNeighborsPage({ searchParams }: { searchParams
 
   const tabs = [
     { key: "graph", label: "그래프 · 수정" },
-    { key: "queue", label: "애매한 간선", count: queue.length },
+    { key: "queue", label: "엇갈린 간선", count: queue.length },
     { key: "health", label: "그래프 상태" },
   ];
 
@@ -93,8 +93,8 @@ export default async function MoodNeighborsPage({ searchParams }: { searchParams
       {view === "queue" && (
         <>
           <p className="mb-3 text-body-sm text-muted">
-            한쪽은 이웃이라 보고 다른 쪽은 아니라고 한 간선입니다. <b className="text-fg">유사도가 높은 것부터</b> — 가까운데도 한쪽이 버렸다면 그 자리가 가장 애매합니다.
-            상대의 후보에 아예 없었던 간선은 엇갈린 게 아니므로 여기 없습니다.
+            한쪽은 이웃이라 보고 다른 쪽은 아니라고 한 간선입니다. <b className="text-fg">전부 이어져 있습니다</b> — 검수할 목록이 아니라 참고 목록입니다.
+            나중에 추천에 이상한 게 뜨면 여기서 먼저 찾아보세요. 흔들리던 간선일 확률이 높습니다. 유사도가 높은 것부터 보입니다.
           </p>
           <ul className="space-y-3">
             {queue.slice((page - 1) * QUEUE_SIZE, page * QUEUE_SIZE).map((edge) => (
@@ -111,13 +111,13 @@ export default async function MoodNeighborsPage({ searchParams }: { searchParams
                   <p><b className="text-fg">{edge.a}</b> — {gloss(edge.a) || "뜻풀이 없음"}</p>
                   <p><b className="text-fg">{edge.b}</b> — {gloss(edge.b) || "뜻풀이 없음"}</p>
                 </div>
-                <EdgeControls a={edge.a} b={edge.b} connected mode="queue" />
+                <EdgeControls a={edge.a} b={edge.b} connected />
               </li>
             ))}
           </ul>
-          {!queue.length && <p className="rounded-xl border border-line p-8 text-center text-muted">애매한 간선이 없습니다.</p>}
+          {!queue.length && <p className="rounded-xl border border-line p-8 text-center text-muted">엇갈린 간선이 없습니다.</p>}
           {queue.length > QUEUE_SIZE && (
-            <nav aria-label="검수 페이지" className="mt-5 flex items-center justify-between text-body-sm">
+            <nav aria-label="엇갈린 간선 페이지" className="mt-5 flex items-center justify-between text-body-sm">
               {page > 1 ? <Link href={url({ page: String(page - 1) })}>이전</Link> : <span className="text-muted">이전</span>}
               <span>{page} / {Math.ceil(queue.length / QUEUE_SIZE)}</span>
               {page < Math.ceil(queue.length / QUEUE_SIZE)
@@ -166,7 +166,7 @@ function HeadPanel({ head, byHead, gloss, axesOf, bundle, url }: {
             {n.photos > 0 && <span className="rounded-lg border border-line px-2 py-0.5 text-caption">사진 {n.photos}</span>}
             {n.sameFirst && <span className="rounded-lg border border-amber-400 bg-amber-500/10 px-2 py-0.5 text-caption text-amber-700">첫 글자</span>}
             <span className="w-full text-caption text-muted sm:w-auto sm:flex-1">{gloss(n.head)}</span>
-            <EdgeControls a={head} b={n.head} connected mode="graph" />
+            <EdgeControls a={head} b={n.head} connected />
           </li>
         ))}
       </ul>

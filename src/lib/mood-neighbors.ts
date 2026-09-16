@@ -68,11 +68,12 @@ export function resolveNeighbors(bundle: NeighborBundle, edits: Edit[]) {
 }
 
 /**
- * 사람이 봐야 할 간선. 판단이 엇갈린 것만이다 —
- * 상대의 후보에 아예 없었던 것(unasked)은 엇갈린 게 아니라 물어보지 않은 것이라 뺀다.
- * 유사도가 높을수록 앞으로: 둘이 가까운데도 한쪽이 버렸다면 그게 진짜 애매한 자리다.
+ * 판정이 엇갈린 간선. **전부 이어져 있고**, 검수 대상이 아니라 참고 목록이다 —
+ * 전량 8,600개쯤이라 사람이 볼 수 없고, 사람이 표본을 보고 "엇갈려도 잇는 게 맞다" 고 정했다.
+ * 나중에 추천이 이상할 때 먼저 의심할 자리를 찾는 데 쓴다.
+ * 상대의 후보에 아예 없었던 것(unasked)은 엇갈린 게 아니므로 뺀다.
  */
-export function reviewQueue(bundle: NeighborBundle, edits: Edit[]) {
+export function shakyEdges(bundle: NeighborBundle, edits: Edit[]) {
   const settled = new Set(edits.map((e) => edgeKey(e.a, e.b)));
   return bundle.edges
     .filter((e) => e.state === "disagreed" && !settled.has(edgeKey(e.a, e.b)))

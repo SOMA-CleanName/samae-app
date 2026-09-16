@@ -7,8 +7,8 @@ import { editEdge } from "./actions";
  * 간선 하나를 잇거나 끊는다. 왜 그랬는지 한 줄을 같이 받는다 —
  * 나중에 "이 간선 왜 끊었지" 가 반드시 생기고, 그때 기록이 없으면 다시 판단해야 한다.
  */
-export function EdgeControls({ a, b, connected, mode }: {
-  a: string; b: string; connected: boolean; mode: "graph" | "queue";
+export function EdgeControls({ a, b, connected }: {
+  a: string; b: string; connected: boolean;
 }) {
   const [note, setNote] = useState("");
   const [open, setOpen] = useState(false);
@@ -23,15 +23,6 @@ export function EdgeControls({ a, b, connected, mode }: {
         className="rounded-xl px-2 py-1 text-caption text-muted underline hover:text-fg">
         {open ? "메모 접기" : "메모"}
       </button>
-      {mode === "queue" && (
-        <form action={editEdge} className="contents">
-          <input type="hidden" name="a" value={a} />
-          <input type="hidden" name="b" value={b} />
-          <input type="hidden" name="note" value={note} />
-          <button name="action" value="add"
-            className="rounded-xl border border-brand bg-brand/10 px-3 py-1.5 text-body-sm text-brand">양쪽 연결</button>
-        </form>
-      )}
       <form action={editEdge} className="contents">
         <input type="hidden" name="a" value={a} />
         <input type="hidden" name="b" value={b} />

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
-  components, edgeKey, expand, resolveNeighbors, reviewQueue, searchHeads,
+  components, edgeKey, expand, resolveNeighbors, shakyEdges, searchHeads,
   type Edit, type NeighborBundle,
 } from "./mood-neighbors";
 
@@ -55,11 +55,11 @@ test("같은 간선을 여러 번 고치면 마지막 것만 산다", () => {
   assert.ok(byHead.get("황혼")?.some((n) => n.head === "저녁노을"), "되살아나야 한다");
 });
 
-test("검수 큐는 판단이 엇갈린 것만 — 물어보지 않은 것은 애매한 게 아니다", () => {
-  const queue = reviewQueue(BUNDLE, []);
-  assert.deepEqual(queue.map((e) => `${e.a}~${e.b}`), ["황혼~세기말"]);
+test("엇갈린 간선 목록에는 판단이 갈린 것만 — 물어보지 않은 것은 엇갈린 게 아니다", () => {
+  const shaky = shakyEdges(BUNDLE, []);
+  assert.deepEqual(shaky.map((e) => `${e.a}~${e.b}`), ["황혼~세기말"], "엇갈린 간선도 이어져 있되 표시는 된다");
   const settled: Edit[] = [{ a: "황혼", b: "세기말", action: "remove", at: stamp }];
-  assert.deepEqual(reviewQueue(BUNDLE, settled), [], "한 번 정하면 큐에서 빠진다");
+  assert.deepEqual(shakyEdges(BUNDLE, settled), [], "사람이 손대면 목록에서 빠진다");
 });
 
 test("연결 요소로 그래프가 몇 덩어리인지 본다 — 섬 안에서는 추천이 못 돈다", () => {
