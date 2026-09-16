@@ -71,11 +71,12 @@ def ask(prompt: str, retries: int = 5) -> str:
         msgs += [{"role": "user", "content": user}, {"role": "assistant", "content": out}]
     msgs.append({"role": "user", "content": prompt})
     body = json.dumps({"model": MODEL, "messages": msgs, "stream": False,
-                       "think": False, "options": {"temperature": 0}}).encode()
+                       "think": False,
+                       "options": {"temperature": 0, "num_predict": 256}}).encode()
     for attempt in range(retries):
         try:
             req = urllib.request.Request(OLLAMA, body, {"Content-Type": "application/json"})
-            with urllib.request.urlopen(req, timeout=180) as r:
+            with urllib.request.urlopen(req, timeout=90) as r:
                 return json.loads(r.read())["message"]["content"].strip()
         except Exception as exc:
             if attempt == retries - 1:
