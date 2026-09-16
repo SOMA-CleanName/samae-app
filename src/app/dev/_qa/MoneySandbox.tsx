@@ -29,7 +29,7 @@ export function MoneySandbox({ type }: { type: BusinessType }) {
       <div className="flex items-center gap-2 border-b border-line bg-surface-2 px-4 py-2.5 text-caption">
         <span className="text-muted">사업자 유형</span>
         <Toggle active={type === "unregistered"} href="/dev/money?type=unregistered">
-          미등록 (원천징수 대상)
+          미등록 (영수증 발급)
         </Toggle>
         <Toggle active={type === "general"} href="/dev/money?type=general">
           일반과세자

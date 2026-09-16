@@ -263,7 +263,7 @@ export default async function AdminTransactionsPage() {
             )}
           </h2>
           <p className="mt-0.5 text-caption text-muted">
-            결과물 전달이 끝난 건이에요. 수수료·부가세(·원천징수)를 뺀 금액을 작가에게 보낸 뒤
+            결과물 전달이 끝난 건이에요. 수수료·부가세를 뺀 금액을 작가에게 보낸 뒤
             마킹하세요. <b className="text-fg">전달 알림으로부터 7영업일</b> 안에 보내야 합니다.
           </p>
           <ul className="mt-2 space-y-2">
