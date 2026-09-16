@@ -56,7 +56,17 @@ const ACTIVE_BOOKING_STATUSES = ["accepted", "paid", "shot", "delivered"];
 //  · 진행 중인 예약(결제 단계)이 있으면 차단.
 //  · RESTRICT FK(예약·결제·수수료)를 순서대로 정리한 뒤 프로필·인증계정 삭제.
 //    프로필 삭제로 대화·메시지·찜·알림·작가/포트폴리오·후기가 CASCADE 정리된다.
-export async function deleteAccount() {
+/**
+ * ⚠️ **막힌 이유는 throw 하지 않고 돌려준다.**
+ *
+ * 서버 액션에서 throw 하면 프로덕션에서는 Next.js 가 메시지를 가린다 — 화면에는
+ * "An error occurred in the Server Components render." 만 뜬다. 그래서 "진행 중인
+ * 예약이 있어 탈퇴할 수 없어요" 처럼 **사용자가 해결할 수 있는 안내**가 통째로
+ * 사라졌다(2026-09-16 실측: 그 화면만 보고는 원인을 알 길이 없어 DB 까지 파야 했다).
+ *
+ * 예상 가능한 실패는 값으로 돌려주고, 진짜 예외만 throw 한다.
+ */
+export async function deleteAccount(): Promise<{ error?: string }> {
   const me = await getCurrentUser();
   if (!me) redirect("/login");
 
@@ -72,9 +82,10 @@ export async function deleteAccount() {
 
   // 2) 진행 중 예약 있으면 차단
   if (all.some((b) => ACTIVE_BOOKING_STATUSES.includes(b.status as string))) {
-    throw new Error(
-      "진행 중인 예약이 있어 탈퇴할 수 없어요. 예약을 마무리하거나 취소·환불한 뒤 다시 시도해주세요."
-    );
+    return {
+      error:
+        "진행 중인 예약이 있어 탈퇴할 수 없어요. 예약을 마무리하거나 취소·환불한 뒤 다시 시도해주세요.",
+    };
   }
 
   // 2-1) 작가는 정산·청구가 남아 있으면 차단 (입점계약 10조 2항).
@@ -98,9 +109,10 @@ export async function deleteAccount() {
         .limit(1),
     ]);
     if ((unsettled?.length ?? 0) > 0 || (owed?.length ?? 0) > 0) {
-      throw new Error(
-        "정산이 끝나지 않은 촬영이 있어 탈퇴할 수 없어요. 정산이 완료된 뒤 다시 시도하거나 사매에 문의해주세요."
-      );
+      return {
+        error:
+          "정산이 끝나지 않은 촬영이 있어 탈퇴할 수 없어요. 정산이 완료된 뒤 다시 시도하거나 사매에 문의해주세요.",
+      };
     }
   }
 
@@ -115,10 +127,16 @@ export async function deleteAccount() {
 
   // 4) 프로필 아카이브 후 삭제 (나머지 관련 데이터는 CASCADE) → 5) 인증 계정 삭제
   const profRes = await archiveAndDelete("profiles", { col: "id", op: "eq", val: me.id }, me.id);
-  if (profRes.error) throw new Error("탈퇴 처리 중 문제가 발생했어요. 잠시 후 다시 시도해주세요.");
+  // DB 가 돌려준 말을 그대로 붙인다. 전에는 "문제가 발생했어요" 로만 덮었는데, 실제 원인은
+  // `statement timeout`(참조 컬럼 인덱스 없음, 0122 에서 수정) 이었고 그 말이 없으면
+  // 화면만 보고는 알 방법이 없다.
+  if (profRes.error) {
+    return { error: `탈퇴 처리 중 문제가 발생했어요. (${profRes.error})` };
+  }
   await admin.auth.admin.deleteUser(me.id);
 
   // 6) 세션 정리 (클라이언트가 홈으로 이동)
   const supabase = await createClient();
   await supabase.auth.signOut();
+  return {};
 }
