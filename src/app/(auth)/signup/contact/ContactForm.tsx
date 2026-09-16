@@ -54,12 +54,12 @@ export default function ContactForm({
   const router = useRouter();
   // 이름이 없으면 **이름부터**. 연락처 칸을 같이 띄우면 카카오 버튼 한 번으로 이 화면을
   // 떠나 버려서 이름을 영영 못 받는다(2026-09-16 실측: "? 사용자" 로 가입됨).
-  const [nameSaved, setNameSaved] = useState(false);
   const [nameState, saveNameAction, savingName] = useActionState<SaveNameState | null, FormData>(
     saveDisplayName,
     null
   );
-  const askName = needsName && !nameSaved;
+  // 액션 결과에서 바로 파생한다 — 따로 state 를 두고 effect 에서 켜면 렌더가 한 번 더 돈다
+  const askName = needsName && !nameState?.ok;
   const [phone, setPhone] = useState("");
   const [touched, setTouched] = useState(false);
   const [code, setCode] = useState("");
@@ -85,16 +85,12 @@ export default function ContactForm({
     mpTrack("View Signup Contact", { next_path: next.split("?")[0] });
   }, [next]);
 
-  // 이름을 저장했으면 연락처 단계를 연다. 번호가 이미 있으면 받을 게 없으니 바로 복귀 —
-  // 빈 연락처 화면을 한 번 더 보여줄 이유가 없다(카카오에서 번호는 주고 닉네임만 거부한 경우).
+  // 번호가 이미 있으면 이름만 받으면 끝이다 — 빈 연락처 화면을 한 번 더 보이지 않는다
+  // (카카오에서 번호는 주고 닉네임만 거부한 경우).
   useEffect(() => {
-    if (!nameState?.ok) return;
-    if (hasPhone) {
-      router.replace(next);
-      router.refresh();
-      return;
-    }
-    setNameSaved(true);
+    if (!nameState?.ok || !hasPhone) return;
+    router.replace(next);
+    router.refresh();
   }, [nameState?.ok, hasPhone, next, router]);
 
   // 발송 직후 — 쿨다운 시작 + 코드 입력에 포커스
