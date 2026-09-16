@@ -61,7 +61,11 @@ SHOTS = [
     ("노을, 놀, 저녁놀", "노을"),
 ]
 
-def ask(prompt: str, retries: int = 3) -> str:
+class Stalled(Exception):
+    """ollama 가 잠깐 멈춘 것. 한 묶음 때문에 전량이 죽으면 안 된다."""
+
+
+def ask(prompt: str, retries: int = 5) -> str:
     msgs = [{"role": "system", "content": SYSTEM}]
     for user, out in SHOTS:
         msgs += [{"role": "user", "content": user}, {"role": "assistant", "content": out}]
@@ -75,9 +79,9 @@ def ask(prompt: str, retries: int = 3) -> str:
                 return json.loads(r.read())["message"]["content"].strip()
         except Exception as exc:
             if attempt == retries - 1:
-                raise
+                raise Stalled(str(exc)) from exc
             print(f"  재시도 {attempt + 1}: {exc}", file=sys.stderr)
-            time.sleep(2)
+            time.sleep(2 ** attempt)          # 멈췄으면 조금씩 더 기다린다
     return ""
 
 def split_words(raw: str) -> list[str]:
@@ -155,8 +159,15 @@ def main() -> None:
 
     started = time.time()
     with OUT.open("w" if args.sample else "a") as sink:
+        failed = 0
         for i, group in enumerate(todo, 1):
-            picked, made_up = choose(group)
+            try:
+                picked, made_up = choose(group)
+            except Stalled as exc:
+                # 건너뛴 묶음은 파일에 안 남으므로 다시 돌리면 이어서 잡는다.
+                failed += 1
+                print(f"  건너뜀 {group['head']}: {exc}", file=sys.stderr)
+                continue
             terms = []
             for word in picked:
                 form = adnominal(word, verbish(word, group["usage"]))
@@ -176,8 +187,8 @@ def main() -> None:
             sink.flush()
             if i % 50 == 0 or i == len(todo):
                 rate = i / (time.time() - started)
-                print(f"{i}/{len(todo)} · {rate:.2f}/s · 남은 {int((len(todo)-i)/max(rate,1e-9)/60)}분",
-                      file=sys.stderr)
+                print(f"{i}/{len(todo)} · {rate:.2f}/s · 남은 {int((len(todo)-i)/max(rate,1e-9)/60)}분"
+                      + (f" · 건너뜀 {failed}" if failed else ""), file=sys.stderr)
 
 if __name__ == "__main__":
     main()

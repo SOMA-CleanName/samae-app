@@ -189,7 +189,8 @@ function HeadPanel({ head, byHead, gloss, axesOf, bundle, url, detail }: {
             {n.edited === "add"
               ? <span className="rounded-lg border border-brand bg-brand/10 px-2 py-0.5 text-caption text-brand">직접 이음</span>
               : <span className="text-caption text-muted tabular-nums">{n.score.toFixed(3)}</span>}
-            <span className="text-caption text-muted">{n.state === "mutual" ? "양방향" : n.state === "disagreed" ? "한쪽만 · 엇갈림" : "한쪽만"}</span>
+            <span className="text-caption text-muted">{n.state === "mutual" ? "양방향" : n.state === "disagreed" ? "한쪽만 · 엇갈림"
+              : n.state === "floor" ? "이웃 0개를 막으려 강제로 이음" : "한쪽만"}</span>
             {n.photos > 0 && <span className="rounded-lg border border-line px-2 py-0.5 text-caption">사진 {n.photos}</span>}
             {n.sameFirst && <span className="rounded-lg border border-amber-400 bg-amber-500/10 px-2 py-0.5 text-caption text-amber-700">첫 글자</span>}
             <span className="w-full text-caption text-muted sm:w-auto sm:flex-1">{gloss(n.head)}</span>
@@ -251,10 +252,13 @@ function Health({ bundle, byHead, edits, settled, url }: {
           양방향 {(states.mutual ?? 0).toLocaleString("ko-KR")} ·
           한쪽만(엇갈림) {(states.disagreed ?? 0).toLocaleString("ko-KR")} ·
           한쪽만(후보 밖) {(states.unasked ?? 0).toLocaleString("ko-KR")}
+          {(states.floor ?? 0) > 0 && <> · 강제로 이음 {(states.floor ?? 0).toLocaleString("ko-KR")}</>}
           {settled > 0 && <> · 사람이 정한 것 {settled.toLocaleString("ko-KR")}</>}
         </p>
         <p className="mt-2 text-caption text-muted">
           후보 밖은 상대의 top-30 에 없어 물어보지 않은 것입니다. 엇갈린 게 아니므로 그대로 잇습니다.
+          판정이 전부 버려 이웃이 0개가 될 뻔한 대표는 유사도가 낮아도 가장 가까운 둘과 억지로 이어 둡니다 —
+          이웃이 없으면 그 낱말로 검색한 사람에게 보여줄 게 없습니다.
         </p>
       </div>
 

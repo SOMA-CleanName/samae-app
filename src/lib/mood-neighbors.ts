@@ -1,6 +1,7 @@
 // 이웃 그래프 화면의 순수 로직. 파일 입출력은 mood-neighbors-data.ts 에 있다.
 
-export type EdgeState = "mutual" | "disagreed" | "unasked";
+/** floor 는 판정이 전부 버렸지만 이웃 0개를 막으려고 유사도 상위와 억지로 이은 것. */
+export type EdgeState = "mutual" | "disagreed" | "unasked" | "floor";
 
 export type Edge = {
   a: string;
@@ -18,6 +19,7 @@ export type NeighborBundle = {
   nodes: Record<string, Node>;
   edges: Edge[];
   judged: number;
+  forced?: number;
 };
 
 /** 사람이 손댄 것. 자동 생성분과 따로 둔다 — 다시 만들어도 살아남아야 한다 (§9-5 의 교훈). */
