@@ -69,7 +69,7 @@ export function qaSettlementRows(businessType: BusinessType): SettlementRow[] {
   return [
     make(0, 300_000, "settled"),
     make(1, 450_000, "settling"),
-    // 소액부징수 경계 아래 — 원천징수가 0 으로 나오는 건이 섞여 있어야 확인이 된다
+    // 소액 건 — 수수료(6,000원)가 대금에서 차지하는 비중이 큰 경우가 섞여 있어야 확인이 된다
     make(2, 30_000, "checking"),
   ];
 }

@@ -252,8 +252,9 @@ export function AgreeGate({
                   ))}
                 </select>
                 <span className="mt-1.5 block text-caption leading-relaxed text-muted">
-                  일반과세자는 수수료 세금계산서로 매입세액을 공제받아요. 사업자 미등록이면 정산금에서 3.3%를
-                  원천징수해요.
+                  수수료 증빙을 어떤 형태로 발급할지 정하는 값이에요. 사업자 등록 작가에게는
+                  세금계산서를(일반과세자는 이걸로 매입세액을 공제받아요), 미등록 작가에게는 영수증을
+                  발급해요. 사매는 원천징수를 하지 않으니 정산금은 직접 신고하시면 돼요.
                 </span>
               </label>
 
