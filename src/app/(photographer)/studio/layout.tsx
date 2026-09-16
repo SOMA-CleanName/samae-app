@@ -8,9 +8,6 @@ import { ChatToast } from "@/components/user/ChatToast";
 import { StudioSidebar } from "./StudioSidebar";
 import { AgreeGate } from "./AgreeGate";
 import { termsConsentIsCurrent } from "@/lib/consent";
-import { kakaoTermsTagsParam } from "@/lib/kakao-terms";
-import { KAKAO_TERMS_TRIES_COOKIE, kakaoTermsExhausted } from "@/lib/kakao-terms-tries";
-import { cookies } from "next/headers";
 import { TermsConsentGate } from "@/components/user/TermsConsentGate";
 
 // 작가 스튜디오 공통 레이아웃 — 승인된 작가에게만 좌측 네비를 씌운다.
@@ -24,30 +21,17 @@ export default async function StudioLayout({ children }: { children: React.React
 
   // 작가도 회원이다 — 스튜디오만 드나드는 사람은 (user) 레이아웃을 안 거치므로
   // 회원 약관 덮개를 여기에도 얹는다. 입점 계약(AgreeGate)과는 다른 동의다.
-  let termsGate: { revisit: boolean; kakaoTags: string | null; exhausted: boolean } | null = null;
+  let termsGate: { revisit: boolean } | null = null;
   if (me) {
     const sb = await createClient();
-    const [{ data: prof }, { data: auth }] = await Promise.all([
-      sb.from("profiles").select("terms_agreed_at, terms_version").eq("id", me.id).maybeSingle(),
-      sb.auth.getUser(),
-    ]);
-    if (!termsConsentIsCurrent(prof)) {
-      const providers = (auth.user?.app_metadata?.providers as string[] | undefined) ?? [];
-      const tags = kakaoTermsTagsParam();
-      termsGate = {
-        revisit: !!prof?.terms_agreed_at,
-        kakaoTags: providers.includes("kakao") ? tags : null,
-        exhausted: kakaoTermsExhausted((await cookies()).get(KAKAO_TERMS_TRIES_COOKIE)?.value),
-      };
-    }
+    const { data: prof } = await sb
+      .from("profiles")
+      .select("terms_agreed_at, terms_version")
+      .eq("id", me.id)
+      .maybeSingle();
+    if (!termsConsentIsCurrent(prof)) termsGate = { revisit: !!prof?.terms_agreed_at };
   }
-  const gate = termsGate && (
-    <TermsConsentGate
-      revisit={termsGate.revisit}
-      kakaoTags={termsGate.kakaoTags}
-      exhausted={termsGate.exhausted}
-    />
-  );
+  const gate = termsGate && <TermsConsentGate revisit={termsGate.revisit} />;
 
   if (!me?.photographer || me.photographer.status !== "approved") {
     return <>{gate}{children}</>;

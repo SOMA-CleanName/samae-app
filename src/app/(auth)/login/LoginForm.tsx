@@ -66,7 +66,7 @@ function HeadlineShell({ title, sub }: { title: string; sub: string }) {
 }
 
 // 로그인 폼 — 카카오 소셜 + 이메일. (지면 구성은 AuthShell 이 맡는다)
-export function LoginForm() {
+export function LoginForm({ kakaoTermsTags }: { kakaoTermsTags?: string | null }) {
   const router = useRouter();
   const supabase = createClient();
   const [email, setEmail] = useState("");
@@ -88,7 +88,14 @@ export function LoginForm() {
       provider: "kakao",
       // scopes 는 카카오싱크 검수 통과 후에만 붙는다(lib/kakao-phone) — 검수 안 된
       // 동의항목을 요청하면 카카오가 로그인 자체를 거절한다(KOE205).
-      options: { redirectTo: `${location.origin}/auth/callback`, scopes: kakaoScopes() },
+      options: {
+        redirectTo: `${location.origin}/auth/callback`,
+        scopes: kakaoScopes(),
+        // 이 버튼으로도 가입이 된다. 카카오가 간편가입 약관을 물어볼 수 있는 순간은
+        // **최초 연결 때뿐**이므로 여기서 실어 보내야 한다. 이미 연결된 계정에는
+        // 카카오가 조용히 무시한다(화면을 안 띄운다) — 그 사람들은 우리 폼으로 받는다.
+        ...(kakaoTermsTags ? { queryParams: { service_terms: kakaoTermsTags } } : {}),
+      },
     });
     // 조용히 실패하면 "버튼이 죽었다" 로 보인다 — 실제로 그렇게 신고됐다(09-16).
     // 카카오·Supabase 가 돌려준 말을 그대로 띄운다. 원인을 감추는 것보다 낫다.
