@@ -11,6 +11,9 @@ import { ChatToast } from "@/components/user/ChatToast";
 import { toProfileMe } from "@/lib/profile-me";
 import { createClient } from "@/lib/supabase/server";
 import { termsConsentIsCurrent } from "@/lib/consent";
+import { kakaoTermsTagsParam } from "@/lib/kakao-terms";
+import { KAKAO_TERMS_TRIES_COOKIE, kakaoTermsExhausted } from "@/lib/kakao-terms-tries";
+import { cookies } from "next/headers";
 import { TermsConsentGate } from "@/components/user/TermsConsentGate";
 
 // 사용자(탐색) 영역 공통 셸 — 기존 하단바/레일 제거.
@@ -37,16 +40,25 @@ export default async function UserLayout({
   // 약관 동의 — **어느 화면에서든** 앞을 막는다.
   // 전에는 로그인 직후나 스튜디오 진입 같은 길목에서만 물었다. 그래서 이미 로그인해 둔
   // 사람은 약관을 개정해도 모르고 계속 썼다 — 개정 절차를 밟아도 동의는 못 받는 상태다.
-  let termsGate: { revisit: boolean } | null = null;
+  let termsGate: { revisit: boolean; kakaoTags: string | null; exhausted: boolean } | null = null;
   if (me) {
     const supabase = await createClient();
-    const { data: p } = await supabase
-      .from("profiles")
-      .select("terms_agreed_at, terms_version")
-      .eq("id", me.id)
-      .maybeSingle();
+    const [{ data: p }, { data: auth }] = await Promise.all([
+      supabase.from("profiles").select("terms_agreed_at, terms_version").eq("id", me.id).maybeSingle(),
+      supabase.auth.getUser(),
+    ]);
     // 버전까지 봐야 한다 — 있는지만 보면 개정해도 기존 회원이 그대로 지나간다
-    if (!termsConsentIsCurrent(p)) termsGate = { revisit: !!p?.terms_agreed_at };
+    if (!termsConsentIsCurrent(p)) {
+      // 카카오 계정이면 덮개의 버튼이 곧 카카오 동의 화면이다 — 중간 지면을 없앴다.
+      // 단 이미 한 번 보냈는데 안 잡혔으면 더 안 보낸다(kakaoTermsExhausted 주석 참고).
+      const providers = (auth.user?.app_metadata?.providers as string[] | undefined) ?? [];
+      const tags = kakaoTermsTagsParam();
+      termsGate = {
+        revisit: !!p?.terms_agreed_at,
+        kakaoTags: providers.includes("kakao") ? tags : null,
+        exhausted: kakaoTermsExhausted((await cookies()).get(KAKAO_TERMS_TRIES_COOKIE)?.value),
+      };
+    }
   }
 
   return (
@@ -58,7 +70,13 @@ export default async function UserLayout({
         {me && <RealtimeListRefresh />}
         {/* 배지는 '어딘가에 왔다' 만 말한다 — 누가 뭐라고 했는지까지 띄워야 바로 답한다 */}
         {me && <ChatToast meId={me.id} />}
-        {termsGate && <TermsConsentGate revisit={termsGate.revisit} />}
+        {termsGate && (
+          <TermsConsentGate
+            revisit={termsGate.revisit}
+            kakaoTags={termsGate.kakaoTags}
+            exhausted={termsGate.exhausted}
+          />
+        )}
         {/* 운영 주체는 이제 푸터가 맡는다(SiteFooter). 홈 피드가 자동 이어붙이기를 3회에서
             멈추므로(ExploreGallery AUTO_ADVANCE_BUDGET) 푸터가 **도달 가능한 자리**로
             돌아왔다. 지면 맨 위의 SiteInfoBar 는 첫 화면의 사진을 밀어내기만 했고,

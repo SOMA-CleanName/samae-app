@@ -5,6 +5,11 @@ import { readAnonFavPhotoIds, ANON_FAV_COOKIE } from "@/lib/anon-favorites";
 import { extractKakaoPhone, fetchKakaoPhoneFromApi } from "@/lib/kakao-phone";
 import { needsTermsConsent } from "@/lib/consent";
 import { adoptKakaoServiceTerms } from "@/lib/kakao-terms";
+import {
+  KAKAO_TERMS_TRIES_COOKIE,
+  KAKAO_TERMS_TRIES_MAX_AGE,
+  parseKakaoTermsTries,
+} from "@/lib/kakao-terms-tries";
 
 const OAUTH_NEXT_COOKIE = "samae_oauth_next";
 
@@ -58,10 +63,36 @@ export async function GET(request: Request) {
         : next;
       // 약관 동의가 없는 계정(첫 소셜 가입) → 동의 화면을 먼저 거친다. 연락처보다 앞이다 —
       // 개인정보(전화번호)를 받기 전에 처리방침 동의가 있어야 한다.
-      if (await needsTermsConsent(supabase)) {
-        dest = `/signup/consent?next=${encodeURIComponent(dest)}`;
+      //
+      // ⚠️ 카카오로 돌아왔는데 동의가 안 잡혔으면 **여기서 세어 둔다.**
+      //    그러지 않으면 덮개가 다시 카카오로 보내고, 거기서 또 안 잡히고, 또 보낸다.
+      //    왕복 하나가 액세스 토큰 발급 1회라 사용자당 10분 20개 제한을 태운다
+      //    (2026-09-16 실제로 태워 KOE237 로 로그인 전체가 죽었다).
+      //    세는 주체가 서버여야 하는 이유는 kakao-terms-tries.ts 주석 참고.
+      const needsTerms = await needsTermsConsent(supabase);
+      let bumpKakaoTermsTries = 0;
+      if (needsTerms) {
+        if (viaKakao) {
+          bumpKakaoTermsTries =
+            parseKakaoTermsTries(
+              request.headers.get("cookie")?.match(/samae_kakao_terms_tries=(\d+)/)?.[1]
+            ) + 1;
+          // 카카오 계정은 중간 지면으로 튕기지 않는다 — 가던 곳으로 보내고 덮개가 받는다.
+          // 지면이 둘이면 사용자는 같은 일로 버튼을 두 번 누른다.
+        } else {
+          dest = `/signup/consent?next=${encodeURIComponent(dest)}`;
+        }
       }
       const res = NextResponse.redirect(`${origin}${dest}`);
+      if (bumpKakaoTermsTries > 0) {
+        res.cookies.set(KAKAO_TERMS_TRIES_COOKIE, String(bumpKakaoTermsTries), {
+          path: "/",
+          maxAge: KAKAO_TERMS_TRIES_MAX_AGE,
+          sameSite: "lax",
+        });
+      } else if (!needsTerms) {
+        res.cookies.delete(KAKAO_TERMS_TRIES_COOKIE); // 동의가 잡혔으면 셈을 비운다
+      }
       res.cookies.delete(OAUTH_NEXT_COOKIE);
       res.cookies.delete(ANON_FAV_COOKIE);
       // dev 전용 — 카카오 "나에게 보내기" 실험(/dev/kakao-memo)용 provider 토큰 스태시.

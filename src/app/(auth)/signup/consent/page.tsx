@@ -7,7 +7,7 @@ import { termsConsentIsCurrent } from "@/lib/consent";
 import { cookies } from "next/headers";
 import { kakaoTermsTagsParam } from "@/lib/kakao-terms";
 import { KakaoTermsConsentButton } from "@/components/user/KakaoTermsConsentButton";
-import { KakaoTermsAutoRedirect, KAKAO_TERMS_TRIED_COOKIE } from "@/components/user/KakaoTermsAutoRedirect";
+import { KAKAO_TERMS_TRIES_COOKIE, kakaoTermsExhausted } from "@/lib/kakao-terms-tries";
 import { ConsentBody } from "./ConsentBody";
 
 // 가입 마무리 — 약관 동의. 로그인 콜백이 **현재 버전 동의가 없는** 사용자를 이리로 보낸다.
@@ -46,16 +46,19 @@ export default async function SignupConsentPage({
   const tags = kakaoTermsTagsParam();
   const viaKakao = providers.includes("kakao") && !!tags;
 
-  if (viaKakao) {
-    const revisit = !!profile?.terms_agreed_at; // 처음이 아니라 개정에 따른 재동의인가
-    // 카카오 계정이면 지면을 거치지 않고 바로 동의 화면으로 보낸다 — 여기서 읽을 것도
-    // 고를 것도 없어서 버튼을 한 번 더 누르게 할 뿐이다.
-    //
-    // 다만 **한 번만** 보낸다. 거부하고 돌아온 사람을 다시 보내면 빠져나갈 수 없는
-    // 고리가 된다. 보내기 직전에 심은 쿠키를 여기서 보고, 두 번째부터는 버튼 지면을 그린다.
-    const tried = (await cookies()).get(KAKAO_TERMS_TRIED_COOKIE)?.value === "1";
-    if (!tried) return <KakaoTermsAutoRedirect next={next} tags={tags!} />;
+  // 카카오에 이미 한 번 보냈는데 동의가 안 잡힌 사람은 **여기가 끝이 아니어야 한다.**
+  // 같은 길로 다시 보내면 결과는 같고 카카오 토큰 쿼터(사용자당 10분 20개)만 탄다.
+  // 그 경우 아래 체크박스 폼으로 내려보낸다 — 카카오 호출 0회로 빠져나올 수 있다.
+  const exhausted = kakaoTermsExhausted((await cookies()).get(KAKAO_TERMS_TRIES_COOKIE)?.value);
 
+  if (viaKakao && !exhausted) {
+    const revisit = !!profile?.terms_agreed_at; // 처음이 아니라 개정에 따른 재동의인가
+    // ⚠️ **자동으로 보내지 않는다.** 자동 이동은 실측(2026-09-16)에서 클릭 한 번에
+    //    카카오 왕복 3회를 만들었고, 그게 쿼터를 태워 KOE237 로 로그인을 통째로 죽였다.
+    //    사람이 누른 만큼만 나간다.
+    //
+    // 평소 카카오 사용자는 이 지면을 볼 일이 없다 — 덮개(TermsConsentGate)의 버튼이
+    // 곧 카카오 동의 화면이다. 여기는 그 링크를 직접 열었을 때의 폴백이다.
     return (
       <main className="mx-auto max-w-sm px-5 py-12 font-kr">
         <h1 className="text-h1 font-bold tracking-tight">
@@ -90,6 +93,11 @@ export default async function SignupConsentPage({
     );
   }
 
-  // 이메일 계정 — 카카오로 보낼 수 없으니 체크박스 폼으로 받는다
+  // 여기로 내려오는 두 경우 —
+  //   · 이메일 계정 (카카오로 보낼 수 없다)
+  //   · 카카오로 보냈는데 동의가 안 잡힌 계정 (exhausted) — **탈출구다.**
+  //     "같은 약관을 두 군데서 받으면 어디서 받은 동의인지 갈린다" 는 원칙보다
+  //     동의를 아예 못 받아 서비스를 못 쓰게 되는 쪽이 나쁘다. 어차피 우리가 받아야
+  //     하는 동의이고, 우리 기록(profiles.terms_agreed_at)이 남는다.
   return <ConsentBody next={next} termsVersion={TERMS_VERSION} displayName={me.displayName} />;
 }
