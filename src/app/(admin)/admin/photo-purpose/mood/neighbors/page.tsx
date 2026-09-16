@@ -10,6 +10,7 @@ import { EdgeControls, AddEdge } from "./EdgeControls";
 export const dynamic = "force-dynamic";
 const BASE = "/admin/photo-purpose/mood/neighbors";
 const QUEUE_SIZE = 25;
+const HEADS_SIZE = 20;
 type Params = { head?: string; q?: string; view?: string; page?: string };
 
 export default async function MoodNeighborsPage({ searchParams }: { searchParams: Promise<Params> }) {
@@ -22,8 +23,14 @@ export default async function MoodNeighborsPage({ searchParams }: { searchParams
   const byHead = resolveNeighbors(bundle, edits);
   const known = new Set(bundle.heads);
   const head = params.head && known.has(params.head) ? params.head : "";
-  const matches = searchHeads(bundle.heads, bundle.nodes, q);
+  // 검색은 걸러내기일 뿐, 비워 두면 2,647개가 다 나온다 — 전수로 훑을 수 있어야 한다.
+  const listed = q ? searchHeads(bundle.heads, bundle.nodes, q, bundle.heads.length) : bundle.heads;
+  const pages = Math.max(1, Math.ceil(listed.length / HEADS_SIZE));
+  const at = Math.min(page, pages);
+  const shown = head ? [head] : listed.slice((at - 1) * HEADS_SIZE, at * HEADS_SIZE);
   const queue = shakyEdges(bundle, edits);
+  const queuePages = Math.max(1, Math.ceil(queue.length / QUEUE_SIZE));
+  const queueAt = Math.min(page, queuePages);
   const url = (changes: Params) =>
     `${BASE}?${new URLSearchParams(Object.entries({ view, q, head, page: "1", ...changes }).filter(([, v]) => v))}`;
 
@@ -70,23 +77,22 @@ export default async function MoodNeighborsPage({ searchParams }: { searchParams
             {(q || head) && <Link href={`${BASE}?view=graph`} className="rounded-xl border border-line px-4 py-2 text-body-sm">초기화</Link>}
           </form>
 
-          {q && (
-            <ul className="mb-5 flex flex-wrap gap-2">
-              {matches.map((name) => (
-                <li key={name}>
-                  <Link href={url({ head: name })}
-                    className={`rounded-xl border px-3 py-1.5 text-body-sm ${name === head ? "border-brand bg-brand/10 text-brand" : "border-line hover:border-fg/40"}`}>
-                    {name} <span className="text-caption text-muted">{(byHead.get(name) ?? []).length}</span>
-                  </Link>
-                </li>
-              ))}
-              {!matches.length && <li className="text-body-sm text-muted">찾은 무드가 없습니다.</li>}
-            </ul>
-          )}
+          <p className="mb-4 text-body-sm text-muted">
+            {head
+              ? <>한 무드만 펼쳐 봅니다. <Link href={url({ head: "", q })} className="underline hover:text-fg">전체로 돌아가기</Link></>
+              : <>{q ? <>“{q}” 에 걸린 </> : "전체 "}<b className="text-fg tabular-nums">{listed.length.toLocaleString("ko-KR")}</b>개 중{" "}
+                <b className="text-fg tabular-nums">{((at - 1) * HEADS_SIZE + 1).toLocaleString("ko-KR")}–{Math.min(at * HEADS_SIZE, listed.length).toLocaleString("ko-KR")}</b>번째</>}
+          </p>
 
-          {!head && <p className="rounded-xl border border-line p-8 text-center text-muted">무드를 검색해 고르면 이웃이 보입니다.</p>}
+          {!shown.length && <p className="rounded-xl border border-line p-8 text-center text-muted">찾은 무드가 없습니다.</p>}
 
-          {head && <HeadPanel {...{ head, byHead, gloss, axesOf, bundle, url }} />}
+          <div className="space-y-4">
+            {shown.map((name) => (
+              <HeadPanel key={name} {...{ head: name, byHead, gloss, axesOf, bundle, url, detail: Boolean(head) }} />
+            ))}
+          </div>
+
+          {!head && pages > 1 && <Pager {...{ at, pages, url, view, q }} label="무드 페이지" />}
         </>
       )}
 
@@ -97,7 +103,7 @@ export default async function MoodNeighborsPage({ searchParams }: { searchParams
             나중에 추천에 이상한 게 뜨면 여기서 먼저 찾아보세요. 흔들리던 간선일 확률이 높습니다. 유사도가 높은 것부터 보입니다.
           </p>
           <ul className="space-y-3">
-            {queue.slice((page - 1) * QUEUE_SIZE, page * QUEUE_SIZE).map((edge) => (
+            {queue.slice((queueAt - 1) * QUEUE_SIZE, queueAt * QUEUE_SIZE).map((edge) => (
               <li key={edgeKey(edge.a, edge.b)} className="rounded-xl border border-line p-4">
                 <div className="flex flex-wrap items-baseline gap-2">
                   <strong className="text-body font-semibold">{edge.a}</strong>
@@ -117,12 +123,7 @@ export default async function MoodNeighborsPage({ searchParams }: { searchParams
           </ul>
           {!queue.length && <p className="rounded-xl border border-line p-8 text-center text-muted">엇갈린 간선이 없습니다.</p>}
           {queue.length > QUEUE_SIZE && (
-            <nav aria-label="엇갈린 간선 페이지" className="mt-5 flex items-center justify-between text-body-sm">
-              {page > 1 ? <Link href={url({ page: String(page - 1) })}>이전</Link> : <span className="text-muted">이전</span>}
-              <span>{page} / {Math.ceil(queue.length / QUEUE_SIZE)}</span>
-              {page < Math.ceil(queue.length / QUEUE_SIZE)
-                ? <Link href={url({ page: String(page + 1) })}>다음</Link> : <span className="text-muted">다음</span>}
-            </nav>
+            <Pager at={queueAt} pages={queuePages} {...{ url, view, q }} label="엇갈린 간선 페이지" />
           )}
         </>
       )}
@@ -132,16 +133,42 @@ export default async function MoodNeighborsPage({ searchParams }: { searchParams
   );
 }
 
-function HeadPanel({ head, byHead, gloss, axesOf, bundle, url }: {
+/** 페이지가 100개를 넘어가므로 이전/다음만으로는 못 돈다 — 번호를 직접 넣게 한다. */
+function Pager({ at, pages, url, label, view, q }: {
+  at: number; pages: number; url: (c: Params) => string; label: string; view: string; q: string;
+}) {
+  return (
+    <nav aria-label={label} className="mt-5 flex flex-wrap items-center justify-between gap-3 text-body-sm">
+      {at > 1
+        ? <Link href={url({ page: String(at - 1) })} className="rounded-xl border border-line px-4 py-2">이전</Link>
+        : <span className="rounded-xl border border-line px-4 py-2 text-muted">이전</span>}
+      <form action={BASE} className="flex items-center gap-2">
+        <input type="hidden" name="view" value={view} />
+        {q && <input type="hidden" name="q" value={q} />}
+        <input key={`page-${at}`} name="page" defaultValue={String(at)} inputMode="numeric" aria-label={`${label} 번호`}
+          className="w-20 rounded-xl border border-line bg-bg px-3 py-2 text-center tabular-nums" />
+        <span className="text-muted tabular-nums">/ {pages.toLocaleString("ko-KR")}</span>
+        <button className="rounded-xl border border-line px-3 py-2">이동</button>
+      </form>
+      {at < pages
+        ? <Link href={url({ page: String(at + 1) })} className="rounded-xl border border-line px-4 py-2">다음</Link>
+        : <span className="rounded-xl border border-line px-4 py-2 text-muted">다음</span>}
+    </nav>
+  );
+}
+
+function HeadPanel({ head, byHead, gloss, axesOf, bundle, url, detail }: {
   head: string;
   byHead: Map<string, Neighbor[]>;
   gloss: (n: string) => string;
   axesOf: (n: string) => string[];
   bundle: Awaited<ReturnType<typeof loadNeighborBundle>>;
   url: (c: Params) => string;
+  detail?: boolean;
 }) {
   const neighbors = byHead.get(head) ?? [];
-  const layers = expand(byHead, head, 2);
+  // 2홉은 중앙값 241개라 목록에서는 화면을 덮는다. 한 무드만 볼 때만 펼친다.
+  const layers = detail ? expand(byHead, head, 2) : [];
   return (
     <div className="rounded-xl border border-line p-4">
       <div className="flex flex-wrap items-baseline gap-2">
@@ -158,7 +185,7 @@ function HeadPanel({ head, byHead, gloss, axesOf, bundle, url }: {
       <ul className="mt-4 space-y-2">
         {neighbors.map((n) => (
           <li key={n.head} className="flex flex-wrap items-baseline gap-2 border-b border-line py-2 last:border-0">
-            <Link href={url({ head: n.head, q: n.head })} className="font-medium underline-offset-2 hover:underline">{n.head}</Link>
+            <Link href={url({ head: n.head })} className="font-medium underline-offset-2 hover:underline">{n.head}</Link>
             {n.edited === "add"
               ? <span className="rounded-lg border border-brand bg-brand/10 px-2 py-0.5 text-caption text-brand">직접 이음</span>
               : <span className="text-caption text-muted tabular-nums">{n.score.toFixed(3)}</span>}
@@ -174,7 +201,7 @@ function HeadPanel({ head, byHead, gloss, axesOf, bundle, url }: {
 
       {layers.length > 0 && (
         <div className="mt-5 rounded-xl border border-line bg-fg/[0.02] p-3">
-          <p className="text-caption text-muted">실제 추천이 도는 모양 — 사진이 모일 때까지 이렇게 넓힙니다.</p>
+          <p className="text-caption text-muted">진단용 — 3홉이면 어휘 절반에 닿습니다. 실제 추천은 1홉을 유사도 순으로 잘라 씁니다.</p>
           {layers.map((layer, i) => (
             <p key={i} className="mt-2 text-body-sm">
               <span className="text-caption text-muted">{i + 1}홉 ({layer.length})</span>{" "}
