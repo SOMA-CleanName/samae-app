@@ -55,8 +55,7 @@ export function BusinessLicenseCell({
   }
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex flex-wrap items-center gap-1.5">
+    <div className="flex shrink-0 flex-wrap items-center gap-1.5">
         <button
           type="button"
           onClick={open}
@@ -80,27 +79,27 @@ export function BusinessLicenseCell({
             </button>
           </form>
         )}
-      </div>
 
-      {/* 반려·보류 메모 — 확인이 안 된 이유가 남아야 작가에게 뭘 다시 받을지 안다 */}
-      <form action={verifyBusinessLicense} className="flex items-center gap-1.5">
-        <input type="hidden" name="id" value={photographerId} />
-        {/* 지금 확인 상태를 그대로 실어 보낸다 — 빼면 메모만 고쳐도 확인이 풀린다 */}
-        <input type="hidden" name="ok" value={verifiedAt ? "1" : ""} />
-        <input
-          name="note"
-          defaultValue={note ?? ""}
-          maxLength={300}
-          placeholder="메모 (상호 불일치 등)"
-          className="w-40 rounded-full border border-line bg-bg px-2.5 py-1 text-caption focus:border-fg/30 focus:outline-none"
-        />
-        <button
-          type="submit"
-          className="cursor-pointer rounded-full border border-line-strong px-2.5 py-1 text-caption hover:border-fg"
-        >
-          저장
-        </button>
-      </form>
+      {/* 메모는 **미확인일 때만.** 확인된 건에도 띄우면 행만 길어진다 —
+          다시 손볼 일은 새 파일이 올라와 확인이 풀린 뒤다. */}
+      {!verifiedAt && (
+        <form action={verifyBusinessLicense} className="flex items-center gap-1.5">
+          <input type="hidden" name="id" value={photographerId} />
+          <input
+            name="note"
+            defaultValue={note ?? ""}
+            maxLength={300}
+            placeholder="메모 (상호 불일치 등)"
+            className="w-32 rounded-full border border-line bg-bg px-2.5 py-1 text-caption focus:border-fg/30 focus:outline-none"
+          />
+          <button
+            type="submit"
+            className="cursor-pointer rounded-full border border-line-strong px-2.5 py-1 text-caption hover:border-fg"
+          >
+            저장
+          </button>
+        </form>
+      )}
 
       {error && <span className="text-caption text-danger">{error}</span>}
     </div>

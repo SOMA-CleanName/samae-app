@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { archiveAndDelete } from "@/lib/soft-delete";
+import { notifyOpsApplicationApproved } from "@/lib/ops-alert";
+import { feeSpecFromRow, feeSpecLabel } from "@/lib/platform-fee";
 
 // 운영자 권한 확인 (방어적 — RLS 외 이중 체크)
 async function assertAdmin() {
@@ -129,6 +131,13 @@ export async function approveApplication(formData: FormData) {
     .update({ status: "approved" })
     .eq("id", id);
   if (updErr) throw new Error(updErr.message);
+
+  // 승인만 눌러 두면 작가는 아무것도 모른다 — 승인은 "이제 입점할 수 있다" 는 뜻이지
+  // 입점이 끝났다는 뜻이 아니다. 보낼 안내 대본을 운영 채널에 같이 올린다.
+  await notifyOpsApplicationApproved({
+    displayName: app.display_name ?? "작가",
+    feeLabel: feeSpecLabel(feeSpecFromRow(feeFields)),
+  });
 
   revalidatePath("/admin/photographers");
 }

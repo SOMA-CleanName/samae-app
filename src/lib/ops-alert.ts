@@ -380,3 +380,51 @@ export async function notifyOpsSettlementDispute(params: { bookingId: string }):
     `🛠 **송금 내역 확인 후 재처리: ${ADMIN_TX_LINK}**`,
   ]);
 }
+
+/**
+ * 작가 신청 승인 — **운영자가 보낼 안내 대본을 같이 만들어 준다.**
+ *
+ * 승인만 눌러 두면 작가는 아무것도 모른다. 승인은 "이제 입점할 수 있다" 는 뜻이지
+ * 입점이 끝났다는 뜻이 아니어서, 다음에 뭘 해야 하는지 알려 주지 않으면 그대로 멈춘다.
+ *
+ * 지금은 채널톡으로 사람이 직접 보내므로, 복사해 붙일 수 있게 **코드 블록**으로 던진다.
+ * 나중에 알림톡으로 옮길 것 — 다만 문안을 바꾸면 템플릿 재심사이므로 그때 한 번에 한다
+ * (docs/34-kakao-alimtalk.md).
+ */
+export function approvalScript(params: { displayName: string; feeLabel: string }): string {
+  return [
+    "안녕하세요, 사매입니다. 🎞",
+    "",
+    `${params.displayName} 작가님, 신청 검토가 완료되어 승인해 드렸어요.`,
+    "이제 입점 절차만 마치면 바로 활동하실 수 있습니다.",
+    "",
+    `▸ 입점하기: ${SITE_URL || "https://www.samae.ai"}/studio`,
+    "",
+    "스튜디오에 들어가시면 입점 동의 화면이 떠요. 5분이면 끝납니다.",
+    "",
+    "준비해 주실 것",
+    "· 계약에 쓰일 성명 또는 상호",
+    "· 사업자 유형 (일반과세자 / 간이과세자 / 미등록)",
+    "· 사업자등록증 사본 — 등록 작가만, PDF 또는 사진",
+    "  (수수료 세금계산서 발급에 필요해요. 사매 운영진만 열람합니다)",
+    "",
+    `중개 수수료는 ${params.feeLabel}이고, 정산은 결과물 전달 확인 후 7영업일 안에 보내드려요.`,
+    "사매는 원천징수를 하지 않아, 촬영 대금은 작가님이 직접 신고하시면 됩니다.",
+    "",
+    "궁금한 점 있으시면 편하게 답장 주세요!",
+  ].join("\n");
+}
+
+/** 승인 직후 운영 채널에 안내 대본을 올린다 — 그대로 복사해 보내면 된다 */
+export async function notifyOpsApplicationApproved(params: {
+  displayName: string;
+  feeLabel: string;
+}): Promise<void> {
+  await postDiscord(APPLICATION_WEBHOOK, [
+    `✅ **작가 신청 승인** — ${params.displayName}`,
+    "아래를 그대로 복사해 채널톡으로 보내주세요.",
+    "```",
+    approvalScript(params),
+    "```",
+  ]);
+}
