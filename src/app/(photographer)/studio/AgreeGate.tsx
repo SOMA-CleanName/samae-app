@@ -18,12 +18,13 @@
 // 동의했는가" 를 문서 단위로 말할 수 없으면 기록이 있어도 다툼에서 쓸 수가 없다.
 
 import { useState } from "react";
-import Link from "next/link";
 import { useFormStatus } from "react-dom";
 import { Button, Card } from "@/components/ui";
 import { agreePhotographerContract } from "./actions";
 import { DocReader } from "./DocReader";
 import { PHOTOGRAPHER_DOCS, type DocKey } from "@/components/legal/photographerDocs";
+import { InlineDocSheet } from "@/components/legal/InlineDocSheet";
+import { AdConsentBody } from "@/components/legal/docs/AdConsentBody";
 import { BUSINESS_TYPE_LABEL, DEFAULT_FEE_RATE, type BusinessType } from "@/lib/platform-fee";
 
 /** 문서별 열람·동의 증적 */
@@ -51,6 +52,10 @@ export function AgreeGate({
   const [records, setRecords] = useState<Partial<Record<DocKey, DocRecord>>>({});
   const [openedAt, setOpenedAt] = useState<Partial<Record<DocKey, string>>>({});
   const [businessType, setBusinessType] = useState<BusinessType | "">(initial.businessType);
+  // 입력하는 대로 하이픈을 붙인다. 서버도 어차피 000-00-00000 으로 정규화하지만(actions.ts),
+  // 치는 동안 형태가 보여야 자릿수를 틀렸는지 사람이 안다 — 열 자리를 다 치고 나서
+  // "10자리를 입력해주세요" 를 보는 것보다 낫다.
+  const [businessNo, setBusinessNo] = useState(initial.businessNo ?? "");
   const [error, setError] = useState<string | null>(null);
 
   /** 문서를 연다 — 연 시각을 그때 한 번만 찍는다(다시 열어도 처음 연 시각을 지킨다) */
@@ -266,8 +271,10 @@ export function AgreeGate({
                     name="businessNo"
                     required
                     inputMode="numeric"
+                    autoComplete="off"
                     maxLength={12}
-                    defaultValue={initial.businessNo}
+                    value={businessNo}
+                    onChange={(e) => setBusinessNo(formatBusinessNo(e.target.value))}
                     placeholder="000-00-00000"
                     className={FIELD}
                   />
@@ -290,13 +297,10 @@ export function AgreeGate({
               <span className="text-body-sm leading-relaxed text-muted">
                 사매가 내가 게재한 사진과 활동명을 사매 웹·앱, SNS, 유료 광고, 보도자료에 홍보물별 12개월간 쓰는
                 것에 동의합니다. 언제든 철회할 수 있어요.{" "}
-                <Link
-                  href="/terms/ad-consent"
-                  target="_blank"
-                  className="underline underline-offset-2 hover:text-fg"
-                >
-                  범위와 조건
-                </Link>
+                {/* 새 탭으로 내보내지 않는다 — 읽으러 갔다가 안 돌아온다(InlineDocSheet 주석) */}
+                <InlineDocSheet label="범위와 조건" title="사매 광고 소재 사용 동의">
+                  <AdConsentBody />
+                </InlineDocSheet>
               </span>
             </label>
           </fieldset>
@@ -333,4 +337,18 @@ function Submit() {
       동의하고 스튜디오 시작
     </Button>
   );
+}
+
+/**
+ * 사업자등록번호 표시 형식 — `000-00-00000`.
+ *
+ * 숫자만 남기고 10자리로 자른 뒤 3-2-5 로 끊는다. 자릿수가 모자라면 있는 만큼만 끊어서
+ * 치는 도중에도 형태가 유지된다. 지우는 중에 하이픈이 되살아나 커서가 갇히는 일이 없도록
+ * 경계(3·5자리)에서는 하이픈을 붙이지 않는다.
+ */
+function formatBusinessNo(raw: string): string {
+  const d = raw.replace(/\D/g, "").slice(0, 10);
+  if (d.length <= 3) return d;
+  if (d.length <= 5) return `${d.slice(0, 3)}-${d.slice(3)}`;
+  return `${d.slice(0, 3)}-${d.slice(3, 5)}-${d.slice(5)}`;
 }

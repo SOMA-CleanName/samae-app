@@ -1,4 +1,8 @@
 import Link from "next/link";
+import { InlineDocSheet } from "@/components/legal/InlineDocSheet";
+import { FeePolicyBody } from "@/components/legal/docs/FeePolicyBody";
+import { PhotographerTermsBody } from "@/components/legal/docs/PhotographerTermsBody";
+import { FEE_POLICY_VERSION, PHOTOGRAPHER_TERMS_VERSION } from "@/lib/policy-version";
 import { Button } from "@/components/ui";
 
 // 비로그인 방문자가 보는 /apply — 작가 모집 링크가 닿는 첫 화면.
@@ -61,15 +65,26 @@ export function ApplyIntro() {
         </Button>
       </div>
 
+      {/* 이 두 링크는 **지면을 떠나지 않는다.** 전에는 /terms/fees·/terms/photographer 로
+          이동해 버려서, 읽고 나면 그 지면의 내비·푸터를 타고 홈으로 흘러갔다. 신청하러 온
+          사람을 약관 읽히려다 놓치는 셈이다. 덮개로 띄우고 닫으면 여기 그대로 돌아온다. */}
       <p className="mt-7 text-caption leading-relaxed text-muted">
         신청 전에{" "}
-        <Link href="/terms/fees" className="underline underline-offset-2 hover:text-fg">
-          수수료·정산 정책
-        </Link>
+        <InlineDocSheet
+          label="수수료·정산 정책"
+          title="사매 수수료·정산 정책"
+          version={FEE_POLICY_VERSION}
+        >
+          <FeePolicyBody />
+        </InlineDocSheet>
         과{" "}
-        <Link href="/terms/photographer" className="underline underline-offset-2 hover:text-fg">
-          작가 이용약관
-        </Link>
+        <InlineDocSheet
+          label="작가 이용약관"
+          title="사매 작가 이용약관"
+          version={PHOTOGRAPHER_TERMS_VERSION}
+        >
+          <PhotographerTermsBody />
+        </InlineDocSheet>
         을 미리 보실 수 있어요. 승인 뒤 스튜디오에서 다시 한 번 확인하고 동의하게 됩니다.
       </p>
 
