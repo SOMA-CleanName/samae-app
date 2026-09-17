@@ -5,7 +5,7 @@ import { JsonLd } from "@/components/JsonLd";
 import { StickyBack } from "@/components/editorial/StickyBack";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SectionHead } from "@/components/editorial/SectionHead";
-import { breadcrumbJsonLd, faqJsonLd, placeJsonLd } from "@/lib/seo";
+import { breadcrumbJsonLd, faqJsonLd, ogImages, placeJsonLd } from "@/lib/seo";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { listPublishedSpots, findSpot, type Spot } from "@/lib/spots-db";
 import { fetchSpotDetail, formatKrw, type SpotDetail } from "@/lib/spots";
@@ -42,6 +42,8 @@ export async function generateMetadata({
       description,
       url: `${SITE_URL}/spots/${spot.slug}`,
       type: "website",
+      // openGraph 를 직접 쓰면 루트의 opengraph-image 를 못 물려받는다 — 넣어 줘야 카드가 선다
+      images: ogImages(),
     },
   };
 }
