@@ -136,6 +136,27 @@ export async function updateProfile(
       ? `${bizDigits.slice(0, 3)}-${bizDigits.slice(3, 5)}-${bizDigits.slice(5)}`
       : null;
 
+  // 등록증도 여기서 본다. 입점(agreePhotographerContract)에만 가드가 있어서,
+  // **미등록으로 입점한 뒤 프로필에서 일반과세자로 바꾸면 등록증 없이 통과**했다
+  // (2026-09-17 점검). 번호만으로는 세금계산서를 못 만들고(필수 기재사항이 등록번호+
+  // 상호+대표자다), 그 번호가 이 작가 것인지도 확인되지 않는다 — 그 대조가 곧
+  // 전자상거래법 20조의 "확인" 이다(0124).
+  //
+  // ⚠️ 이미 올려 둔 사람은 다시 올릴 필요가 없다. DB 를 본다 — 화면이 보낸 값이 아니라.
+  if (v.businessType && v.businessType !== "unregistered") {
+    const { data: lic } = await createAdminClient()
+      .from("photographers")
+      .select("business_license_path")
+      .eq("profile_id", user.id)
+      .maybeSingle();
+    if (!lic?.business_license_path) {
+      return {
+        error: "사업자등록증을 올려주세요. 수수료 세금계산서 발급에 필요해요.",
+        fieldErrors: { businessType: "등록증이 필요해요" },
+      };
+    }
+  }
+
 
   // 작가명 중복 불가 (본인 제외)
   if (await isDisplayNameTaken(v.displayName, user.id)) {
@@ -176,10 +197,27 @@ export async function updateProfile(
       { onConflict: "photographer_id" }
     );
     if (accountError) return { error: "계좌 저장 중 오류가 발생했습니다." };
-  } else if (!bank && !number && !holder) {
-    // 세 필드 모두 비우면 계좌 삭제
-    const { error: accountError } = await admin.from("payout_accounts").delete().eq("photographer_id", me);
-    if (accountError) return { error: "계좌 삭제 중 오류가 발생했습니다." };
+  } else {
+    // ⚠️ 비우는 것으로 **지우지 않는다.** 전에는 세 칸을 다 비우면 행을 삭제했는데,
+    //    정산 계좌는 입점에서 필수로 받는 값이다(AgreeGate). 지워지면 지급할 곳이 없어
+    //    정산이 조용히 막히고, 기한은 전달 후 7영업일이라 그때 가서 다시 받으면 넘긴다.
+    //    바꾸는 건 언제든 되지만 없애는 건 안 된다 — 작가 활동을 그만두려면 탈퇴다.
+    const { data: existing } = await admin
+      .from("payout_accounts")
+      .select("photographer_id")
+      .eq("photographer_id", me)
+      .maybeSingle();
+    if (existing) {
+      const fieldErrors: Record<string, string> = {};
+      if (!bank) fieldErrors.bankName = "은행을 입력해주세요.";
+      if (!number) fieldErrors.accountNumber = "계좌번호를 입력해주세요.";
+      if (!holder) fieldErrors.accountHolder = "예금주를 입력해주세요.";
+      return {
+        error: "정산 계좌는 비울 수 없어요. 촬영비를 보내드릴 곳이라 항상 하나는 있어야 해요.",
+        fieldErrors,
+      };
+    }
+    // 애초에 없던 작가가 빈 채로 저장한 것 — 막을 이유가 없다
   }
 
   // 공급측 계측 (PII 계좌정보는 전송하지 않음)
@@ -270,7 +308,7 @@ export async function agreePhotographerContract(formData: FormData): Promise<voi
   }
 
   // 정산 계좌 — 입점에서 받는다. 비어 있으면 첫 정산에서 막히고, 기한이 7영업일이라
-  // (작가약관 13조 2항) 그때 가서 받기 시작하면 넘긴다.
+  // (수수료·정산 정책 3조 2항) 그때 가서 받기 시작하면 넘긴다.
   const bank = String(formData.get("bank") || "").trim().slice(0, 30);
   const accountHolder = String(formData.get("accountHolder") || "").trim().slice(0, 40);
   const accountNumber = String(formData.get("accountNumber") || "").replace(/[^0-9-]/g, "").slice(0, 30);
@@ -278,9 +316,9 @@ export async function agreePhotographerContract(formData: FormData): Promise<voi
     throw new Error("정산 계좌를 입력해주세요. 은행·예금주·계좌번호가 모두 필요해요.");
   }
 
-  // ⚠️ 홍보 사용 동의는 **여기서 받지 않는다.** 작가약관 제20조 3항이 "사진별로 선택" 을
-  //    정하는데 체크 하나로 전체를 묶어 받고 있었다. 사진 속 인물의 초상권은 사진마다
-  //    사정이 달라서 한 번에 묶는 것 자체가 위험하다. 포트폴리오 업로드에서 사진별로 받는다.
+  // ⚠️ 홍보 사용 동의는 **여기서 받지 않는다.** 사진 속 인물의 초상권은 사진마다 사정이
+  //    달라서 한 번에 묶는 것 자체가 위험하다. 포트폴리오 업로드에서 사진별로 받는다.
+  //    근거는 작가 입점 계약 제7조 1항(작가약관 제14조 4항이 계약으로 넘긴다).
   //    기존 값은 건드리지 않는다 — 지우면 이미 동의한 사진의 근거가 사라진다.
 
   const h = await headers();

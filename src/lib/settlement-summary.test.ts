@@ -12,6 +12,7 @@ const row = (o: Partial<SettlementRow> = {}): SettlementRow => ({
   feeKrw: 66_000,
   netKrw: 234_000,
   stage: "settled",
+  deliveredAt: "2026-03-18T05:00:00Z",
   settledAt: "2026-03-20T05:00:00Z",
   ackAt: null,
   disputeAt: null,

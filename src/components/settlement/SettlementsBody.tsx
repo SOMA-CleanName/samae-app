@@ -12,6 +12,7 @@ import Link from "next/link";
 import { fmtShootAt } from "@/lib/booking-format";
 import type { SettlementRow, SettlementStage } from "@/lib/payments";
 import { summarizeByYear } from "@/lib/settlement-summary";
+import { SETTLEMENT_SLA_BUSINESS_DAYS, settlementSla } from "@/lib/settlement-sla";
 
 const STAGE_LABEL: Record<SettlementStage, string> = {
   awaiting_transfer: "고객 입금 대기",
@@ -66,10 +67,15 @@ export function SettlementsBody({
         ← 스튜디오
       </Link>
       <h1 className="mt-4 text-2xl font-semibold">정산 내역</h1>
+      {/* 언제 받는지가 없으면 작가는 매번 물어봐야 한다. 수수료·정산 정책 3조 2항이
+          "각 건의 지급 기한은 스튜디오 > 정산에서 확인할 수 있다" 고 적은 자리다 —
+          지면에 없으면 그 조문이 없는 화면을 가리키게 된다(2026-09-17 점검). */}
       <p className="mt-1 text-xs leading-relaxed text-faint">
         촬영비는 사매가 받아 두고, 결과물 전달이 끝나면 중개 수수료
         {burdenPct != null && <b className="font-semibold text-muted"> {burdenPct}%(부가세 포함)</b>}를
-        뺀 금액을 작가님 계좌로 보내드려요. 결제대행 수수료는 사매가 부담해요.
+        뺀 금액을 작가님 계좌로 보내드려요. 전달을 알린 날부터{" "}
+        <b className="font-semibold text-muted">{SETTLEMENT_SLA_BUSINESS_DAYS}영업일 이내</b>에 보내드리고,
+        건별 기한은 아래 목록에 표시돼요. 결제대행 수수료는 사매가 부담해요.
       </p>
 
       {years.length > 0 && (
@@ -156,6 +162,8 @@ function SettlementItem({
   actions: SettlementActions;
 }) {
   const refunded = row.stage === "refunded";
+  // 전달을 알렸는데 아직 안 보낸 건만 기한이 있다 (settlementSla 가 그 둘을 본다)
+  const sla = refunded ? null : settlementSla(row.deliveredAt, row.settledAt);
   return (
     <li className="rounded-xl border border-fg/10 px-4 py-3.5 text-sm">
       <div className="flex items-start justify-between gap-4">
@@ -173,6 +181,12 @@ function SettlementItem({
           <p className={`mt-0.5 font-semibold ${refunded ? "text-faint line-through" : ""}`}>
             ₩{fmt.format(row.netKrw)}
           </p>
+          {/* 기한을 넘긴 건 작가가 먼저 알아야 한다 — 우리가 늦은 것이지 작가가 기다릴 일이 아니다 */}
+          {sla && (
+            <p className={`mt-0.5 text-[11px] ${sla.overdue ? "text-danger-ink" : sla.soon ? "text-warning" : "text-faint"}`}>
+              {sla.label}
+            </p>
+          )}
         </div>
       </div>
 

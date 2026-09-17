@@ -775,6 +775,8 @@ export type SettlementRow = {
   /** 작가 실수령 — 정산 전이면 예상액 */
   netKrw: number;
   stage: SettlementStage;
+  /** 작가가 결과물 전달을 알린 시각 — 지급 기한의 기산점 (수수료정책 3조 2항) */
+  deliveredAt: string | null;
   settledAt: string | null;
   ackAt: string | null;
   disputeAt: string | null;
@@ -792,7 +794,7 @@ export async function listMySettlements(photographerId: string): Promise<Settlem
     .from("bookings")
     .select(
       "id, status, shoot_at, shoot_date, amount_krw, travel_fee_krw, user_id, " +
-        "transfer_marked_at, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at"
+        "transfer_marked_at, delivered_at, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at"
     )
     .eq("photographer_id", photographerId)
     .in("status", ["accepted", "paid", "shot", "delivered", "completed", "refunded"])
@@ -848,6 +850,7 @@ export async function listMySettlements(photographerId: string): Promise<Settlem
       feeKrw,
       netKrw,
       stage,
+      deliveredAt: (r.delivered_at as string | null) ?? null,
       settledAt,
       ackAt: (r.settlement_ack_at as string | null) ?? null,
       disputeAt: (r.settlement_dispute_at as string | null) ?? null,
