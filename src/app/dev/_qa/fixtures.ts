@@ -60,6 +60,9 @@ export function qaSettlementRows(businessType: BusinessType): SettlementRow[] {
       feeKrw,
       netKrw: Math.max(0, paidKrw - feeKrw),
       stage,
+      // 전달을 알린 건에만 지급 기한이 붙는다. settling 은 기한 배지가 보여야 하고,
+      // checking(입금 확인 중)은 아직 전달 전이라 안 보여야 한다 — 둘 다 확인 대상이다
+      deliveredAt: stage === "settled" || stage === "settling" ? daysAgo(3) : null,
       settledAt: stage === "settled" ? daysAgo(2) : null,
       ackAt: null,
       disputeAt: null,

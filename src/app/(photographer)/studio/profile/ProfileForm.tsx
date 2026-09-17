@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { updateProfile, type ProfileState } from "../actions";
 import type { ProfileInitial } from "./page";
 import { BUSINESS_TYPE_LABEL, type BusinessType } from "@/lib/platform-fee";
+import { BusinessLicenseUpload } from "@/components/studio/BusinessLicenseUpload";
 
 const initialState: ProfileState = {};
 
@@ -99,18 +100,29 @@ export function ProfileForm({ initial }: { initial: ProfileInitial }) {
           {f.businessType && f.businessType !== "unregistered" && (
             <Field name="businessNo" label="사업자등록번호" value={f.businessNo} onChange={set("businessNo")} hint="000-00-00000" error={state.fieldErrors?.businessNo} />
           )}
+          {/* 등록증도 여기 있어야 한다. 입점 화면에만 있어서 **미등록으로 입점한 뒤
+              여기서 사업자로 바꾸면 등록증 없이 통과**했다(2026-09-17 점검). 서버가 이제
+              막는데 올릴 자리가 없으면 작가가 갇힌다 — 가드와 입력은 같이 있어야 한다. */}
+          {f.businessType && f.businessType !== "unregistered" && (
+            <BusinessLicenseUpload initialUploadedAt={initial.licenseUploadedAt} />
+          )}
         </div>
       </fieldset>
 
-      {/* 촬영비 수취 계좌 — 예약 확정 시 해당 고객에게 노출됨 */}
+      {/* 정산 계좌 — **사매가 작가에게 보내는** 계좌다.
+          여기 적혀 있던 "예약이 확정되면 고객이 이 계좌로 직접 송금합니다 / 환불도 이 계좌로
+          입금돼요" 는 리드·P2P 구조 시절 문구다. 지금은 고객이 사매 계좌로 보내고(에스크로),
+          결과물 전달 후 수수료를 뺀 금액을 사매가 이 계좌로 보낸다. 환불은 고객에게 간다.
+          계좌의 용도를 반대로 설명하고 있었다(2026-09-17 점검). */}
       <fieldset className="mt-2 rounded-xl border border-fg/10 p-4">
-        <legend className="px-1 text-xs text-muted">촬영비 수취 계좌</legend>
+        <legend className="px-1 text-xs text-muted">정산 계좌</legend>
         {acctOpen ? (
           <>
             <p className="mb-2 text-xs leading-relaxed text-faint">
-              예약이 확정되면 고객이 이 계좌로 촬영비를 직접 송금합니다.
+              촬영비는 사매가 받아 두었다가, 결과물 전달 후 중개 수수료를 뺀 금액을 이 계좌로
+              보내드려요.
               <br />
-              환불이 발생하는 경우에도 이 계좌로 입금돼요.
+              <b className="text-muted">본인(사업자) 명의</b>여야 하고, 비워 둘 수는 없어요.
             </p>
             <div className="flex flex-col gap-3">
               <div className="flex flex-col gap-1">
@@ -150,7 +162,7 @@ export function ProfileForm({ initial }: { initial: ProfileInitial }) {
               <p className="truncate text-sm font-medium text-fg">
                 {f.bankName} {f.accountNumber}
               </p>
-              <p className="mt-0.5 text-xs text-faint">예금주 {f.accountHolder} · 환불도 이 계좌로 입금</p>
+              <p className="mt-0.5 text-xs text-faint">예금주 {f.accountHolder} · 정산금을 받는 계좌</p>
             </div>
             <button
               type="button"

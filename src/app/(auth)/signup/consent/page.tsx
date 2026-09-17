@@ -48,5 +48,15 @@ export default async function SignupConsentPage({
   // 버전까지 맞아야 통과 — 개정했는데 옛 동의로 지나가면 개정한 의미가 없다
   if (termsConsentIsCurrent(profile)) redirect(next);
 
-  return <ConsentBody next={next} termsVersion={TERMS_VERSION} displayName={me.displayName} />;
+  // 이미 한 번 동의한 적이 있으면 **가입이 아니라 재동의**다. 문구도 출구도 달라야 한다 —
+  // 기존 회원에게 "동의하지 않으면 가입을 진행할 수 없어요" 는 말이 안 되고,
+  // 약관 부칙이 약속한 "동의하지 않을 자유" 가 그 화면에 있어야 한다(2026-09-17 점검).
+  return (
+    <ConsentBody
+      next={next}
+      termsVersion={TERMS_VERSION}
+      displayName={me.displayName}
+      revisit={!!profile?.terms_agreed_at}
+    />
+  );
 }

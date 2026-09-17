@@ -10,8 +10,21 @@ import { DEFAULT_FEE_RATE } from "@/lib/platform-fee";
 
   ⚠️ 조문을 여기서 고치지 말 것. 정본은 노션이고, 문안을 바꾸면 `policy-version.ts` 의
      버전도 같이 올려야 한다 — 버전이 그대로면 이미 동의한 작가에게 다시 안 묻는다.
+
+  ⚠️ **요율은 작가마다 다르다.** FeePolicyBody 와 같은 이유로 `rate` 를 받는다. 전에는
+     제5조 2항이 전역 기본값(20%)을 직접 박아서, 10% 작가가 입점 동의 화면에서
+     수수료 정책은 10%, 입점 계약은 20% 를 동시에 보고 있었다(2026-09-17 점검).
+     하필 제2조 2항이 "충돌하면 이 계약이 먼저" 라고 정해 둔 문서다.
 */
-export function PhotographerContractBody() {
+export function PhotographerContractBody({
+  /** 이 작가에게 적용되는 요율(0.2 = 20%). null·미지정이면 전역 기본값 */
+  rate,
+}: {
+  rate?: number | null;
+} = {}) {
+  const RATE_PCT = +((rate ?? DEFAULT_FEE_RATE) * 100).toFixed(2);
+  const isDefault = rate == null || rate === DEFAULT_FEE_RATE;
+
   return (
     <>
     <Article n="제1조" title="목적">
@@ -65,7 +78,8 @@ export function PhotographerContractBody() {
       <Ol>
         <li>작가는 회사가 촬영 대금에서 중개 수수료를 공제하고 정산하는 것에 동의합니다.</li>
         <li>
-          현재 중개 수수료율은 <B>촬영 대금의 {DEFAULT_FEE_RATE * 100}%(부가가치세 별도)</B>입니다. 요율의 확정
+          현재 중개 수수료율은 <B>촬영 대금의 {RATE_PCT}%(부가가치세 별도)</B>입니다.
+          {isDefault && " 이는 기본 요율이며, 작가별로 다르게 정한 경우에는 그 요율을 적용합니다."} 요율의 확정
           내용과 그 변경 절차는 수수료 정책에 따릅니다.
         </li>
         <li>작가는 중개 수수료가 촬영 대금 전체를 기준으로 산정된다는 점을 확인하고, 이를 감안하여 촬영 상품의 가격을 정합니다.</li>
@@ -93,7 +107,9 @@ export function PhotographerContractBody() {
       <Ol>
         <li>
           작가는 회사가 서비스와 작가를 홍보하기 위해 작가가 서비스에 게재한 사진과 활동명을 다음 범위에서 사용하는
-          것에 입점 동의 화면에서 동의하거나 동의하지 않을 수 있습니다.
+          것에 동의할 수 있습니다. <B>이 동의는 사진별로 선택합니다.</B> 작가는 서비스에 사진을 게재할 때
+          사진마다 동의 여부를 고르며, 기본값은 동의하지 않음입니다. 이미 게재한 사진의 동의 여부는 언제든
+          서비스 내에서 바꿀 수 있습니다.
           <Ul>
             <li>채널: 회사의 웹사이트·앱, 회사가 운영하는 SNS 계정, 회사가 집행하는 유료 광고(검색·SNS·디스플레이 광고), 보도자료 및 제휴사 소개 자료</li>
             <li>편집: 크기 조정, 자르기, 텍스트·로고 오버레이는 허용하며, 사진의 내용을 왜곡하거나 합성하는 편집은 하지 않습니다</li>

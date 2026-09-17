@@ -34,6 +34,10 @@ export type PhotographerDoc = {
  * ⚠️ 함수인 이유 — **수수료 요율이 작가마다 다르다.** 상수로 두면 전역 기본값이 박히고,
  *    개별 요율을 받은 작가가 "20% 라고 적혀 있는데 내 정산은 다르다" 를 겪는다
  *    (2026-09-17 신고). 요율을 안 넘기면 기본값이라 공개 지면은 그대로 쓸 수 있다.
+ *
+ * ⚠️ 요율이 박히는 곳은 **둘**이다 — 수수료 정책 제1조와 입점 계약 제5조 2항. 처음엔
+ *    수수료 정책만 고쳐서, 같은 화면 안에서 두 문서가 다른 숫자를 보여줬다. 계약 제2조
+ *    2항이 "충돌하면 이 계약이 먼저" 라 하필 틀린 쪽이 이기는 문안이었다.
  */
 export function photographerDocs(opts?: { feeRate?: number | null }): PhotographerDoc[] {
   return [
@@ -43,7 +47,8 @@ export function photographerDocs(opts?: { feeRate?: number | null }): Photograph
     href: "/terms/photographer-contract",
     version: PHOTOGRAPHER_CONTRACT_VERSION,
     summary: "계약 당사자·기간·해지, 홍보 사용 동의",
-    body: <PhotographerContractBody />,
+    // 요율이 제5조 2항에 박힌다 — 수수료 정책과 같은 값을 보여줘야 한다
+    body: <PhotographerContractBody rate={opts?.feeRate} />,
   },
   {
     key: "terms",

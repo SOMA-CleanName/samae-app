@@ -20,6 +20,8 @@ export type ProfileInitial = {
   legalName: string;
   businessType: string;
   businessNo: string;
+  /** 이미 올려 둔 사업자등록증이 있으면 그 시각 */
+  licenseUploadedAt: string | null;
 };
 
 // 작가 프로필 편집
@@ -31,7 +33,7 @@ export default async function ProfilePage() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("photographers")
-    .select("display_name, bio, regions, mood_tags, price_from_krw, contact_methods, legal_name, business_type, business_no")
+    .select("display_name, bio, regions, mood_tags, price_from_krw, contact_methods, legal_name, business_type, business_no, business_license_uploaded_at")
     .eq("id", me.photographer.id)
     .single();
 
@@ -54,6 +56,7 @@ export default async function ProfilePage() {
     legalName: data?.legal_name ?? "",
     businessType: data?.business_type ?? "",
     businessNo: data?.business_no ?? "",
+    licenseUploadedAt: (data?.business_license_uploaded_at as string | null) ?? null,
   };
 
   return (

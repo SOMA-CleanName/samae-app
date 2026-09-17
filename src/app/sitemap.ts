@@ -121,15 +121,38 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: 0.9,
       }));
 
-    const { data } = await admin
-      .from("photos")
-      .select("id, photographer_id, updated_at")
-      .eq("visibility", "published")
-      .order("created_at", { ascending: false })
-      .limit(5000);
+    // 🔴 **`.limit(5000)` 은 안 먹는다.** PostgREST 는 요청당 반환 행을 기본 1000 으로 자르고,
+    //    그 상한이 클라이언트 limit 보다 우선한다. 그래서 공개 사진이 1779장인데 sitemap 에는
+    //    정확히 1000개만 실려 있었다 — **44% 가 조용히 빠진 채로** 몇 달을 보냈다
+    //    (2026-09-17 점검). 잘린 게 아니라 채워진 것처럼 보여서 눈치채기 어렵다.
+    //
+    //    range() 로 페이지를 넘겨 가며 다 가져온다. 마지막 페이지는 PAGE 보다 짧다.
+    const PAGE = 1000;
+    const MAX = 45_000; // sitemap.xml 한 장의 표준 상한은 50,000 — 정적 경로 몫을 남긴다
+    const rows: Array<{ id: string; photographer_id: string | null; updated_at: string | null }> = [];
+    for (let from = 0; from < MAX; from += PAGE) {
+      const { data: page } = await admin
+        .from("photos")
+        .select("id, photographer_id, updated_at")
+        .eq("visibility", "published")
+        .order("created_at", { ascending: false })
+        .range(from, from + PAGE - 1);
+      const got = (page ?? []) as typeof rows;
+      rows.push(...got);
+      if (got.length < PAGE) break; // 마지막 페이지
+    }
 
-    const rows = data ?? [];
-    const photographerIds = [...new Set(rows.map((r) => r.photographer_id).filter(Boolean))];
+    // 작가 페이지는 **작가 표에서 직접** 뽑는다. 사진 목록에서 역산하면 위 페이지네이션이
+    // 잘릴 때 작가까지 같이 사라진다 — 실제로 17명 중 11명만 실려 있었다.
+    // 사진이 한 장도 없는 작가는 뺀다(빈 프로필은 색인 품질만 깎는다).
+    const withPhotos = new Set(rows.map((r) => r.photographer_id).filter(Boolean) as string[]);
+    const { data: approved } = await admin
+      .from("photographers")
+      .select("id")
+      .eq("status", "approved");
+    const photographerIds = (approved ?? [])
+      .map((p) => p.id as string)
+      .filter((id) => withPhotos.has(id));
 
     const photographerEntries: MetadataRoute.Sitemap = photographerIds.map((id) => ({
       url: `${SITE_URL}/photographers/${id}`,

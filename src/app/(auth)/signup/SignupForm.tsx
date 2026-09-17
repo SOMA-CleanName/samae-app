@@ -231,14 +231,15 @@ export function SignupForm({ kakaoTermsTags }: { kakaoTermsTags?: string | null 
                 <input type="checkbox" checked={agreedTerms} onChange={(e) => setAgreedTerms(e.target.checked)} className="mt-0.5 h-4 w-4 accent-brand" />
                 <span>
                   (필수){" "}
-                  <Link href="/terms" target="_blank" className="underline underline-offset-2">서비스 이용약관</Link>에 동의합니다
+                  {/* ?plain=1 — 읽으러 연 탭에서 푸터·내비를 빼 홈으로 새지 않게 (ConsentForm 과 같은 규칙) */}
+                  <Link href="/terms?plain=1" target="_blank" className="underline underline-offset-2">서비스 이용약관</Link>에 동의합니다
                 </span>
               </label>
               <label className="flex cursor-pointer items-start gap-2">
                 <input type="checkbox" checked={agreedPrivacy} onChange={(e) => setAgreedPrivacy(e.target.checked)} className="mt-0.5 h-4 w-4 accent-brand" />
                 <span>
                   (필수){" "}
-                  <Link href="/privacy" target="_blank" className="underline underline-offset-2">개인정보 처리방침</Link>에 동의합니다
+                  <Link href="/privacy?plain=1" target="_blank" className="underline underline-offset-2">개인정보 처리방침</Link>에 동의합니다
                 </span>
               </label>
             </div>

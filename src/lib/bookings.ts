@@ -35,13 +35,18 @@ export type BookingRow = {
   package_snapshot: { name?: string; delivery_days?: number } | null;
   delivery_due_at: string | null;
   delivered_at: string | null;
+  /**
+   * 회원이 이 촬영 결과물의 포트폴리오·홍보 사용을 거부한 시각 (0129).
+   * 작가약관 13조 4항 · 입점계약 4조 3항이 약속한 권리다 — null 이면 거부하지 않음.
+   */
+  portrait_optout_at: string | null;
   photographer: { display_name: string | null } | null;
   user: { display_name: string | null } | null;
   package: { name: string } | null;
 };
 
 const SELECT =
-  "id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, memo, user_id, photographer_id, created_at, accepted_at, transfer_marked_at, late_booking_consent_at, proposed_by_photographer, package_snapshot, delivery_due_at, delivered_at, " +
+  "id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, memo, user_id, photographer_id, created_at, accepted_at, transfer_marked_at, late_booking_consent_at, proposed_by_photographer, package_snapshot, delivery_due_at, delivered_at, portrait_optout_at, " +
   "photographer:photographers(display_name), " +
   "user:profiles!bookings_user_id_fkey(display_name), " +
   "package:packages(name)";
