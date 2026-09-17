@@ -1,7 +1,7 @@
 """Validate the multi-axis decisions against the input and compile the axis rows.
 
 Replaces compile_mood_review.py for this pass. That one is built on the pilot's
-primary/secondary split, which was retired (docs/36 §10-1): `황혼` must sit on 시간대
+primary/secondary split, which was retired (docs/40 §10-1): `황혼` must sit on 시간대
 and 빛 as equals, because a primary-only search drops it from one of the two. It is
 kept as is — the pilot's 500 rows still have to be read back in its format (§13-6).
 
@@ -22,7 +22,7 @@ from pathlib import Path
 OUT = Path(__file__).resolve().parent / "out" / "mood-vocabulary"
 VERSION = "mood-axis-v1"
 # 계절·날씨는 한 축이다. 비·눈·구름은 온도도 빛도 색감도 아니라 갈 데가 없었고,
-# 계절 낱말과 뿌리가 같아(봄비·겨울바람·가을볕) 나눌 실익이 없다 (docs/36 §8).
+# 계절 낱말과 뿌리가 같아(봄비·겨울바람·가을볕) 나눌 실익이 없다 (docs/40 §8).
 AXES = {"감정", "관계", "스타일", "온도", "계절·날씨", "빛", "색감", "질감", "에너지", "공간", "시간대"}
 SEPARATOR = "|||"
 FIELDS = 5

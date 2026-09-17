@@ -23,7 +23,7 @@
 
 - [x] `photo-purpose/page.tsx`에서 배열을 조회하고 `actions.ts`에서 검증된 배열을 새 RPC에 전달한다.
 - [x] `PhotoPurposeWorkspace.tsx`를 다중 토글로 바꾸고 선택 목록·미적용 상태, 복수 배지, 적용 버튼을 목적 선택 바로 아래 표시한다.
-- [x] `docs/35-photo-purpose-taxonomy.md`에 다중 목적과 호환 규칙을 반영한다.
+- [x] `docs/39-photo-purpose-taxonomy.md`에 다중 목적과 호환 규칙을 반영한다.
 - [x] 관련/전체 테스트, TypeScript, 변경 파일 ESLint, 프로덕션 빌드 및 독립 리뷰를 완료한다. 브라우저는 연결 가능 여부를 확인해 실제 검증 범위를 보고한다.
 
 ## 검증 및 적용 결과

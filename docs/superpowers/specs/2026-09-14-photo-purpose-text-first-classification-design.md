@@ -4,7 +4,7 @@
 >
 > 상태: 설계 승인
 >
-> 기준 문서: [사진 목적 분류 원칙](../../35-photo-purpose-taxonomy.md)
+> 기준 문서: [사진 목적 분류 원칙](../../39-photo-purpose-taxonomy.md)
 >
 > 대체 범위: 기존 SigLIP 단독 분류 설계의 입력·판정·출처 규칙
 

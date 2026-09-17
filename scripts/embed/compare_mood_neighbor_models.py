@@ -9,7 +9,7 @@ real output for every head and measures the two things that exposed it:
   hub concentration  how much of the top-10 neighbour slots a few heads take
   symmetry           if B is A's neighbour, is A also B's
 
-Axes are deliberately not used. They are a label, not a relation (docs/36 §10-1).
+Axes are deliberately not used. They are a label, not a relation (docs/40 §10-1).
 """
 import json
 import sys

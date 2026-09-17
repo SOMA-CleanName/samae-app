@@ -5,7 +5,7 @@ ninth: the contamination outranks the real neighbour, so no cut on the score can
 keep one and drop the other. Orthography cannot separate them either — Korean
 derivation means a shared first syllable often *is* a shared root (노을 → 노란색),
 and photo co-occurrence is worse than useless here, running higher on the
-contaminated pairs than on the clean ones (docs/36 §14-3).
+contaminated pairs than on the clean ones (docs/40 §14-3).
 
 What is left is reading the meaning. Judged per head rather than per pair: 30
 candidates in one prompt is 2,647 calls instead of 79,410, and the model ranks

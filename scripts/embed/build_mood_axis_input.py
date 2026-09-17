@@ -1,7 +1,7 @@
 """Render the representative moods as numbered text for the axis pass.
 
 Axes are assigned to the 2,647 representatives, not to all 5,176 words — members
-follow their head (docs/36 §10). The graph and every definition the reviewer reads
+follow their head (docs/40 §10). The graph and every definition the reviewer reads
 come from the committed bundle, so this runs on any machine; `out/` is Git-excluded
 and only exists where the vectors were produced (§9-6).
 

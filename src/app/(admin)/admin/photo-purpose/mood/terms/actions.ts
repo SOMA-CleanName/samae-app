@@ -9,7 +9,7 @@ const ACTIONS = new Set<TermAction>(["rename", "drop", "add"]);
 
 /**
  * 검색어 하나를 고친다. 자동 생성분은 건드리지 않고 수정 기록만 덧붙인다 —
- * 어휘를 다시 정리해도 이 기록이 살아남아 다시 덮인다 (docs/36 §9-5 의 교훈).
+ * 어휘를 다시 정리해도 이 기록이 살아남아 다시 덮인다 (docs/40 §9-5 의 교훈).
  */
 export async function editTerm(formData: FormData) {
   const head = String(formData.get("head") ?? "").trim();

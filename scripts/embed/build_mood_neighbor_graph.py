@@ -17,7 +17,7 @@ qwen3-embedding came last on the bare word (47.2% symmetry) and first with conte
 (59.3%), which is the shape you would expect from a large general model: it needs
 something to read. KURE, Korean-specialised, was the reverse.
 
-Axes are not used. They are a label, not a relation (docs/36 §10-1).
+Axes are not used. They are a label, not a relation (docs/40 §10-1).
 """
 import json
 import time

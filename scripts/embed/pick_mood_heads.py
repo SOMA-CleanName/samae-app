@@ -7,7 +7,7 @@ Two signals, in this order:
    does not mean — 단순(초급) beat 뚜렷하다 for the "또렷하다" family, and 성 beat
    화나다 for anger. Centroid distance settles that before level is consulted.
 2. Among the words that do sit near the middle, the easier one wins. No frequency
-   corpus was collected (docs/36 §1), so the dictionary's level stands in for
+   corpus was collected (docs/40 §1), so the dictionary's level stands in for
    "more common", and the report says so rather than claiming a usage ranking.
 
 Ties break on part of speech before length: 고요하다 heads its cluster, not 고요히,

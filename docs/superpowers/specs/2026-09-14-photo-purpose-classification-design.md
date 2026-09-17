@@ -4,7 +4,7 @@
 >
 > 상태: 구현 및 1차 백필 완료
 >
-> 기준 문서: [사진 목적 분류 원칙](../../35-photo-purpose-taxonomy.md)
+> 기준 문서: [사진 목적 분류 원칙](../../39-photo-purpose-taxonomy.md)
 
 ## 1. 목적
 

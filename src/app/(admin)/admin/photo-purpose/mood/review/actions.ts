@@ -9,7 +9,7 @@ const STATUSES = new Set(["ok", "head", "split", "drop"]);
 
 /**
  * 판정을 파일에 적는다. DB에는 쓰지 않는다 — 이 화면은 임시 검수용이고,
- * 무드 어휘는 아직 어떤 테이블로 갈지 정해지지 않았다(docs/36 §3).
+ * 무드 어휘는 아직 어떤 테이블로 갈지 정해지지 않았다(docs/40 §3).
  */
 export async function recordVerdict(formData: FormData) {
   const key = String(formData.get("key") ?? "").trim();

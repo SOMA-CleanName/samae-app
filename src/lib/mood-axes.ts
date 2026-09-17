@@ -47,7 +47,7 @@ export const AXIS_BAR: Record<string, string> = {
   "공간": "bg-sky-400", "시간대": "bg-indigo-400",
 };
 
-/** 축은 대등하다. 어느 축을 골라도 그 축이 붙은 묶음은 모두 나온다 (docs/36 §10-1). */
+/** 축은 대등하다. 어느 축을 골라도 그 축이 붙은 묶음은 모두 나온다 (docs/40 §10-1). */
 export type Filter = { axis: string; q: string; multi: boolean };
 
 export function selectGroups(groups: AxisGroup[], filter: Filter) {

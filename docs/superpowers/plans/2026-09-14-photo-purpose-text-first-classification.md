@@ -45,7 +45,7 @@
 - `src/app/(admin)/admin/photo-purpose/page.tsx`: joins classification evidence, package, category, and author tags.
 - `src/app/(admin)/admin/photo-purpose/PhotoPurposeWorkspace.tsx`: displays source/evidence/package and package-link control.
 - `src/app/(admin)/admin/photo-purpose/actions.ts`: validates and saves an admin package link.
-- `docs/35-photo-purpose-taxonomy.md`: records the v4 text-first operational result.
+- `docs/39-photo-purpose-taxonomy.md`: records the v4 text-first operational result.
 
 ---
 
@@ -416,7 +416,7 @@ git commit -m "feat: show purpose classification evidence"
 ### Task 6: Dry-run, apply, and regression verification
 
 **Files:**
-- Modify: `docs/35-photo-purpose-taxonomy.md`
+- Modify: `docs/39-photo-purpose-taxonomy.md`
 
 **Interfaces:**
 - Consumes: `purpose-v4-text-first` classifier and migration.
@@ -474,12 +474,12 @@ At local port 3000, verify a photographer can create/edit a portfolio with a pac
 
 - [ ] **Step 8: Document measured v4 results**
 
-Update `docs/35-photo-purpose-taxonomy.md` with version, source distribution, classified/unclassified counts, regression case result, protection counts, and artifact path.
+Update `docs/39-photo-purpose-taxonomy.md` with version, source distribution, classified/unclassified counts, regression case result, protection counts, and artifact path.
 
 - [ ] **Step 9: Commit operational documentation**
 
 ```bash
-git add docs/35-photo-purpose-taxonomy.md
+git add docs/39-photo-purpose-taxonomy.md
 git commit -m "docs: record text-first purpose backfill"
 ```
 

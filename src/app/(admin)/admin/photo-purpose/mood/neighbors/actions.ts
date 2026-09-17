@@ -9,7 +9,7 @@ const ACTIONS = new Set<EditAction>(["add", "remove"]);
 
 /**
  * 간선 하나를 잇거나 끊는다. 자동 생성분은 건드리지 않고 수정 기록만 덧붙인다 —
- * 그래프를 다시 만들어도 이 기록이 살아남아 다시 덮인다 (docs/36 §9-5 의 교훈).
+ * 그래프를 다시 만들어도 이 기록이 살아남아 다시 덮인다 (docs/40 §9-5 의 교훈).
  * 되돌리기도 지우지 않고 반대 기록을 한 줄 더 남긴다.
  */
 export async function editEdge(formData: FormData) {

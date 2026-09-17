@@ -469,7 +469,7 @@ git commit -m "feat: add admin photo purpose workspace"
 ### Task 6: Dry-run calibration, migration, and first backfill
 
 **Files:**
-- Modify: `docs/35-photo-purpose-taxonomy.md`
+- Modify: `docs/39-photo-purpose-taxonomy.md`
 - Modify: `docs/superpowers/specs/2026-09-14-photo-purpose-classification-design.md`
 - Runtime artifacts: `/private/tmp/samae-purpose-analysis/purpose-v1/`
 
@@ -566,6 +566,6 @@ Expected: all commands exit 0.
 - [ ] **Step 11: Commit calibration and verification records**
 
 ```bash
-git add docs/35-photo-purpose-taxonomy.md docs/superpowers/specs/2026-09-14-photo-purpose-classification-design.md scripts/embed/purposes.py
+git add docs/39-photo-purpose-taxonomy.md docs/superpowers/specs/2026-09-14-photo-purpose-classification-design.md scripts/embed/purposes.py
 git commit -m "docs: record purpose classification rollout"
 ```
