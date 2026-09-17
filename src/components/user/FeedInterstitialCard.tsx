@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { mpTrack } from "@/lib/mixpanel";
 import type { FeedInterstitial } from "@/lib/feed-interstitials";
+// 카드 한 칸에 원본이 내려오고 있었다 — 같은 사진의 썸네일은 10분의 1 이다
+import { thumbUrl } from "@/lib/image-thumb";
 
 /**
  * 피드 사이에 끼는 카드.
@@ -41,7 +43,7 @@ export function FeedInterstitialCard({ item }: { item: FeedInterstitial }) {
         {item.imageUrl && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={item.imageUrl}
+            src={thumbUrl(item.imageUrl)}
             alt=""
             loading="lazy"
             className="fi-img absolute inset-0 h-full w-full object-cover"
@@ -94,7 +96,7 @@ export function FeedInterstitialCard({ item }: { item: FeedInterstitial }) {
           // eslint-disable-next-line @next/next/no-img-element
           <img
             key={i}
-            src={u}
+            src={thumbUrl(u)}
             alt=""
             loading="lazy"
             className="fi-img aspect-square w-full object-cover"
