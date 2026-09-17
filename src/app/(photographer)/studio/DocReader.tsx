@@ -58,12 +58,22 @@ export function DocReader({
     // ⚠️ **rAF 로 감싸지 않는다.** 탭이 앞에 없으면 rAF 가 통째로 멈춰서, 끝까지 읽어도
     //    버튼이 안 열린다. IO 가 안 울린 것도 같은 이유였다. 계산은 요소 하나의
     //    getBoundingClientRect 뿐이라 스크롤마다 그냥 해도 싸다.
+    let done = false;
     const check = () => {
       const el = endRef.current;
-      if (!el) return;
+      if (!el || done) return;
       // 끝 표지의 윗변이 하단 고정 막대 위로 올라오면 "바닥까지 읽었다"
       const top = el.getBoundingClientRect().top;
-      if (top <= window.innerHeight - BOTTOM_BAR_PX + EDGE_SLACK_PX) setReachedEnd(true);
+      const markerSeen = top <= window.innerHeight - BOTTOM_BAR_PX + EDGE_SLACK_PX;
+      // 표지 계산과 별개로, **문서 바닥에 닿았으면** 무조건 읽은 것이다.
+      // 여백·확대 배율 때문에 표지가 기준선까지 못 올라오는 경우를 덮는다.
+      const doc = document.documentElement;
+      const atBottom =
+        window.innerHeight + window.scrollY >= doc.scrollHeight - EDGE_SLACK_PX;
+      if (markerSeen || atBottom) {
+        done = true;
+        setReachedEnd(true);
+      }
     };
     // 문서를 열면 **맨 위부터**. 앞 문서에서 내려온 위치가 남아 있으면 새 문서를
     // 중간부터 보게 되고, 운이 나쁘면 끝 표지가 이미 화면에 있어 그냥 열린다.
@@ -73,10 +83,29 @@ export function DocReader({
     const first = window.setTimeout(check, 0);
     window.addEventListener("scroll", check, { passive: true });
     window.addEventListener("resize", check);
+    // 모멘텀 스크롤이 멈춘 뒤 한 번 더. 손을 떼고 미끄러져 바닥에 닿는 경우
+    // 마지막 scroll 이 바닥 직전 좌표로 오고 끝나는 일이 있다.
+    window.addEventListener("scrollend", check);
+
+    // ⚠️ **이벤트만 믿지 않는다.** 실제로 끝까지 내렸는데 버튼이 안 열리고, 살짝
+    //    올렸다 내리면 그제서야 열린다는 신고를 받았다(2026-09-17). 어떤 이벤트가
+    //    어디서 새는지 기기마다 다르고, 새는 순간 사용자는 **영영 갇힌다** — 왜 막혔는지
+    //    알 방법도 없다. 그래서 열릴 때까지 주기적으로도 확인한다.
+    //    재는 건 요소 하나의 getBoundingClientRect 라 싸고, 열리면 스스로 멈춘다.
+    let poll = 0;
+    const tick = () => {
+      check();
+      // 열렸으면 더 잴 이유가 없다
+      if (done) window.clearInterval(poll);
+    };
+    poll = window.setInterval(tick, 300);
+
     return () => {
       window.clearTimeout(first);
+      window.clearInterval(poll);
       window.removeEventListener("scroll", check);
       window.removeEventListener("resize", check);
+      window.removeEventListener("scrollend", check);
     };
   }, []);
 

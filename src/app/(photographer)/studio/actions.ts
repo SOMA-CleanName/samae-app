@@ -136,24 +136,6 @@ export async function updateProfile(
       ? `${bizDigits.slice(0, 3)}-${bizDigits.slice(3, 5)}-${bizDigits.slice(5)}`
       : null;
 
-  // 사업자 작가는 등록증이 있어야 통과한다. 번호만으로는 세금계산서를 못 만들고
-  // (필수 기재사항이 등록번호+상호+대표자다), 번호의 소유자도 확인되지 않는다.
-  //
-  // ⚠️ 화면이 보낸 "올렸다" 를 믿지 않는다 — hidden 은 얼마든지 고쳐 보낼 수 있다.
-  //    실제로 파일이 올라와 있는지 DB 를 본다.
-  if (v.businessType && v.businessType !== "unregistered") {
-    const { data: lic } = await createAdminClient()
-      .from("photographers")
-      .select("business_license_path")
-      .eq("profile_id", user.id)
-      .maybeSingle();
-    if (!lic?.business_license_path) {
-      return {
-        error: "사업자등록증을 올려주세요.",
-        fieldErrors: { businessLicense: "수수료 세금계산서 발급에 필요해요." },
-      };
-    }
-  }
 
   // 작가명 중복 불가 (본인 제외)
   if (await isDisplayNameTaken(v.displayName, user.id)) {
@@ -271,6 +253,20 @@ export async function agreePhotographerContract(formData: FormData): Promise<voi
     const digits = String(formData.get("businessNo") || "").replace(/[^0-9]/g, "");
     if (digits.length !== 10) throw new Error("사업자등록번호 10자리를 입력해주세요.");
     businessNo = `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
+
+    // 사업자 작가는 등록증이 있어야 계약이 성립한다. 번호만으로는 세금계산서를 못 만들고
+    // (필수 기재사항이 등록번호+상호+대표자다), 그 번호가 이 작가 것인지도 확인되지 않는다.
+    //
+    // ⚠️ 화면이 보낸 "올렸다"(hidden) 를 믿지 않는다 — 얼마든지 고쳐 보낼 수 있다.
+    //    실제로 파일이 올라와 있는지 DB 를 본다.
+    const { data: lic } = await createAdminClient()
+      .from("photographers")
+      .select("business_license_path")
+      .eq("profile_id", me.id)
+      .maybeSingle();
+    if (!lic?.business_license_path) {
+      throw new Error("사업자등록증을 올려주세요. 수수료 세금계산서 발급에 필요해요.");
+    }
   }
 
   const promoConsent = formData.get("promoConsent") === "on";
