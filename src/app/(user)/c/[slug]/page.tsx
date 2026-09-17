@@ -21,7 +21,8 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { EmptyState } from "@/components/ui";
 import { LayersIcon } from "@/components/user/icons";
 import type { Metadata } from "next";
-import { categoryMetadata } from "@/lib/seo";
+import { categoryMetadata, collectionJsonLd, breadcrumbJsonLd } from "@/lib/seo";
+import { JsonLd } from "@/components/JsonLd";
 
 export const dynamic = "force-dynamic";
 
@@ -113,9 +114,26 @@ export default async function CategoryPage({
   // 그 사진을 보러 온 사람인데 사이 카드가 끼면 정작 클릭한 사진이 아래로 밀리기 때문이다.
   const interstitials = isAdEntry ? [] : await buildFeedInterstitials(photos);
 
+  /*
+    검색·AI 가 읽을 구조. 여기만 JSON-LD 가 하나도 없었다(2026-09-17 점검) —
+    /explore/{slug} 는 CollectionPage 를 심는데 같은 성격인 /c/{slug} 는 비어 있었다.
+    사진이 없으면 collectionJsonLd 가 null 을 주고 아무것도 안 심는다.
+  */
+  const collection = collectionJsonLd({
+    title: `${category.name} 사진`,
+    path: `/c/${slug}`,
+    photoIds: photos.map((p) => p.id),
+  });
+  const breadcrumb = breadcrumbJsonLd([
+    { name: "홈", path: "/" },
+    { name: category.name, path: `/c/${slug}` },
+  ]);
+
   return (
     // 지면 폭 상한 — 홈과 같은 이유·같은 값. (근거는 (user)/page.tsx 주석)
     <section className="mx-auto max-w-screen-2xl px-2.5 pb-2.5 pt-3.5 font-kr sm:px-4 sm:pt-5 sm:pb-4">
+      {collection && <JsonLd data={collection} />}
+      <JsonLd data={breadcrumb} />
       <ScrollMemory />
       {/*
         ⚠️ 이 지면의 층 순서는 **홈(/)과 같아야 한다.**

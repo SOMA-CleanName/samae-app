@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { JsonLd } from "@/components/JsonLd";
 import { StickyBack } from "@/components/editorial/StickyBack";
 import { SiteFooter } from "@/components/SiteFooter";
-import { faqJsonLd, breadcrumbJsonLd } from "@/lib/seo";
+import { faqJsonLd, breadcrumbJsonLd, ogImages } from "@/lib/seo";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { findGuideItem, listGuidePageItems } from "@/lib/guide";
 
@@ -53,6 +53,8 @@ export async function generateMetadata({
       description,
       url: `${SITE_URL}${path}`,
       type: "article",
+      // openGraph 를 직접 쓰면 루트 opengraph-image 를 못 물려받는다
+      images: ogImages(),
     },
   };
 }
