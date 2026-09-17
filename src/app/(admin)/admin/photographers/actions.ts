@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
+import { archiveAndDelete } from "@/lib/soft-delete";
 
 // 운영자 권한 확인 (방어적 — RLS 외 이중 체크)
 async function assertAdmin() {
@@ -312,6 +313,51 @@ export async function verifyBusinessLicense(formData: FormData) {
       business_license_note: note,
     })
     .eq("id", id);
+
+  revalidatePath("/admin/photographers");
+}
+
+/**
+ * 작가 퇴출 — **계정은 살리고 작가 등록만 해제한다.**
+ *
+ * 정지(suspendPhotographer)와 다르다. 정지는 status 만 바꿔 노출을 끊고 언제든 되돌린다.
+ * 퇴출은 photographers 행 자체를 없애 그 계정을 **일반 회원으로 되돌린다** — 프로필·사진·
+ * 패키지·대화·후기가 함께 사라지고, 본인은 작가 신청부터 다시 할 수 있다.
+ *
+ * ⚠️ 딸려 나가는 게 많다. photographers 를 참조하는 18개 표가 CASCADE 다 —
+ *    photos·packages·conversations·reviews·albums·availability·highlights…
+ *    그래서 **아카이브 후 삭제**한다(archiveAndDelete). 잘못 눌러도 되돌릴 수 있어야 한다.
+ *
+ * ⚠️ 돈이 걸린 건 막는다. bookings·platform_fees 는 RESTRICT 라 남아 있으면 삭제 자체가
+ *    실패하는데, 그때 나오는 건 FK 위반 메시지뿐이라 운영자가 뭘 해야 할지 모른다.
+ *    먼저 세어 보고 사람 말로 막는다.
+ */
+export async function removePhotographer(formData: FormData) {
+  const me = await getCurrentUser();
+  if (me?.role !== "admin") throw new Error("운영자 권한이 필요합니다.");
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) throw new Error("작가를 찾지 못했습니다.");
+
+  const admin = createAdminClient();
+  const [{ count: bookingCount }, { count: feeCount }] = await Promise.all([
+    admin.from("bookings").select("id", { count: "exact", head: true }).eq("photographer_id", id),
+    admin
+      .from("platform_fees")
+      .select("id", { count: "exact", head: true })
+      .eq("photographer_id", id),
+  ]);
+
+  if ((bookingCount ?? 0) > 0 || (feeCount ?? 0) > 0) {
+    throw new Error(
+      `예약 ${bookingCount ?? 0}건·수수료 ${feeCount ?? 0}건이 남아 있어 퇴출할 수 없어요. ` +
+        "정산·환불을 마무리한 뒤 다시 시도하거나, 노출만 끊으려면 '정지'를 쓰세요."
+    );
+  }
+
+  // 아카이브 후 삭제. 나머지 표는 CASCADE 로 따라 지워진다
+  const res = await archiveAndDelete("photographers", { col: "id", op: "eq", val: id }, me.id);
+  if (res.error) throw new Error(`퇴출 처리 중 문제가 발생했어요. (${res.error})`);
 
   revalidatePath("/admin/photographers");
 }
