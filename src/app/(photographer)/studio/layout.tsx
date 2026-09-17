@@ -40,10 +40,10 @@ export default async function StudioLayout({ children }: { children: React.React
   const supabase = await createClient();
   const agreed = await hasCurrentPhotographerAgreement(supabase, me.photographer.id);
   if (!agreed) {
-    const [{ data: ph }, { data: prior }] = await Promise.all([
+    const [{ data: ph }, { data: prior }, { data: acct }] = await Promise.all([
       supabase
         .from("photographers")
-        .select("legal_name, business_type, business_no, promo_consent, business_license_uploaded_at, fee_mode, fee_rate, fee_amount_krw")
+        .select("legal_name, business_type, business_no, business_license_uploaded_at, fee_mode, fee_rate, fee_amount_krw")
         .eq("id", me.photographer.id)
         .maybeSingle(),
       supabase
@@ -51,6 +51,12 @@ export default async function StudioLayout({ children }: { children: React.React
         .select("id")
         .eq("photographer_id", me.photographer.id)
         .limit(1),
+      // 프로필에서 먼저 넣어 뒀을 수 있다 — 있으면 채워서 다시 치지 않게 한다
+      supabase
+        .from("payout_accounts")
+        .select("bank, number, holder")
+        .eq("photographer_id", me.photographer.id)
+        .maybeSingle(),
     ]);
     return (
       <>
@@ -63,8 +69,10 @@ export default async function StudioLayout({ children }: { children: React.React
           legalName: ph?.legal_name ?? "",
           businessType: (ph?.business_type as BusinessType | null) ?? "",
           businessNo: ph?.business_no ?? "",
-          promoConsent: !!ph?.promo_consent,
           licenseUploadedAt: (ph?.business_license_uploaded_at as string | null) ?? null,
+          bank: (acct?.bank as string | null) ?? "",
+          accountHolder: (acct?.holder as string | null) ?? "",
+          accountNumber: (acct?.number as string | null) ?? "",
         }}
         reason={(prior?.length ?? 0) > 0 ? "updated" : "first"}
       />

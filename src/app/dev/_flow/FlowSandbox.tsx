@@ -288,7 +288,9 @@ export function SandboxAgree() {
         legalName: "",
         businessType: "" as BusinessType | "",
         businessNo: "",
-        promoConsent: false,
+        bank: "",
+        accountHolder: "",
+        accountNumber: "",
       }}
       reason="first"
       submit={submit}

@@ -279,7 +279,6 @@ export async function notifyOpsPhotographerAgreed(params: {
   legalName: string;
   businessType: string;
   businessNo: string | null;
-  promoConsent: boolean;
   contractVersion: string;
 }): Promise<void> {
   const ref = params.photographerId.slice(0, 8);
@@ -293,7 +292,6 @@ export async function notifyOpsPhotographerAgreed(params: {
     `• 계약 당사자: ${params.legalName}`,
     `• 사업자 유형: ${TYPE_LABEL[params.businessType] ?? params.businessType}` +
       (params.businessNo ? ` · ${params.businessNo}` : ""),
-    `• 홍보 사용 동의: ${params.promoConsent ? "동의" : "미동의"}`,
     `• 계약 버전: ${params.contractVersion}`,
     "",
     "오늘이 계약일입니다. 이제부터 사진 게재와 의뢰 수신이 가능해요.",

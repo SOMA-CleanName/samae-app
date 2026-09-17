@@ -269,7 +269,19 @@ export async function agreePhotographerContract(formData: FormData): Promise<voi
     }
   }
 
-  const promoConsent = formData.get("promoConsent") === "on";
+  // 정산 계좌 — 입점에서 받는다. 비어 있으면 첫 정산에서 막히고, 기한이 7영업일이라
+  // (작가약관 13조 2항) 그때 가서 받기 시작하면 넘긴다.
+  const bank = String(formData.get("bank") || "").trim().slice(0, 30);
+  const accountHolder = String(formData.get("accountHolder") || "").trim().slice(0, 40);
+  const accountNumber = String(formData.get("accountNumber") || "").replace(/[^0-9-]/g, "").slice(0, 30);
+  if (!bank || !accountHolder || !accountNumber) {
+    throw new Error("정산 계좌를 입력해주세요. 은행·예금주·계좌번호가 모두 필요해요.");
+  }
+
+  // ⚠️ 홍보 사용 동의는 **여기서 받지 않는다.** 작가약관 제20조 3항이 "사진별로 선택" 을
+  //    정하는데 체크 하나로 전체를 묶어 받고 있었다. 사진 속 인물의 초상권은 사진마다
+  //    사정이 달라서 한 번에 묶는 것 자체가 위험하다. 포트폴리오 업로드에서 사진별로 받는다.
+  //    기존 값은 건드리지 않는다 — 지우면 이미 동의한 사진의 근거가 사라진다.
 
   const h = await headers();
   const ip = (h.get("x-forwarded-for") ?? "").split(",")[0].trim() || null;
@@ -283,8 +295,6 @@ export async function agreePhotographerContract(formData: FormData): Promise<voi
       legal_name: legalName,
       business_type: businessType,
       business_no: businessNo,
-      promo_consent: promoConsent,
-      promo_consent_at: promoConsent ? now : null,
     })
     .eq("id", me.photographer.id);
   if (phErr) throw new Error("작가 정보를 저장하지 못했어요.");
@@ -293,13 +303,19 @@ export async function agreePhotographerContract(formData: FormData): Promise<voi
     photographer_id: me.photographer.id,
     profile_id: me.id,
     versions: PHOTOGRAPHER_AGREEMENT_VERSIONS,
-    promo_consent: promoConsent,
     doc_records: docRecords,
     ip,
     user_agent: userAgent,
     agreed_at: now,
   });
   if (error) throw new Error("동의를 기록하지 못했어요. 다시 시도해주세요.");
+
+  // 계좌 저장 — 작가당 1행(payout_accounts). 프로필에서 고치는 것과 같은 표다
+  const { error: acctErr } = await admin.from("payout_accounts").upsert(
+    { photographer_id: me.photographer.id, bank, number: accountNumber, holder: accountHolder },
+    { onConflict: "photographer_id" }
+  );
+  if (acctErr) throw new Error("정산 계좌를 저장하지 못했어요. 다시 시도해주세요.");
 
   // 운영에 알린다 — 동의 시점이 곧 계약일이고, 사업자 유형에 따라 정산 준비가 갈린다
   await notifyOpsPhotographerAgreed({
@@ -308,14 +324,12 @@ export async function agreePhotographerContract(formData: FormData): Promise<voi
     legalName,
     businessType,
     businessNo,
-    promoConsent,
     contractVersion: PHOTOGRAPHER_AGREEMENT_VERSIONS.contract,
   });
 
   await mpTrackServer("Agree Photographer Contract", me.id, {
     contract_version: PHOTOGRAPHER_AGREEMENT_VERSIONS.contract,
     business_type: businessType,
-    promo_consent: promoConsent,
   });
 
   revalidatePath("/studio", "layout");

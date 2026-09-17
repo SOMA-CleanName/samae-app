@@ -17,41 +17,75 @@ async function assertAdmin() {
 }
 
 // 작가 승인: pending/rejected → approved
+/** 승인 — 정지였다면 우리가 가린 것도 함께 되돌린다 */
 export async function approvePhotographer(formData: FormData) {
   await assertAdmin();
   const id = String(formData.get("id"));
-  const supabase = await createClient();
-  const { error } = await supabase
+  const admin = createAdminClient();
+  const { error } = await admin
     .from("photographers")
     .update({ status: "approved", approved_at: new Date().toISOString() })
     .eq("id", id);
   if (error) throw new Error(error.message);
+
+  // 정지 때 우리가 내린 것만 되돌린다. 작가가 스스로 숨겨 둔 사진은 그대로 둔다
+  const { error: showErr } = await admin.rpc("restore_photographer_content", {
+    p_photographer_id: id,
+  });
+  if (showErr) throw new Error(`노출을 되돌리지 못했어요. (${showErr.message})`);
+
   revalidatePath("/admin/photographers");
 }
 
-// 작가 반려: → rejected
+// 작가 반려: → rejected. 정지와 같이 노출도 끊는다 — 반려된 작가가 피드에 남으면 안 된다
 export async function rejectPhotographer(formData: FormData) {
   await assertAdmin();
   const id = String(formData.get("id"));
-  const supabase = await createClient();
-  const { error } = await supabase
+  const admin = createAdminClient();
+  const { error } = await admin
     .from("photographers")
     .update({ status: "rejected" })
     .eq("id", id);
   if (error) throw new Error(error.message);
+
+  const { error: hideErr } = await admin.rpc("suspend_photographer_content", {
+    p_photographer_id: id,
+  });
+  if (hideErr) throw new Error(`노출을 끊지 못했어요. (${hideErr.message})`);
+
   revalidatePath("/admin/photographers");
 }
 
-// 작가 정지: approved → suspended (탐색/노출 차단). 복구는 승인으로.
+/**
+ * 작가 정지 — **고객에게 어디서도 안 보이게 한다.**
+ *
+ * status 만 바꾸는 걸로는 안 가려진다. 고객 화면(피드·매거진·카테고리·태그·검색·
+ * sitemap·페르소나)이 전부 service_role 로 조회해 RLS 를 통과하고, 앱 쿼리 20여 곳 중
+ * 작가 상태를 거르는 건 일부뿐이다. 실제로 정지해도 사진과 패키지가 그대로 떴다.
+ *
+ * 그래서 **이미 모두가 보고 있는 값**을 내린다 — 사진은 archived, 패키지는 비활성.
+ * 고치지 않은 경로까지 한 번에 가려진다(0126).
+ *
+ * 문의·예약·정산 기록은 건드리지 않는다. 작가를 못 보게 하는 것과 지난 거래를 지우는
+ * 것은 다른 일이다.
+ */
 export async function suspendPhotographer(formData: FormData) {
   await assertAdmin();
   const id = String(formData.get("id"));
-  const supabase = await createClient();
-  const { error } = await supabase
+  const admin = createAdminClient();
+  const { error } = await admin
     .from("photographers")
     .update({ status: "suspended" })
     .eq("id", id);
   if (error) throw new Error(error.message);
+
+  // 공개 중이던 것만 내리고 표시를 남긴다 — 복귀 때 그 표시가 있는 것만 되돌린다.
+  // 작가가 스스로 숨겨 둔 사진을 우리가 공개해 버리면 안 된다.
+  const { error: hideErr } = await admin.rpc("suspend_photographer_content", {
+    p_photographer_id: id,
+  });
+  if (hideErr) throw new Error(`노출을 끊지 못했어요. (${hideErr.message})`);
+
   revalidatePath("/admin/photographers");
 }
 

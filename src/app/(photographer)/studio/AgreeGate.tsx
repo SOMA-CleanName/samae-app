@@ -47,9 +47,12 @@ export function AgreeGate({
     legalName: string;
     businessType: BusinessType | "";
     businessNo: string;
-    promoConsent: boolean;
     /** 이미 올려 둔 사업자등록증이 있으면 그 시각 */
     licenseUploadedAt?: string | null;
+    /** 이미 등록해 둔 정산 계좌 (프로필에서 먼저 넣었을 수 있다) */
+    bank: string;
+    accountHolder: string;
+    accountNumber: string;
   };
   /** "first" 처음 동의 · "updated" 버전이 올라가 다시 동의 */
   reason: "first" | "updated";
@@ -300,28 +303,68 @@ export function AgreeGate({
                 <BusinessLicenseUpload initialUploadedAt={initial.licenseUploadedAt} />
               )}
 
+              {/* 정산 계좌 — 여기서 받는다.
+                  전에는 입점 뒤 프로필에서 따로 받았는데, 계좌가 비어 있으면 첫 정산에서
+                  막힌다. 정산 기한이 7영업일(작가약관 13조 2항)이라 그때 가서 받기 시작하면
+                  기한을 넘긴다. 프로필에서 언제든 바꿀 수 있는 건 그대로다. */}
+              <div className="grid gap-3 sm:grid-cols-3">
+                <label className="block">
+                  <span className="text-body-sm font-semibold">은행</span>
+                  <input
+                    name="bank"
+                    required
+                    maxLength={30}
+                    defaultValue={initial.bank}
+                    placeholder="예: 국민"
+                    className={FIELD}
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-body-sm font-semibold">예금주</span>
+                  <input
+                    name="accountHolder"
+                    required
+                    maxLength={40}
+                    defaultValue={initial.accountHolder}
+                    placeholder="예금주명"
+                    className={FIELD}
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-body-sm font-semibold">계좌번호</span>
+                  <input
+                    name="accountNumber"
+                    required
+                    inputMode="numeric"
+                    maxLength={30}
+                    defaultValue={initial.accountNumber}
+                    placeholder="- 없이 숫자만"
+                    className={FIELD}
+                  />
+                </label>
+              </div>
+              <span className="-mt-1 block text-caption leading-relaxed text-muted">
+                촬영비가 들어올 계좌예요. <b className="font-semibold text-fg">본인(사업자) 명의</b>여야 하고,
+                바뀌면 스튜디오 → 프로필에서 언제든 고칠 수 있어요.
+              </span>
+
             </div>
           </fieldset>
 
-          {/* 홍보 사용 동의 — 선택 (입점계약 7조) */}
+          {/* ⚠️ 홍보 사용은 **여기서 일괄로 받지 않는다.**
+              작가 이용약관 제20조 3항이 "홍보 사용 허용은 **사진별로** 선택한다" 고 정하는데,
+              입점에서 체크 하나로 전체를 묶어 받고 있었다 — 약관과 다르게 동작한 것이다.
+              사진 속 인물의 초상권은 사진마다 사정이 달라서, 한 번에 묶는 것 자체가 위험하다.
+              포트폴리오를 올릴 때 사진마다 고른다(기본은 꺼짐). */}
           <fieldset className="rounded-2xl border border-line p-5">
-            <legend className="px-1.5 text-caption font-medium text-muted">홍보 사용 동의 (선택)</legend>
-            <label className="mt-1 flex cursor-pointer items-start gap-3">
-              <input
-                type="checkbox"
-                name="promoConsent"
-                defaultChecked={initial.promoConsent}
-                className="mt-0.5 h-[18px] w-[18px] shrink-0 accent-brand"
-              />
-              <span className="text-body-sm leading-relaxed text-muted">
-                사매가 내가 게재한 사진과 활동명을 사매 웹·앱, SNS, 유료 광고, 보도자료에 홍보물별 12개월간 쓰는
-                것에 동의합니다. 언제든 철회할 수 있어요.{" "}
-                {/* 새 탭으로 내보내지 않는다 — 읽으러 갔다가 안 돌아온다(InlineDocSheet 주석) */}
-                <InlineDocSheet label="범위와 조건" title="사매 광고 소재 사용 동의">
-                  <AdConsentBody />
-                </InlineDocSheet>
-              </span>
-            </label>
+            <legend className="px-1.5 text-caption font-medium text-muted">홍보 사용</legend>
+            <p className="mt-1 text-body-sm leading-relaxed text-muted">
+              사매 홍보·광고에 쓰는 건 <b className="font-semibold text-fg">사진마다 따로</b> 고르시면 돼요.
+              포트폴리오를 올릴 때 사진별로 선택하고, 언제든 해제할 수 있어요. 여기서 미리 정하지 않습니다.{" "}
+              <InlineDocSheet label="범위와 조건" title="사매 광고 소재 사용 동의">
+                <AdConsentBody />
+              </InlineDocSheet>
+            </p>
           </fieldset>
 
           {error && <p className="text-body-sm text-danger-ink">{error}</p>}
