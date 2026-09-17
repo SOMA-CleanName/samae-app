@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RailArrows } from "@/components/user/RailArrows";
 import type { ArticleCard } from "@/lib/articles";
+// 카드 한 칸에 810KB 원본이 내려오고 있었다 — 같은 사진의 썸네일은 29~84KB 다
+import { thumbUrl } from "@/lib/image-thumb";
 
 /**
  * 아티클 덱 — 카드를 한 장씩 넘겨 본다.
@@ -259,7 +261,7 @@ export function ArticleDeck({ articles }: { articles: ArticleCard[] }) {
                   {a.cover_url && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={a.cover_url}
+                      src={thumbUrl(a.cover_url)}
                       alt={a.cover_alt || a.title}
                       // 가운데 벌의 첫 장만 즉시 — 나머지는 지연
                       loading={i === len ? undefined : "lazy"}

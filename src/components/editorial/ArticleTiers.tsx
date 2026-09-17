@@ -1,4 +1,6 @@
 import Link from "next/link";
+// 92px·74px 칸에 810KB 원본이 내려오고 있었다 — 같은 사진의 썸네일은 29~84KB 다
+import { thumbUrl } from "@/lib/image-thumb";
 import type { ArticleCard } from "@/lib/articles";
 
 /**
@@ -55,7 +57,7 @@ export function ArticleNotice({
         {article.cover_url && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={article.cover_url}
+            src={thumbUrl(article.cover_url)}
             alt=""
             className="ar-img h-full w-full object-cover"
           />
@@ -103,7 +105,7 @@ export function ArticleRows({
               {a.cover_url && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={a.cover_url}
+                  src={thumbUrl(a.cover_url)}
                   alt=""
                   loading="lazy"
                   className="ar-img h-full w-full object-cover"
