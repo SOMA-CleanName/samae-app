@@ -11,6 +11,8 @@ export type ProfileMe = {
   email: string | null;
   avatarUrl: string | null;
   isPhotographer: boolean;
+  /** 작가이거나, 승인 대기 중인 신청이 있는가 — [스튜디오] 노출 기준 */
+  canEnterStudio?: boolean;
   photographerId: string | null;
   isAdmin: boolean;
 };
@@ -134,7 +136,9 @@ export function ProfileSheet({
             한쪽만 고치면 조용히 어긋난다. 일반 회원 메뉴에 작가 메뉴가 섞이지 않는 것도
             덤이다 — 손님의 99%는 작가가 될 생각이 없다.
           */}
-          {me.isPhotographer && (
+          {/* 승인 전 신청자에게도 연다. /studio 가 신청 상태 화면을 이미 갖고 있는데
+              들어갈 길이 주소뿐이었다(2026-09-17 신고). */}
+          {(me.canEnterStudio ?? me.isPhotographer) && (
             <SheetLink href="/studio" onClick={requestClose}>
               스튜디오
             </SheetLink>
