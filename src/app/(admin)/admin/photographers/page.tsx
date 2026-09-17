@@ -9,13 +9,13 @@ import {
   approveApplication,
   rejectApplication,
   deleteApplication,
-  updateLeadPrice,
-  updateDefaultLeadPrice,
   updatePhotographerFee,
   removePhotographer,
 } from "./actions";
 import { DEFAULT_FEE_RATE, feeSpecFromRow, feeSpecLabel } from "@/lib/platform-fee";
 import { BusinessLicenseCell } from "./BusinessLicenseCell";
+import { CopyApprovalScript } from "./CopyApprovalScript";
+import { approvalScript } from "@/lib/ops-alert";
 
 export const dynamic = "force-dynamic";
 
@@ -26,8 +26,6 @@ type Row = {
   regions: string[];
   mood_tags: string[];
   price_from_krw: number;
-  // 리드 단가 — null 이면 기본 단가를 따른다
-  lead_price_krw: number | null;
   // 중개 수수료 — 기본은 정률 20%(수수료정책 1조). 정액은 옛 모델로 명시한 작가만.
   fee_mode: string | null;
   // 사업자등록증 — 세금계산서 발급과 전자상거래법 20조의 "확인" 에 필요하다(0124)
@@ -67,24 +65,22 @@ function when(iso: string): string {
 // 작가 승인 관리 — pending 우선. 가드는 (admin)/layout.
 export default async function AdminPhotographersPage() {
   const supabase = await createClient();
-  const [{ data }, { data: leadData }, { data: platform }] = await Promise.all([
+  const [{ data }, { data: leadData }] = await Promise.all([
     supabase
       .from("photographers")
-      .select("id, display_name, bio, regions, mood_tags, price_from_krw, lead_price_krw, fee_mode, fee_amount_krw, fee_rate, review_count, status, created_at, business_type, business_license_uploaded_at, business_license_verified_at, business_license_note")
+      .select("id, display_name, bio, regions, mood_tags, price_from_krw, fee_mode, fee_amount_krw, fee_rate, review_count, status, created_at, business_type, business_license_uploaded_at, business_license_verified_at, business_license_note")
       .order("created_at", { ascending: false }),
     supabase
       .from("photographer_applications")
       .select("id, profile_id, display_name, portfolio_url, phone, bio, status, created_at")
       .in("status", ["new", "contacted"])
       .order("created_at", { ascending: false }),
-    supabase.from("platform_account").select("default_lead_price_krw").eq("id", true).maybeSingle(),
   ]);
 
   const rows = (data ?? []) as Row[];
   const pending = rows.filter((r) => r.status === "pending");
   const others = rows.filter((r) => r.status !== "pending");
   const leads = (leadData ?? []) as Lead[];
-  const defaultLeadPrice = (platform?.default_lead_price_krw as number | null) ?? 6000;
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-5">
@@ -225,23 +221,6 @@ export default async function AdminPhotographersPage() {
       {/* 전체 작가 — 리드 단가(작가가 리드 1건 해제 시 우리 계좌로 입금하는 금액) 관리 포함 */}
       <section className="mt-10">
         <h2 className="text-body-sm font-medium text-muted">전체 작가 {others.length}</h2>
-        <p className="mt-1 text-caption text-faint">
-          리드 단가는 작가마다 다르게 정할 수 있어요. 비워두면 기본 단가를 따라가고, 단가를 바꾸면 아직 해제하지
-          않은 리드에도 바로 적용돼요(입금 대기·입금 확인된 건은 그대로).
-        </p>
-
-        {/* 기본 단가 — 개별 단가가 없는 작가 전원에게 적용 */}
-        <form
-          action={updateDefaultLeadPrice}
-          className="mt-3 flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-surface px-4 py-3"
-        >
-          <label htmlFor="default-lead-price" className="text-body-sm font-medium text-fg">
-            기본 리드 단가
-          </label>
-          <PriceInput id="default-lead-price" defaultValue={String(defaultLeadPrice)} />
-          <PendingButton size="sm" variant="secondary">저장</PendingButton>
-        </form>
-
         {others.length === 0 ? (
           <p className="mt-3 text-body-sm text-faint">아직 없어요.</p>
         ) : (
@@ -253,25 +232,33 @@ export default async function AdminPhotographersPage() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-body-sm font-semibold text-fg">{r.display_name || "이름 없음"}</p>
                     <p className="truncate text-caption text-faint">
-                      후기 {r.review_count} · 리드 단가 ₩{fmt.format(r.lead_price_krw ?? defaultLeadPrice)}
-                      {r.lead_price_krw === null && " (기본)"}
+                      후기 {r.review_count}
                       {" · 수수료 "}
                       {feeSpecLabel(feeSpecFromRow(r))}
                       {r.fee_mode === "rate" && Number(r.fee_rate ?? DEFAULT_FEE_RATE) === DEFAULT_FEE_RATE && " (기본)"}
                     </p>
                   </div>
                 </div>
-                {/* 사업자등록증 — 세금계산서 발급과 전자상거래법 20조의 "확인" 에 필요하다.
-                    번호만 받아서는 그 번호가 이 작가 것인지 알 수 없다(0124). */}
-                <BusinessLicenseCell
-                  photographerId={r.id}
-                  businessType={r.business_type ?? null}
-                  uploadedAt={r.business_license_uploaded_at ?? null}
-                  verifiedAt={r.business_license_verified_at ?? null}
-                  note={r.business_license_note ?? null}
-                />
-                <div className="flex items-center gap-2 sm:shrink-0">
-                  <LeadPriceForm row={r} defaultLeadPrice={defaultLeadPrice} />
+                {/* ⚠️ 이 줄의 자식들은 모두 **줄어들 수 있어야 한다**(min-w-0 / shrink-0).
+                    전에 등록증 셀을 flex 자식으로 그냥 얹었더니 이름 칸이 글자 하나 폭까지
+                    짓눌려 세로로 흘렀다(2026-09-17 스크린샷). 여기 무언가를 더할 때는
+                    폭을 스스로 정하는 요소인지 먼저 볼 것. */}
+                <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+                  {/* 승인 뒤 "다음에 뭘 하면 되는지" 를 보내야 작가가 멈추지 않는다.
+                      승인 순간 디스코드에도 올라가지만, 다시 보낼 일이 생긴다. */}
+                  <CopyApprovalScript
+                    script={approvalScript({
+                      displayName: r.display_name || "작가",
+                      feeLabel: feeSpecLabel(feeSpecFromRow(r)),
+                    })}
+                  />
+                  <BusinessLicenseCell
+                    photographerId={r.id}
+                    businessType={r.business_type ?? null}
+                    uploadedAt={r.business_license_uploaded_at ?? null}
+                    verifiedAt={r.business_license_verified_at ?? null}
+                    note={r.business_license_note ?? null}
+                  />
                   <FeeForm row={r} />
                   <StatusBadge status={r.status} />
                   <RowAction row={r} />
@@ -321,57 +308,6 @@ function TagRow({ row }: { row: Row }) {
   );
 }
 
-// 원화 금액 입력 — 어드민 전용, 숫자만. placeholder 로 대체값(기본 단가)을 보여준다.
-function PriceInput({
-  id,
-  defaultValue,
-  placeholder,
-  ariaLabel,
-}: {
-  id?: string;
-  defaultValue?: string;
-  placeholder?: string;
-  ariaLabel?: string;
-}) {
-  return (
-    <div className="relative">
-      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-caption text-faint">₩</span>
-      <input
-        id={id}
-        name="price"
-        type="number"
-        min={0}
-        max={10000000}
-        step={1000}
-        inputMode="numeric"
-        defaultValue={defaultValue}
-        placeholder={placeholder}
-        aria-label={ariaLabel}
-        className="w-32 rounded-full border border-line-strong bg-bg py-1.5 pl-7 pr-3 text-body-sm text-fg placeholder:text-faint focus:border-fg/30 focus:outline-none"
-      />
-    </div>
-  );
-}
-
-// 작가별 리드 단가 — 비우고 저장하면 기본 단가로 되돌아간다(lead_price_krw = null)
-function LeadPriceForm({ row, defaultLeadPrice }: { row: Row; defaultLeadPrice: number }) {
-  return (
-    <form action={updateLeadPrice} className="flex items-center gap-1.5">
-      <input type="hidden" name="id" value={row.id} />
-      <PriceInput
-        defaultValue={row.lead_price_krw === null ? "" : String(row.lead_price_krw)}
-        placeholder={fmt.format(defaultLeadPrice)}
-        ariaLabel={`${row.display_name || "작가"} 리드 단가`}
-      />
-      <PendingButton size="sm" variant="ghost">저장</PendingButton>
-    </form>
-  );
-}
-
-// 작가별 중개 수수료 — 정률(%)이 기본이고, 정액(원)은 옛 모델로 남겨둔 것이다.
-//
-// 요율은 퍼센트로 받고 저장할 때 비율로 바꾼다 (0.2 대신 20 을 넣는 사고가 잦아서다).
-// 부가세는 여기 요율에 포함되지 않는다 — 정산 때 별도로 뺀다. 이미 제안된 예약은 스냅샷으로
 // 굳어 있어 여기서 바꿔도 소급되지 않는다. (수수료정책 1조·2조)
 function FeeForm({ row }: { row: Row }) {
   const isRate = row.fee_mode !== "flat";

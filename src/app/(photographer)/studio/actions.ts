@@ -7,7 +7,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { mpTrackServer } from "@/lib/mixpanel-server";
 import { notifyOpsPhotographerAgreed } from "@/lib/ops-alert";
-import { notifyOpsDepositReported } from "@/lib/ops-alert";
 
 // 최저가·가격 상한 (350만원)
 const MAX_PRICE_KRW = 100_000_000; // 사실상 무제한(안전값 1억)
@@ -64,6 +63,24 @@ export type ProfileState = {
 };
 
 // 작가 프로필 수정 (RLS: 본인 행만. status는 가드 트리거로 보호됨)
+
+// 현재 사용자의 작가 id 조회 (RLS: 본인 행)
+async function getCurrentPhotographerId(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string
+): Promise<string | null> {
+  const { data } = await supabase
+    .from("photographers")
+    .select("id")
+    .eq("profile_id", userId)
+    .maybeSingle();
+  return data?.id ?? null;
+}
+
+// ── 연락 수단 (docs/32 §3-3) ───────────────────────────────────
+// 예약이 확정된 뒤 고객에게 건넬 것들. 매번 채팅에 타이핑하지 않게 미리 등록해둔다.
+import { normalizeContactMethods } from "@/lib/photographer-contacts";
+
 export async function updateProfile(
   _prev: ProfileState,
   formData: FormData
@@ -199,115 +216,6 @@ export async function updateProfile(
   // /studio·/studio/profile 은 인증 기반 동적 페이지라 다음 방문 시 자동으로 최신값 반영됨.
   return { ok: true };
 }
-
-// ─────────────────────────────────────────────
-// 리드 다중 해제 신청 — 작가가 블러 리스트에서 여러 건 선택 → new → accepted(입금 대기).
-// 선택분만 원자적으로 전이하고, 실제로 전이된 건수를 반환(이미 수락됐거나 타인 문의는 제외).
-// ─────────────────────────────────────────────
-export async function unlockInquiries(ids: string[]): Promise<{ ok: boolean; count: number }> {
-  const me = await getCurrentUser();
-  if (!me?.photographer) throw new Error("작가 권한이 필요합니다.");
-
-  const clean = Array.from(new Set(ids.filter((v) => typeof v === "string" && v))).slice(0, 50);
-  if (clean.length === 0) return { ok: true, count: 0 };
-
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("inquiries")
-    .update({ status: "accepted", accepted_at: new Date().toISOString() })
-    .eq("photographer_id", me.photographer.id) // 본인 문의만
-    .eq("status", "new") // 아직 미수락인 것만
-    .in("id", clean)
-    .select("id");
-  if (error) throw new Error(error.message);
-
-  // 해제된 문의의 '수락 대기' 알림 읽음 처리
-  const unlockedIds = (data ?? []).map((d) => d.id as string);
-  if (unlockedIds.length > 0) {
-    await admin
-      .from("notifications")
-      .update({ read_at: new Date().toISOString() })
-      .eq("recipient_id", me.id)
-      .eq("type", "booking")
-      .in("inquiry_id", unlockedIds);
-
-    // 다건 해제 — 건별로 작가(공급) 타임라인에 기록
-    for (const uid of unlockedIds) {
-      await mpTrackServer(
-        "Unlock Lead",
-        me.id,
-        { inquiry_id: uid, photographer_id: me.photographer.id, bulk: true },
-        `Unlock Lead:${uid}`,
-      );
-    }
-  }
-
-  revalidatePath("/studio");
-  revalidatePath("/notifications");
-  return { ok: true, count: unlockedIds.length };
-}
-
-// 입금대기 취소 — 작가가 해제 신청(accepted)을 되돌린다. accepted → new(다시 받은 문의로).
-// 입금 확인(confirmed) 이후에는 취소 불가(연락처가 이미 공개됨).
-export async function cancelInquiryUnlock(id: string): Promise<{ ok: boolean }> {
-  const me = await getCurrentUser();
-  if (!me?.photographer) throw new Error("작가 권한이 필요합니다.");
-
-  const admin = createAdminClient();
-  const { error } = await admin
-    .from("inquiries")
-    // new_since 갱신 — 취소 시점부터 만료 7일이 다시 시작된다
-    .update({ status: "new", accepted_at: null, new_since: new Date().toISOString() })
-    .eq("id", id)
-    .eq("photographer_id", me.photographer.id) // 본인 문의만
-    .eq("status", "accepted"); // 입금대기만 — confirmed 는 되돌릴 수 없음
-  if (error) throw new Error(error.message);
-
-  revalidatePath("/studio");
-  return { ok: true };
-}
-
-// 입금완료 신고 — 입금 대기(accepted) 리드에서 작가가 '입금완료'를 누르면 호출.
-// 신고 시각을 기록하고 운영진 디스코드로 알림(작가·건·금액·예금주명·어드민 링크)을 보낸다.
-// 실제 입금확인(→confirmed)은 운영진이 계좌 대조 후 어드민에서 수동 처리.
-export async function reportDepositPaid(id: string): Promise<{ ok: boolean }> {
-  const me = await getCurrentUser();
-  if (!me?.photographer) throw new Error("작가 권한이 필요합니다.");
-
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("inquiries")
-    .update({ deposit_reported_at: new Date().toISOString() })
-    .eq("id", id)
-    .eq("photographer_id", me.photographer.id) // 본인 문의만
-    .eq("status", "accepted") // 입금대기만 — confirmed 이후엔 신고 불필요
-    .select("id")
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  if (!data) return { ok: false }; // 본인 입금대기 건이 아님
-
-  await notifyOpsDepositReported({ inquiryId: id });
-
-  revalidatePath("/studio");
-  return { ok: true };
-}
-
-// 현재 사용자의 작가 id 조회 (RLS: 본인 행)
-async function getCurrentPhotographerId(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string
-): Promise<string | null> {
-  const { data } = await supabase
-    .from("photographers")
-    .select("id")
-    .eq("profile_id", userId)
-    .maybeSingle();
-  return data?.id ?? null;
-}
-
-// ── 연락 수단 (docs/32 §3-3) ───────────────────────────────────
-// 예약이 확정된 뒤 고객에게 건넬 것들. 매번 채팅에 타이핑하지 않게 미리 등록해둔다.
-import { normalizeContactMethods } from "@/lib/photographer-contacts";
 
 export async function updateContactMethods(formData: FormData): Promise<void> {
   const me = await getCurrentUser();
