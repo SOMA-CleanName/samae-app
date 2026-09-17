@@ -8,6 +8,8 @@ import "server-only";
 // RLS 가 published 를 대신 걸러 주므로 보안도 더 낫다.
 import { createPublicClient } from "@/lib/supabase/public";
 import { createAdminClient } from "@/lib/supabase/admin";
+// 순수 함수라 떼어 뒀다 — 여기는 server-only 라 테스트에서 못 부른다
+import { decodeSlug } from "@/lib/guide-slug";
 
 /**
  * Q&A — 운영자가 쓰고 고치는 짧은 문답.
@@ -87,14 +89,7 @@ export async function listGuidePageItems(): Promise<GuideItem[]> {
 }
 
 export async function findGuideItem(slug: string): Promise<GuideItem | null> {
-  // 한글 slug 라 인코딩된 채 들어온다. Next 16 은 동적 param 을 자동 디코딩하지 않는다.
-  const decoded = (() => {
-    try {
-      return decodeURIComponent(slug);
-    } catch {
-      return slug;
-    }
-  })();
+  const decoded = decodeSlug(slug);
   // 짧은 답은 자기 URL 이 없다 — 허브에만 있다. 그래서 page 목록에서 찾는다.
   return (await listGuidePageItems()).find((g) => g.slug === decoded) ?? null;
 }
