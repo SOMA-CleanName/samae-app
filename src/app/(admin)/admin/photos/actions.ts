@@ -12,7 +12,9 @@ async function assertAdmin() {
   }
 }
 
-// 사진 노출 낮춤 토글 (DB 컬럼명 feed_hidden 은 기존 데이터 호환을 위해 유지).
+// 사진 내림 토글 (DB 컬럼명 feed_hidden 은 기존 데이터 호환을 위해 유지).
+// 내리면 피드·탐색·검색·추천·광고·사이트맵에서 빠지고 사진 상세가 noindex 가 된다.
+// 지면 자체와 작가 포트폴리오에는 남는다 — 범위는 admin/photos/page.tsx 주석 참고.
 export async function setPhotoFeedHidden(photoId: string, hidden: boolean): Promise<void> {
   await assertAdmin();
   const admin = createAdminClient();

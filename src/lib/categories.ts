@@ -67,6 +67,7 @@ export async function listCategoriesWithCounts(): Promise<Array<Category & { pho
           .from("photos")
           .select("id", { count: "exact", head: true })
           .eq("visibility", "published")
+          .eq("feed_hidden", false)
           .eq("mood_tags", "{}");
         return count ?? 0;
       }
@@ -74,6 +75,7 @@ export async function listCategoriesWithCounts(): Promise<Array<Category & { pho
         .from("photos")
         .select("id", { count: "exact", head: true })
         .eq("visibility", "published")
+        .eq("feed_hidden", false)
         .overlaps("mood_tags", c.tags);
       return count ?? 0;
     })
@@ -103,7 +105,13 @@ export async function fetchAdCandidates(
   const select = "id, thumb_url, src_url, album_id";
 
   const buildQuery = () => {
-    const q = admin.from("photos").select(select).eq("visibility", "published");
+    // 운영이 내린 사진은 광고 진입 화면에도 띄우지 않는다 — 광고비를 태워 숨긴 사진을
+    // 보여주는 꼴이 된다 (2026-09-17)
+    const q = admin
+      .from("photos")
+      .select(select)
+      .eq("visibility", "published")
+      .eq("feed_hidden", false);
     return isUntaggedCategory(category.tags)
       ? q.eq("mood_tags", "{}")
       : q.overlaps("mood_tags", category.tags);
