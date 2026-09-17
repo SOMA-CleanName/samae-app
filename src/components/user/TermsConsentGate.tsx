@@ -23,18 +23,29 @@
 // 그래서 기존 회원의 약관 동의는 **우리 화면 하나로만** 받는다(/signup/consent).
 // 카카오에서 받는 건 가입 순간뿐이고, 그건 SignupForm·LoginForm 이 `service_terms` 로 한다.
 
+// ── 동의하지 않는 사람에게도 나갈 길이 있어야 한다 ──────────────
+// 회원약관 부칙: "동의하지 않는 회원은 시행일 전에 이용계약을 해지할 수 있습니다."
+// 그런데 이 덮개가 `/settings` 까지 덮어서 **탈퇴 버튼에 닿을 수가 없었다**(2026-09-17 점검).
+// 덮개 안에도 로그아웃이 없어 앱을 아예 빠져나갈 수 없는 상태였다.
+//
+// 그래서 둘을 연다 — `/settings` 는 면제하고(탈퇴하러 가는 길), 덮개에 로그아웃을 둔다.
+// 막는 효과는 그대로다: 동의 없이는 어차피 다른 화면이 전부 덮인다.
+
 import { usePathname } from "next/navigation";
+import { signOut } from "@/app/actions/auth";
 
 export function TermsConsentGate({ revisit }: { revisit: boolean }) {
   const pathname = usePathname();
 
-  // 동의 흐름 자체와 인증 지면에서는 덮지 않는다 — 덮으면 동의를 할 수가 없다
+  // 동의 흐름 자체와 인증 지면에서는 덮지 않는다 — 덮으면 동의를 할 수가 없다.
+  // `/settings` 는 **나가는 문**이라 연다. 동의를 거부한 사람이 탈퇴할 자리다.
   if (
     pathname.startsWith("/signup") ||
     pathname.startsWith("/login") ||
     pathname.startsWith("/auth") ||
     pathname.startsWith("/terms") ||
-    pathname.startsWith("/privacy")
+    pathname.startsWith("/privacy") ||
+    pathname.startsWith("/settings")
   ) {
     return null;
   }
@@ -70,12 +81,34 @@ export function TermsConsentGate({ revisit }: { revisit: boolean }) {
           약관 확인하러 가기
         </a>
 
+        {/* 동의하지 않을 자유가 실제로 있어야 한다. 기존 회원에게는 탈퇴까지 안내한다 —
+            약관 부칙이 "동의하지 않는 회원은 이용계약을 해지할 수 있다" 고 적어 뒀다 */}
+        <form action={signOut} className="mt-2">
+          <button
+            type="submit"
+            className="w-full cursor-pointer rounded-xl py-2.5 text-body-sm font-medium text-muted transition-colors hover:bg-surface-2 hover:text-fg"
+          >
+            {revisit ? "동의하지 않고 로그아웃" : "로그아웃"}
+          </button>
+        </form>
+
+        {revisit && (
+          <p className="mt-1 text-center text-caption leading-relaxed text-faint">
+            계속 이용하지 않으시려면{" "}
+            <a href="/settings" className="underline underline-offset-2 hover:text-muted">
+              설정에서 탈퇴
+            </a>
+            하실 수 있어요.
+          </p>
+        )}
+
         <p className="mt-3 text-center text-caption leading-relaxed text-faint">
-          <a href="/terms" target="_blank" className="underline underline-offset-2 hover:text-muted">
+          {/* ?plain=1 — 읽으러 연 탭에서 푸터를 타고 홈으로 새지 않게 (ConsentForm 과 같은 규칙) */}
+          <a href="/terms?plain=1" target="_blank" className="underline underline-offset-2 hover:text-muted">
             이용약관
           </a>
           {" · "}
-          <a href="/privacy" target="_blank" className="underline underline-offset-2 hover:text-muted">
+          <a href="/privacy?plain=1" target="_blank" className="underline underline-offset-2 hover:text-muted">
             개인정보 처리방침
           </a>
         </p>
