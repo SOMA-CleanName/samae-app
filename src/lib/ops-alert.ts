@@ -187,14 +187,23 @@ const ADMIN_SUPPORT_LINK = SITE_URL ? `${SITE_URL}/admin/support` : "/admin/supp
 async function postDiscord(webhook: string | undefined, lines: string[]) {
   if (!webhook) return; // 미설정이면 조용히 패스(로컬/미배포)
   try {
-    await fetch(webhook, {
+    const res = await fetch(webhook, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ content: lines.join("\n") }),
       redirect: "manual",
     });
-  } catch {
-    // 디스코드 실패가 본 처리를 막지 않게 무시
+    // ⚠️ 응답을 **봐야 한다.** 웹훅이 죽었거나 본문이 거절되면 fetch 는 예외를 던지지 않고
+    //    4xx 를 돌려줄 뿐이다. 전에는 그걸 안 봐서 "알림이 안 왔다" 는 신고를 받고도
+    //    보냈는지조차 알 수 없었다(2026-09-17 입점 동의 알림). 실패는 로그에 남긴다.
+    if (!res.ok) {
+      console.error(
+        `[ops-alert] 디스코드 전송 실패 ${res.status}: ${(await res.text()).slice(0, 200)}`
+      );
+    }
+  } catch (e) {
+    // 디스코드 실패가 본 처리를 막지 않게 삼키되, 조용히 사라지게는 두지 않는다
+    console.error("[ops-alert] 디스코드 전송 중 예외:", e);
   }
 }
 
@@ -277,7 +286,7 @@ export async function notifyOpsPhotographerAgreed(params: {
   const TYPE_LABEL: Record<string, string> = {
     general: "일반과세자",
     simplified: "간이과세자",
-    unregistered: "사업자 미등록 (정산 시 3.3% 원천징수)",
+    unregistered: "사업자 미등록 (지출증빙용 현금영수증 발급)",
   };
   await postDiscord(APPLICATION_WEBHOOK, [
     `✍️ **입점 계약 동의 완료** — ${params.displayName} 작가  (ID \`${ref}\`)`,

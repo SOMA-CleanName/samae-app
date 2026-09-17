@@ -12,6 +12,7 @@ import {
   updateLeadPrice,
   updateDefaultLeadPrice,
   updatePhotographerFee,
+  removePhotographer,
 } from "./actions";
 import { DEFAULT_FEE_RATE, feeSpecFromRow, feeSpecLabel } from "@/lib/platform-fee";
 import { BusinessLicenseCell } from "./BusinessLicenseCell";
@@ -400,15 +401,27 @@ function FeeForm({ row }: { row: Row }) {
 }
 
 // 상태별 액션 — approved→정지 / 그 외→승인
+// 정지와 퇴출은 다르다.
+//   정지 — status 만 바꿔 노출을 끊는다. 언제든 되돌린다
+//   퇴출 — 작가 등록 자체를 없애 **일반 회원으로 되돌린다.** 사진·패키지·대화·후기가
+//          함께 사라지고, 본인은 작가 신청부터 다시 할 수 있다 (아카이브되므로 복구 가능)
 function RowAction({ row }: { row: Row }) {
   if (row.status === "approved") {
     return (
-      <form action={suspendPhotographer}>
-        <input type="hidden" name="id" value={row.id} />
-        <button className="shrink-0 cursor-pointer rounded-full border border-line-strong px-3 py-1 text-caption font-medium text-muted transition-colors hover:bg-fg/[0.04]">
-          정지
-        </button>
-      </form>
+      <div className="flex shrink-0 items-center gap-1.5">
+        <form action={suspendPhotographer}>
+          <input type="hidden" name="id" value={row.id} />
+          <button className="shrink-0 cursor-pointer rounded-full border border-line-strong px-3 py-1 text-caption font-medium text-muted transition-colors hover:bg-fg/[0.04]">
+            정지
+          </button>
+        </form>
+        <form action={removePhotographer}>
+          <input type="hidden" name="id" value={row.id} />
+          <button className="shrink-0 cursor-pointer rounded-full border border-danger/30 px-3 py-1 text-caption font-medium text-danger-ink transition-colors hover:bg-danger/[0.06]">
+            퇴출
+          </button>
+        </form>
+      </div>
     );
   }
   return (
