@@ -2,7 +2,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { fetchUnreadTotalForPhotographer } from "@/lib/chat";
 import { createClient } from "@/lib/supabase/server";
 import { hasCurrentPhotographerAgreement } from "@/lib/consent";
-import type { BusinessType } from "@/lib/platform-fee";
+import { feeSpecFromRow, feeRateForDocs, type BusinessType } from "@/lib/platform-fee";
 import { RealtimeListRefresh } from "@/components/user/RealtimeListRefresh";
 import { ChatToast } from "@/components/user/ChatToast";
 import { StudioSidebar } from "./StudioSidebar";
@@ -43,7 +43,7 @@ export default async function StudioLayout({ children }: { children: React.React
     const [{ data: ph }, { data: prior }] = await Promise.all([
       supabase
         .from("photographers")
-        .select("legal_name, business_type, business_no, promo_consent, business_license_uploaded_at")
+        .select("legal_name, business_type, business_no, promo_consent, business_license_uploaded_at, fee_mode, fee_rate, fee_amount_krw")
         .eq("id", me.photographer.id)
         .maybeSingle(),
       supabase
@@ -57,6 +57,8 @@ export default async function StudioLayout({ children }: { children: React.React
       {gate}
       <AgreeGate
         displayName={me.photographer.displayName}
+        // 문서에 박히는 요율 — 전역 기본값이 아니라 이 작가에게 적용되는 값이다
+        feeRate={feeRateForDocs(feeSpecFromRow(ph))}
         initial={{
           legalName: ph?.legal_name ?? "",
           businessType: (ph?.business_type as BusinessType | null) ?? "",

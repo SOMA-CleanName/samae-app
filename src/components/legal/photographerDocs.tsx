@@ -28,7 +28,15 @@ export type PhotographerDoc = {
   body: ReactNode;
 };
 
-export const PHOTOGRAPHER_DOCS: PhotographerDoc[] = [
+/**
+ * 작가가 동의해야 하는 문서 넷.
+ *
+ * ⚠️ 함수인 이유 — **수수료 요율이 작가마다 다르다.** 상수로 두면 전역 기본값이 박히고,
+ *    개별 요율을 받은 작가가 "20% 라고 적혀 있는데 내 정산은 다르다" 를 겪는다
+ *    (2026-09-17 신고). 요율을 안 넘기면 기본값이라 공개 지면은 그대로 쓸 수 있다.
+ */
+export function photographerDocs(opts?: { feeRate?: number | null }): PhotographerDoc[] {
+  return [
   {
     key: "contract",
     label: "작가 입점 계약",
@@ -51,7 +59,7 @@ export const PHOTOGRAPHER_DOCS: PhotographerDoc[] = [
     href: "/terms/fees",
     version: FEE_POLICY_VERSION,
     summary: "중개 수수료율과 부가세, 정산 시기·방법·공제",
-    body: <FeePolicyBody />,
+    body: <FeePolicyBody rate={opts?.feeRate} />,
   },
   {
     key: "refund",
@@ -61,6 +69,10 @@ export const PHOTOGRAPHER_DOCS: PhotographerDoc[] = [
     summary: "취소 시점별 위약금 구간, 작가 귀책 취소의 책임",
     body: <RefundPolicyBody />,
   },
-];
+  ];
+}
+
+/** 요율과 무관한 곳(순서·개수)에서 쓰는 기본 목록 */
+export const PHOTOGRAPHER_DOCS: PhotographerDoc[] = photographerDocs();
 
 export const DOC_ORDER: DocKey[] = PHOTOGRAPHER_DOCS.map((d) => d.key);
