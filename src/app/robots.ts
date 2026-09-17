@@ -58,22 +58,27 @@ export default function robots(): MetadataRoute.Robots {
     "/my-inquiries", "/favorites", "/notifications", "/settings",
   ];
 
-  // AI 답변(ChatGPT·Perplexity·Claude·구글 AI 개요)에 인용되려면 해당 크롤러가 읽을 수 있어야 한다.
-  // `*` 규칙으로도 이미 허용되지만 **명시해 둔다** — 나중에 `*` 를 조이는 순간
-  // AI 노출이 조용히 사라지는 사고를 막는다. 차단 경로는 `*` 와 동일하게 유지한다.
-  const AI_AGENTS = [
+  // 이름을 붙여 두는 크롤러들. `*` 규칙으로도 이미 허용되지만 **명시해 둔다** —
+  // 나중에 `*` 를 조이는 순간 이쪽 노출이 조용히 사라지는 사고를 막는다.
+  // 차단 경로는 `*` 와 동일하게 유지한다: AI 든 검색엔진이든 같은 선을 적용한다.
+  const NAMED_AGENTS = [
     "GPTBot",           // OpenAI — ChatGPT 검색
     "OAI-SearchBot",    // OpenAI 검색 인덱스
     "PerplexityBot",
     "ClaudeBot",        // Anthropic
     "Google-Extended",  // 구글 Gemini·AI 개요 학습/인용
     "Applebot-Extended",
+    // 네이버. 한국 스냅 검색의 본진이라 AI 크롤러와 같은 이유로 명시해 둔다 —
+    // `*` 를 조이는 순간 조용히 빠지는 걸 막는다. (2026-09-17 네이버 서치어드바이저
+    // 실시간 조회가 "robots.txt 가 존재하지 않습니다" 로 나온 적이 있는데, Yeti UA 로
+    // 직접 받아 보면 200 이라 차단은 아니었다. 그래도 명시가 없는 건 남겨 둘 이유가 없다)
+    "Yeti",
   ];
 
   return {
     rules: [
       { userAgent: "*", allow: "/", disallow: DISALLOW },
-      ...AI_AGENTS.map((userAgent) => ({ userAgent, allow: "/", disallow: DISALLOW })),
+      ...NAMED_AGENTS.map((userAgent) => ({ userAgent, allow: "/", disallow: DISALLOW })),
     ],
     sitemap: `${SITE_URL}/sitemap.xml`,
     host: SITE_URL,

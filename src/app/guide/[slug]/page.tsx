@@ -12,8 +12,23 @@ import { findGuideItem, listGuidePageItems } from "@/lib/guide";
 // 짧은 답은 허브에만 두고 단독 URL 을 주지 않는다. thin content 를 만들지 않기 위해서다.
 
 // Next.js 16: 동적 라우트 param 은 자동 디코딩되지 않는다. 한글 슬러그라 findGuideItem 이 직접 디코딩한다.
+//
+// 🔴 **여기서 encodeURIComponent 를 하면 안 된다.** generateStaticParams 가 돌려주는 값은
+//    **원본(디코딩된) 슬러그**여야 하고, URL 로 만드는 인코딩은 Next 가 한다. 미리 인코딩해서
+//    넘기면 **두 번 인코딩된 경로**로 프리렌더된다(`%EC%B9%9C…` → `%25EC%25B9%259C…`).
+//
+//    그 결과가 고약했다 — 빌드 때 그 이중 인코딩 값으로 findGuideItem 이 돌고, 한 번만
+//    디코딩해서는 어느 슬러그와도 안 맞으니 notFound() 가 **404 페이지로 구워진다.**
+//    정작 진짜 주소(`/guide/%EC%B9%9C…`)는 프리렌더 목록에 없다.
+//
+//    실측 2026-09-17 — /guide 허브가 거는 **14개 링크가 전부 404**였다. sitemap 에도
+//    그대로 실려 구글이 방금 그 14개를 긁어갔고, llms.txt 는 AI 에게 `/guide/{slug}` 를
+//    가장 먼저 읽으라고 안내하고 있었다. 빌드도 통과하고 에러도 안 나서 안 보였다.
+//
+//    같은 라우트인 /spots/[slug] 는 원본 슬러그를 그대로 돌려줘 멀쩡했고(비교군),
+//    /articles/[slug] 는 generateStaticParams 자체가 없어 동적 렌더라 멀쩡했다.
 export async function generateStaticParams() {
-  return (await listGuidePageItems()).map((g) => ({ slug: encodeURIComponent(g.slug) }));
+  return (await listGuidePageItems()).map((g) => ({ slug: g.slug }));
 }
 
 export async function generateMetadata({
