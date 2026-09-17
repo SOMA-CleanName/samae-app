@@ -2,9 +2,6 @@ import { Article, B, Ol, P, Table } from "@/components/legal/LegalDoc";
 import { DEFAULT_FEE_RATE, FEE_VAT_RATE } from "@/lib/platform-fee";
 import { POLICY_EFFECTIVE_DATE } from "@/lib/policy-version";
 
-// 지면과 계산이 어긋나지 않게 요율은 상수에서 읽는다 (lib/platform-fee)
-const RATE_PCT = DEFAULT_FEE_RATE * 100;
-const GROSS_PCT = +(DEFAULT_FEE_RATE * 100 * (1 + FEE_VAT_RATE)).toFixed(2);
 
 /*
   FeePolicyBody — 약관 **본문만**. 화면 껍데기(제목·시행일·뒤로가기)는 쓰는 쪽이 붙인다.
@@ -15,14 +12,44 @@ const GROSS_PCT = +(DEFAULT_FEE_RATE * 100 * (1 + FEE_VAT_RATE)).toFixed(2);
 
   ⚠️ 조문을 여기서 고치지 말 것. 정본은 노션이고, 문안을 바꾸면 `policy-version.ts` 의
      버전도 같이 올려야 한다 — 버전이 그대로면 이미 동의한 작가에게 다시 안 묻는다.
+
+  ⚠️ **요율은 작가마다 다를 수 있다.** 어드민에서 개별 요율을 정할 수 있는데(fee_rate),
+     이 지면이 전역 기본값만 보여 주면 "20% 라고 적혀 있는데 내 정산은 다르다" 가 된다
+     (2026-09-17 신고). 그래서 `rate` 를 받는다.
+
+       · 공개 지면(/terms/fees) — 누가 읽는지 모르므로 기본값. 개별 요율은 입점
+         동의서에 따른다는 안내를 함께 낸다
+       · 입점 동의 화면 — 그 작가에게 **실제로 적용되는** 요율을 넘긴다
 */
-export function FeePolicyBody() {
+export function FeePolicyBody({
+  /**
+   * 이 작가에게 적용되는 요율(0.2 = 20%).
+   * null·미지정이면 전역 기본값으로 쓰고, "작가별로 다를 수 있다" 안내를 함께 낸다
+   * (정액 작가도 여기로 온다 — 퍼센트로 표현할 수 없는 값이다).
+   */
+  rate,
+}: {
+  rate?: number | null;
+} = {}) {
+  const effective = rate ?? DEFAULT_FEE_RATE;
+  // 지면과 계산이 어긋나지 않게 한 곳에서 만든다
+  const RATE_PCT = +(effective * 100).toFixed(2);
+  const GROSS_PCT = +(effective * 100 * (1 + FEE_VAT_RATE)).toFixed(2);
+  const isDefault = rate == null || rate === DEFAULT_FEE_RATE;
+
   return (
     <>
     <Article n="제1조" title="중개 수수료">
       <Ol>
         <li>
           중개 수수료는 촬영 대금의 <B>{RATE_PCT}%</B>입니다. 부가가치세는 별도입니다.
+          {isDefault && (
+            <>
+              {" "}
+              이는 기본 요율이며, 작가별로 다르게 정한 경우에는 입점 동의서에 기재된 요율을
+              적용합니다.
+            </>
+          )}
         </li>
         <li>
           사업자 유형에 따라 실질 부담이 다를 수 있습니다.

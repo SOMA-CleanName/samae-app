@@ -64,6 +64,19 @@ export function vatOnFee(feeKrw: number): number {
 /**
  * 수수료 계산. 기준 금액은 **촬영 대금 전체**다 — 호출부에서 촬영비만 넘기지 말 것.
  */
+/**
+ * **약관 문서에 적을** 요율. 정액(옛 모델)이면 null —
+ * "촬영 대금의 N%" 로 표현할 수 없는 값이라 기본 문구로 둬야 한다.
+ *
+ * ⚠️ 아래 feeRateOf(snapshot) 와 다르다. 저건 **굳은 예약 건**의 요율을 읽어 금액을
+ *    되짚는 용도라 항상 숫자를 돌려준다. 이건 **설정**을 문서 문구로 옮기는 용도다.
+ */
+export function feeRateForDocs(spec: FeeSpec | null | undefined): number | null {
+  const s = spec ?? DEFAULT_FEE_SPEC;
+  if (s.mode !== "rate") return null;
+  return s.rate && s.rate > 0 ? s.rate : DEFAULT_FEE_RATE;
+}
+
 export function resolveFee(spec: FeeSpec | null | undefined, baseKrw: number): FeeSnapshot {
   const base = Math.max(0, Math.round(baseKrw || 0));
   const s = spec ?? DEFAULT_FEE_SPEC;

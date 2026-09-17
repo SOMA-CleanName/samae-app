@@ -282,6 +282,7 @@ export function SandboxAgree() {
   };
   return (
     <AgreeGate
+      feeRate={null}
       displayName={flow.application?.displayName ?? "QA작가"}
       initial={{
         legalName: "",

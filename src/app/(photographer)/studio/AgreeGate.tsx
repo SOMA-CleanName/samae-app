@@ -22,7 +22,7 @@ import { useFormStatus } from "react-dom";
 import { Button, Card } from "@/components/ui";
 import { agreePhotographerContract } from "./actions";
 import { DocReader } from "./DocReader";
-import { PHOTOGRAPHER_DOCS, type DocKey } from "@/components/legal/photographerDocs";
+import { photographerDocs, type DocKey } from "@/components/legal/photographerDocs";
 import { InlineDocSheet } from "@/components/legal/InlineDocSheet";
 import { BusinessLicenseUpload } from "@/components/studio/BusinessLicenseUpload";
 import { AdConsentBody } from "@/components/legal/docs/AdConsentBody";
@@ -33,11 +33,14 @@ type DocRecord = { openedAt: string; agreedAt: string };
 
 export function AgreeGate({
   displayName,
+  feeRate,
   initial,
   reason,
   submit = agreePhotographerContract,
 }: {
   displayName: string;
+  /** 이 작가의 중개 수수료율 (0.2 = 20%). 정액 작가면 null */
+  feeRate: number | null;
   // ⚠️ versions 프로퍼티를 없앴다 — 버전의 진실은 components/legal/photographerDocs 하나다.
   //    무시되는 프로퍼티를 남겨 두면 호출부가 그걸로 버전을 정한다고 착각한다.
   initial: {
@@ -56,6 +59,8 @@ export function AgreeGate({
    */
   submit?: (formData: FormData) => Promise<void>;
 }) {
+  // 이 작가에게 실제로 적용되는 요율로 문서를 만든다 — 전역 기본값이 아니다
+  const DOCS = photographerDocs({ feeRate });
   const [reading, setReading] = useState<DocKey | null>(null);
   const [records, setRecords] = useState<Partial<Record<DocKey, DocRecord>>>({});
   const [openedAt, setOpenedAt] = useState<Partial<Record<DocKey, string>>>({});
@@ -72,13 +77,13 @@ export function AgreeGate({
     setReading(key);
   };
 
-  const allRead = PHOTOGRAPHER_DOCS.every((d) => records[d.key]);
-  const readCount = PHOTOGRAPHER_DOCS.filter((d) => records[d.key]).length;
+  const allRead = DOCS.every((d) => records[d.key]);
+  const readCount = DOCS.filter((d) => records[d.key]).length;
 
   // ── ② 전문 열람 ──
   if (reading) {
-    const idx = PHOTOGRAPHER_DOCS.findIndex((d) => d.key === reading);
-    const doc = PHOTOGRAPHER_DOCS[idx];
+    const idx = DOCS.findIndex((d) => d.key === reading);
+    const doc = DOCS[idx];
     return (
       <DocReader
         // ⚠️ key 가 없으면 React 가 같은 인스턴스를 재사용한다 — 앞 문서에서 켜진
@@ -88,7 +93,7 @@ export function AgreeGate({
         version={doc.version}
         summary={doc.summary}
         step={idx + 1}
-        total={PHOTOGRAPHER_DOCS.length}
+        total={DOCS.length}
         agreed={!!records[doc.key]}
         onBack={() => setReading(null)}
         onAgree={() => {
@@ -100,7 +105,7 @@ export function AgreeGate({
             },
           }));
           // 아직 안 읽은 다음 문서로 이어서 — 목록을 매번 거칠 이유가 없다
-          const next = PHOTOGRAPHER_DOCS.find((d) => d.key !== doc.key && !records[d.key]);
+          const next = DOCS.find((d) => d.key !== doc.key && !records[d.key]);
           if (next) {
             setOpenedAt((p) => ({ ...p, [next.key]: p[next.key] ?? new Date().toISOString() }));
             setReading(next.key);
@@ -132,7 +137,7 @@ export function AgreeGate({
         <p className="text-body font-semibold">꼭 알아야 할 것</p>
         <ul className="mt-3 flex flex-col gap-2.5">
           {[
-            `중개 수수료는 촬영 대금 전체(출장비·추가금 포함)의 ${DEFAULT_FEE_RATE * 100}%이고 부가세는 별도예요.`,
+            `중개 수수료는 촬영 대금 전체(출장비·추가금 포함)의 ${+((feeRate ?? DEFAULT_FEE_RATE) * 100).toFixed(2)}%이고 부가세는 별도예요.`,
             "정산은 결과물을 전달하고 서비스에서 전달 완료를 누른 뒤에 해요.",
             "작가 사정으로 촬영이 취소되면 고객에게 전액 환불되고 수수료 상당액이 작가에게 청구돼요.",
             "사매를 통해 만난 고객과는 서비스 밖에서 촬영 계약이나 대금을 주고받을 수 없어요.",
@@ -151,7 +156,7 @@ export function AgreeGate({
         <div className="flex items-baseline justify-between gap-3">
           <h2 className="text-h2 font-semibold">읽고 동의할 문서</h2>
           <p className="shrink-0 text-caption tabular-nums text-muted">
-            <b className="font-semibold text-fg">{readCount}</b> / {PHOTOGRAPHER_DOCS.length}
+            <b className="font-semibold text-fg">{readCount}</b> / {DOCS.length}
           </p>
         </div>
 
@@ -159,12 +164,12 @@ export function AgreeGate({
         <div className="mt-3 h-1 overflow-hidden rounded-full bg-line" aria-hidden>
           <div
             className="h-full rounded-full bg-fg transition-[width] duration-300"
-            style={{ width: `${(readCount / PHOTOGRAPHER_DOCS.length) * 100}%` }}
+            style={{ width: `${(readCount / DOCS.length) * 100}%` }}
           />
         </div>
 
         <ul className="mt-4 flex flex-col gap-2.5">
-          {PHOTOGRAPHER_DOCS.map((d, i) => {
+          {DOCS.map((d, i) => {
             const rec = records[d.key];
             return (
               <li key={d.key}>
@@ -219,7 +224,7 @@ export function AgreeGate({
             setError(null);
             // 문서별 열람·동의 시각을 증적으로 함께 보낸다
             fd.set("docRecords", JSON.stringify(records));
-            for (const d of PHOTOGRAPHER_DOCS) fd.set(`agree_${d.key}`, "on");
+            for (const d of DOCS) fd.set(`agree_${d.key}`, "on");
             try {
               await submit(fd);
             } catch (e) {
@@ -324,7 +329,7 @@ export function AgreeGate({
         </form>
       ) : (
         <p className="mt-10 rounded-2xl border border-dashed border-line-strong px-5 py-6 text-center text-body-sm text-muted">
-          문서 {PHOTOGRAPHER_DOCS.length}종을 모두 읽으면 계약 정보를 입력할 수 있어요.
+          문서 {DOCS.length}종을 모두 읽으면 계약 정보를 입력할 수 있어요.
         </p>
       )}
     </main>
