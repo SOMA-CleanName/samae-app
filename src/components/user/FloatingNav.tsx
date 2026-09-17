@@ -58,8 +58,9 @@ export function FloatingNav({
       badge: unreadCount,
     });
 
-  // 작가에게는 스튜디오가 홈보다 자주 가는 곳이다 — 매번 프로필 시트를 거치게 하지 않는다
-  if (me?.isPhotographer)
+  // 작가에게는 스튜디오가 홈보다 자주 가는 곳이다 — 매번 프로필 시트를 거치게 하지 않는다.
+  // 승인 대기 중인 신청자도 포함한다 — 거기서 진행 상태를 본다(ProfileSheet 와 같은 기준).
+  if (me?.canEnterStudio ?? me?.isPhotographer)
     tabs.push({
       key: "studio",
       href: "/studio",

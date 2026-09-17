@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { openKakaoChannel } from "@/lib/kakao-channel";
 import { Button } from "@/components/ui";
 
 // 신청 접수 완료 — **두 자리에서 같은 화면을 쓴다.**
@@ -86,17 +87,21 @@ export function ApplySubmitted({
           </button>
         </div>
 
+        {/* ⚠️ 새 탭으로 열지 않는다. 그러면 카카오톡에 다녀온 뒤 **원래 탭이 사라진다**
+            (2026-09-17 신고). 앱 스킴으로 같은 탭에서 넘어가면 브라우저는 그 자리에
+            남고, 돌아왔을 때 이 화면이 그대로 있다(lib/kakao-channel). */}
         {kakaoChannelUrl ? (
-          <a
-            href={kakaoChannelUrl}
-            target="_blank"
-            rel="noreferrer"
-            onClick={() => setOpened(true)}
+          <button
+            type="button"
+            onClick={() => {
+              setOpened(true);
+              openKakaoChannel(kakaoChannelUrl);
+            }}
             className="mt-2.5 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-[#FEE500] px-4 py-3.5 text-body-sm font-semibold text-[#191600] transition hover:opacity-90"
           >
             <KakaoIcon />
             카카오 채널 열고 보내기
-          </a>
+          </button>
         ) : (
           <p className="mt-2.5 rounded-xl bg-surface px-4 py-3.5 text-center text-body-sm text-danger-ink">
             채널 링크가 설정되지 않았어요. 운영자에게 알려주세요.
