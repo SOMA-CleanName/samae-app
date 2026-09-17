@@ -14,6 +14,7 @@ import {
   updatePhotographerFee,
 } from "./actions";
 import { DEFAULT_FEE_RATE, feeSpecFromRow, feeSpecLabel } from "@/lib/platform-fee";
+import { BusinessLicenseCell } from "./BusinessLicenseCell";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,11 @@ type Row = {
   lead_price_krw: number | null;
   // 중개 수수료 — 기본은 정률 20%(수수료정책 1조). 정액은 옛 모델로 명시한 작가만.
   fee_mode: string | null;
+  // 사업자등록증 — 세금계산서 발급과 전자상거래법 20조의 "확인" 에 필요하다(0124)
+  business_type?: string | null;
+  business_license_uploaded_at?: string | null;
+  business_license_verified_at?: string | null;
+  business_license_note?: string | null;
   fee_amount_krw: number | null;
   fee_rate: number | null;
   review_count: number;
@@ -63,7 +69,7 @@ export default async function AdminPhotographersPage() {
   const [{ data }, { data: leadData }, { data: platform }] = await Promise.all([
     supabase
       .from("photographers")
-      .select("id, display_name, bio, regions, mood_tags, price_from_krw, lead_price_krw, fee_mode, fee_amount_krw, fee_rate, review_count, status, created_at")
+      .select("id, display_name, bio, regions, mood_tags, price_from_krw, lead_price_krw, fee_mode, fee_amount_krw, fee_rate, review_count, status, created_at, business_type, business_license_uploaded_at, business_license_verified_at, business_license_note")
       .order("created_at", { ascending: false }),
     supabase
       .from("photographer_applications")
@@ -254,6 +260,15 @@ export default async function AdminPhotographersPage() {
                     </p>
                   </div>
                 </div>
+                {/* 사업자등록증 — 세금계산서 발급과 전자상거래법 20조의 "확인" 에 필요하다.
+                    번호만 받아서는 그 번호가 이 작가 것인지 알 수 없다(0124). */}
+                <BusinessLicenseCell
+                  photographerId={r.id}
+                  businessType={r.business_type ?? null}
+                  uploadedAt={r.business_license_uploaded_at ?? null}
+                  verifiedAt={r.business_license_verified_at ?? null}
+                  note={r.business_license_note ?? null}
+                />
                 <div className="flex items-center gap-2 sm:shrink-0">
                   <LeadPriceForm row={r} defaultLeadPrice={defaultLeadPrice} />
                   <FeeForm row={r} />

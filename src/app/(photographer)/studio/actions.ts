@@ -119,6 +119,25 @@ export async function updateProfile(
       ? `${bizDigits.slice(0, 3)}-${bizDigits.slice(3, 5)}-${bizDigits.slice(5)}`
       : null;
 
+  // 사업자 작가는 등록증이 있어야 통과한다. 번호만으로는 세금계산서를 못 만들고
+  // (필수 기재사항이 등록번호+상호+대표자다), 번호의 소유자도 확인되지 않는다.
+  //
+  // ⚠️ 화면이 보낸 "올렸다" 를 믿지 않는다 — hidden 은 얼마든지 고쳐 보낼 수 있다.
+  //    실제로 파일이 올라와 있는지 DB 를 본다.
+  if (v.businessType && v.businessType !== "unregistered") {
+    const { data: lic } = await createAdminClient()
+      .from("photographers")
+      .select("business_license_path")
+      .eq("profile_id", user.id)
+      .maybeSingle();
+    if (!lic?.business_license_path) {
+      return {
+        error: "사업자등록증을 올려주세요.",
+        fieldErrors: { businessLicense: "수수료 세금계산서 발급에 필요해요." },
+      };
+    }
+  }
+
   // 작가명 중복 불가 (본인 제외)
   if (await isDisplayNameTaken(v.displayName, user.id)) {
     return { error: "이미 사용 중인 작가명이에요.", fieldErrors: { displayName: "이미 사용 중인 작가명이에요." } };

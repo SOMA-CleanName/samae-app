@@ -43,7 +43,7 @@ export default async function StudioLayout({ children }: { children: React.React
     const [{ data: ph }, { data: prior }] = await Promise.all([
       supabase
         .from("photographers")
-        .select("legal_name, business_type, business_no, promo_consent")
+        .select("legal_name, business_type, business_no, promo_consent, business_license_uploaded_at")
         .eq("id", me.photographer.id)
         .maybeSingle(),
       supabase
@@ -62,6 +62,7 @@ export default async function StudioLayout({ children }: { children: React.React
           businessType: (ph?.business_type as BusinessType | null) ?? "",
           businessNo: ph?.business_no ?? "",
           promoConsent: !!ph?.promo_consent,
+          licenseUploadedAt: (ph?.business_license_uploaded_at as string | null) ?? null,
         }}
         reason={(prior?.length ?? 0) > 0 ? "updated" : "first"}
       />

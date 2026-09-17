@@ -287,3 +287,31 @@ export async function updatePhotographerFee(formData: FormData) {
   revalidatePath("/admin/transactions");
 }
 
+
+/**
+ * 사업자등록증 확인 처리 — 어드민이 등록증과 입력값(상호·대표자·번호)을 눈으로 대조한 뒤 누른다.
+ *
+ * 이 기록이 곧 전자상거래법 20조의 "확인" 이다. 누가 언제 봤는지가 남아야 말이 된다.
+ * 파일이 새로 올라오면 이전 확인은 자동으로 무효가 된다(api/studio/business-license).
+ */
+export async function verifyBusinessLicense(formData: FormData) {
+  const me = await getCurrentUser();
+  if (me?.role !== "admin") throw new Error("권한이 없습니다.");
+
+  const id = String(formData.get("id") ?? "");
+  if (!id) throw new Error("작가를 찾지 못했습니다.");
+  // 반려할 때 이유를 남긴다 — 없으면 작가에게 뭘 다시 받을지 알 수 없다
+  const note = String(formData.get("note") ?? "").trim().slice(0, 300) || null;
+  const ok = formData.get("ok") === "1";
+
+  await createAdminClient()
+    .from("photographers")
+    .update({
+      business_license_verified_at: ok ? new Date().toISOString() : null,
+      business_license_verified_by: ok ? me.id : null,
+      business_license_note: note,
+    })
+    .eq("id", id);
+
+  revalidatePath("/admin/photographers");
+}

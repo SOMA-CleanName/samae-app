@@ -24,6 +24,7 @@ import { agreePhotographerContract } from "./actions";
 import { DocReader } from "./DocReader";
 import { PHOTOGRAPHER_DOCS, type DocKey } from "@/components/legal/photographerDocs";
 import { InlineDocSheet } from "@/components/legal/InlineDocSheet";
+import { BusinessLicenseUpload } from "@/components/studio/BusinessLicenseUpload";
 import { AdConsentBody } from "@/components/legal/docs/AdConsentBody";
 import { BUSINESS_TYPE_LABEL, DEFAULT_FEE_RATE, type BusinessType } from "@/lib/platform-fee";
 
@@ -39,7 +40,14 @@ export function AgreeGate({
   displayName: string;
   // ⚠️ versions 프로퍼티를 없앴다 — 버전의 진실은 components/legal/photographerDocs 하나다.
   //    무시되는 프로퍼티를 남겨 두면 호출부가 그걸로 버전을 정한다고 착각한다.
-  initial: { legalName: string; businessType: BusinessType | ""; businessNo: string; promoConsent: boolean };
+  initial: {
+    legalName: string;
+    businessType: BusinessType | "";
+    businessNo: string;
+    promoConsent: boolean;
+    /** 이미 올려 둔 사업자등록증이 있으면 그 시각 */
+    licenseUploadedAt?: string | null;
+  };
   /** "first" 처음 동의 · "updated" 버전이 올라가 다시 동의 */
   reason: "first" | "updated";
   /**
@@ -279,6 +287,12 @@ export function AgreeGate({
                     className={FIELD}
                   />
                 </label>
+              )}
+
+              {/* 번호만으로는 세금계산서를 못 만든다 — 등록증의 상호·대표자와 대조해야 한다.
+                  그 대조가 곧 전자상거래법 20조의 "확인" 이다(0124 주석). */}
+              {businessType && businessType !== "unregistered" && (
+                <BusinessLicenseUpload initialUploadedAt={initial.licenseUploadedAt} />
               )}
 
             </div>
