@@ -337,6 +337,8 @@ export type RecentPost = { id: string; shots: { id: string; url: string }[] };
 type ScoredRow = {
   id: string;
   src_url: string;
+  /** 업로드 때 함께 구운 500px 썸네일. 격자·카드는 **이걸** 써야 한다 */
+  thumb_url: string | null;
   album_id: string | null;
   sort_order: number | null;
   created_at: string;
@@ -356,11 +358,12 @@ async function loadScoredPhotos(
   const supabase = await createClient();
   const admin = createAdminClient();
   const PHOTO_SELECT =
-    "id, src_url, album_id, sort_order, created_at, location_text, photographer:photographers!photos_photographer_id_fkey!inner(id, profile_id)";
+    "id, src_url, thumb_url, album_id, sort_order, created_at, location_text, photographer:photographers!photos_photographer_id_fkey!inner(id, profile_id)";
   type PhotographerRef = { id: string; profile_id: string };
   type PhotoRow = {
     id: string;
     src_url: string;
+    thumb_url: string | null;
     album_id: string | null;
     sort_order: number | null;
     created_at: string;
@@ -411,6 +414,7 @@ async function loadScoredPhotos(
     rows.push({
       id: p.id,
       src_url: p.src_url,
+      thumb_url: p.thumb_url ?? null,
       album_id: p.album_id,
       sort_order: p.sort_order,
       created_at: p.created_at,
@@ -581,8 +585,11 @@ export async function listFeaturedPhotos(
     const albumId = g.photos[0].album_id;
     return {
       id: cover.id,
-      coverUrl: cover.src_url,
-      moreUrls: sorted.slice(1, 5).map((p) => p.src_url),
+      // ⚠️ **원본이 아니라 썸네일이다.** PhotoFeature 는 2~4열 격자라 타일이 200px 안팎인데
+      //    원본(평균 582KB·최대 988KB)을 내려받고 있었다. 같은 사진의 썸네일은 29~84KB 다.
+      //    이 한 섹션만 최대 20장이라 /explore 가 이미지만 17.6MB 였다(2026-09-18 실측).
+      coverUrl: cover.thumb_url ?? cover.src_url,
+      moreUrls: sorted.slice(1, 5).map((p) => p.thumb_url ?? p.src_url),
       // 앨범 안에서 쓸 만한 촬영지 표기가 하나라도 있으면 그걸 쓴다
       location:
         usableLocation(cover.locationText) ??
