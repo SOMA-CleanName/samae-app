@@ -129,12 +129,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     //    range() 로 페이지를 넘겨 가며 다 가져온다. 마지막 페이지는 PAGE 보다 짧다.
     const PAGE = 1000;
     const MAX = 45_000; // sitemap.xml 한 장의 표준 상한은 50,000 — 정적 경로 몫을 남긴다
+    //
+    // ⚠️ **운영이 내린 사진(feed_hidden)은 싣지 않는다.** 여기 실으면 구글이 색인하고
+    //    검색에 뜬다 — 피드에서 내린 의미가 없어진다. 크롤이 막혀 있던 동안에는 드러나지
+    //    않던 문제였는데, robots 를 푸는 순간 실제 노출로 바뀐다(2026-09-17 결정).
     const rows: Array<{ id: string; photographer_id: string | null; updated_at: string | null }> = [];
     for (let from = 0; from < MAX; from += PAGE) {
       const { data: page } = await admin
         .from("photos")
         .select("id, photographer_id, updated_at")
         .eq("visibility", "published")
+        .eq("feed_hidden", false)
         .order("created_at", { ascending: false })
         .range(from, from + PAGE - 1);
       const got = (page ?? []) as typeof rows;

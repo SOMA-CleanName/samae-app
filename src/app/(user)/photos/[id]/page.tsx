@@ -65,7 +65,22 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const photo = await fetchPhotoById(id);
-  return photo ? photoMetadata(photo) : {};
+  if (!photo) return {};
+  const meta = photoMetadata(photo);
+  /*
+    운영이 피드에서 내린 사진은 **검색에 잡히면 안 된다.**
+
+    sitemap 에서 빼는 것만으로는 부족하다 — 이미 색인된 URL 은 목록에서 사라져도
+    한동안 검색에 남는다. 지면이 직접 noindex 를 내보내야 구글이 다음 크롤에서 뺀다.
+    (2026-09-17: robots 를 푼 직후 구글이 숨긴 사진 18장을 그대로 긁어갔다)
+
+    지면 자체는 계속 열린다. 직접 링크로 온 사람까지 막을 이유는 없고, 작가 프로필의
+    포트폴리오에서는 여전히 보이는 사진이다 — 그게 feed_hidden 과 visibility 의 차이다.
+  */
+  if (photo.feed_hidden) {
+    return { ...meta, robots: { index: false, follow: true } };
+  }
+  return meta;
 }
 
 export default async function PhotoDetail({

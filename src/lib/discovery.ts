@@ -1305,6 +1305,9 @@ async function coverPhotoMap(ids: string[]): Promise<Record<string, string>> {
     .select("photographer_id, thumb_url, src_url")
     .in("photographer_id", ids)
     .eq("visibility", "published")
+    // 작가 카드의 **대표 사진**이다. 운영이 내린 사진이 여기 걸리면 피드에서 뺀 사진을
+    // 작가 얼굴로 내세우는 꼴이 된다 (2026-09-17)
+    .eq("feed_hidden", false)
     .order("created_at", { ascending: false });
 
   const map: Record<string, string> = {};
@@ -1328,6 +1331,14 @@ export type PhotoDetail = {
   album_id: string | null;
   photographer_id: string;
   photographer: { id: string; display_name: string | null } | null;
+  /**
+   * 운영이 피드에서 내린 사진인가.
+   *
+   * 지면은 그대로 열리지만(직접 링크로 온 사람까지 막을 이유는 없다) **검색엔진에는
+   * 넣지 않는다.** sitemap 에서 빼는 것만으로는 이미 색인된 것이 안 빠져서,
+   * 상세 지면이 noindex 를 직접 내보내야 한다 (2026-09-17).
+   */
+  feed_hidden: boolean;
   // 사진별 작가 코멘트 — 추후 photos.caption 컬럼 추가 후 select 연동(현재 미선택 → undefined).
   caption?: string | null;
 };
@@ -1337,7 +1348,7 @@ export async function fetchPhotoById(id: string): Promise<PhotoDetail | null> {
   const { data } = await supabase
     .from("photos")
     .select(
-      "id, src_url, thumb_url, width, height, mood_tags, region, location_text, price_krw, album_id, photographer_id, photographer:photographers!photos_photographer_id_fkey(id, display_name)"
+      "id, src_url, thumb_url, width, height, mood_tags, region, location_text, price_krw, album_id, photographer_id, feed_hidden, photographer:photographers!photos_photographer_id_fkey(id, display_name)"
     )
     .eq("id", id)
     .maybeSingle();
