@@ -29,6 +29,7 @@ import { overdueDays } from "@/lib/delivery-deadline";
 const fmtDay = (iso: string) =>
   new Intl.DateTimeFormat("ko-KR", { month: "long", day: "numeric", timeZone: "Asia/Seoul" }).format(new Date(iso));
 import { DepositGate } from "@/components/booking/DepositGate";
+import { PortraitOptout } from "@/components/booking/PortraitOptout";
 import { SupportButton } from "@/components/user/SupportButton";
 import { MpTrackOnce } from "@/components/MpTrackOnce";
 
@@ -309,6 +310,27 @@ export default async function BookingDetail({
           >
             정산 내역 보기
           </Link>
+        </section>
+      )}
+
+      {/* 초상 사용 거부 — 작가약관 13조 4항·입점계약 4조 3항이 약속한 권리를 행사하는 자리.
+          입금이 확인된 뒤부터 보인다. 그 전에는 촬영이 성립하지도 않았고, 예약을 수락하기
+          전에 묻는 건 고를 것도 없는 질문이다. */}
+      {isBuyer && ["paid", "shot", "delivered", "completed"].includes(b.status) && (
+        <PortraitOptout bookingId={id} initialOptedOut={!!b.portrait_optout_at} />
+      )}
+
+      {/* 작가 시점 — 지켜야 할 의무라 눈에 띄어야 한다. 사진을 올리기 전에 알아야 하므로
+          전달 업로더보다 위에 둔다. */}
+      {isOwner && b.portrait_optout_at && (
+        <section className="mt-6 rounded-xl border border-warning/30 bg-warning-soft p-5">
+          <p className="text-sm font-semibold text-warning">🔒 포트폴리오 사용 불가 예약이에요</p>
+          <p className="mt-1.5 text-sm leading-relaxed text-warning/90">
+            고객님이 이 촬영 결과물의 포트폴리오·홍보 사용을 원하지 않으세요. 이 촬영에서 나온
+            사진은 <b>사매에 게재하실 수 없고</b>, 사매 홍보에도 쓰이지 않아요
+            (작가 이용약관 제13조 4항 · 작가 입점 계약 제4조 3항). 이미 올리신 사진이 있으면
+            내려주세요.
+          </p>
         </section>
       )}
 
