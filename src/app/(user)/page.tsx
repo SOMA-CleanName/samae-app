@@ -80,14 +80,15 @@ export default async function ExploreHome({
         <ScrollMemory routeKey={routeSessionKey("/", query)} />
         {showSearchUi ? (
           <SearchDock
-            key={query}
+            key={`dock-${query}`}
             initial={query}
             placeholder={searchPlaceholder}
             variant="detail"
             back={<SearchBackButton query={query} />}
           />
         ) : null}
-        <SearchResultsFrame key={query} query={query}>
+        {/* 검색어가 바뀌면 새로 마운트시키려는 key 다. 형제끼리 겹치면 안 되므로 앞에 이름을 붙인다. */}
+        <SearchResultsFrame key={`results-${query}`} query={query}>
           <Suspense key={query} fallback={<SearchResultsPending />}>
             <SearchPhotoResults query={query} />
           </Suspense>
