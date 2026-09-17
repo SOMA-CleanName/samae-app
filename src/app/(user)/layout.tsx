@@ -1,21 +1,26 @@
 import { getCurrentUser } from "@/lib/auth";
-import { Suspense } from "react";
 import { CartProvider } from "@/components/user/cart/CartProvider";
 import { FloatingCart } from "@/components/user/cart/FloatingCart";
 import { FloatingNav } from "@/components/user/FloatingNav";
 import { NavRevealProvider } from "@/components/user/NavReveal";
 import { PhotoReturnScroll } from "@/components/user/PhotoReturnScroll";
-import { SiteInfoBar } from "@/components/SiteInfoBar";
 import { readMyInquiryIds } from "@/lib/my-inquiries";
 import { fetchUnreadTotalForUser, fetchUnreadTotalForPhotographer } from "@/lib/chat";
 import { RealtimeListRefresh } from "@/components/user/RealtimeListRefresh";
 import { ChatToast } from "@/components/user/ChatToast";
 import { toProfileMe } from "@/lib/profile-me";
+import { createClient } from "@/lib/supabase/server";
+import { termsConsentIsCurrent } from "@/lib/consent";
+import { TermsConsentGate } from "@/components/user/TermsConsentGate";
 
 // 사용자(탐색) 영역 공통 셸 — 기존 하단바/레일 제거.
 // 하단 중앙 플로팅 내비 + 우측 하단 장바구니.
 // 계정은 여기 없다 — 홈/카테고리 지면 상단 오른쪽 ProfileButton 이 맡는다.
-async function UserSessionChrome() {
+export default async function UserLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const me = await getCurrentUser();
   // '문의' 탭 노출 — 로그인했으면 항상(대화 허브라 상시 진입점 필요, 빈 상태 화면 있음),
   // 비로그인은 쿠키(기기)에 문의 내역이 있을 때만
@@ -29,29 +34,43 @@ async function UserSessionChrome() {
   ]);
   const profileMe = toProfileMe(me);
 
-  return (
-    <>
-      {me && <RealtimeListRefresh />}
-      {me && <ChatToast meId={me.id} />}
-      <FloatingNav me={profileMe} hasInquiries={hasInquiries} unreadCount={unreadCount} studioUnread={studioUnread} />
-    </>
-  );
-}
-
-export default function UserLayout({ children }: { children: React.ReactNode }) {
+  // 약관 동의 — **어느 화면에서든** 앞을 막는다.
+  // 전에는 로그인 직후나 스튜디오 진입 같은 길목에서만 물었다. 그래서 이미 로그인해 둔
+  // 사람은 약관을 개정해도 모르고 계속 썼다 — 개정 절차를 밟아도 동의는 못 받는 상태다.
+  let termsGate: { revisit: boolean } | null = null;
+  if (me) {
+    const supabase = await createClient();
+    const { data: p } = await supabase
+      .from("profiles")
+      .select("terms_agreed_at, terms_version")
+      .eq("id", me.id)
+      .maybeSingle();
+    // 버전까지 봐야 한다 — 있는지만 보면 개정해도 기존 회원이 그대로 지나간다
+    if (!termsConsentIsCurrent(p)) termsGate = { revisit: !!p?.terms_agreed_at };
+  }
 
   return (
     <CartProvider>
       <NavRevealProvider>
         <PhotoReturnScroll />
-        {/* 운영 주체 — 지면 맨 위, 데스크톱에서만 (SiteInfoBar 주석 참조) */}
-        <SiteInfoBar />
+        {/* 새 메시지가 오면 셸을 다시 그린다 — 내비 배지가 어느 화면에서나 살아 있어야 한다
+            (목록 페이지에도 있던 구독을 여기로 올렸다. 채널이 둘이면 같은 이름으로 겹친다) */}
+        {me && <RealtimeListRefresh />}
+        {/* 배지는 '어딘가에 왔다' 만 말한다 — 누가 뭐라고 했는지까지 띄워야 바로 답한다 */}
+        {me && <ChatToast meId={me.id} />}
+        {termsGate && <TermsConsentGate revisit={termsGate.revisit} />}
+        {/* 운영 주체는 이제 푸터가 맡는다(SiteFooter). 홈 피드가 자동 이어붙이기를 3회에서
+            멈추므로(ExploreGallery AUTO_ADVANCE_BUDGET) 푸터가 **도달 가능한 자리**로
+            돌아왔다. 지면 맨 위의 SiteInfoBar 는 첫 화면의 사진을 밀어내기만 했고,
+            `hidden md:block` 이라 **모바일에는 사업자 정보가 아예 없었다**. */}
         {/* 하단 플로팅 내비 높이만큼 여백 확보 */}
         <main className="pb-28">{children}</main>
-        {/* 세션·안읽음 조회가 느려도 검색창·사진 영역의 대기 안내는 먼저 렌더한다. */}
-        <Suspense fallback={<FloatingNav me={null} />}>
-          <UserSessionChrome />
-        </Suspense>
+        <FloatingNav
+          me={profileMe}
+          hasInquiries={hasInquiries}
+          unreadCount={unreadCount}
+          studioUnread={studioUnread}
+        />
         <FloatingCart />
       </NavRevealProvider>
     </CartProvider>

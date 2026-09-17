@@ -66,7 +66,7 @@ export function BannerUploader() {
         >
           {busy ? "업로드 중…" : img ? "이미지 변경" : "이미지 선택"}
         </button>
-        {error && <span className="text-caption text-danger">{error}</span>}
+        {error && <span className="text-caption text-danger-ink">{error}</span>}
       </div>
 
       {/* 서버 액션으로 넘길 업로드 결과 */}

@@ -77,7 +77,7 @@ export function BookingFieldsEditor({ initial }: { initial: BookingField[] }) {
       <input type="hidden" name="booking_fields" value={payload} />
 
       {fields.length === 0 && (
-        <p className="rounded-xl border border-dashed border-fg/15 px-4 py-5 text-center text-sm text-fg/50">
+        <p className="rounded-xl border border-dashed border-fg/15 px-4 py-5 text-center text-sm text-muted">
           아직 추가 항목이 없어요.
         </p>
       )}
@@ -119,7 +119,7 @@ export function BookingFieldsEditor({ initial }: { initial: BookingField[] }) {
               type="button"
               onClick={() => remove(f.key)}
               aria-label="삭제"
-              className="grid h-7 w-7 shrink-0 cursor-pointer place-items-center rounded-lg text-xs text-danger hover:bg-danger/10"
+              className="grid h-7 w-7 shrink-0 cursor-pointer place-items-center rounded-lg text-xs text-danger-ink hover:bg-danger/10"
             >
               ×
             </button>
@@ -145,7 +145,7 @@ export function BookingFieldsEditor({ initial }: { initial: BookingField[] }) {
             ))}
 
             {f.type !== "checkbox" && (
-              <label className="ml-auto flex cursor-pointer items-center gap-1.5 text-xs text-fg/55">
+              <label className="ml-auto flex cursor-pointer items-center gap-1.5 text-xs text-muted">
                 <input
                   type="checkbox"
                   checked={!!f.required}
@@ -195,7 +195,7 @@ export function BookingFieldsEditor({ initial }: { initial: BookingField[] }) {
             </div>
           )}
 
-          {problem(f) && <p className="mt-2 text-xs text-danger">{problem(f)}</p>}
+          {problem(f) && <p className="mt-2 text-xs text-danger-ink">{problem(f)}</p>}
         </div>
       ))}
 
@@ -211,7 +211,7 @@ export function BookingFieldsEditor({ initial }: { initial: BookingField[] }) {
 
       <SaveButton blocked={incomplete.length > 0} />
       {incomplete.length > 0 && (
-        <p className="text-xs text-danger">
+        <p className="text-xs text-danger-ink">
           덜 채운 항목 {incomplete.length}개를 마저 적거나 지워주세요.
         </p>
       )}

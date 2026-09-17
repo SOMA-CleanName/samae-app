@@ -124,7 +124,7 @@ function StatCard({
         {icon}
       </span>
       <div>
-        <p className={"text-display font-semibold tabular-nums " + (accent ? "text-brand" : "text-fg")}>
+        <p className={"text-display font-semibold tabular-nums " + (accent ? "text-brand-ink" : "text-fg")}>
           {value}
         </p>
         <p className="mt-0.5 text-body-sm text-muted">{label}</p>

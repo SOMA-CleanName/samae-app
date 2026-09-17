@@ -3,6 +3,9 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { createPackage } from "./actions";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { effectiveBurdenPct, feeSpecFromRow, feeRateOf, resolveFee } from "@/lib/platform-fee";
+import type { BusinessType } from "@/lib/platform-fee";
 import { PackageItem, type Pkg } from "./PackageItem";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 
@@ -18,21 +21,49 @@ export default async function PackagesPage() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("packages")
-    .select("id, name, description, price_krw, duration_min, edited_count, is_active")
+    .select("id, name, description, price_krw, duration_min, edited_count, delivery_days, is_active")
     .eq("photographer_id", me.photographer.id)
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: true });
 
   const packages = (data ?? []) as Pkg[];
 
+  // 수수료 안내는 **이 작가의 실제 요율**로 말한다. 20% 라고 박아 두면 요율이 다른 작가에게
+  // 거짓말이 되고, 부가세를 따로 붙여 쓰면 나중에 "또 붙네" 로 읽힌다 (HANDOFF §3-2).
+  const admin = createAdminClient();
+  const { data: ph } = await admin
+    .from("photographers")
+    .select("fee_mode, fee_amount_krw, fee_rate, business_type")
+    .eq("id", me.photographer.id)
+    .maybeSingle();
+  const spec = feeSpecFromRow(ph ?? null);
+  const ratePct = +(feeRateOf(resolveFee(spec, 100_000)) * 100).toFixed(2);
+  const burdenPct = effectiveBurdenPct((ph?.business_type ?? null) as BusinessType | null, ratePct / 100);
+  const isFlat = spec.mode === "flat";
+
   return (
     <main className="mx-auto max-w-2xl px-4 sm:px-6 py-10 font-kr">
-      <Link href="/studio" className="text-sm text-fg/50 hover:text-fg">
+      <Link href="/studio" className="text-sm text-muted hover:text-fg">
         ← 스튜디오
       </Link>
       <h1 className="mt-4 text-2xl font-semibold">패키지 관리</h1>
-      <p className="mt-1 text-sm text-fg/55">
+      <p className="mt-1 text-sm text-muted">
         촬영 상품을 등록하세요. 활성화된 패키지가 예약 시 선택지로 노출됩니다.
+      </p>
+
+      {/* 수수료 안내 — 작가약관 7조 2항. 가격을 정할 때 수수료를 알고 정해야 정산 문의가 안 생긴다 */}
+      <p className="mt-3 rounded-xl bg-fg/[0.04] px-4 py-3 text-xs leading-relaxed text-fg/60">
+        {isFlat ? (
+          <>사매 중개 수수료는 건당 정액이에요.</>
+        ) : (
+          <>
+            사매 중개 수수료는 촬영 대금 전체(출장비·추가금 포함)의{" "}
+            <b className="text-fg/80">{burdenPct}% (부가세 포함)</b>
+            {burdenPct !== ratePct && <> · 일반과세자는 매입세액공제로 실질 {ratePct}%</>}예요.
+          </>
+        )}{" "}
+        결제대행 수수료는 사매가 부담해요. 결과물 전달이 끝나면 수수료를 뺀 금액을 정산해 드리니,
+        이를 감안해 가격을 정해 주세요.
       </p>
 
       {/* 새 패키지 추가 */}
@@ -45,6 +76,7 @@ export default async function PackagesPage() {
             <LabeledInput name="priceKrw" label="가격(원)" defaultValue="100000" min={0} max={100_000_000} step={10_000} required />
             <LabeledInput name="durationMin" label="소요(분)" defaultValue="60" min={10} max={1440} step={5} required />
             <LabeledInput name="editedCount" label="보정본(장)" defaultValue="10" min={0} max={1000} step={1} required />
+            <LabeledInput name="deliveryDays" label="전달 기한(일)" defaultValue="21" min={1} max={90} step={1} required />
           </div>
           <SubmitButton pendingText="추가 중…" className="justify-self-start rounded-full bg-fg px-5 py-2 text-sm font-semibold text-bg hover:opacity-90 disabled:opacity-50">
             추가
@@ -56,7 +88,7 @@ export default async function PackagesPage() {
       <section className="mt-8">
         <h2 className="text-sm font-medium text-fg/70">등록된 패키지 {packages.length}</h2>
         {packages.length === 0 ? (
-          <p className="mt-3 text-sm text-fg/45">아직 패키지가 없어요.</p>
+          <p className="mt-3 text-sm text-faint">아직 패키지가 없어요.</p>
         ) : (
           <ul className="mt-3 flex flex-col gap-4">
             {packages.map((p) => (
@@ -87,7 +119,7 @@ function LabeledInput({
   required?: boolean;
 }) {
   return (
-    <label className="flex flex-col gap-1 text-[11px] text-fg/55">
+    <label className="flex flex-col gap-1 text-[11px] text-muted">
       {label}
       <input
         name={name}

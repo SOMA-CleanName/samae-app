@@ -3,12 +3,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { JsonLd } from "@/components/JsonLd";
 import { StickyBack } from "@/components/editorial/StickyBack";
+import { SiteFooter } from "@/components/SiteFooter";
 import { SectionHead } from "@/components/editorial/SectionHead";
 import { breadcrumbJsonLd, faqJsonLd, placeJsonLd } from "@/lib/seo";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
-import { PUBLISHED_SPOTS, findSpot, type Spot } from "@/lib/spots-data";
+import { listPublishedSpots, findSpot, type Spot } from "@/lib/spots-db";
 import { fetchSpotDetail, formatKrw, type SpotDetail } from "@/lib/spots";
-import { GUIDE_PAGE_ITEMS } from "@/lib/guide-data";
+import { listGuidePageItems, type GuideItem } from "@/lib/guide";
 import { SpotPhotoGrid } from "./SpotPhotoGrid";
 
 // 장소 상세.
@@ -18,8 +19,8 @@ import { SpotPhotoGrid } from "./SpotPhotoGrid";
 // ②③④ 가 블로그에 없는 것이고, 그것 때문에 AI 가 우리를 인용한다.
 export const revalidate = 86400;
 
-export function generateStaticParams() {
-  return PUBLISHED_SPOTS.map((s) => ({ slug: s.slug }));
+export async function generateStaticParams() {
+  return (await listPublishedSpots()).map((s) => ({ slug: s.slug }));
 }
 
 export async function generateMetadata({
@@ -28,7 +29,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const spot = findSpot(slug);
+  const spot = await findSpot(slug);
   if (!spot) return {};
   const title = `${spot.name} 스냅 촬영`;
   const description = `${spot.name}(${spot.area})에서 찍은 사진과 이곳에서 촬영하는 작가, 대략의 비용까지. ${spot.desc}`;
@@ -51,15 +52,23 @@ export async function generateMetadata({
  * FAQ 답을 새로 쓰지 않고 여기서 가져오는 이유: 가이드 원고는 사실 검증·화자·업계단정
  * 심사를 이미 통과한 글이다. 답을 새로 지어내면 그 심사를 우회하게 된다.
  */
-function guideExcerpt(slug: string, paragraphs = 3): { text: string; href: string } | null {
-  const item = GUIDE_PAGE_ITEMS.find((g) => g.slug === slug);
+function guideExcerpt(
+  guides: GuideItem[],
+  slug: string,
+  paragraphs = 3
+): { text: string; href: string } | null {
+  const item = guides.find((g) => g.slug === slug);
   if (!item) return null;
   const text = item.answer.split("\n\n").slice(0, paragraphs).join(" ").trim();
   return { text, href: `/guide/${encodeURIComponent(item.slug)}` };
 }
 
 /** FAQ 는 전부 (a) DB 에서 계산된 사실 또는 (b) QC 통과 원문에서만 만든다. */
-function buildFaq(spot: Spot, d: SpotDetail): Array<{ q: string; a: string; href?: string }> {
+function buildFaq(
+  spot: Spot,
+  d: SpotDetail,
+  guides: GuideItem[]
+): Array<{ q: string; a: string; href?: string }> {
   const out: Array<{ q: string; a: string; href?: string }> = [];
 
   // 화면에는 24장만 걸지만 답은 전체 수로 한다. 표시 상한을 사실로 말하면 안 된다.
@@ -82,7 +91,7 @@ function buildFaq(spot: Spot, d: SpotDetail): Array<{ q: string; a: string; href
     a: spot.tip,
   });
 
-  const rain = guideExcerpt("촬영-당일-비가-오면");
+  const rain = guideExcerpt(guides, "촬영-당일-비가-오면");
   if (rain) {
     out.push({
       q: "촬영 당일 비가 오면 어떻게 하나요?",
@@ -100,7 +109,7 @@ export default async function SpotDetailPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const spot = findSpot(slug);
+  const spot = await findSpot(slug);
   if (!spot) notFound();
 
   const detail = await fetchSpotDetail(spot);
@@ -108,8 +117,10 @@ export default async function SpotDetailPage({
   // 사진이 없으면 소개글만 남는데, 그건 블로그가 더 잘 쓴다. 낼 이유가 없다.
   if (detail.photos.length === 0) notFound();
 
-  const faq = buildFaq(spot, detail);
-  const relatedGuides = GUIDE_PAGE_ITEMS.filter((g) => g.axis === "field").slice(0, 4);
+  // Q&A 는 한 번만 읽고 이 지면 안에서 돌려 쓴다 — guideExcerpt 도 같은 목록을 받는다
+  const guides = await listGuidePageItems();
+  const faq = buildFaq(spot, detail, guides);
+  const relatedGuides = guides.filter((g) => g.axis === "field").slice(0, 4);
 
   const faqLd = faqJsonLd(faq.map((f) => ({ q: f.q, a: f.a })));
   const structured = [
@@ -267,7 +278,7 @@ export default async function SpotDetailPage({
                   {f.href && (
                     <Link
                       href={f.href}
-                      className="ed-more-arrow mt-2 inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.14em] text-brand"
+                      className="ed-more-arrow mt-2 inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.14em] text-brand-ink"
                     >
                       자세히 보기 →
                     </Link>
@@ -303,6 +314,9 @@ export default async function SpotDetailPage({
             </ul>
           </section>
         )}
+
+        {/* 목록(/spots)엔 있고 장소 낱개엔 없었다. 검색 유입이 가장 많은 지면 중 하나다. */}
+        <SiteFooter />
       </div>
     </main>
   );

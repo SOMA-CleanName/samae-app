@@ -9,6 +9,8 @@ import { readNextParam, setOauthNextCookie } from "@/lib/safe-redirect-client";
 import { MailIcon } from "@/components/user/icons";
 import { Divider, Field, KakaoButton, Note, SubmitButton } from "../AuthBits";
 import { kakaoScopes } from "@/lib/kakao-phone";
+import { recordSignupConsent } from "./consent/actions";
+import { TERMS_VERSION } from "@/lib/policy-version";
 
 /** 가입 후 복귀 경로 — 로그인 페이지에서 next 를 이어받는다(문의 흐름 이탈 방지). */
 const DEFAULT_SIGNUP_NEXT = "/";
@@ -19,7 +21,7 @@ const EMAIL_SIGNUP_ENABLED = false;
 
 // 회원가입 폼 — 카카오 소셜 (이메일 가입은 SMTP 준비 후).
 // 이메일 인증 ON이면 가입 후 확인 메일 안내, OFF면 즉시 로그인.
-export function SignupForm() {
+export function SignupForm({ kakaoTermsTags }: { kakaoTermsTags?: string | null }) {
   const router = useRouter();
   const supabase = createClient();
   const [name, setName] = useState("");
@@ -31,6 +33,10 @@ export function SignupForm() {
   const [resentMsg, setResentMsg] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0); // 재발송 쿨다운(초) — 이메일 한도 보호
   const [kakaoLoading, setKakaoLoading] = useState(false);
+  // 약관·처리방침 동의 — 둘 다 체크해야 가입 버튼이 열린다 (회원약관 3조·5조). 카카오 가입은
+  // 이 폼을 거치지 않으므로 콜백이 /signup/consent 로 보내 같은 동의를 받는다.
+  const [agreedTerms, setAgreedTerms] = useState(false);
+  const [agreedPrivacy, setAgreedPrivacy] = useState(false);
 
   const signupNext = () => readNextParam(DEFAULT_SIGNUP_NEXT);
 
@@ -56,12 +62,28 @@ export function SignupForm() {
     mpTrack("Start Kakao Login", { context: "signup" });
     // 가입 완료 후에도 하던 흐름(문의 등)으로 복귀
     setOauthNextCookie(signupNext());
-    await supabase.auth.signInWithOAuth({
+    const { error: oauthErr } = await supabase.auth.signInWithOAuth({
       provider: "kakao",
       // scopes 는 카카오싱크 검수 통과 후에만 붙는다(lib/kakao-phone) — 검수 안 된
       // 동의항목을 요청하면 카카오가 로그인 자체를 거절한다(KOE205).
-      options: { redirectTo: `${location.origin}/auth/callback`, scopes: kakaoScopes() },
+      options: {
+        redirectTo: `${location.origin}/auth/callback`,
+        scopes: kakaoScopes(),
+        // 간편가입 약관 — **여기가 유일한 기회다.** 카카오는 최초 연결 때만 약관
+        // 화면을 띄운다(이미 연결된 계정에는 조용히 무시한다). 그래서 이 값을 안
+        // 보내면 아무도 카카오에서 약관에 동의하지 않게 되고, 전원이 우리 폼으로 온다.
+        //
+        // ⚠️ scope(동의항목)와 다르다. scope 는 기존 회원에게도 추가 동의를 받을 수
+        //    있지만(전화번호가 그 경우다), **서비스 약관은 그게 안 된다.**
+        ...(kakaoTermsTags ? { queryParams: { service_terms: kakaoTermsTags } } : {}),
+      },
     });
+    // 조용히 실패하면 "버튼이 죽었다" 로 보인다 — 실제로 그렇게 신고됐다(09-16).
+    // 카카오·Supabase 가 돌려준 말을 그대로 띄운다. 원인을 감추는 것보다 낫다.
+    if (oauthErr) {
+      setError(oauthErr.message || "카카오로 이동하지 못했어요. 잠시 후 다시 시도해 주세요.");
+      setKakaoLoading(false);
+    }
   }
 
   async function onSubmit(e: React.FormEvent) {
@@ -69,12 +91,18 @@ export function SignupForm() {
     setError(null);
     setLoading(true);
 
+    if (!agreedTerms || !agreedPrivacy) {
+      setError("서비스 이용약관과 개인정보 처리방침에 동의해 주세요.");
+      setLoading(false);
+      return;
+    }
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        // 트리거(handle_new_user)가 display_name 으로 사용
-        data: { name: name.trim() || undefined },
+        // 트리거(handle_new_user)가 display_name 으로 사용. 동의 버전은 증적으로 메타데이터에도 남긴다
+        data: { name: name.trim() || undefined, terms_version: TERMS_VERSION, terms_agreed_at: new Date().toISOString() },
         emailRedirectTo: verifyRedirect(),
       },
     });
@@ -90,7 +118,8 @@ export function SignupForm() {
       return;
     }
     if (data.session) {
-      // 이메일 인증 OFF → 즉시 로그인
+      // 이메일 인증 OFF → 즉시 로그인. 폼에서 받은 동의를 profiles 에 기록한다
+      await recordSignupConsent();
       router.push(signupNext());
       router.refresh();
     } else {
@@ -197,6 +226,23 @@ export function SignupForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
+            <div className="flex flex-col gap-1.5 text-caption text-fg">
+              <label className="flex cursor-pointer items-start gap-2">
+                <input type="checkbox" checked={agreedTerms} onChange={(e) => setAgreedTerms(e.target.checked)} className="mt-0.5 h-4 w-4 accent-brand" />
+                <span>
+                  (필수){" "}
+                  {/* ?plain=1 — 읽으러 연 탭에서 푸터·내비를 빼 홈으로 새지 않게 (ConsentForm 과 같은 규칙) */}
+                  <Link href="/terms?plain=1" target="_blank" className="underline underline-offset-2">서비스 이용약관</Link>에 동의합니다
+                </span>
+              </label>
+              <label className="flex cursor-pointer items-start gap-2">
+                <input type="checkbox" checked={agreedPrivacy} onChange={(e) => setAgreedPrivacy(e.target.checked)} className="mt-0.5 h-4 w-4 accent-brand" />
+                <span>
+                  (필수){" "}
+                  <Link href="/privacy?plain=1" target="_blank" className="underline underline-offset-2">개인정보 처리방침</Link>에 동의합니다
+                </span>
+              </label>
+            </div>
             {error && <Note tone="bad">{error}</Note>}
             <SubmitButton loading={loading}>회원가입</SubmitButton>
           </form>
@@ -209,14 +255,10 @@ export function SignupForm() {
         </div>
       )}
 
-      {/* 전에는 '서비스 이용약관'이 링크 없는 평문이었다 — /terms 가 404 였기 때문.
-          2026-09 에 본문 18개 조를 게시했으므로 이제 실재하는 문서를 가리킨다.
-
-          ⚠️ 동의 체크박스는 아직 없다 — 가입하면 동의한 것으로 보는 구조다. 약관이 껍데기일
-             때는 체크박스가 오히려 이상했지만 본문이 생겼으므로 필수 동의로 올릴지 다시
-             판단할 것. 가입 전환율과 맞바꾸는 문제라 제품 결정이다. */}
+      {/* 동의는 기록으로 남긴다 (profiles.terms_agreed_at). 이메일 가입은 위 체크박스로,
+          카카오 가입은 로그인 콜백이 /signup/consent 로 보내 같은 두 항목에 체크를 받는다. */}
       <p className="mt-4 text-caption leading-relaxed text-faint">
-        가입하면{" "}
+        카카오로 시작하면 다음 화면에서{" "}
         <Link href="/terms" className="underline underline-offset-2 hover:text-muted">
           서비스 이용약관
         </Link>
@@ -224,10 +266,54 @@ export function SignupForm() {
         <Link href="/privacy" className="underline underline-offset-2 hover:text-muted">
           개인정보 처리방침
         </Link>
-        에 동의하게 됩니다.
+        동의를 받아요.
       </p>
     </>
   );
+}
+
+/**
+ * 진입 맥락별 표제 — 로그인 지면과 같은 장치(LoginForm 의 contextCopy).
+ *
+ * 기본 카피는 손님을 향한다("사진부터 고르고, 작가는 그다음"). 그런데 작가 모집
+ * 링크(/apply)를 타고 온 사람이 [작가 신청 시작하기] 를 누르면 그 카피를 만난다 —
+ * **잘못 눌렀나 싶은 화면**이다. 가입 이유가 첫 줄에 보여야 한다.
+ */
+function signupContextCopy(next: string): { title: string; sub: string } {
+  if (next.startsWith("/apply"))
+    return {
+      title: "작가로 시작하기",
+      sub: "가입하면 바로 신청서로 이어져요. 검토 후 사진이 지면에 노출됩니다.",
+    };
+  return {
+    title: "사진부터 고르고, 작가는 그다음",
+    sub: "마음에 든 사진을 누르면 그걸 찍은 작가로 이어져요. 담아두고 한 번에 물어볼 수 있어요.",
+  };
+}
+
+function SignupHeadlineShell({ title, sub }: { title: string; sub: string }) {
+  return (
+    <>
+      <h1 className="mt-6 text-[clamp(1.5rem,6vw,2rem)] font-extrabold leading-[1.2] tracking-[-0.035em]">
+        {title}
+      </h1>
+      <p className="mt-2.5 text-body-sm leading-relaxed text-muted">{sub}</p>
+    </>
+  );
+}
+
+/** useSearchParams 는 Suspense 안에서만 — 밖에 두면 정적 지면이 매 요청 렌더로 떨어진다. */
+export function SignupHeadline() {
+  return (
+    <Suspense fallback={<SignupHeadlineShell {...signupContextCopy(DEFAULT_SIGNUP_NEXT)} />}>
+      <SignupContextHeadline />
+    </Suspense>
+  );
+}
+
+function SignupContextHeadline() {
+  const next = useSearchParams().get("next") ?? DEFAULT_SIGNUP_NEXT;
+  return <SignupHeadlineShell {...signupContextCopy(next)} />;
 }
 
 export function SignupFooter() {

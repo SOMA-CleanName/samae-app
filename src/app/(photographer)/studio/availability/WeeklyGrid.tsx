@@ -92,13 +92,13 @@ export function WeeklyGrid({ initialRules }: { initialRules: AvailRule[] }) {
 
   return (
     <div>
-      <p className="text-xs text-fg/45">
+      <p className="text-xs text-faint">
         칸을 클릭하거나 드래그해서 가능한 시간을 칠하세요. (1시간 단위)
       </p>
 
       <div className="mt-3 select-none overflow-x-auto">
         {/* 요일 헤더 */}
-        <div className="grid grid-cols-[2.2rem_repeat(7,1fr)] gap-px text-center text-[11px] text-fg/45">
+        <div className="grid grid-cols-[2.2rem_repeat(7,1fr)] gap-px text-center text-[11px] text-faint">
           <div />
           {WD.map((d) => (
             <div key={d} className="py-1 font-medium">{d}</div>
@@ -108,7 +108,7 @@ export function WeeklyGrid({ initialRules }: { initialRules: AvailRule[] }) {
         {/* 시간 행 */}
         {Array.from({ length: 24 }).map((_, h) => (
           <div key={h} className="grid grid-cols-[2.2rem_repeat(7,1fr)] gap-px">
-            <div className="flex items-center justify-end pr-1 text-[10px] text-fg/35">{pad(h)}</div>
+            <div className="flex items-center justify-end pr-1 text-[10px] text-faint">{pad(h)}</div>
             {WD.map((_, wd) => {
               const k = key(wd, h);
               const on = sel.has(k);

@@ -17,6 +17,11 @@ export type ProfileInitial = {
   bankName: string;
   accountNumber: string;
   accountHolder: string;
+  legalName: string;
+  businessType: string;
+  businessNo: string;
+  /** 이미 올려 둔 사업자등록증이 있으면 그 시각 */
+  licenseUploadedAt: string | null;
 };
 
 // 작가 프로필 편집
@@ -28,7 +33,7 @@ export default async function ProfilePage() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("photographers")
-    .select("display_name, bio, regions, mood_tags, price_from_krw, contact_methods")
+    .select("display_name, bio, regions, mood_tags, price_from_krw, contact_methods, legal_name, business_type, business_no, business_license_uploaded_at")
     .eq("id", me.photographer.id)
     .single();
 
@@ -48,15 +53,19 @@ export default async function ProfilePage() {
     bankName: acct?.bank ?? "",
     accountNumber: acct?.number ?? "",
     accountHolder: acct?.holder ?? "",
+    legalName: data?.legal_name ?? "",
+    businessType: data?.business_type ?? "",
+    businessNo: data?.business_no ?? "",
+    licenseUploadedAt: (data?.business_license_uploaded_at as string | null) ?? null,
   };
 
   return (
     <main className="mx-auto max-w-lg px-4 sm:px-6 py-10 font-kr">
-      <Link href="/studio" className="text-sm text-fg/50 hover:text-fg">
+      <Link href="/studio" className="text-sm text-muted hover:text-fg">
         ← 스튜디오
       </Link>
       <h1 className="mt-4 text-2xl font-semibold">프로필 편집</h1>
-      <p className="mt-1 text-sm text-fg/55">{me.photographer.displayName}</p>
+      <p className="mt-1 text-sm text-muted">{me.photographer.displayName}</p>
       <section className="mt-6 rounded-2xl border border-fg/10 bg-surface p-4">
         <p className="text-sm font-semibold text-fg">프로필 대표 사진</p>
         <div className="mt-4">
@@ -72,7 +81,7 @@ export default async function ProfilePage() {
           채팅에 직접 적는 건 여전히 막혀 있다(추적이 끊기면 환불 판정 근거가 사라진다). */}
       <section className="mt-8 rounded-2xl border border-fg/10 bg-surface p-4">
         <p className="text-sm font-semibold text-fg">고객에게 보낼 연락처</p>
-        <p className="mt-1 text-xs leading-relaxed text-fg/55">
+        <p className="mt-1 text-xs leading-relaxed text-muted">
           예약이 확정되면 채팅의 예약 카드에서 한 번에 보낼 수 있어요. 고객이 안내를 확인하고
           동의해야 전달됩니다. 채팅에 직접 적는 건 그전까지 막혀 있어요.
         </p>

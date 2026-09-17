@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isSupportKind, SUPPORT_KIND_LABEL } from "@/lib/support";
+import { isSupportKind } from "@/lib/support";
+import { createSupportRequest } from "@/lib/support-requests";
 
 /**
  * 사매 문의 접수.
@@ -34,43 +35,38 @@ export async function submitSupportRequest(formData: FormData): Promise<void> {
       .eq("id", bookingId)
       .maybeSingle();
     if (!b) throw new Error("예약을 찾을 수 없습니다.");
-    // 창구는 고객 전용이다. 작가는 사매와 카톡으로 이어져 있어 여기로 받지 않는다
+    // 창구는 고객 전용이다. 작가는 사매와 카톡으로 이어져 있어 여기로 받지 않는다 —
+    // 예외는 작가측 촬영 취소(취소환불 8조) 하나. 기록이 남아야 수수료 청구와 이력 집계가 된다.
     // (버튼만 감추면 폼 위조로 들어올 수 있으므로 서버에서도 막는다).
-    if (b.user_id !== me.id) throw new Error("이 예약의 고객만 문의할 수 있어요.");
-    role = "customer";
+    const amPhotographer = !!me.photographer && me.photographer.id === b.photographer_id;
+    if (kind === "photographer_cancel") {
+      if (!amPhotographer) throw new Error("이 예약의 작가만 취소를 접수할 수 있어요.");
+      role = "photographer";
+    } else {
+      if (b.user_id !== me.id) throw new Error("이 예약의 고객만 문의할 수 있어요.");
+      role = "customer";
+    }
   }
 
-  const { error } = await admin.from("support_requests").insert({
-    booking_id: bookingId,
-    conversation_id: conversationId,
-    requester_id: me.id,
-    requester_role: role,
+  // 취소 신청이면 환불 계좌를 함께 받는다 — 사매 계좌로 이체한 돈을 돌려줄 곳 (취소환불 11조 2항)
+  const bank = String(formData.get("refundBank") || "").trim().slice(0, 30);
+  const number = String(formData.get("refundNumber") || "").replace(/[^0-9-]/g, "").slice(0, 30);
+  const holder = String(formData.get("refundHolder") || "").trim().slice(0, 30);
+  const refundAccount = kind === "refund" && bank && number && holder ? { bank, number, holder } : null;
+
+  // 행 삽입·기한 기산·채팅 흔적·운영 알림은 한 덩어리다 — lib/support-requests 가 한다.
+  // (QA 가 같은 경로를 탈 수 있어야 해서 액션 밖으로 뺐다)
+  await createSupportRequest({
+    requesterId: me.id,
+    requesterRole: role,
+    bookingId,
+    conversationId,
     kind,
     body,
+    refundAccount,
   });
-  if (error) throw new Error(error.message);
-
-  // 환불 요청이 들어온 순간이 곧 '사유 확정일' 이다 — 여기서부터 3영업일 안에 환급해야 하고,
-  // 넘기면 연 15% 지연이자가 법정 의무로 붙는다(전자상거래법 제18조 제2항).
-  // 수동 처리라 주말이 끼면 그냥 넘어가므로, 기산 시각을 남겨 어드민이 볼 수 있게 한다.
-  if (kind === "refund" && bookingId) {
-    await admin
-      .from("bookings")
-      .update({ refund_due_at: new Date().toISOString() })
-      .eq("id", bookingId)
-      .is("refund_due_at", null); // 첫 요청 시각을 유지 — 재요청으로 시계가 리셋되면 안 된다
-  }
-
-  // 채팅에 흔적 — 상대도 "지금 사매가 보고 있다" 를 알아야 기다릴 수 있다
-  if (conversationId) {
-    await admin.from("messages").insert({
-      conversation_id: conversationId,
-      sender_id: me.id,
-      type: "system",
-      body: `🛟 사매에 ${SUPPORT_KIND_LABEL[kind]}이 접수됐어요 — 사매가 확인 후 안내드릴게요.`,
-    });
-  }
 
   if (conversationId) revalidatePath(`/chat/${conversationId}`);
   revalidatePath("/my-inquiries"); // 목록 카드에서 넣은 경우도 즉시 반영
+  revalidatePath("/admin/support");
 }

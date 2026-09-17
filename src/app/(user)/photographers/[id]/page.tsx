@@ -132,7 +132,7 @@ export default async function PhotographerProfile({
             <div className="mt-3 flex flex-wrap gap-1.5">
               {ph.regions?.map((r: string) => (
                 <span key={r} className="inline-flex items-center gap-1 rounded-full bg-fg/[0.06] px-2.5 py-1 text-caption text-fg/70">
-                  <MapPinIcon className="h-3 w-3 text-fg/45" />
+                  <MapPinIcon className="h-3 w-3 text-faint" />
                   {r}
                 </span>
               ))}

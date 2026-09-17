@@ -25,17 +25,51 @@ type Chip = {
   icon: "story" | "place" | "qna" | "taste" | "persona";
 };
 
+/*
+  라벨은 **누르면 뭐가 나오는지**를 말해야 한다. 두 글자로 줄이면 짧고 단정해 보이지만
+  "장소"·"취향" 만으로는 눌러 볼 이유가 안 생긴다(팀원 QA: "텍스트와 아이콘만 봐서는
+  뭐가 있는지 모르겠음 안눌러볼듯"). 한 단어 더 붙여 목적어를 준다.
+
+  · 아티클   — 전에는 '매거진'이었고 하단 내비와 같은 곳(/explore)을 가리켰다.
+               그런데 그건 **하단 탭이 이미 하는 일**이라, 바로가기 한 칸을 같은 곳에
+               또 쓰는 셈이었다. 이름을 바꾸면서 목적지도 글 목록(/articles)으로 옮긴다 —
+               이름과 가는 곳이 어긋나면 그게 더 헷갈린다.
+               (매거진 지면 자체는 하단 탭으로 계속 간다)
+  · 페르소나 — 캠페인 고유명이라 개발이 바꾸지 않는다. 바꾸려면 마케팅과 같이 정해야 한다.
+*/
 const CHIPS: Chip[] = [
-  // 하단 내비 탭과 같은 곳(/explore)이다 — 이름이 다르면 두 군데인 줄 안다.
-  // 탭이 '탐색'에서 '매거진'으로 바뀌면서 여기 '이야기'도 같이 맞췄다.
-  { href: "/explore", label: "매거진", icon: "story" },
-  { href: "/spots", label: "장소", icon: "place" },
-  { href: "/guide", label: "가이드", icon: "qna" },
-  { href: "/explore/quiz", label: "취향", icon: "taste" },
+  { href: "/articles", label: "아티클", icon: "story" },
+  { href: "/spots", label: "촬영 장소", icon: "place" },
+  { href: "/guide", label: "Q&A", icon: "qna" },
+  { href: "/explore/quiz", label: "취향 테스트", icon: "taste" },
   { href: "/event/persona", label: "페르소나", icon: "persona" },
 ];
 
-/** 다섯 개가 한 세트로 보이도록 선 굵기·크기·여백을 똑같이 맞춘다. */
+/*
+  다섯 아이콘 — 시스템 그대로 단색 선(`currentColor`, 굵기 1.7)이다.
+  앱의 다른 아이콘(components/user/icons.tsx)과 같은 문법이고, 색은 토큰만 쓴다.
+  (컬러 일러스트로 그려 봤다가 되돌렸다 — docs/14 §1 "값을 직접 박지 말고 토큰을 쓴다"에
+   어긋나고, 사진이 주인공인 이 지면에서 칩이 사진보다 시끄러웠다)
+
+  ⚠️ 이 다섯은 **바깥 실루엣이 서로 달라야 한다.**
+     전에는 넷이 사각/원 계열이라(펼친 책·겹친 사각·둥근 말풍선·원 안 인물)
+     한 덩어리로 보였고, 그게 "뭐가 있는지 모르겠음"의 실체였다.
+     지금은 이렇게 갈라 둔다 —
+
+       매거진     가로로 넓은 V (펼친 책)
+       촬영 장소   물방울 (핀)
+       Q&A       둥글고 왼쪽 아래 꼬리 (말풍선)
+       취향 테스트  세로로 긴 액자 (사진 한 장)   ← 책은 가로, 이건 세로
+       페르소나    인스타그램                  ← 이 캠페인은 인스타 사진으로 유형을 찾는다
+
+     색을 못 보는 사람도 다섯이 구별돼야 한다.
+
+  ⚠️ **광학 중심을 뷰박스 중심(12,12)에 맞춘다.**
+     Q&A 가 틀어져 있었다 — 말풍선 꼬리가 아래로 3 내려가는데 위는 안 늘어나서
+     형태의 무게중심이 13.5 였다. 다른 넷은 12 인데 이것만 1.5 내려앉아,
+     한 줄로 늘어놓으면 Q&A 만 밑으로 처져 보였다(정훈 지적 2026-09-12).
+     아이콘을 새로 그리거나 고칠 때는 **위아래·좌우 끝점을 재서** 가운데를 확인할 것.
+*/
 function Icon({ kind }: { kind: Chip["icon"] }) {
   const p = {
     viewBox: "0 0 24 24",
@@ -44,47 +78,76 @@ function Icon({ kind }: { kind: Chip["icon"] }) {
     strokeWidth: 1.7,
     strokeLinecap: "round" as const,
     strokeLinejoin: "round" as const,
-    className: "h-5 w-5",
+    className: "h-7 w-7",
     "aria-hidden": true,
   };
   switch (kind) {
-    case "story": // 펼친 지면
+    case "story":
+      /*
+        펼친 지면 — 가로로 넓다.
+
+        예전 경로는 잉크가 19.7×15.4 라, 나머지 넷(약 19.7×19.7)보다 **눈에 띄게 작아
+        보였다.** 한 줄에 늘어놓으면 매거진만 쪼그라든 것처럼 읽힌다.
+        세로를 15.4 → 17.7 로 키우고 가운데를 12 에 맞췄다.
+      */
       return (
         <svg {...p}>
-          <path d="M12 6.5S10 4.8 6.5 4.8 3 6 3 6v12s1.2-1.2 3.5-1.2S12 18.5 12 18.5" />
-          <path d="M12 6.5s2-1.7 5.5-1.7S21 6 21 6v12s-1.2-1.2-3.5-1.2S12 18.5 12 18.5" />
-          <path d="M12 6.5v12" />
+          <path d="M12 5.9S9.9 4 6.4 4 3 5.3 3 5.3v14.2s1.3-1.3 3.4-1.3S12 20 12 20" />
+          <path d="M12 5.9s2.1-1.9 5.6-1.9S21 5.3 21 5.3v14.2s-1.3-1.3-3.4-1.3S12 20 12 20" />
+          <path d="M12 5.9v14.1" />
         </svg>
       );
-    case "place": // 지도 핀
+    case "place": // 지도 핀 — 다섯 중 유일하게 아래가 뾰족하다
       return (
         <svg {...p}>
           <path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" />
           <circle cx="12" cy="10" r="2.5" />
         </svg>
       );
-    case "qna": // 말풍선 + 물음
+    case "qna":
+      /*
+        말풍선 + 물음. 꼬리는 왼쪽 아래로 빠진다.
+
+        위아래 끝이 3.5 / 20.5 라 가운데가 정확히 12 다. 예전 경로는 몸통 위가 4.5,
+        꼬리 끝이 22.5 여서 무게중심이 13.5 였고, 한 줄에서 이것만 처져 보였다.
+      */
       return (
         <svg {...p}>
-          <path d="M20.5 12a7.5 7.5 0 0 1-7.5 7.5H8l-4.5 3v-6A7.5 7.5 0 0 1 11 4.5h2A7.5 7.5 0 0 1 20.5 12Z" />
-          <path d="M10.4 10a1.7 1.7 0 1 1 2.4 1.6c-.6.3-.9.8-.9 1.4" />
-          <path d="M12 15.6h.01" />
+          <path d="M12 3.5c-4.7 0-8.5 3.22-8.5 7.2 0 2.3 1.3 4.36 3.3 5.68L6 20.5l4.42-2.32c.51.08 1.04.12 1.58.12 4.7 0 8.5-3.22 8.5-7.2S16.7 3.5 12 3.5Z" />
+          <path d="M10.3 9.2a1.75 1.75 0 1 1 2.45 1.65c-.62.32-.95.85-.95 1.45" />
+          <path d="M11.8 14.9h.01" />
         </svg>
       );
-    case "taste": // 사진 두 장을 겹쳐 고르는 모습
+    case "taste":
+      /*
+        사진 한 장 — 세로로 긴 액자.
+
+        취향 테스트는 **사진을 보고 고르는 일**이라 사진이 맞다. 세로 액자는 가로로
+        넓은 매거진과 갈리고, 위아래 3.2/20.8 로 가운데가 12 다.
+        (한때 '겹친 사각 두 장'이었는데 복사·중복 아이콘으로 읽혔고,
+         잠깐 슬라이더였는데 그건 취향을 '설정'하는 것처럼 읽혔다)
+      */
       return (
         <svg {...p}>
-          <rect x="3" y="7" width="12" height="12" rx="2" />
-          <path d="M9 7V5.5A2.5 2.5 0 0 1 11.5 3h7A2.5 2.5 0 0 1 21 5.5v7a2.5 2.5 0 0 1-2.5 2.5H17" />
-          <path d="m6 15.5 2.3-2.3 2.7 2.7" />
+          <rect x="5" y="3.2" width="14" height="17.6" rx="2.6" />
+          <circle cx="12" cy="10" r="2.5" />
+          <path d="M7.9 17.9a4.5 4.5 0 0 1 8.2 0" />
         </svg>
       );
-    default: // persona — 인물 + 둘레
+    default:
+      /*
+        페르소나 — 인스타그램.
+
+        이 캠페인은 **인스타 사진으로 내 유형을 찾는** 것이다. 출처를 그대로 보여 주면
+        "뭘 하는 곳인지"가 라벨 없이도 읽힌다. 다섯 중 유일하게 바깥이 정사각이다.
+
+        점(렌즈 옆 작은 원)만 채운다 — 선으로 그리면 이 크기에서 고리가 뭉개진다.
+      */
       return (
         <svg {...p}>
-          <circle cx="12" cy="12" r="9" />
-          <circle cx="12" cy="10" r="2.6" />
-          <path d="M6.8 18.5a5.6 5.6 0 0 1 10.4 0" />
+          <rect x="3" y="3" width="18" height="18" rx="5" />
+          <circle cx="12" cy="12" r="4" />
+          <circle cx="16.9" cy="7.1" r="1.05" fill="currentColor" stroke="none" />
         </svg>
       );
   }
@@ -92,16 +155,40 @@ function Icon({ kind }: { kind: Chip["icon"] }) {
 
 export function HomeQuickNav() {
   return (
-    <nav aria-label="바로가기" className="mb-6">
+    // lg 이상에서는 좌측 칸(17rem)에 들어간다 — 아래 여백은 바깥 2단 컨테이너가 준다.
+    /*
+      경계선은 **긋지 않는다.**
+
+      회색 실선을 그어 봤더니(바로가기 아래 + 무드 아래) 선이 둘이나 생기면서
+      지면이 표처럼 답답해졌다. 이 지면의 주인공은 사진이고, 칸막이가 많을수록
+      사진이 뒤로 물러난다.
+
+      섹션의 경계는 각 머리 위의 **빨간 눈금**(h-[2px] w-6)이 맡는다. 그건 매거진·탐색
+      섹션 머리와 공유하는 표식이라 지면끼리도 하나로 읽힌다.
+      (정훈 2026-09-12: "경계 없는게 나을것 같기도 하고 … 빨간 줄을 경계로 삼던가")
+
+      바로가기는 머리가 없는 층이라 눈금도 없다 — 위는 배너 아랫변이, 아래는 무드 머리의
+      눈금이 자연히 경계가 된다.
+    */
+    <nav aria-label="바로가기" className="mb-4 lg:mb-0">
       <ul className="grid grid-cols-5 gap-1 sm:flex sm:flex-wrap sm:gap-2">
         {CHIPS.map((c, i) => (
           // 로드 때 순서대로 자리를 잡는다
           <li key={c.href} className="ed-rise" style={{ ["--i" as string]: i }}>
             <Link
               href={c.href}
-              className="qp flex flex-col items-center gap-1.5 py-1 sm:flex-row sm:gap-2 sm:rounded-full sm:border sm:border-line sm:bg-surface sm:py-1.5 sm:pl-1.5 sm:pr-4"
+              className="qp flex flex-col items-center gap-0.5 py-1.5 sm:flex-row sm:gap-2 sm:py-1.5 sm:pl-1.5 sm:pr-4 sm:rounded-full sm:border sm:border-line sm:bg-surface"
             >
-              <span className="qp-dot grid h-11 w-11 place-items-center rounded-full bg-brand-soft text-brand sm:h-9 sm:w-9">
+              {/*
+                틴트 원은 없앤다(A안). 다섯이 같은 원을 쓰면 그 원이 가장 먼저 보여
+                안쪽 실루엣 차이를 덮는다. 원을 걷으면 남는 신호가 실루엣뿐이라
+                B안(실루엣 재설계)이 실제로 일을 한다.
+
+                원이 사라지면서 상자를 44px 로 둘 이유도 없어졌다 — 그 크기는 원을 누르라고
+                있던 것이고, 지금 터치 타겟은 **이 링크 전체**(아이콘 + 라벨, 세로 60px 이상)다.
+                상자를 아이콘에 맞게 줄여야 라벨이 아이콘에 붙는다.
+              */}
+              <span className="qp-dot grid h-8 w-8 place-items-center text-brand">
                 <Icon kind={c.icon} />
               </span>
               <span className="qp-label block max-w-full truncate text-[11px] font-bold tracking-tight sm:text-sm">

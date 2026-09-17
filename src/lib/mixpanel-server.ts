@@ -11,6 +11,19 @@ import "server-only";
 
 const TOKEN = process.env.NEXT_PUBLIC_MIXPANEL_TOKEN;
 
+// 비운영 환경 가드 — 브라우저 쪽(lib/mixpanel.ts)에는 있는데 **여기엔 없었다.**
+// 거기 주석에 "2026-08 스캔에서 localhost 이벤트 2,900여 개가 프로덕션 Mixpanel 에
+// 유입된 것 확인" 이라고 적혀 있다. 서버 이벤트도 같은 경로로 새고 있었다 —
+// .env.local 에 토큰이 있으면 로컬 개발이 그대로 운영 지표에 섞인다.
+//
+// 브라우저는 hostname 으로 걸렀지만 서버엔 hostname 이 없다. Vercel 프리뷰는
+// NODE_ENV 가 "production" 이라 그것만으론 못 거르므로 VERCEL_ENV 를 같이 본다.
+function nonProduction(): boolean {
+  const vercelEnv = process.env.VERCEL_ENV; // production | preview | development
+  if (vercelEnv) return vercelEnv !== "production";
+  return process.env.NODE_ENV !== "production";
+}
+
 /**
  * 서버 이벤트 1건 전송.
  * @param event      이벤트명 (예: "Confirm Payment")
@@ -24,7 +37,7 @@ export async function mpTrackServer(
   props?: Record<string, unknown>,
   insertId?: string,
 ): Promise<void> {
-  if (!TOKEN || !distinctId) return;
+  if (!TOKEN || !distinctId || nonProduction()) return;
   try {
     const payload = [
       {
@@ -63,7 +76,7 @@ export async function mpRevenueServer(
   distinctId: string | null | undefined,
   amountKrw: number | null | undefined,
 ): Promise<void> {
-  if (!TOKEN || !distinctId || !amountKrw || amountKrw <= 0) return;
+  if (!TOKEN || !distinctId || !amountKrw || amountKrw <= 0 || nonProduction()) return;
   try {
     const now = new Date().toISOString();
     const data = [

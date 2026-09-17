@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { activeChannels } from "@/lib/channels";
+import { businessInfoRows } from "@/lib/business-info";
 
 /**
  * 지면 공통 푸터.
@@ -7,24 +8,32 @@ import { activeChannels } from "@/lib/channels";
  * 이 서비스에는 푸터가 없었다. 지면마다 각자 끝맺음을 갖고 있어서
  * 개인정보 처리방침·안전 안내처럼 **어디서든 닿아야 하는 것**에 갈 길이 없었다.
  *
- * 끝이 있는 지면에만 붙인다. 홈과 검색 결과는 무한 스크롤이라 푸터에 영영 못 닿고,
- * 문의·채팅·사진 상세 같은 몰입 흐름에서는 아래에 링크 뭉치가 있으면 방해가 된다.
- * (탐색 탭은 판권면이 그 자리를 맡고 있어 거기에 링크만 얹었다)
+ * 문의·채팅·사진 상세 같은 몰입 흐름에는 붙이지 않는다 — 아래에 링크 뭉치가 있으면
+ * 방해가 된다. 홈은 **자동 이어붙이기를 끊은 뒤**(ExploreGallery 의
+ * AUTO_ADVANCE_BUDGET) 붙는다. 예전엔 무한 스크롤이라 여기에 영영 못 닿았고,
+ * 그래서 사업자 정보가 지면 맨 위(SiteInfoBar)로 올라가 있었다.
  */
 export function SiteFooter() {
   const channels = activeChannels();
+  const business = businessInfoRows();
 
   return (
     <footer className="mt-16 border-t border-line pt-7">
       <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-4">
         <Link
           href="/"
-          className="font-display text-xl italic leading-none text-brand transition-opacity hover:opacity-80"
+          // 로고도 링크다 — 실측 57×20 이었다. 글자는 그대로, 눌리는 면만 44px.
+          className="-my-3 inline-flex min-h-11 items-center font-display text-xl italic leading-none text-brand-ink transition-opacity hover:opacity-80"
         >
           samae
         </Link>
 
-        <nav aria-label="사매 안내" className="flex flex-wrap gap-x-5 gap-y-2 text-body-sm">
+        {/*
+          링크 높이가 20px 였다 — 권장 44px 의 절반 이하다(실측: `아티클 36×20`,
+          `Q&A 26×20`). 글자 크기는 그대로 두고 **세로 패딩으로만** 44px 을 만든다.
+          `-my-3` 로 늘어난 만큼을 상쇄해 줄 간격은 보이던 그대로 유지한다.
+        */}
+        <nav aria-label="사매 안내" className="-my-3 flex flex-wrap gap-x-5 text-body-sm">
           {[
             { href: "/articles", label: "아티클" },
             { href: "/spots", label: "촬영 장소" },
@@ -36,7 +45,7 @@ export function SiteFooter() {
             <Link
               key={l.href}
               href={l.href}
-              className="text-muted transition-colors hover:text-brand"
+              className="inline-flex min-h-11 items-center text-muted transition-colors hover:text-brand"
             >
               {l.label}
             </Link>
@@ -51,7 +60,7 @@ export function SiteFooter() {
            주소가 비면 이 줄이 통째로 안 그려진다(lib/channels).
       */}
       {channels.length > 0 && (
-        <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <div className="mt-2 flex flex-wrap items-center gap-x-4">
           <span className="text-[11px] font-bold uppercase tracking-[0.16em] text-faint">
             사매 공식 채널
           </span>
@@ -61,13 +70,28 @@ export function SiteFooter() {
               href={c.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-body-sm text-muted underline decoration-line-strong underline-offset-4 transition-colors hover:text-brand"
+              // 위 안내 링크와 같은 이유로 44px (실측 `인스타그램 60×20`)
+              className="inline-flex min-h-11 items-center text-body-sm text-muted underline decoration-line-strong underline-offset-4 transition-colors hover:text-brand"
             >
               {c.label}
             </a>
           ))}
         </div>
       )}
+
+      {/*
+        운영 주체 — 전자상거래법 제10조는 사업자 정보를 **초기화면에 직접 표시**하도록 한다
+        (연결화면으로 빼도 되는 건 이용약관뿐이다).
+        ⚠️ 지우지 말 것. 값은 lib/business-info 한 곳에서만 고친다.
+      */}
+      <dl className="mt-6 flex flex-wrap gap-x-4 gap-y-1.5 border-t border-line pt-5 text-[11px] leading-none text-muted">
+        {business.map((row) => (
+          <div key={row.label} className="flex items-center gap-1.5">
+            <dt className="text-faint">{row.label}</dt>
+            <dd>{row.value}</dd>
+          </div>
+        ))}
+      </dl>
 
       <p className="mt-5 text-[11px] leading-relaxed text-faint">
         나만의 무드, 나만의 촬영. 사매

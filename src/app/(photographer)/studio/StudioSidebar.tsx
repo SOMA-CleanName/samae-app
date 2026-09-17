@@ -49,7 +49,7 @@ export function StudioSidebar({ chatUnread = 0 }: { chatUnread?: number }) {
       {/* 데스크톱: 좌측 세로 사이드바 */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-52 flex-col border-r border-fg/8 bg-bg px-3 py-5 md:flex">
         <Link href="/" className="px-2 text-lg font-semibold">
-          사매 <span className="text-xs font-normal text-fg/45">스튜디오</span>
+          사매 <span className="text-xs font-normal text-faint">스튜디오</span>
         </Link>
 
         <nav className="mt-6 flex flex-1 flex-col gap-1">
@@ -63,7 +63,7 @@ export function StudioSidebar({ chatUnread = 0 }: { chatUnread?: number }) {
           ))}
         </nav>
 
-        <Link href="/" className="px-3 py-2 text-xs text-fg/45 hover:text-fg">
+        <Link href="/" className="px-3 py-2 text-xs text-faint hover:text-fg">
           ← 홈으로
         </Link>
       </aside>
@@ -85,13 +85,15 @@ export function StudioSidebar({ chatUnread = 0 }: { chatUnread?: number }) {
               <Link
                 key={it.href}
                 href={it.href}
-                className={`relative shrink-0 rounded-full px-3 py-1.5 text-sm transition-colors ${
+                // 알약은 32px 그대로. 투명 ::before 로 위아래만 6px 씩 벌려 탭 영역을 44px 로.
+                // (알약 자체를 44px 로 키우면 상단 바가 통째로 두꺼워진다)
+                className={`relative shrink-0 rounded-full px-3 py-1.5 text-sm transition-colors before:absolute before:inset-x-0 before:-inset-y-1.5 before:content-[''] ${
                   active ? "bg-fg text-bg" : "text-fg/60 hover:bg-fg/[0.05]"
                 }`}
               >
                 {it.label}
                 {it.badge ? (
-                  <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-brand px-1 text-[10px] font-bold leading-none text-white ring-2 ring-bg">
+                  <span className="absolute -right-1 -top-1 grid h-4 min-w-4 place-items-center rounded-full bg-brand-solid px-1 text-[10px] font-bold leading-none text-white ring-2 ring-bg">
                     {it.badge > 99 ? "99+" : it.badge}
                   </span>
                 ) : null}
@@ -107,7 +109,7 @@ export function StudioSidebar({ chatUnread = 0 }: { chatUnread?: number }) {
 
 function GroupLabel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
-    <p className={`px-3 pb-1 text-[11px] font-medium uppercase tracking-wide text-fg/35 ${className}`}>
+    <p className={`px-3 pb-1 text-[11px] font-medium uppercase tracking-wide text-faint ${className}`}>
       {children}
     </p>
   );
@@ -117,13 +119,15 @@ function SideLink({ item, active }: { item: Item; active: boolean }) {
   return (
     <Link
       href={item.href}
-      className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${
+      // 세로 패딩 대신 min-h-11 — 작가가 매일 쓰는 내비라 36px 은 좁다.
+      // py 를 올리면 항목 간 간격까지 벌어져 목록이 길어진다.
+      className={`flex min-h-11 items-center justify-between rounded-lg px-3 py-2 text-sm transition-colors ${
         active ? "bg-fg/[0.08] font-medium text-fg" : "text-fg/65 hover:bg-fg/[0.05] hover:text-fg"
       }`}
     >
       {item.label}
       {item.badge ? (
-        <span className="min-w-[18px] rounded-full bg-brand px-1 text-center text-[10px] font-bold leading-[18px] text-white">
+        <span className="min-w-[18px] rounded-full bg-brand-solid px-1 text-center text-[10px] font-bold leading-[18px] text-white">
           {item.badge > 99 ? "99+" : item.badge}
         </span>
       ) : null}

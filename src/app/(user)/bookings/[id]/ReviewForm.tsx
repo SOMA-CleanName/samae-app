@@ -48,7 +48,7 @@ export function ReviewForm({
             onMouseEnter={() => setHover(n)}
             aria-label={`${n}점`}
             className={`text-2xl leading-none transition-colors ${
-              n <= (hover || rating) ? "text-warning" : "text-fg/20"
+              n <= (hover || rating) ? "text-warning" : "text-faint"
             }`}
           >
             ★

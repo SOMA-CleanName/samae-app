@@ -13,9 +13,10 @@ import { markTransferSent } from "@/app/actions/payments";
 import { CheckIcon, WalletIcon, XIcon } from "@/components/user/icons";
 import { Spinner } from "@/components/ui";
 import type { PayoutAccount } from "@/lib/payments";
-import { PolicyNote } from "./PolicyNote";
-import { LateBookingConsent } from "./LateBookingConsent";
-import { isLateBooking } from "@/lib/refund";
+// 채팅 다이얼로그와 예약 상세가 같은 고지·같은 동의를 쓴다 — 한쪽만 고치면 그쪽이 빈다
+import { PolicyNote } from "@/components/booking/PolicyNote";
+import { LateBookingConsent } from "@/components/booking/LateBookingConsent";
+import { isLateBooking, lateBookingPenaltyPct } from "@/lib/refund";
 
 const fmt = new Intl.NumberFormat("ko-KR");
 
@@ -27,6 +28,8 @@ export function AcceptPayDialog({
   lateBookingConsentAt = null,
   account: preloaded,
   onClose,
+  markPaidAction = markTransferSent,
+  agreeAction,
 }: {
   bookingId: string;
   amountKrw: number;
@@ -39,6 +42,10 @@ export function AcceptPayDialog({
    *  없으면 창이 열리자마자 "계좌 불러오는 중…" 이 깜빡인다. */
   account?: PayoutAccount | null;
   onClose: () => void;
+  /** 입금 완료를 기록하는 액션. 기본은 진짜 서버 액션, 샌드박스만 갈아 끼운다 */
+  markPaidAction?: (formData: FormData) => Promise<void>;
+  /** 임박 예약 동의 액션 — 그대로 LateBookingConsent 로 내려간다 */
+  agreeAction?: (formData: FormData) => Promise<void>;
 }) {
   const router = useRouter();
   const [fetched, setFetched] = useState<PayoutAccount | null>(null);
@@ -54,15 +61,16 @@ export function AcceptPayDialog({
   const [consented, setConsented] = useState(!!lateBookingConsentAt);
   const lateBooking = isLateBooking(shootAt, shootDate);
   const needsLateConsent = !consented && lateBooking;
-  // 임박 + 동의 완료 = 환불이 없는 건. 안내와 체크 문구가 여기에 맞춰 바뀐다.
-  const noRefund = consented && lateBooking;
+  // 임박 + 동의 완료 = 결제 직후라도 위약금(40% 또는 90%)이 붙는 건. 안내와 체크 문구가 여기에 맞춰 바뀐다.
+  const latePct = lateBooking ? (lateBookingPenaltyPct(shootAt, shootDate) ?? 90) : null;
+  const lateConsented = consented && lateBooking && latePct != null;
 
   // 입금하고 돌아온 손님이 이 창에서 바로 끝낼 수 있게 — 카드까지 내려가 다시 찾지 않는다
   function markPaid() {
     const fd = new FormData();
     fd.set("id", bookingId);
     startSend(async () => {
-      await markTransferSent(fd);
+      await markPaidAction(fd);
       router.refresh();
       onClose();
     });
@@ -98,6 +106,9 @@ export function AcceptPayDialog({
       <LateBookingConsent
         bookingId={bookingId}
         shootAt={shootAt}
+        amountKrw={amountKrw}
+        penaltyPct={latePct ?? 90}
+        {...(agreeAction ? { agreeAction } : {})}
         onAgreed={() => setConsented(true)}
         onCancel={onClose}
       />
@@ -175,13 +186,13 @@ export function AcceptPayDialog({
             순서를 번호로 끊어 보여준다. 문장으로 흘리면 읽히지 않는다. */}
         <ol className="mt-4 flex flex-col gap-2 rounded-xl bg-brand/[0.08] p-3.5 ring-1 ring-brand/25">
           <li className="flex items-start gap-2 text-body-sm text-fg">
-            <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-brand text-caption font-bold text-white">
+            <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-brand-solid text-caption font-bold text-white">
               1
             </span>
             위 계좌로 <b>₩{fmt.format(amountKrw)}</b> 입금하기
           </li>
           <li className="flex items-start gap-2 text-body-sm text-fg">
-            <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-brand text-caption font-bold text-white">
+            <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-brand-solid text-caption font-bold text-white">
               2
             </span>
             <span>
@@ -193,7 +204,12 @@ export function AcceptPayDialog({
         </ol>
 
         {/* 무엇에 동의하고 보내는지 — 입금 버튼 바로 위가 유일하게 읽히는 자리다 */}
-        <PolicyNote shootAt={shootAt} shootDate={shootDate} noRefund={noRefund} />
+        <PolicyNote
+          shootAt={shootAt}
+          shootDate={shootDate}
+          amountKrw={amountKrw}
+          lateBookingPct={lateConsented ? latePct : null}
+        />
 
         <label className="mt-3 flex cursor-pointer items-start gap-2.5 rounded-xl bg-surface-2 p-3">
           <input
@@ -203,9 +219,9 @@ export function AcceptPayDialog({
             className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
           />
           <span className="text-caption font-medium leading-relaxed text-fg">
-            {noRefund
-              ? "입금 후에는 취소해도 환불되지 않는다는 점을 확인했습니다."
-              : "촬영 7일 전부터는 취소해도 환불되지 않는다는 점을 확인했습니다."}
+            {lateConsented
+              ? `입금 후 취소하면 위약금 ${latePct}%가 빠진다는 점을 확인했습니다.`
+              : "촬영 4~7일 전 취소는 위약금 40%, 3일 전부터 촬영 당일까지는 위약금 90%가 빠진다는 점을 확인했습니다."}
           </span>
         </label>
 

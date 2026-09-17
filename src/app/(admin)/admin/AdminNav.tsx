@@ -20,6 +20,9 @@ const TABS = [
   { href: "/admin/photo-purpose", label: "사진 목적&무드" },
   { href: "/admin/banners", label: "홈 배너" },
   { href: "/admin/articles", label: "아티클" },
+  // 아티클 옆에 둔다 — 셋 다 매거진(/explore)에 실리는 읽을거리다
+  { href: "/admin/guide", label: "Q&A" },
+  { href: "/admin/spots", label: "촬영 장소" },
   { href: "/admin/categories", label: "타겟 카테고리" },
   { href: "/admin/explore", label: "무드(탐색)" },
   { href: "/admin/tags", label: "태그" },

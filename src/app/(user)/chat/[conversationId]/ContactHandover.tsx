@@ -6,7 +6,7 @@
 // 100% 구간이 닫히고, 그 사실을 **받기 전에** 알려야 근거가 된다.
 // 받은 뒤에 알리면 고지가 아니라 통보다.
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   acceptPhotographerContact,
@@ -18,9 +18,7 @@ import {
   normalizeContactMethods,
   type ContactMethod,
 } from "@/lib/photographer-contacts";
-import { getCustomerRefundQuote, type CustomerRefundQuote } from "@/app/actions/refund-quote";
 
-const fmt = new Intl.NumberFormat("ko-KR");
 
 /**
  * 작가 화면 — 입력창 + 메뉴의 [연락처 보내기].
@@ -33,15 +31,24 @@ export function SendContactMenuItem({
   sentAt,
   onDone,
   icon,
+  gate,
+  sendAction = sendPhotographerContact,
 }: {
   bookingId: string;
   sentAt: string | null;
   onDone: () => void;
   icon: React.ReactNode;
+  /** 아직 안 열렸으면 메뉴에 아예 올리지 않는다 (HANDOFF §3-1) */
+  gate?: { allowed: boolean };
+  /** 기본은 진짜 서버 액션. QA 샌드박스만 갈아 끼운다 (chat-io.ts) */
+  sendAction?: (formData: FormData) => Promise<void>;
 }) {
   const router = useRouter();
   const [sending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  // 닫혀 있으면 메뉴에서 뺀다 — 이유는 예약 카드 쪽이 말한다(한 자리에서만 설명한다)
+  if (gate && !gate.allowed) return null;
 
   return (
     <>
@@ -54,7 +61,7 @@ export function SendContactMenuItem({
             try {
               const fd = new FormData();
               fd.set("id", bookingId);
-              await sendPhotographerContact(fd);
+              await sendAction(fd);
               onDone();
               router.refresh();
             } catch (e) {
@@ -84,10 +91,16 @@ export function SendContactCardButton({
   bookingId,
   sentAt,
   deliveredAt,
+  gate,
+  sendAction = sendPhotographerContact,
 }: {
   bookingId: string;
   sentAt: string | null;
   deliveredAt: string | null;
+  /** 아직 안 열렸으면 왜 닫혀 있는지 — 버튼 자리를 이 문구가 대신한다 (HANDOFF §3-1) */
+  gate?: { allowed: boolean; notice?: string };
+  /** 기본은 진짜 서버 액션. QA 샌드박스만 갈아 끼운다 (chat-io.ts) */
+  sendAction?: (formData: FormData) => Promise<void>;
 }) {
   const router = useRouter();
   const [sending, start] = useTransition();
@@ -106,6 +119,18 @@ export function SendContactCardButton({
       </p>
     );
 
+  // 촬영이 멀면 아직 열리지 않는다. 버튼을 그냥 감추면 "왜 없지" 가 되므로 이유를 남긴다
+  if (gate && !gate.allowed)
+    return (
+      <p className="mt-3 border-t border-line pt-3 text-caption leading-relaxed text-muted">
+        📵 {gate.notice}
+        <br />
+        <span className="text-faint">
+          촬영이 가까워지면 열려요. 그 전까지는 이 채팅에서 이야기해주세요.
+        </span>
+      </p>
+    );
+
   return (
     <div className="mt-3 border-t border-line pt-3">
       <button
@@ -117,7 +142,7 @@ export function SendContactCardButton({
             try {
               const fd = new FormData();
               fd.set("id", bookingId);
-              await sendPhotographerContact(fd);
+              await sendAction(fd);
               router.refresh();
             } catch (e) {
               setError(e instanceof Error ? e.message : "보내지 못했습니다.");
@@ -142,29 +167,17 @@ export function ContactCardBubble({
   payload,
   deliveredAt,
   amCustomer,
+  acceptAction = acceptPhotographerContact,
 }: {
   bookingId: string;
   payload: unknown;
   deliveredAt: string | null;
   amCustomer: boolean;
+  /** 기본은 진짜 서버 액션. QA 샌드박스만 갈아 끼운다 (chat-io.ts) */
+  acceptAction?: (formData: FormData) => Promise<void>;
 }) {
   const router = useRouter();
   const [accepting, start] = useTransition();
-  // 지금 취소하면 얼마인지를 실제로 물어본다 — 어드민 판정과 같은 함수다.
-  // 이미 위약금 구간이면 연락처를 받아도 달라지는 게 없으므로, 그때 '조건이 바뀐다'고
-  // 말하면 거짓말이 된다.
-  const [quote, setQuote] = useState<CustomerRefundQuote | null>(null);
-  useEffect(() => {
-    if (deliveredAt || !amCustomer) return;
-    let active = true;
-    getCustomerRefundQuote(bookingId).then((q) => {
-      if (active) setQuote(q);
-    });
-    return () => {
-      active = false;
-    };
-  }, [bookingId, deliveredAt, amCustomer]);
-
   const methods: ContactMethod[] = normalizeContactMethods(payload);
   if (methods.length === 0) return null;
 
@@ -214,31 +227,10 @@ export function ContactCardBubble({
       <div className="rounded-2xl bg-surface p-4 ring-1 ring-warning/40">
         <p className="text-body-sm font-semibold text-fg">작가님이 연락처를 보냈습니다</p>
 
-        {/* 규칙은 한 줄로 말하고, 금액은 표로 보여준다.
-            이미 50% 구간이면 달라지는 게 없으므로 아무 말도 하지 않는다 —
-            없던 조건이 생긴다고 말하면 겁주기고, 그대로라고 말하면 군더더기다. */}
-        {quote && quote.percent === 100 && (
-            <>
-              <p className="mt-1.5 text-caption leading-relaxed text-muted">
-                작가 연락처를 받은 이후에는 환불 시 지불 금액의 50%가 환불됩니다.
-              </p>
-              <dl className="mt-2.5 flex flex-col gap-2 rounded-lg bg-surface-2 p-3">
-                <div className="flex items-baseline justify-between gap-3">
-                  <dt className="text-caption text-muted">지금 취소</dt>
-                  <dd className="text-body-sm font-semibold text-fg">
-                    ₩{fmt.format(quote.amountKrw)} 전액 환불
-                  </dd>
-                </div>
-                <div className="flex items-baseline justify-between gap-3 border-t border-line pt-2">
-                  <dt className="text-caption font-medium text-fg">받은 뒤 취소</dt>
-                  <dd className="text-body-sm font-bold text-danger">
-                    ₩{fmt.format(Math.round(quote.amountKrw / 2))}
-                    <span className="ml-1 text-caption font-medium">· 50% 환불</span>
-                  </dd>
-                </div>
-              </dl>
-            </>
-        )}
+        {/* 연락처 수령은 환불과 무관하다(취소환불정책 1.0). 용도 제한만 고지한다 (회원약관 6조 4항) */}
+        <p className="mt-1.5 text-caption leading-relaxed text-muted">
+          연락처는 이 촬영의 상담과 진행에만 사용할 수 있어요. 다른 목적으로 쓰거나 다른 사람에게 알려주시면 안 돼요.
+        </p>
 
         <button
           type="button"
@@ -247,7 +239,7 @@ export function ContactCardBubble({
             start(async () => {
               const fd = new FormData();
               fd.set("id", bookingId);
-              await acceptPhotographerContact(fd);
+              await acceptAction(fd);
               router.refresh();
             })
           }

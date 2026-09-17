@@ -18,6 +18,8 @@ export function toProfileMe(me: CurrentUser | null): ProfileMe | null {
     email: me.email,
     avatarUrl: me.avatarUrl,
     isPhotographer: !!me.photographer,
+    // 승인 전 신청자도 /studio 에 들어갈 수 있다(신청 상태 화면이 거기 있다)
+    canEnterStudio: !!me.photographer || me.hasPendingApplication,
     photographerId: me.photographer?.id ?? null,
     isAdmin: me.role === "admin",
   };

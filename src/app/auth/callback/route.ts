@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { requestOrigin, safeNext } from "@/lib/safe-redirect";
 import { readAnonFavPhotoIds, ANON_FAV_COOKIE } from "@/lib/anon-favorites";
 import { extractKakaoPhone, fetchKakaoPhoneFromApi } from "@/lib/kakao-phone";
+import { needsTermsConsent } from "@/lib/consent";
+import { adoptKakaoServiceTerms } from "@/lib/kakao-terms";
 
 const OAUTH_NEXT_COOKIE = "samae_oauth_next";
 
@@ -34,6 +36,13 @@ export async function GET(request: Request) {
       // provider_token 을 같이 넘기는 이유는 adoptKakaoPhone 주석 참고. 이 토큰은
       // Supabase 가 보관하지 않으므로 **지금 이 순간에만** 손에 있다.
       const adopted = await adoptKakaoPhone(supabase, data?.session?.provider_token);
+      // 카카오 프로필 사진 → profiles.avatar_url (본인이 올린 사진은 건드리지 않는다)
+      await adoptKakaoAvatar(supabase);
+      // 카카오 간편가입에서 약관에 동의했으면 그걸 우리 기록으로 가져온다.
+      // 성공하면 아래 needsTermsConsent 가 false 가 되어 /signup/consent 를 건너뛴다 —
+      // **가입 시점에 이미 받은 동의를 한 번 더 받지 않는다.**
+      // (간편가입 미설정 = KAKAO_TERMS_TAGS 비어 있음 → no-op. 지금이 그 상태다)
+      await adoptKakaoServiceTerms(supabase, data?.session?.provider_token);
       // 연락처 없는 계정(첫 소셜 가입 포함) → 가입 마무리(전화번호 등록)를 거쳐 복귀.
       // SMS(작가 답장 알림)가 profiles.phone 에 의존하므로 이 단계는 건너뛸 수 없다.
       //
@@ -42,11 +51,22 @@ export async function GET(request: Request) {
       //    **버튼이 고장 난 것처럼 보인다**(2026-09-11 실제로 그렇게 보고됨).
       //    사용자는 자기가 뭘 잘못했는지 모른 채 같은 버튼만 다시 누른다.
       const viaKakao = !!data?.session?.provider_token;
-      const dest = (await needsContact(supabase))
+      let dest = (await needsContact(supabase))
         ? `/signup/contact?next=${encodeURIComponent(next)}${
             viaKakao && !adopted ? "&kakao=nophone" : ""
           }`
         : next;
+      // 약관 동의가 없는 계정(첫 소셜 가입) → 동의 화면을 먼저 거친다. 연락처보다 앞이다 —
+      // 개인정보(전화번호)를 받기 전에 처리방침 동의가 있어야 한다.
+      //
+      // 카카오로 왔는데 여기까지 왔다면 adoptKakaoServiceTerms 가 못 가져온 것이다.
+      // **다시 카카오로 보내지 않는다** — 이미 연결된 계정에는 카카오가 약관 화면을
+      // 안 띄우므로(최초 연결 때만 띄운다) 왕복만 하고 빈손으로 돌아온다. 그 왕복이
+      // 토큰 발급 1회라 사용자당 10분 20개 제한을 태운다(2026-09-16 실제로 태웠다).
+      // 우리 체크박스 폼에서 받는다.
+      if (await needsTermsConsent(supabase)) {
+        dest = `/signup/consent?next=${encodeURIComponent(dest)}`;
+      }
       const res = NextResponse.redirect(`${origin}${dest}`);
       res.cookies.delete(OAUTH_NEXT_COOKIE);
       res.cookies.delete(ANON_FAV_COOKIE);
@@ -69,7 +89,11 @@ export async function GET(request: Request) {
   return res;
 }
 
-// profiles.phone 이 없으면 true — 조회 실패 시 false(로그인 흐름을 막지 않는다).
+// 가입 마무리(/signup/contact)가 필요한가 — 조회 실패 시 false(로그인 흐름을 막지 않는다).
+//
+// ⚠️ **번호만 보면 안 된다.** 카카오에서 번호는 주고 닉네임은 거부하는 조합이 흔한데
+//    (둘 다 선택 동의다), 번호만 검사하면 그 사람은 이 화면을 아예 안 거쳐 이름이
+//    빈 채로 남는다. 그러면 작가 화면과 채팅에 "?" 로 뜬다(2026-09-16 실측).
 async function needsContact(
   supabase: Awaited<ReturnType<typeof createClient>>
 ): Promise<boolean> {
@@ -80,10 +104,10 @@ async function needsContact(
     if (!user) return false;
     const { data: profile } = await supabase
       .from("profiles")
-      .select("phone")
+      .select("phone, display_name")
       .eq("id", user.id)
       .maybeSingle();
-    return !profile?.phone;
+    return !profile?.phone || !(profile?.display_name as string | null)?.trim();
   } catch {
     return false;
   }
@@ -139,6 +163,58 @@ async function adoptKakaoPhone(
   } catch {
     /* 못 채우면 /signup/contact 가 받는다 — 로그인은 계속되어야 한다 */
     return false;
+  }
+}
+
+/** 우리가 저장한 아바타인지 — Supabase Storage 경로면 사용자가 직접 올린 것이다. */
+function isUploadedAvatar(url: string): boolean {
+  return url.includes("/storage/v1/") || url.includes("supabase.co/storage");
+}
+
+/**
+ * 카카오 프로필 사진 → `profiles.avatar_url`.
+ *
+ * 가입 트리거(`handle_new_user`, 0001)가 이미 이 값을 넣지만 **INSERT 때 한 번뿐**이고
+ * `on conflict do nothing` 이다. 그래서 —
+ *   · 트리거보다 먼저 만들어진 계정
+ *   · 가입 당시 메타데이터에 사진이 없던 계정
+ * 은 영영 비어 있고, 카카오에서 사진을 바꿔도 우리 쪽은 옛 사진 그대로다.
+ *
+ * **본인이 올린 사진은 절대 덮지 않는다.** 저장된 값이 우리 Storage 경로면 사용자가
+ * 설정에서 직접 올린 것이므로 손대지 않고, 비어 있거나 예전 카카오 URL 일 때만 갱신한다.
+ * (설정 → 프로필 사진에서 언제든 바꿀 수 있고, 그렇게 바꾼 값이 여기서 되돌려지지 않는다)
+ */
+async function adoptKakaoAvatar(
+  supabase: Awaited<ReturnType<typeof createClient>>
+): Promise<void> {
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const meta = user.user_metadata as Record<string, unknown> | null;
+    const incoming =
+      (typeof meta?.avatar_url === "string" && meta.avatar_url) ||
+      (typeof meta?.picture === "string" && meta.picture) ||
+      null;
+    if (!incoming) return;
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("avatar_url")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const current = (profile?.avatar_url as string | null) ?? null;
+    // "" = 사용자가 설정에서 이니셜을 택했다(settings/actions removeAvatar). 되살리지 않는다.
+    if (current === "") return;
+    if (current && isUploadedAvatar(current)) return; // 본인이 올린 사진
+    if (current === incoming) return; // 바뀐 게 없다
+
+    await supabase.from("profiles").update({ avatar_url: incoming }).eq("id", user.id);
+  } catch {
+    /* 아바타는 없어도 되는 정보다 — 실패해도 로그인은 계속되어야 한다 */
   }
 }
 

@@ -5,13 +5,11 @@ import { Fragment, useEffect, useRef, useState, useTransition, useMemo } from "r
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { sendMessage, markRead, sendPortfolioPhoto } from "../actions";
-import { sendBotTurn } from "../bot-actions";
 import { KB_EXAMPLE_QUESTIONS } from "@/lib/bot-kb";
 import { BOT_DISPLAY_NAME, isHandoffNotice } from "@/lib/bot-identity";
 import { READ_HEARTBEAT_MS } from "@/lib/notification-policy";
-import { acceptBooking, rejectBooking, cancelBooking } from "@/app/actions/bookings";
-import { mpTrack } from "@/lib/mixpanel";
+import { REAL_CHAT_IO, type ChatIO } from "./chat-io";
+import { contactSendGate } from "@/lib/contact-gate";
 import type { ChatMessage, BookingSnapshot, ConsultationBrief, BotSlots } from "@/lib/chat";
 import { bookingStatusLabel, type BookingStatus } from "@/lib/booking-status";
 import type { PayoutAccount } from "@/lib/payments";
@@ -28,6 +26,10 @@ import { AcceptPayDialog } from "./AcceptPayDialog";
 import { SupportButton } from "@/components/user/SupportButton";
 import { BookingDetailDialog, bookingWhen } from "./BookingDetailDialog";
 import { ContactCardBubble, SendContactCardButton, SendContactMenuItem } from "./ContactHandover";
+import { DeliveryDueLine, ExtensionCardBubble, ExtensionRequestButton } from "./DeliveryExtension";
+import { RescheduleCardBubble, RescheduleRequestButton } from "./RescheduleCard";
+import { ExtraCardBubble, ExtraRequestButton } from "./ExtraCard";
+import { parseExtraCardBody, type BookingExtra } from "@/lib/extras";
 import type { GuideImage } from "@/lib/guide-images";
 import { readStoredFieldValues } from "@/lib/booking-fields";
 import {
@@ -48,7 +50,7 @@ import {
 const fmt = new Intl.NumberFormat("ko-KR");
 
 const BOOKING_COLS =
-  "id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, custom_fields, transfer_marked_at, late_booking_consent_at, contact_sent_at, contact_delivered_at, contact_payload, proposed_by_photographer, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at";
+  "id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, package_snapshot, package_id, memo, custom_fields, transfer_marked_at, late_booking_consent_at, contact_sent_at, contact_delivered_at, contact_payload, proposed_by_photographer, settled_at, settlement_amount_krw, settlement_ack_at, settlement_dispute_at, delivery_due_at, delivery_extension_proposed_to, delivered_at, reschedule_proposed_at, reschedule_proposed_by";
 
 // 메시지 작성 시각 (카카오톡식 HH:MM)
 function timeLabel(iso: string) {
@@ -78,8 +80,10 @@ export function ChatRoom({
   openQuestions,
   guideImages,
   payoutAccount,
+  extras = [],
   botName,
   handoffNotice,
+  io = REAL_CHAT_IO,
 }: {
   conversationId: string;
   meId: string;
@@ -106,10 +110,17 @@ export function ChatRoom({
   guideImages?: GuideImage[];
   /** 사매 입금 계좌 — 결제가 걸린 방에서만 서버가 미리 실어 보낸다 (없으면 필요할 때 조회) */
   payoutAccount?: PayoutAccount | null;
+  /** 이 방 예약들의 추가 결제 행 — extra_card 의 상태 (회원약관 8조) */
+  extras?: BookingExtra[];
   /** 봇 표시 이름 — 운영이 어드민에서 바꾼다 (없으면 코드 기본) */
   botName?: string;
   /** 현재 인계 안내 문구 — 이 말풍선만 다르게 그린다 (문구가 바뀌어도 옛 방이 깨지지 않게 코드 상수도 함께 본다) */
   handoffNotice?: string;
+  /**
+   * 방이 바깥으로 나가는 통로 — DB 쓰기·실시간·Mixpanel·예약 액션.
+   * 기본값이 진짜 함수들이라 실제 방은 그대로다. QA 샌드박스만 갈아 끼운다 (chat-io.ts).
+   */
+  io?: ChatIO;
 }) {
   const amCustomer = !amPhotographer; // 참여자 중 작가가 아니면 구매자
   const botLabel = (botName ?? "").trim() || BOT_DISPLAY_NAME;
@@ -161,7 +172,7 @@ export function ChatRoom({
   // 같이 듣는 건 탭으로 돌아온 순간 바로 한 번 찍어 공백을 없애기 위해서다.
   useEffect(() => {
     const beat = () => {
-      if (document.visibilityState === "visible") markRead(conversationId);
+      if (document.visibilityState === "visible") io.markRead(conversationId);
     };
     beat();
     const timer = setInterval(beat, READ_HEARTBEAT_MS);
@@ -170,15 +181,15 @@ export function ChatRoom({
       clearInterval(timer);
       document.removeEventListener("visibilitychange", beat);
     };
-  }, [conversationId]);
+  }, [conversationId, io]);
 
   // 대화방 진입 — 방마다 1회 (채팅 engagement)
   useEffect(() => {
-    mpTrack("Open Chat", {
+    io.track("Open Chat", {
       conversation_id: conversationId,
       role: amPhotographer ? "photographer" : "customer",
     });
-  }, [conversationId, amPhotographer]);
+  }, [conversationId, amPhotographer, io]);
 
   // 입금 대기 중인 예약 — 수락됐지만 아직 [입금 완료]를 누르지 않은 건.
   // 상태에서 파생하므로 방에 들어올 때마다 자동으로 뜬다. 수락하고 나갔다가
@@ -217,15 +228,16 @@ export function ChatRoom({
   // 예약 작성기 열기 — 예약 제안 직전 이탈지점. 열릴 때(신규/수정)만.
   useEffect(() => {
     if (!composer) return;
-    mpTrack("Open Booking Composer", {
+    io.track("Open Booking Composer", {
       conversation_id: conversationId,
       is_edit: !!composer.edit,
       role: amPhotographer ? "photographer" : "customer",
     });
-  }, [composer, conversationId, amPhotographer]);
+  }, [composer, conversationId, amPhotographer, io]);
 
   // Realtime 구독 — 새 메시지 수신 (예약 메시지는 booking 스냅샷 보강)
   useEffect(() => {
+    if (!io.realtime) return; // 샌드박스 — 구독할 방이 없다
     const supabase = createClient();
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let cancelled = false;
@@ -257,7 +269,7 @@ export function ChatRoom({
               m.booking = (bk as unknown as BookingSnapshot) ?? null;
             }
             setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, m]));
-            if (m.sender_id !== meId) markRead(conversationId);
+            if (m.sender_id !== meId) io.markRead(conversationId);
             // 작가가 실발화로 개입 — 봇 칩은 접는다 (봇은 서버에서 조용한 추출로 전환됨)
             if ((m.type === "text" || m.type === "image") && m.sender_id !== meId) {
               setBotChips((prev) => (prev.length > 0 ? [] : prev));
@@ -306,7 +318,7 @@ export function ChatRoom({
       cancelled = true;
       if (channel) supabase.removeChannel(channel);
     };
-  }, [conversationId, meId]);
+  }, [conversationId, meId, io]);
 
   // 새 메시지 시 하단으로 — 내부 리스트만 스크롤(진입 시 윈도우가 통째로 밀리는 현상 방지).
   // 첫 렌더는 즉시(auto), 이후 새 메시지는 부드럽게(smooth).
@@ -343,25 +355,25 @@ export function ChatRoom({
     setBotTyping(true);
     startTransition(async () => {
       try {
-        const res = await sendBotTurn(conversationId, t);
+        const res = await io.sendBotTurn(conversationId, t);
         if (!res.ok) {
           setBlockedNotice(res.reason);
           setText(t); // 입력 복원 — 문구를 고쳐 다시 보낼 수 있게
           setBotChips(botMode && !botMode.intervened ? KB_EXAMPLE_QUESTIONS : []);
-          mpTrack("Chat Message Blocked", { conversation_id: conversationId, role: "customer" });
+          io.track("Chat Message Blocked", { conversation_id: conversationId, role: "customer" });
           return;
         }
         setBotChips(res.quickReplies);
         if (res.needContact) setBotNeedContact(true);
         if (res.done) {
           setBotDone(true);
-          mpTrack("Submit Inquiry", {
+          io.track("Submit Inquiry", {
             conversation_id: conversationId,
             mode: "room-bot",
             source: "chat",
           });
         }
-        mpTrack("Send Message", { conversation_id: conversationId, has_image: false, role: "customer", bot: true });
+        io.track("Send Message", { conversation_id: conversationId, has_image: false, role: "customer", bot: true });
       } finally {
         setBotTyping(false);
         sendingRef.current = false;
@@ -389,17 +401,17 @@ export function ChatRoom({
     setBlockedNotice(null);
     startTransition(async () => {
       try {
-        const res = await sendMessage(conversationId, t);
+        const res = await io.sendMessage(conversationId, t);
         if (!res.ok) {
           setBlockedNotice(res.reason);
           setText(t);
-          mpTrack("Chat Message Blocked", {
+          io.track("Chat Message Blocked", {
             conversation_id: conversationId,
             role: amPhotographer ? "photographer" : "customer",
           });
           return;
         }
-        mpTrack("Send Message", {
+        io.track("Send Message", {
           conversation_id: conversationId,
           has_image: false,
           role: amPhotographer ? "photographer" : "customer",
@@ -418,7 +430,7 @@ export function ChatRoom({
     fd.append("conversationId", conversationId);
     const res = await fetch("/api/chat/upload", { method: "POST", body: fd });
     if (res.ok) {
-      mpTrack("Send Message", {
+      io.track("Send Message", {
         conversation_id: conversationId,
         has_image: true,
         role: amPhotographer ? "photographer" : "customer",
@@ -444,6 +456,8 @@ export function ChatRoom({
           shootAt={payDialogFor.shoot_at}
           shootDate={payDialogFor.shoot_date}
           lateBookingConsentAt={payDialogFor.late_booking_consent_at ?? null}
+          markPaidAction={io.markTransferSent}
+          agreeAction={io.agreeLateBooking}
           account={payoutAccount ?? null}
           onClose={() => {
             setPayFor(null);
@@ -518,13 +532,56 @@ export function ChatRoom({
             m.id === firstPhotographerMsgId ? (
               <div key={`handoff-${m.id}`} className="flex items-center gap-3 py-1.5">
                 <span className="h-px flex-1 bg-line" />
-                <span className="rounded-full bg-success-soft px-3 py-1 text-caption font-medium text-success">
+                <span className="rounded-full bg-success-soft px-3 py-1 text-caption font-medium text-success-ink">
                   여기서부터 작가님이 직접 답해요
                 </span>
                 <span className="h-px flex-1 bg-line" />
               </div>
             ) : null;
           const rendered = (() => {
+          // 추가 결제 카드 — 고객 수락·입금, 작가 전달 완료 (회원약관 8조)
+          if (m.type === "extra_card") {
+            const body = parseExtraCardBody(m.body);
+            if (!body) return null;
+            return (
+              <ExtraCardBubble
+                key={m.id}
+                body={body}
+                extra={extras.find((e) => e.id === body.extraId) ?? null}
+                amCustomer={amCustomer}
+                amPhotographer={amPhotographer}
+                account={payoutAccount ?? null}
+              />
+            );
+          }
+          // 일정 변경 요청 카드 — 상대가 동의/거절한다 (취소환불 7조)
+          if (m.type === "reschedule_card" && m.booking) {
+            return (
+              <RescheduleCardBubble
+                key={m.id}
+                bookingId={m.booking.id}
+                proposedAt={m.booking.reschedule_proposed_at}
+                proposedBy={m.booking.reschedule_proposed_by}
+                currentShootAt={m.booking.shoot_at}
+                amCustomer={amCustomer}
+                requestedLabel={m.body}
+                respondAction={io.respondReschedule}
+              />
+            );
+          }
+          // 전달 기한 연장 요청 카드 — 고객이 동의/거절한다
+          if (m.type === "extension_card" && m.booking) {
+            return (
+              <ExtensionCardBubble
+                key={m.id}
+                bookingId={m.booking.id}
+                proposedTo={m.booking.delivery_extension_proposed_to}
+                dueAt={m.booking.delivery_due_at}
+                amCustomer={amCustomer}
+                requestedLabel={m.body}
+              />
+            );
+          }
           // 연락처 전달 카드 — 대화의 한 사건이므로 타임라인에 남는다
           if (m.type === "contact_card" && m.booking) {
             return (
@@ -534,6 +591,7 @@ export function ChatRoom({
                 payload={m.booking.contact_payload}
                 deliveredAt={m.booking.contact_delivered_at}
                 amCustomer={amCustomer}
+                acceptAction={io.acceptPhotographerContact}
               />
             );
           }
@@ -541,6 +599,7 @@ export function ChatRoom({
           if (m.booking_id && m.booking) {
             return (
               <BookingCard
+                io={io}
                 key={m.id}
                 booking={m.booking}
                 amPhotographer={amPhotographer}
@@ -781,7 +840,7 @@ export function ChatRoom({
 
       {/* 수집 완주했는데 프로필 연락처가 없어 접수 보류 — 등록 동선 제공 */}
       {botNeedContact && (
-        <div className="mx-3 mb-1.5 rounded-xl bg-warning-soft px-3.5 py-2.5 text-caption text-warning sm:mx-4">
+        <div className="mx-3 mb-1.5 rounded-xl bg-warning-soft px-3.5 py-2.5 text-caption text-warning-ink sm:mx-4">
           알림을 받을 연락처가 필요해요.{" "}
           <Link
             href={`/signup/contact?next=/chat/${conversationId}`}
@@ -794,7 +853,7 @@ export function ChatRoom({
 
       {/* 오프플랫폼 유도 차단 안내 — 입력은 유지된 채 문구만 고치게 */}
       {blockedNotice && (
-        <div className="mx-3 mb-1.5 flex items-start justify-between gap-2 rounded-xl bg-danger-soft px-3.5 py-2.5 text-caption text-danger sm:mx-4">
+        <div className="mx-3 mb-1.5 flex items-start justify-between gap-2 rounded-xl bg-danger-soft px-3.5 py-2.5 text-caption text-danger-ink sm:mx-4">
           <span>{blockedNotice}</span>
           <button
             type="button"
@@ -860,6 +919,12 @@ export function ChatRoom({
                 <SendContactMenuItem
                   bookingId={contactTarget.id}
                   sentAt={contactTarget.contact_sent_at}
+                  gate={contactSendGate({
+                    status: contactTarget.status,
+                    shootAt: contactTarget.shoot_at,
+                    shootDate: contactTarget.shoot_date,
+                  })}
+                  sendAction={io.sendPhotographerContact}
                   onDone={() => setOptionsOpen(false)}
                   icon={<UserIcon className="h-5 w-5 text-muted" />}
                 />
@@ -903,7 +968,7 @@ export function ChatRoom({
           onPick={(photoId) => {
             setPickerOpen(false);
             startTransition(() => {
-              sendPortfolioPhoto(conversationId, photoId);
+              io.sendPortfolioPhoto(conversationId, photoId);
             });
           }}
         />
@@ -1154,6 +1219,7 @@ function BookingCard({
   onReuse,
   onNeedPay,
   conversationId,
+  io,
 }: {
   booking: BookingSnapshot;
   amPhotographer: boolean;
@@ -1166,6 +1232,8 @@ function BookingCard({
   /** 고객이 수락한 직후 — 방이 입금 안내를 띄운다 */
   onNeedPay: () => void;
   conversationId: string;
+  /** 수락·거절·취소 액션 — 샌드박스가 갈아 끼운다 (chat-io.ts) */
+  io: ChatIO;
 }) {
   // 처리 결과를 낙관적으로 반영 (서버 액션 + realtime 지연에도 카드가 즉시 진행)
   const [acted, setActed] = useState<
@@ -1245,10 +1313,10 @@ function BookingCard({
         <span
           className={`rounded-full px-2 py-0.5 text-label font-semibold ${
             POSITIVE_STATUSES.has(status)
-              ? "bg-success-soft text-success"
+              ? "bg-success-soft text-success-ink"
               : CLOSED_STATUSES.has(status)
               ? "bg-fg/[0.06] text-faint"
-              : "bg-warning-soft text-warning"
+              : "bg-warning-soft text-warning-ink"
           }`}
         >
           {/* 라벨 규칙은 lib/bookings 의 bookingStatusLabel 이 진실 — 낙관적 상태(acted)일 때만 로컬 표기 */}
@@ -1309,12 +1377,45 @@ function BookingCard({
         />
       )}
 
+      {/* 결과물 전달 기한 — 입금 확인 뒤부터 전달 전까지. 작가는 여기서 연장을 요청한다 */}
+      {["paid", "shot"].includes(status) && (
+        <>
+          <DeliveryDueLine
+            dueAt={booking.delivery_due_at}
+            deliveredAt={booking.delivered_at}
+            proposedTo={booking.delivery_extension_proposed_to}
+            amCustomer={amCustomer}
+          />
+          {amPhotographer && !booking.delivered_at && (
+            <ExtensionRequestButton
+              bookingId={booking.id}
+              dueAt={booking.delivery_due_at}
+              proposedTo={booking.delivery_extension_proposed_to}
+            />
+          )}
+        </>
+      )}
+
+      {/* 작가: 추가 결제 요청 — 입금 확인 후. 촬영 전이면 예약에 합산, 촬영 후면 결과물 추가금 (회원약관 8조) */}
+      {amPhotographer && ["paid", "shot", "completed"].includes(status) && (
+        <ExtraRequestButton
+          bookingId={booking.id}
+          shootPassed={status !== "paid"}
+        />
+      )}
+
       {/* 작가: 연락처 보내기 — + 메뉴와 같은 일. 예약을 확인하다 떠올리는 자리이기도 하다 */}
       {amPhotographer && ["paid", "shot", "delivered"].includes(status) && (
         <SendContactCardButton
           bookingId={booking.id}
           sentAt={booking.contact_sent_at}
           deliveredAt={booking.contact_delivered_at}
+          gate={contactSendGate({
+            status,
+            shootAt: booking.shoot_at,
+            shootDate: booking.shoot_date,
+          })}
+          sendAction={io.sendPhotographerContact}
         />
       )}
 
@@ -1345,14 +1446,14 @@ function BookingCard({
       {/* 수락/거절 — 제안자의 상대(수신자)만, 대기 상태에서 */}
       {amRecipient && status === "requested" && (
         <div className="mt-3 flex gap-2">
-          <form action={rejectBooking} onSubmit={() => setActed("rejected")} className="flex-1">
+          <form action={io.rejectBooking} onSubmit={() => setActed("rejected")} className="flex-1">
             <input type="hidden" name="id" value={booking.id} />
             <button className="w-full cursor-pointer rounded-full border border-line-strong py-2.5 text-body-sm font-medium text-muted transition-colors hover:bg-fg/[0.04]">
               거절
             </button>
           </form>
           <form
-            action={acceptBooking}
+            action={io.acceptBooking}
             onSubmit={() => {
               setActed("accepted");
               // 수락만 하고 방을 떠나는 걸 막는다 — 계좌·금액·다음 행동을 바로 띄운다
@@ -1373,7 +1474,7 @@ function BookingCard({
           입금액과 어긋난다. */}
       {onEdit &&
         ((amProposer && status === "requested") ||
-          // 촬영이 끝난 뒤에는 바꿀 것이 없다 — 일시·장소를 고쳐도 이미 지난 일이다
+          // 입금 후에는 작가가 장소·메모만 고친다. 날짜는 아래 일정 변경 요청(상대 동의)으로만 (취소환불 7조)
           (amPhotographer && status === "paid")) && (
         <div className="mt-3">
           <button
@@ -1381,9 +1482,21 @@ function BookingCard({
             onClick={onEdit}
             className="w-full cursor-pointer rounded-full border border-line-strong py-2.5 text-body-sm font-medium text-muted transition-colors hover:bg-fg/[0.04]"
           >
-            {status === "requested" ? "수정" : "예약 변경"}
+            {status === "requested" ? "수정" : "장소·메모 변경"}
           </button>
         </div>
+      )}
+
+      {/* 일정 변경 — 입금 확인 후 촬영 전, 어느 쪽이든 제안하고 상대가 동의한다 (취소환불 7조) */}
+      {status === "paid" && (amCustomer || amPhotographer) && (
+        <RescheduleRequestButton
+          bookingId={booking.id}
+          proposedAt={booking.reschedule_proposed_at}
+          proposedByMe={
+            booking.reschedule_proposed_by === (amCustomer ? "customer" : "photographer")
+          }
+          proposeAction={io.proposeReschedule}
+        />
       )}
 
       {/* 취소 — 대기 중이면 제안자, 수락된 뒤에는 양측 모두. 단 입금을 알린 뒤에는 감춘다.
@@ -1391,7 +1504,7 @@ function BookingCard({
           입금 후 취소는 환불이 걸린 사안이라 사매를 거친다(정책에 그렇게 적혀 있다). */}
       {/* 취소·거절된 카드 — 누르면 이 내용으로 새 예약서가 열린다는 걸 알려준다 */}
       {reusable && (
-        <p className="mt-3 border-t border-line pt-3 text-caption font-medium text-brand">
+        <p className="mt-3 border-t border-line pt-3 text-caption font-medium text-brand-ink">
           이 내용으로 다시 예약서 작성하기
         </p>
       )}
@@ -1403,14 +1516,29 @@ function BookingCard({
           고객에게만 둔다. 작가는 이미 사매와 카톡으로 이어져 있어(정산도 그렇게 오간다)
           서비스 안에 창구를 하나 더 만들면 어디로 말해야 할지만 헷갈린다. */}
       {amCustomer && (paidMarked || ["paid", "shot"].includes(status)) && (
-        <SupportButton bookingId={booking.id} conversationId={conversationId} />
+        <SupportButton
+          bookingId={booking.id}
+          conversationId={conversationId}
+          submitAction={io.submitSupportRequest}
+          quoteAction={io.getCustomerRefundQuote}
+        />
+      )}
+      {/* 작가: 입금 후 촬영 취소는 사매에 접수한다 — 전액 환불·수수료 청구가 걸린 사안 (취소환불 8조) */}
+      {amPhotographer && ["paid", "shot"].includes(status) && (
+        <SupportButton
+          bookingId={booking.id}
+          conversationId={conversationId}
+          role="photographer"
+          submitAction={io.submitSupportRequest}
+          quoteAction={io.getCustomerRefundQuote}
+        />
       )}
 
       {!paidMarked && ((amProposer && status === "requested") || status === "accepted") && (
         <div className="mt-2">
-          <form action={cancelBooking} onSubmit={() => setActed("cancelled")}>
+          <form action={io.cancelBooking} onSubmit={() => setActed("cancelled")}>
             <input type="hidden" name="id" value={booking.id} />
-            <button className="w-full cursor-pointer rounded-full border border-line-strong py-2.5 text-body-sm font-medium text-brand transition-colors hover:bg-brand/[0.06]">
+            <button className="w-full cursor-pointer rounded-full border border-line-strong py-2.5 text-body-sm font-medium text-brand-ink transition-colors hover:bg-brand/[0.06]">
               예약 취소
             </button>
           </form>
@@ -1594,7 +1722,7 @@ function SummaryCardBubble({
   return (
     <div className="flex flex-col items-end">
       <div className="w-full max-w-[85%] overflow-hidden rounded-2xl rounded-br-md border border-line bg-surface">
-        <p className="border-b border-line bg-brand-soft px-3.5 py-2 text-body-sm font-semibold text-brand">
+        <p className="border-b border-line bg-brand-soft px-3.5 py-2 text-body-sm font-semibold text-brand-ink">
           문의 내용 정리
         </p>
         <div className="space-y-1.5 px-3.5 py-3">

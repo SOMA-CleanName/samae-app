@@ -10,7 +10,7 @@ import { notifyOpsBookingAccepted } from "@/lib/ops-alert";
 import { notifyBookingAccepted, notifyBookingProposed } from "@/lib/notify-user";
 import { normalizeBookingFields, readBookingFieldValues } from "@/lib/booking-fields";
 import { snapshotFeeForBooking } from "@/lib/payments";
-import { REFUND_WINDOW_DAYS } from "@/lib/refund";
+import { contactExchangeAllowed, detectOffPlatform, MODERATION_NOTICE } from "@/lib/moderation";
 
 // 희망 날짜 정규화 — shoot_at(시각 확정)이 있으면 그 KST 날짜, 없으면 폼의 YYYY-MM-DD.
 function resolveShootDate(shootAtIso: string | null, dateRaw: string): string | null {
@@ -34,6 +34,23 @@ function parseFee(raw: FormDataEntryValue | null, label: string): number {
 }
 
 // 알림 생성 헬퍼 (service_role)
+// 예약서 검열 — 메모와 작가 정의 추가 항목도 채팅과 같은 규칙으로 막는다.
+// 채팅만 막으면 예약서의 "연락처" 항목으로 번호가 그대로 넘어간다 (회원약관 6조 2항 위반 경로).
+// 연락처 전달이 끝난 예약(contact_delivered_at)은 이미 열린 방이므로 검열하지 않는다.
+function assertBookingTextClean(
+  memo: string,
+  customFields: Array<{ label: string; value: string }>,
+  contactDeliveredAt: string | null | undefined
+) {
+  if (contactExchangeAllowed(contactDeliveredAt)) return;
+  const texts = [memo, ...customFields.map((f) => f.value)];
+  for (const t of texts) {
+    if (t && detectOffPlatform(t).length > 0) {
+      throw new Error(`예약서에는 ${MODERATION_NOTICE}`);
+    }
+  }
+}
+
 async function notify(
   admin: ReturnType<typeof createAdminClient>,
   recipientId: string,
@@ -140,7 +157,7 @@ export async function proposeBooking(formData: FormData) {
   // 패키지 스냅샷 — 제안이 어느 패키지에서 출발했는지 기록(금액의 근거는 아니다)
   const { data: pkg } = await supabase
     .from("packages")
-    .select("name, description, price_krw, duration_min, edited_count")
+    .select("name, description, price_krw, duration_min, edited_count, delivery_days")
     .eq("id", packageId)
     .eq("photographer_id", photographerId) // 타작가 패키지 id로 예약 생성(폼 위조) 차단
     .single();
@@ -167,6 +184,7 @@ export async function proposeBooking(formData: FormData) {
     formData.get(n) == null ? null : String(formData.get(n))
   );
   if (fieldErrors.length > 0) throw new Error(fieldErrors[0]);
+  assertBookingTextClean(memo, customFields, null);
   // 희망 날짜 — 시간이 미정이어도 날짜는 카드에 남긴다 (shoot_at이 있으면 그 KST 날짜로 통일)
   const shootDate = resolveShootDate(shootAt, shootDateRaw);
 
@@ -189,7 +207,7 @@ export async function proposeBooking(formData: FormData) {
       package_snapshot: pkg,
       // 수수료 근거를 제안 시점에 굳힌다 — 뒤에 작가 요율이 바뀌어도
       // 이미 협의된 이 거래의 정산·환불 금액은 흔들리면 안 된다 (docs/32 §2)
-      fee_snapshot: await snapshotFeeForBooking(admin, photographerId, amount, travelFee),
+      fee_snapshot: await snapshotFeeForBooking(admin, photographerId, amount),
       memo,
       proposed_by_photographer: amPhotographer,
     })
@@ -278,7 +296,7 @@ export async function updateBooking(formData: FormData) {
   const { data: b } = await admin
     .from("bookings")
     .select(
-      "id, user_id, photographer_id, status, proposed_by_photographer, amount_krw, travel_fee_krw, shoot_at, package_id"
+      "id, user_id, photographer_id, status, proposed_by_photographer, amount_krw, travel_fee_krw, shoot_at, package_id, contact_delivered_at"
     )
     .eq("id", id)
     .single();
@@ -308,7 +326,7 @@ export async function updateBooking(formData: FormData) {
   // 패키지 스냅샷 재기록 (금액은 폼의 촬영비·출장비가 진실)
   const { data: pkg } = await admin
     .from("packages")
-    .select("name, description, price_krw, duration_min, edited_count")
+    .select("name, description, price_krw, duration_min, edited_count, delivery_days")
     .eq("id", packageId)
     .eq("photographer_id", b.photographer_id) // 타작가 패키지 id로 수정(폼 위조) 차단
     .single();
@@ -334,23 +352,13 @@ export async function updateBooking(formData: FormData) {
     formData.get(n) == null ? null : String(formData.get(n))
   );
   if (fieldErrors.length > 0) throw new Error(fieldErrors[0]);
+  assertBookingTextClean(memo, customFields, b.contact_delivered_at);
   const shootDate = resolveShootDate(shootAt, shootDateRaw);
 
-  // 입금 후 날짜 변경은 조건이 있다 (docs/32 §3-6):
-  // 기존 촬영일까지 7일 이상 남아 있고, 새로 잡는 날짜도 7일 이상 뒤여야 한다.
-  // 어느 한쪽이라도 안쪽이면 작가 재량으로도 못 바꾼다 — 그 구간은 환불도 안 되는 구간이라,
-  // 여기서 열어주면 "환불 대신 날짜만 미루기" 로 규정을 우회하는 길이 된다.
+  // 입금 후 날짜 변경은 여기서 하지 않는다 — 상대 동의가 필요한 일이라 일정 변경 카드로만 한다
+  // (취소환불 7조, actions/reschedule.ts). 작가는 장소·메모·추가 항목만 고칠 수 있다.
   if (afterPayment && b.shoot_at && shootAt !== b.shoot_at) {
-    const week = REFUND_WINDOW_DAYS * 24 * 60 * 60 * 1000;
-    const now = Date.now();
-    const oldAt = new Date(b.shoot_at).getTime();
-    const newAt = new Date(shootAt).getTime();
-    if (oldAt - now < week)
-      throw new Error(
-        `기존 촬영일까지 ${REFUND_WINDOW_DAYS}일이 안 남아 날짜를 바꿀 수 없어요. 사매에 문의해주세요.`
-      );
-    if (newAt - now < week)
-      throw new Error(`새 촬영일은 지금부터 ${REFUND_WINDOW_DAYS}일 이후로 잡아주세요.`);
+    throw new Error("입금이 끝난 예약의 일정은 예약 카드의 [일정 변경 요청]으로 상대 동의를 받아 바꿔주세요.");
   }
 
   // TOCTOU 방지 — read 이후 accept 와 경쟁 시 accepted 예약에 편집이 적용되지 않도록
@@ -368,7 +376,7 @@ export async function updateBooking(formData: FormData) {
       travel_fee_krw: travelFee,
       package_snapshot: pkg,
       // 금액이 바뀌면 수수료도 달라진다 — 스냅샷을 다시 굳힌다
-      fee_snapshot: await snapshotFeeForBooking(admin, b.photographer_id, amount, travelFee),
+      fee_snapshot: await snapshotFeeForBooking(admin, b.photographer_id, amount),
       memo,
     })
     .eq("id", id)

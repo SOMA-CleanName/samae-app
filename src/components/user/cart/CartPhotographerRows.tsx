@@ -31,9 +31,33 @@ function photoWidth(w: number, h: number) {
   return Math.round(Math.min(MAX_W, Math.max(MIN_W, ROW_H * (w / h))));
 }
 
-// 카드마다 살짝 다른 기울기 — 도크 더미와 같은 해시를 써서 같은 사진은 늘 같은 각도.
-function cardRotation(id: string) {
+/**
+ * 카드마다 살짝 다른 기울기 — 도크 더미와 같은 해시를 써서 같은 사진은 늘 같은 각도.
+ *
+ * `FloatingCart` 도 이걸 쓴다. 펼침 애니메이션이 **이 각도로 착지**해야 맞바꾸는 순간
+ * 사진이 돌지 않는다(그 회전이 "재정렬되며 잠깐 멈추는" 것처럼 보였다).
+ */
+export function cartRowCardRotation(id: string) {
   return (cartCardJitter(id).rot % 5) - 2; // -2 ~ 2도
+}
+
+/**
+ * 줄 카드 한 장의 치수 — **하나의 출처**.
+ *
+ * `FloatingCart` 의 펼침 애니메이션이 이 값으로 카드를 그린다. 그래야 날아온 카드와
+ * 줄 카드가 **같은 상자**가 되어, 맞바꾸는 순간 크기가 안 변한다.
+ *
+ * 두 쪽이 종횡비를 다루는 방식이 반대라 이게 필요하다 —
+ * 펼침 레이아웃은 **폭을 고정하고 높이를 유도**하고, 줄은 **높이를 고정하고 폭을 유도**한다.
+ * 그대로 두고 균일 축소로 맞추려 하면 폭을 맞추는 순간 높이가 어긋난다(실측 최대 19.5px).
+ */
+export function cartRowCardBox(w: number, h: number) {
+  return {
+    photoW: photoWidth(w, h),
+    photoH: ROW_H,
+    side: FRAME_SIDE,
+    bottom: FRAME_BOTTOM,
+  };
 }
 
 export function CartPhotographerRows({
@@ -57,7 +81,7 @@ export function CartPhotographerRows({
 }) {
   return (
     <div className="flex flex-col gap-7 pb-32 pt-16">
-      {groups.map((group, gi) => {
+      {groups.map((group) => {
         const inquiryPhotoId = groupInquiryPhotoId(group);
         const priceText = groupPriceText(group);
         return (
@@ -82,7 +106,7 @@ export function CartPhotographerRows({
                     e.stopPropagation();
                     onInquiry(group, inquiryPhotoId);
                   }}
-                  className="shrink-0 cursor-pointer rounded-full bg-brand px-3 py-1.5 text-xs font-bold text-white shadow-pop transition-opacity hover:opacity-90"
+                  className="shrink-0 cursor-pointer rounded-full bg-brand-solid px-3 py-1.5 text-xs font-bold text-white shadow-pop transition-opacity hover:opacity-90"
                 >
                   문의하기
                 </button>
@@ -91,7 +115,6 @@ export function CartPhotographerRows({
 
             <Strip
               items={rowItems(group)}
-              rowIndex={gi}
               selectMode={selectMode}
               selectedIds={selectedIds}
               onToggleSelect={onToggleSelect}
@@ -108,7 +131,6 @@ export function CartPhotographerRows({
 // 가로 스크롤 줄 — 관심 없는 작가의 줄은 지나치면 된다.
 function Strip({
   items,
-  rowIndex,
   selectMode,
   selectedIds,
   onToggleSelect,
@@ -116,7 +138,6 @@ function Strip({
   onOpenPhoto,
 }: {
   items: CartItem[];
-  rowIndex: number;
   selectMode: boolean;
   selectedIds: Set<string>;
   onToggleSelect: (id: string) => void;
@@ -149,11 +170,10 @@ function Strip({
         onScroll={sync}
         className="flex snap-x snap-proximity items-start gap-2.5 overflow-x-auto px-4 pb-2 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        {items.map((item, i) => (
+        {items.map((item) => (
           <RowCard
             key={item.id}
             item={item}
-            delayMs={Math.min(rowIndex * 60 + i * 34, 520)}
             selectMode={selectMode}
             selected={selectedIds.has(item.id)}
             onToggleSelect={onToggleSelect}
@@ -178,7 +198,6 @@ const LONG_PRESS_MS = 420;
 
 function RowCard({
   item,
-  delayMs,
   selectMode,
   selected,
   onToggleSelect,
@@ -186,7 +205,6 @@ function RowCard({
   onOpenPhoto,
 }: {
   item: CartItem;
-  delayMs: number;
   selectMode: boolean;
   selected: boolean;
   onToggleSelect: (id: string) => void;
@@ -213,14 +231,26 @@ function RowCard({
   return (
     <div
       ref={frame}
-      className="cart-row-card relative flex-none snap-start bg-white shadow-[0_10px_28px_rgba(0,0,0,0.4)]"
+      /*
+        펼침 애니메이션의 **착지점**. FloatingCart 가 이 자리를 재서, 도크에서 중앙을
+        거쳐 온 실제 카드를 정확히 여기에 내려놓는다(FloatingCart 의 slots 참고).
+        날아오는 동안 줄은 숨어 있고, 도착하는 순간 맞바꾼다.
+      */
+      data-cart-slot={item.id}
+      className="relative flex-none snap-start bg-white shadow-[0_10px_28px_rgba(0,0,0,0.4)]"
       style={{
         padding: `${FRAME_SIDE}px ${FRAME_SIDE}px ${FRAME_BOTTOM}px`,
         borderRadius: 3,
-        rotate: `${cardRotation(item.id)}deg`,
-        animationDelay: `${delayMs}ms`,
-        // 등장 애니메이션이 opacity 를 채우고 있어(fill: both) 인라인 opacity 는 먹지 않는다.
-        // 고르지 않은 카드는 밝기로 물린다.
+        rotate: `${cartRowCardRotation(item.id)}deg`,
+        /*
+          ⚠️ 여기에 등장 애니메이션을 두지 않는다.
+
+          예전엔 `cart-row-card`(아래에서 14px 떠오름)가 붙어 있었다. 지금은 **카드가
+          도크에서 날아와 이 자리에 앉는 것**이 등장 연출이라 역할이 겹친다.
+          게다가 그 애니메이션은 `fill: both` 라 첫 프레임이 `translateY(14px)` 인데,
+          FloatingCart 가 착지점을 재는 시점이 바로 그때여서 **착지점이 14px 아래로
+          밀렸다**(실측). 지우는 게 연출·정확도 양쪽에 맞다.
+        */
         filter: selectMode && !selected ? "brightness(0.5)" : "none",
         transition: "filter 160ms ease",
       }}
@@ -275,7 +305,7 @@ function RowCard({
         <span
           style={{ top: FRAME_SIDE + 4, right: FRAME_SIDE + 4 }}
           className={`pointer-events-none absolute grid h-6 w-6 place-items-center rounded-full border-2 ${
-            selected ? "border-brand bg-brand text-white" : "border-white bg-black/25 text-transparent"
+            selected ? "border-brand bg-brand-solid text-white" : "border-white bg-black/25 text-transparent"
           }`}
         >
           <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3">

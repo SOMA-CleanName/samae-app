@@ -16,6 +16,12 @@ const DEFAULT_LOGIN_NEXT = "/studio";
  * (로그인 벽은 이탈 지점이다 — 맥락 없는 "로그인하세요"가 가장 나쁜 카피)
  */
 function contextCopy(next: string): { title: string; sub: string } {
+  // 작가 모집 링크(/apply)를 타고 온 사람 — 여기서 손님용 카피를 보면 잘못 눌렀나 싶다
+  if (next.startsWith("/apply"))
+    return {
+      title: "작가 신청을 이어갈게요",
+      sub: "로그인하면 신청서 작성으로 바로 넘어가요.",
+    };
   if (next.startsWith("/inquiry/bot"))
     return {
       title: "로그인하고 대화를 이어가요",
@@ -60,7 +66,7 @@ function HeadlineShell({ title, sub }: { title: string; sub: string }) {
 }
 
 // 로그인 폼 — 카카오 소셜 + 이메일. (지면 구성은 AuthShell 이 맡는다)
-export function LoginForm() {
+export function LoginForm({ kakaoTermsTags }: { kakaoTermsTags?: string | null }) {
   const router = useRouter();
   const supabase = createClient();
   const [email, setEmail] = useState("");
@@ -78,12 +84,25 @@ export function LoginForm() {
     mpTrack("Start Kakao Login", { context: "login" });
     // OAuth 왕복에서 복귀 경로가 날아가지 않게 쿠키로 넘긴다(/auth/callback 이 읽는다)
     setOauthNextCookie(loginNext());
-    await supabase.auth.signInWithOAuth({
+    const { error: oauthErr } = await supabase.auth.signInWithOAuth({
       provider: "kakao",
       // scopes 는 카카오싱크 검수 통과 후에만 붙는다(lib/kakao-phone) — 검수 안 된
       // 동의항목을 요청하면 카카오가 로그인 자체를 거절한다(KOE205).
-      options: { redirectTo: `${location.origin}/auth/callback`, scopes: kakaoScopes() },
+      options: {
+        redirectTo: `${location.origin}/auth/callback`,
+        scopes: kakaoScopes(),
+        // 이 버튼으로도 가입이 된다. 카카오가 간편가입 약관을 물어볼 수 있는 순간은
+        // **최초 연결 때뿐**이므로 여기서 실어 보내야 한다. 이미 연결된 계정에는
+        // 카카오가 조용히 무시한다(화면을 안 띄운다) — 그 사람들은 우리 폼으로 받는다.
+        ...(kakaoTermsTags ? { queryParams: { service_terms: kakaoTermsTags } } : {}),
+      },
     });
+    // 조용히 실패하면 "버튼이 죽었다" 로 보인다 — 실제로 그렇게 신고됐다(09-16).
+    // 카카오·Supabase 가 돌려준 말을 그대로 띄운다. 원인을 감추는 것보다 낫다.
+    if (oauthErr) {
+      setError(oauthErr.message || "카카오로 이동하지 못했어요. 잠시 후 다시 시도해 주세요.");
+      setKakaoLoading(false);
+    }
   }
 
   async function onEmailSubmit(e: React.FormEvent) {

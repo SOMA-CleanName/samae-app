@@ -14,16 +14,40 @@ export default async function StudioHome() {
 
   const ph = me.photographer;
 
+  // 이미 신청해 둔 사람인가. 승인 전에는 photographers 행이 없어 ph 로는 구분이 안 된다 —
+  // 그대로 두면 신청한 사람에게 "작가 신청하기" 를 다시 내밀게 되고, 누르면 /apply 가
+  // "이미 접수된 신청이 있어요" 로 막는다(2026-09-17 신고).
+  const pendingApplication = !ph && me.hasPendingApplication;
+
   // 미신청/대기/반려/정지 — 상태 카드만 (레이아웃이 사이드바를 안 씌움)
   if (!ph || ph.status !== "approved") {
     return (
       <main className="mx-auto max-w-3xl px-4 sm:px-6 py-10 font-kr">
-        <Link href="/" className="text-sm text-fg/50 hover:text-fg">
+        <Link href="/" className="text-sm text-muted hover:text-fg">
           ← 홈으로
         </Link>
         <h1 className="mt-4 text-2xl font-semibold">작가 스튜디오</h1>
 
-        {!ph && (
+        {pendingApplication && (
+          <div className="mt-6 rounded-xl border border-fg/10 p-6">
+            <p className="text-body-sm font-semibold text-fg">신청이 접수됐어요</p>
+            <p className="mt-2 text-sm leading-relaxed text-fg/70">
+              운영자가 확인하고 영업일 기준 1~2일 안에 결과를 알려드려요. 승인되면 이 화면에서
+              입점 절차를 이어서 진행하시면 됩니다.
+            </p>
+            <p className="mt-3 text-sm leading-relaxed text-fg/70">
+              더 빠른 안내를 원하시면 카카오 채널로 말씀해주세요. 포트폴리오를 함께 보내주시면
+              검토가 빨라져요.
+            </p>
+            <Link
+              href="/apply"
+              className="mt-4 inline-block rounded-full border border-line-strong px-5 py-2.5 text-sm font-semibold text-fg hover:bg-fg/[0.04]"
+            >
+              신청 안내 다시 보기
+            </Link>
+          </div>
+        )}
+        {!ph && !pendingApplication && (
           <div className="mt-6 rounded-xl border border-fg/10 p-6">
             <p className="text-sm text-fg/70">
               아직 작가로 등록되지 않았어요. 신청하고 승인받으면 사진이 홈 피드에 노출됩니다.
@@ -55,7 +79,7 @@ export default async function StudioHome() {
   return (
     <main className="mx-auto max-w-3xl px-4 py-8 font-kr sm:px-6">
       <h1 className="text-2xl font-semibold">스튜디오</h1>
-      <p className="mt-1 text-sm text-fg/50">
+      <p className="mt-1 text-sm text-muted">
         <b className="text-fg/70">{ph.displayName}</b> 작가님, 오늘 할 일이에요.
       </p>
 
@@ -169,7 +193,7 @@ function StatusCard({
     <div className={`mt-6 rounded-xl border p-6 ${color}`}>
       <p className="text-sm font-semibold">{title}</p>
       <p className="mt-1 text-sm text-fg/65">{desc}</p>
-      <p className="mt-3 text-xs text-fg/45">작가명: {displayName}</p>
+      <p className="mt-3 text-xs text-faint">작가명: {displayName}</p>
     </div>
   );
 }

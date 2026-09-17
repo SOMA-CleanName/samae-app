@@ -12,6 +12,9 @@ export {
 } from "./booking-status";
 import type { BookingStatus } from "./booking-status";
 
+// 표시용 순수 함수는 booking-format.ts 에 있다 — 클라이언트에서도 쓰이기 때문이다
+export { daysSince, fmtShootAt } from "./booking-format";
+
 export type BookingRow = {
   id: string;
   status: BookingStatus;
@@ -26,15 +29,24 @@ export type BookingRow = {
   created_at: string;
   accepted_at: string | null;
   transfer_marked_at: string | null;
+  /** 임박 예약(결제 시 촬영 7일 이하)의 위약금 별도 동의 시각 — 없으면 결제 게이트가 먼저 받는다 */
+  late_booking_consent_at: string | null;
   proposed_by_photographer: boolean;
-  package_snapshot: { name?: string } | null;
+  package_snapshot: { name?: string; delivery_days?: number } | null;
+  delivery_due_at: string | null;
+  delivered_at: string | null;
+  /**
+   * 회원이 이 촬영 결과물의 포트폴리오·홍보 사용을 거부한 시각 (0129).
+   * 작가약관 13조 4항 · 입점계약 4조 3항이 약속한 권리다 — null 이면 거부하지 않음.
+   */
+  portrait_optout_at: string | null;
   photographer: { display_name: string | null } | null;
   user: { display_name: string | null } | null;
   package: { name: string } | null;
 };
 
 const SELECT =
-  "id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, memo, user_id, photographer_id, created_at, accepted_at, transfer_marked_at, proposed_by_photographer, package_snapshot, " +
+  "id, status, shoot_at, shoot_date, location_text, amount_krw, travel_fee_krw, memo, user_id, photographer_id, created_at, accepted_at, transfer_marked_at, late_booking_consent_at, proposed_by_photographer, package_snapshot, delivery_due_at, delivered_at, portrait_optout_at, " +
   "photographer:photographers(display_name), " +
   "user:profiles!bookings_user_id_fkey(display_name), " +
   "package:packages(name)";
@@ -102,22 +114,3 @@ export async function getConversationIdFor(
   return (data?.id as string) ?? null;
 }
 
-// KST 일시 표시 — 시각 미정이어도 날짜(shoot_date)가 있으면 날짜까지는 보여준다.
-export function fmtShootAt(iso: string | null, dateOnly?: string | null): string {
-  if (iso) {
-    return new Intl.DateTimeFormat("ko-KR", {
-      month: "long", day: "numeric", weekday: "short",
-      hour: "2-digit", minute: "2-digit", timeZone: "Asia/Seoul",
-    }).format(new Date(iso));
-  }
-  if (dateOnly) {
-    const d = new Date(`${dateOnly}T00:00:00+09:00`);
-    if (!isNaN(d.getTime())) {
-      const day = new Intl.DateTimeFormat("ko-KR", {
-        month: "long", day: "numeric", weekday: "short", timeZone: "Asia/Seoul",
-      }).format(d);
-      return `${day} · 시간 협의`;
-    }
-  }
-  return "미정";
-}

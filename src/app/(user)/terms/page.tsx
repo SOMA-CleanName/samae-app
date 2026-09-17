@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SiteFooter } from "@/components/SiteFooter";
 
 /*
   서비스 이용약관 — 본문.
 
-  ⚠️ **여기서 조문을 고치지 말 것.** 진실은 `docs/35-terms-draft.md` 이고, 각 조 아래에
-     그 조가 왜 그렇게 쓰였는지와 코드 근거(↳)가 달려 있다. 이 파일은 그 문서를 지면으로
-     옮긴 것이다. 운영이 바뀌면 docs/35 → 이 파일 순서로 함께 고친다.
+  ⚠️ **여기서 조문을 고치지 말 것.** 정본은 노션이고, 어느 조가 어느 코드에 걸려 있는지는
+     `docs/35-policy-implementation-plan.md` 가 표로 들고 있다. 이 파일은 그 문서를 지면으로
+     옮긴 것이다. 운영이 바뀌면 정본 → docs/35 → 이 파일 순서로 함께 고친다.
+     (전에 `docs/35-terms-draft.md` 를 가리키고 있었는데 그런 파일은 없다)
 
   ⚠️ **시행일(EFFECTIVE_DATE)은 실제 배포일이어야 한다.** 약관은 게시한 날부터 효력이
      생기는데, 아직 안 올라간 문서에 과거 날짜를 박아 두면 그 사이 기간을 소급해 약속한
@@ -28,7 +30,13 @@ export const metadata: Metadata = {
 /** 지면에 게시하는 날. 배포일과 반드시 일치시킬 것. */
 const EFFECTIVE_DATE = "2026-09-10";
 
-export default function TermsPage() {
+// `?plain=1` — 약관 동의 흐름에서 연 **읽기 전용** 탭이다. 푸터(와 내비)를 빼는 이유:
+// 동의를 안 한 사람이 약관을 읽다가 링크를 타고 홈·매거진으로 새어 나갔다(2026-09-16 신고).
+// 읽으러 온 탭은 읽고 닫는 곳이어야 한다.
+export default async function TermsPage({ searchParams }: {
+  searchParams: Promise<{ plain?: string }>;
+}) {
+  const plain = (await searchParams).plain === "1";
   return (
     <main className="mx-auto max-w-2xl px-5 py-10 font-kr">
       <Link
@@ -155,8 +163,11 @@ export default function TermsPage() {
               필요한 범위에서 회원의 표시 이름과 문의·예약 내용만 표시됩니다.
             </li>
             <li>
-              <B>작가의 연락처는 촬영 대금의 입금이 확인된 뒤</B>, 작가가 전달을 선택하고 회원이
-              안내를 확인한 경우에 한해 회원에게 전달됩니다. 회원이 연락처를 받은 시점의 효과는
+              <B>
+                작가의 연락처는 촬영 대금의 입금이 확인되고 촬영일까지 7일 이내가 된 때부터
+              </B>
+              , 작가가 전달을 선택하고 회원이 안내를 확인한 경우에 한해 회원에게 전달됩니다.
+              회원의 연락처는 작가에게 전달되지 않습니다. 회원이 연락처를 받은 시점의 효과는
               제9조가 정합니다.
             </li>
             <li>
@@ -188,6 +199,21 @@ export default function TermsPage() {
               촬영 대금에 관한 세금계산서·현금영수증 등의 증빙은 작가가 발급합니다. 다만 회사가
               법령에 따라 발급 의무를 지는 경우에는 회사가 발급합니다.
             </li>
+            <li>
+              예약 확정 후 촬영 상품에 포함되지 않은 추가 작업이 필요한 경우, 작가는 서비스 내에서
+              항목과 금액을 명시하여 추가 결제를 요청하고, 회원이 이를 수락하여 결제한 때에 그
+              부분의 계약이 성립합니다. 회원은 추가 결제 요청을 거부할 수 있으며, 이 경우 기존
+              촬영 계약은 그대로 유지됩니다.
+            </li>
+            <li>
+              <B>추가 결제 금액은 촬영 대금에 포함됩니다.</B> 촬영 전에 이루어진 추가 결제는 원
+              예약과 합산하여 제9조를 적용하고, 촬영 완료 후 결과물에 관한 추가 결제는 해당 결과물
+              전달 전에는 전액 환불하며 전달 후에는 환불하지 않습니다.
+            </li>
+            <li>
+              작가는 어떤 명목으로도 서비스 밖에서 촬영 대금을 청구하거나 수령할 수 없습니다. 작가가
+              개인 계좌 입금을 안내·요구하는 경우 회원은 회사에 신고할 수 있습니다.
+            </li>
           </Ol>
         </Article>
 
@@ -205,27 +231,30 @@ export default function TermsPage() {
               대금 지급 후의 환불 비율은 다음과 같습니다. 위에서부터 먼저 해당하는 기준을
               적용합니다.
               <Table
-                head={["사유", "환불", "중개 수수료"]}
+                head={["사유", "위약금", "환불"]}
                 rows={[
-                  ["작가의 사정으로 촬영이 이행되지 않은 경우", "100%", "작가가 부담"],
-                  ["이동이 불가능한 정도의 천재지변", "100%", "면제"],
-                  ["대금 지급일부터 7일 이내(청약철회)", "100%", "면제"],
-                  ["촬영일까지 7일 미만이 남은 경우", "0%", "—"],
-                  ["작가의 연락처를 전달받은 뒤", "50%", "—"],
-                  ["그 밖에 대금 지급일부터 7일이 지난 경우", "50%", "—"],
+                  ["작가의 사정으로 촬영이 이행되지 않은 경우", "—", "100%"],
+                  ["이동이 불가능한 정도의 천재지변", "—", "100%"],
+                  ["대금 지급일부터 7일 이내(청약철회)", "0%", "100%"],
+                  ["촬영 8일 이상 전", "0%", "100%"],
+                  ["촬영 4~7일 전", "40%", "60%"],
+                  ["촬영 3일 전부터 촬영 당일까지(취소 통보가 있는 경우)", "90%", "10%"],
+                  ["무단 노쇼(취소 통보 없이 촬영에 불참)", "100%", "0%"],
                 ]}
               />
+              남은 기간은 촬영 예정일의 날짜를 기준으로 계산하며, 취소 시점은 회원이 서비스 내에서
+              취소 신청을 제출한 시각으로 합니다.
             </li>
             <li>
               제3항의 청약철회는 전자상거래 등에서의 소비자보호에 관한 법률 제17조에 따른 것으로,{" "}
-              <B>이 기간에는 위약금이나 손해배상을 청구하지 않습니다.</B> 다만 촬영일까지 7일
-              미만이 남은 예약에 대해 회사가 결제 전에 환불이 제한된다는 사실을 별도로 고지하고
-              회원의 동의를 받아 둔 경우에는 그 동의에 따릅니다.
+              <B>이 기간에는 위약금이나 손해배상을 청구하지 않습니다.</B> 다만 취소 시점에 촬영일까지
+              남은 기간이 7일 이내인 경우에는 같은 법 제17조 제2항 제3호에 따라 청약철회가 제한되며
+              위 표의 위약금 기준을 적용합니다. 회사는 결제 전에 이 사실을 표시합니다.
             </li>
             <li>
-              <B>회원이 작가의 연락처를 전달받으면 회사의 중개 용역이 제공된 것으로 보아</B>{" "}
-              제3항의 100% 환불 구간이 종료됩니다. 회사는 연락처를 전달하기 전에 이 사실을
-              고지합니다.
+              회원이 지급한 위약금은 서비스를 통해 발생한 작가의 수익으로 보아 작가와 회사가 중개
+              수수료율(작가 80%, 회사 20%)로 나누어 가집니다. 위약금이 발생하지 않는 취소에는 회원과
+              작가 어느 쪽에도 중개 수수료를 부과하지 않습니다.
             </li>
             <li>
               회사는 환불 사유가 확정된 날부터 <B>3영업일 이내</B>에 환급합니다. 이를 지연한
@@ -411,13 +440,34 @@ export default function TermsPage() {
         </section>
       </div>
 
-      <p className="mt-12 border-t border-line pt-5 text-xs leading-relaxed text-faint">
-        결제·연락처·환불이 실제로 어떻게 처리되는지는{" "}
-        <Link href="/trust" className="underline underline-offset-2">
-          안전하게 촬영하기
-        </Link>
-        에 더 자세히 적어 두었습니다.
-      </p>
+      <section className="mt-12 border-t border-line pt-5 text-xs leading-relaxed text-faint">
+        <p className="font-semibold text-muted">함께 적용되는 문서</p>
+        <ul className="mt-1.5 space-y-1">
+          <li>
+            <Link href="/terms/refund" className="underline underline-offset-2">취소·환불 정책</Link> — 이 약관 제9조의
+            구체적 기준과 절차
+          </li>
+          <li>
+            <Link href="/privacy" className="underline underline-offset-2">개인정보 처리방침</Link>
+          </li>
+          <li>
+            작가에게 적용되는 문서: <Link href="/terms/photographer" className="underline underline-offset-2">작가 이용약관</Link>,{" "}
+            <Link href="/terms/fees" className="underline underline-offset-2">수수료·정산 정책</Link>,{" "}
+            <Link href="/terms/photographer-contract" className="underline underline-offset-2">작가 입점 계약</Link>
+          </li>
+        </ul>
+        <p className="mt-3">
+          결제·연락처·환불이 실제로 어떻게 처리되는지는{" "}
+          <Link href="/trust" className="underline underline-offset-2">
+            안전하게 촬영하기
+          </Link>
+          에 더 자세히 적어 두었습니다.
+        </p>
+      </section>
+
+      {/* 약관 지면에 푸터가 없었다. 사업자 정보·처리방침이 가장 붙어 있어야 할 자리인데,
+          여기까지 읽고 내려온 사람에게 나갈 문이 하나도 없었다. */}
+      {!plain && <SiteFooter />}
     </main>
   );
 }
@@ -434,7 +484,7 @@ function Article({
   return (
     <section>
       <h2 className="mb-2 text-base font-semibold text-fg">
-        <span className="font-display italic tabular-nums text-brand">{n}</span>{" "}
+        <span className="font-display italic tabular-nums text-brand-ink">{n}</span>{" "}
         <span>({title})</span>
       </h2>
       {children}

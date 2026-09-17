@@ -5,7 +5,6 @@ import { StickyBack } from "@/components/editorial/StickyBack";
 import { SiteFooter } from "@/components/SiteFooter";
 import { Masthead } from "@/components/editorial/Masthead";
 import { breadcrumbJsonLd } from "@/lib/seo";
-import { REFUND_WINDOW_DAYS, WITHDRAWAL_DAYS } from "@/lib/refund";
 
 /*
   신뢰·안전 지면.
@@ -20,9 +19,9 @@ import { REFUND_WINDOW_DAYS, WITHDRAWAL_DAYS } from "@/lib/refund";
   적은 것은 전부 코드나 문서에 근거가 있다.
     · 작가 승인       — photographers.status = 'approved' 인 작가만 노출
     · 안전거래·연락처 — lib/platform-policy.ts (전 작가 상담봇이 공유하는 규칙)
-    · 환불 기준       — lib/refund.ts · docs/32-refund-policy.md
+    · 환불 기준       — lib/refund.ts · 취소환불정책 1.0 (docs/35)
     · 개인정보        — /privacy
-  숫자(7일 등)는 상수를 그대로 읽어 온다. 정책이 바뀌면 이 지면도 같이 바뀐다.
+  구간(8일·4~7일·3일)은 lib/refund.ts PENALTY_BANDS 와 같아야 한다. 정책이 바뀌면 이 지면도 같이 고친다.
 */
 export const revalidate = 86400;
 
@@ -51,7 +50,7 @@ function Block({
   return (
     <section className="mt-11 border-t border-line pt-7 first:mt-8">
       <div className="flex items-baseline gap-2">
-        <span className="font-display text-body-sm italic tabular-nums text-brand">{no}</span>
+        <span className="font-display text-body-sm italic tabular-nums text-brand-ink">{no}</span>
         <h2 className="text-title font-bold tracking-tight">{title}</h2>
       </div>
       <p className="mt-1.5 text-body-sm leading-relaxed text-muted">{lead}</p>
@@ -164,12 +163,12 @@ export default function TrustPage() {
               desc: "예약이 확정되기 전에는 위약금 없이 취소할 수 있습니다.",
             },
             {
-              term: `결제 후 ${WITHDRAWAL_DAYS}일 이내는 전액 환불`,
-              desc: "전자상거래 등에서의 소비자보호에 관한 법률 제17조에 따른 청약철회 기간입니다. 이 기간에는 위약금을 떼지 않습니다.",
+              term: "촬영 8일 전까지는 전액 환불",
+              desc: "결제 후 7일 이내의 청약철회(전자상거래법 제17조)도 이 구간에 들어갑니다. 위약금을 떼지 않습니다.",
             },
             {
-              term: `촬영 ${REFUND_WINDOW_DAYS}일 전까지는 절반 환불`,
-              desc: "그 뒤로는 작가가 그날을 비워 둔 상태라 환불이 어렵습니다.",
+              term: "촬영 4~7일 전은 60%, 3일 전부터 당일까지는 10%",
+              desc: "작가가 그날을 비워 둔 상태라 남은 기간에 따라 위약금(40%, 90%)이 빠집니다. 취소 없이 오지 않으면 환불되지 않습니다. 기준은 신청한 날짜입니다.",
             },
             {
               term: "천재지변이나 작가 사정이면 전액",
@@ -180,7 +179,7 @@ export default function TrustPage() {
               desc: "환불 여부를 작가가 정하지 않습니다. 예약 카드의 [사매에 문의]로 접수하면 사매가 확인하고 처리합니다.",
             },
           ]}
-          footnote="기준은 결제일과 촬영일 두 시계로 판정하며, 법정 청약철회 기간이 위약금 규정보다 우선합니다."
+          footnote="촬영일까지 남은 날짜로 판정합니다. 촬영까지 7일 이하로 남은 예약은 결제 7일 이내여도 청약철회가 제한되며, 결제 전에 따로 알려드립니다."
         />
 
         <footer className="mt-12 border-t border-line pt-6">

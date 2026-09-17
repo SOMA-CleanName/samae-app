@@ -2,14 +2,9 @@
 
 import { useEffect, useState } from "react";
 
-/*
-  치수는 좁은 기기 기준으로 잡았다.
-  375px 화면에서 알약(280px)이 가운데 서면 양옆에 47px 밖에 안 남는다.
-  40px 버튼 + 8px 간격이면 48px 라 알약에 붙어버려서, 36px + 6px 로 줄였다.
-*/
 const BTN = 36; // 버튼 지름(px)
-const GAP = 6; // 알약과의 간격
-const EDGE = 4; // 화면 오른쪽 끝에 남길 여백
+/** 화면 오른쪽 끝에 남길 여백 — 지면 가로 패딩(px-2.5 = 10)과 맞춘다 */
+const EDGE = 10;
 
 /**
  * 맨 위로 — 전체 사진 구간에 들어서면 나타난다.
@@ -25,8 +20,8 @@ const EDGE = 4; // 화면 오른쪽 끝에 남길 여백
  */
 export function ScrollTopButton({ anchorId }: { anchorId: string }) {
   const [show, setShow] = useState(false);
-  // 알약 오른쪽 끝 + 간격. 재기 전에는 화면 밖에 두어 깜빡임을 막는다.
-  const [left, setLeft] = useState<number | null>(null);
+  // 바텀바와 맞출 세로 중심. 재기 전에는 화면 밖에 두어 깜빡임을 막는다.
+  const [top, setTop] = useState<number | null>(null);
 
   useEffect(() => {
     const el = document.getElementById(anchorId);
@@ -44,19 +39,24 @@ export function ScrollTopButton({ anchorId }: { anchorId: string }) {
   }, [anchorId]);
 
   /*
-    바텀 플로팅 바(홈/탐색 알약)의 오른쪽에 붙인다.
+    **화면 오른쪽 끝**에 붙이고, 세로 중심만 바텀바와 맞춘다.
 
-    알약은 화면 가운데 고정이고 폭은 탭 수에 따라 달라진다. 그래서 화면 오른쪽에
-    고정값으로 두면 넓은 기기에서는 멀찍이 떨어지고 좁은 기기에서는 알약을 덮는다.
-    실제 오른쪽 끝을 재서 그 옆에 세우고, 화면 밖으로 나가지 않게 가둔다.
+    전에는 알약의 오른쪽 끝을 재서 그 옆에 세웠다. 알약 폭이 탭 수에 따라 달라져서
+    버튼 자리도 같이 움직였고, 그러다 보니 화면 어디에도 속하지 않은 어중간한 위치가
+    됐다(정훈 2026-09-12: "위치가 조금 애매하네").
+
+    가로는 고정(오른쪽 끝)이 맞다 — 알약은 엄지가 닿는 가운데, 이건 보조 동작이라
+    구석. 세로만 알약과 같은 선에 두어 둘이 한 줄로 읽히게 한다.
+
+    `bottom` 을 같이 쓰면 버튼(36)과 알약(약 48) 높이가 달라 밑선만 맞고 가운데가
+    어긋난다. 알약의 세로 **중심**을 재서 거기에 맞춘다.
   */
   useEffect(() => {
     const place = () => {
       const nav = document.querySelector("[data-floating-nav]");
       if (!nav) return;
       const r = nav.getBoundingClientRect();
-      const maxLeft = window.innerWidth - BTN - EDGE;
-      setLeft(Math.min(r.right + GAP, maxLeft));
+      setTop(r.top + (r.height - BTN) / 2);
     };
 
     place();
@@ -77,7 +77,7 @@ export function ScrollTopButton({ anchorId }: { anchorId: string }) {
       type="button"
       aria-label="맨 위로"
       // 안 보일 땐 완전히 빼둔다 — 투명하게만 두면 하단 내비 위에서 헛클릭이 난다
-      hidden={!show || left === null}
+      hidden={!show || top === null}
       onClick={() =>
         window.scrollTo({
           top: 0,
@@ -86,9 +86,9 @@ export function ScrollTopButton({ anchorId }: { anchorId: string }) {
             : "smooth",
         })
       }
-      className="stt fixed bottom-5 z-40 grid h-9 w-9 place-items-center rounded-full bg-bg/95 text-fg shadow-lg ring-1 ring-line backdrop-blur"
-      /* 알약과 같은 높이(bottom-5)·같은 표면 처리. 한 줄에 나란히 앉게. */
-      style={{ left: left ?? -9999 }}
+      className="stt fixed z-40 grid h-9 w-9 place-items-center rounded-full bg-bg/95 text-fg shadow-lg ring-1 ring-line backdrop-blur before:absolute before:-inset-1 before:content-['']"
+      /* 알약과 같은 표면 처리. 가로는 오른쪽 끝 고정, 세로만 알약 중심에 맞춘다. */
+      style={{ right: EDGE, top: top ?? -9999 }}
     >
       <svg
         viewBox="0 0 24 24"

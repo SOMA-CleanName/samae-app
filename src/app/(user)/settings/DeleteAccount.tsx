@@ -20,7 +20,13 @@ export function DeleteAccount() {
     setError(null);
     startTransition(async () => {
       try {
-        await deleteAccount();
+        // 막힌 이유는 throw 가 아니라 값으로 온다 — 프로덕션에서 throw 는 메시지가 가려져
+        // "An error occurred in the Server Components render." 만 보인다(actions.ts 주석).
+        const res = await deleteAccount();
+        if (res?.error) {
+          setError(res.error);
+          return;
+        }
         router.replace("/");
         router.refresh();
       } catch (e) {
@@ -39,7 +45,7 @@ export function DeleteAccount() {
       >
         {pending ? "처리 중…" : "회원 탈퇴"}
       </button>
-      {error && <p className="mt-2 text-xs text-brand">{error}</p>}
+      {error && <p className="mt-2 text-xs text-brand-ink">{error}</p>}
     </div>
   );
 }

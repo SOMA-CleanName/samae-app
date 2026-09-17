@@ -58,7 +58,7 @@ export default async function BookingsPage() {
         props={{ as_buyer_count: asBuyer.length, as_photographer_count: asPhotographer.length, pending_count: pendingCount }}
       />
       <h1 className="text-2xl font-semibold">예약</h1>
-      <p className="mt-1 text-sm text-fg/50">확정된 예약만 표시돼요. 요청·취소 내역은 채팅방에서 확인할 수 있어요.</p>
+      <p className="mt-1 text-sm text-muted">확정된 예약만 표시돼요. 요청·취소 내역은 채팅방에서 확인할 수 있어요.</p>
 
       {pendingCount > 0 && (
         <Link
@@ -95,17 +95,17 @@ function RoleBlock({
   return (
     <section className="mt-8">
       <h2 className="text-sm font-medium text-fg/70">
-        {title} {rows.length > 0 && <span className="text-fg/40">{rows.length}</span>}
+        {title} {rows.length > 0 && <span className="text-faint">{rows.length}</span>}
       </h2>
       {rows.length === 0 ? (
-        <p className="mt-3 text-sm text-fg/45">아직 없어요.</p>
+        <p className="mt-3 text-sm text-faint">아직 없어요.</p>
       ) : (
         BUCKETS.map((bucket) => {
           const group = rows.filter((b) => bucket.statuses.includes(b.status));
           if (group.length === 0) return null;
           return (
             <div key={bucket.label} className="mt-4">
-              <p className="text-xs font-medium text-fg/45">
+              <p className="text-xs font-medium text-faint">
                 {bucket.label} · {group.length}
               </p>
               <ul className="mt-2 flex flex-col gap-2">
@@ -147,7 +147,7 @@ function BookingItem({
             {bookingStatusLabel(b, true)}
           </span>
         </div>
-        <p className="mt-1 text-xs text-fg/55">
+        <p className="mt-1 text-xs text-muted">
           {b.package?.name ?? b.package_snapshot?.name ?? "패키지"} · {fmtShootAt(b.shoot_at, b.shoot_date)}
         </p>
       </Link>

@@ -127,7 +127,7 @@ export function AboutEditor({
         </button>
       </div>
       {error && (
-        <p className="mb-3 rounded-xl bg-danger-soft px-3.5 py-2.5 text-body-sm text-danger">{error}</p>
+        <p className="mb-3 rounded-xl bg-danger-soft px-3.5 py-2.5 text-body-sm text-danger-ink">{error}</p>
       )}
 
       {sections.length === 0 && !pickerOpen && (
@@ -387,7 +387,7 @@ function SectionCard({
               <button
                 type="button"
                 onClick={onDelete}
-                className="cursor-pointer font-semibold text-danger"
+                className="cursor-pointer font-semibold text-danger-ink"
               >
                 삭제
               </button>
@@ -861,7 +861,7 @@ function ImageField({
             <button
               type="button"
               onClick={() => onChange(null)}
-              className="cursor-pointer rounded-full bg-white/90 px-2.5 py-1 text-caption font-medium text-danger hover:bg-white"
+              className="cursor-pointer rounded-full bg-white/90 px-2.5 py-1 text-caption font-medium text-danger-ink hover:bg-white"
             >
               지우기
             </button>
@@ -884,7 +884,7 @@ function ImageField({
           )}
         </button>
       )}
-      {err && <p className="mt-1 text-caption text-danger">{err}</p>}
+      {err && <p className="mt-1 text-caption text-danger-ink">{err}</p>}
     </div>
   );
 }

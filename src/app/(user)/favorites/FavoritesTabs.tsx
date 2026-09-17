@@ -108,7 +108,7 @@ function TabButton({
       className={`-mb-px border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
         active
           ? "border-fg text-fg"
-          : "border-transparent text-fg/50 hover:text-fg/80"
+          : "border-transparent text-muted hover:text-fg/80"
       }`}
     >
       {children}
@@ -117,5 +117,5 @@ function TabButton({
 }
 
 function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="mt-12 text-center text-sm text-fg/45">{children}</p>;
+  return <p className="mt-12 text-center text-sm text-faint">{children}</p>;
 }

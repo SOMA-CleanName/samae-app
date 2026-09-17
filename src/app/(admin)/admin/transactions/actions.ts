@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { archiveAllAndDeleteMany, deleteBookingsByIds } from "@/lib/soft-delete";
 import { verifyResetPassword } from "@/lib/admin-reset";
 
@@ -50,7 +51,7 @@ function parseIds(raw: FormDataEntryValue | null): string[] {
 }
 
 // ── 에스크로 운영 액션 ─────────────────────────────────────────
-// 고객이 사매 계좌로 입금 → 운영자가 확인(accepted→paid) → 수수료 차감 송금 후 정산 완료 마킹.
+// 고객이 사매 계좌로 입금 → 운영자가 확인(accepted→paid) → 결과물 전달 뒤 수수료·부가세 차감 송금 → 정산 완료 마킹.
 import { confirmBankTransferAdmin, markSettlementPaid, markTransferByOps } from "@/lib/payments";
 
 export async function adminConfirmTransfer(formData: FormData): Promise<void> {
@@ -67,28 +68,7 @@ export async function adminMarkSettled(formData: FormData): Promise<void> {
   if (!me || me.role !== "admin") throw new Error("운영자 권한이 필요합니다.");
   const id = String(formData.get("id"));
   const res = await markSettlementPaid(id);
-  if (!res.ok) throw new Error("처리할 수 없는 상태예요 (미확정이거나 이미 정산됨).");
-  revalidatePath("/admin/transactions");
-}
-
-/**
- * 입금 확인 + 작가 정산을 한 번에.
- *
- * 실제 운영은 은행 앱에서 입금을 확인한 그 자리에서 수수료를 떼고 작가에게 보낸다.
- * 확인만 하고 정산을 미루는 경우가 없어서, 버튼 두 개는 클릭만 늘릴 뿐이었다.
- * (정산 실송금은 사람이 하고, 이 버튼은 그걸 기록한다)
- */
-export async function adminSettleNow(formData: FormData): Promise<void> {
-  const me = await getCurrentUser();
-  if (!me || me.role !== "admin") throw new Error("운영자 권한이 필요합니다.");
-  const id = String(formData.get("id"));
-
-  const confirmed = await confirmBankTransferAdmin(id);
-  if (!confirmed.ok) throw new Error("처리할 수 없는 상태예요 (이미 확인됐거나 수락 전).");
-
-  const settled = await markSettlementPaid(id);
-  if (!settled.ok) throw new Error("입금은 확인됐지만 정산 기록에 실패했어요 — 정산 대기에서 다시 시도해주세요.");
-
+  if (!res.ok) throw new Error("처리할 수 없는 상태예요 (결과물 전달 전이거나 이미 정산됨).");
   revalidatePath("/admin/transactions");
 }
 
@@ -96,7 +76,7 @@ export async function adminSettleNow(formData: FormData): Promise<void> {
 // 판정은 lib/refund.ts 가 하고, 운영은 그 결과를 확인한 뒤 실행만 한다.
 // 사람이 은행에서 실제로 돈을 보내고, 이 액션은 원장을 정리한다.
 import { refundBooking } from "@/lib/payments";
-import type { RefundOverride } from "@/lib/refund";
+import { isRefundOverride, type RefundOverride } from "@/lib/refund";
 
 export async function adminRefund(formData: FormData): Promise<void> {
   const me = await getCurrentUser();
@@ -105,12 +85,66 @@ export async function adminRefund(formData: FormData): Promise<void> {
 
   // 운영 판정 — 없으면 시간 규칙대로
   const raw = String(formData.get("override") ?? "");
-  const override: RefundOverride | null =
-    raw === "force_majeure" || raw === "photographer_fault" ? raw : null;
+  const override: RefundOverride | null = isRefundOverride(raw) ? raw : null;
+  // 부분 이행 — 운영이 환불액을 직접 적는다 (취소환불 10조 4항)
+  const manualRaw = Number(String(formData.get("manualRefundKrw") ?? "").replace(/[^0-9]/g, ""));
+  const manualRefundKrw = override === "partial" && Number.isFinite(manualRaw) ? manualRaw : null;
+  if (override === "partial" && manualRefundKrw == null) throw new Error("부분 이행은 환불액을 적어야 해요.");
 
-  const res = await refundBooking(id, { override, note: String(formData.get("note") ?? "") });
+  // 작가 합의가 먼저다 — 환불은 작가 수익이 걸린 일이라 통보가 아니라 합의여야 한다.
+  // 버튼만 잠그면 폼을 위조해 들어올 수 있으므로 여기서도 막는다.
+  //
+  // 고객이 낸 환불 신청이 열려 있을 때만 건다. 운영이 스스로 판단해 실행하는 건
+  // (작가 귀책·천재지변·노쇼)은 해당 없다 — 그건 작가와 합의할 성질이 아니다.
+  const admin = createAdminClient();
+  const { data: openReq } = await admin
+    .from("support_requests")
+    .select("id, photographer_ack_at")
+    .eq("booking_id", id)
+    .eq("kind", "refund")
+    .eq("status", "open")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (openReq && !openReq.photographer_ack_at && !override) {
+    throw new Error(
+      "작가와 먼저 합의해야 해요. 접수함(/admin/support)에서 [작가 합의 확인] 을 찍은 뒤 다시 시도하세요."
+    );
+  }
+
+  const res = await refundBooking(id, {
+    override,
+    manualRefundKrw,
+    note: String(formData.get("note") ?? ""),
+  });
   if (!res.ok) throw new Error("환불할 수 없는 상태예요 (이미 환불됐거나 입금 전).");
 
+  revalidatePath("/admin/transactions");
+}
+
+/**
+ * 환불금을 **실제로 보냈다**고 기록한다.
+ *
+ * `refundBooking()` 은 원장 정리일 뿐 돈을 옮기지 않는다 — 송금은 PG 지급대행에서 따로 한다.
+ * 그 둘을 구분해 남기지 않으면 "환불됨" 으로 닫힌 건이 실은 돈이 안 나간 상태일 수 있고,
+ * 고객이 항의하기 전에는 아무도 모른다. 3영업일 SLA 가 걸린 자리라 더욱 그렇다.
+ */
+export async function adminMarkRefundPaid(formData: FormData): Promise<void> {
+  const me = await getCurrentUser();
+  if (!me || me.role !== "admin") throw new Error("운영자 권한이 필요합니다.");
+  const id = String(formData.get("id"));
+
+  const admin = createAdminClient();
+  const { data: moved } = await admin
+    .from("bookings")
+    .update({ refund_paid_at: new Date().toISOString(), refund_paid_by: me.id })
+    .eq("id", id)
+    .not("refunded_at", "is", null) // 환불 판정이 끝난 건만
+    .is("refund_paid_at", null) // 멱등 — 첫 송금 시각을 유지한다
+    .select("id");
+  if (!moved || moved.length === 0) {
+    throw new Error("처리할 수 없는 상태예요 (환불 처리 전이거나 이미 송금 기록됨).");
+  }
   revalidatePath("/admin/transactions");
 }
 
@@ -121,7 +155,11 @@ export async function adminRefund(formData: FormData): Promise<void> {
  * 확인 주체는 어차피 사매이므로, 고객의 버튼이 없다고 정산을 막을 이유가 없다.
  * (adminSettleNow 와 같은 자리로 합류한다 — 앞에 '고객 대신 표시' 한 단계만 더 있다)
  */
-export async function adminMarkDepositAndSettle(formData: FormData): Promise<void> {
+/**
+ * 운영이 고객 대신 입금 표시 + 확인 (고객이 [입금 완료] 를 누르지 않은 건).
+ * 정산은 하지 않는다 — 결과물 전달 뒤 정산 대기 큐에서 따로 한다(수수료정책 3조 1항).
+ */
+export async function adminMarkDepositAndConfirm(formData: FormData): Promise<void> {
   const me = await getCurrentUser();
   if (!me || me.role !== "admin") throw new Error("운영자 권한이 필요합니다.");
   const id = String(formData.get("id"));
@@ -130,10 +168,41 @@ export async function adminMarkDepositAndSettle(formData: FormData): Promise<voi
   if (!marked.ok) throw new Error("처리할 수 없는 상태예요 (수락 전이거나 이미 입금 표시됨).");
 
   const confirmed = await confirmBankTransferAdmin(id);
-  if (!confirmed.ok) throw new Error("입금 표시는 됐지만 확인에 실패했어요 — 확인·정산에서 다시 시도해주세요.");
+  if (!confirmed.ok) throw new Error("입금 표시는 됐지만 확인에 실패했어요 — 입금 확인 대기에서 다시 시도해주세요.");
 
-  const settled = await markSettlementPaid(id);
-  if (!settled.ok) throw new Error("입금은 확인됐지만 정산 기록에 실패했어요 — 정산 대기에서 다시 시도해주세요.");
+  revalidatePath("/admin/transactions");
+}
 
+// ── 추가 결제 (booking_extras) — 회원약관 8조 ───────────────────────
+import { confirmExtraPaid, refundExtra, settleExtra } from "@/lib/extras-admin";
+
+export async function adminConfirmExtra(formData: FormData): Promise<void> {
+  const me = await getCurrentUser();
+  if (!me || me.role !== "admin") throw new Error("운영자 권한이 필요합니다.");
+  const ok = await confirmExtraPaid(String(formData.get("id")));
+  if (!ok) throw new Error("처리할 수 없는 상태예요 (수락 전이거나 이미 확인됨).");
+  revalidatePath("/admin/transactions");
+}
+
+export async function adminRefundExtra(formData: FormData): Promise<void> {
+  const me = await getCurrentUser();
+  if (!me || me.role !== "admin") throw new Error("운영자 권한이 필요합니다.");
+  const res = await refundExtra(String(formData.get("id")));
+  if (!res.ok)
+    throw new Error(
+      res.reason === "delivered"
+        ? "결과물이 전달된 추가금은 환불하지 않아요 (회원약관 8조 3항)."
+        : res.reason === "pre_shoot_merged"
+          ? "촬영 전 추가금은 예약에 합산돼 있어요 — 예약 환불로 처리하세요."
+          : "처리할 수 없는 상태예요."
+    );
+  revalidatePath("/admin/transactions");
+}
+
+export async function adminSettleExtra(formData: FormData): Promise<void> {
+  const me = await getCurrentUser();
+  if (!me || me.role !== "admin") throw new Error("운영자 권한이 필요합니다.");
+  const res = await settleExtra(String(formData.get("id")));
+  if (!res.ok) throw new Error("처리할 수 없는 상태예요 (전달 전이거나 이미 정산됨).");
   revalidatePath("/admin/transactions");
 }

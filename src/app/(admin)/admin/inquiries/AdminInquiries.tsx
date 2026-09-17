@@ -143,12 +143,12 @@ export function AdminInquiries({ rows }: { rows: InquiryRow[] }) {
               >
                 <Badge tone={st.tone} className="shrink-0">{st.label}</Badge>
                 {r.channelKind === "ad" && (
-                  <span className="shrink-0 rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-semibold text-brand">
+                  <span className="shrink-0 rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-semibold text-brand-ink">
                     광고
                   </span>
                 )}
                 {r.channelKind === "organic" && (
-                  <span className="shrink-0 rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-semibold text-success">
+                  <span className="shrink-0 rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-semibold text-success-ink">
                     스토리
                   </span>
                 )}
@@ -199,7 +199,7 @@ export function AdminInquiries({ rows }: { rows: InquiryRow[] }) {
                     .filter(([, v]) => v)
                     .map(([k, v]) => (
                       <span key={k} className="inline-flex items-center gap-1 rounded-full bg-fg/[0.06] px-2.5 py-1 text-caption text-fg/70">
-                        {k === "지역" && <MapPinIcon className="h-3 w-3 text-fg/45" />}
+                        {k === "지역" && <MapPinIcon className="h-3 w-3 text-faint" />}
                         <span className="text-faint">{k}</span> {v}
                       </span>
                     ))}
@@ -215,9 +215,9 @@ export function AdminInquiries({ rows }: { rows: InquiryRow[] }) {
                       className={cn(
                         "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-caption font-medium",
                         r.channelKind === "ad"
-                          ? "bg-brand/10 text-brand"
+                          ? "bg-brand/10 text-brand-ink"
                           : r.channelKind === "organic"
-                            ? "bg-success/10 text-success"
+                            ? "bg-success/10 text-success-ink"
                             : "bg-fg/[0.06] text-fg/70"
                       )}
                     >
@@ -311,7 +311,7 @@ export function AdminInquiries({ rows }: { rows: InquiryRow[] }) {
                         "cursor-pointer rounded-lg border px-3 py-1.5 text-caption font-medium transition-colors",
                         r.hidden
                           ? "border-line-strong text-muted hover:bg-fg/[0.04]"
-                          : "border-danger/40 text-danger hover:bg-danger/[0.06]"
+                          : "border-danger/40 text-danger-ink hover:bg-danger/[0.06]"
                       )}
                     >
                       {r.hidden ? "작가에게 되돌리기" : "작가에게서 숨기기"}

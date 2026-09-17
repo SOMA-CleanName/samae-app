@@ -19,11 +19,27 @@
 
   /* 텍스트 계조 — 솔리드 컬러로 대비 4.5:1 보장 */
   --muted: #57534e;     /* 보조 텍스트 (캡션·메타) */
-  --faint: #8a857d;     /* 비활성·플레이스홀더 (큰 글자/비필수만) */
+  /* 비활성·플레이스홀더.
+     #8a857d 였는데 배경(#f4f5f6) 위 **3.36:1** 로 본문 기준(4.5)에 못 미쳤다. 주석은
+     "큰 글자/비필수만" 이라고 단서를 달아 놨지만, 실제로는 푸터 사업자 정보·날짜·
+     지역 태그·숫자 카운트처럼 **10~13px 작은 글자**에 전 지면에서 쓰이고 있었다
+     (실측 2026-09-11). 단서를 지키는 것보다 색을 고치는 편이 확실하다.
+     #716c64 로 올렸다가 한 번 더 내렸다 — 배경(4.77)·카드(5.08)는 넘겼는데
+     **surface-2(#ebecee) 위에서 4.41** 로 아슬아슬하게 걸렸다. 어드민의 회색 칩·표가
+     그 표면을 쓴다. 세 표면 모두에서 넘도록 잡는다.
+     #6b665f → 배경 5.21 · surface-2 4.81 · 카드 5.55 */
+  --faint: #6b665f;
 
   /* 브랜드 파생 */
   --brand-soft: #ffe9e6;       /* 브랜드 틴트 배경 */
   --brand-ink: #c42a1e;        /* 브랜드 위 텍스트·진한 상태 */
+  /* 흰 글씨를 얹는 채움색.
+     `--brand`(#ff3d2e) 위의 흰 글씨는 **3.52:1** 로 본문 기준(4.5)에 못 미친다 —
+     하단 내비 활성 탭처럼 작은 라벨이 여기 걸린다(실측 2026-09-11).
+     `--brand-ink` 를 채움색으로 쓸 수는 없다. 다크 모드에서 밝은 살몬(#ff8d80)이 되어
+     흰 글씨가 더 안 보인다. 그래서 **두 테마에서 같은 값**을 갖는 토큰을 따로 둔다.
+     흰 글씨 대비 5.68:1. 큰 면(배너·주요 CTA 버튼)은 브랜드 정체성이라 그대로 `--brand`. */
+  --brand-solid: #c42a1e;
 
   /* 상태 — 채움(bg) / 배경 틴트(soft) / 틴트 위 글자(ink) 3종 */
   --success: #15803d;  --success-soft: #dcfce7;
@@ -34,10 +50,15 @@
   /* 틴트 위에 얹는 글자색. 라이트에서는 채움색과 같지만 다크에서는 갈라진다 —
      채움색은 흰 글자를 받아야 해서 어둡게 유지되는데, 그 색을 어두운 틴트 위에
      그대로 쓰면 배경과 붙어 안 읽힌다(인계 안내가 그랬다). */
-  --success-ink: var(--success);
-  --warning-ink: var(--warning);
-  --danger-ink:  var(--danger);
-  --info-ink:    var(--info);
+  /* success 도 soft 위(4.57)는 통과하지만, 중립 표면(surface-2 #ebecee) 위에서는
+     4.24:1 로 떨어진다 — 어드민 계산기의 손익 숫자가 그 자리다. 한 단계 어둡게. */
+  --success-ink: #166534;
+  --warning-ink: var(--warning);  /* soft 위 4.51:1 */
+  /* danger 만 채움색을 그대로 쓰면 **3.95:1** 로 기준(4.5) 아래다 — soft 틴트가
+     넷 중 가장 밝아서 그렇다(#fee2e2). 이것만 한 단계 어둡게 가른다 → soft 위 5.30:1.
+     (실측 2026-09-11, /admin/chats 의 "작가 미확인" 배지) */
+  --danger-ink:  #b91c1c;
+  --info-ink:    var(--info);     /* soft 위 5.49:1 */
 
   /* 반경 / 그림자 — 일관 스케일 */
   --radius-sm: 0.5rem;   /* 칩·작은 배지 */
@@ -61,7 +82,10 @@
     --line: #353535;          /* 기본 경계선 */
     --line-strong: #404040;   /* 강조 경계선 */
     --muted: #b4ada3;         /* 보조 텍스트 */
-    --faint: #837c72;         /* 비활성·플레이스홀더 */
+    /* 다크도 같이 올린다. #837c72 는 배경 위 4.30:1 로 아슬아슬했고
+       카드 표면(#202020) 위에서는 3.95:1 로 기준 아래였다.
+       #9a938a → 배경 5.85:1 · 표면 5.36:1 */
+    --faint: #9a938a;
     --brand-soft: #3a201c;    /* 브랜드 틴트 배경(다크) */
     --brand-ink: #ff8d80;     /* 브랜드 위 텍스트(다크에서 밝게) */
     --success-soft: #14331f; --warning-soft: #3a2a10; --danger-soft: #3a1a18; --info-soft: #16233f;
@@ -79,6 +103,7 @@
   --color-brand: var(--brand);
   --color-brand-soft: var(--brand-soft);
   --color-brand-ink: var(--brand-ink);
+  --color-brand-solid: var(--brand-solid);
 
   --color-surface: var(--surface);
   --color-surface-2: var(--surface-2);
@@ -206,6 +231,28 @@ img {
 
 /* 폼 컨트롤: offset·고정 radius 아웃라인이 둥근 테두리와 어긋나 보인다.
    대신 요소의 실제 border-radius 를 따라가는(box-shadow) 중립 포커스 링으로 대체. */
+/* iOS 사파리는 입력 글씨가 16px 미만이면 **포커스할 때 화면을 확대한다.** 확대된 화면은
+   스스로 돌아오지 않아서, 입력할 때마다 사용자가 손으로 축소해야 한다(2026-09-16 신고).
+
+   뷰포트에 maximum-scale=1 을 박는 방법이 흔하지만 쓰지 않는다 — 그건 핀치 줌까지 막아
+   확대가 필요한 사람에게 지면을 통째로 잠근다(WCAG 1.4.4 · 접근성 위반).
+
+   대신 iOS 에서만 입력 글씨를 16px 로 올린다. `@supports (-webkit-touch-callout: none)`
+   은 iOS 사파리에서만 참이라 데스크톱·안드로이드 디자인은 그대로다.
+
+   ⚠️ 필드만 골라 예외를 두는 식으로는 못 막는다 — 토큰이 전부 16px 미만이다
+      (body 15px · body-sm 13px · caption 12px · Tailwind text-sm 14px).
+      입력에 쓰인 가장 큰 값이 text-body(15px)라 이 규칙으로 작아지는 필드는 없다.
+
+   체크박스·라디오·레인지·색상은 글씨를 쓰지 않으므로 뺀다 — 넣으면 크기만 흔들린다. */
+@supports (-webkit-touch-callout: none) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
@@ -383,15 +430,13 @@ select:focus-visible {
   .cart-tip-in { animation: none; }
 }
 
-/* 관심사진 작가 줄 — 아래에서 살짝 올라오며 차례로 놓인다(펼침 스태거의 대역) */
-@keyframes cart-row-card-in {
-  from { opacity: 0; transform: translateY(14px) scale(0.96); }
-  to { opacity: 1; transform: none; }
-}
-.cart-row-card { animation: cart-row-card-in 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
-@media (prefers-reduced-motion: reduce) {
-  .cart-row-card { animation: none; }
-}
+/*
+  (제거됨) `.cart-row-card` — 줄 카드가 아래에서 14px 떠오르던 등장 애니메이션.
+
+  지금은 **카드가 도크에서 날아와 그 자리에 앉는 것**이 등장 연출이다(FloatingCart 의
+  slots). 둘을 같이 두면 역할이 겹치고, 그 애니메이션이 `fill: both` 라 첫 프레임이
+  `translateY(14px)` 여서 착지점 측정까지 14px 밀렸다.
+*/
 
 /* 관심 사진 상세 최초 안내 — 문구는 잠깐 머물고, 화살표는 위로 차례로 흩어진다. */
 @keyframes cart-swipe-hint {
@@ -670,14 +715,19 @@ select:focus-visible {
 .qp:hover .qp-label {
   color: var(--brand-ink);
 }
-/* 아이콘 원 — 호버하면 브랜드색으로 채워진다 */
+/*
+  아이콘 — 호버하면 한 단계 진해진다.
+
+  예전엔 뒤의 틴트 원을 브랜드색으로 **채웠다.** 그 원을 걷어내면서(A안) 채울 면이
+  없어졌다 — 그대로 두면 44px 짜리 빨간 사각이 칠해진다. 색만 바꾼다.
+*/
 .qp-dot {
-  transition: background-color 0.25s ease, color 0.25s ease;
+  transition: color 0.25s ease, transform 0.25s ease;
 }
 .qp:hover .qp-dot,
 .qp:focus-visible .qp-dot {
-  background: var(--brand);
-  color: #fff;
+  color: var(--brand-ink);
+  transform: translateY(-1px);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -728,6 +778,40 @@ select:focus-visible {
   그래서 숨김은 관찰자가 실제로 설치된 뒤에만 걸린다(부모의 data-reveal-on).
   그 표식은 useLayoutEffect 에서 그리기 전에 붙어 깜빡임도 없다.
 */
+/*
+  등장 연출(범용) — `data-reveal` 을 붙인 요소가 화면에 들어오면 떠오른다.
+  감시자는 `RevealOnView` 컴포넌트 하나가 지면 전체를 맡는다.
+
+  ⚠️ `ed-scroll-in`(animation-timeline: view())을 쓰지 않는 이유:
+     그건 크롬 계열 전용이라 **사파리에서는 아무 일도 안 일어난다.**
+     사매 방문자 다수가 아이폰이라 그 연출은 사실상 없는 것과 같다.
+
+  ⚠️ 숨김은 `[data-reveal-on]` 아래에서만 걸린다 — 감시자가 실제로 설치된 뒤에
+     루트에 붙는 표식이다. IntersectionObserver 가 없으면 그냥 보이는 상태가 된다.
+
+  `--rd` 로 순서를 준다(ms). 섹션 안에서 머리 → 본문 순으로 살짝 늦추는 데 쓴다.
+*/
+[data-reveal] {
+  transition:
+    opacity 0.55s ease-out,
+    transform 0.78s cubic-bezier(0.22, 1, 0.36, 1);
+  transition-delay: calc(var(--rd, 0) * 1ms);
+}
+[data-reveal-on] [data-reveal]:not([data-shown]) {
+  opacity: 0;
+  /* 이동만 한다 — scale 을 섞으면 카드 가장자리에 얇은 선이 생긴다(.feed-rise 주석 참고) */
+  transform: translateY(22px);
+  backface-visibility: hidden;
+  will-change: opacity, transform;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
 .feed-rise {
   transition:
     opacity 0.5s ease-out,
@@ -820,6 +904,19 @@ select:focus-visible {
 .fi-cover:focus-visible .fi-img,
 .fi-cover:active .fi-img {
   filter: grayscale(0) contrast(1) brightness(1);
+}
+/*
+  ⚠️ 위 "손을 대면 원래 색으로 돌아온다" 는 **마우스에서만** 성립한다.
+     폰에는 hover 가 없다. 그래서 모바일 사용자에게 이 카드는 영원히 빛바랜 채로 남고,
+     "컬러가 안에 있다" 는 신호는 전달되지 않는다. 눌러 볼 이유가 사라진다는 뜻이다.
+
+     그렇다고 터치에서 채도를 다 풀면 이 카드가 주변 사진과 구분되지 않는다 —
+     구분이 이 장치의 목적이다. 절반쯤(0.35)만 눌러 **구분은 남기고 생기는 되찾는다.**
+*/
+@media (hover: none) {
+  .fi-cover .fi-img {
+    filter: grayscale(0.35) contrast(1.03) brightness(0.96);
+  }
 }
 /* 잉크 — 위(라벨)와 아래(제목) 양쪽을 눌러 흰 글씨가 어디서나 읽히게 */
 .fi-cover .fi-ink {

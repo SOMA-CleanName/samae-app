@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { mpTrackServer } from "@/lib/mixpanel-server";
-import { notifyOpsDepositReported } from "@/lib/ops-alert";
+import { notifyOpsPhotographerAgreed } from "@/lib/ops-alert";
 
 // 최저가·가격 상한 (350만원)
 const MAX_PRICE_KRW = 100_000_000; // 사실상 무제한(안전값 1억)
@@ -51,6 +51,9 @@ const ProfileSchema = z.object({
   bankName: z.string().trim().max(40).optional().default(""),
   accountNumber: z.string().trim().max(40).optional().default(""),
   accountHolder: z.string().trim().max(40).optional().default(""),
+  legalName: z.string().trim().max(60).optional().default(""),
+  businessType: z.enum(["", "general", "simplified", "unregistered"]).optional().default(""),
+  businessNo: z.string().trim().max(14).optional().default(""),
 });
 
 export type ProfileState = {
@@ -60,6 +63,24 @@ export type ProfileState = {
 };
 
 // 작가 프로필 수정 (RLS: 본인 행만. status는 가드 트리거로 보호됨)
+
+// 현재 사용자의 작가 id 조회 (RLS: 본인 행)
+async function getCurrentPhotographerId(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string
+): Promise<string | null> {
+  const { data } = await supabase
+    .from("photographers")
+    .select("id")
+    .eq("profile_id", userId)
+    .maybeSingle();
+  return data?.id ?? null;
+}
+
+// ── 연락 수단 (docs/32 §3-3) ───────────────────────────────────
+// 예약이 확정된 뒤 고객에게 건넬 것들. 매번 채팅에 타이핑하지 않게 미리 등록해둔다.
+import { normalizeContactMethods } from "@/lib/photographer-contacts";
+
 export async function updateProfile(
   _prev: ProfileState,
   formData: FormData
@@ -79,6 +100,9 @@ export async function updateProfile(
     bankName: formData.get("bankName"),
     accountNumber: formData.get("accountNumber"),
     accountHolder: formData.get("accountHolder"),
+    legalName: formData.get("legalName") ?? "",
+    businessType: formData.get("businessType") ?? "",
+    businessNo: formData.get("businessNo") ?? "",
   });
   if (!parsed.success) {
     const fieldErrors: Record<string, string> = {};
@@ -102,6 +126,38 @@ export async function updateProfile(
     return { error: "정산 계좌는 은행·계좌번호·예금주를 모두 입력해주세요.", fieldErrors };
   }
 
+  // 사업자 정보 — 유형을 골랐고 미등록이 아니면 등록번호 10자리가 있어야 한다
+  const bizDigits = v.businessNo.replace(/[^0-9]/g, "");
+  if (v.businessType && v.businessType !== "unregistered" && bizDigits.length !== 10) {
+    return { error: "사업자등록번호 10자리를 입력해주세요.", fieldErrors: { businessNo: "10자리 숫자" } };
+  }
+  const businessNo =
+    v.businessType && v.businessType !== "unregistered"
+      ? `${bizDigits.slice(0, 3)}-${bizDigits.slice(3, 5)}-${bizDigits.slice(5)}`
+      : null;
+
+  // 등록증도 여기서 본다. 입점(agreePhotographerContract)에만 가드가 있어서,
+  // **미등록으로 입점한 뒤 프로필에서 일반과세자로 바꾸면 등록증 없이 통과**했다
+  // (2026-09-17 점검). 번호만으로는 세금계산서를 못 만들고(필수 기재사항이 등록번호+
+  // 상호+대표자다), 그 번호가 이 작가 것인지도 확인되지 않는다 — 그 대조가 곧
+  // 전자상거래법 20조의 "확인" 이다(0124).
+  //
+  // ⚠️ 이미 올려 둔 사람은 다시 올릴 필요가 없다. DB 를 본다 — 화면이 보낸 값이 아니라.
+  if (v.businessType && v.businessType !== "unregistered") {
+    const { data: lic } = await createAdminClient()
+      .from("photographers")
+      .select("business_license_path")
+      .eq("profile_id", user.id)
+      .maybeSingle();
+    if (!lic?.business_license_path) {
+      return {
+        error: "사업자등록증을 올려주세요. 수수료 세금계산서 발급에 필요해요.",
+        fieldErrors: { businessType: "등록증이 필요해요" },
+      };
+    }
+  }
+
+
   // 작가명 중복 불가 (본인 제외)
   if (await isDisplayNameTaken(v.displayName, user.id)) {
     return { error: "이미 사용 중인 작가명이에요.", fieldErrors: { displayName: "이미 사용 중인 작가명이에요." } };
@@ -115,6 +171,9 @@ export async function updateProfile(
       regions: parseList(v.regions),
       mood_tags: parseList(v.moodTags),
       price_from_krw: v.priceFrom,
+      legal_name: v.legalName || null,
+      business_type: v.businessType || null,
+      business_no: businessNo,
     })
     .eq("profile_id", user.id);
 
@@ -138,10 +197,27 @@ export async function updateProfile(
       { onConflict: "photographer_id" }
     );
     if (accountError) return { error: "계좌 저장 중 오류가 발생했습니다." };
-  } else if (!bank && !number && !holder) {
-    // 세 필드 모두 비우면 계좌 삭제
-    const { error: accountError } = await admin.from("payout_accounts").delete().eq("photographer_id", me);
-    if (accountError) return { error: "계좌 삭제 중 오류가 발생했습니다." };
+  } else {
+    // ⚠️ 비우는 것으로 **지우지 않는다.** 전에는 세 칸을 다 비우면 행을 삭제했는데,
+    //    정산 계좌는 입점에서 필수로 받는 값이다(AgreeGate). 지워지면 지급할 곳이 없어
+    //    정산이 조용히 막히고, 기한은 전달 후 7영업일이라 그때 가서 다시 받으면 넘긴다.
+    //    바꾸는 건 언제든 되지만 없애는 건 안 된다 — 작가 활동을 그만두려면 탈퇴다.
+    const { data: existing } = await admin
+      .from("payout_accounts")
+      .select("photographer_id")
+      .eq("photographer_id", me)
+      .maybeSingle();
+    if (existing) {
+      const fieldErrors: Record<string, string> = {};
+      if (!bank) fieldErrors.bankName = "은행을 입력해주세요.";
+      if (!number) fieldErrors.accountNumber = "계좌번호를 입력해주세요.";
+      if (!holder) fieldErrors.accountHolder = "예금주를 입력해주세요.";
+      return {
+        error: "정산 계좌는 비울 수 없어요. 촬영비를 보내드릴 곳이라 항상 하나는 있어야 해요.",
+        fieldErrors,
+      };
+    }
+    // 애초에 없던 작가가 빈 채로 저장한 것 — 막을 이유가 없다
   }
 
   // 공급측 계측 (PII 계좌정보는 전송하지 않음)
@@ -160,115 +236,6 @@ export async function updateProfile(
   // /studio·/studio/profile 은 인증 기반 동적 페이지라 다음 방문 시 자동으로 최신값 반영됨.
   return { ok: true };
 }
-
-// ─────────────────────────────────────────────
-// 리드 다중 해제 신청 — 작가가 블러 리스트에서 여러 건 선택 → new → accepted(입금 대기).
-// 선택분만 원자적으로 전이하고, 실제로 전이된 건수를 반환(이미 수락됐거나 타인 문의는 제외).
-// ─────────────────────────────────────────────
-export async function unlockInquiries(ids: string[]): Promise<{ ok: boolean; count: number }> {
-  const me = await getCurrentUser();
-  if (!me?.photographer) throw new Error("작가 권한이 필요합니다.");
-
-  const clean = Array.from(new Set(ids.filter((v) => typeof v === "string" && v))).slice(0, 50);
-  if (clean.length === 0) return { ok: true, count: 0 };
-
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("inquiries")
-    .update({ status: "accepted", accepted_at: new Date().toISOString() })
-    .eq("photographer_id", me.photographer.id) // 본인 문의만
-    .eq("status", "new") // 아직 미수락인 것만
-    .in("id", clean)
-    .select("id");
-  if (error) throw new Error(error.message);
-
-  // 해제된 문의의 '수락 대기' 알림 읽음 처리
-  const unlockedIds = (data ?? []).map((d) => d.id as string);
-  if (unlockedIds.length > 0) {
-    await admin
-      .from("notifications")
-      .update({ read_at: new Date().toISOString() })
-      .eq("recipient_id", me.id)
-      .eq("type", "booking")
-      .in("inquiry_id", unlockedIds);
-
-    // 다건 해제 — 건별로 작가(공급) 타임라인에 기록
-    for (const uid of unlockedIds) {
-      await mpTrackServer(
-        "Unlock Lead",
-        me.id,
-        { inquiry_id: uid, photographer_id: me.photographer.id, bulk: true },
-        `Unlock Lead:${uid}`,
-      );
-    }
-  }
-
-  revalidatePath("/studio");
-  revalidatePath("/notifications");
-  return { ok: true, count: unlockedIds.length };
-}
-
-// 입금대기 취소 — 작가가 해제 신청(accepted)을 되돌린다. accepted → new(다시 받은 문의로).
-// 입금 확인(confirmed) 이후에는 취소 불가(연락처가 이미 공개됨).
-export async function cancelInquiryUnlock(id: string): Promise<{ ok: boolean }> {
-  const me = await getCurrentUser();
-  if (!me?.photographer) throw new Error("작가 권한이 필요합니다.");
-
-  const admin = createAdminClient();
-  const { error } = await admin
-    .from("inquiries")
-    // new_since 갱신 — 취소 시점부터 만료 7일이 다시 시작된다
-    .update({ status: "new", accepted_at: null, new_since: new Date().toISOString() })
-    .eq("id", id)
-    .eq("photographer_id", me.photographer.id) // 본인 문의만
-    .eq("status", "accepted"); // 입금대기만 — confirmed 는 되돌릴 수 없음
-  if (error) throw new Error(error.message);
-
-  revalidatePath("/studio");
-  return { ok: true };
-}
-
-// 입금완료 신고 — 입금 대기(accepted) 리드에서 작가가 '입금완료'를 누르면 호출.
-// 신고 시각을 기록하고 운영진 디스코드로 알림(작가·건·금액·예금주명·어드민 링크)을 보낸다.
-// 실제 입금확인(→confirmed)은 운영진이 계좌 대조 후 어드민에서 수동 처리.
-export async function reportDepositPaid(id: string): Promise<{ ok: boolean }> {
-  const me = await getCurrentUser();
-  if (!me?.photographer) throw new Error("작가 권한이 필요합니다.");
-
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from("inquiries")
-    .update({ deposit_reported_at: new Date().toISOString() })
-    .eq("id", id)
-    .eq("photographer_id", me.photographer.id) // 본인 문의만
-    .eq("status", "accepted") // 입금대기만 — confirmed 이후엔 신고 불필요
-    .select("id")
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  if (!data) return { ok: false }; // 본인 입금대기 건이 아님
-
-  await notifyOpsDepositReported({ inquiryId: id });
-
-  revalidatePath("/studio");
-  return { ok: true };
-}
-
-// 현재 사용자의 작가 id 조회 (RLS: 본인 행)
-async function getCurrentPhotographerId(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string
-): Promise<string | null> {
-  const { data } = await supabase
-    .from("photographers")
-    .select("id")
-    .eq("profile_id", userId)
-    .maybeSingle();
-  return data?.id ?? null;
-}
-
-// ── 연락 수단 (docs/32 §3-3) ───────────────────────────────────
-// 예약이 확정된 뒤 고객에게 건넬 것들. 매번 채팅에 타이핑하지 않게 미리 등록해둔다.
-import { normalizeContactMethods } from "@/lib/photographer-contacts";
 
 export async function updateContactMethods(formData: FormData): Promise<void> {
   const me = await getCurrentUser();
@@ -289,4 +256,158 @@ export async function updateContactMethods(formData: FormData): Promise<void> {
   if (error) throw new Error(error.message);
 
   revalidatePath("/studio/profile");
+}
+
+// ── 입점 계약 동의 (작가약관 5조 2항, 입점계약 전문) ─────────────────
+// 문서 4종 체크 + 작가 정보란 + 홍보 사용 동의(선택) → photographers 갱신 + photographer_agreements 기록.
+// 버전이 올라가면 studio/layout.tsx 가 다시 이 화면을 띄운다.
+import { headers } from "next/headers";
+import { PHOTOGRAPHER_AGREEMENT_VERSIONS } from "@/lib/consent";
+import { DOC_ORDER } from "@/components/legal/photographerDocs";
+import type { BusinessType } from "@/lib/platform-fee";
+
+const BUSINESS_TYPES: BusinessType[] = ["general", "simplified", "unregistered"];
+
+export async function agreePhotographerContract(formData: FormData): Promise<void> {
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가만 동의할 수 있어요.");
+
+  for (const key of DOC_ORDER) {
+    if (formData.get(`agree_${key}`) !== "on") throw new Error("문서 4종에 모두 동의해야 해요.");
+  }
+
+  // 문서별 열람·동의 증적 — 화면이 "전문을 끝까지 연 시각" 과 "동의한 시각" 을 따로 보낸다.
+  // **하나라도 없으면 거절한다.** 없다는 건 전문 화면을 거치지 않고 제출됐다는 뜻이고,
+  // 그건 약관규제법 3조에서 우리가 대야 할 근거("읽을 기회를 줬다")가 비는 것이다.
+  const docRecords = parseDocRecords(formData.get("docRecords"));
+
+  const legalName = String(formData.get("legalName") || "").trim().slice(0, 60);
+  if (!legalName) throw new Error("성명 또는 상호를 입력해주세요.");
+  const typeRaw = String(formData.get("businessType") || "");
+  if (!BUSINESS_TYPES.includes(typeRaw as BusinessType)) throw new Error("사업자 유형을 골라주세요.");
+  const businessType = typeRaw as BusinessType;
+  let businessNo: string | null = null;
+  if (businessType !== "unregistered") {
+    const digits = String(formData.get("businessNo") || "").replace(/[^0-9]/g, "");
+    if (digits.length !== 10) throw new Error("사업자등록번호 10자리를 입력해주세요.");
+    businessNo = `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
+
+    // 사업자 작가는 등록증이 있어야 계약이 성립한다. 번호만으로는 세금계산서를 못 만들고
+    // (필수 기재사항이 등록번호+상호+대표자다), 그 번호가 이 작가 것인지도 확인되지 않는다.
+    //
+    // ⚠️ 화면이 보낸 "올렸다"(hidden) 를 믿지 않는다 — 얼마든지 고쳐 보낼 수 있다.
+    //    실제로 파일이 올라와 있는지 DB 를 본다.
+    const { data: lic } = await createAdminClient()
+      .from("photographers")
+      .select("business_license_path")
+      .eq("profile_id", me.id)
+      .maybeSingle();
+    if (!lic?.business_license_path) {
+      throw new Error("사업자등록증을 올려주세요. 수수료 세금계산서 발급에 필요해요.");
+    }
+  }
+
+  // 정산 계좌 — 입점에서 받는다. 비어 있으면 첫 정산에서 막히고, 기한이 7영업일이라
+  // (수수료·정산 정책 3조 2항) 그때 가서 받기 시작하면 넘긴다.
+  const bank = String(formData.get("bank") || "").trim().slice(0, 30);
+  const accountHolder = String(formData.get("accountHolder") || "").trim().slice(0, 40);
+  const accountNumber = String(formData.get("accountNumber") || "").replace(/[^0-9-]/g, "").slice(0, 30);
+  if (!bank || !accountHolder || !accountNumber) {
+    throw new Error("정산 계좌를 입력해주세요. 은행·예금주·계좌번호가 모두 필요해요.");
+  }
+
+  // ⚠️ 홍보 사용 동의는 **여기서 받지 않는다.** 사진 속 인물의 초상권은 사진마다 사정이
+  //    달라서 한 번에 묶는 것 자체가 위험하다. 포트폴리오 업로드에서 사진별로 받는다.
+  //    근거는 작가 입점 계약 제7조 1항(작가약관 제14조 4항이 계약으로 넘긴다).
+  //    기존 값은 건드리지 않는다 — 지우면 이미 동의한 사진의 근거가 사라진다.
+
+  const h = await headers();
+  const ip = (h.get("x-forwarded-for") ?? "").split(",")[0].trim() || null;
+  const userAgent = h.get("user-agent")?.slice(0, 300) ?? null;
+  const now = new Date().toISOString();
+
+  const admin = createAdminClient();
+  const { error: phErr } = await admin
+    .from("photographers")
+    .update({
+      legal_name: legalName,
+      business_type: businessType,
+      business_no: businessNo,
+    })
+    .eq("id", me.photographer.id);
+  if (phErr) throw new Error("작가 정보를 저장하지 못했어요.");
+
+  const { error } = await admin.from("photographer_agreements").insert({
+    photographer_id: me.photographer.id,
+    profile_id: me.id,
+    versions: PHOTOGRAPHER_AGREEMENT_VERSIONS,
+    doc_records: docRecords,
+    ip,
+    user_agent: userAgent,
+    agreed_at: now,
+  });
+  if (error) throw new Error("동의를 기록하지 못했어요. 다시 시도해주세요.");
+
+  // 계좌 저장 — 작가당 1행(payout_accounts). 프로필에서 고치는 것과 같은 표다
+  const { error: acctErr } = await admin.from("payout_accounts").upsert(
+    { photographer_id: me.photographer.id, bank, number: accountNumber, holder: accountHolder },
+    { onConflict: "photographer_id" }
+  );
+  if (acctErr) throw new Error("정산 계좌를 저장하지 못했어요. 다시 시도해주세요.");
+
+  // 운영에 알린다 — 동의 시점이 곧 계약일이고, 사업자 유형에 따라 정산 준비가 갈린다
+  await notifyOpsPhotographerAgreed({
+    photographerId: me.photographer.id,
+    displayName: me.photographer.displayName,
+    legalName,
+    businessType,
+    businessNo,
+    contractVersion: PHOTOGRAPHER_AGREEMENT_VERSIONS.contract,
+  });
+
+  await mpTrackServer("Agree Photographer Contract", me.id, {
+    contract_version: PHOTOGRAPHER_AGREEMENT_VERSIONS.contract,
+    business_type: businessType,
+  });
+
+  revalidatePath("/studio", "layout");
+}
+
+/**
+ * 문서별 열람·동의 증적을 검사한다.
+ *
+ * 화면이 보내는 모양: {key: {openedAt, agreedAt}}. 여기서 버전을 붙여 굳힌다 —
+ * 클라이언트가 보낸 버전을 믿으면 "낡은 문서를 읽고 새 버전에 동의한" 기록이 만들어진다.
+ *
+ * 넷 중 하나라도 빠지거나 시각이 이상하면 던진다. 조용히 null 로 넘기면 증적 없는
+ * 동의가 쌓이고, 그건 나중에 복구할 방법이 없다.
+ */
+function parseDocRecords(raw: FormDataEntryValue | null): Record<string, unknown> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(String(raw ?? ""));
+  } catch {
+    throw new Error("열람 기록이 없어요. 문서를 전문으로 읽고 다시 동의해주세요.");
+  }
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error("열람 기록이 없어요. 문서를 전문으로 읽고 다시 동의해주세요.");
+  }
+  const src = parsed as Record<string, { openedAt?: unknown; agreedAt?: unknown }>;
+  const out: Record<string, { openedAt: string; agreedAt: string; version: string }> = {};
+
+  for (const key of DOC_ORDER) {
+    const rec = src[key];
+    const openedAt = typeof rec?.openedAt === "string" ? rec.openedAt : "";
+    const agreedAt = typeof rec?.agreedAt === "string" ? rec.agreedAt : "";
+    if (!openedAt || !agreedAt || Number.isNaN(Date.parse(openedAt)) || Number.isNaN(Date.parse(agreedAt))) {
+      throw new Error("문서를 전문으로 읽어야 동의할 수 있어요.");
+    }
+    out[key] = {
+      openedAt,
+      agreedAt,
+      // 버전은 **서버가 붙인다** — 지금 게시 중인 문서의 버전이 진실이다
+      version: PHOTOGRAPHER_AGREEMENT_VERSIONS[key],
+    };
+  }
+  return out;
 }

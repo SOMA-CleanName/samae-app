@@ -31,21 +31,65 @@ const ARROW =
 // 홈·카테고리 상단 배너 캐러셀 — 자동 슬라이드 + 스와이프 + 도트.
 // 이미지는 업로드 시 만든 2000px JPG 를 그대로 쓴다(next/image 최적화는 프로젝트 전역 off).
 export function BannerCarousel({ items }: { items: BannerItem[] }) {
-  const [idx, setIdx] = useState(0);
+  /**
+   * `pos` 는 0..count 다 — **count 까지 갈 수 있다.**
+   *
+   * 예전엔 `idx` 를 모듈러로 접었다. 그러면 마지막(2)에서 처음(0)으로 갈 때 translateX 가
+   * -200% → 0% 로 움직여 **왼쪽으로 좍 되감긴다.** 넘길 때마다 오른쪽으로 가다가 마지막에만
+   * 거꾸로 달리니 흐름이 끊긴다.
+   *
+   * 그래서 트랙 끝에 **첫 장을 한 번 더 붙이고**(아래 loop) count 자리까지 오른쪽으로 계속
+   * 밀고 간다. 도착하면 전환을 끄고 0 으로 되돌린다 — 그림이 같으니 눈에는 안 보인다.
+   */
+  const [pos, setPos] = useState(0);
+  const [snapping, setSnapping] = useState(false); // 되돌리는 그 한 프레임만 전환 off
   const [paused, setPaused] = useState(false);
   const touchX = useRef<number | null>(null);
   const count = items.length;
+  /** 화면에 표시되는 실제 장 번호 — 복제본(count)에 있을 땐 0 */
+  const idx = pos % count;
+  /** 트랙에 그릴 목록 — 2장 이상일 때만 첫 장을 끝에 복제한다 */
+  const loop = count > 1 ? [...items, items[0]] : items;
 
   const go = useCallback(
-    (next: number) => setIdx(((next % count) + count) % count),
+    (next: number) => {
+      // 뒤로 가다 0 을 넘어서면 복제본을 거치지 않고 마지막으로 접는다
+      // (뒤로는 되감기는 게 자연스럽다 — 사용자가 방향을 되돌린 것이므로)
+      setSnapping(false);
+      setPos(next < 0 ? count - 1 : next);
+    },
     [count]
   );
+
+  // 복제본(끝)에 도착하면 전환이 끝난 뒤 조용히 0 으로 되돌린다.
+  useEffect(() => {
+    if (pos !== count || count < 2) return;
+    const t = setTimeout(() => {
+      setSnapping(true);
+      setPos(0);
+    }, 520); // 트랙 전환(500ms)이 끝난 직후
+    return () => clearTimeout(t);
+  }, [pos, count]);
+
+  // 되돌린 다음 프레임에 전환을 다시 켠다 — 켠 채로 두면 다음 넘김이 순간이동한다
+  //
+  // ⚠️ 여기 rAF 를 두 번으로 바꾸려다 되돌렸다(2026-09-11). "2바퀴째부터 되감기가
+  //    보인다"는 관측이 있었는데, **500ms 폴링이 만든 오탐**이었다. 스냅 창은 두 프레임
+  //    (~32ms)이라 폴링은 거의 항상 그 뒤를 읽는다 — 이미 전환이 되살아난 상태를.
+  //    페이지 안에서 `transitionstart` 로 다시 재니 50초 동안 transform 전환은
+  //    자동 넘김 10회뿐이고 되감기 전환은 **0회**였다. 지금 코드가 맞다.
+  //    다시 의심되면 폴링 말고 transitionstart 로 잴 것.
+  useEffect(() => {
+    if (!snapping) return;
+    const f = requestAnimationFrame(() => setSnapping(false));
+    return () => cancelAnimationFrame(f);
+  }, [snapping]);
 
   // 자동 넘김 — 1장이거나 정지 상태(호버·스와이프 중)면 멈춘다. 모션 최소화 설정도 존중.
   useEffect(() => {
     if (count < 2 || paused) return;
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-    const t = setInterval(() => setIdx((i) => (i + 1) % count), AUTO_MS);
+    const t = setInterval(() => setPos((p) => (p >= count ? 1 : p + 1)), AUTO_MS);
     return () => clearInterval(t);
   }, [count, paused]);
 
@@ -70,15 +114,19 @@ export function BannerCarousel({ items }: { items: BannerItem[] }) {
           setPaused(false);
           if (start == null || count < 2) return;
           const dx = e.changedTouches[0].clientX - start;
-          if (Math.abs(dx) >= SWIPE_PX) go(idx + (dx < 0 ? 1 : -1));
+          if (Math.abs(dx) >= SWIPE_PX) go(pos + (dx < 0 ? 1 : -1));
         }}
       >
         {/* 트랙 — 전체를 가로로 이어붙이고 translateX 로 이동 */}
         <div
-          className="flex transition-transform duration-500 ease-out motion-reduce:transition-none"
-          style={{ transform: `translateX(-${idx * 100}%)` }}
+          className={cn(
+            "flex ease-out motion-reduce:transition-none",
+            // 복제본에서 0 으로 되돌리는 그 프레임만 전환을 끈다 — 켜 두면 되감기가 보인다
+            snapping ? "transition-none" : "transition-transform duration-500"
+          )}
+          style={{ transform: `translateX(-${pos * 100}%)` }}
         >
-          {items.map((b, i) => {
+          {loop.map((b, i) => {
             const img = (
               <>
                 <Image
@@ -113,14 +161,24 @@ export function BannerCarousel({ items }: { items: BannerItem[] }) {
             // sm:max-h — 초광폭 모니터에서 배너만 화면을 다 먹지 않도록 높이 상한
             return (
               <div
-                key={b.id}
-                className="relative aspect-[16/9] w-full shrink-0 sm:aspect-[21/9] sm:max-h-[520px]"
+                key={`${b.id}:${i}`} // 끝의 복제본이 같은 id 를 갖는다
+                /*
+                  모바일 2:1, 데스크톱 21:9.
+
+                  원래 폰은 16:9(390px 에서 219px)였다. 그 아래 바로가기·무드를 지나면
+                  첫 사진이 y=709 인데 아이폰 가용 높이가 ~700 이라 사진이 한 장도 안 보였다.
+                  21:9(167px)까지 낮춰 봤더니 이번엔 배너가 띠처럼 납작해졌다.
+                  2:1 은 그 사이다 — 195px, 16:9 대비 24px 을 사진 쪽으로 넘긴다.
+
+                  데스크톱은 21:9 그대로다. 폭이 넓어 같은 비율이면 배너만 화면을 다 먹는다.
+                */
+                className="relative aspect-[2/1] w-full shrink-0 sm:aspect-[21/9] sm:max-h-[520px]"
               >
                 {b.href ? (
                   <Link
                     href={b.href}
-                    aria-hidden={i !== idx}
-                    tabIndex={i === idx ? 0 : -1}
+                    aria-hidden={i !== pos}
+                    tabIndex={i === pos ? 0 : -1}
                     className="absolute inset-0 block"
                   >
                     {img}
@@ -145,7 +203,7 @@ export function BannerCarousel({ items }: { items: BannerItem[] }) {
             <button
               type="button"
               aria-label="이전 배너"
-              onClick={() => go(idx - 1)}
+              onClick={() => go(pos - 1)}
               className={cn(ARROW, "left-3")}
             >
               <ChevronLeftIcon className="h-5 w-5" />
@@ -153,33 +211,51 @@ export function BannerCarousel({ items }: { items: BannerItem[] }) {
             <button
               type="button"
               aria-label="다음 배너"
-              onClick={() => go(idx + 1)}
+              onClick={() => go(pos + 1)}
               className={cn(ARROW, "right-3")}
             >
               <ChevronRightIcon className="h-5 w-5" />
             </button>
           </>
         )}
-      </div>
+        {/*
+          도트 — **사진 안 오른쪽 아래**.
 
-      {/* 도트 — 사진 아래. 현재/비현재 차이는 색만(크기·모양 동일). 2장 이상일 때만 */}
-      {count > 1 && (
-        <div className="mt-2.5 flex justify-center gap-1.5">
-          {items.map((b, i) => (
-            <button
-              key={b.id}
-              type="button"
-              aria-label={`${i + 1}번째 배너 보기`}
-              aria-current={i === idx ? "true" : undefined}
-              onClick={() => go(i)}
-              className={cn(
-                "h-1.5 w-1.5 rounded-full transition-colors",
-                i === idx ? "bg-fg" : "bg-line-strong hover:bg-fg/40"
-              )}
-            />
-          ))}
-        </div>
-      )}
+          전에는 사진 아래 별도의 줄이었다. 터치 타겟을 44px 로 키우느라 그 줄이
+          통째로 42px 을 먹었는데, 모바일 홈에서 그건 첫 사진을 그만큼 밀어내는
+          값이다(실측 390: 도트줄 y=332 h=44). 점 다섯 개를 보여주려고 화면 높이의
+          5%를 쓰는 셈이라 사진 안으로 넣는다.
+
+          왼쪽이 아니라 **오른쪽**인 이유: 배너 제목·머리글이 왼쪽 아래에 깔린다.
+          가운데로 두면 좁은 폭에서 제목 위에 얹힌다.
+
+          터치 타겟(32×44)은 그대로 유지한다 — 점만 6px 이고 누를 수 있는 상자는
+          그대로다. 사진 위라 색을 흰 계열로 바꾸고 그림자를 준다(밝은 사진에서도
+          점이 보여야 한다).
+        */}
+        {count > 1 && (
+          <div className="absolute inset-x-0 bottom-0 flex justify-end pr-1.5">
+            {items.map((b, i) => (
+              <button
+                key={b.id}
+                type="button"
+                aria-label={`${i + 1}번째 배너 보기`}
+                aria-current={i === idx ? "true" : undefined}
+                onClick={() => go(i)}
+                className="group grid h-11 w-7 cursor-pointer place-items-center"
+              >
+                <span
+                  aria-hidden
+                  className={cn(
+                    "h-1.5 w-1.5 rounded-full shadow-[0_0_3px_rgba(0,0,0,0.6)] transition-colors",
+                    i === idx ? "bg-white" : "bg-white/45 group-hover:bg-white/75"
+                  )}
+                />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

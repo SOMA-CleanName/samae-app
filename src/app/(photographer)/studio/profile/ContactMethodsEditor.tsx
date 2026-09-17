@@ -50,7 +50,7 @@ export function ContactMethodsEditor({ initial }: { initial: ContactMethod[] }) 
       <input type="hidden" name="contact_methods" value={payload} />
 
       {rows.length === 0 && (
-        <p className="rounded-xl border border-dashed border-fg/15 px-4 py-5 text-center text-sm text-fg/50">
+        <p className="rounded-xl border border-dashed border-fg/15 px-4 py-5 text-center text-sm text-muted">
           아직 등록한 연락 수단이 없어요.
         </p>
       )}
@@ -80,7 +80,7 @@ export function ContactMethodsEditor({ initial }: { initial: ContactMethod[] }) 
               type="button"
               onClick={() => remove(r.key)}
               aria-label="삭제"
-              className="grid h-7 w-7 shrink-0 cursor-pointer place-items-center rounded-lg text-xs text-danger hover:bg-danger/10"
+              className="grid h-7 w-7 shrink-0 cursor-pointer place-items-center rounded-lg text-xs text-danger-ink hover:bg-danger/10"
             >
               ×
             </button>
@@ -106,7 +106,7 @@ export function ContactMethodsEditor({ initial }: { initial: ContactMethod[] }) 
       )}
 
       {empty > 0 && (
-        <p className="text-xs text-fg/45">빈 칸은 저장할 때 자동으로 빠져요.</p>
+        <p className="text-xs text-faint">빈 칸은 저장할 때 자동으로 빠져요.</p>
       )}
       <SaveButton />
     </div>
