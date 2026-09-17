@@ -59,3 +59,6 @@ docs/assets/
 # 로컬 인증서·분석 대시보드 산출물 — 개인 작업물
 certificates/
 scripts/analytics/samae_dashboard.html
+
+# graphify 생성물 — 8MB 그래프 + HTML. `graphify update` 로 다시 만든다
+graphify-out/
