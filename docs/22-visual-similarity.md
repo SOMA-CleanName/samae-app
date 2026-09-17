@@ -326,6 +326,10 @@ Could not choose the best candidate function between:
 옛 시그니처를 먼저 지운다.** `0080` 이 그렇게 한다. 그리고 `node scripts/check-rpc-overloads.cjs`
 가 이름이 겹치는 함수를 훑는다 — 읽기만 하므로 언제든 돌려도 된다.
 
+이 사고를 계기로 전수 점검을 돌렸더니 **이 함수만의 일이 아니었다** — 알림 푸시 경로와
+채팅방 생성 트리거를 포함해 마이그레이션 기록이 없는 객체가 수십 개 나왔다.
+[docs/37](37-schema-drift-audit.md) 에 정리했다.
+
 
 관련 코드:
 
