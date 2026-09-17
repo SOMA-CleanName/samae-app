@@ -290,6 +290,34 @@ perform set_config('hnsw.ef_search', greatest(v_pool, 100)::text, true);
 
 > **현재 유효한 함수 정의는 `0069` 나 `0074` 가 아니다 (2026-08-12).** `0076_photo_feed_demotion.sql` 이 `create or replace` 로 다시 만들었다. `feed_hidden` 사진을 후보 풀에서 제거하지 않고 결과에 상태를 함께 반환해, 앱이 이를 **노출 낮춤 후보**로 순위 조정한다. 이 절의 `set_config`·`search_path` 처리는 그대로다. **이 함수를 손볼 때는 가장 최근 정의인 `0076` 에서 출발할 것.**
 
+### 6.4 `create or replace function` 은 같은 이름을 두 개 만든다 (두 번 당했다)
+
+`create or replace function` 은 **인자 타입이 정확히 같을 때만** 대체한다. 타입이 바뀌거나
+인자가 하나 늘면 **조용히 함수를 하나 더 만든다.** 오류도 경고도 없다.
+
+| 언제 | 무엇 | 어떻게 드러났나 |
+|---|---|---|
+| 2026-08-20 | `0078` 이 `p_alpha real` 을 붙여 `similar_photos_by_embedding(uuid, int, real)` 이 따로 생김 | `0080` 이 둘 다 `drop` 하고 하나로 복원 |
+| 미상 | `similar_photos_by_vector(vector, int, int)` 가 마이그레이션 없이 직접 적용됨 | **검색이 통째로 죽음** → `0121` 이 제거 |
+
+두 번째가 더 나빴다. 앱은 벡터를 **JSON 문자열**로 넘기는데, 문자열은 타입이 안 정해져 있어
+`halfvec` 로도 `vector` 로도 똑같이 맞는다. 게다가 `p_pool` 에 기본값이 있어 2인자로도 불린다.
+그래서 Postgres 가 고르지 못하고 호출 자체가 실패한다.
+
+```
+Could not choose the best candidate function between:
+  public.similar_photos_by_vector(p_embedding => extensions.halfvec, p_limit => integer),
+  public.similar_photos_by_vector(p_embedding => extensions.vector, p_limit => integer, p_pool => integer)
+```
+
+SigLIP 텍스트 검색과 페르소나 유사사진이 **둘 다 죽어 있었다.** 코드에는 정의가 하나뿐이라
+읽어서는 안 보이고, 빈 DB 로 마이그레이션을 처음부터 돌리면 재현도 안 된다.
+
+**함수 시그니처를 바꿀 때는 `create or replace` 가 아니라 `drop function if exists` 로
+옛 시그니처를 먼저 지운다.** `0080` 이 그렇게 한다. 그리고 `node scripts/check-rpc-overloads.cjs`
+가 이름이 겹치는 함수를 훑는다 — 읽기만 하므로 언제든 돌려도 된다.
+
+
 관련 코드:
 
 - `supabase/migrations/0068_photo_embeddings.sql`
@@ -983,6 +1011,7 @@ Supabase 일일 백업에는 **Storage 객체(사진 원본)가 포함되지 않
 | 2026-08-08 | `main` (production) | 백업 테이블 정리 — `photos_backup_20260806`·`20260807` `drop` | 의존성(외래키·뷰·트리거·RLS) 전무 확인 후 실행. **삭제 전후 `photos` 1,801행·27컬럼 동일.** 두 백업은 23컬럼이라 이미 복원 불가 상태였다(§12.1 ⑤) |
 | 2026-08-20 | `dev` (production DB) | `0077` 적용 — `tone_vec`·`tone_stats_version`·`toned_at` + `photo_tone_stats` + 인덱스 2개 | 성공. **컬럼·테이블 추가만.** 이 시점에는 읽는 코드가 없어 사용자 화면 무변경 |
 | 2026-08-20 | `dev` (production DB) | 톤 백필 — `tone_backfill.py --fit --apply` | **커버리지 1,807/1,807 · 실패 0.** 계산 4초·전송 108초. 스냅샷 없음 — 대상 3개 컬럼이 전부 `null` 이라 롤백이 `update … set tone_vec = null` 한 줄(§10.3 기준). `blend_scale = 0.2394` 측정·저장 |
+| 2026-09-17 | `dev2` | `0121` 작성 — `similar_photos_by_vector(vector, int, int)` 제거 | **마이그레이션 없이 운영 DB 에 직접 적용돼 있던 판.** 2인자 호출이 모호해져 SigLIP 검색·페르소나 유사사진이 죽어 있었다(§6.4). `p_pool` 은 repo 전체 0건, 그 판만 갖던 `feed_hidden` 필터는 앱이 이미 건다. **아직 원격 미적용** |
 | 2026-08-20 | `dev` (production DB) | `0078` 적용 — `similar_photos_by_embedding` 에 `p_alpha` 추가, **기본값 0.9** | **사용자 화면 반영.** 백필이 끝난 뒤에 적용해 폴백 경로를 타지 않게 했다. 검증: 시드 8개 전부 정상 응답(68~132ms · 기존 89ms 와 동급), `null` 거리 0건, α=1.0 대비 top-8 평균 5.5/8 유지 |
 
 > 확장 설치는 대시보드에서 먼저 실행했고, 같은 문장을 `0068` 에 `if not exists` 로 포함시켜 재현성을 확보했다. 빈 DB 에서 마이그레이션을 처음부터 돌려도 동일한 상태가 된다.
