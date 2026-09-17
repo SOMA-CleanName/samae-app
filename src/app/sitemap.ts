@@ -52,6 +52,48 @@ const LOW_PRIORITY = new Set([
   "/apply",
 ]);
 
+/*
+  `lastmod` — **"이거 바뀌었으니 다시 와라" 를 구글에게 말하는 유일한 수단이다.**
+
+  없으면 구글은 이 URL 이 새 것인지 6개월 전 것인지 알 방법이 없어서, 크롤 우선순위를
+  자기 판단에만 맡긴다. 신규 도메인에서는 그게 곧 "한참 뒤" 다.
+
+  실측 2026-09-18 — articles·photos 에만 lastmod 가 있었고 spots·guide·explore·/c/·
+  작가 프로필은 전부 비어 있었다. 하필 그 넷이 GEO 의 본체다. 서치콘솔에서 확인해 보면
+  그 URL 들이 **"발견됨 - 현재 색인이 생성되지 않음"** 에 머물러 있었다.
+
+  ⚠️ 공유 타입(GuideItem·Spot·Category…)을 넓히지 않는다. 이 값을 쓰는 건 sitemap 뿐이라
+     거기까지 고치면 관련 없는 지면들이 같이 흔들린다. 여기서 표를 직접 한 번 읽는다.
+*/
+async function lastmodBy(
+  admin: ReturnType<typeof createAdminClient>,
+  table: string,
+  keyCol: string,
+  filter?: { col: string; val: string | boolean }
+): Promise<Map<string, Date>> {
+  let q = admin.from(table).select(`${keyCol}, updated_at`);
+  if (filter) q = q.eq(filter.col, filter.val);
+  const { data } = await q;
+  const out = new Map<string, Date>();
+  // 컬럼 목록이 템플릿 문자열이라 Supabase 의 타입 추론이 못 따라온다 — unknown 경유
+  for (const r of ((data ?? []) as unknown) as Array<Record<string, unknown>>) {
+    const k = r[keyCol];
+    const t = r.updated_at;
+    if (typeof k === "string" && typeof t === "string") {
+      const d = new Date(t);
+      if (!Number.isNaN(d.getTime())) out.set(k, d);
+    }
+  }
+  return out;
+}
+
+/** 둘 중 더 최근. 둘 다 없으면 undefined — 지어내지 않는다 */
+function newer(a?: Date, b?: Date): Date | undefined {
+  if (!a) return b;
+  if (!b) return a;
+  return a > b ? a : b;
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticEntries: MetadataRoute.Sitemap = STATIC_ROUTES.map((path) => ({
     url: `${SITE_URL}${path}`,
@@ -62,19 +104,47 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // 촬영 가이드 — 질문-답 페이지. AI 답변이 가장 잘 인용하는 형식이라 우선순위를 높게 준다.
   // published 로 켠 것 중 본문이 충분한 것만 개별 URL 을 갖는다(GUIDE_PAGE_ITEMS).
   const guidePageItems = await listGuidePageItems();
-  const guideEntries: MetadataRoute.Sitemap = guidePageItems.map((g) => ({
+  // lastmod 는 아래 try 안에서 붙인다(admin 클라이언트가 거기 있다). DB 가 죽으면
+  // lastmod 없이라도 URL 은 실린다 — catch 로 떨어지는 폴백이 그것이다.
+  const guideEntry = (g: { slug: string }, lastModified?: Date): MetadataRoute.Sitemap[number] => ({
     url: `${SITE_URL}/guide/${encodeURIComponent(g.slug)}`,
+    lastModified,
     changeFrequency: "monthly",
     priority: 0.8,
-  }));
+  });
+  const guideEntries: MetadataRoute.Sitemap = guidePageItems.map((g) => guideEntry(g));
 
   try {
     const admin = createAdminClient();
+
+    // 지면별 갱신 시각을 한 번에 읽는다. 작가는 프로필만으로 부족해서 따로 합친다(아래).
+    const [lmSpot, lmGuide, lmExplore, lmCategory, lmPhotographer, pkgRows] = await Promise.all([
+      lastmodBy(admin, "spots", "slug", { col: "published", val: true }),
+      lastmodBy(admin, "guide_items", "slug", { col: "published", val: true }),
+      lastmodBy(admin, "explore_categories", "slug", { col: "published", val: true }),
+      lastmodBy(admin, "categories", "slug", { col: "published", val: true }),
+      lastmodBy(admin, "photographers", "id", { col: "status", val: "approved" }),
+      admin.from("packages").select("photographer_id, updated_at").eq("is_active", true),
+    ]);
+
+    // 작가 지면의 lastmod = 프로필 · 패키지 · 사진 중 **가장 최근**.
+    // 프로필만 보면 가격을 고쳐도(= JSON-LD Product 가 바뀌어도) 신호가 안 간다.
+    const lmPackage = new Map<string, Date>();
+    for (const r of (pkgRows.data ?? []) as Array<Record<string, unknown>>) {
+      const pid = r.photographer_id;
+      const t = r.updated_at;
+      if (typeof pid !== "string" || typeof t !== "string") continue;
+      const d = new Date(t);
+      if (Number.isNaN(d.getTime())) continue;
+      const cur = lmPackage.get(pid);
+      if (!cur || d > cur) lmPackage.set(pid, d);
+    }
 
     // 공개 카테고리는 DB 에서 가져와 항상 최신 slug 로 (하드코딩 시 카테고리 개편 때 죽은 링크 발생)
     const categories = await listPublishedCategories();
     const categoryEntries: MetadataRoute.Sitemap = categories.map((c) => ({
       url: `${SITE_URL}/c/${encodeURIComponent(c.slug)}`,
+      lastModified: lmCategory.get(c.slug),
       changeFrequency: "weekly",
       priority: 0.7,
     }));
@@ -96,6 +166,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .filter((e) => e.count > 0)
       .map((e) => ({
         url: `${SITE_URL}/explore/${encodeURIComponent(e.slug)}`,
+        lastModified: lmExplore.get(e.slug),
         changeFrequency: "weekly",
         priority: 0.8,
       }));
@@ -117,6 +188,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       .filter((x) => x.n > 0)
       .map((x) => ({
         url: `${SITE_URL}/spots/${x.s.slug}`,
+        lastModified: lmSpot.get(x.s.slug),
         changeFrequency: "weekly",
         priority: 0.9,
       }));
@@ -151,16 +223,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // 잘릴 때 작가까지 같이 사라진다 — 실제로 17명 중 11명만 실려 있었다.
     // 사진이 한 장도 없는 작가는 뺀다(빈 프로필은 색인 품질만 깎는다).
     const withPhotos = new Set(rows.map((r) => r.photographer_id).filter(Boolean) as string[]);
-    const { data: approved } = await admin
-      .from("photographers")
-      .select("id")
-      .eq("status", "approved");
-    const photographerIds = (approved ?? [])
-      .map((p) => p.id as string)
-      .filter((id) => withPhotos.has(id));
+    // 승인 작가 목록과 프로필 갱신 시각은 위에서 이미 한 번 읽었다(lmPhotographer).
+    const photographerIds = [...lmPhotographer.keys()].filter((id) => withPhotos.has(id));
+
+    // 작가별 최신 사진 시각 — 포트폴리오가 늘면 프로필 지면도 바뀐 것이다
+    const lmPhoto = new Map<string, Date>();
+    for (const r of rows) {
+      if (!r.photographer_id || !r.updated_at) continue;
+      const d = new Date(r.updated_at);
+      if (Number.isNaN(d.getTime())) continue;
+      const cur = lmPhoto.get(r.photographer_id);
+      if (!cur || d > cur) lmPhoto.set(r.photographer_id, d);
+    }
 
     const photographerEntries: MetadataRoute.Sitemap = photographerIds.map((id) => ({
       url: `${SITE_URL}/photographers/${id}`,
+      // 프로필 · 패키지 · 사진 중 가장 최근. 셋 중 뭐가 바뀌어도 지면이 바뀐다
+      lastModified: newer(newer(lmPhotographer.get(id), lmPackage.get(id)), lmPhoto.get(id)),
       changeFrequency: "weekly",
       priority: 0.6,
     }));
@@ -172,11 +251,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.5,
     }));
 
+    const guideWithLastmod: MetadataRoute.Sitemap = guidePageItems.map((g) =>
+      guideEntry(g, lmGuide.get(g.slug))
+    );
+
     return [
       ...staticEntries,
       ...articleEntries,
       ...spotEntries,
-      ...guideEntries,
+      ...guideWithLastmod,
       ...exploreEntries,
       ...categoryEntries,
       ...photographerEntries,
