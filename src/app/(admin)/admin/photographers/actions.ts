@@ -21,7 +21,6 @@ async function assertAdmin() {
 export async function approvePhotographer(formData: FormData) {
   await assertAdmin();
   const id = String(formData.get("id"));
-  const supabase = await createClient();
   const admin = createAdminClient();
   const { error } = await admin
     .from("photographers")
