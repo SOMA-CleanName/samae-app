@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { normalizePhotoText } from "@/lib/portfolio-package";
 
 export const runtime = "nodejs"; // sharp 필요
 
@@ -26,6 +27,10 @@ export async function POST(req: Request) {
   const albumIdRaw = form.get("album_id");
   const albumId = typeof albumIdRaw === "string" && albumIdRaw ? albumIdRaw : null;
   const visibility = form.get("visibility") === "published" ? "published" : "draft";
+  const photoText = normalizePhotoText(
+    String(form.get("title") ?? ""),
+    String(form.get("caption") ?? ""),
+  );
 
   const priceStr = String(form.get("price_krw") ?? "").trim();
   let priceKrw: number | null = null;
@@ -104,13 +109,14 @@ export async function POST(req: Request) {
   if (albumId) {
     const { data: album } = await admin
       .from("albums")
-      .select("photographer_id")
+      .select("photographer_id,price_krw")
       .eq("id", albumId)
       .single();
     if (!album || album.photographer_id !== photographerId) {
       await admin.storage.from(BUCKET).remove([mainPath, thumbPath]);
       return Response.json({ error: "잘못된 묶음입니다." }, { status: 403 });
     }
+    priceKrw = (album.price_krw as number | null) ?? null;
   }
 
   // 입력값만 저장 — 작가 기본값(지역·무드) 대체 없음
@@ -127,6 +133,8 @@ export async function POST(req: Request) {
     price_krw: priceKrw,
     location_text: locationText,
     visibility,
+    title: photoText.title,
+    caption: photoText.caption,
   });
   if (insErr) {
     await admin.storage.from(BUCKET).remove([mainPath, thumbPath]);

@@ -17,7 +17,10 @@
   POST /embed           → {"images": ["<base64 jpeg>", ...]}
                           {vectors: [[1152]...], mean: [1152], count, infer_ms}
   POST /embed-text      → {"texts": ["푸른 숲속 커플 사진", ...]}
+  POST /embed-text-backfill → {"texts": ["purpose prompt", ...]} (최대 8개, 검색보다 낮은 우선순위)
                           {vectors: [[1152]...], count, infer_ms, model}
+  POST /embed-backfill  → {"images": ["<base64 image>"]} (한 장, 검색보다 낮은 우선순위)
+                          {vectors: [[1152]], count, dim, infer_ms, model, patch_budget}
   GET  /iglookup?u=아이디 → 인스타 프로필 사전조회 프록시 (아래 참고)
   POST /persona_copy    → 구조화된 팩트 → 로컬 LLM(ollama qwen3:4b) 이 결과 문장 작성
                           (판단은 이미 SigLIP 중심벡터가 끝냈다 — 여기선 작문만)
@@ -44,6 +47,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import siglip  # noqa: E402
+from inference_queue import InferenceQueue  # noqa: E402
 
 PORT = int(sys.argv[1]) if len(sys.argv) > 1 else 8077
 SERVICE_TOKEN = os.environ.get("PERSONA_SERVICE_TOKEN", "")
@@ -53,7 +57,7 @@ MAX_TEXTS = 8
 MAX_TEXT_LEN = 120
 
 _state = {"processor": None, "model": None, "device": None, "loaded_sec": 0.0}
-_infer_lock = threading.Lock()  # MPS 이미지·텍스트 추론이 동시에 그래프를 실행하지 않게 한다
+_inference = InferenceQueue()  # 검색 → 사용자 이미지 → 백필. 진행 중인 추론은 완료한다.
 
 # ── 마이크로 배칭 ─────────────────────────────────────────────
 # MPS 는 동시에 여러 그래프를 돌리면 안 되므로 어차피 직렬이다. 그렇다면
@@ -84,16 +88,17 @@ def _worker():
         try:
             t = time.perf_counter()
             all_images = [img for job in batch for img in job["images"]]
-            with _infer_lock:
+            with _inference.slot("interactive"):
                 emb = siglip.encode(
                     _state["processor"], _state["model"], all_images, PATCH_BUDGET, _state["device"]
                 )
+                # GPU → CPU 복사까지 끝낸 뒤 다음 요청에 차례를 넘긴다.
+                rows = emb.cpu().tolist()
             ms = (time.perf_counter() - t) * 1000
             # ⚠️ 반드시 여기서 CPU 리스트로 변환한다.
             # MPS 텐서를 파이썬에서 원소 단위로 순회하면(응답 직렬화 등)
             # 원소마다 디바이스 동기화가 걸린다 — 실측에서 추론 2.2s 인데
             # 응답에 11s 가 새던 원인이 바로 이것이었다. tolist() 는 한 번에 옮긴다.
-            rows = emb.cpu().tolist()
             off = 0
             for job in batch:
                 k = len(job["images"])
@@ -157,14 +162,37 @@ def validate_texts(value):
     return texts
 
 
-def embed_texts(texts):
+def embed_texts(texts, *, priority="search"):
     """검색어를 현재 사진 임베딩과 같은 SigLIP2 공간의 벡터로 바꾼다."""
     t = time.perf_counter()
-    with _infer_lock:
+    # 앱의 4초 HTTP 제한보다 먼저 만료시켜 오래된 검색이 큐에 남지 않게 한다.
+    with _inference.slot(priority, timeout=3 if priority == "search" else 60):
         vectors = siglip.encode_text(
             _state["processor"], _state["model"], texts, _state["device"]
         )
-    return vectors.cpu().tolist(), (time.perf_counter() - t) * 1000
+        rows = vectors.cpu().tolist()
+    return rows, (time.perf_counter() - t) * 1000
+
+
+def embed_backfill(images_b64):
+    """백필은 한 장씩 처리한다. 행 순서가 틀어지지 않도록 잘못된 입력은 거부한다."""
+    from PIL import Image
+
+    if (not isinstance(images_b64, list) or len(images_b64) != 1
+            or not isinstance(images_b64[0], str)):
+        raise ValueError("백필 images 배열에는 이미지 한 장이 필요합니다")
+    try:
+        with Image.open(io.BytesIO(base64.b64decode(images_b64[0], validate=True))) as source:
+            img = source.convert("RGB")
+    except Exception as e:
+        raise ValueError("디코딩 가능한 이미지가 필요합니다") from e
+    t = time.perf_counter()
+    with img:
+        with _inference.slot("backfill"):
+            rows = siglip.encode(
+                _state["processor"], _state["model"], [img], PATCH_BUDGET, _state["device"]
+            ).cpu().tolist()
+    return rows, (time.perf_counter() - t) * 1000
 
 
 import re as _re
@@ -355,6 +383,7 @@ class Handler(BaseHTTPRequestHandler):
                 "dim": siglip.EMBED_DIM,
                 "patch_budget": PATCH_BUDGET,
                 "loaded_sec": round(_state["loaded_sec"], 1),
+                "inference_queue": _inference.snapshot(),
             })
         else:
             self._send(404, {"error": "not found"})
@@ -374,17 +403,23 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 self._send(500, {"error": f"copy 실패: {e}"})
             return
-        if path == "/embed-text":
+        if path in ("/embed-text", "/embed-text-backfill"):
             try:
                 n = int(self.headers.get("Content-Length", "0"))
                 payload = json.loads(self.rfile.read(n) or b"{}")
+                if not isinstance(payload, dict):
+                    raise ValueError("JSON 객체가 필요합니다")
                 texts = validate_texts(payload.get("texts"))
             except (ValueError, TypeError, json.JSONDecodeError) as e:
                 self._send(400, {"error": str(e)})
                 return
 
             try:
-                vectors, ms = embed_texts(texts)
+                vectors, ms = (embed_texts(texts, priority="backfill")
+                               if path == "/embed-text-backfill" else embed_texts(texts))
+            except TimeoutError as e:
+                self._send(503, {"error": str(e)})
+                return
             except Exception as e:
                 self._send(500, {"error": f"embed-text 실패: {e}"})
                 return
@@ -394,6 +429,32 @@ class Handler(BaseHTTPRequestHandler):
                 "dim": len(vectors[0]),
                 "infer_ms": round(ms, 1),
                 "model": siglip.MODEL_ID,
+                "patch_budget": PATCH_BUDGET,
+                "vectors": [[round(x, 6) for x in row] for row in vectors],
+            })
+            return
+        if path == "/embed-backfill":
+            try:
+                n = int(self.headers.get("Content-Length", "0"))
+                payload = json.loads(self.rfile.read(n) or b"{}")
+                if not isinstance(payload, dict):
+                    raise ValueError("JSON 객체가 필요합니다")
+                vectors, ms = embed_backfill(payload.get("images"))
+            except (ValueError, TypeError) as e:
+                self._send(400, {"error": str(e)})
+                return
+            except TimeoutError as e:
+                self._send(503, {"error": str(e)})
+                return
+            except Exception as e:
+                self._send(500, {"error": f"embed-backfill 실패: {e}"})
+                return
+            self._send(200, {
+                "count": len(vectors),
+                "dim": siglip.EMBED_DIM,
+                "model": siglip.MODEL_ID,
+                "patch_budget": PATCH_BUDGET,
+                "infer_ms": round(ms, 1),
                 "vectors": [[round(x, 6) for x in row] for row in vectors],
             })
             return

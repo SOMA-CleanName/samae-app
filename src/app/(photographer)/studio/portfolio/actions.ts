@@ -7,17 +7,37 @@ import { getCurrentUser } from "@/lib/auth";
 import { archiveAndDelete } from "@/lib/soft-delete";
 import { mpTrackServer } from "@/lib/mixpanel-server";
 import { saveAlbumCategories } from "@/lib/target-categories";
+import { normalizePhotoText, resolvePackageSelection } from "@/lib/portfolio-package";
 
 // 피드 생성 — 같이 올린 사진들을 한 피드로 묶는다. album id 반환.
 // (1장만 올려도 피드 1개. 프로필 그리드에선 대표 1장만 보이고 클릭 시 스와이프)
-export async function createPost(description?: string): Promise<{ id: string }> {
+export async function createPost(input?: {
+  description?: string;
+  packageId?: string | null;
+}): Promise<{ id: string }> {
   const me = await getCurrentUser();
   if (!me?.photographer) throw new Error("작가만 사용할 수 있습니다.");
-  const desc = (description ?? "").trim().slice(0, 1000) || null;
+  const desc = (input?.description ?? "").trim().slice(0, 1000) || null;
   const supabase = await createClient();
+  const rawPackageId = input?.packageId?.trim() ?? "";
+  const { data: packageRows, error: packageError } = rawPackageId
+    ? await supabase
+        .from("packages")
+        .select("id,name,price_krw")
+        .eq("id", rawPackageId)
+        .eq("photographer_id", me.photographer.id)
+        .eq("is_active", true)
+    : { data: [], error: null };
+  if (packageError) throw new Error(packageError.message);
+  const selection = resolvePackageSelection(packageRows ?? [], rawPackageId);
   const { data, error } = await supabase
     .from("albums")
-    .insert({ photographer_id: me.photographer.id, description: desc })
+    .insert({
+      photographer_id: me.photographer.id,
+      description: desc,
+      package_id: selection.packageId,
+      price_krw: selection.priceKrw,
+    })
     .select("id")
     .single();
   if (error) throw new Error(error.message);
@@ -83,6 +103,8 @@ export async function setPhotoVisibility(formData: FormData) {
 
 // 피드(묶음) 공유 메타 수정 — 여러 사진에 가격·장소·무드·공개를 일괄 적용 + 앨범 설명.
 export async function updateFeedMeta(formData: FormData) {
+  const me = await getCurrentUser();
+  if (!me?.photographer) throw new Error("작가만 사용할 수 있습니다.");
   const photoIds = String(formData.get("photo_ids") ?? "")
     .split(",")
     .map((s) => s.trim())
@@ -90,12 +112,7 @@ export async function updateFeedMeta(formData: FormData) {
   const albumId = String(formData.get("album_id") ?? "").trim() || null;
   if (photoIds.length === 0) return;
 
-  const rawPrice = String(formData.get("price_krw") ?? "").trim();
-  let price_krw: number | null = null;
-  if (rawPrice !== "") {
-    const n = Math.trunc(Number(rawPrice));
-    price_krw = Number.isFinite(n) && n >= 0 ? n : null;
-  }
+  const rawPackageId = String(formData.get("package_id") ?? "").trim();
   const rawLoc = String(formData.get("location_text") ?? "").trim();
   const location_text = rawLoc === "" ? null : rawLoc.slice(0, 120);
   const rawMoods = String(formData.get("mood_tags") ?? "").trim();
@@ -105,18 +122,52 @@ export async function updateFeedMeta(formData: FormData) {
   const visibility = formData.get("visibility") === "published" ? "published" : "draft";
 
   const supabase = await createClient();
+  const { data: packageRows, error: packageError } = rawPackageId
+    ? await supabase
+        .from("packages")
+        .select("id,name,price_krw")
+        .eq("id", rawPackageId)
+        .eq("photographer_id", me.photographer.id)
+    : { data: [], error: null };
+  if (packageError) throw new Error(packageError.message);
+  const selection = resolvePackageSelection(packageRows ?? [], rawPackageId);
   const { error } = await supabase
     .from("photos")
-    .update({ price_krw, location_text, mood_tags, visibility })
-    .in("id", photoIds);
+    .update({ price_krw: selection.priceKrw, location_text, mood_tags, visibility })
+    .in("id", photoIds)
+    .eq("photographer_id", me.photographer.id);
   if (error) throw new Error(error.message);
 
   if (albumId) {
     const description = String(formData.get("description") ?? "").trim().slice(0, 1000) || null;
-    await supabase.from("albums").update({ description }).eq("id", albumId);
+    const { error: albumError } = await supabase
+      .from("albums")
+      .update({
+        description,
+        package_id: selection.packageId,
+        price_krw: selection.priceKrw,
+      })
+      .eq("id", albumId)
+      .eq("photographer_id", me.photographer.id);
+    if (albumError) throw new Error(albumError.message);
+  }
+
+  const photoId = String(formData.get("photo_id") ?? "").trim();
+  if (photoId && photoIds.includes(photoId)) {
+    const photoText = normalizePhotoText(
+      String(formData.get("photo_title") ?? ""),
+      String(formData.get("photo_caption") ?? ""),
+    );
+    const { error: photoTextError } = await supabase
+      .from("photos")
+      .update(photoText)
+      .eq("id", photoId)
+      .eq("photographer_id", me.photographer.id);
+    if (photoTextError) throw new Error(photoTextError.message);
   }
 
   revalidatePath("/studio/portfolio");
+  revalidatePath("/admin/photo-purpose");
 }
 
 // 게시물(피드) 전체 공개/비공개 — 앨범의 모든 사진을 일괄 전환 (RLS: 본인 작가)

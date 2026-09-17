@@ -717,12 +717,12 @@ export async function fetchTargetCategoryFeed(
 // text[] 부분 일치는 PostgREST 단일 연산자로 어려워, published 전체를 페이지 단위로 받아 JS에서 필터.
 export async function searchPhotosByTag(
   qRaw: string,
-  options: { directOnly?: boolean; limit?: number } = {}
+  options: { directOnly?: boolean; limit?: number; signal?: AbortSignal; failOnError?: boolean } = {}
 ): Promise<GalleryPhoto[]> {
   const query = buildSearchQuery(qRaw);
   if (!query.compact) return [];
   const supabase = await createClient();
-  const rows = await fetchAllSearchablePhotos(supabase);
+  const rows = await fetchAllSearchablePhotos(supabase, options);
   const scored = rows
     .map((photo, index) => ({
       photo,
@@ -1226,13 +1226,14 @@ function roundRobinRelated(items: RelatedResultItem[]): RelatedResultItem[] {
 }
 
 async function fetchAllSearchablePhotos(
-  supabase: Awaited<ReturnType<typeof createClient>>
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  options: { signal?: AbortSignal; failOnError?: boolean } = {},
 ): Promise<SearchablePhoto[]> {
   const pageSize = 1000;
   const rows: SearchablePhoto[] = [];
 
   for (let from = 0; ; from += pageSize) {
-    const { data, error } = await supabase
+    const request = supabase
       .from("photos")
       .select(
         "id, src_url, thumb_url, width, height, region, location_text, mood_tags, generated_tags, price_krw, album_id, photographer_id, album:albums(id, title, description, location_text), photographer:photographers!photos_photographer_id_fkey!inner(id, display_name, regions, mood_tags)"
@@ -1242,8 +1243,12 @@ async function fetchAllSearchablePhotos(
       .eq("photographer.status", "approved")
       .order("created_at", { ascending: false })
       .range(from, from + pageSize - 1);
-
-    if (error) break;
+    if (options.signal) request.abortSignal(options.signal);
+    const { data, error } = await request;
+    if (error) {
+      if (options.failOnError || options.signal?.aborted) throw error;
+      break;
+    }
     const page = (data ?? []) as unknown as SearchablePhoto[];
     rows.push(...page);
     if (page.length < pageSize) break;
@@ -1256,7 +1261,8 @@ async function fetchAllSearchablePhotos(
 // 주어진 사진들 중 현재 사용자가 좋아요한 id 집합 — 갤러리 하트 초기 상태용(1쿼리).
 export async function fetchLikedPhotoIds(
   photoIds: string[],
-  userId?: string
+  userId?: string,
+  signal?: AbortSignal,
 ): Promise<string[]> {
   if (photoIds.length === 0) return [];
   // 비로그인 — 쿠키의 관심사진과 교집합
@@ -1265,12 +1271,14 @@ export async function fetchLikedPhotoIds(
     return photoIds.filter((id) => anon.has(id));
   }
   const supabase = await createClient();
-  const { data } = await supabase
+  const request = supabase
     .from("favorites")
     .select("target_id")
     .eq("profile_id", userId)
     .eq("target_type", "photo")
     .in("target_id", photoIds);
+  if (signal) request.abortSignal(signal);
+  const { data } = await request;
   return (data ?? []).map((r) => r.target_id as string);
 }
 

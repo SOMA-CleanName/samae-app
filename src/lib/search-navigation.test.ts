@@ -5,6 +5,7 @@ import {
   routeSessionKey,
   searchSessionStorageKeys,
   searchHref,
+  clearSearchSession,
 } from "./search-navigation.ts";
 
 test("builds a shareable q URL from a trimmed natural-language query", () => {
@@ -43,4 +44,20 @@ test("returns every query-specific session key that Home must discard", () => {
     "samae:gallery-session:search-relevance-masonry-v5:/?q=%ED%95%84%EB%A6%84%20%EA%B0%90%EC%84%B1",
   ]);
   assert.deepEqual(searchSessionStorageKeys("/", null), []);
+});
+
+test("retry clears only this query's stale gallery and scroll position", () => {
+  const values = new Map([
+    ["samae:scroll:/?q=forest", "1200"],
+    ["samae:scroll-anchor:/?q=forest", "old-photo"],
+    ["samae:gallery-session:search-relevance-masonry-v5:/?q=forest", "old-results"],
+    ["samae:gallery-session:search-relevance-masonry-v5:/?q=sea", "other-results"],
+    ["samae:favorites", "favorite-1"],
+  ]);
+  clearSearchSession({ removeItem: (key) => { values.delete(key); } }, "forest");
+  assert.deepEqual([...values.values()], ["other-results", "favorite-1"]);
+});
+
+test("unavailable browser storage does not prevent retry", () => {
+  assert.doesNotThrow(() => clearSearchSession({ removeItem: () => { throw new Error("blocked"); } }, "forest"));
 });

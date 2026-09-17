@@ -22,6 +22,8 @@ type Photo = {
   location_text: string | null;
   mood_tags: string[];
   album_id: string | null;
+  title: string | null;
+  caption: string | null;
 };
 
 // 같은 게시물(피드)로 묶은 그룹
@@ -38,7 +40,7 @@ export default async function PortfolioPage() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("photos")
-    .select("id, thumb_url, src_url, visibility, price_krw, location_text, mood_tags, album_id")
+    .select("id, thumb_url, src_url, visibility, price_krw, location_text, mood_tags, album_id, title, caption")
     .eq("photographer_id", me.photographer.id)
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false });
@@ -59,12 +61,16 @@ export default async function PortfolioPage() {
   // 피드 설명 (앨범 단위)
   const albumIds = [...new Set(photos.map((p) => p.album_id).filter(Boolean))] as string[];
   const descById = new Map<string, string | null>();
+  const packageByAlbumId = new Map<string, string | null>();
   if (albumIds.length > 0) {
     const { data: albums } = await supabase
       .from("albums")
-      .select("id, description")
+      .select("id, description, package_id")
       .in("id", albumIds);
-    for (const a of albums ?? []) descById.set(a.id as string, (a.description as string | null) ?? null);
+    for (const a of albums ?? []) {
+      descById.set(a.id as string, (a.description as string | null) ?? null);
+      packageByAlbumId.set(a.id as string, (a.package_id as string | null) ?? null);
+    }
   }
 
   // 카테고리 선택 — 타겟(촬영 종류) + 각 타겟의 무드, 그리고 피드별 현재 선택값
@@ -169,6 +175,7 @@ export default async function PortfolioPage() {
       <PortfolioEditManager
         photos={photos}
         descriptions={Object.fromEntries(descById)}
+        packageIds={Object.fromEntries(packageByAlbumId)}
         packages={packages}
         targets={targets}
         albumCategories={albumCategories}

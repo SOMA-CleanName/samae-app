@@ -1,5 +1,5 @@
 #!/bin/bash
-# 임베딩 배치 실행 래퍼 — launchd 가 매일 호출한다. (docs/22 §7.4)
+# 임베딩·목적 태그 배치 — launchd 가 매일 06:00 호출한다. (docs/28)
 #
 # 하는 일
 #   1) 저장소 위치를 스스로 찾아 venv 파이썬으로 배치를 돌린다
@@ -39,22 +39,33 @@ notify() {  # $1 = 메시지
     "$url" >/dev/null 2>&1 || true
 }
 
-{
-  echo "=== 임베딩 배치 시작 $(date '+%F %T') ==="
+(
+  echo "=== 임베딩·목적 배치 시작 $(date '+%F %T') ==="
   if [ ! -x "$VENV" ]; then
     echo "❌ venv 없음: $VENV — macmini-setup.sh 를 먼저 실행하세요."
     exit 1
   fi
   cd "$ROOT" || exit 1
-  "$VENV" scripts/embed/embed_photos.py --apply
-} >>"$LOG" 2>&1
+  # 검색과 같은 모델을 공유한다. 서버 장애 시 독립 모델로 우회하지 않는다.
+  echo "[1/2] 사진 유사도 임베딩"
+  "$VENV" scripts/embed/embed_photos.py --apply --embed-url http://127.0.0.1:8077
+  EMBED_STATUS=$?
+  # 사진 일부가 실패해도 저장된 임베딩으로 목적·검수 상속은 계속 처리한다.
+  echo "[2/2] 목적 태그 · 신규/미처리 포트폴리오"
+  "$VENV" scripts/embed/purpose_backfill.py --apply --daily --embed-url http://127.0.0.1:8077 \
+    --output "$LOG_DIR/purpose-latest"
+  PURPOSE_STATUS=$?
+  echo "단계별 종료 코드: 임베딩=$EMBED_STATUS 목적=$PURPOSE_STATUS"
+  [ "$EMBED_STATUS" -eq 0 ] || exit "$EMBED_STATUS"
+  exit "$PURPOSE_STATUS"
+) >>"$LOG" 2>&1
 STATUS=$?
 
 # 커버리지 줄은 스크립트가 DB 를 다시 조회해 찍는 값이라 신뢰할 수 있다.
 COVERAGE="$(grep -m1 '^커버리지' "$LOG" || true)"
 
 if [ $STATUS -ne 0 ]; then
-  notify "⚠️ **임베딩 배치 실패** (맥미니)
+  notify "⚠️ **임베딩·목적 배치 실패** (맥미니)
 종료코드 \`$STATUS\`
 \`\`\`
 $(tail -n 15 "$LOG")

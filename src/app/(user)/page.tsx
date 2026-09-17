@@ -125,7 +125,12 @@ export default async function ExploreHome({
               directOnly: true,
               limit: SIGLIP_SEARCH_MAX_RESULTS,
             }),
-            searchPhotosBySiglip(query, SIGLIP_SEARCH_MAX_RESULTS),
+            // SigLIP 실패는 여기서 삼킨다 — 이 화면에는 재시도 UI 가 없어서
+            // 던지면 홈 전체가 에러가 된다. 태그 결과라도 보여주는 편이 낫다.
+            searchPhotosBySiglip(query, SIGLIP_SEARCH_MAX_RESULTS).catch((error) => {
+              console.error("[home] SigLIP 검색 실패:", error);
+              return [];
+            }),
           ])),
           SIGLIP_SEARCH_MAX_RESULTS
         )

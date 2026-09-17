@@ -44,6 +44,8 @@ scripts/embed/.venv/
 scripts/embed/sample/
 scripts/embed/cache/
 scripts/embed/out/
+# 무드 검수 화면이 읽는 번들 — out/ 에서 추린 것이라 다른 PC에서도 화면이 떠야 한다
+!scripts/embed/mood-review-bundle.json
 __pycache__/
 scripts/embed/logs/
 scripts/embed/com.samae.embed.plist

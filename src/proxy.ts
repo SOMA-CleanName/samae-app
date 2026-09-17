@@ -1,12 +1,20 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 import { CATEGORY_COOKIE } from "@/lib/category-constants";
+import { resolvePhotoSearch } from "@/lib/photo-search-state";
 
 // Next.js 16: 구 middleware 규칙 → proxy 규칙.
 // ① 프로덕션에서 /dev 차단 ② 매 요청마다 Supabase 세션 갱신 ③ 카테고리 컨텍스트 쿠키.
 export async function proxy(request: NextRequest) {
   const blocked = blockDevRoutes(request);
   if (blocked) return blocked;
+
+  // 공개 검색은 세션 갱신 장애 때문에 화면 진입 자체가 무한 대기하지 않게 한다.
+  // 페이지/액션의 사용자 검증과 RLS는 그대로 수행한다. 다른 경로의 갱신 정책은 유지한다.
+  if (request.nextUrl.pathname === "/" && request.nextUrl.searchParams.get("q")?.trim()) {
+    const session = await resolvePhotoSearch((signal) => updateSession(request, signal), 3_000);
+    return applyCategoryContext(request, session.status === "ready" ? session.data : NextResponse.next({ request }));
+  }
 
   const response = await updateSession(request);
   return applyCategoryContext(request, response);

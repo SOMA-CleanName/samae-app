@@ -31,6 +31,15 @@ export function searchSessionStorageKeys(
 
 export type HomeNavMode = "leave-search" | "refresh-home" | "open-home";
 
+/** 재시도한 응답 위에 이전 검색 사진·스크롤이 복원되지 않게 이 검색의 캐시만 비운다. */
+export function clearSearchSession(storage: Pick<Storage, "removeItem">, query: string): void {
+  try {
+    searchSessionStorageKeys("/", query).forEach((key) => storage.removeItem(key));
+  } catch {
+    // 저장소 사용이 차단돼 있어도 일반 GET 재시도는 계속한다.
+  }
+}
+
 /** 홈 탭 클릭이 검색 종료인지, 현재 홈 새로고침인지, 일반 홈 이동인지 구분한다. */
 export function homeNavMode(pathname: string, rawQuery: string | null): HomeNavMode {
   if (pathname === "/" && rawQuery?.trim()) return "leave-search";

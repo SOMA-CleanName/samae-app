@@ -4,14 +4,18 @@
     scripts/embed/.venv/bin/python scripts/embed/embed_photos.py                     # dry-run
     scripts/embed/.venv/bin/python scripts/embed/embed_photos.py --apply --limit 10  # 소량 검증
     scripts/embed/.venv/bin/python scripts/embed/embed_photos.py --apply             # 전체
+    scripts/embed/.venv/bin/python scripts/embed/embed_photos.py --all-visibility    # 비공개 포함 dry-run
+
+기본은 8077 상주 서버의 /embed-backfill을 호출해 검색에 추론 차례를 양보한다.
+상주 서버가 꺼진 오프라인 작업에서만 --standalone으로 별도 모델을 로드한다.
 
 이 과제에서 **유일하게 실제 데이터를 쓰는** 스크립트다. docs/22 §10.4 의 규칙을 지킨다.
 
   - `--dry-run` 이 기본값. `--apply` 를 명시해야 DB 에 쓴다.
   - update 는 항상 `id=eq.<uuid>` 단건. 조건 없는 갱신을 만들 수 없는 구조로 짠다.
   - 건드리는 컬럼은 embedding · embedding_model · embedded_at **셋뿐**.
-  - `embedded_at is null` 만 대상이므로 중단 후 재실행해도 이미 끝난 사진을
-    다시 계산하지 않는다.
+  - 기본은 공개 사진의 `embedded_at is null`, `--all-visibility`는 전체 사진의
+    `embedding is null`만 대상으로 하므로 이미 끝난 사진을 다시 계산하지 않는다.
 
 service_role 키는 RLS 를 우회한다. 위 규칙이 그 위험을 감싸는 장치다.
 """
@@ -30,6 +34,7 @@ sys.path.insert(0, HERE)
 import siglip  # noqa: E402
 from check_db import count, load_env  # noqa: E402
 from fetch_sample import download  # noqa: E402
+from backfill_client import BackfillClient  # noqa: E402
 
 SAMPLE_DIR = os.path.join(HERE, "sample")  # 1단계 표본 — 있으면 재다운로드를 건너뛴다
 CACHE_DIR = os.path.join(HERE, "cache")
@@ -53,16 +58,18 @@ def api(env, method, path, body=None, headers=None):
         return json.loads(raw) if raw else None
 
 
-def fetch_pending(env, limit):
-    """embedded_at 이 null 인 공개 사진 목록. PostgREST 응답 상한 때문에 페이지로 나눠 받는다."""
+def fetch_pending(env, limit, *, all_visibility=False):
+    """임베딩 대기 사진 목록. PostgREST 응답 상한 때문에 페이지로 나눠 받는다."""
     out, offset = [], 0
+    pending_filter = "embedding=is.null" if all_visibility else "embedded_at=is.null"
+    visibility_filter = "" if all_visibility else "&visibility=eq.published"
     while True:
         want = PAGE if limit is None else min(PAGE, limit - len(out))
         if want <= 0:
             break
         rows = api(
             env, "GET",
-            f"photos?select={FIELDS}&visibility=eq.published&embedded_at=is.null"
+            f"photos?select={FIELDS}&{pending_filter}{visibility_filter}"
             f"&order=created_at.asc&offset={offset}&limit={want}",
         )
         out.extend(rows)
@@ -109,7 +116,16 @@ def main():
     ap.add_argument("--limit", type=int, default=None, help="처리할 최대 장수")
     ap.add_argument("--budget", type=int, default=256, help="max_num_patches (docs/22 §4.4)")
     ap.add_argument("--batch-size", type=int, default=8)
+    ap.add_argument("--embed-url", default="http://127.0.0.1:8077", help="백필용 상주 서버 주소")
+    ap.add_argument("--standalone", action="store_true", help="상주 서버가 꺼진 오프라인 작업용 별도 모델")
+    ap.add_argument(
+        "--all-visibility",
+        action="store_true",
+        help="draft 등 비공개 사진도 포함해 embedding이 없는 사진을 처리",
+    )
     args = ap.parse_args()
+    if args.batch_size < 1 or args.budget < 1 or (args.limit is not None and args.limit < 0):
+        ap.error("batch-size·budget은 양수, limit은 0 이상이어야 합니다")
 
     model_tag = f"{siglip.MODEL_ID.split('/')[-1]}@{args.budget}"
     mode = "APPLY (DB 에 씀)" if args.apply else "DRY-RUN (DB 에 쓰지 않음)"
@@ -117,11 +133,22 @@ def main():
     print(f"모델      {model_tag}\n")
 
     env = load_env(".env.local")
-    pending = fetch_pending(env, args.limit)
+    pending = fetch_pending(env, args.limit, all_visibility=args.all_visibility)
     if not pending:
-        print("대상 없음 — 모든 공개 사진에 임베딩이 있다.")
-        return
-    print(f"대상 {len(pending)}장 (embedded_at is null)\n")
+        scope = "모든 사진" if args.all_visibility else "모든 공개 사진"
+        print(f"대상 없음 — {scope}에 임베딩이 있다.")
+        return 0
+    pending_label = "embedding is null" if args.all_visibility else "embedded_at is null"
+    print(f"대상 {len(pending)}장 ({pending_label})\n")
+
+    client = None
+    if not args.standalone:
+        token = os.environ.get("PERSONA_SERVICE_TOKEN") or env.get("PERSONA_SERVICE_TOKEN", "")
+        client = BackfillClient(args.embed_url, token, args.budget)
+        client.check_health()  # 구버전/꺼진 서버에서 별도 모델로 우회하지 않는다.
+        print("추론      상주 서버 공유 · 검색 우선 · 사진 한 장씩\n", flush=True)
+    else:
+        print("추론      독립 모델 (--standalone, 검색 우선순위 적용 안 됨)\n", flush=True)
 
     os.makedirs(CACHE_DIR, exist_ok=True)
     processor = model = device = None
@@ -148,7 +175,13 @@ def main():
             elif is_reuse:
                 reused += 1
             try:
-                images.append(Image.open(path).convert("RGB"))
+                with Image.open(path) as source:
+                    if client is None:
+                        images.append(source.convert("RGB"))
+                    else:
+                        source.load()  # JPEG verify()만으로는 잘린 픽셀 데이터를 잡지 못한다.
+                        with open(path, "rb") as f:
+                            images.append(f.read())
                 rows.append(p)
             except Exception as e:  # 깨진 파일 하나가 배치를 멈추지 않게
                 print(f"  ⚠️ {p['id']} 이미지 열기 실패: {e}")
@@ -157,12 +190,15 @@ def main():
         if not rows:
             continue
 
-        if model is None:  # 대상이 있을 때만 모델을 올린다(dry-run 도 벡터는 계산)
-            print("모델 로드 중…", flush=True)
-            processor, model, device = siglip.load()
-            print(f"  device={device}\n", flush=True)
-
-        emb = siglip.encode(processor, model, images, args.budget, device).float().cpu().numpy()
+        if client is not None:
+            # 지연 평가로 한 장 요청 → 검증 → DB 저장 후 다음 장을 보낸다.
+            emb = (client.embed(raw) for raw in images)
+        else:
+            if model is None:  # 독립 실행도 대상이 있을 때만 모델을 올린다.
+                print("모델 로드 중…", flush=True)
+                processor, model, device = siglip.load()
+                print(f"  device={device}\n", flush=True)
+            emb = siglip.encode(processor, model, images, args.budget, device).float().cpu().numpy()
 
         for p, vec in zip(rows, emb):
             write_one(env, p["id"], vec, model_tag, args.apply)
@@ -177,18 +213,23 @@ def main():
 
     if not args.apply:
         print("\n실제로 쓰려면 --apply 를 붙일 것. 먼저 --apply --limit 10 으로 검증 권장.")
-        return
+        return 1 if failed else 0
 
     # 전송 수를 반영 수로 믿으면 안 된다. PostgREST 는 매칭 0행인 PATCH 에도
     # 204 를 주므로, 배치 도중 삭제된 사진은 에러 없이 '성공'으로 세어진다.
     # 실제 커버리지를 다시 조회해 확인한다.
-    total = count(env, "photos?select=id&visibility=eq.published")
-    left = count(env, "photos?select=id&visibility=eq.published&embedded_at=is.null")
+    if args.all_visibility:
+        total = count(env, "photos?select=id")
+        left = count(env, "photos?select=id&embedding=is.null")
+    else:
+        total = count(env, "photos?select=id&visibility=eq.published")
+        left = count(env, "photos?select=id&visibility=eq.published&embedded_at=is.null")
     print(f"\n커버리지  {total - left}/{total} (대기 {left}장)")
     if left:
         print("  대기가 남았다면 배치 중 새로 올라왔거나 공개로 전환된 사진이다.")
         print("  같은 명령을 다시 실행하면 그것만 처리한다.")
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

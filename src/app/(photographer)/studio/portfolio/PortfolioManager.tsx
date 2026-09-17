@@ -8,6 +8,10 @@ import { PortfolioUploader, type UploadPayload, type PackageOption } from "./Por
 import type { TargetOption } from "./CategoryPicker";
 import { HelpTip } from "./HelpTip";
 
+function uploadFileKey(file: File) {
+  return `${file.name}:${file.size}:${file.lastModified}`;
+}
+
 type Status =
   | { kind: "idle" }
   | { kind: "uploading"; done: number; total: number }
@@ -38,7 +42,10 @@ export function PortfolioManager({
     setOpen(false);
     setStatus({ kind: "uploading", done: 0, total: p.files.length });
     try {
-      const { id: albumId } = await createPost(p.description); // 한 피드로 묶음
+      const { id: albumId } = await createPost({
+        description: p.description,
+        packageId: p.packageId || null,
+      }); // 한 피드로 묶음
       // 카테고리(타겟 1 + 무드 N)는 사진 업로드 전에 붙인다 — 중간에 실패해도 분류는 남게.
       const cat = await setPostCategories(albumId, p.targetId, p.exploreIds, {
         requestedMoods: p.requestedMoods,
@@ -51,9 +58,11 @@ export function PortfolioManager({
         const fd = new FormData();
         fd.append("file", file);
         fd.append("album_id", albumId);
-        if (p.price.trim()) fd.append("price_krw", p.price.trim());
         if (p.location.trim()) fd.append("location_text", p.location.trim());
         if (p.moods.trim()) fd.append("mood_tags", p.moods.trim());
+        const photoText = p.photoTextByKey[uploadFileKey(p.files[i])];
+        if (photoText?.title.trim()) fd.append("title", photoText.title.trim());
+        if (photoText?.caption.trim()) fd.append("caption", photoText.caption.trim());
         fd.append("visibility", p.publish ? "published" : "draft");
 
         const res = await fetch("/api/portfolio/upload", { method: "POST", body: fd });

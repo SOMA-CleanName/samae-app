@@ -1,0 +1,42 @@
+-- ════════════════════════════════════════════════════════════════
+-- 0121 · similar_photos_by_vector 오버로드 정리
+--
+-- 운영 DB 에 이 함수가 **두 개** 있다. 0079 가 만든 (halfvec, integer) 옆에
+-- 마이그레이션 없이 직접 적용된 (vector, integer, integer) 가 하나 더 있다.
+--
+--   oid 27503  (p_embedding halfvec, p_limit integer default 60)          ← 0079
+--   oid 30569  (p_embedding vector, p_limit integer default 12,
+--               p_pool integer default 200)                               ← 기록 없음
+--
+-- create or replace function 은 **인자 타입이 정확히 같을 때만** 대체한다.
+-- 타입이 바뀌거나 인자가 늘면 조용히 함수를 하나 더 만든다. 0080 이 치웠던
+-- similar_photos_by_embedding(uuid, integer, real) 과 똑같은 사고다.
+--
+-- 앱은 p_embedding 을 JSON 문자열로 넘긴다. 문자열은 타입이 안 정해져 있어
+-- halfvec 로도 vector 로도 똑같이 맞고, p_pool 에 기본값이 있어 2인자로도
+-- 호출된다. 그래서 Postgres 가 고르지 못한다:
+--
+--   Could not choose the best candidate function between: …
+--
+-- 결과로 SigLIP 텍스트 검색(siglip-text-search.ts)과 페르소나 유사사진
+-- (persona/similar.ts)이 **둘 다 죽어 있었다.**
+--
+-- 3인자 판을 버려도 잃는 기능은 없다.
+--   · p_pool 을 넘기는 코드는 repo 전체에 없다 (sql·ts·tsx·md 0건)
+--   · 그 판만 갖고 있던 feed_hidden 필터는 앱이 이미 건다
+--     (siglip-text-search.ts 의 메타데이터 조회에서 .eq("feed_hidden", false))
+--   · 오히려 0076 이 정한 소프트 노출 낮춤 정책과 어긋났다 — 후보에서 자르지
+--     말고 상태를 함께 돌려주는 것이 형제 RPC similar_photos_by_embedding 의
+--     방식이다
+--   · vector 인자도 halfvec 로 암묵 캐스팅되어 두 판 다 HNSW 인덱스를 탄다
+--     (EXPLAIN 으로 확인 — idx_photos_embedding_hnsw)
+--
+-- 0079 의 (halfvec, integer) 는 그대로 둔다. 빈 DB 에서 처음부터 돌리면 3인자
+-- 판이 애초에 없으므로 이 마이그레이션은 아무 일도 하지 않는다.
+--
+-- 되돌리기: 되돌릴 것이 없다. 3인자 판은 어느 마이그레이션에도 정의가 없어
+--           복원하려면 운영 DB 에서 다시 손으로 만들어야 한다 — 그러면 같은
+--           모호성이 되살아난다.
+-- ════════════════════════════════════════════════════════════════
+
+drop function if exists public.similar_photos_by_vector(extensions.vector, integer, integer);

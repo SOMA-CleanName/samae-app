@@ -204,6 +204,7 @@ type TextEmbeddingRequestOptions = {
   token?: string;
   fetcher?: typeof fetch;
   timeoutMs?: number;
+  signal?: AbortSignal;
 };
 
 type TextEmbeddingResponse = {
@@ -241,7 +242,9 @@ export async function requestTextEmbedding(
         ...(options.token ? { "x-samae-token": options.token } : {}),
       },
       body: JSON.stringify({ texts: [query] }),
-      signal: AbortSignal.timeout(options.timeoutMs ?? 4_000),
+      signal: options.signal
+        ? AbortSignal.any([options.signal, AbortSignal.timeout(options.timeoutMs ?? 4_000)])
+        : AbortSignal.timeout(options.timeoutMs ?? 4_000),
     });
     if (!response.ok) return null;
     return parseTextEmbeddingResponse(await response.json());
