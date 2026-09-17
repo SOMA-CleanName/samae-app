@@ -1,11 +1,54 @@
 import type { MetadataRoute } from "next";
 import { SITE_URL } from "@/lib/site";
-import { isProd } from "@/lib/env";
+import { APP_ENV } from "@/lib/env";
 
-// 검색엔진 크롤링 규칙 — 공개 콘텐츠만 허용, 거래·관리·인증 경로는 차단.
+/*
+  검색엔진 크롤링 규칙 — 공개 콘텐츠만 허용, 거래·관리·인증 경로는 차단.
+
+  🔴 **2026-09-17: 운영 사이트가 통째로 차단돼 있었다.**
+
+  전에는 `if (!isProd) return { disallow: "/" }` 였다. 즉 **"프로덕션이라고 확신하지
+  못하면 전부 막는다"** 였는데, 판정이 `VERCEL_ENV` 하나에 걸려 있었다. Vercel 프로젝트
+  설정에서 시스템 환경변수 자동 주입이 꺼져 있으면 `VERCEL_ENV` 가 빌드에 안 들어오고,
+  그러면 `APP_ENV` 가 "development" 로 떨어져 **운영 robots.txt 가 `Disallow: /` 로 나간다.**
+
+      실측 2026-09-17 — https://www.samae.ai/robots.txt
+        User-Agent: *
+        Disallow: /
+
+  색인이 0이면 SEO 도 GEO 도 전부 무의미하다. sitemap 1078개도, JSON-LD 도, llms.txt 도
+  아무도 안 읽는다. 그런데 **아무 에러도 안 난다** — 조용히 사라지는 종류의 사고다.
+
+  ⚠️ 그래서 기본값을 뒤집었다. **비프로덕션이라고 확신할 때만 막는다.**
+     환경 신호가 없으면 운영으로 본다.
+
+  프리뷰가 색인될 위험은 이 뒤집기로 커지지 않는다 — 배포 URL 은 Vercel 배포 보호가
+  이미 302 로 막고 있고(실측: 프로덕션 배포 URL 도 인증 리다이렉트), Vercel 이 프리뷰
+  응답에 `X-Robots-Tag: noindex` 를 스스로 붙인다. 반면 잘못 막았을 때의 손해는 전부다.
+
+  📌 `NEXT_PUBLIC_ENV` 를 Vercel Production/Preview 스코프에 각각 넣어 두면 신호가
+     명시적이 된다(권장). 다만 **이 파일이 거기에 의존하지는 않는다** — 의존하게 두면
+     같은 사고가 다시 난다.
+*/
+
+/**
+ * 크롤을 막을 것인가.
+ *
+ * 신호를 **둘** 본다. `APP_ENV` 하나로는 "내 노트북" 과 "시스템 환경변수가 꺼진 Vercel
+ * 운영 빌드" 를 구분할 수 없기 때문이다 — 둘 다 "development" 로 떨어진다. 그게 이번
+ * 사고의 정확한 원인이었다.
+ *
+ *   · `APP_ENV === "preview"`  — 프리뷰라고 **명시적으로** 말해 준 경우
+ *   · `NODE_ENV !== "production"` — 개발 서버. `next build` 는 Vercel 시스템 변수와
+ *     무관하게 항상 NODE_ENV=production 이라, 운영 빌드가 여기 걸리는 일이 없다
+ */
+function shouldBlockAll(): boolean {
+  if (APP_ENV === "preview") return true;
+  return process.env.NODE_ENV !== "production";
+}
+
 export default function robots(): MetadataRoute.Robots {
-  // 비프로덕션(프리뷰·로컬)은 전체 크롤 차단 — 프리뷰 배포가 검색에 중복 노출되지 않게. (docs/19)
-  if (!isProd) {
+  if (shouldBlockAll()) {
     return { rules: [{ userAgent: "*", disallow: "/" }] };
   }
   // 공개해도 되는 것과 아닌 것. 사람이 보는 검색엔진이든 AI 크롤러든 같은 선을 적용한다.
