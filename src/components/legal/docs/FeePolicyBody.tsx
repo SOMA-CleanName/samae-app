@@ -1,6 +1,9 @@
 import { Article, B, Ol, P, Table } from "@/components/legal/LegalDoc";
 import { DEFAULT_FEE_RATE, FEE_VAT_RATE } from "@/lib/platform-fee";
 import { POLICY_EFFECTIVE_DATE } from "@/lib/policy-version";
+// 지급 기한은 계산하는 쪽(settlementSla)에서 읽는다 — 위약금 표가 PENALTY_BANDS 를 읽는 것과 같은 이유로,
+// 지면에 손으로 적으면 기한을 바꿀 때 한쪽만 바뀐다
+import { SETTLEMENT_SLA_BUSINESS_DAYS } from "@/lib/settlement-sla";
 
 
 /*
@@ -89,8 +92,8 @@ export function FeePolicyBody({
           사실이 확인되면 해당 건을 정산 대상에 포함시키며, 별도의 승인 절차를 두지 않습니다.
         </li>
         <li>
-          정산 주기는 매월 정해진 마감일에 집계하여 익월 정해진 지급일에 지급하며, 구체적인 날짜는 서비스
-          화면에 안내합니다. 지급일이 영업일이 아닌 경우 다음 영업일에 지급합니다.
+          회사는 제1항의 전달 사실이 확인된 날부터 <B>{SETTLEMENT_SLA_BUSINESS_DAYS}영업일 이내</B>에 정산금을
+          지급합니다. 각 건의 지급 기한은 스튜디오 &gt; 정산에서 확인할 수 있습니다.
         </li>
         <li>
           회사는 정산 지급 전에 산정 내역(촬영 건별 대금, 중개 수수료, 공제 항목, 세무 처리 내역)을 정산
