@@ -7,6 +7,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import type { PayoutAccount } from "@/lib/payments";
 import { getPlatformAccount, hasAccount } from "@/lib/platform-account";
+import { showsBankAccount } from "@/lib/payment-mode";
 import { archiveAndDelete } from "@/lib/soft-delete";
 import { notifyChatMessage } from "@/lib/notify-user";
 import { detectOffPlatform, contactExchangeAllowed, MODERATION_NOTICE } from "@/lib/moderation";
@@ -33,6 +34,9 @@ export async function getBookingPayoutAccount(bookingId: string): Promise<Payout
     .maybeSingle();
   if (!booking || booking.user_id !== me.id) return null; // 고객 본인만
   if (!PAYOUT_VISIBLE_STATUSES.includes(booking.status as string)) return null;
+  // PG 로 바뀌면 계좌를 내주지 않는다 — 카드로 이미 낸 고객이 계좌 안내를 또 보면
+  // 두 번 낸다. 지금은 무통장이라 이 줄은 통과한다 (lib/payment-mode).
+  if (!showsBankAccount()) return null;
   // 에스크로 — 고객은 작가 계좌가 아니라 **사매(플랫폼) 계좌**로 입금한다.
   // 사매가 입금 확인 후 수수료를 차감해 작가에게 정산 (작가 계좌는 고객에게 비공개).
   const platform = await getPlatformAccount();

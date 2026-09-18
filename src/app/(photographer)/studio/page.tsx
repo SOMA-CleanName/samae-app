@@ -7,7 +7,8 @@ import { StudioHomeBoard, type StudioBooking } from "./StudioHomeBoard";
 
 export const dynamic = "force-dynamic";
 
-// 작가 스튜디오 홈 — 신청 상태별 분기. 승인 작가는 문의 허브(리드 모델).
+// 작가 스튜디오 홈 — 신청 상태별 분기. 승인 작가는 StudioHomeBoard(예약 보드).
+// (전에 여기 적혀 있던 "문의 허브(리드 모델)" 는 에스크로 전환 전의 설명이다)
 export default async function StudioHome() {
   const me = await getCurrentUser();
   if (!me) redirect("/login?next=/studio");

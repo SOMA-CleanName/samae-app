@@ -19,6 +19,7 @@ import {
   FEE_LABEL,
 } from "@/lib/payments";
 import { getPlatformAccount, hasAccount } from "@/lib/platform-account";
+import { showsBankAccount } from "@/lib/payment-mode";
 import { getReviewByBooking } from "@/lib/reviews";
 import { getDelivery, getDeliveryDownloads, signDeliveryAssets } from "@/lib/deliveries";
 import { ReviewForm } from "./ReviewForm";
@@ -67,7 +68,16 @@ export default async function BookingDetail({
       : Promise.resolve([] as Awaited<ReturnType<typeof getDeliveryDownloads>>),
     getConversationIdFor(b.user_id, b.photographer_id),
     isBuyer && b.status === "accepted"
-      ? ensureTransferRecord(id, b.amount_krw ?? 0).then(() => getPlatformAccount()) // 송금대기 레코드 보장(멱등) 후 사매 계좌 조회
+      ? // 송금대기 레코드 보장(멱등)은 그대로 두고, **계좌 조회만** 결제 방식을 본다.
+        // 지금은 무통장이라 전과 똑같이 조회한다.
+        //
+        // ⚠️ PG 로 켜면 account={null} 이 되는데, DepositGate 의 null 문구는
+        //    "입금 계좌 안내를 준비 중이에요" 다 — **계좌 미설정용 문구라 PG 에서는
+        //    틀린 말이다.** 죽지는 않지만 그대로 두면 안 된다. 어차피 그 자리는
+        //    결제창이 대신하므로 DepositGate 자체를 갈아끼운다 (docs/42 §3-3).
+        ensureTransferRecord(id, b.amount_krw ?? 0).then(() =>
+          showsBankAccount() ? getPlatformAccount() : null
+        )
       : Promise.resolve(null),
   ]);
   // 전달물 서명 URL — delivery 결과에 의존하므로 이후 단계

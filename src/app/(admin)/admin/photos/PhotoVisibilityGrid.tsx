@@ -16,7 +16,8 @@ export type AdminPhoto = {
 
 type Filter = "all" | "hidden" | "visible";
 
-// 사진 노출 관리 그리드 — 포트폴리오(앨범)별로 묶어 보여주고, 사진을 탭해 낮춤/복구.
+// 사진 내리기 그리드 — 포트폴리오(앨범)별로 묶어 보여주고, 사진을 탭해 내림/복구.
+// "낮춤" 이 아니다 — 검색엔진 색인에서도 빠진다(2026-09-17). page.tsx 머리말 참고.
 // 낙관적 업데이트(즉시 반영) 후 서버액션. 실패하면 되돌린다.
 export function PhotoVisibilityGrid({ photos: initial }: { photos: AdminPhoto[] }) {
   const [photos, setPhotos] = useState(initial);
@@ -60,7 +61,7 @@ export function PhotoVisibilityGrid({ photos: initial }: { photos: AdminPhoto[] 
   const shownCount = groups.reduce((n, g) => n + g.items.length, 0);
 
   // 크게 보기(슬라이드) — 열 때의 목록을 스냅샷으로 잡아둔다.
-  // 노출 낮춤을 토글하면 필터에 따라 목록에서 빠질 수 있는데, 스냅샷이면 순서·위치가 안 흔들린다.
+  // 내림을 토글하면 필터에 따라 목록에서 빠질 수 있는데, 스냅샷이면 순서·위치가 안 흔들린다.
   const [viewer, setViewer] = useState<{ ids: string[]; idx: number } | null>(null);
   const byId = useMemo(() => new Map(photos.map((p) => [p.id, p])), [photos]);
   const current = viewer ? byId.get(viewer.ids[viewer.idx]) ?? null : null;
@@ -123,7 +124,7 @@ export function PhotoVisibilityGrid({ photos: initial }: { photos: AdminPhoto[] 
     }
   }
 
-  // 키보드 — 스페이스: 낮춤/복구, ←→(↑↓): 이전·다음, Esc: 닫기.
+  // 키보드 — 스페이스: 내림/복구, ←→(↑↓): 이전·다음, Esc: 닫기.
   // 스페이스·방향키는 기본 스크롤을 막아야 사진이 튀지 않는다.
   useEffect(() => {
     if (!current) return;
@@ -175,7 +176,7 @@ export function PhotoVisibilityGrid({ photos: initial }: { photos: AdminPhoto[] 
       <div className="sticky top-0 z-10 -mx-4 mb-3 flex flex-wrap items-center gap-2 border-b border-line bg-bg/90 px-4 py-2.5 backdrop-blur sm:-mx-5 sm:px-5">
         {(["all", "hidden", "visible"] as const).map((f) => (
           <button key={f} type="button" onClick={() => setFilter(f)} className={chip(filter === f)}>
-            {f === "all" ? `전체 ${photos.length}` : f === "hidden" ? `노출 낮춤 ${hiddenCount}` : "기본 노출"}
+            {f === "all" ? `전체 ${photos.length}` : f === "hidden" ? `내린 사진 ${hiddenCount}` : "기본 노출"}
           </button>
         ))}
         <select
@@ -190,7 +191,7 @@ export function PhotoVisibilityGrid({ photos: initial }: { photos: AdminPhoto[] 
             </option>
           ))}
         </select>
-        <span className="ml-auto text-caption text-muted">{shownCount}장 표시 중 · 탭하면 낮춤/복구</span>
+        <span className="ml-auto text-caption text-muted">{shownCount}장 표시 중 · 탭하면 내림/복구</span>
       </div>
 
       {groups.length === 0 && (
@@ -210,7 +211,7 @@ export function PhotoVisibilityGrid({ photos: initial }: { photos: AdminPhoto[] 
                   {g.title}
                   <span className="ml-1.5 text-caption font-normal text-muted">
                     {g.photographer ? `· ${g.photographer} ` : ""}· {g.items.length}장
-                    {hiddenInGroup > 0 && <span className="text-warning"> · {hiddenInGroup} 낮춤</span>}
+                    {hiddenInGroup > 0 && <span className="text-warning"> · {hiddenInGroup} 내림</span>}
                   </span>
                 </p>
                 {g.albumId && (
@@ -219,7 +220,7 @@ export function PhotoVisibilityGrid({ photos: initial }: { photos: AdminPhoto[] 
                     onClick={() => toggleAlbum(g.albumId!, g.items, !allHidden)}
                     className="shrink-0 rounded-full border border-line-strong px-3 py-1 text-caption font-medium text-muted transition-colors hover:bg-fg/[0.04]"
                   >
-                    {allHidden ? "포트폴리오 전체 복구" : "포트폴리오 전체 낮춤"}
+                    {allHidden ? "포트폴리오 전체 올리기" : "포트폴리오 전체 내리기"}
                   </button>
                 )}
               </div>
@@ -231,7 +232,7 @@ export function PhotoVisibilityGrid({ photos: initial }: { photos: AdminPhoto[] 
                       type="button"
                       onClick={() => toggleOne(p)}
                       aria-pressed={p.hidden}
-                      aria-label={p.hidden ? "기본 노출로 복구하기" : "노출 우선순위 낮추기"}
+                      aria-label={p.hidden ? "다시 올리기" : "이 사진 내리기"}
                       className={`relative block aspect-square w-full overflow-hidden rounded-lg transition-opacity ${
                         busy.has(p.id) ? "opacity-40" : ""
                       }`}
@@ -246,11 +247,11 @@ export function PhotoVisibilityGrid({ photos: initial }: { photos: AdminPhoto[] 
                       />
                       {p.hidden && (
                         <span className="absolute inset-x-1 bottom-1 rounded bg-warning px-1 py-0.5 text-center text-[11px] font-semibold text-bg">
-                          낮춤
+                          내림
                         </span>
                       )}
                     </button>
-                    {/* 크게 보기 — 탭(노출 낮춤 토글)과 겹치지 않게 모서리 버튼으로 분리 */}
+                    {/* 크게 보기 — 탭(내림 토글)과 겹치지 않게 모서리 버튼으로 분리 */}
                     <button
                       type="button"
                       onClick={() => openViewer(p.id)}
@@ -267,7 +268,7 @@ export function PhotoVisibilityGrid({ photos: initial }: { photos: AdminPhoto[] 
         })}
       </div>
 
-      {/* 크게 보기 — 스페이스로 낮춤/복구, ←→ 로 이동, Esc 로 닫기 */}
+      {/* 크게 보기 — 스페이스로 내림/복구, ←→ 로 이동, Esc 로 닫기 */}
       {viewer && current && (
         <div
           role="dialog"
@@ -309,7 +310,7 @@ export function PhotoVisibilityGrid({ photos: initial }: { photos: AdminPhoto[] 
             />
             {current.hidden && (
               <span className="pointer-events-none absolute top-3 rounded-full bg-warning px-3 py-1 text-body-sm font-bold text-bg">
-                노출 낮춤
+                내린 사진
               </span>
             )}
             {viewer.idx > 0 && (
@@ -340,7 +341,7 @@ export function PhotoVisibilityGrid({ photos: initial }: { photos: AdminPhoto[] 
             )}
           </div>
 
-          {/* 하단 — 노출 낮춤 토글 + 키 안내 */}
+          {/* 하단 — 내림 토글 + 키 안내 */}
           <div
             className="flex flex-wrap items-center justify-center gap-3 px-4 py-4"
             onClick={(e) => e.stopPropagation()}
@@ -353,9 +354,9 @@ export function PhotoVisibilityGrid({ photos: initial }: { photos: AdminPhoto[] 
                 current.hidden ? "bg-white text-black" : "bg-warning text-bg"
               }`}
             >
-              {current.hidden ? "기본 노출로 복구 (Space)" : "노출 낮추기 (Space)"}
+              {current.hidden ? "다시 올리기 (Space)" : "이 사진 내리기 (Space)"}
             </button>
-            <span className="text-caption text-white/60">← → 이동 · Space 낮춤/복구 · Esc 닫기</span>
+            <span className="text-caption text-white/60">← → 이동 · Space 내림/복구 · Esc 닫기</span>
           </div>
         </div>
       )}

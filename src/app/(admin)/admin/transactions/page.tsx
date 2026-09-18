@@ -18,6 +18,14 @@ import { AdminCancelButton } from "./AdminCancelButton";
 import { feeRateOf, feeSpecFromRow, feeSpecLabel, feeWithVat, readFeeSnapshot, resolveFee } from "@/lib/platform-fee";
 import { refundQuote, refundSlaOverdue } from "@/lib/refund";
 import { settlementSla } from "@/lib/settlement-sla";
+import { getPlatformAccount, hasAccount } from "@/lib/platform-account";
+import { PlatformAccountEditor } from "./PlatformAccountEditor";
+import { PAYMENT_MODE_LABEL, paymentMode, showsBankAccount } from "@/lib/payment-mode";
+import {
+  awaitingConfirm as qAwaitingConfirm,
+  awaitingDeposit as qAwaitingDeposit,
+  awaitingSettle as qAwaitingSettle,
+} from "@/lib/admin-queues";
 import { readStoredFieldValues } from "@/lib/booking-fields";
 import { listExtrasForAdmin } from "@/lib/extras-admin";
 import { EXTRA_KIND_LABEL, extraStatusLabel } from "@/lib/extras";
@@ -140,7 +148,8 @@ export default async function AdminTransactionsPage() {
   }
 
   // 추가 결제 큐 — 입금 확인 대기(수락 + 입금 알림), 환불 가능(촬영 후·전달 전), 정산 대기(촬영 후·전달됨)
-  const extrasAll = await listExtrasForAdmin();
+  const [extrasAll, account] = await Promise.all([listExtrasForAdmin(), getPlatformAccount()]);
+  const mode = paymentMode();
   const extrasToConfirm = extrasAll.filter((e) => e.status === "accepted" && e.transfer_marked_at);
   const extrasToSettle = extrasAll.filter((e) => e.kind === "post_shoot" && e.status === "paid" && e.delivered_at && !e.settled_at);
   const extrasRefundable = extrasAll.filter((e) => e.kind === "post_shoot" && e.status === "paid" && !e.delivered_at);
@@ -153,14 +162,13 @@ export default async function AdminTransactionsPage() {
   //   ② 정산 대기 — 결과물 전달이 끝난 건. 정산은 전달 뒤에만 한다(작가약관 13조 1항).
   //      촬영 전 건은 여기 오지 않는다.
   //   ③ 입금 대기 — 수락만 해놓고 아무 소식 없는 건
-  const awaitingConfirm = raw.filter((b) => b.status === "accepted" && b.transfer_marked_at);
+  // 판정은 lib/admin-queues 한 곳에서 한다 — 대시보드가 같은 수를 보여줘야 한다.
+  // 여기 인라인으로 두면 두 화면의 조건이 갈라지고, 갈라진 걸 아무도 모른다.
+  const awaitingConfirm = qAwaitingConfirm(raw);
   // 정산 대기 — 전달 알림으로부터 7영업일 안에 보내야 한다(작가약관 13조 2항).
-  // 기한이 급한 건을 위로 올린다. 목록 순서가 곧 처리 순서가 된다.
-  const awaitingSettle = raw
-    .filter((b) => PAID_BOOKING.includes(b.status) && !!b.delivered_at && !b.settled_at && !b.refunded_at)
-    .map((b) => ({ b, sla: settlementSla(b.delivered_at, b.settled_at) }))
-    .sort((x, y) => (x.sla?.daysLeft ?? 99) - (y.sla?.daysLeft ?? 99));
-  const awaitingDeposit = raw.filter((b) => b.status === "accepted" && !b.transfer_marked_at);
+  // 기한이 급한 건이 위로 온다. 목록 순서가 곧 처리 순서가 된다.
+  const awaitingSettle = qAwaitingSettle(raw).map((b) => ({ b, sla: settlementSla(b.delivered_at, b.settled_at) }));
+  const awaitingDeposit = qAwaitingDeposit(raw);
 
   const bookings: BookingRow[] = raw.map((b) => ({
     id: b.id,
@@ -239,7 +247,9 @@ export default async function AdminTransactionsPage() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-h1 font-semibold">거래·정산</h1>
-          <p className="mt-1 text-body-sm text-muted">예약 거래 흐름이에요.</p>
+          <p className="mt-1 text-body-sm text-muted">
+            고객 입금을 확인하고, 결과물 전달이 끝난 건을 정산해요.
+          </p>
         </div>
         <DeleteModeToolbar
           clearAction={clearTransactions}
@@ -249,6 +259,22 @@ export default async function AdminTransactionsPage() {
           entityLabel="건"
         />
       </div>
+
+      {/*
+        결제 방식 — 지금은 무통장(사매 계좌)이라 계좌 편집기가 뜬다.
+        PG 심사가 끝나 `PAYMENT_MODE=pg` 로 올리면 이 블록이 통째로 빠진다.
+        고객이 카드로 결제하는데 계좌 안내가 남아 있으면 두 번 내는 사고가 난다.
+        전환일에 할 일 전체는 docs/42-pg-switch-plan.md 참고.
+      */}
+      {showsBankAccount(mode) ? (
+        /* 고객이 돈을 넣을 곳. 비면 입금 안내가 안 떠서 거래가 멈춘다 */
+        <PlatformAccountEditor account={account} configured={hasAccount(account)} />
+      ) : (
+        <p className="mt-5 rounded-2xl border border-line bg-surface px-4 py-3 text-body-sm text-muted">
+          결제 방식: <b className="font-semibold text-fg">{PAYMENT_MODE_LABEL[mode]}</b> — 승인 즉시
+          자동 확인돼요. 사매 계좌 안내는 쓰지 않아요.
+        </p>
+      )}
 
       {/* 정산 대기 — 결과물 전달이 끝난 건. 정산은 전달 뒤에만 한다(작가약관 13조 1항).
           사매가 수수료·부가세를 뗀 금액을 작가 계좌로 보낸 뒤 여기서 마킹한다. */}

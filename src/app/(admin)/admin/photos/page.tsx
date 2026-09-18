@@ -60,11 +60,19 @@ export default async function AdminPhotosPage() {
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-5">
-      <h1 className="text-h1 font-semibold">사진 노출 낮춤</h1>
-      <p className="mt-1 text-body-sm text-muted">
-        기본 추천 우선순위를 낮출 사진을 고르세요. 홈에서는 일반 사진 뒤에 나오며, 같은 스타일을
-        반복해서 고른 사용자에게는 유사도에 따라 다시 위로 올라올 수 있어요. 검색과 편집형 탐색에서는
-        계속 제외됩니다.
+      <h1 className="text-h1 font-semibold">사진 내리기</h1>
+      {/* ⚠️ 이 문구는 **실제 동작과 맞아야 한다.** 전에는 "추천 우선순위를 낮춘다 ·
+          유사도에 따라 다시 위로 올라올 수 있다" 라고 적혀 있었는데, 그건 2026-09-17
+          이전의 강등 규칙이다. 지금은 검색엔진 색인에서도 빠진다 — 운영자가 "잠깐
+          뒤로 미루는 것" 으로 알고 누르면 구글에서 사진이 사라진다. */}
+      <p className="mt-1 text-body-sm leading-relaxed text-muted">
+        고른 사진은 <b className="font-semibold text-fg">찾아지지 않게</b> 돼요. 피드·탐색·카테고리·검색·추천·광고
+        진입과 작가 카드 대표사진에서 빠지고, <b className="font-semibold text-fg">사이트맵과 검색엔진 색인에서도
+        빠져요</b>(사진 상세가 noindex 를 내보냄).
+      </p>
+      <p className="mt-1.5 text-caption leading-relaxed text-faint">
+        다만 <b className="font-medium text-muted">직접 링크로는 계속 열려요</b> — 사진 상세 지면 자체, 게시물
+        캐러셀, 작가 포트폴리오에는 남아요. 완전히 없애려면 여기가 아니라 사진의 공개 설정을 내려야 해요.
       </p>
 
       <PhotoVisibilityGrid photos={photos} />

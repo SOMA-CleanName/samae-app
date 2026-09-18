@@ -1,10 +1,9 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getPlatformAccount, hasAccount } from "@/lib/platform-account";
 import { EmptyState } from "@/components/ui";
 import { ClipboardIcon } from "@/components/user/icons";
 import { cn } from "@/lib/cn";
-import { updatePlatformAccount, clearInquiries, deleteInquiriesSelected } from "./actions";
+import { clearInquiries, deleteInquiriesSelected } from "./actions";
 import { AdminInquiries, type InquiryRow, type Stage } from "./AdminInquiries";
 import { PhotographerFilter } from "./PhotographerFilter";
 import { DeleteModeProvider, DeleteModeToolbar } from "@/components/admin/DeleteMode";
@@ -77,16 +76,13 @@ export default async function AdminInquiriesPage({
   const pgFilter = sp?.pg ?? "";
   const admin = createAdminClient();
 
-  const [{ data }, account] = await Promise.all([
-    admin
-      .from("inquiries")
-      .select(
-        "id, status, created_at, photographer_id, purpose, preferred_date, region, name, gender, party_size, note, deposit_amount_krw, deposit_confirmed_at, phone, kakao_id, contact_email, ref_image_paths, fbp, fbc, source_photo_id, utm_source, utm_medium, utm_campaign, landing_path, hidden_from_photographer, photographer:photographers(display_name), profile:profiles!inquiries_profile_id_fkey(display_name)"
-      )
-      .order("created_at", { ascending: false })
-      .limit(300),
-    getPlatformAccount(),
-  ]);
+  const { data } = await admin
+    .from("inquiries")
+    .select(
+      "id, status, created_at, photographer_id, purpose, preferred_date, region, name, gender, party_size, note, deposit_amount_krw, deposit_confirmed_at, phone, kakao_id, contact_email, ref_image_paths, fbp, fbc, source_photo_id, utm_source, utm_medium, utm_campaign, landing_path, hidden_from_photographer, photographer:photographers(display_name), profile:profiles!inquiries_profile_id_fkey(display_name)"
+    )
+    .order("created_at", { ascending: false })
+    .limit(300);
 
   const all = (data ?? []) as DbRow[];
 
@@ -118,15 +114,6 @@ export default async function AdminInquiriesPage({
     counts[s] = (counts[s] ?? 0) + 1;
   }
 
-  // 리드 수익 집계 — 입금 확인(deposit_confirmed_at) 된 건이 실제 수익, 입금대기는 미수금.
-  const fmt = new Intl.NumberFormat("ko-KR");
-  const revenue = scoped
-    .filter((r) => r.deposit_confirmed_at)
-    .reduce((sum, r) => sum + (r.deposit_amount_krw ?? 0), 0);
-  const pending = scoped
-    .filter((r) => !r.deposit_confirmed_at && stageOf(r.status) === "await")
-    .reduce((sum, r) => sum + (r.deposit_amount_krw ?? 0), 0);
-
   const matcher = FILTERS.find((f) => f.key === stageFilter) ?? FILTERS[0];
   const rows: InquiryRow[] = scoped
     .map((r): InquiryRow => {
@@ -152,7 +139,6 @@ export default async function AdminInquiriesPage({
         gender: r.gender,
         partySize: r.party_size,
         note: r.note,
-        depositAmount: r.deposit_amount_krw ?? 0,
         photographerName: one(r.photographer)?.display_name ?? "작가",
         customerName: one(r.profile)?.display_name ?? "비회원",
         // 어드민(운영진)은 응대 위해 연락처 항상 표시 — 작가 공개(입금확인 후)와 별개
@@ -186,9 +172,18 @@ export default async function AdminInquiriesPage({
      <DeleteModeProvider>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-h1 font-semibold">입금·문의 관리</h1>
-          <p className="mt-1 text-body-sm text-muted">
-            작가 수락 → 입금대기 → 입금확인 시 고객 연락처가 작가에게 공개돼요.
+          <h1 className="text-h1 font-semibold">문의 접수함</h1>
+          <p className="mt-1 text-body-sm leading-relaxed text-muted">
+            비로그인 게이트(<code className="text-caption">/inquiry</code>)로 들어온 문의예요. 읽고 상태만 정리해요.
+          </p>
+          <p className="mt-2 rounded-xl border border-line bg-surface-2 px-3.5 py-2.5 text-caption leading-relaxed text-muted">
+            {/* 아래 단계 칩에 「입금대기·입금확인」이 남아 있는데, 새로 들어오는 문의는
+                거기까지 가지 않는다. 설명 없이 두면 운영자가 "왜 안 넘어가지" 를 찾는다. */}
+            <b className="font-semibold text-fg">「입금대기·입금확인」은 지난 기록이에요.</b> 작가가 문의를 열며
+            입금하던 옛 방식(리드)의 단계라, 새로 들어오는 문의는 「접수」에 머물러요. 지금 거래는 채팅에서
+            예약을 잡고 고객이 사매 계좌에 입금하는 방식이고, 그건{" "}
+            <a href="/admin/transactions" className="underline underline-offset-2 hover:text-fg">거래·정산</a>
+            에서 봐요.
           </p>
         </div>
         <DeleteModeToolbar
@@ -200,20 +195,9 @@ export default async function AdminInquiriesPage({
         />
       </div>
 
-      {/* 리드 수익 집계 — 입금 확인 누계 vs 입금 대기(미수금) */}
-      <div className="mt-5 grid grid-cols-2 gap-3">
-        <div className="rounded-xl border border-line p-4">
-          <p className="text-caption text-muted">입금 확인 누계</p>
-          <p className="mt-1 text-h2 font-semibold text-success-ink">₩{fmt.format(revenue)}</p>
-        </div>
-        <div className="rounded-xl border border-line p-4">
-          <p className="text-caption text-muted">입금 대기</p>
-          <p className="mt-1 text-h2 font-semibold text-brand-ink">₩{fmt.format(pending)}</p>
-        </div>
-      </div>
-
-      {/* 플랫폼 입금 계좌 */}
-      <PlatformAccountEditor account={account} configured={hasAccount(account)} />
+      {/* 리드 수익 집계와 사매 계좌 편집기가 여기 있었다 — **둘 다 걷었다(2026-09-19).**
+          집계는 리드 모델(작가가 리드 해제하며 입금)의 것이라 지금 쓰이지 않고,
+          계좌는 리드용이 아니라 예약 에스크로라서 거래·정산으로 옮겼다. */}
 
       {/* 작가 필터 */}
       <div className="mt-6">
@@ -250,49 +234,3 @@ export default async function AdminInquiriesPage({
   );
 }
 
-// 플랫폼(우리) 입금 계좌 편집 — 미설정이면 강조
-function PlatformAccountEditor({
-  account,
-  configured,
-}: {
-  account: { bank: string; number: string; holder: string; notice: string };
-  configured: boolean;
-}) {
-  return (
-    <details className="mt-5 rounded-2xl border border-line bg-surface" open={!configured}>
-      <summary className="flex cursor-pointer items-center gap-2 px-4 py-3 text-body-sm font-medium">
-        플랫폼 입금 계좌
-        {configured ? (
-          <span className="text-caption text-faint">
-            {account.bank} {account.number} · {account.holder}
-          </span>
-        ) : (
-          <span className="text-caption font-semibold text-brand-ink">미설정 — 입금 안내가 표시되지 않아요</span>
-        )}
-      </summary>
-      <form action={updatePlatformAccount} className="grid grid-cols-1 gap-2.5 px-4 pb-4 sm:grid-cols-3">
-        <label className="block">
-          <span className="mb-1 block text-caption text-muted">은행</span>
-          <input name="bank" defaultValue={account.bank} placeholder="국민" className="w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-body-sm outline-none focus:border-fg/40" />
-        </label>
-        <label className="block sm:col-span-2">
-          <span className="mb-1 block text-caption text-muted">계좌번호</span>
-          <input name="number" defaultValue={account.number} placeholder="000000-00-000000" className="w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-body-sm tabular-nums outline-none focus:border-fg/40" />
-        </label>
-        <label className="block">
-          <span className="mb-1 block text-caption text-muted">예금주</span>
-          <input name="holder" defaultValue={account.holder} placeholder="사매" className="w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-body-sm outline-none focus:border-fg/40" />
-        </label>
-        <label className="block sm:col-span-2">
-          <span className="mb-1 block text-caption text-muted">안내 문구 (선택)</span>
-          <input name="notice" defaultValue={account.notice} placeholder="입금자명을 신청 닉네임과 동일하게 적어주세요." className="w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-body-sm outline-none focus:border-fg/40" />
-        </label>
-        <div className="sm:col-span-3">
-          <button className="cursor-pointer rounded-lg bg-fg px-4 py-2 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90">
-            계좌 저장
-          </button>
-        </div>
-      </form>
-    </details>
-  );
-}

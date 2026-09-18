@@ -27,7 +27,8 @@ export async function submitSupportRequest(formData: FormData): Promise<void> {
   const admin = createAdminClient();
 
   // 요청자가 이 예약의 당사자인지 확인 — 남의 예약에 문의를 붙일 수 없게
-  let role: "customer" | "photographer" = "customer";
+  // 예약이 없는 요청(개인정보·신고)은 계정 성격으로 정한다 — 예약 당사자 확인이 없어서다
+  let role: "customer" | "photographer" = me.photographer ? "photographer" : "customer";
   if (bookingId) {
     const { data: b } = await admin
       .from("bookings")

@@ -29,7 +29,7 @@ export async function setPhotoFeedHidden(photoId: string, hidden: boolean): Prom
   revalidatePath("/explore");
 }
 
-// 포트폴리오(앨범) 단위 일괄 낮춤/복구.
+// 포트폴리오(앨범) 단위 일괄 내림/복구.
 export async function setAlbumFeedHidden(albumId: string, hidden: boolean): Promise<number> {
   await assertAdmin();
   const admin = createAdminClient();

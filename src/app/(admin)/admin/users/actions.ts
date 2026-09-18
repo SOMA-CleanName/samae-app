@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { logAdminAction } from "@/lib/admin-audit";
 
 // 운영자 확인 + 본인 id 반환 (자기 자신 보호용)
 async function assertAdmin() {
@@ -22,6 +23,12 @@ export async function setUserRole(formData: FormData) {
   const admin = createAdminClient();
   const { error } = await admin.from("profiles").update({ role }).eq("id", id);
   if (error) throw new Error(error.message);
+  await logAdminAction({
+    action: "user_role",
+    actor: { id: me.id, label: me.displayName },
+    target: { table: "profiles", id },
+    detail: { role },
+  });
   revalidatePath("/admin/users");
 }
 
@@ -37,5 +44,11 @@ export async function setUserBan(formData: FormData) {
     ban_duration: ban ? "876000h" : "none", // ~100년 = 사실상 영구 / none = 해제
   });
   if (error) throw new Error(error.message);
+  await logAdminAction({
+    action: "user_ban",
+    actor: { id: me.id, label: me.displayName },
+    target: { table: "profiles", id },
+    detail: { banned: ban },
+  });
   revalidatePath("/admin/users");
 }
