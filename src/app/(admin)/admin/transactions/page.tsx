@@ -20,6 +20,7 @@ import { refundQuote, refundSlaOverdue } from "@/lib/refund";
 import { settlementSla } from "@/lib/settlement-sla";
 import { getPlatformAccount, hasAccount } from "@/lib/platform-account";
 import { PlatformAccountEditor } from "./PlatformAccountEditor";
+import { PAYMENT_MODE_LABEL, paymentMode, showsBankAccount } from "@/lib/payment-mode";
 import {
   awaitingConfirm as qAwaitingConfirm,
   awaitingDeposit as qAwaitingDeposit,
@@ -148,6 +149,7 @@ export default async function AdminTransactionsPage() {
 
   // 추가 결제 큐 — 입금 확인 대기(수락 + 입금 알림), 환불 가능(촬영 후·전달 전), 정산 대기(촬영 후·전달됨)
   const [extrasAll, account] = await Promise.all([listExtrasForAdmin(), getPlatformAccount()]);
+  const mode = paymentMode();
   const extrasToConfirm = extrasAll.filter((e) => e.status === "accepted" && e.transfer_marked_at);
   const extrasToSettle = extrasAll.filter((e) => e.kind === "post_shoot" && e.status === "paid" && e.delivered_at && !e.settled_at);
   const extrasRefundable = extrasAll.filter((e) => e.kind === "post_shoot" && e.status === "paid" && !e.delivered_at);
@@ -258,8 +260,21 @@ export default async function AdminTransactionsPage() {
         />
       </div>
 
-      {/* 고객이 돈을 넣을 곳. 비면 입금 안내가 안 떠서 거래가 멈춘다 */}
-      <PlatformAccountEditor account={account} configured={hasAccount(account)} />
+      {/*
+        결제 방식 — 지금은 무통장(사매 계좌)이라 계좌 편집기가 뜬다.
+        PG 심사가 끝나 `PAYMENT_MODE=pg` 로 올리면 이 블록이 통째로 빠진다.
+        고객이 카드로 결제하는데 계좌 안내가 남아 있으면 두 번 내는 사고가 난다.
+        전환일에 할 일 전체는 docs/42-pg-switch-plan.md 참고.
+      */}
+      {showsBankAccount(mode) ? (
+        /* 고객이 돈을 넣을 곳. 비면 입금 안내가 안 떠서 거래가 멈춘다 */
+        <PlatformAccountEditor account={account} configured={hasAccount(account)} />
+      ) : (
+        <p className="mt-5 rounded-2xl border border-line bg-surface px-4 py-3 text-body-sm text-muted">
+          결제 방식: <b className="font-semibold text-fg">{PAYMENT_MODE_LABEL[mode]}</b> — 승인 즉시
+          자동 확인돼요. 사매 계좌 안내는 쓰지 않아요.
+        </p>
+      )}
 
       {/* 정산 대기 — 결과물 전달이 끝난 건. 정산은 전달 뒤에만 한다(작가약관 13조 1항).
           사매가 수수료·부가세를 뗀 금액을 작가 계좌로 보낸 뒤 여기서 마킹한다. */}
