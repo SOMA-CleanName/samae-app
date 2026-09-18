@@ -359,3 +359,40 @@ export async function removePhotographer(formData: FormData) {
   });
   revalidatePath("/admin/photographers");
 }
+
+// ── 후기 숨김 (0137) ─────────────────────────────────────────
+//
+// 부적절한 후기를 **지우지 않고 가린다.** 지우면 왜 사라졌는지 답할 수 없고, 분쟁이
+// 나면 원문이 필요하다. 가리면 평점 집계에서도 빠진다(트리거, 0137).
+//
+// 쓴 본인은 계속 본다 — 자기 글이 예약 상세에서 통째로 사라지면 "내 후기가 왜 없지"
+// 가 된다. 작가와 다른 사람에게만 안 보인다.
+export async function setReviewHidden(formData: FormData): Promise<void> {
+  const me = await assertAdmin();
+  const id = String(formData.get("id"));
+  const hide = String(formData.get("hide")) === "1";
+  const reason = String(formData.get("reason") ?? "").trim().slice(0, 300);
+  // 가릴 땐 사유를 받는다. 나중에 "왜 내렸냐" 에 답할 수 있어야 한다.
+  if (hide && !reason) throw new Error("가리는 사유를 적어주세요.");
+
+  const { error } = await createAdminClient()
+    .from("reviews")
+    .update(
+      hide
+        ? { hidden_at: new Date().toISOString(), hidden_by: me.id, hidden_reason: reason }
+        : { hidden_at: null, hidden_by: null, hidden_reason: null }
+    )
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+
+  await logAdminAction({
+    action: hide ? "review_hide" : "review_show",
+    actor: { id: me.id, label: me.displayName },
+    target: { table: "reviews", id },
+    detail: hide ? { reason } : {},
+  });
+
+  // 평점이 바뀌므로 작가가 보이는 지면도 함께 되살린다
+  revalidatePath("/admin/photographers");
+  revalidatePath("/studio/reviews");
+}

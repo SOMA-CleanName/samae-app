@@ -23,6 +23,9 @@ export const ADMIN_ACTIONS = {
   photographer_remove: "작가 퇴출",
   application_approve: "작가 신청 승인",
   license_verify: "사업자등록증 검수",
+  // 게시물
+  review_hide: "후기 가림",
+  review_show: "후기 다시 보임",
   // 계정
   user_role: "회원 역할 변경",
   user_ban: "회원 차단 변경",

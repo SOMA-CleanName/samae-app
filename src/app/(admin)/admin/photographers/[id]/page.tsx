@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Avatar, Badge } from "@/components/ui";
 import { BusinessLicenseCell } from "../BusinessLicenseCell";
+import { setReviewHidden } from "../actions";
 import { agreementStatus, type AgreementRow } from "@/lib/agreement-status";
 import { BUSINESS_TYPE_LABEL, feeSpecFromRow, feeSpecLabel } from "@/lib/platform-fee";
 import { PHOTOGRAPHER_DOCS } from "@/components/legal/photographerDocs";
@@ -75,7 +76,7 @@ export default async function AdminPhotographerDetailPage({ params }: { params: 
       .order("created_at", { ascending: false }),
     admin
       .from("reviews")
-      .select("id, rating, body, created_at, user_id")
+      .select("id, rating, body, created_at, user_id, hidden_at, hidden_reason")
       .eq("photographer_id", id)
       .order("created_at", { ascending: false })
       .limit(10),
@@ -413,16 +414,50 @@ export default async function AdminPhotographerDetailPage({ params }: { params: 
             <p className="text-body-sm text-faint">후기가 없어요.</p>
           ) : (
             <ul className="divide-y divide-line">
-              {(reviews ?? []).map((r) => (
-                <li key={r.id} className="py-2.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-body-sm font-medium text-fg">{userName.get(r.user_id) ?? "—"}</span>
-                    <span className="text-caption text-brand-ink">{"★".repeat(r.rating)}<span className="text-faint">{"★".repeat(5 - r.rating)}</span></span>
-                  </div>
-                  {r.body && <p className="mt-1 text-caption leading-relaxed text-fg/80">{r.body}</p>}
-                  <p className="mt-0.5 text-[11px] text-faint">{when(r.created_at)}</p>
-                </li>
-              ))}
+              {(reviews ?? []).map((r) => {
+                const hidden = !!r.hidden_at;
+                return (
+                  <li key={r.id} className={`py-2.5 ${hidden ? "opacity-60" : ""}`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-1.5 text-body-sm font-medium text-fg">
+                        {userName.get(r.user_id) ?? "—"}
+                        {hidden && <Badge tone="danger">가림</Badge>}
+                      </span>
+                      <span className="text-caption text-brand-ink">{"★".repeat(r.rating)}<span className="text-faint">{"★".repeat(5 - r.rating)}</span></span>
+                    </div>
+                    {r.body && <p className="mt-1 text-caption leading-relaxed text-fg/80">{r.body}</p>}
+                    <p className="mt-0.5 text-[11px] text-faint">{when(r.created_at)}</p>
+                    {/* 가린 후기는 평점 집계에서도 빠진다(0137). 지우지 않는 이유는
+                        분쟁이 나면 원문이 필요해서다. */}
+                    {hidden ? (
+                      <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                        <span className="text-[11px] text-danger-ink">사유 — {r.hidden_reason || "(없음)"}</span>
+                        <form action={setReviewHidden}>
+                          <input type="hidden" name="id" value={r.id} />
+                          <input type="hidden" name="hide" value="0" />
+                          <button className="cursor-pointer rounded-full border border-line-strong px-2.5 py-0.5 text-[11px] font-medium text-muted transition-colors hover:bg-fg/[0.04]">
+                            다시 보이기
+                          </button>
+                        </form>
+                      </div>
+                    ) : (
+                      <form action={setReviewHidden} className="mt-1.5 flex items-center gap-1.5">
+                        <input type="hidden" name="id" value={r.id} />
+                        <input type="hidden" name="hide" value="1" />
+                        <input
+                          name="reason"
+                          placeholder="가리는 사유 (필수)"
+                          aria-label="후기를 가리는 사유"
+                          className="min-w-0 flex-1 rounded-full border border-line-strong bg-bg px-2.5 py-1 text-[11px] text-fg placeholder:text-faint focus:border-fg/30 focus:outline-none"
+                        />
+                        <button className="shrink-0 cursor-pointer rounded-full border border-danger/30 px-2.5 py-1 text-[11px] font-medium text-danger-ink transition-colors hover:bg-danger/[0.06]">
+                          가리기
+                        </button>
+                      </form>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </Section>

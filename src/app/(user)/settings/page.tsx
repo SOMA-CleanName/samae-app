@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { updateDisplayName } from "./actions";
+import { submitSupportRequest } from "@/app/actions/support";
 import { AvatarUploader } from "./AvatarUploader";
 import { DeleteAccount } from "./DeleteAccount";
 import { loadPhoneConsentState, maskPhone } from "@/lib/phone-consent";
@@ -102,6 +103,33 @@ export default async function SettingsPage() {
             </>
           )}
         </ul>
+      </section>
+
+      {/* 개인정보 요청 — 처리방침 6조가 약속한 "문의처".
+          ⚠️ **탈퇴 위에 둔다.** 삭제만 길이 있으면 "정정하고 싶을 뿐인데" 도 탈퇴로 간다.
+             열람·정정·처리정지는 계정을 지우지 않고 할 수 있다는 걸 먼저 보여준다. */}
+      <section className="mt-10 border-t border-fg/10 pt-6">
+        <p className="text-sm font-medium">내 개인정보</p>
+        <p className="mt-1 text-xs leading-relaxed text-muted">
+          내 정보를 <b className="text-fg/80">열람·수정·삭제</b>하거나 <b className="text-fg/80">처리를 멈춰</b>달라고
+          요청할 수 있어요. 본인 확인 뒤 처리하고 결과를 알려드려요.{" "}
+          <Link href="/privacy" className="underline underline-offset-2">개인정보 처리방침</Link>
+        </p>
+        <form action={submitSupportRequest} className="mt-3 flex flex-col gap-2">
+          <input type="hidden" name="kind" value="privacy" />
+          <textarea
+            name="body"
+            required
+            rows={3}
+            maxLength={1000}
+            placeholder="무엇을 요청하시나요? (예: 가입할 때 넣은 전화번호를 지워주세요)"
+            aria-label="개인정보 요청 내용"
+            className="w-full rounded-xl border border-fg/15 bg-bg px-3 py-2.5 text-sm leading-relaxed outline-none focus:border-fg/35"
+          />
+          <button className="self-start cursor-pointer rounded-xl border border-fg/15 px-4 py-2 text-sm font-medium transition-colors hover:bg-fg/[0.04]">
+            요청 보내기
+          </button>
+        </form>
       </section>
 
       {/* 회원 탈퇴 */}
