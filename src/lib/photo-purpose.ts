@@ -41,3 +41,39 @@ export function togglePurpose(selected: readonly PurposeKey[], purpose: PurposeK
     ? selected.filter((item) => item !== purpose)
     : [...selected, purpose];
 }
+
+// ── 개인 목적 안의 성별 (0132) ────────────────────────────────────────────
+// 개인 사진에만 붙는다. 커플·웨딩 사진에는 두 성별이 다 있어 성별을 묻지 않는다(docs/39 §3.2).
+
+export const GENDER_OPTIONS = [
+  { key: "female", label: "여성" },
+  { key: "male", label: "남성" },
+] as const;
+
+export type PurposeGender = (typeof GENDER_OPTIONS)[number]["key"];
+export type GenderSource = "auto" | "manual" | null;
+
+export function isPurposeGender(value: unknown): value is PurposeGender {
+  return value === "female" || value === "male";
+}
+
+export function genderLabel(key: PurposeGender): string {
+  return GENDER_OPTIONS.find((option) => option.key === key)!.label;
+}
+
+/** 성별은 개인 목적이 있을 때만 산다. 개인이 없으면 무엇을 넘겨도 null 이다. */
+export function genderFor(purposes: readonly PurposeKey[], gender: PurposeGender | null | undefined): PurposeGender | null {
+  return purposes.includes("personal") && isPurposeGender(gender) ? gender : null;
+}
+
+/** 서버로 넘어온 값 검사 — null(지정 안 함)과 여성·남성만 받는다. */
+export function parseGenderSelection(value: unknown): PurposeGender | null {
+  if (value === null) return null;
+  if (!isPurposeGender(value)) throw new Error("성별은 여성 또는 남성만 선택할 수 있습니다.");
+  return value;
+}
+
+/** 목적 칩 이름 — 개인에 성별이 있으면 "개인·여성". */
+export function purposeChipLabel(purpose: PurposeKey, gender: PurposeGender | null): string {
+  return purpose === "personal" && gender ? `${purposeLabel(purpose)}·${genderLabel(gender)}` : purposeLabel(purpose);
+}

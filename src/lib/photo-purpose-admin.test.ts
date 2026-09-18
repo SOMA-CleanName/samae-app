@@ -447,3 +447,78 @@ test("package-unlinked filter only includes album portfolios without a package i
     ["a2"],
   );
 });
+
+// ── 개인 목적 안의 성별 ──────────────────────────────────────────────────
+const personalRows: AdminPurposeRow[] = [
+  { ...rows[0], albumId: "g1", albumPurposes: ["personal"], photoPurposes: ["personal"],
+    albumGender: "female", albumGenderSource: "auto", photoGender: "female", photoGenderSource: "auto",
+    photoOverridden: false },
+  { ...rows[0], photoId: "g1-p2", albumId: "g1", albumPurposes: ["personal"], photoPurposes: ["personal"],
+    albumGender: "female", albumGenderSource: "auto", photoGender: "male", photoGenderSource: "manual",
+    photoOverridden: true },
+];
+
+test("성별은 포트폴리오와 사진에 따로 담긴다", () => {
+  const [album] = groupPurposeRows(personalRows);
+  assert.equal(album.gender, "female");
+  assert.equal(album.genderSource, "auto");
+  assert.deepEqual(album.photos.map((p) => p.gender), ["female", "male"]);
+});
+
+test("포트폴리오 적용은 예외 사진을 빼고 성별을 확정한다", () => {
+  const [album] = applyAlbumPurposes(groupPurposeRows(personalRows), "g1", ["personal"], "male");
+  assert.equal(album.gender, "male");
+  assert.equal(album.genderSource, "manual");
+  assert.deepEqual(album.photos.map((p) => [p.gender, p.genderSource]), [["male", "manual"], ["male", "manual"]]);
+});
+
+test("개인을 빼면 성별도 사라진다", () => {
+  const [album] = applyAlbumPurposes(groupPurposeRows(personalRows), "g1", ["couple"], "female");
+  assert.equal(album.gender, null);
+  assert.equal(album.photos[0].gender, null);
+});
+
+test("성별을 안 넘기면(DB 준비 전) 지금 성별과 출처를 둔다", () => {
+  const [album] = applyAlbumPurposes(groupPurposeRows(personalRows), "g1", ["personal", "pet"]);
+  assert.equal(album.gender, "female");
+  assert.equal(album.genderSource, "auto");
+});
+
+test("포트폴리오 검수는 자동 초안 성별을 확정하고 예외 사진은 그대로 둔다", () => {
+  const [album] = reviewAlbumOptimistically(groupPurposeRows(personalRows), "g1");
+  assert.equal(album.genderSource, "manual");
+  assert.equal(album.photos[0].genderSource, "manual");
+  assert.equal(album.photos[1].gender, "male");
+});
+
+test("예외를 풀면 포트폴리오 성별을 물려받는다", () => {
+  const [album] = clearPhotoPurposes(groupPurposeRows(personalRows), "g1", "g1-p2");
+  assert.equal(album.photos[1].gender, "female");
+});
+
+test("성별 필터와 집계", () => {
+  const albums = [
+    ...groupPurposeRows(personalRows),
+    ...groupPurposeRows([{ ...rows[0], albumId: "g2", albumPurposes: ["personal"], photoPurposes: ["personal"] }]),
+  ];
+  const ids = (state: "gender-missing" | "gender-auto") =>
+    filterPurposeAlbums(albums, { state, purpose: "all", photographer: "" }).map((a) => a.id);
+  assert.deepEqual(ids("gender-missing"), ["g2"]);
+  assert.deepEqual(ids("gender-auto"), ["g1"]);
+  const summary = summarizePurposeCounts(albums);
+  assert.deepEqual(summary.genders, [
+    { gender: "female", portfolioCount: 1, photoCount: 1 },
+    { gender: "male", portfolioCount: 0, photoCount: 1 },
+  ]);
+});
+
+test("목적 필터로 개인 안의 성별만 볼 수 있다", () => {
+  const albums = [
+    ...groupPurposeRows(personalRows),
+    ...groupPurposeRows([{ ...rows[0], albumId: "g2", albumPurposes: ["personal"], photoPurposes: ["personal"] }]),
+  ];
+  const ids = (gender: "female" | "male") =>
+    filterPurposeAlbums(albums, { state: "all", purpose: "personal", gender, photographer: "" }).map((a) => a.id);
+  assert.deepEqual(ids("female"), ["g1"]);
+  assert.deepEqual(ids("male"), ["g1"], "여성 포트폴리오 안의 남성 예외 사진도 찾는다");
+});

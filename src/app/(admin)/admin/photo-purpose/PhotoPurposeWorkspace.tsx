@@ -1,10 +1,20 @@
 "use client";
 
 /* eslint-disable @next/next/no-img-element */
-import { useDeferredValue, useMemo, useState, useTransition } from "react";
+import { Fragment, useDeferredValue, useMemo, useState, useTransition } from "react";
 
 import { cn } from "@/lib/cn";
-import { PURPOSE_OPTIONS, purposeLabel, togglePurpose, type PurposeKey } from "@/lib/photo-purpose";
+import {
+  GENDER_OPTIONS,
+  genderFor,
+  genderLabel,
+  PURPOSE_OPTIONS,
+  purposeChipLabel,
+  purposeLabel,
+  togglePurpose,
+  type PurposeGender,
+  type PurposeKey,
+} from "@/lib/photo-purpose";
 import {
   filterPurposeAlbums,
   formatPurposePrice,
@@ -37,6 +47,8 @@ const STATE_OPTIONS: Array<{ key: PurposeFilter["state"]; label: string }> = [
   { key: "text-conflict", label: "텍스트 충돌" },
   { key: "package-linked", label: "상품 지정" },
   { key: "package-unlinked", label: "상품 미지정" },
+  { key: "gender-missing", label: "성별 미지정" },
+  { key: "gender-auto", label: "성별 미검수" },
 ];
 
 const countFormatter = new Intl.NumberFormat("ko-KR");
@@ -65,16 +77,26 @@ function stateLabel(album: AdminPurposeAlbum) {
   return "자동 분류";
 }
 
-export function PhotoPurposeWorkspace({ initialAlbums, multiplePurposesReady = true }: { initialAlbums: AdminPurposeAlbum[]; multiplePurposesReady?: boolean }) {
+export function PhotoPurposeWorkspace({
+  initialAlbums,
+  multiplePurposesReady = true,
+  genderReady = false,
+}: {
+  initialAlbums: AdminPurposeAlbum[];
+  multiplePurposesReady?: boolean;
+  /** 성별 칸(0132)이 DB 에 있나. 없으면 성별 선택·필터를 숨긴다. */
+  genderReady?: boolean;
+}) {
   const [albums, setAlbums] = useState(initialAlbums);
   const [previousInitialAlbums, setPreviousInitialAlbums] = useState(initialAlbums);
   const [state, setState] = useState<PurposeFilter["state"]>("unclassified");
   const [purposeFilter, setPurposeFilter] = useState<PurposeFilter["purpose"]>("all");
+  const [genderFilter, setGenderFilter] = useState<PurposeGender | null>(null);
   const [photographer, setPhotographer] = useState("");
   const deferredPhotographer = useDeferredValue(photographer);
   const [selectedAlbumId, setSelectedAlbumId] = useState(initialAlbums[0]?.id ?? "");
   const [selectedPhotoId, setSelectedPhotoId] = useState("");
-  const [choice, setChoice] = useState<{ context: string; purposes: PurposeKey[] } | null>(null);
+  const [choice, setChoice] = useState<{ context: string; purposes: PurposeKey[]; gender: PurposeGender | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -89,9 +111,10 @@ export function PhotoPurposeWorkspace({ initialAlbums, multiplePurposesReady = t
       filterPurposeAlbums(albums, {
         state,
         purpose: purposeFilter,
+        gender: genderFilter,
         photographer: deferredPhotographer,
       }),
-    [albums, deferredPhotographer, purposeFilter, state],
+    [albums, deferredPhotographer, genderFilter, purposeFilter, state],
   );
   const selectedAlbum =
     filtered.find((album) => album.id === selectedAlbumId) ?? filtered[0] ?? null;
@@ -107,8 +130,15 @@ export function PhotoPurposeWorkspace({ initialAlbums, multiplePurposesReady = t
         ? selectedPhoto.purposes
         : selectedAlbum?.purposes ?? [];
   const savedPurposes = selectedPhoto?.overridden ? selectedPhoto.purposes : selectedAlbum?.purposes ?? [];
+  const savedGender = (selectedPhoto?.overridden ? selectedPhoto.gender : selectedAlbum?.gender) ?? null;
+  // 성별은 개인 목적이 있을 때만 산다 — 개인을 끄면 고른 성별도 함께 사라진다.
+  const selectedGender = genderFor(selectedPurposes, choice?.context === context ? choice.gender : savedGender);
   const hasUnappliedChanges = selectedPurposes.length !== savedPurposes.length ||
-    selectedPurposes.some((purpose, index) => purpose !== savedPurposes[index]);
+    selectedPurposes.some((purpose, index) => purpose !== savedPurposes[index]) ||
+    (genderReady && selectedGender !== genderFor(savedPurposes, savedGender));
+  const genderToSave = genderReady ? selectedGender : undefined;
+  // 목적은 검수했는데 성별은 자동 초안인 포트폴리오 — 검수 버튼이 성별 확정을 맡는다.
+  const genderDraft = genderReady && !!selectedAlbum?.gender && selectedAlbum.genderSource === "auto";
   const cannotApply = pending || selectedPurposes.length === 0 || (!multiplePurposesReady && selectedPurposes.length > 1);
   const selectedEvidence = selectedPhoto?.overridden ? selectedPhoto.evidence : selectedAlbum?.evidence;
 
@@ -140,15 +170,15 @@ export function PhotoPurposeWorkspace({ initialAlbums, multiplePurposesReady = t
     const snapshot = albums;
     const groupId = selectedAlbum.id;
     setError(null);
-    setAlbums(applyAlbumPurposes(albums, groupId, selectedPurposes));
+    setAlbums(applyAlbumPurposes(albums, groupId, selectedPurposes, genderToSave));
     startTransition(async () => {
       try {
         if (selectedAlbum.albumId) {
-          await setAlbumPurposes(selectedAlbum.albumId, selectedPurposes);
+          await setAlbumPurposes(selectedAlbum.albumId, selectedPurposes, genderToSave);
         } else {
-          await setPhotoPurposes(selectedPhoto.id, selectedPurposes);
+          await setPhotoPurposes(selectedPhoto.id, selectedPurposes, genderToSave);
           setAlbums((current) =>
-            applyPhotoPurposes(current, groupId, selectedPhoto.id, selectedPurposes),
+            applyPhotoPurposes(current, groupId, selectedPhoto.id, selectedPurposes, genderToSave),
           );
         }
       } catch (caught) {
@@ -163,10 +193,10 @@ export function PhotoPurposeWorkspace({ initialAlbums, multiplePurposesReady = t
     const snapshot = albums;
     const groupId = selectedAlbum.id;
     setError(null);
-    setAlbums(applyPhotoPurposes(albums, groupId, selectedPhoto.id, selectedPurposes));
+    setAlbums(applyPhotoPurposes(albums, groupId, selectedPhoto.id, selectedPurposes, genderToSave));
     startTransition(async () => {
       try {
-        await setPhotoPurposes(selectedPhoto.id, selectedPurposes);
+        await setPhotoPurposes(selectedPhoto.id, selectedPurposes, genderToSave);
       } catch (caught) {
         setAlbums(snapshot);
         setError(caught instanceof Error ? caught.message : "사진 목적을 저장하지 못했습니다.");
@@ -195,14 +225,16 @@ export function PhotoPurposeWorkspace({ initialAlbums, multiplePurposesReady = t
     if (!selectedAlbum || !selectedPhoto || !selectedAlbum.purpose) return;
     const snapshot = albums;
     const groupId = selectedAlbum.id;
+    // 자동 초안 성별은 포트폴리오 검수와 함께 확정한다.
+    const confirmGender = genderReady && selectedAlbum.genderSource === "auto" ? selectedAlbum.gender : null;
     setError(null);
     setAlbums((current) => reviewAlbumOptimistically(current, groupId));
     startTransition(async () => {
       try {
         if (selectedAlbum.albumId) {
-          await reviewAlbumPurpose(selectedAlbum.albumId);
+          await reviewAlbumPurpose(selectedAlbum.albumId, confirmGender);
         } else {
-          await reviewPhotoPurpose(selectedPhoto.id);
+          await reviewPhotoPurpose(selectedPhoto.id, confirmGender);
         }
       } catch (caught) {
         setAlbums(snapshot);
@@ -264,7 +296,7 @@ export function PhotoPurposeWorkspace({ initialAlbums, multiplePurposesReady = t
             <span className="text-caption tabular-nums text-muted">{filtered.length}개</span>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-1.5">
-            {STATE_OPTIONS.map((option) => (
+            {STATE_OPTIONS.filter((option) => genderReady || !option.key.startsWith("gender-")).map((option) => (
               <button
                 key={option.key}
                 type="button"
@@ -284,14 +316,28 @@ export function PhotoPurposeWorkspace({ initialAlbums, multiplePurposesReady = t
           </div>
           <div className="mt-2 grid grid-cols-2 gap-2">
             <select
-              value={purposeFilter}
-              onChange={(event) => setPurposeFilter(event.target.value as PurposeFilter["purpose"])}
+              value={genderFilter ? `personal:${genderFilter}` : purposeFilter}
+              onChange={(event) => {
+                // "personal:female" 처럼 개인 아래 성별까지 고를 수 있다
+                const [purpose, gender] = event.target.value.split(":");
+                setPurposeFilter(purpose as PurposeFilter["purpose"]);
+                setGenderFilter(gender === "female" || gender === "male" ? gender : null);
+              }}
               aria-label="목적 필터"
               className="min-w-0 rounded-lg border border-line bg-bg px-2.5 py-2 text-caption outline-none focus:border-brand"
             >
               <option value="all">목적 전체</option>
               {PURPOSE_OPTIONS.map((option) => (
-                <option key={option.key} value={option.key}>{option.label}</option>
+                <Fragment key={option.key}>
+                  <option value={option.key}>{option.label}</option>
+                  {option.key === "personal" && genderReady
+                    ? GENDER_OPTIONS.map((gender) => (
+                        <option key={gender.key} value={`personal:${gender.key}`}>
+                          {"\u00a0\u00a0"}└ {option.label}·{gender.label}
+                        </option>
+                      ))
+                    : null}
+                </Fragment>
               ))}
             </select>
             <input
@@ -303,44 +349,6 @@ export function PhotoPurposeWorkspace({ initialAlbums, multiplePurposesReady = t
             />
           </div>
         </div>
-
-        <section className="border-b border-line px-3.5 py-3" aria-label="목적별 집계">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="text-body-sm font-semibold">목적별 집계</h3>
-            <span className="text-[11px] text-muted">전체 공개 사진 기준</span>
-          </div>
-          <table className="mt-2 w-full text-caption">
-            <caption className="sr-only">목적별 포트폴리오 개수와 사진 장수</caption>
-            <thead className="text-[11px] text-muted">
-              <tr>
-                <th scope="col" className="py-1.5 text-left font-medium">목적</th>
-                <th scope="col" className="py-1.5 text-right font-medium">포트폴리오</th>
-                <th scope="col" className="py-1.5 text-right font-medium">사진</th>
-              </tr>
-            </thead>
-            <tbody>
-              {purposeCounts.purposes.map((item) => (
-                <tr key={item.purpose} className="border-t border-line">
-                  <th scope="row" className="py-1.5 text-left font-medium text-muted">
-                    {purposeLabel(item.purpose)}
-                  </th>
-                  <td className="py-1.5 text-right tabular-nums">{countFormatter.format(item.portfolioCount)}개</td>
-                  <td className="py-1.5 text-right tabular-nums">{countFormatter.format(item.photoCount)}장</td>
-                </tr>
-              ))}
-            </tbody>
-            <tfoot className="border-t border-line-strong font-semibold">
-              <tr>
-                <th scope="row" className="pt-2 text-left">전체</th>
-                <td className="pt-2 text-right tabular-nums">{countFormatter.format(purposeCounts.portfolioCount)}개</td>
-                <td className="pt-2 text-right tabular-nums">{countFormatter.format(purposeCounts.photoCount)}장</td>
-              </tr>
-            </tfoot>
-          </table>
-          <p className="mt-2 text-[11px] leading-relaxed text-muted">
-            포트폴리오와 사진에 지정한 목적을 각각 셉니다. 복수 목적은 각각 집계하며, 전체는 중복을 제외합니다.
-          </p>
-        </section>
 
         <div className="max-h-[760px] flex-1 space-y-1.5 overflow-y-auto p-2">
           {filtered.length === 0 ? (
@@ -378,7 +386,7 @@ export function PhotoPurposeWorkspace({ initialAlbums, multiplePurposesReady = t
                     {stateLabel(album)}
                   </span>
                   {album.purposes.length ? (
-                    <span className="truncate text-[11px] text-muted">{album.purposes.map(purposeLabel).join(" · ")}</span>
+                    <span className="truncate text-[11px] text-muted">{album.purposes.map((p) => purposeChipLabel(p, album.gender)).join(" · ")}</span>
                   ) : null}
                   {album.source && album.source !== "manual" ? (
                     <span className="truncate text-[11px] text-muted">{sourceLabel(album.source)}</span>
@@ -391,6 +399,55 @@ export function PhotoPurposeWorkspace({ initialAlbums, multiplePurposesReady = t
             </button>
           ))}
         </div>
+
+        <section className="border-t border-line px-3.5 py-3" aria-label="목적별 집계">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-body-sm font-semibold">목적별 집계</h3>
+            <span className="text-[11px] text-muted">전체 공개 사진 기준</span>
+          </div>
+          <table className="mt-2 w-full text-caption">
+            <caption className="sr-only">목적별 포트폴리오 개수와 사진 장수</caption>
+            <thead className="text-[11px] text-muted">
+              <tr>
+                <th scope="col" className="py-1.5 text-left font-medium">목적</th>
+                <th scope="col" className="py-1.5 text-right font-medium">포트폴리오</th>
+                <th scope="col" className="py-1.5 text-right font-medium">사진</th>
+              </tr>
+            </thead>
+            <tbody>
+              {purposeCounts.purposes.map((item) => (
+                <Fragment key={item.purpose}>
+                  <tr className="border-t border-line">
+                    <th scope="row" className="py-1.5 text-left font-medium text-muted">
+                      {purposeLabel(item.purpose)}
+                    </th>
+                    <td className="py-1.5 text-right tabular-nums">{countFormatter.format(item.portfolioCount)}개</td>
+                    <td className="py-1.5 text-right tabular-nums">{countFormatter.format(item.photoCount)}장</td>
+                  </tr>
+                  {item.purpose === "personal" && genderReady
+                    ? purposeCounts.genders.map((row) => (
+                        <tr key={row.gender} className="text-[11px] text-muted">
+                          <th scope="row" className="py-1 pl-3 text-left font-normal">└ {genderLabel(row.gender)}</th>
+                          <td className="py-1 text-right tabular-nums">{countFormatter.format(row.portfolioCount)}개</td>
+                          <td className="py-1 text-right tabular-nums">{countFormatter.format(row.photoCount)}장</td>
+                        </tr>
+                      ))
+                    : null}
+                </Fragment>
+              ))}
+            </tbody>
+            <tfoot className="border-t border-line-strong font-semibold">
+              <tr>
+                <th scope="row" className="pt-2 text-left">전체</th>
+                <td className="pt-2 text-right tabular-nums">{countFormatter.format(purposeCounts.portfolioCount)}개</td>
+                <td className="pt-2 text-right tabular-nums">{countFormatter.format(purposeCounts.photoCount)}장</td>
+              </tr>
+            </tfoot>
+          </table>
+          <p className="mt-2 text-[11px] leading-relaxed text-muted">
+            포트폴리오와 사진에 지정한 목적을 각각 셉니다. 복수 목적은 각각 집계하며, 전체는 중복을 제외합니다.
+          </p>
+        </section>
       </section>
 
       <section className="min-w-0 overflow-hidden rounded-2xl border border-line bg-surface">
@@ -441,7 +498,7 @@ export function PhotoPurposeWorkspace({ initialAlbums, multiplePurposesReady = t
                   {photo.purposes.length ? (
                     <span className="absolute inset-x-2 bottom-2 flex flex-wrap gap-1 text-left text-[11px] font-medium text-white">
                       {photo.purposes.map((purpose) => (
-                        <span key={purpose} className="rounded-md bg-black/65 px-2 py-1 backdrop-blur-sm">{purposeLabel(purpose)}</span>
+                        <span key={purpose} className="rounded-md bg-black/65 px-2 py-1 backdrop-blur-sm">{purposeChipLabel(purpose, photo.gender)}</span>
                       ))}
                     </span>
                   ) : null}
@@ -473,6 +530,15 @@ export function PhotoPurposeWorkspace({ initialAlbums, multiplePurposesReady = t
                   <div className="flex justify-between gap-2"><dt className="text-muted">출처</dt><dd className="truncate">{sourceLabel(selectedPhoto.source)}</dd></div>
                   <div className="flex justify-between gap-2"><dt className="text-muted">포트폴리오 검수</dt><dd>{selectedAlbum.reviewed ? "완료" : "미검수"}</dd></div>
                   <div className="flex justify-between gap-2"><dt className="text-muted">선택 사진 검수</dt><dd>{selectedPhoto.reviewed ? "완료" : "미검수"}</dd></div>
+                  {genderReady && selectedPhoto.purposes.includes("personal") ? (
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-muted">성별</dt>
+                      <dd>
+                        {selectedPhoto.gender ? genderLabel(selectedPhoto.gender) : "미지정"}
+                        {selectedPhoto.genderSource === "auto" ? " · 자동 초안" : ""}
+                      </dd>
+                    </div>
+                  ) : null}
                   {selectedPhoto.title ? (
                     <div className="flex justify-between gap-2"><dt className="text-muted">사진 제목</dt><dd className="truncate">{selectedPhoto.title}</dd></div>
                   ) : null}
@@ -571,7 +637,10 @@ export function PhotoPurposeWorkspace({ initialAlbums, multiplePurposesReady = t
                       type="button"
                       role="checkbox"
                       aria-checked={active}
-                      onClick={() => { setChoice({ context, purposes: togglePurpose(selectedPurposes, option.key) }); setError(null); }}
+                      onClick={() => {
+                        setChoice({ context, purposes: togglePurpose(selectedPurposes, option.key), gender: selectedGender });
+                        setError(null);
+                      }}
                       className={cn(
                         "rounded-lg border px-3 py-2.5 text-left text-caption font-medium transition-colors",
                         active
@@ -585,12 +654,47 @@ export function PhotoPurposeWorkspace({ initialAlbums, multiplePurposesReady = t
                   );
                 })}
               </div>
+              {genderReady && selectedPurposes.includes("personal") ? (
+                <div className="mt-3 rounded-lg border border-line bg-bg p-2.5">
+                  <p id="purpose-gender-label" className="text-caption font-semibold">개인 · 성별</p>
+                  <p className="mt-0.5 text-[11px] leading-relaxed text-muted">
+                    개인 목적에만 붙습니다. 검색에서 “여자”·“남자” 를 가르는 데 씁니다.
+                  </p>
+                  <div role="radiogroup" aria-labelledby="purpose-gender-label" className="mt-2 grid grid-cols-2 gap-1.5">
+                    {GENDER_OPTIONS.map((option) => {
+                      const active = selectedGender === option.key;
+                      return (
+                        <button
+                          key={option.key}
+                          type="button"
+                          role="radio"
+                          aria-checked={active}
+                          onClick={() => {
+                            // 다시 누르면 지정 해제
+                            setChoice({ context, purposes: selectedPurposes, gender: active ? null : option.key });
+                            setError(null);
+                          }}
+                          className={cn(
+                            "rounded-lg border px-3 py-2 text-left text-caption font-medium transition-colors",
+                            active
+                              ? "border-brand bg-brand-soft text-brand-ink"
+                              : "border-line bg-surface text-muted hover:border-line-strong hover:text-fg",
+                          )}
+                        >
+                          <span className={cn("mr-2 inline-block h-2.5 w-2.5 rounded-full border", active ? "border-brand bg-brand" : "border-faint")} />
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
             </fieldset>
 
             <div className="p-4">
               <p className="text-body-sm font-semibold">선택한 목적 적용</p>
               <p role="status" className={cn("mt-1 text-caption", hasUnappliedChanges ? "text-brand" : "text-muted")}>
-                {pending ? "저장 중…" : selectedPurposes.length ? `${selectedPurposes.map(purposeLabel).join(" · ")}${hasUnappliedChanges ? " — 아직 적용하지 않았어요" : ""}` : "목적을 한 개 이상 선택해주세요."}
+                {pending ? "저장 중…" : selectedPurposes.length ? `${selectedPurposes.map((p) => purposeChipLabel(p, selectedGender)).join(" · ")}${hasUnappliedChanges ? " — 아직 적용하지 않았어요" : ""}` : "목적을 한 개 이상 선택해주세요."}
               </p>
               {!multiplePurposesReady ? (
                 <p role="alert" className="mt-2 rounded-lg bg-danger-soft px-3 py-2 text-caption text-danger-ink">
@@ -642,10 +746,12 @@ export function PhotoPurposeWorkspace({ initialAlbums, multiplePurposesReady = t
                 <button
                   type="button"
                   onClick={reviewPortfolio}
-                  disabled={pending || !selectedAlbum.purpose || selectedAlbum.reviewed}
+                  disabled={pending || !selectedAlbum.purpose || (selectedAlbum.reviewed && !genderDraft)}
                   className="w-full rounded-xl bg-fg px-4 py-3 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {selectedAlbum.reviewed ? "포트폴리오 검수 완료됨" : "포트폴리오 검수 완료"}
+                  {selectedAlbum.reviewed
+                    ? genderDraft ? `성별 확정 — ${genderLabel(selectedAlbum.gender!)}` : "포트폴리오 검수 완료됨"
+                    : "포트폴리오 검수 완료"}
                 </button>
                 <button
                   type="button"
