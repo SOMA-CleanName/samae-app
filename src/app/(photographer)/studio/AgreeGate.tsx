@@ -128,12 +128,11 @@ export function AgreeGate({
     <main className="mx-auto max-w-lg px-5 py-12 font-kr">
       <p className="text-label uppercase tracking-wide text-brand">작가 입점</p>
       <h1 className="mt-2.5 text-h1 font-bold tracking-tight">
-        {reason === "first" ? "입점 문서에 동의해 주세요" : "문서 내용이 바뀌어 다시 동의가 필요해요"}
+        {reason === "first" ? "입점 문서를 확인하고 동의해주세요" : "문서 내용이 바뀌어 다시 동의가 필요해요"}
       </h1>
       <p className="mt-3 text-body leading-relaxed text-muted">
         {displayName}님, 사매에서 작가로 활동하려면 아래 문서를{" "}
-        <b className="font-semibold text-fg">전문으로 읽고</b> 동의해 주세요. 동의한 날이 계약일이 되고,
-        문서별로 읽은 시각과 동의한 시각이 함께 기록돼요.
+        <b className="font-semibold text-fg">전문으로 읽고</b> 동의해 주세요.
       </p>
 
       {/* 핵심 조건 요약 — 문서를 열기 전에 가장 중요한 숫자는 보이게 (약관규제법 3조 설명 의무) */}

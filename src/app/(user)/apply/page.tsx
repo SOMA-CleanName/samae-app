@@ -41,15 +41,19 @@ export default async function ApplyPage() {
     return <ApplyPendingBody displayName={open.display_name} kakaoChannelUrl={kakaoChannelUrl} />;
   }
 
-  // 가입 때 받아 둔 번호 — 카카오 간편가입이 번호까지 가져오므로 다시 입력시키지 않는다
+  // 가입 때 받아 둔 번호와 닉네임 — 카카오 간편가입이 둘 다 가져오므로 다시 입력시키지 않는다
   const { data: profile } = await admin
     .from("profiles")
-    .select("phone")
+    .select("phone, display_name")
     .eq("id", me.id)
     .maybeSingle();
 
   return (
-    <ApplyFormBody kakaoChannelUrl={kakaoChannelUrl} defaultPhone={profile?.phone ?? ""}>
+    <ApplyFormBody
+      kakaoChannelUrl={kakaoChannelUrl}
+      defaultName={profile?.display_name ?? ""}
+      defaultPhone={profile?.phone ?? ""}
+    >
       {/* 작가 지원 폼 진입 — 공급측 온보딩 퍼널 시작(제출=Apply Photographer) */}
       <MpTrackOnce event="Start Apply Photographer" />
     </ApplyFormBody>
