@@ -11,7 +11,7 @@ import { assignColumnAccents, seededShuffle, type AccentColor } from "@/lib/seed
 import { buildDiverseMasonryColumns } from "@/lib/masonry-columns";
 import { FeedInterstitialCard } from "./FeedInterstitialCard";
 import type { FeedInterstitial } from "@/lib/feed-interstitials";
-import { expandSearchResultLoop, shouldKeepGallerySentinel } from "@/lib/search-feed-loop";
+import { shouldKeepGallerySentinel } from "@/lib/search-feed-loop";
 import {
   routeSessionKey,
   SEARCH_FEED_SESSION_SCHEMA,
@@ -989,9 +989,10 @@ export function ExploreGallery({
 
   const columns = useMemo(
     () => {
-      const visibleItems = query
-        ? expandSearchResultLoop(items, visible, query)
-        : items.slice(0, visible);
+      // 검색도 받은 순서를 그대로 쓴다. 서버가 "목적이 맞는 사진 → 비슷한 무드" 로 줄 세워
+      // 보내는데, 세로 비율 맞추기(expandSearchResultLoop)는 관련도를 안 보고 목록 전체에서
+      // 세로·가로를 번갈아 뽑아 아래 묶음 사진을 위로 끌어올렸다.
+      const visibleItems = items.slice(0, visible);
       return query
         ? buildDiverseMasonryColumns(visibleItems, colCount, {
             disperseNonPortrait: true,

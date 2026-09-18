@@ -94,9 +94,21 @@ git log --oneline -1
 ```bash
 grep -c purpose_backfill scripts/embed/run-embed.sh
 grep -c 'embed-text-backfill' scripts/embed/serve.py
+grep -c 'search-query' scripts/embed/serve.py
 ```
 
-둘 다 **1 이상**이어야 한다. `0` 이면 아직 옛 코드다 — PR 머지 여부를 다시 확인할 것.
+셋 다 **1 이상**이어야 한다. `0` 이면 아직 옛 코드다 — PR 머지 여부를 다시 확인할 것.
+
+**새 패키지 설치** — 검색어에서 목적을 떼어내는 형태소 분석기(`kiwipiepy`)가 추가됐다
+([docs/29 §12](29-siglip-text-search.md)). 모델이 패키지에 들어 있어 따로 내려받지 않는다.
+
+```bash
+scripts/embed/.venv/bin/pip install -q -r scripts/embed/requirements.txt
+scripts/embed/.venv/bin/python -c "from kiwipiepy import Kiwi; print(Kiwi().tokenize('가을 커플스냅')[1].form)"
+```
+
+**정상** — `커플` 이 찍힌다.
+**멈출 때** — 설치가 실패하면 멈추고 보고. 이 단계를 건너뛰어도 서버는 뜨지만 검색어 분리가 꺼진다.
 
 ---
 
@@ -116,7 +128,9 @@ until curl -s localhost:8077/health >/dev/null 2>&1; do sleep 2; done
 curl -s localhost:8077/health
 ```
 
-**정상** — `{"ok": true, "device": "mps", "model": "google/siglip2-so400m-patch16-naflex", "dim": 1152, ...}`
+**정상** — `{"ok": true, "device": "mps", "model": "google/siglip2-so400m-patch16-naflex", "dim": 1152, ...}`,
+그리고 상주 서버 로그(`scripts/embed/logs/serve.log`)에 `✅ 검색어 분리 준비` 가 찍힌다.
+`⚠️ 검색어 분리 꺼짐` 이 찍혔다면 §3 의 패키지 설치가 안 된 것이다.
 
 **멈출 때**
 - `device` 가 `mps` 가 아니면 → 멈추고 보고. CPU 로 떨어지면 몇 배 느려진다
@@ -152,7 +166,20 @@ PY
 - `404` → 코드가 안 올라갔다. §3 으로 돌아갈 것
 - 차원이 1152 가 아니면 → 멈추고 보고. 모델이 바뀐 것이다
 
-### 5-2. 읽기 전용 목적 점검
+### 5-2. 검색어 분리 `/search-query`
+
+```bash
+cd ~/srv/samae-app
+TOKEN=$(grep '^PERSONA_SERVICE_TOKEN=' .env.local | cut -d= -f2-)
+curl -s localhost:8077/search-query -H "content-type: application/json" -H "x-samae-token: $TOKEN" \
+  -d '{"query":"가을 커플스냅"}' | python3 -c "import json,sys; r=json.load(sys.stdin); print(r['purposes'], repr(r['mood_text']), len(r['vector'] or []))"
+```
+
+**정상** — `['couple'] '가을' 1152` (목적은 커플, SigLIP 에 넣을 글자는 "가을", 벡터 1152차원)
+
+**멈출 때** — `501` 이면 kiwipiepy 가 없다(§3). 목적이 비어 나오면 멈추고 보고.
+
+### 5-3. 읽기 전용 목적 점검
 
 **DB 에 쓰지 않는다.** `--apply` 가 없으면 미리보기다.
 
@@ -199,8 +226,9 @@ launchctl print "gui/$(id -u)/com.samae.serve" | head -30
 2. 갱신 후 커밋:      (§3 의 git log 첫 줄)
 3. 상주 서버 /health: (§4 의 출력)
 4. 엔드포인트 점검:   (§5-1 의 출력 한 줄)
-5. 목적 미리보기:     (§5-2 의 처리 대상 수)
-6. 멈춘 단계가 있으면: 몇 번에서 무엇 때문에
+5. 검색어 분리:       (§5-2 의 출력 한 줄)
+6. 목적 미리보기:     (§5-3 의 처리 대상 수)
+7. 멈춘 단계가 있으면: 몇 번에서 무엇 때문에
 ```
 
 그리고 **다음 날 오전 6시 배치가 정상으로 끝났는지**를 한 번 더 확인해야 한다. 이게 실제 확인이다.

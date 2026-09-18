@@ -276,3 +276,91 @@ export function orderVectorMatches<T extends { id: string }>(
     return row ? [{ ...row, distance: match.distance }] : [];
   });
 }
+
+// ── 검색어 분리 (맥미니 /search-query) ─────────────────────────────────────
+//
+// "가을 커플스냅" 을 통째로 SigLIP 에 넣으면 눈에 뚜렷한 대상(커플)이 분위기(가을)를 삼킨다.
+// 맥미니가 Kiwi 로 형태소를 쪼개 목적을 떼어내고, 나머지만 벡터로 만든다
+// (scripts/embed/query_parse.py). 목적은 여기서 필터로 쓴다.
+
+export const PHOTO_PURPOSE_KEYS = [
+  "personal", "couple", "friendship", "wedding", "pet", "commercial", "event",
+] as const;
+export type PhotoPurposeKey = (typeof PHOTO_PURPOSE_KEYS)[number];
+
+export type SearchQueryParse = {
+  purposes: PhotoPurposeKey[];
+  /** 목적을 뗀 나머지 글자. 비어 있으면 목적만 검색한 것이다. */
+  moodText: string;
+  vector: number[] | null;
+};
+
+const isPurposeKey = (value: unknown): value is PhotoPurposeKey =>
+  typeof value === "string" && (PHOTO_PURPOSE_KEYS as readonly string[]).includes(value);
+
+/** 맥미니 응답을 검증한다. 무드 글자가 있는데 벡터가 없으면 쓸 수 없는 응답이다. */
+export function parseSearchQueryResponse(value: unknown): SearchQueryParse | null {
+  if (!value || typeof value !== "object") return null;
+  const response = value as { purposes?: unknown; mood_text?: unknown; vector?: unknown; model?: unknown };
+  if (!Array.isArray(response.purposes) || !response.purposes.every(isPurposeKey)) return null;
+  if (typeof response.mood_text !== "string") return null;
+  const moodText = response.mood_text.trim();
+  const vector = response.vector == null
+    ? null
+    : parseTextEmbeddingResponse({ model: response.model, vectors: [response.vector] });
+  if (moodText && !vector) return null;
+  if (!moodText && response.purposes.length === 0) return null;
+  return { purposes: [...response.purposes], moodText, vector: moodText ? vector : null };
+}
+
+/**
+ * 검색어를 맥미니에 보내 목적/나머지/벡터를 받는다.
+ * 갱신 전 맥미니(kiwipiepy 없음)는 404·501 을 준다 — 그때는 "unsupported" 를 돌려
+ * 호출하는 쪽이 예전처럼 검색어 통째로 임베딩하게 한다.
+ */
+export async function requestSearchQuery(
+  rawQuery: string,
+  options: TextEmbeddingRequestOptions
+): Promise<SearchQueryParse | "unsupported" | null> {
+  const baseUrl = options.baseUrl?.trim().replace(/\/$/, "");
+  const query = rawQuery.trim();
+  if (!baseUrl || !query || query.length > 120) return null;
+
+  try {
+    const response = await (options.fetcher ?? fetch)(`${baseUrl}/search-query`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...(options.token ? { "x-samae-token": options.token } : {}),
+      },
+      body: JSON.stringify({ query }),
+      signal: options.signal
+        ? AbortSignal.any([options.signal, AbortSignal.timeout(options.timeoutMs ?? 4_000)])
+        : AbortSignal.timeout(options.timeoutMs ?? 4_000),
+    });
+    if (response.status === 404 || response.status === 501) return "unsupported";
+    if (!response.ok) return null;
+    return parseSearchQueryResponse(await response.json());
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 목적이 맞는 사진을 위로, 나머지는 그 아래 "비슷한 무드" 로 가른다.
+ * 각자 SigLIP 순서는 그대로 둔다. 목적이 없으면 전부 위쪽이다.
+ */
+export function splitByPurposes<T extends { admin_purposes?: string[] | null }>(
+  photos: T[],
+  purposes: readonly string[]
+): { matches: T[]; related: T[] } {
+  if (purposes.length === 0) return { matches: [...photos], related: [] };
+  const wanted = new Set(purposes);
+  const matches: T[] = [];
+  const related: T[] = [];
+  for (const photo of photos) {
+    if ((photo.admin_purposes ?? []).some((purpose) => wanted.has(purpose))) matches.push(photo);
+    else related.push(photo);
+  }
+  return { matches, related };
+}

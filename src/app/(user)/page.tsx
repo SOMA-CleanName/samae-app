@@ -7,7 +7,7 @@ import {
 } from "@/lib/discovery";
 import {
   diversifySearchResults,
-  searchPhotosBySiglip,
+  searchPhotos,
   SIGLIP_SEARCH_MAX_RESULTS,
 } from "@/lib/siglip-text-search";
 import { cookies } from "next/headers";
@@ -117,19 +117,7 @@ export default async function ExploreHome({
     photos = await rerankByPersonaVector(photos);
   } else {
     const basePhotos = query
-      ? diversifySearchResults(
-          query,
-          // 검색 결과는 SigLIP 만으로 만든다. 예전에는 태그 직접 일치를 밴드마다
-          // 36장 먼저 채우고 SigLIP 은 12장만 받았다(태그 75% : SigLIP 25%).
-          [],
-          // SigLIP 실패는 여기서 삼킨다 — 이 화면에는 재시도 UI 가 없어서
-          // 던지면 홈 전체가 에러가 된다. 실패하면 결과 0장으로 보인다.
-          await searchPhotosBySiglip(query, SIGLIP_SEARCH_MAX_RESULTS).catch((error) => {
-            console.error("[home] SigLIP 검색 실패:", error);
-            return [];
-          }),
-          SIGLIP_SEARCH_MAX_RESULTS
-        )
+      ? await searchHomePhotos(query)
       : await fetchPublishedPhotos({});
     if (query) await logSearch(query, basePhotos.length, me?.id);
     const merged = adAsGallery
@@ -286,4 +274,25 @@ export default async function ExploreHome({
       <SiteFooter />
     </section>
   );
+}
+
+/**
+ * 검색 결과 — 목적이 맞는 사진을 위에, 목적은 다르지만 무드가 비슷한 사진을 그 아래에.
+ * "가을 커플스냅" 이면 커플 사진이 가을 순으로 먼저 오고, 다른 가을 사진이 뒤따른다.
+ *
+ * 앨범 흩뜨리기는 두 묶음 **안에서 따로** 한다. 합쳐서 섞으면 아래 묶음 사진이 위로 올라온다.
+ * 태그 검색은 쓰지 않는다 — SigLIP 만으로 만든다.
+ *
+ * 실패는 여기서 삼킨다 — 이 화면에는 재시도 UI 가 없어서 던지면 홈 전체가 에러가 된다.
+ */
+async function searchHomePhotos(query: string) {
+  const result = await searchPhotos(query, SIGLIP_SEARCH_MAX_RESULTS).catch((error) => {
+    console.error("[home] 검색 실패:", error);
+    return null;
+  });
+  if (!result) return [];
+  return [
+    ...diversifySearchResults(query, [], result.matches, SIGLIP_SEARCH_MAX_RESULTS),
+    ...diversifySearchResults(query, [], result.related, SIGLIP_SEARCH_MAX_RESULTS),
+  ].slice(0, SIGLIP_SEARCH_MAX_RESULTS);
 }
