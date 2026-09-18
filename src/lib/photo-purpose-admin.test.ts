@@ -496,15 +496,11 @@ test("예외를 풀면 포트폴리오 성별을 물려받는다", () => {
   assert.equal(album.photos[1].gender, "female");
 });
 
-test("성별 필터와 집계", () => {
+test("성별 집계", () => {
   const albums = [
     ...groupPurposeRows(personalRows),
     ...groupPurposeRows([{ ...rows[0], albumId: "g2", albumPurposes: ["personal"], photoPurposes: ["personal"] }]),
   ];
-  const ids = (state: "gender-missing" | "gender-auto") =>
-    filterPurposeAlbums(albums, { state, purpose: "all", photographer: "" }).map((a) => a.id);
-  assert.deepEqual(ids("gender-missing"), ["g2"]);
-  assert.deepEqual(ids("gender-auto"), ["g1"]);
   const summary = summarizePurposeCounts(albums);
   assert.deepEqual(summary.genders, [
     { gender: "female", portfolioCount: 1, photoCount: 1 },
@@ -521,4 +517,51 @@ test("목적 필터로 개인 안의 성별만 볼 수 있다", () => {
     filterPurposeAlbums(albums, { state: "all", purpose: "personal", gender, photographer: "" }).map((a) => a.id);
   assert.deepEqual(ids("female"), ["g1"]);
   assert.deepEqual(ids("male"), ["g1"], "여성 포트폴리오 안의 남성 예외 사진도 찾는다");
+});
+
+// ── 목적 세부분류 ────────────────────────────────────────────────────────
+const eventRows: AdminPurposeRow[] = [
+  { ...rows[0], albumId: "e1", albumPurposes: ["event", "friendship"], photoPurposes: ["event", "friendship"],
+    albumDetails: ["event.maternity", "friendship.snap"], albumDetailsSource: "auto",
+    photoDetails: ["event.maternity", "friendship.snap"], photoDetailsSource: "auto", photoOverridden: false },
+  { ...rows[0], photoId: "e1-p2", albumId: "e1", albumPurposes: ["event", "friendship"], photoPurposes: ["event"],
+    albumDetails: ["event.maternity", "friendship.snap"], albumDetailsSource: "auto",
+    photoDetails: ["event.family"], photoDetailsSource: "manual", photoOverridden: true },
+];
+
+test("세부분류는 목적에 속한 것만 담긴다", () => {
+  const [album] = groupPurposeRows([{ ...eventRows[0], albumDetails: ["event.maternity", "wedding.ceremony"] }]);
+  assert.deepEqual(album.details, ["event.maternity"], "목적이 없는 웨딩 세부분류는 버린다");
+});
+
+test("포트폴리오 적용은 세부분류를 확정하고 예외 사진은 둔다", () => {
+  const [album] = applyAlbumPurposes(groupPurposeRows(eventRows), "e1", ["event", "friendship"], undefined, ["event.graduation"]);
+  assert.deepEqual(album.details, ["event.graduation"]);
+  assert.equal(album.detailsSource, "manual");
+  assert.deepEqual(album.photos[1].details, ["event.family"]);
+});
+
+test("목적을 빼면 그 목적의 세부분류만 사라진다", () => {
+  const [album] = applyAlbumPurposes(groupPurposeRows(eventRows), "e1", ["friendship"]);
+  assert.deepEqual(album.details, ["friendship.snap"]);
+  assert.equal(album.detailsSource, "auto", "세부분류를 안 넘겼으면 출처는 그대로");
+});
+
+test("포트폴리오 검수는 자동 초안 세부분류도 확정한다", () => {
+  const [album] = reviewAlbumOptimistically(groupPurposeRows(eventRows), "e1");
+  assert.equal(album.detailsSource, "manual");
+  assert.equal(album.photos[0].detailsSource, "manual");
+});
+
+test("세부분류 필터·집계", () => {
+  const albums = [
+    ...groupPurposeRows(eventRows),
+    ...groupPurposeRows([{ ...rows[0], albumId: "e2", albumPurposes: ["event"], photoPurposes: ["event"] }]),
+  ];
+  const byDetail = filterPurposeAlbums(albums, { state: "all", purpose: "event", detail: "event.family", photographer: "" });
+  assert.deepEqual(byDetail.map((a) => a.id), ["e1"], "예외 사진의 세부분류도 찾는다");
+  const summary = summarizePurposeCounts(albums);
+  assert.deepEqual(summary.details.find((d) => d.detail === "event.maternity"), {
+    detail: "event.maternity", portfolioCount: 1, photoCount: 1,
+  });
 });

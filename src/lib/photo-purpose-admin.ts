@@ -1,6 +1,8 @@
 import {
+  detailsFor,
   GENDER_OPTIONS,
   genderFor,
+  PURPOSE_DETAILS,
   isPurposeGender,
   normalizePurposes,
   PURPOSE_OPTIONS,
@@ -51,6 +53,8 @@ export type AdminPurposeRow = {
   photoEvidence?: AdminPurposeEvidence | null;
   photoGender?: PurposeGender | null;
   photoGenderSource?: GenderSource;
+  photoDetails?: string[] | null;
+  photoDetailsSource?: GenderSource;
   albumPurpose: PurposeKey | null;
   albumPurposes?: PurposeKey[] | null;
   albumConfidence: number | null;
@@ -59,6 +63,8 @@ export type AdminPurposeRow = {
   albumEvidence?: AdminPurposeEvidence | null;
   albumGender?: PurposeGender | null;
   albumGenderSource?: GenderSource;
+  albumDetails?: string[] | null;
+  albumDetailsSource?: GenderSource;
   packageId?: string | null;
   adminPackageId?: string | null;
   packageName?: string | null;
@@ -83,6 +89,9 @@ export type AdminPurposePhoto = {
   /** 개인 목적일 때만 — 여성/남성 */
   gender: PurposeGender | null;
   genderSource: GenderSource;
+  /** 목적 세부분류 — "목적.세부" (0133). 출처는 성별과 같은 auto/manual */
+  details: string[];
+  detailsSource: GenderSource;
 };
 
 export type AdminPurposeAlbum = {
@@ -102,6 +111,8 @@ export type AdminPurposeAlbum = {
   evidence: AdminPurposeEvidence | null;
   gender: PurposeGender | null;
   genderSource: GenderSource;
+  details: string[];
+  detailsSource: GenderSource;
   packageId: string | null;
   packageSource: "photographer" | "admin" | null;
   packageName: string | null;
@@ -120,12 +131,12 @@ export type PurposeFilter = {
     | "low-confidence"
     | "text-conflict"
     | "package-linked"
-    | "package-unlinked"
-    | "gender-missing"
-    | "gender-auto";
+    | "package-unlinked";
   purpose: PurposeKey | "all";
   /** 개인 안의 성별로 더 좁힌다(목적은 개인으로 본다). 없으면 성별을 보지 않는다. */
   gender?: PurposeGender | null;
+  /** 세부분류("event.maternity")로 더 좁힌다 */
+  detail?: string | null;
   photographer: string;
 };
 
@@ -155,6 +166,8 @@ function toPhoto(row: AdminPurposeRow): AdminPurposePhoto {
     evidence: row.photoEvidence ?? null,
     gender: isPurposeGender(row.photoGender) ? row.photoGender : null,
     genderSource: row.photoGenderSource ?? null,
+    details: detailsFor(normalizePurposes(row.photoPurposes, row.photoPurpose), row.photoDetails),
+    detailsSource: row.photoDetailsSource ?? null,
   };
 }
 
@@ -192,6 +205,10 @@ export function groupPurposeRows(rows: AdminPurposeRow[]): AdminPurposeAlbum[] {
       evidence: standalone ? row.photoEvidence ?? null : row.albumEvidence ?? null,
       gender: (standalone ? row.photoGender : row.albumGender) ?? null,
       genderSource: (standalone ? row.photoGenderSource : row.albumGenderSource) ?? null,
+      details: standalone
+        ? detailsFor(normalizePurposes(row.photoPurposes, row.photoPurpose), row.photoDetails)
+        : detailsFor(normalizePurposes(row.albumPurposes, row.albumPurpose), row.albumDetails),
+      detailsSource: (standalone ? row.photoDetailsSource : row.albumDetailsSource) ?? null,
       packageId,
       packageSource: row.packageId ? "photographer" : row.adminPackageId ? "admin" : null,
       packageName: linkedPackage?.name ?? row.packageName ?? null,
@@ -217,6 +234,9 @@ export function summarizePurposeCounts(albums: readonly AdminPurposeAlbum[]) {
   // 개인 아래 성별 — 개인으로 센 것 중 성별이 붙은 것만
   const genders = GENDER_OPTIONS.map(({ key }) => ({ gender: key, portfolioCount: 0, photoCount: 0 }));
   const byGender = new Map(genders.map((item) => [item.gender, item]));
+  // 목적 아래 세부분류 — 목적마다 PURPOSE_DETAILS 순서대로
+  const details = Object.values(PURPOSE_DETAILS).flat().map(({ value }) => ({ detail: value, portfolioCount: 0, photoCount: 0 }));
+  const byDetail = new Map(details.map((item) => [item.detail, item]));
   let portfolioCount = 0;
   let photoCount = 0;
 
@@ -229,6 +249,10 @@ export function summarizePurposeCounts(albums: readonly AdminPurposeAlbum[]) {
       }
       const gender = album.purposes.includes("personal") && album.gender ? byGender.get(album.gender) : null;
       if (gender) gender.portfolioCount += 1;
+      for (const detail of album.details) {
+        const count = byDetail.get(detail);
+        if (count) count.portfolioCount += 1;
+      }
     }
     for (const photo of album.photos) {
       photoCount += 1;
@@ -238,19 +262,28 @@ export function summarizePurposeCounts(albums: readonly AdminPurposeAlbum[]) {
       }
       const gender = photo.purposes.includes("personal") && photo.gender ? byGender.get(photo.gender) : null;
       if (gender) gender.photoCount += 1;
+      for (const detail of photo.details) {
+        const count = byDetail.get(detail);
+        if (count) count.photoCount += 1;
+      }
     }
   }
 
-  return { portfolioCount, photoCount, purposes, genders };
+  return { portfolioCount, photoCount, purposes, genders, details };
 }
 
-/** 포트폴리오 검수는 자동 초안 성별도 확정한다(예외 사진 제외). */
+/** 포트폴리오 검수는 자동 초안 성별·세부분류도 확정한다(예외 사진 제외). */
 export function reviewAlbumOptimistically(
   albums: AdminPurposeAlbum[],
   groupId: string,
 ): AdminPurposeAlbum[] {
-  const confirm = <T extends { gender: PurposeGender | null; genderSource: GenderSource }>(item: T): T =>
-    item.gender && item.genderSource === "auto" ? { ...item, genderSource: "manual" } : item;
+  const confirm = <T extends {
+    gender: PurposeGender | null; genderSource: GenderSource; details: string[]; detailsSource: GenderSource;
+  }>(item: T): T => ({
+    ...item,
+    ...(item.gender && item.genderSource === "auto" ? { genderSource: "manual" as const } : {}),
+    ...(item.details.length && item.detailsSource === "auto" ? { detailsSource: "manual" as const } : {}),
+  });
   return albums.map((album) =>
     album.id !== groupId
       ? album
@@ -262,12 +295,29 @@ export function reviewAlbumOptimistically(
   );
 }
 
-function manualPurposes(purposes: readonly PurposeKey[], gender: PurposeGender | null) {
+function manualPurposes(purposes: readonly PurposeKey[], gender: PurposeGender | null, details: readonly string[]) {
   const kept = genderFor(purposes, gender);
+  const keptDetails = detailsFor(purposes, details);
   return {
     purposes: [...purposes], purpose: purposes[0] ?? null,
     confidence: 1, source: "manual" as const, reviewed: true, evidence: null,
     gender: kept, genderSource: kept ? ("manual" as const) : null,
+    details: keptDetails, detailsSource: keptDetails.length ? ("manual" as const) : null,
+  };
+}
+
+/** 넘기지 않은 값(칸이 없는 DB)은 지금 값을 두되, 목적이 빠진 것은 지운다. 출처도 그대로 둔다. */
+function nextMeta(
+  current: { gender: PurposeGender | null; genderSource: GenderSource; details: string[]; detailsSource: GenderSource },
+  purposes: readonly PurposeKey[],
+  gender: PurposeGender | null | undefined,
+  details: readonly string[] | undefined,
+) {
+  const next = manualPurposes(purposes, gender === undefined ? current.gender : gender, details ?? current.details);
+  return {
+    ...next,
+    ...(gender === undefined && next.gender ? { genderSource: current.genderSource } : {}),
+    ...(details === undefined && next.details.length ? { detailsSource: current.detailsSource } : {}),
   };
 }
 
@@ -277,14 +327,14 @@ export function applyAlbumPurposes(
   groupId: string,
   purposes: readonly PurposeKey[],
   gender?: PurposeGender | null,
+  details?: readonly string[],
 ): AdminPurposeAlbum[] {
   return albums.map((album) => {
     if (album.id !== groupId) return album;
-    const next = manualPurposes(purposes, gender === undefined ? album.gender : gender);
-    const keepSource = gender === undefined && next.gender ? { genderSource: album.genderSource } : {};
+    const next = nextMeta(album, purposes, gender, details);
     return {
-      ...album, ...next, ...keepSource,
-      photos: album.photos.map((photo) => photo.overridden ? photo : { ...photo, ...next, ...keepSource }),
+      ...album, ...next,
+      photos: album.photos.map((photo) => photo.overridden ? photo : { ...photo, ...next }),
     };
   });
 }
@@ -295,14 +345,13 @@ export function applyPhotoPurposes(
   photoId: string,
   purposes: readonly PurposeKey[],
   gender?: PurposeGender | null,
+  details?: readonly string[],
 ): AdminPurposeAlbum[] {
   return albums.map((album) => {
     if (album.id !== groupId) return album;
     const photos = album.photos.map((photo) => {
       if (photo.id !== photoId) return photo;
-      const next = manualPurposes(purposes, gender === undefined ? photo.gender : gender);
-      const keepSource = gender === undefined && next.gender ? { genderSource: photo.genderSource } : {};
-      return { ...photo, ...next, ...keepSource, overridden: true };
+      return { ...photo, ...nextMeta(photo, purposes, gender, details), overridden: true };
     });
     const standalone = album.albumId === null ? photos.find((photo) => photo.id === photoId) : null;
     return {
@@ -311,6 +360,7 @@ export function applyPhotoPurposes(
         purposes: standalone.purposes, purpose: standalone.purpose, confidence: standalone.confidence,
         source: standalone.source, reviewed: standalone.reviewed, evidence: standalone.evidence,
         gender: standalone.gender, genderSource: standalone.genderSource,
+        details: standalone.details, detailsSource: standalone.detailsSource,
       } : {}),
       photos,
       overrideCount: photos.filter((photo) => photo.overridden).length,
@@ -323,10 +373,11 @@ export function clearPhotoPurposes(albums: AdminPurposeAlbum[], groupId: string,
     if (album.id !== groupId) return album;
     const inherited = album.albumId === null
       ? { purposes: [], purpose: null, confidence: null, source: null, reviewed: false, evidence: null,
-          gender: null, genderSource: null }
+          gender: null, genderSource: null, details: [], detailsSource: null }
       : { purposes: [...album.purposes], purpose: album.purpose, confidence: album.confidence,
           source: album.source, reviewed: album.reviewed, evidence: album.evidence,
-          gender: album.gender, genderSource: album.genderSource };
+          gender: album.gender, genderSource: album.genderSource,
+          details: [...album.details], detailsSource: album.detailsSource };
     const photos = album.photos.map((photo) => photo.id !== photoId ? photo : { ...photo, ...inherited, overridden: false });
     return {
       ...album, ...(album.albumId === null ? inherited : {}), photos,
@@ -369,14 +420,15 @@ export function filterPurposeAlbums(
       (filter.state === "text-conflict" && album.evidence?.text_conflict === true) ||
       (filter.state === "package-linked" && album.albumId !== null && album.packageId !== null) ||
       (filter.state === "package-unlinked" && album.albumId !== null && album.packageId === null) ||
-      (filter.state === "gender-missing" && album.purposes.includes("personal") && album.gender === null) ||
-      (filter.state === "gender-auto" && album.gender !== null && album.genderSource === "auto") ||
       (filter.state === "low-confidence" &&
         !album.reviewed &&
         AUTOMATIC_PURPOSE_SOURCES.has(album.source) &&
         album.confidence !== null &&
         album.confidence < LOW_CONFIDENCE_THRESHOLD);
-    const purposeMatches = filter.gender
+    const detail = filter.detail;
+    const purposeMatches = detail
+      ? album.details.includes(detail) || album.photos.some((photo) => photo.details.includes(detail))
+      : filter.gender
       ? (album.purposes.includes("personal") && album.gender === filter.gender) ||
         album.photos.some((photo) => photo.purposes.includes("personal") && photo.gender === filter.gender)
       : filter.purpose === "all" || album.purposes.includes(filter.purpose) ||
