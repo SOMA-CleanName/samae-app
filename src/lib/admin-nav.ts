@@ -35,7 +35,7 @@ export const GROUPS: Group[] = [
     key: "content",
     label: "지면",
     tabs: [
-      { href: "/admin/photos", label: "사진 노출" },
+      { href: "/admin/photos", label: "사진 내리기" },
       { href: "/admin/photo-purpose", label: "사진 목적&무드" },
       { href: "/admin/banners", label: "홈 배너" },
       { href: "/admin/articles", label: "아티클" },

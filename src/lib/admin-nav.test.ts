@@ -18,7 +18,7 @@ test("하위 경로는 그 페이지로 잡힌다", () => {
 
 test("형제 경로를 잘못 물지 않는다", () => {
   // 경계에 / 를 안 붙이면 startsWith 가 여기서 엉킨다
-  assert.equal(matchTab("/admin/photos")?.tab.label, "사진 노출");
+  assert.equal(matchTab("/admin/photos")?.tab.label, "사진 내리기");
   assert.equal(matchTab("/admin/photo-purpose")?.tab.label, "사진 목적&무드");
   assert.equal(matchTab("/admin/photo-purpose/mood/axes")?.tab.label, "사진 목적&무드");
 });
