@@ -41,7 +41,7 @@ export default async function TermsPage({ searchParams }: {
 }) {
   const plain = (await searchParams).plain === "1";
   return (
-    <main className="mx-auto max-w-2xl px-5 py-10 font-kr">
+    <main className="mx-auto max-w-2xl break-keep px-5 py-10 font-kr">
       <Link
         href="/"
         className="mb-6 inline-block text-sm font-medium text-muted transition-colors hover:text-fg"
@@ -50,12 +50,12 @@ export default async function TermsPage({ searchParams }: {
       </Link>
 
       <h1 className="text-2xl font-bold tracking-tight">사매 회원 이용약관</h1>
-      <p className="mt-2 text-sm text-muted">
+      <p className="mt-2.5 text-sm text-muted">
         {POLICY_EFFECTIVE_DATE ? `시행일 ${POLICY_EFFECTIVE_DATE}` : "시행일은 게시 공지 후 확정됩니다"}
         {` · 버전 ${TERMS_VERSION}`}
       </p>
 
-      <div className="mt-9 space-y-8 text-sm leading-relaxed text-fg/85">
+      <div className="mt-10 space-y-10 text-sm leading-7 text-fg/85">
         <Article n="제1조" title="목적">
           <P>
             이 약관은 사매(이하 &ldquo;회사&rdquo;)이 제공하는 사진 촬영 중개 서비스
@@ -399,7 +399,7 @@ export default async function TermsPage({ searchParams }: {
         </Article>
 
         <section>
-          <h2 className="mb-2 text-base font-semibold text-fg">부칙</h2>
+          <h2 className="mb-3 text-base font-semibold leading-7 text-fg">부칙</h2>
           <Ol>
             <li>
               이 약관은 {POLICY_EFFECTIVE_DATE || "시행일(게시 공지 후 확정)"}부터 적용합니다.
@@ -409,9 +409,9 @@ export default async function TermsPage({ searchParams }: {
         </section>
       </div>
 
-      <section className="mt-12 border-t border-line pt-5 text-xs leading-relaxed text-faint">
+      <section className="mt-14 border-t border-line pt-5 text-xs leading-6 text-faint">
         <p className="font-semibold text-muted">함께 적용되는 문서</p>
-        <ul className="mt-1.5 space-y-1">
+        <ul className="mt-2 space-y-1.5">
           <li>
             <Link href="/terms/refund" className="underline underline-offset-2">취소·환불 정책</Link> — 이 약관 제9조의
             구체적 기준과 절차

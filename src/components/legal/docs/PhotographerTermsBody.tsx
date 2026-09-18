@@ -343,7 +343,7 @@ export function PhotographerTermsBody() {
       <Ol>
         <li>
           회사는 다음 각 호의 금액을 작가의 정산금에서 공제할 수 있습니다.
-          <Ol>
+          <Ol sub>
             <li>제18조에 따른 작가 귀책 취소 시 중개 수수료 상당액</li>
             <li>제19조에 따른 정산 후 환불 금액</li>
             <li>제22조에 따라 회사가 작가에게 청구하는 금액</li>
@@ -675,7 +675,7 @@ export function PhotographerTermsBody() {
     </Article>
 
     <section>
-      <h2 className="mb-2 text-base font-semibold text-fg">부칙</h2>
+      <h2 className="mb-3 text-base font-semibold leading-7 text-fg">부칙</h2>
       <Ol>
         <li>이 약관은 {POLICY_EFFECTIVE_DATE || "시행일(게시 공지 후 확정)"}부터 적용합니다.</li>
         <li>이 약관이 적용되기 전에 확정된 예약에는 예약 확정 시점의 기준을 적용합니다.</li>
