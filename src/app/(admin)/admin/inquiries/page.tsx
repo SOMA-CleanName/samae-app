@@ -176,6 +176,15 @@ export default async function AdminInquiriesPage({
           <p className="mt-1 text-body-sm leading-relaxed text-muted">
             비로그인 게이트(<code className="text-caption">/inquiry</code>)로 들어온 문의예요. 읽고 상태만 정리해요.
           </p>
+          <p className="mt-2 rounded-xl border border-line bg-surface-2 px-3.5 py-2.5 text-caption leading-relaxed text-muted">
+            {/* 아래 단계 칩에 「입금대기·입금확인」이 남아 있는데, 새로 들어오는 문의는
+                거기까지 가지 않는다. 설명 없이 두면 운영자가 "왜 안 넘어가지" 를 찾는다. */}
+            <b className="font-semibold text-fg">「입금대기·입금확인」은 지난 기록이에요.</b> 작가가 문의를 열며
+            입금하던 옛 방식(리드)의 단계라, 새로 들어오는 문의는 「접수」에 머물러요. 지금 거래는 채팅에서
+            예약을 잡고 고객이 사매 계좌에 입금하는 방식이고, 그건{" "}
+            <a href="/admin/transactions" className="underline underline-offset-2 hover:text-fg">거래·정산</a>
+            에서 봐요.
+          </p>
         </div>
         <DeleteModeToolbar
           clearAction={clearInquiries}
