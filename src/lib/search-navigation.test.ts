@@ -41,7 +41,7 @@ test("returns every query-specific session key that Home must discard", () => {
   assert.deepEqual(searchSessionStorageKeys("/", "  필름 감성  "), [
     "samae:scroll:/?q=%ED%95%84%EB%A6%84%20%EA%B0%90%EC%84%B1",
     "samae:scroll-anchor:/?q=%ED%95%84%EB%A6%84%20%EA%B0%90%EC%84%B1",
-    "samae:gallery-session:search-relevance-masonry-v5:/?q=%ED%95%84%EB%A6%84%20%EA%B0%90%EC%84%B1",
+    "samae:gallery-session:search-relevance-masonry-v6:/?q=%ED%95%84%EB%A6%84%20%EA%B0%90%EC%84%B1",
   ]);
   assert.deepEqual(searchSessionStorageKeys("/", null), []);
 });
@@ -50,8 +50,8 @@ test("retry clears only this query's stale gallery and scroll position", () => {
   const values = new Map([
     ["samae:scroll:/?q=forest", "1200"],
     ["samae:scroll-anchor:/?q=forest", "old-photo"],
-    ["samae:gallery-session:search-relevance-masonry-v5:/?q=forest", "old-results"],
-    ["samae:gallery-session:search-relevance-masonry-v5:/?q=sea", "other-results"],
+    ["samae:gallery-session:search-relevance-masonry-v6:/?q=forest", "old-results"],
+    ["samae:gallery-session:search-relevance-masonry-v6:/?q=sea", "other-results"],
     ["samae:favorites", "favorite-1"],
   ]);
   clearSearchSession({ removeItem: (key) => { values.delete(key); } }, "forest");
