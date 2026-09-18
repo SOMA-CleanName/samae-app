@@ -18,6 +18,9 @@ export function routeSessionKey(
 // v6: 검색어에서 목적을 떼어 필터로 쓴다 (docs/29 §12).
 export const SEARCH_FEED_SESSION_SCHEMA = "search-relevance-masonry-v6";
 
+/** 검색 결과 아래 "비슷한 무드" 갤러리의 저장 키 구분자. */
+export const SEARCH_RELATED_SCOPE = "related";
+
 /** 검색을 끝낼 때 같은 검색어로 다시 들어가도 이전 결과·위치가 복원되지 않게 지울 키. */
 export function searchSessionStorageKeys(
   pathname: string,
@@ -29,6 +32,7 @@ export function searchSessionStorageKeys(
     `samae:scroll:${routeKey}`,
     `samae:scroll-anchor:${routeKey}`,
     `samae:gallery-session:${SEARCH_FEED_SESSION_SCHEMA}:${routeKey}`,
+    `samae:gallery-session:${SEARCH_FEED_SESSION_SCHEMA}:${routeKey}#${SEARCH_RELATED_SCOPE}`,
   ];
 }
 

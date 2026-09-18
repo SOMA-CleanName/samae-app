@@ -25,7 +25,7 @@ import { SearchDock } from "@/components/user/SearchDock";
 import { SearchBackButton } from "@/components/user/SearchBackButton";
 import { SearchResultsHead } from "@/components/user/SearchResultsHead";
 import { pickSearchPlaceholder, SEARCH_PLACEHOLDER_SHORT } from "@/lib/search-copy";
-import { routeSessionKey } from "@/lib/search-navigation";
+import { routeSessionKey, SEARCH_RELATED_SCOPE } from "@/lib/search-navigation";
 import { shouldShowSearchUi } from "@/lib/search-ui-visibility";
 import { HomeBannerSlot } from "@/components/user/HomeBannerSlot";
 import { HomeQuickNav } from "@/components/user/HomeQuickNav";
@@ -107,7 +107,9 @@ export default async function ExploreHome({
   const { purposeIds, moodIds } = parseTasteV2(cookieStore.get(TASTE_V2_COOKIE)?.value);
 
   let photos: GalleryPhoto[];
-  // 검색 결과 머리줄에 적을 수 — 화면에 깔리는 전체 장수가 아니다(아래 "비슷한 무드" 는 따로).
+  // 검색 결과 아래 "비슷한 무드의 사진들이에요" 에 깔 사진 — 목적은 다르지만 무드가 가깝다.
+  let relatedPhotos: GalleryPhoto[] = [];
+  // 검색 결과 머리줄에 적을 수 — 검색어에 맞는 사진만 센다.
   let searchCounts: SearchCounts | null = null;
   if (isAllFeed && feedSeed) {
     photos = await fetchHomeFeedPage(feedSeed, 0, purposeIds, moodIds, 48);
@@ -120,7 +122,8 @@ export default async function ExploreHome({
   } else {
     const search = query ? await searchHomePhotos(query) : null;
     searchCounts = search?.counts ?? null;
-    const basePhotos = search ? search.photos : await fetchPublishedPhotos({});
+    relatedPhotos = search?.related ?? [];
+    const basePhotos = search ? search.matches : await fetchPublishedPhotos({});
     if (query) await logSearch(query, basePhotos.length, me?.id);
     const merged = adAsGallery
       ? [adAsGallery, ...basePhotos.filter((p) => p.id !== adAsGallery.id)]
@@ -140,7 +143,7 @@ export default async function ExploreHome({
   const interstitials = isAllFeed ? await buildFeedInterstitials(photos) : [];
 
   const likedIds = await fetchLikedPhotoIds(
-    photos.map((p) => p.id),
+    [...photos, ...relatedPhotos].map((p) => p.id),
     me?.id
   );
 
@@ -215,7 +218,6 @@ export default async function ExploreHome({
           // 검색어에 맞는 사진만 센다. "가을 커플스냅" 이면 커플 사진 수다 — 아래에 붙는
           // 다른 목적의 가을 사진까지 세면 커플이 229장인데 300장+ 로 적히는 일이 생긴다.
           count={searchCounts?.matches ?? photos.length}
-          relatedCount={searchCounts?.related ?? 0}
           // 상한(300)에 딱 걸렸으면 그건 찾은 수가 아니라 잘린 수다 — "+"로 표시한다.
           capped={searchCounts?.capped ?? photos.length >= SIGLIP_SEARCH_MAX_RESULTS}
         />
@@ -272,6 +274,24 @@ export default async function ExploreHome({
         interstitials={interstitials}
       />
 
+      {/* 검색어에 맞는 사진이 끝난 자리 — 목적은 다르지만 무드가 가까운 사진을 이어 보여준다.
+          ("가을 커플스냅" 이면 커플이 아닌 가을 사진.) 사진을 세로 칸에 나눠 까는 배치라
+          한 목록 중간에 제목을 끼울 수 없어 갤러리를 따로 둔다. */}
+      {relatedPhotos.length > 0 && (
+        <section aria-labelledby="search-related-heading" className="mt-10 sm:mt-14">
+          <h2 id="search-related-heading" className="mx-auto mb-3 max-w-screen-2xl px-1 text-body font-bold tracking-tight">
+            비슷한 무드의 사진들이에요
+          </h2>
+          <ExploreGallery
+            photos={relatedPhotos}
+            query={query}
+            likedIds={likedIds}
+            loggedIn={!!me}
+            sessionScope={SEARCH_RELATED_SCOPE}
+          />
+        </section>
+      )}
+
       {/* 지면의 끝 — 피드가 자동 이어붙이기를 멈춘 자리(ExploreGallery AUTO_ADVANCE_BUDGET)
           바로 아래다. 사업자 정보·약관·처리방침이 여기 있고, 전자상거래법 제10조가 요구하는
           '초기화면 표시' 를 **모바일에서도** 충족한다(예전 SiteInfoBar 는 데스크톱 전용이라
@@ -299,20 +319,25 @@ type SearchCounts = {
  *
  * 실패는 여기서 삼킨다 — 이 화면에는 재시도 UI 가 없어서 던지면 홈 전체가 에러가 된다.
  */
-async function searchHomePhotos(query: string): Promise<{ photos: GalleryPhoto[]; counts: SearchCounts }> {
+async function searchHomePhotos(query: string): Promise<{
+  matches: GalleryPhoto[];
+  related: GalleryPhoto[];
+  counts: SearchCounts;
+}> {
   const result = await searchPhotos(query, SIGLIP_SEARCH_MAX_RESULTS).catch((error) => {
     console.error("[home] 검색 실패:", error);
     return null;
   });
-  if (!result) return { photos: [], counts: { matches: 0, related: 0, capped: false } };
+  if (!result) return { matches: [], related: [], counts: { matches: 0, related: 0, capped: false } };
   const matches = diversifySearchResults(query, [], result.matches, SIGLIP_SEARCH_MAX_RESULTS);
-  const related = diversifySearchResults(query, [], result.related, SIGLIP_SEARCH_MAX_RESULTS);
-  const photos = [...matches, ...related].slice(0, SIGLIP_SEARCH_MAX_RESULTS);
+  const related = diversifySearchResults(query, [], result.related, SIGLIP_SEARCH_MAX_RESULTS)
+    .slice(0, Math.max(0, SIGLIP_SEARCH_MAX_RESULTS - matches.length));
   return {
-    photos,
+    matches,
+    related,
     counts: {
       matches: matches.length,
-      related: photos.length - matches.length,
+      related: related.length,
       capped: matches.length >= SIGLIP_SEARCH_MAX_RESULTS,
     },
   };

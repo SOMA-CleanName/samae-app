@@ -154,6 +154,7 @@ export function ExploreGallery({
   spotlightId,
   loggedIn = false,
   spotlightFirstOnGeneral = false,
+  sessionScope,
   feedSeed,
   loadMore,
   loadPersonalized,
@@ -170,6 +171,8 @@ export function ExploreGallery({
   // 일반 첫 방문 튜토리얼에서 좌상단 첫 사진을 스포트라이트로 강조(슬러그 없는 탐색 메인 전용).
   // false 면 강조 사진 없이 배경 전체만 어둡게(카테고리 slug 페이지).
   spotlightFirstOnGeneral?: boolean;
+  /** 같은 화면의 다른 갤러리와 브라우저 저장 키를 가른다 (검색 결과의 "비슷한 무드" 갤러리) */
+  sessionScope?: string;
   // 시드 기반 무한 스크롤(전체 피드 전용) — 둘 다 있으면 바닥에서 서버 페이지를 이어받음.
   feedSeed?: string;
   loadMore?: (
@@ -195,7 +198,8 @@ export function ExploreGallery({
 }) {
   const pathname = usePathname();
   const routeKey = routeSessionKey(pathname, query);
-  const feedSessionSuffix = routeKey;
+  // 한 화면에 갤러리가 둘이면 저장 키를 갈라야 한다 — 같은 키를 쓰면 서로의 장수를 덮어쓴다.
+  const feedSessionSuffix = sessionScope ? `${routeKey}#${sessionScope}` : routeKey;
   const feedSessionSchema = query ? SEARCH_FEED_SESSION_SCHEMA : FEED_SESSION_SCHEMA;
   const feedSessionKey = `${FEED_SESSION_PREFIX}${feedSessionSchema}:${feedSessionSuffix}`;
   // 서버가 준 첫 페이지에서 시작해, 무한 스크롤로 다음 페이지를 이어붙인다(누적).
@@ -873,8 +877,9 @@ export function ExploreGallery({
   useEffect(() => {
     const io = impObserver.current;
     if (!io || !columnsReady) return;
-    document
-      .querySelectorAll<HTMLElement>("[data-feed-grid] [data-pid][data-rank]")
+    // 자기 칸만 본다 — 검색 결과는 갤러리가 둘(검색어에 맞는 사진 / 비슷한 무드)이다.
+    gridEl.current
+      ?.querySelectorAll<HTMLElement>("[data-pid][data-rank]")
       .forEach((el) => io.observe(el));
   }, [columnsReady, visible, items.length]);
 
@@ -892,7 +897,7 @@ export function ExploreGallery({
     if (typeof IntersectionObserver === "undefined") return;
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
 
-    const grid = document.querySelector<HTMLElement>("[data-feed-grid]");
+    const grid = gridEl.current;
     if (!grid) return;
     // 여기서 처음 숨김이 걸린다. 이 표식이 붙기 전까지 카드는 그냥 보인다.
     grid.dataset.revealOn = "1";

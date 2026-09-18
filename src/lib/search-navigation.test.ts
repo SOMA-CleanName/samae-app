@@ -42,6 +42,7 @@ test("returns every query-specific session key that Home must discard", () => {
     "samae:scroll:/?q=%ED%95%84%EB%A6%84%20%EA%B0%90%EC%84%B1",
     "samae:scroll-anchor:/?q=%ED%95%84%EB%A6%84%20%EA%B0%90%EC%84%B1",
     "samae:gallery-session:search-relevance-masonry-v6:/?q=%ED%95%84%EB%A6%84%20%EA%B0%90%EC%84%B1",
+    "samae:gallery-session:search-relevance-masonry-v6:/?q=%ED%95%84%EB%A6%84%20%EA%B0%90%EC%84%B1#related",
   ]);
   assert.deepEqual(searchSessionStorageKeys("/", null), []);
 });
