@@ -4,7 +4,6 @@ import {
   fetchPhotoById,
   fetchHomeFeedPage,
   newFeedSeed,
-  searchPhotosByTag,
 } from "@/lib/discovery";
 import {
   diversifySearchResults,
@@ -120,18 +119,15 @@ export default async function ExploreHome({
     const basePhotos = query
       ? diversifySearchResults(
           query,
-          ...(await Promise.all([
-            searchPhotosByTag(query, {
-              directOnly: true,
-              limit: SIGLIP_SEARCH_MAX_RESULTS,
-            }),
-            // SigLIP 실패는 여기서 삼킨다 — 이 화면에는 재시도 UI 가 없어서
-            // 던지면 홈 전체가 에러가 된다. 태그 결과라도 보여주는 편이 낫다.
-            searchPhotosBySiglip(query, SIGLIP_SEARCH_MAX_RESULTS).catch((error) => {
-              console.error("[home] SigLIP 검색 실패:", error);
-              return [];
-            }),
-          ])),
+          // 검색 결과는 SigLIP 만으로 만든다. 예전에는 태그 직접 일치를 밴드마다
+          // 36장 먼저 채우고 SigLIP 은 12장만 받았다(태그 75% : SigLIP 25%).
+          [],
+          // SigLIP 실패는 여기서 삼킨다 — 이 화면에는 재시도 UI 가 없어서
+          // 던지면 홈 전체가 에러가 된다. 실패하면 결과 0장으로 보인다.
+          await searchPhotosBySiglip(query, SIGLIP_SEARCH_MAX_RESULTS).catch((error) => {
+            console.error("[home] SigLIP 검색 실패:", error);
+            return [];
+          }),
           SIGLIP_SEARCH_MAX_RESULTS
         )
       : await fetchPublishedPhotos({});
