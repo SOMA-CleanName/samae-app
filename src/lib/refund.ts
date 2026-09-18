@@ -23,7 +23,14 @@
 //   (전자상거래법 시행령 21조 — 별도 고지·동의 없이는 제한을 주장할 수 없다).
 //
 // ── 위약금의 배분 (취소환불정책 14조 · 작가약관 16조) ──────────────────
-//   위약금은 작가 수익으로 보아 수수료율로 나눈다: 작가 80% · 사매 20%.
+//   위약금은 작가 수익으로 보아 수수료율로 나눈다.
+//
+//   ⚠️ **부가세도 뺀다.** 작가약관 16조 1항이 "촬영 대금과 **동일하게** 중개 수수료를 공제한
+//      금액" 이라 하고, 12조 1항이 "부가가치세는 별도" 라 한다. 촬영비 정산은 수수료+부가세를
+//      빼는데(payments.ts feeWithVat) 위약금만 부가세를 안 빼고 있었다 — 그만큼 사매가
+//      부가세를 자기 돈으로 낸 셈이다(2026-09-18 점검).
+//      예) 위약금 68,000 · 20% → 수수료 13,600 + 부가세 1,360 → 작가 53,040
+//
 //   위약금이 생기는 취소에는 정상 수수료가 따로 붙지 않는다 — 배분이 그 자리를 대신한다.
 //   위약금이 없는 취소(0%·청약철회·불가항력)에는 누구에게도 수수료를 부과하지 않는다.
 //   작가 사정 취소는 고객 100% 환불 + 수수료 상당액을 작가에게 청구한다(8조).
@@ -49,6 +56,7 @@ export const REFUND_WINDOW_DAYS = 7;
 export const DEFAULT_PENALTY_COMPANY_RATE = 0.2;
 
 import { addBusinessDays } from "./business-days";
+import { vatOnFee } from "./platform-fee";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
@@ -118,10 +126,12 @@ export type RefundQuote = {
   penaltyPct: number;
   /** 위약금 총액 */
   penaltyKrw: number;
-  /** 위약금 중 작가 몫 (80%) */
+  /** 위약금 중 작가 몫 — 수수료와 그 부가세를 뺀 나머지 */
   penaltyPhotographerKrw: number;
-  /** 위약금 중 사매 몫 (20%) */
+  /** 위약금 중 사매 몫 — 중개 수수료 (부가세 별도) */
   penaltyCompanyKrw: number;
+  /** 위약금 사매 몫에 붙는 부가세 — 사매가 받아 납부한다 */
+  penaltyVatKrw: number;
   /** 작가 귀책 시 작가에게 청구하는 수수료 상당액 */
   feeClaimKrw: number;
   /** 촬영일까지 남은 달력일. 촬영 시각이 없으면 null */
@@ -281,6 +291,7 @@ export function refundQuote(input: RefundInput): RefundQuote {
   const base = {
     penaltyPct: 0,
     penaltyKrw: 0,
+    penaltyVatKrw: 0,
     penaltyPhotographerKrw: 0,
     penaltyCompanyKrw: 0,
     feeClaimKrw: 0,
@@ -304,7 +315,9 @@ export function refundQuote(input: RefundInput): RefundQuote {
     const penaltyKrw = Math.round((total * pct) / 100);
     const refundKrw = total - penaltyKrw;
     const penaltyCompanyKrw = Math.round(penaltyKrw * companyRate);
-    const penaltyPhotographerKrw = penaltyKrw - penaltyCompanyKrw;
+    // 촬영비 정산과 같은 셈 — 수수료를 빼고, 그 수수료의 부가세도 뺀다 (작가약관 16조 1항·12조 1항)
+    const penaltyVatKrw = vatOnFee(penaltyCompanyKrw);
+    const penaltyPhotographerKrw = penaltyKrw - penaltyCompanyKrw - penaltyVatKrw;
     return {
       ...base,
       basis,
@@ -312,6 +325,7 @@ export function refundQuote(input: RefundInput): RefundQuote {
       refundKrw,
       penaltyPct: pct,
       penaltyKrw,
+      penaltyVatKrw,
       penaltyPhotographerKrw,
       penaltyCompanyKrw,
       feeWaived: true,
@@ -341,7 +355,11 @@ export function refundQuote(input: RefundInput): RefundQuote {
       return fullRefund("force_majeure", "천재지변으로 촬영이 불가능해요. 전액 환불하고 수수료도 없어요.");
     case "photographer_fault":
     case "photographer_no_show": {
-      // 고객은 전액. 수수료 상당액은 작가에게 청구한다 (취소환불 8조 2항, 수수료 8조)
+      // 고객은 전액. 수수료 상당액은 작가에게 청구한다 (취소환불 8조 2항, 작가약관 18조 1항)
+      //
+      // ⚠️ 여기는 **부가세를 붙이지 않는다.** 정산에서 빼는 수수료는 용역 대가라 부가세가 붙지만,
+      //    이건 작가 귀책에 따른 청구(손해배상 성격)라 과세 대상인지가 다른 문제다. 약관도
+      //    "수수료 상당액" 이라고만 한다. 판단이 서면 그때 붙일 것 — 지금 임의로 붙이지 않는다.
       return {
         ...base,
         basis: input.override,
@@ -371,10 +389,11 @@ export function refundQuote(input: RefundInput): RefundQuote {
         penaltyPct: total > 0 ? Math.round((penaltyKrw / total) * 100) : 0,
         penaltyKrw,
         penaltyCompanyKrw,
-        penaltyPhotographerKrw: penaltyKrw - penaltyCompanyKrw,
+        penaltyVatKrw: vatOnFee(penaltyCompanyKrw),
+        penaltyPhotographerKrw: penaltyKrw - penaltyCompanyKrw - vatOnFee(penaltyCompanyKrw),
         feeWaived: true,
         feeKrw: penaltyCompanyKrw,
-        photographerNetKrw: penaltyKrw - penaltyCompanyKrw,
+        photographerNetKrw: penaltyKrw - penaltyCompanyKrw - vatOnFee(penaltyCompanyKrw),
         reason: "촬영이 일부 이행된 건이라 사매가 이행 정도를 보고 환불액을 정했어요.",
       };
     }
@@ -396,7 +415,8 @@ export function refundQuote(input: RefundInput): RefundQuote {
       refundKrw: 0,
       feeWaived: false,
       feeKrw: fee,
-      photographerNetKrw: total - fee,
+      // 실제 정산도 수수료+부가세를 뺀다(payments.ts feeWithVat) — 알림에 다른 숫자가 가면 안 된다
+      photographerNetKrw: total - fee - vatOnFee(fee),
       reason: "촬영이 끝난 뒤라 환불되지 않아요.",
     };
   }

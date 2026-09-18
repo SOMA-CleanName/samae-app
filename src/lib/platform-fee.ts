@@ -141,14 +141,21 @@ export function feeRateOf(snapshot: Pick<FeeSnapshot, "mode" | "rate"> | null | 
   return DEFAULT_FEE_RATE;
 }
 
-/** 위약금 배분 — 작가 수익으로 보아 수수료율로 나눈다 (작가약관 16조 1항) */
+/**
+ * 위약금 배분 — 작가 수익으로 보아 수수료율로 나눈다 (작가약관 16조 1항).
+ *
+ * ⚠️ **부가세도 뺀다.** 16조 1항이 "촬영 대금과 동일하게 중개 수수료를 공제한 금액" 이라 하고
+ *    12조 1항이 "부가가치세는 별도" 라 한다. 촬영비 정산은 수수료+부가세를 빼는데 여기만
+ *    안 빼고 있었다(2026-09-18 점검). 판정의 진실은 refund.ts 이고 여기는 같은 셈을 쓴다.
+ */
 export function penaltySplit(
   penaltyKrw: number,
   rate: number = DEFAULT_FEE_RATE
-): { companyKrw: number; photographerKrw: number } {
+): { companyKrw: number; vatKrw: number; photographerKrw: number } {
   const penalty = Math.max(0, Math.round(penaltyKrw || 0));
   const companyKrw = Math.round(penalty * rate);
-  return { companyKrw, photographerKrw: penalty - companyKrw };
+  const vatKrw = vatOnFee(companyKrw);
+  return { companyKrw, vatKrw, photographerKrw: penalty - companyKrw - vatKrw };
 }
 
 /** 작가 사업자 유형 — 작가약관 14조 2항(증빙)·입점 동의서 3항(실질 부담) */
