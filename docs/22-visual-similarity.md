@@ -313,7 +313,10 @@ Could not choose the best candidate function between:
 **그런데 화면은 멀쩡해 보였다.** `main` 의 `searchPhotosBySiglip` 은 RPC 실패를 `return []`
 로 무해화하고, 홈은 태그 검색과 나란히 부른다. 그래서 사용자에게는 태그 결과가 정상으로 보이고
 서버 로그에만 `[siglip-search] 벡터 RPC 실패` 가 쌓였다. 페르소나 유사사진도 같은 이유로 조용히
-비어 있었다. **벡터 검색이 몇 달째 0건이었다는 것을 아무도 몰랐다.**
+비어 있었다. 아무도 몰랐다.
+
+> **정정 (2026-09-18).** "몇 달째" 라고 썼는데 틀렸다. 생성 순서(oid)로 보면 vector 판은 **9월 17일 오후 0125 와
+> 0126 적용 사이**에 생겼고(팀원의 0127, 커밋 16:51), 0121 이 17:49 에 지웠다. **중복은 약 한 시간뿐이었다.**
 
 드러난 계기는 검색 개편이 "장애를 숨기지 말고 재시도 화면을 띄운다" 로 정책을 바꾼 것이다.
 같은 DB 인데 한쪽만 깨져 보이면 **DB 가 아니라 오류 처리를 먼저 의심할 것.**
@@ -1035,7 +1038,7 @@ Supabase 일일 백업에는 **Storage 객체(사진 원본)가 포함되지 않
 | 2026-08-08 | `main` (production) | 백업 테이블 정리 — `photos_backup_20260806`·`20260807` `drop` | 의존성(외래키·뷰·트리거·RLS) 전무 확인 후 실행. **삭제 전후 `photos` 1,801행·27컬럼 동일.** 두 백업은 23컬럼이라 이미 복원 불가 상태였다(§12.1 ⑤) |
 | 2026-08-20 | `dev` (production DB) | `0077` 적용 — `tone_vec`·`tone_stats_version`·`toned_at` + `photo_tone_stats` + 인덱스 2개 | 성공. **컬럼·테이블 추가만.** 이 시점에는 읽는 코드가 없어 사용자 화면 무변경 |
 | 2026-08-20 | `dev` (production DB) | 톤 백필 — `tone_backfill.py --fit --apply` | **커버리지 1,807/1,807 · 실패 0.** 계산 4초·전송 108초. 스냅샷 없음 — 대상 3개 컬럼이 전부 `null` 이라 롤백이 `update … set tone_vec = null` 한 줄(§10.3 기준). `blend_scale = 0.2394` 측정·저장 |
-| 2026-09-17 | `main` (production DB) | `0121` 적용 — `similar_photos_by_vector(vector, int, int)` 제거 | **마이그레이션 없이 직접 적용돼 있던 판.** 2인자 호출이 모호해져 SigLIP 벡터 검색이 그 판이 생긴 뒤로 계속 0건을 돌려주고 있었다(§6.4). `p_pool` 은 repo 전체 0건, 그 판만 갖던 `feed_hidden` 필터는 앱이 이미 건다. 검증: `check-rpc-overloads` 겹침 0, `check-siglip-text-search` 3개 질의 전부 8건 정상 반환 (SigLIP 35~37ms · RPC 195~481ms) |
+| 2026-09-17 | `main` (production DB) | `0121` 적용 — `similar_photos_by_vector(vector, int, int)` 제거 | **팀원의 main `0127` 이 만든 판**(당시 dev2 에 그 파일이 없어 정체불명으로 잘못 봤다). 2인자 호출이 모호해져 SigLIP 벡터 검색이 그 판이 생긴 뒤 **약 한 시간** 0건을 돌려줬다(§6.4). 검증: `check-rpc-overloads` 겹침 0, `check-siglip-text-search` 3개 질의 전부 8건 정상 반환 (SigLIP 35~37ms · RPC 195~481ms) |
 | 2026-08-20 | `dev` (production DB) | `0078` 적용 — `similar_photos_by_embedding` 에 `p_alpha` 추가, **기본값 0.9** | **사용자 화면 반영.** 백필이 끝난 뒤에 적용해 폴백 경로를 타지 않게 했다. 검증: 시드 8개 전부 정상 응답(68~132ms · 기존 89ms 와 동급), `null` 거리 0건, α=1.0 대비 top-8 평균 5.5/8 유지 |
 
 > 확장 설치는 대시보드에서 먼저 실행했고, 같은 문장을 `0068` 에 `if not exists` 로 포함시켜 재현성을 확보했다. 빈 DB 에서 마이그레이션을 처음부터 돌려도 동일한 상태가 된다.
