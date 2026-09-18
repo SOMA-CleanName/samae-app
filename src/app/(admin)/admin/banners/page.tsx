@@ -1,5 +1,6 @@
 import { listAllBanners, safeBannerHref } from "@/lib/banners";
 import { Badge, EmptyState } from "@/components/ui";
+import { bannerStatus, bannerSummary } from "@/lib/banner-state";
 import { SubmitButton } from "@/components/ui/SubmitButton";
 import { ConfirmForm } from "@/components/admin/ConfirmForm";
 import { LayersIcon } from "@/components/user/icons";
@@ -22,25 +23,27 @@ function toLocalInput(iso: string | null): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function isLive(b: { published: boolean; starts_at: string | null; ends_at: string | null }) {
-  const now = Date.now();
-  if (!b.published) return false;
-  if (b.starts_at && new Date(b.starts_at).getTime() > now) return false;
-  if (b.ends_at && new Date(b.ends_at).getTime() <= now) return false;
-  return true;
-}
-
 // 홈 배너 관리 — 운영자가 이미지·링크·순서·노출 기간을 관리한다. 홈(/)·카테고리(/c/슬러그) 상단 캐러셀에 반영.
 export default async function AdminBannersPage() {
   const banners = await listAllBanners();
-  const liveCount = banners.filter(isLive).length;
+  // 판정은 lib/banner-state 한 곳에서 — 공개 쿼리(lib/banners)와 경계가 같아야 한다
+  const summary = bannerSummary(banners);
+  const anyLive = banners.some((b) => bannerStatus(b).live);
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-5">
       <h1 className="text-h1 font-semibold">홈 배너</h1>
-      <p className="mt-1 text-body-sm text-muted">
-        홈과 카테고리 페이지 최상단 캐러셀에 노출돼요. 지금 노출 중 <b className="text-fg">{liveCount}</b>장 · 2장
-        이상이면 5초마다 자동으로 넘어갑니다.
+      <p className="mt-1 text-body-sm text-muted">홈과 카테고리 페이지 최상단 캐러셀에 노출돼요.</p>
+      {/* ⚠️ 0장일 때 가만히 있으면 안 된다. 배너를 올려 두고 3주간 아무것도 안 뜨는 걸
+             모르고 있던 적이 있다(2026-09-19). 왜 0장인지까지 말한다. */}
+      <p
+        className={`mt-2 rounded-xl px-3.5 py-2.5 text-body-sm leading-relaxed ${
+          anyLive || banners.length === 0
+            ? "bg-surface-2 text-muted"
+            : "bg-warning-soft font-medium text-warning-ink"
+        }`}
+      >
+        {summary}
       </p>
 
       {/* 생성 */}
@@ -89,11 +92,12 @@ export default async function AdminBannersPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-title font-semibold text-fg">{b.title || "(제목 없음)"}</p>
-                      {isLive(b) ? (
-                        <Badge tone="success">노출 중</Badge>
-                      ) : (
-                        <Badge tone="neutral">{b.published ? "기간 밖" : "비공개"}</Badge>
-                      )}
+                      {(() => {
+                        // 「기간 밖」은 시작 전인지 끝난 건지를 안 알려 줘서
+                        // 무엇을 고쳐야 하는지가 안 보였다
+                        const st = bannerStatus(b);
+                        return <Badge tone={st.tone}>{st.label}</Badge>;
+                      })()}
                       <span className="text-caption text-faint">{i + 1}번째</span>
                     </div>
                     {b.link_url && !href && (
