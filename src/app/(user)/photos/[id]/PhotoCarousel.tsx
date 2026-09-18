@@ -39,7 +39,12 @@ function dotWindow(idx: number, total: number): { i: number; scale: number }[] {
 
 // 고정 프레임 안에 사진을 안 잘리게(contain) 넣고, 남는 공간은 같은 사진을 흐리게(blur) 깔아 채운다.
 // next/image(fill)가 화면 폭에 맞는 AVIF/WebP를 1회 서빙 — 기존 thumb→full 수동 스왑을 대체.
-// LCP인 첫 슬라이드만 priority(즉시 로드), 나머지는 lazy(스크롤 도달 시 로드).
+// LCP인 첫 슬라이드만 즉시 로드, 나머지는 lazy.
+//
+// ⚠️ 주석은 원래부터 이렇게 적혀 있었는데 **코드가 그렇게 안 돼 있었다.** 배경 블러와
+//    즉시표시 썸네일 둘 다 `loading` 이 없어 전부 eager 로 나갔다 — 앨범 한 벌이 8장이면
+//    16장을 첫 화면 전에 받는다. 실측 2026-09-18: **eager 16장 · 568KB.**
+//    `priority` 는 next/image 에게 "우선 가져와라" 지 "나머지는 미뤄라" 가 아니다.
 function Slide({ p, alt, priority }: { p: P; alt: string; priority?: boolean }) {
   return (
     <>
@@ -51,6 +56,8 @@ function Slide({ p, alt, priority }: { p: P; alt: string; priority?: boolean }) 
         aria-hidden
         fill
         sizes="120px"
+        // 첫 슬라이드 말고는 미룬다 — 안 보이는 배경을 먼저 받을 이유가 없다
+        loading={priority ? "eager" : "lazy"}
         draggable={false}
         className="pointer-events-none scale-125 select-none object-cover blur-2xl"
       />
@@ -61,6 +68,7 @@ function Slide({ p, alt, priority }: { p: P; alt: string; priority?: boolean }) 
           src={p.thumb_url}
           alt=""
           aria-hidden
+          loading={priority ? undefined : "lazy"}
           draggable={false}
           className="absolute inset-0 h-full w-full select-none object-contain [-webkit-user-drag:none]"
         />
