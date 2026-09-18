@@ -64,8 +64,9 @@ FORMAT_WORDS = {"스냅", "사진", "촬영", "찍기"}
 # 여성이라 "여자" 는 평균보다 튀는 사진이 없고(z 2.0 이상 10장), 상위 300장으로 자르면
 # 여자 사진 대부분이 잘린다(2026-09-18 실측: "여자" 282장, "남자" 106장 중 남자 약 24장).
 #
-# 다른 목적이 이겨 개인이 물러나면("여자 커플스냅") 성별 필터는 쓰지 않는다 — 커플 사진에는
-# 두 성별이 다 있다. 그때는 예전처럼 글자를 SigLIP 에 남긴다.
+# 다른 목적이 이겨 개인이 물러나면("여자 커플스냅") 성별 필터는 쓰지 않고 글자도 버린다 — 커플 사진에는
+# 두 성별이 다 있다. 글자를 무드로 남겼더니 "여자" 와 가까운 전체 300장이 개인 사진으로 채워져
+# 커플 사진이 2장만 남았다(2026-09-18). 여성 두 명의 커플 같은 구성은 사진에 정보가 없어 가르지 못한다.
 GENDER_WORDS = {"남자": "male", "남성": "male", "여자": "female", "여성": "female"}
 
 # 웨딩은 커플을 품는다. "웨딩 커플" 은 웨딩을 찾는 것이다.
@@ -133,6 +134,23 @@ def parse(query, kiwi, lexicon=None):
                 used.add(content[position])
             position += 1
 
+    # 세부분류는 따로 한 번 더 훑는다. 목적 사전(작가 글 분류용)에 "만삭 스냅" "프로필 촬영" 처럼 세부분류 말을
+    # 품은 더 긴 문구가 있으면 그게 먼저 이겨 세부분류가 빠졌다 — "만삭 스냅" 이 행사 전체 25장을 보여줬다(2026-09-18).
+    # 두 사전을 일일이 맞추지 않고, 목적이 어떻게 잡혔든 그 안의 세부분류 말을 다시 찾는다.
+    position = 0
+    while position < len(content):
+        for phrase_forms, (_purpose, _phrase, detail) in lexicon:
+            if not detail:
+                continue
+            size = len(phrase_forms)
+            if tuple(forms[position:position + size]) == phrase_forms:
+                if detail not in details:
+                    details.append(detail)
+                position += size
+                break
+        else:
+            position += 1
+
     for winner, losers in SUPERSEDES.items():
         if winner in found:
             found -= losers
@@ -143,7 +161,8 @@ def parse(query, kiwi, lexicon=None):
     # 성별은 개인 사진을 찾을 때, 한 성별만 나왔을 때만 필터로 쓴다("여자 남자" 는 가르지 않는다).
     genders = {gender for gender, _ in gender_spans}
     gender = next(iter(genders)) if "personal" in found and len(genders) == 1 else None
-    if gender:
+    other_purpose_won = bool(found) and "personal" not in found
+    if gender or other_purpose_won:
         for _, positions in gender_spans:
             used.update(positions)
 

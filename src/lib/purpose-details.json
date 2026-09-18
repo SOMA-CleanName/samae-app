@@ -34,7 +34,7 @@
   "event": [
     { "key": "maternity", "label": "만삭", "search": ["만삭", "만삭사진", "만삭 사진", "임신", "임산부"] },
     { "key": "baby", "label": "아기", "search": ["아기", "신생아", "백일", "아기사진", "아기 사진"] },
-    { "key": "first_birthday", "label": "돌", "search": ["돌", "돌잔치", "돌스냅", "돌 스냅"] },
+    { "key": "first_birthday", "label": "돌", "search": ["돌", "첫돌", "돌잔치", "돌스냅", "돌 스냅"] },
     { "key": "family", "label": "가족", "search": ["가족", "가족사진", "가족 사진"] },
     { "key": "graduation", "label": "졸업", "search": ["졸업", "졸업식", "졸업사진", "졸업 사진", "졸업스냅", "졸업 스냅"] },
     { "key": "group", "label": "단체·동호회", "search": ["단체", "단체사진", "단체 사진", "동호회"] },
