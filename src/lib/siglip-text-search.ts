@@ -13,9 +13,15 @@ import {
   type PhotoPurposeKey,
 } from "@/lib/siglip-text-search-core";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { PHOTO_SEARCH_TIMEOUT_MS } from "@/lib/photo-search-state";
 
 const DEFAULT_LIMIT = SIGLIP_SEARCH_MAX_RESULTS;
+
+// 임시로 늘린 제한 (2026-09-18). 운영에서 모든 검색이 비어, 맥미니(Funnel) 응답이 4초를
+// 넘기는지 가리려고 요청 한 번 4초 → 10초, 검색 전체 8초 → 20초로 둔다. 옛 맥미니는
+// /search-query(404) 뒤에 /embed-text 를 한 번 더 불러 두 번 왕복하므로 전체를 두 배로 잡았다.
+// 원인이 가려지면 되돌린다.
+const EMBED_REQUEST_TIMEOUT_MS = 10_000;
+const SEARCH_TOTAL_TIMEOUT_MS = 20_000;
 
 export {
   diversifySearchResults,
@@ -39,7 +45,7 @@ export async function embedSearchText(query: string, signal?: AbortSignal): Prom
   return requestTextEmbedding(query, {
     baseUrl: embedBaseUrl(),
     token: process.env.PERSONA_SERVICE_TOKEN,
-    timeoutMs: 4_000,
+    timeoutMs: EMBED_REQUEST_TIMEOUT_MS,
     signal,
   });
 }
@@ -54,7 +60,7 @@ type SearchPhoto = GalleryPhoto & { admin_purposes?: string[] | null };
 export async function searchPhotosBySiglip(
   query: string,
   limit = DEFAULT_LIMIT,
-  signal = AbortSignal.timeout(PHOTO_SEARCH_TIMEOUT_MS),
+  signal = AbortSignal.timeout(SEARCH_TOTAL_TIMEOUT_MS),
 ): Promise<GalleryPhoto[]> {
   const vector = await embedSearchText(query, signal);
   if (!vector) throw new Error("SigLIP 검색어 임베딩을 받지 못했습니다");
@@ -179,12 +185,12 @@ export type PhotoSearchResult = {
 export async function searchPhotos(
   query: string,
   limit = DEFAULT_LIMIT,
-  signal = AbortSignal.timeout(PHOTO_SEARCH_TIMEOUT_MS),
+  signal = AbortSignal.timeout(SEARCH_TOTAL_TIMEOUT_MS),
 ): Promise<PhotoSearchResult> {
   const parsed = await requestSearchQuery(query, {
     baseUrl: embedBaseUrl(),
     token: process.env.PERSONA_SERVICE_TOKEN,
-    timeoutMs: 4_000,
+    timeoutMs: EMBED_REQUEST_TIMEOUT_MS,
     signal,
   });
   if (parsed === "unsupported") {
