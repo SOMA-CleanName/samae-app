@@ -16,6 +16,9 @@ from purpose_text import PURPOSE_ORDER, PURPOSE_PHRASES
 # 검색창에서 사람이 치는 말. 작가 글 기준으로 만든 PURPOSE_PHRASES 에는 없었다.
 # 사진 분류 사전에는 넣지 않는다 — 넣으면 매일 오전 6시 목적 분류 결과까지 바뀐다.
 SEARCH_PHRASES = {
+    # "남자 프로필" "여자 스냅" 은 혼자 찍는 사진이다. "남자친구" 는 두 조각(남자+친구)으로
+    # 쪼개지지만 사전의 "남자친구" 도 똑같이 쪼개 긴 것부터 맞추므로 커플로 잡힌다.
+    "personal": ("남자", "여자", "남성", "여성"),
     "pet": ("강아지", "고양이", "댕댕이", "냥이", "애견", "애묘", "펫"),
     "couple": ("남친", "여친", "남자친구", "여자친구", "연애"),
     # 가족 사진은 목적이 따로 없어 행사로 둔다 (2026-09-18 결정)
@@ -91,6 +94,9 @@ def parse(query, kiwi, lexicon=None):
     for winner, losers in SUPERSEDES.items():
         if winner in found:
             found -= losers
+    # 개인은 다른 목적과 함께 나오면 물러난다 — "남녀 커플" "커플 프로필" 은 커플을 찾는 것이다.
+    if len(found) > 1:
+        found.discard("personal")
 
     # 원래 글자에서 뗀 부분만 지운다. 형태소를 다시 이어 붙이면 "힙한" 이 "힙 하 ㄴ" 이 된다.
     keep = [True] * len(query)

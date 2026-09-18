@@ -364,3 +364,20 @@ export function splitByPurposes<T extends { admin_purposes?: string[] | null }>(
   }
   return { matches, related };
 }
+
+/**
+ * 목적 사진(거리순)을 위/아래로 가른다. 전체 사진에서 가까운 상위(nearIds)에 든 것이 위,
+ * 나머지는 아래 "비슷한 무드의 사진들이에요" 다. 둘 다 검색어의 목적 사진이고 각자 거리순이다.
+ */
+export function splitByNearest<T extends { id: string }>(
+  inPurpose: T[],
+  nearIds: ReadonlySet<string>
+): { matches: T[]; related: T[] } {
+  const matches: T[] = [];
+  const related: T[] = [];
+  for (const photo of inPurpose) {
+    if (nearIds.has(photo.id)) matches.push(photo);
+    else related.push(photo);
+  }
+  return { matches, related };
+}

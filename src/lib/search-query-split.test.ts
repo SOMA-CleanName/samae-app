@@ -5,6 +5,7 @@ import {
   requestSearchQuery,
   SIGLIP_EMBED_DIM,
   SIGLIP_TEXT_MODEL,
+  splitByNearest,
   splitByPurposes,
 } from "./siglip-text-search-core.ts";
 
@@ -73,4 +74,11 @@ test("목적이 없으면 전부 위쪽이다", () => {
   const { matches, related } = splitByPurposes([{ id: "a", admin_purposes: ["pet"] }], []);
   assert.deepEqual(matches.map((p) => p.id), ["a"]);
   assert.deepEqual(related, []);
+});
+
+test("목적 사진을 전체 상위에 든 것(위)과 나머지(아래)로 — 둘 다 목적 사진, 각자 거리순", () => {
+  const inPurpose = [{ id: "c1" }, { id: "c2" }, { id: "c3" }, { id: "c4" }];
+  const { matches, related } = splitByNearest(inPurpose, new Set(["c1", "c3", "x9"]));
+  assert.deepEqual(matches.map((p) => p.id), ["c1", "c3"]);
+  assert.deepEqual(related.map((p) => p.id), ["c2", "c4"]);
 });

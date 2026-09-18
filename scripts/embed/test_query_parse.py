@@ -47,6 +47,17 @@ class QueryParseTest(unittest.TestCase):
     def test_unrelated_purposes_are_both_kept(self):
         self.assertEqual(run("커플 강아지")["purposes"], ["couple", "pet"])
 
+    def test_gender_words_mean_a_personal_shoot(self):
+        self.assertEqual(run("남자 프로필")["purposes"], ["personal"])
+        self.assertEqual(run("여자 스냅"), {"purposes": ["personal"], "mood_text": "", "matched": ["여자"]})
+
+    def test_boyfriend_is_a_couple_not_a_man(self):
+        self.assertEqual(run("남자친구랑 데이트")["purposes"], ["couple"])
+
+    def test_personal_steps_back_for_other_purposes(self):
+        self.assertEqual(run("여자 커플스냅")["purposes"], ["couple"])
+        self.assertEqual(run("남자 웨딩")["purposes"], ["wedding"])
+
     def test_spacing_does_not_matter(self):
         self.assertEqual(run("커플 스냅")["purposes"], run("커플스냅")["purposes"])
 

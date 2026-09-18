@@ -7,6 +7,7 @@ import {
   requestSearchQuery,
   requestTextEmbedding,
   SIGLIP_SEARCH_MAX_RESULTS,
+  splitByNearest,
   splitByPurposes,
   type PhotoPurposeKey,
 } from "@/lib/siglip-text-search-core";
@@ -79,10 +80,15 @@ async function rankPhotosByVector(
     throw nearestError;
   }
 
-  const ids = ((nearest ?? []) as VectorSearchRow[]).map((row) => row.id);
+  return loadPhotosInOrder((nearest ?? []) as VectorSearchRow[], signal);
+}
+
+/** RPC 가 준 거리순 id 에 사진 메타데이터를 붙인다. .in() 조회가 잃는 순서는 되살린다. */
+async function loadPhotosInOrder(nearest: VectorSearchRow[], signal: AbortSignal): Promise<SearchPhoto[]> {
+  const ids = nearest.map((row) => row.id);
   if (ids.length === 0) return [];
 
-  const { data: photos, error: photoError } = await admin
+  const { data: photos, error: photoError } = await createAdminClient()
     .from("photos")
     .select(PHOTO_COLUMNS)
     .in("id", ids)
@@ -95,10 +101,32 @@ async function rankPhotosByVector(
     throw photoError;
   }
 
-  return orderVectorMatches(
-    (photos ?? []) as unknown as SearchPhoto[],
-    (nearest ?? []) as VectorSearchRow[]
-  );
+  return orderVectorMatches((photos ?? []) as unknown as SearchPhoto[], nearest);
+}
+
+/**
+ * 목적 사진만 벡터와 가까운 순으로 — 아래 "비슷한 무드의 사진들이에요" 를 채운다(0122).
+ * 전체에서 가까운 300장에 든 목적 사진은 이미 위쪽에 있으므로, 나머지를 받으려면 목적 안에서
+ * 따로 줄 세워야 한다. 0122 가 없는 DB 면 null — 호출하는 쪽이 아래를 비운다.
+ */
+async function rankPhotosInPurposes(
+  vector: number[],
+  purposes: PhotoPurposeKey[],
+  limit: number,
+  signal: AbortSignal,
+): Promise<SearchPhoto[] | null> {
+  const { data, error } = await createAdminClient()
+    .rpc("similar_photos_in_purposes", {
+      p_embedding: JSON.stringify(vector),
+      p_purposes: purposes,
+      p_limit: normalizeSiglipSearchLimit(limit),
+    })
+    .abortSignal(signal);
+  if (error) {
+    console.error("[siglip-search] 목적 안 근접검색 실패(0122 미적용?):", error.message);
+    return null;
+  }
+  return loadPhotosInOrder((data ?? []) as VectorSearchRow[], signal);
 }
 
 /** 목적만 검색했을 때 — 그 목적 사진을 최신순으로. SigLIP 은 부르지 않는다. */
@@ -129,7 +157,7 @@ export type PhotoSearchResult = {
   moodText: string;
   /** 목적이 맞는 사진 (목적이 없으면 전부). 위에 놓는다. */
   matches: GalleryPhoto[];
-  /** 목적은 다르지만 무드가 비슷한 사진. 그 아래 놓는다. */
+  /** 목적은 같고 무드가 조금 먼 사진 — 아래 "비슷한 무드의 사진들이에요". 목적이 없으면 비어 있다. */
   related: GalleryPhoto[];
 };
 
@@ -138,7 +166,7 @@ export type PhotoSearchResult = {
  *
  *   "웨딩"          → 웨딩 사진을 최신순으로
  *   "몽환적인 노을"   → 전체에서 SigLIP 순서
- *   "가을 커플스냅"   → "가을" SigLIP 순서로, 커플 사진을 위에 · 나머지는 아래에
+ *   "가을 커플스냅"   → 커플 사진만. 가을과 가장 가까운 것이 위, 나머지 커플은 아래에
  *
  * 맥미니가 검색어 분리를 모르면(갱신 전) 예전처럼 검색어 통째로 SigLIP 에 넣는다.
  */
@@ -164,7 +192,22 @@ export async function searchPhotos(
     return { purposes: parsed.purposes, moodText: "", matches, related: [] };
   }
 
-  const ranked = await rankPhotosByVector(parsed.vector, limit, signal);
-  const { matches, related } = splitByPurposes(ranked, parsed.purposes);
+  if (parsed.purposes.length === 0) {
+    const matches = await rankPhotosByVector(parsed.vector, limit, signal);
+    return { purposes: [], moodText: parsed.moodText, matches, related: [] };
+  }
+
+  // 검색어에 목적이 있으면 위·아래 모두 그 목적 사진만 — 아래 "비슷한 무드" 도 목적이 같아야 한다.
+  const [nearest, inPurpose] = await Promise.all([
+    rankPhotosByVector(parsed.vector, limit, signal),
+    rankPhotosInPurposes(parsed.vector, parsed.purposes, limit, signal),
+  ]);
+  if (!inPurpose) {
+    // 0122 가 없으면 목적 사진을 전체 300장 안에서만 찾을 수 있다. 아래에 다른 목적 사진을
+    // 채우는 대신 비워 둔다 — 목적이 다른 사진은 보여주지 않기로 했다.
+    const { matches } = splitByPurposes(nearest, parsed.purposes);
+    return { purposes: parsed.purposes, moodText: parsed.moodText, matches, related: [] };
+  }
+  const { matches, related } = splitByNearest(inPurpose, new Set(nearest.map((photo) => photo.id)));
   return { purposes: parsed.purposes, moodText: parsed.moodText, matches, related };
 }

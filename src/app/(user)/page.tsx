@@ -274,9 +274,9 @@ export default async function ExploreHome({
         interstitials={interstitials}
       />
 
-      {/* 검색어에 맞는 사진이 끝난 자리 — 목적은 다르지만 무드가 가까운 사진을 이어 보여준다.
-          ("가을 커플스냅" 이면 커플이 아닌 가을 사진.) 사진을 세로 칸에 나눠 까는 배치라
-          한 목록 중간에 제목을 끼울 수 없어 갤러리를 따로 둔다. */}
+      {/* 검색어에 맞는 사진이 끝난 자리 — 목적은 같고 무드가 조금 먼 사진을 이어 보여준다.
+          ("가을 커플스냅" 이면 나머지 커플 사진을 가을 순으로.) 검색어에 목적이 없으면 없다.
+          사진을 세로 칸에 나눠 까는 배치라 한 목록 중간에 제목을 끼울 수 없어 갤러리를 따로 둔다. */}
       {relatedPhotos.length > 0 && (
         <section aria-labelledby="search-related-heading" className="mt-10 sm:mt-14">
           <h2 id="search-related-heading" className="mx-auto mb-3 max-w-screen-2xl px-1 text-body font-bold tracking-tight">
@@ -304,15 +304,15 @@ export default async function ExploreHome({
 type SearchCounts = {
   /** 검색어에 맞는 사진 — 목적이 있으면 그 목적 사진, 없으면 전부 */
   matches: number;
-  /** 목적은 다르지만 무드가 비슷해 아래에 붙인 사진 */
+  /** 목적은 같고 무드가 조금 먼 사진 — 아래 "비슷한 무드의 사진들이에요" */
   related: number;
   /** 맞는 사진이 상한(300)에 걸렸나 — 걸렸으면 "300장+" 로 적는다 */
   capped: boolean;
 };
 
 /**
- * 검색 결과 — 목적이 맞는 사진을 위에, 목적은 다르지만 무드가 비슷한 사진을 그 아래에.
- * "가을 커플스냅" 이면 커플 사진이 가을 순으로 먼저 오고, 다른 가을 사진이 뒤따른다.
+ * 검색 결과 — 검색어에 목적이 있으면 위·아래 모두 그 목적 사진만 보여준다.
+ * "가을 커플스냅" 이면 가을과 가장 가까운 커플 사진이 위, 나머지 커플 사진이 가을 순으로 아래.
  *
  * 앨범 흩뜨리기는 두 묶음 **안에서 따로** 한다. 합쳐서 섞으면 아래 묶음 사진이 위로 올라온다.
  * 태그 검색은 쓰지 않는다 — SigLIP 만으로 만든다.
