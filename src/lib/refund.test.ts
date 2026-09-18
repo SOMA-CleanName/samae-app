@@ -89,13 +89,17 @@ test("4~7일 전 → 40% 위약금, 60% 환불, 위약금은 작가 80 : 사매 
   assert.equal(q.refundKrw, 72000);
   assert.equal(q.penaltyKrw, 48000);
   assert.equal(q.penaltyCompanyKrw, 9600);
-  assert.equal(q.penaltyPhotographerKrw, 38400);
+  assert.equal(q.penaltyVatKrw, 960); // 수수료의 부가세도 작가 몫에서 뺀다 (작가약관 16조 1항)
+  assert.equal(q.penaltyPhotographerKrw, 37440);
   // 정상 수수료(24,000)는 붙지 않는다 — 사매 몫은 위약금 배분뿐
   assert.equal(q.feeWaived, true);
   assert.equal(q.feeKrw, 9600);
-  assert.equal(q.photographerNetKrw, 38400);
-  // 돈이 새지 않는다
-  assert.equal(q.refundKrw + q.penaltyCompanyKrw + q.penaltyPhotographerKrw, 120000);
+  assert.equal(q.photographerNetKrw, 37440);
+  // 돈이 새지 않는다 — 환불 + 수수료 + 부가세 + 작가 몫이 총액이다
+  assert.equal(
+    q.refundKrw + q.penaltyCompanyKrw + q.penaltyVatKrw + q.penaltyPhotographerKrw,
+    120000
+  );
 });
 
 test("4일 전(9/16)까지는 40%, 3일 전(9/17)부터는 90%", () => {
@@ -107,7 +111,7 @@ test("4일 전(9/16)까지는 40%, 3일 전(9/17)부터는 90%", () => {
   assert.equal(d3.refundKrw, 12000);
   assert.equal(d3.penaltyKrw, 108000);
   assert.equal(d3.penaltyCompanyKrw, 21600);
-  assert.equal(d3.penaltyPhotographerKrw, 86400);
+  assert.equal(d3.penaltyPhotographerKrw, 84240);
 });
 
 test("촬영 당일 촬영 전 취소 → 90% (노쇼가 아니다)", () => {
@@ -121,7 +125,7 @@ test("촬영이 지난 뒤 → 환불 없음, 정상 수수료 유지", () => {
   assert.equal(q.refundKrw, 0);
   assert.equal(q.feeWaived, false);
   assert.equal(q.feeKrw, 24000);
-  assert.equal(q.photographerNetKrw, 96000);
+  assert.equal(q.photographerNetKrw, 93600); // 실제 정산과 같게 수수료+부가세를 뺀다
 });
 
 // ── 취소 시점 = 신청 시각 (5조 3항) ──────────────────────────────
@@ -244,13 +248,13 @@ test("작가 노쇼 — 작가 사정과 같은 돈, 이력용 라벨만 다르�
   assert.equal(q.feeClaimKrw, 24000);
 });
 
-test("고객 노쇼 — 위약금 100%, 작가 80 : 사매 20", () => {
+test("고객 노쇼 — 위약금 100%, 수수료와 부가세를 뺀 나머지가 작가 몫", () => {
   const q = refundQuote({ ...base, transferMarkedAt: PAID_LONG_AGO, override: "customer_no_show", now: kst("2026-09-21T10:00:00") });
   assert.equal(q.basis, "customer_no_show");
   assert.equal(q.refundKrw, 0);
   assert.equal(q.penaltyKrw, 120000);
   assert.equal(q.penaltyCompanyKrw, 24000);
-  assert.equal(q.photographerNetKrw, 96000);
+  assert.equal(q.photographerNetKrw, 93600);
 });
 
 test("부분 이행 — 운영이 정한 환불액, 나머지는 위약금처럼 배분", () => {
@@ -259,7 +263,8 @@ test("부분 이행 — 운영이 정한 환불액, 나머지는 위약금처럼
   assert.equal(q.refundKrw, 30000);
   assert.equal(q.penaltyKrw, 90000);
   assert.equal(q.penaltyCompanyKrw, 18000);
-  assert.equal(q.penaltyPhotographerKrw, 72000);
+  assert.equal(q.penaltyVatKrw, 1800);
+  assert.equal(q.penaltyPhotographerKrw, 70200);
 });
 
 test("부분 이행 환불액이 총액을 넘으면 총액까지만", () => {
@@ -289,7 +294,7 @@ test("촬영일을 모르면 고객에게 유리하게 전액", () => {
 test("요율이 10% 인 작가는 위약금 사매 몫도 10%", () => {
   const q = refundQuote({ ...base, feeRate: 0.1, transferMarkedAt: PAID_LONG_AGO, now: kst("2026-09-13T00:00:00") });
   assert.equal(q.penaltyCompanyKrw, 4800);
-  assert.equal(q.penaltyPhotographerKrw, 43200);
+  assert.equal(q.penaltyPhotographerKrw, 42720);
 });
 
 test("임박 예약 판정과 그때의 위약금 비율", () => {
@@ -344,7 +349,7 @@ test("옛 스냅샷(baseKrw·vatKrw 없음)도 읽힌다 — 수수료 금액은
 });
 
 test("위약금 배분과 사업자 유형별 실질 부담", () => {
-  assert.deepEqual(penaltySplit(48000, 0.2), { companyKrw: 9600, photographerKrw: 38400 });
+  assert.deepEqual(penaltySplit(48000, 0.2), { companyKrw: 9600, vatKrw: 960, photographerKrw: 37440 });
   assert.equal(effectiveBurdenPct("general"), 20);
   assert.equal(effectiveBurdenPct("simplified"), 22);
   assert.equal(effectiveBurdenPct("unregistered"), 22);

@@ -82,7 +82,7 @@ export function AdminRefundButton({
 
   const moneyLine =
     preview.penaltyKrw > 0
-      ? `위약금 ₩${fmt.format(preview.penaltyKrw)} → 작가 ₩${fmt.format(preview.penaltyPhotographerKrw)} · 사매 ₩${fmt.format(preview.penaltyCompanyKrw)}`
+      ? `위약금 ₩${fmt.format(preview.penaltyKrw)} → 작가 ₩${fmt.format(preview.penaltyPhotographerKrw)} · 수수료 ₩${fmt.format(preview.penaltyCompanyKrw)} · 부가세 ₩${fmt.format(preview.penaltyVatKrw)}`
       : preview.feeClaimKrw > 0
         ? `작가에게 수수료 상당액 ₩${fmt.format(preview.feeClaimKrw)} 청구`
         : preview.feeWaived
