@@ -1,4 +1,4 @@
-import { B, Checks, Defs, P, Section, Table } from "@/components/legal/LegalDoc";
+import { B, Defs, Items, P, Section, SubHead, Table } from "@/components/legal/LegalDoc";
 import { BUSINESS_TYPE_LABEL, DEFAULT_FEE_RATE, effectiveBurdenPct } from "@/lib/platform-fee";
 
 /*
@@ -10,8 +10,12 @@ import { BUSINESS_TYPE_LABEL, DEFAULT_FEE_RATE, effectiveBurdenPct } from "@/lib
 
   ⚠️ **이 문서는 다른 셋과 성격이 다르다.** 작가약관·취소환불정책이 "규칙" 이라면, 이건
      **동의 화면이 무엇을 받는지** 를 적은 글이다(작가 정보 · 수수료 확인 · 권리 보증 · 통지 수단).
-     그래서 여기 네모(Checks)는 장식이 아니라 AgreeGate 폼의 미리보기다. 화면이 받는 항목을
-     바꾸면 이 문안도 같이 바꿔야 한다 — 어긋나면 "무엇에 동의했는가" 가 흔들린다.
+     화면이 받는 항목을 바꾸면 이 문안도 같이 바꿔야 한다 — 어긋나면 "무엇에 동의했는가" 가 흔들린다.
+
+  ⚠️ **항목에 체크박스를 그리지 않는다.** 정본이 체크박스 꼴(☐)로 쓰여 있어 한동안 그대로
+     옮겼는데, 우리 동의 화면은 **항목별로 체크를 받지 않는다** — 문서를 끝까지 읽고 한 번에
+     동의한다. 화면에 없는 체크칸을 글에 그려 두면 "이건 따로 고르는 건가" 를 만든다.
+     줄표(Items)로 나열만 한다.
 
   ⚠️ **요율이 박히는 유일한 문서다.** 2026-09-15 묶음에서 작가 이용약관 제12조 1항이
      "입점 동의서에 기재된 요율에 따른다" 로 넘기기 때문. 전에는 수수료 정책과 입점 계약
@@ -51,7 +55,7 @@ export function PhotographerContractBody({
           ["정산 계좌", "은행 / 예금주 / 계좌번호"],
         ]}
       />
-      <P className="mt-3">
+      <P>
         작가는 위 내용이 사실과 일치함을 보증하며, 변경이 있으면 즉시 갱신합니다. 사업자 유형,
         사업자등록번호, 정산 계좌의 오류나 미갱신으로 인한 세무상·정산상 불이익은 작가에게 귀속됩니다.
       </P>
@@ -59,24 +63,28 @@ export function PhotographerContractBody({
 
     <Section n="2" title="문서 확인 (필수)">
       <P>작가는 다음 문서를 확인하였으며, 그 내용에 동의합니다.</P>
-      <Checks
+      {/* 문서명과 요약을 줄로 나눈다 — 한 줄에 두면 줄표가 앞머리 줄표와 겹쳐 읽힌다 */}
+      <Items
         items={[
           <>
-            <B>사매 작가 이용약관</B> — 등록, 상품, 이행 의무, 수수료와 정산, 금지 행위, 제재, 책임, 계약
-            종료
+            <B>사매 작가 이용약관</B>
+            <span className="mt-0.5 block text-fg/60">
+              등록, 상품, 이행 의무, 수수료와 정산, 금지 행위, 제재, 책임, 계약 종료
+            </span>
           </>,
           <>
-            <B>사매 취소·환불 정책</B> — 취소 기준, 위약금, 환불 절차
+            <B>사매 취소·환불 정책</B>
+            <span className="mt-0.5 block text-fg/60">취소 기준, 위약금, 환불 절차</span>
           </>,
         ]}
       />
     </Section>
 
     <Section n="3" title="중개 수수료 (필수)">
-      <P className="rounded-xl bg-surface-2 px-4 py-3 text-fg">
+      <P className="rounded-xl bg-surface-2 px-4 py-3.5 text-fg">
         중개 수수료: 촬영 대금의 <B>{RATE_PCT}%</B> (부가가치세 별도)
       </P>
-      <Checks
+      <Items
         items={[
           <>
             중개 수수료가 위 요율이며, 촬영 대금 전체(촬영비·출장비·추가금 포함)를 기준으로 산정된다는 점을
@@ -93,7 +101,7 @@ export function PhotographerContractBody({
         ]}
       />
 
-      <P className="mt-5 font-semibold text-fg">사업자 유형에 따른 실질 부담</P>
+      <SubHead>사업자 유형에 따른 실질 부담</SubHead>
       <Table
         head={["사업자 유형", "세금계산서", "매입세액공제", "실질 부담"]}
         rows={[
@@ -117,7 +125,7 @@ export function PhotographerContractBody({
           ],
         ]}
       />
-      <P className="mt-3 text-muted">
+      <P className="text-muted">
         ※ 회사는 촬영 대금에 대한 소득세를 원천징수하지 않습니다. 작가는 촬영 대금 전액을 수입금액으로 하여
         매년 5월 종합소득세를 직접 신고·납부해야 하며, 중개 수수료는 필요경비로 처리할 수 있습니다.
       </P>
@@ -128,7 +136,7 @@ export function PhotographerContractBody({
         작가는 서비스에 사진을 올릴 때 <B>사진별로</B> 사매의 홍보·광고 사용 허용 여부를 선택할 수 있습니다.
         허용하지 않은 사진은 서비스 내에서만 노출되며, 허용 여부는 언제든 서비스 내에서 변경할 수 있습니다.
       </P>
-      <P className="mt-2">
+      <P>
         허용한 사진의 사용 범위는 다음과 같으며, 상세 조건은 사매 작가 이용약관 제20조에 따릅니다.
       </P>
       <Table
@@ -151,14 +159,14 @@ export function PhotographerContractBody({
           ],
         ]}
       />
-      <P className="mt-3">
+      <P>
         회사는 게재된 사진의 저작권을 취득하지 않으며, 위 범위를 벗어나 사진을 제3자에게 제공하거나 판매하지
         않습니다.
       </P>
     </Section>
 
     <Section n="5" title="권리 보증 (필수)">
-      <Checks
+      <Items
         items={[
           <>
             서비스에 게재하는 모든 사진은 작가 본인이 촬영한 것이며, 촬영 대상자를 포함한 제3자의 권리 문제가
@@ -183,11 +191,12 @@ export function PhotographerContractBody({
       </P>
     </Section>
 
-    <section>
+    {/* 맺음 — 조 제목이 없는 블록이라 Article/Section 의 space-y 가 안 닿는다. 여기서 직접 준다 */}
+    <section className="space-y-3 border-t border-line pt-6">
       <P className="text-muted">
         회사의 상호·대표자·사업자등록번호·주소·연락처는 서비스 화면의 사업자 정보 표시에 따릅니다.
       </P>
-      <P className="mt-3">
+      <P>
         작가는 위 내용을 모두 확인하였으며, 서비스 내 입점 동의 화면에서 동의함으로써 이용계약을 체결합니다.
       </P>
     </section>

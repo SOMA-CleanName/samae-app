@@ -250,7 +250,7 @@ export function RefundPolicyBody() {
     </Article>
 
     <section>
-      <h2 className="mb-2 text-base font-semibold text-fg">부칙</h2>
+      <h2 className="mb-3 text-base font-semibold leading-7 text-fg">부칙</h2>
       <P>이 정책은 {POLICY_EFFECTIVE_DATE || "시행일(게시 공지 후 확정)"}부터 적용합니다.</P>
     </section>
     </>
