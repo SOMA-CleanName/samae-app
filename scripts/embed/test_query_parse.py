@@ -59,9 +59,11 @@ class QueryParseTest(unittest.TestCase):
         self.assertEqual(run("여자 노을"), {"purposes": ["personal"], "gender": "female", "details": [], "mood_text": "노을", "matched": ["여자"]})
         self.assertEqual(run("여자랑 바다")["mood_text"], "바다", "성별 낱말에 붙은 조사도 뗀다")
 
-    def test_gender_stays_in_text_when_another_purpose_wins(self):
-        # 커플 사진에는 두 성별이 다 있다 — 가르지 않고 예전처럼 글자로 남긴다
-        self.assertEqual(run("여자 커플스냅"), {"purposes": ["couple"], "gender": None, "details": [], "mood_text": "여자", "matched": ["여자", "커플 스냅"]})
+    def test_gender_is_dropped_when_another_purpose_wins(self):
+        # 커플 사진에는 두 성별이 다 있다 — 가르지 않고, 무드로도 남기지 않는다.
+        # 남기면 "여자" 와 가까운 전체 300장이 개인 사진으로 채워져 커플이 2장만 남았다
+        self.assertEqual(run("여자 커플스냅"), {"purposes": ["couple"], "gender": None, "details": [], "mood_text": "", "matched": ["여자", "커플 스냅"]})
+        self.assertEqual(run("남자 커플 노을")["mood_text"], "노을", "다른 무드 말은 남는다")
 
     def test_both_genders_are_not_a_filter(self):
         result = run("남자 여자")
@@ -116,6 +118,15 @@ class QueryParseTest(unittest.TestCase):
         self.assertEqual(run("비즈니스 프로필")["details"], ["commercial.business_profile"])
         self.assertEqual(run("여자 바디프로필")["details"], ["personal.body_profile"])
         self.assertEqual(run("여자 바디프로필")["gender"], "female")
+
+    def test_longer_purpose_phrases_keep_the_detail(self):
+        # 목적 사전의 "만삭 스냅" 이 먼저 이겨도 그 안의 "만삭" 으로 좁힌다
+        for query, detail in [("만삭 스냅", "event.maternity"), ("만삭스냅", "event.maternity"),
+                              ("만삭 촬영", "event.maternity"), ("졸업 촬영", "event.graduation"),
+                              ("졸업 기념", "event.graduation"), ("첫돌", "event.first_birthday"),
+                              ("프로필 촬영", "personal.profile")]:
+            self.assertEqual(run(query)["details"], [detail], query)
+        self.assertEqual(run("바디프로필 촬영")["details"], ["personal.body_profile"], "바디프로필 안의 프로필을 따로 세지 않는다")
 
     def test_snap_words_do_not_narrow(self):
         # "커플스냅" 은 커플 전체를 찾는 말이다 — 스냅 세부분류로 좁히면 기념일 사진이 빠진다
