@@ -288,9 +288,13 @@ export const PHOTO_PURPOSE_KEYS = [
 ] as const;
 export type PhotoPurposeKey = (typeof PHOTO_PURPOSE_KEYS)[number];
 
+export type PhotoGender = "female" | "male";
+
 export type SearchQueryParse = {
   purposes: PhotoPurposeKey[];
-  /** 목적을 뗀 나머지 글자. 비어 있으면 목적만 검색한 것이다. */
+  /** 개인 사진을 성별로 찾을 때만 — "여자 노을" 은 female. 갱신 전 맥미니는 안 준다(null). */
+  gender: PhotoGender | null;
+  /** 목적(과 성별)을 뗀 나머지 글자. 비어 있으면 목적만 검색한 것이다. */
   moodText: string;
   vector: number[] | null;
 };
@@ -301,7 +305,9 @@ const isPurposeKey = (value: unknown): value is PhotoPurposeKey =>
 /** 맥미니 응답을 검증한다. 무드 글자가 있는데 벡터가 없으면 쓸 수 없는 응답이다. */
 export function parseSearchQueryResponse(value: unknown): SearchQueryParse | null {
   if (!value || typeof value !== "object") return null;
-  const response = value as { purposes?: unknown; mood_text?: unknown; vector?: unknown; model?: unknown };
+  const response = value as {
+    purposes?: unknown; gender?: unknown; mood_text?: unknown; vector?: unknown; model?: unknown;
+  };
   if (!Array.isArray(response.purposes) || !response.purposes.every(isPurposeKey)) return null;
   if (typeof response.mood_text !== "string") return null;
   const moodText = response.mood_text.trim();
@@ -310,7 +316,8 @@ export function parseSearchQueryResponse(value: unknown): SearchQueryParse | nul
     : parseTextEmbeddingResponse({ model: response.model, vectors: [response.vector] });
   if (moodText && !vector) return null;
   if (!moodText && response.purposes.length === 0) return null;
-  return { purposes: [...response.purposes], moodText, vector: moodText ? vector : null };
+  const gender = response.gender === "female" || response.gender === "male" ? response.gender : null;
+  return { purposes: [...response.purposes], gender, moodText, vector: moodText ? vector : null };
 }
 
 /**
@@ -376,6 +383,13 @@ export const SEARCH_MATCH_Z = 2.5;
 /** 이 이상이면 "비슷한 무드의 사진들이에요" — 관련 약 55%. 이 아래(약 15%)는 보여주지 않는다. */
 export const SEARCH_RELATED_Z = 2.0;
 
+/**
+ * z 컷을 검색 화면에 쓰나. 0131(search_photos_by_z)이 DB 에 있어도 **아직 끈다** — 무드어는
+ * SigLIP 이 약하게 읽어 z 로 자르면 결과가 굶는다. 무드어 영어 문구 작업 뒤에 켠다.
+ * 0131 은 지금 성별 필터에만 쓴다(사진 전체의 점수가 필요해서).
+ */
+export const SEARCH_Z_CUT_ENABLED = false;
+
 /** 점수순 목록을 z 로 가른다. 각자 점수순은 그대로다. */
 export function splitByZ<T extends { z: number }>(
   scored: T[],
@@ -401,4 +415,39 @@ export function spreadAlbumsInBands<T extends { id: string; width: number; heigh
     photos.map((photo) => ({ ...photo, photo, albumId: photo.album_id ?? null })),
     { preserveOrientationOrder: true, albumWindow: 12, relevanceBandSize: SEARCH_RELEVANCE_BAND_SIZE }
   ).map((candidate) => candidate.photo);
+}
+
+// ── 성별 필터 ────────────────────────────────────────────────────────────
+// 성별은 점수 순위로 자를 수 없다. 개인 사진 1,027장 중 약 1,000장이 여성이라 "여자" 는
+// 평균보다 튀는 사진이 없고, 상위 300장으로 자르면 여자 사진 대부분이 잘린다. 대신 사진마다
+// "여자" 와 "남자" 중 어느 쪽에 더 가까운지 비교한다(2026-09-18 실측, docs/29 §12.9).
+
+/**
+ * 남자 쪽 경계 (코사인 거리 차 = 남자까지 거리 − 여자까지 거리). 이보다 작으면 남자 사진이다.
+ * 차가 작은 쪽부터 눈으로 봤을 때 24위(0.0046)까지 전부 남자, 25위(0.0059)부터 사람이 작거나
+ * 어두운 사진이 섞이고 곧 여자 사진이 나왔다.
+ */
+export const GENDER_BOUNDARY = 0.005;
+
+type DistanceRow = { id: string; distance: number };
+
+/**
+ * 같은 사진들의 "여자"·"남자" 거리로 한 성별만 고른다. 고른 성별과 가까운 순서로 준다.
+ * 두 목록에 다 있는 사진만 본다.
+ */
+export function pickByGender<T extends DistanceRow>(
+  female: T[],
+  male: DistanceRow[],
+  gender: PhotoGender,
+  boundary = GENDER_BOUNDARY
+): T[] {
+  const maleDistance = new Map(male.map((row) => [row.id, row.distance]));
+  const picked = female.filter((row) => {
+    const toMale = maleDistance.get(row.id);
+    if (toMale === undefined) return false;
+    const womanLean = toMale - row.distance;
+    return gender === "female" ? womanLean >= boundary : womanLean < boundary;
+  });
+  if (gender === "female") return picked;
+  return picked.sort((a, b) => (maleDistance.get(a.id) ?? 0) - (maleDistance.get(b.id) ?? 0));
 }
