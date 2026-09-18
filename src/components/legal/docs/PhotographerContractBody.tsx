@@ -1,5 +1,5 @@
-import { B, Defs, Items, P, Section, SubHead, Table } from "@/components/legal/LegalDoc";
-import { BUSINESS_TYPE_LABEL, DEFAULT_FEE_RATE, effectiveBurdenPct } from "@/lib/platform-fee";
+import { B, Defs, Items, P, Section, Table } from "@/components/legal/LegalDoc";
+import { DEFAULT_FEE_RATE } from "@/lib/platform-fee";
 
 /*
   PhotographerContractBody — 작가 입점 동의서 본문.
@@ -37,8 +37,7 @@ export function PhotographerContractBody({
 }: {
   rate?: number | null;
 } = {}) {
-  const effective = rate ?? DEFAULT_FEE_RATE;
-  const RATE_PCT = +(effective * 100).toFixed(2);
+  const RATE_PCT = +((rate ?? DEFAULT_FEE_RATE) * 100).toFixed(2);
 
   return (
     <>
@@ -105,30 +104,13 @@ export function PhotographerContractBody({
         ]}
       />
 
-      <SubHead>사업자 유형에 따른 실질 부담</SubHead>
-      <Table
-        head={["사업자 유형", "세금계산서", "매입세액공제", "실질 부담"]}
-        rows={[
-          [
-            BUSINESS_TYPE_LABEL.general,
-            "회사가 발급",
-            "가능",
-            `${effectiveBurdenPct("general", effective)}%`,
-          ],
-          [
-            BUSINESS_TYPE_LABEL.simplified,
-            "회사가 발급",
-            "불가",
-            `${effectiveBurdenPct("simplified", effective)}%`,
-          ],
-          [
-            BUSINESS_TYPE_LABEL.unregistered,
-            "영수증 발급",
-            "해당 없음",
-            `${effectiveBurdenPct("unregistered", effective)}%`,
-          ],
-        ]}
-      />
+      {/* ⚠️ "사업자 유형에 따른 실질 부담" 표는 **지면에서 뺐다**(2026-09-18 요청).
+          정본 제3항에는 아직 남아 있으므로, 정본을 고칠 때 같이 지울 것 — 안 그러면
+          문서와 지면이 어긋난 채로 굳는다.
+
+          표가 말하던 것(일반과세자는 매입세액공제로 실질 요율 그대로, 간이·미등록은 부가세만큼
+          더 부담)은 증빙 종류로 갈리는 건데, 그 증빙 얘기는 작가약관 제14조 2항과 동의 화면의
+          사업자 유형 칸 안내가 이미 하고 있다. */}
       <P className="text-muted">
         ※ 회사는 촬영 대금에 대한 소득세를 원천징수하지 않습니다. 작가는 촬영 대금 전액을 수입금액으로 하여
         매년 5월 종합소득세를 직접 신고·납부해야 하며, 중개 수수료는 필요경비로 처리할 수 있습니다.
