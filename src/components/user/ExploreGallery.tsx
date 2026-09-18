@@ -535,12 +535,21 @@ export function ExploreGallery({
       const raw = sessionStorage.getItem(feedSessionKey);
       const cached = raw ? (JSON.parse(raw) as FeedSession) : null;
       if (cached && Array.isArray(cached.items) && cached.items.length > 0) {
-        setItems(cached.items);
+        // 검색은 저장해 둔 사진 목록을 되살리지 않는다 — 사진은 계속 올라오고 숨겨지는데
+        // 목록을 되살리면 그 검색어를 본 탭에서는 탭을 닫기 전까지 옛 사진이 뜬다.
+        // 목록은 서버가 방금 보낸 것을 쓰고, 상세에서 돌아온 깊이만 되살린다.
+        // 같은 검색어면 서버가 같은 순서로 보내므로 자리는 대부분 맞는다.
+        // (홈 피드는 방문마다 순서를 새로 섞으므로 목록째 되살려야 한다.)
+        const restored = query ? initialPhotos : cached.items;
+        setItems(restored);
         setVisible(
           query
-            ? Math.max(
-                Math.min(STEP, cached.items.length),
-                Math.floor(Number.isFinite(cached.visible) ? cached.visible : 0)
+            ? Math.min(
+                restored.length,
+                Math.max(
+                  Math.min(STEP, restored.length),
+                  Math.floor(Number.isFinite(cached.visible) ? cached.visible : 0)
+                )
               )
             : Math.max(STEP, Math.min(cached.visible, cached.items.length))
         );
@@ -548,7 +557,7 @@ export function ExploreGallery({
         feedCycle.current = Math.max(0, cached.cycle || 0);
         feedPhase.current = cached.phase === "demoted" ? "demoted" : "normal";
         cycleSeenIds.current = new Set(
-          Array.isArray(cached.cycleSeenIds) ? cached.cycleSeenIds : cached.items.map((photo) => photo.id)
+          !query && Array.isArray(cached.cycleSeenIds) ? cached.cycleSeenIds : restored.map((photo) => photo.id)
         );
         // 이전 요청의 일시 오류가 exhausted 로 저장됐을 수 있으므로 재진입 시 한 번은 다시 확인한다.
         feedExhausted.current = loadMore ? false : !!cached.exhausted;
