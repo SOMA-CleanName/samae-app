@@ -141,7 +141,7 @@ cd ~/srv/samae-app/scripts/embed
 cd ~/srv/samae-app
 ```
 
-**정상** — 13개 모두 `ok`.
+**정상** — 전부 `ok`, 마지막 줄 `OK` (2026-09-18 기준 23개).
 
 ---
 

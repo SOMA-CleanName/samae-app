@@ -59,3 +59,29 @@ test("saving requires at least one approved purpose and rejects mixed invalid in
     assert.throws(() => parsePurposeSelection(value));
   }
 });
+
+test("성별은 개인 목적이 있을 때만 산다", async () => {
+  const { genderFor, parseGenderSelection, purposeChipLabel } = await import("./photo-purpose.ts");
+  assert.equal(genderFor(["personal"], "male"), "male");
+  assert.equal(genderFor(["couple"], "male"), null, "커플에는 성별이 없다");
+  assert.equal(genderFor(["personal", "pet"], "female"), "female");
+  assert.equal(genderFor(["personal"], undefined), null);
+  assert.equal(parseGenderSelection(null), null);
+  assert.equal(parseGenderSelection("female"), "female");
+  assert.throws(() => parseGenderSelection("other"));
+  assert.equal(purposeChipLabel("personal", "female"), "개인·여성");
+  assert.equal(purposeChipLabel("couple", "female"), "커플");
+});
+
+test("세부분류는 그 목적이 있을 때만 산다", async () => {
+  const { PURPOSE_DETAILS, detailsFor, detailLabel, parseDetailSelection, toggleDetail } = await import("./photo-purpose.ts");
+  assert.deepEqual(PURPOSE_DETAILS.event.map((d) => d.label), ["만삭", "아기", "돌", "가족", "졸업", "단체·동호회", "연회"]);
+  assert.deepEqual(PURPOSE_DETAILS.personal.map((d) => d.value), [
+    "personal.snap", "personal.profile", "personal.body_profile", "personal.id_photo",
+  ]);
+  assert.deepEqual(detailsFor(["event"], ["event.maternity", "wedding.ceremony", "event.maternity"]), ["event.maternity"]);
+  assert.equal(detailLabel("event.first_birthday"), "돌");
+  assert.throws(() => parseDetailSelection(["event.party"]));
+  assert.deepEqual(parseDetailSelection([]), []);
+  assert.deepEqual(toggleDetail(["event.baby"], "event.baby"), []);
+});

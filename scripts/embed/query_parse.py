@@ -11,19 +11,48 @@
 사전만으로는 낱말 경계를 모른다. "아기자기한" 에서 "아기" 를 찾아 행사로 잡았다.
 그래서 Kiwi 로 형태소를 쪼갠 뒤 **형태소 단위로** 대조한다.
 """
+import json
+from pathlib import Path
+
 from purpose_text import PURPOSE_ORDER, PURPOSE_PHRASES
+
+# 목적 세부분류 체계 — 앱과 같은 파일을 읽는다(src/lib/purpose-details.json, docs/39 §3).
+# search 에 적힌 말은 목적과 세부분류를 함께 준다: "임신" → 행사 + event.maternity.
+DETAILS_PATH = Path(__file__).resolve().parents[2] / "src" / "lib" / "purpose-details.json"
+
+
+def load_detail_phrases(path=DETAILS_PATH):
+    taxonomy = json.loads(path.read_text(encoding="utf-8"))
+    return [
+        (purpose, phrase, f"{purpose}.{item['key']}")
+        for purpose, items in taxonomy.items() if not purpose.startswith("$")
+        for item in items
+        for phrase in item.get("search", [])
+    ]
 
 # 검색창에서 사람이 치는 말. 작가 글 기준으로 만든 PURPOSE_PHRASES 에는 없었다.
 # 사진 분류 사전에는 넣지 않는다 — 넣으면 매일 오전 6시 목적 분류 결과까지 바뀐다.
 SEARCH_PHRASES = {
     # "남자 프로필" "여자 스냅" 은 혼자 찍는 사진이다. "남자친구" 는 두 조각(남자+친구)으로
     # 쪼개지지만 사전의 "남자친구" 도 똑같이 쪼개 긴 것부터 맞추므로 커플로 잡힌다.
-    "personal": ("남자", "여자", "남성", "여성"),
-    "pet": ("강아지", "고양이", "댕댕이", "냥이", "애견", "애묘", "펫"),
-    "couple": ("남친", "여친", "남자친구", "여자친구", "연애"),
-    # 가족 사진은 목적이 따로 없어 행사로 둔다 (2026-09-18 결정)
-    "event": ("가족", "가족사진", "가족 사진"),
+    #
+    # 세부분류가 있는 말(임신·돌·신혼여행·형제 …)은 여기가 아니라 purpose-details.json 에 있다.
+    # 여기는 목적만 알려주는 말이다.
+    "personal": ("남자", "여자", "남성", "여성", "셀프", "혼자"),
+    "pet": ("펫",),
+    # 신혼여행·허니문은 커플이다. 세부분류 "여행" 은 사진으로 가르기 어려워 뺐다(2026-09-18) — 커플 전체로 찾는다
+    "couple": ("남친", "여친", "남자친구", "여자친구", "연애", "신혼여행", "허니문"),
+    "event": ("행사",),
 }
+# 2026-09-18 결정: 신혼여행 → 커플, 형제·자매 → 우정, 가족 → 행사, "돌" 한 글자도 돌잔치
+# (돌담·돌계단은 Kiwi 가 한 낱말로 읽어 걸리지 않는다).
+
+# 사전에 넣지 않는 말 (2026-09-18).
+#   · 화보·컨셉 — "누가·왜" 가 아니라 "어떤 느낌으로" 다. 개인 화보도 브랜드 화보도 있다.
+#     목적은 함께 쓴 말이 정하고("쇼핑몰 화보" → 상업), 혼자 오면 무드로 SigLIP 에 넘긴다
+#   · 인테리어 — 공간 촬영(상업)일 수도, "인테리어 예쁜 카페" 같은 장면 말일 수도 있다
+#   · 1인·100일 처럼 숫자가 붙은 말 — Kiwi 가 숫자(SN)를 떼어 "인" "일" 만 남아 엉뚱한 말에 걸린다.
+#     기념일·백일로 잡는다
 
 # 모든 사진이 사진이다. SigLIP 에 넣어 봐야 뜻이 없고, 남기면 목적처럼 굴기도 한다.
 FORMAT_WORDS = {"스냅", "사진", "촬영", "찍기"}
@@ -52,18 +81,21 @@ def _content_forms(kiwi, text):
     return tuple(t.form for t in kiwi.tokenize(text) if not _is_function(t.tag))
 
 
-def build_lexicon(kiwi):
-    """목적 문구를 검색어와 같은 방식으로 쪼갠 사전. 긴 문구부터 맞춘다."""
-    entries = []
+def build_lexicon(kiwi, detail_phrases=None):
+    """목적 문구를 검색어와 같은 방식으로 쪼갠 사전. 긴 문구부터 맞춘다.
+
+    세부분류 말을 먼저 넣는다 — 같은 꼴이 목적 사전에도 있으면("만삭") 세부분류까지 주는 쪽이 이긴다.
+    """
+    entries = list(detail_phrases if detail_phrases is not None else load_detail_phrases())
     for purpose, phrases in PURPOSE_PHRASES.items():
-        entries += [(purpose, phrase) for phrase, _strength in phrases]
+        entries += [(purpose, phrase, None) for phrase, _strength in phrases]
     for purpose, phrases in SEARCH_PHRASES.items():
-        entries += [(purpose, phrase) for phrase in phrases]
+        entries += [(purpose, phrase, None) for phrase in phrases]
     lexicon = {}
-    for purpose, phrase in entries:
+    for purpose, phrase, detail in entries:
         forms = _content_forms(kiwi, phrase)
         if forms:
-            lexicon.setdefault(forms, (purpose, phrase))
+            lexicon.setdefault(forms, (purpose, phrase, detail))
     return sorted(lexicon.items(), key=lambda item: (-len(item[0]), -sum(map(len, item[0]))))
 
 
@@ -78,16 +110,18 @@ def parse(query, kiwi, lexicon=None):
     content = [i for i, t in enumerate(tokens) if not _is_function(t.tag)]
     forms = [tokens[i].form for i in content]
     used = set()
-    found, matched = set(), []
+    found, matched, details = set(), [], []
     gender_spans = []   # (성별, 형태소 위치들) — 성별 필터를 쓸 때만 글자에서 뗀다
 
     position = 0
     while position < len(content):
-        for phrase_forms, (purpose, phrase) in lexicon:
+        for phrase_forms, (purpose, phrase, detail) in lexicon:
             size = len(phrase_forms)
             if tuple(forms[position:position + size]) == phrase_forms:
                 found.add(purpose)
                 matched.append(phrase)
+                if detail and detail not in details:
+                    details.append(detail)
                 if phrase in GENDER_WORDS:
                     gender_spans.append((GENDER_WORDS[phrase], content[position:position + size]))
                 else:
@@ -127,9 +161,12 @@ def parse(query, kiwi, lexicon=None):
         for offset in range(token.start, token.start + token.len):
             keep[offset] = False
     rest = "".join(ch if keep[i] else " " for i, ch in enumerate(query))
+    purposes = [p for p in PURPOSE_ORDER if p in found]
     return {
-        "purposes": [p for p in PURPOSE_ORDER if p in found],
+        "purposes": purposes,
         "gender": gender,
+        # 목적이 물러나면("웨딩 커플 여행" 의 커플) 그 목적의 세부분류도 버린다
+        "details": [d for d in details if d.split(".", 1)[0] in found],
         "mood_text": " ".join(rest.split()),
         "matched": matched,
     }

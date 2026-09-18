@@ -26,7 +26,7 @@ test("목적과 무드가 둘 다 오면 그대로 받는다", () => {
 
 test("목적만 검색하면 벡터가 없어도 된다", () => {
   const parsed = parseSearchQueryResponse(answer({ purposes: ["wedding"], mood_text: "", vector: null }));
-  assert.deepEqual(parsed, { purposes: ["wedding"], gender: null, moodText: "", vector: null });
+  assert.deepEqual(parsed, { purposes: ["wedding"], gender: null, details: [], moodText: "", vector: null });
 });
 
 test("성별은 개인 검색일 때 맥미니가 준다 — 갱신 전 맥미니는 없으니 null", () => {
@@ -129,4 +129,14 @@ test("성별은 여자·남자 중 어느 쪽에 가까운지로 가른다 — �
 
 test("한쪽 목록에만 있는 사진은 가르지 않는다", () => {
   assert.deepEqual(pickByGender([{ id: "a", distance: 0.8 }], [], "female"), []);
+});
+
+test("세부분류는 함께 온 목적의 것만 받는다", () => {
+  const parsed = parseSearchQueryResponse(answer({
+    purposes: ["event"], details: ["event.maternity", "wedding.ceremony", "event.maternity", "bad key"],
+    mood_text: "", vector: null,
+  }));
+  assert.deepEqual(parsed?.details, ["event.maternity"]);
+  const old = parseSearchQueryResponse(answer({ purposes: ["event"], mood_text: "", vector: null }));
+  assert.deepEqual(old?.details, [], "갱신 전 맥미니는 세부분류를 안 준다");
 });
