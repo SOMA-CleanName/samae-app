@@ -641,9 +641,15 @@ export function ExploreGallery({
       // 관심 이력을 아직 복원하지 못한 빈 배열을 실제 취향으로 오인하지 않게 잠시 기다린다.
       if (!cartHydrated) return;
       // 검색은 방향별 후보 큐를 독립 순환해 매 48장의 세로 비율을 유지한다.
+      //
+      // **다 보여줬으면 멈춘다.** 순환 자체는 세로/가로 비율을 고르게 하려는 것이지
+      // 무한히 흐르라는 뜻이 아닌데, 상한이 없어서 같은 사진이 끝없이 되풀이됐다
+      // (expandSearchResultLoop 의 createCyclicPicker 가 pool 을 다시 섞어 이어붙인다).
+      // 찾던 걸 이미 다 본 사람에게 같은 사진을 또 보여주면 "더 있나" 하고 계속 내리게 된다.
       if (query && items.length > 0) {
+        if (visible >= items.length) return;
         busy = true;
-        setVisible((current) => current + STEP);
+        setVisible((current) => Math.min(current + STEP, items.length));
         return;
       }
       // 1) 이미 로드된 것 중 아직 안 보인 게 있으면 그것부터 노출
