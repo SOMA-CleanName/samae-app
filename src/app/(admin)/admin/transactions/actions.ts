@@ -157,7 +157,7 @@ export async function adminMarkRefundPaid(formData: FormData): Promise<void> {
  */
 /**
  * 운영이 고객 대신 입금 표시 + 확인 (고객이 [입금 완료] 를 누르지 않은 건).
- * 정산은 하지 않는다 — 결과물 전달 뒤 정산 대기 큐에서 따로 한다(수수료정책 3조 1항).
+ * 정산은 하지 않는다 — 결과물 전달 뒤 정산 대기 큐에서 따로 한다(작가약관 13조 1항).
  */
 export async function adminMarkDepositAndConfirm(formData: FormData): Promise<void> {
   const me = await getCurrentUser();

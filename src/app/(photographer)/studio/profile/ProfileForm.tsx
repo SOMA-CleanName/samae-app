@@ -74,7 +74,7 @@ export function ProfileForm({ initial }: { initial: ProfileInitial }) {
         error={state.fieldErrors?.priceFrom}
       />
 
-      {/* 사업자 정보 — 입점 계약 당사자·세무 처리 기준 (수수료정책 1조 2항·6조). 입점 동의 때 받은 값을 여기서 고친다 */}
+      {/* 사업자 정보 — 이용계약 당사자·세무 처리 기준 (작가약관 14조·입점 동의서 1항). 입점 동의 때 받은 값을 여기서 고친다 */}
       <fieldset className="mt-2 rounded-xl border border-fg/10 p-4">
         <legend className="px-1 text-xs text-muted">사업자 정보</legend>
         <div className="flex flex-col gap-3">

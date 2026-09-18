@@ -82,7 +82,7 @@ export default async function PortfolioPage() {
 
   // 포트폴리오 사용을 거부한 촬영 — **올리기 전에** 알아야 지킬 수 있다.
   // 알림도 보내지만 알림은 지나간다. 사진을 올리는 화면에 그 순간 떠 있어야 한다
-  // (작가약관 13조 4항 · 입점계약 4조 3항).
+  // (작가약관 17조 4항 · 입점 동의서 5항).
   //
   // ⚠️ 고객 이름은 붙이지 않는다 — 작가 시점에서는 profiles 가 RLS 에 막혀 어차피 비어 온다
   //    (lib/bookings.ts 의 fillBookingCustomerNames 가 admin 으로 따로 보강하는 이유).
@@ -141,7 +141,7 @@ export default async function PortfolioPage() {
           </p>
           <p className="mt-1 text-xs leading-relaxed text-warning/90">
             고객님이 결과물의 포트폴리오·홍보 사용을 원하지 않으신 촬영이에요. 이 촬영에서 나온
-            사진은 올리실 수 없어요 (작가 이용약관 제13조 4항).
+            사진은 올리실 수 없어요 (작가 이용약관 제17조 4항).
           </p>
           <ul className="mt-2.5 flex flex-wrap gap-1.5">
             {optoutBookings.map((o) => (

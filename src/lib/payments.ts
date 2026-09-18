@@ -109,7 +109,7 @@ async function feeForBooking(
   const stored = readFeeSnapshot(booking.fee_snapshot);
   if (stored) return stored;
 
-  // 기준은 촬영 대금 전체(출장비 포함) — 수수료정책 1조 3항
+  // 기준은 촬영 대금 전체(출장비 포함) — 작가약관 12조 2항
   const { data: ph } = await admin
     .from("photographers")
     .select("fee_mode, fee_amount_krw, fee_rate")
@@ -120,8 +120,8 @@ async function feeForBooking(
 
 /**
  * 수수료 근거를 굳힌다 — 예약 생성·수정에서 호출하고, 입금 확인 때 한 번 더 확정한다.
- * 정책은 "확정 시점 요율"(수수료정책 2조 4항)이라 제안~입금 사이에 요율이 바뀌면 입금 확인 쪽이 진실이다.
- * 기준은 촬영 대금 전체다 — 출장비를 빼지 않는다 (수수료정책 1조 3항).
+ * 정책은 "확정 시점 요율"(작가약관 12조 4항)이라 제안~입금 사이에 요율이 바뀌면 입금 확인 쪽이 진실이다.
+ * 기준은 촬영 대금 전체다 — 출장비를 빼지 않는다 (작가약관 12조 2항).
  */
 export async function snapshotFeeForBooking(
   admin: ReturnType<typeof createAdminClient>,
@@ -308,7 +308,7 @@ export async function confirmBankTransferAdmin(bookingId: string): Promise<Confi
   if (!moved || moved.length === 0) return { ok: false, reason: "bad_state" };
   const b = moved[0];
 
-  // 확정 시점의 근거를 굳힌다 — 요율(수수료정책 2조 4항)과 정책 버전(취소환불 14조 2항).
+  // 확정 시점의 근거를 굳힌다 — 요율(작가약관 12조 4항)과 정책 버전(취소환불 15조 4항).
   // 제안 때 찍은 스냅샷이 있어도 여기서 다시 확정한다: 그 사이 요율이 바뀌었으면 확정 시점이 진실이다.
   const confirmedFee = await snapshotFeeForBooking(admin, b.photographer_id, b.amount_krw ?? 0);
   // 결과물 전달 기한 — 촬영일 + 상품에 적은 일수(없으면 21일). 회원약관 10조 5항
@@ -408,7 +408,7 @@ export async function markSettlementPaid(bookingId: string): Promise<ConfirmResu
   if (!booking || booking.settled_at) return { ok: false, reason: "bad_state" };
   if (!["paid", "shot", "delivered", "completed"].includes(booking.status as string))
     return { ok: false, reason: "bad_state" };
-  // 정산은 결과물을 전달한 뒤에만 (수수료정책 3조 1항). 촬영 전 정산은 막는다.
+  // 정산은 결과물을 전달한 뒤에만 (작가약관 13조 1항). 촬영 전 정산은 막는다.
   if (!booking.delivered_at) return { ok: false, reason: "bad_state" };
 
   const { data: feeRow } = await admin
@@ -420,7 +420,7 @@ export async function markSettlementPaid(bookingId: string): Promise<ConfirmResu
   const vatKrw = vatOnFee(feeKrw);
 
   // 사업자 유형은 **증빙 종류를 가른다** — 사업자면 세금계산서, 미등록이면 영수증
-  // (작가약관 14-2). 원천징수는 안 하지만 이건 남겨야 한다. 오히려 우리가 원천징수를
+  // (작가약관 14조 2항). 원천징수는 안 하지만 이건 남겨야 한다. 오히려 우리가 원천징수를
   // 하지 않으니 작가가 5월에 경비로 뺄 유일한 증빙이라 더 중요해졌다.
   const { data: phBiz } = await admin
     .from("photographers")
@@ -775,7 +775,7 @@ export type SettlementRow = {
   /** 작가 실수령 — 정산 전이면 예상액 */
   netKrw: number;
   stage: SettlementStage;
-  /** 작가가 결과물 전달을 알린 시각 — 지급 기한의 기산점 (수수료정책 3조 2항) */
+  /** 작가가 결과물 전달을 알린 시각 — 지급 기한의 기산점 (작가약관 13조 2항) */
   deliveredAt: string | null;
   settledAt: string | null;
   ackAt: string | null;
@@ -816,7 +816,7 @@ export async function listMySettlements(photographerId: string): Promise<Settlem
     (fees ?? []).map((f) => [
       f.booking_id as string,
       // 면제된 수수료는 0 으로 본다 — 환불 건에서 작가가 물지 않는다.
-      // 작가에게 빠지는 돈은 수수료 + 부가세다 (수수료정책 1조 "부가가치세 별도")
+      // 작가에게 빠지는 돈은 수수료 + 부가세다 (작가약관 12조 1항 "부가가치세는 별도")
       (f.status as string) === "waived" ? 0 : feeWithVat({ feeKrw: f.fee_krw as number, vatKrw: vatOnFee(f.fee_krw as number) }),
     ])
   );
@@ -828,7 +828,7 @@ export async function listMySettlements(photographerId: string): Promise<Settlem
     const feeKrw = feeByBooking.get(r.id as string) ?? 0;
     const settledAt = (r.settled_at as string | null) ?? null;
 
-    // 정산이 끝났으면 그때 확정된 금액이 진실이다. 그 뒤 수수료 정책이나 사업자 유형이
+    // 정산이 끝났으면 그때 확정된 금액이 진실이다. 그 뒤 수수료 조건이나 사업자 유형이
     // 바뀌어도 흔들리면 안 된다 — 이미 통장에 들어간 금액이다.
     const settled = settledAt && r.settlement_amount_krw != null;
     const netKrw = settled

@@ -8,6 +8,7 @@ import { ConsentBody } from "@/app/(auth)/signup/consent/ConsentBody";
 import ContactForm from "@/app/(auth)/signup/contact/ContactForm";
 import type { RequestCodeState, VerifyCodeState } from "@/app/(auth)/signup/contact/actions";
 import { AgreeGate } from "@/app/(photographer)/studio/AgreeGate";
+import { DOC_ORDER } from "@/components/legal/photographerDocs";
 import { PHOTOGRAPHER_AGREEMENT_VERSIONS } from "@/lib/policy-version";
 import type { BusinessType } from "@/lib/platform-fee";
 import { readFlow, resetFlow, stagePath, writeFlow, EMPTY, type FlowState, type FlowStage } from "./store";
@@ -246,9 +247,13 @@ export function SandboxAgree() {
   const go = useGo();
   const flow = useFlow();
   const submit = async (fd: FormData): Promise<void> => {
-    // 실제 액션과 같은 조건으로 막는다 — 문서별 열람 증적이 없으면 거절
-    for (const key of ["contract", "terms", "fee", "refund"]) {
-      if (fd.get(`agree_${key}`) !== "on") throw new Error("문서 4종에 모두 동의해야 해요.");
+    // 실제 액션과 같은 조건으로 막는다 — 문서별 열람 증적이 없으면 거절.
+    //
+    // ⚠️ 키를 여기 **박아 두지 않는다.** 전에는 ["contract","terms","fee","refund"] 를 손으로
+    //    적어 뒀는데, 2026-09-15 묶음에서 수수료 정책이 빠지자 화면은 셋만 받고 여기는 넷을
+    //    요구해서 샌드박스가 영영 통과되지 않았다. 문서 목록의 진실은 DOC_ORDER 하나다.
+    for (const key of DOC_ORDER) {
+      if (fd.get(`agree_${key}`) !== "on") throw new Error(`문서 ${DOC_ORDER.length}종에 모두 동의해야 해요.`);
     }
     let docRecords: Record<string, { openedAt?: string; agreedAt?: string }> = {};
     try {
@@ -256,7 +261,7 @@ export function SandboxAgree() {
     } catch {
       throw new Error("열람 기록이 없어요. 문서를 전문으로 읽고 다시 동의해주세요.");
     }
-    for (const key of ["contract", "terms", "fee", "refund"]) {
+    for (const key of DOC_ORDER) {
       if (!docRecords[key]?.openedAt || !docRecords[key]?.agreedAt) {
         throw new Error("문서를 전문으로 읽어야 동의할 수 있어요.");
       }

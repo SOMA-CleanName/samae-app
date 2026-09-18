@@ -92,14 +92,13 @@ export default async function SettingsPage() {
       <section className="mt-8 border-t border-fg/10 pt-6">
         <p className="text-sm font-medium">약관과 정책</p>
         <ul className="mt-2 flex flex-col gap-1.5 text-sm text-fg/70">
-          <li><Link href="/terms" className="underline underline-offset-2">서비스 이용약관</Link></li>
+          <li><Link href="/terms" className="underline underline-offset-2">회원 이용약관</Link></li>
           <li><Link href="/terms/refund" className="underline underline-offset-2">취소·환불 정책</Link></li>
           <li><Link href="/privacy" className="underline underline-offset-2">개인정보 처리방침</Link></li>
           {me.photographer && (
             <>
               <li><Link href="/terms/photographer" className="underline underline-offset-2">작가 이용약관</Link></li>
-              <li><Link href="/terms/fees" className="underline underline-offset-2">수수료·정산 정책</Link></li>
-              <li><Link href="/terms/photographer-contract" className="underline underline-offset-2">작가 입점 계약</Link></li>
+              <li><Link href="/terms/photographer-contract" className="underline underline-offset-2">작가 입점 동의서</Link></li>
             </>
           )}
         </ul>

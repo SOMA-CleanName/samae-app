@@ -313,7 +313,7 @@ export default async function BookingDetail({
         </section>
       )}
 
-      {/* 초상 사용 거부 — 작가약관 13조 4항·입점계약 4조 3항이 약속한 권리를 행사하는 자리.
+      {/* 초상 사용 거부 — 작가약관 17조 4항·입점 동의서 5항이 약속한 권리를 행사하는 자리.
           입금이 확인된 뒤부터 보인다. 그 전에는 촬영이 성립하지도 않았고, 예약을 수락하기
           전에 묻는 건 고를 것도 없는 질문이다. */}
       {isBuyer && ["paid", "shot", "delivered", "completed"].includes(b.status) && (
@@ -328,7 +328,7 @@ export default async function BookingDetail({
           <p className="mt-1.5 text-sm leading-relaxed text-warning/90">
             고객님이 이 촬영 결과물의 포트폴리오·홍보 사용을 원하지 않으세요. 이 촬영에서 나온
             사진은 <b>사매에 게재하실 수 없고</b>, 사매 홍보에도 쓰이지 않아요
-            (작가 이용약관 제13조 4항 · 작가 입점 계약 제4조 3항). 이미 올리신 사진이 있으면
+            (작가 이용약관 제17조 4항 · 작가 입점 동의서 제5항). 이미 올리신 사진이 있으면
             내려주세요.
           </p>
         </section>

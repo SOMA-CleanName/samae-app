@@ -288,7 +288,7 @@ export async function notifyOpsPhotographerAgreed(params: {
     unregistered: "사업자 미등록 (지출증빙용 현금영수증 발급)",
   };
   await postDiscord(APPLICATION_WEBHOOK, [
-    `✍️ **입점 계약 동의 완료** — ${params.displayName} 작가  (ID \`${ref}\`)`,
+    `✍️ **입점 동의 완료** — ${params.displayName} 작가  (ID \`${ref}\`)`,
     `• 계약 당사자: ${params.legalName}`,
     `• 사업자 유형: ${TYPE_LABEL[params.businessType] ?? params.businessType}` +
       (params.businessNo ? ` · ${params.businessNo}` : ""),

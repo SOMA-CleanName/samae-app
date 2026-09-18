@@ -37,7 +37,7 @@ export type BookingRow = {
   delivered_at: string | null;
   /**
    * 회원이 이 촬영 결과물의 포트폴리오·홍보 사용을 거부한 시각 (0129).
-   * 작가약관 13조 4항 · 입점계약 4조 3항이 약속한 권리다 — null 이면 거부하지 않음.
+   * 작가약관 17조 4항 · 입점 동의서 5항이 약속한 권리다 — null 이면 거부하지 않음.
    */
   portrait_optout_at: string | null;
   photographer: { display_name: string | null } | null;

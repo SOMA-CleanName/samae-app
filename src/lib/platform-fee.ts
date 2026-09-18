@@ -14,7 +14,7 @@
 /** 정액 모드의 기본 금액 (옛 모델) */
 export const PLATFORM_FEE_KRW = 6000;
 
-/** 정률 기본 요율 — 수수료정책 1조 */
+/** 정률 기본 요율 — 작가약관 12조 1항이 입점 동의서로 넘기는 그 값의 기본치 */
 export const DEFAULT_FEE_RATE = 0.2;
 
 /** 수수료에 붙는 부가가치세율 */
@@ -141,7 +141,7 @@ export function feeRateOf(snapshot: Pick<FeeSnapshot, "mode" | "rate"> | null | 
   return DEFAULT_FEE_RATE;
 }
 
-/** 위약금 배분 — 작가 수익으로 보아 수수료율로 나눈다 (수수료정책 10조) */
+/** 위약금 배분 — 작가 수익으로 보아 수수료율로 나눈다 (작가약관 16조 1항) */
 export function penaltySplit(
   penaltyKrw: number,
   rate: number = DEFAULT_FEE_RATE
@@ -151,7 +151,7 @@ export function penaltySplit(
   return { companyKrw, photographerKrw: penalty - companyKrw };
 }
 
-/** 작가 사업자 유형 — 수수료정책 1조 2항 */
+/** 작가 사업자 유형 — 작가약관 14조 2항(증빙)·입점 동의서 3항(실질 부담) */
 export type BusinessType = "general" | "simplified" | "unregistered";
 
 export const BUSINESS_TYPE_LABEL: Record<BusinessType, string> = {

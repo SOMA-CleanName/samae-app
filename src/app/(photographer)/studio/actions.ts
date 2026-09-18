@@ -258,8 +258,9 @@ export async function updateContactMethods(formData: FormData): Promise<void> {
   revalidatePath("/studio/profile");
 }
 
-// ── 입점 계약 동의 (작가약관 5조 2항, 입점계약 전문) ─────────────────
-// 문서 4종 체크 + 작가 정보란 + 홍보 사용 동의(선택) → photographers 갱신 + photographer_agreements 기록.
+// ── 입점 동의 (작가약관 4조 2항 — 동의한 때에 이용계약이 성립한다) ─────────────────
+// 문서 3종 체크 + 작가 정보란 → photographers 갱신 + photographer_agreements 기록.
+// (홍보 사용은 여기서 안 받는다 — 포트폴리오 업로드에서 사진별로 받는다)
 // 버전이 올라가면 studio/layout.tsx 가 다시 이 화면을 띄운다.
 import { headers } from "next/headers";
 import { PHOTOGRAPHER_AGREEMENT_VERSIONS } from "@/lib/consent";
@@ -273,7 +274,7 @@ export async function agreePhotographerContract(formData: FormData): Promise<voi
   if (!me?.photographer) throw new Error("작가만 동의할 수 있어요.");
 
   for (const key of DOC_ORDER) {
-    if (formData.get(`agree_${key}`) !== "on") throw new Error("문서 4종에 모두 동의해야 해요.");
+    if (formData.get(`agree_${key}`) !== "on") throw new Error(`문서 ${DOC_ORDER.length}종에 모두 동의해야 해요.`);
   }
 
   // 문서별 열람·동의 증적 — 화면이 "전문을 끝까지 연 시각" 과 "동의한 시각" 을 따로 보낸다.
@@ -308,7 +309,7 @@ export async function agreePhotographerContract(formData: FormData): Promise<voi
   }
 
   // 정산 계좌 — 입점에서 받는다. 비어 있으면 첫 정산에서 막히고, 기한이 7영업일이라
-  // (수수료·정산 정책 3조 2항) 그때 가서 받기 시작하면 넘긴다.
+  // (작가약관 13조 2항) 그때 가서 받기 시작하면 넘긴다.
   const bank = String(formData.get("bank") || "").trim().slice(0, 30);
   const accountHolder = String(formData.get("accountHolder") || "").trim().slice(0, 40);
   const accountNumber = String(formData.get("accountNumber") || "").replace(/[^0-9-]/g, "").slice(0, 30);
@@ -318,7 +319,7 @@ export async function agreePhotographerContract(formData: FormData): Promise<voi
 
   // ⚠️ 홍보 사용 동의는 **여기서 받지 않는다.** 사진 속 인물의 초상권은 사진마다 사정이
   //    달라서 한 번에 묶는 것 자체가 위험하다. 포트폴리오 업로드에서 사진별로 받는다.
-  //    근거는 작가 입점 계약 제7조 1항(작가약관 제14조 4항이 계약으로 넘긴다).
+  //    근거는 작가 입점 동의서 제4항·작가약관 제20조 3항(둘 다 '사진별로 선택' 으로 적혀 있다).
   //    기존 값은 건드리지 않는다 — 지우면 이미 동의한 사진의 근거가 사라진다.
 
   const h = await headers();

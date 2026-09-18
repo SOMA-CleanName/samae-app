@@ -123,7 +123,7 @@ export default async function PrivacyPage({ searchParams }: {
                   <td className="py-2 pr-3 align-top">이용자가 문의·예약한 작가</td>
                   <td className="py-2 pr-3 align-top">표시 이름, 문의 내용(촬영 종류·희망일·지역·인원·요청 사항), 예약 내용(촬영 일시·장소·금액·예약서에 적은 항목)</td>
                   <td className="py-2 pr-3 align-top">촬영 계약의 상담·체결·이행 (개인정보 보호법 제17조 제1항 제2호, 계약 이행에 필요한 경우)</td>
-                  <td className="py-2 pr-3 align-top">촬영 계약 종료 후 작가가 지체 없이 파기 (작가 입점 계약 제8조)</td>
+                  <td className="py-2 pr-3 align-top">촬영 계약 종료 후 작가가 지체 없이 파기 (작가 이용약관 제24조 2항)</td>
                 </tr>
               </tbody>
             </table>

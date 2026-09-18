@@ -13,14 +13,14 @@ import { TermsConsentGate } from "@/components/user/TermsConsentGate";
 // 작가 스튜디오 공통 레이아웃 — 승인된 작가에게만 좌측 네비를 씌운다.
 // 미신청·승인대기·반려 등은 사이드바 없이 페이지(상태 카드)만 그대로 노출.
 //
-// 승인은 됐지만 현재 버전의 입점 계약에 동의하지 않았으면 어느 스튜디오 페이지로 들어와도
-// 동의 화면을 대신 그린다 (작가약관 5조 2항 — 동의한 때부터 활동할 수 있다).
+// 승인은 됐지만 현재 버전의 입점 문서에 동의하지 않았으면 어느 스튜디오 페이지로 들어와도
+// 동의 화면을 대신 그린다 (작가약관 4조 2항 — 동의일부터 활동할 수 있다).
 // 리다이렉트가 아니라 children 자리를 바꾸는 방식이라 별도 라우트·미들웨어가 필요 없다.
 export default async function StudioLayout({ children }: { children: React.ReactNode }) {
   const me = await getCurrentUser();
 
   // 작가도 회원이다 — 스튜디오만 드나드는 사람은 (user) 레이아웃을 안 거치므로
-  // 회원 약관 덮개를 여기에도 얹는다. 입점 계약(AgreeGate)과는 다른 동의다.
+  // 회원 약관 덮개를 여기에도 얹는다. 입점 동의(AgreeGate)와는 다른 동의다.
   let termsGate: { revisit: boolean } | null = null;
   if (me) {
     const sb = await createClient();

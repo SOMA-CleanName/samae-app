@@ -209,7 +209,7 @@ function BookingDetail({ b }: { b: BookingRow }) {
           }`}
         >
           📤 {b.settlementSla.label} · 전달 알림 {stamp(b.delivered_at)} 기준 7영업일
-          (수수료·정산 정책 2조)
+          (작가 이용약관 13조)
         </p>
       )}
 
@@ -357,7 +357,7 @@ function BookingDetail({ b }: { b: BookingRow }) {
           </form>
         )}
 
-        {/* 정산 완료 — 결과물이 전달된 건만 (수수료정책 3조 1항). 실제 송금은 사람이 하고 여기서 기록한다 */}
+        {/* 정산 완료 — 결과물이 전달된 건만 (작가약관 13조 1항). 실제 송금은 사람이 하고 여기서 기록한다 */}
         {["paid", "shot", "delivered", "completed"].includes(b.status) && !!b.delivered_at && !b.settled_at && (
           <form action={adminMarkSettled}>
             <input type="hidden" name="id" value={b.id} />

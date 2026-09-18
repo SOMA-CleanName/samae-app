@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 /*
   약관·정책 페이지 공용 조각.
 
-  /terms 가 쓰던 Article·Ol·Table 을 여기로 옮겨 작가약관·취소환불정책·수수료정책이 같은 모양으로
+  /terms 가 쓰던 Article·Ol·Table 을 여기로 옮겨 회원약관·작가약관·취소환불정책·입점동의서가 같은 모양으로
   그려지게 한다. 문서마다 지면을 따로 짜면 조 번호 스타일과 표 폭이 조금씩 달라지고, 그게 곧
   "어느 게 진짜냐" 는 질문이 된다.
 
@@ -64,12 +64,60 @@ export function Article({ n, title, children }: { n: string; title: string; chil
   );
 }
 
+/**
+ * 조(條) 대신 항목으로 번호를 매기는 문서의 절 제목 — 입점 동의서가 그렇다.
+ * Article 은 제목을 괄호로 감싸는데("제1조 (목적)"), 항목 문서는 괄호 없이 "1 작가 정보" 로 읽힌다.
+ */
+export function Section({ n, title, children }: { n: string; title: string; children: ReactNode }) {
+  return (
+    <section>
+      <h2 className="mb-2 text-base font-semibold text-fg">
+        <span className="font-display italic tabular-nums text-brand">{n}</span> <span>{title}</span>
+      </h2>
+      {children}
+    </section>
+  );
+}
+
+/**
+ * 동의 화면이 실제로 받는 체크 항목을 **읽기 전용으로** 보여주는 목록.
+ *
+ * 입점 동의서는 "읽는 글" 이면서 동시에 "동의 화면이 무엇을 묻는지" 의 정본이다. 그 항목을
+ * 평범한 글머리표로 그리면, 전문을 읽는 작가는 자기가 무엇에 체크하게 되는지 알 수 없다.
+ * 실제 입력은 AgreeGate 의 폼이 받는다 — 여기 네모는 장식이 아니라 그 폼의 미리보기다.
+ */
+export function Checks({ items }: { items: ReactNode[] }) {
+  return (
+    <ul className="mt-2 space-y-1.5">
+      {items.map((it, i) => (
+        <li key={i} className="flex gap-2.5">
+          <span
+            aria-hidden
+            className="mt-[3px] h-3.5 w-3.5 shrink-0 rounded-[3px] border border-line-strong"
+          />
+          <span className="min-w-0 flex-1">{it}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function P({ children, className = "" }: { children: ReactNode; className?: string }) {
   return <p className={className}>{children}</p>;
 }
 
-export function Ol({ children }: { children: ReactNode }) {
-  return <ol className="list-decimal space-y-1.5 pl-5">{children}</ol>;
+/**
+ * 조문 안의 항 목록.
+ *
+ * `start` — 정본에 항 번호가 비어 있을 때 **번호를 당기지 않고** 그 자리를 비워 두기 위한 것.
+ * 약관의 항 번호는 다른 문서가 인용하는 주소라서, 빠진 항을 조용히 메우면 인용이 어긋난다.
+ */
+export function Ol({ children, start }: { children: ReactNode; start?: number }) {
+  return (
+    <ol start={start} className="list-decimal space-y-1.5 pl-5">
+      {children}
+    </ol>
+  );
 }
 
 export function Ul({ children }: { children: ReactNode }) {

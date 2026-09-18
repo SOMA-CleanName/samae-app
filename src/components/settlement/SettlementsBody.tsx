@@ -67,7 +67,7 @@ export function SettlementsBody({
         ← 스튜디오
       </Link>
       <h1 className="mt-4 text-2xl font-semibold">정산 내역</h1>
-      {/* 언제 받는지가 없으면 작가는 매번 물어봐야 한다. 수수료·정산 정책 3조 2항이
+      {/* 언제 받는지가 없으면 작가는 매번 물어봐야 한다. 작가약관 13조 2항이
           "각 건의 지급 기한은 스튜디오 > 정산에서 확인할 수 있다" 고 적은 자리다 —
           지면에 없으면 그 조문이 없는 화면을 가리키게 된다(2026-09-17 점검). */}
       <p className="mt-1 text-xs leading-relaxed text-faint">

@@ -25,7 +25,7 @@ const TITLES: Partial<Record<FlowStage, string>> = {
   signup: "회원가입",
   consent: "약관 동의",
   contact: "연락처 등록",
-  agree: "입점 계약 동의",
+  agree: "입점 동의",
 };
 
 export async function generateMetadata({
