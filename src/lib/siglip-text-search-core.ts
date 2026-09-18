@@ -294,6 +294,8 @@ export type SearchQueryParse = {
   purposes: PhotoPurposeKey[];
   /** 개인 사진을 성별로 찾을 때만 — "여자 노을" 은 female. 갱신 전 맥미니는 안 준다(null). */
   gender: PhotoGender | null;
+  /** 목적 세부분류 — "임신" 은 ["event.maternity"] (0133). 갱신 전 맥미니는 안 준다([]). */
+  details: string[];
   /** 목적(과 성별)을 뗀 나머지 글자. 비어 있으면 목적만 검색한 것이다. */
   moodText: string;
   vector: number[] | null;
@@ -306,7 +308,7 @@ const isPurposeKey = (value: unknown): value is PhotoPurposeKey =>
 export function parseSearchQueryResponse(value: unknown): SearchQueryParse | null {
   if (!value || typeof value !== "object") return null;
   const response = value as {
-    purposes?: unknown; gender?: unknown; mood_text?: unknown; vector?: unknown; model?: unknown;
+    purposes?: unknown; gender?: unknown; details?: unknown; mood_text?: unknown; vector?: unknown; model?: unknown;
   };
   if (!Array.isArray(response.purposes) || !response.purposes.every(isPurposeKey)) return null;
   if (typeof response.mood_text !== "string") return null;
@@ -317,7 +319,13 @@ export function parseSearchQueryResponse(value: unknown): SearchQueryParse | nul
   if (moodText && !vector) return null;
   if (!moodText && response.purposes.length === 0) return null;
   const gender = response.gender === "female" || response.gender === "male" ? response.gender : null;
-  return { purposes: [...response.purposes], gender, moodText, vector: moodText ? vector : null };
+  // "목적.세부" 꼴이고 그 목적이 함께 온 것만 받는다. 키 목록은 DB CHECK 가 최종으로 지킨다.
+  const details = Array.isArray(response.details)
+    ? [...new Set(response.details.filter((detail): detail is string =>
+        typeof detail === "string" && /^[a-z]+\.[a-z_]+$/.test(detail) &&
+        (response.purposes as string[]).includes(detail.split(".")[0])))]
+    : [];
+  return { purposes: [...response.purposes], gender, details, moodText, vector: moodText ? vector : null };
 }
 
 /**
