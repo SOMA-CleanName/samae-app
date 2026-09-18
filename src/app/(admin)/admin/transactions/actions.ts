@@ -206,3 +206,28 @@ export async function adminSettleExtra(formData: FormData): Promise<void> {
   if (!res.ok) throw new Error("처리할 수 없는 상태예요 (전달 전이거나 이미 정산됨).");
   revalidatePath("/admin/transactions");
 }
+
+/**
+ * 사매 입금 계좌 — 고객이 촬영비를 넣는 에스크로 계좌.
+ *
+ * 「입금·문의 관리」에 있던 것을 여기로 옮겼다(2026-09-19). 리드 모델 시절 그 화면이
+ * 돈을 다루던 유일한 곳이어서 거기 있었을 뿐이고, 지금 이 값을 읽는 건 예약 에스크로다.
+ *
+ * ⚠️ 비면 고객 화면에 입금 안내가 안 떠서 거래가 그 자리에서 멈춘다.
+ */
+export async function updatePlatformAccount(formData: FormData): Promise<void> {
+  const me = await getCurrentUser();
+  if (!me || me.role !== "admin") throw new Error("운영자 권한이 필요합니다.");
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("platform_account")
+    .update({
+      bank: String(formData.get("bank") ?? "").trim(),
+      number: String(formData.get("number") ?? "").trim(),
+      holder: String(formData.get("holder") ?? "").trim(),
+      notice: String(formData.get("notice") ?? "").trim(),
+    })
+    .eq("id", true);
+  if (error) throw new Error(error.message);
+  revalidatePath("/admin/transactions");
+}

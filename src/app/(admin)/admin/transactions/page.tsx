@@ -18,6 +18,8 @@ import { AdminCancelButton } from "./AdminCancelButton";
 import { feeRateOf, feeSpecFromRow, feeSpecLabel, feeWithVat, readFeeSnapshot, resolveFee } from "@/lib/platform-fee";
 import { refundQuote, refundSlaOverdue } from "@/lib/refund";
 import { settlementSla } from "@/lib/settlement-sla";
+import { getPlatformAccount, hasAccount } from "@/lib/platform-account";
+import { PlatformAccountEditor } from "./PlatformAccountEditor";
 import {
   awaitingConfirm as qAwaitingConfirm,
   awaitingDeposit as qAwaitingDeposit,
@@ -145,7 +147,7 @@ export default async function AdminTransactionsPage() {
   }
 
   // 추가 결제 큐 — 입금 확인 대기(수락 + 입금 알림), 환불 가능(촬영 후·전달 전), 정산 대기(촬영 후·전달됨)
-  const extrasAll = await listExtrasForAdmin();
+  const [extrasAll, account] = await Promise.all([listExtrasForAdmin(), getPlatformAccount()]);
   const extrasToConfirm = extrasAll.filter((e) => e.status === "accepted" && e.transfer_marked_at);
   const extrasToSettle = extrasAll.filter((e) => e.kind === "post_shoot" && e.status === "paid" && e.delivered_at && !e.settled_at);
   const extrasRefundable = extrasAll.filter((e) => e.kind === "post_shoot" && e.status === "paid" && !e.delivered_at);
@@ -243,7 +245,9 @@ export default async function AdminTransactionsPage() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-h1 font-semibold">거래·정산</h1>
-          <p className="mt-1 text-body-sm text-muted">예약 거래 흐름이에요.</p>
+          <p className="mt-1 text-body-sm text-muted">
+            고객 입금을 확인하고, 결과물 전달이 끝난 건을 정산해요.
+          </p>
         </div>
         <DeleteModeToolbar
           clearAction={clearTransactions}
@@ -253,6 +257,9 @@ export default async function AdminTransactionsPage() {
           entityLabel="건"
         />
       </div>
+
+      {/* 고객이 돈을 넣을 곳. 비면 입금 안내가 안 떠서 거래가 멈춘다 */}
+      <PlatformAccountEditor account={account} configured={hasAccount(account)} />
 
       {/* 정산 대기 — 결과물 전달이 끝난 건. 정산은 전달 뒤에만 한다(작가약관 13조 1항).
           사매가 수수료·부가세를 뗀 금액을 작가 계좌로 보낸 뒤 여기서 마킹한다. */}
