@@ -18,6 +18,11 @@ import { AdminCancelButton } from "./AdminCancelButton";
 import { feeRateOf, feeSpecFromRow, feeSpecLabel, feeWithVat, readFeeSnapshot, resolveFee } from "@/lib/platform-fee";
 import { refundQuote, refundSlaOverdue } from "@/lib/refund";
 import { settlementSla } from "@/lib/settlement-sla";
+import {
+  awaitingConfirm as qAwaitingConfirm,
+  awaitingDeposit as qAwaitingDeposit,
+  awaitingSettle as qAwaitingSettle,
+} from "@/lib/admin-queues";
 import { readStoredFieldValues } from "@/lib/booking-fields";
 import { listExtrasForAdmin } from "@/lib/extras-admin";
 import { EXTRA_KIND_LABEL, extraStatusLabel } from "@/lib/extras";
@@ -153,14 +158,13 @@ export default async function AdminTransactionsPage() {
   //   ② 정산 대기 — 결과물 전달이 끝난 건. 정산은 전달 뒤에만 한다(작가약관 13조 1항).
   //      촬영 전 건은 여기 오지 않는다.
   //   ③ 입금 대기 — 수락만 해놓고 아무 소식 없는 건
-  const awaitingConfirm = raw.filter((b) => b.status === "accepted" && b.transfer_marked_at);
+  // 판정은 lib/admin-queues 한 곳에서 한다 — 대시보드가 같은 수를 보여줘야 한다.
+  // 여기 인라인으로 두면 두 화면의 조건이 갈라지고, 갈라진 걸 아무도 모른다.
+  const awaitingConfirm = qAwaitingConfirm(raw);
   // 정산 대기 — 전달 알림으로부터 7영업일 안에 보내야 한다(작가약관 13조 2항).
-  // 기한이 급한 건을 위로 올린다. 목록 순서가 곧 처리 순서가 된다.
-  const awaitingSettle = raw
-    .filter((b) => PAID_BOOKING.includes(b.status) && !!b.delivered_at && !b.settled_at && !b.refunded_at)
-    .map((b) => ({ b, sla: settlementSla(b.delivered_at, b.settled_at) }))
-    .sort((x, y) => (x.sla?.daysLeft ?? 99) - (y.sla?.daysLeft ?? 99));
-  const awaitingDeposit = raw.filter((b) => b.status === "accepted" && !b.transfer_marked_at);
+  // 기한이 급한 건이 위로 온다. 목록 순서가 곧 처리 순서가 된다.
+  const awaitingSettle = qAwaitingSettle(raw).map((b) => ({ b, sla: settlementSla(b.delivered_at, b.settled_at) }));
+  const awaitingDeposit = qAwaitingDeposit(raw);
 
   const bookings: BookingRow[] = raw.map((b) => ({
     id: b.id,
