@@ -7,8 +7,9 @@ import { cn } from "@/lib/cn";
 // 어드민 상단 탭 내비 — 활성 경로 강조. 페이지 추가 시 여기에 항목만 더하면 됨.
 const TABS = [
   { href: "/admin", label: "대시보드", exact: true },
-  { href: "/admin/photographers", label: "작가 승인", exact: true },
-  { href: "/admin/studios", label: "작가 관리" },
+  // 「작가 승인」+「작가 관리」를 합쳤다 (2026-09-18) — 같은 대상인데 화면이 갈려
+  // 정보까지 갈려 있었다. exact 를 빼서 상세(/admin/photographers/[id])에서도 켜진다.
+  { href: "/admin/photographers", label: "작가" },
   { href: "/admin/transactions", label: "거래·정산" },
   { href: "/admin/users", label: "회원" },
   { href: "/admin/inquiries", label: "문의" },
