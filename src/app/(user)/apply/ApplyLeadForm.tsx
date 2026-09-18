@@ -16,6 +16,7 @@ const initial: ApplyLeadState = {};
 // 둘이 조용히 어긋나고, 어긋난 쪽을 QA 하게 된다.
 export function ApplyLeadForm({
   kakaoChannelUrl,
+  defaultName = "",
   defaultPhone = "",
   action = submitPhotographerApplication,
 }: {
@@ -26,13 +27,23 @@ export function ApplyLeadForm({
    * 신청서의 번호는 운영자가 연락하는 곳이라 다른 번호를 쓰고 싶을 수 있다.
    */
   defaultPhone?: string;
+  /**
+   * 가입 때 받아 둔 닉네임(profiles.display_name). **작가명과 같은 값이 아니다** —
+   * 이건 서비스 안에서 불릴 이름이고, 작가명은 작가로 노출될 이름이라 따로 저장된다
+   * (photographer_applications.display_name → 승인 시 photographers.display_name).
+   *
+   * 그래도 채워서 보여준다. 방금 닉네임을 적고 온 사람에게 빈 칸을 또 내밀면 "아까
+   * 적었는데 왜 또" 가 된다(2026-09-18 신고). 대개 같은 이름을 쓰고, 다르게 하고 싶으면
+   * 고치면 된다.
+   */
+  defaultName?: string;
   action?: (prev: ApplyLeadState, formData: FormData) => Promise<ApplyLeadState>;
 }) {
   const [state, formAction, pending] = useActionState(action, initial);
   // 입력값을 붙잡아 둔다 — 액션이 실패하면 폼이 다시 그려지는데, 값을 안 들고 있으면
   // **적어둔 게 통째로 날아간다.** 긴 링크를 다시 붙여넣게 만드는 건 사과가 아니라 벌이다
   // (2026-09-16 신고: 신청 실패할 때마다 포폴 링크가 비워짐).
-  const [name, setName] = useState("");
+  const [name, setName] = useState(defaultName);
   const [portfolioUrl, setPortfolioUrl] = useState("");
   const [bio, setBio] = useState("");
   const [phone, setPhone] = useState("");
@@ -49,7 +60,6 @@ export function ApplyLeadForm({
         name="displayName"
         label="작가명"
         required
-        placeholder="예: 지원"
         value={name}
         onChange={(e) => setName(e.target.value)}
         error={state.fieldErrors?.displayName}

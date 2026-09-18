@@ -68,7 +68,7 @@ export function ApplySubmitted({
       {/* 마지막 필수 단계 — 채널 메시지. 이게 없으면 우리가 연락할 수단이 없다 */}
       <section className="rounded-2xl border border-brand/30 bg-brand-soft p-5">
         <p className="text-label uppercase tracking-wide text-brand-ink">마지막 단계 · 필수</p>
-        <p className="mt-2 text-body font-semibold">카카오 채널로 이 메시지를 보내주세요</p>
+        <p className="mt-2 text-body font-semibold">카카오 채널로 아래 메시지를 복사해 보내주세요.</p>
         <p className="mt-1.5 text-body-sm leading-relaxed text-muted">
           카카오 채널은 <b className="font-semibold text-fg">작가님이 먼저 말을 걸어야</b> 저희가
           답할 수 있어요. 안 보내시면 승인이 나도 연락드릴 방법이 없어요.

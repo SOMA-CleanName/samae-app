@@ -135,11 +135,7 @@ export default function ContactForm({
         </h1>
         <p className="mt-3 text-body-sm leading-relaxed text-muted">
           {askName ? (
-            <>
-              작가님께 <strong className="font-semibold text-fg">이 이름으로 보여요.</strong>
-              <br />
-              본명이 아니어도 괜찮아요.
-            </>
+            <>서비스 내에서 활동하실 닉네임을 입력해주세요.</>
           ) : (
             <>
               작가님이 답장을 남기면{" "}
@@ -171,7 +167,6 @@ export default function ContactForm({
             maxLength={20}
             autoComplete="nickname"
             autoFocus
-            placeholder="예: 정훈"
             className="h-12 w-full rounded-xl border border-line bg-bg px-3.5 text-body placeholder:text-faint focus:border-fg focus:outline-none"
           />
           {nameState?.error && (
@@ -192,22 +187,11 @@ export default function ContactForm({
         </form>
       )}
 
-      {/* 카카오로 시도했는데 빈손으로 돌아온 경우. 같은 버튼을 다시 권하면 안 된다 —
-          두 번째도 똑같이 실패하고, 사용자는 자기가 뭘 잘못했는지 모른 채 갇힌다. */}
-      {!askName && kakaoFailed && (
-        <div
-          role="status"
-          className="mt-8 rounded-xl border border-warning/30 bg-warning-soft px-3.5 py-3"
-        >
-          <p className="text-body-sm font-semibold text-warning-ink">
-            카카오에서 번호를 가져오지 못했어요.
-          </p>
-          <p className="mt-1 text-caption leading-relaxed text-warning-ink/80">
-            카카오계정에 전화번호가 등록되어 있지 않거나, 전화번호 제공에 동의하지 않으셨을 수
-            있어요. 아래에서 직접 인증해 주세요.
-          </p>
-        </div>
-      )}
+      {/* ⚠️ 카카오로 시도했다 빈손으로 돌아오면 **버튼만 숨기고 아무 말도 하지 않는다.**
+          전에는 "카카오에서 번호를 가져오지 못했어요" 경고 상자를 띄웠는데, 사용자가
+          잘못한 게 없는데도 실패를 먼저 알리는 꼴이라 걷어냈다. 아래 입력칸이 autoFocus
+          라 그냥 이어서 인증하면 된다. 버튼을 다시 권하지 않는 것만 유지한다 —
+          두 번째도 똑같이 실패한다. */}
 
       {/* 카카오 재동의 — 있으면 이게 가장 빠른 길이다. 번호 입력도 문자 확인도 없다.
           단 방금 실패한 경우엔 숨긴다(위 안내 참고). */}
@@ -334,11 +318,11 @@ export default function ContactForm({
 
       <p className="mt-4 flex items-start gap-1.5 text-caption leading-relaxed text-faint">
         <CheckIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
-        번호는 거래 알림에만 쓰여요. 광고는 보내지 않아요.
+        번호는 거래 알림에만 씁니다. 광고는 보내지 않습니다.
       </p>
       <p className="mt-2 flex items-start gap-1.5 text-caption leading-relaxed text-faint">
         <CheckIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
-        연락처는 작가에게 공개되지 않아요.
+        연락처는 작가에게 공개되지 않습니다.
       </p>
       <p className="mt-2 text-caption leading-relaxed text-faint">
         등록을 완료하면 상담·예약 진행을 위한{" "}

@@ -34,12 +34,14 @@ export function ApplyPendingBody({
 /** 신청 폼 지면 */
 export function ApplyFormBody({
   kakaoChannelUrl,
+  defaultName,
   defaultPhone,
   action,
   children,
 }: {
   kakaoChannelUrl: string;
   /** 가입 때 받아 둔 번호 — 다시 입력시키지 않는다 */
+  defaultName?: string;
   defaultPhone?: string;
   /** 샌드박스가 저장을 localStorage 로 돌릴 때만 넘긴다 */
   action?: (prev: ApplyLeadState, formData: FormData) => Promise<ApplyLeadState>;
@@ -56,6 +58,7 @@ export function ApplyFormBody({
       </p>
       <ApplyLeadForm
         kakaoChannelUrl={kakaoChannelUrl}
+        defaultName={defaultName}
         defaultPhone={defaultPhone}
         action={action}
       />
