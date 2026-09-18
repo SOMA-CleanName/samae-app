@@ -34,14 +34,14 @@ export default function PhotographerContractPage() {
       title="사매 작가 입점 동의서"
       effectiveDate={POLICY_EFFECTIVE_DATE}
       version={PHOTOGRAPHER_CONTRACT_VERSION}
+      /* ⚠️ 맺음말을 여기 두지 않는다 — 본문(정본)이 이미 "회사의 상호…" 와 "작가는 위 내용을
+         모두 확인하였으며…" 로 끝난다. 전에는 footer 가 같은 말을 한 번 더 해서 지면 끝에
+         같은 문장이 두 번 나왔다. 여기는 함께 읽을 문서로 가는 길만 남긴다. */
       footer={
         <>
-          회사의 상호·대표자·사업자등록번호·주소·연락처는 서비스 화면의 사업자 정보 표시에 따릅니다. 작가는 이
-          동의서와{" "}
+          함께 적용되는 문서:{" "}
           <Link href="/terms/photographer" className="underline underline-offset-2">작가 이용약관</Link>,{" "}
-          <Link href="/terms/refund" className="underline underline-offset-2">취소·환불 정책</Link>을 모두
-          확인하였으며, 서비스 내 입점 동의 화면에서 동의함으로써 이용계약을 체결합니다. 회사는 동의 일시와
-          동의한 문서의 버전을 보관합니다.
+          <Link href="/terms/refund" className="underline underline-offset-2">취소·환불 정책</Link>.
         </>
       }
     >
