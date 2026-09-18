@@ -36,6 +36,11 @@ test("탭마다 어느 그룹인지 답한다", () => {
   assert.equal(matchTab("/admin/trash")?.group.label, "도구");
 });
 
+test("운영 기록은 도구 그룹이다", () => {
+  assert.equal(matchTab("/admin/audit")?.tab.label, "운영 기록");
+  assert.equal(matchTab("/admin/audit")?.group.label, "도구");
+});
+
 test("등록되지 않은 주소는 null — 화면은 첫 그룹으로 떨어진다", () => {
   assert.equal(matchTab("/admin/아직없는페이지"), null);
   assert.equal(matchTab("/"), null);

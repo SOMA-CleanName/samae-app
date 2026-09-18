@@ -5,6 +5,8 @@ import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { archiveAllAndDeleteMany, deleteBookingsByIds } from "@/lib/soft-delete";
 import { verifyResetPassword } from "@/lib/admin-reset";
+// 돈이 움직이는 액션은 **누가 했는지 남긴다**(0136). 기록 실패가 본 작업을 막지 않는다.
+import { logAdminAction } from "@/lib/admin-audit";
 
 export type ResetState = { error?: string; ok?: boolean };
 
@@ -60,6 +62,11 @@ export async function adminConfirmTransfer(formData: FormData): Promise<void> {
   const id = String(formData.get("id"));
   const res = await confirmBankTransferAdmin(id);
   if (!res.ok) throw new Error("처리할 수 없는 상태예요 (이미 확인됐거나 수락 전).");
+  await logAdminAction({
+    action: "deposit_confirm",
+    actor: { id: me.id, label: me.displayName },
+    target: { table: "bookings", id },
+  });
   revalidatePath("/admin/transactions");
 }
 
@@ -69,6 +76,11 @@ export async function adminMarkSettled(formData: FormData): Promise<void> {
   const id = String(formData.get("id"));
   const res = await markSettlementPaid(id);
   if (!res.ok) throw new Error("처리할 수 없는 상태예요 (결과물 전달 전이거나 이미 정산됨).");
+  await logAdminAction({
+    action: "settle",
+    actor: { id: me.id, label: me.displayName },
+    target: { table: "bookings", id },
+  });
   revalidatePath("/admin/transactions");
 }
 
@@ -119,6 +131,18 @@ export async function adminRefund(formData: FormData): Promise<void> {
   });
   if (!res.ok) throw new Error("환불할 수 없는 상태예요 (이미 환불됐거나 입금 전).");
 
+  // 사유·금액까지 남긴다 — 나중에 답해야 할 질문은 "환불했나" 가 아니라 "왜 그 금액인가" 다
+  await logAdminAction({
+    action: "refund",
+    actor: { id: me.id, label: me.displayName },
+    target: { table: "bookings", id },
+    detail: {
+      override: override ?? "시간 규칙",
+      manualRefundKrw,
+      note: String(formData.get("note") ?? "") || null,
+      photographerAgreed: !!openReq?.photographer_ack_at,
+    },
+  });
   revalidatePath("/admin/transactions");
 }
 
@@ -145,6 +169,11 @@ export async function adminMarkRefundPaid(formData: FormData): Promise<void> {
   if (!moved || moved.length === 0) {
     throw new Error("처리할 수 없는 상태예요 (환불 처리 전이거나 이미 송금 기록됨).");
   }
+  await logAdminAction({
+    action: "refund_paid",
+    actor: { id: me.id, label: me.displayName },
+    target: { table: "bookings", id },
+  });
   revalidatePath("/admin/transactions");
 }
 
@@ -170,6 +199,13 @@ export async function adminMarkDepositAndConfirm(formData: FormData): Promise<vo
   const confirmed = await confirmBankTransferAdmin(id);
   if (!confirmed.ok) throw new Error("입금 표시는 됐지만 확인에 실패했어요 — 입금 확인 대기에서 다시 시도해주세요.");
 
+  // 고객이 누르지 않은 걸 운영이 대신 눌렀다는 사실이 남아야 한다
+  await logAdminAction({
+    action: "deposit_confirm",
+    actor: { id: me.id, label: me.displayName },
+    target: { table: "bookings", id },
+    detail: { byOps: true },
+  });
   revalidatePath("/admin/transactions");
 }
 
@@ -179,15 +215,22 @@ import { confirmExtraPaid, refundExtra, settleExtra } from "@/lib/extras-admin";
 export async function adminConfirmExtra(formData: FormData): Promise<void> {
   const me = await getCurrentUser();
   if (!me || me.role !== "admin") throw new Error("운영자 권한이 필요합니다.");
-  const ok = await confirmExtraPaid(String(formData.get("id")));
+  const extraId = String(formData.get("id"));
+  const ok = await confirmExtraPaid(extraId);
   if (!ok) throw new Error("처리할 수 없는 상태예요 (수락 전이거나 이미 확인됨).");
+  await logAdminAction({
+    action: "extra_confirm",
+    actor: { id: me.id, label: me.displayName },
+    target: { table: "booking_extras", id: extraId },
+  });
   revalidatePath("/admin/transactions");
 }
 
 export async function adminRefundExtra(formData: FormData): Promise<void> {
   const me = await getCurrentUser();
   if (!me || me.role !== "admin") throw new Error("운영자 권한이 필요합니다.");
-  const res = await refundExtra(String(formData.get("id")));
+  const extraId = String(formData.get("id"));
+  const res = await refundExtra(extraId);
   if (!res.ok)
     throw new Error(
       res.reason === "delivered"
@@ -196,14 +239,25 @@ export async function adminRefundExtra(formData: FormData): Promise<void> {
           ? "촬영 전 추가금은 예약에 합산돼 있어요 — 예약 환불로 처리하세요."
           : "처리할 수 없는 상태예요."
     );
+  await logAdminAction({
+    action: "extra_refund",
+    actor: { id: me.id, label: me.displayName },
+    target: { table: "booking_extras", id: extraId },
+  });
   revalidatePath("/admin/transactions");
 }
 
 export async function adminSettleExtra(formData: FormData): Promise<void> {
   const me = await getCurrentUser();
   if (!me || me.role !== "admin") throw new Error("운영자 권한이 필요합니다.");
-  const res = await settleExtra(String(formData.get("id")));
+  const extraId = String(formData.get("id"));
+  const res = await settleExtra(extraId);
   if (!res.ok) throw new Error("처리할 수 없는 상태예요 (전달 전이거나 이미 정산됨).");
+  await logAdminAction({
+    action: "extra_settle",
+    actor: { id: me.id, label: me.displayName },
+    target: { table: "booking_extras", id: extraId },
+  });
   revalidatePath("/admin/transactions");
 }
 
@@ -229,5 +283,17 @@ export async function updatePlatformAccount(formData: FormData): Promise<void> {
     })
     .eq("id", true);
   if (error) throw new Error(error.message);
+  // ⚠️ 계좌번호 전체를 기록에 남기지 않는다 — 기록은 오래 남고 읽는 사람이 는다.
+  //    "바뀌었다" 와 "어느 계좌로" 를 구분할 만큼만 남긴다.
+  const number = String(formData.get("number") ?? "").trim();
+  await logAdminAction({
+    action: "platform_account",
+    actor: { id: me.id, label: me.displayName },
+    detail: {
+      bank: String(formData.get("bank") ?? "").trim(),
+      holder: String(formData.get("holder") ?? "").trim(),
+      numberTail: number.slice(-4),
+    },
+  });
   revalidatePath("/admin/transactions");
 }

@@ -55,6 +55,8 @@ export const GROUPS: Group[] = [
       { href: "/admin/search", label: "검색" },
       { href: "/admin/bot-kb", label: "상담봇" },
       { href: "/admin/calculator", label: "손익 계산기" },
+      // 휴지통(지운 것) 옆에 둔다 — 둘 다 "지나간 일을 되짚는" 지면이다
+      { href: "/admin/audit", label: "운영 기록" },
       { href: "/admin/trash", label: "휴지통" },
     ],
   },

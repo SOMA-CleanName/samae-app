@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+// 계약 조건·자격이 바뀌는 액션은 누가 했는지 남긴다 (0136)
+import { logAdminAction } from "@/lib/admin-audit";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
@@ -8,18 +10,20 @@ import { archiveAndDelete } from "@/lib/soft-delete";
 import { notifyOpsApplicationApproved } from "@/lib/ops-alert";
 import { feeSpecFromRow, feeSpecLabel } from "@/lib/platform-fee";
 
-// 운영자 권한 확인 (방어적 — RLS 외 이중 체크)
+// 운영자 권한 확인 (방어적 — RLS 외 이중 체크).
+// **확인한 사람을 돌려준다** — 행동 기록(0136)에 누가 했는지 남겨야 해서다.
 async function assertAdmin() {
   const me = await getCurrentUser();
   if (!me || me.role !== "admin") {
     throw new Error("운영자 권한이 필요합니다.");
   }
+  return me;
 }
 
 // 작가 승인: pending/rejected → approved
 /** 승인 — 정지였다면 우리가 가린 것도 함께 되돌린다 */
 export async function approvePhotographer(formData: FormData) {
-  await assertAdmin();
+  const me = await assertAdmin();
   const id = String(formData.get("id"));
   const admin = createAdminClient();
   const { error } = await admin
@@ -34,12 +38,17 @@ export async function approvePhotographer(formData: FormData) {
   });
   if (showErr) throw new Error(`노출을 되돌리지 못했어요. (${showErr.message})`);
 
+  await logAdminAction({
+    action: "photographer_approve",
+    actor: { id: me.id, label: me.displayName },
+    target: { table: "photographers", id: id },
+  });
   revalidatePath("/admin/photographers");
 }
 
 // 작가 반려: → rejected. 정지와 같이 노출도 끊는다 — 반려된 작가가 피드에 남으면 안 된다
 export async function rejectPhotographer(formData: FormData) {
-  await assertAdmin();
+  const me = await assertAdmin();
   const id = String(formData.get("id"));
   const admin = createAdminClient();
   const { error } = await admin
@@ -53,6 +62,11 @@ export async function rejectPhotographer(formData: FormData) {
   });
   if (hideErr) throw new Error(`노출을 끊지 못했어요. (${hideErr.message})`);
 
+  await logAdminAction({
+    action: "photographer_reject",
+    actor: { id: me.id, label: me.displayName },
+    target: { table: "photographers", id: id },
+  });
   revalidatePath("/admin/photographers");
 }
 
@@ -70,7 +84,7 @@ export async function rejectPhotographer(formData: FormData) {
  * 것은 다른 일이다.
  */
 export async function suspendPhotographer(formData: FormData) {
-  await assertAdmin();
+  const me = await assertAdmin();
   const id = String(formData.get("id"));
   const admin = createAdminClient();
   const { error } = await admin
@@ -86,6 +100,11 @@ export async function suspendPhotographer(formData: FormData) {
   });
   if (hideErr) throw new Error(`노출을 끊지 못했어요. (${hideErr.message})`);
 
+  await logAdminAction({
+    action: "photographer_suspend",
+    actor: { id: me.id, label: me.displayName },
+    target: { table: "photographers", id: id },
+  });
   revalidatePath("/admin/photographers");
 }
 
@@ -216,7 +235,7 @@ export async function deleteApplication(formData: FormData) {
 import { MAX_FEE_RATE, MIN_FEE_RATE } from "@/lib/platform-fee";
 
 export async function updatePhotographerFee(formData: FormData) {
-  await assertAdmin();
+  const me = await assertAdmin();
   const id = String(formData.get("id"));
   const mode = String(formData.get("mode") ?? "rate") === "flat" ? "flat" : "rate";
   const raw = String(formData.get("value") ?? "").trim();
@@ -245,6 +264,13 @@ export async function updatePhotographerFee(formData: FormData) {
   const { error } = await admin.from("photographers").update(patch).eq("id", id);
   if (error) throw new Error(error.message);
 
+  // 수수료는 작가와의 **계약 조건**이다. 바꾼 값을 그대로 남긴다.
+  await logAdminAction({
+    action: "fee_change",
+    actor: { id: me.id, label: me.displayName },
+    target: { table: "photographers", id },
+    detail: patch as Record<string, unknown>,
+  });
   revalidatePath("/admin/photographers");
   revalidatePath("/admin/transactions");
 }
@@ -275,6 +301,12 @@ export async function verifyBusinessLicense(formData: FormData) {
     })
     .eq("id", id);
 
+  await logAdminAction({
+    action: "license_verify",
+    actor: { id: me.id, label: me.displayName },
+    target: { table: "photographers", id },
+    detail: { verified: ok, note: note || null },
+  });
   revalidatePath("/admin/photographers");
 }
 
@@ -320,5 +352,10 @@ export async function removePhotographer(formData: FormData) {
   const res = await archiveAndDelete("photographers", { col: "id", op: "eq", val: id }, me.id);
   if (res.error) throw new Error(`퇴출 처리 중 문제가 발생했어요. (${res.error})`);
 
+  await logAdminAction({
+    action: "photographer_remove",
+    actor: { id: me.id, label: me.displayName },
+    target: { table: "photographers", id: id },
+  });
   revalidatePath("/admin/photographers");
 }
