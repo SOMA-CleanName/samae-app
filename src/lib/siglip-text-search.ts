@@ -193,9 +193,44 @@ async function genderVector(gender: PhotoGender, signal: AbortSignal): Promise<n
 }
 
 /**
+ * 어드민이 정한 성별(0132 admin_purpose_gender)로 그 목적 사진 **전부**를 최신순으로.
+ * 목적만 검색할 때("웨딩")와 같은 순서다. 성별 칸이 없는 DB 면 null.
+ */
+async function fetchPhotosByStoredGender(
+  purposes: PhotoPurposeKey[],
+  gender: PhotoGender,
+  signal: AbortSignal,
+): Promise<SearchPhoto[] | null> {
+  const photos: SearchPhoto[] = [];
+  for (let from = 0; ; from += RPC_PAGE) {
+    const { data, error } = await createAdminClient()
+      .from("photos")
+      .select(PHOTO_COLUMNS)
+      .overlaps("admin_purposes", purposes)
+      .eq("admin_purpose_gender", gender)
+      .eq("visibility", "published")
+      .eq("feed_hidden", false)
+      .eq("photographer.status", "approved")
+      .order("created_at", { ascending: false })
+      .range(from, from + RPC_PAGE - 1)
+      .abortSignal(signal);
+    if (error?.code === "42703") return null;   // 0132 전 — 성별 칸이 없다
+    if (error) {
+      console.error("[siglip-search] 성별 사진 조회 실패:", error.message);
+      throw error;
+    }
+    const page = (data ?? []) as unknown as SearchPhoto[];
+    photos.push(...page);
+    if (page.length < RPC_PAGE) return photos;
+  }
+}
+
+/**
  * "여자" "남자 노을" — 개인 사진을 성별로 가른다. 남은 말("노을")이 있으면 다른 검색과 같은
- * 방식(가까운 300장)으로 그 성별 사진만, 없으면 그 성별 사진 **전부**를 그 성별과 가까운 순서로.
- * 0131 이 없거나 성별 벡터를 못 받으면 null — 호출하는 쪽이 예전 방식으로 간다.
+ * 방식(가까운 300장)으로 그 성별 사진만, 없으면 그 성별 사진 **전부**.
+ *
+ * 어드민이 정한 성별(0132)을 먼저 쓴다. 그 칸이 없는 DB 면 검색할 때 여자·남자 거리를 비교해
+ * 가른다(0131). 둘 다 없거나 성별 벡터를 못 받으면 null — 호출하는 쪽이 예전 방식으로 간다.
  */
 async function searchByGender(
   parsed: SearchQueryParse,
@@ -203,6 +238,18 @@ async function searchByGender(
   limit: number,
   signal: AbortSignal,
 ): Promise<PhotoSearchResult | null> {
+  const stored = await fetchPhotosByStoredGender(parsed.purposes, gender, signal);
+  if (stored) {
+    let matches: SearchPhoto[] = stored;
+    if (parsed.vector) {
+      const byId = new Map(stored.map((photo) => [photo.id, photo]));
+      matches = (await nearestRows(parsed.vector, limit, signal))
+        .map((row) => byId.get(row.id))
+        .filter((photo): photo is SearchPhoto => photo !== undefined);
+    }
+    return { purposes: parsed.purposes, moodText: parsed.moodText, matches, related: [], capped: false };
+  }
+
   const [female, male] = await Promise.all([genderVector("female", signal), genderVector("male", signal)]);
   if (!female || !male) return null;
   const [toFemale, toMale] = await Promise.all([
