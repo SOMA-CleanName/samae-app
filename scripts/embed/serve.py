@@ -17,6 +17,10 @@
   POST /embed           → {"images": ["<base64 jpeg>", ...]}
                           {vectors: [[1152]...], mean: [1152], count, infer_ms}
   POST /embed-text      → {"texts": ["푸른 숲속 커플 사진", ...]}
+  POST /search-query    → {"query": "가을 커플스냅"}
+                          {purposes: ["couple"], mood_text: "가을", matched, vector: [1152] | null, model}
+                          목적은 떼어 필터로 쓰고, 나머지만 SigLIP 벡터로 만든다(query_parse.py).
+                          나머지가 없으면(목적만 검색) vector 는 null 이다.
   POST /embed-text-backfill → {"texts": ["purpose prompt", ...]} (최대 8개, 검색보다 낮은 우선순위)
                           {vectors: [[1152]...], count, infer_ms, model}
   POST /embed-backfill  → {"images": ["<base64 image>"]} (한 장, 검색보다 낮은 우선순위)
@@ -56,7 +60,8 @@ MAX_IMAGES = 16  # 한 요청에서 받아줄 최대 장수 — 그 이상은 �
 MAX_TEXTS = 8
 MAX_TEXT_LEN = 120
 
-_state = {"processor": None, "model": None, "device": None, "loaded_sec": 0.0}
+_state = {"processor": None, "model": None, "device": None, "loaded_sec": 0.0,
+          "kiwi": None, "lexicon": None}
 _inference = InferenceQueue()  # 검색 → 사용자 이미지 → 백필. 진행 중인 추론은 완료한다.
 
 # ── 마이크로 배칭 ─────────────────────────────────────────────
@@ -123,6 +128,29 @@ def warm():
     siglip.encode(processor, model, [Image.new("RGB", (256, 256), (128, 128, 128))], PATCH_BUDGET, device)
     _state["loaded_sec"] = time.perf_counter() - t
     print(f"✅ 모델 준비 {_state['loaded_sec']:.1f}s (device={device}, budget={PATCH_BUDGET})", flush=True)
+    warm_query_parser()
+
+
+def warm_query_parser():
+    """검색어 형태소 분리기. 라이브러리라 포트도 GPU 도 안 쓴다(불러오기 0.4초, 한 번 0.04ms).
+
+    kiwipiepy 가 없는 기계(갱신 전 맥미니)에서도 서버는 떠야 한다. 그때는 /search-query 가
+    501 을 돌려주고, 앱은 예전처럼 검색어 통째로 /embed-text 를 부른다."""
+    try:
+        from kiwipiepy import Kiwi
+        import query_parse
+    except ImportError as e:
+        print(f"⚠️  검색어 분리 꺼짐 — kiwipiepy 없음 ({e})", flush=True)
+        return
+    t = time.perf_counter()
+    kiwi = Kiwi()
+    _state.update(kiwi=kiwi, lexicon=query_parse.build_lexicon(kiwi))
+    print(f"✅ 검색어 분리 준비 {time.perf_counter() - t:.2f}s", flush=True)
+
+
+def parse_search_query(query):
+    import query_parse
+    return query_parse.parse(query, _state["kiwi"], _state["lexicon"])
 
 
 def embed(images_b64):
@@ -402,6 +430,34 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, {"copy": copy, "gen_ms": round((time.perf_counter() - t) * 1000)})
             except Exception as e:
                 self._send(500, {"error": f"copy 실패: {e}"})
+            return
+        if path == "/search-query":
+            if _state["kiwi"] is None:
+                self._send(501, {"error": "검색어 분리기가 없습니다 (kiwipiepy 미설치)"})
+                return
+            try:
+                n = int(self.headers.get("Content-Length", "0"))
+                payload = json.loads(self.rfile.read(n) or b"{}")
+                if not isinstance(payload, dict):
+                    raise ValueError("JSON 객체가 필요합니다")
+                query = validate_texts([payload.get("query")])[0]
+            except (ValueError, TypeError, json.JSONDecodeError) as e:
+                self._send(400, {"error": str(e)})
+                return
+
+            parsed = parse_search_query(query)
+            vector, ms = None, 0.0
+            if parsed["mood_text"]:
+                try:
+                    vectors, ms = embed_texts([parsed["mood_text"]])
+                    vector = [round(x, 6) for x in vectors[0]]
+                except TimeoutError as e:
+                    self._send(503, {"error": str(e)})
+                    return
+                except Exception as e:
+                    self._send(500, {"error": f"search-query 실패: {e}"})
+                    return
+            self._send(200, {**parsed, "vector": vector, "infer_ms": round(ms, 1), "model": siglip.MODEL_ID})
             return
         if path in ("/embed-text", "/embed-text-backfill"):
             try:

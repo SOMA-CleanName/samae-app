@@ -13,7 +13,13 @@ export function routeSessionKey(
   return query ? `${pathname}?q=${encodeURIComponent(query)}` : pathname;
 }
 
-export const SEARCH_FEED_SESSION_SCHEMA = "search-relevance-masonry-v5";
+// 검색 결과를 만드는 방식이 바뀌면 올린다. 갤러리는 같은 탭에서 했던 검색 결과를 저장해 뒀다가
+// 같은 검색어로 돌아오면 서버가 새로 보낸 결과 대신 그걸 되살린다 — 안 올리면 옛 결과가 계속 뜬다.
+// v6: 검색어에서 목적을 떼어 필터로 쓴다 (docs/29 §12).
+export const SEARCH_FEED_SESSION_SCHEMA = "search-relevance-masonry-v6";
+
+/** 검색 결과 아래 "비슷한 무드" 갤러리의 저장 키 구분자. */
+export const SEARCH_RELATED_SCOPE = "related";
 
 /** 검색을 끝낼 때 같은 검색어로 다시 들어가도 이전 결과·위치가 복원되지 않게 지울 키. */
 export function searchSessionStorageKeys(
@@ -26,6 +32,7 @@ export function searchSessionStorageKeys(
     `samae:scroll:${routeKey}`,
     `samae:scroll-anchor:${routeKey}`,
     `samae:gallery-session:${SEARCH_FEED_SESSION_SCHEMA}:${routeKey}`,
+    `samae:gallery-session:${SEARCH_FEED_SESSION_SCHEMA}:${routeKey}#${SEARCH_RELATED_SCOPE}`,
   ];
 }
 

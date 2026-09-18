@@ -12,3 +12,4 @@ torchvision>=0.17   # Siglip2ImageProcessor 의 기본 백엔드. 없으면 PIL 
 transformers>=4.49
 pillow>=10.0
 numpy>=1.26
+kiwipiepy>=0.23     # 검색어 형태소 분리 — 목적을 떼어낸다(query_parse.py). 모델이 패키지에 들어 있어 따로 받지 않는다.

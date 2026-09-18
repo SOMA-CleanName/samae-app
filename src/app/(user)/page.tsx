@@ -4,13 +4,9 @@ import {
   fetchPhotoById,
   fetchHomeFeedPage,
   newFeedSeed,
-  searchPhotosByTag,
 } from "@/lib/discovery";
-import {
-  diversifySearchResults,
-  searchPhotosBySiglip,
-  SIGLIP_SEARCH_MAX_RESULTS,
-} from "@/lib/siglip-text-search";
+import { searchPhotos, SIGLIP_SEARCH_MAX_RESULTS } from "@/lib/siglip-text-search";
+import { spreadAlbumsInBands } from "@/lib/siglip-text-search-core";
 import { cookies } from "next/headers";
 import { loadDemotedHomePhotos, loadMorePhotos, loadPersonalizedPhotos } from "./feed-actions";
 import { logSearch } from "@/lib/search-log";
@@ -26,7 +22,7 @@ import { SearchDock } from "@/components/user/SearchDock";
 import { SearchBackButton } from "@/components/user/SearchBackButton";
 import { SearchResultsHead } from "@/components/user/SearchResultsHead";
 import { pickSearchPlaceholder, SEARCH_PLACEHOLDER_SHORT } from "@/lib/search-copy";
-import { routeSessionKey } from "@/lib/search-navigation";
+import { routeSessionKey, SEARCH_RELATED_SCOPE } from "@/lib/search-navigation";
 import { shouldShowSearchUi } from "@/lib/search-ui-visibility";
 import { HomeBannerSlot } from "@/components/user/HomeBannerSlot";
 import { HomeQuickNav } from "@/components/user/HomeQuickNav";
@@ -108,6 +104,10 @@ export default async function ExploreHome({
   const { purposeIds, moodIds } = parseTasteV2(cookieStore.get(TASTE_V2_COOKIE)?.value);
 
   let photos: GalleryPhoto[];
+  // 검색 결과 아래 "비슷한 무드의 사진들이에요" 에 깔 사진 — 목적은 다르지만 무드가 가깝다.
+  let relatedPhotos: GalleryPhoto[] = [];
+  // 검색 결과 머리줄에 적을 수 — 검색어에 맞는 사진만 센다.
+  let searchCounts: SearchCounts | null = null;
   if (isAllFeed && feedSeed) {
     photos = await fetchHomeFeedPage(feedSeed, 0, purposeIds, moodIds, 48);
     // RPC 미적용/오류로 비면 기존 방식 폴백
@@ -117,32 +117,16 @@ export default async function ExploreHome({
     // 페르소나 분석을 거친 방문자면 페이지 안 순서를 시각 유사도순으로 (0080, 실패 무해)
     photos = await rerankByPersonaVector(photos);
   } else {
-    const basePhotos = query
-      ? diversifySearchResults(
-          query,
-          ...(await Promise.all([
-            searchPhotosByTag(query, {
-              directOnly: true,
-              limit: SIGLIP_SEARCH_MAX_RESULTS,
-            }),
-            // SigLIP 실패는 여기서 삼킨다 — 이 화면에는 재시도 UI 가 없어서
-            // 던지면 홈 전체가 에러가 된다. 태그 결과라도 보여주는 편이 낫다.
-            searchPhotosBySiglip(query, SIGLIP_SEARCH_MAX_RESULTS).catch((error) => {
-              console.error("[home] SigLIP 검색 실패:", error);
-              return [];
-            }),
-          ])),
-          SIGLIP_SEARCH_MAX_RESULTS
-        )
-      : await fetchPublishedPhotos({});
+    const search = query ? await searchHomePhotos(query) : null;
+    searchCounts = search?.counts ?? null;
+    relatedPhotos = search?.related ?? [];
+    const basePhotos = search ? search.matches : await fetchPublishedPhotos({});
     if (query) await logSearch(query, basePhotos.length, me?.id);
     const merged = adAsGallery
       ? [adAsGallery, ...basePhotos.filter((p) => p.id !== adAsGallery.id)]
       : basePhotos;
-    photos = merged.slice(
-      0,
-      query ? SIGLIP_SEARCH_MAX_RESULTS : FEED_CAP
-    );
+    // 검색은 z 가 장수를 정하므로 자르지 않는다. 전체 목록만 FEED_CAP 으로 자른다.
+    photos = query ? merged : merged.slice(0, FEED_CAP);
   }
   const spotlightId = adAsGallery?.id;
 
@@ -154,7 +138,7 @@ export default async function ExploreHome({
   const interstitials = isAllFeed ? await buildFeedInterstitials(photos) : [];
 
   const likedIds = await fetchLikedPhotoIds(
-    photos.map((p) => p.id),
+    [...photos, ...relatedPhotos].map((p) => p.id),
     me?.id
   );
 
@@ -226,9 +210,11 @@ export default async function ExploreHome({
       {query ? (
         <SearchResultsHead
           query={query}
-          count={photos.length}
+          // 검색어에 맞는 사진만 센다. "가을 커플스냅" 이면 커플 사진 수다 — 아래에 붙는
+          // 다른 목적의 가을 사진까지 세면 커플이 229장인데 300장+ 로 적히는 일이 생긴다.
+          count={searchCounts?.matches ?? photos.length}
           // 상한(300)에 딱 걸렸으면 그건 찾은 수가 아니라 잘린 수다 — "+"로 표시한다.
-          capped={photos.length >= SIGLIP_SEARCH_MAX_RESULTS}
+          capped={searchCounts?.capped ?? false}
         />
       ) : null}
       {!query && <HomeBannerSlot />}
@@ -283,6 +269,24 @@ export default async function ExploreHome({
         interstitials={interstitials}
       />
 
+      {/* 검색어에 맞는 사진이 끝난 자리 — 목적은 같고 무드가 조금 먼 사진을 이어 보여준다.
+          ("가을 커플스냅" 이면 나머지 커플 사진을 가을 순으로.) 검색어에 목적이 없으면 없다.
+          사진을 세로 칸에 나눠 까는 배치라 한 목록 중간에 제목을 끼울 수 없어 갤러리를 따로 둔다. */}
+      {relatedPhotos.length > 0 && (
+        <section aria-labelledby="search-related-heading" className="mt-10 sm:mt-14">
+          <h2 id="search-related-heading" className="mx-auto mb-3 max-w-screen-2xl px-1 text-body font-bold tracking-tight">
+            비슷한 무드의 사진들이에요
+          </h2>
+          <ExploreGallery
+            photos={relatedPhotos}
+            query={query}
+            likedIds={likedIds}
+            loggedIn={!!me}
+            sessionScope={SEARCH_RELATED_SCOPE}
+          />
+        </section>
+      )}
+
       {/* 지면의 끝 — 피드가 자동 이어붙이기를 멈춘 자리(ExploreGallery AUTO_ADVANCE_BUDGET)
           바로 아래다. 사업자 정보·약관·처리방침이 여기 있고, 전자상거래법 제10조가 요구하는
           '초기화면 표시' 를 **모바일에서도** 충족한다(예전 SiteInfoBar 는 데스크톱 전용이라
@@ -290,4 +294,42 @@ export default async function ExploreHome({
       <SiteFooter />
     </section>
   );
+}
+
+type SearchCounts = {
+  /** 검색어에 맞는 사진 — 목적이 있으면 그 목적 사진, 없으면 전부 */
+  matches: number;
+  /** 목적은 같고 무드가 조금 먼 사진 — 아래 "비슷한 무드의 사진들이에요" */
+  related: number;
+  /** 300장 상한에서 잘렸나 — 목적만 검색했을 때만 생긴다. 걸렸으면 "300장+" 로 적는다 */
+  capped: boolean;
+};
+
+/**
+ * 검색 결과 — z 2.5 이상이 위, 2.0~2.5 가 아래 "비슷한 무드의 사진들이에요", 그 아래는 없다.
+ * 검색어에 목적이 있으면 위·아래 모두 그 목적 사진만 보여준다.
+ *
+ * 앨범 흩뜨리기는 두 묶음 **안에서 따로** 한다. 합쳐서 섞으면 아래 묶음 사진이 위로 올라온다.
+ * 태그 검색은 쓰지 않는다 — SigLIP 만으로 만든다.
+ *
+ * 실패는 여기서 삼킨다 — 이 화면에는 재시도 UI 가 없어서 던지면 홈 전체가 에러가 된다.
+ */
+async function searchHomePhotos(query: string): Promise<{
+  matches: GalleryPhoto[];
+  related: GalleryPhoto[];
+  counts: SearchCounts;
+}> {
+  const result = await searchPhotos(query, SIGLIP_SEARCH_MAX_RESULTS).catch((error) => {
+    console.error("[home] 검색 실패:", error);
+    return null;
+  });
+  if (!result) return { matches: [], related: [], counts: { matches: 0, related: 0, capped: false } };
+  // 장수는 z 가 정한다 — 여기서 다시 자르지 않는다. 앨범 흩뜨리기만 두 묶음 안에서 따로 한다.
+  const matches = spreadAlbumsInBands(result.matches);
+  const related = spreadAlbumsInBands(result.related);
+  return {
+    matches,
+    related,
+    counts: { matches: matches.length, related: related.length, capped: result.capped },
+  };
 }

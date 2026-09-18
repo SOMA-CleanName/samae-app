@@ -63,7 +63,11 @@ export function shouldKeepGallerySentinel({
   visibleCount: number;
   canLoadServer: boolean;
 }): boolean {
-  if (searchMode) return poolSize > 0;
+  // 검색 결과는 유한하다. 다 보여줬으면 센티넬을 걷어 스크롤을 끝낸다 —
+  // 전에는 poolSize > 0 이면 계속 남겨서, 후보 큐가 다시 섞여 같은 사진이
+  // 끝없이 되풀이됐다(expandSearchResultLoop 의 순환). 찾던 걸 다 본 사람에게
+  // 같은 사진을 또 보여주면 "아직 더 있나" 하고 계속 내리게 된다.
+  if (searchMode) return visibleCount < poolSize;
   return visibleCount < poolSize || canLoadServer;
 }
 

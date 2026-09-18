@@ -11,7 +11,7 @@ import { assignColumnAccents, seededShuffle, type AccentColor } from "@/lib/seed
 import { buildDiverseMasonryColumns } from "@/lib/masonry-columns";
 import { FeedInterstitialCard } from "./FeedInterstitialCard";
 import type { FeedInterstitial } from "@/lib/feed-interstitials";
-import { expandSearchResultLoop, shouldKeepGallerySentinel } from "@/lib/search-feed-loop";
+import { shouldKeepGallerySentinel } from "@/lib/search-feed-loop";
 import {
   routeSessionKey,
   SEARCH_FEED_SESSION_SCHEMA,
@@ -154,6 +154,7 @@ export function ExploreGallery({
   spotlightId,
   loggedIn = false,
   spotlightFirstOnGeneral = false,
+  sessionScope,
   feedSeed,
   loadMore,
   loadPersonalized,
@@ -170,6 +171,8 @@ export function ExploreGallery({
   // 일반 첫 방문 튜토리얼에서 좌상단 첫 사진을 스포트라이트로 강조(슬러그 없는 탐색 메인 전용).
   // false 면 강조 사진 없이 배경 전체만 어둡게(카테고리 slug 페이지).
   spotlightFirstOnGeneral?: boolean;
+  /** 같은 화면의 다른 갤러리와 브라우저 저장 키를 가른다 (검색 결과의 "비슷한 무드" 갤러리) */
+  sessionScope?: string;
   // 시드 기반 무한 스크롤(전체 피드 전용) — 둘 다 있으면 바닥에서 서버 페이지를 이어받음.
   feedSeed?: string;
   loadMore?: (
@@ -195,7 +198,8 @@ export function ExploreGallery({
 }) {
   const pathname = usePathname();
   const routeKey = routeSessionKey(pathname, query);
-  const feedSessionSuffix = routeKey;
+  // 한 화면에 갤러리가 둘이면 저장 키를 갈라야 한다 — 같은 키를 쓰면 서로의 장수를 덮어쓴다.
+  const feedSessionSuffix = sessionScope ? `${routeKey}#${sessionScope}` : routeKey;
   const feedSessionSchema = query ? SEARCH_FEED_SESSION_SCHEMA : FEED_SESSION_SCHEMA;
   const feedSessionKey = `${FEED_SESSION_PREFIX}${feedSessionSchema}:${feedSessionSuffix}`;
   // 서버가 준 첫 페이지에서 시작해, 무한 스크롤로 다음 페이지를 이어붙인다(누적).
@@ -535,12 +539,21 @@ export function ExploreGallery({
       const raw = sessionStorage.getItem(feedSessionKey);
       const cached = raw ? (JSON.parse(raw) as FeedSession) : null;
       if (cached && Array.isArray(cached.items) && cached.items.length > 0) {
-        setItems(cached.items);
+        // 검색은 저장해 둔 사진 목록을 되살리지 않는다 — 사진은 계속 올라오고 숨겨지는데
+        // 목록을 되살리면 그 검색어를 본 탭에서는 탭을 닫기 전까지 옛 사진이 뜬다.
+        // 목록은 서버가 방금 보낸 것을 쓰고, 상세에서 돌아온 깊이만 되살린다.
+        // 같은 검색어면 서버가 같은 순서로 보내므로 자리는 대부분 맞는다.
+        // (홈 피드는 방문마다 순서를 새로 섞으므로 목록째 되살려야 한다.)
+        const restored = query ? initialPhotos : cached.items;
+        setItems(restored);
         setVisible(
           query
-            ? Math.max(
-                Math.min(STEP, cached.items.length),
-                Math.floor(Number.isFinite(cached.visible) ? cached.visible : 0)
+            ? Math.min(
+                restored.length,
+                Math.max(
+                  Math.min(STEP, restored.length),
+                  Math.floor(Number.isFinite(cached.visible) ? cached.visible : 0)
+                )
               )
             : Math.max(STEP, Math.min(cached.visible, cached.items.length))
         );
@@ -548,7 +561,7 @@ export function ExploreGallery({
         feedCycle.current = Math.max(0, cached.cycle || 0);
         feedPhase.current = cached.phase === "demoted" ? "demoted" : "normal";
         cycleSeenIds.current = new Set(
-          Array.isArray(cached.cycleSeenIds) ? cached.cycleSeenIds : cached.items.map((photo) => photo.id)
+          !query && Array.isArray(cached.cycleSeenIds) ? cached.cycleSeenIds : restored.map((photo) => photo.id)
         );
         // 이전 요청의 일시 오류가 exhausted 로 저장됐을 수 있으므로 재진입 시 한 번은 다시 확인한다.
         feedExhausted.current = loadMore ? false : !!cached.exhausted;
@@ -641,9 +654,15 @@ export function ExploreGallery({
       // 관심 이력을 아직 복원하지 못한 빈 배열을 실제 취향으로 오인하지 않게 잠시 기다린다.
       if (!cartHydrated) return;
       // 검색은 방향별 후보 큐를 독립 순환해 매 48장의 세로 비율을 유지한다.
+      //
+      // **다 보여줬으면 멈춘다.** 순환 자체는 세로/가로 비율을 고르게 하려는 것이지
+      // 무한히 흐르라는 뜻이 아닌데, 상한이 없어서 같은 사진이 끝없이 되풀이됐다
+      // (expandSearchResultLoop 의 createCyclicPicker 가 pool 을 다시 섞어 이어붙인다).
+      // 찾던 걸 이미 다 본 사람에게 같은 사진을 또 보여주면 "더 있나" 하고 계속 내리게 된다.
       if (query && items.length > 0) {
+        if (visible >= items.length) return;
         busy = true;
-        setVisible((current) => current + STEP);
+        setVisible((current) => Math.min(current + STEP, items.length));
         return;
       }
       // 1) 이미 로드된 것 중 아직 안 보인 게 있으면 그것부터 노출
@@ -858,8 +877,9 @@ export function ExploreGallery({
   useEffect(() => {
     const io = impObserver.current;
     if (!io || !columnsReady) return;
-    document
-      .querySelectorAll<HTMLElement>("[data-feed-grid] [data-pid][data-rank]")
+    // 자기 칸만 본다 — 검색 결과는 갤러리가 둘(검색어에 맞는 사진 / 비슷한 무드)이다.
+    gridEl.current
+      ?.querySelectorAll<HTMLElement>("[data-pid][data-rank]")
       .forEach((el) => io.observe(el));
   }, [columnsReady, visible, items.length]);
 
@@ -877,7 +897,7 @@ export function ExploreGallery({
     if (typeof IntersectionObserver === "undefined") return;
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
 
-    const grid = document.querySelector<HTMLElement>("[data-feed-grid]");
+    const grid = gridEl.current;
     if (!grid) return;
     // 여기서 처음 숨김이 걸린다. 이 표식이 붙기 전까지 카드는 그냥 보인다.
     grid.dataset.revealOn = "1";
@@ -983,9 +1003,10 @@ export function ExploreGallery({
 
   const columns = useMemo(
     () => {
-      const visibleItems = query
-        ? expandSearchResultLoop(items, visible, query)
-        : items.slice(0, visible);
+      // 검색도 받은 순서를 그대로 쓴다. 서버가 "목적이 맞는 사진 → 비슷한 무드" 로 줄 세워
+      // 보내는데, 세로 비율 맞추기(expandSearchResultLoop)는 관련도를 안 보고 목록 전체에서
+      // 세로·가로를 번갈아 뽑아 아래 묶음 사진을 위로 끌어올렸다.
+      const visibleItems = items.slice(0, visible);
       return query
         ? buildDiverseMasonryColumns(visibleItems, colCount, {
             disperseNonPortrait: true,

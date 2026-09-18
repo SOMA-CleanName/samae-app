@@ -1,0 +1,118 @@
+"""검색어에서 사진 목적을 떼어낸다.
+
+"가을 커플스냅" 을 통째로 SigLIP 에 넣으면 눈에 뚜렷한 대상(커플)이 분위기(가을)를
+삼킨다 — 벡터가 "커플스냅" 과 0.942, "가을" 과 0.842 로 가까워 가을이 거의 반영되지
+않았다. 그래서 목적은 필터로 따로 쓰고, SigLIP 에는 목적을 뺀 나머지만 넣는다.
+
+목적은 7개로 닫혀 있으니 사전으로 찾는다(모델을 쓰지 않는다). 사전은 사진 목적 분류가
+쓰는 PURPOSE_PHRASES 를 그대로 가져온다 — 둘이 따로 놀면 "커플" 로 분류된 사진을
+"커플" 로 검색해도 못 찾는 일이 생긴다.
+
+사전만으로는 낱말 경계를 모른다. "아기자기한" 에서 "아기" 를 찾아 행사로 잡았다.
+그래서 Kiwi 로 형태소를 쪼갠 뒤 **형태소 단위로** 대조한다.
+"""
+from purpose_text import PURPOSE_ORDER, PURPOSE_PHRASES
+
+# 검색창에서 사람이 치는 말. 작가 글 기준으로 만든 PURPOSE_PHRASES 에는 없었다.
+# 사진 분류 사전에는 넣지 않는다 — 넣으면 매일 오전 6시 목적 분류 결과까지 바뀐다.
+SEARCH_PHRASES = {
+    # "남자 프로필" "여자 스냅" 은 혼자 찍는 사진이다. "남자친구" 는 두 조각(남자+친구)으로
+    # 쪼개지지만 사전의 "남자친구" 도 똑같이 쪼개 긴 것부터 맞추므로 커플로 잡힌다.
+    "personal": ("남자", "여자", "남성", "여성"),
+    "pet": ("강아지", "고양이", "댕댕이", "냥이", "애견", "애묘", "펫"),
+    "couple": ("남친", "여친", "남자친구", "여자친구", "연애"),
+    # 가족 사진은 목적이 따로 없어 행사로 둔다 (2026-09-18 결정)
+    "event": ("가족", "가족사진", "가족 사진"),
+}
+
+# 모든 사진이 사진이다. SigLIP 에 넣어 봐야 뜻이 없고, 남기면 목적처럼 굴기도 한다.
+FORMAT_WORDS = {"스냅", "사진", "촬영", "찍기"}
+
+# 목적으로 거르되 **글자는 SigLIP 에 남기는** 낱말. "남자" 는 개인 사진을 찾는 것이기도 하지만
+# 무엇보다 남자가 찍힌 사진을 찾는 것이다. 목적만 남기고 글자를 떼면 "개인 사진 최신순" 이
+# 되어, 개인 사진 대부분이 여성인 지금은 "남자" 로 찾아도 여성 사진이 주로 나왔다.
+KEEP_IN_TEXT = {"남자", "여자", "남성", "여성"}
+
+# 웨딩은 커플을 품는다. "웨딩 커플" 은 웨딩을 찾는 것이다.
+SUPERSEDES = {"wedding": {"couple"}}
+
+
+def _is_function(tag):
+    """조사·어미·서술격 조사·문장부호 — 뜻을 싣지 않는다."""
+    return tag.startswith(("J", "E", "S")) or tag == "VCP"
+
+
+def _content_forms(kiwi, text):
+    return tuple(t.form for t in kiwi.tokenize(text) if not _is_function(t.tag))
+
+
+def build_lexicon(kiwi):
+    """목적 문구를 검색어와 같은 방식으로 쪼갠 사전. 긴 문구부터 맞춘다."""
+    entries = []
+    for purpose, phrases in PURPOSE_PHRASES.items():
+        entries += [(purpose, phrase) for phrase, _strength in phrases]
+    for purpose, phrases in SEARCH_PHRASES.items():
+        entries += [(purpose, phrase) for phrase in phrases]
+    lexicon = {}
+    for purpose, phrase in entries:
+        forms = _content_forms(kiwi, phrase)
+        if forms:
+            lexicon.setdefault(forms, (purpose, phrase))
+    return sorted(lexicon.items(), key=lambda item: (-len(item[0]), -sum(map(len, item[0]))))
+
+
+def parse(query, kiwi, lexicon=None):
+    """검색어 → 목적 / SigLIP 에 넣을 나머지 글자.
+
+    검색어에서는 약한 단서(강도 1)도 목적으로 본다. 작가 글의 "커플" 은 "커플 촬영 가능"
+    같은 나열일 수 있어 확정하지 않았지만, 검색창에 "커플" 이라고 쳤다면 커플을 찾는 것이다.
+    """
+    lexicon = lexicon if lexicon is not None else build_lexicon(kiwi)
+    tokens = kiwi.tokenize(query)
+    content = [i for i, t in enumerate(tokens) if not _is_function(t.tag)]
+    forms = [tokens[i].form for i in content]
+    used = set()
+    found, matched = set(), []
+
+    position = 0
+    while position < len(content):
+        for phrase_forms, (purpose, phrase) in lexicon:
+            size = len(phrase_forms)
+            if tuple(forms[position:position + size]) == phrase_forms:
+                found.add(purpose)
+                matched.append(phrase)
+                if phrase not in KEEP_IN_TEXT:
+                    used.update(content[position:position + size])
+                position += size
+                break
+        else:
+            if forms[position] in FORMAT_WORDS:
+                used.add(content[position])
+            position += 1
+
+    # 뗀 낱말에 붙은 조사도 함께 뗀다 — "강아지랑 산책" 에서 "랑" 이 남지 않게.
+    for index in sorted(used):
+        follow = index + 1
+        while follow < len(tokens) and _is_function(tokens[follow].tag) and follow not in used:
+            used.add(follow)
+            follow += 1
+
+    for winner, losers in SUPERSEDES.items():
+        if winner in found:
+            found -= losers
+    # 개인은 다른 목적과 함께 나오면 물러난다 — "남녀 커플" "커플 프로필" 은 커플을 찾는 것이다.
+    if len(found) > 1:
+        found.discard("personal")
+
+    # 원래 글자에서 뗀 부분만 지운다. 형태소를 다시 이어 붙이면 "힙한" 이 "힙 하 ㄴ" 이 된다.
+    keep = [True] * len(query)
+    for index in used:
+        token = tokens[index]
+        for offset in range(token.start, token.start + token.len):
+            keep[offset] = False
+    rest = "".join(ch if keep[i] else " " for i, ch in enumerate(query))
+    return {
+        "purposes": [p for p in PURPOSE_ORDER if p in found],
+        "mood_text": " ".join(rest.split()),
+        "matched": matched,
+    }

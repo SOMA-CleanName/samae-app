@@ -11,12 +11,24 @@ const photos = [
   { id: "third" },
 ];
 
-test("keeps the search sentinel after the unique result pool is exhausted", () => {
+test("검색 결과를 다 보여줬으면 센티넬을 걷는다 — 같은 사진이 되풀이되면 안 된다", () => {
   assert.equal(
     shouldKeepGallerySentinel({
       searchMode: true,
       poolSize: photos.length,
       visibleCount: photos.length,
+      canLoadServer: false,
+    }),
+    false
+  );
+});
+
+test("검색 결과가 아직 남아 있으면 이어서 흐른다", () => {
+  assert.equal(
+    shouldKeepGallerySentinel({
+      searchMode: true,
+      poolSize: photos.length,
+      visibleCount: 1,
       canLoadServer: false,
     }),
     true
