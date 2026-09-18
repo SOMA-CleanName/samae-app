@@ -107,6 +107,8 @@ export default async function ExploreHome({
   const { purposeIds, moodIds } = parseTasteV2(cookieStore.get(TASTE_V2_COOKIE)?.value);
 
   let photos: GalleryPhoto[];
+  // 검색 결과 머리줄에 적을 수 — 화면에 깔리는 전체 장수가 아니다(아래 "비슷한 무드" 는 따로).
+  let searchCounts: SearchCounts | null = null;
   if (isAllFeed && feedSeed) {
     photos = await fetchHomeFeedPage(feedSeed, 0, purposeIds, moodIds, 48);
     // RPC 미적용/오류로 비면 기존 방식 폴백
@@ -116,9 +118,9 @@ export default async function ExploreHome({
     // 페르소나 분석을 거친 방문자면 페이지 안 순서를 시각 유사도순으로 (0080, 실패 무해)
     photos = await rerankByPersonaVector(photos);
   } else {
-    const basePhotos = query
-      ? await searchHomePhotos(query)
-      : await fetchPublishedPhotos({});
+    const search = query ? await searchHomePhotos(query) : null;
+    searchCounts = search?.counts ?? null;
+    const basePhotos = search ? search.photos : await fetchPublishedPhotos({});
     if (query) await logSearch(query, basePhotos.length, me?.id);
     const merged = adAsGallery
       ? [adAsGallery, ...basePhotos.filter((p) => p.id !== adAsGallery.id)]
@@ -210,9 +212,12 @@ export default async function ExploreHome({
       {query ? (
         <SearchResultsHead
           query={query}
-          count={photos.length}
+          // 검색어에 맞는 사진만 센다. "가을 커플스냅" 이면 커플 사진 수다 — 아래에 붙는
+          // 다른 목적의 가을 사진까지 세면 커플이 229장인데 300장+ 로 적히는 일이 생긴다.
+          count={searchCounts?.matches ?? photos.length}
+          relatedCount={searchCounts?.related ?? 0}
           // 상한(300)에 딱 걸렸으면 그건 찾은 수가 아니라 잘린 수다 — "+"로 표시한다.
-          capped={photos.length >= SIGLIP_SEARCH_MAX_RESULTS}
+          capped={searchCounts?.capped ?? photos.length >= SIGLIP_SEARCH_MAX_RESULTS}
         />
       ) : null}
       {!query && <HomeBannerSlot />}
@@ -276,6 +281,15 @@ export default async function ExploreHome({
   );
 }
 
+type SearchCounts = {
+  /** 검색어에 맞는 사진 — 목적이 있으면 그 목적 사진, 없으면 전부 */
+  matches: number;
+  /** 목적은 다르지만 무드가 비슷해 아래에 붙인 사진 */
+  related: number;
+  /** 맞는 사진이 상한(300)에 걸렸나 — 걸렸으면 "300장+" 로 적는다 */
+  capped: boolean;
+};
+
 /**
  * 검색 결과 — 목적이 맞는 사진을 위에, 목적은 다르지만 무드가 비슷한 사진을 그 아래에.
  * "가을 커플스냅" 이면 커플 사진이 가을 순으로 먼저 오고, 다른 가을 사진이 뒤따른다.
@@ -285,14 +299,21 @@ export default async function ExploreHome({
  *
  * 실패는 여기서 삼킨다 — 이 화면에는 재시도 UI 가 없어서 던지면 홈 전체가 에러가 된다.
  */
-async function searchHomePhotos(query: string) {
+async function searchHomePhotos(query: string): Promise<{ photos: GalleryPhoto[]; counts: SearchCounts }> {
   const result = await searchPhotos(query, SIGLIP_SEARCH_MAX_RESULTS).catch((error) => {
     console.error("[home] 검색 실패:", error);
     return null;
   });
-  if (!result) return [];
-  return [
-    ...diversifySearchResults(query, [], result.matches, SIGLIP_SEARCH_MAX_RESULTS),
-    ...diversifySearchResults(query, [], result.related, SIGLIP_SEARCH_MAX_RESULTS),
-  ].slice(0, SIGLIP_SEARCH_MAX_RESULTS);
+  if (!result) return { photos: [], counts: { matches: 0, related: 0, capped: false } };
+  const matches = diversifySearchResults(query, [], result.matches, SIGLIP_SEARCH_MAX_RESULTS);
+  const related = diversifySearchResults(query, [], result.related, SIGLIP_SEARCH_MAX_RESULTS);
+  const photos = [...matches, ...related].slice(0, SIGLIP_SEARCH_MAX_RESULTS);
+  return {
+    photos,
+    counts: {
+      matches: matches.length,
+      related: photos.length - matches.length,
+      capped: matches.length >= SIGLIP_SEARCH_MAX_RESULTS,
+    },
+  };
 }
