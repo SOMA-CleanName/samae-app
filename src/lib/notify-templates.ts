@@ -10,6 +10,8 @@
 //
 // 이 모듈은 server-only 가 아니다 — 순수 함수라 단위 테스트(notify-templates.test.ts)로 검증한다.
 
+import { paymentMode, type PaymentMode } from "./payment-mode";
+
 export type NotifyKind =
   | "chat_reply" // 작가 답장 → 고객 (보는 중이면 스킵 · 안 읽은 채로는 24h 쿨다운)
   | "chat_message_to_photographer" // 고객 메시지 → 작가 (억제 정책 적용)
@@ -32,6 +34,15 @@ export type NotifyTemplate = {
   variables: readonly string[];
   /** 알림톡 심사 원문 = 문자 대체 본문 */
   body: string;
+  /**
+   * PG 전환 시 달라지는 본문. **없으면 결제 방식과 무관하다는 뜻이다.**
+   *
+   * 알림톡은 심사된 본문 그대로만 나가므로 이 문안도 **별도 템플릿으로 등록·심사**해야
+   * 한다(env `ALIMTALK_TPL_<KIND>_PG`). 카카오는 템플릿을 독립적으로 승인하므로
+   * **지금 등록해 둘 수 있다** — 보내지 않는 승인 템플릿이 하나 더 있는 건 비용이 0이다.
+   * 전환일에 심사를 기다리지 않으려면 이걸 미리 해 두는 게 맞다 (docs/42 §3-6).
+   */
+  pg?: { body: string };
   /**
    * 알림톡 버튼 (웹링크).
    *
@@ -146,6 +157,14 @@ export const NOTIFY_TEMPLATES: Record<NotifyKind, NotifyTemplate> = {
 · 촬영일: #{촬영일}
 입금이 확인되면 예약이 확정돼요. 확인되는 대로 다시 알려드릴게요.
 #{링크}`,
+    // PG 에서는 수락과 결제가 이어져 "기다림" 이 없다. 문장을 그대로 두면
+    // 고객이 오지 않을 확인 알림을 기다린다.
+    pg: {
+      body: `[사매] 제안하신 예약을 #{상대명}님이 수락했어요.
+· 촬영일: #{촬영일}
+결제가 완료되면 예약이 확정돼요.
+#{링크}`,
+    },
     button: { name: "예약 확인하기", url: "https://samae.ai/bookings/#{예약ID}", urlVariable: "예약ID" },
   },
   deposit_confirmed: {
@@ -158,6 +177,14 @@ export const NOTIFY_TEMPLATES: Record<NotifyKind, NotifyTemplate> = {
 · 촬영일: #{촬영일}
 작가님이 촬영을 준비해요. 자세한 내용은 예약 페이지에서 확인해 주세요.
 #{링크}`,
+    // 카드로 낸 고객에게 "입금하신" 은 틀린 말이다
+    pg: {
+      body: `[사매] 결제가 완료되어 예약이 확정됐어요.
+· 작가: #{작가명}
+· 촬영일: #{촬영일}
+작가님이 촬영을 준비해요. 자세한 내용은 예약 페이지에서 확인해 주세요.
+#{링크}`,
+    },
     button: { name: "예약 확인하기", url: "https://samae.ai/bookings/#{예약ID}", urlVariable: "예약ID" },
   },
   booking_confirmed: {
@@ -170,6 +197,13 @@ export const NOTIFY_TEMPLATES: Record<NotifyKind, NotifyTemplate> = {
 · 촬영일: #{촬영일}
 · 정산 예정: #{정산금액}원 (수수료 차감 후)
 #{링크}`,
+    pg: {
+      body: `[사매] 수락하신 예약의 결제가 완료되어 예약이 확정됐어요.
+· 고객: #{고객명}
+· 촬영일: #{촬영일}
+· 정산 예정: #{정산금액}원 (수수료 차감 후)
+#{링크}`,
+    },
     button: { name: "정산 내역 보기", url: "https://samae.ai/studio/settlements" },
   },
   settlement_paid: {
@@ -192,26 +226,51 @@ export function isNotifyKind(v: unknown): v is NotifyKind {
   return typeof v === "string" && v in NOTIFY_TEMPLATES;
 }
 
-/** env 키 — ALIMTALK_TPL_CHAT_REPLY 처럼 kind 를 대문자로 */
-export function alimtalkTemplateEnvKey(kind: NotifyKind): string {
-  return `ALIMTALK_TPL_${kind.toUpperCase()}`;
+/**
+ * env 키 — `ALIMTALK_TPL_CHAT_REPLY` 처럼 kind 를 대문자로.
+ *
+ * PG 문안이 따로 있는 kind 는 `_PG` 가 붙는다. **문안이 다르면 템플릿도 다르다** —
+ * 카카오는 심사된 본문 그대로만 내보내므로 한 ID 로 두 문안을 쓸 수 없다.
+ */
+export function alimtalkTemplateEnvKey(kind: NotifyKind, mode: PaymentMode = "bank_transfer"): string {
+  const base = `ALIMTALK_TPL_${kind.toUpperCase()}`;
+  return mode === "pg" && NOTIFY_TEMPLATES[kind].pg ? `${base}_PG` : base;
 }
 
-/** 솔라피에 등록된 알림톡 템플릿 ID. 없으면 undefined → 문자로 대체 */
-export function alimtalkTemplateId(kind: NotifyKind): string | undefined {
-  return process.env[alimtalkTemplateEnvKey(kind)] || undefined;
+/**
+ * 솔라피에 등록된 알림톡 템플릿 ID. 없으면 undefined → 문자로 대체.
+ *
+ * PG 로 켰는데 `_PG` 템플릿이 아직 심사 중이면 **무통장 템플릿으로 떨어뜨리지 않는다** —
+ * 그러면 카드로 결제한 고객이 "입금이 확인되어" 를 받는다. 차라리 문자로 나가는 게 낫다
+ * (문자 본문은 아래 notifyBody 가 결제 방식에 맞는 걸 고른다).
+ */
+export function alimtalkTemplateId(
+  kind: NotifyKind,
+  mode: PaymentMode = paymentMode()
+): string | undefined {
+  return process.env[alimtalkTemplateEnvKey(kind, mode)] || undefined;
+}
+
+/** 이 결제 방식에서 쓸 본문 — 알림톡 심사 원문이자 문자 대체 본문 */
+export function notifyBody(kind: NotifyKind, mode: PaymentMode = paymentMode()): string {
+  const t = NOTIFY_TEMPLATES[kind];
+  return mode === "pg" && t.pg ? t.pg.body : t.body;
 }
 
 export type NotifyVariables = Record<string, string>;
 
 /** 본문 렌더링 — 문자 대체 발송·감사 로그용. 변수가 하나라도 비면 던진다 (조용히 `#{}` 가 나가면 안 된다) */
-export function renderNotifyBody(kind: NotifyKind, vars: NotifyVariables): string {
+export function renderNotifyBody(
+  kind: NotifyKind,
+  vars: NotifyVariables,
+  mode: PaymentMode = paymentMode()
+): string {
   const t = NOTIFY_TEMPLATES[kind];
   const missing = t.variables.filter((v) => !vars[v] || !vars[v].trim());
   if (missing.length > 0) {
     throw new Error(`[notify] ${kind} 변수 누락: ${missing.join(", ")}`);
   }
-  return t.body.replace(/#\{([^}]+)\}/g, (_, name: string) => vars[name] ?? `#{${name}}`);
+  return notifyBody(kind, mode).replace(/#\{([^}]+)\}/g, (_, name: string) => vars[name] ?? `#{${name}}`);
 }
 
 /** 솔라피 kakaoOptions.variables 규격 — 키를 `#{이름}` 으로 감싼다 */
