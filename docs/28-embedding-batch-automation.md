@@ -169,13 +169,17 @@ python3 scripts/embed/check_db.py        # "임베딩 대기" 줄
 사진 업로드 → 매일 백필 → 로컬 /embed-backfill → photos.embedding 에 사진 벡터 저장
 
 사용자 검색 → Next.js 서버
-               ├─ 사진·앨범 등의 메타데이터 직접 일치 검색
-               └─ HTTPS Funnel → 맥미니 POST /embed-text
-                                  └─ SigLIP 2 텍스트 벡터 반환
-                    → Next.js 가 Supabase similar_photos_by_vector 호출
-                    → DB 에서 저장된 사진 벡터와 코사인 거리 비교
-               → 공개·승인·비숨김 사진 조회 및 결과 병합 → 검색 화면
+               └─ HTTPS Funnel → 맥미니 POST /search-query   (2026-09-18~, #372)
+                                  ├─ Kiwi 로 사진 목적을 뗌 ("가을 커플스냅" → 커플 + "가을")
+                                  └─ 남은 말의 SigLIP 2 텍스트 벡터 반환
+                    → 목적은 필터, 벡터는 Supabase similar_photos_by_vector 로 순위
+               → 공개·승인·비숨김 사진 조회 → 검색 화면
+               (404·501 이면 예전처럼 POST /embed-text 로 검색어 통째)
 ```
+
+**태그(메타데이터) 검색은 2026-09-18 부터 섞지 않는다.** 결과는 SigLIP 으로만 만든다 — 자세한 규칙은 [29 §12](29-siglip-text-search.md).
+그 결과 **맥미니에 닿지 못하면 검색 결과가 통째로 빈다.** 전에는 태그 결과가 그 장애를 가려서 화면이 멀쩡해 보였다.
+배포 직후 운영에서 실제로 모든 검색이 "결과가 없어요" 가 됐다(원인 확인 중). 맥미니·Funnel 상태가 곧 검색 가용성이다.
 
 모델은 사진과 같은 `google/siglip2-so400m-patch16-naflex`, 벡터는 **1152차원**이다. 실제 사진과의 거리 계산은 Supabase 의 기존 `similar_photos_by_vector` RPC 가 맡는다. 검색할 때 사진 백필을 다시 실행하거나 DB 마이그레이션을 적용할 필요는 없다.
 
@@ -189,10 +193,12 @@ python3 scripts/embed/check_db.py        # "임베딩 대기" 줄
 cd ~/srv/samae-app
 git status --short --branch
 git pull --ff-only
-grep -nE '/embed-text|/embed-backfill' scripts/embed/serve.py
+grep -nE '/embed-text|/embed-backfill|/search-query' scripts/embed/serve.py
+scripts/embed/.venv/bin/pip install -r scripts/embed/requirements.txt
 ```
 
-`/embed-text` 또는 `/embed-backfill`이 없으면 해당 기능이 포함된 버전이 런타임에 아직 반영되지 않은 것이다. 앱 코드만 갱신해도 맥미니의 별도 clone 은 갱신되지 않는다.
+`/embed-text`·`/embed-backfill`·`/search-query` 중 없는 것이 있으면 해당 기능이 포함된 버전이 런타임에 아직 반영되지 않은 것이다. 앱 코드만 갱신해도 맥미니의 별도 clone 은 갱신되지 않는다.
+`/search-query` 는 형태소 분석기 `kiwipiepy` 가 필요하다. **`git pull` 로는 설치되지 않으므로** 위 `pip install` 을 함께 한다. 없으면 서버는 뜨지만 `/search-query` 가 501 을 주고, 로그에 `검색어 분리 꺼짐` 이 남는다. 실행 순서와 판정은 [38](38-macmini-search-handoff.md) §3-1·§5-0 을 따른다.
 
 맥미니의 `.env.local` 에 **기존 `PERSONA_SERVICE_TOKEN` 값을 유지**한다. 최초 구성이라면 충분히 긴 임의의 공유 토큰을 정해 맥미니와 호출 앱에 같은 값을 넣는다. 아래 예시의 대체 문구를 실제 토큰으로 바꾼다. 기존 Supabase 환경변수는 백필용으로 계속 필요하다.
 
@@ -327,7 +333,12 @@ node --env-file=.env.local scripts/check-siglip-text-search.cjs
 
 실제 앱에서도 같은 검색어로 검색해 사진을 확인한다. 홈이 열리거나 검색 URL이 HTTP 200을 반환하는 것만으로는 벡터 검색 성공이 아니다. 현재 앱의 임베딩 요청 제한은 **4초**, 위 검증 스크립트는 **10초**이므로 스크립트가 성공해도 앱에서는 타임아웃이 날 수 있다. 외부 경로의 워밍된 `/embed-text` 요청 시간과 실제 검색 결과를 함께 확인한다.
 
-앱의 서버 검색 결과 준비에는 DB 조회 등을 포함한 **8초 제한**도 적용한다. 실패·지연 시 사진 영역에 `대기시간이 오래 걸립니다.`, `잠시 후 다시 시도해주세요.`, `다시 시도` 버튼이 표시된다. 사전 세션 갱신과 브라우저 타이머 등 구체적인 시간 기준은 [29 문서 §7](29-siglip-text-search.md#7-장애-처리)을 따른다.
+앱의 서버 검색 결과 준비에는 DB 조회 등을 포함한 **8초 제한**도 적용한다. 사전 세션 갱신과 브라우저 타이머 등 구체적인 시간 기준은 [29 문서 §7](29-siglip-text-search.md#7-장애-처리)을 따른다.
+
+> ⚠️ **실패 화면은 지금 설계와 다르다 (2026-09-18 확인).** 설계는 실패·지연 시 사진 영역에 `대기시간이 오래 걸립니다.`·`다시 시도` 를
+> 띄우는 것이다(`SearchUnavailable`). 그러나 그 화면을 쓰는 `SearchPhotoResults` 는 어디서도 불리지 않고, 홈 검색은
+> 실패를 삼켜 **"“검색어” 결과가 없어요"** 를 띄운다. 즉 **장애와 진짜 0건이 화면에서 구분되지 않는다.**
+> 운영 검색이 전부 0건이면 먼저 맥미니·Funnel 장애를 의심한다. 화면 연결은 따로 고칠 일이다.
 
 ### 8.6 갱신·재시작·상태 확인
 
@@ -351,13 +362,15 @@ tailscale funnel status
 | `/health` 는 되지만 `/embed-text` 가 404 | 맥미니 런타임에 새 코드가 있는지와 갱신 후 서비스 재시작 여부 |
 | 백필이 서버 준비 오류·`/embed-backfill` 404로 종료 | 같은 런타임의 새 서버를 재시작했는지, `/health`에 `inference_queue`가 있는지 확인 |
 | 목적 백필의 `/embed-text-backfill`이 404 | §9 변경을 맥미니에 내려받고 상주 서비스를 재시작했는지 확인 |
+| `/search-query` 가 404 | 옛 코드다. 갱신·재시작. 그동안 앱은 `/embed-text` 로 우회하므로 검색은 된다(목적 분리만 빠짐) |
+| `/search-query` 가 501, `serve.log` 에 `검색어 분리 꺼짐` | 서버 venv 에 `kiwipiepy` 가 없다. §8.2 의 `pip install` 후 재시작. 앱은 `/embed-text` 로 우회 |
 | 인증 요청이 401 | 양쪽 `PERSONA_SERVICE_TOKEN` 일치 여부, 맥미니 재시작과 앱 재시작·재배포 여부 |
 | 로컬은 정상인데 HTTPS 경로 실패 | Tailscale 연결과 `funnel status` 의 실제 주소·8077 프록시 대상 |
 | 검증 스크립트는 성공하지만 앱 검색 결과가 없음 | 앱의 URL·토큰·배포 환경, 4초 제한, 공개·승인·`feed_hidden=false` 조건 |
 | RPC 오류 또는 벡터 후보 0건 | 기존 `similar_photos_by_vector` 배포 상태와 사진 임베딩 커버리지(`check_db.py`) |
-| 사진 영역에 대기시간 안내가 표시됨 | 임베딩 호출 오류·4초 제한, 검색 DB 오류·서버 결과 준비 8초 제한을 확인 |
+| 운영에서 **모든** 검색이 "결과가 없어요" | 앱이 맥미니에 닿지 못한다 — 로컬 8077, Funnel 주소, 워밍된 응답 4초 미만, 토큰 순서로 확인 ([38](38-macmini-search-handoff.md) §5-3). Vercel 로그의 `[home] 검색 실패` 에 원인이 남는다 |
 
-상주 서비스·Funnel 장애 시 앱은 사진 영역에 지연 안내와 재시도 버튼을 표시한다. 정상 검색 0건 화면과는 구분한다. 재시도하면 해당 검색어의 사진·스크롤 캐시를 지우고 같은 검색어로 새 요청을 보낸다. 사진→사진 추천은 저장된 사진 벡터를 사용한다. `/embed-text` 와 실제 검색을 함께 점검한다.
+상주 서비스·Funnel 장애 시 **설계는** 사진 영역에 지연 안내와 재시도 버튼을 표시하는 것이지만, 현재 홈 검색은 이를 "결과가 없어요" 로 보인다(§8.5 경고). 사진→사진 추천은 저장된 사진 벡터를 사용한다. `/search-query`·`/embed-text` 와 실제 검색을 함께 점검한다.
 
 이 절차는 저장소의 현재 실행 코드와 공식 CLI 문서를 기준으로 작성했다. 2026-09-14 Windows Docker/CUDA 환경에서는 같은 서버의 텍스트 추론·DB 검색과 대표 검색어 3개의 각 48장 서버 렌더링을 확인했다. **맥미니에서의 서비스 재시작·Funnel·운영 앱 연결은 위 절차로 별도 확인해야 한다.**
 
@@ -370,6 +383,7 @@ tailscale funnel status
 | 순위 | 요청 | 처리 단위 |
 |---|---|---|
 | 1 | `/embed-text` 사용자 검색 | 요청에 포함된 검색어 (최대 8개) |
+| 1 | `/search-query` 사용자 검색 (2026-09-18~) | 목적을 뗀 검색어 한 개. 목적만 있는 검색어는 추론 없이 바로 답한다 |
 | 2 | `/embed` 사용자 이미지 | 기존 이미지 마이크로 배치 |
 | 3 | `/embed-backfill` 자동 백필 | 사진 한 장 |
 | 3 | `/embed-text-backfill` 목적 태그 백필 | 고정 목적 문장 최대 8개 |
