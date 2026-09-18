@@ -7,6 +7,8 @@ import {
   SIGLIP_TEXT_MODEL,
   SEARCH_MATCH_Z,
   SEARCH_RELATED_Z,
+  GENDER_BOUNDARY,
+  pickByGender,
   splitByPurposes,
   splitByZ,
   spreadAlbumsInBands,
@@ -24,7 +26,16 @@ test("목적과 무드가 둘 다 오면 그대로 받는다", () => {
 
 test("목적만 검색하면 벡터가 없어도 된다", () => {
   const parsed = parseSearchQueryResponse(answer({ purposes: ["wedding"], mood_text: "", vector: null }));
-  assert.deepEqual(parsed, { purposes: ["wedding"], moodText: "", vector: null });
+  assert.deepEqual(parsed, { purposes: ["wedding"], gender: null, moodText: "", vector: null });
+});
+
+test("성별은 개인 검색일 때 맥미니가 준다 — 갱신 전 맥미니는 없으니 null", () => {
+  const woman = parseSearchQueryResponse(answer({ purposes: ["personal"], gender: "female", mood_text: "", vector: null }));
+  assert.equal(woman?.gender, "female");
+  const old = parseSearchQueryResponse(answer({ purposes: ["personal"], mood_text: "여자", vector }));
+  assert.equal(old?.gender, null);
+  const odd = parseSearchQueryResponse(answer({ purposes: ["personal"], gender: "other", mood_text: "", vector: null }));
+  assert.equal(odd?.gender, null, "모르는 값은 성별 필터를 쓰지 않는다");
 });
 
 test("쓸 수 없는 응답은 버린다", () => {
@@ -97,4 +108,25 @@ test("앨범 흩뜨리기는 장수를 자르지 않는다 — z 로 자른 결�
   assert.equal(spread.length, 420, "300장에서 자르던 diversifySearchResults 와 다르다");
   assert.deepEqual(new Set(spread.map((p) => p.id)).size, 420);
   assert.notEqual(spread[0].album_id, spread[1].album_id, "같은 앨범이 연달아 오지 않는다");
+});
+
+test("성별은 여자·남자 중 어느 쪽에 가까운지로 가른다 — 점수 순위로 자르지 않는다", () => {
+  // womanLean = 남자까지 거리 − 여자까지 거리
+  const female = [
+    { id: "w1", distance: 0.80 },  // lean 0.03 → 여자
+    { id: "w2", distance: 0.90 },  // lean 0.01 → 여자 (여자 점수는 낮아도 여자 쪽이다)
+    { id: "m1", distance: 0.85 },  // lean -0.02 → 남자
+    { id: "edge", distance: 0.80 }, // lean 0.004 → 경계 아래라 남자
+  ];
+  const male = [
+    { id: "w1", distance: 0.83 }, { id: "w2", distance: 0.91 },
+    { id: "m1", distance: 0.83 }, { id: "edge", distance: 0.804 },
+  ];
+  assert.deepEqual(pickByGender(female, male, "female").map((r) => r.id), ["w1", "w2"]);
+  assert.deepEqual(pickByGender(female, male, "male").map((r) => r.id), ["edge", "m1"], "남자와 가까운 순서");
+  assert.ok(GENDER_BOUNDARY > 0);
+});
+
+test("한쪽 목록에만 있는 사진은 가르지 않는다", () => {
+  assert.deepEqual(pickByGender([{ id: "a", distance: 0.8 }], [], "female"), []);
 });

@@ -28,6 +28,7 @@
 **무엇이 새로 생기는가**
 
 - `/search-query` — 검색어에서 **사진 목적을 떼어**(`가을 커플스냅` → 목적 커플 + "가을") 나머지만 벡터로 돌려준다.
+  개인 사진을 성별로 찾으면(`여자`, `남자 노을`) 성별도 알려준다 — 앱이 여자/남자 사진을 가른다([docs/29 §12.9](29-siglip-text-search.md))
   형태소 분석기 **Kiwi(`kiwipiepy`)** 가 필요하다. 새 파이썬 패키지라 **`git pull` 만으로는 안 깔린다** (§3-1)
 - `/embed-text-backfill` — 배치 전용 임베딩 창구. 사용자 검색보다 **낮은 우선순위**라
   오전 6시 배치가 돌아도 고객 검색이 안 밀린다
@@ -42,10 +43,10 @@ Kiwi 가 없는 새 서버는 501 을 준다. 앱은 둘 다 "모르는 기능" 
 - DB 마이그레이션 `0116`·`0117`·`0118` — 2026-09-15 적용 완료
 - DB 마이그레이션 `0121` — 2026-09-17 적용 완료
 - DB 마이그레이션 `0130` — 2026-09-18 적용 완료 (유사사진 함수 중복 정리)
+- DB 마이그레이션 `0131` — 2026-09-18 적용 완료 (성별 필터용. 검색 화면의 z 컷은 앱에서 꺼 둠)
 - launchd 등록 (`com.samae.embed`·`com.samae.serve`) — 2026-08-21 완료. **재등록 불필요**
 
-**하지 않는 것** — `0131`(z 컷 검색) 은 **적용하지 않는다.** 무드어 작업이 끝난 뒤 적용한다.
-없어도 앱은 예전 "가까운 300장" 방식으로 돈다.
+**하지 않는 것** — 이 문서에는 DB 쓰기가 없다. 마이그레이션은 전부 적용돼 있다.
 
 ---
 
@@ -193,14 +194,14 @@ base = sys.argv[1].rstrip("/")
 token = load_env(".env.local").get("PERSONA_SERVICE_TOKEN", "")
 if not token:
     raise SystemExit(".env.local 에 PERSONA_SERVICE_TOKEN 이 없다 — 멈추고 보고")
-for query in ["가을 커플스냅", "웨딩", "몽환적인 노을"]:
+for query in ["가을 커플스냅", "웨딩", "몽환적인 노을", "남자 노을"]:
     req = urllib.request.Request(base + "/search-query", data=json.dumps({"query": query}).encode(),
         headers={"x-samae-token": token, "Content-Type": "application/json"})
     started = time.perf_counter()
     with urllib.request.urlopen(req, timeout=10) as r:
         d = json.load(r)
     ms = round((time.perf_counter() - started) * 1000)
-    print(f"{query} → 목적 {d['purposes']} / 글자 '{d['mood_text']}' / 벡터 {len(d['vector']) if d['vector'] else None} / {ms}ms")
+    print(f"{query} → 목적 {d['purposes']} / 성별 {d.get('gender')} / 글자 '{d['mood_text']}' / 벡터 {len(d['vector']) if d['vector'] else None} / {ms}ms")
 PY
 }
 check_search_query http://127.0.0.1:8077
@@ -209,9 +210,10 @@ check_search_query http://127.0.0.1:8077
 **정상**
 
 ```
-가을 커플스냅 → 목적 ['couple'] / 글자 '가을' / 벡터 1152 / …ms
-웨딩 → 목적 ['wedding'] / 글자 '' / 벡터 None / …ms
-몽환적인 노을 → 목적 [] / 글자 '몽환적인 노을' / 벡터 1152 / …ms
+가을 커플스냅 → 목적 ['couple'] / 성별 None / 글자 '가을' / 벡터 1152 / …ms
+웨딩 → 목적 ['wedding'] / 성별 None / 글자 '' / 벡터 None / …ms
+몽환적인 노을 → 목적 [] / 성별 None / 글자 '몽환적인 노을' / 벡터 1152 / …ms
+남자 노을 → 목적 ['personal'] / 성별 male / 글자 '노을' / 벡터 1152 / …ms
 ```
 
 `웨딩` 처럼 목적만 있는 검색은 벡터가 `None` 인 게 정상이다(SigLIP 을 안 쓴다).
@@ -272,7 +274,7 @@ check_search_query "$FUNNEL"
 
 **정상**
 - `토큰 없이: 401` — 공개 주소가 인증을 요구한다
-- §5-0 과 같은 세 줄이 나오고, **ms 가 모두 4000 미만** — 앱은 4초를 넘기면 포기한다.
+- §5-0 과 같은 네 줄이 나오고, **ms 가 모두 4000 미만** — 앱은 4초를 넘기면 포기한다.
   첫 요청은 느릴 수 있으니 한 번 더 돌려 두 번째 값을 본다
 
 **멈출 때**
@@ -317,10 +319,10 @@ launchctl print "gui/$(id -u)/com.samae.serve" | head -30
 2. 갱신 후 커밋:      (§3 의 git log 첫 줄)
 3. kiwipiepy:         (§3-1 의 버전 줄, 분리기 테스트 통과 수)
 4. 상주 서버 /health: (§4 의 출력, "검색어 분리 꺼짐" 이 없었는지)
-5. /search-query:     (§5-0 의 세 줄)
+5. /search-query:     (§5-0 의 네 줄)
 6. /embed-text-backfill: (§5-1 의 출력 한 줄)
 7. 목적 미리보기:     (§5-2 의 처리 대상 수)
-8. 바깥 주소:         (§5-3 의 401 여부와 두 번째 실행 세 줄 — 주소는 빼고)
+8. 바깥 주소:         (§5-3 의 401 여부와 두 번째 실행 네 줄 — 주소는 빼고)
 9. 멈춘 단계가 있으면: 몇 번에서 무엇 때문에
 ```
 
@@ -342,7 +344,7 @@ cat ~/srv/samae-app/scripts/embed/logs/purpose-latest/purpose-result.json
 - **`git pull --force` / `git reset --hard`** — 손으로 고쳐둔 것이 날아간다. `--ff-only` 가 거부하면 보고
 - **LaunchAgent 재등록** — 이미 등록돼 있다. 시각을 바꿀 일도 없다
 - **검수 상태를 풀어서 시험하기** — 사람이 검수한 목적은 보존 대상이다. 시험하려고 해제하지 말 것
-- **DB 마이그레이션 적용** — 특히 `0131` 은 아직 적용하지 않는다(§0). 이 문서에는 DB 쓰기가 없다
+- **DB 마이그레이션 적용** — 필요한 것은 전부 적용돼 있다(§0). 이 문서에는 DB 쓰기가 없다
 - **`--apply` 를 임의로 붙이기** — DB 에 쓴다. 이 문서에서 `--apply` 를 쓰는 곳은 없다
   (오전 6시 배치가 알아서 붙인다)
 - **돌고 있는 배치 죽이기** — 끝날 때까지 기다린다
