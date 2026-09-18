@@ -1,0 +1,43 @@
+{
+  "$comment": "목적 세부분류 (docs/39 §3, 2026-09-18 확정). 앱(photo-purpose.ts)과 검색어 분리기(scripts/embed/query_parse.py)가 함께 읽는다. 키를 바꾸면 DB CHECK(0133)도 바꿔야 한다. search 는 검색창 말 — 비어 있으면 검색에서 그 세부분류로 좁히지 않는다(스냅류: '커플스냅' 은 커플 전체를 찾는 말이다).",
+  "personal": [
+    { "key": "snap", "label": "개인 스냅", "search": [] },
+    { "key": "profile", "label": "프로필", "search": ["프로필", "프로필 사진", "프로필사진"] },
+    { "key": "body_profile", "label": "바디프로필", "search": ["바디프로필", "바디 프로필", "바프"] },
+    { "key": "id_photo", "label": "증명·여권", "search": ["증명사진", "증명 사진", "증명", "여권사진", "여권 사진", "여권", "취업사진", "취업 사진", "취업"] }
+  ],
+  "couple": [
+    { "key": "snap", "label": "커플 스냅", "search": [] },
+    { "key": "anniversary", "label": "기념일·프러포즈", "search": ["기념일", "프러포즈", "프로포즈", "청혼"] }
+  ],
+  "friendship": [
+    { "key": "snap", "label": "우정 스냅", "search": [] },
+    { "key": "siblings", "label": "형제·자매", "search": ["형제", "자매", "남매", "형제자매"] }
+  ],
+  "wedding": [
+    { "key": "ceremony", "label": "본식", "search": ["본식", "본식스냅", "본식 스냅", "결혼식", "하객", "브라이덜샤워", "브라이덜 샤워"] },
+    { "key": "shoot", "label": "웨딩촬영", "search": ["웨딩촬영", "웨딩 촬영", "스냅웨딩", "야외웨딩", "야외 웨딩", "셀프웨딩", "셀프 웨딩", "스몰웨딩"] },
+    { "key": "remind", "label": "리마인드", "search": ["리마인드웨딩", "리마인드 웨딩", "리마인드", "결혼기념", "결혼 기념"] }
+  ],
+  "pet": [
+    { "key": "dog", "label": "강아지", "search": ["강아지", "댕댕이", "반려견", "애견", "멍멍이"] },
+    { "key": "cat", "label": "고양이", "search": ["고양이", "냥이", "반려묘", "애묘"] },
+    { "key": "other", "label": "기타", "search": [] }
+  ],
+  "commercial": [
+    { "key": "brand", "label": "브랜드·광고", "search": ["브랜드", "광고", "캠페인"] },
+    { "key": "lookbook", "label": "쇼핑몰·룩북", "search": ["쇼핑몰", "룩북", "의류 촬영", "의류촬영"] },
+    { "key": "product", "label": "제품", "search": ["제품", "제품촬영", "제품 촬영"] },
+    { "key": "business_profile", "label": "비즈니스 프로필", "search": ["비즈니스 프로필", "비즈니스프로필", "대표 프로필"] },
+    { "key": "food_space", "label": "음식·공간", "search": ["메뉴", "메뉴 사진", "음식 촬영", "인테리어 촬영"] }
+  ],
+  "event": [
+    { "key": "maternity", "label": "만삭", "search": ["만삭", "만삭사진", "만삭 사진", "임신", "임산부"] },
+    { "key": "baby", "label": "아기", "search": ["아기", "신생아", "백일", "아기사진", "아기 사진"] },
+    { "key": "first_birthday", "label": "돌", "search": ["돌", "돌잔치", "돌스냅", "돌 스냅"] },
+    { "key": "family", "label": "가족", "search": ["가족", "가족사진", "가족 사진"] },
+    { "key": "graduation", "label": "졸업", "search": ["졸업", "졸업식", "졸업사진", "졸업 사진", "졸업스냅", "졸업 스냅"] },
+    { "key": "group", "label": "단체·동호회", "search": ["단체", "단체사진", "단체 사진", "동호회"] },
+    { "key": "banquet", "label": "연회", "search": ["연회", "생일", "환갑", "칠순", "팔순", "고희"] }
+  ]
+}
