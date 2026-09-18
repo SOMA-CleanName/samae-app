@@ -9,6 +9,9 @@ import { POLICY_EFFECTIVE_DATE, REFUND_POLICY_VERSION } from "@/lib/policy-versi
 
   진실은 정책 문서(취소환불정책 1.0)이고 판정 코드는 lib/refund.ts 다. 여기서 조문을 고치지 말 것.
   위약금 표는 refund.ts 의 PENALTY_BANDS 에서 읽어 지면과 계산이 어긋날 수 없게 한다.
+
+  ⚠️ 2026-09-15 판본에서 **제11조(추가 결제분의 취소·환불)가 새로 끼었다.** 그 뒤 조문이 한 칸씩
+     밀렸으니(결제 전 표시 12→13조, 위약금 귀속 13→14조) 조 번호를 인용하는 코드도 같이 확인할 것.
 */
 
 export const metadata: Metadata = {
