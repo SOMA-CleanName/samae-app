@@ -106,18 +106,8 @@ export function P({ children, className = "" }: { children: ReactNode; className
   return <p className={className}>{children}</p>;
 }
 
-/**
- * 조문 안의 항 목록.
- *
- * `start` — 정본에 항 번호가 비어 있을 때 **번호를 당기지 않고** 그 자리를 비워 두기 위한 것.
- * 약관의 항 번호는 다른 문서가 인용하는 주소라서, 빠진 항을 조용히 메우면 인용이 어긋난다.
- */
-export function Ol({ children, start }: { children: ReactNode; start?: number }) {
-  return (
-    <ol start={start} className="list-decimal space-y-1.5 pl-5">
-      {children}
-    </ol>
-  );
+export function Ol({ children }: { children: ReactNode }) {
+  return <ol className="list-decimal space-y-1.5 pl-5">{children}</ol>;
 }
 
 export function Ul({ children }: { children: ReactNode }) {
