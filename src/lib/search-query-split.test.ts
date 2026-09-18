@@ -5,8 +5,11 @@ import {
   requestSearchQuery,
   SIGLIP_EMBED_DIM,
   SIGLIP_TEXT_MODEL,
-  splitByNearest,
+  SEARCH_MATCH_Z,
+  SEARCH_RELATED_Z,
   splitByPurposes,
+  splitByZ,
+  spreadAlbumsInBands,
 } from "./siglip-text-search-core.ts";
 
 const vector = Array.from({ length: SIGLIP_EMBED_DIM }, () => 0.01);
@@ -76,9 +79,22 @@ test("목적이 없으면 전부 위쪽이다", () => {
   assert.deepEqual(related, []);
 });
 
-test("목적 사진을 전체 상위에 든 것(위)과 나머지(아래)로 — 둘 다 목적 사진, 각자 거리순", () => {
-  const inPurpose = [{ id: "c1" }, { id: "c2" }, { id: "c3" }, { id: "c4" }];
-  const { matches, related } = splitByNearest(inPurpose, new Set(["c1", "c3", "x9"]));
-  assert.deepEqual(matches.map((p) => p.id), ["c1", "c3"]);
-  assert.deepEqual(related.map((p) => p.id), ["c2", "c4"]);
+test("z 2.5 이상은 검색 결과, 그 아래는 비슷한 무드 — 각자 점수순 그대로", () => {
+  const scored = [
+    { id: "a", z: 3.4 }, { id: "b", z: 2.5 }, { id: "c", z: 2.49 }, { id: "d", z: 2.0 },
+  ];
+  const { matches, related } = splitByZ(scored);
+  assert.deepEqual(matches.map((p) => p.id), ["a", "b"], "경계값 2.5 는 검색 결과");
+  assert.deepEqual(related.map((p) => p.id), ["c", "d"]);
+  assert.ok(SEARCH_RELATED_Z < SEARCH_MATCH_Z);
+});
+
+test("앨범 흩뜨리기는 장수를 자르지 않는다 — z 로 자른 결과를 또 자르면 안 된다", () => {
+  const photos = Array.from({ length: 420 }, (_, i) => ({
+    id: `p${i}`, width: 3, height: 4, album_id: `album${i % 5}`,
+  }));
+  const spread = spreadAlbumsInBands(photos);
+  assert.equal(spread.length, 420, "300장에서 자르던 diversifySearchResults 와 다르다");
+  assert.deepEqual(new Set(spread.map((p) => p.id)).size, 420);
+  assert.notEqual(spread[0].album_id, spread[1].album_id, "같은 앨범이 연달아 오지 않는다");
 });

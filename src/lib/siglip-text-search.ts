@@ -7,8 +7,9 @@ import {
   requestSearchQuery,
   requestTextEmbedding,
   SIGLIP_SEARCH_MAX_RESULTS,
-  splitByNearest,
+  SEARCH_RELATED_Z,
   splitByPurposes,
+  splitByZ,
   type PhotoPurposeKey,
 } from "@/lib/siglip-text-search-core";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -105,28 +106,29 @@ async function loadPhotosInOrder(nearest: VectorSearchRow[], signal: AbortSignal
 }
 
 /**
- * 목적 사진만 벡터와 가까운 순으로 — 아래 "비슷한 무드의 사진들이에요" 를 채운다(0122).
- * 전체에서 가까운 300장에 든 목적 사진은 이미 위쪽에 있으므로, 나머지를 받으려면 목적 안에서
- * 따로 줄 세워야 한다. 0122 가 없는 DB 면 null — 호출하는 쪽이 아래를 비운다.
+ * 사진 전체 기준 z 가 SEARCH_RELATED_Z 이상인 사진을 점수순으로(0131). 목적이 있으면 그 목적만.
+ * 300장 상한이 없다 — 장수는 z 가 정한다. 0131 이 없는 DB 면 null — 호출하는 쪽이 예전 방식으로 간다.
  */
-async function rankPhotosInPurposes(
+async function rankPhotosByZ(
   vector: number[],
   purposes: PhotoPurposeKey[],
-  limit: number,
   signal: AbortSignal,
-): Promise<SearchPhoto[] | null> {
+): Promise<Array<SearchPhoto & { z: number }> | null> {
   const { data, error } = await createAdminClient()
-    .rpc("similar_photos_in_purposes", {
+    .rpc("search_photos_by_z", {
       p_embedding: JSON.stringify(vector),
-      p_purposes: purposes,
-      p_limit: normalizeSiglipSearchLimit(limit),
+      p_purposes: purposes.length ? purposes : null,
+      p_min_z: SEARCH_RELATED_Z,
     })
     .abortSignal(signal);
   if (error) {
-    console.error("[siglip-search] 목적 안 근접검색 실패(0122 미적용?):", error.message);
+    console.error("[siglip-search] z 검색 실패(0131 미적용?):", error.message);
     return null;
   }
-  return loadPhotosInOrder((data ?? []) as VectorSearchRow[], signal);
+  const rows = (data ?? []) as Array<VectorSearchRow & { z: number }>;
+  const zById = new Map(rows.map((row) => [row.id, row.z]));
+  const photos = await loadPhotosInOrder(rows, signal);
+  return photos.map((photo) => ({ ...photo, z: zById.get(photo.id) ?? 0 }));
 }
 
 /** 목적만 검색했을 때 — 그 목적 사진을 최신순으로. SigLIP 은 부르지 않는다. */
@@ -155,10 +157,12 @@ async function fetchPhotosByPurposes(
 export type PhotoSearchResult = {
   purposes: PhotoPurposeKey[];
   moodText: string;
-  /** 목적이 맞는 사진 (목적이 없으면 전부). 위에 놓는다. */
+  /** 검색 결과 — z 2.5 이상 (목적만 검색했으면 그 목적 사진). 위에 놓는다. */
   matches: GalleryPhoto[];
-  /** 목적은 같고 무드가 조금 먼 사진 — 아래 "비슷한 무드의 사진들이에요". 목적이 없으면 비어 있다. */
+  /** z 2.0~2.5 — 아래 "비슷한 무드의 사진들이에요". 목적이 있으면 그 목적 사진만. */
   related: GalleryPhoto[];
+  /** 결과가 300장 상한에서 잘렸나 — 목적만 검색했거나 0131 이 없는 DB 일 때만 생긴다 */
+  capped: boolean;
 };
 
 /**
@@ -166,7 +170,9 @@ export type PhotoSearchResult = {
  *
  *   "웨딩"          → 웨딩 사진을 최신순으로
  *   "몽환적인 노을"   → 전체에서 SigLIP 순서
- *   "가을 커플스냅"   → 커플 사진만. 가을과 가장 가까운 것이 위, 나머지 커플은 아래에
+ *   "가을 커플스냅"   → 커플 사진만. "가을" z 2.5 이상이 위, 2.0~2.5 가 아래 "비슷한 무드"
+ *
+ * z 2.0 미만은 보여주지 않는다 — 300장을 무조건 채우던 방식을 버렸다(docs/29 §12.8).
  *
  * 맥미니가 검색어 분리를 모르면(갱신 전) 예전처럼 검색어 통째로 SigLIP 에 넣는다.
  */
@@ -183,31 +189,31 @@ export async function searchPhotos(
   });
   if (parsed === "unsupported") {
     const matches = await searchPhotosBySiglip(query, limit, signal);
-    return { purposes: [], moodText: query, matches, related: [] };
+    return { purposes: [], moodText: query, matches, related: [], capped: matches.length >= limit };
   }
   if (!parsed) throw new Error("검색어 분리·임베딩을 받지 못했습니다");
 
   if (!parsed.vector) {
+    // 목적만 검색 — SigLIP 을 안 쓰니 z 가 없다. 그 목적 사진을 최신순으로.
     const matches = await fetchPhotosByPurposes(parsed.purposes, limit, signal);
-    return { purposes: parsed.purposes, moodText: "", matches, related: [] };
+    return { purposes: parsed.purposes, moodText: "", matches, related: [], capped: matches.length >= limit };
   }
 
-  if (parsed.purposes.length === 0) {
-    const matches = await rankPhotosByVector(parsed.vector, limit, signal);
-    return { purposes: [], moodText: parsed.moodText, matches, related: [] };
+  const scored = await rankPhotosByZ(parsed.vector, parsed.purposes, signal);
+  if (scored) {
+    const { matches, related } = splitByZ(scored);
+    return { purposes: parsed.purposes, moodText: parsed.moodText, matches, related, capped: false };
   }
 
-  // 검색어에 목적이 있으면 위·아래 모두 그 목적 사진만 — 아래 "비슷한 무드" 도 목적이 같아야 한다.
-  const [nearest, inPurpose] = await Promise.all([
-    rankPhotosByVector(parsed.vector, limit, signal),
-    rankPhotosInPurposes(parsed.vector, parsed.purposes, limit, signal),
-  ]);
-  if (!inPurpose) {
-    // 0122 가 없으면 목적 사진을 전체 300장 안에서만 찾을 수 있다. 아래에 다른 목적 사진을
-    // 채우는 대신 비워 둔다 — 목적이 다른 사진은 보여주지 않기로 했다.
-    const { matches } = splitByPurposes(nearest, parsed.purposes);
-    return { purposes: parsed.purposes, moodText: parsed.moodText, matches, related: [] };
-  }
-  const { matches, related } = splitByNearest(inPurpose, new Set(nearest.map((photo) => photo.id)));
-  return { purposes: parsed.purposes, moodText: parsed.moodText, matches, related };
+  // 0131 이 없는 DB — 예전처럼 가까운 300장. 목적이 있으면 그 목적만 위에 두고 아래는 비운다
+  // (목적이 다른 사진은 보여주지 않기로 했다).
+  const nearest = await rankPhotosByVector(parsed.vector, limit, signal);
+  const { matches } = splitByPurposes(nearest, parsed.purposes);
+  return {
+    purposes: parsed.purposes,
+    moodText: parsed.moodText,
+    matches,
+    related: [],
+    capped: parsed.purposes.length === 0 && matches.length >= limit,
+  };
 }

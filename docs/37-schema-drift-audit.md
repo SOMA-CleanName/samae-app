@@ -3,6 +3,21 @@
 > 한 줄: **알림 푸시 경로 전체를 포함해, 테이블 9개·트리거 8개·함수 13개·인덱스 38개가
 > 마이그레이션 기록 없이 운영 DB 에 들어와 있다.** 대부분 정상 동작 중이고, 그래서 더 위험하다.
 
+> **정정 (2026-09-18) — 이 점검은 dev2 에서 했는데, 그때 dev2 에는 main 의 마이그레이션 0120~0129 가 없었다.**
+> main 을 합친 뒤 다시 재니 **60개 → 27개**로 줄었다. 아래 목록 중 다음은 main 마이그레이션에 정의가 있다.
+>
+> | 이 문서에서 "repo 에 없다" 고 한 것 | 실제 정의 |
+> |---|---|
+> | FK 인덱스 19개 (§3-6) | main `0122_fk_indexes_for_account_deletion` |
+> | `suspend_/restore_photographer_content`, `*_hidden_by_suspension_idx` | main `0126_suspend_hides_content` |
+> | `similar_photos_by_vector(vector, int, int)` (§1) | main `0127_similar_photos_respect_feed_hidden` — **팀원이 의도해서 만든 함수.** 0121 이 운영 DB 에서 지웠고, 복구는 팀 결정 대기(docs/22 §6.4) |
+> | `guide_items` · `spots` · `photographer_agreements` · `booking_extras` · `casting_applications` 등 | main 마이그레이션 |
+>
+> 다만 **main 의 0120~0129 는 운영 DB 에 적용돼 있는데 `_migrations` 에 하나도 기록이 없다.** "기록 없이 적용" 이라는
+> 문제는 그대로다. **여전히 어디에도 정의가 없는 것**(27개)은 알림 푸시 트리거(§3-1)·문의→대화 트리거(§3-2)·
+> `casting_rounds`·`casting_waitlist`·`device_tokens`·옛 문의 RPC(`app_*`) 등이고, 이 문서의 핵심 경고(§3-1·§3-2)는 유효하다.
+> §3-8 의 "한 작업 세션에서 기록 없이 적용된 덩어리" 는 main 의 0122·0126·0127 을 SQL 편집기로 적용한 흔적으로 보인다.
+
 ---
 
 ## 1. 왜 이 문서를 쓰는가

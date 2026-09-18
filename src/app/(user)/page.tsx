@@ -5,11 +5,8 @@ import {
   fetchHomeFeedPage,
   newFeedSeed,
 } from "@/lib/discovery";
-import {
-  diversifySearchResults,
-  searchPhotos,
-  SIGLIP_SEARCH_MAX_RESULTS,
-} from "@/lib/siglip-text-search";
+import { searchPhotos, SIGLIP_SEARCH_MAX_RESULTS } from "@/lib/siglip-text-search";
+import { spreadAlbumsInBands } from "@/lib/siglip-text-search-core";
 import { cookies } from "next/headers";
 import { loadDemotedHomePhotos, loadMorePhotos, loadPersonalizedPhotos } from "./feed-actions";
 import { logSearch } from "@/lib/search-log";
@@ -128,10 +125,8 @@ export default async function ExploreHome({
     const merged = adAsGallery
       ? [adAsGallery, ...basePhotos.filter((p) => p.id !== adAsGallery.id)]
       : basePhotos;
-    photos = merged.slice(
-      0,
-      query ? SIGLIP_SEARCH_MAX_RESULTS : FEED_CAP
-    );
+    // 검색은 z 가 장수를 정하므로 자르지 않는다. 전체 목록만 FEED_CAP 으로 자른다.
+    photos = query ? merged : merged.slice(0, FEED_CAP);
   }
   const spotlightId = adAsGallery?.id;
 
@@ -219,7 +214,7 @@ export default async function ExploreHome({
           // 다른 목적의 가을 사진까지 세면 커플이 229장인데 300장+ 로 적히는 일이 생긴다.
           count={searchCounts?.matches ?? photos.length}
           // 상한(300)에 딱 걸렸으면 그건 찾은 수가 아니라 잘린 수다 — "+"로 표시한다.
-          capped={searchCounts?.capped ?? photos.length >= SIGLIP_SEARCH_MAX_RESULTS}
+          capped={searchCounts?.capped ?? false}
         />
       ) : null}
       {!query && <HomeBannerSlot />}
@@ -306,13 +301,13 @@ type SearchCounts = {
   matches: number;
   /** 목적은 같고 무드가 조금 먼 사진 — 아래 "비슷한 무드의 사진들이에요" */
   related: number;
-  /** 맞는 사진이 상한(300)에 걸렸나 — 걸렸으면 "300장+" 로 적는다 */
+  /** 300장 상한에서 잘렸나 — 목적만 검색했을 때만 생긴다. 걸렸으면 "300장+" 로 적는다 */
   capped: boolean;
 };
 
 /**
- * 검색 결과 — 검색어에 목적이 있으면 위·아래 모두 그 목적 사진만 보여준다.
- * "가을 커플스냅" 이면 가을과 가장 가까운 커플 사진이 위, 나머지 커플 사진이 가을 순으로 아래.
+ * 검색 결과 — z 2.5 이상이 위, 2.0~2.5 가 아래 "비슷한 무드의 사진들이에요", 그 아래는 없다.
+ * 검색어에 목적이 있으면 위·아래 모두 그 목적 사진만 보여준다.
  *
  * 앨범 흩뜨리기는 두 묶음 **안에서 따로** 한다. 합쳐서 섞으면 아래 묶음 사진이 위로 올라온다.
  * 태그 검색은 쓰지 않는다 — SigLIP 만으로 만든다.
@@ -329,16 +324,12 @@ async function searchHomePhotos(query: string): Promise<{
     return null;
   });
   if (!result) return { matches: [], related: [], counts: { matches: 0, related: 0, capped: false } };
-  const matches = diversifySearchResults(query, [], result.matches, SIGLIP_SEARCH_MAX_RESULTS);
-  const related = diversifySearchResults(query, [], result.related, SIGLIP_SEARCH_MAX_RESULTS)
-    .slice(0, Math.max(0, SIGLIP_SEARCH_MAX_RESULTS - matches.length));
+  // 장수는 z 가 정한다 — 여기서 다시 자르지 않는다. 앨범 흩뜨리기만 두 묶음 안에서 따로 한다.
+  const matches = spreadAlbumsInBands(result.matches);
+  const related = spreadAlbumsInBands(result.related);
   return {
     matches,
     related,
-    counts: {
-      matches: matches.length,
-      related: related.length,
-      capped: matches.length >= SIGLIP_SEARCH_MAX_RESULTS,
-    },
+    counts: { matches: matches.length, related: related.length, capped: result.capped },
   };
 }

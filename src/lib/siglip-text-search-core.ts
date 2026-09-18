@@ -365,19 +365,40 @@ export function splitByPurposes<T extends { admin_purposes?: string[] | null }>(
   return { matches, related };
 }
 
-/**
- * 목적 사진(거리순)을 위/아래로 가른다. 전체 사진에서 가까운 상위(nearIds)에 든 것이 위,
- * 나머지는 아래 "비슷한 무드의 사진들이에요" 다. 둘 다 검색어의 목적 사진이고 각자 거리순이다.
- */
-export function splitByNearest<T extends { id: string }>(
-  inPurpose: T[],
-  nearIds: ReadonlySet<string>
+// ── z 컷 (0131 search_photos_by_z) ──────────────────────────────────────────
+//
+// 검색어마다 사진 전체의 평균 점수가 달라서 절대 점수로는 자를 수 없다 — 관련이 끊기는 점수가
+// 바다 0.081 · 한복 0.119 로 들쭉날쭉했다. 그 검색어 평균에서 얼마나 튀어나왔나(z)로 보면
+// 장면어 넷이 z 2.0~2.7 에서 끊겼다(docs/29 §12.8). 사람 눈으로 센 관련 비율로 나눈다.
+
+/** 이 이상이면 검색 결과 — 관련 약 90% */
+export const SEARCH_MATCH_Z = 2.5;
+/** 이 이상이면 "비슷한 무드의 사진들이에요" — 관련 약 55%. 이 아래(약 15%)는 보여주지 않는다. */
+export const SEARCH_RELATED_Z = 2.0;
+
+/** 점수순 목록을 z 로 가른다. 각자 점수순은 그대로다. */
+export function splitByZ<T extends { z: number }>(
+  scored: T[],
+  matchZ = SEARCH_MATCH_Z
 ): { matches: T[]; related: T[] } {
   const matches: T[] = [];
   const related: T[] = [];
-  for (const photo of inPurpose) {
-    if (nearIds.has(photo.id)) matches.push(photo);
+  for (const photo of scored) {
+    if (photo.z >= matchZ) matches.push(photo);
     else related.push(photo);
   }
   return { matches, related };
+}
+
+/**
+ * 같은 앨범이 연달아 나오지 않게 48장 구간 안에서만 흩뜨린다. 장수 상한이 없다 —
+ * diversifySearchResults 는 300장에서 자르는데, z 로 자른 결과를 또 자르면 안 된다.
+ */
+export function spreadAlbumsInBands<T extends { id: string; width: number; height: number; album_id?: string | null }>(
+  photos: T[]
+): T[] {
+  return diversifySimilarityCandidates(
+    photos.map((photo) => ({ ...photo, photo, albumId: photo.album_id ?? null })),
+    { preserveOrientationOrder: true, albumWindow: 12, relevanceBandSize: SEARCH_RELEVANCE_BAND_SIZE }
+  ).map((candidate) => candidate.photo);
 }
