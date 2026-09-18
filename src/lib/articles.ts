@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/public";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export type Article = {
@@ -26,8 +27,14 @@ const CARD_COLS =
   "id, slug, title, summary, cover_url, cover_alt, published, sort_order, published_at, updated_at";
 
 // 공개 목록. RLS 가 published 를 한 번 더 거르지만 조건을 명시해 의도를 남긴다.
+//
+// ⚠️ **쿠키 클라이언트를 쓰면 안 된다.** `createClient()` 는 cookies() 를 읽어서 지면을
+//    통째로 동적 렌더로 떨어뜨린다 — `/articles` 와 `/articles/[slug]` 에 적힌
+//    `revalidate = 86400` 이 그래서 한 번도 먹지 않았다(실측 2026-09-18: 두 지면만
+//    x-vercel-cache MISS, 같은 성격인 /spots·/guide 는 HIT). 공개 글은 로그인 여부에
+//    따라 달라지지 않으니 익명 클라이언트가 맞다 — spots.ts·guide.ts 와 같은 방식.
 export async function listPublishedArticles(): Promise<ArticleCard[]> {
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data, error } = await supabase
     .from("articles")
     .select(CARD_COLS)
@@ -38,10 +45,10 @@ export async function listPublishedArticles(): Promise<ArticleCard[]> {
   return (data ?? []) as ArticleCard[];
 }
 
-// 공개 글 1건. 비공개·미존재는 null.
+// 공개 글 1건. 비공개·미존재는 null. (위와 같은 이유로 익명 클라이언트)
 export async function getPublishedArticle(slug: string): Promise<Article | null> {
   const decoded = safeDecode(slug);
-  const supabase = await createClient();
+  const supabase = createPublicClient();
   const { data } = await supabase
     .from("articles")
     .select(COLS)
