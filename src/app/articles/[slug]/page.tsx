@@ -9,7 +9,7 @@ import { ReadingProgress } from "@/components/editorial/ReadingProgress";
 import { StickyBack } from "@/components/editorial/StickyBack";
 import { ChannelCard } from "@/components/ChannelCard";
 import { SiteFooter } from "@/components/SiteFooter";
-import { articleJsonLd, breadcrumbJsonLd } from "@/lib/seo";
+import { articleJsonLd, breadcrumbJsonLd, ogImages } from "@/lib/seo";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { getPublishedArticle, listPublishedArticles, readingMinutes } from "@/lib/articles";
 
@@ -37,7 +37,7 @@ export async function generateMetadata({
       description: a.summary,
       url: `${SITE_URL}${path}`,
       type: "article",
-      ...(a.cover_url ? { images: [{ url: a.cover_url }] } : {}),
+      images: ogImages(a.cover_url),
     },
   };
 }

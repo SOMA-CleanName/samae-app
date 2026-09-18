@@ -7,6 +7,27 @@ import { SITE_URL, SITE_NAME } from "@/lib/site";
 const KRW = new Intl.NumberFormat("ko-KR");
 const BRAND_KEYWORDS = ["samae", "사매", "사진작가", "스냅 촬영", "프로필 사진", "사진 예약", "촬영 문의"];
 
+/**
+ * 공유 카드에 쓸 기본 이미지.
+ *
+ * ⚠️ **페이지가 `openGraph` 를 직접 쓰면 루트의 이미지를 물려받지 못한다.** Next 의
+ *    파일 컨벤션(`app/opengraph-image.png`)은 자식이 openGraph 를 재정의하는 순간
+ *    끊긴다. 그래서 지면마다 제목·설명은 잘 나가는데 **이미지만 조용히 빠진다.**
+ *
+ *    실측 2026-09-17 — og:image 가 없던 지면: `/guide/{slug}` · `/spots/{slug}` ·
+ *    `/explore/{slug}` · `/c/{slug}`. 카카오톡·스레드·슬랙에 붙여도 카드가 안 서고,
+ *    이미지 없는 링크는 클릭률이 눈에 띄게 낮다. 그 넷이 하필 우리가 밖에 뿌리는 지면이다.
+ *
+ * 📌 그 지면의 **실제 사진**이 있으면 그걸 쓰는 게 낫다(아티클이 cover_url 로 그렇게 한다).
+ *    이건 그게 없을 때의 바닥이다.
+ */
+export const OG_DEFAULT_IMAGE = `${SITE_URL}/opengraph-image.png`;
+
+/** openGraph 에 넣을 이미지 — 지면 고유 이미지가 없으면 기본값으로 떨어진다 */
+export function ogImages(url?: string | null) {
+  return [{ url: url || OG_DEFAULT_IMAGE }];
+}
+
 function priceText(krw: number | null | undefined): string | null {
   return krw != null ? `촬영 시작 ₩${KRW.format(krw)}` : null;
 }
@@ -116,7 +137,13 @@ export function categoryMetadata(name: string, slug: string): Metadata {
     description,
     keywords: [name, ...BRAND_KEYWORDS],
     alternates: { canonical: `/c/${slug}` },
-    openGraph: { title: `${title} · ${SITE_NAME}`, description, url: `${SITE_URL}/c/${slug}`, type: "website" },
+    openGraph: {
+      title: `${title} · ${SITE_NAME}`,
+      description,
+      url: `${SITE_URL}/c/${slug}`,
+      type: "website",
+      images: ogImages(),
+    },
   };
 }
 
@@ -131,6 +158,8 @@ export function exploreCategoryMetadata(args: {
   title: string;
   subtitle?: string | null;
   slug: string;
+  /** 이 큐레이션의 대표 사진 — 있으면 공유 카드에 그걸 쓴다 */
+  coverUrl?: string | null;
 }): Metadata {
   const title = `${args.title} 스냅 사진`;
   const description = clean(
@@ -146,7 +175,13 @@ export function exploreCategoryMetadata(args: {
     description,
     keywords: [args.title, "스냅", ...BRAND_KEYWORDS],
     alternates: { canonical: path },
-    openGraph: { title: `${title} · ${SITE_NAME}`, description, url: `${SITE_URL}${path}`, type: "website" },
+    openGraph: {
+      title: `${title} · ${SITE_NAME}`,
+      description,
+      url: `${SITE_URL}${path}`,
+      type: "website",
+      images: ogImages(args.coverUrl),
+    },
   };
 }
 

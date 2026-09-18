@@ -51,12 +51,30 @@ export const metadata: Metadata = {
     "촬영 문의",
   ],
   alternates: { canonical: "/" },
-  // 구글 서치 콘솔 인증 — NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION 에 토큰 넣으면 <head>에 렌더됨.
-  // Meta(Facebook) 도메인 인증 — ATT 이후 iOS 전환 측정에 필수.
+  /*
+    검색엔진 소유 확인 — 토큰을 env 로 받아 <head>에 렌더한다.
+
+    · 구글  NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+    · 네이버 NEXT_PUBLIC_NAVER_SITE_VERIFICATION
+
+    ⚠️ **네이버를 빼면 한국 스냅 검색이 통째로 빠진다.** 구글은 robots.txt 의 `Sitemap:`
+       줄만 보고도 알아서 찾아가지만, 네이버 서치어드바이저는 **등록·제출을 해야** 긁는다.
+       (docs/proposals/seo-geo-plan.md §2-4 "네이버를 빼지 말 것")
+
+    📌 구글은 서치콘솔 **도메인 속성 + DNS TXT** 로 인증하는 쪽이 낫다 — apex 와 www 를
+       한 번에 덮고 배포와 무관하게 유지된다. 그 경우 이 env 는 비워 둬도 된다.
+       여기 훅을 남겨 두는 건 DNS 를 못 건드리는 상황의 대안이다.
+
+    Meta(Facebook) 도메인 인증 — ATT 이후 iOS 전환 측정에 필수. 이건 값이 고정이라 상수.
+  */
   verification: {
     google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
     other: {
       "facebook-domain-verification": "k68lrant37edz9cnuiibojjski29tw",
+      // 값이 없으면 빈 메타가 나가지 않게 아예 키를 빼 준다
+      ...(process.env.NEXT_PUBLIC_NAVER_SITE_VERIFICATION
+        ? { "naver-site-verification": process.env.NEXT_PUBLIC_NAVER_SITE_VERIFICATION }
+        : {}),
     },
   },
   openGraph: {

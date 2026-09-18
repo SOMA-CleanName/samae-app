@@ -3,8 +3,20 @@ import { PhotoVisibilityGrid, type AdminPhoto } from "./PhotoVisibilityGrid";
 
 export const dynamic = "force-dynamic";
 
-// 사진 노출 관리 — 운영자가 기본 추천 우선순위를 낮출 사진을 고른다. (0075 feed_hidden)
-//  유지 → 사진 상세(/photos/<id>) · 게시물 캐러셀 · 작가 포트폴리오 · 사이트맵
+/*
+  사진 노출 관리 — 운영자가 내릴 사진을 고른다. (0075 feed_hidden)
+
+  ⚠️ **2026-09-17 에 범위가 넓어졌다.** 원래는 "기본 추천 우선순위를 낮춘다" 였고
+     사이트맵에는 그대로 실었는데, 크롤이 풀리면서 **내린 사진이 구글 검색에 뜨기
+     시작했다.** 피드에서 내린 의미가 없어져서 검색에서도 빼기로 했다.
+
+    빠짐 → 피드 · 탐색 · 카테고리 · 검색 · 추천 · 광고 진입 · 작가 카드 대표사진
+           · **사이트맵** · **검색엔진 색인**(사진 상세가 noindex 를 내보낸다)
+    유지 → 사진 상세(/photos/<id>) 지면 자체 · 게시물 캐러셀 · 작가 포트폴리오
+
+  즉 **"찾아지지는 않지만 직접 링크로는 열린다."** 완전히 없애려면 이게 아니라
+  visibility 를 내려야 한다(작가를 내보내는 경우는 0126 의 suspend_photographer_content).
+*/
 type Row = {
   id: string;
   thumb_url: string | null;

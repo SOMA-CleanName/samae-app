@@ -3,6 +3,7 @@ import { cronAuthorized } from "@/lib/cron-auth";
 import { sendRefundWindowNotices } from "@/lib/refund-notices";
 import { markPastShootsAsShot, notifyDeliveryOverdue } from "@/lib/booking-sweep";
 import { sendChatReminders } from "@/lib/chat-reminder";
+import { pingIndexNow } from "@/lib/indexnow";
 
 // 하루 한 번 도는 일과 전부 — 매일 09:00 KST(= 00:00 UTC).
 //
@@ -50,6 +51,9 @@ export async function GET(request: Request) {
     await run("delivery-overdue", notifyDeliveryOverdue),
     await run("past-shoots", markPastShootsAsShot),
     await run("chat-reminders", sendChatReminders),
+    // 검색엔진에 "어제 바뀐 것" 을 알린다. 네이버는 sitemap 만 보고 알아서 오지 않는다.
+    // 발행 자리마다 붙이지 않고 여기 한 곳에서 sitemap 을 읽는 이유는 lib/indexnow.ts 주석에.
+    await run("indexnow", pingIndexNow),
   ];
 
   const ok = tasks.every((t) => t.ok);
