@@ -26,7 +26,7 @@ type Row = {
   regions: string[];
   mood_tags: string[];
   price_from_krw: number;
-  // 중개 수수료 — 기본은 정률 20%(수수료정책 1조). 정액은 옛 모델로 명시한 작가만.
+  // 중개 수수료 — 기본은 정률 20%(작가약관 12조). 정액은 옛 모델로 명시한 작가만.
   fee_mode: string | null;
   // 사업자등록증 — 세금계산서 발급과 전자상거래법 20조의 "확인" 에 필요하다(0124)
   business_type?: string | null;
@@ -308,7 +308,7 @@ function TagRow({ row }: { row: Row }) {
   );
 }
 
-// 굳어 있어 여기서 바꿔도 소급되지 않는다. (수수료정책 1조·2조)
+// 굳어 있어 여기서 바꿔도 소급되지 않는다. (작가약관 12조 4항)
 function FeeForm({ row }: { row: Row }) {
   const isRate = row.fee_mode !== "flat";
   return (

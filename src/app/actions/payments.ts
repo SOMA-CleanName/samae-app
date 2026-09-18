@@ -227,7 +227,7 @@ export async function deliverFinals(formData: FormData) {
   if (!completed || completed.length === 0) throw new Error("전달할 수 없는 상태입니다.");
 
   // 채팅 완료 안내 + 알림 (후기 유도는 카드가 담당).
-  // 전달일을 날짜로 남긴다 — 정산 대상이 되는 시점(수수료정책 3조 1항)이자, 전달 기한 분쟁의 근거다.
+  // 전달일을 날짜로 남긴다 — 정산 대상이 되는 시점(작가약관 13조 1항)이자, 전달 기한 분쟁의 근거다.
   const deliveredDay = new Intl.DateTimeFormat("ko-KR", {
     month: "long",
     day: "numeric",

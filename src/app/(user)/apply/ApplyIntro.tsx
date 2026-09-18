@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { InlineDocSheet } from "@/components/legal/InlineDocSheet";
-import { FeePolicyBody } from "@/components/legal/docs/FeePolicyBody";
+import { PhotographerContractBody } from "@/components/legal/docs/PhotographerContractBody";
 import { PhotographerTermsBody } from "@/components/legal/docs/PhotographerTermsBody";
-import { FEE_POLICY_VERSION, PHOTOGRAPHER_TERMS_VERSION } from "@/lib/policy-version";
+import { PHOTOGRAPHER_CONTRACT_VERSION, PHOTOGRAPHER_TERMS_VERSION } from "@/lib/policy-version";
 import { Button } from "@/components/ui";
 
 // 비로그인 방문자가 보는 /apply — 작가 모집 링크가 닿는 첫 화면.
@@ -65,19 +65,26 @@ export function ApplyIntro() {
         </Button>
       </div>
 
-      {/* 이 두 링크는 **지면을 떠나지 않는다.** 전에는 /terms/fees·/terms/photographer 로
-          이동해 버려서, 읽고 나면 그 지면의 내비·푸터를 타고 홈으로 흘러갔다. 신청하러 온
-          사람을 약관 읽히려다 놓치는 셈이다. 덮개로 띄우고 닫으면 여기 그대로 돌아온다. */}
+      {/* 이 두 링크는 **지면을 떠나지 않는다.** 전에는 /terms/… 로 이동해 버려서, 읽고 나면
+          그 지면의 내비·푸터를 타고 홈으로 흘러갔다. 신청하러 온 사람을 약관 읽히려다 놓치는
+          셈이다. 덮개로 띄우고 닫으면 여기 그대로 돌아온다.
+
+          ⚠️ 수수료·정산 정책 자리를 **입점 동의서**로 바꿨다. 2026-09-15 묶음에서 그 문서가
+             폐지됐고, 수수료율이 실제로 적힌 곳은 이제 입점 동의서 제3항 하나다. 신청 전에
+             가장 알고 싶은 숫자가 거기 있다.
+
+          ⚠️ 비로그인 지면이라 요율을 안 넘긴다 — 누가 읽는지 모르므로 전역 기본값이 나온다.
+             개별 요율은 승인 뒤 스튜디오 동의 화면에서 그 작가의 값으로 보여준다. */}
       <p className="mt-7 text-caption leading-relaxed text-muted">
         신청 전에{" "}
         <InlineDocSheet
-          label="수수료·정산 정책"
-          title="사매 수수료·정산 정책"
-          version={FEE_POLICY_VERSION}
+          label="작가 입점 동의서"
+          title="사매 작가 입점 동의서"
+          version={PHOTOGRAPHER_CONTRACT_VERSION}
         >
-          <FeePolicyBody />
+          <PhotographerContractBody />
         </InlineDocSheet>
-        과{" "}
+        와{" "}
         <InlineDocSheet
           label="작가 이용약관"
           title="사매 작가 이용약관"

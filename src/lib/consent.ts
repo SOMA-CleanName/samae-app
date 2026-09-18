@@ -1,6 +1,6 @@
 import "server-only";
 
-// 동의 기록 — 회원약관 동의와 작가 입점 계약 동의를 읽고 쓰는 곳.
+// 동의 기록 — 회원약관 동의와 작가 입점 동의를 읽고 쓰는 곳.
 //
 // 회원: profiles.terms_agreed_at / terms_version. 없으면 /signup/consent 로 보낸다 (auth/callback).
 // 작가: photographer_agreements 의 최신 행. versions 가 현재 버전과 다르면 스튜디오에 동의 화면을 띄운다.
@@ -41,7 +41,7 @@ export async function needsTermsConsent(supabase: SupabaseClient): Promise<boole
  *
  * ⚠️ 전에는 `terms_agreed_at` 이 있는지만 봤다. 그러면 **약관을 개정해도 기존 회원은
  *    재동의하지 않는다** — 바뀐 내용을 아무도 안 보고 넘어가고, 그러면 개정한 의미가 없다.
- *    작가 입점 동의는 버전 4개를 다 비교하는데(agreementIsCurrent) 회원 약관만 안 하고
+ *    작가 입점 동의는 문서 버전을 다 비교하는데(agreementIsCurrent) 회원 약관만 안 하고
  *    있었다. 그 비대칭을 없앤다.
  *
  * 버전이 비어 있는 옛 기록도 "현재 아님" 으로 본다 — 어느 문안에 동의했는지 알 수 없는
@@ -72,7 +72,7 @@ export async function recordTermsConsent(userId: string): Promise<void> {
     .eq("id", userId);
 }
 
-/** 이 작가가 현재 버전의 입점 계약에 동의했는가 */
+/** 이 작가가 현재 버전의 입점 문서 묶음에 동의했는가 */
 export async function hasCurrentPhotographerAgreement(
   supabase: SupabaseClient,
   photographerId: string

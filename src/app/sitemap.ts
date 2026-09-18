@@ -37,7 +37,6 @@ const STATIC_ROUTES = [
   "/terms",
   "/terms/refund",
   "/terms/photographer",
-  "/terms/fees",
   "/terms/photographer-contract",
 ];
 
@@ -47,7 +46,6 @@ const LOW_PRIORITY = new Set([
   "/terms",
   "/terms/refund",
   "/terms/photographer",
-  "/terms/fees",
   "/terms/photographer-contract",
   "/apply",
 ]);

@@ -150,11 +150,11 @@ export default async function AdminTransactionsPage() {
 
   // 에스크로 운영 큐
   //   ① 입금 확인 대기 — 고객이 [입금 완료]를 알림. 확인만 한다(accepted → paid).
-  //   ② 정산 대기 — 결과물 전달이 끝난 건. 정산은 전달 뒤에만 한다(수수료정책 3조 1항).
+  //   ② 정산 대기 — 결과물 전달이 끝난 건. 정산은 전달 뒤에만 한다(작가약관 13조 1항).
   //      촬영 전 건은 여기 오지 않는다.
   //   ③ 입금 대기 — 수락만 해놓고 아무 소식 없는 건
   const awaitingConfirm = raw.filter((b) => b.status === "accepted" && b.transfer_marked_at);
-  // 정산 대기 — 전달 알림으로부터 7영업일 안에 보내야 한다(수수료·정산 정책 2조).
+  // 정산 대기 — 전달 알림으로부터 7영업일 안에 보내야 한다(작가약관 13조 2항).
   // 기한이 급한 건을 위로 올린다. 목록 순서가 곧 처리 순서가 된다.
   const awaitingSettle = raw
     .filter((b) => PAID_BOOKING.includes(b.status) && !!b.delivered_at && !b.settled_at && !b.refunded_at)
@@ -192,7 +192,7 @@ export default async function AdminTransactionsPage() {
     refundDueAt: b.refund_due_at,
     // 3영업일을 넘긴 환불 요청 — 넘기면 연 15% 지연이자가 법정 의무다 (docs/32 §6-7)
     refundOverdue: !b.refunded_at && refundSlaOverdue(b.refund_due_at),
-    // 정산 기한 — 전달 알림으로부터 7영업일 (수수료·정산 정책 2조)
+    // 정산 기한 — 전달 알림으로부터 7영업일 (작가약관 13조 2항)
     settlementSla: (() => {
       const sla = settlementSla(b.delivered_at, b.settled_at);
       return sla ? { label: sla.label, overdue: sla.overdue, soon: sla.soon } : null;
@@ -250,7 +250,7 @@ export default async function AdminTransactionsPage() {
         />
       </div>
 
-      {/* 정산 대기 — 결과물 전달이 끝난 건. 정산은 전달 뒤에만 한다(수수료정책 3조 1항).
+      {/* 정산 대기 — 결과물 전달이 끝난 건. 정산은 전달 뒤에만 한다(작가약관 13조 1항).
           사매가 수수료·부가세를 뗀 금액을 작가 계좌로 보낸 뒤 여기서 마킹한다. */}
       {awaitingSettle.length > 0 && (
         <section className="mt-5 rounded-2xl bg-surface p-4 ring-1 ring-line">

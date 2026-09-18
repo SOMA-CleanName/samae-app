@@ -291,7 +291,7 @@ export async function updateDefaultLeadPrice(formData: FormData) {
   revalidatePath("/studio");
 }
 
-// ── 중개 수수료 (수수료정책 1조·2조) ─────────────────────────────
+// ── 중개 수수료 (작가약관 12조 · 입점 동의서 3항) ─────────────────
 // 기본은 정률 20%(부가세 별도). 정액은 옛 모델이라 명시한 작가만 쓴다.
 //
 // 이미 제안된 예약은 fee_snapshot 으로 굳어 있어 여기서 바꿔도 소급되지 않는다.

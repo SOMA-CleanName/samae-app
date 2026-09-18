@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui";
+import { LEGAL_BODY } from "@/components/legal/LegalDoc";
 
 // 약관 전문 열람 화면 — **끝까지 내려야 동의 버튼이 열린다.**
 //
@@ -128,7 +129,8 @@ export function DocReader({
       <p className="mt-2 text-body-sm leading-relaxed text-muted">{summary}</p>
       <p className="mt-1.5 text-caption text-faint">버전 {version}</p>
 
-      <div className="mt-8 border-t border-line pt-8">{children}</div>
+      {/* 조판은 공개 지면과 **같은 상수**를 쓴다 — 따로 두면 여기만 간격이 빠진다(실제로 그랬다) */}
+      <div className={`mt-8 border-t border-line pt-8 ${LEGAL_BODY}`}>{children}</div>
 
       {/* 끝 표지 — 이게 보이면 바닥까지 온 것이다 */}
       <div ref={endRef} className="mt-12 rounded-2xl bg-surface-2 px-5 py-5">

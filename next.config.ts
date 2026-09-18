@@ -47,6 +47,11 @@ const nextConfig: NextConfig = {
       { source: "/c/portrait", destination: "/c/snap", permanent: true },
       // 메타 광고 '컷툰_컨셉_슬라이드' 의 랜딩 URL 오타(/portait) — 지금까지 404 로 흘린 유입을 살린다.
       { source: "/portait", destination: "/c/snap", permanent: false },
+      // 수수료·정산 정책 폐지(2026-09-15 묶음) — 내용이 작가 이용약관 12~16조로 들어갔다.
+      // ⚠️ 지면에서 permanentRedirect() 로 넘기면 **308 이 안 나온다.** 셸이 먼저 흘러가서
+      //    200 에 클라이언트 이동이 실려 나가고, 검색엔진은 주소 이전을 못 받는다(실측).
+      //    약관 목록·설정·sitemap 에 오래 걸려 있던 주소라 진짜 308 로 넘겨야 한다.
+      { source: "/terms/fees", destination: "/terms/photographer", permanent: true },
     ];
   },
 };
