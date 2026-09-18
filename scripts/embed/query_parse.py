@@ -28,6 +28,11 @@ SEARCH_PHRASES = {
 # 모든 사진이 사진이다. SigLIP 에 넣어 봐야 뜻이 없고, 남기면 목적처럼 굴기도 한다.
 FORMAT_WORDS = {"스냅", "사진", "촬영", "찍기"}
 
+# 목적으로 거르되 **글자는 SigLIP 에 남기는** 낱말. "남자" 는 개인 사진을 찾는 것이기도 하지만
+# 무엇보다 남자가 찍힌 사진을 찾는 것이다. 목적만 남기고 글자를 떼면 "개인 사진 최신순" 이
+# 되어, 개인 사진 대부분이 여성인 지금은 "남자" 로 찾아도 여성 사진이 주로 나왔다.
+KEEP_IN_TEXT = {"남자", "여자", "남성", "여성"}
+
 # 웨딩은 커플을 품는다. "웨딩 커플" 은 웨딩을 찾는 것이다.
 SUPERSEDES = {"wedding": {"couple"}}
 
@@ -76,7 +81,8 @@ def parse(query, kiwi, lexicon=None):
             if tuple(forms[position:position + size]) == phrase_forms:
                 found.add(purpose)
                 matched.append(phrase)
-                used.update(content[position:position + size])
+                if phrase not in KEEP_IN_TEXT:
+                    used.update(content[position:position + size])
                 position += size
                 break
         else:
