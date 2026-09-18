@@ -67,17 +67,24 @@ needsManualConfirm() // 운영이 계좌 내역과 손으로 대조하는가
 
 ### 3-2. 고객에게 계좌를 안내하는 지면
 
-`getPlatformAccount` / `hasAccount` 를 쓰는 곳 — 전부 `showsBankAccount()` 로 감싸야 한다.
+`getPlatformAccount` 를 쓰는 곳 — **넷 다 `showsBankAccount()` 로 감싸 뒀다(2026-09-19).**
+켜지 않은 채 감싸기만 한 것이라 지금 화면은 그대로다.
 
 ```
-src/app/(user)/chat/actions.ts
-src/app/(user)/chat/[conversationId]/page.tsx
-src/app/(user)/bookings/[id]/page.tsx
-src/app/(photographer)/studio/actions.ts
-src/app/(admin)/admin/transactions/page.tsx   ← 이미 감싸 뒀다 (본보기)
+src/app/(admin)/admin/transactions/page.tsx      ✅ 계좌 편집기
+src/app/(user)/chat/actions.ts                   ✅ getBookingPayoutAccount 이른 반환
+src/app/(user)/chat/[conversationId]/page.tsx    ✅ 계좌 카드를 안 만든다
+src/app/(user)/bookings/[id]/page.tsx            ✅ DepositGate 로 넘기는 계좌만
 ```
 
-어드민 쪽은 이미 되어 있다. 나머지 넷은 전환일에 같은 모양으로 감싸면 된다.
+> 📌 `src/app/(photographer)/studio/actions.ts` 는 **오탐이었다.** 거기 `hasAccount` 는
+> 작가 **정산** 계좌를 보는 지역 변수이고 에스크로 계좌와 무관하다. 건드릴 것 없다.
+
+> ⚠️ **`DepositGate` 의 null 문구는 고쳐야 한다.** 계좌가 null 이면 "입금 계좌 안내를
+> 준비 중이에요. 잠시 후 다시 확인해주세요" 가 뜨는데, 그건 **계좌 미설정용 문구**다.
+> PG 에서는 틀린 말이 된다(준비 중이 아니라 아예 안 쓰는 방식이다). 죽지는 않지만
+> 그대로 두면 고객이 없는 계좌를 기다린다. 어차피 §3-3 에서 그 자리를 결제창이
+> 대신하므로 컴포넌트째 갈아끼운다.
 
 ### 3-3. [입금 완료] 버튼
 
@@ -137,18 +144,21 @@ support_requests.refund_account  ← PG 전환 후 신규 건에는 안 쓰임
 ## 4. 전환일 순서 (제안)
 
 1. 스테이징에서 `PAYMENT_MODE=pg` + 웹훅 연결 → 결제 1건 왕복
-2. §3-2 네 지면을 `showsBankAccount()` 로 감싸고 배포 (**무통장 상태로 배포** — 화면 변화 없음)
+2. ~~§3-2 네 지면을 `showsBankAccount()` 로 감싼다~~ ✅ **2026-09-19 완료** (무통장 상태라 화면 변화 없음)
 3. §3-3 결제창 연결. 임박 예약 동의가 결제 **앞**인지 확인
 4. 약관·알림톡 문안 심사 걸어 두기 (리드타임이 제일 길다)
 5. 심사·재동의가 끝난 날 `PAYMENT_MODE=pg` 올리기
 6. 첫 결제 1건을 실거래로 확인한 뒤 공지
 
-**2번까지는 지금 해도 된다.** 켜지 않은 채로 감싸기만 하는 거라 화면이 안 바뀐다.
+2번은 끝났다. 전환일에는 1·3부터 시작하면 된다.
 
 ## 5. 지금 해 둔 것
 
 - `lib/payment-mode.ts` — 스위치 + 판별 함수 셋, 테스트 6개
-- `/admin/transactions` 가 `showsBankAccount()` 로 계좌 편집기를 감쌌다 (본보기)
+- **§3-2 네 지면을 전부 감쌌다** — 켜지 않은 채라 화면은 그대로다 (§4 의 2번까지 완료)
 - 이 문서
+
+남은 것은 §3-1(웹훅) · §3-3(결제창) · §3-5(승인 취소) · §3-6(약관·알림톡 심사)다.
+이 중 **§3-6 의 리드타임이 제일 길다** — 약관 개정은 재동의, 알림톡은 템플릿 재심사다.
 
 **그 외에는 아무것도 바꾸지 않았다.** `PAYMENT_MODE` 를 안 정하면 전부 지금 그대로다.
