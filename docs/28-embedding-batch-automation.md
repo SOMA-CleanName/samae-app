@@ -170,9 +170,12 @@ python3 scripts/embed/check_db.py        # "임베딩 대기" 줄
 
 사용자 검색 → Next.js 서버
                └─ HTTPS Funnel → 맥미니 POST /search-query   (2026-09-18~, #372)
-                                  ├─ Kiwi 로 사진 목적을 뗌 ("가을 커플스냅" → 커플 + "가을")
+                                  ├─ Kiwi 로 형태소를 쪼갬
+                                  ├─ 사전 대조 → 목적 · 세부분류 · 성별
+                                  │    ("가을 커플스냅" → 커플 + "가을", "만삭" → 행사·만삭, "여자" → 개인·여성)
+                                  ├─ 사전에 없는 명사 → KURE-v1 로 가장 가까운 사전 말의 목적 (선택, §8.2)
                                   └─ 남은 말의 SigLIP 2 텍스트 벡터 반환
-                    → 목적은 필터, 벡터는 Supabase similar_photos_by_vector 로 순위
+                    → 목적·세부분류·성별은 **필터**, 벡터는 그 안에서 **순서**
                → 공개·승인·비숨김 사진 조회 → 검색 화면
                (404·501 이면 예전처럼 POST /embed-text 로 검색어 통째)
 ```
@@ -199,6 +202,8 @@ scripts/embed/.venv/bin/pip install -r scripts/embed/requirements.txt
 
 `/embed-text`·`/embed-backfill`·`/search-query` 중 없는 것이 있으면 해당 기능이 포함된 버전이 런타임에 아직 반영되지 않은 것이다. 앱 코드만 갱신해도 맥미니의 별도 clone 은 갱신되지 않는다.
 `/search-query` 는 형태소 분석기 `kiwipiepy` 가 필요하다. **`git pull` 로는 설치되지 않으므로** 위 `pip install` 을 함께 한다. 없으면 서버는 뜨지만 `/search-query` 가 501 을 주고, 로그에 `검색어 분리 꺼짐` 이 남는다. 실행 순서와 판정은 [38](38-macmini-search-handoff.md) §3-1·§5-0 을 따른다.
+
+사전에 없는 검색어를 가장 가까운 사전 말의 목적으로 보내려면 한국어 임베딩 모델 `nlpai-lab/KURE-v1`(MIT, 약 2.2GB·메모리 1.1GB)이 더 필요하다([38](38-macmini-search-handoff.md) §3-2, [29 §12.12](29-siglip-text-search.md)). **선택이다** — 없으면 사전에 있는 말만 목적으로 잡는다. 상주 서버는 받아 둔 모델만 쓰고 켜질 때 내려받지 않는다. `SAMAE_PURPOSE_NEAREST=0` 으로 끌 수 있고, `/health` 의 `purpose_nearest` 로 켜졌는지 본다. SigLIP 과 같은 GPU 를 쓰므로 호출은 한 번에 하나씩 돈다.
 
 맥미니의 `.env.local` 에 **기존 `PERSONA_SERVICE_TOKEN` 값을 유지**한다. 최초 구성이라면 충분히 긴 임의의 공유 토큰을 정해 맥미니와 호출 앱에 같은 값을 넣는다. 아래 예시의 대체 문구를 실제 토큰으로 바꾼다. 기존 Supabase 환경변수는 백필용으로 계속 필요하다.
 
@@ -364,6 +369,7 @@ tailscale funnel status
 | 목적 백필의 `/embed-text-backfill`이 404 | §9 변경을 맥미니에 내려받고 상주 서비스를 재시작했는지 확인 |
 | `/search-query` 가 404 | 옛 코드다. 갱신·재시작. 그동안 앱은 `/embed-text` 로 우회하므로 검색은 된다(목적 분리만 빠짐) |
 | `/search-query` 가 501, `serve.log` 에 `검색어 분리 꺼짐` | 서버 venv 에 `kiwipiepy` 가 없다. §8.2 의 `pip install` 후 재시작. 앱은 `/embed-text` 로 우회 |
+| `/health` 의 `purpose_nearest` 가 false | KURE-v1 을 안 받았거나 `SAMAE_PURPOSE_NEAREST=0` 이다. **장애가 아니다** — 사전에 없는 말만 목적으로 안 잡힌다 |
 | 인증 요청이 401 | 양쪽 `PERSONA_SERVICE_TOKEN` 일치 여부, 맥미니 재시작과 앱 재시작·재배포 여부 |
 | 로컬은 정상인데 HTTPS 경로 실패 | Tailscale 연결과 `funnel status` 의 실제 주소·8077 프록시 대상 |
 | 검증 스크립트는 성공하지만 앱 검색 결과가 없음 | 앱의 URL·토큰·배포 환경, 4초 제한, 공개·승인·`feed_hidden=false` 조건 |
@@ -383,7 +389,7 @@ tailscale funnel status
 | 순위 | 요청 | 처리 단위 |
 |---|---|---|
 | 1 | `/embed-text` 사용자 검색 | 요청에 포함된 검색어 (최대 8개) |
-| 1 | `/search-query` 사용자 검색 (2026-09-18~) | 목적을 뗀 검색어 한 개. 목적만 있는 검색어는 추론 없이 바로 답한다 |
+| 1 | `/search-query` 사용자 검색 (2026-09-18~) | 목적을 뗀 검색어 한 개. 목적만 있는 검색어는 추론 없이 바로 답한다. 사전에 없는 명사가 있으면 KURE-v1 호출이 먼저 붙는다(약 10ms, 같은 말은 기억) |
 | 2 | `/embed` 사용자 이미지 | 기존 이미지 마이크로 배치 |
 | 3 | `/embed-backfill` 자동 백필 | 사진 한 장 |
 | 3 | `/embed-text-backfill` 목적 태그 백필 | 고정 목적 문장 최대 8개 |

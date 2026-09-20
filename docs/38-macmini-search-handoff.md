@@ -29,6 +29,7 @@
 
 - `/search-query` — 검색어에서 **사진 목적을 떼어**(`가을 커플스냅` → 목적 커플 + "가을") 나머지만 벡터로 돌려준다.
   개인 사진을 성별로 찾으면(`여자`, `남자 노을`) 성별도 알려준다 — 앱이 여자/남자 사진을 가른다([docs/29 §12.9](29-siglip-text-search.md))
+  세부분류도 함께 준다(`만삭` → 행사·만삭). 사전에 없는 말은 §3-2 모델이 있으면 가장 가까운 사전 말의 목적으로 보낸다
   형태소 분석기 **Kiwi(`kiwipiepy`)** 가 필요하다. 새 파이썬 패키지라 **`git pull` 만으로는 안 깔린다** (§3-1)
 - `/embed-text-backfill` — 배치 전용 임베딩 창구. 사용자 검색보다 **낮은 우선순위**라
   오전 6시 배치가 돌아도 고객 검색이 안 밀린다
@@ -133,6 +134,29 @@ scripts/embed/.venv/bin/python -c "import kiwipiepy; print('kiwipiepy', kiwipiep
 - torch·transformers 가 **새로 받아지거나 버전이 바뀌면** → 멈추고 보고. 모델 결과가 달라질 수 있다
 - 설치 오류 → 멈추고 보고. **설치가 안 돼도 상주 서버는 뜬다**(목적 분리만 꺼진 채). 억지로 고치지 말 것
 
+### 3-2. 목적 가까움 비교 모델 (선택 — 안 받아도 검색은 된다)
+
+검색어가 사전에 없을 때 **뜻이 가장 가까운 사전 말의 목적**으로 보내는 기능이다("학사모" → 졸업, "예식장" → 본식).
+한국어 임베딩 모델 `nlpai-lab/KURE-v1`(MIT) 을 쓴다 — 받는 파일 약 2.2GB, 메모리 약 1.1GB(반정밀도).
+
+**안 받아도 된다.** 그때는 사전에 있는 말만 목적으로 잡고 나머지는 지금처럼 무드로 넘어간다. 상주 서버는
+**받아 둔 모델만** 쓴다 — 켜질 때 몰래 내려받지 않는다.
+
+```bash
+cd ~/srv/samae-app
+scripts/embed/.venv/bin/python - <<'PY'
+from huggingface_hub import snapshot_download
+path = snapshot_download("nlpai-lab/KURE-v1")
+print("받음:", path)
+PY
+```
+
+**정상** — 몇 분 뒤 `받음: /Users/…/huggingface/hub/models--nlpai-lab--KURE-v1/…` 이 찍힌다.
+
+**멈출 때**
+- 디스크가 모자라면 → 받지 말고 넘어간다. 검색은 사전만으로 돈다
+- 메모리가 빠듯하면(다른 작업과 함께) → `.env.local` 에 `SAMAE_PURPOSE_NEAREST=0` 을 넣어 꺼 둔다
+
 **분리기 자체 점검** (DB·모델 없이 1초):
 
 ```bash
@@ -162,14 +186,17 @@ curl -s localhost:8077/health
 ```
 
 **정상** — `{"ok": true, "device": "mps", "model": "google/siglip2-so400m-patch16-naflex", "dim": 1152, ...}`
+`purpose_nearest` 가 §3-2 를 했으면 `true`, 안 했으면 `false` 다.
 
 검색어 분리기가 같이 올라왔는지 로그로 본다.
 
 ```bash
-grep -E "검색어 분리" scripts/embed/logs/serve.log | tail -2
+grep -E "검색어 분리|가까움 비교" scripts/embed/logs/serve.log | tail -3
 ```
 
-**정상** — 마지막 줄에 `⚠️  검색어 분리 꺼짐` 이 **없다.** 있으면 §3-1 설치가 이 venv 에 안 된 것이다.
+**정상** — `✅ 검색어 분리 준비` 가 있고 `⚠️  검색어 분리 꺼짐` 이 **없다.** 있으면 §3-1 설치가 이 venv 에 안 된 것이다.
+가까움 비교는 §3-2 를 했으면 `✅ 목적 가까움 비교 준비 …(예시 159개)`, 안 했으면 `⚠️  목적 가까움 비교 꺼짐` 이다 —
+**꺼져 있어도 정상이다.**
 
 **멈출 때**
 - `device` 가 `mps` 가 아니면 → 멈추고 보고. CPU 로 떨어지면 몇 배 느려진다
@@ -194,14 +221,14 @@ base = sys.argv[1].rstrip("/")
 token = load_env(".env.local").get("PERSONA_SERVICE_TOKEN", "")
 if not token:
     raise SystemExit(".env.local 에 PERSONA_SERVICE_TOKEN 이 없다 — 멈추고 보고")
-for query in ["가을 커플스냅", "웨딩", "몽환적인 노을", "남자 노을"]:
+for query in ["가을 커플스냅", "웨딩", "몽환적인 노을", "남자 노을", "학사모"]:
     req = urllib.request.Request(base + "/search-query", data=json.dumps({"query": query}).encode(),
         headers={"x-samae-token": token, "Content-Type": "application/json"})
     started = time.perf_counter()
     with urllib.request.urlopen(req, timeout=10) as r:
         d = json.load(r)
     ms = round((time.perf_counter() - started) * 1000)
-    print(f"{query} → 목적 {d['purposes']} / 성별 {d.get('gender')} / 글자 '{d['mood_text']}' / 벡터 {len(d['vector']) if d['vector'] else None} / {ms}ms")
+    print(f"{query} → 목적 {d['purposes']} {d.get('details') or ''} / 성별 {d.get('gender')} / 글자 '{d['mood_text']}' / 벡터 {len(d['vector']) if d['vector'] else None} / {ms}ms")
 PY
 }
 check_search_query http://127.0.0.1:8077
@@ -214,7 +241,10 @@ check_search_query http://127.0.0.1:8077
 웨딩 → 목적 ['wedding'] / 성별 None / 글자 '' / 벡터 None / …ms
 몽환적인 노을 → 목적 [] / 성별 None / 글자 '몽환적인 노을' / 벡터 1152 / …ms
 남자 노을 → 목적 ['personal'] / 성별 male / 글자 '노을' / 벡터 1152 / …ms
+학사모 → 목적 ['event'] ['event.graduation'] / 성별 None / 글자 '' / 벡터 None / …ms
 ```
+
+마지막 줄(`학사모`)은 **§3-2 를 했을 때만** 목적이 잡힌다. 안 했으면 `목적 [] … 글자 '학사모'` 가 정상이다.
 
 `웨딩` 처럼 목적만 있는 검색은 벡터가 `None` 인 게 정상이다(SigLIP 을 안 쓴다).
 
@@ -318,6 +348,7 @@ launchctl print "gui/$(id -u)/com.samae.serve" | head -30
 1. 갱신 전 커밋:      (§1 의 git log 첫 줄)
 2. 갱신 후 커밋:      (§3 의 git log 첫 줄)
 3. kiwipiepy:         (§3-1 의 버전 줄, 분리기 테스트 통과 수)
+   가까움 비교 모델:   (§3-2 를 했는지 — 받음 / 안 받음)
 4. 상주 서버 /health: (§4 의 출력, "검색어 분리 꺼짐" 이 없었는지)
 5. /search-query:     (§5-0 의 네 줄)
 6. /embed-text-backfill: (§5-1 의 출력 한 줄)
@@ -341,6 +372,7 @@ cat ~/srv/samae-app/scripts/embed/logs/purpose-latest/purpose-result.json
 
 ## 8. 하지 말 것
 
+- **모델을 억지로 받기** — `KURE-v1`(§3-2)은 선택이다. 디스크·메모리가 빠듯하면 받지 않는다
 - **`git pull --force` / `git reset --hard`** — 손으로 고쳐둔 것이 날아간다. `--ff-only` 가 거부하면 보고
 - **LaunchAgent 재등록** — 이미 등록돼 있다. 시각을 바꿀 일도 없다
 - **검수 상태를 풀어서 시험하기** — 사람이 검수한 목적은 보존 대상이다. 시험하려고 해제하지 말 것
