@@ -46,16 +46,25 @@ export default async function AdminChatsPage({
     ? (sp.status as ChatStatus)
     : null;
   const admin = createAdminClient();
-  const { data } = await admin
-    .from("conversations")
-    .select(
-      "id, user_id, photographer_id, last_message_at, user_unread, photographer_unread, bot_disabled_at, " +
-        "photographer:photographers(display_name), user:profiles!conversations_user_id_fkey(display_name), " +
-        "messages(count)"
-    )
-    .order("last_message_at", { ascending: false, nullsFirst: false })
-    .limit(100);
-  const allRooms = (data ?? []) as unknown as Row[];
+  // ⚠️ 전에는 `.limit(100)` 이었다. 101번째 방부터는 **어디에서도 볼 수 없었고**, 그게
+  //    상한 때문이라는 표시도 없었다. 전부 받는다 — PostgREST 는 요청당 1000행이 상한이라
+  //    range() 로 넘긴다(사이트맵과 같은 방식).
+  const SELECT =
+    "id, user_id, photographer_id, last_message_at, user_unread, photographer_unread, bot_disabled_at, " +
+    "photographer:photographers(display_name), user:profiles!conversations_user_id_fkey(display_name), " +
+    "messages(count)";
+  const PAGE = 1000;
+  const allRooms: Row[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data } = await admin
+      .from("conversations")
+      .select(SELECT)
+      .order("last_message_at", { ascending: false, nullsFirst: false })
+      .range(from, from + PAGE - 1);
+    const batch = (data ?? []) as unknown as Row[];
+    allRooms.push(...batch);
+    if (batch.length < PAGE) break;
+  }
 
   // 방 상태 — 예약이 있으면 예약이, 없으면 봇 인계 여부가 결정한다.
   // 목록의 방들만 한 번에 조회해 (고객:작가) 쌍으로 묶는다.
@@ -97,13 +106,16 @@ export default async function AdminChatsPage({
 
   // 방별 마지막 메시지 프리뷰 — 목록 방 한정 1쿼리로 가져와 그룹핑
   const ids = rooms.map((r) => r.id);
+  // ponytail: 방 하나가 메시지를 몰아 쓰면 오래된 방의 미리보기가 빈다 — 전역 정렬이라
+  //   앞쪽 방들이 예산을 먹는다. 방 수에 비례해 넉넉히 잡아 실무 규모에선 안 비게 했다.
+  //   방이 수백 개가 되면 방별 마지막 메시지를 주는 RPC 로 바꿀 것.
   const { data: lastMsgs } = ids.length
     ? await admin
         .from("messages")
         .select("conversation_id, type, body, created_at")
         .in("conversation_id", ids)
         .order("created_at", { ascending: false })
-        .limit(300)
+        .limit(Math.max(300, ids.length * 20))
     : { data: [] as { conversation_id: string; type: string; body: string }[] };
   const previewByRoom = new Map<string, { type: string; body: string }>();
   for (const m of lastMsgs ?? []) {
