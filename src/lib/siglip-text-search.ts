@@ -203,10 +203,9 @@ async function fetchPhotosByStoredTags(
 ): Promise<SearchPhoto[] | null> {
   const photos: SearchPhoto[] = [];
   for (let from = 0; ; from += RPC_PAGE) {
-    let query = createAdminClient()
-      .from("photos")
-      .select(PHOTO_COLUMNS)
-      .overlaps("admin_purposes", purposes);
+    // 목적이 없으면("스냅" "사진") 거르지 않는다 — 전체 사진
+    let query = createAdminClient().from("photos").select(PHOTO_COLUMNS);
+    if (purposes.length) query = query.overlaps("admin_purposes", purposes);
     if (tags.gender) query = query.eq("admin_purpose_gender", tags.gender);
     if (tags.details?.length) query = query.overlaps("admin_purpose_details", tags.details);
     const { data, error } = await query
@@ -268,14 +267,41 @@ async function storedResult(
   limit: number,
   signal: AbortSignal,
 ): Promise<PhotoSearchResult> {
-  let matches: SearchPhoto[] = stored;
-  if (parsed.vector) {
-    const byId = new Map(stored.map((photo) => [photo.id, photo]));
-    matches = (await nearestRows(parsed.vector, limit, signal))
-      .map((row) => byId.get(row.id))
-      .filter((photo): photo is SearchPhoto => photo !== undefined);
+  if (!parsed.vector) {
+    return { purposes: parsed.purposes, moodText: parsed.moodText, matches: stored, related: [], capped: false };
   }
+  // 남은 말("여자 노을" 의 노을)은 그 사진들 안에서 가까운 순으로, 위에서 300장
+  const byId = new Map(stored.map((photo) => [photo.id, photo]));
+  const ranked = await rankInPurposes(parsed.vector, parsed.purposes, limit, signal, new Set(byId.keys()));
+  if (ranked) {
+    return { purposes: parsed.purposes, moodText: parsed.moodText, ...ranked, related: [] };
+  }
+  // 0131 이 없는 DB — 전체에서 가까운 300장 안에서
+  const matches = (await nearestRows(parsed.vector, limit, signal))
+    .map((row) => byId.get(row.id))
+    .filter((photo): photo is SearchPhoto => photo !== undefined);
   return { purposes: parsed.purposes, moodText: parsed.moodText, matches, related: [], capped: false };
+}
+
+/**
+ * 목적 사진 **전부**를 벡터와 가까운 순으로 줄 세워 위에서 limit 장("가을 커플스냅" → 커플 228장을 가을 순으로).
+ * 예전엔 전체에서 가까운 300장을 먼저 뽑고 목적으로 걸러, 개인 사진이 상위를 채우면 커플이 45장만 남았다
+ * (2026-09-19). allowed 가 있으면 그 사진만(성별·세부분류로 고른 것). 0131 이 없는 DB 면 null.
+ */
+async function rankInPurposes(
+  vector: number[],
+  purposes: PhotoPurposeKey[],
+  limit: number,
+  signal: AbortSignal,
+  allowed?: Set<string>,
+): Promise<{ matches: SearchPhoto[]; capped: boolean } | null> {
+  const rows = await distancesInPurposes(vector, purposes, signal);   // 가까운 순
+  if (!rows) return null;
+  const candidates = allowed ? rows.filter((row) => allowed.has(row.id)) : rows;
+  return {
+    matches: await loadPhotosInOrder(candidates.slice(0, limit), signal),
+    capped: candidates.length > limit,
+  };
 }
 
 /**
@@ -291,29 +317,6 @@ async function searchByDetails(
   if (!stored?.length) return null;
   const result = await storedResult(parsed, stored, limit, signal);
   return result.matches.length ? result : null;
-}
-
-/** 목적만 검색했을 때 — 그 목적 사진을 최신순으로. SigLIP 은 부르지 않는다. */
-async function fetchPhotosByPurposes(
-  purposes: PhotoPurposeKey[],
-  limit: number,
-  signal: AbortSignal,
-): Promise<SearchPhoto[]> {
-  const { data, error } = await createAdminClient()
-    .from("photos")
-    .select(PHOTO_COLUMNS)
-    .overlaps("admin_purposes", purposes)
-    .eq("visibility", "published")
-    .eq("feed_hidden", false)
-    .eq("photographer.status", "approved")
-    .order("created_at", { ascending: false })
-    .limit(normalizeSiglipSearchLimit(limit))
-    .abortSignal(signal);
-  if (error) {
-    console.error("[siglip-search] 목적 사진 조회 실패:", error.message);
-    throw error;
-  }
-  return (data ?? []) as unknown as SearchPhoto[];
 }
 
 export type PhotoSearchResult = {
@@ -370,8 +373,9 @@ export async function searchPhotos(
 
   if (!parsed.vector) {
     // 목적만 검색 — SigLIP 을 안 쓰니 z 가 없다. 그 목적 사진을 최신순으로.
-    const matches = await fetchPhotosByPurposes(parsed.purposes, limit, signal);
-    return { purposes: parsed.purposes, moodText: "", matches, related: [], capped: matches.length >= limit };
+    // 300장에서 자르지 않는다 — "개인 스냅" 은 개인 사진 전체(1,027장)다. 커플·우정도 같다(2026-09-19).
+    const matches = (await fetchPhotosByStoredTags(parsed.purposes, {}, signal)) ?? [];
+    return { purposes: parsed.purposes, moodText: "", matches, related: [], capped: false };
   }
 
   return searchByVector({ ...parsed, vector: parsed.vector }, limit, signal);
@@ -389,7 +393,13 @@ async function searchByVector(
     return { purposes: parsed.purposes, moodText: parsed.moodText, matches, related, capped: false };
   }
 
-  // z 컷을 안 쓸 때 — 예전처럼 가까운 300장. 목적이 있으면 그 목적만 위에 두고 아래는 비운다
+  // 목적이 있으면 그 목적 사진 안에서 가까운 순으로 300장
+  if (parsed.purposes.length) {
+    const ranked = await rankInPurposes(parsed.vector, parsed.purposes, limit, signal);
+    if (ranked) return { purposes: parsed.purposes, moodText: parsed.moodText, ...ranked, related: [] };
+  }
+
+  // 목적이 없거나 0131 이 없는 DB — 전체에서 가까운 300장. 목적이 있으면 그 목적만 남긴다
   // (목적이 다른 사진은 보여주지 않기로 했다).
   const nearest = await rankPhotosByVector(parsed.vector, limit, signal);
   const { matches } = splitByPurposes(nearest, parsed.purposes);

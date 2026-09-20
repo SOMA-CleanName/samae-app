@@ -43,8 +43,8 @@ test("쓸 수 없는 응답은 버린다", () => {
     "무드 글자가 있는데 벡터가 없다");
   assert.equal(parseSearchQueryResponse(answer({ purposes: ["family"], mood_text: "", vector: null })), null,
     "모르는 목적 키");
-  assert.equal(parseSearchQueryResponse(answer({ purposes: [], mood_text: "", vector: null })), null,
-    "목적도 무드도 없다");
+  assert.deepEqual(parseSearchQueryResponse(answer({ purposes: [], mood_text: "", vector: null }))?.purposes, [],
+    "목적도 무드도 없으면(\"스냅\") 전체 사진을 찾는 것이다");
   assert.equal(parseSearchQueryResponse({ purposes: [], mood_text: "노을", vector, model: "other" }), null,
     "다른 모델의 벡터는 사진 벡터와 비교할 수 없다");
 });

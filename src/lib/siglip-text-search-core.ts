@@ -317,7 +317,7 @@ export function parseSearchQueryResponse(value: unknown): SearchQueryParse | nul
     ? null
     : parseTextEmbeddingResponse({ model: response.model, vectors: [response.vector] });
   if (moodText && !vector) return null;
-  if (!moodText && response.purposes.length === 0) return null;
+  // 목적도 무드도 없으면("스냅" "사진") 전체 사진이다 — 모든 사진이 스냅이고 사진이다.
   const gender = response.gender === "female" || response.gender === "male" ? response.gender : null;
   // "목적.세부" 꼴이고 그 목적이 함께 온 것만 받는다. 키 목록은 DB CHECK 가 최종으로 지킨다.
   const details = Array.isArray(response.details)
