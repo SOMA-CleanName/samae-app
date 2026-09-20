@@ -170,7 +170,9 @@ def parse(query, kiwi, lexicon=None, nearest=None):
             position += 1
 
     # 사전에 없는 명사 — 가장 가까운 사전 예시의 목적으로(0.80 이상일 때만, 무드 어휘는 빼고).
-    if nearest is not None:
+    # **사전에서 목적이 하나도 안 나왔을 때만** 한다(2026-09-20). 사전이 이미 답을 줬으면 그게 사람이 정한
+    # 분류다 — "커플 워크샵" 에 엉뚱한 목적이 하나 더 붙지 않게. 모델 호출도 대부분의 검색에서 사라진다.
+    if nearest is not None and not found:
         for index in content:
             token = tokens[index]
             if index in claimed or token.form in FORMAT_WORDS or _figurative(tokens, index):
