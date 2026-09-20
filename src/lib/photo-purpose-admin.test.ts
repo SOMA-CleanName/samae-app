@@ -565,3 +565,16 @@ test("세부분류 필터·집계", () => {
     detail: "event.maternity", portfolioCount: 1, photoCount: 1,
   });
 });
+
+test("비공개 사진도 분류 대상 — 집계에 들어가고 장수를 따로 센다", () => {
+  const albums = groupPurposeRows([
+    { ...rows[0], photoId: "pub", albumId: "v1", albumPurposes: ["personal"], photoPurposes: ["personal"] },
+    { ...rows[0], photoId: "draft", albumId: "v1", albumPurposes: ["personal"], photoPurposes: ["personal"],
+      photoPublished: false },
+  ]);
+  const summary = summarizePurposeCounts(albums);
+  assert.equal(summary.photoCount, 2);
+  assert.equal(summary.draftCount, 1);
+  assert.equal(summary.purposes.find((p) => p.purpose === "personal")?.photoCount, 2, "분류는 공개 여부와 무관하다");
+  assert.deepEqual(albums[0].photos.map((p) => p.published), [true, false]);
+});

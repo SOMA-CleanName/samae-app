@@ -506,6 +506,9 @@ export function PhotoPurposeWorkspace({
           </table>
           <p className="mt-2 text-[11px] leading-relaxed text-muted">
             포트폴리오와 사진에 지정한 목적을 각각 셉니다. 복수 목적은 각각 집계하며, 전체는 중복을 제외합니다.
+            {purposeCounts.draftCount > 0
+              ? ` 비공개 ${countFormatter.format(purposeCounts.draftCount)}장을 포함합니다 — 분류해 두면 공개될 때 그대로 쓰입니다.`
+              : ""}
           </p>
         </section>
       </section>
@@ -545,6 +548,11 @@ export function PhotoPurposeWorkspace({
                     loading="lazy"
                     className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
                   />
+                  {!photo.published ? (
+                    <span className="absolute left-2 bottom-2 rounded-md bg-fg/80 px-2 py-1 text-[11px] font-semibold text-bg shadow-card">
+                      비공개
+                    </span>
+                  ) : null}
                   {photo.overridden ? (
                     <span className="absolute left-2 top-2 rounded-md bg-brand px-2 py-1 text-[11px] font-semibold text-white shadow-card">
                       개별

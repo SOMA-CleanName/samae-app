@@ -47,6 +47,8 @@ export type AdminPurposeRow = {
   photoSource: PurposeSource;
   photoReviewed: boolean;
   photoOverridden: boolean;
+  /** 공개 사진인가 — 비공개(draft)도 분류한다. 공개되면 그대로 검색에 쓰인다 */
+  photoPublished?: boolean;
   photoTitle?: string | null;
   photoCaption?: string | null;
   photoPriceKrw?: number | null;
@@ -82,6 +84,7 @@ export type AdminPurposePhoto = {
   source: PurposeSource;
   reviewed: boolean;
   overridden: boolean;
+  published: boolean;
   title: string | null;
   caption: string | null;
   priceKrw: number | null;
@@ -160,6 +163,7 @@ function toPhoto(row: AdminPurposeRow): AdminPurposePhoto {
     source: row.photoSource,
     reviewed: row.photoReviewed,
     overridden: row.photoOverridden,
+    published: row.photoPublished ?? true,
     title: row.photoTitle ?? null,
     caption: row.photoCaption ?? null,
     priceKrw: row.photoPriceKrw ?? null,
@@ -239,6 +243,7 @@ export function summarizePurposeCounts(albums: readonly AdminPurposeAlbum[]) {
   const byDetail = new Map(details.map((item) => [item.detail, item]));
   let portfolioCount = 0;
   let photoCount = 0;
+  let draftCount = 0;   // 비공개(draft) — 분류는 하되 검색에는 아직 안 나온다
 
   for (const album of albums) {
     if (album.albumId !== null) {
@@ -256,6 +261,7 @@ export function summarizePurposeCounts(albums: readonly AdminPurposeAlbum[]) {
     }
     for (const photo of album.photos) {
       photoCount += 1;
+      if (!photo.published) draftCount += 1;
       for (const purpose of new Set(photo.purposes)) {
         const count = byPurpose.get(purpose);
         if (count) count.photoCount += 1;
@@ -269,7 +275,7 @@ export function summarizePurposeCounts(albums: readonly AdminPurposeAlbum[]) {
     }
   }
 
-  return { portfolioCount, photoCount, purposes, genders, details };
+  return { portfolioCount, photoCount, draftCount, purposes, genders, details };
 }
 
 /** 포트폴리오 검수는 자동 초안 성별·세부분류도 확정한다(예외 사진 제외). */
