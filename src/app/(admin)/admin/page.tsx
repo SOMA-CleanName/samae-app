@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { CameraIcon, UserIcon, CalendarIcon, ClipboardIcon, ChevronRightIcon } from "@/components/user/icons";
+import { CameraIcon, UserIcon, CalendarIcon, ClipboardIcon, ChevronRightIcon, ChatIcon } from "@/components/user/icons";
 import { IN_PROGRESS, queueCounts, type QueueBooking } from "@/lib/admin-queues";
+import { deriveChatStatus } from "@/lib/chat";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminHome() {
   const admin = createAdminClient();
 
-  const [apps, pending, approved, users, bookingRows, openSupport] = await Promise.all([
+  const [apps, pending, approved, users, bookingRows, openSupport, convRows] = await Promise.all([
     // 작가 신청(계정 연동 신청) 처리 전
     admin.from("photographer_applications").select("id", { count: "exact", head: true }).in("status", ["new", "contacted"]),
     // 레거시 photographers pending
@@ -36,8 +37,13 @@ export default async function AdminHome() {
     // 베타 규모라 전량을 받아 JS 로 센다 — 거래·정산 화면도 같은 방식이다.
     admin
       .from("bookings")
-      .select("status, transfer_marked_at, delivered_at, settled_at, refunded_at"),
+      // user_id·photographer_id 는 **대화 상태 판정에 쓴다** — 이 쌍에 살아 있는 예약이
+      // 있으면 그 방은 booked 라 "진행 중" 에서 뺀다. 빼면 키가 undefined 가 돼
+      // 조용히 아무것도 안 걸린다.
+      .select("status, transfer_marked_at, delivered_at, settled_at, refunded_at, user_id, photographer_id"),
     admin.from("support_requests").select("id", { count: "exact", head: true }).eq("status", "open"),
+    // 진행 중인 대화 — 상태는 예약과 봇 인계로 정해지므로(lib/chat) 행을 받아 센다
+    admin.from("conversations").select("id, user_id, photographer_id, bot_disabled_at"),
   ]);
 
   const rows = (bookingRows.data ?? []) as QueueBooking[];
@@ -45,6 +51,43 @@ export default async function AdminHome() {
   const inProgress = rows.filter((b) => (IN_PROGRESS as readonly string[]).includes(b.status)).length;
   const approvalNeeded = (apps.count ?? 0) + (pending.count ?? 0); // 작가 승인 대기(신청+레거시)
   const supportOpen = openSupport.count ?? 0;
+
+  /*
+    진행 중인 대화 — **예약 전 단계만** 센다.
+
+    방 상태는 셋이다(lib/chat). `booked`(고객이 입금을 알린 뒤)는 이미 위의 거래 큐가
+    추적하므로 여기서 또 세면 같은 건이 두 번 보인다. 남은 둘이 "아직 거래가 안 된,
+    지금 말이 오가는 방" 이다.
+
+      bot        — 봇이 수집 중. 작가가 아직 안 들어왔다
+      consulting — 작가가 이어받아 상담 중
+  */
+  const convs = (convRows.data ?? []) as Array<{
+    id: string;
+    user_id: string;
+    photographer_id: string;
+    bot_disabled_at: string | null;
+  }>;
+  // 예약이 있는 쌍은 booked 로 갈린다 — 위에서 받은 예약 행을 그대로 쓴다
+  const pairWithLiveBooking = new Set(
+    (bookingRows.data ?? [])
+      .filter((b) => (IN_PROGRESS as readonly string[]).includes((b as QueueBooking).status))
+      .map((b) => {
+        const r = b as unknown as { user_id: string; photographer_id: string };
+        return `${r.user_id}:${r.photographer_id}`;
+      })
+  );
+  const chatStates = convs.map((c) =>
+    deriveChatStatus({
+      botDisabledAt: c.bot_disabled_at,
+      // 정확한 예약 상태까지는 안 본다 — 대시보드는 "몇 개인가" 만 말한다.
+      // 세부 판정은 /admin/chats 가 한다.
+      bookingStatus: pairWithLiveBooking.has(`${c.user_id}:${c.photographer_id}`) ? "paid" : null,
+    })
+  );
+  const chatBot = chatStates.filter((x) => x === "bot").length;
+  const chatConsulting = chatStates.filter((x) => x === "consulting").length;
+  const chatLive = chatBot + chatConsulting;
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-5">
@@ -90,6 +133,35 @@ export default async function AdminHome() {
         />
       </div>
 
+      {/* ── 진행 중인 대화 ──
+          「처리 필요」가 아니다. 운영이 채팅에 끼지 않기로 했으므로(docs/45 §6) 여기서
+          할 일은 없다. 다만 **거래가 되기 전의 흐름이 여기서 일어나므로** 얼마나 오가고
+          있는지는 첫 화면에 보여야 한다. 예약된 방은 위 거래 큐가 이미 세고 있어 뺀다. */}
+      <h2 className="mt-8 text-body-sm font-medium text-muted">진행 중인 대화</h2>
+      <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-3">
+        <StatCard
+          href="/admin/chats?status=bot"
+          icon={<ChatIcon className="h-5 w-5" />}
+          label="봇 수집 중"
+          hint="작가가 아직 안 들어왔어요"
+          value={chatBot}
+        />
+        <StatCard
+          href="/admin/chats?status=consulting"
+          icon={<ChatIcon className="h-5 w-5" />}
+          label="작가 상담 중"
+          hint="예약 제안을 기다리는 중"
+          value={chatConsulting}
+        />
+        <StatCard
+          href="/admin/chats"
+          icon={<ChatIcon className="h-5 w-5" />}
+          label="전체 대화"
+          hint={`예약된 방 포함 · 진행 중 ${chatLive}`}
+          value={convs.length}
+        />
+      </div>
+
       {/* 운영이 할 일은 없지만 흐름이 어디 있는지는 보여야 한다 */}
       {q.deposit > 0 && (
         <p className="mt-2.5 text-caption text-faint">
@@ -113,6 +185,7 @@ export default async function AdminHome() {
           { href: "/admin/transactions", label: "거래·정산" },
           { href: "/admin/photographers", label: "작가" },
           { href: "/admin/users", label: "회원" },
+          { href: "/admin/chats", label: "채팅" },
           { href: "/admin/support", label: "사매 문의" },
           { href: "/admin/categories", label: "카테고리" },
           { href: "/admin/tags", label: "태그" },
