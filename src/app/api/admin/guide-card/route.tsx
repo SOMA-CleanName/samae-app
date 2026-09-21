@@ -1,7 +1,7 @@
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchPhotographerKb } from "@/lib/bot-kb-db";
-import { renderGuideCard, groupCardsIntoSheets } from "@/lib/guide-card-template";
+import { renderGuideCardFitted, groupCardsIntoSheets } from "@/lib/guide-card-template";
 import { resolveGuideStyle } from "@/lib/guide-style";
 
 export const runtime = "nodejs";
@@ -70,5 +70,9 @@ export async function GET(request: Request) {
     ? resolveGuideStyle({ ...resolveGuideStyle(photographer.guide_style), ...override })
     : resolveGuideStyle(photographer.guide_style);
 
-  return renderGuideCard(displayName, sheet, style);
+  // 발행과 같은 재단을 거친다 — 미리보기와 실제 결과가 다르면 미리보기를 볼 이유가 없다
+  const { png } = await renderGuideCardFitted(displayName, sheet, style);
+  return new Response(new Uint8Array(png), {
+    headers: { "content-type": "image/png", "cache-control": "no-store" },
+  });
 }

@@ -11,7 +11,7 @@ import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { createClient } from "@supabase/supabase-js";
-import { groupCardsIntoSheets, renderGuideCard } from "../src/lib/guide-card-template.tsx";
+import { groupCardsIntoSheets, renderGuideCardFitted } from "../src/lib/guide-card-template.tsx";
 import { resolveGuideStyle } from "../src/lib/guide-style.ts";
 import type { KbCard } from "../src/lib/bot-kb.ts";
 
@@ -92,9 +92,7 @@ async function main() {
   const style = resolveGuideStyle(p.guide_style);
   const rows: Record<string, unknown>[] = [];
   for (const [i, sheet] of sheets.entries()) {
-    const res = await renderGuideCard(p.display_name ?? "", sheet, style);
-    const png = Buffer.from(await res.arrayBuffer());
-    const meta = await sharp(png).metadata();
+    const { png, width, height } = await renderGuideCardFitted(p.display_name ?? "", sheet, style);
     const thumb = await sharp(png)
       .resize({ width: 500, withoutEnlargement: true })
       .jpeg({ quality: 75 })
@@ -112,13 +110,13 @@ async function main() {
       photographer_id: pid,
       image_url: db.storage.from(BUCKET).getPublicUrl(`${base}.png`).data.publicUrl,
       thumb_url: db.storage.from(BUCKET).getPublicUrl(`${base}_thumb.jpg`).data.publicUrl,
-      width: meta.width ?? null,
-      height: meta.height ?? null,
+      width,
+      height,
       caption: sheet.label,
       published: true,
       sort_order: i,
     });
-    console.log(`  ${i + 1}. ${sheet.label} · ${meta.width}×${meta.height}`);
+    console.log(`  ${i + 1}. ${sheet.label} · ${width}×${height}`);
   }
 
   const { error } = await db.from("photographer_guide_images").insert(rows);

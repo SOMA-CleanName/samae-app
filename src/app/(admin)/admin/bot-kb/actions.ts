@@ -8,7 +8,7 @@ import { getPhotographerKb } from "@/lib/bot-kb-data";
 import { extractKbFromMaterial, type KbConflict } from "@/lib/kb-extract";
 import { polishCards, type PolishedCard } from "@/lib/kb-style";
 import { fetchPhotographerKb } from "@/lib/bot-kb-db";
-import { renderGuideCard, groupCardsIntoSheets } from "@/lib/guide-card-template";
+import { renderGuideCardFitted, groupCardsIntoSheets } from "@/lib/guide-card-template";
 import { resolveGuideStyle, type GuideStyle } from "@/lib/guide-style";
 import { randomUUID } from "crypto";
 
@@ -217,9 +217,11 @@ export async function publishGuideImages(photographerId: string): Promise<Publis
     const sharp = (await import("sharp")).default;
     const rows: Record<string, unknown>[] = [];
     for (const [i, sheet] of sheets.entries()) {
-      const res = await renderGuideCard(p.display_name ?? "", sheet, resolveGuideStyle(p.guide_style));
-      const png = Buffer.from(await res.arrayBuffer());
-      const meta = await sharp(png).metadata();
+      const { png, width, height } = await renderGuideCardFitted(
+        p.display_name ?? "",
+        sheet,
+        resolveGuideStyle(p.guide_style)
+      );
       const thumb = await sharp(png).resize({ width: 500, withoutEnlargement: true }).jpeg({ quality: 75 }).toBuffer();
 
       const base = `${photographerId}/${SHEET_PREFIX}/${String(i + 1).padStart(2, "0")}-${randomUUID()}`;
@@ -238,8 +240,8 @@ export async function publishGuideImages(photographerId: string): Promise<Publis
         photographer_id: photographerId,
         image_url: admin.storage.from(GUIDE_BUCKET).getPublicUrl(mainPath).data.publicUrl,
         thumb_url: admin.storage.from(GUIDE_BUCKET).getPublicUrl(thumbPath).data.publicUrl,
-        width: meta.width ?? null,
-        height: meta.height ?? null,
+        width,
+        height,
         caption: sheet.label,
         published: true,
         sort_order: i,

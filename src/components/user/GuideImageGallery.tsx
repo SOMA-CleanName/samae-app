@@ -30,7 +30,13 @@ function dotWindow(idx: number, total: number): { i: number; scale: number }[] {
 //
 // 세로로 쌓으면 안내 이미지가 페이지를 길게 밀어내 아래(작가 정보·추천)가 접근성을 잃는다.
 // 가로 레일이면 몇 장이 있는지 한눈에 보이고, 자세히 볼 사람만 탭해서 뷰어로 간다.
-// 이미지에 글자가 들어있어 자르지 않는다 — 높이를 고정하고 폭을 비율대로 흘린다.
+//
+// **카드 크기는 전부 같다.** 안내 이미지는 담긴 카드 수에 따라 높이가 제각각(1800~3000px)
+// 이라, 비율대로 흘리면 레일이 들쭉날쭉해져 목록으로 안 읽힌다. 3:4 틀에 맞추고 위를
+// 기준으로 자른다 — 맨 위 제목(가격·구성 / 컨셉 …)이 곧 그 장의 이름이라, 잘려도
+// 무엇에 관한 장인지는 그대로 보인다. 아래쪽에 옅은 그라데이션을 깔아 "더 있다" 를 알린다.
+const CARD = "w-[132px] sm:w-[160px]";
+
 export function GuideImageGallery({ images }: { images: GuideImage[] }) {
   const [viewer, setViewer] = useState<number | null>(null);
 
@@ -38,28 +44,29 @@ export function GuideImageGallery({ images }: { images: GuideImage[] }) {
 
   return (
     <div>
-      <ul className="-mx-2.5 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-2.5 pb-1 scrollbar-none sm:-mx-4 sm:px-4">
+      <ul className="-mx-2.5 flex gap-2.5 overflow-x-auto px-2.5 pb-1 scrollbar-none sm:-mx-4 sm:px-4">
         {images.map((img, i) => (
-          <li key={img.id} className="w-[68%] shrink-0 snap-start sm:w-[46%]">
+          <li key={img.id} className={cn("shrink-0", CARD)}>
             <button
               type="button"
               onClick={() => setViewer(i)}
-              className="block w-full cursor-pointer overflow-hidden rounded-2xl bg-fg/[0.05]"
+              className="relative block aspect-[3/4] w-full cursor-pointer overflow-hidden rounded-2xl bg-fg/[0.05] ring-1 ring-inset ring-fg/[0.06]"
               aria-label={`안내 이미지 ${i + 1} 크게 보기`}
             >
               <img
                 src={img.thumb_url ?? img.image_url}
                 alt={img.caption || `작가 안내 이미지 ${i + 1}`}
-                width={img.width ?? undefined}
-                height={img.height ?? undefined}
                 loading="lazy"
-                className="h-auto w-full object-contain"
+                className="h-full w-full object-cover object-top"
+              />
+              {/* 잘린 아래를 자연스럽게 — 글자가 뚝 끊긴 것처럼 보이지 않게 */}
+              <span
+                aria-hidden
+                className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-bg/80 to-transparent"
               />
             </button>
             {img.caption && (
-              <p className="mt-1.5 line-clamp-2 px-1 text-body-sm leading-relaxed text-muted">
-                {img.caption}
-              </p>
+              <p className="mt-1.5 line-clamp-1 px-1 text-caption text-muted">{img.caption}</p>
             )}
           </li>
         ))}
@@ -141,13 +148,18 @@ export function GuideImageViewer({
         className="flex h-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain scrollbar-none"
       >
         {images.map((img, i) => (
-          <div key={img.id} className="grid h-full w-full shrink-0 snap-center place-items-center p-4">
+          // 안내 이미지는 세로로 길다. 화면 높이에 맞춰 줄이면 글자가 읽을 수 없을 만큼
+          // 작아지므로, **폭을 꽉 채우고 세로로 스크롤**한다. 좌우 스와이프는 그대로 장 넘기기.
+          <div
+            key={img.id}
+            className="h-full w-full shrink-0 snap-center overflow-y-auto overscroll-y-contain px-4 py-12 scrollbar-none"
+          >
             <img
               src={img.image_url}
               alt={img.caption || `작가 안내 이미지 ${i + 1}`}
               loading={i === startIndex ? undefined : "lazy"}
               onClick={(e) => e.stopPropagation()}
-              className="max-h-full max-w-full object-contain"
+              className="mx-auto h-auto w-full max-w-lg rounded-xl"
             />
           </div>
         ))}

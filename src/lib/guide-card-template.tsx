@@ -611,7 +611,9 @@ function heightOf(template: TemplateKey, sheet: GuideSheet): number {
 export async function renderGuideCard(
   displayName: string,
   sheet: GuideSheet,
-  style: GuideStyle
+  style: GuideStyle,
+  /** 높이를 직접 지정 — 재단(renderGuideCardFitted)에서만 쓴다 */
+  heightOverride?: number
 ): Promise<ImageResponse> {
   const shown: GuideSheet = { ...sheet, cards: sheet.cards.slice(0, MAX_CARDS_PER_CARD) };
   const ink = inkOf(style);
@@ -645,7 +647,64 @@ export async function renderGuideCard(
 
   return new ImageResponse(body, {
     width: WIDTH,
-    height: heightOf(style.template, shown),
+    height: heightOverride ?? heightOf(style.template, shown),
     fonts,
   });
+}
+
+/**
+ * 한 번 굽고 **남는 여백을 재서 다시 굽는다.**
+ *
+ * 높이는 글자 수로 어림할 수밖에 없는데(Satori 는 레이아웃을 돌려주지 않는다), 어림은
+ * 안전하게 잡아야 해서 늘 넉넉하다. 카드가 많은 장에서는 그 오차가 쌓여 본문과 푸터
+ * 사이에 700px 넘는 빈 칸이 남았다 — 실측 3080px 짜리에서 768px.
+ *
+ * 재는 법: 글자가 하나도 없는 가로줄이 연달아 이어지는 구간을 찾는다. 카드 사이 간격은
+ * 100px 안팎이라, 그보다 훨씬 긴 구간 하나가 곧 "쓸데없는 여백" 이다. 그만큼 줄여 다시 굽는다.
+ *
+ * 표지형은 건너뛴다 — 큰 제목 하나에 여백을 크게 두는 게 그 양식의 의도다.
+ */
+const GAP_KEEP = 96; // 재단 후 본문과 푸터 사이에 남길 간격 (카드 사이 간격과 같은 값)
+const GAP_MIN = 200; // 이보다 작은 빈칸은 원래 그런 간격이라 건드리지 않는다
+
+export async function renderGuideCardFitted(
+  displayName: string,
+  sheet: GuideSheet,
+  style: GuideStyle
+): Promise<{ png: Buffer; width: number; height: number }> {
+  const first = await renderGuideCard(displayName, sheet, style);
+  let png = Buffer.from(await first.arrayBuffer());
+  const estimated = heightOf(style.template, {
+    ...sheet,
+    cards: sheet.cards.slice(0, MAX_CARDS_PER_CARD),
+  });
+  let height = estimated;
+
+  if (style.template !== "cover") {
+    const slack = await blankRun(png, WIDTH, estimated);
+    const cut = slack - GAP_KEEP;
+    if (slack >= GAP_MIN && estimated - cut >= MIN_HEIGHT) {
+      height = estimated - cut;
+      png = Buffer.from(await (await renderGuideCard(displayName, sheet, style, height)).arrayBuffer());
+    }
+  }
+  return { png, width: WIDTH, height };
+}
+
+/** 글자가 없는 가로줄이 가장 길게 이어지는 구간의 길이 */
+async function blankRun(png: Buffer, width: number, height: number): Promise<number> {
+  const sharp = (await import("sharp")).default;
+  const px = await sharp(png).greyscale().raw().toBuffer();
+  let best = 0;
+  let run = 0;
+  for (let y = 0; y < height; y++) {
+    let ink = 0;
+    // 양끝 8px 은 뺀다 — 가장자리 안티앨리어싱 한 점 때문에 줄 전체가 "글자 있음" 이 된다
+    for (let x = 8; x < width - 8; x++) {
+      if (px[y * width + x] < 140 && ++ink > 2) break;
+    }
+    if (ink > 2) run = 0;
+    else if (++run > best) best = run;
+  }
+  return best;
 }
