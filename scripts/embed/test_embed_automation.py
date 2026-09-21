@@ -65,19 +65,24 @@ class EmbedAutomationTest(unittest.TestCase):
     def test_wrapper_runs_embedding_then_daily_purposes_and_preserves_failure_status(self):
         (self.root / ".env.local").write_text("")
         (self.bin / "python").unlink()
-        self.executable(self.bin / "python", '#!/bin/sh\nprintf "%s\\n" "$*" >> "$FAKE_ARGS"\ncase "$1" in *embed_photos.py) exit "${FAKE_EMBED_STATUS:-0}";; *) exit "${FAKE_PURPOSE_STATUS:-0}";; esac\n')
-        for embed_status, purpose_status, expected in [(0, 0, 0), (7, 0, 7), (0, 9, 9)]:
-            with self.subTest(embed_status=embed_status, purpose_status=purpose_status):
+        self.executable(self.bin / "python", '#!/bin/sh\nprintf "%s\\n" "$*" >> "$FAKE_ARGS"\ncase "$1" in *embed_photos.py) exit "${FAKE_EMBED_STATUS:-0}";; *build_search_tags.py) exit "${FAKE_TAGS_STATUS:-0}";; *) exit "${FAKE_PURPOSE_STATUS:-0}";; esac\n')
+        for embed_status, purpose_status, tags_status, expected in [
+            (0, 0, 0, 0), (7, 0, 0, 7), (0, 9, 0, 9), (0, 0, 5, 5), (7, 0, 5, 7),
+        ]:
+            with self.subTest(embed_status=embed_status, purpose_status=purpose_status, tags_status=tags_status):
                 (self.root / "args").write_text("")
                 self.env["FAKE_EMBED_STATUS"] = str(embed_status)
                 self.env["FAKE_PURPOSE_STATUS"] = str(purpose_status)
+                self.env["FAKE_TAGS_STATUS"] = str(tags_status)
                 result = self.run_script("run-embed.sh")
                 self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
                 calls = (self.root / "args").read_text().splitlines()
                 self.assertEqual(calls[0], "scripts/embed/embed_photos.py --apply --embed-url http://127.0.0.1:8077")
-                self.assertEqual(len(calls), 2)
+                self.assertEqual(len(calls), 3)
                 self.assertIn("purpose_backfill.py --apply --daily --embed-url http://127.0.0.1:8077", calls[1])
                 self.assertIn("--output ", calls[1])
+                # 백필이 끝난 뒤, 앞 단계가 실패해도 검색 목록은 만든다
+                self.assertEqual(calls[2], "scripts/embed/build_search_tags.py --apply")
                 self.assertFalse((self.embed / "logs" / ".running").exists())
 
 

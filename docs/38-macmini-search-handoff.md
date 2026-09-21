@@ -183,6 +183,23 @@ cd ~/srv/samae-app
 
 **정상** — 전부 `ok`, 마지막 줄 `OK` (2026-09-18 기준 23개).
 
+### 3-4. 무드 태그 검색 목록 처음 한 번 만들기 (2026-09-21)
+
+오전 6시 배치가 이제 마지막에 **무드 태그 검색용 사진 목록**을 만든다(`[3/3]`, docs/29 §12.15).
+다음 6시를 기다리지 않게 지금 한 번 만든다. 사진 표는 읽기만 하고 `search_tag_snapshot` 한 줄만 쓴다.
+
+```bash
+cd ~/srv/samae-app
+scripts/embed/.venv/bin/python scripts/embed/build_search_tags.py            # 미리보기 — 쓰지 않는다
+scripts/embed/.venv/bin/python scripts/embed/build_search_tags.py --apply
+```
+
+**정상** — 첫 줄이 `무드 태그 검색 목록: 사진 1601장 · 앨범 161개 · 작가 10명 · 1252KB` 처럼 찍히고
+(숫자는 그날 사진 수에 따라 다르다), `--apply` 뒤 `✅ search_tag_snapshot 저장` 이 찍힌다.
+
+**멈출 때** — `404` 나 `relation "search_tag_snapshot" does not exist` 가 나오면 DB 에 0138 이 아직 없다 → 멈추고 보고.
+앱은 목록이 없어도 예전처럼 돈다 — 급하지 않다.
+
 ---
 
 ## 4. 상주 서버 재시작
@@ -366,6 +383,7 @@ launchctl print "gui/$(id -u)/com.samae.serve" | head -30
 3. kiwipiepy:         (§3-1 의 버전 줄, 분리기 테스트 통과 수)
    가까움 비교 모델:   (§3-2 를 했는지 — 받음 / 안 받음)
    Ollama:            (§3-3 의 brew services list 줄, pgrep 결과)
+   무드 검색 목록:     (§3-4 의 첫 줄과 ✅ 줄)
 4. 상주 서버 /health: (§4 의 출력, "검색어 분리 꺼짐" 이 없었는지)
 5. /search-query:     (§5-0 의 네 줄)
 6. /embed-text-backfill: (§5-1 의 출력 한 줄)
@@ -383,7 +401,7 @@ cat ~/srv/samae-app/scripts/embed/logs/purpose-latest/purpose-result.json
 
 `purpose-result.json` 에 `updated_photos`(목적이 붙은 사진 수)와 `inherited_photos`(검수 목적을
 물려받은 수)가 있다. **둘 다 0 이어도 정상**이다 — 새로 할 일이 없었다는 뜻이다. 중요한 건
-**두 단계의 종료 코드가 모두 0** 인 것이다.
+**세 단계의 종료 코드가 모두 0** 인 것이다(`단계별 종료 코드: 임베딩=0 목적=0 검색목록=0`).
 
 ---
 
