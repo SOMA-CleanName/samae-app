@@ -1,7 +1,8 @@
 import "server-only";
 
-import type { GalleryPhoto } from "@/lib/discovery";
+import { searchPhotosByTag, type GalleryPhoto } from "@/lib/discovery";
 import {
+  diversifySearchResults,
   normalizeSiglipSearchLimit,
   orderVectorMatches,
   pickByGender,
@@ -315,17 +316,50 @@ async function storedResult(
     const matches = mixed ? stored : spreadPortfolios(stored);
     return { purposes: parsed.purposes, moodText: parsed.moodText, matches, related: [], capped: false, arranged: mixed };
   }
-  // 남은 말("여자 노을" 의 노을)은 그 사진들 안에서 가까운 순으로, 위에서 300장
-  const byId = new Map(stored.map((photo) => [photo.id, photo]));
-  const ranked = await rankInPurposes(parsed.vector, parsed.purposes, limit, signal, new Set(byId.keys()));
+  // 남은 말("여자 노을" 의 노을)은 그 사진들 안에서 무드 순으로, 위에서 300장 — 태그 직접 일치와 SigLIP 을 섞는다
+  const allowed = new Set(stored.map((photo) => photo.id));
+  const [ranked, tagged] = await Promise.all([
+    rankInPurposes(parsed.vector, parsed.purposes, limit, signal, allowed),
+    moodTagMatches(parsed.moodText, limit, signal, allowed),
+  ]);
   if (ranked) {
-    return { purposes: parsed.purposes, moodText: parsed.moodText, ...ranked, related: [] };
+    const matches = withMoodTags(parsed.moodText, tagged, ranked.matches, limit);
+    return { purposes: parsed.purposes, moodText: parsed.moodText, matches, related: [], capped: ranked.capped, arranged: true };
   }
   // 0131 이 없는 DB — 전체에서 가까운 300장 안에서
-  const matches = (await nearestRows(parsed.vector, limit, signal))
-    .map((row) => byId.get(row.id))
-    .filter((photo): photo is SearchPhoto => photo !== undefined);
-  return { purposes: parsed.purposes, moodText: parsed.moodText, matches, related: [], capped: false };
+  const nearest = orderVectorMatches(stored, await nearestRows(parsed.vector, limit, signal));
+  const matches = withMoodTags(parsed.moodText, tagged, nearest, limit);
+  return { purposes: parsed.purposes, moodText: parsed.moodText, matches, related: [], capped: false, arranged: true };
+}
+
+/**
+ * 무드 말의 태그 직접 일치 — 작가가 단 무드 태그·앨범 글 등에 "몽환" 이 그대로 있는 사진(예전 태그 검색).
+ * SigLIP 은 한국어 무드 한 낱말을 약하게 읽는다("몽환" → 작가가 몽환이라 단 47장 중 9장만 300위 안).
+ * 9/18 에 태그 검색을 뺐다가 무드 검색이 무너져 되살렸다(2026-09-21). 무드 전처리(영어 문구)가 들어오면 다시 본다.
+ * 작가 태그는 보지 않는다 — 작가 한 명의 사진 전부에 걸린다(2026-09-21).
+ * onlyIds — 목적으로 고른 사진 안에서만. 태그 검색이 실패해도 SigLIP 만으로 결과를 낸다.
+ */
+async function moodTagMatches(
+  moodText: string,
+  limit: number,
+  signal: AbortSignal,
+  onlyIds?: Set<string>,
+): Promise<GalleryPhoto[]> {
+  if (!moodText.trim()) return [];
+  try {
+    return await searchPhotosByTag(moodText, {
+      directOnly: true, limit, signal, failOnError: true, onlyIds, withoutPhotographerTags: true, fromSnapshot: true,
+    });
+  } catch (error) {
+    if (signal.aborted) throw error;
+    console.error("[siglip-search] 무드 태그 검색 실패 — SigLIP 만으로:", error);
+    return [];
+  }
+}
+
+/** 예전 검색과 같은 섞기 — 48장 묶음마다 태그 일치 36장을 먼저, SigLIP 12장을 뒤에. 묶음 안에서 앨범을 흩뜨린다. */
+function withMoodTags(moodText: string, tagged: GalleryPhoto[], nearest: GalleryPhoto[], limit: number): GalleryPhoto[] {
+  return diversifySearchResults(moodText, tagged, nearest, limit);
 }
 
 /**
@@ -366,7 +400,7 @@ export type PhotoSearchResult = {
  * 검색어를 목적과 무드로 나눠 찾는다.
  *
  *   "웨딩"          → 웨딩 사진을 최신순으로
- *   "몽환적인 노을"   → 전체에서 SigLIP 순서
+ *   "몽환적인 노을"   → 전체에서 태그 직접 일치 + SigLIP 순서를 섞어 (docs/29 §12.14)
  *   "가을 커플스냅"   → 커플 사진만. "가을" z 2.5 이상이 위, 2.0~2.5 가 아래 "비슷한 무드"
  *
  * z 2.0 미만은 보여주지 않는다 — 300장을 무조건 채우던 방식을 버렸다(docs/29 §12.8).
@@ -385,8 +419,12 @@ export async function searchPhotos(
     signal,
   });
   if (parsed === "unsupported") {
-    const matches = await searchPhotosBySiglip(query, limit, signal);
-    return { purposes: [], moodText: query, matches, related: [], capped: matches.length >= limit };
+    const [vector, tagged] = await Promise.all([
+      searchPhotosBySiglip(query, limit, signal),
+      moodTagMatches(query, limit, signal),
+    ]);
+    const matches = withMoodTags(query, tagged, vector, limit);
+    return { purposes: [], moodText: query, matches, related: [], capped: matches.length >= limit, arranged: true };
   }
   if (!parsed) throw new Error("검색어 분리·임베딩을 받지 못했습니다");
 
@@ -429,6 +467,15 @@ async function searchByVector(
 
   // 목적이 없거나 0131 이 없는 DB — 전체에서 가까운 300장. 목적이 있으면 그 목적만 남긴다
   // (목적이 다른 사진은 보여주지 않기로 했다).
+  if (!parsed.purposes.length) {
+    // 무드만 — 예전처럼 태그 직접 일치와 SigLIP 을 섞는다
+    const [nearest, tagged] = await Promise.all([
+      rankPhotosByVector(parsed.vector, limit, signal),
+      moodTagMatches(parsed.moodText, limit, signal),
+    ]);
+    const matches = withMoodTags(parsed.moodText, tagged, nearest, limit);
+    return { purposes: [], moodText: parsed.moodText, matches, related: [], capped: matches.length >= limit, arranged: true };
+  }
   const nearest = await rankPhotosByVector(parsed.vector, limit, signal);
   const { matches } = splitByPurposes(nearest, parsed.purposes);
   return {

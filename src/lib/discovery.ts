@@ -717,12 +717,24 @@ export async function fetchTargetCategoryFeed(
 // text[] 부분 일치는 PostgREST 단일 연산자로 어려워, published 전체를 페이지 단위로 받아 JS에서 필터.
 export async function searchPhotosByTag(
   qRaw: string,
-  options: { directOnly?: boolean; limit?: number; signal?: AbortSignal; failOnError?: boolean } = {}
+  // onlyIds — 이 사진들 안에서만 찾는다(목적으로 고른 사진 안에서 무드 태그 일치)
+  // withoutPhotographerTags — 작가 태그를 보지 않는다. 작가 프로필 태그는 그 작가 사진 전부에 걸려
+  // 사진 한 장의 무드가 아니다("몽환" 을 단 작가 한 명의 사진 68장이 전부 걸렸다)
+  // fromSnapshot — 매일 06:00 백필 뒤 맥미니가 만든 목록(0138)에서 찾는다. 없으면 직접 읽는다
+  options: {
+    directOnly?: boolean; limit?: number; signal?: AbortSignal; failOnError?: boolean;
+    onlyIds?: Set<string>; withoutPhotographerTags?: boolean; fromSnapshot?: boolean;
+  } = {}
 ): Promise<GalleryPhoto[]> {
   const query = buildSearchQuery(qRaw);
   if (!query.compact) return [];
   const supabase = await createClient();
-  const rows = await fetchAllSearchablePhotos(supabase, options);
+  const all = (options.fromSnapshot ? await snapshotSearchablePhotos() : null)
+    ?? await fetchAllSearchablePhotos(supabase, options);
+  const picked = options.onlyIds ? all.filter((photo) => options.onlyIds!.has(photo.id)) : all;
+  const rows = options.withoutPhotographerTags
+    ? picked.map((photo) => ({ ...photo, photographer: { ...photo.photographer, mood_tags: [] } }))
+    : picked;
   const scored = rows
     .map((photo, index) => ({
       photo,
@@ -1223,6 +1235,90 @@ function roundRobinRelated(items: RelatedResultItem[]): RelatedResultItem[] {
     if (!added) break;
   }
   return result;
+}
+
+// ── 무드 태그 검색용 목록 (0138) ─────────────────────────────────────────
+// 맥미니가 매일 06:00 백필을 끝낸 뒤 공개 사진 목록을 한 줄로 만들어 둔다(scripts/embed/build_search_tags.py).
+// 검색마다 1,600장을 앨범·작가와 붙여 읽으면 0.1~1.4초가 걸렸다.
+//
+// 목록은 하루 한 번 바뀌므로 앱도 **하루 한 번만** 읽는다. 백필이 언제 끝날지 모르니:
+//   · 들고 있는 목록이 오늘 06:00 이후에 만든 것 → 다음 06:00 까지 DB 를 보지 않는다
+//   · 06:00 이 지났는데 어제 목록 → 백필이 도는 중이다. 검색이 올 때 만든 시각만 10분 간격으로 확인하고,
+//     새 목록이 생겼으면 그때 한 번 통째로 읽는다
+//   · 서버가 새로 뜨면 메모리가 비어 있으니 처음 한 번 읽는다
+// 낮에 손으로 다시 만든 목록은 이미 오늘 목록을 든 서버에는 다음 06:00 에 반영된다(docs/29 §12.15).
+// 이틀 넘게 새 목록이 없으면 들고 있던 목록을 버리고 예전처럼 직접 읽는다(SNAPSHOT_MAX_AGE_MS).
+//
+// ⚠️ 검색할 때 공개 여부를 다시 보지 않는다(2026-09-21 결정) — 그 사이 비공개로 돌리거나
+//    피드에서 내린 사진도 다음 06:00 까지 무드 태그 검색에 걸린다.
+const SNAPSHOT_RECHECK_MS = 10 * 60_000;
+const DAY_MS = 24 * 60 * 60_000;
+const KST_6AM_IN_UTC_MS = 21 * 60 * 60_000;   // 한국 06:00 = 전날 21:00 UTC
+// 목록이 이틀 넘게 안 바뀌었으면(맥미니 고장·갱신 안 함) 버리고 검색마다 직접 읽는다 — 느려질 뿐 낡은 목록을 계속 쓰지 않는다
+const SNAPSHOT_MAX_AGE_MS = 2 * DAY_MS;
+
+type TagSnapshot = {
+  photos: Array<Omit<SearchablePhoto, "album" | "photographer">>;
+  albums: Record<string, { title: string | null; description: string | null; location_text: string | null }>;
+  photographers: Record<string, { display_name: string | null; regions: string[] | null; mood_tags: string[] | null }>;
+};
+
+let heldSnapshot: { photos: SearchablePhoto[]; builtAt: number } | null = null;
+let snapshotCheckedAt = 0;
+let snapshotLoading: Promise<void> | null = null;
+
+/** 가장 최근의 한국 06:00 (UTC ms) */
+function lastKst6am(now: number): number {
+  return Math.floor((now - KST_6AM_IN_UTC_MS) / DAY_MS) * DAY_MS + KST_6AM_IN_UTC_MS;
+}
+
+/** 목록이 없으면(0138 전·맥미니가 아직 안 만듦) null — 호출하는 쪽이 직접 읽는다. */
+async function snapshotSearchablePhotos(): Promise<SearchablePhoto[] | null> {
+  const now = Date.now();
+  const fresh = heldSnapshot && heldSnapshot.builtAt >= lastKst6am(now);
+  if (!fresh && now - snapshotCheckedAt >= SNAPSHOT_RECHECK_MS) {
+    // 같은 서버에 검색이 몰려도 DB 는 한 번만 본다
+    snapshotLoading ??= refreshSnapshot()
+      .catch((error) => console.error("[search] 무드 태그 목록 조회 실패 — 들고 있던 것 또는 직접 읽기로:", error))
+      .finally(() => { snapshotLoading = null; });
+    await snapshotLoading;
+  }
+  if (!heldSnapshot || now - heldSnapshot.builtAt > SNAPSHOT_MAX_AGE_MS) return null;
+  return heldSnapshot.photos;
+}
+
+async function refreshSnapshot(): Promise<void> {
+  snapshotCheckedAt = Date.now();
+  const admin = createAdminClient();
+  // 먼저 만든 시각만 — 들고 있는 것과 같으면(백필이 아직 도는 중) 1.2MB 를 다시 받지 않는다
+  const { data: head, error } = await admin.from("search_tag_snapshot").select("built_at").eq("id", 1).maybeSingle();
+  if (error) {
+    console.error("[search] 무드 태그 목록 조회 실패 — 직접 읽는다:", error.message);
+    return;
+  }
+  if (!head) return;
+  const builtAt = Date.parse(head.built_at as string);
+  if (heldSnapshot && heldSnapshot.builtAt === builtAt) return;
+
+  const { data, error: bodyError } = await admin
+    .from("search_tag_snapshot").select("photos, albums, photographers, built_at").eq("id", 1).maybeSingle();
+  if (bodyError || !data) {
+    if (bodyError) console.error("[search] 무드 태그 목록 조회 실패 — 직접 읽는다:", bodyError.message);
+    return;
+  }
+  const snapshot = data as TagSnapshot & { built_at: string };
+  heldSnapshot = {
+    builtAt: Date.parse(snapshot.built_at),
+    photos: snapshot.photos.map((photo) => {
+      const album = photo.album_id ? snapshot.albums[photo.album_id] : undefined;
+      const photographer = snapshot.photographers[photo.photographer_id];
+      return {
+        ...photo,
+        album: album ? { id: photo.album_id!, ...album } : null,
+        photographer: { id: photo.photographer_id, ...photographer },
+      };
+    }),
+  };
 }
 
 async function fetchAllSearchablePhotos(
