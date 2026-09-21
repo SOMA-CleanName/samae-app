@@ -129,6 +129,8 @@ def warm():
     _state["loaded_sec"] = time.perf_counter() - t
     print(f"✅ 모델 준비 {_state['loaded_sec']:.1f}s (device={device}, budget={PATCH_BUDGET})", flush=True)
     warm_query_parser()
+    if os.environ.get("SAMAE_PERSONA_COPY") != "1":
+        print("⏸  페르소나 작문(qwen) 꺼 둠 — /persona_copy 는 501, 앱은 claude 로 넘어간다", flush=True)
 
 
 def warm_query_parser():
@@ -443,6 +445,11 @@ class Handler(BaseHTTPRequestHandler):
             return
         path = self.path.split("?", 1)[0]
         if self.path.startswith("/persona_copy"):
+            # 맥미니에서는 qwen 을 돌리지 않는다(무겁다, 2026-09-21 결정). 요청이 와도 ollama 를 부르지 않고
+            # 501 — 앱은 실패하면 claude 로 넘어간다(src/lib/persona/analyze.ts). 굳이 켜려면 SAMAE_PERSONA_COPY=1.
+            if os.environ.get("SAMAE_PERSONA_COPY") != "1":
+                self._send(501, {"error": "persona_copy 꺼짐 — 맥미니에서 qwen 을 돌리지 않는다"})
+                return
             try:
                 n = int(self.headers.get("Content-Length", "0"))
                 facts = json.loads(self.rfile.read(n) or b"{}")

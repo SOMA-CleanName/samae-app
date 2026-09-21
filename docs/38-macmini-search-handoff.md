@@ -137,7 +137,7 @@ scripts/embed/.venv/bin/python -c "import kiwipiepy; print('kiwipiepy', kiwipiep
 ### 3-2. 목적 가까움 비교 모델 (선택 — 안 받아도 검색은 된다)
 
 검색어가 사전에 없을 때 **뜻이 가장 가까운 사전 말의 목적**으로 보내는 기능이다("학사모" → 졸업, "예식장" → 본식).
-한국어 임베딩 모델 `nlpai-lab/KURE-v1`(MIT) 을 쓴다 — 받는 파일 약 2.2GB, 메모리 약 1.1GB(반정밀도).
+한국어 임베딩 모델 `nlpai-lab/KURE-v1`(MIT) 을 쓴다 — 받는 파일 약 2.2GB, 메모리 약 **1.5GB 더**(반정밀도 — 2026-09-21 실측: SigLIP만 1.17GB → 함께 2.62GB).
 
 **안 받아도 된다.** 그때는 사전에 있는 말만 목적으로 잡고 나머지는 지금처럼 무드로 넘어간다. 상주 서버는
 **받아 둔 모델만** 쓴다 — 켜질 때 몰래 내려받지 않는다.
@@ -156,6 +156,22 @@ PY
 **멈출 때**
 - 디스크가 모자라면 → 받지 말고 넘어간다. 검색은 사전만으로 돈다
 - 메모리가 빠듯하면(다른 작업과 함께) → `.env.local` 에 `SAMAE_PURPOSE_NEAREST=0` 을 넣어 꺼 둔다
+
+### 3-3. Ollama(qwen) 끄기 — 맥미니에서는 돌리지 않는다
+
+**맥미니에서는 qwen 을 돌리지 않는다(2026-09-21 결정 — 무겁다).** 8/21 설치 때 페르소나 작문용으로 켜 둔
+Ollama 자동시작을 끈다. 페르소나 결과 문장은 claude 가 쓴다 — 서비스는 안 깨진다.
+
+```bash
+brew services stop ollama
+brew services list | grep ollama || echo "ollama 없음"
+pgrep -fl ollama || echo "돌고 있지 않음"
+```
+
+**정상** — `ollama … none`(또는 `stopped`) 이 찍히고, 마지막 줄이 `돌고 있지 않음` 이다.
+`serve.py` 의 `/persona_copy` 도 기본으로 꺼져 있다(§4 로그에 `⏸  페르소나 작문(qwen) 꺼 둠`).
+
+**멈출 때** — `brew` 가 없다고 하거나 ollama 가 다른 방식(앱·직접 실행)으로 떠 있으면 → 끄지 말고 어떻게 떠 있는지 보고.
 
 **분리기 자체 점검** (DB·모델 없이 1초):
 
@@ -349,6 +365,7 @@ launchctl print "gui/$(id -u)/com.samae.serve" | head -30
 2. 갱신 후 커밋:      (§3 의 git log 첫 줄)
 3. kiwipiepy:         (§3-1 의 버전 줄, 분리기 테스트 통과 수)
    가까움 비교 모델:   (§3-2 를 했는지 — 받음 / 안 받음)
+   Ollama:            (§3-3 의 brew services list 줄, pgrep 결과)
 4. 상주 서버 /health: (§4 의 출력, "검색어 분리 꺼짐" 이 없었는지)
 5. /search-query:     (§5-0 의 네 줄)
 6. /embed-text-backfill: (§5-1 의 출력 한 줄)
@@ -373,6 +390,7 @@ cat ~/srv/samae-app/scripts/embed/logs/purpose-latest/purpose-result.json
 ## 8. 하지 말 것
 
 - **모델을 억지로 받기** — `KURE-v1`(§3-2)은 선택이다. 디스크·메모리가 빠듯하면 받지 않는다
+- **Ollama·qwen 켜기** — 맥미니에서는 돌리지 않는다(§3-3). `SAMAE_PERSONA_COPY=1` 도 넣지 않는다
 - **`git pull --force` / `git reset --hard`** — 손으로 고쳐둔 것이 날아간다. `--ff-only` 가 거부하면 보고
 - **LaunchAgent 재등록** — 이미 등록돼 있다. 시각을 바꿀 일도 없다
 - **검수 상태를 풀어서 시험하기** — 사람이 검수한 목적은 보존 대상이다. 시험하려고 해제하지 말 것

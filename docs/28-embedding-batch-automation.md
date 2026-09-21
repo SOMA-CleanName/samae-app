@@ -87,10 +87,15 @@ sudo pmset -a sleep 0 disksleep 0      # 안내에 따라 직접 실행
 ```
 
 setup ④단계가 비어 있지 않은 `PERSONA_SERVICE_TOKEN`을 확인하고, ⑦단계가 **검색·페르소나 상주 서비스**
-(`com.samae.serve` — serve.py: SigLIP 이미지·텍스트 임베딩·인스타 조회 프록시·qwen3 작문)도 함께 등록한다.
+(`com.samae.serve` — serve.py: SigLIP 이미지·텍스트 임베딩·인스타 조회 프록시)도 함께 등록한다.
 로그인 시 자동시작 + 죽으면 10초 간격 재시작(KeepAlive). 프로덕션(samae.ai)이 Tailscale
-Funnel 로 이 서비스를 부르므로, 죽어 있으면 페르소나가 claude 폴백(과금)으로 돈다.
-ollama 는 `brew services start ollama` 로 자동시작을 건다 (docs/23 §7).
+Funnel 로 이 서비스를 부른다.
+
+> ⛔ **맥미니에서는 qwen(ollama)을 돌리지 않는다 (2026-09-21 결정 — 무겁다).**
+> 8/21 설치 때 페르소나 결과 문장 작성용으로 `brew services start ollama` 자동시작을 걸었으나 **끈다**
+> ([38](38-macmini-search-handoff.md) §3-3). `serve.py` 의 `/persona_copy` 도 기본으로 꺼져 있어(501) 요청이 와도
+> ollama 를 부르지 않는다. 페르소나 작문은 claude 로 돈다 — 앱이 실패하면 claude 로 넘어가므로 서비스는 안 깨진다.
+> 맥미니가 돌리는 모델은 SigLIP 2 와 (선택) KURE-v1 둘뿐이다.
 
 **검색 우선 처리 버전에서는 자동 백필에도 상주 서비스가 필수다.** 토큰이 없거나 비어 있으면 새 setup은 작업 등록 전에 중단한다. 예전 setup에서 ⑦단계를 건너뛴 환경은 토큰을 설정하고 setup을 다시 실행한 뒤 §8.3의 서버 점검을 먼저 통과시킨다. 백필 자체는 Funnel을 거치지 않고 맥미니 내부 8077을 호출한다.
 
@@ -146,7 +151,7 @@ python3 scripts/embed/check_db.py        # "임베딩 대기" 줄
 | 일시(KST) | 내용 | 결과 |
 |---|---|---|
 | 2026-08-19 | 맥북에서 `run-embed.sh` 동작 검증 | 밀려 있던 **44장 처리 · 41초 · 실패 0**. 커버리지 1,807/1,807 (대기 0) |
-| 2026-08-21 | 맥미니 설치 (런타임 `~/srv/samae-app`) | launchd 등록 + 수동 1회 검증(대기 0장 no-op). **Documents 경로 1차 시도는 TCC 로 실패** → §4 함정 문서화 + setup 가드 추가. 상주 서비스(com.samae.serve)·ollama 자동시작 동시 등록 |
+| 2026-08-21 | 맥미니 설치 (런타임 `~/srv/samae-app`) | launchd 등록 + 수동 1회 검증(대기 0장 no-op). **Documents 경로 1차 시도는 TCC 로 실패** → §4 함정 문서화 + setup 가드 추가. 상주 서비스(com.samae.serve)·ollama 자동시작 동시 등록 (ollama 는 2026-09-21 에 끄기로 함 — §4 위 ⛔) |
 
 ---
 
@@ -186,7 +191,7 @@ python3 scripts/embed/check_db.py        # "임베딩 대기" 줄
 
 모델은 사진과 같은 `google/siglip2-so400m-patch16-naflex`, 벡터는 **1152차원**이다. 실제 사진과의 거리 계산은 Supabase 의 기존 `similar_photos_by_vector` RPC 가 맡는다. 검색할 때 사진 백필을 다시 실행하거나 DB 마이그레이션을 적용할 필요는 없다.
 
-맥미니는 전원·네트워크 연결과 §4의 슬립 방지 설정을 유지한다. 두 작업은 `~/Library/LaunchAgents` 에 등록되므로 **등록한 macOS 계정에 로그인돼 있어야 한다.** 화면 잠금은 가능하지만 로그아웃·재부팅 후 미로그인 상태를 정상 운영 상태로 보지 않는다. 검색 경로는 Ollama 를 호출하지 않는다. Ollama 는 기존 페르소나 작문을 운영할 때 별도로 유지한다.
+맥미니는 전원·네트워크 연결과 §4의 슬립 방지 설정을 유지한다. 두 작업은 `~/Library/LaunchAgents` 에 등록되므로 **등록한 macOS 계정에 로그인돼 있어야 한다.** 화면 잠금은 가능하지만 로그아웃·재부팅 후 미로그인 상태를 정상 운영 상태로 보지 않는다. 검색 경로는 Ollama 를 호출하지 않는다. **맥미니에서는 Ollama 를 아예 돌리지 않는다**(2026-09-21 — 무겁다. 페르소나 작문은 claude).
 
 ### 8.2 맥미니 코드와 상주 서비스 준비
 
@@ -203,7 +208,7 @@ scripts/embed/.venv/bin/pip install -r scripts/embed/requirements.txt
 `/embed-text`·`/embed-backfill`·`/search-query` 중 없는 것이 있으면 해당 기능이 포함된 버전이 런타임에 아직 반영되지 않은 것이다. 앱 코드만 갱신해도 맥미니의 별도 clone 은 갱신되지 않는다.
 `/search-query` 는 형태소 분석기 `kiwipiepy` 가 필요하다. **`git pull` 로는 설치되지 않으므로** 위 `pip install` 을 함께 한다. 없으면 서버는 뜨지만 `/search-query` 가 501 을 주고, 로그에 `검색어 분리 꺼짐` 이 남는다. 실행 순서와 판정은 [38](38-macmini-search-handoff.md) §3-1·§5-0 을 따른다.
 
-사전에 없는 검색어를 가장 가까운 사전 말의 목적으로 보내려면 한국어 임베딩 모델 `nlpai-lab/KURE-v1`(MIT, 약 2.2GB·메모리 1.1GB)이 더 필요하다([38](38-macmini-search-handoff.md) §3-2, [29 §12.12](29-siglip-text-search.md)). **선택이다** — 없으면 사전에 있는 말만 목적으로 잡는다. 상주 서버는 받아 둔 모델만 쓰고 켜질 때 내려받지 않는다. `SAMAE_PURPOSE_NEAREST=0` 으로 끌 수 있고, `/health` 의 `purpose_nearest` 로 켜졌는지 본다. SigLIP 과 같은 GPU 를 쓰므로 호출은 한 번에 하나씩 돈다.
+사전에 없는 검색어를 가장 가까운 사전 말의 목적으로 보내려면 한국어 임베딩 모델 `nlpai-lab/KURE-v1`(MIT, 받는 파일 약 2.2GB·메모리 약 1.5GB 더)이 더 필요하다([38](38-macmini-search-handoff.md) §3-2, [29 §12.12](29-siglip-text-search.md)). **선택이다** — 없으면 사전에 있는 말만 목적으로 잡는다. 상주 서버는 받아 둔 모델만 쓰고 켜질 때 내려받지 않는다. `SAMAE_PURPOSE_NEAREST=0` 으로 끌 수 있고, `/health` 의 `purpose_nearest` 로 켜졌는지 본다. SigLIP 과 같은 GPU 를 쓰므로 호출은 한 번에 하나씩 돈다.
 
 맥미니의 `.env.local` 에 **기존 `PERSONA_SERVICE_TOKEN` 값을 유지**한다. 최초 구성이라면 충분히 긴 임의의 공유 토큰을 정해 맥미니와 호출 앱에 같은 값을 넣는다. 아래 예시의 대체 문구를 실제 토큰으로 바꾼다. 기존 Supabase 환경변수는 백필용으로 계속 필요하다.
 
@@ -359,7 +364,7 @@ tailscale funnel status
 
 모델 준비 로그 이후 §8.3·§8.4·§8.5를 순서대로 확인한다. `com.samae.serve` 에는 실행 중인 PID 가 있어야 한다. `com.samae.embed` 는 배치 시간이 아닐 때 PID 가 `-` 인 것이 정상이다. 등록 자체가 없다면 §8.2의 setup 으로 돌아간다.
 
-재부팅 후에도 같은 계정 로그인, Tailscale 연결, 두 LaunchAgent 등록, 인증된 `/health`·`/embed-text` 를 확인한다. `com.samae.serve` 를 내리면 검색과 기존 페르소나의 임베딩·프록시·작문 경로가 함께 영향을 받는다.
+재부팅 후에도 같은 계정 로그인, Tailscale 연결, 두 LaunchAgent 등록, 인증된 `/health`·`/embed-text` 를 확인한다. `com.samae.serve` 를 내리면 검색과 기존 페르소나의 임베딩·프록시 경로가 함께 영향을 받는다(작문은 claude 라 영향 없음).
 
 | 증상 | 확인할 곳 |
 |---|---|
