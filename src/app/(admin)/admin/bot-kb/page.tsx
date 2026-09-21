@@ -3,6 +3,7 @@ import { EmptyState } from "@/components/ui";
 import { ChatIcon } from "@/components/user/icons";
 import { normalizeKbCards } from "@/lib/bot-kb-db";
 import { KB_CORE_TOPICS } from "@/lib/bot-kb";
+import { resolveGuideStyle } from "@/lib/guide-style";
 import { hasKb } from "@/lib/bot-kb-data";
 import { KbEditor } from "./KbEditor";
 import { KbPhotographerList, type KbListRow } from "./KbPhotographerList";
@@ -31,7 +32,7 @@ export default async function AdminBotKbPage({
   const admin = createAdminClient();
 
   const [{ data: phData }, { data: kbData }, settings] = await Promise.all([
-    admin.from("photographers").select("id, display_name, status").order("display_name"),
+    admin.from("photographers").select("id, display_name, status, guide_style").order("display_name"),
     admin.from("photographer_bot_kb").select("photographer_id, cards, greeting, enabled, note, updated_at"),
     fetchBotSettingsRaw(),
   ]);
@@ -39,7 +40,7 @@ export default async function AdminBotKbPage({
   const kbBy = new Map<string, KbRow>(((kbData ?? []) as KbRow[]).map((r) => [r.photographer_id, r]));
 
   // 카드 수·커버리지는 저장된 원본이 아니라 정규화 결과 기준 — 봇이 실제로 보는 것과 같아야 한다
-  const rows = ((phData ?? []) as { id: string; display_name: string | null; status: string }[])
+  const rows = ((phData ?? []) as { id: string; display_name: string | null; status: string; guide_style: unknown }[])
     .map((p) => {
       const kb = kbBy.get(p.id);
       const cards = kb ? normalizeKbCards(kb.cards).cards : [];
@@ -51,6 +52,7 @@ export default async function AdminBotKbPage({
         kb,
         count: cards.length,
         missing: KB_CORE_TOPICS.filter((t) => !topics.has(t)),
+        guideStyle: resolveGuideStyle(p.guide_style),
         demo: hasKb(p.id),
       };
     })
@@ -116,6 +118,7 @@ export default async function AdminBotKbPage({
                 note={selected.kb?.note ?? ""}
                 updatedAt={selected.kb?.updated_at ?? null}
                 hasDemo={selected.demo}
+                guideStyle={selected.guideStyle}
               />
             )
           }
