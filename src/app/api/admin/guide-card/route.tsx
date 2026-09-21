@@ -1,8 +1,13 @@
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { fetchPhotographerKb } from "@/lib/bot-kb-db";
-import { renderGuideCardFitted, groupCardsIntoSheets } from "@/lib/guide-card-template";
-import { resolveGuideStyle } from "@/lib/guide-style";
+import {
+  renderGuideCardFitted,
+  fittedHeight,
+  groupCardsIntoSheets,
+  type GuideSheet,
+} from "@/lib/guide-card-template";
+import { resolveGuideStyle, type GuideStyle } from "@/lib/guide-style";
 
 export const runtime = "nodejs";
 
@@ -22,6 +27,32 @@ export const runtime = "nodejs";
 //
 // 결과 PNG 는 운영이 받아서 /studio/guide (photographer_guide_images) 에 올린다.
 // 운영자 전용 — KB 는 service_role 로 읽으므로 공개하면 아무 작가 KB나 덤프된다.
+
+/**
+ * 세트 공통 높이 캐시.
+ *
+ * 양식을 고를 때마다 5장이 각각 요청으로 들어온다. 매번 세트 전체를 재면 5×5 = 25번을
+ * 굽게 되므로, 양식이 같은 동안은 한 번 잰 값을 쓴다. 어드민 한 명이 조합을 고르는
+ * 동안만 사는 값이라 메모리에 둔다.
+ */
+const heightCache = new Map<string, number>();
+
+async function uniformHeight(
+  pid: string,
+  displayName: string,
+  sheets: GuideSheet[],
+  style: GuideStyle
+): Promise<number> {
+  const key = [pid, style.template, style.backdrop, style.font, style.backdropUrl ?? ""].join("|");
+  const hit = heightCache.get(key);
+  if (hit) return hit;
+  const heights = await Promise.all(sheets.map((s) => fittedHeight(displayName, s, style)));
+  const max = Math.max(...heights);
+  // 조합을 계속 바꿔 보므로 무한정 쌓이지 않게 상한을 둔다
+  if (heightCache.size > 40) heightCache.clear();
+  heightCache.set(key, max);
+  return max;
+}
 
 export async function GET(request: Request) {
   const me = await getCurrentUser();
@@ -70,8 +101,10 @@ export async function GET(request: Request) {
     ? resolveGuideStyle({ ...resolveGuideStyle(photographer.guide_style), ...override })
     : resolveGuideStyle(photographer.guide_style);
 
-  // 발행과 같은 재단을 거친다 — 미리보기와 실제 결과가 다르면 미리보기를 볼 이유가 없다
-  const { png } = await renderGuideCardFitted(displayName, sheet, style);
+  // 발행과 같은 재단·크기 맞추기를 거친다 — 미리보기와 결과가 다르면 미리볼 이유가 없다.
+  // 공통 높이는 세트 전체를 재야 나오는데 한 장씩 요청이 들어오므로 한 번만 재고 재사용한다.
+  const uniform = await uniformHeight(pid, displayName, sheets, style);
+  const { png } = await renderGuideCardFitted(displayName, sheet, style, uniform);
   return new Response(new Uint8Array(png), {
     headers: { "content-type": "image/png", "cache-control": "no-store" },
   });

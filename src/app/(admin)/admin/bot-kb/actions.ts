@@ -8,7 +8,7 @@ import { getPhotographerKb } from "@/lib/bot-kb-data";
 import { extractKbFromMaterial, type KbConflict } from "@/lib/kb-extract";
 import { polishCards, type PolishedCard } from "@/lib/kb-style";
 import { fetchPhotographerKb } from "@/lib/bot-kb-db";
-import { renderGuideCardFitted, groupCardsIntoSheets } from "@/lib/guide-card-template";
+import { renderGuideSet, groupCardsIntoSheets } from "@/lib/guide-card-template";
 import { resolveGuideStyle, type GuideStyle } from "@/lib/guide-style";
 import { randomUUID } from "crypto";
 
@@ -215,13 +215,11 @@ export async function publishGuideImages(photographerId: string): Promise<Publis
     }
 
     const sharp = (await import("sharp")).default;
+    // 세트를 같은 크기로 굽는다 — 한 장씩 맞추면 레일에서 들쭉날쭉해진다
+    const baked = await renderGuideSet(p.display_name ?? "", sheets, resolveGuideStyle(p.guide_style));
     const rows: Record<string, unknown>[] = [];
     for (const [i, sheet] of sheets.entries()) {
-      const { png, width, height } = await renderGuideCardFitted(
-        p.display_name ?? "",
-        sheet,
-        resolveGuideStyle(p.guide_style)
-      );
+      const { png, width, height } = baked[i];
       const thumb = await sharp(png).resize({ width: 500, withoutEnlargement: true }).jpeg({ quality: 75 }).toBuffer();
 
       const base = `${photographerId}/${SHEET_PREFIX}/${String(i + 1).padStart(2, "0")}-${randomUUID()}`;

@@ -76,12 +76,60 @@ export const GUIDE_SHEETS: { label: string; en: string; topics: string[] }[] = [
 export type GuideSheet = { label: string; en: string; cards: KbCard[] };
 
 /**
+ * 한 장에 담을 분량의 상한 — 줄 수로 센다.
+ *
+ * 세트를 **같은 크기로 맞추기 때문에** 장마다 분량이 들쑥날쑥하면 짧은 장에 빈칸이
+ * 크게 남는다. 그래서 크기를 맞추기 전에 분량부터 고르게 나눈다. 카드 수로만 나누면
+ * (예전 규칙) 긴 카드 셋이 짧은 카드 여섯보다 길어져 소용이 없다.
+ *
+ * 다만 **쪼갤수록 좋은 게 아니다.** 장이 늘면 장마다 제목·푸터가 또 붙어서, 전부 잘게
+ * 나누면 오히려 빈칸 총량이 는다(실측: 5장 1,645px → 10장 4,335px). 유난히 긴 장만
+ * 덜어내는 선에서 멈춘다.
+ *
+ * 값 근거: 모글필름 실측에서 장별 줄 수가 25~37 이었다. 30 으로 두면 제일 긴 두 장만
+ * 쪼개지고 나머지는 그대로다 — 공통 높이가 2,408 → 1,960px 로 내려간다.
+ */
+const MAX_SHEET_LINES = 30;
+/** 카드 한 장의 고정 비용(주제 라벨·구분선·간격)을 줄 수로 환산 — 73px ÷ 64px */
+const CARD_OVERHEAD_LINES = 1.2;
+
+function sheetLines(cards: KbCard[]): number {
+  return cards.reduce((a, c) => a + lines(c.body, PER_LINE) + CARD_OVERHEAD_LINES, 0);
+}
+
+/**
+ * 순서를 지키면서 분량이 고르게 n 묶음으로 자른다.
+ * 빈 묶음은 만들지 않는다 — 카드 0장짜리 안내 이미지가 발행돼 버린다.
+ */
+function splitEvenly(cards: KbCard[], n: number): KbCard[][] {
+  const target = sheetLines(cards) / n;
+  const out: KbCard[][] = Array.from({ length: n }, () => []);
+  let bucket = 0;
+  let used = 0;
+  for (const [i, c] of cards.entries()) {
+    const w = lines(c.body, PER_LINE) + CARD_OVERHEAD_LINES;
+    // 남은 카드로 뒤 묶음을 다 채울 수 있을 때만 넘어간다
+    const left = cards.length - i;
+    const need = n - 1 - bucket;
+    if (bucket < n - 1 && left >= need && used > 0 && used + w / 2 > target) {
+      bucket++;
+      used = 0;
+    }
+    out[bucket].push(c);
+    used += w;
+  }
+  return out.filter((b) => b.length > 0);
+}
+
+/**
  * 카드를 장으로 나눈다. 카드가 없는 장은 만들지 않는다.
  *
- * 두 가지를 보장한다 — 둘 다 "조용히 사라지는 카드" 를 막기 위한 것이다.
+ * 세 가지를 보장한다 — 앞 둘은 "조용히 사라지는 카드" 를 막기 위한 것이다.
  *   · topic 은 자유 입력이라 위 목록이 전부를 덮을 수 없다. 어디에도 안 잡힌 토픽은
  *     마지막 "그 외" 장으로 쓸어담는다.
  *   · 한 장에 들어가는 카드 수에는 상한이 있다. 넘치면 잘라내지 않고 장을 쪼갠다.
+ *   · 분량(줄 수)에도 상한이 있다. 세트를 같은 크기로 맞추므로, 한 장만 길면
+ *     나머지 전부에 그만큼 빈칸이 생긴다.
  */
 export function groupCardsIntoSheets(cards: KbCard[]): GuideSheet[] {
   const claimed = new Set(GUIDE_SHEETS.flatMap((s) => s.topics));
@@ -95,12 +143,19 @@ export function groupCardsIntoSheets(cards: KbCard[]): GuideSheet[] {
   if (rest.length > 0) grouped.push({ label: "그 외 안내", en: "More", cards: rest });
 
   return grouped.flatMap((s) => {
-    if (s.cards.length <= MAX_CARDS_PER_CARD) return [s];
-    const total = Math.ceil(s.cards.length / MAX_CARDS_PER_CARD);
-    return Array.from({ length: total }, (_, i) => ({
-      label: `${s.label} (${i + 1}/${total})`,
+    const parts = Math.max(
+      Math.ceil(s.cards.length / MAX_CARDS_PER_CARD),
+      Math.ceil(sheetLines(s.cards) / MAX_SHEET_LINES)
+    );
+    // 카드가 한 장뿐이면 더 쪼갤 수 없다 — 길어도 그대로 둔다
+    if (parts <= 1 || s.cards.length === 1) return [s];
+    // 빈 묶음이 빠져 실제 개수가 줄 수 있다 — 번호는 자른 뒤에 매긴다
+    const split = splitEvenly(s.cards, parts);
+    if (split.length <= 1) return [s];
+    return split.map((part, i) => ({
+      label: `${s.label} (${i + 1}/${split.length})`,
       en: s.en,
-      cards: s.cards.slice(i * MAX_CARDS_PER_CARD, (i + 1) * MAX_CARDS_PER_CARD),
+      cards: part,
     }));
   });
 }
@@ -670,25 +725,49 @@ const GAP_MIN = 200; // 이보다 작은 빈칸은 원래 그런 간격이라 �
 export async function renderGuideCardFitted(
   displayName: string,
   sheet: GuideSheet,
-  style: GuideStyle
+  style: GuideStyle,
+  /** 세트를 같은 크기로 맞출 때 쓰는 공통 높이 */
+  heightOverride?: number
 ): Promise<{ png: Buffer; width: number; height: number }> {
-  const first = await renderGuideCard(displayName, sheet, style);
-  let png = Buffer.from(await first.arrayBuffer());
+  const height = heightOverride ?? (await fittedHeight(displayName, sheet, style));
+  const res = await renderGuideCard(displayName, sheet, style, height);
+  return { png: Buffer.from(await res.arrayBuffer()), width: WIDTH, height };
+}
+
+/** 이 장 하나만 놓고 봤을 때 딱 맞는 높이 */
+export async function fittedHeight(
+  displayName: string,
+  sheet: GuideSheet,
+  style: GuideStyle
+): Promise<number> {
   const estimated = heightOf(style.template, {
     ...sheet,
     cards: sheet.cards.slice(0, MAX_CARDS_PER_CARD),
   });
-  let height = estimated;
+  if (style.template === "cover") return estimated;
 
-  if (style.template !== "cover") {
-    const slack = await blankRun(png, WIDTH, estimated);
-    const cut = slack - GAP_KEEP;
-    if (slack >= GAP_MIN && estimated - cut >= MIN_HEIGHT) {
-      height = estimated - cut;
-      png = Buffer.from(await (await renderGuideCard(displayName, sheet, style, height)).arrayBuffer());
-    }
-  }
-  return { png, width: WIDTH, height };
+  const png = Buffer.from(await (await renderGuideCard(displayName, sheet, style)).arrayBuffer());
+  const slack = await blankRun(png, WIDTH, estimated);
+  const cut = slack - GAP_KEEP;
+  if (slack < GAP_MIN || estimated - cut < MIN_HEIGHT) return estimated;
+  return estimated - cut;
+}
+
+/**
+ * 세트 전체를 **같은 크기로** 굽는다.
+ *
+ * 레일에 나란히 걸리는 그림이라 크기가 제각각이면 목록으로 안 읽힌다(실측 1805~2408px).
+ * 가장 긴 장에 맞추므로 짧은 장에는 아래 여백이 생기는데, 그건 크기를 맞추는 값이다 —
+ * 대신 groupCardsIntoSheets 가 분량부터 고르게 나눠 그 여백을 줄여 둔다.
+ */
+export async function renderGuideSet(
+  displayName: string,
+  sheets: GuideSheet[],
+  style: GuideStyle
+): Promise<{ png: Buffer; width: number; height: number }[]> {
+  const heights = await Promise.all(sheets.map((s) => fittedHeight(displayName, s, style)));
+  const uniform = Math.max(...heights);
+  return Promise.all(sheets.map((s) => renderGuideCardFitted(displayName, s, style, uniform)));
 }
 
 /** 글자가 없는 가로줄이 가장 길게 이어지는 구간의 길이 */
