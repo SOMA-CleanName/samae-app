@@ -33,23 +33,10 @@ import {
   type QaTurn,
 } from "./bot-kb";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { anthropicClientOptions } from "./anthropic-client";
 
 // haiku — 문의 접수는 슬롯 채우기 중심의 좁은 태스크라 소형 모델로 충분 (비용·지연 최소화)
 const MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
-
-/**
- * 모델 클라이언트 공통 옵션.
- *
- * identity-linked API 키는 요청마다 워크스페이스를 지정해야 한다 — 헤더가 없으면
- * 400 으로 떨어지고, 봇은 매 턴 에러 문구만 뱉는다(원인이 화면에 안 드러나 찾기 어렵다).
- * 일반 워크스페이스 키를 쓰면 이 값은 비워두면 되고, 그때는 헤더를 붙이지 않는다.
- */
-function anthropicClientOptions() {
-  const workspaceId = process.env.ANTHROPIC_WORKSPACE_ID?.trim();
-  return workspaceId
-    ? { clientOptions: { defaultHeaders: { "anthropic-workspace-id": workspaceId } } }
-    : {};
-}
 
 // 대화 시작 신호 — Anthropic 은 user 턴으로 시작해야 하므로, 봇이 먼저 인사하는
 // 우리 플로우에서는 입장 이벤트를 첫 user 턴으로 넣는다.
