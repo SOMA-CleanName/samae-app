@@ -8,7 +8,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { archiveAndDelete } from "@/lib/soft-delete";
 import { notifyOpsApplicationApproved } from "@/lib/ops-alert";
-import { feeSpecFromRow, feeSpecLabel } from "@/lib/platform-fee";
+import { feeNeedsSetup, feeSpecFromRow, feeSpecLabel } from "@/lib/platform-fee";
 
 // 운영자 권한 확인 (방어적 — RLS 외 이중 체크).
 // **확인한 사람을 돌려준다** — 행동 기록(0136)에 누가 했는지 남겨야 해서다.
@@ -26,6 +26,27 @@ export async function approvePhotographer(formData: FormData) {
   const me = await assertAdmin();
   const id = String(formData.get("id"));
   const admin = createAdminClient();
+
+  /*
+    ⚠️ **요율을 책정하지 않고 승인할 수 없다.**
+
+    운영 흐름은 ① 신청 ② 어드민이 보고 수수료 책정 ③ 승인 ④ 작가가 **그 요율로** 계약서를
+    읽고 동의하며 입점, 순이다(2026-09-21 확정). 요율이 빈 채로 승인하면 ④ 에서 작가가
+    전역 기본값을 자기 요율로 알고 동의한다 — 나중에 값을 넣으면 **작가가 동의한 숫자와
+    실제 숫자가 달라진다.**
+
+    신청서 경로(approveApplication)는 승인 폼에서 요율을 함께 받는데, 이 경로(승인 대기)는
+    받지 않아 그대로 통과했다. 목록 행에 수수료 설정이 이미 있으므로 거기서 먼저 정하면 된다.
+  */
+  const { data: cur } = await admin
+    .from("photographers")
+    .select("fee_mode, fee_rate, fee_amount_krw")
+    .eq("id", id)
+    .maybeSingle();
+  if (feeNeedsSetup(feeSpecFromRow(cur))) {
+    throw new Error("먼저 이 작가의 수수료를 책정해주세요. 목록의 수수료 칸에 값을 넣고 저장한 뒤 승인할 수 있어요.");
+  }
+
   const { error } = await admin
     .from("photographers")
     .update({ status: "approved", approved_at: new Date().toISOString() })
