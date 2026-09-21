@@ -61,6 +61,13 @@ class NearestPurposeTest(unittest.TestCase):
         nearest = self.make({"외롭": [("혼자", 0.95), ("셀프", 0.9), ("개인", 0.9)]})
         self.assertEqual(parse("외로운", KIWI, LEXICON, nearest=nearest)["purposes"], [])
 
+    def test_model_failure_does_not_break_search(self):
+        def broken(*_args):
+            raise RuntimeError("MPS out of memory")
+        result = parse("학사모 노을", KIWI, LEXICON, nearest=broken)
+        self.assertEqual(result["purposes"], [], "실패하면 그 말은 건너뛴다")
+        self.assertEqual(result["mood_text"], "학사모 노을", "글자는 무드로 남는다")
+
     def test_dictionary_still_comes_first(self):
         nearest = self.make({})
         self.assertEqual(parse("만삭 스냅", KIWI, LEXICON, nearest=nearest)["details"], ["event.maternity"])

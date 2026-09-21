@@ -177,7 +177,10 @@ def parse(query, kiwi, lexicon=None, nearest=None):
             token = tokens[index]
             if index in claimed or token.form in FORMAT_WORDS or _figurative(tokens, index):
                 continue
-            hit = nearest(token.form, token.tag, _word_at(query, token.start))
+            try:
+                hit = nearest(token.form, token.tag, _word_at(query, token.start))
+            except Exception:   # noqa: BLE001 — KURE 는 거들 뿐이다. 실패해도 사전 결과로 검색은 산다
+                hit = None
             if hit is None:
                 continue
             purpose, detail, _score, example = hit
