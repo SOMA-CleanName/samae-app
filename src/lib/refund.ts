@@ -53,10 +53,10 @@ export const WITHDRAWAL_DAYS = 7;
 export const REFUND_WINDOW_DAYS = 7;
 
 /** 위약금을 작가와 사매가 나누는 기본 비율 — 수수료율과 연동된다 */
-export const DEFAULT_PENALTY_COMPANY_RATE = 0.2;
+export const DEFAULT_PENALTY_COMPANY_RATE = DEFAULT_FEE_RATE;
 
 import { addBusinessDays } from "./business-days";
-import { vatOnFee } from "./platform-fee";
+import { DEFAULT_FEE_RATE, vatOnFee } from "./platform-fee";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
@@ -101,7 +101,7 @@ export type RefundInput = {
   travelFeeKrw: number;
   /** 이 예약에 부과된(또는 부과될) 사매 수수료 — 작가 귀책 시 청구액 */
   feeKrw: number;
-  /** 위약금 중 사매 몫 비율 — 예약의 수수료율. 없으면 20% */
+  /** 위약금 중 사매 몫 비율 — 예약의 수수료율. 없으면 전역 기본 요율(DEFAULT_FEE_RATE) */
   feeRate?: number | null;
   /** 운영 판정 */
   override?: RefundOverride | null;

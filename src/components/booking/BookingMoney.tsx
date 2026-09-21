@@ -15,7 +15,7 @@ export type BookingMoneyFields = {
   travel_fee_krw: number;
   /** 사매 중개 수수료 (부가세 별도) */
   feeKrw: number;
-  /** "정률 20%" 처럼 사람이 읽는 근거 */
+  /** "정률 18%" 처럼 사람이 읽는 근거 */
   feeLabel: string;
   vatKrw: number;
   /** 작가에게 실제로 보낼 금액 — 서버 계산 */

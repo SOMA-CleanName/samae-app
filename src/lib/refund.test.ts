@@ -313,12 +313,13 @@ test("옛 규정의 basis 값도 라벨이 있다 — refund_reason 에 남아 �
 
 // ── 수수료 (platform-fee.ts) ────────────────────────────────────
 
-test("설정 없는 작가는 정률 20%, 기준은 촬영 대금 전체", () => {
+test("설정 없는 작가는 정률 18%(2026-09-21 신규 기준), 기준은 촬영 대금 전체", () => {
   const f = resolveFee(null, 120000);
   assert.equal(f.mode, "rate");
-  assert.equal(f.feeKrw, 24000);
-  assert.equal(f.vatKrw, 2400);
-  assert.equal(feeWithVat(f), 26400);
+  assert.equal(f.rate, 0.18);
+  assert.equal(f.feeKrw, 21600);
+  assert.equal(f.vatKrw, 2160);
+  assert.equal(feeWithVat(f), 23760);
   assert.equal(f.baseKrw, 120000);
 });
 
@@ -329,8 +330,12 @@ test("정액을 명시한 작가는 정액, 대금보다 크면 대금까지만"
   assert.equal(resolveFee({ mode: "flat", amountKrw: 6000 }, 4000).feeKrw, 4000);
 });
 
-test("정률인데 요율이 비면 기본 20% 로 받는다 — 매출이 조용히 0 이 되지 않게", () => {
-  assert.equal(resolveFee({ mode: "rate", rate: null }, 100000).feeKrw, 20000);
+test("정률인데 요율이 비면 기본 18% 로 받는다 — 매출이 조용히 0 이 되지 않게", () => {
+  assert.equal(resolveFee({ mode: "rate", rate: null }, 100000).feeKrw, 18000);
+});
+
+test("요율을 명시한 작가(20% 등 기존 입점)는 기본값이 바뀌어도 그대로다", () => {
+  assert.equal(resolveFee({ mode: "rate", rate: 0.2 }, 100000).feeKrw, 20000);
 });
 
 test("row → spec — fee_mode 가 비어 있으면 정률(기본)", () => {
@@ -350,7 +355,10 @@ test("옛 스냅샷(baseKrw·vatKrw 없음)도 읽힌다 — 수수료 금액은
 
 test("위약금 배분과 사업자 유형별 실질 부담", () => {
   assert.deepEqual(penaltySplit(48000, 0.2), { companyKrw: 9600, vatKrw: 960, photographerKrw: 37440 });
-  assert.equal(effectiveBurdenPct("general"), 20);
-  assert.equal(effectiveBurdenPct("simplified"), 22);
-  assert.equal(effectiveBurdenPct("unregistered"), 22);
+  // 기본 요율(신규 18%) — 일반과세자는 요율 그대로, 간이·미등록은 부가세를 얹은 19.8%
+  assert.equal(effectiveBurdenPct("general"), 18);
+  assert.equal(effectiveBurdenPct("simplified"), 19.8);
+  assert.equal(effectiveBurdenPct("unregistered"), 19.8);
+  // 요율을 명시한 기존 작가(20%)는 그대로 22%
+  assert.equal(effectiveBurdenPct("simplified", 0.2), 22);
 });

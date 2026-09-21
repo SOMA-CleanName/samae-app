@@ -40,7 +40,7 @@ type Row = {
   regions: string[];
   mood_tags: string[];
   price_from_krw: number;
-  // 중개 수수료 — 기본은 정률 20%(작가약관 12조). 정액은 옛 모델로 명시한 작가만.
+  // 중개 수수료 — 기본은 정률 18%(작가약관 12조, 2026-09-21 신규 작가부터. 기존 실제 작가는 전원 10% 로 행에 박혀 있다). 정액은 옛 모델로 명시한 작가만.
   fee_mode: string | null;
   fee_amount_krw: number | null;
   fee_rate: number | null;
