@@ -14,6 +14,7 @@ export const dynamic = "force-dynamic";
 type DatabaseRow = {
   id: string;
   album_id: string | null;
+  visibility: string;
   thumb_url: string | null;
   src_url: string;
   created_at: string;
@@ -96,7 +97,7 @@ async function fetchPurposeRows(): Promise<{
     const query = (multiple: boolean, withGender: boolean, withDetails: boolean) => admin
       .from("photos")
       .select(
-        "id,album_id,thumb_url,src_url,title,caption,price_krw,created_at,admin_purpose,admin_purpose_confidence," +
+        "id,album_id,visibility,thumb_url,src_url,title,caption,price_krw,created_at,admin_purpose,admin_purpose_confidence," +
           (multiple ? "admin_purposes," : "") +
           (withGender ? "admin_purpose_gender,admin_purpose_gender_source," : "") +
           (withDetails ? "admin_purpose_details,admin_purpose_details_source," : "") +
@@ -108,7 +109,7 @@ async function fetchPurposeRows(): Promise<{
           "admin_purpose_source,admin_purpose_reviewed,package_id,admin_package:album_admin_packages(package_id),admin_purpose_evidence)," +
           "photographer:photographers!photos_photographer_id_fkey(id,display_name)",
       )
-      .eq("visibility", "published")
+      // 비공개(draft)도 분류 대상이다 — 공개되면 그대로 검색에 쓰인다(2026-09-20)
       .order("created_at", { ascending: false })
       .range(from, from + pageSize - 1);
 
@@ -181,6 +182,7 @@ async function fetchPurposeRows(): Promise<{
         photoSource: source(row.admin_purpose_source),
         photoReviewed: row.admin_purpose_reviewed,
         photoOverridden: row.admin_purpose_overridden,
+        photoPublished: row.visibility === "published",
         photoTitle: row.title,
         photoCaption: row.caption,
         photoPriceKrw: row.price_krw,

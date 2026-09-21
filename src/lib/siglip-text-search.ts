@@ -7,8 +7,11 @@ import {
   pickByGender,
   requestSearchQuery,
   requestTextEmbedding,
+  interleaveGroups,
+  matchesSearchTags,
   SEARCH_Z_CUT_ENABLED,
   SIGLIP_SEARCH_MAX_RESULTS,
+  spreadPortfolios,
   SEARCH_RELATED_Z,
   splitByPurposes,
   splitByZ,
@@ -52,7 +55,14 @@ export async function embedSearchText(query: string, signal?: AbortSignal): Prom
 const PHOTO_COLUMNS =
   "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, album_id, admin_purposes, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name, status)";
 
-type SearchPhoto = GalleryPhoto & { admin_purposes?: string[] | null };
+type SearchPhoto = GalleryPhoto & {
+  admin_purposes?: string[] | null;
+  admin_purpose_details?: string[] | null;
+  admin_purpose_gender?: string | null;
+};
+
+// 태그로 거를 때만 세부분류(0133)·성별(0132)까지 받는다 — 그 칸이 없는 DB 에서도 기본 조회는 돌아야 한다.
+const TAGGED_COLUMNS = `${PHOTO_COLUMNS}, admin_purpose_details, admin_purpose_gender`;
 
 /** 정상 0건은 [], 장애는 예외로 전달해 고객에게 재시도 화면을 보여준다. */
 export async function searchPhotosBySiglip(
@@ -193,22 +203,18 @@ async function genderVector(gender: PhotoGender, signal: AbortSignal): Promise<n
 }
 
 /**
- * 어드민이 정한 성별(0132)·세부분류(0133)로 그 목적 사진 **전부**를 최신순으로.
- * 목적만 검색할 때("웨딩")와 같은 순서다. 그 칸이 없는 DB 면 null.
+ * 검색어의 목적을 **전부** 가진 사진을 최신순으로(목적이 없으면 전체). 세부분류·성별 칸까지 싣는다.
+ * 그 칸이 없는 DB(0132·0133 전)면 null.
  */
-async function fetchPhotosByStoredTags(
+async function fetchPhotosWithPurposes(
   purposes: PhotoPurposeKey[],
-  tags: { gender?: PhotoGender | null; details?: string[] },
   signal: AbortSignal,
 ): Promise<SearchPhoto[] | null> {
   const photos: SearchPhoto[] = [];
   for (let from = 0; ; from += RPC_PAGE) {
-    let query = createAdminClient()
-      .from("photos")
-      .select(PHOTO_COLUMNS)
-      .overlaps("admin_purposes", purposes);
-    if (tags.gender) query = query.eq("admin_purpose_gender", tags.gender);
-    if (tags.details?.length) query = query.overlaps("admin_purpose_details", tags.details);
+    let query = createAdminClient().from("photos").select(TAGGED_COLUMNS);
+    // "커플 강아지" 는 커플이면서 강아지다 — 겹침(overlaps)이 아니라 포함(contains)
+    if (purposes.length) query = query.contains("admin_purposes", purposes);
     const { data, error } = await query
       .eq("visibility", "published")
       .eq("feed_hidden", false)
@@ -218,7 +224,7 @@ async function fetchPhotosByStoredTags(
       .abortSignal(signal);
     if (error?.code === "42703") return null;   // 0132·0133 전 — 칸이 없다
     if (error) {
-      console.error("[siglip-search] 성별·세부분류 사진 조회 실패:", error.message);
+      console.error("[siglip-search] 목적 사진 조회 실패:", error.message);
       throw error;
     }
     const page = (data ?? []) as unknown as SearchPhoto[];
@@ -228,11 +234,47 @@ async function fetchPhotosByStoredTags(
 }
 
 /**
+ * 검색어의 목적·세부분류·성별에 맞는 사진(matchesSearchTags). 세부분류로 좁혔는데 0장이면 세부분류 없이 —
+ * 검수 전이라 세부분류가 안 붙은 사진이 빠지면 안 된다("돌" → 돌 사진이 아직 없으면 행사 전체).
+ * 칸이 없는 DB 면 null.
+ */
+async function photosForTags(parsed: SearchQueryParse, signal: AbortSignal): Promise<SearchPhoto[] | null> {
+  const picked = await photosWithAll(parsed, parsed.purposes, signal);
+  if (!picked || picked.length || parsed.purposes.length < 2) return picked;
+
+  // 목적을 전부 가진 사진이 없다("커플 강아지") — 목적마다 따로 골라 섞는다.
+  // 무드가 없으면 1~4장씩 번갈아(목적마다 포트폴리오를 고르게 뿌린다), 무드가 있으면 합쳐서 무드 순으로 선다(storedResult).
+  const groups: SearchPhoto[][] = [];
+  for (const purpose of parsed.purposes) {
+    const own = await photosWithAll(parsed, [purpose], signal);
+    if (own === null) return null;
+    groups.push(parsed.vector ? own : spreadPortfolios(own));
+  }
+  return interleaveGroups(groups);
+}
+
+/** purposes 를 전부 가진 사진 중 성별·세부분류(그 목적 것만)가 맞는 것. 세부분류로 0장이면 세부분류 없이. */
+async function photosWithAll(
+  parsed: SearchQueryParse,
+  purposes: PhotoPurposeKey[],
+  signal: AbortSignal,
+): Promise<SearchPhoto[] | null> {
+  const base = await fetchPhotosWithPurposes(purposes, signal);
+  if (!base) return null;
+  const details = parsed.details.filter((detail) => purposes.includes(detail.split(".")[0] as PhotoPurposeKey));
+  const gender = purposes.includes("personal") ? parsed.gender : null;
+  const tags = { purposes, gender, details };
+  const picked = base.filter((photo) => matchesSearchTags(photo, tags));
+  if (picked.length || !details.length) return picked;
+  return base.filter((photo) => matchesSearchTags(photo, { ...tags, details: [] }));
+}
+
+/**
  * "여자" "남자 노을" — 개인 사진을 성별로 가른다. 남은 말("노을")이 있으면 다른 검색과 같은
  * 방식(가까운 300장)으로 그 성별 사진만, 없으면 그 성별 사진 **전부**.
  *
- * 어드민이 정한 성별(0132)을 먼저 쓴다. 그 칸이 없는 DB 면 검색할 때 여자·남자 거리를 비교해
- * 가른다(0131). 둘 다 없거나 성별 벡터를 못 받으면 null — 호출하는 쪽이 예전 방식으로 간다.
+ * 성별 칸(0132)이 없는 DB 에서만 쓴다 — 검색할 때 여자·남자 거리를 비교해 가른다(0131).
+ * 0131 도 없거나 성별 벡터를 못 받으면 null — 호출하는 쪽이 예전 방식으로 간다.
  */
 async function searchByGender(
   parsed: SearchQueryParse,
@@ -240,9 +282,6 @@ async function searchByGender(
   limit: number,
   signal: AbortSignal,
 ): Promise<PhotoSearchResult | null> {
-  const stored = await fetchPhotosByStoredTags(parsed.purposes, { gender }, signal);
-  if (stored) return storedResult(parsed, stored, limit, signal);
-
   const [female, male] = await Promise.all([genderVector("female", signal), genderVector("male", signal)]);
   if (!female || !male) return null;
   const [toFemale, toMale] = await Promise.all([
@@ -261,59 +300,53 @@ async function searchByGender(
   return { purposes: parsed.purposes, moodText: parsed.moodText, matches, related: [], capped: false };
 }
 
-/** 저장된 태그로 고른 사진 — 남은 말이 있으면 가까운 300장 안에서, 없으면 전부 최신순. */
+/** 태그로 고른 사진 — 남은 말(무드)이 있으면 그 안에서 가까운 순 300장, 없으면 전부(포트폴리오 고르게). */
 async function storedResult(
   parsed: SearchQueryParse,
   stored: SearchPhoto[],
   limit: number,
   signal: AbortSignal,
 ): Promise<PhotoSearchResult> {
-  let matches: SearchPhoto[] = stored;
-  if (parsed.vector) {
-    const byId = new Map(stored.map((photo) => [photo.id, photo]));
-    matches = (await nearestRows(parsed.vector, limit, signal))
-      .map((row) => byId.get(row.id))
-      .filter((photo): photo is SearchPhoto => photo !== undefined);
+  if (!parsed.vector) {
+    // 무드가 없으면 순서를 정할 말이 없다 — 포트폴리오가 뭉치지 않게 전체에 고르게 뿌린다.
+    // (목적을 섞은 경우는 photosForTags 가 이미 목적마다 뿌리고 번갈아 놓았다 — 다시 섞지 않는다)
+    const mixed = parsed.purposes.length > 1 && !stored.every((photo) =>
+      parsed.purposes.every((purpose) => (photo.admin_purposes ?? []).includes(purpose)));
+    const matches = mixed ? stored : spreadPortfolios(stored);
+    return { purposes: parsed.purposes, moodText: parsed.moodText, matches, related: [], capped: false, arranged: mixed };
   }
+  // 남은 말("여자 노을" 의 노을)은 그 사진들 안에서 가까운 순으로, 위에서 300장
+  const byId = new Map(stored.map((photo) => [photo.id, photo]));
+  const ranked = await rankInPurposes(parsed.vector, parsed.purposes, limit, signal, new Set(byId.keys()));
+  if (ranked) {
+    return { purposes: parsed.purposes, moodText: parsed.moodText, ...ranked, related: [] };
+  }
+  // 0131 이 없는 DB — 전체에서 가까운 300장 안에서
+  const matches = (await nearestRows(parsed.vector, limit, signal))
+    .map((row) => byId.get(row.id))
+    .filter((photo): photo is SearchPhoto => photo !== undefined);
   return { purposes: parsed.purposes, moodText: parsed.moodText, matches, related: [], capped: false };
 }
 
 /**
- * "임신" "돌 스냅" — 세부분류(0133)로 좁힌다. 성별도 있으면 함께("남자 바프").
- * 세부분류가 붙은 사진이 아직 없으면(검수 전) null — 목적 전체로 넓혀 찾는다. 사진이 빠지면 안 된다.
+ * 목적 사진 **전부**를 벡터와 가까운 순으로 줄 세워 위에서 limit 장("가을 커플스냅" → 커플 228장을 가을 순으로).
+ * 예전엔 전체에서 가까운 300장을 먼저 뽑고 목적으로 걸러, 개인 사진이 상위를 채우면 커플이 45장만 남았다
+ * (2026-09-19). allowed 가 있으면 그 사진만(성별·세부분류로 고른 것). 0131 이 없는 DB 면 null.
  */
-async function searchByDetails(
-  parsed: SearchQueryParse,
-  limit: number,
-  signal: AbortSignal,
-): Promise<PhotoSearchResult | null> {
-  const stored = await fetchPhotosByStoredTags(parsed.purposes, { gender: parsed.gender, details: parsed.details }, signal);
-  if (!stored?.length) return null;
-  const result = await storedResult(parsed, stored, limit, signal);
-  return result.matches.length ? result : null;
-}
-
-/** 목적만 검색했을 때 — 그 목적 사진을 최신순으로. SigLIP 은 부르지 않는다. */
-async function fetchPhotosByPurposes(
+async function rankInPurposes(
+  vector: number[],
   purposes: PhotoPurposeKey[],
   limit: number,
   signal: AbortSignal,
-): Promise<SearchPhoto[]> {
-  const { data, error } = await createAdminClient()
-    .from("photos")
-    .select(PHOTO_COLUMNS)
-    .overlaps("admin_purposes", purposes)
-    .eq("visibility", "published")
-    .eq("feed_hidden", false)
-    .eq("photographer.status", "approved")
-    .order("created_at", { ascending: false })
-    .limit(normalizeSiglipSearchLimit(limit))
-    .abortSignal(signal);
-  if (error) {
-    console.error("[siglip-search] 목적 사진 조회 실패:", error.message);
-    throw error;
-  }
-  return (data ?? []) as unknown as SearchPhoto[];
+  allowed?: Set<string>,
+): Promise<{ matches: SearchPhoto[]; capped: boolean } | null> {
+  const rows = await distancesInPurposes(vector, purposes, signal);   // 가까운 순
+  if (!rows) return null;
+  const candidates = allowed ? rows.filter((row) => allowed.has(row.id)) : rows;
+  return {
+    matches: await loadPhotosInOrder(candidates.slice(0, limit), signal),
+    capped: candidates.length > limit,
+  };
 }
 
 export type PhotoSearchResult = {
@@ -325,6 +358,8 @@ export type PhotoSearchResult = {
   related: GalleryPhoto[];
   /** 결과가 300장 상한에서 잘렸나 — 목적만 검색했거나 0131 이 없는 DB 일 때만 생긴다 */
   capped: boolean;
+  /** 순서를 이미 짰다 — 화면이 앨범 흩뜨리기로 다시 섞지 않는다(목적을 번갈아 섞은 경우) */
+  arranged?: boolean;
 };
 
 /**
@@ -355,24 +390,21 @@ export async function searchPhotos(
   }
   if (!parsed) throw new Error("검색어 분리·임베딩을 받지 못했습니다");
 
-  if (parsed.details.length) {
-    const byDetails = await searchByDetails(parsed, limit, signal);
-    if (byDetails) return byDetails;
+  // 목적이 있거나 무드도 없으면("스냅") — 목적·세부분류·성별에 맞는 사진을 고르고, 무드로 줄 세운다.
+  // 목적만이면 전부(300장에서 자르지 않는다), 무드가 붙으면 그 안에서 가까운 순 300장.
+  if (parsed.purposes.length || !parsed.vector) {
+    const picked = await photosForTags(parsed, signal);
+    if (picked) return storedResult(parsed, picked, limit, signal);
   }
 
+  // ── 여기부터는 성별·세부분류 칸(0132·0133)이 없는 DB 의 옛 길 ──
   if (parsed.gender) {
     const byGender = await searchByGender(parsed, parsed.gender, limit, signal);
     if (byGender) return byGender;
-    // 0131 이 없는 DB — 예전처럼 성별 낱말을 SigLIP 글자로 쓴다(가까운 300장 중 개인 사진)
     const fallback = parsed.vector ?? (await genderVector(parsed.gender, signal));
     if (fallback) return searchByVector({ ...parsed, vector: fallback }, limit, signal);
   }
-
-  if (!parsed.vector) {
-    // 목적만 검색 — SigLIP 을 안 쓰니 z 가 없다. 그 목적 사진을 최신순으로.
-    const matches = await fetchPhotosByPurposes(parsed.purposes, limit, signal);
-    return { purposes: parsed.purposes, moodText: "", matches, related: [], capped: matches.length >= limit };
-  }
+  if (!parsed.vector) return { purposes: parsed.purposes, moodText: "", matches: [], related: [], capped: false };
 
   return searchByVector({ ...parsed, vector: parsed.vector }, limit, signal);
 }
@@ -389,7 +421,13 @@ async function searchByVector(
     return { purposes: parsed.purposes, moodText: parsed.moodText, matches, related, capped: false };
   }
 
-  // z 컷을 안 쓸 때 — 예전처럼 가까운 300장. 목적이 있으면 그 목적만 위에 두고 아래는 비운다
+  // 목적이 있으면 그 목적 사진 안에서 가까운 순으로 300장
+  if (parsed.purposes.length) {
+    const ranked = await rankInPurposes(parsed.vector, parsed.purposes, limit, signal);
+    if (ranked) return { purposes: parsed.purposes, moodText: parsed.moodText, ...ranked, related: [] };
+  }
+
+  // 목적이 없거나 0131 이 없는 DB — 전체에서 가까운 300장. 목적이 있으면 그 목적만 남긴다
   // (목적이 다른 사진은 보여주지 않기로 했다).
   const nearest = await rankPhotosByVector(parsed.vector, limit, signal);
   const { matches } = splitByPurposes(nearest, parsed.purposes);
