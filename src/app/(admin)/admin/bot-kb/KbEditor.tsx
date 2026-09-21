@@ -11,7 +11,10 @@
 import { useActionState, useMemo, useState, useTransition } from "react";
 import { useFormStatus } from "react-dom";
 import { KB_CORE_TOPICS, KB_TOPICS, MAX_CARDS, MAX_CARD_BODY } from "@/lib/bot-kb";
-import { saveBotKb, seedFromDemo, type SaveKbState } from "./actions";
+import { saveBotKb, seedFromDemo, publishGuideImages, type SaveKbState } from "./actions";
+import { KbExtractPanel } from "./KbExtractPanel";
+import { GuideStylePanel } from "./GuideStylePanel";
+import type { GuideStyle } from "@/lib/guide-style";
 
 // "use server" 모듈은 async 함수만 export 할 수 있다 — 초기 상태 상수를 거기 두면
 // 클라이언트에는 undefined 로 도착해 첫 렌더에서 state.errors 가 터진다. 여기서 만든다.
@@ -53,6 +56,7 @@ type Props = {
   note: string;
   updatedAt: string | null;
   hasDemo: boolean;
+  guideStyle: GuideStyle;
 };
 
 let keySeq = 0;
@@ -121,6 +125,8 @@ export function KbEditor(props: Props) {
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [seeding, startSeed] = useTransition();
+  const [publishing, startPublish] = useTransition();
+  const [publishMsg, setPublishMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   const cardErrors = useMemo(() => validate(cards), [cards]);
   const payload = useMemo(() => JSON.stringify(toPayload(cards)), [cards]);
@@ -197,6 +203,25 @@ export function KbEditor(props: Props) {
     }
   };
 
+  const publish = () => {
+    if (
+      !window.confirm(
+        "지금 만든 안내 이미지를 작가 프로필에 올릴까요?\n고객에게 바로 보입니다. 먼저 [안내 이미지 미리보기] 로 확인해보세요."
+      )
+    ) {
+      return;
+    }
+    startPublish(async () => {
+      setPublishMsg(null);
+      const r = await publishGuideImages(props.photographerId);
+      setPublishMsg(
+        r.ok
+          ? { ok: true, text: `안내 이미지 ${r.count}장을 올렸어요.` }
+          : { ok: false, text: r.error ?? "실패했어요." }
+      );
+    });
+  };
+
   const seed = () =>
     startSeed(async () => {
       const r = await seedFromDemo(props.photographerId);
@@ -242,6 +267,23 @@ export function KbEditor(props: Props) {
       <p className="mt-1 text-body-sm text-muted">
         봇은 <b className="text-fg">여기 적힌 카드만</b> 근거로 답해요. 없는 건 지어내지 않고 작가님께 넘깁니다.
       </p>
+
+      {/* 자료 → 초안. 카드를 갈아끼우므로, 이미 쓴 게 있으면 덮어쓰기 전에 묻는다 */}
+      <div className="mt-3">
+        <KbExtractPanel
+          photographerId={props.photographerId}
+          displayName={props.displayName}
+          onCards={(json) => {
+            if (
+              cards.length > 0 &&
+              !window.confirm(`지금 카드 ${cards.length}장을 초안으로 바꿀까요? 저장 전이라 되돌리려면 새로고침하면 돼요.`)
+            ) {
+              return;
+            }
+            setCards(parseInitial(json));
+          }}
+        />
+      </div>
 
       {/* 커버리지 — 비어 있는 주제가 곧 봇이 막히는 지점이라 맨 위에 둔다 (눌러서 바로 추가) */}
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
@@ -483,8 +525,33 @@ export function KbEditor(props: Props) {
         끄면 봇은 이 작가에 대해 아는 것이 없는 상태로 동작해요 (파일 데모도 쓰지 않음).
       </p>
 
-      <SaveButton blocked={blocked} />
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <SaveButton blocked={blocked} />
+        {/* 안내 이미지는 **저장된 카드**로 만든다 — 편집 중인 화면이 아니라 DB 기준이라,
+            방금 고친 걸 반영하려면 저장이 먼저다. 그래서 저장 버튼 바로 옆에 둔다. */}
+        <GuideStylePanel photographerId={props.photographerId} initial={props.guideStyle} />
+        <button
+          type="button"
+          onClick={publish}
+          disabled={publishing}
+          className="cursor-pointer rounded-lg border border-line px-4 py-2 text-body-sm font-semibold text-muted transition-colors hover:bg-fg/[0.05] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {publishing ? "올리는 중…" : "고객에게 공개"}
+        </button>
+        {publishMsg && (
+          <span
+            className={"text-caption " + (publishMsg.ok ? "text-success-ink" : "text-danger-ink")}
+          >
+            {publishMsg.text}
+          </span>
+        )}
+      </div>
       {blocked && <p className="mt-1.5 text-caption text-danger-ink">빨간 카드를 먼저 고쳐야 저장할 수 있어요.</p>}
+      <p className="mt-1.5 text-caption text-faint">
+        안내 이미지는 <b className="text-muted">저장된 카드</b>로 만듭니다. [양식 고르기·미리보기] 에서
+        확인한 뒤 [고객에게 공개] 를 눌러야 작가 프로필에 올라가요. 다시 올려도 쌓이지 않고 교체되며,
+        작가가 직접 올린 이미지는 그대로 둡니다.
+      </p>
     </form>
   );
 }
