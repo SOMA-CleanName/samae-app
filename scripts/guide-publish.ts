@@ -11,7 +11,7 @@ import { readFile } from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { createClient } from "@supabase/supabase-js";
-import { groupCardsIntoSheets, renderGuideCardFitted } from "../src/lib/guide-card-template.tsx";
+import { groupCardsIntoSheets, renderGuideSet } from "../src/lib/guide-card-template.tsx";
 import { resolveGuideStyle } from "../src/lib/guide-style.ts";
 import type { KbCard } from "../src/lib/bot-kb.ts";
 
@@ -90,9 +90,11 @@ async function main() {
   }
 
   const style = resolveGuideStyle(p.guide_style);
+  // 세트를 같은 크기로 — 레일에 나란히 걸리는 그림이라 크기가 제각각이면 목록으로 안 읽힌다
+  const baked = await renderGuideSet(p.display_name ?? "", sheets, style);
   const rows: Record<string, unknown>[] = [];
   for (const [i, sheet] of sheets.entries()) {
-    const { png, width, height } = await renderGuideCardFitted(p.display_name ?? "", sheet, style);
+    const { png, width, height } = baked[i];
     const thumb = await sharp(png)
       .resize({ width: 500, withoutEnlargement: true })
       .jpeg({ quality: 75 })

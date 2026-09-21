@@ -27,16 +27,46 @@ test("목록에 없는 주제는 '그 외 안내' 로 모인다", () => {
   assert.equal(rest.cards[0].topic, "신규주제");
 });
 
-test("상한을 넘으면 잘라내지 않고 장을 쪼갠다", () => {
+test("상한을 넘으면 잘라내지 않고 장을 쪼갠다 — 분량이 고르게", () => {
   const n = MAX_CARDS_PER_CARD + 1;
   const sheets = groupCardsIntoSheets(Array.from({ length: n }, (_, i) => card("가격", i)));
   assert.equal(sheets.length, 2, "쪼개지지 않았다");
-  assert.deepEqual(
-    sheets.map((s) => s.cards.length),
-    [MAX_CARDS_PER_CARD, 1]
-  );
+  // 앞을 꽉 채우고 뒤에 한 장만 남기면(옛 규칙) 세트를 같은 크기로 맞출 때
+  // 뒷장이 통째로 빈칸이 된다. 반반으로 나눈다.
+  const counts = sheets.map((s) => s.cards.length);
+  assert.ok(Math.abs(counts[0] - counts[1]) <= 1, `분량이 안 고르다: ${counts.join("/")}`);
   assert.ok(sheets[0].label.includes("(1/2)"), `라벨에 순번이 없다: ${sheets[0].label}`);
   assert.equal(sheets.reduce((t, s) => t + s.cards.length, 0), n);
+});
+
+test("카드 수가 적어도 분량이 많으면 쪼갠다 — 긴 카드 넷이 짧은 카드 여덟보다 길다", () => {
+  const long = (i: number) => ({ ...card("가격", i), body: "가".repeat(400) });
+  const sheets = groupCardsIntoSheets(Array.from({ length: 4 }, (_, i) => long(i)));
+  assert.ok(sheets.length > 1, "분량이 넘치는데 한 장에 뒀다");
+  assert.equal(sheets.reduce((t, s) => t + s.cards.length, 0), 4);
+});
+
+test("빈 장은 절대 나오지 않는다 — 카드 0장짜리 안내 이미지가 발행돼 버린다", () => {
+  // 한 장이 유난히 길면 상한 계산상 두 묶음이 필요한데, 카드가 그만큼 없을 수 있다
+  for (const n of [1, 2, 3, 5, 9, 17]) {
+    const cards = Array.from({ length: n }, (_, i) => ({
+      ...card("가격", i),
+      body: "가".repeat(i === 0 ? 590 : 30),
+    }));
+    for (const s of groupCardsIntoSheets(cards)) {
+      assert.ok(s.cards.length > 0, `카드 ${n}장에서 빈 장이 나왔다: ${s.label}`);
+    }
+  }
+});
+
+test("쪼갠 뒤 번호는 실제 장수와 맞는다", () => {
+  const cards = Array.from({ length: MAX_CARDS_PER_CARD + 3 }, (_, i) => card("가격", i));
+  const sheets = groupCardsIntoSheets(cards).filter((s) => s.label.includes("("));
+  for (const s of sheets) {
+    const m = s.label.match(/\((\d+)\/(\d+)\)/);
+    assert.ok(m, `번호가 없다: ${s.label}`);
+    assert.equal(Number(m![2]), sheets.length, `분모가 실제 장수와 다르다: ${s.label}`);
+  }
 });
 
 test("카드가 없는 장은 만들지 않는다", () => {
