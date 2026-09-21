@@ -140,3 +140,74 @@ test("세부분류는 함께 온 목적의 것만 받는다", () => {
   const old = parseSearchQueryResponse(answer({ purposes: ["event"], mood_text: "", vector: null }));
   assert.deepEqual(old?.details, [], "갱신 전 맥미니는 세부분류를 안 준다");
 });
+
+test("목적은 전부 있어야 한다 — 커플 강아지는 커플이면서 강아지", async () => {
+  const { matchesSearchTags } = await import("./siglip-text-search-core.ts");
+  const both = { admin_purposes: ["couple", "pet"], admin_purpose_details: ["couple.snap", "pet.dog"] };
+  const coupleOnly = { admin_purposes: ["couple"], admin_purpose_details: ["couple.snap"] };
+  assert.equal(matchesSearchTags(both, { purposes: ["couple", "pet"] }), true);
+  assert.equal(matchesSearchTags(coupleOnly, { purposes: ["couple", "pet"] }), false);
+});
+
+test("세부분류는 같은 목적 안에서 하나라도 — 돌잔치 가족사진은 둘 다", async () => {
+  const { matchesSearchTags } = await import("./siglip-text-search-core.ts");
+  const tags = { purposes: ["event"], details: ["event.first_birthday", "event.family"] };
+  assert.equal(matchesSearchTags({ admin_purposes: ["event"], admin_purpose_details: ["event.family"] }, tags), true);
+  assert.equal(matchesSearchTags({ admin_purposes: ["event"], admin_purpose_details: ["event.first_birthday"] }, tags), true);
+  assert.equal(matchesSearchTags({ admin_purposes: ["event"], admin_purpose_details: ["event.graduation"] }, tags), false);
+});
+
+test("목적이 다른 세부분류는 목적마다 따로 — 가족 강아지는 가족사진이면서 강아지", async () => {
+  const { matchesSearchTags } = await import("./siglip-text-search-core.ts");
+  const tags = { purposes: ["pet", "event"], details: ["event.family", "pet.dog"] };
+  assert.equal(matchesSearchTags({ admin_purposes: ["pet", "event"], admin_purpose_details: ["event.family", "pet.dog"] }, tags), true);
+  assert.equal(matchesSearchTags({ admin_purposes: ["pet", "event"], admin_purpose_details: ["event.family", "pet.cat"] }, tags), false);
+});
+
+test("성별은 있으면 맞아야 한다", async () => {
+  const { matchesSearchTags } = await import("./siglip-text-search-core.ts");
+  const woman = { admin_purposes: ["personal"], admin_purpose_gender: "female" };
+  assert.equal(matchesSearchTags(woman, { purposes: ["personal"], gender: "female" }), true);
+  assert.equal(matchesSearchTags(woman, { purposes: ["personal"], gender: "male" }), false);
+});
+
+test("포트폴리오가 뭉치지 않게 전체에 고르게 — 큰 포트폴리오가 뒤에 몰리지 않는다", async () => {
+  const { spreadPortfolios } = await import("./siglip-text-search-core.ts");
+  const make = (album: string, n: number) => Array.from({ length: n }, (_, i) => ({ id: `${album}${i}`, album_id: album }));
+  const photos = [...make("big", 40), ...make("mid", 10), ...make("s1", 3), ...make("s2", 3), ...make("s3", 2)];
+  const out = spreadPortfolios(photos);
+  assert.equal(out.length, photos.length);
+  const tail = out.slice(-12).map((p) => p.album_id);
+  assert.ok(new Set(tail).size > 1, `뒤 12장이 한 포트폴리오만: ${tail}`);
+  const bigAt = out.map((p, i) => (p.album_id === "big" ? i : -1)).filter((i) => i >= 0);
+  assert.ok(bigAt[0] < 5 && bigAt.at(-1)! > out.length - 5, "큰 포트폴리오가 처음부터 끝까지 퍼진다");
+  const inAlbum = out.filter((p) => p.album_id === "mid").map((p) => p.id);
+  assert.deepEqual(inAlbum, make("mid", 10).map((p) => p.id), "포트폴리오 안의 순서는 그대로");
+  assert.deepEqual(spreadPortfolios(photos), out, "같은 결과면 같은 순서");
+});
+
+test("목적마다 1~4장씩 무리 지어 번갈아 — 겹치는 사진은 한 번만, 빠지는 사진 없음", async () => {
+  const { interleaveGroups } = await import("./siglip-text-search-core.ts");
+  const couple = Array.from({ length: 40 }, (_, i) => ({ id: `c${i}` }));
+  const pet = [...Array.from({ length: 10 }, (_, i) => ({ id: `p${i}` })), { id: "c3" }];
+  const out = interleaveGroups([couple, pet]).map((x) => x.id);
+  assert.equal(out.length, 50, "겹친 c3 는 한 번만");
+  assert.equal(new Set(out).size, 50);
+  // 같은 무리가 연달아 나오는 길이 — 1~4장(한쪽이 바닥나면 나머지는 몰아서)
+  const runs: number[] = [];
+  let run = 1;
+  const side = (id: string) => (id.startsWith("p") ? "p" : "c");
+  for (let i = 1; i < 20; i += 1) {
+    if (side(out[i]) === side(out[i - 1])) run += 1;
+    else { runs.push(run); run = 1; }
+  }
+  assert.ok(runs.every((r) => r >= 1 && r <= 4), `앞쪽 묶음 ${runs}`);
+  assert.ok(new Set(runs).size > 1, "묶음 크기가 흔들린다");
+});
+
+test("같은 결과면 늘 같은 순서 — 새로고침에 자리가 안 바뀐다", async () => {
+  const { interleaveGroups } = await import("./siglip-text-search-core.ts");
+  const a = Array.from({ length: 12 }, (_, i) => ({ id: `a${i}` }));
+  const b = Array.from({ length: 12 }, (_, i) => ({ id: `b${i}` }));
+  assert.deepEqual(interleaveGroups([a, b]), interleaveGroups([a, b]));
+});

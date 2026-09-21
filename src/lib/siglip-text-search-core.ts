@@ -459,3 +459,97 @@ export function pickByGender<T extends DistanceRow>(
   if (gender === "female") return picked;
   return picked.sort((a, b) => (maleDistance.get(a.id) ?? 0) - (maleDistance.get(b.id) ?? 0));
 }
+
+// ── 검색어의 목적·세부분류·성별에 맞는 사진인가 (2026-09-21) ─────────────
+// 목적은 **전부** 있어야 한다 — "커플 강아지" 는 커플이면서 강아지다(예전엔 둘 중 하나였다).
+// 세부분류는 같은 목적 안에서 **하나라도** 있으면 된다 — "돌잔치 가족사진" 은 돌잔치 사진과 가족사진 둘 다.
+// 목적이 다르면 목적마다 따로 본다 — "가족 강아지" 는 가족사진이면서 강아지 사진.
+
+export type TaggedPhoto = {
+  admin_purposes?: string[] | null;
+  admin_purpose_details?: string[] | null;
+  admin_purpose_gender?: string | null;
+};
+
+export function matchesSearchTags(
+  photo: TaggedPhoto,
+  tags: { purposes: readonly string[]; details?: readonly string[]; gender?: PhotoGender | null },
+): boolean {
+  const purposes = photo.admin_purposes ?? [];
+  if (!tags.purposes.every((purpose) => purposes.includes(purpose))) return false;
+  if (tags.gender && photo.admin_purpose_gender !== tags.gender) return false;
+  const photoDetails = photo.admin_purpose_details ?? [];
+  const byPurpose = new Map<string, string[]>();
+  for (const detail of tags.details ?? []) {
+    const purpose = detail.split(".")[0];
+    byPurpose.set(purpose, [...(byPurpose.get(purpose) ?? []), detail]);
+  }
+  for (const wanted of byPurpose.values()) {
+    if (!wanted.some((detail) => photoDetails.includes(detail))) return false;
+  }
+  return true;
+}
+
+/**
+ * 포트폴리오가 뭉치지 않게 **전체에 고르게** 뿌린다(2026-09-21). 포트폴리오마다 사진을 목록 길이에 비례한 간격으로
+ * 놓는다 — 45장짜리는 약 1/45 마다, 3장짜리는 약 1/3 마다. 한 바퀴씩 돌리면 작은 포트폴리오가 먼저 바닥나 뒤에
+ * 큰 포트폴리오만 남아 줄줄이 이어졌다("개인" 뒤 127장이 한 작가). 작가가 아니라 포트폴리오가 기준이다 —
+ * 다양한 사진이 고르게 나오는 게 목적이다. 포트폴리오 안의 순서는 그대로, 시작 위치만 고정된 무작위로 흔든다.
+ */
+export function spreadPortfolios<T extends { id: string; album_id?: string | null }>(photos: T[]): T[] {
+  const groups = new Map<string, T[]>();
+  for (const photo of photos) {
+    const key = photo.album_id ?? `photo:${photo.id}`;
+    groups.set(key, [...(groups.get(key) ?? []), photo]);
+  }
+  const next = seededRandom(photos.map((photo) => photo.id).slice(0, 8).join("|"));
+  const placed: Array<{ photo: T; at: number; tie: number }> = [];
+  for (const group of groups.values()) {
+    const offset = next();
+    group.forEach((photo, k) => placed.push({ photo, at: (k + offset) / group.length, tie: next() }));
+  }
+  return placed.sort((a, b) => a.at - b.at || a.tie - b.tie).map((item) => item.photo);
+}
+
+/**
+ * 여러 무리를 돌아가며 **1~4장씩** 섞는다 — 같은 사진이 두 무리에 있으면 한 번만.
+ * "커플 강아지" 처럼 목적을 전부 가진 사진이 없을 때, 커플 사진과 강아지 사진을 번갈아 보여준다(2026-09-21).
+ * 한 장씩 딱딱 번갈아 나오면 기계적으로 보여 묶음 크기를 흔든다. 흔드는 값은 사진 id 로 정해지는 고정된
+ * 무작위라 같은 검색은 늘 같은 순서다(새로고침·뒤로 가기에 자리가 안 바뀐다).
+ */
+export function interleaveGroups<T extends { id: string }>(groups: T[][], maxRun = 4): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  const next = seededRandom(groups.map((group) => group[0]?.id ?? "").join("|"));
+  const cursors = groups.map(() => 0);
+  const total = groups.reduce((sum, group) => sum + group.length, 0);
+  let turn = 0;
+  for (let guard = 0; guard < total * 2 && cursors.some((c, i) => c < groups[i].length); guard += 1) {
+    const g = turn % groups.length;
+    turn += 1;
+    const run = 1 + Math.floor(next() * maxRun);
+    for (let taken = 0; taken < run && cursors[g] < groups[g].length; ) {
+      const photo = groups[g][cursors[g]];
+      cursors[g] += 1;
+      if (seen.has(photo.id)) continue;
+      seen.add(photo.id);
+      out.push(photo);
+      taken += 1;
+    }
+  }
+  return out;
+}
+
+/** 문자열로 씨앗을 정하는 가벼운 난수(mulberry32) — 같은 씨앗이면 같은 수열. */
+function seededRandom(seed: string): () => number {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i += 1) h = Math.imul(h ^ seed.charCodeAt(i), 16777619);
+  let a = h >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
