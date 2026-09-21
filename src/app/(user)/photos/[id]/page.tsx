@@ -158,7 +158,8 @@ export default async function PhotoDetail({
 
   return (
     <main className="mx-auto max-w-5xl px-2.5 pb-2.5 pt-2.5 font-kr sm:px-4 sm:pt-4 sm:pb-4">
-      <JsonLd data={photoImageJsonLd(photo)} />
+      {/* 저작권자는 작가다(작가약관 17조 1항) — 구조화 데이터의 크레딧도 작가 이름으로 나간다 */}
+      <JsonLd data={photoImageJsonLd(photo, ph.display_name)} />
       <ScrollTop />
       <RememberFrameAspect id={photo.id} aspect={aspect} />
       {autoLike && <AutoFavorite targetType="photo" targetId={photo.id} path={`/photos/${photo.id}`} />}
