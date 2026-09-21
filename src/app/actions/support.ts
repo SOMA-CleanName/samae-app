@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { mpTrackServer } from "@/lib/mixpanel-server";
 import { isSupportKind } from "@/lib/support";
 import { createSupportRequest } from "@/lib/support-requests";
 
@@ -65,6 +66,22 @@ export async function submitSupportRequest(formData: FormData): Promise<void> {
     kind,
     body,
     refundAccount,
+  });
+
+  /*
+    접수 자체를 지표에 남긴다 — 지금까지 **하나도 안 남고 있었다**(2026-09-21 점검).
+
+    환불 신청은 이탈의 가장 강한 신호이고, 신고·개인정보 요청은 창구를 새로 연 것이라
+    (0137) 얼마나 쓰이는지 모르면 늘려야 할지 줄여야 할지 판단이 안 된다.
+
+    ⚠️ **본문(body)은 보내지 않는다.** 사람이 무슨 일을 겪었는지 적는 칸이라 PII 가
+       그대로 들어 있다. 종류·역할·예약 유무까지만 남긴다.
+  */
+  await mpTrackServer("Submit Support Request", me.id, {
+    kind,
+    requester_role: role,
+    has_booking: !!bookingId,
+    has_refund_account: !!refundAccount,
   });
 
   if (conversationId) revalidatePath(`/chat/${conversationId}`);
