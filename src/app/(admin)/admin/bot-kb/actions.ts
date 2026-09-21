@@ -6,6 +6,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { parseKbJson } from "@/lib/bot-kb-db";
 import { getPhotographerKb } from "@/lib/bot-kb-data";
 import { extractKbFromMaterial, type KbConflict } from "@/lib/kb-extract";
+import { polishCards, type PolishedCard } from "@/lib/kb-style";
 import { fetchPhotographerKb } from "@/lib/bot-kb-db";
 import { renderGuideCard, groupCardsIntoSheets } from "@/lib/guide-card-template";
 import { resolveGuideStyle, type GuideStyle } from "@/lib/guide-style";
@@ -76,6 +77,30 @@ export type ExtractState = {
  *
  * 큰 모델로 긴 자료를 읽어 2분 가까이 걸린다. 화면에서 진행 표시가 필요하다.
  */
+/**
+ * 지금 편집 중인 카드의 **문장만** 다듬는다.
+ *
+ * 저장된 카드가 아니라 화면에 떠 있는 카드를 받는다 — 저장 전에 문장을 보고
+ * 고칠 수 있어야 하고, 다듬기 결과를 바로 저장해 버리면 되돌릴 방법이 없다.
+ * 적용 여부는 사람이 카드마다 고른다.
+ */
+export async function polishKbCards(
+  cards: { id: string; topic: string; body: string }[]
+): Promise<{ polished: PolishedCard[]; error?: string }> {
+  await assertAdmin();
+  const usable = (cards ?? []).filter((c) => c?.id?.trim() && c?.body?.trim());
+  if (usable.length === 0) return { polished: [], error: "다듬을 카드가 없어요." };
+  try {
+    const polished = await polishCards(
+      usable.map((c) => ({ id: c.id, topic: c.topic, body: c.body, source: "작가 답변" }))
+    );
+    return { polished };
+  } catch (e) {
+    console.error("[bot-kb] polish failed:", e);
+    return { polished: [], error: e instanceof Error ? e.message : "문장을 다듬지 못했어요." };
+  }
+}
+
 export async function extractKbFromText(
   photographerId: string,
   material: string

@@ -16,6 +16,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { KB_CORE_TOPICS, KB_TOPICS, MAX_CARDS, MAX_CARD_BODY, type KbCard } from "./bot-kb";
 import { PLATFORM_POLICY } from "./platform-policy";
 import { anthropicClientOptions } from "./anthropic-client";
+import { KB_WRITING_RULES } from "./kb-style";
 
 // 추출은 저빈도·고정확도 작업이다 — 상담 봇(haiku)과 달리 여기서 틀리면
 // 그 문장이 그대로 고객에게 나가므로 큰 모델을 쓴다.
@@ -145,6 +146,8 @@ function buildSystemPrompt(): string {
 - **같은 사실을 두 장에 쓰지 마세요.** 자료 여러 곳에 반복해 적힌 내용(소개글에도 있고
   FAQ 에도 있는 것)은 가장 잘 설명한 한 곳을 골라 한 장으로만 만듭니다. 상품 설명과
   금액처럼 자연스럽게 이어지는 내용이면 나누지 말고 한 장에 담으세요.
+
+${KB_WRITING_RULES}
 
 [주제(topic) 고르기 — 억지로 끼워맞추지 마세요]
 topic 은 자유 입력입니다. 아래 목록은 **자주 쓰이는 것**일 뿐 전부가 아닙니다.

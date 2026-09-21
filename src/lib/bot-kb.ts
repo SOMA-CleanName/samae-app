@@ -137,7 +137,7 @@ function numbersIn(s: string): number[] {
 }
 
 /** 카드 본문의 숫자 + 만/천 단위 확장 (3만 → 30000) */
-function allowedNumbers(sources: string[]): Set<number> {
+export function allowedNumbers(sources: string[]): Set<number> {
   const out = new Set<number>();
   for (const src of sources) {
     const t = num(src);
@@ -149,7 +149,7 @@ function allowedNumbers(sources: string[]): Set<number> {
 }
 
 /** "7일 전", "2주 이내", "3개월" 같은 기한 표현만 뽑는다 (금액·장수는 단위가 달라 안 걸린다) */
-function deadlines(s: string): Set<string> {
+export function deadlines(s: string): Set<string> {
   const out = new Set<string>();
   for (const m of num(s).matchAll(/(\d+)\s*(일|주|개월)\s*(전|이내|이상)?/g)) {
     out.add(`${m[1]}${m[2]}${m[3] ?? ""}`);

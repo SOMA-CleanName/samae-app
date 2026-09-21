@@ -14,6 +14,7 @@ import { KB_CORE_TOPICS, KB_TOPICS, MAX_CARDS, MAX_CARD_BODY } from "@/lib/bot-k
 import { saveBotKb, seedFromDemo, publishGuideImages, type SaveKbState } from "./actions";
 import { KbExtractPanel } from "./KbExtractPanel";
 import { GuideStylePanel } from "./GuideStylePanel";
+import { KbPolishPanel } from "./KbPolishPanel";
 import type { GuideStyle } from "@/lib/guide-style";
 
 // "use server" 모듈은 async 함수만 export 할 수 있다 — 초기 상태 상수를 거기 두면
@@ -284,6 +285,20 @@ export function KbEditor(props: Props) {
           }}
         />
       </div>
+
+      {/* 문장 다듬기 — 저장 전에 문장을 보고 고른다. 사실은 안 바뀐다 */}
+      <KbPolishPanel
+        cards={toPayload(cards)}
+        onApply={(next) => {
+          const byId = new Map(next.map((n) => [n.id, n.body]));
+          setCards((cs) =>
+            cs.map((c) => {
+              const body = byId.get(c.id.trim());
+              return body ? { ...c, body } : c;
+            })
+          );
+        }}
+      />
 
       {/* 커버리지 — 비어 있는 주제가 곧 봇이 막히는 지점이라 맨 위에 둔다 (눌러서 바로 추가) */}
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
