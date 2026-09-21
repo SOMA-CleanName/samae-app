@@ -34,7 +34,7 @@ import { DEFAULT_FEE_RATE } from "@/lib/platform-fee";
      남는 건 "회사가 보관하는 내용" 의 목록이고, 제6항이 그 둘로 통지한다고 약속하기 때문이다.
 */
 export function PhotographerContractBody({
-  /** 이 작가에게 적용되는 요율(0.2 = 20%). null·미지정이면 전역 기본값 */
+  /** 이 작가에게 적용되는 요율(0.18 = 18%). null·미지정이면 전역 기본값 */
   rate,
 }: {
   rate?: number | null;

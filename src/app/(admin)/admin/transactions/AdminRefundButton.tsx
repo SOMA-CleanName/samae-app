@@ -43,7 +43,7 @@ export function AdminRefundButton({
   /** 고객이 낸 총액 — 예외 판정 미리보기에 필요하다 */
   amountKrw: number;
   /** 이 예약의 수수료율 — 위약금 배분(작가 : 사매)이 여기서 갈린다.
-   *  넘기지 않으면 기본 20%로 계산돼, 요율이 다른 작가의 건에서 화면과 실행값이 어긋난다. */
+   *  넘기지 않으면 전역 기본 요율로 계산돼, 요율이 다른 작가의 건에서 화면과 실행값이 어긋난다. */
   feeRate: number;
   label: string;
 }) {
@@ -74,7 +74,7 @@ export function AdminRefundButton({
           amountKrw,
           travelFeeKrw: 0,
           feeKrw: override === "partial" ? 0 : quote.feeClaimKrw || quote.feeKrw,
-          // 서버(quoteRefund)는 예약의 요율로 나눈다 — 여기서 빠뜨리면 미리보기만 20%가 된다
+          // 서버(quoteRefund)는 예약의 요율로 나눈다 — 여기서 빠뜨리면 미리보기만 기본 요율이 된다
           feeRate,
           override,
           manualRefundKrw: Number(manual.replace(/[^0-9]/g, "")) || 0,

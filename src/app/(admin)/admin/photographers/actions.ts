@@ -292,7 +292,7 @@ export async function updateDefaultLeadPrice(formData: FormData) {
 }
 
 // ── 중개 수수료 (작가약관 12조 · 입점 동의서 3항) ─────────────────
-// 기본은 정률 20%(부가세 별도). 정액은 옛 모델이라 명시한 작가만 쓴다.
+// 기본은 정률 18%(부가세 별도, 2026-09-21 신규 작가부터. 기존 작가는 행에 적힌 10%). 정액은 옛 모델이라 명시한 작가만 쓴다.
 //
 // 이미 제안된 예약은 fee_snapshot 으로 굳어 있어 여기서 바꿔도 소급되지 않는다.
 import { MAX_FEE_RATE, MIN_FEE_RATE } from "@/lib/platform-fee";

@@ -26,7 +26,7 @@ type Row = {
   regions: string[];
   mood_tags: string[];
   price_from_krw: number;
-  // 중개 수수료 — 기본은 정률 20%(작가약관 12조). 정액은 옛 모델로 명시한 작가만.
+  // 중개 수수료 — 기본은 정률 18%(작가약관 12조, 2026-09-21 신규 작가부터. 기존 실제 작가는 전원 10% 로 행에 박혀 있다). 정액은 옛 모델로 명시한 작가만.
   fee_mode: string | null;
   // 사업자등록증 — 세금계산서 발급과 전자상거래법 20조의 "확인" 에 필요하다(0124)
   business_type?: string | null;

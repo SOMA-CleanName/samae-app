@@ -1,10 +1,10 @@
-// 사매 중개 수수료 — 수수료정산정책 1.0.
+// 사매 중개 수수료 — 작가이용약관 2.0 제12조 (옛 수수료정산정책 1.0 을 흡수).
 //
-//   수수료 = 촬영 대금 × 20% (부가가치세 별도)
+//   수수료 = 촬영 대금 × 18% (부가가치세 별도) — 2026-09-21 신규 입점 작가부터. 그전 입점 작가는 행에 적힌 요율(2026-09-21 기준 실제 작가 15명 전원 10%) 그대로
 //   촬영 대금 = 촬영비 + 출장비 + 추가금. 회원이 스튜디오 등 제3자에게 직접 내는 돈은 뺀다.
 //
 // 정액(옛 모델, 6,000원)과 정률이 함께 살아 있다. 정액을 명시적으로 설정한 작가만 정액이고,
-// 설정이 비어 있는 작가는 전역 기본(정률 20%)을 따른다.
+// 설정이 비어 있는 작가는 전역 기본(정률 18%)을 따른다.
 //
 // ⚠️ 화면·정산·환불이 각자 숫자를 읽으면 한 화면만 옛 값으로 남는 사고가 난다.
 //    수수료가 필요한 자리는 반드시 resolveFee() 를 거칠 것.
@@ -14,13 +14,19 @@
 /** 정액 모드의 기본 금액 (옛 모델) */
 export const PLATFORM_FEE_KRW = 6000;
 
-/** 정률 기본 요율 — 작가약관 12조 1항이 입점 동의서로 넘기는 그 값의 기본치 */
-export const DEFAULT_FEE_RATE = 0.2;
+/**
+ * 정률 기본 요율 — 작가약관 12조 1항이 입점 동의서로 넘기는 그 값의 기본치.
+ *
+ * 2026-09-21 신규 작가 18% 로 결정 (그전 기본값 20% — 실제 작가 15명은 전원 10%, 20% 기본값이 박혀 있던 개발자 계정 2개는 0132 에서 18% 로). DB 기본값(마이그레이션 0132)과 같은 값이어야 한다 —
+ * 새 작가 행은 DB 기본값으로 요율이 박히고, 행에 요율이 비어 있을 때만 이 상수로 떨어진다.
+ * 이미 입점한 작가는 행에 적힌 요율을 그대로 쓴다. 여기를 바꿔도 그들의 정산은 바뀌지 않는다.
+ */
+export const DEFAULT_FEE_RATE = 0.18;
 
 /** 수수료에 붙는 부가가치세율 */
 export const FEE_VAT_RATE = 0.1;
 
-/** 요율 허용 범위 — 실수로 0.2(=20%) 대신 20 을 넣는 사고를 DB 제약과 함께 막는다 */
+/** 요율 허용 범위 — 실수로 0.18(=18%) 대신 18 을 넣는 사고를 DB 제약과 함께 막는다 */
 export const MIN_FEE_RATE = 0.01;
 export const MAX_FEE_RATE = 0.5;
 
@@ -31,7 +37,7 @@ export type FeeSpec = {
   mode: FeeMode;
   /** flat 일 때. null/undefined 면 전역 기본값 */
   amountKrw?: number | null;
-  /** rate 일 때. 0.2 = 20% */
+  /** rate 일 때. 0.18 = 18% */
   rate?: number | null;
 };
 
@@ -135,7 +141,7 @@ export function readFeeSnapshot(raw: unknown): FeeSnapshot | null {
   };
 }
 
-/** 스냅샷의 요율 — 위약금 배분(작가 80 : 사매 20)에 쓴다. 정액이면 기본 요율 */
+/** 스냅샷의 요율 — 위약금 배분(작가 100−요율 : 사매 요율)에 쓴다. 정액이면 기본 요율 */
 export function feeRateOf(snapshot: Pick<FeeSnapshot, "mode" | "rate"> | null | undefined): number {
   if (snapshot?.mode === "rate" && snapshot.rate && snapshot.rate > 0) return snapshot.rate;
   return DEFAULT_FEE_RATE;
@@ -168,15 +174,15 @@ export const BUSINESS_TYPE_LABEL: Record<BusinessType, string> = {
 };
 
 /**
- * 사업자 유형별 실질 부담률 (%). 현금으로 빠지는 건 모두 22%(수수료 20% + 부가세 2%)지만,
- * 일반과세자는 세금계산서로 매입세액을 돌려받아 실질 20% 다.
+ * 사업자 유형별 실질 부담률 (%). 현금으로 빠지는 건 모두 요율 × 1.1(수수료 + 부가세, 기본 18% → 19.8%)지만,
+ * 일반과세자는 세금계산서로 매입세액을 돌려받아 실질 요율 그대로다.
  */
 export function effectiveBurdenPct(type: BusinessType | null | undefined, rate: number = DEFAULT_FEE_RATE): number {
   const gross = rate * 100 * (1 + FEE_VAT_RATE);
   return type === "general" ? rate * 100 : +gross.toFixed(2);
 }
 
-/** 사람이 읽는 설정 표기 — "정액 6,000원" / "정률 20%" */
+/** 사람이 읽는 설정 표기 — "정액 6,000원" / "정률 18%" */
 export function feeSpecLabel(spec: FeeSpec): string {
   if (spec.mode === "rate") {
     const rate = spec.rate && spec.rate > 0 ? spec.rate : DEFAULT_FEE_RATE;

@@ -93,7 +93,7 @@ export function ProfileForm({ initial }: { initial: ProfileInitial }) {
                 <option key={t} value={t}>{BUSINESS_TYPE_LABEL[t]}</option>
               ))}
             </select>
-            <p className="text-xs text-faint">일반과세자는 실질 20%, 간이·미등록은 22%(부가세 포함). 사업자는 세금계산서, 미등록은 영수증을 발급해 드려요</p>
+            <p className="text-xs text-faint">일반과세자는 수수료율 그대로, 간이·미등록은 부가세를 포함해 요율의 1.1배를 부담해요. 사업자는 세금계산서, 미등록은 영수증을 발급해 드려요</p>
             {state.fieldErrors?.businessType && <p className="text-xs text-brand">{state.fieldErrors.businessType}</p>}
 
           </div>
