@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { updateProfile, type ProfileState } from "../actions";
 import type { ProfileInitial } from "./page";
-import { BUSINESS_TYPE_LABEL, type BusinessType } from "@/lib/platform-fee";
+import { BUSINESS_TYPE_LABEL, effectiveBurdenPct, type BusinessType } from "@/lib/platform-fee";
 import { BusinessLicenseUpload } from "@/components/studio/BusinessLicenseUpload";
 
 const initialState: ProfileState = {};
@@ -93,7 +93,14 @@ export function ProfileForm({ initial }: { initial: ProfileInitial }) {
                 <option key={t} value={t}>{BUSINESS_TYPE_LABEL[t]}</option>
               ))}
             </select>
-            <p className="text-xs text-faint">일반과세자는 실질 20%, 간이·미등록은 22%(부가세 포함). 사업자는 세금계산서, 미등록은 영수증을 발급해 드려요</p>
+            {/* ⚠️ 숫자를 글로 박지 않는다. 전에는 "실질 20%, 간이·미등록은 22%" 였는데
+                ① 요율이 작가마다 다르고(10% 작가가 20% 를 읽었다) ② 기본 요율이 바뀌면
+                (2026-09-21 20%→18%) 그 자리에서 거짓이 된다. 이 작가의 실제 요율로 센다. */}
+            <p className="text-xs text-faint">
+              일반과세자는 실질 {effectiveBurdenPct("general", initial.feeRate ?? undefined)}%,
+              간이·미등록은 {effectiveBurdenPct("unregistered", initial.feeRate ?? undefined)}%(부가세 포함).
+              사업자는 세금계산서, 미등록은 영수증을 발급해 드려요
+            </p>
             {state.fieldErrors?.businessType && <p className="text-xs text-brand">{state.fieldErrors.businessType}</p>}
 
           </div>

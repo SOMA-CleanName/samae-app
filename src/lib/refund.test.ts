@@ -19,6 +19,7 @@ import {
   penaltySplit,
   feeWithVat,
   effectiveBurdenPct,
+  DEFAULT_FEE_RATE,
 } from "./platform-fee.ts";
 
 const kst = (s: string) => new Date(`${s}+09:00`);
@@ -313,13 +314,18 @@ test("옛 규정의 basis 값도 라벨이 있다 — refund_reason 에 남아 �
 
 // ── 수수료 (platform-fee.ts) ────────────────────────────────────
 
-test("설정 없는 작가는 정률 20%, 기준은 촬영 대금 전체", () => {
-  const f = resolveFee(null, 120000);
+test("설정 없는 작가는 기본 요율, 기준은 촬영 대금 전체", () => {
+  // ⚠️ 숫자를 글자로 박지 않는다. 2026-09-21 에 기본 요율이 20% → 18% 로 바뀌면서
+  //    "24000" 을 박아 둔 이 테스트가 깨졌다. 깨진 건 다행이지만, 고치면서 새 숫자를
+  //    또 박으면 다음 변경 때 같은 일이 난다. **기본값에서 유도**한다.
+  const base = 120000;
+  const expectFee = Math.round(base * DEFAULT_FEE_RATE);
+  const f = resolveFee(null, base);
   assert.equal(f.mode, "rate");
-  assert.equal(f.feeKrw, 24000);
-  assert.equal(f.vatKrw, 2400);
-  assert.equal(feeWithVat(f), 26400);
-  assert.equal(f.baseKrw, 120000);
+  assert.equal(f.feeKrw, expectFee);
+  assert.equal(f.vatKrw, Math.round(expectFee * 0.1));
+  assert.equal(feeWithVat(f), expectFee + Math.round(expectFee * 0.1));
+  assert.equal(f.baseKrw, base);
 });
 
 test("정액을 명시한 작가는 정액, 대금보다 크면 대금까지만", () => {
@@ -329,8 +335,10 @@ test("정액을 명시한 작가는 정액, 대금보다 크면 대금까지만"
   assert.equal(resolveFee({ mode: "flat", amountKrw: 6000 }, 4000).feeKrw, 4000);
 });
 
-test("정률인데 요율이 비면 기본 20% 로 받는다 — 매출이 조용히 0 이 되지 않게", () => {
-  assert.equal(resolveFee({ mode: "rate", rate: null }, 100000).feeKrw, 20000);
+test("정률인데 요율이 비면 기본 요율로 받는다 — 매출이 조용히 0 이 되지 않게", () => {
+  assert.equal(resolveFee({ mode: "rate", rate: null }, 100000).feeKrw, Math.round(100000 * DEFAULT_FEE_RATE));
+  // 0 원이 되는 건 사고다. 요율이 비었다고 공짜로 중개하지 않는다.
+  assert.ok(resolveFee({ mode: "rate", rate: null }, 100000).feeKrw > 0);
 });
 
 test("row → spec — fee_mode 가 비어 있으면 정률(기본)", () => {
@@ -348,9 +356,20 @@ test("옛 스냅샷(baseKrw·vatKrw 없음)도 읽힌다 — 수수료 금액은
   assert.equal(readFeeSnapshot({ feeKrw: "x" }), null);
 });
 
-test("위약금 배분과 사업자 유형별 실질 부담", () => {
+test("위약금 배분 — 요율을 명시하면 그 요율로 나눈다", () => {
+  // 여기는 요율을 인자로 받으므로 숫자를 박아도 된다(산수 검증)
   assert.deepEqual(penaltySplit(48000, 0.2), { companyKrw: 9600, vatKrw: 960, photographerKrw: 37440 });
-  assert.equal(effectiveBurdenPct("general"), 20);
-  assert.equal(effectiveBurdenPct("simplified"), 22);
-  assert.equal(effectiveBurdenPct("unregistered"), 22);
+  assert.deepEqual(penaltySplit(48000, 0.18), { companyKrw: 8640, vatKrw: 864, photographerKrw: 38496 });
+});
+
+test("사업자 유형별 실질 부담 — 일반과세자만 부가세를 돌려받는다", () => {
+  const pct = DEFAULT_FEE_RATE * 100;
+  // 일반과세자는 세금계산서로 매입세액을 공제받아 실질이 요율 그대로다
+  assert.equal(effectiveBurdenPct("general"), pct);
+  // 간이·미등록은 공제를 못 받아 부가세까지 전부 부담한다
+  assert.equal(effectiveBurdenPct("simplified"), +(pct * 1.1).toFixed(2));
+  assert.equal(effectiveBurdenPct("unregistered"), +(pct * 1.1).toFixed(2));
+  // 요율을 넘기면 그 작가 기준으로 — 10% 작가가 기본값을 읽으면 안 된다
+  assert.equal(effectiveBurdenPct("general", 0.1), 10);
+  assert.equal(effectiveBurdenPct("unregistered", 0.1), 11);
 });
