@@ -154,7 +154,29 @@ test("PG 문안에는 무통장 표현이 남아 있지 않다", () => {
 test("결제 방식에 따라 본문이 갈린다", () => {
   const vars = { 상대명: "김재즈", 촬영일: "10월 3일", 링크: "https://samae.ai/x" };
   assert.match(renderNotifyBody("booking_accepted", vars, "bank_transfer"), /입금이 확인되면/);
-  assert.match(renderNotifyBody("booking_accepted", vars, "pg"), /결제가 완료되면/);
+  assert.match(renderNotifyBody("booking_accepted", vars, "pg"), /다음 단계는 예약 페이지에서/);
+});
+
+test("PG 문안은 **결제를 유도하지 않는다** — 카카오가 막는 지점", () => {
+  /*
+    2026-09-21 반려. 카카오는 금융사고 예방을 이유로 결제·송금·납부를 **유도하는**
+    메시지를 막는다(예외: 금융위에 PG·선불·에스크로 중 2개 이상 등록한 업체 — 사매는
+    통신판매중개자라 해당 없음).
+
+    승인·반려를 나란히 놓으면 선이 보인다.
+      승인  "결제가 완료되어 예약이 확정됐어요"   ← 완료 통보(과거)
+      반려  "결제가 완료되면 예약이 확정돼요"     ← 조건 안내(미래) = 유도
+
+    그래서 **미래형 결제 문장**을 막는다. 완료 통보("완료되어")는 허용한다.
+  */
+  for (const kind of NOTIFY_KINDS) {
+    const pg = NOTIFY_TEMPLATES[kind].pg;
+    if (!pg) continue;
+    assert.ok(
+      !/결제(가|를)?\s*(완료되면|하시면|해\s*주세요|하면|부탁)/.test(pg.body),
+      `${kind}: PG 문안이 결제를 유도한다 — 카카오 반려 사유다`
+    );
+  }
 });
 
 test("PG 문안이 없는 kind 는 결제 방식과 무관하게 같다", () => {
