@@ -19,6 +19,9 @@ import {
   penaltySplit,
   feeWithVat,
   effectiveBurdenPct,
+  feeNeedsSetup,
+  feeRateForDocs,
+  DEFAULT_FEE_RATE,
 } from "./platform-fee.ts";
 
 const kst = (s: string) => new Date(`${s}+09:00`);
@@ -361,4 +364,32 @@ test("위약금 배분과 사업자 유형별 실질 부담", () => {
   assert.equal(effectiveBurdenPct("unregistered"), 19.8);
   // 요율을 명시한 기존 작가(20%)는 그대로 22%
   assert.equal(effectiveBurdenPct("simplified", 0.2), 22);
+});
+
+test("요율이 책정되지 않았으면 승인을 막아야 한다", () => {
+  /*
+    운영 흐름: ① 신청 ② 어드민이 수수료 책정 ③ 승인 ④ 작가가 **그 요율로** 계약서 동의.
+    요율 없이 승인하면 ④ 에서 작가가 전역 기본값을 자기 요율로 알고 동의하고, 나중에
+    어드민이 값을 넣으면 **동의한 숫자와 실제 숫자가 달라진다.**
+  */
+  assert.equal(feeNeedsSetup({ mode: "rate", rate: null }), true);
+  assert.equal(feeNeedsSetup({ mode: "rate", rate: 0 }), true);
+  assert.equal(feeNeedsSetup(null), true, "설정 자체가 없으면 미책정이다");
+  assert.equal(feeNeedsSetup({ mode: "flat", amountKrw: null }), true);
+
+  assert.equal(feeNeedsSetup({ mode: "rate", rate: 0.18 }), false);
+  assert.equal(feeNeedsSetup({ mode: "rate", rate: 0.1 }), false);
+  assert.equal(feeNeedsSetup({ mode: "flat", amountKrw: 6000 }), false);
+});
+
+test("미책정이어도 계산은 멈추지 않는다 — 두 판정은 별개다", () => {
+  /*
+    ⚠️ resolveFee·feeRateForDocs 가 기본값으로 떨어뜨리는 것과 혼동하면 안 된다. 그 폴백은
+       매출이 0 이 되는 사고를 막는 안전장치일 뿐 "책정됐다" 는 뜻이 아니다.
+       (구현에서 feeNeedsSetup 에도 같은 폴백을 넣었다가 이 구분이 뒤집혀 테스트가 잡았다)
+  */
+  const unset = { mode: "rate" as const, rate: null };
+  assert.equal(feeNeedsSetup(unset), true);
+  assert.equal(resolveFee(unset, 100000).feeKrw, Math.round(100000 * DEFAULT_FEE_RATE));
+  assert.equal(feeRateForDocs(unset), DEFAULT_FEE_RATE);
 });

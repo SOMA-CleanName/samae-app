@@ -77,6 +77,27 @@ export function vatOnFee(feeKrw: number): number {
  * ⚠️ 아래 feeRateOf(snapshot) 와 다르다. 저건 **굳은 예약 건**의 요율을 읽어 금액을
  *    되짚는 용도라 항상 숫자를 돌려준다. 이건 **설정**을 문서 문구로 옮기는 용도다.
  */
+/**
+ * 요율이 아직 **책정되지 않았는가** — 승인 전에 막아야 할 상태.
+ *
+ * 운영 흐름은 ① 작가 신청 ② 어드민이 그 작가를 보고 **수수료를 책정** ③ 승인 ④ 작가가
+ * 그 요율로 계약서를 읽고 동의하며 입점, 순이다(2026-09-21 확정). 요율 없이 승인하면
+ * ④ 에서 작가가 **전역 기본값**을 자기 요율로 알고 동의하게 된다 — 나중에 어드민이 값을
+ * 넣으면 **작가가 동의한 숫자와 실제 숫자가 달라진다.**
+ *
+ * ⚠️ `resolveFee`·`feeRateForDocs` 는 비었을 때 기본값으로 **떨어뜨린다**(매출이 0 이 되는
+ *    사고를 막으려고). 그 폴백은 계산이 멈추지 않게 하는 안전장치일 뿐 "책정됐다" 는 뜻이
+ *    아니다. 그래서 판정을 따로 둔다.
+ */
+export function feeNeedsSetup(spec: FeeSpec | null | undefined): boolean {
+  // ⚠️ **여기서 DEFAULT_FEE_SPEC 으로 떨어뜨리지 않는다.** 다른 함수들은 계산이 멈추지
+  //    않게 기본값을 끼워 넣는데, 그걸 여기서도 하면 "설정이 없다" 가 "기본값으로
+  //    설정됐다" 로 뒤집힌다 — 이 함수가 막으려던 바로 그 혼동이다. 없으면 미책정이다.
+  if (!spec) return true;
+  if (spec.mode === "flat") return spec.amountKrw == null;
+  return !(spec.rate && spec.rate > 0);
+}
+
 export function feeRateForDocs(spec: FeeSpec | null | undefined): number | null {
   const s = spec ?? DEFAULT_FEE_SPEC;
   if (s.mode !== "rate") return null;
