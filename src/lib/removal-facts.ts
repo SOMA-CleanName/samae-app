@@ -19,6 +19,9 @@ import { SPOT_MIN_PHOTOS, type RemovalFacts } from "@/lib/removal-report";
  */
 
 /** 닫히지 않은 문의로 볼 상태. expired 만 끝난 것으로 본다 — 환불 분쟁은 당연히 열린 것 */
+/** 포트폴리오 사진이 사는 버킷 (api/portfolio/upload 와 같은 값) */
+export const PORTFOLIO_BUCKET = "samae-portfolio";
+
 const OPEN_INQUIRY = ["accepted", "confirmed", "refund_requested"];
 
 /** CASCADE 로 따라 지워지는 표 — 숫자만 세어 보여준다 */
@@ -143,13 +146,26 @@ export async function fetchRemovalFacts(photographerId: string): Promise<Removal
   };
 }
 
-/** Storage 에서 지울 경로 — **DB 삭제 전에** 모아 둬야 한다. 지우고 나면 알 방법이 없다 */
+/**
+ * Storage 에서 지울 경로 — **DB 삭제 전에** 모아 둬야 한다. 지우고 나면 알 방법이 없다.
+ *
+ * 두 군데서 모은다.
+ *   ① `photos` 행의 URL
+ *   ② **작가 폴더 목록** — ①만으로는 모자란다
+ *
+ * ⚠️ ② 가 왜 필요한지는 실측으로 알았다(2026-09-22, 히히픽 퇴출). `photos` 기준으로는
+ *    154개였는데 폴더에는 **156개**가 있었다. 업로드는 끝났는데 DB 행이 안 만들어진
+ *    파일 두 개가 석 달째 남아 있었다. ① 만 쓰면 그런 파일은 **영영 안 지워진다** —
+ *    작가가 사라지고 나면 그 폴더를 들여다볼 이유가 없어지기 때문이다.
+ */
 export async function collectStoragePaths(photographerId: string): Promise<string[]> {
-  const { data } = await createAdminClient()
+  const admin = createAdminClient();
+  const paths = new Set<string>();
+
+  const { data } = await admin
     .from("photos")
     .select("src_url, thumb_url")
     .eq("photographer_id", photographerId);
-  const paths = new Set<string>();
   for (const p of (data ?? []) as Array<{ src_url: string; thumb_url: string | null }>) {
     for (const url of [p.src_url, p.thumb_url]) {
       // 공개 URL 에서 버킷 뒤 경로만 떼어낸다
@@ -157,5 +173,14 @@ export async function collectStoragePaths(photographerId: string): Promise<strin
       if (m) paths.add(decodeURIComponent(m[1].split("?")[0]));
     }
   }
+
+  // 작가 폴더에 실제로 뭐가 있는지. 업로드 경로가 `<작가id>/<파일>` 규약이라 그대로 쓴다.
+  const { data: listed } = await admin.storage
+    .from(PORTFOLIO_BUCKET)
+    .list(photographerId, { limit: 1000 });
+  for (const f of (listed ?? []) as Array<{ name: string }>) {
+    paths.add(`${photographerId}/${f.name}`);
+  }
+
   return [...paths];
 }

@@ -4,15 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 // 계약 조건·자격이 바뀌는 액션은 누가 했는지 남긴다 (0136)
 import { logAdminAction } from "@/lib/admin-audit";
-import { fetchRemovalFacts, collectStoragePaths } from "@/lib/removal-facts";
+import { fetchRemovalFacts, collectStoragePaths, PORTFOLIO_BUCKET } from "@/lib/removal-facts";
 import { buildRemovalReport } from "@/lib/removal-report";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { archiveAndDelete } from "@/lib/soft-delete";
-
-/** 포트폴리오 사진이 사는 버킷 (api/portfolio/upload 와 같은 값) */
-const PORTFOLIO_BUCKET = "samae-portfolio";
 import { notifyOpsApplicationApproved } from "@/lib/ops-alert";
 import { feeNeedsSetup, feeSpecFromRow, feeSpecLabel } from "@/lib/platform-fee";
 
