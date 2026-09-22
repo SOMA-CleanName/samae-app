@@ -1,12 +1,18 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 // 계약 조건·자격이 바뀌는 액션은 누가 했는지 남긴다 (0136)
 import { logAdminAction } from "@/lib/admin-audit";
+import { fetchRemovalFacts, collectStoragePaths } from "@/lib/removal-facts";
+import { buildRemovalReport } from "@/lib/removal-report";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { archiveAndDelete } from "@/lib/soft-delete";
+
+/** 포트폴리오 사진이 사는 버킷 (api/portfolio/upload 와 같은 값) */
+const PORTFOLIO_BUCKET = "samae-portfolio";
 import { notifyOpsApplicationApproved } from "@/lib/ops-alert";
 import { feeNeedsSetup, feeSpecFromRow, feeSpecLabel } from "@/lib/platform-fee";
 
@@ -353,32 +359,50 @@ export async function removePhotographer(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) throw new Error("작가를 찾지 못했습니다.");
 
-  const admin = createAdminClient();
-  const [{ count: bookingCount }, { count: feeCount }] = await Promise.all([
-    admin.from("bookings").select("id", { count: "exact", head: true }).eq("photographer_id", id),
-    admin
-      .from("platform_fees")
-      .select("id", { count: "exact", head: true })
-      .eq("photographer_id", id),
-  ]);
-
-  if ((bookingCount ?? 0) > 0 || (feeCount ?? 0) > 0) {
+  /*
+    ⚠️ **점검을 여기서 다시 돌린다.** 화면의 버튼이 비활성이었다는 건 근거가 못 된다 —
+       점검 화면을 띄워 둔 사이에 예약이 잡힐 수 있고, 폼은 직접 던질 수도 있다.
+       되돌릴 수 없는 작업이라 서버가 마지막으로 한 번 더 센다.
+  */
+  const report = buildRemovalReport(await fetchRemovalFacts(id));
+  if (!report.canRemove) {
     throw new Error(
-      `예약 ${bookingCount ?? 0}건·수수료 ${feeCount ?? 0}건이 남아 있어 퇴출할 수 없어요. ` +
-        "정산·환불을 마무리한 뒤 다시 시도하거나, 노출만 끊으려면 '정지'를 쓰세요."
+      `아직 퇴출할 수 없어요 — ${report.blockers
+        .map((b) => `${b.label} ${b.count}건`)
+        .join(", ")}. 점검 화면에서 처리한 뒤 다시 시도해주세요.`
     );
   }
+
+  // Storage 경로는 **DB 삭제 전에** 모은다. photos 가 사라지면 알 방법이 없다.
+  const paths = await collectStoragePaths(id);
 
   // 아카이브 후 삭제. 나머지 표는 CASCADE 로 따라 지워진다
   const res = await archiveAndDelete("photographers", { col: "id", op: "eq", val: id }, me.id);
   if (res.error) throw new Error(`퇴출 처리 중 문제가 발생했어요. (${res.error})`);
 
+  /*
+    파일은 DB 가 지워진 뒤에 지운다. 반대로 하면 DB 삭제가 실패했을 때
+    **살아 있는 작가의 사진만 사라진다.**
+
+    여기서 실패해도 되돌리지 않는다 — 대신 남은 경로를 기록에 남긴다.
+    파일이 안 지워졌다는 사실까지 사라지면 나중에 찾을 방법이 없다.
+  */
+  let storageError: string | null = null;
+  if (paths.length > 0) {
+    const { error } = await createAdminClient().storage.from(PORTFOLIO_BUCKET).remove(paths);
+    if (error) storageError = error.message;
+  }
+
   await logAdminAction({
     action: "photographer_remove",
     actor: { id: me.id, label: me.displayName },
     target: { table: "photographers", id: id },
+    detail: storageError
+      ? { storage_failed: storageError, leftover_paths: paths }
+      : { storage_removed: paths.length },
   });
   revalidatePath("/admin/photographers");
+  redirect("/admin/photographers");
 }
 
 // ── 후기 숨김 (0137) ─────────────────────────────────────────
@@ -416,4 +440,39 @@ export async function setReviewHidden(formData: FormData): Promise<void> {
   // 평점이 바뀌므로 작가가 보이는 지면도 함께 되살린다
   revalidatePath("/admin/photographers");
   revalidatePath("/studio/reviews");
+}
+
+/**
+ * 퇴출 시작 — **지우지 않는다. 정지시키고 점검 화면으로 보낸다.**
+ *
+ * 목록의 [퇴출] 이 이제 이걸 부른다. 퇴출은 되돌릴 수 없어서, 한 번의 클릭으로
+ * 끝내면 안 되는 일이다. 대신 **되돌릴 수 있는 정지**를 먼저 걸어 둔다 —
+ * 점검이 며칠 걸려도 그 사이 그 작가는 고객에게 안 보이고, 중간에 그만둬도
+ * 잃는 게 없다. 반쯤 지워진 상태가 생기지 않는 것이 핵심이다.
+ */
+export async function beginRemoval(formData: FormData) {
+  const me = await assertAdmin();
+  const id = String(formData.get("id") ?? "");
+  if (!id) throw new Error("작가를 찾지 못했습니다.");
+
+  const admin = createAdminClient();
+  const { data: cur } = await admin.from("photographers").select("status").eq("id", id).single();
+
+  // 이미 정지 상태면 그대로 둔다 — 다시 걸면 '공개 중이던 것만 내린다' 표시가 흐트러진다
+  if (cur?.status === "approved") {
+    const { error } = await admin.from("photographers").update({ status: "suspended" }).eq("id", id);
+    if (error) throw new Error(error.message);
+    const { error: hideErr } = await admin.rpc("suspend_photographer_content", {
+      p_photographer_id: id,
+    });
+    if (hideErr) throw new Error(`노출을 끊지 못했어요. (${hideErr.message})`);
+    await logAdminAction({
+      action: "photographer_removal_begin",
+      actor: { id: me.id, label: me.displayName },
+      target: { table: "photographers", id },
+    });
+  }
+
+  revalidatePath("/admin/photographers");
+  redirect(`/admin/photographers/${id}/removal`);
 }

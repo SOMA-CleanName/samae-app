@@ -224,6 +224,20 @@ export async function countSpotPhotos(spot: Spot): Promise<number> {
   return (await fetchMatched(spot)).length;
 }
 
+/**
+ * 이 작가를 뺐을 때 남는 장수 — 작가 퇴출 점검(lib/removal-facts)이 쓴다.
+ *
+ * 스팟은 FK 가 아니라 `location_text` 매칭이라, 작가를 지워도 **아무 신호가 없다.**
+ * 갤러리가 조용히 줄어들 뿐이다. 그래서 지우기 전에 여기서 미리 세어 본다.
+ * 매칭 규칙(나열형 제외 등)을 두 번 적지 않으려고 fetchMatched 를 그대로 쓴다.
+ */
+export async function countSpotPhotosExcluding(
+  spot: Spot,
+  photographerId: string
+): Promise<number> {
+  return (await fetchMatched(spot)).filter((p) => p.photographer?.id !== photographerId).length;
+}
+
 export function formatKrw(n: number): string {
   return `${Math.round(n / 10000)}만원`;
 }
