@@ -50,6 +50,8 @@ launchd (매일 06:00)
         │    └─ /embed-text-backfill + 저장된 사진 벡터로 미처리 목적 분류
         ├─ build_search_tags.py --apply   (2026-09-21, 앞 단계가 실패해도 돈다)
         │    └─ 무드 태그 검색용 공개 사진 목록을 search_tag_snapshot 한 줄로 저장 (0138, docs/29 §12.15)
+        ├─ purpose_drafts.py --apply --daily --embed-url http://127.0.0.1:8077   (2026-09-23, 실패해도 알리지 않는다)
+        │    └─ 비어 있는 세부분류 · 개인 성별 초안(auto) — /search-query(글) 먼저, 없으면 사진 다수결 (docs/39 §7.4)
         ├─ 로그 기록 (최근 14개 유지)
         └─ 실패 시 디스코드 알림
 ```
@@ -57,9 +59,10 @@ launchd (매일 06:00)
 | 파일 | 역할 |
 |---|---|
 | `scripts/embed/macmini-setup.sh` | Python·venv·패키지·모델 캐시·launchd 등록. **재실행 안전** |
-| `scripts/embed/run-embed.sh` | 사진 임베딩 → 목적 분류 → 무드 검색 목록 실행 래퍼. 로그·락·실패 알림 |
+| `scripts/embed/run-embed.sh` | 사진 임베딩 → 목적 분류 → 무드 검색 목록 → 세부분류·성별 초안 실행 래퍼. 로그·락·실패 알림 |
 | `scripts/embed/purpose_backfill.py` | 신규·미처리 목적 분류 및 기존 검수 목적 상속 |
 | `scripts/embed/build_search_tags.py` | 무드 태그 검색용 사진 목록 저장. 사진 표는 읽기만 하고 `search_tag_snapshot` 한 줄만 쓴다 |
+| `scripts/embed/purpose_drafts.py` | 목적이 붙은 포트폴리오의 비어 있는 세부분류 · 개인 성별 초안 (docs/39 §7.4). 실패해도 알리지 않는다 |
 | `scripts/embed/com.samae.embed.plist.template` | launchd 정의. `__REPO__` 를 설치 시 실제 경로로 치환 |
 
 plist 를 템플릿으로 둔 이유는 **저장소 경로가 기계마다 다르기 때문이다.** 경로를 박아 커밋하면 그 기계에서만 동작한다. 설치 스크립트가 자기 위치에서 저장소 루트를 계산해 렌더한다.
