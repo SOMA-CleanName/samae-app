@@ -36,6 +36,8 @@ export const GROUPS: Group[] = [
     label: "지면",
     tabs: [
       { href: "/admin/photos", label: "사진 내리기" },
+      // 「사진 내리기」 옆 — 둘 다 "이 사진을 써도 되는가" 를 정하는 지면이다
+      { href: "/admin/marketing", label: "마케팅 사용" },
       { href: "/admin/photo-purpose", label: "사진 목적&무드" },
       { href: "/admin/banners", label: "홈 배너" },
       { href: "/admin/articles", label: "아티클" },
