@@ -21,6 +21,7 @@ export const ADMIN_ACTIONS = {
   photographer_reject: "작가 반려",
   photographer_suspend: "작가 정지",
   photographer_remove: "작가 퇴출",
+  photographer_removal_begin: "작가 퇴출 점검 시작(정지)",
   application_approve: "작가 신청 승인",
   license_verify: "사업자등록증 검수",
   // 게시물
