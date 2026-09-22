@@ -1,5 +1,5 @@
 #!/bin/bash
-# 임베딩·목적 태그·무드 검색 목록 배치 — launchd 가 매일 06:00 호출한다. (docs/28)
+# 임베딩·목적 태그·무드 검색 목록·세부분류/성별 초안 배치 — launchd 가 매일 06:00 호출한다. (docs/28)
 #
 # 하는 일
 #   1) 저장소 위치를 스스로 찾아 venv 파이썬으로 배치를 돌린다
@@ -47,20 +47,28 @@ notify() {  # $1 = 메시지
   fi
   cd "$ROOT" || exit 1
   # 검색과 같은 모델을 공유한다. 서버 장애 시 독립 모델로 우회하지 않는다.
-  echo "[1/3] 사진 유사도 임베딩"
+  echo "[1/4] 사진 유사도 임베딩"
   "$VENV" scripts/embed/embed_photos.py --apply --embed-url http://127.0.0.1:8077
   EMBED_STATUS=$?
   # 사진 일부가 실패해도 저장된 임베딩으로 목적·검수 상속은 계속 처리한다.
-  echo "[2/3] 목적 태그 · 신규/미처리 포트폴리오"
+  echo "[2/4] 목적 태그 · 신규/미처리 포트폴리오"
   "$VENV" scripts/embed/purpose_backfill.py --apply --daily --embed-url http://127.0.0.1:8077 \
     --output "$LOG_DIR/purpose-latest"
   PURPOSE_STATUS=$?
   # 백필이 끝난 뒤 무드 태그 검색용 사진 목록을 새로 만든다(0138, docs/29 §12.15).
   # 앞 단계가 실패해도 만든다 — 목록은 사진 태그·공개 여부만 담아 임베딩과 상관없다.
-  echo "[3/3] 무드 태그 검색 목록"
+  echo "[3/4] 무드 태그 검색 목록"
   "$VENV" scripts/embed/build_search_tags.py --apply
   TAGS_STATUS=$?
-  echo "단계별 종료 코드: 임베딩=$EMBED_STATUS 목적=$PURPOSE_STATUS 검색목록=$TAGS_STATUS"
+  # 목적이 정해진 뒤에 그 목적 안의 세부분류 · 개인 성별 초안을 채운다(비어 있는 것만, docs/39 §7.4).
+  # 앞 단계가 일부 실패해도 이미 저장된 목적으로 계속한다.
+  echo "[4/4] 세부분류 · 성별 초안 · 비어 있는 포트폴리오"
+  "$VENV" scripts/embed/purpose_drafts.py --apply --daily --embed-url http://127.0.0.1:8077
+  DRAFT_STATUS=$?
+  echo "단계별 종료 코드: 임베딩=$EMBED_STATUS 목적=$PURPOSE_STATUS 검색목록=$TAGS_STATUS 초안=$DRAFT_STATUS"
+  # 초안은 검수 전 보조 값이라 실패해도 배치를 실패로 보지 않는다 — 디스코드로 알리지 않고 로그에만 남긴다.
+  # 다음 날 비어 있는 것을 다시 채우므로 하루 늦어질 뿐이다.
+  [ "$DRAFT_STATUS" -eq 0 ] || echo "⚠️ 초안 단계 실패(종료 코드 $DRAFT_STATUS) — 알리지 않음, 로그 확인"
   [ "$EMBED_STATUS" -eq 0 ] || exit "$EMBED_STATUS"
   [ "$PURPOSE_STATUS" -eq 0 ] || exit "$PURPOSE_STATUS"
   exit "$TAGS_STATUS"
