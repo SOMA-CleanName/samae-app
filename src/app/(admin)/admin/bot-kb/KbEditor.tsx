@@ -16,6 +16,7 @@ import { KbExtractPanel } from "./KbExtractPanel";
 import { GuideStylePanel } from "./GuideStylePanel";
 import { KbPolishPanel } from "./KbPolishPanel";
 import type { GuideStyle } from "@/lib/guide-style";
+import type { Freshness } from "@/lib/guide-freshness";
 
 // "use server" 모듈은 async 함수만 export 할 수 있다 — 초기 상태 상수를 거기 두면
 // 클라이언트에는 undefined 로 도착해 첫 렌더에서 state.errors 가 터진다. 여기서 만든다.
@@ -58,6 +59,8 @@ type Props = {
   updatedAt: string | null;
   hasDemo: boolean;
   guideStyle: GuideStyle;
+  /** 안내가 옛것인지 — 무엇을 해야 하는지 편집기 맨 위에서 말해준다 */
+  freshness: Freshness;
 };
 
 let keySeq = 0;
@@ -268,6 +271,21 @@ export function KbEditor(props: Props) {
       <p className="mt-1 text-body-sm text-muted">
         봇은 <b className="text-fg">여기 적힌 카드만</b> 근거로 답해요. 없는 건 지어내지 않고 작가님께 넘깁니다.
       </p>
+
+      {/* 안내가 옛것이면 맨 위에서 말한다 — 목록의 배지만으로는 무엇을 해야 하는지 모른다 */}
+      {props.freshness.label && (
+        <p
+          className={
+            "mt-2 rounded-xl px-3 py-2 text-caption " +
+            (props.freshness.state === "cards"
+              ? "bg-danger-soft text-danger-ink"
+              : "bg-warning-soft text-warning-ink")
+          }
+        >
+          {props.freshness.state === "cards" ? "⚠️ " : "ⓘ "}
+          {props.freshness.label}
+        </p>
+      )}
 
       {/* 자료 → 초안. 카드를 갈아끼우므로, 이미 쓴 게 있으면 덮어쓰기 전에 묻는다 */}
       <div className="mt-3">
