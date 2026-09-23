@@ -18,6 +18,8 @@ export function GuideEditor({ initialImages }: { initialImages: Row[] }) {
   const [rows, setRows] = useState<Row[]>(initialImages);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** 크게 볼 장 — 썸네일로는 안에 적힌 글자를 못 읽는다 */
+  const [zoom, setZoom] = useState<Row | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function onPick(file: File) {
@@ -146,12 +148,26 @@ export function GuideEditor({ initialImages }: { initialImages: Row[] }) {
               key={row.id}
               className="flex gap-3 rounded-2xl border border-line bg-surface p-3"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element -- 편집 미리보기: 업로드 썸네일 그대로 */}
-              <img
-                src={row.thumb_url ?? row.image_url}
-                alt=""
-                className="h-24 w-20 shrink-0 rounded-lg object-cover"
-              />
+              {/* 안내 이미지는 세로로 길고 **글자가 들어 있다.** 80×96 에 object-cover 로
+                  욱여넣으면 무슨 장인지도 안 보였다. 3:4 틀에 위를 기준으로 맞춰
+                  맨 위 제목이라도 읽히게 하고, 누르면 원본을 크게 연다. */}
+              <button
+                type="button"
+                onClick={() => setZoom(row)}
+                aria-label="크게 보기"
+                className="relative block aspect-[3/4] w-28 shrink-0 cursor-zoom-in overflow-hidden rounded-lg bg-fg/[0.05] sm:w-32"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- 편집 미리보기: 업로드 썸네일 그대로 */}
+                <img
+                  src={row.thumb_url ?? row.image_url}
+                  alt=""
+                  className="h-full w-full object-cover object-top"
+                />
+                <span
+                  aria-hidden
+                  className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-surface/85 to-transparent"
+                />
+              </button>
 
               <div className="min-w-0 flex-1">
                 <input
@@ -207,6 +223,24 @@ export function GuideEditor({ initialImages }: { initialImages: Row[] }) {
             </li>
           ))}
         </ul>
+      )}
+
+      {zoom && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="안내 이미지 크게 보기"
+          onClick={() => setZoom(null)}
+          className="fixed inset-0 z-50 flex cursor-zoom-out items-start justify-center overflow-y-auto bg-fg/70 p-5 backdrop-blur-sm"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={zoom.image_url}
+            alt={zoom.caption || ""}
+            onClick={(e) => e.stopPropagation()}
+            className="my-auto w-full max-w-md rounded-xl shadow-pop"
+          />
+        </div>
       )}
     </div>
   );
