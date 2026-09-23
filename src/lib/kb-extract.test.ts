@@ -3,7 +3,12 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { normalizeExtractedCards, missingCoreTopicsOf } from "./kb-extract.ts";
+import {
+  normalizeExtractedCards,
+  missingCoreTopicsOf,
+  buildUserPrompt,
+  type SamaeSnapshot,
+} from "./kb-extract.ts";
 import { MAX_CARD_BODY, MAX_CARDS } from "./bot-kb.ts";
 
 test("중복 id 는 첫 장만 남는다 — 어드민이 거부하는 조건", () => {
@@ -52,4 +57,28 @@ test("카드가 있는 주제는 누락에서 빠진다", () => {
     { topic: "준비물" },
   ]);
   assert.deepEqual(missing, []);
+});
+
+/** 출장비 표기만 보면 되므로 나머지는 빈 값으로 채운다 */
+function buildUserPromptForTest(over: Partial<SamaeSnapshot>): string {
+  return buildUserPrompt("테스트작가", "자료", {
+    bio: null,
+    priceFromKrw: null,
+    travelFeeKrw: null,
+    packages: [],
+    ...over,
+  });
+}
+
+// 0 은 무료가 아니라 "출장 옵션 없음" 이다(0011). 그냥 "0원" 으로 넘기면 모델이
+// "출장비는 따로 받지 않아요" 카드를 만든다 — 작가가 한 적 없는 약속이다.
+test("출장비 0 은 무료로 말하지 않는다", () => {
+  const p = buildUserPromptForTest({ travelFeeKrw: 0 });
+  assert.ok(!/0원/.test(p), "0원 이라고 적었다");
+  assert.match(p, /무료라는 뜻이 아니/);
+  assert.match(p, /설정 안 함/);
+});
+
+test("출장비가 실제로 설정돼 있으면 금액을 그대로 준다", () => {
+  assert.match(buildUserPromptForTest({ travelFeeKrw: 30000 }), /30,000원/);
 });

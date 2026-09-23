@@ -19,7 +19,7 @@ function loadEnv() {
 
 async function main() {
   loadEnv();
-  const [pid, materialPath] = process.argv.slice(2);
+  const [pid, materialPath, outPath] = process.argv.slice(2);
   if (!pid || !materialPath) throw new Error("사용법: kb-extract-try.ts <작가id> <자료파일>");
 
   const db = createClient(
@@ -83,6 +83,12 @@ async function main() {
 
   console.log(`\n━━ 카드 전문 ━━`);
   for (const c of result.cards) console.log(`  [${c.topic}] ${c.id}\n    ${c.body}`);
+
+  // 세 번째 인자를 주면 카드만 JSON 으로 남긴다 — 그대로 guide-publish 에 넘길 수 있게
+  if (outPath) {
+    await (await import("node:fs/promises")).writeFile(outPath, JSON.stringify(result.cards, null, 2));
+    console.log(`\n카드 ${result.cards.length}장 → ${outPath}`);
+  }
 }
 
 main();

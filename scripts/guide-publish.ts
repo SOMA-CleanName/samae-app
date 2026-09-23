@@ -53,11 +53,19 @@ async function main() {
   if (cardsPath && args.includes("--cards")) {
     cards = JSON.parse(await readFile(cardsPath, "utf8"));
     if (!dry) {
-      const { error } = await db
+      // upsert 여야 한다. update 는 행이 없으면 **조용히 아무것도 안 한다** —
+      // 처음 등록하는 작가(KB 행이 아직 없는 경우)에서 카드가 저장되지 않았는데
+      // 이미지는 메모리의 카드로 구워져 성공한 것처럼 보였다(2026-09-23 주미 건).
+      // 쓴 뒤 돌려받아 확인까지 한다.
+      const { data: saved, error } = await db
         .from("photographer_bot_kb")
-        .update({ cards, updated_at: new Date().toISOString() })
-        .eq("photographer_id", pid);
+        .upsert(
+          { photographer_id: pid, cards, updated_at: new Date().toISOString() },
+          { onConflict: "photographer_id" }
+        )
+        .select("photographer_id");
       if (error) throw new Error(`KB 저장 실패: ${error.message}`);
+      if (!saved?.length) throw new Error("KB 저장 실패: 쓰기가 반영되지 않았어요.");
       console.log(`KB 저장 · 카드 ${cards.length}장`);
     }
   } else {
