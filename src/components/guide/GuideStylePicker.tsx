@@ -32,6 +32,19 @@ export type GuideStylePickerProps = {
   savedText?: string;
   /** 카드가 하나도 없을 때 — 운영과 작가가 해야 할 일이 다르다 */
   emptyText?: string;
+  /**
+   * 접지 않고 바로 펼쳐 둔다.
+   * 작가 화면에서는 이게 그 지면의 본문이라, 버튼 뒤에 숨기면 **같은 이미지를 두 번**
+   * 보여주게 된다(아래 목록에 이미 같은 장이 있다). 운영 화면은 작가 한 명을 고른 뒤
+   * 필요할 때만 여는 자리라 접어 둔다.
+   */
+  alwaysOpen?: boolean;
+  /**
+   * 장 목록을 서버에서 미리 받아 왔으면 그것으로 시작한다.
+   * 항상 펼쳐 두는 화면에서 effect 로 불러오면 첫 그림이 한 박자 늦고,
+   * 렌더 직후 setState 라 cascading render 경고도 난다.
+   */
+  initialSheets?: SheetInfo[];
 };
 
 export function GuideStylePicker({
@@ -43,10 +56,12 @@ export function GuideStylePicker({
   saveLabel = "이 양식으로 저장",
   savedText = "이 양식으로 저장했어요.",
   emptyText = "저장된 카드가 없어요. [KB 저장] 을 먼저 눌러주세요.",
+  alwaysOpen = false,
+  initialSheets,
 }: GuideStylePickerProps) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(alwaysOpen);
   const [style, setStyle] = useState<GuideStyle>(initial);
-  const [sheets, setSheets] = useState<SheetInfo[] | null>(null);
+  const [sheets, setSheets] = useState<SheetInfo[] | null>(initialSheets ?? null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"load" | "save" | "upload" | null>(null);
@@ -115,7 +130,7 @@ export function GuideStylePicker({
     setBusy(null);
   };
 
-  if (!open) {
+  if (!open && !alwaysOpen) {
     return (
       <button
         type="button"
@@ -132,20 +147,56 @@ export function GuideStylePicker({
   }
 
   return (
-    <div className="mt-3 w-full rounded-2xl border border-line bg-bg p-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <p className="text-body-sm font-semibold">안내 이미지 양식</p>
-        <span className="text-caption text-faint">
-          고르면 아래 미리보기가 바로 바뀌어요 · 아직 고객에게 보이지 않습니다
-        </span>
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="ml-auto text-caption text-faint transition-colors hover:text-fg"
-        >
-          닫기
-        </button>
+    <div className={alwaysOpen ? "mt-4 w-full" : "mt-3 w-full rounded-2xl border border-line bg-bg p-4"}>
+      <div className={alwaysOpen ? "sr-only" : "flex flex-wrap items-center gap-2"}>
+        <p className="text-body-sm font-semibold">양식 고르기</p>
+        <span className="text-caption text-faint">고르면 이미지가 바로 바뀌어요</span>
+        {!alwaysOpen && (
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="ml-auto text-caption text-faint transition-colors hover:text-fg"
+          >
+            닫기
+          </button>
+        )}
       </div>
+
+      {/* 지금 이미지 — 고객이 보는 순서 그대로. 양식을 고르면 여기가 바로 바뀐다 */}
+      {sheets && sheets.length > 0 && (
+        <div className="-mx-4 mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 scrollbar-none">
+          {sheets.map((s) => (
+            <figure key={s.sheet} className="shrink-0 snap-start">
+              <button
+                type="button"
+                onClick={() => setZoom(s)}
+                title="크게 보기"
+                className="block cursor-zoom-in"
+              >
+                {/* key 에 stamp 를 넣어 양식이 바뀌면 img 를 새로 만든다 */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  key={`${s.sheet}-${stamp}`}
+                  src={imgSrc(s.sheet)}
+                  alt={s.label}
+                  className="w-[260px] rounded-xl border border-line bg-surface transition-opacity hover:opacity-90 sm:w-[300px]"
+                />
+              </button>
+              <figcaption className="mt-1 text-caption text-muted">
+                {s.sheet}. {s.label} <span className="text-faint">· 카드 {s.cards}장</span>
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+      )}
+      {busy === "load" && <p className="mt-3 text-caption text-muted">이미지를 그리는 중…</p>}
+
+      {alwaysOpen && (
+        <div className="mt-6 flex flex-wrap items-baseline gap-2">
+          <h2 className="text-body font-semibold">양식 고르기</h2>
+          <span className="text-caption text-faint">고르면 위 이미지가 바로 바뀌어요</span>
+        </div>
+      )}
 
       {/* 템플릿 */}
       <p className="mt-4 text-caption text-muted">템플릿</p>
@@ -281,34 +332,6 @@ export function GuideStylePicker({
         <p className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-caption text-danger-ink">{error}</p>
       )}
 
-      {/* 미리보기 — 스와이프 뷰어에서 넘겨 보는 순서 그대로 */}
-      {sheets && sheets.length > 0 && (
-        <div className="mt-4 flex gap-3 overflow-x-auto pb-2">
-          {sheets.map((s) => (
-            <figure key={s.sheet} className="shrink-0">
-              <button
-                type="button"
-                onClick={() => setZoom(s)}
-                title="크게 보기"
-                className="block cursor-zoom-in"
-              >
-                {/* key 에 stamp 를 넣어 양식이 바뀌면 img 를 새로 만든다 */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  key={`${s.sheet}-${stamp}`}
-                  src={imgSrc(s.sheet)}
-                  alt={s.label}
-                  className="w-[240px] rounded-xl border border-line bg-surface transition-opacity hover:opacity-90"
-                />
-              </button>
-              <figcaption className="mt-1 text-caption text-muted">
-                {s.sheet}. {s.label} <span className="text-faint">· 카드 {s.cards}장</span>
-              </figcaption>
-            </figure>
-          ))}
-        </div>
-      )}
-      {busy === "load" && <p className="mt-3 text-caption text-muted">미리보기를 그리는 중…</p>}
 
       {zoom && (
         <div

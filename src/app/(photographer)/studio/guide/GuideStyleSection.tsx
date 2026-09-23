@@ -8,10 +8,17 @@ import { GuideStylePicker } from "@/components/guide/GuideStylePicker";
 import type { GuideStyle } from "@/lib/guide-style";
 import { saveMyGuideStyle, uploadMyGuideBackdrop } from "./actions";
 
-export function GuideStyleSection({ initial }: { initial: GuideStyle }) {
+export function GuideStyleSection({
+  initial,
+  sheets,
+}: {
+  initial: GuideStyle;
+  sheets: { sheet: number; label: string; cards: number }[];
+}) {
   return (
     <GuideStylePicker
       initial={initial}
+      initialSheets={sheets}
       sheetsUrl="/api/studio/guide-card"
       imageUrl={(sheet, style, stamp) => {
         const q = new URLSearchParams({
@@ -31,9 +38,10 @@ export function GuideStyleSection({ initial }: { initial: GuideStyle }) {
         return r;
       }}
       onUpload={uploadMyGuideBackdrop}
-      saveLabel="이 양식으로 다시 만들기"
-      savedText="이 양식으로 다시 만들었어요. 잠시 뒤 새로고침됩니다."
-      emptyText="아직 사매 양식 안내가 없어요. 촬영 정보를 운영팀에 보내주시면 만들어드려요."
+      saveLabel="이 양식으로 바꾸기"
+      savedText="바꿨어요. 잠시 뒤 새로고침됩니다."
+      emptyText="아직 촬영정보 이미지가 없어요. 촬영 정보를 운영팀에 보내주시면 만들어드려요."
+      alwaysOpen
     />
   );
 }
