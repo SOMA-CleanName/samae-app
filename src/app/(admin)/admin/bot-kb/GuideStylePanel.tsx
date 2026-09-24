@@ -10,23 +10,26 @@ import { saveGuideStyle, uploadGuideBackdrop } from "./actions";
 export function GuideStylePanel({
   photographerId,
   initial,
+  rev,
 }: {
   photographerId: string;
   initial: GuideStyle;
+  rev?: string;
 }) {
   return (
     <GuideStylePicker
       initial={initial}
+      rev={rev}
       sheetsUrl={`/api/admin/guide-card?pid=${photographerId}`}
-      imageUrl={(sheet, style, stamp) => {
+      imageUrl={(sheet, style) => {
         const q = new URLSearchParams({
           pid: photographerId,
           sheet: String(sheet),
           template: style.template,
           backdrop: style.backdrop,
           font: style.font,
-          t: String(stamp),
         });
+        if (rev) q.set("rev", rev);
         if (style.backdropUrl) q.set("backdropUrl", style.backdropUrl);
         return `/api/admin/guide-card?${q.toString()}`;
       }}

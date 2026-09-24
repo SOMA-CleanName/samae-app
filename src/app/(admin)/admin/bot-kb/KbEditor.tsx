@@ -562,7 +562,11 @@ export function KbEditor(props: Props) {
         <SaveButton blocked={blocked} />
         {/* 안내 이미지는 **저장된 카드**로 만든다 — 편집 중인 화면이 아니라 DB 기준이라,
             방금 고친 걸 반영하려면 저장이 먼저다. 그래서 저장 버튼 바로 옆에 둔다. */}
-        <GuideStylePanel photographerId={props.photographerId} initial={props.guideStyle} />
+        <GuideStylePanel
+          photographerId={props.photographerId}
+          initial={props.guideStyle}
+          rev={props.updatedAt ?? undefined}
+        />
         <button
           type="button"
           onClick={publish}
