@@ -23,7 +23,18 @@ export type GuideStylePickerProps = {
   /** 장 목록(JSON)을 받아올 주소 */
   sheetsUrl: string;
   /** 고른 양식으로 그 장을 그려 줄 주소 */
-  imageUrl: (sheet: number, style: GuideStyle, stamp: number) => string;
+  /**
+   * 고른 양식으로 그 장을 그려 줄 주소.
+   * **양식이 주소에 다 들어가야 한다** — 그래야 조합마다 주소가 달라 브라우저가 캐시하고,
+   * 전에 본 조합으로 돌아왔을 때 다시 굽지 않는다.
+   */
+  imageUrl: (sheet: number, style: GuideStyle) => string;
+  /**
+   * 카드가 마지막으로 바뀐 시각 등, **내용이 달라지면 달라지는 값**.
+   * 주소에 실어야 카드를 고친 뒤 옛 그림이 캐시에 남지 않는다.
+   * 양식을 고를 때는 바뀌지 않으므로 조합 캐시는 그대로 산다.
+   */
+  rev?: string;
   onSave: (style: GuideStyle) => Promise<{ ok: boolean; error?: string }>;
   onUpload: (form: FormData) => Promise<{ ok: boolean; url?: string; error?: string }>;
   /** 저장 버튼 문구 — 운영은 "저장", 작가는 "이 양식으로 다시 만들기" */
@@ -65,8 +76,6 @@ export function GuideStylePicker({
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<"load" | "save" | "upload" | null>(null);
-  // 같은 URL 이면 브라우저가 옛 그림을 물고 있다 — 고를 때마다 바꿔 캐시를 깬다
-  const [stamp, setStamp] = useState(0);
   // 크게 볼 장 — 미리보기는 240px 라 글자를 못 읽는다
   const [zoom, setZoom] = useState<SheetInfo | null>(null);
 
@@ -105,11 +114,10 @@ export function GuideStylePicker({
   /** 고른 값이 바뀔 때마다 이미지 URL 이 바뀌어 자동으로 다시 그려진다 */
   const pick = (next: Partial<GuideStyle>) => {
     setStyle((s) => ({ ...s, ...next }));
-    setStamp((n) => n + 1);
     setMsg(null);
   };
 
-  const imgSrc = (sheet: number) => imageUrl(sheet, style, stamp);
+  const imgSrc = (sheet: number) => imageUrl(sheet, style);
 
   const apply = async () => {
     setBusy("save");
@@ -173,13 +181,10 @@ export function GuideStylePicker({
                 title="크게 보기"
                 className="block cursor-zoom-in"
               >
-                {/* key 에 stamp 를 넣어 양식이 바뀌면 img 를 새로 만든다 */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  key={`${s.sheet}-${stamp}`}
+                <SwapImage
                   src={imgSrc(s.sheet)}
                   alt={s.label}
-                  className="w-[260px] rounded-xl border border-line bg-surface transition-opacity hover:opacity-90 sm:w-[300px]"
+                  className="w-[260px] rounded-xl border border-line bg-surface sm:w-[300px]"
                 />
               </button>
               <figcaption className="mt-1 text-caption text-muted">
@@ -343,7 +348,7 @@ export function GuideStylePicker({
         >
           <figure className="my-auto" onClick={(e) => e.stopPropagation()}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <SwapImage
               src={imgSrc(zoom.sheet)}
               alt={zoom.label}
               className="max-h-[calc(100vh-6rem)] w-auto rounded-xl shadow-pop"
@@ -355,5 +360,42 @@ export function GuideStylePicker({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * 새 그림이 다 그려질 때까지 **옛 그림을 치우지 않는다.**
+ *
+ * src 를 그냥 갈아끼우면 브라우저가 옛 그림을 즉시 버리고 빈 칸을 보여준다. 양식 하나
+ * 고를 때마다 이미지가 통째로 사라졌다 나타나니 "내려갔다 올라온다" 로 보인다.
+ * 새 그림을 투명하게 먼저 받아 두고, 다 받은 뒤에 바꿔 건다.
+ */
+function SwapImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
+  const [shown, setShown] = useState(src);
+  const pending = src === shown ? null : src;
+
+  return (
+    <span className="relative block">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={shown} alt={alt} className={className} />
+      {pending && (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={pending}
+            alt=""
+            aria-hidden
+            onLoad={() => setShown(pending)}
+            // 실패해도 넘긴다 — 안 넘기면 옛 그림에 영영 갇힌다
+            onError={() => setShown(pending)}
+            className="pointer-events-none absolute inset-0 h-full w-full opacity-0"
+          />
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-0 rounded-xl bg-bg/40 transition-opacity"
+          />
+        </>
+      )}
+    </span>
   );
 }

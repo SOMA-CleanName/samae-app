@@ -11,23 +11,26 @@ import { saveMyGuideStyle, uploadMyGuideBackdrop } from "./actions";
 export function GuideStyleSection({
   initial,
   sheets,
+  rev,
 }: {
   initial: GuideStyle;
   sheets: { sheet: number; label: string; cards: number }[];
+  rev?: string;
 }) {
   return (
     <GuideStylePicker
       initial={initial}
+      rev={rev}
       initialSheets={sheets}
       sheetsUrl="/api/studio/guide-card"
-      imageUrl={(sheet, style, stamp) => {
+      imageUrl={(sheet, style) => {
         const q = new URLSearchParams({
           sheet: String(sheet),
           template: style.template,
           backdrop: style.backdrop,
           font: style.font,
-          t: String(stamp),
         });
+        if (rev) q.set("rev", rev);
         if (style.backdropUrl) q.set("backdropUrl", style.backdropUrl);
         return `/api/studio/guide-card?${q.toString()}`;
       }}

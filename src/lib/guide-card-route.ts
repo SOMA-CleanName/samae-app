@@ -19,27 +19,38 @@ import { resolveGuideStyle, type GuideStyle } from "@/lib/guide-style";
 /**
  * 세트 공통 높이 캐시.
  *
- * 양식을 고를 때마다 5장이 각각 요청으로 들어온다. 매번 세트 전체를 재면 5×5 = 25번을
- * 굽게 되므로, 양식이 같은 동안은 한 번 잰 값을 쓴다. 어드민 한 명이 조합을 고르는
- * 동안만 사는 값이라 메모리에 둔다.
+ * ⚠️ **값이 아니라 약속(Promise)을 담는다.** 양식을 바꾸면 그 세트의 모든 장이 거의 동시에
+ * 요청으로 들어온다. 값만 캐싱하면 전부 아직 비어 있는 캐시를 보고 **각자** 세트 전체를
+ * 재기 시작한다 — 7장이면 7×(7×2)+7 = 105번을 굽는다. 약속을 담아 두면 첫 요청만 재고
+ * 나머지는 그 약속을 기다린다: 7×2+7 = 21번.
+ *
+ * 어드민·작가 한 명이 조합을 고르는 동안만 사는 값이라 메모리에 둔다.
  */
-const heightCache = new Map<string, number>();
+const heightCache = new Map<string, Promise<number>>();
 
-async function uniformHeight(
+function styleKey(pid: string, style: GuideStyle): string {
+  return [pid, style.template, style.backdrop, style.font, style.backdropUrl ?? ""].join("|");
+}
+
+function uniformHeight(
   pid: string,
   displayName: string,
   sheets: GuideSheet[],
   style: GuideStyle
 ): Promise<number> {
-  const key = [pid, style.template, style.backdrop, style.font, style.backdropUrl ?? ""].join("|");
+  const key = styleKey(pid, style);
   const hit = heightCache.get(key);
   if (hit) return hit;
-  const heights = await Promise.all(sheets.map((s) => fittedHeight(displayName, s, style)));
-  const max = Math.max(...heights);
+
+  const p = Promise.all(sheets.map((s) => fittedHeight(displayName, s, style))).then((hs) =>
+    Math.max(...hs)
+  );
+  // 실패한 약속을 남겨 두면 그 조합은 영영 안 된다 — 지우고 다음 요청이 다시 재게 한다
+  p.catch(() => heightCache.delete(key));
   // 조합을 계속 바꿔 보므로 무한정 쌓이지 않게 상한을 둔다
   if (heightCache.size > 40) heightCache.clear();
-  heightCache.set(key, max);
-  return max;
+  heightCache.set(key, p);
+  return p;
 }
 
 export async function guideCardResponse(pid: string, searchParams: URLSearchParams): Promise<Response> {
@@ -85,6 +96,11 @@ export async function guideCardResponse(pid: string, searchParams: URLSearchPara
   const uniform = await uniformHeight(pid, displayName, sheets, style);
   const { png } = await renderGuideCardFitted(displayName, sheet, style, uniform);
   return new Response(new Uint8Array(png), {
-    headers: { "content-type": "image/png", "cache-control": "no-store" },
+    headers: {
+      "content-type": "image/png",
+      // 주소가 곧 결과다(양식이 쿼리에 다 들어 있다). 같은 조합으로 돌아오면 다시 굽지 않는다 —
+      // 조합을 이리저리 견주는 게 이 화면의 용도라 되돌아오는 일이 잦다.
+      "cache-control": "private, max-age=600",
+    },
   });
 }

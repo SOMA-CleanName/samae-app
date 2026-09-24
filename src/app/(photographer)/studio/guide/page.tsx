@@ -27,6 +27,12 @@ export default async function StudioGuidePage() {
   const style = resolveGuideStyle(p?.guide_style);
   // 장 목록은 여기서 세어 넘긴다 — 화면이 뜨자마자 이미지가 보여야 한다(굽는 건 라우트가 한다)
   const kb = await fetchPhotographerKb(me.photographer.id, me.photographer.displayName ?? "");
+  // 카드가 바뀌면 미리보기 주소도 바뀌어야 한다 — 안 그러면 옛 그림이 캐시에 남는다
+  const { data: kbRow } = await createAdminClient()
+    .from("photographer_bot_kb")
+    .select("updated_at")
+    .eq("photographer_id", me.photographer.id)
+    .maybeSingle();
   const sheets = groupCardsIntoSheets(kb?.cards ?? []).map((s, i) => ({
     sheet: i + 1,
     label: s.label,
@@ -45,7 +51,7 @@ export default async function StudioGuidePage() {
 
       {/* 촬영정보 이미지 — 운영이 등록한 촬영 정보로 구운 것.
           작가가 바꾸는 건 **겉모습뿐**이다(글은 KB 카드라 여기서 못 고친다). */}
-      <GuideStyleSection initial={style} sheets={sheets} />
+      <GuideStyleSection initial={style} sheets={sheets} rev={kbRow?.updated_at ?? undefined} />
 
       <section className="mt-10">
         <h2 className="text-body font-semibold">직접 올린 이미지</h2>
