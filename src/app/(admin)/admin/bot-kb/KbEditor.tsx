@@ -61,6 +61,8 @@ type Props = {
   guideStyle: GuideStyle;
   /** 안내가 옛것인지 — 무엇을 해야 하는지 편집기 맨 위에서 말해준다 */
   freshness: Freshness;
+  /** 지난번 추출에 쓴 작가 원본 자료 — 다시 정리할 때 그대로 꺼내 쓴다 */
+  sourceMaterial: string;
 };
 
 let keySeq = 0;
@@ -292,6 +294,7 @@ export function KbEditor(props: Props) {
         <KbExtractPanel
           photographerId={props.photographerId}
           displayName={props.displayName}
+          initialMaterial={props.sourceMaterial}
           onCards={(json) => {
             if (
               cards.length > 0 &&

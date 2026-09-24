@@ -20,14 +20,20 @@ export function KbExtractPanel({
   photographerId,
   displayName,
   onCards,
+  initialMaterial = "",
 }: {
   photographerId: string;
   displayName: string;
   /** 추출한 카드 JSON — 편집기 카드 목록을 이걸로 갈아끼운다 */
   onCards: (cardsJson: string) => void;
+  /**
+   * 지난번에 쓴 작가 자료. 채워 두면 작가가 패키지를 고쳤을 때
+   * **원문을 다시 찾을 필요 없이** 바로 다시 정리할 수 있다.
+   */
+  initialMaterial?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [material, setMaterial] = useState("");
+  const [material, setMaterial] = useState(initialMaterial);
   const [result, setResult] = useState<ExtractState>(EMPTY);
   const [pending, start] = useTransition();
 
@@ -72,6 +78,14 @@ export function KbExtractPanel({
         {displayName} 님이 보내온 안내문을 그대로 붙여넣으세요. 노션·카톡·이미지에서 옮긴 글 아무거나
         됩니다. 사매에 등록된 패키지·소개글과 맞대보고 <b className="text-fg">어긋나는 곳</b>을 찾아냅니다.
       </p>
+
+      {/* 지난번 자료가 채워져 있으면 그걸 알려준다 — 모르면 원문을 또 찾아 헤맨다 */}
+      {initialMaterial && material === initialMaterial && (
+        <p className="mt-2 rounded-xl bg-info-soft px-3 py-2 text-caption text-info-ink">
+          지난번에 쓴 자료가 채워져 있어요. 그대로{" "}
+          <b>[초안 만들기]</b> 를 누르면 <b>지금 등록된 패키지 기준</b>으로 다시 정리돼요.
+        </p>
+      )}
 
       <textarea
         value={material}

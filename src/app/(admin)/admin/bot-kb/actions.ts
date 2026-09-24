@@ -148,6 +148,19 @@ export async function extractKbFromText(
         })),
       },
     });
+    // 자료를 남겨 둔다 — 없으면 나중에 "갱신 필요" 가 떠도 원문을 다시 찾아야 한다.
+    // 카드 저장(saveBotKb)과 별개로 여기서 한다: 추출까지만 하고 안 쓰는 경우에도
+    // 그 자료를 들고 있는 게 낫다. 실패해도 추출 결과는 그대로 돌려준다.
+    const { error: srcErr } = await admin.from("photographer_bot_kb").upsert(
+      {
+        photographer_id: photographerId,
+        source_material: material.slice(0, 200_000),
+        source_saved_at: new Date().toISOString(),
+      },
+      { onConflict: "photographer_id" }
+    );
+    if (srcErr) console.warn("[bot-kb] 원본 자료 저장 실패:", srcErr.message);
+
     return {
       cardsJson: JSON.stringify(result.cards, null, 2),
       conflicts: result.conflicts,
