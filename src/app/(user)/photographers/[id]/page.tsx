@@ -94,9 +94,16 @@ export default async function PhotographerProfile({
 
   const isOwner = me?.photographer?.id === ph.id;
 
-  // 패키지 가격 → Product/Offer. "성수 스냅 얼마?" 류 질의에 AI 가 인용할 사실 단위다.
-  // 실명은 넣지 않는다(익명 정책) — seller 는 브랜드로 나간다.
-  const packagesLd = packagesJsonLd(ph.id, packages);
+  // 패키지 가격 → Service/Offer. "성수 스냅 얼마?" 류 질의에 AI 가 인용할 사실 단위다.
+  // 실명은 넣지 않는다(익명 정책) — provider·seller 는 브랜드로 나간다.
+  //
+  // 대표 사진을 함께 싣는다 — 구글이 `image` 누락을 **심각**으로 잡았다(2026-09-24).
+  // 별점은 후기가 실제로 있을 때만 (packagesJsonLd 안에서 거른다).
+  const packagesLd = packagesJsonLd(ph.id, packages, {
+    imageUrl: pubPhotos[0]?.src_url ?? null,
+    ratingAvg: ph.rating_avg,
+    reviewCount: ph.review_count,
+  });
   const breadcrumbLd = breadcrumbJsonLd([
     { name: "홈", path: "/" },
     { name: "사진작가", path: `/photographers/${ph.id}` },
