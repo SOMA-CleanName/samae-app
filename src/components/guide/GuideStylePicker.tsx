@@ -13,7 +13,7 @@
 // 다른 건 **어느 주소로 미리보기를 받고 무엇을 저장하느냐** 뿐이라, 그 셋만 주입받는다.
 // 복제하면 한쪽만 고쳐져서 운영 화면과 작가 화면의 양식이 갈린다.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { TEMPLATES, BACKDROPS, FONTS, type GuideStyle } from "@/lib/guide-style";
 
 type SheetInfo = { sheet: number; label: string; cards: number };
@@ -100,6 +100,56 @@ export function GuideStylePicker({
       setBusy(null);
     }
   }, [sheetsUrl, emptyText]);
+
+  // imageUrl 은 렌더마다 새로 만들어지는 함수다 — 의존성에 넣으면 프리페치가 매 렌더 다시 돌아
+  // 타이머만 계속 초기화되고 영영 안 받는다. 최신 것을 ref 로 들고 쓴다(쓰기는 effect 에서).
+  const urlRef = useRef(imageUrl);
+  useEffect(() => {
+    urlRef.current = imageUrl;
+  });
+
+  /**
+   * 이웃 조합을 미리 받아 둔다 — **첫 장만.**
+   *
+   * 전부(템플릿 6 × 배경지 8 × 글씨체 5 = 240조합)를 미리 구우면 서버가 100초쯤 돌아야 한다.
+   * 대신 사람이 다음에 누를 만한 것만 데운다: 한 번에 한 축씩 바꾸므로 "지금 고른 것에서
+   * 한 칸 옆" 이 곧 다음 후보다.
+   *
+   * 첫 장만 받아도 그 조합의 **세트 공통 높이가 서버에 캐시된다**(첫 장을 그리려면 전체를
+   * 재야 하므로). 그래서 실제로 그 조합을 고르면 남은 장만 구우면 된다.
+   *
+   * 한 장씩 순서대로 받는다. 한꺼번에 던지면 지금 보고 있는 그림이 뒤로 밀린다.
+   */
+  useEffect(() => {
+    if (!sheets || sheets.length === 0) return;
+    let stopped = false;
+    const neighbors: GuideStyle[] = [
+      ...TEMPLATES.filter((t) => t.key !== style.template).map((t) => ({ ...style, template: t.key })),
+      ...FONTS.filter((f) => f.key !== style.font).map((f) => ({ ...style, font: f.key })),
+      ...BACKDROPS.filter((b) => b.key !== style.backdrop).map((b) => ({
+        ...style,
+        backdrop: b.key,
+        backdropUrl: null,
+      })),
+    ];
+    const run = async () => {
+      for (const n of neighbors) {
+        if (stopped) return;
+        await new Promise<void>((done) => {
+          const img = new window.Image();
+          img.onload = () => done();
+          img.onerror = () => done();
+          img.src = urlRef.current(1, n);
+        });
+      }
+    };
+    // 지금 보고 있는 그림이 다 뜬 뒤에 시작한다
+    const timer = setTimeout(run, 1200);
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+    };
+  }, [sheets, style]);
 
   // 확대해서 보는 중에는 Esc 로 닫는다 — 오버레이를 정확히 누르지 않아도 되게
   useEffect(() => {
@@ -347,7 +397,6 @@ export function GuideStylePicker({
           className="fixed inset-0 z-50 flex cursor-zoom-out items-start justify-center overflow-y-auto bg-fg/70 p-6 backdrop-blur-sm"
         >
           <figure className="my-auto" onClick={(e) => e.stopPropagation()}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
             <SwapImage
               src={imgSrc(zoom.sheet)}
               alt={zoom.label}

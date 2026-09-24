@@ -747,7 +747,8 @@ export async function fittedHeight(
   if (style.template === "cover") return estimated;
 
   const png = Buffer.from(await (await renderGuideCard(displayName, sheet, style)).arrayBuffer());
-  const slack = await blankRun(png, WIDTH, estimated);
+  const dark = !style.backdropUrl && !!BACKDROPS.find((b) => b.key === style.backdrop)?.dark;
+  const slack = await blankRun(png, WIDTH, estimated, dark);
   const cut = slack - GAP_KEEP;
   if (slack < GAP_MIN || estimated - cut < MIN_HEIGHT) return estimated;
   return estimated - cut;
@@ -771,16 +772,24 @@ export async function renderGuideSet(
 }
 
 /** 글자가 없는 가로줄이 가장 길게 이어지는 구간의 길이 */
-async function blankRun(png: Buffer, width: number, height: number): Promise<number> {
+async function blankRun(
+  png: Buffer,
+  width: number,
+  height: number,
+  /** 어두운 배경이면 글자가 **밝다** — 찾는 방향이 뒤집힌다 */
+  dark: boolean
+): Promise<number> {
   const sharp = (await import("sharp")).default;
   const px = await sharp(png).greyscale().raw().toBuffer();
+  // 밝은 배경: 글자(#1c1a17≈28)가 어둡다 · 어두운 배경: 글자(#f4f1ea≈241)가 밝고 바탕은 21~48
+  const isInk = dark ? (v: number) => v > 200 : (v: number) => v < 140;
   let best = 0;
   let run = 0;
   for (let y = 0; y < height; y++) {
     let ink = 0;
     // 양끝 8px 은 뺀다 — 가장자리 안티앨리어싱 한 점 때문에 줄 전체가 "글자 있음" 이 된다
     for (let x = 8; x < width - 8; x++) {
-      if (px[y * width + x] < 140 && ++ink > 2) break;
+      if (isInk(px[y * width + x]) && ++ink > 2) break;
     }
     if (ink > 2) run = 0;
     else if (++run > best) best = run;

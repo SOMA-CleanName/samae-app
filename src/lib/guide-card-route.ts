@@ -14,7 +14,7 @@ import {
   groupCardsIntoSheets,
   type GuideSheet,
 } from "@/lib/guide-card-template";
-import { resolveGuideStyle, type GuideStyle } from "@/lib/guide-style";
+import { resolveGuideStyle, BACKDROPS, type GuideStyle } from "@/lib/guide-style";
 
 /**
  * 세트 공통 높이 캐시.
@@ -28,8 +28,16 @@ import { resolveGuideStyle, type GuideStyle } from "@/lib/guide-style";
  */
 const heightCache = new Map<string, Promise<number>>();
 
+/**
+ * 높이 캐시 키 — **배경지는 넣지 않는다.**
+ *
+ * 높이는 글의 배치에서 나오고, 배경지는 색·그림만 바꾼다(실측: 여덟 배경지 전부 같은 높이).
+ * 배경지를 키에 넣으면 6×8×5 = 240 조합을 따로 재게 되는데, 실제로 다른 건
+ * 6×5×2 = 60 뿐이다. 어두운 배경만 가른다 — 재단이 글자 밝기를 보고 자르기 때문이다.
+ */
 function styleKey(pid: string, style: GuideStyle): string {
-  return [pid, style.template, style.backdrop, style.font, style.backdropUrl ?? ""].join("|");
+  const dark = !style.backdropUrl && !!BACKDROPS.find((b) => b.key === style.backdrop)?.dark;
+  return [pid, style.template, style.font, dark ? "dark" : "light"].join("|");
 }
 
 function uniformHeight(
