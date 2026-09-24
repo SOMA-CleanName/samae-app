@@ -20,6 +20,8 @@ type KbRow = {
   enabled: boolean;
   note: string;
   updated_at: string;
+  source_material: string | null;
+  source_saved_at: string | null;
 };
 
 // 어드민 상담봇 — 전역 정책(모든 작가 공통) + 작가별 지식카드.
@@ -40,7 +42,7 @@ export default async function AdminBotKbPage({
         .order("display_name"),
       admin
         .from("photographer_bot_kb")
-        .select("photographer_id, cards, greeting, enabled, note, updated_at"),
+        .select("photographer_id, cards, greeting, enabled, note, updated_at, source_material, source_saved_at"),
       // 안내가 옛것인지 보려면 "무엇이 언제 바뀌었는지" 가 필요하다
       admin.from("packages").select("photographer_id, updated_at"),
       admin.from("photographer_guide_images").select("photographer_id, image_url, created_at"),
@@ -162,6 +164,7 @@ export default async function AdminBotKbPage({
                 hasDemo={selected.demo}
                 guideStyle={selected.guideStyle}
                 freshness={selected.freshness}
+                sourceMaterial={selected.kb?.source_material ?? ""}
               />
             )
           }
