@@ -1,7 +1,7 @@
 import { SITE_URL, SITE_NAME } from "@/lib/site";
-import { listPublishedArticles } from "@/lib/articles";
+import { listPublishedArticlesWithBody } from "@/lib/articles";
 import { listPublishedGuideItems } from "@/lib/guide";
-import { buildRss, summarize, urlFor, type RssItem } from "@/lib/rss";
+import { buildRss, mdToFeedHtml, sameOriginImage, urlFor, escapeXml, type RssItem } from "@/lib/rss";
 
 /**
  * RSS 피드 — **네이버 서치어드바이저 「RSS 제출」용.**
@@ -20,7 +20,7 @@ export const revalidate = 3600;
 
 export async function GET() {
   const [articles, guide] = await Promise.all([
-    listPublishedArticles(),
+    listPublishedArticlesWithBody(),
     listPublishedGuideItems(),
   ]);
 
@@ -28,7 +28,16 @@ export async function GET() {
     ...articles.map((a) => ({
       url: urlFor(SITE_URL, "articles", a.slug),
       title: a.title,
-      description: summarize(a.summary),
+      // 네이버 안내: "이미지 링크가 포함된 **본문 전체**를 제공하는 것을 권장합니다."
+      // 표지를 맨 앞에 세우고 본문을 잇는다. 이미지는 우리 도메인으로 되쏜다.
+      description: [
+        a.cover_url
+          ? `<img src="${escapeXml(sameOriginImage(SITE_URL, a.cover_url))}" alt="${escapeXml(a.cover_alt)}"/>`
+          : "",
+        mdToFeedHtml(a.body_md, SITE_URL),
+      ]
+        .filter(Boolean)
+        .join("\n"),
       publishedAt: a.published_at ?? a.updated_at,
     })),
     // 가이드 문답에는 날짜 컬럼이 없다. pubDate 를 지어내지 않고 생략한다 —
@@ -36,7 +45,7 @@ export async function GET() {
     ...guide.map((g) => ({
       url: urlFor(SITE_URL, "guide", g.slug),
       title: g.question,
-      description: summarize(g.answer),
+      description: mdToFeedHtml(g.answer, SITE_URL),
     })),
   ];
 

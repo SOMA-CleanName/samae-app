@@ -45,6 +45,25 @@ export async function listPublishedArticles(): Promise<ArticleCard[]> {
   return (data ?? []) as ArticleCard[];
 }
 
+/**
+ * 공개 글 **본문까지** — RSS 피드(app/rss.xml)만 쓴다.
+ *
+ * 목록용(listPublishedArticles)은 일부러 body_md 를 뺀다. 피드는 반대로 본문이 있어야
+ * 한다 — 네이버가 "이미지 링크가 포함된 본문 전체" 를 권장한다. 5건에 5.6천자라
+ * 한 번에 끌어와도 가볍다(실측 2026-09-26).
+ */
+export async function listPublishedArticlesWithBody(): Promise<Article[]> {
+  const supabase = createPublicClient();
+  const { data, error } = await supabase
+    .from("articles")
+    .select(COLS)
+    .eq("published", true)
+    .order("sort_order", { ascending: true })
+    .order("published_at", { ascending: false });
+  if (error) return [];
+  return (data ?? []) as Article[];
+}
+
 // 공개 글 1건. 비공개·미존재는 null. (위와 같은 이유로 익명 클라이언트)
 export async function getPublishedArticle(slug: string): Promise<Article | null> {
   const decoded = safeDecode(slug);
