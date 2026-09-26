@@ -1,5 +1,8 @@
 import { ImageResponse } from "next/og";
 import { MAX_CARD_BODY, type KbCard } from "./bot-kb";
+// 주제→묶음 매핑은 공개 지면(글)과 **같은 것을 써야 한다** — 단일 출처는 kb-sections
+import { GUIDE_SHEETS } from "./kb-sections";
+export { GUIDE_SHEETS };
 import {
   BACKDROPS,
   UPLOAD_VEIL,
@@ -61,18 +64,6 @@ export const MAX_BODY = MAX_CARD_BODY;
  * 안내 이미지 한 장 = 토픽 묶음. 배열 순서가 곧 스와이프 순서다.
  * 토픽 1:1 로 뽑으면 카드 1장짜리 장이 우수수 나와 안내물이 파편화된다.
  */
-export const GUIDE_SHEETS: { label: string; en: string; topics: string[] }[] = [
-  { label: "가격·구성", en: "Price", topics: ["서비스", "가격", "진행방식"] },
-  { label: "컨셉", en: "Concept", topics: ["컨셉"] },
-  {
-    label: "촬영 당일",
-    en: "On the day",
-    topics: ["소요시간", "촬영장소", "준비물", "인원", "촬영진행", "일정변경", "출장"],
-  },
-  { label: "보정·수정", en: "Retouch", topics: ["보정", "수정"] },
-  { label: "원본·납품", en: "Delivery", topics: ["원본", "셀렉", "납품", "보관", "포트폴리오", "문의"] },
-];
-
 export type GuideSheet = { label: string; en: string; cards: KbCard[] };
 
 /**
