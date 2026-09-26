@@ -17,7 +17,10 @@ import { ProfileBackButton } from "./ProfileBackButton";
 import { MapPinIcon } from "@/components/user/icons";
 import { Avatar, Button } from "@/components/ui";
 import type { Metadata } from "next";
-import { photographerMetadata, packagesJsonLd, breadcrumbJsonLd } from "@/lib/seo";
+import { photographerMetadata, packagesJsonLd, breadcrumbJsonLd, faqJsonLd } from "@/lib/seo";
+import { fetchPublicKbSections } from "@/lib/kb-public";
+import { kbFaqPairs } from "@/lib/kb-sections";
+import { KbSections } from "./KbSections";
 import { photographerSummary } from "@/lib/photographer-summary";
 import { JsonLd } from "@/components/JsonLd";
 
@@ -41,11 +44,12 @@ export default async function PhotographerProfile({
   const ph = await fetchPhotographerById(id);
   if (!ph) notFound();
 
-  const [photos, packages, highlights, aboutSections, me] = await Promise.all([
+  const [photos, packages, highlights, aboutSections, kbSections, me] = await Promise.all([
     fetchPhotographerPhotos(ph.id),
     fetchPhotographerPackages(ph.id),
     fetchPhotographerHighlights(ph.id),
     fetchPhotographerAboutSections(ph.id),
+    fetchPublicKbSections(ph.id),
     getCurrentUser(),
   ]);
 
@@ -114,6 +118,16 @@ export default async function PhotographerProfile({
     ratingAvg: ph.rating_avg,
     reviewCount: ph.review_count,
   });
+  /*
+    작가 안내를 **글로도** 싣는다. 지금까지 이 내용은 안내 이미지(채팅)에만 있었는데,
+    검색엔진도 AI 도 픽셀 안의 글자를 못 읽는다 — 가격·구성·보정·납품처럼 고객이
+    정확히 검색하는 내용이 전부 거기 갇혀 있었다.
+
+    질문은 지어내지 않는다(kb-sections 참고). 묶음 제목이 곧 "무엇에 대한 답인가" 다.
+  */
+  const kbFaqLd = faqJsonLd(
+    kbFaqPairs(kbSections, ph.display_name).map((x) => ({ q: x.question, a: x.answer }))
+  );
   const breadcrumbLd = breadcrumbJsonLd([
     { name: "홈", path: "/" },
     { name: "사진작가", path: `/photographers/${ph.id}` },
@@ -122,6 +136,7 @@ export default async function PhotographerProfile({
   return (
     <main className="mx-auto max-w-6xl px-2.5 py-2.5 font-kr sm:px-4 sm:py-4">
       {packagesLd && <JsonLd data={packagesLd} />}
+      {kbFaqLd && <JsonLd data={kbFaqLd} />}
       <JsonLd data={breadcrumbLd} />
       {/* 상단 바 — 좌측 뒤로가기 + 가운데 작가 이름(작게) */}
       <div className="relative flex items-center">
@@ -183,6 +198,7 @@ export default async function PhotographerProfile({
               />
             </div>
           )}
+          {kbSections.length > 0 && <KbSections sections={kbSections} />}
           <ProfileTabs
             aboutSlot={
               aboutSections.length > 0 ? <AboutSections sections={aboutSections} /> : undefined
