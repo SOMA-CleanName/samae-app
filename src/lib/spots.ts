@@ -6,6 +6,7 @@ import "server-only";
 import { createPublicClient } from "@/lib/supabase/public";
 import { listPublishedSpots } from "@/lib/spots-db";
 import { isSpotLive } from "@/lib/spot-live";
+import { isUsablePlace } from "@/lib/location-text";
 import type { GalleryPhoto } from "@/lib/discovery";
 import type { Spot } from "@/lib/spots-db";
 
@@ -63,6 +64,8 @@ const MAX_LISTED_PLACES = 2;
 
 /** 촬영지로 볼 수 있는 표기인가 — 나열이 길면 커버 지역 목록으로 본다. */
 function isSpecificLocation(text: string | null | undefined): boolean {
+  // 「협의」·「서울 어딘가」 류는 장소가 아니다 — 스팟에 붙을 수도 없고 붙어서도 안 된다
+  if (!isUsablePlace(text)) return false;
   if (!text) return false;
   const parts = text
     .split(/[,·/]/)

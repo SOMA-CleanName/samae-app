@@ -11,6 +11,7 @@ import {
   newFeedSeed,
 } from "@/lib/discovery";
 import { fetchGuideImages } from "@/lib/guide-images";
+import { displayPlace } from "@/lib/location-text";
 import { loadMorePhotos } from "../../feed-actions";
 import { getCurrentUser } from "@/lib/auth";
 import { PhotoCarousel } from "./PhotoCarousel";
@@ -110,7 +111,13 @@ export default async function PhotoDetail({
   if (!ph) notFound();
 
   const isOwner = me?.photographer?.id === ph.id;
-  const location = photo.location_text || photo.region || null;
+  /*
+    ⚠️ `location_text` 는 작가 자유 입력이라 「협의」·「수도권 내 협의 후 진행」·
+       「서울 어딘가」 같은 값이 들어온다. 그대로 쓰면 지면에 **「촬영 장소: 협의」**
+       라고 적힌다 — 정보가 아니라 잡음이고, 검색에도 그 말이 잡힌다.
+       공개 사진 1,719장 중 317장이 그런 값이었다(2026-09-27).
+  */
+  const location = displayPlace(photo.location_text) || photo.region || null;
   // 사진 가격은 작가 패키지 가격 중에서 선택되지만(포트폴리오 등록 UI) 이후 패키지 가격이 바뀌면
   // 정확히 안 맞을 수 있어, '가격이 가장 가까운' 활성 패키지를 기준으로 촬영시간·보정본을 노출.
   // (정확 일치 시 차=0이라 그 패키지, 작가에 활성 패키지가 없으면 null → 가격만)
@@ -169,7 +176,7 @@ export default async function PhotoDetail({
         photographerId={photo.photographer_id}
         albumId={photo.album_id}
         category={photo.mood_tags ?? null}
-        region={photo.region ?? photo.location_text ?? null}
+        region={photo.region ?? displayPlace(photo.location_text)}
         price={photo.price_krw ?? null}
         disabled={isOwner}
       />
