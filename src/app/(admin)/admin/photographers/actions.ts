@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { logAdminAction } from "@/lib/admin-audit";
 import { fetchRemovalFacts, collectStoragePaths, PORTFOLIO_BUCKET } from "@/lib/removal-facts";
 import { buildRemovalReport } from "@/lib/removal-report";
+import { agreementStatus } from "@/lib/agreement-status";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
@@ -472,4 +473,63 @@ export async function beginRemoval(formData: FormData) {
 
   revalidatePath("/admin/photographers");
   redirect(`/admin/photographers/${id}/removal`);
+}
+
+/**
+ * 계약 미동의 작가의 노출을 일괄로 맞춘다 — 가릴 사람은 가리고, 동의한 사람은 되돌린다.
+ *
+ * **왜 필요한가.** 광고를 돌리는데 계약 갱신을 안 한 작가 사진에 문의가 꽂히면 그건
+ * 받을 사람이 없는 문의다. 고객은 답을 못 받고 작가는 연락이 온 줄도 모른다. 지면이
+ * 비는 건 되돌릴 수 있지만 "문의했는데 답이 없었다" 는 되돌릴 수 없다.
+ *
+ * **기준은 AgreeGate 와 같다.** 동의가 최신이 아닌 작가(미동의 + 구버전)는 스튜디오에
+ * 들어오지 못한다 = 문의를 받을 수 없다. 화면이 막는 사람과 노출을 끊는 사람이 다르면
+ * 그 틈에 "못 받는데 보이는" 작가가 생긴다.
+ *
+ * 되돌리기가 자동이라 이 버튼을 여러 번 눌러도 안전하다 — 동의를 마친 작가는 그 즉시
+ * (studio/actions 의 동의 처리에서) 이미 복구되고, 여기서 한 번 더 훑어 누락을 막는다.
+ */
+export async function syncUnagreedVisibility(): Promise<void> {
+  const me = await assertAdmin();
+  const admin = createAdminClient();
+
+  const [{ data: phs }, { data: ags }] = await Promise.all([
+    admin.from("photographers").select("id, display_name, status").eq("status", "approved"),
+    admin.from("photographer_agreements").select("photographer_id, versions, agreed_at"),
+  ]);
+
+  const byPhotographer = new Map<string, Array<{ versions: unknown; agreed_at: string }>>();
+  for (const a of (ags ?? []) as Array<{ photographer_id: string; versions: unknown; agreed_at: string }>) {
+    const list = byPhotographer.get(a.photographer_id) ?? [];
+    list.push({ versions: a.versions, agreed_at: a.agreed_at });
+    byPhotographer.set(a.photographer_id, list);
+  }
+
+  let hidden = 0;
+  let restored = 0;
+  const failed: string[] = [];
+
+  for (const ph of (phs ?? []) as Array<{ id: string; display_name: string | null }>) {
+    const current = agreementStatus(byPhotographer.get(ph.id) ?? []).state === "current";
+    const fn = current
+      ? "restore_unagreed_photographer_content"
+      : "hide_unagreed_photographer_content";
+    const { error } = await admin.rpc(fn, { p_photographer_id: ph.id });
+    // 한 명이 실패해도 나머지는 계속 처리한다 — 중간에 멈추면 절반만 가려진 상태가 된다
+    if (error) failed.push(ph.display_name ?? ph.id);
+    else if (current) restored += 1;
+    else hidden += 1;
+  }
+
+  await logAdminAction({
+    action: "unagreed_visibility_sync",
+    actor: { id: me.id, label: me.displayName },
+    target: { table: "photographers", id: "*" },
+    detail: { hidden, restored, failed },
+  });
+  revalidatePath("/admin/photographers");
+
+  if (failed.length > 0) {
+    throw new Error(`일부 작가를 처리하지 못했어요: ${failed.join(", ")}`);
+  }
 }

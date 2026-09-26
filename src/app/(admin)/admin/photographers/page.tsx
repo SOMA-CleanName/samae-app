@@ -12,6 +12,7 @@ import {
   deleteApplication,
   updatePhotographerFee,
   beginRemoval,
+  syncUnagreedVisibility,
 } from "./actions";
 import { DEFAULT_FEE_RATE, feeSpecFromRow, feeSpecLabel } from "@/lib/platform-fee";
 import { BusinessLicenseCell } from "./BusinessLicenseCell";
@@ -191,8 +192,25 @@ export default async function AdminPhotographersPage({
               {activeRows.length - currentCount}명이 아직 갱신 전이에요
             </span>
           )}
+          {/*
+            갱신 안 한 작가는 AgreeGate 에 막혀 스튜디오에 못 들어온다 = 문의를 받을 수
+            없다. 그 상태로 사진이 노출되면 고객이 **받을 사람 없는 문의**를 넣게 된다.
+            광고를 돌리는 동안엔 그게 제일 비싼 손해다.
+
+            동의를 마치면 그 즉시 자동으로 되돌아오므로(studio 의 동의 처리) 이 버튼은
+            누락분을 훑는 용도다. 여러 번 눌러도 안전하다.
+          */}
+          <form action={syncUnagreedVisibility} className="ml-auto">
+            <PendingButton size="sm" variant="secondary">
+              미갱신 작가 노출 정리
+            </PendingButton>
+          </form>
         </div>
       )}
+      <p className="mt-1.5 px-1 text-caption text-faint">
+        갱신 안 한 작가의 사진·패키지를 모든 고객 지면에서 가려요. 작가가 스스로 숨긴
+        사진은 그대로 두고, 동의를 마치면 자동으로 다시 보여요.
+      </p>
 
       {/* 작가 신청 — /apply 로 접수된 신청. 승인 시 그 계정으로 작가 등록. */}
       <section className="mt-6">

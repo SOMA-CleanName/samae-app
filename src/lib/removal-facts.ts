@@ -3,7 +3,8 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { listPublishedSpots } from "@/lib/spots-db";
 import { countSpotPhotos, countSpotPhotosExcluding } from "@/lib/spots";
-import { SPOT_MIN_PHOTOS, type RemovalFacts } from "@/lib/removal-report";
+import { type RemovalFacts } from "@/lib/removal-report";
+import { SPOT_MIN_PHOTOS } from "@/lib/spot-live";
 
 /**
  * 작가 퇴출 점검에 필요한 숫자를 모은다. 판정은 removal-report.ts 가 한다.

@@ -5,6 +5,7 @@ import "server-only";
 // RLS 가 published·approved·is_active 를 대신 걸러 주므로 보안도 더 낫다.
 import { createPublicClient } from "@/lib/supabase/public";
 import { listPublishedSpots } from "@/lib/spots-db";
+import { isSpotLive } from "@/lib/spot-live";
 import type { GalleryPhoto } from "@/lib/discovery";
 import type { Spot } from "@/lib/spots-db";
 
@@ -282,6 +283,9 @@ export async function listSpotCards(limit = 6): Promise<SpotCard[]> {
   const taken = new Set<string>();
   const cards = matchedBySpot
     .slice()
+    // 사진이 기준에 못 미치는 곳은 목록에서 뺀다. `published` 는 건드리지 않는다 —
+    // 사진이 다시 차면 손대지 않아도 돌아온다(lib/spot-live).
+    .filter(({ matched }) => isSpotLive(matched.length))
     .sort((a, b) => b.matched.length - a.matched.length)
     .map(({ spot: s, matched }) => {
       const urls = matched
