@@ -1,6 +1,5 @@
 import type { MetadataRoute } from "next";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { listPublishedCategories } from "@/lib/categories";
 import { listPublishedExploreSlugs, countVisiblePhotos } from "@/lib/explore-db";
 import { resolveExplorePhotoIds } from "@/lib/target-categories";
 import { SITE_URL } from "@/lib/site";
@@ -117,11 +116,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const admin = createAdminClient();
 
     // 지면별 갱신 시각을 한 번에 읽는다. 작가는 프로필만으로 부족해서 따로 합친다(아래).
-    const [lmSpot, lmGuide, lmExplore, lmCategory, lmPhotographer, pkgRows] = await Promise.all([
+    const [lmSpot, lmGuide, lmExplore, lmPhotographer, pkgRows] = await Promise.all([
       lastmodBy(admin, "spots", "slug", { col: "published", val: true }),
       lastmodBy(admin, "guide_items", "slug", { col: "published", val: true }),
       lastmodBy(admin, "explore_categories", "slug", { col: "published", val: true }),
-      lastmodBy(admin, "categories", "slug", { col: "published", val: true }),
       lastmodBy(admin, "photographers", "id", { col: "status", val: "approved" }),
       admin.from("packages").select("photographer_id, updated_at").eq("is_active", true),
     ]);
@@ -139,14 +137,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       if (!cur || d > cur) lmPackage.set(pid, d);
     }
 
-    // 공개 카테고리는 DB 에서 가져와 항상 최신 slug 로 (하드코딩 시 카테고리 개편 때 죽은 링크 발생)
-    const categories = await listPublishedCategories();
-    const categoryEntries: MetadataRoute.Sitemap = categories.map((c) => ({
-      url: `${SITE_URL}/c/${encodeURIComponent(c.slug)}`,
-      lastModified: lmCategory.get(c.slug),
-      changeFrequency: "weekly",
-      priority: 0.7,
-    }));
+    /*
+      🔴 `/c/*` 는 사이트맵에서 뺐다 — **광고 랜딩이라 noindex 다**(2026-09-26).
+         색인하지 않을 지면을 사이트맵에 올리면 구글에 "이건 색인해줘" 와 "이건 하지 마" 를
+         동시에 보내는 꼴이다. 조회 자체를 지워 뒀다 — 남겨 두면 다음 사람이 "왜 안 쓰지" 를
+         묻게 된다.
+    */
 
     // 탐색 카테고리(무드·장면 큐레이션). /c/ 보다 우선순위를 높게 잡는다 —
     // "성수 스냅", "빈티지 사진" 같은 롱테일 검색이 닿는 지점이라 유입 가치가 가장 크다.
@@ -262,7 +258,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       ...spotEntries,
       ...guideWithLastmod,
       ...exploreEntries,
-      ...categoryEntries,
       ...photographerEntries,
       ...photoEntries,
     ];
