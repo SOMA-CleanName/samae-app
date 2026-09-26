@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { SITE_URL, SITE_NAME } from "@/lib/site";
+import { displayPlace } from "@/lib/location-text";
 
 // SEO 공용 — 페이지별 동적 메타데이터 + 구조화데이터(JSON-LD) 빌더.
 // 브랜드는 한/영 병기(samae · 사매)로 한글 검색 노출을 강화. 작가 실명은 노출 금지(익명 정책).
@@ -56,7 +57,7 @@ export type PhotoMeta = {
  */
 export function photoTitle(photo: PhotoMeta): string {
   const tags = (photo.mood_tags ?? []).slice(0, 3);
-  const rawPlace = photo.region || photo.location_text || undefined;
+  const rawPlace = photo.region || displayPlace(photo.location_text) || undefined;
   const place = rawPlace && !tags.includes(rawPlace) ? rawPlace : undefined; // 태그와 중복 방지
   const subject = clean([tags.join(" "), place], " ") || "사진작가의 사진";
   return `${subject} 사진`;
@@ -64,7 +65,7 @@ export function photoTitle(photo: PhotoMeta): string {
 
 export function photoMetadata(photo: PhotoMeta): Metadata {
   const tags = (photo.mood_tags ?? []).slice(0, 3);
-  const rawPlace = photo.region || photo.location_text || undefined;
+  const rawPlace = photo.region || displayPlace(photo.location_text) || undefined;
   const place = rawPlace && !tags.includes(rawPlace) ? rawPlace : undefined; // 태그와 중복 방지
   const title = photoTitle(photo);
   const description = clean(
@@ -424,7 +425,8 @@ export function faqJsonLd(items: Array<{ q: string; a: string }>): object | null
  */
 export function photoImageJsonLd(photo: PhotoMeta, photographerName?: string | null): object {
   const url = `${SITE_URL}/photos/${photo.id}`;
-  const place = photo.region || photo.location_text || undefined;
+  // 「협의」 를 contentLocation 으로 내보내면 **없는 장소를 사실로 공표**하게 된다
+  const place = photo.region || displayPlace(photo.location_text) || undefined;
   // 이름을 모르면 예전처럼 일반명사로 둔다. 빈 크레딧을 내보내느니 낫다.
   const creator = (photographerName ?? "").trim() || "사진작가";
   return {
