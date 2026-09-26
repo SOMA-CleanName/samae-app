@@ -15,9 +15,10 @@ import { groupKbIntoSections, type KbSection } from "@/lib/kb-sections";
  * OCR 이 필요 없다. **원본이 DB 에 구조화된 채로 있다.** 이미지를 만든 그 카드를
  * 그대로 글로도 내보낸다.
  *
- * ⚠️ **공개 여부는 안내 이미지를 따른다.** 카드는 상담봇용으로 받은 것이고, 공개 지면에
- *    싣는 건 다른 일이다. 작가가 안내 이미지를 공개해 둔 경우에만 — 즉 "이 내용을
- *    고객에게 보여도 된다" 고 이미 정한 경우에만 — 글도 싣는다.
+ * ⚠️ **공개 여부는 안내 이미지를 따른다.** 그 이미지는 채팅뿐 아니라 `/photos/[id]`
+ *    (사이트맵에 들어가는 공개 지면)에도 떠 있다 — 즉 이 내용은 **이미 공개돼 있고**,
+ *    여기서 하는 일은 같은 내용을 기계도 읽을 수 있는 형태로 한 번 더 내는 것뿐이다.
+ *    그래서 이미지를 켜는 것과 같은 `published` 플래그를 그대로 따른다.
  */
 export async function fetchPublicKbSections(photographerId: string): Promise<KbSection[]> {
   if (!photographerId) return [];
