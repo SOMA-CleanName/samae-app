@@ -18,6 +18,7 @@ import { MapPinIcon } from "@/components/user/icons";
 import { Avatar, Button } from "@/components/ui";
 import type { Metadata } from "next";
 import { photographerMetadata, packagesJsonLd, breadcrumbJsonLd } from "@/lib/seo";
+import { photographerSummary } from "@/lib/photographer-summary";
 import { JsonLd } from "@/components/JsonLd";
 
 // 페이지별 동적 메타 — 지역·무드·시작가로 고유 제목/설명(작가 실명은 미노출).
@@ -94,6 +95,15 @@ export default async function PhotographerProfile({
 
   const isOwner = me?.photographer?.id === ph.id;
 
+  // 검색·AI 가 인용할 수 있는 한 문장. 칩으로만 있던 사실을 문장으로 한 번 더 적는다.
+  const prices = packages.map((p) => p.price_krw).filter((n): n is number => !!n && n > 0);
+  const summary = photographerSummary({
+    regions: ph.regions,
+    moodTags: ph.mood_tags,
+    packageCount: packages.length,
+    minPriceKrw: prices.length ? Math.min(...prices) : null,
+  });
+
   // 패키지 가격 → Service/Offer. "성수 스냅 얼마?" 류 질의에 AI 가 인용할 사실 단위다.
   // 실명은 넣지 않는다(익명 정책) — provider·seller 는 브랜드로 나간다.
   //
@@ -131,6 +141,12 @@ export default async function PhotographerProfile({
               {/* 실명·라벨·가격 미표시 — 프로필 이미지 옆에 소개글만 노출 */}
               <h1 className="sr-only">작가 프로필</h1>
               {ph.bio && <p className="text-body-sm leading-relaxed text-fg/80">{ph.bio}</p>}
+              {/*
+                지역·무드가 **칩으로만** 있었다. 사람에겐 충분하지만 검색·AI 는 인용할
+                문장이 없다 — "서울" "#감성" 은 답변에 못 쓴다. 같은 사실을 한 문장으로
+                한 번 더 적는다(없는 사실은 만들지 않는다 — lib/photographer-summary).
+              */}
+              {summary && <p className="mt-1.5 text-caption leading-relaxed text-muted">{summary}</p>}
             </div>
           </div>
 
