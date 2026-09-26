@@ -13,6 +13,8 @@
  * - `auto`    — 퇴출 실행 때 같이 처리된다 (스팟 숨김·파일 삭제)
  * - `info`    — CASCADE 로 알아서 정리된다. 숫자만 보여준다
  */
+import { SPOT_MIN_PHOTOS } from "./spot-live";
+
 export type RemovalLevel = "block" | "unknown" | "auto" | "info";
 
 export type RemovalItem = {
@@ -57,9 +59,6 @@ export type RemovalReport = {
   blockers: RemovalItem[];
   canRemove: boolean;
 };
-
-/** 스팟을 켜 두는 최소 장수 (lib/spots-db.ts 의 기준과 같다) */
-export const SPOT_MIN_PHOTOS = 9;
 
 export function buildRemovalReport(f: RemovalFacts): RemovalReport {
   const items: RemovalItem[] = [];

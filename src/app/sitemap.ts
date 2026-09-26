@@ -8,6 +8,7 @@ import { listGuidePageItems } from "@/lib/guide";
 import { listPublishedArticleSlugs } from "@/lib/articles";
 import { listPublishedSpots } from "@/lib/spots-db";
 import { countSpotPhotos } from "@/lib/spots";
+import { isSpotLive } from "@/lib/spot-live";
 
 // 하루 1회 재생성 — 공개 작가·사진은 자주 바뀌므로.
 export const revalidate = 86400;
@@ -183,7 +184,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       (await listPublishedSpots()).map(async (s) => ({ s, n: await countSpotPhotos(s) }))
     );
     const spotEntries: MetadataRoute.Sitemap = spotResolved
-      .filter((x) => x.n > 0)
+      // 0장만 빼던 것을 기준(9장) 미달로 바꿨다 — 사진 두 장짜리 지면을
+      // 색인에 올려 봐야 "내용 빈약" 으로 잡힐 뿐이다
+      .filter((x) => isSpotLive(x.n))
       .map((x) => ({
         url: `${SITE_URL}/spots/${x.s.slug}`,
         lastModified: lmSpot.get(x.s.slug),
