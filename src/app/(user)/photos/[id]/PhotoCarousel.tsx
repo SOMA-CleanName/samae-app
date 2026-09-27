@@ -90,10 +90,13 @@ function Slide({ p, alt, priority }: { p: P; alt: string; priority?: boolean }) 
 // 게시물 사진 스와이프 캐러셀 — 스크롤 스냅 + 좌우 버튼 + 점 인디케이터
 export function PhotoCarousel({
   photos,
+  alt,
   startIndex = 0,
   frameAspect = 1,
 }: {
   photos: P[];
+  /** 대체 텍스트 — 지면이 lib/photo-alt 로 만들어 넘긴다 */
+  alt: string;
   startIndex?: number;
   frameAspect?: number; // 프레임 비율(세로가 가장 긴 사진 기준)
 }) {
@@ -120,8 +123,18 @@ export function PhotoCarousel({
     el.scrollTo({ left: next * el.clientWidth, behavior: "smooth" });
   }
 
-  // 작가명 노출 금지 — alt 도 익명 처리
-  const altFor = (i: number) => (photos.length > 1 ? `사진 ${i + 1}/${photos.length}` : "사진");
+  /*
+    alt 는 지면이 만들어 넘긴다(lib/photo-alt) — 장소·무드가 서버에만 있어서다.
+
+    🔴 전에는 `"사진 1/3"` 이었다. **몇 번째인지는 이미지의 내용이 아니라 화면의
+       사정**이고, 구글 이미지에도 낭독기에도 쓸모가 없다. 구글이 "이게 무슨
+       사진인가" 를 보는 근거가 alt·주변 텍스트·파일명인데 우리는 셋 다 비어 있었다
+       (파일명은 UUID).
+
+    같은 캐러셀은 같은 촬영이라 한 묶음에 같은 설명이 나가도 사실과 어긋나지 않는다.
+    작가명은 넣지 않는다(익명 정책).
+  */
+  const altFor = () => alt;
 
   // 단일 사진 — 고정 프레임 + 좋아요 오버레이
   if (photos.length <= 1) {
@@ -131,7 +144,7 @@ export function PhotoCarousel({
         className="relative photo-cap select-none overflow-hidden bg-black"
         style={{ aspectRatio: frameAspect }}
       >
-        <Slide p={photos[0]} alt={altFor(0)} priority />
+        <Slide p={photos[0]} alt={alt} priority />
       </div>
     );
   }
@@ -146,7 +159,7 @@ export function PhotoCarousel({
       >
         {photos.map((p, i) => (
           <div key={p.id} className="relative h-full w-full shrink-0 snap-center overflow-hidden">
-            <Slide p={p} alt={altFor(i)} priority={i === startIndex} />
+            <Slide p={p} alt={altFor()} priority={i === startIndex} />
           </div>
         ))}
       </div>

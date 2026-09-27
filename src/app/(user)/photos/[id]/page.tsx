@@ -12,6 +12,7 @@ import {
 } from "@/lib/discovery";
 import { fetchGuideImages } from "@/lib/guide-images";
 import { displayPlace } from "@/lib/location-text";
+import { photoAlt } from "@/lib/photo-alt";
 import { loadMorePhotos } from "../../feed-actions";
 import { getCurrentUser } from "@/lib/auth";
 import { PhotoCarousel } from "./PhotoCarousel";
@@ -201,7 +202,13 @@ export default async function PhotoDetail({
           className="photo-frame relative mx-auto md:mx-0 md:sticky md:top-4 md:shrink-0 md:self-start"
           style={{ "--ar": String(aspect) } as React.CSSProperties}
         >
-          <PhotoCarousel photos={carousel} startIndex={startIndex} frameAspect={aspect} />
+          <PhotoCarousel
+            photos={carousel}
+            // 캐러셀은 같은 촬영(앨범)이라 한 묶음에 같은 설명이 나가도 사실과 어긋나지 않는다
+            alt={photoAlt(photo)}
+            startIndex={startIndex}
+            frameAspect={aspect}
+          />
           {/* 작가의 글 — 버튼을 누르면 사진 위에 겹친다 */}
           <CaptionOverlay />
           {/* 좌상단 투명 뒤로가기 (담기·공유는 carousel 내부에서 사진 모서리에 붙음) */}
