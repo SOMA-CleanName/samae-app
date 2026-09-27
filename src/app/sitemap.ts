@@ -202,11 +202,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // ⚠️ **운영이 내린 사진(feed_hidden)은 싣지 않는다.** 여기 실으면 구글이 색인하고
     //    검색에 뜬다 — 피드에서 내린 의미가 없어진다. 크롤이 막혀 있던 동안에는 드러나지
     //    않던 문제였는데, robots 를 푸는 순간 실제 노출로 바뀐다(2026-09-17 결정).
-    const rows: Array<{ id: string; photographer_id: string | null; updated_at: string | null }> = [];
+    const rows: Array<{
+      id: string;
+      photographer_id: string | null;
+      updated_at: string | null;
+      src_url: string | null;
+    }> = [];
     for (let from = 0; from < MAX; from += PAGE) {
       const { data: page } = await admin
         .from("photos")
-        .select("id, photographer_id, updated_at")
+        .select("id, photographer_id, updated_at, src_url")
         .eq("visibility", "published")
         .eq("feed_hidden", false)
         .order("created_at", { ascending: false })
@@ -241,11 +246,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.6,
     }));
 
+    /*
+      🔴 **이미지 확장(`<image:image>`)을 함께 낸다.**
+
+      구글 이미지가 사진을 찾는 공식 경로가 이것인데 우리는 안 쓰고 있었다(실측
+      2026-09-27: 사이트맵에 image 태그 0개). 그래서 구글은 사진 지면 1,719개를
+      하나씩 열어 HTML 안의 <img> 를 발견해야만 했고, 그 지면들이 「발견됨 - 색인
+      미생성」 1,155건으로 밀려 있으니 **사진도 같이 안 잡히고 있었다.**
+
+      확장을 달면 지면 색인과 이미지 색인이 갈린다 — 지면이 뒤로 밀려도 이미지는
+      따로 가져갈 수 있다.
+    */
     const photoEntries: MetadataRoute.Sitemap = rows.map((r) => ({
       url: `${SITE_URL}/photos/${r.id}`,
       lastModified: r.updated_at ? new Date(r.updated_at as string) : undefined,
       changeFrequency: "monthly",
       priority: 0.5,
+      ...(r.src_url ? { images: [r.src_url] } : {}),
     }));
 
     const guideWithLastmod: MetadataRoute.Sitemap = guidePageItems.map((g) =>

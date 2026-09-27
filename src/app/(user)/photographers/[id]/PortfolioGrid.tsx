@@ -8,6 +8,7 @@ import { Button } from "@/components/ui";
 import { HeartIcon, LayersIcon, XIcon } from "@/components/user/icons";
 import { PhotoCarousel } from "../../photos/[id]/PhotoCarousel";
 import { togglePhotoLike, loadPhotoLike } from "../../actions";
+import { photoAlt } from "@/lib/photo-alt";
 
 type TilePhoto = { id: string; src_url: string; thumb_url: string | null };
 
@@ -135,7 +136,8 @@ function PortfolioModal({
         {/* 사진 (좌) — 넓은 영역 */}
         <div className="grid min-w-0 flex-1 place-items-center overflow-hidden bg-fg/[0.03]">
           <div className="max-h-[88svh] w-full">
-            <PhotoCarousel photos={post.photos} />
+            {/* 게시물은 같은 촬영이라 한 묶음에 같은 설명이 나간다(lib/photo-alt) */}
+            <PhotoCarousel photos={post.photos} alt={photoAlt(post)} />
           </div>
         </div>
 
