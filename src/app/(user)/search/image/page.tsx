@@ -14,7 +14,8 @@ export default async function ImageSearchPage() {
   const me = await getCurrentUser();
 
   return (
-    <main className="px-1 pb-16 pt-2 sm:px-2">
+    // 홈 검색 결과와 같은 여백 — 격자 위치가 두 화면에서 어긋나지 않게
+    <main className="mx-auto max-w-screen-2xl px-2.5 pb-2.5 pt-3.5 font-kr sm:px-4 sm:pt-5 sm:pb-4">
       <SearchDock placeholder={SEARCH_PLACEHOLDER_SHORT} />
       <ImageSearchResults likedIds={[]} loggedIn={!!me?.id} />
       <SiteFooter />

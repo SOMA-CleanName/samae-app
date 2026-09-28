@@ -8,32 +8,16 @@
  * 원본은 서버에 올라가지 않는다.
  */
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 
-import { firstImage, rememberSearchImage, shrinkImage } from "@/lib/image-search-client";
-import { IMAGE_SEARCH_RESULT_PATH } from "@/lib/image-search-core";
+import { firstImage } from "@/lib/image-search-client";
+import { useImageSearchUpload } from "@/lib/use-image-search-upload";
 import { XIcon } from "./icons";
 
 export function ImageSearchPanel({ onClose }: { onClose: () => void }) {
-  const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
   const boxRef = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function accept(file: Blob | null) {
-    if (!file || busy) return;
-    setBusy(true);
-    setError(null);
-    const shrunk = await shrinkImage(file);
-    if (!shrunk || !rememberSearchImage(shrunk)) {
-      setBusy(false);
-      setError("이 사진은 읽지 못했어요. JPG·PNG 로 올려 주세요.");
-      return;
-    }
-    router.push(IMAGE_SEARCH_RESULT_PATH);
-  }
+  const { accept, busy, error } = useImageSearchUpload();
 
   // 패널이 열려 있는 동안만 — 붙여넣기를 받고, Esc·바깥 클릭으로 닫는다
   useEffect(() => {
@@ -61,9 +45,7 @@ export function ImageSearchPanel({ onClose }: { onClose: () => void }) {
       window.removeEventListener("keydown", onKey);
       window.removeEventListener("pointerdown", onPointerDown);
     };
-    // accept 는 busy 상태만 보므로 다시 걸 필요가 없다
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [busy]);
+  }, [accept, onClose]);
 
   return (
     <div
