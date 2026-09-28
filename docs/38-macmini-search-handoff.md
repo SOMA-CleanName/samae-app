@@ -320,6 +320,39 @@ PY
 - `404` → 코드가 안 올라갔다. §3 으로 돌아갈 것
 - 차원이 1152 가 아니면 → 멈추고 보고. 모델이 바뀐 것이다
 
+### 5-1-1. 사진으로 검색용 `/embed` (2026-09-28)
+
+검색창 카메라 버튼(docs/46)이 부르는 길이다. 사용자가 올린 사진을 이 상주 서버가 벡터로 바꾼다 —
+**사진 검색은 새 서비스가 아니라 이미 떠 있는 이 서버를 그대로 쓴다.** 꺼져 있으면 화면에
+"사진 검색을 잠시 쓸 수 없어요" 가 뜬다.
+
+```bash
+cd ~/srv/samae-app
+scripts/embed/.venv/bin/python - <<'PY'
+import base64, io, json, sys, time, urllib.request
+sys.path.insert(0, "scripts/embed")
+from check_db import load_env
+from PIL import Image
+
+buf = io.BytesIO()
+Image.new("RGB", (256, 256), (120, 90, 70)).save(buf, "JPEG")   # 시험용 단색 사진
+body = json.dumps({"images": [base64.b64encode(buf.getvalue()).decode()]}).encode()
+req = urllib.request.Request("http://127.0.0.1:8077/embed", data=body, method="POST")
+req.add_header("Content-Type", "application/json")
+req.add_header("x-samae-token", load_env(".env.local")["PERSONA_SERVICE_TOKEN"])
+t = time.perf_counter()
+out = json.loads(urllib.request.urlopen(req, timeout=30).read())
+print("사진 검색 엔드포인트 정상:", out["count"], "장 /", len(out["vectors"][0]), "차원 /",
+      round((time.perf_counter() - t) * 1000), "ms")
+PY
+```
+
+**정상** — `사진 검색 엔드포인트 정상: 1 장 / 1152 차원 / …ms`. 사진 한 장은 0.1~0.3초다(맥북 실측 120ms).
+
+**멈출 때**
+- `401` → 토큰이 안 맞는다. `.env.local` 의 `PERSONA_SERVICE_TOKEN` 확인
+- 차원이 1152 가 아니면 → 멈추고 보고. 모델이 바뀐 것이다
+
 ### 5-2. 읽기 전용 목적 점검
 
 **DB 에 쓰지 않는다.** `--apply` 가 없으면 미리보기다.
@@ -413,6 +446,7 @@ launchctl print "gui/$(id -u)/com.samae.serve" | head -30
 4. 상주 서버 /health: (§4 의 출력, "검색어 분리 꺼짐" 이 없었는지)
 5. /search-query:     (§5-0 의 네 줄)
 6. /embed-text-backfill: (§5-1 의 출력 한 줄)
+   사진으로 검색 /embed:  (§5-1-1 의 출력 한 줄)
 7. 목적 미리보기:     (§5-2 의 처리 대상 수)
 8. 초안 미리보기:     (§5-4 의 세부분류 · 성별 초안 수)
 9. 바깥 주소:         (§5-3 의 401 여부와 두 번째 실행 네 줄 — 주소는 빼고)
@@ -428,7 +462,7 @@ cat ~/srv/samae-app/scripts/embed/logs/purpose-latest/purpose-result.json
 
 `purpose-result.json` 에 `updated_photos`(목적이 붙은 사진 수)와 `inherited_photos`(검수 목적을
 물려받은 수)가 있다. **둘 다 0 이어도 정상**이다 — 새로 할 일이 없었다는 뜻이다. 중요한 건
-**네 단계의 종료 코드가 모두 0** 인 것이다(`단계별 종료 코드: 임베딩=0 목적=0 검색목록=0 초안=0`).
+**다섯 단계의 종료 코드가 모두 0** 인 것이다(`단계별 종료 코드: 임베딩=0 색감=0 목적=0 검색목록=0 초안=0`).
 초안만 0 이 아니면 배치는 성공으로 끝나고 알림도 없다 — 이 줄을 직접 봐야 안다.
 초안 단계 로그에는 `저장: 세부분류 N개 · 성별 N개 포트폴리오` 가 찍힌다(0개여도 정상).
 
