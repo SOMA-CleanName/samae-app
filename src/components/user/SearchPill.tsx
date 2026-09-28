@@ -17,6 +17,7 @@ import {
   type SearchPillAppearance,
 } from "@/lib/search-copy";
 import { CameraIcon, SearchIcon } from "./icons";
+import { ImageSearchPanel } from "./ImageSearchPanel";
 
 const SEARCH_BORDER_TRACE_RECT = getSearchBorderTraceRect(1, 6);
 const SEARCH_BORDER_TRACE_MOTION = getSearchBorderTraceMotion(
@@ -44,6 +45,7 @@ export function SearchPill({
   const router = useRouter();
   const [query, setQuery] = useState(initial);
   const [borderMotion, setBorderMotion] = useState<SearchBorderMotionState>("idle");
+  const [imagePanel, setImagePanel] = useState(false);
   const borderTone = getSearchDockBorderTone(surface);
   const borderWidth = getSearchDockBorderWidth(surface);
   const displayPlaceholder = getSearchPillPlaceholder(appearance, placeholder);
@@ -93,12 +95,16 @@ export function SearchPill({
         type="button"
         aria-label="사진으로 검색"
         title="사진으로 검색"
+        aria-expanded={imagePanel}
+        data-image-search-toggle=""
+        onClick={() => setImagePanel((open) => !open)}
         className={`absolute right-1.5 top-1/2 z-[2] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-md transition-[color,opacity] duration-300 ease-out peer-focus:pointer-events-none peer-focus:opacity-0 ${
           appearance === "overlay" ? "text-white/75 hover:text-white" : "text-muted hover:text-brand"
         }`}
       >
         <CameraIcon className="h-5 w-5" />
       </button>
+      {imagePanel && <ImageSearchPanel onClose={() => setImagePanel(false)} />}
       <svg
         aria-hidden="true"
         className="samae-search-border-trace"
