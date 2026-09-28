@@ -23,7 +23,7 @@ import type { ReactNode } from "react";
   · 조(Article) 사이를 8 → 10 으로. 제목이 앞 조의 꼬리에 붙어 보이던 것.
   · 조 안의 블록(문단·목록·표)은 Article 이 space-y-3 으로 자동 간격을 준다.
     → **각 블록에 mt-* 를 따로 붙이지 말 것.** space-y 가 우선순위에서 이겨 무시된다.
-       더 벌려야 하면 `!mt-*` 로 명시한다(SubHead 가 그렇게 한다).
+       더 벌려야 하면 `!mt-*` 로 명시한다.
 */
 
 /**
@@ -104,11 +104,6 @@ export function Section({ n, title, children }: { n: string; title: string; chil
       <div className="space-y-3">{children}</div>
     </section>
   );
-}
-
-/** 조 안의 작은 제목 (표 앞머리 등). 앞 블록과 확실히 떼려고 간격을 명시한다 */
-export function SubHead({ children }: { children: ReactNode }) {
-  return <p className="!mt-7 font-semibold text-fg">{children}</p>;
 }
 
 export function P({ children, className = "" }: { children: ReactNode; className?: string }) {

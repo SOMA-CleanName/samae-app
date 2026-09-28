@@ -1,5 +1,5 @@
-import { B, Defs, Items, P, Section, SubHead, Table } from "@/components/legal/LegalDoc";
-import { BUSINESS_TYPE_LABEL, DEFAULT_FEE_RATE, effectiveBurdenPct } from "@/lib/platform-fee";
+import { B, Defs, Items, P, Section, Table } from "@/components/legal/LegalDoc";
+import { DEFAULT_FEE_RATE } from "@/lib/platform-fee";
 
 /*
   PhotographerContractBody — 작가 입점 동의서 본문.
@@ -24,15 +24,22 @@ import { BUSINESS_TYPE_LABEL, DEFAULT_FEE_RATE, effectiveBurdenPct } from "@/lib
 
   ⚠️ 문안을 바꾸면 `policy-version.ts` 의 버전도 같이 올린다 — 버전이 그대로면 이미 동의한
      작가에게 다시 안 묻는다.
+
+  ⚠️ 제1항에서 **생년월일을 뺐다**(2026-09-18 정본 개정). 폐기된 원천징수 모델의 잔재였다 —
+     화면도 DB 도 그런 걸 받은 적이 없는데 문서만 "세무 처리용" 으로 받는다고 적고 있었다
+     (우리는 지급자가 아니라 원천징수를 하지 않는다, 2026-09-16 126 상담).
+     **안 받는 걸 받는다고 적어 두면 그 자체가 수집 근거가 된다.**
+
+  📌 연락처·이메일은 이 화면이 **입력받지 않는다** — 가입 때 받아 둔 값이다. 그래도 제1항에
+     남는 건 "회사가 보관하는 내용" 의 목록이고, 제6항이 그 둘로 통지한다고 약속하기 때문이다.
 */
 export function PhotographerContractBody({
-  /** 이 작가에게 적용되는 요율(0.2 = 20%). null·미지정이면 전역 기본값 */
+  /** 이 작가에게 적용되는 요율(0.18 = 18%). null·미지정이면 전역 기본값 */
   rate,
 }: {
   rate?: number | null;
 } = {}) {
-  const effective = rate ?? DEFAULT_FEE_RATE;
-  const RATE_PCT = +(effective * 100).toFixed(2);
+  const RATE_PCT = +((rate ?? DEFAULT_FEE_RATE) * 100).toFixed(2);
 
   return (
     <>
@@ -49,7 +56,6 @@ export function PhotographerContractBody({
           ["활동명", "서비스에 표시되는 이름"],
           ["사업자 유형", "일반과세자 · 간이과세자 · 사업자 미등록 중 하나"],
           ["사업자등록번호", "사업자 등록 작가만"],
-          ["생년월일", "사업자 미등록 작가만, 세무 처리용"],
           ["연락처", "통지를 받을 번호"],
           ["이메일", "통지를 받을 주소"],
           ["정산 계좌", "은행 / 예금주 / 계좌번호"],
@@ -101,30 +107,14 @@ export function PhotographerContractBody({
         ]}
       />
 
-      <SubHead>사업자 유형에 따른 실질 부담</SubHead>
-      <Table
-        head={["사업자 유형", "세금계산서", "매입세액공제", "실질 부담"]}
-        rows={[
-          [
-            BUSINESS_TYPE_LABEL.general,
-            "회사가 발급",
-            "가능",
-            `${effectiveBurdenPct("general", effective)}%`,
-          ],
-          [
-            BUSINESS_TYPE_LABEL.simplified,
-            "회사가 발급",
-            "불가",
-            `${effectiveBurdenPct("simplified", effective)}%`,
-          ],
-          [
-            BUSINESS_TYPE_LABEL.unregistered,
-            "영수증 발급",
-            "해당 없음",
-            `${effectiveBurdenPct("unregistered", effective)}%`,
-          ],
-        ]}
-      />
+      {/* "사업자 유형에 따른 실질 부담" 표는 정본과 지면 양쪽에서 걷어냈다(2026-09-18).
+          표가 말하던 것(일반과세자는 매입세액공제로 실질 요율 그대로, 간이·미등록은 부가세만큼
+          더 부담)은 결국 **증빙 종류로 갈리는 이야기**라, 아래 ※ 한 줄과 작가약관 제14조 2항이
+          같은 말을 한다. 숫자 표로 두 번 말할 일이 아니었다. */}
+      <P className="text-muted">
+        ※ 중개 수수료에 관한 증빙은 회사가 발급합니다. 사업자 등록 작가에게는 세금계산서를, 사업자
+        미등록 작가에게는 지출증빙용 현금영수증을 발급합니다.
+      </P>
       <P className="text-muted">
         ※ 회사는 촬영 대금에 대한 소득세를 원천징수하지 않습니다. 작가는 촬영 대금 전액을 수입금액으로 하여
         매년 5월 종합소득세를 직접 신고·납부해야 하며, 중개 수수료는 필요경비로 처리할 수 있습니다.

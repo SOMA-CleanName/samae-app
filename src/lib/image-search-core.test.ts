@@ -24,7 +24,7 @@ test("형식·크기·모양이 맞지 않으면 버린다", () => {
   assert.equal(parseImageDataUrl(dataUrl("text/html", 100)), null);
   assert.equal(parseImageDataUrl(dataUrl("image/jpeg", 2_000_000)), null);
   assert.equal(parseImageDataUrl("data:image/jpeg;base64,"), null);
-  assert.equal(parseImageDataUrl("https://example.com/a.jpg"), null);  // 링크는 받지 않는다(docs/42 §6)
+  assert.equal(parseImageDataUrl("https://example.com/a.jpg"), null);  // 링크는 받지 않는다(docs/46 §6)
   assert.equal(parseImageDataUrl(null), null);
 });
 

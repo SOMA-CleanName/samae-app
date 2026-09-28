@@ -12,6 +12,9 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
+// 연락처 전달·수령은 퍼널의 분기점이다 — **수령 시각이 청약철회 구간을 닫는다**(docs/32 §3-3).
+// 그런데 지금까지 두 사건 다 지표에 남지 않았다(2026-09-21 점검).
+import { mpTrackServer } from "@/lib/mixpanel-server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeContactMethods, type ContactMethod } from "@/lib/photographer-contacts";
 import { contactSendGate } from "@/lib/contact-gate";
@@ -84,6 +87,14 @@ export async function sendPhotographerContact(formData: FormData): Promise<void>
     link: `/bookings/${bookingId}`,
   });
 
+  // 작가가 보낸 시각. 고객이 받기까지 얼마나 걸리는지(또는 안 받는지)를 여기서 센다.
+  await mpTrackServer(
+    "Send Contact",
+    me.id,
+    { booking_id: bookingId },
+    `Send Contact:${bookingId}` // 예약당 1회 — 재전송해도 퍼널이 부풀지 않는다
+  );
+
   revalidatePath("/studio/bookings");
 }
 
@@ -131,4 +142,8 @@ export async function acceptPhotographerContact(formData: FormData): Promise<voi
     await postContactDeliveredNotice(bookingId);
     revalidatePath(`/chat/${conv.id}`);
   }
+
+  // ⚠️ **이 시각이 청약철회 100% 구간을 닫는다**(docs/32 §3-3). 환불 분쟁에서 기준이
+  //    되는 사건이라 지표에도 남겨 둔다 — 멱등 키로 예약당 1회만.
+  await mpTrackServer("Receive Contact", me.id, { booking_id: bookingId }, `Receive Contact:${bookingId}`);
 }

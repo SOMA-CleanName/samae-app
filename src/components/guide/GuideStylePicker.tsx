@@ -1,0 +1,450 @@
+"use client";
+
+// 안내 이미지 양식 — 고르면 그 자리에서 결과가 바뀐다.
+//
+// 고르기와 미리보기를 한 화면에 둔 이유: 저장해야만 볼 수 있으면 조합을 비교할 수가
+// 없다. 템플릿 6 × 배경지 6 을 눈으로 견줘야 하는 일이라, 누르는 즉시 그림이 다시
+// 그려지는 게 이 화면의 전부다.
+//
+// 미리보기는 **저장하지 않는다.** 고른 값은 쿼리로 라우트에 실려 가고, [적용] 을
+// 눌러야 DB 에 들어간다.
+//
+// 어드민(운영이 남의 작가를 고름)과 스튜디오(작가가 자기 것을 고름) 둘 다 쓴다.
+// 다른 건 **어느 주소로 미리보기를 받고 무엇을 저장하느냐** 뿐이라, 그 셋만 주입받는다.
+// 복제하면 한쪽만 고쳐져서 운영 화면과 작가 화면의 양식이 갈린다.
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { TEMPLATES, BACKDROPS, FONTS, type GuideStyle } from "@/lib/guide-style";
+
+type SheetInfo = { sheet: number; label: string; cards: number };
+
+export type GuideStylePickerProps = {
+  initial: GuideStyle;
+  /** 장 목록(JSON)을 받아올 주소 */
+  sheetsUrl: string;
+  /** 고른 양식으로 그 장을 그려 줄 주소 */
+  /**
+   * 고른 양식으로 그 장을 그려 줄 주소.
+   * **양식이 주소에 다 들어가야 한다** — 그래야 조합마다 주소가 달라 브라우저가 캐시하고,
+   * 전에 본 조합으로 돌아왔을 때 다시 굽지 않는다.
+   */
+  imageUrl: (sheet: number, style: GuideStyle) => string;
+  /**
+   * 카드가 마지막으로 바뀐 시각 등, **내용이 달라지면 달라지는 값**.
+   * 주소에 실어야 카드를 고친 뒤 옛 그림이 캐시에 남지 않는다.
+   * 양식을 고를 때는 바뀌지 않으므로 조합 캐시는 그대로 산다.
+   */
+  rev?: string;
+  onSave: (style: GuideStyle) => Promise<{ ok: boolean; error?: string }>;
+  onUpload: (form: FormData) => Promise<{ ok: boolean; url?: string; error?: string }>;
+  /** 저장 버튼 문구 — 운영은 "저장", 작가는 "이 양식으로 다시 만들기" */
+  saveLabel?: string;
+  /** 저장 뒤 안내 문구 */
+  savedText?: string;
+  /** 카드가 하나도 없을 때 — 운영과 작가가 해야 할 일이 다르다 */
+  emptyText?: string;
+  /**
+   * 접지 않고 바로 펼쳐 둔다.
+   * 작가 화면에서는 이게 그 지면의 본문이라, 버튼 뒤에 숨기면 **같은 이미지를 두 번**
+   * 보여주게 된다(아래 목록에 이미 같은 장이 있다). 운영 화면은 작가 한 명을 고른 뒤
+   * 필요할 때만 여는 자리라 접어 둔다.
+   */
+  alwaysOpen?: boolean;
+  /**
+   * 장 목록을 서버에서 미리 받아 왔으면 그것으로 시작한다.
+   * 항상 펼쳐 두는 화면에서 effect 로 불러오면 첫 그림이 한 박자 늦고,
+   * 렌더 직후 setState 라 cascading render 경고도 난다.
+   */
+  initialSheets?: SheetInfo[];
+};
+
+export function GuideStylePicker({
+  initial,
+  sheetsUrl,
+  imageUrl,
+  onSave,
+  onUpload,
+  saveLabel = "이 양식으로 저장",
+  savedText = "이 양식으로 저장했어요.",
+  emptyText = "저장된 카드가 없어요. [KB 저장] 을 먼저 눌러주세요.",
+  alwaysOpen = false,
+  initialSheets,
+}: GuideStylePickerProps) {
+  const [open, setOpen] = useState(alwaysOpen);
+  const [style, setStyle] = useState<GuideStyle>(initial);
+  const [sheets, setSheets] = useState<SheetInfo[] | null>(initialSheets ?? null);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<"load" | "save" | "upload" | null>(null);
+  // 크게 볼 장 — 미리보기는 240px 라 글자를 못 읽는다
+  const [zoom, setZoom] = useState<SheetInfo | null>(null);
+
+  const dirty =
+    style.template !== initial.template ||
+    style.backdrop !== initial.backdrop ||
+    style.font !== initial.font ||
+    style.backdropUrl !== initial.backdropUrl;
+
+  const loadSheets = useCallback(async () => {
+    setBusy("load");
+    setError(null);
+    try {
+      const res = await fetch(sheetsUrl, { cache: "no-store" });
+      if (!res.ok) throw new Error(await res.text());
+      const data = (await res.json()) as { sheets: SheetInfo[] };
+      setSheets(data.sheets);
+      if (data.sheets.length === 0) setError(emptyText);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "미리보기를 만들지 못했어요.");
+    } finally {
+      setBusy(null);
+    }
+  }, [sheetsUrl, emptyText]);
+
+  // imageUrl 은 렌더마다 새로 만들어지는 함수다 — 의존성에 넣으면 프리페치가 매 렌더 다시 돌아
+  // 타이머만 계속 초기화되고 영영 안 받는다. 최신 것을 ref 로 들고 쓴다(쓰기는 effect 에서).
+  const urlRef = useRef(imageUrl);
+  useEffect(() => {
+    urlRef.current = imageUrl;
+  });
+
+  /**
+   * 이웃 조합을 미리 받아 둔다 — **첫 장만.**
+   *
+   * 전부(템플릿 6 × 배경지 8 × 글씨체 5 = 240조합)를 미리 구우면 서버가 100초쯤 돌아야 한다.
+   * 대신 사람이 다음에 누를 만한 것만 데운다: 한 번에 한 축씩 바꾸므로 "지금 고른 것에서
+   * 한 칸 옆" 이 곧 다음 후보다.
+   *
+   * 첫 장만 받아도 그 조합의 **세트 공통 높이가 서버에 캐시된다**(첫 장을 그리려면 전체를
+   * 재야 하므로). 그래서 실제로 그 조합을 고르면 남은 장만 구우면 된다.
+   *
+   * 한 장씩 순서대로 받는다. 한꺼번에 던지면 지금 보고 있는 그림이 뒤로 밀린다.
+   */
+  useEffect(() => {
+    if (!sheets || sheets.length === 0) return;
+    let stopped = false;
+    const neighbors: GuideStyle[] = [
+      ...TEMPLATES.filter((t) => t.key !== style.template).map((t) => ({ ...style, template: t.key })),
+      ...FONTS.filter((f) => f.key !== style.font).map((f) => ({ ...style, font: f.key })),
+      ...BACKDROPS.filter((b) => b.key !== style.backdrop).map((b) => ({
+        ...style,
+        backdrop: b.key,
+        backdropUrl: null,
+      })),
+    ];
+    const run = async () => {
+      for (const n of neighbors) {
+        if (stopped) return;
+        await new Promise<void>((done) => {
+          const img = new window.Image();
+          img.onload = () => done();
+          img.onerror = () => done();
+          img.src = urlRef.current(1, n);
+        });
+      }
+    };
+    // 지금 보고 있는 그림이 다 뜬 뒤에 시작한다
+    const timer = setTimeout(run, 1200);
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+    };
+  }, [sheets, style]);
+
+  // 확대해서 보는 중에는 Esc 로 닫는다 — 오버레이를 정확히 누르지 않아도 되게
+  useEffect(() => {
+    if (!zoom) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setZoom(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [zoom]);
+
+  /** 고른 값이 바뀔 때마다 이미지 URL 이 바뀌어 자동으로 다시 그려진다 */
+  const pick = (next: Partial<GuideStyle>) => {
+    setStyle((s) => ({ ...s, ...next }));
+    setMsg(null);
+  };
+
+  const imgSrc = (sheet: number) => imageUrl(sheet, style);
+
+  const apply = async () => {
+    setBusy("save");
+    const r = await onSave(style);
+    setMsg(r.ok ? { ok: true, text: savedText } : { ok: false, text: r.error ?? "저장하지 못했어요." });
+    setBusy(null);
+  };
+
+  const onFile = async (file: File | null) => {
+    if (!file) return;
+    setBusy("upload");
+    setMsg(null);
+    const fd = new FormData();
+    fd.set("file", file);
+    const r = await onUpload(fd);
+    if (r.ok && r.url) pick({ backdropUrl: r.url });
+    else setMsg({ ok: false, text: r.error ?? "올리지 못했어요." });
+    setBusy(null);
+  };
+
+  if (!open && !alwaysOpen) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          // 여는 순간 불러온다. effect 로 미루면 한 번 더 그려지기만 하고 얻는 게 없다.
+          setOpen(true);
+          if (sheets === null) void loadSheets();
+        }}
+        className="cursor-pointer rounded-lg border border-line px-4 py-2 text-body-sm font-semibold text-muted transition-colors hover:bg-fg/[0.05]"
+      >
+        양식 고르기·미리보기
+      </button>
+    );
+  }
+
+  return (
+    <div className={alwaysOpen ? "mt-4 w-full" : "mt-3 w-full rounded-2xl border border-line bg-bg p-4"}>
+      <div className={alwaysOpen ? "sr-only" : "flex flex-wrap items-center gap-2"}>
+        <p className="text-body-sm font-semibold">양식 고르기</p>
+        <span className="text-caption text-faint">고르면 이미지가 바로 바뀌어요</span>
+        {!alwaysOpen && (
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="ml-auto text-caption text-faint transition-colors hover:text-fg"
+          >
+            닫기
+          </button>
+        )}
+      </div>
+
+      {/* 지금 이미지 — 고객이 보는 순서 그대로. 양식을 고르면 여기가 바로 바뀐다 */}
+      {sheets && sheets.length > 0 && (
+        <div className="-mx-4 mt-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 scrollbar-none">
+          {sheets.map((s) => (
+            <figure key={s.sheet} className="shrink-0 snap-start">
+              <button
+                type="button"
+                onClick={() => setZoom(s)}
+                title="크게 보기"
+                className="block cursor-zoom-in"
+              >
+                <SwapImage
+                  src={imgSrc(s.sheet)}
+                  alt={s.label}
+                  className="w-[260px] rounded-xl border border-line bg-surface sm:w-[300px]"
+                />
+              </button>
+              <figcaption className="mt-1 text-caption text-muted">
+                {s.sheet}. {s.label} <span className="text-faint">· 카드 {s.cards}장</span>
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+      )}
+      {busy === "load" && <p className="mt-3 text-caption text-muted">이미지를 그리는 중…</p>}
+
+      {alwaysOpen && (
+        <div className="mt-6 flex flex-wrap items-baseline gap-2">
+          <h2 className="text-body font-semibold">양식 고르기</h2>
+          <span className="text-caption text-faint">고르면 위 이미지가 바로 바뀌어요</span>
+        </div>
+      )}
+
+      {/* 템플릿 */}
+      <p className="mt-4 text-caption text-muted">템플릿</p>
+      <div className="mt-1.5 flex flex-wrap gap-1.5">
+        {TEMPLATES.map((t) => {
+          const on = style.template === t.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              title={t.hint}
+              onClick={() => pick({ template: t.key })}
+              className={
+                "cursor-pointer rounded-lg border px-3 py-1.5 text-caption transition-colors " +
+                (on ? "border-fg bg-fg font-semibold text-bg" : "border-line hover:bg-fg/[0.05]")
+              }
+            >
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-1 text-caption text-faint">
+        {TEMPLATES.find((t) => t.key === style.template)?.hint}
+      </p>
+
+      {/* 글씨체 */}
+      <p className="mt-4 text-caption text-muted">글씨체</p>
+      <div className="mt-1.5 flex flex-wrap gap-1.5">
+        {FONTS.map((f) => {
+          const on = style.font === f.key;
+          return (
+            <button
+              key={f.key}
+              type="button"
+              title={f.hint}
+              onClick={() => pick({ font: f.key })}
+              className={
+                "cursor-pointer rounded-lg border px-3 py-1.5 text-caption transition-colors " +
+                (on ? "border-fg bg-fg font-semibold text-bg" : "border-line hover:bg-fg/[0.05]")
+              }
+            >
+              {f.label}
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-1 text-caption text-faint">{FONTS.find((f) => f.key === style.font)?.hint}</p>
+
+      {/* 배경지 — 칩에 실제 그라데이션을 칠해 고르는 것과 나오는 것을 맞춘다 */}
+      <p className="mt-4 text-caption text-muted">배경지</p>
+      <div className="mt-1.5 flex flex-wrap gap-2">
+        {BACKDROPS.map((b) => {
+          const on = !style.backdropUrl && style.backdrop === b.key;
+          return (
+            <button
+              key={b.key}
+              type="button"
+              onClick={() => pick({ backdrop: b.key, backdropUrl: null })}
+              className={
+                "cursor-pointer rounded-lg border p-1 transition-colors " +
+                (on ? "border-fg" : "border-line hover:border-line-strong")
+              }
+            >
+              <span className="block h-9 w-14 rounded" style={{ background: b.background }} aria-hidden />
+              <span className="mt-1 block text-center text-caption">{b.label}</span>
+            </button>
+          );
+        })}
+
+        {/* 배경 사진 */}
+        <label
+          className={
+            "flex cursor-pointer flex-col items-center rounded-lg border p-1 transition-colors " +
+            (style.backdropUrl ? "border-fg" : "border-line hover:border-line-strong")
+          }
+        >
+          {style.backdropUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={style.backdropUrl} alt="" className="h-9 w-14 rounded object-cover" />
+          ) : (
+            <span className="grid h-9 w-14 place-items-center rounded border border-dashed border-line text-caption text-faint">
+              +
+            </span>
+          )}
+          <span className="mt-1 block text-center text-caption">
+            {busy === "upload" ? "올리는 중" : "사진"}
+          </span>
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            disabled={busy === "upload"}
+            onChange={(e) => void onFile(e.target.files?.[0] ?? null)}
+          />
+        </label>
+      </div>
+      {style.backdropUrl && (
+        <p className="mt-1 text-caption text-faint">
+          사진 위에는 <b className="text-muted">반투명 종이를 한 겹 덮습니다</b> — 어떤 사진이든 글이
+          읽히도록.{" "}
+          <button
+            type="button"
+            onClick={() => pick({ backdropUrl: null })}
+            className="cursor-pointer underline transition-colors hover:text-fg"
+          >
+            사진 빼기
+          </button>
+        </p>
+      )}
+
+      {/* 적용 */}
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => void apply()}
+          disabled={busy === "save" || !dirty}
+          className="cursor-pointer rounded-lg bg-fg px-4 py-2 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {busy === "save" ? "저장 중…" : saveLabel}
+        </button>
+        {dirty && busy !== "save" && (
+          <span className="text-caption text-muted">고른 양식이 아직 저장되지 않았어요.</span>
+        )}
+        {msg && (
+          <span className={"text-caption " + (msg.ok ? "text-success-ink" : "text-danger-ink")}>
+            {msg.text}
+          </span>
+        )}
+      </div>
+
+      {error && (
+        <p className="mt-3 rounded-xl bg-danger-soft px-3 py-2 text-caption text-danger-ink">{error}</p>
+      )}
+
+
+      {zoom && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`${zoom.label} 크게 보기`}
+          onClick={() => setZoom(null)}
+          className="fixed inset-0 z-50 flex cursor-zoom-out items-start justify-center overflow-y-auto bg-fg/70 p-6 backdrop-blur-sm"
+        >
+          <figure className="my-auto" onClick={(e) => e.stopPropagation()}>
+            <SwapImage
+              src={imgSrc(zoom.sheet)}
+              alt={zoom.label}
+              className="max-h-[calc(100vh-6rem)] w-auto rounded-xl shadow-pop"
+            />
+            <figcaption className="mt-2 text-center text-caption text-bg">
+              {zoom.sheet}. {zoom.label} · 카드 {zoom.cards}장 — 아무 데나 누르면 닫혀요
+            </figcaption>
+          </figure>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * 새 그림이 다 그려질 때까지 **옛 그림을 치우지 않는다.**
+ *
+ * src 를 그냥 갈아끼우면 브라우저가 옛 그림을 즉시 버리고 빈 칸을 보여준다. 양식 하나
+ * 고를 때마다 이미지가 통째로 사라졌다 나타나니 "내려갔다 올라온다" 로 보인다.
+ * 새 그림을 투명하게 먼저 받아 두고, 다 받은 뒤에 바꿔 건다.
+ */
+function SwapImage({ src, alt, className }: { src: string; alt: string; className?: string }) {
+  const [shown, setShown] = useState(src);
+  const pending = src === shown ? null : src;
+
+  return (
+    <span className="relative block">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={shown} alt={alt} className={className} />
+      {pending && (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={pending}
+            alt=""
+            aria-hidden
+            onLoad={() => setShown(pending)}
+            // 실패해도 넘긴다 — 안 넘기면 옛 그림에 영영 갇힌다
+            onError={() => setShown(pending)}
+            className="pointer-events-none absolute inset-0 h-full w-full opacity-0"
+          />
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-0 rounded-xl bg-bg/40 transition-opacity"
+          />
+        </>
+      )}
+    </span>
+  );
+}

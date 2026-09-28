@@ -30,7 +30,18 @@ function dotWindow(idx: number, total: number): { i: number; scale: number }[] {
 //
 // 세로로 쌓으면 안내 이미지가 페이지를 길게 밀어내 아래(작가 정보·추천)가 접근성을 잃는다.
 // 가로 레일이면 몇 장이 있는지 한눈에 보이고, 자세히 볼 사람만 탭해서 뷰어로 간다.
-// 이미지에 글자가 들어있어 자르지 않는다 — 높이를 고정하고 폭을 비율대로 흘린다.
+//
+// **카드 크기는 전부 같다.** 안내 이미지는 담긴 카드 수에 따라 높이가 제각각(1800~3000px)
+// 이라, 비율대로 흘리면 레일이 들쭉날쭉해져 목록으로 안 읽힌다. 3:4 틀에 맞추고 위를
+// 기준으로 자른다 — 맨 위 제목(가격·구성 / 컨셉 …)이 곧 그 장의 이름이라, 잘려도
+// 무엇에 관한 장인지는 그대로 보인다. 아래쪽에 옅은 그라데이션을 깔아 "더 있다" 를 알린다.
+const CARD = "w-[132px] sm:w-[160px]";
+
+/** 아래로 이만큼 끌고 놓으면 닫힌다 */
+const CLOSE_AT = 110;
+/** 이만큼 움직이기 전에는 가로/세로 중 어느 제스처인지 정하지 않는다 */
+const AXIS_LOCK = 8;
+
 export function GuideImageGallery({ images }: { images: GuideImage[] }) {
   const [viewer, setViewer] = useState<number | null>(null);
 
@@ -38,28 +49,29 @@ export function GuideImageGallery({ images }: { images: GuideImage[] }) {
 
   return (
     <div>
-      <ul className="-mx-2.5 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-2.5 pb-1 scrollbar-none sm:-mx-4 sm:px-4">
+      <ul className="-mx-2.5 flex gap-2.5 overflow-x-auto px-2.5 pb-1 scrollbar-none sm:-mx-4 sm:px-4">
         {images.map((img, i) => (
-          <li key={img.id} className="w-[68%] shrink-0 snap-start sm:w-[46%]">
+          <li key={img.id} className={cn("shrink-0", CARD)}>
             <button
               type="button"
               onClick={() => setViewer(i)}
-              className="block w-full cursor-pointer overflow-hidden rounded-2xl bg-fg/[0.05]"
+              className="relative block aspect-[3/4] w-full cursor-pointer overflow-hidden rounded-2xl bg-fg/[0.05] ring-1 ring-inset ring-fg/[0.06]"
               aria-label={`안내 이미지 ${i + 1} 크게 보기`}
             >
               <img
                 src={img.thumb_url ?? img.image_url}
                 alt={img.caption || `작가 안내 이미지 ${i + 1}`}
-                width={img.width ?? undefined}
-                height={img.height ?? undefined}
                 loading="lazy"
-                className="h-auto w-full object-contain"
+                className="h-full w-full object-cover object-top"
+              />
+              {/* 잘린 아래를 자연스럽게 — 글자가 뚝 끊긴 것처럼 보이지 않게 */}
+              <span
+                aria-hidden
+                className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-bg/80 to-transparent"
               />
             </button>
             {img.caption && (
-              <p className="mt-1.5 line-clamp-2 px-1 text-body-sm leading-relaxed text-muted">
-                {img.caption}
-              </p>
+              <p className="mt-1.5 line-clamp-1 px-1 text-caption text-muted">{img.caption}</p>
             )}
           </li>
         ))}
@@ -85,6 +97,9 @@ export function GuideImageViewer({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [idx, setIdx] = useState(startIndex);
+  /** 아래로 끌린 거리(px) */
+  const [drag, setDrag] = useState(0);
+  const startRef = useRef<{ x: number; y: number; atTop: boolean; axis: "x" | "y" | null } | null>(null);
 
   useIsoLayoutEffect(() => {
     const el = ref.current;
@@ -119,35 +134,96 @@ export function GuideImageViewer({
     el.scrollTo({ left: next * el.clientWidth, behavior: "smooth" });
   }
 
+  // ── 아래로 끌어 닫기 ───────────────────────────────────────────
+  //
+  // 안내 이미지는 세로로 길어 슬라이드마다 세로 스크롤이 있다. 그래서 아무 데서나
+  // 아래로 끄는 걸 닫기로 받으면 **읽으려고 스크롤 올리는 동작마다 닫힌다.**
+  // 맨 위에 닿아 있을 때만 닫기로 친다(인스타·트위터와 같은 규칙).
+  //
+  // 축도 갈라야 한다. 좌우 스와이프는 장 넘기기라, 처음 몇 px 로 어느 쪽 제스처인지
+  // 정하고 그 뒤로는 바꾸지 않는다 — 안 그러면 대각선으로 끌 때 둘 다 반응한다.
+  function onTouchStart(e: React.TouchEvent) {
+    const t = e.touches[0];
+    const slide = (e.target as HTMLElement).closest?.("[data-slide]") as HTMLElement | null;
+    startRef.current = { x: t.clientX, y: t.clientY, atTop: (slide?.scrollTop ?? 0) <= 0, axis: null };
+  }
+
+  function onTouchMove(e: React.TouchEvent) {
+    const s = startRef.current;
+    if (!s) return;
+    const t = e.touches[0];
+    const dx = t.clientX - s.x;
+    const dy = t.clientY - s.y;
+    if (s.axis === null) {
+      if (Math.abs(dx) < AXIS_LOCK && Math.abs(dy) < AXIS_LOCK) return;
+      // 세로가 가로보다 뚜렷하게 클 때만 세로로 판정 — 애매하면 장 넘기기 쪽을 살린다
+      s.axis = Math.abs(dy) > Math.abs(dx) * 1.2 ? "y" : "x";
+    }
+    if (s.axis !== "y" || !s.atTop || dy <= 0) return;
+    setDrag(dy);
+  }
+
+  function onTouchEnd() {
+    const pulled = drag;
+    startRef.current = null;
+    setDrag(0);
+    if (pulled > CLOSE_AT) onClose();
+  }
+
   const caption = images[idx]?.caption ?? "";
+  const dragging = drag > 0;
 
   return (
     <div
-      // 거의 불투명한 검정은 채팅방을 통째로 지워 "어디로 왔지" 가 된다.
-      // 뒤가 비치는 정도로만 덮고 흐린다 — 안내를 보다 닫으면 대화로 돌아온다는 게 보인다.
-      className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm"
+      className="fixed inset-0 z-50"
       role="dialog"
       aria-modal="true"
       aria-label="작가 안내 이미지"
       // 배경(=사진 바깥) 탭으로 닫기 — 이미지 자체는 스와이프 영역이라 클릭을 삼킨다
       onClick={onClose}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      onTouchCancel={onTouchEnd}
     >
+      {/* 거의 불투명한 검정은 채팅방을 통째로 지워 "어디로 왔지" 가 된다.
+          뒤가 비치는 정도로만 덮고 흐린다 — 안내를 보다 닫으면 대화로 돌아온다는 게 보인다.
+          아래로 끌수록 옅어져 "놓으면 닫힌다" 가 손에 먼저 읽힌다. */}
+      <span
+        aria-hidden
+        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+        style={{
+          opacity: 1 - Math.min(drag / (CLOSE_AT * 3), 0.55),
+          transition: dragging ? "none" : "opacity 200ms",
+        }}
+      />
+
       <div
         ref={ref}
         onScroll={() => {
           const el = ref.current;
           if (el) setIdx(Math.round(el.scrollLeft / el.clientWidth));
         }}
-        className="flex h-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain scrollbar-none"
+        className="relative flex h-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain scrollbar-none"
+        style={{
+          transform: dragging ? `translateY(${drag}px)` : undefined,
+          transition: dragging ? "none" : "transform 200ms",
+        }}
       >
         {images.map((img, i) => (
-          <div key={img.id} className="grid h-full w-full shrink-0 snap-center place-items-center p-4">
+          // 안내 이미지는 세로로 길다. 화면 높이에 맞춰 줄이면 글자가 읽을 수 없을 만큼
+          // 작아지므로, **폭을 꽉 채우고 세로로 스크롤**한다. 좌우 스와이프는 그대로 장 넘기기.
+          <div
+            key={img.id}
+            data-slide
+            className="h-full w-full shrink-0 snap-center overflow-y-auto overscroll-y-contain px-4 py-12 scrollbar-none"
+          >
             <img
               src={img.image_url}
               alt={img.caption || `작가 안내 이미지 ${i + 1}`}
               loading={i === startIndex ? undefined : "lazy"}
               onClick={(e) => e.stopPropagation()}
-              className="max-h-full max-w-full object-contain"
+              className="mx-auto h-auto w-full max-w-lg rounded-xl"
             />
           </div>
         ))}

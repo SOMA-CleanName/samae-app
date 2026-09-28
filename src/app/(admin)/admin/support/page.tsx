@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { Badge, EmptyState } from "@/components/ui";
-import { SUPPORT_KIND_LABEL, type SupportKind } from "@/lib/support";
+import { SUPPORT_KIND_LABEL, isUrgentSupportKind, type SupportKind } from "@/lib/support";
 import { ackPhotographerForRefund, resolveSupportRequest, reopenSupportRequest } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -82,14 +82,20 @@ export default async function AdminSupportPage() {
   const bookingById = new Map(((bookings ?? []) as Bk[]).map((b) => [b.id, b]));
   const one = <T,>(v: T | T[] | null): T | null => (Array.isArray(v) ? v[0] ?? null : v);
 
-  const open = rows.filter((r) => r.status === "open");
+  // 신고·개인정보 요청을 위로 올린다 — 신고는 사람이 곤란을 겪고 있다는 뜻이고,
+  // 개인정보 요청은 처리방침이 "지체 없이" 를 약속한 것이라 둘 다 기한이 있다.
+  // 접수함이 환불 건으로 길어지면 그 아래 묻힌다.
+  const open = rows
+    .filter((r) => r.status === "open")
+    .sort((a, b) => Number(isUrgentSupportKind(b.kind)) - Number(isUrgentSupportKind(a.kind)));
   const done = rows.filter((r) => r.status !== "open");
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-8 sm:px-5">
       <h1 className="text-h1 font-semibold">사매 문의</h1>
       <p className="mt-1 text-body-sm text-muted">
-        환불·날짜 변경 요청이에요. 실제 처리는 거래·정산에서 하고 여기서는 접수만 닫아요.
+        환불·신고·개인정보 요청 접수함이에요. 실제 환불 처리는 거래·정산에서 하고 여기서는 접수를 닫아요.
+        <b className="text-fg"> 신고·개인정보 요청은 위로 올라와요.</b>
       </p>
 
       <section className="mt-6">
@@ -165,7 +171,15 @@ function RequestCard({
   return (
     <li className="rounded-2xl border border-line bg-surface p-4">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge tone={r.kind === "refund" || r.kind === "photographer_cancel" ? "warning" : "info"}>
+        <Badge
+          tone={
+            isUrgentSupportKind(r.kind)
+              ? "danger"
+              : r.kind === "refund" || r.kind === "photographer_cancel"
+                ? "warning"
+                : "info"
+          }
+        >
           {SUPPORT_KIND_LABEL[r.kind as SupportKind] ?? r.kind}
         </Badge>
         <span className="text-caption text-muted">

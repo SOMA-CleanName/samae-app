@@ -76,7 +76,7 @@ export async function searchPhotosBySiglip(
   return rankPhotosByVector(vector, limit, signal);
 }
 
-/** 벡터와 가까운 공개 사진을 거리순으로 — 사진으로 검색(docs/42)이 쓴다. */
+/** 벡터와 가까운 공개 사진을 거리순으로 — 사진으로 검색(docs/46)이 쓴다. */
 export async function searchPhotosByVector(
   vector: number[],
   limit = DEFAULT_LIMIT,

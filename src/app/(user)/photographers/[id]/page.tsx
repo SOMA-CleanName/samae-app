@@ -17,7 +17,11 @@ import { ProfileBackButton } from "./ProfileBackButton";
 import { MapPinIcon } from "@/components/user/icons";
 import { Avatar, Button } from "@/components/ui";
 import type { Metadata } from "next";
-import { photographerMetadata, packagesJsonLd, breadcrumbJsonLd } from "@/lib/seo";
+import { photographerMetadata, packagesJsonLd, breadcrumbJsonLd, faqJsonLd } from "@/lib/seo";
+import { fetchPublicKbSections } from "@/lib/kb-public";
+import { kbFaqPairs } from "@/lib/kb-sections";
+import { KbSections } from "./KbSections";
+import { photographerSummary } from "@/lib/photographer-summary";
 import { JsonLd } from "@/components/JsonLd";
 
 // 페이지별 동적 메타 — 지역·무드·시작가로 고유 제목/설명(작가 실명은 미노출).
@@ -40,11 +44,12 @@ export default async function PhotographerProfile({
   const ph = await fetchPhotographerById(id);
   if (!ph) notFound();
 
-  const [photos, packages, highlights, aboutSections, me] = await Promise.all([
+  const [photos, packages, highlights, aboutSections, kbSections, me] = await Promise.all([
     fetchPhotographerPhotos(ph.id),
     fetchPhotographerPackages(ph.id),
     fetchPhotographerHighlights(ph.id),
     fetchPhotographerAboutSections(ph.id),
+    fetchPublicKbSections(ph.id),
     getCurrentUser(),
   ]);
 
@@ -94,9 +99,35 @@ export default async function PhotographerProfile({
 
   const isOwner = me?.photographer?.id === ph.id;
 
-  // 패키지 가격 → Product/Offer. "성수 스냅 얼마?" 류 질의에 AI 가 인용할 사실 단위다.
-  // 실명은 넣지 않는다(익명 정책) — seller 는 브랜드로 나간다.
-  const packagesLd = packagesJsonLd(ph.id, packages);
+  // 검색·AI 가 인용할 수 있는 한 문장. 칩으로만 있던 사실을 문장으로 한 번 더 적는다.
+  const prices = packages.map((p) => p.price_krw).filter((n): n is number => !!n && n > 0);
+  const summary = photographerSummary({
+    regions: ph.regions,
+    moodTags: ph.mood_tags,
+    packageCount: packages.length,
+    minPriceKrw: prices.length ? Math.min(...prices) : null,
+  });
+
+  // 패키지 가격 → Service/Offer. "성수 스냅 얼마?" 류 질의에 AI 가 인용할 사실 단위다.
+  // 실명은 넣지 않는다(익명 정책) — provider·seller 는 브랜드로 나간다.
+  //
+  // 대표 사진을 함께 싣는다 — 구글이 `image` 누락을 **심각**으로 잡았다(2026-09-24).
+  // 별점은 후기가 실제로 있을 때만 (packagesJsonLd 안에서 거른다).
+  const packagesLd = packagesJsonLd(ph.id, packages, {
+    imageUrl: pubPhotos[0]?.src_url ?? null,
+    ratingAvg: ph.rating_avg,
+    reviewCount: ph.review_count,
+  });
+  /*
+    작가 안내를 **글로도** 싣는다. 지금까지 이 내용은 안내 이미지(채팅)에만 있었는데,
+    검색엔진도 AI 도 픽셀 안의 글자를 못 읽는다 — 가격·구성·보정·납품처럼 고객이
+    정확히 검색하는 내용이 전부 거기 갇혀 있었다.
+
+    질문은 지어내지 않는다(kb-sections 참고). 묶음 제목이 곧 "무엇에 대한 답인가" 다.
+  */
+  const kbFaqLd = faqJsonLd(
+    kbFaqPairs(kbSections, ph.display_name).map((x) => ({ q: x.question, a: x.answer }))
+  );
   const breadcrumbLd = breadcrumbJsonLd([
     { name: "홈", path: "/" },
     { name: "사진작가", path: `/photographers/${ph.id}` },
@@ -105,6 +136,7 @@ export default async function PhotographerProfile({
   return (
     <main className="mx-auto max-w-6xl px-2.5 py-2.5 font-kr sm:px-4 sm:py-4">
       {packagesLd && <JsonLd data={packagesLd} />}
+      {kbFaqLd && <JsonLd data={kbFaqLd} />}
       <JsonLd data={breadcrumbLd} />
       {/* 상단 바 — 좌측 뒤로가기 + 가운데 작가 이름(작게) */}
       <div className="relative flex items-center">
@@ -124,6 +156,12 @@ export default async function PhotographerProfile({
               {/* 실명·라벨·가격 미표시 — 프로필 이미지 옆에 소개글만 노출 */}
               <h1 className="sr-only">작가 프로필</h1>
               {ph.bio && <p className="text-body-sm leading-relaxed text-fg/80">{ph.bio}</p>}
+              {/*
+                지역·무드가 **칩으로만** 있었다. 사람에겐 충분하지만 검색·AI 는 인용할
+                문장이 없다 — "서울" "#감성" 은 답변에 못 쓴다. 같은 사실을 한 문장으로
+                한 번 더 적는다(없는 사실은 만들지 않는다 — lib/photographer-summary).
+              */}
+              {summary && <p className="mt-1.5 text-caption leading-relaxed text-muted">{summary}</p>}
             </div>
           </div>
 
@@ -160,6 +198,7 @@ export default async function PhotographerProfile({
               />
             </div>
           )}
+          {kbSections.length > 0 && <KbSections sections={kbSections} />}
           <ProfileTabs
             aboutSlot={
               aboutSections.length > 0 ? <AboutSections sections={aboutSections} /> : undefined

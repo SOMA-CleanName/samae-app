@@ -6,9 +6,8 @@ import { Badge } from "@/components/ui";
 import { ChevronDownIcon, MapPinIcon } from "@/components/user/icons";
 import { cn } from "@/lib/cn";
 import { SelectCheckbox } from "@/components/admin/DeleteMode";
-import { confirmInquiryDeposit, revertInquiryDeposit, setInquiryStatus, setInquiryHidden } from "./actions";
+import { setInquiryStatus, setInquiryHidden } from "./actions";
 
-const fmt = new Intl.NumberFormat("ko-KR");
 
 export type Stage = "new" | "await" | "confirmed" | "shot" | "refund" | "expired";
 
@@ -25,7 +24,6 @@ export type InquiryRow = {
   gender: string | null;
   partySize: string | null;
   note: string | null;
-  depositAmount: number;
   photographerName: string;
   customerName: string;
   contacts: { label: string; value: string }[];
@@ -165,23 +163,11 @@ export function AdminInquiries({ rows }: { rows: InquiryRow[] }) {
                     {r.purpose} · {dt(r.createdAt)}
                   </span>
                 </span>
-                <span className="hidden shrink-0 text-caption tabular-nums text-muted sm:block">
-                  ₩{fmt.format(r.depositAmount)}
-                </span>
                 <ChevronDownIcon
                   className={cn("h-4 w-4 shrink-0 text-faint transition-transform", isOpen && "rotate-180")}
                 />
               </button>
 
-              {/* 인라인 액션 — 입금대기면 입금확인 버튼 */}
-              {r.stage === "await" && (
-                <form action={confirmInquiryDeposit} className="shrink-0">
-                  <input type="hidden" name="id" value={r.id} />
-                  <button className="cursor-pointer rounded-full bg-fg px-3 py-1.5 text-caption font-semibold text-bg transition-opacity hover:opacity-90">
-                    입금확인
-                  </button>
-                </form>
-              )}
             </div>
 
             {/* 확장 상세 */}
@@ -277,14 +263,6 @@ export function AdminInquiries({ rows }: { rows: InquiryRow[] }) {
 
                 {/* 운영 액션 */}
                 <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3">
-                  {r.stage === "confirmed" && (
-                    <form action={revertInquiryDeposit}>
-                      <input type="hidden" name="id" value={r.id} />
-                      <button className="cursor-pointer rounded-lg border border-line-strong px-3 py-1.5 text-caption font-medium text-muted transition-colors hover:bg-fg/[0.04]">
-                        입금확인 취소
-                      </button>
-                    </form>
-                  )}
                   <form action={setInquiryStatus} className="flex items-center gap-2">
                     <input type="hidden" name="id" value={r.id} />
                     <span className="text-caption text-muted">상태</span>

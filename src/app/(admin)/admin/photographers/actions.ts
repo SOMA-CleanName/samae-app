@@ -1,27 +1,56 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+// 계약 조건·자격이 바뀌는 액션은 누가 했는지 남긴다 (0136)
+import { logAdminAction } from "@/lib/admin-audit";
+import { fetchRemovalFacts, collectStoragePaths, PORTFOLIO_BUCKET } from "@/lib/removal-facts";
+import { buildRemovalReport } from "@/lib/removal-report";
+import { agreementStatus } from "@/lib/agreement-status";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { archiveAndDelete } from "@/lib/soft-delete";
 import { notifyOpsApplicationApproved } from "@/lib/ops-alert";
-import { feeSpecFromRow, feeSpecLabel } from "@/lib/platform-fee";
+import { feeNeedsSetup, feeSpecFromRow, feeSpecLabel } from "@/lib/platform-fee";
 
-// 운영자 권한 확인 (방어적 — RLS 외 이중 체크)
+// 운영자 권한 확인 (방어적 — RLS 외 이중 체크).
+// **확인한 사람을 돌려준다** — 행동 기록(0136)에 누가 했는지 남겨야 해서다.
 async function assertAdmin() {
   const me = await getCurrentUser();
   if (!me || me.role !== "admin") {
     throw new Error("운영자 권한이 필요합니다.");
   }
+  return me;
 }
 
 // 작가 승인: pending/rejected → approved
 /** 승인 — 정지였다면 우리가 가린 것도 함께 되돌린다 */
 export async function approvePhotographer(formData: FormData) {
-  await assertAdmin();
+  const me = await assertAdmin();
   const id = String(formData.get("id"));
   const admin = createAdminClient();
+
+  /*
+    ⚠️ **요율을 책정하지 않고 승인할 수 없다.**
+
+    운영 흐름은 ① 신청 ② 어드민이 보고 수수료 책정 ③ 승인 ④ 작가가 **그 요율로** 계약서를
+    읽고 동의하며 입점, 순이다(2026-09-21 확정). 요율이 빈 채로 승인하면 ④ 에서 작가가
+    전역 기본값을 자기 요율로 알고 동의한다 — 나중에 값을 넣으면 **작가가 동의한 숫자와
+    실제 숫자가 달라진다.**
+
+    신청서 경로(approveApplication)는 승인 폼에서 요율을 함께 받는데, 이 경로(승인 대기)는
+    받지 않아 그대로 통과했다. 목록 행에 수수료 설정이 이미 있으므로 거기서 먼저 정하면 된다.
+  */
+  const { data: cur } = await admin
+    .from("photographers")
+    .select("fee_mode, fee_rate, fee_amount_krw")
+    .eq("id", id)
+    .maybeSingle();
+  if (feeNeedsSetup(feeSpecFromRow(cur))) {
+    throw new Error("먼저 이 작가의 수수료를 책정해주세요. 목록의 수수료 칸에 값을 넣고 저장한 뒤 승인할 수 있어요.");
+  }
+
   const { error } = await admin
     .from("photographers")
     .update({ status: "approved", approved_at: new Date().toISOString() })
@@ -34,12 +63,17 @@ export async function approvePhotographer(formData: FormData) {
   });
   if (showErr) throw new Error(`노출을 되돌리지 못했어요. (${showErr.message})`);
 
+  await logAdminAction({
+    action: "photographer_approve",
+    actor: { id: me.id, label: me.displayName },
+    target: { table: "photographers", id: id },
+  });
   revalidatePath("/admin/photographers");
 }
 
 // 작가 반려: → rejected. 정지와 같이 노출도 끊는다 — 반려된 작가가 피드에 남으면 안 된다
 export async function rejectPhotographer(formData: FormData) {
-  await assertAdmin();
+  const me = await assertAdmin();
   const id = String(formData.get("id"));
   const admin = createAdminClient();
   const { error } = await admin
@@ -53,6 +87,11 @@ export async function rejectPhotographer(formData: FormData) {
   });
   if (hideErr) throw new Error(`노출을 끊지 못했어요. (${hideErr.message})`);
 
+  await logAdminAction({
+    action: "photographer_reject",
+    actor: { id: me.id, label: me.displayName },
+    target: { table: "photographers", id: id },
+  });
   revalidatePath("/admin/photographers");
 }
 
@@ -70,7 +109,7 @@ export async function rejectPhotographer(formData: FormData) {
  * 것은 다른 일이다.
  */
 export async function suspendPhotographer(formData: FormData) {
-  await assertAdmin();
+  const me = await assertAdmin();
   const id = String(formData.get("id"));
   const admin = createAdminClient();
   const { error } = await admin
@@ -86,6 +125,11 @@ export async function suspendPhotographer(formData: FormData) {
   });
   if (hideErr) throw new Error(`노출을 끊지 못했어요. (${hideErr.message})`);
 
+  await logAdminAction({
+    action: "photographer_suspend",
+    actor: { id: me.id, label: me.displayName },
+    target: { table: "photographers", id: id },
+  });
   revalidatePath("/admin/photographers");
 }
 
@@ -202,103 +246,21 @@ export async function deleteApplication(formData: FormData) {
   revalidatePath("/admin/photographers");
 }
 
-// ── 리드 단가 ──
-// 작가가 리드 1건을 해제할 때 우리 계좌로 입금하는 금액. 작가마다 다르게 운영한다.
-// 접수 시 inquiries.deposit_amount_krw 로 스냅샷되므로(트리거, 0072),
-// 단가를 바꾸면 아직 미해제(status='new')인 리드도 새 단가를 따라가도록 함께 갱신한다.
-// 이미 해제 신청(accepted)·입금확인(confirmed)된 건은 금액이 확정된 것이라 건드리지 않는다.
-
-const MAX_LEAD_PRICE = 10_000_000;
-
-// "6,000" · "6000원" 같은 입력도 허용. 빈 값이면 null(= 기본 단가 사용).
-function parsePrice(raw: string): number | null {
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-  const digits = trimmed.replace(/[^\d]/g, "");
-  if (!digits) throw new Error("리드 단가는 숫자로 입력해주세요.");
-  const price = Number(digits);
-  if (!Number.isFinite(price) || price > MAX_LEAD_PRICE) {
-    throw new Error(`리드 단가는 0 ~ ${MAX_LEAD_PRICE.toLocaleString("ko-KR")}원 사이로 입력해주세요.`);
-  }
-  return price;
-}
-
-// 미해제 리드 금액 동기화 — 작가 단위
-async function syncPendingLeads(
-  admin: ReturnType<typeof createAdminClient>,
-  photographerIds: string[],
-  amount: number
-) {
-  if (photographerIds.length === 0) return;
-  const { error } = await admin
-    .from("inquiries")
-    .update({ deposit_amount_krw: amount })
-    .in("photographer_id", photographerIds)
-    .eq("status", "new");
-  if (error) throw new Error(error.message);
-}
-
-async function getDefaultLeadPrice(admin: ReturnType<typeof createAdminClient>): Promise<number> {
-  const { data } = await admin
-    .from("platform_account")
-    .select("default_lead_price_krw")
-    .eq("id", true)
-    .maybeSingle();
-  return (data?.default_lead_price_krw as number | null) ?? 6000;
-}
-
-// 작가별 단가 저장 — 빈 값이면 기본 단가를 따르도록 null 로 되돌린다.
-export async function updateLeadPrice(formData: FormData) {
-  await assertAdmin();
-  const id = String(formData.get("id"));
-  const price = parsePrice(String(formData.get("price") ?? ""));
-
-  const admin = createAdminClient();
-  const { error } = await admin
-    .from("photographers")
-    .update({ lead_price_krw: price })
-    .eq("id", id);
-  if (error) throw new Error(error.message);
-
-  await syncPendingLeads(admin, [id], price ?? (await getDefaultLeadPrice(admin)));
-
-  revalidatePath("/admin/photographers");
-  revalidatePath("/studio");
-}
-
-// 기본 단가 저장 — 개별 단가가 없는(null) 작가 전원에게 적용된다.
-export async function updateDefaultLeadPrice(formData: FormData) {
-  await assertAdmin();
-  const price = parsePrice(String(formData.get("price") ?? ""));
-  if (price === null) throw new Error("기본 단가는 비워둘 수 없습니다.");
-
-  const admin = createAdminClient();
-  const { error } = await admin
-    .from("platform_account")
-    .update({ default_lead_price_krw: price })
-    .eq("id", true);
-  if (error) throw new Error(error.message);
-
-  // 개별 단가가 없는 작가들의 미해제 리드만 새 기본 단가로
-  const { data: followers, error: readErr } = await admin
-    .from("photographers")
-    .select("id")
-    .is("lead_price_krw", null);
-  if (readErr) throw new Error(readErr.message);
-  await syncPendingLeads(admin, (followers ?? []).map((p) => p.id as string), price);
-
-  revalidatePath("/admin/photographers");
-  revalidatePath("/studio");
-}
+// ── 리드 단가 — **삭제됨 (2026-09-18)** ──
+// 리드 모델이 폐지되고 채팅 상주로 바뀌면서(docs/23) 어드민에 단가를 거는 화면이 사라졌다.
+// `updateLeadPrice`·`updateDefaultLeadPrice` 와 그 헬퍼 셋은 **호출부가 하나도 없는 채로**
+// 남아 있었다. 서버 액션은 화면에 안 붙어 있어도 export 돼 있으면 엔드포인트라, 쓰지 않는
+// 쓰기 경로를 열어 둘 이유가 없다. `photographers.lead_price_krw` ·
+// `platform_account.default_lead_price_krw` 컬럼은 남겨 둔다 — 지난 리드의 근거다.
 
 // ── 중개 수수료 (작가약관 12조 · 입점 동의서 3항) ─────────────────
-// 기본은 정률 20%(부가세 별도). 정액은 옛 모델이라 명시한 작가만 쓴다.
+// 기본은 정률 18%(부가세 별도, 2026-09-21 신규 작가부터. 기존 작가는 행에 적힌 10%). 정액은 옛 모델이라 명시한 작가만 쓴다.
 //
 // 이미 제안된 예약은 fee_snapshot 으로 굳어 있어 여기서 바꿔도 소급되지 않는다.
 import { MAX_FEE_RATE, MIN_FEE_RATE } from "@/lib/platform-fee";
 
 export async function updatePhotographerFee(formData: FormData) {
-  await assertAdmin();
+  const me = await assertAdmin();
   const id = String(formData.get("id"));
   const mode = String(formData.get("mode") ?? "rate") === "flat" ? "flat" : "rate";
   const raw = String(formData.get("value") ?? "").trim();
@@ -327,6 +289,13 @@ export async function updatePhotographerFee(formData: FormData) {
   const { error } = await admin.from("photographers").update(patch).eq("id", id);
   if (error) throw new Error(error.message);
 
+  // 수수료는 작가와의 **계약 조건**이다. 바꾼 값을 그대로 남긴다.
+  await logAdminAction({
+    action: "fee_change",
+    actor: { id: me.id, label: me.displayName },
+    target: { table: "photographers", id },
+    detail: patch as Record<string, unknown>,
+  });
   revalidatePath("/admin/photographers");
   revalidatePath("/admin/transactions");
 }
@@ -357,6 +326,12 @@ export async function verifyBusinessLicense(formData: FormData) {
     })
     .eq("id", id);
 
+  await logAdminAction({
+    action: "license_verify",
+    actor: { id: me.id, label: me.displayName },
+    target: { table: "photographers", id },
+    detail: { verified: ok, note: note || null },
+  });
   revalidatePath("/admin/photographers");
 }
 
@@ -382,25 +357,179 @@ export async function removePhotographer(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) throw new Error("작가를 찾지 못했습니다.");
 
-  const admin = createAdminClient();
-  const [{ count: bookingCount }, { count: feeCount }] = await Promise.all([
-    admin.from("bookings").select("id", { count: "exact", head: true }).eq("photographer_id", id),
-    admin
-      .from("platform_fees")
-      .select("id", { count: "exact", head: true })
-      .eq("photographer_id", id),
-  ]);
-
-  if ((bookingCount ?? 0) > 0 || (feeCount ?? 0) > 0) {
+  /*
+    ⚠️ **점검을 여기서 다시 돌린다.** 화면의 버튼이 비활성이었다는 건 근거가 못 된다 —
+       점검 화면을 띄워 둔 사이에 예약이 잡힐 수 있고, 폼은 직접 던질 수도 있다.
+       되돌릴 수 없는 작업이라 서버가 마지막으로 한 번 더 센다.
+  */
+  const report = buildRemovalReport(await fetchRemovalFacts(id));
+  if (!report.canRemove) {
     throw new Error(
-      `예약 ${bookingCount ?? 0}건·수수료 ${feeCount ?? 0}건이 남아 있어 퇴출할 수 없어요. ` +
-        "정산·환불을 마무리한 뒤 다시 시도하거나, 노출만 끊으려면 '정지'를 쓰세요."
+      `아직 퇴출할 수 없어요 — ${report.blockers
+        .map((b) => `${b.label} ${b.count}건`)
+        .join(", ")}. 점검 화면에서 처리한 뒤 다시 시도해주세요.`
     );
   }
+
+  // Storage 경로는 **DB 삭제 전에** 모은다. photos 가 사라지면 알 방법이 없다.
+  const paths = await collectStoragePaths(id);
 
   // 아카이브 후 삭제. 나머지 표는 CASCADE 로 따라 지워진다
   const res = await archiveAndDelete("photographers", { col: "id", op: "eq", val: id }, me.id);
   if (res.error) throw new Error(`퇴출 처리 중 문제가 발생했어요. (${res.error})`);
 
+  /*
+    파일은 DB 가 지워진 뒤에 지운다. 반대로 하면 DB 삭제가 실패했을 때
+    **살아 있는 작가의 사진만 사라진다.**
+
+    여기서 실패해도 되돌리지 않는다 — 대신 남은 경로를 기록에 남긴다.
+    파일이 안 지워졌다는 사실까지 사라지면 나중에 찾을 방법이 없다.
+  */
+  let storageError: string | null = null;
+  if (paths.length > 0) {
+    const { error } = await createAdminClient().storage.from(PORTFOLIO_BUCKET).remove(paths);
+    if (error) storageError = error.message;
+  }
+
+  await logAdminAction({
+    action: "photographer_remove",
+    actor: { id: me.id, label: me.displayName },
+    target: { table: "photographers", id: id },
+    detail: storageError
+      ? { storage_failed: storageError, leftover_paths: paths }
+      : { storage_removed: paths.length },
+  });
   revalidatePath("/admin/photographers");
+  redirect("/admin/photographers");
+}
+
+// ── 후기 숨김 (0137) ─────────────────────────────────────────
+//
+// 부적절한 후기를 **지우지 않고 가린다.** 지우면 왜 사라졌는지 답할 수 없고, 분쟁이
+// 나면 원문이 필요하다. 가리면 평점 집계에서도 빠진다(트리거, 0137).
+//
+// 쓴 본인은 계속 본다 — 자기 글이 예약 상세에서 통째로 사라지면 "내 후기가 왜 없지"
+// 가 된다. 작가와 다른 사람에게만 안 보인다.
+export async function setReviewHidden(formData: FormData): Promise<void> {
+  const me = await assertAdmin();
+  const id = String(formData.get("id"));
+  const hide = String(formData.get("hide")) === "1";
+  const reason = String(formData.get("reason") ?? "").trim().slice(0, 300);
+  // 가릴 땐 사유를 받는다. 나중에 "왜 내렸냐" 에 답할 수 있어야 한다.
+  if (hide && !reason) throw new Error("가리는 사유를 적어주세요.");
+
+  const { error } = await createAdminClient()
+    .from("reviews")
+    .update(
+      hide
+        ? { hidden_at: new Date().toISOString(), hidden_by: me.id, hidden_reason: reason }
+        : { hidden_at: null, hidden_by: null, hidden_reason: null }
+    )
+    .eq("id", id);
+  if (error) throw new Error(error.message);
+
+  await logAdminAction({
+    action: hide ? "review_hide" : "review_show",
+    actor: { id: me.id, label: me.displayName },
+    target: { table: "reviews", id },
+    detail: hide ? { reason } : {},
+  });
+
+  // 평점이 바뀌므로 작가가 보이는 지면도 함께 되살린다
+  revalidatePath("/admin/photographers");
+  revalidatePath("/studio/reviews");
+}
+
+/**
+ * 퇴출 시작 — **지우지 않는다. 정지시키고 점검 화면으로 보낸다.**
+ *
+ * 목록의 [퇴출] 이 이제 이걸 부른다. 퇴출은 되돌릴 수 없어서, 한 번의 클릭으로
+ * 끝내면 안 되는 일이다. 대신 **되돌릴 수 있는 정지**를 먼저 걸어 둔다 —
+ * 점검이 며칠 걸려도 그 사이 그 작가는 고객에게 안 보이고, 중간에 그만둬도
+ * 잃는 게 없다. 반쯤 지워진 상태가 생기지 않는 것이 핵심이다.
+ */
+export async function beginRemoval(formData: FormData) {
+  const me = await assertAdmin();
+  const id = String(formData.get("id") ?? "");
+  if (!id) throw new Error("작가를 찾지 못했습니다.");
+
+  const admin = createAdminClient();
+  const { data: cur } = await admin.from("photographers").select("status").eq("id", id).single();
+
+  // 이미 정지 상태면 그대로 둔다 — 다시 걸면 '공개 중이던 것만 내린다' 표시가 흐트러진다
+  if (cur?.status === "approved") {
+    const { error } = await admin.from("photographers").update({ status: "suspended" }).eq("id", id);
+    if (error) throw new Error(error.message);
+    const { error: hideErr } = await admin.rpc("suspend_photographer_content", {
+      p_photographer_id: id,
+    });
+    if (hideErr) throw new Error(`노출을 끊지 못했어요. (${hideErr.message})`);
+    await logAdminAction({
+      action: "photographer_removal_begin",
+      actor: { id: me.id, label: me.displayName },
+      target: { table: "photographers", id },
+    });
+  }
+
+  revalidatePath("/admin/photographers");
+  redirect(`/admin/photographers/${id}/removal`);
+}
+
+/**
+ * 계약 미동의 작가의 노출을 일괄로 맞춘다 — 가릴 사람은 가리고, 동의한 사람은 되돌린다.
+ *
+ * **왜 필요한가.** 광고를 돌리는데 계약 갱신을 안 한 작가 사진에 문의가 꽂히면 그건
+ * 받을 사람이 없는 문의다. 고객은 답을 못 받고 작가는 연락이 온 줄도 모른다. 지면이
+ * 비는 건 되돌릴 수 있지만 "문의했는데 답이 없었다" 는 되돌릴 수 없다.
+ *
+ * **기준은 AgreeGate 와 같다.** 동의가 최신이 아닌 작가(미동의 + 구버전)는 스튜디오에
+ * 들어오지 못한다 = 문의를 받을 수 없다. 화면이 막는 사람과 노출을 끊는 사람이 다르면
+ * 그 틈에 "못 받는데 보이는" 작가가 생긴다.
+ *
+ * 되돌리기가 자동이라 이 버튼을 여러 번 눌러도 안전하다 — 동의를 마친 작가는 그 즉시
+ * (studio/actions 의 동의 처리에서) 이미 복구되고, 여기서 한 번 더 훑어 누락을 막는다.
+ */
+export async function syncUnagreedVisibility(): Promise<void> {
+  const me = await assertAdmin();
+  const admin = createAdminClient();
+
+  const [{ data: phs }, { data: ags }] = await Promise.all([
+    admin.from("photographers").select("id, display_name, status").eq("status", "approved"),
+    admin.from("photographer_agreements").select("photographer_id, versions, agreed_at"),
+  ]);
+
+  const byPhotographer = new Map<string, Array<{ versions: unknown; agreed_at: string }>>();
+  for (const a of (ags ?? []) as Array<{ photographer_id: string; versions: unknown; agreed_at: string }>) {
+    const list = byPhotographer.get(a.photographer_id) ?? [];
+    list.push({ versions: a.versions, agreed_at: a.agreed_at });
+    byPhotographer.set(a.photographer_id, list);
+  }
+
+  let hidden = 0;
+  let restored = 0;
+  const failed: string[] = [];
+
+  for (const ph of (phs ?? []) as Array<{ id: string; display_name: string | null }>) {
+    const current = agreementStatus(byPhotographer.get(ph.id) ?? []).state === "current";
+    const fn = current
+      ? "restore_unagreed_photographer_content"
+      : "hide_unagreed_photographer_content";
+    const { error } = await admin.rpc(fn, { p_photographer_id: ph.id });
+    // 한 명이 실패해도 나머지는 계속 처리한다 — 중간에 멈추면 절반만 가려진 상태가 된다
+    if (error) failed.push(ph.display_name ?? ph.id);
+    else if (current) restored += 1;
+    else hidden += 1;
+  }
+
+  await logAdminAction({
+    action: "unagreed_visibility_sync",
+    actor: { id: me.id, label: me.displayName },
+    target: { table: "photographers", id: "*" },
+    detail: { hidden, restored, failed },
+  });
+  revalidatePath("/admin/photographers");
+
+  if (failed.length > 0) {
+    throw new Error(`일부 작가를 처리하지 못했어요: ${failed.join(", ")}`);
+  }
 }

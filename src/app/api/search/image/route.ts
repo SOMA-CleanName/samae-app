@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { parseImageDataUrl } from "@/lib/image-search-core";
 import { searchPhotosByImage } from "@/lib/image-search";
 
-// 사진으로 검색 — 브라우저가 줄인 사진 한 장을 받아 비슷한 사진을 돌려준다. (docs/42 §3)
+// 사진으로 검색 — 브라우저가 줄인 사진 한 장을 받아 비슷한 사진을 돌려준다. (docs/46 §3)
 //
 // 사진은 저장하지 않는다. 벡터로 바꾸는 데만 쓰고 버린다.
 // 로그인은 요구하지 않는다(글 검색과 같다). 대신 맥미니가 사람 한 명에게 끌려가지 않게 IP 로 막는다.

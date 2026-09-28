@@ -47,6 +47,10 @@ export async function listReviewsForPhotographer(
         "booking:bookings(shoot_at, package_snapshot)"
     )
     .eq("photographer_id", photographerId)
+    // ⚠️ 운영이 가린 후기는 작가에게도 안 보인다(0137). **여기서 명시적으로 걸러야 한다** —
+    //    이 함수는 admin 클라이언트를 쓰므로 RLS(reviews_select)가 걸리지 않는다.
+    //    가리는 건 대개 작가를 향한 악성 후기라, 작가에게 계속 보일 이유가 없다.
+    .is("hidden_at", null)
     .order("created_at", { ascending: false });
   return (data ?? []) as unknown as PhotographerReview[];
 }

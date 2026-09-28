@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { mpTrackServer } from "@/lib/mixpanel-server";
 import { archiveAllAndDelete, archiveAndDelete } from "@/lib/soft-delete";
 import { verifyResetPassword } from "@/lib/admin-reset";
 
@@ -97,77 +96,11 @@ export async function setInquiryHidden(formData: FormData) {
   }
   revalidatePath("/admin/inquiries");
 }
+// 리드 입금 확인/되돌리기(confirmInquiryDeposit·revertInquiryDeposit)가 여기 있었다 —
+// **지웠다(2026-09-19).** 작가가 리드를 해제하며 우리 계좌에 넣던 모델의 액션인데,
+// 거래가 예약 에스크로로 바뀌면서 부르는 화면이 없어졌다. 서버 액션은 화면에 안 붙어
+// 있어도 export 돼 있으면 엔드포인트라 남겨 둘 이유가 없다.
+// 지난 기록(deposit_amount_krw·deposit_confirmed_at)은 컬럼째 남는다 — 그때의 근거다.
 
-// 입금 확인 — accepted(입금대기) → confirmed(연락처 공개). 작가에게 알림.
-export async function confirmInquiryDeposit(formData: FormData) {
-  const me = await assertAdmin();
-  const id = String(formData.get("id"));
-  const admin = createAdminClient();
-
-  const { data, error } = await admin
-    .from("inquiries")
-    .update({
-      status: "confirmed",
-      deposit_confirmed_at: new Date().toISOString(),
-      deposit_confirmed_by: me.id,
-    })
-    .eq("id", id)
-    .eq("status", "accepted")
-    .select("photographer:photographers(profile_id)")
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-
-  // 작가에게 알림 — 연락처 공개됨
-  const ph = data?.photographer as { profile_id?: string } | { profile_id?: string }[] | null;
-  const profileId = Array.isArray(ph) ? ph[0]?.profile_id : ph?.profile_id;
-  if (profileId) {
-    await admin.from("notifications").insert({
-      recipient_id: profileId,
-      type: "payment",
-      title: "입금이 확인됐어요",
-      body: "입금이 확인되어 고객 연락처가 공개됐어요. 예약 목록에서 확인하세요.",
-      inquiry_id: id,
-    });
-
-    // 리드 확정(연락처 공개 = 리드 언락 매출) — 작가(공급) 타임라인에 귀속.
-    // data 가 있다는 건 accepted→confirmed 전이가 실제로 일어난 것.
-    await mpTrackServer(
-      "Confirm Lead",
-      profileId,
-      { inquiry_id: id },
-      `Confirm Lead:${id}`,
-    );
-  }
-  revalidatePath("/admin/inquiries");
-}
-
-// 입금 취소(되돌리기) — confirmed → accepted (오확인 정정)
-export async function revertInquiryDeposit(formData: FormData) {
-  await assertAdmin();
-  const id = String(formData.get("id"));
-  const admin = createAdminClient();
-  const { error } = await admin
-    .from("inquiries")
-    .update({ status: "accepted", deposit_confirmed_at: null, deposit_confirmed_by: null })
-    .eq("id", id)
-    .eq("status", "confirmed");
-  if (error) throw new Error(error.message);
-  revalidatePath("/admin/inquiries");
-}
-
-// 플랫폼(우리) 입금 계좌 수정
-export async function updatePlatformAccount(formData: FormData) {
-  await assertAdmin();
-  const admin = createAdminClient();
-  const { error } = await admin
-    .from("platform_account")
-    .update({
-      bank: String(formData.get("bank") ?? "").trim(),
-      number: String(formData.get("number") ?? "").trim(),
-      holder: String(formData.get("holder") ?? "").trim(),
-      notice: String(formData.get("notice") ?? "").trim(),
-    })
-    .eq("id", true);
-  if (error) throw new Error(error.message);
-  revalidatePath("/admin/inquiries");
-}
+// 사매 입금 계좌 편집은 **거래·정산으로 옮겼다**(2026-09-19). 그 계좌는 리드용이 아니라
+// 예약 에스크로(lib/platform-account → lib/payments)라 거래 화면이 제자리다.

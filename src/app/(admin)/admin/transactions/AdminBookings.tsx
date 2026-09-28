@@ -314,7 +314,7 @@ function BookingDetail({ b }: { b: BookingRow }) {
           <p className="mt-1 text-caption text-fg">
             <b>{b.refund.percent}% · ₩{fmt.format(b.refund.refundKrw)}</b> 고객 환불 ·{" "}
             {b.refund.penaltyKrw > 0
-              ? `위약금 ₩${fmt.format(b.refund.penaltyKrw)} (작가 ₩${fmt.format(b.refund.penaltyPhotographerKrw)} · 사매 ₩${fmt.format(b.refund.penaltyCompanyKrw)})`
+              ? `위약금 ₩${fmt.format(b.refund.penaltyKrw)} (작가 ₩${fmt.format(b.refund.penaltyPhotographerKrw)} · 수수료 ₩${fmt.format(b.refund.penaltyCompanyKrw)} · 부가세 ₩${fmt.format(b.refund.penaltyVatKrw ?? 0)})`
               : b.refund.feeClaimKrw > 0
                 ? `작가에게 수수료 상당액 ₩${fmt.format(b.refund.feeClaimKrw)} 청구`
                 : b.refund.feeWaived

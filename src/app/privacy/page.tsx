@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 // ⚠️ 개정일은 "배포되는 날" 이어야 한다. 처리방침은 게시된 시점부터 효력이 있는데,
 //    아직 안 올라간 문서에 과거 날짜를 박아두면 그 사이 기간을 소급해 약속한 꼴이 된다.
 //    머지·배포일이 아래와 다르면 반드시 맞춰서 고칠 것.
-const REVISED_AT = "2026-09-11";
+const REVISED_AT = "2026-09-19";
 
 // `?plain=1` — 약관 동의 흐름에서 연 **읽기 전용** 탭이다. 푸터(와 내비)를 빼는 이유:
 // 동의를 안 한 사람이 약관을 읽다가 링크를 타고 홈·매거진으로 새어 나갔다(2026-09-16 신고).
@@ -152,17 +152,75 @@ export default async function PrivacyPage({ searchParams }: {
           </p>
         </Section>
 
+        {/*
+          ⚠️ **수탁자를 실제로 적는다.** 전에는 "클라우드 인프라·메시지 발송·분석 등 일부
+             업무를 외부 전문업체에 위탁할 수 있으며" 한 줄이었다. 그건 가능성 서술이지
+             공개가 아니다 — 개인정보보호법 26조는 위탁업무의 내용과 **수탁자를 공개**하게 한다.
+             (2026-09-19, docs/44)
+
+          ⚠️ 특히 **Anthropic 과 Discord 를 빠뜨리기 쉽다.** 챗봇은 고객이 쓴 문의 내용을
+             그대로 모델에 보내므로 인프라가 아니라 **처리 위탁**이고, 디스코드 운영 채널에는
+             고객·작가 실명과 예약 정보가 올라간다. 옛 문구("인프라·발송·분석")로는 둘 다 안 덮였다.
+
+          📌 **수탁자가 늘면 여기를 먼저 고친다.** 코드가 먼저 나가고 방침이 늦으면 그
+             기간은 근거 없는 위탁이 된다. PG(KG이니시스)는 개통일에 한 줄 더한다(docs/42 §3-6).
+        */}
         <Section title="5. 개인정보 처리의 위탁">
-          <p>
-            서비스는 원활한 운영을 위해 클라우드 인프라·메시지 발송·분석 등 일부 업무를 외부 전문업체에
-            위탁할 수 있으며, 위탁 시 관련 법령에 따라 개인정보가 안전하게 관리되도록 합니다.
+          <p>서비스는 원활한 서비스 제공을 위하여 아래와 같이 개인정보 처리 업무를 외부에 위탁하고 있습니다.</p>
+          <Table
+            head={["수탁자", "위탁 업무"]}
+            rows={[
+              ["Supabase Inc.", "데이터베이스·파일 저장 및 계정 인증"],
+              ["Vercel Inc.", "서비스 호스팅 및 접속 기록 처리"],
+              ["주식회사 솔라피", "문자메시지·카카오 알림톡 발송"],
+              ["주식회사 카카오", "간편 로그인 인증"],
+              ["Anthropic PBC", "상담 챗봇의 응답 생성"],
+              ["Mixpanel Inc.", "서비스 이용 행태 분석"],
+              ["Meta Platforms, Inc.", "광고 성과 측정"],
+              ["Discord Inc.", "운영자 알림 수신"],
+            ]}
+          />
+          <p className="mt-3">
+            서비스는 위탁계약 체결 시 「개인정보 보호법」 제26조에 따라 위탁업무 수행 목적 외 개인정보 처리
+            금지, 기술적·관리적 보호조치, 재위탁 제한, 수탁자에 대한 관리·감독, 손해배상 등 책임에 관한 사항을
+            계약서에 명시하고, 수탁자가 개인정보를 안전하게 처리하는지를 감독합니다. 위탁업무의 내용이나
+            수탁자가 변경될 경우 본 방침을 통하여 공개합니다.
+          </p>
+        </Section>
+
+        {/* 위 수탁자 중 여섯 곳이 국외 사업자다 — 개인정보보호법 28조의8 은 이전받는 자·국가·
+            시점·방법·항목·목적·보유기간을 알리게 한다. 위탁 공개와 **별개 의무**라 절을 나눈다. */}
+        <Section title="5의2. 개인정보의 국외 이전">
+          <p>서비스는 아래와 같이 개인정보를 국외로 이전합니다.</p>
+          <Table
+            head={["이전받는 자", "국가", "이전 항목", "이전 목적"]}
+            rows={[
+              ["Supabase Inc.", "미국", "계정·프로필·대화·사진", "데이터베이스·파일 저장"],
+              ["Vercel Inc.", "미국", "접속 기록", "서비스 호스팅"],
+              ["Anthropic PBC", "미국", "채팅 대화 내용", "상담 챗봇 응답 생성"],
+              ["Mixpanel Inc.", "미국", "식별자·행동 로그", "이용 행태 분석"],
+              ["Meta Platforms, Inc.", "미국", "광고 식별자", "광고 성과 측정"],
+              ["Discord Inc.", "미국", "이름·예약 정보", "운영자 알림"],
+            ]}
+          />
+          <p className="mt-3">
+            이전 시점과 방법은 <b className="font-medium text-fg">서비스 이용 중 해당 기능이 동작할 때 정보통신망을
+            통한 전송</b>이며, 보유·이용 기간은 <b className="font-medium text-fg">회원 탈퇴 시 또는 위탁계약 종료
+            시까지</b>입니다.
+          </p>
+          <p className="mt-2">
+            이용자는 개인정보의 국외 이전을 거부할 수 있습니다. 다만 거부하는 경우 서비스의 전부 또는 일부를
+            이용할 수 없습니다. 거부는 아래 문의처 또는 <Link href="/settings" className="underline underline-offset-2">계정
+            설정</Link>의 개인정보 요청으로 접수할 수 있습니다.
           </p>
         </Section>
 
         <Section title="6. 이용자의 권리">
           <p>
-            이용자는 자신의 개인정보에 대해 열람·정정·삭제·처리정지를 요청할 수 있습니다. 요청은 아래 문의처를
-            통해 접수할 수 있으며, 서비스는 지체 없이 필요한 조치를 취합니다.
+            이용자는 자신의 개인정보에 대해 열람·정정·삭제·처리정지를 요청할 수 있습니다. 요청은{" "}
+            <Link href="/settings" className="underline underline-offset-2">계정 설정 &gt; 내 개인정보</Link>{" "}
+            또는 아래 문의처를 통해 접수할 수 있으며, 서비스는 본인 확인 후 지체 없이 필요한 조치를 취하고
+            그 결과를 알려드립니다.
           </p>
         </Section>
 
@@ -187,6 +245,35 @@ export default async function PrivacyPage({ searchParams }: {
 
       {!plain && <SiteFooter />}
     </main>
+  );
+}
+
+// 수탁자·국외이전 표. 모바일에서 넘치면 **가로로 스크롤**한다 — 줄바꿈으로 뭉개지면
+// 어느 업체가 무슨 일을 하는지 짝이 안 맞아 읽을 수가 없다.
+function Table({ head, rows }: { head: string[]; rows: string[][] }) {
+  return (
+    <div className="mt-3 overflow-x-auto">
+      <table className="w-full min-w-[26rem] border-collapse text-left text-xs">
+        <thead>
+          <tr className="border-b border-fg/15">
+            {head.map((h) => (
+              <th key={h} className="whitespace-nowrap py-2 pr-3 font-semibold text-fg">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r[0]} className="border-b border-fg/[0.07] last:border-0">
+              {r.map((c, i) => (
+                <td key={i} className={`py-2 pr-3 align-top ${i === 0 ? "whitespace-nowrap font-medium text-fg" : "text-muted"}`}>
+                  {c}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 

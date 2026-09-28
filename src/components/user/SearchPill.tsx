@@ -48,7 +48,7 @@ export function SearchPill({
   const [borderMotion, setBorderMotion] = useState<SearchBorderMotionState>("idle");
   const [imagePanel, setImagePanel] = useState(false);
   // 손가락 기기는 패널을 띄우지 않는다 — 버튼을 누르면 바로 OS 사진 고르기가 열리고,
-  // 거기서 "사진 보관함 / 사진 찍기" 와 사진 접근 권한 동의가 뜬다(docs/42 §3).
+  // 거기서 "사진 보관함 / 사진 찍기" 와 사진 접근 권한 동의가 뜬다(docs/46 §3).
   const phoneFileRef = useRef<HTMLInputElement>(null);
   const { accept: acceptImage, error: imageError } = useImageSearchUpload();
   const borderTone = getSearchDockBorderTone(surface);

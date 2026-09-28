@@ -121,3 +121,76 @@ test("예약 제안은 방향별로 갈리고, 각자 수신자의 행위를 첫
     assert.ok(!t.variables.includes("상대명"), `${t.kind}: 상대명은 수신 대상을 흐린다`);
   }
 });
+
+// ── PG 문안 (아직 안 켰다 · docs/42 §3-6) ─────────────────────────
+// 전환일에 심사를 기다리지 않으려면 PG 템플릿을 **미리 등록**해야 한다.
+// 그 전에 여기서 막아야 할 것: 문안만 바꾸다 변수가 어긋나는 것.
+
+test("PG 문안은 원문과 **같은 변수**를 쓴다", () => {
+  // 변수가 어긋나면 renderNotifyBody 가 발송 시점에 던진다 — 알림이 통째로 안 나간다.
+  for (const kind of NOTIFY_KINDS) {
+    const t = NOTIFY_TEMPLATES[kind];
+    if (!t.pg) continue;
+    const varsIn = (body: string) => new Set([...body.matchAll(/#\{([^}]+)\}/g)].map((m) => m[1]));
+    assert.deepEqual(
+      [...varsIn(t.pg.body)].sort(),
+      [...varsIn(t.body)].sort(),
+      `${kind}: PG 문안의 변수가 원문과 다르다`
+    );
+  }
+});
+
+test("PG 문안에는 무통장 표현이 남아 있지 않다", () => {
+  // 카드로 낸 고객이 "입금하신" 을 받으면 안 된다 — 이걸 놓치는 게 전환일의 전형적 사고다
+  for (const kind of NOTIFY_KINDS) {
+    const pg = NOTIFY_TEMPLATES[kind].pg;
+    if (!pg) continue;
+    for (const word of ["입금", "계좌"]) {
+      assert.ok(!pg.body.includes(word), `${kind}: PG 문안에 "${word}" 가 남아 있다`);
+    }
+  }
+});
+
+test("결제 방식에 따라 본문이 갈린다", () => {
+  const vars = { 상대명: "김재즈", 촬영일: "10월 3일", 링크: "https://samae.ai/x" };
+  assert.match(renderNotifyBody("booking_accepted", vars, "bank_transfer"), /입금이 확인되면/);
+  assert.match(renderNotifyBody("booking_accepted", vars, "pg"), /다음 단계는 예약 페이지에서/);
+});
+
+test("PG 문안은 **결제를 유도하지 않는다** — 카카오가 막는 지점", () => {
+  /*
+    2026-09-21 반려. 카카오는 금융사고 예방을 이유로 결제·송금·납부를 **유도하는**
+    메시지를 막는다(예외: 금융위에 PG·선불·에스크로 중 2개 이상 등록한 업체 — 사매는
+    통신판매중개자라 해당 없음).
+
+    승인·반려를 나란히 놓으면 선이 보인다.
+      승인  "결제가 완료되어 예약이 확정됐어요"   ← 완료 통보(과거)
+      반려  "결제가 완료되면 예약이 확정돼요"     ← 조건 안내(미래) = 유도
+
+    그래서 **미래형 결제 문장**을 막는다. 완료 통보("완료되어")는 허용한다.
+  */
+  for (const kind of NOTIFY_KINDS) {
+    const pg = NOTIFY_TEMPLATES[kind].pg;
+    if (!pg) continue;
+    assert.ok(
+      !/결제(가|를)?\s*(완료되면|하시면|해\s*주세요|하면|부탁)/.test(pg.body),
+      `${kind}: PG 문안이 결제를 유도한다 — 카카오 반려 사유다`
+    );
+  }
+});
+
+test("PG 문안이 없는 kind 는 결제 방식과 무관하게 같다", () => {
+  const vars = { 작가명: "모글", 링크: "https://samae.ai/x" };
+  assert.equal(
+    renderNotifyBody("chat_reply", vars, "bank_transfer"),
+    renderNotifyBody("chat_reply", vars, "pg")
+  );
+});
+
+test("PG 문안이 있는 kind 만 _PG env 키를 쓴다", () => {
+  // 없는 kind 까지 _PG 를 찾으면, 등록하지도 않은 ID 를 기다리다 전부 문자로 떨어진다
+  assert.equal(alimtalkTemplateEnvKey("deposit_confirmed", "pg"), "ALIMTALK_TPL_DEPOSIT_CONFIRMED_PG");
+  assert.equal(alimtalkTemplateEnvKey("chat_reply", "pg"), "ALIMTALK_TPL_CHAT_REPLY");
+  // 기본(무통장)은 지금과 똑같아야 한다
+  assert.equal(alimtalkTemplateEnvKey("deposit_confirmed"), "ALIMTALK_TPL_DEPOSIT_CONFIRMED");
+});

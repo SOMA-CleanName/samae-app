@@ -351,7 +351,9 @@ export async function notifyOpsRefundRequested(params: {
         `${days != null ? ` · 촬영까지 ${days}일` : ""})`
     );
     if (quote.penaltyKrw > 0) {
-      lines.push(`   └ 위약금 ₩${won(quote.penaltyKrw)} → 작가 ₩${won(quote.penaltyPhotographerKrw)} · 사매 ₩${won(quote.penaltyCompanyKrw)}`);
+      lines.push(
+        `   └ 위약금 ₩${won(quote.penaltyKrw)} → 작가 ₩${won(quote.penaltyPhotographerKrw)} · 수수료 ₩${won(quote.penaltyCompanyKrw)} · 부가세 ₩${won(quote.penaltyVatKrw)}`
+      );
     }
   }
   if (acct?.number) lines.push(`🏦 환불 계좌 ${acct.bank ?? ""} ${acct.number} (${acct.holder ?? ""})`);

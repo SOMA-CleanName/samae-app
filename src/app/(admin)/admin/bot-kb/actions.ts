@@ -5,6 +5,13 @@ import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { parseKbJson } from "@/lib/bot-kb-db";
 import { getPhotographerKb } from "@/lib/bot-kb-data";
+import { extractKbFromMaterial, type KbConflict } from "@/lib/kb-extract";
+import { polishCards, type PolishedCard } from "@/lib/kb-style";
+import { fetchPhotographerKb } from "@/lib/bot-kb-db";
+import { groupCardsIntoSheets } from "@/lib/guide-card-template";
+import { rebakeGuideImages } from "@/lib/guide-bake";
+import { resolveGuideStyle, type GuideStyle } from "@/lib/guide-style";
+import { randomUUID } from "crypto";
 
 // 이번 단계 정책: KB 는 운영진만 쓴다 (테이블 RLS 도 write=is_admin).
 // 서버액션은 RLS 를 우회하는 admin 클라이언트를 쓰므로 역할 검사를 여기서 먼저 한다.
@@ -52,6 +59,143 @@ export async function saveBotKb(_prev: SaveKbState, formData: FormData): Promise
   return { ok: true, errors: [], count: cards.length };
 }
 
+export type ExtractState = {
+  /** 편집기에 채울 카드 JSON — 비면 실패 */
+  cardsJson: string;
+  conflicts: KbConflict[];
+  questions: string[];
+  held: { id: string; body: string; reason: string }[];
+  missingCoreTopics: string[];
+  error?: string;
+};
+
+/**
+ * 작가가 보내온 자료 → 카드 초안 + 불일치 + 질문.
+ *
+ * **저장하지 않는다.** 편집기에 채워 넣기만 하고, 운영이 보고 고친 뒤 [저장]을 누른다.
+ * 대조 기준은 셋이다 — 자료 · 사매 패키지 · 사매 소개글(작가가 직접 쓴 글이라 패키지와
+ * 어긋나 있는 경우가 실제로 있었다).
+ *
+ * 큰 모델로 긴 자료를 읽어 2분 가까이 걸린다. 화면에서 진행 표시가 필요하다.
+ */
+/**
+ * 지금 편집 중인 카드의 **문장만** 다듬는다.
+ *
+ * 저장된 카드가 아니라 화면에 떠 있는 카드를 받는다 — 저장 전에 문장을 보고
+ * 고칠 수 있어야 하고, 다듬기 결과를 바로 저장해 버리면 되돌릴 방법이 없다.
+ * 적용 여부는 사람이 카드마다 고른다.
+ */
+export async function polishKbCards(
+  cards: { id: string; topic: string; body: string }[]
+): Promise<{ polished: PolishedCard[]; error?: string }> {
+  await assertAdmin();
+  const usable = (cards ?? []).filter((c) => c?.id?.trim() && c?.body?.trim());
+  if (usable.length === 0) return { polished: [], error: "다듬을 카드가 없어요." };
+  try {
+    const polished = await polishCards(
+      usable.map((c) => ({ id: c.id, topic: c.topic, body: c.body, source: "작가 답변" }))
+    );
+    return { polished };
+  } catch (e) {
+    console.error("[bot-kb] polish failed:", e);
+    return { polished: [], error: e instanceof Error ? e.message : "문장을 다듬지 못했어요." };
+  }
+}
+
+export async function extractKbFromText(
+  photographerId: string,
+  material: string
+): Promise<ExtractState> {
+  await assertAdmin();
+  const empty: ExtractState = {
+    cardsJson: "",
+    conflicts: [],
+    questions: [],
+    held: [],
+    missingCoreTopics: [],
+  };
+  if (!material.trim()) return { ...empty, error: "작가 자료를 붙여넣어 주세요." };
+
+  const admin = createAdminClient();
+  const [{ data: p }, { data: pk }] = await Promise.all([
+    admin
+      .from("photographers")
+      .select("display_name, bio, price_from_krw, travel_fee_krw")
+      .eq("id", photographerId)
+      .maybeSingle(),
+    admin
+      .from("packages")
+      .select("name, description, price_krw, duration_min, edited_count, is_active")
+      .eq("photographer_id", photographerId),
+  ]);
+  if (!p) return { ...empty, error: "작가를 찾을 수 없습니다." };
+
+  try {
+    const result = await extractKbFromMaterial({
+      photographerName: p.display_name ?? "",
+      material,
+      samae: {
+        bio: p.bio,
+        priceFromKrw: p.price_from_krw,
+        travelFeeKrw: p.travel_fee_krw,
+        packages: (pk ?? []).map((x) => ({
+          name: x.name,
+          description: x.description,
+          priceKrw: x.price_krw,
+          durationMin: x.duration_min,
+          editedCount: x.edited_count,
+          isActive: x.is_active,
+        })),
+      },
+    });
+    // 자료를 남겨 둔다 — 없으면 나중에 "갱신 필요" 가 떠도 원문을 다시 찾아야 한다.
+    // 카드 저장(saveBotKb)과 별개로 여기서 한다: 추출까지만 하고 안 쓰는 경우에도
+    // 그 자료를 들고 있는 게 낫다. 실패해도 추출 결과는 그대로 돌려준다.
+    const { error: srcErr } = await admin.from("photographer_bot_kb").upsert(
+      {
+        photographer_id: photographerId,
+        source_material: material.slice(0, 200_000),
+        source_saved_at: new Date().toISOString(),
+      },
+      { onConflict: "photographer_id" }
+    );
+    if (srcErr) console.warn("[bot-kb] 원본 자료 저장 실패:", srcErr.message);
+
+    return {
+      cardsJson: JSON.stringify(result.cards, null, 2),
+      conflicts: result.conflicts,
+      questions: result.questions,
+      held: result.held.map((h) => ({ id: h.card.id, body: h.card.body, reason: h.reason })),
+      missingCoreTopics: result.missingCoreTopics,
+    };
+  } catch (e) {
+    console.error("[bot-kb] extract failed:", e);
+    return { ...empty, error: e instanceof Error ? e.message : "추출에 실패했어요." };
+  }
+}
+
+const GUIDE_BUCKET = "samae-guide";
+/** 우리가 발행한 이미지만 이 접두사를 쓴다 — 작가가 직접 올린 것과 섞이지 않게 */
+const SHEET_PREFIX = "sheet";
+
+export type PublishGuideState = { ok: boolean; count?: number; error?: string };
+
+/**
+ * 저장된 KB 카드 → 사매 양식 안내 이미지를 만들어 작가 프로필에 등록한다.
+ *
+ * `/api/guide/upload` 는 로그인한 **본인 작가**만 올릴 수 있어서, 운영이 만든 이미지를
+ * 그 경로로는 등록할 수 없다. 그래서 어드민 전용 경로를 따로 둔다.
+ *
+ * 다시 눌러도 쌓이지 않는다 — 우리가 이전에 발행한 것(`sheet/` 경로)만 지우고 새로 올린다.
+ * **작가가 직접 올린 안내 이미지는 건드리지 않는다.**
+ */
+export async function publishGuideImages(photographerId: string): Promise<PublishGuideState> {
+  await assertAdmin();
+  const r = await rebakeGuideImages(photographerId);
+  if (r.ok) revalidatePath("/admin/bot-kb");
+  return r;
+}
+
 /**
  * 파일 데모(bot-kb-data.ts)의 카드를 그대로 JSON 텍스트로 뽑아준다.
  * 하드코딩 KB 를 DB 로 옮길 때 운영이 다시 타이핑하지 않게 하려는 용도 — 저장은 하지 않는다.
@@ -63,4 +207,64 @@ export async function seedFromDemo(photographerId: string): Promise<{ text: stri
     return { text: "", error: "이 작가에게는 파일 데모 카드가 없습니다." };
   }
   return { text: JSON.stringify(kb.cards, null, 2) };
+}
+
+/** 작가별 안내 이미지 양식 저장 — 템플릿·배경지·배경 사진. */
+export async function saveGuideStyle(
+  photographerId: string,
+  style: GuideStyle
+): Promise<{ ok: boolean; error?: string }> {
+  await assertAdmin();
+  // 모르는 값이 들어와도 기본값으로 떨어뜨려 저장한다 — 화면이 깨지는 것보다 낫다
+  const safe = resolveGuideStyle(style);
+  const admin = createAdminClient();
+  const { error } = await admin
+    .from("photographers")
+    .update({ guide_style: safe })
+    .eq("id", photographerId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath("/admin/bot-kb");
+  return { ok: true };
+}
+
+/**
+ * 안내 이미지 배경으로 쓸 사진 업로드.
+ *
+ * 배경으로만 쓰이고 글자는 그 위 반투명 종이 안에 앉으므로, 원본 해상도를 유지할
+ * 이유가 없다. 폭 1080 으로 줄여 저장한다 — 이미지를 구울 때마다 이 파일을 다시
+ * 읽으므로 작을수록 좋다.
+ */
+export async function uploadGuideBackdrop(
+  formData: FormData
+): Promise<{ ok: boolean; url?: string; error?: string }> {
+  await assertAdmin();
+  const photographerId = String(formData.get("photographerId") ?? "").trim();
+  const file = formData.get("file");
+  if (!photographerId) return { ok: false, error: "작가가 지정되지 않았습니다." };
+  if (!(file instanceof File)) return { ok: false, error: "파일이 없습니다." };
+  if (!file.type.startsWith("image/")) return { ok: false, error: "이미지 파일만 올릴 수 있어요." };
+  if (file.size > 15 * 1024 * 1024) return { ok: false, error: "15MB 이하만 올릴 수 있어요." };
+
+  try {
+    const sharp = (await import("sharp")).default;
+    const buf = await sharp(Buffer.from(await file.arrayBuffer()))
+      .rotate()
+      .resize({ width: 1080, withoutEnlargement: true })
+      .jpeg({ quality: 80 })
+      .toBuffer();
+
+    const admin = createAdminClient();
+    const path = `${photographerId}/${SHEET_PREFIX}/backdrop-${randomUUID()}.jpg`;
+    const { error } = await admin.storage
+      .from(GUIDE_BUCKET)
+      .upload(path, buf, { contentType: "image/jpeg" });
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, url: admin.storage.from(GUIDE_BUCKET).getPublicUrl(path).data.publicUrl };
+  } catch (e) {
+    console.error("[bot-kb] backdrop upload failed:", e);
+    return {
+      ok: false,
+      error: "이미지를 처리할 수 없어요. HEIC(아이폰 원본)이면 JPG 로 바꿔 올려주세요.",
+    };
+  }
 }

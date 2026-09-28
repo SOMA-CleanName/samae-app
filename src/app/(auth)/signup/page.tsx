@@ -3,8 +3,8 @@ import { AuthShell } from "../AuthShell";
 import { kakaoTermsTagsParam } from "@/lib/kakao-terms";
 import { SignupForm, SignupFooter, SignupHeadline } from "./SignupForm";
 
-// 뒤 사진 벽은 하루 한 번만 새로 뽑는다(로그인과 동일).
-export const revalidate = 86400;
+// 뒤 사진 벽을 10분마다 새로 뽑는다(로그인과 동일 — 이유는 login/page.tsx).
+export const revalidate = 600;
 
 export const metadata: Metadata = {
   title: "회원가입",

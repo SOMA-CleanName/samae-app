@@ -7,7 +7,7 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { ExitImageSearch } from "./ExitImageSearch";
 import { ImageSearchResults } from "./ImageSearchResults";
 
-// 검색할 사진은 브라우저 안에만 있다(docs/42 §7-1) — 서버가 미리 그릴 것이 없고, 색인할 지면도 아니다.
+// 검색할 사진은 브라우저 안에만 있다(docs/46 §7-1) — 서버가 미리 그릴 것이 없고, 색인할 지면도 아니다.
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "사진으로 검색", robots: { index: false, follow: false } };
 
