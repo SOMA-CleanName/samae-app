@@ -14,19 +14,20 @@ import type { GalleryPhoto } from "@/lib/discovery";
 import { ExploreGallery } from "@/components/user/ExploreGallery";
 import { EmptyState } from "@/components/ui";
 import { CameraIcon, XIcon } from "@/components/user/icons";
-import { forgetSearchImage, readSearchImage } from "@/lib/image-search-client";
+import { forgetSearchImage, readSearchImage, subscribeSearchImage } from "@/lib/image-search-client";
+import { imageSearchKey } from "@/lib/image-search-core";
 
+/** 결과는 **어느 사진의 결과인지**(image)를 같이 들고 있는다 — 사진을 바꿔 다시 검색했는데
+ *  앞 사진 결과가 그대로 보이면 안 된다. */
 type State =
   | { step: "loading" }
-  | { step: "unavailable" }                                // 맥미니가 안 받는다
-  | { step: "done"; photos: GalleryPhoto[]; capped: boolean };
-
-/** 검색할 사진은 이 탭의 sessionStorage 에 있다 — 리액트 바깥의 값이라 구독해서 읽는다(서버에서는 없다). */
-const subscribeNothing = () => () => {};
+  | { step: "unavailable"; image: string }                 // 맥미니가 안 받는다
+  | { step: "done"; image: string; photos: GalleryPhoto[]; capped: boolean };
 
 export function ImageSearchResults({ likedIds, loggedIn }: { likedIds: string[]; loggedIn: boolean }) {
   const router = useRouter();
-  const image = useSyncExternalStore(subscribeNothing, readSearchImage, () => null);
+  // 검색할 사진은 이 탭의 sessionStorage 에 있다 — 리액트 바깥의 값이라 구독해서 읽는다(서버에서는 없다).
+  const image = useSyncExternalStore(subscribeSearchImage, readSearchImage, () => null);
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<State>({ step: "loading" });
 
@@ -42,14 +43,14 @@ export function ImageSearchResults({ likedIds, loggedIn }: { likedIds: string[];
         });
         if (cancelled) return;
         if (!res.ok) {
-          setState({ step: "unavailable" });
+          setState({ step: "unavailable", image });
           return;
         }
         const json = (await res.json()) as { photos?: GalleryPhoto[]; capped?: boolean };
         if (cancelled) return;
-        setState({ step: "done", photos: json.photos ?? [], capped: !!json.capped });
+        setState({ step: "done", image, photos: json.photos ?? [], capped: !!json.capped });
       } catch {
-        if (!cancelled) setState({ step: "unavailable" });
+        if (!cancelled) setState({ step: "unavailable", image });
       }
     })();
     return () => {
@@ -74,6 +75,9 @@ export function ImageSearchResults({ likedIds, loggedIn }: { likedIds: string[];
     );
   }
 
+  // 앞 사진의 결과는 보여주지 않는다 — 사진을 바꾼 순간부터 다시 "찾는 중" 이다
+  const view: State = state.step !== "loading" && state.image !== image ? { step: "loading" } : state;
+
   return (
     <>
       <div className="mx-auto mb-3 flex max-w-screen-2xl items-center gap-3 px-1">
@@ -85,10 +89,10 @@ export function ImageSearchResults({ likedIds, loggedIn }: { likedIds: string[];
         <div className="min-w-0 flex-1">
           <h1 className="text-body font-bold tracking-tight">이 사진과 비슷한 사진</h1>
           <p className="text-caption text-muted">
-            {state.step === "loading" && "찾는 중이에요…"}
-            {state.step === "unavailable" && "사진 검색을 잠시 쓸 수 없어요."}
-            {state.step === "done" &&
-              (state.photos.length > 0 ? `사진 ${state.photos.length}장${state.capped ? "+" : ""}` : "비슷한 사진을 찾지 못했어요.")}
+            {view.step === "loading" && "찾는 중이에요…"}
+            {view.step === "unavailable" && "사진 검색을 잠시 쓸 수 없어요."}
+            {view.step === "done" &&
+              (view.photos.length > 0 ? `사진 ${view.photos.length}장${view.capped ? "+" : ""}` : "비슷한 사진을 찾지 못했어요.")}
           </p>
         </div>
         <button
@@ -101,7 +105,7 @@ export function ImageSearchResults({ likedIds, loggedIn }: { likedIds: string[];
         </button>
       </div>
 
-      {state.step === "unavailable" && (
+      {view.step === "unavailable" && (
         <EmptyState
           icon={<CameraIcon className="h-10 w-10" />}
           title="사진 검색을 잠시 쓸 수 없어요"
@@ -120,15 +124,16 @@ export function ImageSearchResults({ likedIds, loggedIn }: { likedIds: string[];
           }
         />
       )}
-      {state.step === "done" && state.photos.length > 0 && (
+      {view.step === "done" && view.photos.length > 0 && (
         <ExploreGallery
-          photos={state.photos}
+          photos={view.photos}
           likedIds={likedIds}
           loggedIn={loggedIn}
-          sessionScope="image-search"
+          // 사진마다 다른 자리에 저장한다 — 안 가르면 사진을 바꿔도 앞 결과가 되살아난다
+          sessionScope={`image-search:${imageSearchKey(image)}`}
         />
       )}
-      {state.step === "done" && state.photos.length === 0 && (
+      {view.step === "done" && view.photos.length === 0 && (
         <EmptyState
           icon={<CameraIcon className="h-10 w-10" />}
           title="비슷한 사진을 찾지 못했어요"

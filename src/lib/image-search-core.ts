@@ -45,3 +45,16 @@ export function parseImageDataUrl(value: unknown, maxBytes = IMAGE_SEARCH_MAX_BY
   if (bytes <= 0 || bytes > maxBytes) return null;
   return { mime, base64, bytes };
 }
+
+/**
+ * 사진 한 장을 가리키는 짧은 키. 결과 격자가 **사진마다 다른 자리**에 저장하게 쓴다 —
+ * 같은 주소(/search/image)라 키를 안 가르면 앞 사진의 결과가 되살아난다(2026-09-28).
+ */
+export function imageSearchKey(dataUrl: string): string {
+  let hash = 0x811c9dc5;   // FNV-1a 32비트
+  for (let i = 0; i < dataUrl.length; i += 1) {
+    hash ^= dataUrl.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `${dataUrl.length.toString(36)}-${(hash >>> 0).toString(36)}`;
+}

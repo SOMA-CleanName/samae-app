@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { test } from "node:test";
 
-import { fitWithin, parseImageDataUrl } from "./image-search-core";
+import { fitWithin, imageSearchKey, parseImageDataUrl } from "./image-search-core";
 
 const dataUrl = (mime: string, bytes: number) =>
   `data:${mime};base64,${Buffer.alloc(bytes).toString("base64")}`;
@@ -26,4 +26,13 @@ test("형식·크기·모양이 맞지 않으면 버린다", () => {
   assert.equal(parseImageDataUrl("data:image/jpeg;base64,"), null);
   assert.equal(parseImageDataUrl("https://example.com/a.jpg"), null);  // 링크는 받지 않는다(docs/42 §6)
   assert.equal(parseImageDataUrl(null), null);
+});
+
+test("사진마다 다른 키를 준다 — 같은 사진은 같은 키", () => {
+  const a = dataUrl("image/jpeg", 300);
+  const b = dataUrl("image/jpeg", 301);
+  assert.equal(imageSearchKey(a), imageSearchKey(a));
+  assert.notEqual(imageSearchKey(a), imageSearchKey(b));
+  assert.notEqual(imageSearchKey("data:image/jpeg;base64,AAAB"), imageSearchKey("data:image/jpeg;base64,AABA"));
+  assert.match(imageSearchKey(a), /^[0-9a-z]+-[0-9a-z]+$/);
 });
