@@ -7,14 +7,13 @@
  * 같은 탭에서 새로고침·뒤로 가기는 된다(사진이 그대로 있으니 다시 검색한다).
  */
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import type { GalleryPhoto } from "@/lib/discovery";
 import { ExploreGallery } from "@/components/user/ExploreGallery";
 import { EmptyState } from "@/components/ui";
-import { CameraIcon, XIcon } from "@/components/user/icons";
-import { forgetSearchImage, readSearchImage, subscribeSearchImage } from "@/lib/image-search-client";
+import { CameraIcon } from "@/components/user/icons";
+import { readSearchImage, subscribeSearchImage } from "@/lib/image-search-client";
 import { imageSearchKey } from "@/lib/image-search-core";
 
 /** 결과는 **어느 사진의 결과인지**(image)를 같이 들고 있는다 — 사진을 바꿔 다시 검색했는데
@@ -25,7 +24,6 @@ type State =
   | { step: "done"; image: string; photos: GalleryPhoto[]; capped: boolean };
 
 export function ImageSearchResults({ likedIds, loggedIn }: { likedIds: string[]; loggedIn: boolean }) {
-  const router = useRouter();
   // 검색할 사진은 이 탭의 sessionStorage 에 있다 — 리액트 바깥의 값이라 구독해서 읽는다(서버에서는 없다).
   const image = useSyncExternalStore(subscribeSearchImage, readSearchImage, () => null);
   const [attempt, setAttempt] = useState(0);
@@ -57,11 +55,6 @@ export function ImageSearchResults({ likedIds, loggedIn }: { likedIds: string[];
       cancelled = true;
     };
   }, [image, attempt]);
-
-  function stop() {
-    forgetSearchImage();
-    router.push("/");
-  }
 
   // 탭을 새로 열었거나 사진이 사라졌다 — 다시 올려야 한다
   if (!image) {
@@ -95,14 +88,6 @@ export function ImageSearchResults({ likedIds, loggedIn }: { likedIds: string[];
             {view.step === "done" && view.photos.length === 0 && "비슷한 사진을 찾지 못했어요."}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={stop}
-          className="flex shrink-0 items-center gap-1 rounded-full border border-line px-3 py-1.5 text-caption text-muted hover:text-fg"
-        >
-          <XIcon className="h-3.5 w-3.5" />
-          사진 검색 끝내기
-        </button>
       </div>
 
       {view.step === "unavailable" && (
