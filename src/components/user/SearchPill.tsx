@@ -86,7 +86,7 @@ export function SearchPill({
         autoComplete="off"
         maxLength={120}
         style={{ borderWidth }}
-        className={`peer relative z-[1] h-[42px] w-full rounded-md border pl-10 pr-11 text-body-sm outline-none transition-[background-color,border-color,border-width,box-shadow,color,backdrop-filter] duration-300 ease-out hover:border-brand/45 focus:border-brand/55 focus:ring-2 focus:ring-brand/10 ${borderClass} ${
+        className={`peer relative z-[1] h-[42px] w-full rounded-md border pl-10 pr-12 text-body-sm outline-none transition-[background-color,border-color,border-width,box-shadow,color,backdrop-filter] duration-300 ease-out hover:border-brand/45 focus:border-brand/55 focus:ring-2 focus:ring-brand/10 ${borderClass} ${
           appearance === "clear"
             ? "bg-transparent text-transparent caret-transparent shadow-none placeholder:text-transparent"
             : appearance === "overlay"
@@ -106,7 +106,8 @@ export function SearchPill({
           if (prefersNativePicker()) phoneFileRef.current?.click();
           else setImagePanel((open) => !open);
         }}
-        className={`absolute right-1.5 top-1/2 z-[2] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-md transition-[color,opacity] duration-300 ease-out peer-focus:pointer-events-none peer-focus:opacity-0 ${
+        // 누르는 자리를 검색창 높이만큼 준다 — 32px 사각형은 엄지로 자주 빗나갔다
+        className={`samae-search-camera absolute right-1 top-1/2 z-[2] grid h-[38px] w-11 -translate-y-1/2 place-items-center rounded-md ${
           appearance === "overlay" ? "text-white/75 hover:text-white" : "text-muted hover:text-brand"
         }`}
       >
