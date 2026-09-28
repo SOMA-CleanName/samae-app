@@ -16,7 +16,7 @@ import {
   type SearchBorderMotionState,
   type SearchPillAppearance,
 } from "@/lib/search-copy";
-import { SearchIcon } from "./icons";
+import { CameraIcon, SearchIcon } from "./icons";
 
 const SEARCH_BORDER_TRACE_RECT = getSearchBorderTraceRect(1, 6);
 const SEARCH_BORDER_TRACE_MOTION = getSearchBorderTraceMotion(
@@ -79,7 +79,7 @@ export function SearchPill({
         autoComplete="off"
         maxLength={120}
         style={{ borderWidth }}
-        className={`relative z-[1] h-[42px] w-full rounded-md border pl-10 pr-4 text-body-sm outline-none transition-[background-color,border-color,border-width,box-shadow,color,backdrop-filter] duration-300 ease-out hover:border-brand/45 focus:border-brand/55 focus:ring-2 focus:ring-brand/10 ${borderClass} ${
+        className={`peer relative z-[1] h-[42px] w-full rounded-md border pl-10 pr-11 text-body-sm outline-none transition-[background-color,border-color,border-width,box-shadow,color,backdrop-filter] duration-300 ease-out hover:border-brand/45 focus:border-brand/55 focus:ring-2 focus:ring-brand/10 ${borderClass} ${
           appearance === "clear"
             ? "bg-transparent text-transparent caret-transparent shadow-none placeholder:text-transparent"
             : appearance === "overlay"
@@ -87,6 +87,18 @@ export function SearchPill({
               : "bg-surface text-fg caret-current shadow-sm placeholder:text-faint"
         }`}
       />
+      {/* 사진으로 검색 — 자리만 먼저 잡았다. 누르면 사진을 올려 SigLIP 으로 비슷한 사진을 찾는다(작업 중).
+          입력칸을 눌러 커서가 생기면 서서히 사라진다(글을 쓰는 동안은 글 검색이다) */}
+      <button
+        type="button"
+        aria-label="사진으로 검색"
+        title="사진으로 검색"
+        className={`absolute right-1.5 top-1/2 z-[2] grid h-8 w-8 -translate-y-1/2 place-items-center rounded-md transition-[color,opacity] duration-300 ease-out peer-focus:pointer-events-none peer-focus:opacity-0 ${
+          appearance === "overlay" ? "text-white/75 hover:text-white" : "text-muted hover:text-brand"
+        }`}
+      >
+        <CameraIcon className="h-5 w-5" />
+      </button>
       <svg
         aria-hidden="true"
         className="samae-search-border-trace"
