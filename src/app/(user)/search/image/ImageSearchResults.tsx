@@ -91,8 +91,8 @@ export function ImageSearchResults({ likedIds, loggedIn }: { likedIds: string[];
           <p className="text-caption text-muted">
             {view.step === "loading" && "찾는 중이에요…"}
             {view.step === "unavailable" && "사진 검색을 잠시 쓸 수 없어요."}
-            {view.step === "done" &&
-              (view.photos.length > 0 ? `사진 ${view.photos.length}장${view.capped ? "+" : ""}` : "비슷한 사진을 찾지 못했어요.")}
+            {/* 장수는 적지 않는다 — 300장 상한에 걸린 수라 "몇 장 있다" 는 뜻이 아니다(2026-09-28) */}
+            {view.step === "done" && view.photos.length === 0 && "비슷한 사진을 찾지 못했어요."}
           </p>
         </div>
         <button
