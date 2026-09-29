@@ -1,0 +1,519 @@
+{"word": "가열취", "axes": ["향"], "sure": true, "why": "가열시생기는냄새"}
+{"word": "각향", "axes": ["향"], "sure": false, "why": "장식함에담은향"}
+{"word": "각향낭", "axes": ["향"], "sure": false, "why": "수놓은향주머니"}
+{"word": "감송", "axes": ["향"], "sure": true, "why": "향피우는향기풀"}
+{"word": "감송향", "axes": ["향"], "sure": true, "why": "향기나는뿌리풀"}
+{"word": "강진향", "axes": ["향"], "sure": false, "why": "향나무로만든향"}
+{"word": "곁땀내", "axes": ["향"], "sure": true, "why": "겨드랑이냄새"}
+{"word": "계수나무", "axes": ["향"], "sure": false, "why": "특이한향나는나무"}
+{"word": "계피", "axes": ["향"], "sure": true, "why": "매운향신료향"}
+{"word": "고기 향", "axes": ["향"], "sure": true, "why": "고기굽는냄새"}
+{"word": "고릿새하다", "axes": ["향"], "sure": true, "why": "냄새역겹고고리다"}
+{"word": "고릿하다", "axes": ["향"], "sure": true, "why": "냄새조금고린듯"}
+{"word": "고체 향수", "axes": ["향"], "sure": true, "why": "고체형태향수"}
+{"word": "골콤하다", "axes": ["향"], "sure": true, "why": "냄새고릿콤콤함"}
+{"word": "곰곰하다", "axes": ["향"], "sure": true, "why": "냄새시큼텁텁함"}
+{"word": "곰팡이 냄새", "axes": ["향"], "sure": true, "why": "곰팡이냄새"}
+{"word": "구린내", "axes": ["향"], "sure": true, "why": "똥방귀냄새"}
+{"word": "구취", "axes": ["향"], "sure": true, "why": "입냄새"}
+{"word": "구텁지근히", "axes": ["향"], "sure": true, "why": "구리고텁텁하게"}
+{"word": "군내", "axes": ["향"], "sure": true, "why": "상한음식냄새"}
+{"word": "금목서", "axes": ["향"], "sure": true, "why": "가을향금목서꽃"}
+{"word": "금사향", "axes": ["향"], "sure": false, "why": "은도금향주머니"}
+{"word": "금향낭", "axes": ["향"], "sure": false, "why": "비단향주머니"}
+{"word": "금향낭자", "axes": ["향"], "sure": false, "why": "궁중향주머니"}
+{"word": "기름내", "axes": ["향"], "sure": true, "why": "기름특유냄새"}
+{"word": "난수국방", "axes": ["향"], "sure": false, "why": "난초국화향기"}
+{"word": "난실", "axes": ["향"], "sure": false, "why": "난향그윽한방"}
+{"word": "난초", "axes": ["향"], "sure": true, "why": "향기로운꽃식물"}
+{"word": "날내", "axes": ["향"], "sure": true, "why": "덜익은냄새"}
+{"word": "날장내", "axes": ["향"], "sure": true, "why": "끓이지않은장냄새"}
+{"word": "내내다", "axes": ["향"], "sure": true, "why": "연기냄새내다"}
+{"word": "냇내", "axes": ["향"], "sure": true, "why": "연기냄새"}
+{"word": "노리착지근하다", "axes": ["향"], "sure": true, "why": "노린냄새조금"}
+{"word": "노리착지근히", "axes": ["향"], "sure": true, "why": "노린냄새조금히"}
+{"word": "노리치근하다", "axes": ["향"], "sure": true, "why": "노린냄새준말"}
+{"word": "노리치근히", "axes": ["향"], "sure": true, "why": "노린냄새준말히"}
+{"word": "노린내", "axes": ["향"], "sure": true, "why": "고기노린냄새"}
+{"word": "노릿이", "axes": ["향"], "sure": true, "why": "냄새약간노리게"}
+{"word": "노릿하다", "axes": ["향"], "sure": true, "why": "고기냄새역겨움"}
+{"word": "노착지근하다", "axes": ["향"], "sure": true, "why": "노린냄새준말"}
+{"word": "노착지근히", "axes": ["향"], "sure": true, "why": "노린냄새준말히"}
+{"word": "녹내", "axes": ["향"], "sure": true, "why": "쇠녹냄새"}
+{"word": "누리척지근하다", "axes": ["향"], "sure": true, "why": "누린냄새조금"}
+{"word": "누리척지근히", "axes": ["향"], "sure": true, "why": "누린냄새조금히"}
+{"word": "누리치근하다", "axes": ["향"], "sure": true, "why": "누린냄새준말"}
+{"word": "누리치근히", "axes": ["향"], "sure": true, "why": "누린냄새준말히"}
+{"word": "누린내", "axes": ["향"], "sure": true, "why": "짐승기름누린내"}
+{"word": "누릿하다", "axes": ["향"], "sure": true, "why": "짐승고기역겨움"}
+{"word": "누척지근하다", "axes": ["향"], "sure": true, "why": "누린냄새준말"}
+{"word": "누척지근히", "axes": ["향"], "sure": true, "why": "누린냄새준말히"}
+{"word": "누케하다", "axes": ["향"], "sure": true, "why": "누린냄새조금"}
+{"word": "뉘지근하다", "axes": ["향"], "sure": true, "why": "냄새누리다"}
+{"word": "뉘지근히", "axes": ["향"], "sure": true, "why": "냄새누리게"}
+{"word": "뉘척지근하다", "axes": ["향"], "sure": true, "why": "냄새누리다"}
+{"word": "뉘척지근히", "axes": ["향"], "sure": true, "why": "냄새누리게"}
+{"word": "니끼하다", "axes": ["향"], "sure": true, "why": "느끼한냄새맛"}
+{"word": "단향", "axes": ["향"], "sure": true, "why": "백단향나무목재"}
+{"word": "단향목", "axes": ["향"], "sure": true, "why": "자단백단향나무"}
+{"word": "더스팅 파우더", "axes": ["향"], "sure": true, "why": "은은한향가루분"}
+{"word": "도라지 향", "axes": ["향"], "sure": true, "why": "도라지냄새"}
+{"word": "드레스 퍼퓸", "axes": ["향"], "sure": true, "why": "섬유용향수"}
+{"word": "들내", "axes": ["향"], "sure": true, "why": "들기름냄새"}
+{"word": "등나무", "axes": ["향"], "sure": false, "why": "향기로운보라꽃"}
+{"word": "딜", "axes": ["향"], "sure": false, "why": "딜허브향신료"}
+{"word": "땀 냄새", "axes": ["향"], "sure": true, "why": "땀냄새"}
+{"word": "땀내", "axes": ["향"], "sure": true, "why": "땀몸냄새"}
+{"word": "땅콩 향", "axes": ["향"], "sure": true, "why": "땅콩향기"}
+{"word": "똥내", "axes": ["향"], "sure": true, "why": "똥냄새"}
+{"word": "라벤더", "axes": ["향"], "sure": true, "why": "좋은향라벤더"}
+{"word": "라일락", "axes": ["향"], "sure": true, "why": "달콤한향꽃"}
+{"word": "라임", "axes": ["향"], "sure": false, "why": "강한향기감귤류"}
+{"word": "라플레시아", "axes": ["향"], "sure": true, "why": "썩은고기악취꽃"}
+{"word": "레몬", "axes": ["향"], "sure": true, "why": "새콤한향기열매"}
+{"word": "레몬그라스", "axes": ["향"], "sure": true, "why": "레몬향허브"}
+{"word": "레몬제라늄", "axes": ["향"], "sure": false, "why": "레몬향제라늄"}
+{"word": "로즈마리", "axes": ["향"], "sure": true, "why": "향료허브로즈마리"}
+{"word": "로즈메리", "axes": ["향"], "sure": true, "why": "향료허브로즈메리"}
+{"word": "루타", "axes": ["향"], "sure": false, "why": "강한향기허브"}
+{"word": "마다가스카르재스민", "axes": ["향"], "sure": true, "why": "재스민강한향기"}
+{"word": "마라 향", "axes": ["향"], "sure": true, "why": "마라매운얼얼향"}
+{"word": "마미향집", "axes": ["향"], "sure": false, "why": "말총향케이스"}
+{"word": "마저럼", "axes": ["향"], "sure": true, "why": "강한향허브마저럼"}
+{"word": "만수향", "axes": ["향"], "sure": false, "why": "선향인센스종류"}
+{"word": "만향옥", "axes": ["향"], "sure": true, "why": "강한향수원료꽃"}
+{"word": "만화방초", "axes": ["향"], "sure": false, "why": "꽃향기로운풀"}
+{"word": "말똥향", "axes": ["향"], "sure": false, "why": "혼례초모양향"}
+{"word": "말리", "axes": ["향"], "sure": true, "why": "자스민향기높음"}
+{"word": "말향", "axes": ["향"], "sure": true, "why": "불공가루향"}
+{"word": "매미 수향낭", "axes": ["향"], "sure": false, "why": "매미모양향주머니"}
+{"word": "매운 내", "axes": ["향"], "sure": true, "why": "매운냄새"}
+{"word": "매캐하다", "axes": ["향"], "sure": true, "why": "연기곰팡이자극"}
+{"word": "매콤칼칼하다", "axes": ["향"], "sure": true, "why": "맵고텁텁한냄새"}
+{"word": "매콤하다", "axes": ["향"], "sure": true, "why": "냄새맛약간매움"}
+{"word": "매큼하다", "axes": ["향"], "sure": true, "why": "냄새맛아주매움"}
+{"word": "매향", "axes": ["향"], "sure": false, "why": "매화향기뜻도"}
+{"word": "맥아 향", "axes": ["향"], "sure": true, "why": "맥아향맥주"}
+{"word": "머릿내", "axes": ["향"], "sure": true, "why": "머리카락냄새"}
+{"word": "멜론", "axes": ["향"], "sure": false, "why": "향기좋은과일"}
+{"word": "멜리사", "axes": ["향"], "sure": false, "why": "레몬향허브멜리사"}
+{"word": "모과", "axes": ["향"], "sure": true, "why": "모과향기유명"}
+{"word": "모기향", "axes": ["향"], "sure": true, "why": "모기쫓는향"}
+{"word": "목서", "axes": ["향"], "sure": true, "why": "향수원료목서꽃"}
+{"word": "몰칵", "axes": ["향"], "sure": true, "why": "코찌르는냄새갑자기"}
+{"word": "몰칵몰칵", "axes": ["향"], "sure": true, "why": "코찌르는냄새자꾸"}
+{"word": "몸내", "axes": ["향"], "sure": true, "why": "몸에서나는냄새"}
+{"word": "무취", "axes": ["향"], "sure": true, "why": "냄새 없음 상태"}
+{"word": "무취하다", "axes": ["향"], "sure": true, "why": "냄새가 없다"}
+{"word": "무향", "axes": ["향"], "sure": false, "why": "향료 없음 상태"}
+{"word": "무향취", "axes": ["향"], "sure": true, "why": "향내가 안남"}
+{"word": "묵은내", "axes": ["향"], "sure": true, "why": "오래된 쌀냄새"}
+{"word": "문내", "axes": ["향"], "sure": true, "why": "오래된 쌀냄새"}
+{"word": "문뱃내", "axes": ["향"], "sure": true, "why": "술취한 입냄새"}
+{"word": "물비린내", "axes": ["향"], "sure": true, "why": "물비린 냄새"}
+{"word": "물컥물컥하다", "axes": ["향"], "sure": true, "why": "심한 냄새 반복"}
+{"word": "미나리", "axes": ["향"], "sure": true, "why": "독특한 향기나물"}
+{"word": "미르라", "axes": ["향"], "sure": true, "why": "몰약 방향수지"}
+{"word": "민트", "axes": ["향", "온도"], "sure": true, "why": "박하 향 시원함"}
+{"word": "바닐라", "axes": ["향"], "sure": true, "why": "바닐라 향료"}
+{"word": "바질", "axes": ["향"], "sure": true, "why": "바질 향신료"}
+{"word": "박달목서", "axes": ["향", "계절·날씨"], "sure": false, "why": "꽃향기 좋아 재배"}
+{"word": "박쥐향", "axes": ["향"], "sure": true, "why": "몸에 차는 향낭"}
+{"word": "박하", "axes": ["향", "온도"], "sure": true, "why": "박하 향 시원함"}
+{"word": "박하풀", "axes": ["향"], "sure": true, "why": "향료로 쓰는 풀"}
+{"word": "발냄새", "axes": ["향"], "sure": true, "why": "쾨쾨한 발냄새"}
+{"word": "발향하다", "axes": ["향"], "sure": true, "why": "향기를 풍기다"}
+{"word": "밥내", "axes": ["향"], "sure": true, "why": "밥에서 난 냄새"}
+{"word": "방교", "axes": ["향", "계절·날씨"], "sure": false, "why": "향기로운 봄들판"}
+{"word": "방국", "axes": ["향"], "sure": false, "why": "향기그윽한 국화"}
+{"word": "방귀", "axes": ["향"], "sure": true, "why": "고약한 냄새기체"}
+{"word": "방미", "axes": ["향"], "sure": false, "why": "향기롭고 좋은맛"}
+{"word": "방애", "axes": ["향"], "sure": false, "why": "꽃 밑 향기티끌"}
+{"word": "방연", "axes": ["향", "관계"], "sure": false, "why": "꽃향기같은 인연"}
+{"word": "방유", "axes": ["향"], "sure": true, "why": "방향 있는 기름"}
+{"word": "방장유", "axes": ["향"], "sure": true, "why": "비누 향료원료"}
+{"word": "방초", "axes": ["향"], "sure": true, "why": "향기롭고 꽃다운풀"}
+{"word": "방향 식물", "axes": ["향"], "sure": true, "why": "향기 내는 식물"}
+{"word": "방향미", "axes": ["향"], "sure": true, "why": "구수한 향기 쌀"}
+{"word": "방향수", "axes": ["향"], "sure": true, "why": "향기 지닌 나무풀"}
+{"word": "방향제", "axes": ["향"], "sure": true, "why": "좋은향 내는 물품"}
+{"word": "방훼", "axes": ["향"], "sure": true, "why": "향기로운 풀"}
+{"word": "배리착지근하다", "axes": ["향"], "sure": true, "why": "냄새맛 조금비림"}
+{"word": "배리치근하다", "axes": ["향"], "sure": true, "why": "냄새맛 조금비림"}
+{"word": "배릿이", "axes": ["향"], "sure": true, "why": "냄새맛 조금비림"}
+{"word": "배릿하다", "axes": ["향"], "sure": true, "why": "냄새맛 조금비림"}
+{"word": "배착지근하다", "axes": ["향"], "sure": true, "why": "냄새맛 조금비림"}
+{"word": "배척지근하다", "axes": ["향"], "sure": true, "why": "냄새맛 조금비림"}
+{"word": "배초향", "axes": ["향"], "sure": false, "why": "특수한 향내식물"}
+{"word": "배치근하다", "axes": ["향"], "sure": true, "why": "냄새맛 조금비림"}
+{"word": "배튿하다", "axes": ["향"], "sure": true, "why": "냄새맛 조금비림"}
+{"word": "백단", "axes": ["향"], "sure": true, "why": "백단 향료향기"}
+{"word": "백단목", "axes": ["향"], "sure": true, "why": "백단목 향기목재"}
+{"word": "백단유", "axes": ["향"], "sure": true, "why": "백단유 향료"}
+{"word": "백단향", "axes": ["향"], "sure": true, "why": "백단향 향기목재"}
+{"word": "백리향", "axes": ["향"], "sure": true, "why": "백리향 허브향기"}
+{"word": "백서향", "axes": ["향"], "sure": false, "why": "서향 흰꽃 향기"}
+{"word": "백서향나무", "axes": ["향"], "sure": false, "why": "서향 흰꽃 향기"}
+{"word": "백소", "axes": ["향"], "sure": true, "why": "독특한 냄새 식용"}
+{"word": "백합", "axes": ["향"], "sure": true, "why": "향기 진한 꽃"}
+{"word": "버날그라스", "axes": ["향"], "sure": false, "why": "특유의 향취목초"}
+{"word": "베르가모트", "axes": ["향"], "sure": true, "why": "베르가모트유향"}
+{"word": "베르가모트유", "axes": ["향"], "sure": true, "why": "향료로 쓰는기름"}
+{"word": "베티베르", "axes": ["향"], "sure": true, "why": "향수 원료 뿌리"}
+{"word": "벽인향", "axes": ["향"], "sure": false, "why": "의식용 향 불"}
+{"word": "보로니아", "axes": ["향"], "sure": true, "why": "감귤향나는식물"}
+{"word": "봉래초", "axes": ["향"], "sure": true, "why": "향기있어 식용"}
+{"word": "부아드로즈유", "axes": ["향"], "sure": true, "why": "장미라벤더향원료"}
+{"word": "부용향", "axes": ["향"], "sure": true, "why": "혼례용 향초"}
+{"word": "부추", "axes": ["향"], "sure": true, "why": "독특한 냄새채소"}
+{"word": "부취", "axes": ["향"], "sure": true, "why": "썩어서 고약냄새"}
+{"word": "북향화", "axes": ["향"], "sure": true, "why": "꽃이 향수원료"}
+{"word": "분복", "axes": ["향"], "sure": true, "why": "매우 향기로움"}
+{"word": "분향", "axes": ["향"], "sure": true, "why": "향 피우는 의식"}
+{"word": "분향하다", "axes": ["향"], "sure": true, "why": "향을 피우다"}
+{"word": "불수", "axes": ["향"], "sure": true, "why": "향내 매우 좋음"}
+{"word": "불수감", "axes": ["향"], "sure": true, "why": "향내 매우 좋음"}
+{"word": "불수감나무", "axes": ["향"], "sure": true, "why": "향내 매우 좋음"}
+{"word": "불수귤", "axes": ["향"], "sure": true, "why": "향내 매우 좋음"}
+{"word": "불수귤나무", "axes": ["향"], "sure": true, "why": "향내 매우 좋음"}
+{"word": "불취", "axes": ["향"], "sure": true, "why": "냄새가 나지않음"}
+{"word": "붓순", "axes": ["향"], "sure": true, "why": "향료용 열매나무"}
+{"word": "붓순나무", "axes": ["향"], "sure": true, "why": "향료용 열매나무"}
+{"word": "브델륨", "axes": ["향"], "sure": true, "why": "향내나는 수지"}
+{"word": "블루치즈", "axes": ["향"], "sure": true, "why": "독특한 냄새치즈"}
+{"word": "비리다", "axes": ["향"], "sure": true, "why": "생선비린 느낌"}
+{"word": "비리척지근하다", "axes": ["향"], "sure": true, "why": "조금 비린 냄새"}
+{"word": "비리치근하다", "axes": ["향"], "sure": true, "why": "조금 비린 냄새"}
+{"word": "비린내", "axes": ["향"], "sure": true, "why": "코찌르는 비린내"}
+{"word": "비릿이", "axes": ["향"], "sure": true, "why": "조금 비린 듯"}
+{"word": "비릿하다", "axes": ["향"], "sure": true, "why": "조금 비리다"}
+{"word": "비척지근하다", "axes": ["향"], "sure": true, "why": "조금 비린 냄새"}
+{"word": "비치근하다", "axes": ["향"], "sure": true, "why": "조금 비린 냄새"}
+{"word": "빈대풀", "axes": ["향"], "sure": true, "why": "빈대냄새 고수"}
+{"word": "뿔향", "axes": ["향"], "sure": true, "why": "원뿔모양의 향"}
+{"word": "사라수", "axes": ["향"], "sure": true, "why": "씨기름이 향유"}
+{"word": "사루비아", "axes": ["향"], "sure": false, "why": "요리용 향료풀"}
+{"word": "사사프라스", "axes": ["향"], "sure": true, "why": "담배향료용 정유"}
+{"word": "사프란", "axes": ["향"], "sure": true, "why": "사프란 향신료"}
+{"word": "사향수레꽃", "axes": ["향"], "sure": true, "why": "꽃향기좋아 재배"}
+{"word": "산다락나무", "axes": ["향"], "sure": false, "why": "향기있는 목재"}
+{"word": "산초 가루", "axes": ["향"], "sure": true, "why": "강한 향신료"}
+{"word": "산패취", "axes": ["향"], "sure": true, "why": "산화된 불쾌냄새"}
+{"word": "살내", "axes": ["향"], "sure": true, "why": "살에서 난 냄새"}
+{"word": "살냄새", "axes": ["향"], "sure": true, "why": "살에서 난 냄새"}
+{"word": "살문향", "axes": ["향", "계절·날씨"], "sure": true, "why": "모기향 여름밤"}
+{"word": "살비아", "axes": ["향"], "sure": false, "why": "요리용 향료풀"}
+{"word": "상향하다", "axes": ["향"], "sure": true, "why": "향을 피우다"}
+{"word": "새금새금", "axes": ["향"], "sure": true, "why": "신냄새의 느낌"}
+{"word": "새금새금하다", "axes": ["향"], "sure": true, "why": "신냄새가 있다"}
+{"word": "새금하다", "axes": ["향"], "sure": true, "why": "조금 신 냄새"}
+{"word": "새금히", "axes": ["향"], "sure": true, "why": "조금 신 냄새로"}
+{"word": "새앙", "axes": ["향"], "sure": true, "why": "생강 매운 향신료"}
+{"word": "새앙나무", "axes": ["향"], "sure": true, "why": "향기좋아 생화로"}
+{"word": "새지근하다", "axes": ["향"], "sure": true, "why": "쉬어서 신냄새"}
+{"word": "새척지근하다", "axes": ["향"], "sure": true, "why": "쉬어서 신냄새"}
+{"word": "새척지근히", "axes": ["향"], "sure": true, "why": "쉬어서 신냄새로"}
+{"word": "새치근하다", "axes": ["향"], "sure": true, "why": "쉬어서 신냄새"}
+{"word": "새치근히", "axes": ["향"], "sure": true, "why": "쉬어서 신냄새로"}
+{"word": "새큼새큼", "axes": ["향"], "sure": true, "why": "신냄새의 느낌"}
+{"word": "새큼새큼하다", "axes": ["향"], "sure": true, "why": "신냄새가 있다"}
+{"word": "새큼새큼히", "axes": ["향"], "sure": true, "why": "신냄새로"}
+{"word": "새큼하다", "axes": ["향"], "sure": true, "why": "알맞게 신냄새"}
+{"word": "새큼히", "axes": ["향"], "sure": true, "why": "조금 신 냄새"}
+{"word": "샐비어", "axes": ["향"], "sure": false, "why": "요리용 향료풀"}
+{"word": "생강", "axes": ["향"], "sure": true, "why": "생강 매운 향"}
+{"word": "생강나무", "axes": ["향"], "sure": true, "why": "향기좋아 생화로"}
+{"word": "생열귀나무", "axes": ["향"], "sure": true, "why": "꽃이 향수원료"}
+{"word": "생정", "axes": ["향"], "sure": true, "why": "꽃이 향수원료"}
+{"word": "생취", "axes": ["향"], "sure": true, "why": "본래의 냄새"}
+{"word": "샤워 코롱", "axes": ["향"], "sure": true, "why": "은은한 향수화장수"}
+{"word": "서양 박하", "axes": ["향"], "sure": true, "why": "페퍼민트 향미료"}
+{"word": "서양수수꽃다리", "axes": ["향"], "sure": true, "why": "향기좋아 관상재배"}
+{"word": "선갈퀴", "axes": ["향"], "sure": false, "why": "열매의 향기"}
+{"word": "설향찰벼", "axes": ["향"], "sure": true, "why": "구수한 향기 쌀"}
+{"word": "섬나리", "axes": ["향"], "sure": true, "why": "꽃향기많아 재배"}
+{"word": "섬말나리", "axes": ["향"], "sure": true, "why": "꽃향기많아 재배"}
+{"word": "섬백리향", "axes": ["향"], "sure": true, "why": "향기나는 허브"}
+{"word": "성진", "axes": ["향"], "sure": false, "why": "비린내나는 먼지"}
+{"word": "성혈", "axes": ["향"], "sure": true, "why": "비린내나는 피"}
+{"word": "세이보리유", "axes": ["향"], "sure": true, "why": "스파이스 향기오일"}
+{"word": "세이지", "axes": ["향"], "sure": false, "why": "요리용 향료풀"}
+{"word": "세이지 방향유", "axes": ["향"], "sure": true, "why": "장미같은 향기오일"}
+{"word": "셀러리", "axes": ["향"], "sure": true, "why": "독특한 냄새채소"}
+{"word": "셀러리액", "axes": ["향"], "sure": true, "why": "향으로 풍미를냄"}
+{"word": "소독내", "axes": ["향"], "sure": true, "why": "소독약 냄새"}
+{"word": "소마나화", "axes": ["향"], "sure": false, "why": "꽃즙이 향유"}
+{"word": "소합향", "axes": ["향"], "sure": true, "why": "수지원료 향제품"}
+{"word": "소향하다", "axes": ["향"], "sure": true, "why": "향을 피우는일"}
+{"word": "속향", "axes": ["향"], "sure": true, "why": "빨리 타는 향"}
+{"word": "송방", "axes": ["향"], "sure": true, "why": "소나무진 향기"}
+{"word": "송이버섯", "axes": ["향"], "sure": true, "why": "독특한 향기버섯"}
+{"word": "송지", "axes": ["향"], "sure": true, "why": "소나무진 향기"}
+{"word": "송화", "axes": ["향"], "sure": true, "why": "달콤한 송화향"}
+{"word": "송황", "axes": ["향"], "sure": true, "why": "달콤한 송화향"}
+{"word": "쇠기", "axes": ["향"], "sure": true, "why": "쇠의 맛냄새"}
+{"word": "쇠내", "axes": ["향"], "sure": true, "why": "쇠붙이 냄새"}
+{"word": "쇳기", "axes": ["향"], "sure": true, "why": "쇠의 맛냄새"}
+{"word": "쇳내", "axes": ["향"], "sure": true, "why": "쇠붙이 냄새"}
+{"word": "수근", "axes": ["향"], "sure": true, "why": "독특한 향기식용"}
+{"word": "수르스트뢰밍", "axes": ["향"], "sure": true, "why": "고약한 냄새발효"}
+{"word": "수지류", "axes": ["향"], "sure": true, "why": "강한 향기물질"}
+{"word": "수향낭", "axes": ["향"], "sure": true, "why": "향나는 수놓은주머니"}
+{"word": "술 냄새", "axes": ["향"], "sure": true, "why": "술 냄새"}
+{"word": "술내", "axes": ["향"], "sure": true, "why": "술 냄새"}
+{"word": "숯내", "axes": ["향"], "sure": true, "why": "숯불 연기냄새"}
+{"word": "쉬지근히", "axes": ["향"], "sure": true, "why": "쉰 듯한 냄새"}
+{"word": "쉰내", "axes": ["향"], "sure": true, "why": "시큼한 쉰내"}
+{"word": "스위트술탄", "axes": ["향"], "sure": true, "why": "꽃향기좋아 재배"}
+{"word": "스카치위스키", "axes": ["향"], "sure": true, "why": "훈연향 위스키"}
+{"word": "스타펠리아", "axes": ["향"], "sure": true, "why": "악취나는 꽃"}
+{"word": "스파이스", "axes": ["향"], "sure": true, "why": "향신식물의 총칭"}
+{"word": "스파티필룸파티니이", "axes": ["향"], "sure": false, "why": "박하향나는 꽃"}
+{"word": "스페어민트유", "axes": ["향"], "sure": true, "why": "스피어민트 오일"}
+{"word": "스피아민트", "axes": ["향"], "sure": true, "why": "박하 향미료"}
+{"word": "스피어민트", "axes": ["향"], "sure": true, "why": "박하 향미료"}
+{"word": "스피어민트유", "axes": ["향"], "sure": true, "why": "박하오일 향료"}
+{"word": "시금떨떨하다", "axes": ["향"], "sure": true, "why": "시고 떫은 냄새"}
+{"word": "시금시금", "axes": ["향"], "sure": true, "why": "신냄새의 느낌"}
+{"word": "시금시금하다", "axes": ["향"], "sure": true, "why": "신냄새가 있다"}
+{"word": "시금털털하다", "axes": ["향"], "sure": true, "why": "시고 떫은 냄새"}
+{"word": "시금하다", "axes": ["향"], "sure": true, "why": "깊은맛 신냄새"}
+{"word": "시금히", "axes": ["향"], "sure": true, "why": "깊은맛 신냄새로"}
+{"word": "시나몬", "axes": ["향"], "sure": true, "why": "시나몬 향신료"}
+{"word": "시지근하다", "axes": ["향"], "sure": true, "why": "쉬어서 신냄새"}
+{"word": "시척지근하다", "axes": ["향"], "sure": true, "why": "쉬어서 신냄새"}
+{"word": "시척지근히", "axes": ["향"], "sure": true, "why": "쉬어서 신냄새로"}
+{"word": "시치근하다", "axes": ["향"], "sure": true, "why": "쉬어서 신냄새"}
+{"word": "시치근히", "axes": ["향"], "sure": true, "why": "쉬어서 신냄새로"}
+{"word": "시큼시큼", "axes": ["향"], "sure": true, "why": "신냄새의 느낌"}
+{"word": "시큼시큼하다", "axes": ["향"], "sure": true, "why": "신냄새가 있다"}
+{"word": "시큼하다", "axes": ["향"], "sure": true, "why": "꽤 신 냄새"}
+{"word": "시큼히", "axes": ["향"], "sure": true, "why": "신냄새로"}
+{"word": "시트로넬라 기름", "axes": ["향"], "sure": true, "why": "화장품 향료오일"}
+{"word": "시트로넬라유", "axes": ["향"], "sure": true, "why": "화장품 향료오일"}
+{"word": "시트론", "axes": ["향"], "sure": false, "why": "과육에 향기"}
+{"word": "식나무", "axes": ["향"], "sure": true, "why": "열매가 향수재료"}
+{"word": "식용 대황", "axes": ["향"], "sure": true, "why": "신향기 잎자루"}
+{"word": "식향", "axes": ["향"], "sure": false, "why": "향만 먹는 신"}
+{"word": "신이화", "axes": ["향"], "sure": true, "why": "꽃이 향수원료"}
+{"word": "신트림", "axes": ["향"], "sure": true, "why": "시큼한 냄새트림"}
+{"word": "신트림하다", "axes": ["향"], "sure": true, "why": "시큼한 냄새트림"}
+{"word": "신향료", "axes": ["향"], "sure": true, "why": "향기로운 조미료"}
+{"word": "쑥갓", "axes": ["향"], "sure": true, "why": "향기좋은 채소"}
+{"word": "아구사리", "axes": ["향"], "sure": true, "why": "향기좋아 생화로"}
+{"word": "아까시나무", "axes": ["향"], "sure": true, "why": "강한 꽃향기"}
+{"word": "아니스", "axes": ["향"], "sure": true, "why": "아니스 향미료"}
+{"word": "아니스기름", "axes": ["향"], "sure": true, "why": "아니스 향료"}
+{"word": "아니스유", "axes": ["향"], "sure": true, "why": "독특한 향기향료"}
+{"word": "아랑향찰벼", "axes": ["향"], "sure": true, "why": "밥에 향기나는벼"}
+{"word": "아로마 향", "axes": ["향"], "sure": true, "why": "식물의 향기개념"}
+{"word": "아몬드 에센스", "axes": ["향"], "sure": true, "why": "향기로운 아몬드유"}
+{"word": "아이리스", "axes": ["향", "계절·날씨"], "sure": true, "why": "향기많은 붓꽃"}
+{"word": "아카시아", "axes": ["향", "계절·날씨"], "sure": true, "why": "향기로운 흰꽃나무"}
+{"word": "악취", "axes": ["향"], "sure": true, "why": "나쁜냄새 자체"}
+{"word": "안식향", "axes": ["향"], "sure": true, "why": "향료/향수원료 수지"}
+{"word": "안식향나무", "axes": ["향"], "sure": true, "why": "향수원료나무(수지)"}
+{"word": "안젤리카", "axes": ["향"], "sure": true, "why": "독특한 향내 허브"}
+{"word": "알싸하다", "axes": ["향", "질감"], "sure": true, "why": "매운냄새 톡쏘는 감각"}
+{"word": "암내", "axes": ["향"], "sure": true, "why": "체취(암내) 냄새단어"}
+{"word": "암려", "axes": ["향"], "sure": false, "why": "쑥향나는 야생풀"}
+{"word": "애납", "axes": ["향"], "sure": false, "why": "향료로 쓰이는 이끼"}
+{"word": "애플제라늄", "axes": ["향"], "sure": true, "why": "사과향나는 잎(향정체성)"}
+{"word": "액취", "axes": ["향"], "sure": true, "why": "겨드랑이 냄새단어"}
+{"word": "야임", "axes": ["향"], "sure": false, "why": "독특한 냄새나는 나물"}
+{"word": "약기", "axes": ["향"], "sure": true, "why": "약냄새 뜻 포함"}
+{"word": "약내", "axes": ["향"], "sure": true, "why": "약에서 나는 냄새"}
+{"word": "약수유나무", "axes": ["향"], "sure": false, "why": "열매향 나는 야생나무"}
+{"word": "양미나리", "axes": ["향"], "sure": false, "why": "전체향기나는 나물풀"}
+{"word": "양파 향", "axes": ["향"], "sure": true, "why": "양파향(향 명명패턴)"}
+{"word": "어루만지다", "axes": ["향", "빛"], "sure": true, "why": "냄새·빛이 스치는 뜻"}
+{"word": "에센스", "axes": ["향"], "sure": false, "why": "향기로운 방향성 물질"}
+{"word": "여름귤", "axes": ["향", "계절·날씨"], "sure": true, "why": "향기로운 흰꽃 감귤나무"}
+{"word": "여름귤나무", "axes": ["향", "계절·날씨"], "sure": true, "why": "향기로운 흰꽃 감귤나무"}
+{"word": "여름밀감", "axes": ["향", "계절·날씨"], "sure": true, "why": "향기로운 흰꽃 감귤나무"}
+{"word": "연화 향낭 노리개", "axes": ["향"], "sure": false, "why": "향주머니 장신구"}
+{"word": "염내", "axes": ["향"], "sure": true, "why": "간수냄새(두부)"}
+{"word": "염주괴불주머니", "axes": ["향"], "sure": false, "why": "자르면 악취나는 풀"}
+{"word": "염향", "axes": ["향"], "sure": true, "why": "분향(향피우기)"}
+{"word": "염향하다", "axes": ["향"], "sure": true, "why": "분향하다"}
+{"word": "영몽", "axes": ["향"], "sure": true, "why": "향강한 감귤,향료원료"}
+{"word": "영생이", "axes": ["향"], "sure": true, "why": "향기좋은 허브(향료)"}
+{"word": "영춘화", "axes": ["향"], "sure": true, "why": "재스민종류,향수원료목련"}
+{"word": "오드콜로뉴", "axes": ["향"], "sure": true, "why": "향수(콜로뉴)"}
+{"word": "오레가노", "axes": ["향"], "sure": true, "why": "강한향 허브(향신료)"}
+{"word": "오리거넘유", "axes": ["향"], "sure": true, "why": "오레가노 정유(향료)"}
+{"word": "오미자나무", "axes": ["향", "계절·날씨"], "sure": true, "why": "향기로운 꽃 야생나무"}
+{"word": "오베핀", "axes": ["향"], "sure": true, "why": "산사꽃 향료"}
+{"word": "오수유", "axes": ["향"], "sure": false, "why": "열매향나는 야생나무"}
+{"word": "오수향", "axes": ["향"], "sure": true, "why": "오수유로 만든 향"}
+{"word": "오유", "axes": ["향"], "sure": false, "why": "오수유와 동일종(향)"}
+{"word": "오줌내", "axes": ["향"], "sure": true, "why": "오줌냄새 직접단어"}
+{"word": "옥란", "axes": ["향", "계절·날씨"], "sure": true, "why": "향기있는 목련류 꽃"}
+{"word": "옥잠화", "axes": ["향", "계절·날씨"], "sure": true, "why": "향기있는 꽃(옥잠화)"}
+{"word": "올리브나무", "axes": ["향", "계절·날씨"], "sure": true, "why": "향기로운 흰꽃나무"}
+{"word": "올스파이스나무", "axes": ["향"], "sure": false, "why": "올스파이스 향신료나무"}
+{"word": "왈카닥거리다", "axes": ["향"], "sure": true, "why": "냄새 갑자기 나는 의태어"}
+{"word": "왈카닥대다", "axes": ["향"], "sure": true, "why": "냄새 갑자기 나는 의태어"}
+{"word": "왜밀", "axes": ["향"], "sure": false, "why": "향료 섞은 밀기름"}
+{"word": "왜밀기름", "axes": ["향"], "sure": false, "why": "향료 섞은 밀기름"}
+{"word": "욕용제", "axes": ["향"], "sure": true, "why": "향기내는 목욕용품"}
+{"word": "용가시나무", "axes": ["향", "계절·날씨"], "sure": true, "why": "향기강한 흰꽃(장미과)"}
+{"word": "용뇌", "axes": ["향"], "sure": true, "why": "용뇌수지, 방향성"}
+{"word": "용뇌박하", "axes": ["향"], "sure": true, "why": "용뇌향 나는 박하"}
+{"word": "용뇌수", "axes": ["향"], "sure": true, "why": "용뇌수지, 방향성"}
+{"word": "용연", "axes": ["향"], "sure": true, "why": "용연향(앰버그리스)"}
+{"word": "용연향", "axes": ["향"], "sure": true, "why": "향유고래 향료(앰버그리스)"}
+{"word": "우유향", "axes": ["향"], "sure": true, "why": "우유향(향미제)"}
+{"word": "운산오이풀", "axes": ["향"], "sure": false, "why": "오이냄새나는 풀"}
+{"word": "원형 향갑 노리개", "axes": ["향"], "sure": true, "why": "향갑노리개(사향)"}
+{"word": "월계", "axes": ["향"], "sure": true, "why": "장미향수원료·월계수향료"}
+{"word": "월계수", "axes": ["향"], "sure": true, "why": "월계수잎 향기"}
+{"word": "월하향", "axes": ["향"], "sure": true, "why": "튜베로즈,강한향+향수원료"}
+{"word": "유자나무", "axes": ["향"], "sure": false, "why": "유자,향미료 감귤"}
+{"word": "유향수", "axes": ["향"], "sure": true, "why": "유향(프랑킨센스)나무"}
+{"word": "육계나무", "axes": ["향"], "sure": true, "why": "계피나무, 향료뿌리껍질"}
+{"word": "육계유", "axes": ["향"], "sure": true, "why": "계수나무 정유(향료)"}
+{"word": "육두구", "axes": ["향"], "sure": true, "why": "육두구(넛맥),향료로쓰임"}
+{"word": "은객", "axes": ["향"], "sure": true, "why": "온몸에 향기있는 풀(창포류)"}
+{"word": "은계", "axes": ["향"], "sure": true, "why": "꽃향기좋아 정원수"}
+{"word": "은군자", "axes": ["향", "계절·날씨"], "sure": false, "why": "향기좋은 가을꽃(국화류)"}
+{"word": "은단", "axes": ["향", "온도"], "sure": false, "why": "향기롭고 시원한 알약(민트)"}
+{"word": "은방울꽃", "axes": ["향", "계절·날씨"], "sure": true, "why": "은방울꽃,향수원료"}
+{"word": "인가목", "axes": ["향", "계절·날씨"], "sure": true, "why": "향기있는 들장미류"}
+{"word": "인단", "axes": ["향", "온도"], "sure": false, "why": "향기+시원한 알약"}
+{"word": "인물향", "axes": ["향"], "sure": true, "why": "사람모양 향낭/패물"}
+{"word": "일경구화", "axes": ["향"], "sure": false, "why": "향기좋은 춘란 종류"}
+{"word": "일당귀", "axes": ["향"], "sure": true, "why": "정유함유, 특이한 향기"}
+{"word": "일랑일랑", "axes": ["향"], "sure": true, "why": "일랑일랑,고급향료꽃"}
+{"word": "입구린내", "axes": ["향"], "sure": true, "why": "입냄새(구린내)"}
+{"word": "입내", "axes": ["향"], "sure": true, "why": "입에서나는 나쁜냄새 뜻포함"}
+{"word": "입냄새", "axes": ["향"], "sure": true, "why": "입에서나는 나쁜냄새"}
+{"word": "입술연지수선화", "axes": ["향", "계절·날씨"], "sure": true, "why": "향기짙은 수선화"}
+{"word": "자극취", "axes": ["향"], "sure": true, "why": "코 자극하는 냄새"}
+{"word": "자단향", "axes": ["향"], "sure": true, "why": "자단향(incense)"}
+{"word": "자등향", "axes": ["향"], "sure": true, "why": "향나무로 만든 향"}
+{"word": "자릿내", "axes": ["향"], "sure": true, "why": "쉰내(빨래냄새)"}
+{"word": "자몽", "axes": ["향"], "sure": false, "why": "자몽향,상큼한 향정체성"}
+{"word": "자스민", "axes": ["향"], "sure": true, "why": "재스민(비표준표기)"}
+{"word": "자정향", "axes": ["향", "계절·날씨"], "sure": true, "why": "라일락,향기좋아재배"}
+{"word": "잡내", "axes": ["향"], "sure": true, "why": "뒤섞인 나쁜냄새"}
+{"word": "장미 기름", "axes": ["향"], "sure": true, "why": "장미향유(향료원료)"}
+{"word": "장미수", "axes": ["향"], "sure": true, "why": "장미향수(fragrance)"}
+{"word": "장미유", "axes": ["향"], "sure": true, "why": "장미향유(향료원료)"}
+{"word": "장춘화", "axes": ["향"], "sure": false, "why": "독특한냄새나는 관상화"}
+{"word": "장포", "axes": ["향"], "sure": true, "why": "창포류,온몸향기"}
+{"word": "장풍", "axes": ["향"], "sure": true, "why": "창포류,온몸향기"}
+{"word": "재스민", "axes": ["향"], "sure": true, "why": "재스민(RULES예시단어)"}
+{"word": "재스민 글러브", "axes": ["향"], "sure": true, "why": "재스민향 뿌린 장갑"}
+{"word": "저먼아이리스", "axes": ["향"], "sure": false, "why": "아이리스 변종,동일 향서술"}
+{"word": "전단향", "axes": ["향"], "sure": true, "why": "인도백단향나무"}
+{"word": "전단향나무", "axes": ["향"], "sure": true, "why": "인도백단향나무"}
+{"word": "전취", "axes": ["향"], "sure": true, "why": "노린냄새 뜻 포함"}
+{"word": "전합", "axes": ["향"], "sure": false, "why": "향합(향담는함)"}
+{"word": "전혈", "axes": ["향"], "sure": true, "why": "비린내나는 피"}
+{"word": "전훈", "axes": ["향"], "sure": true, "why": "누린내·매운냄새 훈채"}
+{"word": "정유", "axes": ["향"], "sure": true, "why": "정유=에센셜오일"}
+{"word": "정향꽃", "axes": ["향", "계절·날씨"], "sure": true, "why": "정향나무꽃,향기있음"}
+{"word": "정향나무", "axes": ["향"], "sure": true, "why": "클로브나무,정자유원료"}
+{"word": "정향화", "axes": ["향", "계절·날씨"], "sure": true, "why": "정향꽃과 동일"}
+{"word": "제주가시나무", "axes": ["향", "계절·날씨"], "sure": true, "why": "향기있는 들장미류(인가목류)"}
+{"word": "제피나무", "axes": ["향"], "sure": false, "why": "초피나무류,향미료"}
+{"word": "제향", "axes": ["향"], "sure": false, "why": "제사향(incense)"}
+{"word": "조석분향", "axes": ["향"], "sure": true, "why": "분향의식(아침저녁)"}
+{"word": "조석분향하다", "axes": ["향"], "sure": true, "why": "분향의식"}
+{"word": "조취", "axes": ["향"], "sure": true, "why": "고기기름냄새"}
+{"word": "조피나무", "axes": ["향"], "sure": false, "why": "산초류,향미료"}
+{"word": "조향", "axes": ["향"], "sure": true, "why": "조향=향 조합"}
+{"word": "조향하다", "axes": ["향"], "sure": true, "why": "향을 조합하다"}
+{"word": "족저비", "axes": ["향"], "sure": false, "why": "족제비류 악취분비"}
+{"word": "족제비", "axes": ["향"], "sure": false, "why": "위협시 악취풍기는 동물"}
+{"word": "족취", "axes": ["향"], "sure": true, "why": "발냄새"}
+{"word": "주향하다", "axes": ["향"], "sure": true, "why": "분향하다"}
+{"word": "중개풀", "axes": ["향"], "sure": true, "why": "배초향,특수한향내"}
+{"word": "중양화", "axes": ["향", "계절·날씨"], "sure": false, "why": "향기좋은 가을꽃(국화)"}
+{"word": "지르다", "axes": ["향"], "sure": true, "why": "냄새가 코를 찌른다는뜻포함"}
+{"word": "지리강활", "axes": ["향"], "sure": false, "why": "뿌리에서 악취나는 야생풀"}
+{"word": "지리다", "axes": ["향"], "sure": true, "why": "오줌냄새 비유 동사"}
+{"word": "지린내", "axes": ["향"], "sure": true, "why": "오줌냄새"}
+{"word": "지오스민", "axes": ["향"], "sure": false, "why": "녹조유발 흙냄새 물질"}
+{"word": "진동", "axes": ["향"], "sure": true, "why": "냄새가 심하게난다는뜻"}
+{"word": "진동시키다", "axes": ["향"], "sure": true, "why": "냄새를 심하게내다"}
+{"word": "진저", "axes": ["향", "계절·날씨"], "sure": true, "why": "향기있는 생강과관상화"}
+{"word": "진저유", "axes": ["향"], "sure": true, "why": "생강정유(에센셜오일)"}
+{"word": "진주 두루주머니", "axes": ["향"], "sure": true, "why": "향넣은 진주주머니"}
+{"word": "진주낭", "axes": ["향"], "sure": true, "why": "향넣은 주머니"}
+{"word": "진주낭자", "axes": ["향"], "sure": true, "why": "향넣은 주머니"}
+{"word": "짭짜래하다", "axes": ["향"], "sure": true, "why": "짠냄새 뜻포함"}
+{"word": "짭짜름하다", "axes": ["향"], "sure": true, "why": "짠냄새 뜻포함"}
+{"word": "쯔란", "axes": ["향"], "sure": false, "why": "쯔란(커민),향신료"}
+{"word": "찌르다", "axes": ["향"], "sure": true, "why": "냄새가 후각자극한다는뜻"}
+{"word": "차", "axes": ["향"], "sure": false, "why": "차(tea),정의에 향기명시"}
+{"word": "참나물", "axes": ["향"], "sure": false, "why": "향기있는 나물"}
+{"word": "참방동사니", "axes": ["향"], "sure": false, "why": "향기나는 사초과풀"}
+{"word": "참식나무", "axes": ["향"], "sure": true, "why": "향수원료 열매"}
+{"word": "창포", "axes": ["향", "계절·날씨"], "sure": true, "why": "온몸에 향기(창포)"}
+{"word": "천도딸기", "axes": ["향"], "sure": false, "why": "향기좋은 야생딸기류"}
+{"word": "천초", "axes": ["향"], "sure": false, "why": "초피나무류(향미료)"}
+{"word": "철골소심", "axes": ["향"], "sure": false, "why": "난초,은은한향기"}
+{"word": "첨당향", "axes": ["향"], "sure": true, "why": "첨당수로만든 향"}
+{"word": "청원향", "axes": ["향"], "sure": true, "why": "여러 향료섞은 향"}
+{"word": "청초취", "axes": ["향"], "sure": false, "why": "조류로인한 풀냄새"}
+{"word": "체리모야", "axes": ["향"], "sure": false, "why": "체리모야꽃 향기"}
+{"word": "초두구", "axes": ["향"], "sure": false, "why": "향기있는 한약재"}
+{"word": "초취", "axes": ["향"], "sure": true, "why": "탄내·썩은내 등 냄새뜻"}
+{"word": "초피나무", "axes": ["향"], "sure": false, "why": "초피나무,향미료열매"}
+{"word": "촉비", "axes": ["향"], "sure": true, "why": "냄새가코를 찌름"}
+{"word": "촉비하다", "axes": ["향"], "sure": true, "why": "냄새가코를 찌르다"}
+{"word": "춘국", "axes": ["향", "계절·날씨"], "sure": true, "why": "냄새가향긋하다"}
+{"word": "취두부", "axes": ["향"], "sure": false, "why": "냄새가정체성인 취두부"}
+{"word": "취예하다", "axes": ["향"], "sure": true, "why": "고약한냄새+더럽다"}
+{"word": "취의", "axes": ["향"], "sure": true, "why": "땀냄새나는옷 뜻포함"}
+{"word": "취패되다", "axes": ["향"], "sure": true, "why": "썩어냄새나다"}
+{"word": "취패하다", "axes": ["향"], "sure": true, "why": "썩어냄새나다"}
+{"word": "취해", "axes": ["향"], "sure": true, "why": "악취나는 시체"}
+{"word": "침 냄새", "axes": ["향"], "sure": true, "why": "침냄새,직접단어"}
+{"word": "침향", "axes": ["향"], "sure": false, "why": "침향, 향료로만 쓰임"}
+{"word": "침향나무", "axes": ["향"], "sure": false, "why": "침향나무, 향료용"}
+{"word": "침향목", "axes": ["향"], "sure": false, "why": "침향목, 향료 전용"}
+{"word": "쾨쾨하다", "axes": ["향"], "sure": true, "why": "곰팡내 냄새 형용사"}
+{"word": "쿠린내", "axes": ["향"], "sure": true, "why": "고약한 냄새 명사"}
+{"word": "퀴퀴하다", "axes": ["향"], "sure": true, "why": "구린 냄새 형용사"}
+{"word": "킨기아눔", "axes": ["향"], "sure": false, "why": "향기 좋은 관상란"}
+{"word": "토마토 향", "axes": ["향"], "sure": true, "why": "토마토 향 복합어"}
+{"word": "투베로즈", "axes": ["향"], "sure": false, "why": "향수원료 꽃"}
+{"word": "튜버로즈", "axes": ["향"], "sure": false, "why": "투베로즈 표기변이"}
+{"word": "푸성내", "axes": ["향"], "sure": true, "why": "풋내, 풀냄새류"}
+{"word": "풋냄새", "axes": ["향"], "sure": true, "why": "덜 익은 냄새"}
+{"word": "하향주", "axes": ["향"], "sure": false, "why": "연꽃향 나는 술"}
+{"word": "한충향", "axes": ["향"], "sure": false, "why": "몸에 차는 향노리개"}
+{"word": "함소꽃", "axes": ["향"], "sure": false, "why": "향기 좋은 관상화"}
+{"word": "해감", "axes": ["향"], "sure": false, "why": "냄새나는 찌꺼기"}
+{"word": "해캄", "axes": ["향"], "sure": false, "why": "해감의 변이어"}
+{"word": "해큼", "axes": ["향"], "sure": false, "why": "해감의 변이어"}
+{"word": "향낭", "axes": ["향"], "sure": false, "why": "몸에 차는 향주머니"}
+{"word": "향냄새", "axes": ["향"], "sure": true, "why": "향의 냄새"}
+{"word": "향료", "axes": ["향"], "sure": true, "why": "향 내는 재료 총칭"}
+{"word": "향미롭다", "axes": ["향"], "sure": false, "why": "향기로운 맛 형용사"}
+{"word": "향설혜", "axes": ["향"], "sure": false, "why": "향 넣은 신발"}
+{"word": "향이", "axes": ["향"], "sure": false, "why": "냄새 좋은 미끼"}
+{"word": "향주머니", "axes": ["향"], "sure": false, "why": "몸에 차는 향낭"}
+{"word": "향지", "axes": ["향"], "sure": false, "why": "향기 있는 머릿기름"}
+{"word": "향초", "axes": ["향"], "sure": true, "why": "향 나는 초"}
+{"word": "향테리어", "axes": ["향", "공간"], "sure": false, "why": "향으로 꾸미는 실내"}
+{"word": "향풀", "axes": ["향"], "sure": false, "why": "향기로운 풀"}
+{"word": "헬리오트로프", "axes": ["향"], "sure": false, "why": "향수원료 꽃"}
+{"word": "헬리오트롭", "axes": ["향"], "sure": false, "why": "헬리오트로프 변이"}
+{"word": "호취", "axes": ["향"], "sure": false, "why": "겨드랑이 냄새"}
+{"word": "혹취", "axes": ["향"], "sure": true, "why": "매우 고약한 냄새"}
+{"word": "화독내", "axes": ["향"], "sure": true, "why": "음식 타는 냄새"}
+{"word": "화로수", "axes": ["향"], "sure": false, "why": "꽃에서 짠 향수"}
+{"word": "황숙향", "axes": ["향"], "sure": false, "why": "열대산 향료"}
+{"word": "후각", "axes": ["향"], "sure": true, "why": "냄새 맡는 감각"}
+{"word": "후각적", "axes": ["향"], "sure": true, "why": "후각 관련 형용사"}
+{"word": "훅", "axes": ["향"], "sure": false, "why": "냄새 훅 끼치는 모양"}
+{"word": "훈륙", "axes": ["향"], "sure": false, "why": "향료용 나뭇진"}
+{"word": "훈연", "axes": ["향"], "sure": false, "why": "냄새 좋은 연기"}
+{"word": "훈유", "axes": ["향"], "sure": false, "why": "향내와 악취 대비어"}
+{"word": "훈정", "axes": ["향"], "sure": false, "why": "열로 향 내는 물질"}
+{"word": "훈향료", "axes": ["향"], "sure": true, "why": "태우는 향 재료"}
+{"word": "흘러오다", "axes": ["향"], "sure": false, "why": "냄새가 퍼져오다"}

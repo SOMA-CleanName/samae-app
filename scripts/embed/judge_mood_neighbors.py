@@ -13,6 +13,13 @@ better when it sees the candidates together.
 
 Writes one JSON line per head as it goes, and skips what is already there, so an
 interrupted run resumes instead of starting over.
+
+2026-09-19 rerun. The unit is now the group (build_mood_group_texts.py), and the
+model answers with each group's representative search term, which is unique across
+groups, so the answer maps straight back to a head. qwen3:14b this time: the graph is
+built once and then used for good, so the slower, stronger model is worth the hours.
+The rules now also drop opposites — 추운/더운 share every context and would otherwise
+be judged "same scene".
 """
 import json
 import sys
@@ -25,14 +32,14 @@ import numpy as np
 
 OUT = Path(__file__).resolve().parent / "out" / "mood-vocabulary"
 RESULT = OUT / "neighbor-judgments.jsonl"
-MODEL, CANDIDATES = "qwen3:8b", 30
+MODEL, CANDIDATES = "qwen3:14b", 30
 
 SYSTEM = (
     "너는 사진 검색의 무드 어휘를 다듬는다. 기준 무드로 검색한 사람에게 "
     "대신 보여줘도 납득할 후보만 고른다.\n"
     "고름: 뜻이 같거나, 결이 비슷하거나, 같은 장면에 함께 나타난다.\n"
-    "버림: 글자만 비슷하고 뜻이 다른 것, 관계가 먼 것.\n"
-    "출력은 고른 낱말만 쉼표로. 설명 금지."
+    "버림: 글자만 비슷하고 뜻이 다른 것, 관계가 먼 것, 반대말(추운↔더운, 밝은↔어두운).\n"
+    "출력은 고른 후보의 맨 앞 낱말만 쉼표로. 설명 금지."
 )
 
 
@@ -57,23 +64,27 @@ def ask(head_text, candidate_texts, retries=3):
 
 
 def parse(answer, candidates):
-    """모델이 낱말만 돌려주지만 뜻풀이째 돌려줄 때가 있다. 후보에 있는 것만 받는다."""
+    """모델이 낱말만 돌려주지만 뜻풀이째 돌려줄 때가 있다. 후보에 있는 것만 받는다.
+    정확히 같은 것을 먼저, 없으면 가장 길게 앞이 맞는 것 — 조용 이 조용한 을 가로채면 안 된다."""
     kept, seen = [], set()
     for piece in answer.replace("\n", ",").split(","):
-        token = piece.strip().strip("-·").split(":")[0].strip()
+        token = piece.strip().strip("-·").split(":")[0].split("(")[0].strip()
         if not token:
             continue
-        for candidate in candidates:
-            if candidate not in seen and (token == candidate or token.startswith(candidate)):
-                kept.append(candidate)
-                seen.add(candidate)
-                break
+        exact = [c for c in candidates if c == token and c not in seen]
+        prefix = sorted((c for c in candidates if token.startswith(c) and c not in seen), key=len, reverse=True)
+        hit = (exact or prefix or [None])[0]
+        if hit:
+            kept.append(hit)
+            seen.add(hit)
     return kept
 
 
 def main():
     data = json.loads((OUT / "head-texts.json").read_text(encoding="utf-8"))
     heads, texts = data["heads"], dict(zip(data["heads"], data["c"]))
+    label = dict(zip(data["heads"], data["labels"]))
+    head_of = {v: k for k, v in label.items()}
     top = np.load(OUT / "head-neighbors.npy")
     scores = np.load(OUT / "head-neighbor-scores.npy")
 
@@ -91,7 +102,7 @@ def main():
             i = heads.index(head)
             cands = [heads[j] for j in top[i][:CANDIDATES]]
             answer = ask(texts[head], [texts[c] for c in cands])
-            kept = parse(answer, cands)
+            kept = [head_of[name] for name in parse(answer, [label[c] for c in cands])]
             rank = {c: k for k, c in enumerate(cands)}
             fp.write(json.dumps({"head": head, "kept": kept,
                                  "scores": {c: round(float(scores[i][rank[c]]), 4) for c in kept},
