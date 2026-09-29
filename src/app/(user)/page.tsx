@@ -325,7 +325,8 @@ async function searchHomePhotos(query: string): Promise<{
   });
   if (!result) return { matches: [], related: [], counts: { matches: 0, related: 0, capped: false } };
   // 장수는 z 가 정한다 — 여기서 다시 자르지 않는다. 앨범 흩뜨리기만 두 묶음 안에서 따로 한다.
-  const matches = spreadAlbumsInBands(result.matches);
+  // 목적을 번갈아 섞은 결과("커플 강아지")는 순서가 이미 짜여 있다 — 다시 흩뜨리면 한 앨범뿐인 쪽이 뒤로 몰린다.
+  const matches = result.arranged ? result.matches : spreadAlbumsInBands(result.matches);
   const related = spreadAlbumsInBands(result.related);
   return {
     matches,

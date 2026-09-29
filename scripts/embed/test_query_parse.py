@@ -140,6 +140,16 @@ class QueryParseTest(unittest.TestCase):
     def test_two_details_in_one_purpose(self):
         self.assertEqual(run("돌잔치 가족사진")["details"], ["event.first_birthday", "event.family"])
 
+    def test_purpose_names_alone_are_purposes(self):
+        # 목적만 치면 그 목적 전체를 보여줘야 한다 — "개인" 이 무드로 넘어가 300장만 나왔다
+        for query, purpose in [("개인", "personal"), ("커플", "couple"), ("우정", "friendship"),
+                               ("웨딩", "wedding"), ("결혼", "wedding"), ("반려동물", "pet"),
+                               ("상업", "commercial"), ("행사", "event")]:
+            self.assertEqual(run(query), {"purposes": [purpose], "gender": None, "details": [], "mood_text": "", "matched": [query]}, query)
+
+    def test_format_words_alone_mean_everything(self):
+        self.assertEqual(run("스냅"), {"purposes": [], "gender": None, "details": [], "mood_text": "", "matched": []})
+
     def test_spacing_does_not_matter(self):
         self.assertEqual(run("커플 스냅")["purposes"], run("커플스냅")["purposes"])
 

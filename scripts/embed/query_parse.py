@@ -38,7 +38,9 @@ SEARCH_PHRASES = {
     #
     # 세부분류가 있는 말(임신·돌·신혼여행·형제 …)은 여기가 아니라 purpose-details.json 에 있다.
     # 여기는 목적만 알려주는 말이다.
-    "personal": ("남자", "여자", "남성", "여성", "셀프", "혼자"),
+    # 목적 이름만 쳐도 목적이다 — "개인" 이 빠져 무드로 넘어가 300장만 나왔다(2026-09-19)
+    "personal": ("개인", "남자", "여자", "남성", "여성", "셀프", "혼자"),
+    "wedding": ("결혼",),
     "pet": ("펫",),
     # 신혼여행·허니문은 커플이다. 세부분류 "여행" 은 사진으로 가르기 어려워 뺐다(2026-09-18) — 커플 전체로 찾는다
     "couple": ("남친", "여친", "남자친구", "여자친구", "연애", "신혼여행", "허니문"),
@@ -46,6 +48,9 @@ SEARCH_PHRASES = {
 }
 # 2026-09-18 결정: 신혼여행 → 커플, 형제·자매 → 우정, 가족 → 행사, "돌" 한 글자도 돌잔치
 # (돌담·돌계단은 Kiwi 가 한 낱말로 읽어 걸리지 않는다).
+
+# 목적이 아니라고 정한 말 — 사전에도 넣지 않고, 가까움 비교(purpose_nearest)도 하지 않는다. 이유는 아래.
+NOT_PURPOSE = {"화보", "컨셉", "콘셉트", "인테리어"}
 
 # 사전에 넣지 않는 말 (2026-09-18).
 #   · 화보·컨셉 — "누가·왜" 가 아니라 "어떤 느낌으로" 다. 개인 화보도 브랜드 화보도 있다.
@@ -55,7 +60,26 @@ SEARCH_PHRASES = {
 #     기념일·백일로 잡는다
 
 # 모든 사진이 사진이다. SigLIP 에 넣어 봐야 뜻이 없고, 남기면 목적처럼 굴기도 한다.
-FORMAT_WORDS = {"스냅", "사진", "촬영", "찍기"}
+FORMAT_WORDS = {"스냅", "사진", "촬영", "찍기", "찍"}   # "찍기" 는 Kiwi 가 찍/VV + 기/ETN 로 쪼갠다
+
+# 목적 말 바로 뒤에 오면 비유다 — "개인적인 분위기" "가족 같은 따뜻함" "친구처럼" "커플스러운" 은
+# 그 목적을 찾는 게 아니라 느낌을 말한다. 목적으로 잡지 않고 글자째 무드로 둔다(2026-09-19).
+FIGURATIVE = {("적", "XSN"), ("같", "VA"), ("처럼", "JKB"), ("같이", "JKB"), ("같이", "MAG"), ("스럽", "XSA-I"), ("스럽", "XSA")}
+# 목적 말 바로 뒤의 복수 접미사는 목적 말과 함께 뗀다 — "친구들이랑 바다" 가 무드 "들이랑 바다" 가 됐다.
+PLURAL = ("들", "XSN")
+
+
+def _word_at(query, offset):
+    """offset 이 속한 띄어쓰기 낱말 — 형태소로 쪼개기 전 모양."""
+    start = query.rfind(" ", 0, offset) + 1
+    end = query.find(" ", offset)
+    return query[start:end if end != -1 else len(query)]
+
+
+def _figurative(tokens, last):
+    """목적 말(마지막 형태소 위치 last) 바로 뒤가 비유 표지인가."""
+    nxt = last + 1
+    return nxt < len(tokens) and (tokens[nxt].form, tokens[nxt].tag) in FIGURATIVE
 
 # 성별 낱말. 개인 사진을 찾는 말이면서, 무엇보다 **그 성별이 찍힌 사진**을 찾는 말이다.
 #
@@ -100,8 +124,11 @@ def build_lexicon(kiwi, detail_phrases=None):
     return sorted(lexicon.items(), key=lambda item: (-len(item[0]), -sum(map(len, item[0]))))
 
 
-def parse(query, kiwi, lexicon=None):
+def parse(query, kiwi, lexicon=None, nearest=None):
     """검색어 → 목적 / SigLIP 에 넣을 나머지 글자.
+
+    nearest(purpose_nearest.NearestPurpose)를 주면, 어느 사전에도 안 걸린 명사를 가장 가까운 사전 예시의
+    목적으로 보낸다("학사모" → 졸업). 안 주면 사전만 쓴다(모델이 없는 기계).
 
     검색어에서는 약한 단서(강도 1)도 목적으로 본다. 작가 글의 "커플" 은 "커플 촬영 가능"
     같은 나열일 수 있어 확정하지 않았지만, 검색창에 "커플" 이라고 쳤다면 커플을 찾는 것이다.
@@ -111,6 +138,7 @@ def parse(query, kiwi, lexicon=None):
     content = [i for i, t in enumerate(tokens) if not _is_function(t.tag)]
     forms = [tokens[i].form for i in content]
     used = set()
+    claimed = set()   # 사전 대조에서 이미 다룬 형태소(비유로 판정한 것 포함) — 가까움 비교에 다시 넘기지 않는다
     found, matched, details = set(), [], []
     gender_spans = []   # (성별, 형태소 위치들) — 성별 필터를 쓸 때만 글자에서 뗀다
 
@@ -119,20 +147,51 @@ def parse(query, kiwi, lexicon=None):
         for phrase_forms, (purpose, phrase, detail) in lexicon:
             size = len(phrase_forms)
             if tuple(forms[position:position + size]) == phrase_forms:
+                span = content[position:position + size]
+                position += size
+                claimed.update(span)
+                if _figurative(tokens, span[-1]):
+                    break   # 비유 — 목적이 아니다. 글자는 무드로 남는다
                 found.add(purpose)
                 matched.append(phrase)
                 if detail and detail not in details:
                     details.append(detail)
+                if position < len(content) and (tokens[content[position]].form, tokens[content[position]].tag) == PLURAL:
+                    span = span + [content[position]]
+                    position += 1
                 if phrase in GENDER_WORDS:
-                    gender_spans.append((GENDER_WORDS[phrase], content[position:position + size]))
+                    gender_spans.append((GENDER_WORDS[phrase], span))
                 else:
-                    used.update(content[position:position + size])
-                position += size
+                    used.update(span)
                 break
         else:
             if forms[position] in FORMAT_WORDS:
                 used.add(content[position])
             position += 1
+
+    # 사전에 없는 명사 — 가장 가까운 사전 예시의 목적으로(0.80 이상일 때만, 무드 어휘는 빼고).
+    # **사전에서 목적이 하나도 안 나왔을 때만** 한다(2026-09-20). 사전이 이미 답을 줬으면 그게 사람이 정한
+    # 분류다 — "커플 워크샵" 에 엉뚱한 목적이 하나 더 붙지 않게. 모델 호출도 대부분의 검색에서 사라진다.
+    if nearest is not None and not found:
+        for index in content:
+            token = tokens[index]
+            if index in claimed or token.form in FORMAT_WORDS or _figurative(tokens, index):
+                continue
+            try:
+                hit = nearest(token.form, token.tag, _word_at(query, token.start))
+            except Exception:   # noqa: BLE001 — KURE 는 거들 뿐이다. 실패해도 사전 결과로 검색은 산다
+                hit = None
+            if hit is None:
+                continue
+            purpose, detail, _score, example = hit
+            found.add(purpose)
+            matched.append(f"{token.form}≈{example}")
+            if detail and detail not in details:
+                details.append(detail)
+            used.add(index)
+            claimed.add(index)
+            if index + 1 < len(tokens) and (tokens[index + 1].form, tokens[index + 1].tag) == PLURAL:
+                used.add(index + 1)
 
     # 세부분류는 따로 한 번 더 훑는다. 목적 사전(작가 글 분류용)에 "만삭 스냅" "프로필 촬영" 처럼 세부분류 말을
     # 품은 더 긴 문구가 있으면 그게 먼저 이겨 세부분류가 빠졌다 — "만삭 스냅" 이 행사 전체 25장을 보여줬다(2026-09-18).
@@ -144,7 +203,7 @@ def parse(query, kiwi, lexicon=None):
                 continue
             size = len(phrase_forms)
             if tuple(forms[position:position + size]) == phrase_forms:
-                if detail not in details:
+                if detail not in details and not _figurative(tokens, content[position + size - 1]):
                     details.append(detail)
                 position += size
                 break

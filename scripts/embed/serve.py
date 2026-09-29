@@ -129,6 +129,8 @@ def warm():
     _state["loaded_sec"] = time.perf_counter() - t
     print(f"✅ 모델 준비 {_state['loaded_sec']:.1f}s (device={device}, budget={PATCH_BUDGET})", flush=True)
     warm_query_parser()
+    if os.environ.get("SAMAE_PERSONA_COPY") != "1":
+        print("⏸  페르소나 작문(qwen) 꺼 둠 — /persona_copy 는 501, 앱은 claude 로 넘어간다", flush=True)
 
 
 def warm_query_parser():
@@ -146,11 +148,31 @@ def warm_query_parser():
     kiwi = Kiwi()
     _state.update(kiwi=kiwi, lexicon=query_parse.build_lexicon(kiwi))
     print(f"✅ 검색어 분리 준비 {time.perf_counter() - t:.2f}s", flush=True)
+    warm_purpose_nearest()
+
+
+def warm_purpose_nearest():
+    """사전에 없는 말을 가까운 사전 예시의 목적으로(purpose_nearest, KURE-v1). 선택 사항이다.
+
+    받아 둔 모델만 쓴다 — 서버가 켜질 때 2GB 를 몰래 내려받지 않는다. 없으면 사전만으로 돈다(docs/38 §3-2).
+    SAMAE_PURPOSE_NEAREST=0 이면 끈다."""
+    if os.environ.get("SAMAE_PURPOSE_NEAREST", "1") == "0":
+        print("⏸  목적 가까움 비교 꺼 둠 (SAMAE_PURPOSE_NEAREST=0)", flush=True)
+        return
+    try:
+        from purpose_nearest import NearestPurpose, kure_encoder
+        t = time.perf_counter()
+        nearest = NearestPurpose(_state["lexicon"], kure_encoder(local_only=True), kiwi=_state["kiwi"])
+    except (ImportError, OSError) as e:
+        print(f"⚠️  목적 가까움 비교 꺼짐 — KURE-v1 없음 ({type(e).__name__})", flush=True)
+        return
+    _state["nearest"] = nearest
+    print(f"✅ 목적 가까움 비교 준비 {time.perf_counter() - t:.1f}s (예시 {len(nearest.examples)}개)", flush=True)
 
 
 def parse_search_query(query):
     import query_parse
-    return query_parse.parse(query, _state["kiwi"], _state["lexicon"])
+    return query_parse.parse(query, _state["kiwi"], _state["lexicon"], nearest=_state.get("nearest"))
 
 
 def embed(images_b64):
@@ -412,6 +434,7 @@ class Handler(BaseHTTPRequestHandler):
                 "patch_budget": PATCH_BUDGET,
                 "loaded_sec": round(_state["loaded_sec"], 1),
                 "inference_queue": _inference.snapshot(),
+                "purpose_nearest": _state.get("nearest") is not None,
             })
         else:
             self._send(404, {"error": "not found"})
@@ -422,6 +445,11 @@ class Handler(BaseHTTPRequestHandler):
             return
         path = self.path.split("?", 1)[0]
         if self.path.startswith("/persona_copy"):
+            # 맥미니에서는 qwen 을 돌리지 않는다(무겁다, 2026-09-21 결정). 요청이 와도 ollama 를 부르지 않고
+            # 501 — 앱은 실패하면 claude 로 넘어간다(src/lib/persona/analyze.ts). 굳이 켜려면 SAMAE_PERSONA_COPY=1.
+            if os.environ.get("SAMAE_PERSONA_COPY") != "1":
+                self._send(501, {"error": "persona_copy 꺼짐 — 맥미니에서 qwen 을 돌리지 않는다"})
+                return
             try:
                 n = int(self.headers.get("Content-Length", "0"))
                 facts = json.loads(self.rfile.read(n) or b"{}")
