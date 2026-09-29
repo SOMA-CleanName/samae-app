@@ -1,5 +1,5 @@
 import "server-only";
-import { readFile, writeFile, mkdir } from "node:fs/promises";
+import { readFile, writeFile, mkdir, stat } from "node:fs/promises";
 import path from "node:path";
 import type { TermEdit, TermsBundle } from "@/lib/mood-terms";
 
@@ -7,13 +7,17 @@ import type { TermEdit, TermsBundle } from "@/lib/mood-terms";
 // 계산한 PC 에만 있고, 그대로 읽으면 다른 데서 화면이 빈다 (§9-6).
 const EMBED = path.join(process.cwd(), "scripts", "embed");
 const BUNDLE = path.join(EMBED, "mood-terms-bundle.json");
-const EDITS = path.join(EMBED, "out", "mood-vocabulary", "term-edits.jsonl");
+// 사람이 고친 기록도 커밋되는 자리에 둔다. out/ 에 두면 고친 PC 에만 남아서,
+// 한쪽에서 1차로 고치고 다른 PC 에서 최종 검수하는 흐름이 끊긴다.
+const EDITS = path.join(EMBED, "mood-edits", "term-edits.jsonl");
 
-let cache: TermsBundle | null = null;
+let cache: { at: number; bundle: TermsBundle } | null = null;
 
+/** 번들은 스크립트가 통째로 다시 쓴다(bake·apply). 파일이 바뀌면 서버를 안 껐다 켜도 새로 읽는다. */
 export async function loadTermsBundle(): Promise<TermsBundle> {
-  if (!cache) cache = JSON.parse(await readFile(BUNDLE, "utf8")) as TermsBundle;
-  return cache;
+  const at = (await stat(BUNDLE)).mtimeMs;
+  if (cache?.at !== at) cache = { at, bundle: JSON.parse(await readFile(BUNDLE, "utf8")) as TermsBundle };
+  return cache.bundle;
 }
 
 export async function loadTermEdits(): Promise<TermEdit[]> {

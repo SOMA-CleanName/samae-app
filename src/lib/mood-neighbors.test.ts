@@ -80,3 +80,10 @@ test("검색은 시작하는 것을 앞에 두고 뜻풀이에도 걸린다", ()
   assert.deepEqual(searchHeads(BUNDLE.heads, BUNDLE.nodes, "퇴폐"), ["세기말"], "뜻풀이로 찾는다");
   assert.deepEqual(searchHeads(BUNDLE.heads, BUNDLE.nodes, "  "), []);
 });
+
+test("화면에 뜨는 대표 검색어로도 찾는다 — 사전형만 받으면 보이는 이름으로 못 찾는다", () => {
+  const nodes = { "깜박이다": { senses: [], axes: [], usage: "" }, "조용하다": { senses: [], axes: [], usage: "" } };
+  const labels = new Map([["깜박이다", "깜박이는"], ["조용하다", "조용한"]]);
+  assert.deepEqual(searchHeads(["조용하다", "깜박이다"], nodes, "깜박이는", 40, labels), ["깜박이다"]);
+  assert.deepEqual(searchHeads(["조용하다", "깜박이다"], nodes, "깜박이다", 40, labels), ["깜박이다"], "사전형으로도");
+});

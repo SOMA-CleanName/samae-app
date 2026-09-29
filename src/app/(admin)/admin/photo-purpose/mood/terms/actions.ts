@@ -8,8 +8,8 @@ const PATH = "/admin/photo-purpose/mood/terms";
 const ACTIONS = new Set<TermAction>(["rename", "drop", "add"]);
 
 /**
- * 검색어 하나를 고친다. 자동 생성분은 건드리지 않고 수정 기록만 덧붙인다 —
- * 어휘를 다시 정리해도 이 기록이 살아남아 다시 덮인다 (docs/40 §9-5 의 교훈).
+ * 검색어 하나를 고친다. 번들은 건드리지 않고 수정 기록만 덧붙인다 —
+ * 모아 둔 기록은 scripts/embed/bake_mood_terms.py 로 번들에 굳히고 비운다.
  */
 export async function editTerm(formData: FormData) {
   const head = String(formData.get("head") ?? "").trim();
@@ -23,11 +23,9 @@ export async function editTerm(formData: FormData) {
   const bundle = await loadTermsBundle();
   if (!bundle.rows.some((row) => row.head === head)) return;
 
-  const note = String(formData.get("note") ?? "").trim().slice(0, 200);
   await appendTermEdit({
     head, term, action,
     ...(action === "rename" ? { to } : {}),
-    ...(note ? { note } : {}),
     at: new Date().toISOString(),
   });
   revalidatePath(PATH);
