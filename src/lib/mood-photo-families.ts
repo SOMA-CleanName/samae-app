@@ -1,5 +1,6 @@
 // 사진 무드 표현 뼈대의 가족(D4) · 큰 무드(D5) — 순수 로직 (docs/40 §16-1 · §16-2 · §17-5, 2026-09-29).
-// build_photo_families.py 가 이웃 그래프를 뭉쳐 만든 것을 읽기만 한다. 가족에는 대표가 없다 — 번호와 식구 묶음, 그리고 사람이 붙인 이름뿐이다.
+// build_photo_families.py 가 이웃 그래프를 뭉쳐 만든 것을 읽기만 한다. 가족에는 대표도 이름도 없다 — 번호와 식구 묶음,
+// 그리고 "무엇을 기준으로 묶였나" 를 적은 글뿐이다(사람 결정, 2026-09-30: 이름을 붙이지 않고 글로 적는다).
 // 축은 가족을 정하는 데 쓰지 않는다(§16-2 4번). 든 묶음의 축을 세어 보여 줄 뿐이다.
 
 /** 다른 가족에 사는데 이 가족에도 제 무게의 share 만큼 걸친 묶음 — 부모는 여럿을 허용한다(§16-2 2번). 대표 부모는 home */
@@ -27,34 +28,42 @@ export type PhotoFamilies = {
   moods: { id: string; families: string[] }[];
 };
 
-/** 사람이 붙인 이름 — mood-edits/photo-family-names.jsonl 에 한 줄씩, 마지막 줄이 이긴다. 빈 이름은 지우기 */
-export type PhotoFamilyName = { id: string; name: string; at: string };
+/** 가족이 무엇을 기준으로 묶였는지 적은 글 — mood-edits/photo-family-notes.json. 적을 때의 식구 목록을 함께 둔다 */
+export type PhotoFamilyNote = { members: string[]; note: string };
 
-/** 마지막 줄만 남긴다. 빈 이름은 뺀다 — 이름을 지운 것이다. */
-export function latestFamilyNames(rows: readonly PhotoFamilyName[]): Map<string, string> {
-  const out = new Map<string, string>();
-  for (const r of rows) {
-    const name = r.name.trim();
-    if (name) out.set(r.id, name);
-    else out.delete(r.id);
-  }
-  return out;
-}
-
-/** 화면에 쓸 이름 — 사람이 붙였으면 그것, 아니면 번호. 식구 중 하나를 대표로 세우지 않는다. */
-export const familyLabel = (f: { id: string }, names: ReadonlyMap<string, string>) => names.get(f.id) ?? f.id.toUpperCase();
+/** 식구가 이만큼 겹치면 같은 가족으로 본다. 다시 뭉치면 번호가 바뀌어도 글이 따라가게 */
+const NOTE_OVERLAP = 0.5;
 
 /**
- * 큰 무드 · 검색 · 축으로 거른다. 검색은 가족 이름 · 식구 묶음 이름 · 손님 이름에 걸린다.
+ * 이 가족의 글. 번호가 아니라 **식구 겹침**으로 짝짓는다 — 다시 뭉치면 번호는 바뀌어도 식구는 대개 남는다.
+ * 가장 많이 겹치는 글을 고르고, 겹침(자카드)이 문턱 밑이면 없다. 식구가 똑같지 않으면 `changed` — 글이 옛 식구 기준이다.
+ */
+export function noteFor(family: { members: readonly string[] }, notes: readonly PhotoFamilyNote[]): { note: string; changed: boolean } | null {
+  const mine = new Set(family.members);
+  let best: { note: PhotoFamilyNote; overlap: number } | null = null;
+  for (const n of notes) {
+    const shared = n.members.filter((m) => mine.has(m)).length;
+    const overlap = shared / (mine.size + n.members.length - shared || 1);
+    if (!best || overlap > best.overlap) best = { note: n, overlap };
+  }
+  if (!best || best.overlap < NOTE_OVERLAP) return null;
+  return { note: best.note.note, changed: best.overlap < 1 };
+}
+
+/** 화면에 쓸 표시 — 번호뿐이다. 식구 중 하나를 대표로 세우지 않는다. */
+export const familyLabel = (f: { id: string }) => f.id.toUpperCase();
+
+/**
+ * 큰 무드 · 검색 · 축으로 거른다. 검색은 식구 묶음 이름 · 손님 이름 · 가족 글에 걸린다.
  * 축은 그 축인 묶음이 하나라도 있는 가족만 — 가족을 축으로 정하지는 않지만 훑을 때는 쓸모가 있다.
  */
-export function selectFamilies(families: readonly PhotoFamily[], names: ReadonlyMap<string, string>,
+export function selectFamilies(families: readonly PhotoFamily[], notes: readonly PhotoFamilyNote[],
   { q, big, axis }: { q?: string; big?: string; axis?: string }) {
   const needle = (q ?? "").trim();
   return families.filter((f) =>
     (!big || f.big === big)
     && (!axis || f.axes.some(([a]) => a === axis))
-    && (!needle || (names.get(f.id) ?? "").includes(needle) || f.members.some((m) => m.includes(needle)) || f.guests.some((g) => g.head.includes(needle))));
+    && (!needle || (noteFor(f, notes)?.note ?? "").includes(needle) || f.members.some((m) => m.includes(needle)) || f.guests.some((g) => g.head.includes(needle))));
 }
 
 /** 큰 무드마다 가족 수 · 묶음 수 · 검색어 수. 가족은 큰 무드 하나에만 든다. */

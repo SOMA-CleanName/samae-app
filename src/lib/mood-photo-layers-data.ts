@@ -3,7 +3,7 @@ import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { ClusterCase, ClusterReview } from "@/lib/mood-cluster";
 import type { Edit, NeighborBundle } from "@/lib/mood-neighbors";
-import type { PhotoFamilies, PhotoFamilyName } from "@/lib/mood-photo-families";
+import type { PhotoFamilies, PhotoFamilyNote } from "@/lib/mood-photo-families";
 
 // 사진 무드 표현 뼈대의 위층(무리 D3 · 이웃 그래프 · 가족 D4) — 사전 묶음 쪽 파일과 따로 둔다(docs/40 §17-5). 전부 커밋되는 자리.
 const EDITS = path.join(process.cwd(), "scripts", "embed", "mood-edits");
@@ -13,7 +13,7 @@ const CLUSTERS = path.join(EDITS, "photo-clusters.json");               // build
 const NEIGHBORS = path.join(EDITS, "photo-neighbors.json");             // judge_photo_neighbors.py
 const NEIGHBOR_EDITS = path.join(EDITS, "photo-neighbor-edits.jsonl");
 const FAMILIES = path.join(EDITS, "photo-families.json");               // build_photo_families.py
-const FAMILY_NAMES = path.join(EDITS, "photo-family-names.jsonl");      // 사람이 붙인 가족 이름
+const FAMILY_NOTES = path.join(EDITS, "photo-family-notes.json");       // 가족이 무엇으로 묶였나 — 이름 대신 글
 
 export type PhotoNeighborBundle = NeighborBundle & { nodes: Record<string, { senses: string[]; axes: string[]; usage: string; members: string[] }> };
 export type PhotoClusters = { reviewed: number; grouped: number; clusters: { members: string[] }[] };
@@ -75,5 +75,12 @@ export async function loadPhotoFamilies(): Promise<PhotoFamilies | null> {
     return null;   // 아직 뭉치지 않았다
   }
 }
-export const loadPhotoFamilyNames = () => jsonl<PhotoFamilyName>(FAMILY_NAMES);
-export const appendPhotoFamilyName = (row: PhotoFamilyName) => append(FAMILY_NAMES, row);
+/** 가족 · 큰 무드의 글. 큰 무드의 식구는 든 가족들의 묶음 전체다 */
+export async function loadPhotoFamilyNotes(): Promise<{ families: PhotoFamilyNote[]; moods: PhotoFamilyNote[] }> {
+  try {
+    const raw = JSON.parse(await readFile(FAMILY_NOTES, "utf8")) as { notes?: PhotoFamilyNote[]; moods?: PhotoFamilyNote[] };
+    return { families: raw.notes ?? [], moods: raw.moods ?? [] };
+  } catch {
+    return { families: [], moods: [] };   // 아직 적지 않았다
+  }
+}

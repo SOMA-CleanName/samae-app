@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { familyLabel, latestFamilyNames, moodTally, selectFamilies, type PhotoFamilies, type PhotoFamily } from "./mood-photo-families";
+import { familyLabel, moodTally, noteFor, selectFamilies, type PhotoFamilies, type PhotoFamily, type PhotoFamilyNote } from "./mood-photo-families";
 
 const fam = (id: string, big: string, members: string[], axes: [string, number][] = [], guests: PhotoFamily["guests"] = []): PhotoFamily =>
   ({ id, big, members, terms: members.length * 2, axes, guests });
@@ -15,30 +15,29 @@ const DATA: PhotoFamilies = {
   moods: [{ id: "m01", families: ["f01", "f02"] }, { id: "m02", families: ["f03"] }],
 };
 
-test("이름은 마지막 줄이 이기고, 빈 이름은 지우기다", () => {
-  const names = latestFamilyNames([
-    { id: "f01", name: "해질녘 빛", at: "1" },
-    { id: "f02", name: "가을", at: "2" },
-    { id: "f01", name: "노을빛", at: "3" },
-    { id: "f02", name: "  ", at: "4" },
-  ]);
-  assert.equal(names.get("f01"), "노을빛");
-  assert.equal(names.has("f02"), false, "빈 이름을 보내면 이름이 사라진다");
+const NOTES: PhotoFamilyNote[] = [
+  { members: ["노을", "골든 아워"], note: "해가 만드는 시간대의 빛" },
+  { members: ["도시 불빛", "네온"], note: "밤 도시의 불빛" },
+];
+
+test("글은 번호가 아니라 식구 겹침으로 짝짓는다 — 다시 뭉쳐 번호가 바뀌어도 따라간다", () => {
+  assert.deepEqual(noteFor(F[0], NOTES), { note: "해가 만드는 시간대의 빛", changed: false });
+  assert.deepEqual(noteFor({ members: ["노을", "골든 아워", "일몰"] }, NOTES), { note: "해가 만드는 시간대의 빛", changed: true }, "식구가 늘면 옛 글이라고 알린다");
+  assert.deepEqual(noteFor(F[2], NOTES), { note: "밤 도시의 불빛", changed: true }, "겹침 1/2 은 문턱에 걸친다");
+  assert.equal(noteFor(F[1], NOTES), null, "겹치는 식구가 없으면 글이 없다");
+  assert.equal(noteFor({ members: ["노을", "a", "b", "c"] }, NOTES), null, "조금만 겹치면 남의 글을 붙이지 않는다");
 });
 
-test("이름이 없으면 번호로 보여 준다 — 식구 하나를 대표로 세우지 않는다", () => {
-  const names = latestFamilyNames([{ id: "f01", name: "노을빛", at: "1" }]);
-  assert.equal(familyLabel(F[0], names), "노을빛");
-  assert.equal(familyLabel(F[2], names), "F03");
+test("표시는 번호뿐이다 — 식구 하나를 대표로 세우지 않는다", () => {
+  assert.equal(familyLabel(F[2]), "F03");
 });
 
-test("큰 무드 · 축 · 검색으로 거른다 — 검색은 가족 이름 · 식구 묶음 · 손님에 걸린다", () => {
-  const names = latestFamilyNames([{ id: "f03", name: "도시 밤", at: "1" }]);
-  const ids = (o: Parameters<typeof selectFamilies>[2]) => selectFamilies(F, names, o).map((f) => f.id);
+test("큰 무드 · 축 · 검색으로 거른다 — 검색은 식구 묶음 · 손님 · 가족 글에 걸린다", () => {
+  const ids = (o: Parameters<typeof selectFamilies>[2]) => selectFamilies(F, NOTES, o).map((f) => f.id);
   assert.deepEqual(ids({ big: "m01" }), ["f01", "f02"]);
   assert.deepEqual(ids({ axis: "빛" }), ["f01"]);
   assert.deepEqual(ids({ q: "단풍" }), ["f02"], "식구 묶음 이름");
-  assert.deepEqual(ids({ q: "도시 밤" }), ["f03"], "사람이 붙인 이름");
+  assert.deepEqual(ids({ q: "시간대의 빛" }), ["f01"], "가족 글");
   assert.deepEqual(ids({ q: "가을 햇살" }), ["f01", "f02"], "손님으로 걸친 가족도 나온다");
   assert.deepEqual(ids({}), ["f01", "f02", "f03"]);
 });
