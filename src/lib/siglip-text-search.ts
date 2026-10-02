@@ -1,6 +1,7 @@
 import "server-only";
 
-import { searchPhotosByTag, type GalleryPhoto } from "@/lib/discovery";
+import { searchPhotosByMoodTiers, searchPhotosByTag, type GalleryPhoto } from "@/lib/discovery";
+import { EXPAND_UNTIL } from "@/lib/mood-expansion";
 import {
   diversifySearchResults,
   normalizeSiglipSearchLimit,
@@ -335,7 +336,8 @@ async function storedResult(
 /**
  * 무드 말의 태그 직접 일치 — 작가가 단 무드 태그·앨범 글 등에 "몽환" 이 그대로 있는 사진(예전 태그 검색).
  * SigLIP 은 한국어 무드 한 낱말을 약하게 읽는다("몽환" → 작가가 몽환이라 단 47장 중 9장만 300위 안).
- * 9/18 에 태그 검색을 뺐다가 무드 검색이 무너져 되살렸다(2026-09-21). 무드 전처리(영어 문구)가 들어오면 다시 본다.
+ * 9/18 에 태그 검색을 뺐다가 무드 검색이 무너져 되살렸다(2026-09-21).
+ * 직접 일치 뒤에 무드 층으로 넓힌 태그 일치를 잇는다(2026-10-01, docs/40 §17-7) — "노을" 직접 4장 → 이웃까지 54장.
  * 작가 태그는 보지 않는다 — 작가 한 명의 사진 전부에 걸린다(2026-09-21).
  * onlyIds — 목적으로 고른 사진 안에서만. 태그 검색이 실패해도 SigLIP 만으로 결과를 낸다.
  */
@@ -347,9 +349,14 @@ async function moodTagMatches(
 ): Promise<GalleryPhoto[]> {
   if (!moodText.trim()) return [];
   try {
-    return await searchPhotosByTag(moodText, {
+    const direct = await searchPhotosByTag(moodText, {
       directOnly: true, limit, signal, failOnError: true, onlyIds, withoutPhotographerTags: true, fromSnapshot: true,
     });
+    // 무드 층으로 넓힌다(docs/40 §17-7) — 같은 묶음 · 무리는 늘, 가족 · 이웃 · 큰 무드는 EXPAND_UNTIL 장이 찰 때까지만
+    const wider = await searchPhotosByMoodTiers(moodText, {
+      room: EXPAND_UNTIL - direct.length, exclude: new Set(direct.map((photo) => photo.id)), onlyIds, signal, failOnError: true,
+    });
+    return [...direct, ...wider].slice(0, limit);
   } catch (error) {
     if (signal.aborted) throw error;
     console.error("[siglip-search] 무드 태그 검색 실패 — SigLIP 만으로:", error);

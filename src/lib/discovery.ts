@@ -10,6 +10,7 @@ import {
   selectPersonalizationAnchors,
 } from "@/lib/feed-personalization";
 import { matchesDirectPhotoMetadata } from "@/lib/search-metadata-core";
+import { findMoodBundles, rankByMoodTiers } from "@/lib/mood-expansion";
 
 // 탐색 갤러리 사진 1장
 export type GalleryPhoto = {
@@ -754,6 +755,22 @@ export async function searchPhotosByTag(
   }
   const primary = await sortPhotosBySearchScore(supabase, scored);
   return appendRelatedPhotos(primary, rows);
+}
+
+/**
+ * 무드 층으로 넓힌 태그 일치(docs/40 §17-7) — 무드 말의 같은 묶음 · 무리는 늘, 가족 · 이웃 · 큰 무드는 room 장까지만.
+ * 사진 태그(mood_tags · generated_tags)와 정확히 같은 말만 맞춘다. 순서는 층 → 맞은 태그 수 (mood-expansion.ts).
+ * exclude — 태그 직접 일치(searchPhotosByTag)로 이미 나온 사진. 무드 말이 사전에 없으면 빈 목록.
+ */
+export async function searchPhotosByMoodTiers(
+  moodText: string,
+  options: { room: number; exclude?: ReadonlySet<string>; onlyIds?: Set<string>; signal?: AbortSignal; failOnError?: boolean },
+): Promise<GalleryPhoto[]> {
+  const bundles = findMoodBundles(moodText);
+  if (!bundles.length) return [];
+  const all = (await snapshotSearchablePhotos()) ?? await fetchAllSearchablePhotos(await createClient(), options);
+  const picked = options.onlyIds ? all.filter((photo) => options.onlyIds!.has(photo.id)) : all;
+  return rankByMoodTiers(picked, bundles, { exclude: options.exclude, room: options.room }).map((r) => r.photo);
 }
 
 // 검색어 정규화 키 — 검색어 로깅/집계의 그룹핑 키로 쓴다(대소문자·띄어쓰기 차이 흡수).
