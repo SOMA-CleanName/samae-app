@@ -6,9 +6,11 @@ import { cn } from "@/lib/cn";
 
 // 첫 줄은 일이 다른 것끼리만 나눈다 — 목적 분류와 무드 어휘(D0~D5)는 서로 다른 일이다(사람 결정, 2026-09-29).
 // 무드 안의 층(검색어 · 묶음 · 무리 · 이웃 · 가족)은 둘째 줄 MoodLayerNav 로 내렸다.
+// 사진 태그(사진마다 붙인 가족 · 큰 무드, docs/47)는 어휘를 만드는 일과 달라 따로 둔다(사람 요청 2026-10-01).
 const pages = [
   { href: "/admin/photo-purpose", label: "목적" },
   { href: "/admin/photo-purpose/mood", label: "무드" },
+  { href: "/admin/photo-purpose/tags", label: "사진 태그" },
   { href: "/admin/photo-purpose/search-probe", label: "검색 점수" },
 ];
 

@@ -50,20 +50,47 @@ export function noteFor(family: { members: readonly string[] }, notes: readonly 
   return { note: best.note.note, changed: best.overlap < 1 };
 }
 
+/**
+ * 큰 무드(D5) · 가족(D4) 이름 — 한 줄씩 쌓인다(사람 결정 2026-10-01: 큰 무드는 사람이 짓고, 가족은 Claude 가 임시로 지은 뒤 사람이 고친다).
+ * 큰 무드 mood-edits/photo-mood-names.jsonl · 가족 photo-family-names.jsonl. 번호는 다시 뭉치면 바뀌므로 **지을 때의 식구 묶음**을 함께 남긴다.
+ * by — 사람이 아니라 Claude 가 지은 임시 이름이면 "claude". 화면에서 저장하면 by 없이 남는다(사람 이름).
+ */
+export type PhotoLayerName = { members: string[]; name: string; at: string; by?: string };
+
+const overlapOf = (a: ReadonlySet<string>, b: readonly string[]) => {
+  const shared = b.filter((m) => a.has(m)).length;
+  return shared / (a.size + b.length - shared || 1);
+};
+
+/**
+ * 이 큰 무드 · 가족의 이름. 식구가 절반 이상 겹치는 기록 중 **마지막 줄**이 이긴다(빈 이름이면 지운 것).
+ * 식구가 똑같지 않으면 `changed` — 이름을 붙인 뒤 다시 뭉쳐 식구가 바뀌었다. `draft` — Claude 가 지은 임시 이름.
+ */
+export function layerNameFor(layer: { members: readonly string[] }, names: readonly PhotoLayerName[]): { name: string; changed: boolean; draft: boolean } | null {
+  const mine = new Set(layer.members);
+  for (let i = names.length - 1; i >= 0; i--) {
+    const overlap = overlapOf(mine, names[i].members);
+    if (overlap < NOTE_OVERLAP) continue;
+    const name = names[i].name.trim();
+    return name ? { name, changed: overlap < 1, draft: names[i].by === "claude" } : null;
+  }
+  return null;
+}
+
 /** 화면에 쓸 표시 — 번호뿐이다. 식구 중 하나를 대표로 세우지 않는다. */
 export const familyLabel = (f: { id: string }) => f.id.toUpperCase();
 
 /**
- * 큰 무드 · 검색 · 축으로 거른다. 검색은 식구 묶음 이름 · 손님 이름 · 가족 글에 걸린다.
+ * 큰 무드 · 검색 · 축으로 거른다. 검색은 가족 이름 · 식구 묶음 이름 · 손님 이름 · 가족 글에 걸린다.
  * 축은 그 축인 묶음이 하나라도 있는 가족만 — 가족을 축으로 정하지는 않지만 훑을 때는 쓸모가 있다.
  */
 export function selectFamilies(families: readonly PhotoFamily[], notes: readonly PhotoFamilyNote[],
-  { q, big, axis }: { q?: string; big?: string; axis?: string }) {
+  { q, big, axis }: { q?: string; big?: string; axis?: string }, nameOf: (f: PhotoFamily) => string = () => "") {
   const needle = (q ?? "").trim();
   return families.filter((f) =>
     (!big || f.big === big)
     && (!axis || f.axes.some(([a]) => a === axis))
-    && (!needle || (noteFor(f, notes)?.note ?? "").includes(needle) || f.members.some((m) => m.includes(needle)) || f.guests.some((g) => g.head.includes(needle))));
+    && (!needle || nameOf(f).includes(needle) || (noteFor(f, notes)?.note ?? "").includes(needle) || f.members.some((m) => m.includes(needle)) || f.guests.some((g) => g.head.includes(needle))));
 }
 
 /** 큰 무드마다 가족 수 · 묶음 수 · 검색어 수. 가족은 큰 무드 하나에만 든다. */

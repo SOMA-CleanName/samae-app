@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { familyLabel, moodTally, noteFor, selectFamilies, type PhotoFamilies, type PhotoFamily, type PhotoFamilyNote } from "./mood-photo-families";
+import { familyLabel, layerNameFor, moodTally, noteFor, selectFamilies, type PhotoFamilies, type PhotoFamily, type PhotoFamilyNote } from "./mood-photo-families";
 
 const fam = (id: string, big: string, members: string[], axes: [string, number][] = [], guests: PhotoFamily["guests"] = []): PhotoFamily =>
   ({ id, big, members, terms: members.length * 2, axes, guests });
@@ -47,4 +47,20 @@ test("큰 무드마다 가족 · 묶음 · 검색어 수를 센다", () => {
     { id: "m01", families: 2, groups: 4, terms: 8 },
     { id: "m02", families: 1, groups: 1, terms: 2 },
   ]);
+});
+
+test("큰 무드 · 가족 이름 — 식구로 짝짓고, 마지막 줄이 이기고, 빈 이름은 지우기다", () => {
+  const sun = { members: ["노을", "골든 아워", "가을 햇살"] };
+  assert.deepEqual(layerNameFor(sun, [{ members: ["노을", "골든 아워", "가을 햇살"], name: "햇살", at: "1" }]), { name: "햇살", changed: false, draft: false });
+  assert.deepEqual(layerNameFor(sun, [
+    { members: ["노을", "골든 아워", "가을 햇살"], name: "햇살", at: "1" },
+    { members: ["노을", "골든 아워"], name: "해 질 녘", at: "2" },
+  ]), { name: "해 질 녘", changed: true, draft: false }, "다시 뭉쳐 식구가 바뀌어도 따라간다");
+  assert.deepEqual(layerNameFor(sun, [{ members: sun.members, name: "햇빛", at: "1", by: "claude" }]),
+    { name: "햇빛", changed: false, draft: true }, "Claude 가 지은 건 임시");
+  assert.equal(layerNameFor(sun, [
+    { members: ["노을", "골든 아워", "가을 햇살"], name: "햇살", at: "1" },
+    { members: ["노을", "골든 아워", "가을 햇살"], name: " ", at: "2" },
+  ]), null, "비우고 저장하면 지워진다");
+  assert.equal(layerNameFor(sun, [{ members: ["도시 불빛", "네온"], name: "시티", at: "1" }]), null, "남의 이름은 안 붙는다");
 });
