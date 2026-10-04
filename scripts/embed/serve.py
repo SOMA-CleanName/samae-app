@@ -20,6 +20,8 @@
   POST /search-query    → {"query": "가을 커플스냅"}
                           {purposes: ["couple"], mood_text: "가을", matched, vector: [1152] | null, model}
                           목적은 떼어 필터로 쓰고, 나머지만 SigLIP 벡터로 만든다(query_parse.py).
+                          mood_families: 나머지와 가까운 사진 뼈대 검색어가 든 가족 [{key, name, score, term}] (KURE, mood_family_match.py)
+                          family_scores: 모든 가족의 가까움 {key: score} — 앱이 비슷한 큰 무드(연관 검색어)를 고른다
                           나머지가 없으면(목적만 검색) vector 는 null 이다.
   POST /embed-text-backfill → {"texts": ["purpose prompt", ...]} (최대 8개, 검색보다 낮은 우선순위)
                           {vectors: [[1152]...], count, infer_ms, model}
@@ -168,6 +170,21 @@ def warm_purpose_nearest():
         return
     _state["nearest"] = nearest
     print(f"✅ 목적 가까움 비교 준비 {time.perf_counter() - t:.1f}s (예시 {len(nearest.examples)}개)", flush=True)
+    warm_family_match(nearest.encode)
+
+
+def warm_family_match(encode):
+    """무드 글자 → 사진 뼈대 검색어 → 가족(mood_family_match.py, KURE). 목적 가까움과 같은 KURE 를 나눠 쓴다.
+    없거나 실패하면 /search-query 가 mood_families 없이 돌고, 앱은 예전 무드 검색으로 간다(docs/47 §9)."""
+    try:
+        from mood_family_match import FamilyMatcher
+        t = time.perf_counter()
+        matcher = FamilyMatcher(encode)
+    except (ImportError, OSError, KeyError, ValueError) as e:
+        print(f"⚠️  무드 가족 찾기 꺼짐 ({type(e).__name__}: {e})", flush=True)
+        return
+    _state["family_match"] = matcher
+    print(f"✅ 무드 가족 찾기 준비 {time.perf_counter() - t:.1f}s (검색어 {len(matcher.terms)}개)", flush=True)
 
 
 def parse_search_query(query):
@@ -485,7 +502,18 @@ class Handler(BaseHTTPRequestHandler):
                 except Exception as e:
                     self._send(500, {"error": f"search-query 실패: {e}"})
                     return
-            self._send(200, {**parsed, "vector": vector, "infer_ms": round(ms, 1), "model": siglip.MODEL_ID})
+            # 무드 글자와 가까운 사진 뼈대 검색어 → 가족(KURE). 실패해도 검색은 돈다 — 앱이 예전 무드 검색으로 간다
+            mood_families, mood_terms, family_scores = [], [], {}
+            matcher = _state.get("family_match")
+            if parsed["mood_text"] and matcher:
+                try:
+                    got = matcher.match(parsed["mood_text"])
+                    mood_families, mood_terms, family_scores = got["families"], got["terms"], got["family_scores"]
+                except Exception as e:
+                    print(f"⚠️  무드 가족 찾기 실패: {e}", flush=True)
+            self._send(200, {**parsed, "vector": vector, "mood_families": mood_families, "mood_terms": mood_terms,
+                             "family_scores": family_scores,
+                             "infer_ms": round(ms, 1), "model": siglip.MODEL_ID})
             return
         if path in ("/embed-text", "/embed-text-backfill"):
             try:

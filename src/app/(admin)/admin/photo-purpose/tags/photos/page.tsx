@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { loadFamilyReviews, loadPhotoMoodLayers, loadPhotoMoodTagEdits, loadPhotoMoodTags } from "@/lib/mood-photo-layers-data";
+import { bigMoodNames } from "@/lib/mood-photo-families";
+import { loadFamilyReviews, loadPhotoMoodLayers, loadPhotoMoodNames, loadPhotoMoodTagEdits, loadPhotoMoodTags } from "@/lib/mood-photo-layers-data";
 import { applyReview, droppedTags, latestReviews, listTaggedPhotos, tagId, type PhotoSort } from "@/lib/mood-photo-tags";
 import { loadThumbs, PhotoThumb, TagButton } from "../parts";
 
@@ -14,7 +15,7 @@ type Params = { sort?: string; big?: string; p?: string; seed?: string };
  */
 export default async function PhotoTagBrowsePage({ searchParams }: { searchParams: Promise<Params> }) {
   const params = await searchParams;
-  const [layers, tags, edits, reviewRows] = await Promise.all([loadPhotoMoodLayers(), loadPhotoMoodTags(), loadPhotoMoodTagEdits(), loadFamilyReviews()]);
+  const [layers, tags, edits, reviewRows, moodNames] = await Promise.all([loadPhotoMoodLayers(), loadPhotoMoodTags(), loadPhotoMoodTagEdits(), loadFamilyReviews(), loadPhotoMoodNames()]);
   if (!layers || !tags) {
     return <p className="rounded-xl border border-line p-8 text-center text-muted">아직 태그를 만들지 않았습니다 — <code className="text-fg">py tag_photo_moods.py</code></p>;
   }
@@ -31,7 +32,7 @@ export default async function PhotoTagBrowsePage({ searchParams }: { searchParam
   const thumbs = await loadThumbs(shown);
 
   const famName = new Map(layers.families.map((f) => [f.key, f.name]));
-  const bigName = new Map(layers.moods.map((m) => [m.key, m.name]));
+  const bigName = bigMoodNames(layers, moodNames);
   const famBig = new Map(layers.families.map((f) => [f.key, f.big]));
   const url = (changes: Params) => `${BASE}?${new URLSearchParams(Object.entries({ sort, big, seed: sort === "random" ? String(seed) : "", ...changes }).filter(([, v]) => v))}`;
   const pages = Math.ceil(all.length / PAGE);
@@ -58,7 +59,7 @@ export default async function PhotoTagBrowsePage({ searchParams }: { searchParam
           className={`rounded-lg border px-2.5 py-1 text-caption ${!big ? "border-fg text-fg" : "border-line text-muted hover:text-fg"}`}>전체</Link>
         {layers.moods.map((m) => (
           <Link key={m.key} href={url({ big: m.key, p: "" })} aria-current={big === m.key ? "true" : undefined}
-            className={`rounded-lg border px-2.5 py-1 text-caption ${big === m.key ? "border-fg text-fg" : "border-line text-muted hover:text-fg"}`}>{m.name}</Link>
+            className={`rounded-lg border px-2.5 py-1 text-caption ${big === m.key ? "border-fg text-fg" : "border-line text-muted hover:text-fg"}`}>{bigName.get(m.key)}</Link>
         ))}
       </nav>
 

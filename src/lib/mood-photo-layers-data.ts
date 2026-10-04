@@ -125,3 +125,21 @@ export const loadFamilyPromptKoEdits = () => jsonl<FamilyPromptKoEdit>(FAMILY_PR
 export const appendFamilyPromptKoEdit = (row: FamilyPromptKoEdit) => append(FAMILY_PROMPT_KO_EDITS, row);
 export const loadBandConfirms = () => jsonl<BandConfirm>(TAG_CONFIRMED);
 export const appendBandConfirm = (row: BandConfirm) => append(TAG_CONFIRMED, row);
+
+// 검색이 읽는 가족 → 사진 색인(docs/47 §9). 검수 · 이름을 저장할 때마다 다시 쓴다 — 검색이 늘 지금 검수를 본다.
+const FAMILY_INDEX = path.join(process.cwd(), "src", "lib", "mood-family-photos.json");
+
+/** 색인을 다시 쓴다. 실패해도(읽기 전용 배포 등) 저장한 검수는 그대로다 — 기록만 남긴다. */
+export async function writeFamilyIndex(): Promise<void> {
+  try {
+    const { buildFamilyIndex } = await import("@/lib/mood-family-index");
+    const [layers, tags, edits, confirmRows, familyNames, moodNames] = await Promise.all([
+      loadPhotoMoodLayers(), loadPhotoMoodTags(), loadPhotoMoodTagEdits(), loadBandConfirms(), loadPhotoFamilyNames(), loadPhotoMoodNames(),
+    ]);
+    if (!layers || !tags) return;
+    const index = buildFamilyIndex({ layers, tags, edits, confirmRows, familyNames, moodNames, now: new Date().toISOString() });
+    await writeFile(FAMILY_INDEX, JSON.stringify(index), "utf8");
+  } catch (error) {
+    console.error("[mood] 가족 → 사진 색인 쓰기 실패:", error);
+  }
+}

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import {
+  writeFamilyIndex,
   appendBandConfirm, appendFamilyPromptEdit, appendFamilyPromptKoEdit, appendFamilyReview, appendPhotoMoodTagEdit, loadFamilyPromptDrafts, loadFamilyPromptEdits,
   loadBandConfirms, loadFamilyPromptKoDrafts, loadFamilyPromptKoEdits, loadPhotoMoodLayers, loadPhotoMoodTagEdits, loadPhotoMoodTags,
 } from "@/lib/mood-photo-layers-data";
@@ -28,6 +29,7 @@ export async function editPhotoMoodTag(formData: FormData) {
   const has = layer === "family" ? row?.families.some(([k]) => k === key) : row?.moods.some(([k]) => k === key);
   if (!has) return;                                      // 붙지 않은 태그를 빼면 기록만 쌓인다
   await appendPhotoMoodTagEdit({ photo, layer, key, action, at: new Date().toISOString() });
+  await writeFamilyIndex();                                   // 검색이 읽는 색인(docs/47 §9)
   revalidatePath("/admin/photo-purpose/tags", "layout");
 }
 
@@ -165,6 +167,7 @@ export async function confirmBand(formData: FormData) {
   const fresh = inBand(rows, band).filter((r) => !r.dropped).map((r) => r.photo);
   const prev = before.get(key)?.get(band) ?? [];
   await appendBandConfirm({ key, band, photos: [...new Set([...prev, ...fresh])], at: new Date().toISOString() });
+  await writeFamilyIndex();                                   // 검색이 읽는 색인(docs/47 §9)
   revalidatePath("/admin/photo-purpose/tags", "layout");
   const next = nextBand(rows.filter((r) => !fresh.includes(r.photo)));
   redirect(`/admin/photo-purpose/tags?key=${key}${next === null ? "&show=done" : `&band=${next}`}`);
@@ -178,6 +181,7 @@ export async function undoBand(formData: FormData) {
   const band = Number(formData.get("band"));
   if (!BANDS.includes(band as (typeof BANDS)[number])) return;
   await appendBandConfirm({ key, band, photos: null, at: new Date().toISOString() });
+  await writeFamilyIndex();                                   // 검색이 읽는 색인(docs/47 §9)
   revalidatePath("/admin/photo-purpose/tags", "layout");
 }
 
@@ -197,5 +201,6 @@ export async function dropBand(formData: FormData) {
   const rows = inBand(photosWithTag(tags, "family", key, droppedTags(edits)), band).filter((r) => (action === "drop" ? !r.dropped : r.dropped));
   const at = new Date().toISOString();
   for (const r of rows) await appendPhotoMoodTagEdit({ photo: r.photo, layer: "family", key, action, at });
+  await writeFamilyIndex();                                   // 검색이 읽는 색인(docs/47 §9)
   revalidatePath("/admin/photo-purpose/tags", "layout");
 }

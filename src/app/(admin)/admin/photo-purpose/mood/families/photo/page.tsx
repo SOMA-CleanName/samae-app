@@ -1,6 +1,7 @@
 import Link from "next/link";
+import { Fragment } from "react";
 import { AXES, AXIS_TONE } from "@/lib/mood-axes";
-import { familyLabel, layerNameFor, moodTally, noteFor, selectFamilies, type PhotoFamily } from "@/lib/mood-photo-families";
+import { clustersIn, familyLabel, layerNameFor, moodTally, noteFor, selectFamilies, type PhotoFamily } from "@/lib/mood-photo-families";
 import {
   loadFamilyPromptDrafts, loadFamilyPromptEdits, loadFamilyPromptKoDrafts, loadFamilyPromptKoEdits, loadPhotoClusters, loadPhotoFamilies, loadPhotoFamilyNames, loadPhotoFamilyNotes,
   loadPhotoMoodLayers, loadPhotoMoodNames, loadPhotoNeighborBundle,
@@ -65,7 +66,10 @@ export default async function MoodPhotoFamiliesPage({ searchParams }: { searchPa
   const familyTitle = (f: PhotoFamily) => familyName(f)?.name ?? familyLabel(f);
   const draftNames = data.families.filter((f) => familyName(f)?.draft).length;
   const rows = selectFamilies(data.families, notes, { q, big, axis }, (f) => familyName(f)?.name ?? "");
-  const named = data.moods.filter((m) => moodName(m.id)).length;
+  const drafted = data.moods.filter((m) => moodName(m.id)?.draft).length;
+  const held = data.families.filter((f) => !f.big);                // 큰 무드에서 잠시 뺀 가족(사람 결정 2026-10-04: 저대비)
+  const bigTitle = (id: string) => (id ? moodName(id)?.name ?? id.toUpperCase() : "보류");
+  const moodOrder = new Map(data.moods.map((m, i) => [m.id, i]));
   const inCluster = new Map<string, string[]>();
   for (const c of clusters?.clusters ?? []) for (const m of c.members) inCluster.set(m, c.members.filter((x) => x !== m));
 
@@ -74,8 +78,9 @@ export default async function MoodPhotoFamiliesPage({ searchParams }: { searchPa
       {head}
       <p className="mt-1 text-body-sm text-muted">
         {big2
-          ? <>가족 {data.families.length}개를 가족끼리의 무게로 한 번 더 뭉친 <b className="text-fg">큰 무드 {data.moods.length}개</b>입니다 — 가족이 통째로 들어가 층이 어긋나지 않습니다.
-            기준은 &ldquo;같은 칸에 놓여도 납득되고, 사진에서 눈으로 구분된다&rdquo; 입니다. <b className="text-fg">이름은 사람이 짓습니다</b>({named}/{data.moods.length}개 — 카드 아래 이름 칸).</>
+          ? <>가족 {data.families.length}개를 <b className="text-fg">말 · 검색 의도로</b> 다시 묶은 <b className="text-fg">큰 무드 {data.moods.length}개</b>입니다(2026-10-04) — 사진이 닮았는지가 아니라
+            &ldquo;이 무드를 찾는 사람이 함께 바라는 분위기&rdquo; 로 묶었습니다(비 오는 날 → 고요한 · 차분한). 가족이 통째로 들어가 층이 어긋나지 않습니다.
+            <b className="text-fg">이름은 Claude 임시</b>({drafted}/{data.moods.length}개 — 카드 아래 이름 칸에서 고치면 사람 이름이 됩니다). 큰 무드 없이 보류한 가족 {held.length}개는 맨 아래.</>
           : <>이웃 그래프(묶음 {groups.toLocaleString("ko-KR")} · 검색어 {terms.toLocaleString("ko-KR")})를 무게 주어 뭉친 <b className="text-fg">가족 {data.families.length}개</b>입니다 —
             판정이 셀수록, 벡터가 가까울수록 무겁게 하고 이웃이 많은 묶음은 낮췄습니다. 같은 무리는 늘 한 가족에 남습니다.
             가족은 축과 상관없이 뭉칩니다 — 축은 결과로 따라와 세어 보여 줄 뿐입니다.</>}
@@ -99,6 +104,7 @@ export default async function MoodPhotoFamiliesPage({ searchParams }: { searchPa
                 <div className="flex flex-wrap items-baseline gap-2">
                   <strong className="text-body font-semibold">{moodName(m.id)?.name ?? familyLabel({ id: m.id })}</strong>
                   {moodName(m.id) && <span className="text-caption text-muted">{familyLabel({ id: m.id })}</span>}
+                  {moodName(m.id)?.draft && <span className="rounded-lg border border-line px-2 py-0.5 text-caption text-muted">임시</span>}
                   {moodName(m.id)?.changed && <span className="text-caption text-muted">(이름을 붙인 뒤 식구가 바뀌었습니다)</span>}
                   {[...axes].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([name, n]) => (
                     <span key={name} className={`rounded-lg border px-2 py-0.5 text-caption ${AXIS_TONE[name] ?? "border-line"}`}>{name} {n}</span>
@@ -106,16 +112,16 @@ export default async function MoodPhotoFamiliesPage({ searchParams }: { searchPa
                   <span className="ml-auto text-caption text-muted tabular-nums">가족 {m.families} · 묶음 {m.groups} · 검색어 {m.terms}</span>
                 </div>
                 <FamilyNote found={noteFor({ members: moodMembers.get(m.id) ?? [] }, allNotes.moods)} />
-                <ul className="mt-3 flex flex-wrap items-center gap-2">
+                {/* 가족마다 든 무리(D3) — 같은 무리는 ≈ 로 이은 한 칸, 무리에 안 든 묶음은 혼자 한 칸 */}
+                <ul className="mt-3 space-y-2">
                   {inside.map((f) => (
-                    <li key={f.id}>
+                    <li key={f.id} className="flex flex-wrap items-baseline gap-1.5">
                       <Link href={`${BASE}?big=${m.id}&q=${encodeURIComponent(f.members[0] ?? "")}`}
-                        className="flex items-baseline gap-1.5 rounded-xl border border-line px-3 py-1.5 hover:border-fg/40"
-                        title={noteFor(f, notes)?.note ?? f.members.slice(0, 8).join(" · ")}>
-                        <b className="text-body-sm font-medium">{familyTitle(f)}</b>
-                        <span className="text-caption text-muted">{f.members.slice(0, 3).join(" · ")}</span>
-                        <span className="text-caption text-muted tabular-nums">{f.members.length}</span>
+                        className="mr-1 rounded-xl border border-fg/30 px-3 py-1 text-body-sm font-semibold hover:border-fg/60"
+                        title={noteFor(f, notes)?.note ?? ""}>
+                        {familyTitle(f)} <span className="text-caption font-normal tabular-nums text-muted">{familyLabel(f)}</span>
                       </Link>
+                      <MemberClusters members={f.members} clusters={clusters?.clusters ?? []} />
                     </li>
                   ))}
                 </ul>
@@ -131,6 +137,22 @@ export default async function MoodPhotoFamiliesPage({ searchParams }: { searchPa
               </li>
             );
           })}
+          {held.length > 0 && (
+            <li className="rounded-xl border border-dashed border-line p-4">
+              <strong className="text-body font-semibold">보류</strong>
+              <span className="ml-2 text-caption text-muted">큰 무드에 넣지 않고 잠시 뺀 가족 — 사진 태그의 큰 무드도 물려받지 않습니다</span>
+              <ul className="mt-3 flex flex-wrap items-center gap-2">
+                {held.map((f) => (
+                  <li key={f.id}>
+                    <Link href={`${BASE}?q=${encodeURIComponent(f.members[0] ?? "")}`} className="flex items-baseline gap-1.5 rounded-xl border border-line px-3 py-1.5 hover:border-fg/40">
+                      <b className="text-body-sm font-medium">{familyTitle(f)}</b>
+                      <span className="text-caption text-muted">{f.members.slice(0, 3).join(" · ")}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </li>
+          )}
         </ul>
       )}
 
@@ -155,21 +177,43 @@ export default async function MoodPhotoFamiliesPage({ searchParams }: { searchPa
       </nav>
 
       <p className="mb-4 text-body-sm text-muted">
-        <b className="text-fg tabular-nums">{rows.length}</b>개 가족 · 식구 많은 순
-        {big && <> · 큰 무드 {moodName(big)?.name ?? big.toUpperCase()}</>}{axis && <> · {axis} 축이 든 가족</>}
+        <b className="text-fg tabular-nums">{rows.length}</b>개 가족 · 큰 무드 순으로 묶어 봅니다
+        {big && <> · 큰 무드 {bigTitle(big)}</>}{axis && <> · {axis} 축이 든 가족</>}
       </p>
 
       {rows.length === 0 && <p className="rounded-xl border border-line p-8 text-center text-muted">해당하는 가족이 없습니다.</p>}
 
       <ul className="space-y-3">
-        {rows.map((f) => (
-          <li key={f.id} className="rounded-xl border border-line p-4">
+        {[...rows].sort((a, b) => (moodOrder.get(a.big) ?? 999) - (moodOrder.get(b.big) ?? 999)).map((f, i, all) => (
+          <Fragment key={f.id}>
+          {(i === 0 || all[i - 1].big !== f.big) && (
+            <li className="pt-4 first:pt-0">
+              <div className="flex flex-wrap items-baseline gap-2 border-b border-line pb-1.5">
+                <h3 className="text-h3 font-semibold">{bigTitle(f.big)}</h3>
+                {f.big && moodName(f.big)?.draft && <span className="text-caption text-muted">임시 이름</span>}
+                <span className="text-caption text-muted">{all.filter((x) => x.big === f.big).length}개 가족</span>
+                <span className="text-body-sm text-muted">{f.big ? noteFor({ members: moodMembers.get(f.big) ?? [] }, allNotes.moods)?.note : "큰 무드에서 잠시 뺀 가족"}</span>
+              </div>
+              {f.big && (
+                <form action={nameBigMood} className="mt-2 flex flex-wrap items-center gap-2">
+                  <input type="hidden" name="id" value={f.big} />
+                  <input key={`${f.big}-${moodName(f.big)?.name ?? ""}`} name="name" defaultValue={moodName(f.big)?.name ?? ""} maxLength={30}
+                    aria-label={`${f.big.toUpperCase()} 큰 무드 이름`} placeholder="이름 짓기"
+                    className="w-56 rounded-xl border-2 border-danger bg-bg px-3 py-1.5 text-body-sm" />
+                  <button className="rounded-xl border border-line px-3 py-1.5 text-body-sm hover:border-fg/40">큰 무드 이름 저장</button>
+                </form>
+              )}
+            </li>
+          )}
+          <li className="rounded-xl border border-line p-4">
             <div className="flex flex-wrap items-baseline gap-2">
               <strong className="text-body font-semibold">{familyTitle(f)}</strong>
               {familyName(f) && <span className="text-caption text-muted">{familyLabel(f)}</span>}
               {familyName(f)?.draft && <span className="rounded-lg border border-line px-2 py-0.5 text-caption text-muted">임시</span>}
               {familyName(f)?.changed && <span className="text-caption text-muted">(이름을 붙인 뒤 식구가 바뀌었습니다)</span>}
-              <Link href={url({ big: f.big })} className="rounded-lg border border-line px-2 py-0.5 text-caption text-muted hover:text-fg">{moodName(f.big)?.name ?? f.big.toUpperCase()}</Link>
+              {f.big
+                ? <Link href={url({ big: f.big })} className="rounded-lg border border-line px-2 py-0.5 text-caption text-muted hover:text-fg">{bigTitle(f.big)}</Link>
+                : <span className="rounded-lg border border-dashed border-line px-2 py-0.5 text-caption text-muted">큰 무드 보류</span>}
               {f.axes.slice(0, 4).map(([name, n]) => (
                 <Link key={name} href={url({ axis: name })} className={`rounded-lg border px-2 py-0.5 text-caption ${AXIS_TONE[name] ?? "border-line"}`}>{name} {n}</Link>
               ))}
@@ -245,11 +289,25 @@ export default async function MoodPhotoFamiliesPage({ searchParams }: { searchPa
               <span className="text-caption text-muted">비우고 저장하면 이름을 지웁니다</span>
             </form>
           </li>
+          </Fragment>
         ))}
       </ul>
       </>
       )}
     </section>
+  );
+}
+
+/** 가족 식구를 무리로 — 무리는 ≈ 로 이어 한 칸, 혼자인 묶음은 흐린 칸 */
+function MemberClusters({ members, clusters }: { members: readonly string[]; clusters: readonly { members: readonly string[] }[] }) {
+  return (
+    <>
+      {clustersIn(members, clusters).map((g) => (
+        <span key={g.join("|")} className={`rounded-lg border px-2 py-0.5 text-caption ${g.length > 1 ? "border-brand/50 text-fg" : "border-line text-muted"}`}>
+          {g.join(" ≈ ")}
+        </span>
+      ))}
+    </>
   );
 }
 

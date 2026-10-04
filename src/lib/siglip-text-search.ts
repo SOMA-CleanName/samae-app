@@ -2,8 +2,17 @@ import "server-only";
 
 import { searchPhotosByMoodTiers, searchPhotosByTag, type GalleryPhoto } from "@/lib/discovery";
 import { EXPAND_UNTIL } from "@/lib/mood-expansion";
+import familyIndex from "@/lib/mood-family-photos.json" with { type: "json" };
+import duplicatePhotos from "@/lib/duplicate-photos.json" with { type: "json" };
 import {
+  arrangeFamilyPhotos,
   diversifySearchResults,
+  dropDuplicatePhotos,
+  FILL_MIN,
+  FILL_TARGET,
+  fillFamilyOrder,
+  planMoodSearch,
+  purposeMoodSuggestions,
   normalizeSiglipSearchLimit,
   orderVectorMatches,
   pickByGender,
@@ -19,7 +28,9 @@ import {
   splitByZ,
   type PhotoGender,
   type PhotoPurposeKey,
+  type MoodLayersForSearch,
   type SearchQueryParse,
+  type SearchSuggestion,
 } from "@/lib/siglip-text-search-core";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PHOTO_SEARCH_TIMEOUT_MS } from "@/lib/photo-search-state";
@@ -304,6 +315,7 @@ async function searchByGender(
 
 /** 태그로 고른 사진 — 남은 말(무드)이 있으면 그 안에서 가까운 순 300장, 없으면 전부(포트폴리오 고르게). */
 async function storedResult(
+  query: string,
   parsed: SearchQueryParse,
   stored: SearchPhoto[],
   limit: number,
@@ -315,7 +327,10 @@ async function storedResult(
     const mixed = parsed.purposes.length > 1 && !stored.every((photo) =>
       parsed.purposes.every((purpose) => (photo.admin_purposes ?? []).includes(purpose)));
     const matches = mixed ? stored : spreadPortfolios(stored);
-    return { purposes: parsed.purposes, moodText: parsed.moodText, matches, related: [], capped: false, arranged: mixed };
+    // 연관 무드 — 커플 · 웨딩 등은 그 목적 사진이 가장 많은 가족, 개인 · 목적 없음은 고른 무드(docs/47 §11). 누르면 검색어를 붙인다
+    const suggestions = purposeMoodSuggestions(parsed.purposes, stored, familyIndex as FamilyIndex)
+      .map((s) => ({ ...s, q: `${s.label} ${query}`.trim() }));
+    return { purposes: parsed.purposes, moodText: parsed.moodText, matches, related: [], capped: false, arranged: mixed, suggestions };
   }
   // 남은 말("여자 노을" 의 노을)은 그 사진들 안에서 무드 순으로, 위에서 300장 — 태그 직접 일치와 SigLIP 을 섞는다
   const allowed = new Set(stored.map((photo) => photo.id));
@@ -401,7 +416,13 @@ export type PhotoSearchResult = {
   capped: boolean;
   /** 순서를 이미 짰다 — 화면이 앨범 흩뜨리기로 다시 섞지 않는다(목적을 번갈아 섞은 경우) */
   arranged?: boolean;
+  /** 무드 검색(docs/47 §10) — 정확한 검색이면 family(그 가족만), 애매하면 big(큰 무드 전체). 잡힌 가족 이름 */
+  mood?: { mode: "family" | "big"; families: string[]; /** 모자라 채운 비슷한 무드(가까운 순) */ filled?: string[] };
+  /** 연관 검색어 — 같은 큰 무드 가족 먼저, 그 뒤 비슷한 큰 무드 · 가족. q 는 누르면 갈 검색어 */
+  suggestions?: SearchSuggestion[];
 };
+
+export type { SearchSuggestion } from "@/lib/siglip-text-search-core";
 
 /**
  * 검색어를 목적과 무드로 나눠 찾는다.
@@ -419,6 +440,15 @@ export async function searchPhotos(
   limit = DEFAULT_LIMIT,
   signal = AbortSignal.timeout(PHOTO_SEARCH_TIMEOUT_MS),
 ): Promise<PhotoSearchResult> {
+  // 같은 사진(여러 앨범에 같은 파일)은 결과에 한 번만 — 위 목록에 나온 것은 아래 "비슷한 무드" 에서도 뺀다
+  const result = await findPhotos(query, limit, signal);
+  const duplicates = duplicatePhotos.duplicates as Record<string, string>;
+  const matches = dropDuplicatePhotos(result.matches, duplicates);
+  const related = dropDuplicatePhotos(result.related, duplicates, matches.map((photo) => photo.id));
+  return { ...result, matches, related };
+}
+
+async function findPhotos(query: string, limit: number, signal: AbortSignal): Promise<PhotoSearchResult> {
   const parsed = await requestSearchQuery(query, {
     baseUrl: embedBaseUrl(),
     token: process.env.PERSONA_SERVICE_TOKEN,
@@ -435,11 +465,15 @@ export async function searchPhotos(
   }
   if (!parsed) throw new Error("검색어 분리·임베딩을 받지 못했습니다");
 
+  // 무드가 사진 뼈대 검색어와 닿으면 그 가족에 확정된 사진으로(docs/47 §9). 0장이면 아래 예전 무드 검색으로
+  const byFamily = await familySearch(query, parsed, signal);
+  if (byFamily) return byFamily;
+
   // 목적이 있거나 무드도 없으면("스냅") — 목적·세부분류·성별에 맞는 사진을 고르고, 무드로 줄 세운다.
   // 목적만이면 전부(300장에서 자르지 않는다), 무드가 붙으면 그 안에서 가까운 순 300장.
   if (parsed.purposes.length || !parsed.vector) {
     const picked = await photosForTags(parsed, signal);
-    if (picked) return storedResult(parsed, picked, limit, signal);
+    if (picked) return storedResult(query, parsed, picked, limit, signal);
   }
 
   // ── 여기부터는 성별·세부분류 칸(0132·0133)이 없는 DB 의 옛 길 ──
@@ -452,6 +486,75 @@ export async function searchPhotos(
   if (!parsed.vector) return { purposes: parsed.purposes, moodText: "", matches: [], related: [], capped: false };
 
   return searchByVector({ ...parsed, vector: parsed.vector }, limit, signal);
+}
+
+type FamilyIndex = MoodLayersForSearch & { photos: string[]; families: Record<string, number[]> };
+
+/**
+ * 무드 검색(사람 결정 2026-10-04, docs/47 §9 · §10) — 맥미니가 무드 글자와 가장 가까운 사진 뼈대 검색어를 KURE 로 찾아
+ * 그 검색어가 든 가족(D4)을 준다. 사진은 그 가족에 **확정된 사진**(mood-family-photos.json), 홈 피드처럼 포트폴리오를 섞는다.
+ *
+ *   "비 오는 날"   → 정확한 검색 — 비 오는 날 가족만. 목적이 없으니 개인 스냅부터, 그 뒤 다른 목적
+ *   "가을 감성"    → 정확한 검색 둘 — 가을 스냅 · 감성, 둘 다에 든 사진이 맨 위
+ *   "고즈넉한"     → 애매한 검색 — 잡힌 가족(아늑한 …)의 **큰 무드** 사진 전부, 잡힌 가족이 먼저
+ *   "비 오는 날 커플" → 커플 사진 중에서만(세부분류 · 성별도 거른다)
+ *
+ * 연관 검색어 — 같은 큰 무드의 가족들, 그 뒤 비슷한 큰 무드 · 가족 몇 개(planMoodSearch). 누르면 목적 말을 붙여 다시 검색한다.
+ * 가족이 없거나(갱신 전 맥미니 · KURE 없음) 남는 사진이 없으면 null — 예전 무드 검색(태그 + SigLIP)으로 간다.
+ */
+async function familySearch(query: string, parsed: SearchQueryParse, signal: AbortSignal): Promise<PhotoSearchResult | null> {
+  const hits = parsed.moodFamilies ?? [];
+  if (!parsed.moodText || !hits.length) return null;
+  const index = familyIndex as FamilyIndex;
+  const plan = planMoodSearch(hits, parsed.familyScores ?? {}, index, parsed.moodText);
+  const photosOf = (key: string) => (index.families[key] ?? []).map((i) => index.photos[i]);
+  // 채울 후보 — 잡힌 가족에 (그 목적) 사진이 적으면 비슷한 무드부터 잇는다(docs/47 §12). 불러올 양을 묶으려 앞쪽만
+  const fill = fillFamilyOrder([...plan.primary, ...plan.secondary], parsed.familyScores ?? {}, index).slice(0, 16);
+  const ids = [...new Set([...plan.primary, ...plan.secondary, ...fill].flatMap(photosOf))];
+  if (!ids.length) return null;
+
+  let rows: SearchPhoto[];
+  if (parsed.purposes.length) {
+    const picked = await photosForTags(parsed, signal);     // 목적 · 세부분류 · 성별에 맞는 사진
+    if (!picked) return null;
+    const wanted = new Set(ids);
+    rows = picked.filter((photo) => wanted.has(photo.id));
+  } else {
+    rows = await loadPhotosInOrder(ids.map((id) => ({ id, distance: 0 })), signal);
+  }
+  // 잡힌 가족 먼저, 같은 큰 무드의 나머지가 뒤 — 각각 포트폴리오를 섞는다
+  const ordered: SearchPhoto[] = [];
+  const taken = new Set<string>();
+  const add = (families: string[]) => {
+    const next = arrangeFamilyPhotos(families.map(photosOf), rows.filter((photo) => !taken.has(photo.id)), { personalFirst: false });
+    for (const photo of next) taken.add(photo.id);
+    ordered.push(...next);
+  };
+  add(plan.primary);
+  add(plan.secondary);
+  // 모자라면(그 목적 사진이 없는 무드 — "몽환 커플") 아무 사진이 아니라 가장 비슷한 무드부터, 한 가족씩 이어 붙인다
+  const filled: string[] = [];
+  if (ordered.length < FILL_MIN) {
+    for (const key of fill) {
+      if (ordered.length >= FILL_TARGET) break;
+      const before = ordered.length;
+      add([key]);
+      if (ordered.length > before) filled.push(key);
+    }
+  }
+  // 목적이 없으면 개인 사진을 먼저(순서는 지킨다)
+  const isPersonal = (photo: SearchPhoto) => (photo.admin_purposes ?? []).includes("personal");
+  const matches = parsed.purposes.length ? ordered : [...ordered.filter(isPersonal), ...ordered.filter((photo) => !isPersonal(photo))];
+  if (!matches.length) return null;
+
+  // 연관 검색어를 누르면 목적 말("커플 스냅")은 그대로 두고 무드만 바꿔 검색한다
+  const rest = query.replace(parsed.moodText, " ").replace(/\s+/g, " ").trim();
+  const suggestions = plan.suggestions.map((s) => ({ ...s, q: [s.label.replace(/·/g, " "), rest].filter(Boolean).join(" ") }));
+  return {
+    purposes: parsed.purposes, moodText: parsed.moodText, matches, related: [], capped: false, arranged: true,
+    mood: { mode: plan.mode, families: plan.primary.map((key) => index.names[key] ?? key), filled: filled.map((key) => index.names[key] ?? key) },
+    suggestions,
+  };
 }
 
 async function searchByVector(

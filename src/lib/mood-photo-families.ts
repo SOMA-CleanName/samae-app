@@ -77,6 +77,35 @@ export function layerNameFor(layer: { members: readonly string[] }, names: reado
   return null;
 }
 
+/**
+ * 굳힌 층(v1)의 큰 무드 이름 — 이름 기록(photo-mood-names.jsonl)에서 식구로 짝지은 마지막 이름, 없으면 층에 적힌 이름.
+ * 화면에서 이름을 고치면 사진 태그 화면에도 바로 따라온다(사람 요청 2026-10-04).
+ */
+export function bigMoodNames(layers: { families: readonly { key: string; bundles: readonly string[] }[]; moods: readonly { key: string; name: string; families: readonly string[] }[] },
+  names: readonly PhotoLayerName[]): Map<string, string> {
+  const bundles = new Map(layers.families.map((f) => [f.key, f.bundles]));
+  return new Map(layers.moods.map((m) => [m.key, layerNameFor({ members: m.families.flatMap((k) => bundles.get(k) ?? []) }, names)?.name ?? m.name]));
+}
+
+/**
+ * 가족 식구(D2 묶음)를 무리(D3)로 모은다 — 같은 무리인 묶음은 한 덩어리, 무리에 안 든 묶음은 혼자. 식구 순서를 지킨다.
+ * 큰 무드 화면에서 "이 큰 무드에 어떤 무리가 들었나" 를 보여 준다(사람 요청 2026-10-04).
+ */
+export function clustersIn(members: readonly string[], clusters: readonly { members: readonly string[] }[]): string[][] {
+  const mine = new Set(members);
+  const of = new Map<string, readonly string[]>();
+  for (const c of clusters) for (const m of c.members) of.set(m, c.members);
+  const seen = new Set<string>();
+  const out: string[][] = [];
+  for (const m of members) {
+    if (seen.has(m)) continue;
+    const group = (of.get(m) ?? [m]).filter((x) => mine.has(x) && !seen.has(x));
+    for (const x of group) seen.add(x);
+    out.push(group.length ? group : [m]);
+  }
+  return out;
+}
+
 /** 화면에 쓸 표시 — 번호뿐이다. 식구 중 하나를 대표로 세우지 않는다. */
 export const familyLabel = (f: { id: string }) => f.id.toUpperCase();
 

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
-import { appendPhotoFamilyName, appendPhotoMoodName, loadPhotoFamilies } from "@/lib/mood-photo-layers-data";
+import { writeFamilyIndex, appendPhotoFamilyName, appendPhotoMoodName, loadPhotoFamilies } from "@/lib/mood-photo-layers-data";
 
 /**
  * 큰 무드(D5)에 이름 붙이기 — 사람이 직접 짓는다(사람 결정 2026-10-01).
@@ -20,7 +20,9 @@ export async function nameBigMood(formData: FormData) {
   const members = mood.families.flatMap((fid) => byId.get(fid)?.members ?? []);
   const name = String(formData.get("name") ?? "").trim().slice(0, 30);
   await appendPhotoMoodName({ members, name, at: new Date().toISOString() });
+  await writeFamilyIndex();                                   // 검색이 읽는 색인(docs/47 §9)
   revalidatePath("/admin/photo-purpose/mood/families/photo");
+  revalidatePath("/admin/photo-purpose/tags", "layout");      // 사진 태그 화면도 같은 이름 기록을 읽는다
 }
 
 /**
@@ -35,5 +37,6 @@ export async function nameFamily(formData: FormData) {
   if (!family) return;
   const name = String(formData.get("name") ?? "").trim().slice(0, 30);
   await appendPhotoFamilyName({ members: family.members, name, at: new Date().toISOString() });
+  await writeFamilyIndex();                                   // 검색이 읽는 색인(docs/47 §9)
   revalidatePath("/admin/photo-purpose/mood/families/photo");
 }

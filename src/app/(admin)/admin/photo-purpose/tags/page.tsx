@@ -1,13 +1,15 @@
 import Link from "next/link";
-import { noteFor } from "@/lib/mood-photo-families";
+import { bigMoodNames, clustersIn, noteFor } from "@/lib/mood-photo-families";
 import {
-  loadBandConfirms, loadFamilyReviews, loadPhotoFamilyNotes, loadPhotoMoodLayers, loadPhotoMoodTagEdits, loadPhotoMoodTags,
+  loadBandConfirms, loadFamilyReviews, loadPhotoFamilyNotes, loadPhotoClusters, loadPhotoMoodLayers, loadPhotoMoodNames, loadPhotoMoodTagEdits, loadPhotoMoodTags,
 } from "@/lib/mood-photo-layers-data";
 import {
   applyReview, bandTop, BANDS, confirmedPhotos, droppedTags, inBand, latestConfirms, latestReviews, nextBand, photosWithTag, tagCounts,
   untaggedPhotos, type FamilyReviewStatus, type TaggedPhotoRow,
 } from "@/lib/mood-photo-tags";
 import { confirmBand, dropBand, reviewFamily, undoBand } from "./actions";
+import { nameBigMood } from "../mood/families/photo/actions";
+import { ChipSearch } from "./ChipSearch";
 import { DropThumb, loadThumbs, PhotoThumb, TagButton } from "./parts";
 
 export const dynamic = "force-dynamic";
@@ -32,8 +34,8 @@ export default async function PhotoMoodTagsPage({ searchParams }: { searchParams
   const params = await searchParams;
   const view: "family" | "confirmed" | "big" | "empty" =
     params.view === "big" ? "big" : params.view === "empty" ? "empty" : params.view === "confirmed" ? "confirmed" : "family";
-  const [layers, raw, edits, notes, reviewRows, confirmRows] = await Promise.all([
-    loadPhotoMoodLayers(), loadPhotoMoodTags(), loadPhotoMoodTagEdits(), loadPhotoFamilyNotes(), loadFamilyReviews(), loadBandConfirms(),
+  const [layers, raw, edits, notes, reviewRows, confirmRows, moodNames, clusterData] = await Promise.all([
+    loadPhotoMoodLayers(), loadPhotoMoodTags(), loadPhotoMoodTagEdits(), loadPhotoFamilyNotes(), loadFamilyReviews(), loadBandConfirms(), loadPhotoMoodNames(), loadPhotoClusters(),
   ]);
 
   const head = <h2 id="photo-tags-heading" className="text-h2 font-semibold">태그 관리 — 단계별 검수</h2>;
@@ -54,7 +56,7 @@ export default async function PhotoMoodTagsPage({ searchParams }: { searchParams
   const bigOf = new Map(layers.families.map((f) => [f.key, f.big]));
   const live = applyReview(raw, bigOf, { dropped, reviews });
   const famName = new Map(layers.families.map((f) => [f.key, f.name]));
-  const bigName = new Map(layers.moods.map((m) => [m.key, m.name]));
+  const bigName = bigMoodNames(layers, moodNames);
   const counts = { family: tagCounts(live, "family", new Set()), big: tagCounts(live, "big", new Set()) };
   const untagged = untaggedPhotos(live);
 
@@ -120,11 +122,16 @@ export default async function PhotoMoodTagsPage({ searchParams }: { searchParams
       </nav>
 
       {view !== "empty" && (
-        <ul className="mt-4 flex flex-wrap gap-1.5">
+        <ChipSearch>
+        <ul className="mt-3 flex flex-wrap gap-1.5">
           {keys.map((k) => {
             const done = view === "big" ? 0 : confirmedOf(k).length;
+            const fam = view === "big" ? null : layers.families.find((f) => f.key === k);
+            const search = view === "big"
+              ? [k, bigName.get(k), ...order.filter((f) => f.big === k).flatMap((f) => [f.name, ...f.bundles])].join(" ")
+              : [k, fam?.name, bigName.get(fam?.big ?? ""), ...(fam?.bundles ?? [])].join(" ");
             return (
-              <li key={k}>
+              <li key={k} data-search={search}>
                 <Link href={view === "big" ? `${BASE}?view=big&key=${k}` : view === "confirmed" ? `${BASE}?view=confirmed&key=${k}` : famUrl(k)}
                   aria-current={key === k ? "true" : undefined}
                   className={`flex items-baseline gap-1.5 rounded-lg border px-2.5 py-1 text-caption ${view === "big" ? "border-line" : STATUS[statusOf(k)].chip} ${key === k ? "ring-2 ring-brand" : ""}`}>
@@ -136,6 +143,7 @@ export default async function PhotoMoodTagsPage({ searchParams }: { searchParams
             );
           })}
         </ul>
+        </ChipSearch>
       )}
 
       {(view === "family" || view === "confirmed") && family && (() => {
@@ -146,7 +154,7 @@ export default async function PhotoMoodTagsPage({ searchParams }: { searchParams
           <div className="mt-5">
             <div className="flex flex-wrap items-baseline gap-2">
               <strong className="text-h3 font-semibold">{family.name}</strong>
-              <span className="text-caption text-muted">{family.key.toUpperCase()} · 큰 무드 {bigName.get(family.big)}</span>
+              <span className="text-caption text-muted">{family.key.toUpperCase()} · 큰 무드 {bigName.get(family.big) ?? "보류"}</span>
               <span className={`rounded-lg border px-2 py-0.5 text-caption ${STATUS[status].chip}`}>{STATUS[status].label}</span>
               <span className="ml-auto text-caption text-muted tabular-nums">확정 {doneIds.length}장 · 후보 {rows.length}장</span>
             </div>
@@ -256,6 +264,32 @@ export default async function PhotoMoodTagsPage({ searchParams }: { searchParams
       {view === "big" && key && (
         <div className="mt-5">
           <p className="text-body-sm"><b>{bigName.get(key)}</b> <span className="text-muted">— 가족에서 물려받은 사진 {rows.length}장(점수 높은 순)</span></p>
+          <BigMoodNameForm id={key} name={bigName.get(key) ?? ""} />
+          {(() => {
+            // 이 큰 무드에 든 가족과 그 설명(사람 요청 2026-10-04) — 무엇이 모여 이 큰 무드가 됐는지 사진 위에서 본다
+            const inside = order.filter((f) => f.big === key);
+            const moodNote = noteFor({ members: inside.flatMap((f) => f.bundles) }, notes.moods)?.note;
+            return (
+              <div className="mt-2 rounded-xl border border-line p-3">
+                {moodNote && <p className="text-body-sm text-muted">{moodNote}</p>}
+                <ul className="mt-2 space-y-2">
+                  {inside.map((f) => (
+                    <li key={f.key} className="text-body-sm">
+                      <Link href={famUrl(f.key)} className="font-semibold underline-offset-2 hover:underline">{f.name}</Link>
+                      <span className="ml-1.5 text-caption tabular-nums text-muted">{f.key.toUpperCase()} · 사진 {counts.family.get(f.key) ?? 0} · 확정 {confirmedOf(f.key).length}</span>
+                      <span className={`ml-1.5 rounded-lg border px-1.5 py-0.5 text-caption ${STATUS[statusOf(f.key)].chip}`}>{STATUS[statusOf(f.key)].label}</span>
+                      <p className="text-caption text-muted">{noteFor({ members: f.bundles }, notes.families)?.note ?? ""}</p>
+                      <p className="mt-1 flex flex-wrap gap-1">
+                        {clustersIn(f.bundles, clusterData?.clusters ?? []).map((g) => (
+                          <span key={g.join("|")} className={`rounded-lg border px-1.5 py-0.5 text-caption ${g.length > 1 ? "border-brand/50 text-fg" : "border-line text-muted"}`}>{g.join(" ≈ ")}</span>
+                        ))}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })()}
           <ul className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {shown.map((r) => (
               <li key={r.photo} className="rounded-xl border border-line p-1.5">
@@ -333,5 +367,17 @@ function Pager({ total, page, href }: { total: number; page: number; href: (p: n
           className={`rounded-lg border px-2.5 py-1 text-caption tabular-nums ${i === page ? "border-brand text-brand" : "border-line text-muted"}`}>{i + 1}</Link>
       ))}
     </nav>
+  );
+}
+
+/** 큰 무드 이름 고치기 — 무드 › 가족 화면과 같은 기록(photo-mood-names.jsonl)에 남는다 */
+function BigMoodNameForm({ id, name }: { id: string; name: string }) {
+  return (
+    <form action={nameBigMood} className="mt-2 flex flex-wrap items-center gap-2">
+      <input type="hidden" name="id" value={id} />
+      <input key={`${id}-${name}`} name="name" defaultValue={name} maxLength={30} aria-label="큰 무드 이름" placeholder="이름 짓기"
+        className="w-56 rounded-xl border-2 border-danger bg-bg px-3 py-1.5 text-body-sm" />
+      <button className="rounded-xl border border-line px-3 py-1.5 text-body-sm hover:border-fg/40">이름 저장</button>
+    </form>
   );
 }

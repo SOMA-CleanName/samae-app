@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { familyLabel, layerNameFor, moodTally, noteFor, selectFamilies, type PhotoFamilies, type PhotoFamily, type PhotoFamilyNote } from "./mood-photo-families";
+import { clustersIn, familyLabel, layerNameFor, moodTally, noteFor, selectFamilies, type PhotoFamilies, type PhotoFamily, type PhotoFamilyNote } from "./mood-photo-families";
 
 const fam = (id: string, big: string, members: string[], axes: [string, number][] = [], guests: PhotoFamily["guests"] = []): PhotoFamily =>
   ({ id, big, members, terms: members.length * 2, axes, guests });
@@ -63,4 +63,9 @@ test("큰 무드 · 가족 이름 — 식구로 짝짓고, 마지막 줄이 이�
     { members: ["노을", "골든 아워", "가을 햇살"], name: " ", at: "2" },
   ]), null, "비우고 저장하면 지워진다");
   assert.equal(layerNameFor(sun, [{ members: ["도시 불빛", "네온"], name: "시티", at: "1" }]), null, "남의 이름은 안 붙는다");
+});
+
+test("식구를 무리로 모은다 — 같은 무리는 한 덩어리, 가족 밖 식구는 빼고, 순서는 식구 순", () => {
+  const clusters = [{ members: ["몽환", "뽀샤시", "글로우"] }, { members: ["노을", "일몰"] }];
+  assert.deepEqual(clustersIn(["뽀샤시", "꽃", "몽환", "일몰"], clusters), [["몽환", "뽀샤시"], ["꽃"], ["일몰"]]);
 });
