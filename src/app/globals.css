@@ -321,6 +321,42 @@ select:focus-visible {
   }
 }
 
+/*
+  연관 무드 판 — 검색창 빛이 오른쪽 아래 꼭짓점에 닿는 순간, 검색창 빛과 **같은 빨강**의 대각선 띠가
+  판을 오른쪽에서 왼쪽으로 쓸고 지나간다(SearchSuggestions). 판이 통째로 번쩍이는 게 아니다(사람 요청 2026-10-04).
+  지나는 동안 판은 흰 바탕 · 검은 글자, 띠가 덮은 글자만 흰색 — 띠와 흰 글자가 같은 --sweep-l 을 따라간다.
+  검색창 빛(search-border-lap)과 같은 곡선으로 따라가다, 머리가 판 왼쪽 끝에 닿으면 띠 전체가 곧장 빠져나간다(남지 않게).
+*/
+@property --sweep-l {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+/* 띠의 움직임은 SearchSuggestions 가 Web Animations 로 건다 — 검색창 빛과 같은 곡선으로 따라가다 왼쪽 끝에서 곧장 빠져나간다 */
+.samae-mood-run {
+  --sweep-l: 100%;
+}
+.samae-mood-band,
+.samae-mood-band-clip {
+  clip-path: polygon(
+    var(--sweep-l) 0,
+    calc(var(--sweep-l) + var(--sweep-w)) 0,
+    calc(var(--sweep-l) + var(--sweep-w) - var(--sweep-s)) 100%,
+    calc(var(--sweep-l) - var(--sweep-s)) 100%
+  );
+}
+.samae-mood-band {
+  background: color-mix(in srgb, var(--brand) 92%, var(--fg));
+}
+@media (prefers-reduced-motion: reduce) {
+  .samae-mood-run { opacity: 0; }
+}
+
+/* 검색창을 누른 뒤의 판 — 검색창(surface)보다 확실히 연한 회색, 테두리 없음(테두리는 검색창만, 사람 요청 2026-10-04) */
+.samae-mood-panel-on {
+  fill: color-mix(in srgb, var(--surface) 66%, var(--fg));
+}
+
 /* 텍스트 선택 — 브랜드 틴트 */
 ::selection {
   background: var(--brand-soft);

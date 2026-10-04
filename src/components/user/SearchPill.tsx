@@ -2,7 +2,8 @@
 
 import { useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
-import { searchHref } from "@/lib/search-navigation";
+import { NAV_FRESH_KEY } from "@/lib/nav-fresh";
+import { searchHref, searchSessionStorageKeys } from "@/lib/search-navigation";
 import {
   finishSearchBorderMotion,
   getSearchDockBorderWidth,
@@ -35,11 +36,14 @@ export function SearchPill({
   placeholder = SEARCH_PLACEHOLDER,
   surface = "filled",
   appearance = "surface",
+  attached = false,
 }: {
   initial?: string;
   placeholder?: string;
   surface?: SearchDockSurface;
   appearance?: SearchPillAppearance;
+  /** 아래에 연관 무드 판이 붙어 있다 — 아래 두 모서리를 각지게 해 판과 이음매 없이 잇는다 */
+  attached?: boolean;
 }) {
   const router = useRouter();
   const [query, setQuery] = useState(initial);
@@ -56,7 +60,16 @@ export function SearchPill({
 
   function submit(event: React.FormEvent) {
     event.preventDefault();
-    router.push(searchHref(query));
+    // 검색은 늘 맨 위에서 시작한다(사람 요청 2026-10-04) — 같은 말을 다시 검색해도 예전 스크롤 · 피드 세션으로 떨어지지 않게 비우고,
+    // 이번 이동을 "새로 보러 감" 으로 표시한다(ScrollMemory 가 최상단에서 시작)
+    try {
+      searchSessionStorageKeys("/", query).forEach((key) => sessionStorage.removeItem(key));
+      sessionStorage.setItem(NAV_FRESH_KEY, "/");
+    } catch {
+      /* 저장소가 막혀 있어도 검색은 한다 */
+    }
+    window.scrollTo(0, 0);
+    router.push(searchHref(query), { scroll: true });
   }
 
   return (
@@ -79,7 +92,7 @@ export function SearchPill({
         autoComplete="off"
         maxLength={120}
         style={{ borderWidth }}
-        className={`relative z-[1] h-[42px] w-full rounded-md border pl-10 pr-4 text-body-sm outline-none transition-[background-color,border-color,border-width,box-shadow,color,backdrop-filter] duration-300 ease-out hover:border-brand/45 focus:border-brand/55 focus:ring-2 focus:ring-brand/10 ${borderClass} ${
+        className={`relative z-[1] h-[42px] w-full rounded-md border pl-10 pr-4 text-body-sm outline-none transition-[background-color,border-color,border-width,border-radius,box-shadow,color,backdrop-filter] duration-300 ease-out ${attached ? "rounded-b-none" : ""} hover:border-brand/45 focus:border-brand/55 focus:ring-2 focus:ring-brand/10 ${borderClass} ${
           appearance === "clear"
             ? "bg-transparent text-transparent caret-transparent shadow-none placeholder:text-transparent"
             : appearance === "overlay"

@@ -5,7 +5,7 @@ import {
   fetchHomeFeedPage,
   newFeedSeed,
 } from "@/lib/discovery";
-import { searchPhotos, SIGLIP_SEARCH_MAX_RESULTS } from "@/lib/siglip-text-search";
+import { searchPhotos, SIGLIP_SEARCH_MAX_RESULTS, type SearchSuggestion } from "@/lib/siglip-text-search";
 import { spreadAlbumsInBands } from "@/lib/siglip-text-search-core";
 import { cookies } from "next/headers";
 import { loadDemotedHomePhotos, loadMorePhotos, loadPersonalizedPhotos } from "./feed-actions";
@@ -21,6 +21,7 @@ import { FeedHero } from "@/components/user/FeedHero";
 import { SearchDock } from "@/components/user/SearchDock";
 import { SearchBackButton } from "@/components/user/SearchBackButton";
 import { SearchResultsHead } from "@/components/user/SearchResultsHead";
+import { SearchSuggestions } from "@/components/user/SearchSuggestions";
 import { pickSearchPlaceholder, SEARCH_PLACEHOLDER_SHORT } from "@/lib/search-copy";
 import { routeSessionKey, SEARCH_RELATED_SCOPE } from "@/lib/search-navigation";
 import { shouldShowSearchUi } from "@/lib/search-ui-visibility";
@@ -108,6 +109,8 @@ export default async function ExploreHome({
   let relatedPhotos: GalleryPhoto[] = [];
   // 검색 결과 머리줄에 적을 수 — 검색어에 맞는 사진만 센다.
   let searchCounts: SearchCounts | null = null;
+  // 연관 검색어 — 같은 큰 무드의 가족들, 그 뒤 비슷한 큰 무드 · 가족(docs/47 §10)
+  let suggestions: SearchSuggestion[] = [];
   if (isAllFeed && feedSeed) {
     photos = await fetchHomeFeedPage(feedSeed, 0, purposeIds, moodIds, 48);
     // RPC 미적용/오류로 비면 기존 방식 폴백
@@ -120,6 +123,7 @@ export default async function ExploreHome({
     const search = query ? await searchHomePhotos(query) : null;
     searchCounts = search?.counts ?? null;
     relatedPhotos = search?.related ?? [];
+    suggestions = search?.suggestions ?? [];
     const basePhotos = search ? search.matches : await fetchPublishedPhotos({});
     if (query) await logSearch(query, basePhotos.length, me?.id);
     const merged = adAsGallery
@@ -203,6 +207,7 @@ export default async function ExploreHome({
           placeholder={searchPlaceholder}
           variant="detail"
           back={<SearchBackButton query={query} />}
+          suggestions={suggestions}
         />
       ) : null}
 
@@ -217,6 +222,7 @@ export default async function ExploreHome({
           capped={searchCounts?.capped ?? false}
         />
       ) : null}
+      {query ? <SearchSuggestions items={suggestions} /> : null}
       {!query && <HomeBannerSlot />}
 
       {/*
@@ -318,12 +324,13 @@ async function searchHomePhotos(query: string): Promise<{
   matches: GalleryPhoto[];
   related: GalleryPhoto[];
   counts: SearchCounts;
+  suggestions: SearchSuggestion[];
 }> {
   const result = await searchPhotos(query, SIGLIP_SEARCH_MAX_RESULTS).catch((error) => {
     console.error("[home] 검색 실패:", error);
     return null;
   });
-  if (!result) return { matches: [], related: [], counts: { matches: 0, related: 0, capped: false } };
+  if (!result) return { matches: [], related: [], counts: { matches: 0, related: 0, capped: false }, suggestions: [] };
   // 장수는 z 가 정한다 — 여기서 다시 자르지 않는다. 앨범 흩뜨리기만 두 묶음 안에서 따로 한다.
   // 목적을 번갈아 섞은 결과("커플 강아지")는 순서가 이미 짜여 있다 — 다시 흩뜨리면 한 앨범뿐인 쪽이 뒤로 몰린다.
   const matches = result.arranged ? result.matches : spreadAlbumsInBands(result.matches);
@@ -332,5 +339,6 @@ async function searchHomePhotos(query: string): Promise<{
     matches,
     related,
     counts: { matches: matches.length, related: related.length, capped: result.capped },
+    suggestions: result.suggestions ?? [],
   };
 }
