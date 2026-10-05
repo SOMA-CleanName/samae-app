@@ -23,7 +23,27 @@ async function fileToBase64(file: File): Promise<{ mediaType: string; data: stri
   return { mediaType: file.type || "image/jpeg", data: btoa(binary) };
 }
 
-export default function PersonaExperience({ defaultUsername = "" }: { defaultUsername?: string }) {
+/**
+ * 로그인 화면으로 보내는 주소 — 돌아올 때 그 아이디로 바로 이어 분석한다.
+ * next 는 서버(safeNext)가 내부 경로만 허용하므로 한 번 더 인코딩해서 넘긴다.
+ */
+function loginHref(username: string): string {
+  const u = username.replace(/^@/, "").trim();
+  const back = u ? `/event/persona?u=${encodeURIComponent(u)}&auto=1` : "/event/persona";
+  return `/login?next=${encodeURIComponent(back)}`;
+}
+
+export default function PersonaExperience({
+  defaultUsername = "",
+  signedIn = true,
+  autoRun = false,
+}: {
+  defaultUsername?: string;
+  /** 서버가 본 로그인 여부 — 분석을 누르기 전에 로그인으로 보낼지 정한다 */
+  signedIn?: boolean;
+  /** 로그인하고 돌아온 길 — 그 아이디로 바로 분석을 시작한다 */
+  autoRun?: boolean;
+}) {
   const [username, setUsername] = useState(defaultUsername);
   const [result, setResult] = useState<PersonaSuccess | null>(null);
   const [error, setError] = useState<Failure | null>(null);
@@ -51,6 +71,18 @@ export default function PersonaExperience({ defaultUsername = "" }: { defaultUse
   }
 
   const handle = username.replace(/^@/, "").trim();
+
+  // 로그인하고 돌아온 길 — 누르던 아이디로 바로 이어서 분석한다.
+  // 확인 카드를 다시 띄워 한 번 더 누르게 하면 "로그인했는데 왜 또" 가 된다.
+  const resumed = useRef(false);
+  useEffect(() => {
+    if (!autoRun || resumed.current || !handle) return;
+    resumed.current = true;
+    run("instagram", () => runPersonaAnalysis(handle));
+    // run 은 매 렌더 새로 만들어지지만 resumed 가드가 한 번만 돌게 막는다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoRun, handle]);
+
   useEffect(() => {
     const seq = ++lookupSeq.current;
     if (handle.length < 3 || pending) {
@@ -116,6 +148,13 @@ export default function PersonaExperience({ defaultUsername = "" }: { defaultUse
       inputRef.current?.focus();
       return;
     }
+    // 비로그인은 분석을 돌리지 않는다 — 돌려놓고 결과에서 막으면 비용은 이미 나간 뒤다.
+    // (서버 액션에도 같은 문지기가 있다. 여기 검사는 **헛걸음을 줄이는 것**이지 보안이 아니다)
+    if (!signedIn) {
+      mpTrack("Persona Login Gate", { method: "instagram" });
+      window.location.href = loginHref(username);
+      return;
+    }
     // 실행은 '검색으로 확인된 계정'만 — 오타·비공개·조회불가로 Apify+LLM 을 태우지 않는다.
     if (preview?.status === "found") {
       if (preview.profile.isPrivate) {
@@ -138,6 +177,11 @@ export default function PersonaExperience({ defaultUsername = "" }: { defaultUse
 
   function submitImages() {
     if (files.length === 0 || pending) return;
+    if (!signedIn) {
+      mpTrack("Persona Login Gate", { method: "upload" });
+      window.location.href = loginHref(username);
+      return;
+    }
     run("upload", async () => {
       const resized = await Promise.all(files.slice(0, 5).map((f) => downscaleImage(f, 1280)));
       const images = await Promise.all(resized.map(fileToBase64));
@@ -225,6 +269,14 @@ export default function PersonaExperience({ defaultUsername = "" }: { defaultUse
           </p>
         )}
 
+        {/* 로그인이 필요하다는 걸 **누르기 전에** 알린다 — 누르고 나서 알게 되면
+            분석되는 줄 알았다가 막힌 것처럼 읽힌다. 비용이 아니라 순서의 문제다. */}
+        {!signedIn && (
+          <p className="text-caption leading-relaxed text-muted">
+            카카오로 3초 로그인하면 바로 분석해드려요.
+          </p>
+        )}
+
         {/* ── 계정 확인 카드 ──
             타이핑이 멈추면 해당 계정의 프로필을 미리 보여준다.
             · 공개 계정 → 카드를 탭하면 바로 분석 시작 ("이 계정 맞지?" 확인)
@@ -245,6 +297,12 @@ export default function PersonaExperience({ defaultUsername = "" }: { defaultUse
             onClick={() => {
               const u = preview.profile.username;
               setUsername(u);
+              // 이 카드는 submit 을 거치지 않는다 — 문지기를 여기서 한 번 더 세운다
+              if (!signedIn) {
+                mpTrack("Persona Login Gate", { method: "instagram" });
+                window.location.href = loginHref(u);
+                return;
+              }
               run("instagram", () => runPersonaAnalysis(u));
             }}
             style={reveal(0)}
@@ -405,6 +463,24 @@ export default function PersonaExperience({ defaultUsername = "" }: { defaultUse
           className="mt-4 rounded-3xl border border-line bg-surface p-4 shadow-card"
         >
           <p className="text-body-sm text-fg">{error.message}</p>
+
+          {/* 로그인 — 액션까지 왔다는 건 화면 검사를 지나쳤다는 뜻이다(새 탭·세션 만료 등) */}
+          {error.reason === "login_required" && (
+            <div className="mt-3 border-t border-line pt-3">
+              <Button type="button" variant="brand" size="md" fullWidth onClick={() => { window.location.href = loginHref(username); }}>
+                카카오로 3초 로그인
+              </Button>
+            </div>
+          )}
+
+          {/* 오늘 마감·잠시 중지 — 더 누를 게 없다. 빈손으로 내보내지 말고 탐색으로 */}
+          {(error.reason === "daily_cap" || error.reason === "off") && (
+            <div className="mt-3 border-t border-line pt-3">
+              <Button type="button" variant="secondary" size="md" fullWidth onClick={() => { window.location.href = "/explore"; }}>
+                사진 둘러보기
+              </Button>
+            </div>
+          )}
 
           {/* 비공개/게시물 없음 → 사진 직접 업로드 fallback */}
           {canFallback && (

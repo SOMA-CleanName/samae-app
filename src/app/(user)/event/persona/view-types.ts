@@ -28,7 +28,12 @@ export type PersonaSuccess = {
 
 export type PersonaFailure = {
   ok: false;
-  reason: "private" | "empty" | "error" | "rate_limited";
+  /**
+   * login_required — 비로그인. 분석은 돌지 않는다(비용이 드는 쪽은 전부 로그인 뒤)
+   * daily_cap     — 오늘 전체 분석 상한에 걸림
+   * off           — 운영이 분석을 꺼둠 (PERSONA_ANALYSIS_OFF)
+   */
+  reason: "private" | "empty" | "error" | "rate_limited" | "login_required" | "daily_cap" | "off";
   message: string;
 };
 
