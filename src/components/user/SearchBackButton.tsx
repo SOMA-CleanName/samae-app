@@ -2,7 +2,6 @@
 
 import { useRouter } from "next/navigation";
 import { usePathname } from "next/navigation";
-import { canGoBackInApp } from "@/lib/in-app-nav";
 import { searchSessionStorageKeys } from "@/lib/search-navigation";
 import { ArrowLeftIcon } from "@/components/user/icons";
 
@@ -29,9 +28,8 @@ export function SearchBackButton({ query }: { query: string }) {
     } catch {
       /* 저장소 접근 불가 시 무시 */
     }
-    // 앱 안에서 들어왔으면 온 곳으로. 검색 링크로 바로 들어왔으면 홈으로.
-    if (canGoBackInApp()) router.back();
-    else router.push("/");
+    // 늘 홈으로(사람 요청 2026-10-04) — 연관 무드로 검색을 이어 갔어도 앞 검색으로 되돌아가지 않는다
+    router.push("/");
   }
 
   return (

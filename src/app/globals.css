@@ -321,6 +321,47 @@ select:focus-visible {
   }
 }
 
+/*
+  연관 무드 판 광택 — 검색창 빛이 돌 때 판 위로 은빛이 은은하게 한 번 스친다(SearchSuggestions, 사람 요청 2026-10-05).
+  실버 바 겉면에 빛이 비껴 지나가는 느낌 — 넓고 흐린 흰 띠, **오른쪽에서 왼쪽으로**(검색창 빛이 아랫변을 따라 가는 방향과 같게).
+*/
+@keyframes mood-panel-shine {
+  0% { transform: translateX(320%) skewX(-20deg); opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { transform: translateX(-120%) skewX(-20deg); opacity: 0; }
+}
+.samae-mood-shine {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.samae-mood-shine::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  bottom: -50%;
+  left: 0;
+  width: 35%;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgb(255 255 255 / 0.10) 30%,
+    rgb(255 255 255 / 0.42) 50%,
+    rgb(255 255 255 / 0.10) 70%,
+    transparent 100%);
+  mix-blend-mode: screen;
+  opacity: 0;
+  animation: mood-panel-shine 1300ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .samae-mood-shine::before { animation: none; }
+}
+/* 검색창을 누른 뒤의 판 — 검색창(surface)보다 확실히 연한 회색, 테두리 없음(테두리는 검색창만, 사람 요청 2026-10-04) */
+.samae-mood-panel-on {
+  fill: color-mix(in srgb, var(--surface) 66%, var(--fg));
+}
+
 /* 텍스트 선택 — 브랜드 틴트 */
 ::selection {
   background: var(--brand-soft);

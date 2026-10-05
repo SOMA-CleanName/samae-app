@@ -4,28 +4,24 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 
+// 첫 줄은 일이 다른 것끼리만 나눈다 — 목적 분류와 무드 어휘(D0~D5)는 서로 다른 일이다(사람 결정, 2026-09-29).
+// 무드 안의 층(검색어 · 묶음 · 무리 · 이웃 · 가족)은 둘째 줄 MoodLayerNav 로 내렸다.
+// 사진 태그(사진마다 붙인 가족 · 큰 무드, docs/47)는 어휘를 만드는 일과 달라 따로 둔다(사람 요청 2026-10-01).
 const pages = [
   { href: "/admin/photo-purpose", label: "목적" },
   { href: "/admin/photo-purpose/mood", label: "무드" },
-  { href: "/admin/photo-purpose/mood/axes", label: "축 배정" },
-  { href: "/admin/photo-purpose/mood/terms", label: "검색어 정리" },
-  { href: "/admin/photo-purpose/mood/neighbors", label: "이웃 그래프" },
+  { href: "/admin/photo-purpose/tags", label: "사진 태그" },
   { href: "/admin/photo-purpose/search-probe", label: "검색 점수" },
-  // 임시 검수 화면. 무드 그래프가 확정되면 없앤다.
-  { href: "/admin/photo-purpose/mood/review", label: "무드 검수" },
 ];
 
 export function PhotoClassificationNav() {
   const pathname = usePathname();
   return (
-    <nav aria-label="사진 분류" className="mb-6 mt-4 flex gap-1 border-b border-border">
+    <nav aria-label="사진 분류" className="mt-4 flex gap-1 border-b border-border">
       {pages.map(({ href, label }) => {
-        // 가장 깊게 맞는 항목 하나만 켠다 — /mood/review 에서 '무드'까지 같이 켜지면 안 된다.
-        const match = (candidate: string) =>
-          pathname === candidate || pathname.startsWith(`${candidate}/`);
-        const deepest = pages
-          .filter(({ href: candidate }) => match(candidate))
-          .sort((a, b) => b.href.length - a.href.length)[0];
+        // 가장 깊게 맞는 항목 하나만 켠다 — /mood/... 에서 '목적'까지 같이 켜지면 안 된다.
+        const match = (candidate: string) => pathname === candidate || pathname.startsWith(`${candidate}/`);
+        const deepest = pages.filter(({ href: candidate }) => match(candidate)).sort((a, b) => b.href.length - a.href.length)[0];
         const active = deepest?.href === href;
         return (
           <Link

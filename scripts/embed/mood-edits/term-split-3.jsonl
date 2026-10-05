@@ -1,0 +1,662 @@
+{"head": "깜박이다", "keep": ["깜박이는", "명멸"], "new": [], "move": []}
+{"head": "조용하다", "keep": ["조용한", "고요한"], "new": [{"head": "고즈넉하다", "axes": ["공간", "감정"], "usage": "고즈넉한 한옥 마당", "prompts": ["serene quiet traditional courtyard", "tranquil secluded old temple"], "terms": ["고즈넉한"]}], "move": []}
+{"head": "평온하다", "keep": ["평온한", "평화로운", "화평한"], "new": [{"head": "잔잔하다", "axes": ["에너지", "감정"], "usage": "물결 없이 잔잔한 수면", "prompts": ["calm still water surface", "gentle ripples on a quiet lake"], "terms": ["잔잔한"]}, {"head": "차분하다", "axes": ["감정"], "usage": "마음이 가라앉은 차분한 표정", "prompts": ["calm composed expression", "composed person sitting quietly"], "terms": ["차분한", "진정된", "평정한"]}], "move": [{"to": "편하다", "terms": ["편안한"]}]}
+{"head": "느긋하다", "keep": ["느긋한"], "new": [], "move": [{"to": "태평하다", "terms": ["무사태평한"]}]}
+{"head": "미끈하다", "keep": ["매끈한"], "keep_axes": ["질감"], "new": [], "move": [{"to": "윤", "terms": ["반들대는", "반질대는", "광나는"]}]}
+{"head": "외롭다", "keep": ["외로운", "고독한", "쓸쓸한", "고적한"], "keep_axes": ["감정"], "new": [{"head": "외지다", "axes": ["공간"], "usage": "인적 없는 외딴 집", "prompts": ["remote isolated house", "secluded lonely place"], "terms": ["외진", "외딴"]}, {"head": "고립감", "axes": ["감정", "관계"], "usage": "무리에서 떨어져 홀로 소외된 사람", "prompts": ["person isolated from the crowd", "alienated figure standing apart"], "terms": ["고립된", "소외감"]}, {"head": "상실감", "axes": ["감정"], "usage": "무언가를 잃고 허탈하게 남은 모습", "prompts": ["sense of loss, empty chair left behind", "grieving a loss alone"], "terms": ["상실감"]}], "move": [{"to": "슬프다", "terms": ["처량한", "처연한", "구슬픈", "서글픈"]}, {"to": "설움", "terms": ["서러운"]}, {"to": "공허하다", "terms": ["허전한", "공허한"]}, {"to": "덩그맣다", "terms": ["덩그런"]}]}
+{"head": "산들바람", "keep": ["산들바람", "살랑대는", "간들대는", "미풍", "솔솔", "바람결"], "new": [], "move": [{"to": "나풀나풀", "terms": ["나붓거리는"]}]}
+{"head": "걱정하다", "keep": ["걱정스러운", "근심스러운", "염려스러운", "우려스러운", "노심초사하는"], "new": [], "move": []}
+{"head": "두려움", "keep": ["두려운", "무서운", "공포", "겁먹은"], "new": [], "move": []}
+{"head": "나풀나풀", "keep": ["나풀대는", "나불대는", "팔랑대는"], "new": [], "move": []}
+{"head": "대롱대롱", "keep": ["대롱대는", "달랑대는", "간드랑거리는"], "new": [], "move": []}
+{"head": "슬프다", "keep": ["슬픈", "글썽이는", "울먹이는", "그렁그렁한"], "new": [], "move": []}
+{"head": "일렁이다", "keep": ["일렁이는", "너울거리는", "넘실대는", "출렁대는"], "new": [], "move": []}
+{"head": "분노", "keep": ["분노", "격노한", "격분한", "분개한", "진노"], "new": [], "move": []}
+{"head": "증오", "keep": ["증오", "적개심"], "new": [], "move": [{"to": "역겹다", "terms": ["혐오"]}]}
+{"head": "그립다", "keep": ["그리운"], "new": [], "move": [{"to": "사랑하다", "terms": ["사모하는", "연모하는"]}, {"to": "학수고대하다", "terms": ["학수고대"]}, {"to": "간절하다", "terms": ["소원하는"]}, {"to": "욕망하다", "terms": ["욕망"]}]}
+{"head": "매료되다", "keep": ["매료된"], "new": [], "move": [{"to": "매혹적", "terms": ["매혹적인"]}]}
+{"head": "뚜렷하다", "keep": ["뚜렷한", "선명한", "극명한"], "new": [{"head": "똑똑하다", "axes": ["스타일", "감정"], "usage": "총명하고 똑똑해 보이는 인상", "prompts": ["smart intelligent-looking person"], "terms": ["똑똑한"]}], "move": []}
+{"head": "상쾌하다", "keep": ["상쾌한", "개운한"], "new": [{"head": "싱그럽다", "axes": ["감정", "에너지"], "usage": "이슬 맺힌 싱그러운 초록 잎", "prompts": ["fresh green leaves with dew", "lush fresh greenery"], "terms": ["싱그러운", "싱싱한"]}, {"head": "쾌적하다", "axes": ["공간", "감정"], "usage": "깔끔하고 쾌적한 실내", "prompts": ["clean pleasant airy interior"], "terms": ["쾌적한"]}], "move": [{"to": "시원스레", "terms": ["시원한"]}, {"to": "산뜻하다", "terms": ["상큼한"]}, {"to": "앳되다", "terms": ["풋풋한"]}, {"to": "생기", "terms": ["생생한"]}, {"to": "통쾌하다", "terms": ["통쾌한"]}]}
+{"head": "더럽다", "keep": ["더러운", "불결한", "구저분한", "구접스러운", "구지레한"], "new": [], "move": [{"to": "남루하다", "terms": ["꾀죄죄한", "주접", "거지꼴"]}, {"to": "초라하다", "terms": ["누추한"]}, {"to": "조잡스럽다", "terms": ["허접한"]}, {"to": "엉망진창", "terms": ["개꼴"]}]}
+{"head": "복잡하다", "keep": ["복잡한", "혼잡스러운", "잡다한", "번다한"], "new": [{"head": "지저분하다", "axes": ["공간", "질감"], "usage": "정리 안 된 지저분한 방", "prompts": ["messy untidy room", "cluttered dirty desk"], "terms": ["지저분한", "너저분한"]}, {"head": "난잡하다", "axes": ["스타일", "에너지"], "usage": "어지럽고 문란한 장면", "prompts": ["chaotic disorderly wild party"], "terms": ["난잡한"]}], "move": [{"to": "어수선하다", "terms": ["무질서한", "산만한"]}, {"to": "산란하다", "terms": ["낭자한"]}, {"to": "덕지덕지", "terms": ["더덕더덕"]}, {"to": "북적북적", "terms": ["와글와글"]}]}
+{"head": "화나다", "keep": ["화난", "분노한", "성난", "성질난", "골난", "노한", "노여운", "노발대발한"], "new": [], "move": []}
+{"head": "낙담", "keep": ["실망한", "낙담한", "낙심한", "낙망한"], "new": [], "move": [{"to": "좌절", "terms": ["좌절한"]}, {"to": "불만", "terms": ["불만족한"]}, {"to": "못마땅하다", "terms": ["불쾌한"]}, {"to": "후회스럽다", "terms": ["후회"]}]}
+{"head": "놀라다", "keep": ["놀란", "경악한", "기겁한", "질겁한", "기절초풍한", "아연실색한", "쇼킹한"], "new": [], "move": []}
+{"head": "덥다", "keep": ["더운", "무더운", "후더운", "늦더위", "복더위", "삼복더위", "삼복"], "new": [{"head": "복날", "axes": ["계절·날씨"], "usage": "삼계탕 먹는 복날 한여름 풍경", "prompts": ["korean samgyetang on a hot summer day"], "terms": ["복날", "초복"]}], "move": [{"to": "여름내", "terms": ["하절기"]}]}
+{"head": "반짝이다", "keep": ["반짝이는"], "new": [], "move": [{"to": "뭉근하다", "terms": ["번한"]}]}
+{"head": "비통", "keep": ["비통한", "애통한", "침통한", "상심한", "통절한"], "new": [{"head": "비참", "axes": ["감정"], "usage": "처절하고 비참한 처지", "prompts": ["miserable wretched situation", "desperate harrowing scene"], "terms": ["비참한", "처절한"]}], "move": []}
+{"head": "소란스럽다", "keep": ["소란한", "요란한", "시끌시끌한", "수선스러운", "야단법석"], "new": [], "move": []}
+{"head": "싫어하다", "keep": ["싫은", "못마땅한"], "new": [{"head": "경멸", "axes": ["감정", "관계"], "usage": "깔보는 듯한 차가운 눈빛", "prompts": ["contemptuous look", "looking down with disdain"], "terms": ["경멸스러운"]}, {"head": "나쁘다", "axes": ["감정", "스타일"], "usage": "못되고 나쁜 분위기", "prompts": ["bad attitude rebellious look"], "terms": ["나쁜"]}], "move": [{"to": "불만", "terms": ["불만족스러운"]}, {"to": "낙담", "terms": ["실망스러운"]}, {"to": "역겹다", "terms": ["혐오"]}, {"to": "무시", "terms": ["밉보인"]}]}
+{"head": "창피하다", "keep": ["창피한", "수치스러운", "망신스러운", "남사스러운", "남세스러운"], "new": [], "move": [{"to": "미안", "terms": ["미안스러운", "송구스러운"]}, {"to": "열등감", "terms": ["자격지심"]}]}
+{"head": "폭우", "keep": ["폭우", "호우", "큰비", "장대비", "억수", "내리퍼붓는", "내리붓는", "들어붓는"], "new": [{"head": "소나기", "axes": ["계절·날씨"], "usage": "갑자기 쏟아지는 여름 소나기", "prompts": ["sudden summer shower", "people running from a sudden downpour"], "terms": ["소나기", "소낙비"]}], "move": [{"to": "장마철", "terms": ["장맛비"]}, {"to": "비", "terms": ["강우"]}]}
+{"head": "폴짝폴짝", "keep": ["폴짝폴짝", "깡총깡총", "방방"], "new": [{"head": "팔딱", "axes": ["에너지"], "usage": "물고기가 팔딱이는 생동감", "prompts": ["fish flopping and jumping"], "terms": ["팔딱"]}, {"head": "들썩", "axes": ["에너지", "감정"], "usage": "어깨가 들썩이는 들뜬 분위기", "prompts": ["shoulders bouncing with excitement"], "terms": ["들썩"]}, {"head": "덩실", "axes": ["에너지", "감정"], "usage": "신이 나서 덩실덩실 춤추는 모습", "prompts": ["dancing joyfully with arms raised"], "terms": ["덩실"]}, {"head": "톡톡", "axes": ["에너지"], "usage": "톡톡 튀는 탄산 방울", "prompts": ["fizzy bubbles popping"], "terms": ["톡톡"]}], "move": []}
+{"head": "한가하다", "keep": ["한가한", "한산한", "한갓진"], "new": [], "move": []}
+{"head": "공허하다", "keep": ["공허한", "휑뎅그렁한"], "new": [{"head": "허무하다", "axes": ["감정"], "usage": "모든 게 덧없게 느껴지는 허무한 풍경", "prompts": ["sense of futility and emptiness"], "terms": ["허무한"]}], "move": [{"to": "외롭다", "terms": ["적적한"]}, {"to": "적막강산", "terms": ["삭막한"]}, {"to": "넓다", "terms": ["널따란"]}]}
+{"head": "다정하다", "keep": ["다정한", "다정다감한", "의좋은"], "new": [{"head": "정들이다", "axes": ["감정", "관계"], "usage": "오래 정든 물건과 공간", "prompts": ["cherished old belongings", "familiar beloved place"], "terms": ["정든", "정붙인", "애착"]}], "move": [{"to": "애정", "terms": ["친애하는", "애호"]}, {"to": "귀여워하다", "terms": ["총애하는"]}]}
+{"head": "멍하니", "keep": ["멍한", "멀뚱한", "벙한", "우두커니"], "new": [{"head": "멍청하다", "axes": ["감정", "스타일"], "usage": "어수룩하고 멍청한 표정", "prompts": ["goofy dumb expression"], "terms": ["멍청한"]}, {"head": "물끄러미", "axes": ["감정"], "usage": "가만히 한곳을 바라보는 시선", "prompts": ["gazing quietly at something"], "terms": ["물끄러미"]}], "move": []}
+{"head": "방긋방긋", "keep": ["방긋방긋", "방글방글", "빙긋빙긋", "싱글싱글", "해죽"], "new": [{"head": "반갑다", "axes": ["감정", "관계"], "usage": "반갑게 맞이하는 얼굴", "prompts": ["warm greeting at a happy reunion"], "terms": ["반가운"]}], "move": [{"to": "행복", "terms": ["행복한"]}, {"to": "만족", "terms": ["만족스러운"]}]}
+{"head": "번지르르", "keep": ["번지르르한", "번질번질한", "번드르르한"], "new": [], "move": [{"to": "미끈하다", "terms": ["매끈한"]}, {"to": "매끄럽다", "terms": ["야들야들"]}, {"to": "끈적하다", "terms": ["찐득한"]}]}
+{"head": "어둡다", "keep": ["어두운", "어두컴컴한"], "keep_axes": ["빛"], "new": [], "move": [{"to": "음영", "terms": ["그늘진"]}, {"to": "검은색", "terms": ["검은"]}]}
+{"head": "암울하다", "keep": ["암울한", "암담한"], "new": [], "move": [{"to": "우울하다", "terms": ["울적한"]}, {"to": "음울하다", "terms": ["음산한"]}, {"to": "을씨년하다", "terms": ["스산한"]}]}
+{"head": "튼튼하다", "keep": ["튼튼한", "견고한", "굳건한", "공고한"], "new": [{"head": "질기다", "axes": ["질감"], "usage": "쉽게 해지지 않는 질긴 가죽과 천", "prompts": ["tough durable leather"], "terms": ["질긴"]}], "move": [{"to": "힘차다", "terms": ["짱짱한"]}, {"to": "듬직하다", "terms": ["든든한"]}, {"to": "꿋꿋하다", "terms": ["대찬"]}]}
+{"head": "냉랭하다", "keep": ["냉랭한", "차가운", "싸늘한"], "new": [], "move": [{"to": "을씨년하다", "terms": ["을씨년스러운", "소슬한"]}]}
+{"head": "새침하다", "keep": ["새침한", "새초롬한"], "new": [], "move": []}
+{"head": "따듯하다", "keep": ["따뜻한", "훈훈한", "따스운"], "new": [{"head": "오붓하다", "axes": ["감정", "관계"], "usage": "둘이서 오붓하게 보내는 시간", "prompts": ["cozy intimate time together"], "terms": ["오붓한"]}], "move": []}
+{"head": "뜨겁다", "keep": ["뜨거운", "달아오른", "화끈대는"], "new": [], "move": [{"to": "정열", "terms": ["열띤"]}]}
+{"head": "말끔하다", "keep": ["말끔한", "청결한", "정결한"], "new": [], "move": [{"to": "멀쩡하다", "terms": ["말짱한"]}]}
+{"head": "묵묵하다", "keep": ["묵묵한", "침묵하는", "가만히"], "new": [], "move": [{"to": "조용하다", "terms": ["조용한", "정적인"]}, {"to": "잠잠하다", "terms": ["잠잠한"]}, {"to": "엄숙하다", "terms": ["숙연한"]}]}
+{"head": "번쩍이다", "keep": ["번쩍이는", "번뜩이는", "섬광"], "new": [], "move": []}
+{"head": "부들부들", "keep": ["부들부들", "덜덜", "오들오들", "와들와들"], "new": [], "move": []}
+{"head": "재미있다", "keep": ["재미있는", "재미난"], "new": [], "move": [{"to": "신나다", "terms": ["흥겨운"]}, {"to": "즐겁다", "terms": ["즐거운", "흔연한"]}, {"to": "환심", "terms": ["희희낙락한"]}, {"to": "활기차다", "terms": ["활발한"]}]}
+{"head": "희미하다", "keep": ["희미한", "어렴풋한", "불분명한", "흐리터분한"], "new": [{"head": "몽롱하다", "axes": ["빛", "감정"], "usage": "안개 낀 듯 몽롱한 분위기", "prompts": ["dreamy hazy soft focus"], "terms": ["몽롱한"]}, {"head": "두루뭉실하다", "axes": ["스타일"], "usage": "윤곽이 뭉뚱그려진 두루뭉술한 형태", "prompts": ["vague rounded blobby shapes"], "terms": ["두루뭉술한"]}], "move": [{"to": "멍하니", "terms": ["흐리멍덩한"]}]}
+{"head": "간절하다", "keep": ["간절한", "절절한", "열망하는"], "new": [], "move": [{"to": "그립다", "terms": ["오매불망한"]}, {"to": "사랑하다", "terms": ["연정"]}, {"to": "욕망하다", "terms": ["욕구"]}, {"to": "아쉽다", "terms": ["못내"]}]}
+{"head": "기울어지다", "keep": ["기울어진", "비스듬한", "기우뚱한", "비뚤어진"], "new": [], "move": []}
+{"head": "끓어오르다", "keep": ["끓어오른", "부글대는", "펄펄", "푹푹"], "new": [], "move": []}
+{"head": "낡다", "keep": ["낡은", "헌", "허름한", "노후한", "케케묵은"], "new": [], "move": [{"to": "초라하다", "terms": ["허술한"]}, {"to": "남루하다", "terms": ["추레한"]}, {"to": "부식", "terms": ["부식된"]}]}
+{"head": "넓다", "keep": ["넓은", "널찍한", "너른", "개활한"], "new": [], "move": [{"to": "느긋하다", "terms": ["여유로운"]}]}
+{"head": "단순하다", "keep": ["단순한", "간소한", "단출한"], "new": [{"head": "소박하다", "axes": ["스타일"], "usage": "꾸밈없이 수수한 살림과 차림", "prompts": ["humble rustic simple home", "plain modest clothing, unadorned"], "terms": ["소박한", "수수한", "검소한", "질박한"]}], "move": [{"to": "범속하다", "terms": ["밋밋한"]}]}
+{"head": "딱딱하다", "keep": ["딱딱한", "굳은"], "new": [{"head": "빳빳하다", "axes": ["질감"], "usage": "구김 없이 빳빳하게 선 천이나 종이", "prompts": ["crisp starched fabric", "stiff new paper bills"], "terms": ["빳빳한"]}], "move": [{"to": "경직", "terms": ["경직된"]}, {"to": "무뚝뚝하다", "terms": ["뚝뚝한"]}, {"to": "탱탱", "terms": ["탱탱한"]}]}
+{"head": "멈칫거리다", "keep": ["주저하는", "멈칫거리는"], "new": [], "move": [{"to": "미적대다", "terms": ["머무적거리는", "미적미적한"]}]}
+{"head": "발랄하다", "keep": ["발랄한", "생기발랄한", "쾌활한", "생기로운", "활달한"], "new": [{"head": "경쾌하다", "axes": ["에너지", "감정"], "usage": "가볍고 산뜻한 발걸음", "prompts": ["light brisk footsteps", "airy upbeat movement"], "terms": ["경쾌한"]}, {"head": "젊다", "axes": ["스타일", "에너지"], "usage": "한창때의 젊은 사람들", "prompts": ["young people in their prime", "youthful group of friends"], "terms": ["젊은"]}], "move": [{"to": "즐겁다", "terms": ["쾌한"]}, {"to": "호쾌하다", "terms": ["걸걸한"]}]}
+{"head": "보글보글", "keep": ["보글보글한", "바글바글"], "new": [{"head": "살살", "axes": ["에너지"], "usage": "약한 불에 천천히 끓는 냄비", "prompts": ["pot gently simmering on low heat"], "terms": ["살살"]}], "move": []}
+{"head": "불쌍하다", "keep": ["불쌍한", "가여운", "가련한", "애처로운", "측은한"], "new": [], "move": []}
+{"head": "섭섭하다", "keep": ["섭섭한"], "new": [{"head": "비련", "axes": ["감정", "관계"], "usage": "이루지 못한 사랑의 슬픔", "prompts": ["tragic lovers parting", "sorrowful doomed romance"], "terms": ["비련"]}], "move": [{"to": "설움", "terms": ["서러운"]}, {"to": "슬프다", "terms": ["비애"]}, {"to": "비통", "terms": ["비탄"]}, {"to": "개탄", "terms": ["개탄스러운"]}]}
+{"head": "오톨도톨", "keep": ["오톨도톨한", "올록볼록", "울툭불툭한", "불룩불룩한"], "new": [], "move": [{"to": "뾰족뾰족하다", "terms": ["비죽비죽"]}]}
+{"head": "즐겁다", "keep": ["즐거운", "유쾌한", "흔연한"], "new": [], "move": [{"to": "명랑", "terms": ["명랑한"]}, {"to": "흔쾌히", "terms": ["흔쾌한"]}, {"to": "호쾌하다", "terms": ["호탕한"]}, {"to": "예쁘다", "terms": ["샤방샤방한"]}]}
+{"head": "촉촉하다", "keep": ["촉촉한"], "new": [], "move": [{"to": "습기", "terms": ["습한", "다습한", "냉습한"]}, {"to": "눅진하다", "terms": ["꿉꿉한", "추진"]}]}
+{"head": "투명하다", "keep": ["투명한", "말간"], "new": [], "move": [{"to": "말끔하다", "terms": ["깨끗한"]}, {"to": "훤하다", "terms": ["훤한"]}, {"to": "밝히다", "terms": ["빤한"]}, {"to": "늘씬하다", "terms": ["훤칠한"]}]}
+{"head": "하늘하늘", "keep": ["하늘대는", "흐늘흐늘한", "흐느적거리는"], "new": [], "move": [{"to": "늘어지다", "terms": ["치렁치렁한"]}]}
+{"head": "황폐하다", "keep": ["황폐한"], "new": [], "move": [{"to": "낡다", "terms": ["해진"]}, {"to": "쇠약하다", "terms": ["노쇠한"]}]}
+{"head": "구불구불", "keep": ["구불대는", "굴곡", "꼬부랑길"], "new": [], "move": [{"to": "구석지다", "terms": ["후미진"]}, {"to": "기울어지다", "terms": ["엇나간"]}]}
+{"head": "기쁘다", "keep": ["기쁜", "기꺼운"], "new": [{"head": "함박웃음", "axes": ["감정"], "usage": "얼굴 가득 크게 웃는 웃음", "prompts": ["big beaming smile", "broad joyful grin"], "terms": ["함박웃음"]}], "move": [{"to": "즐겁다", "terms": ["유쾌한"]}, {"to": "반가움", "terms": ["반색한"]}]}
+{"head": "꼼꼼하다", "keep": ["세밀한", "정교한", "정밀한", "꼼꼼한", "자세한"], "new": [], "move": [{"to": "섬세하다", "terms": ["섬세한"]}]}
+{"head": "당황하다", "keep": ["당황한", "당혹스러운"], "new": [{"head": "어리둥절하다", "axes": ["감정"], "usage": "영문을 몰라 갸웃하는 얼굴", "prompts": ["puzzled bewildered face", "confused head tilt"], "terms": ["어리둥절한"]}], "move": []}
+{"head": "동정심", "keep": ["동정하는"], "new": [], "move": [{"to": "따듯하다", "terms": ["인정스러운", "온정"]}, {"to": "인자하다", "terms": ["인자한", "자비로운"]}]}
+{"head": "둥실둥실", "keep": ["둥실", "두둥실", "두리둥실", "둥둥", "뜬"], "new": [], "move": [{"to": "달싹", "terms": ["달싹이는"]}, {"to": "펄럭이다", "terms": ["나부끼는"]}]}
+{"head": "못마땅하다", "keep": ["불쾌한", "못마땅한", "달갑잖은", "아니꼬운"], "new": [], "move": [{"to": "꺼림칙하다", "terms": ["께름한"]}, {"to": "무시", "terms": ["밉보는"]}, {"to": "싫다", "terms": ["미운"]}]}
+{"head": "새벽", "keep": ["새벽", "여명"], "new": [], "move": []}
+{"head": "아침", "keep": ["아침", "아침나절", "조조"], "new": [], "move": []}
+{"head": "서리", "keep": ["서리"], "new": [], "move": [{"to": "얼다", "terms": ["결빙된", "동결된"]}, {"to": "빙판", "terms": ["빙상"]}]}
+{"head": "서운하다", "keep": ["서운한"], "new": [{"head": "괘씸하다", "axes": ["감정", "관계"], "usage": "믿음이 깨져 괘씸해하는 표정", "prompts": ["offended betrayed look", "indignant glare at someone"], "terms": ["괘씸한"]}], "move": [{"to": "낙담", "terms": ["실망"]}, {"to": "못마땅하다", "terms": ["언짢은"]}, {"to": "씁쓸하다", "terms": ["씁쓰레한"]}, {"to": "슬프다", "terms": ["비감스러운", "슬픈"]}]}
+{"head": "초라하다", "keep": ["초라한", "궁상스러운", "허술한"], "new": [], "move": [{"to": "궁핍하다", "terms": ["궁색한", "가난한", "빈곤한"]}]}
+{"head": "흥분", "keep": ["흥분된", "격정", "격양"], "new": [], "move": [{"to": "치밀다", "terms": ["치받은"]}]}
+{"head": "경탄", "keep": ["경탄한", "경이로운", "놀라운"], "new": [], "move": []}
+{"head": "괴이하다", "keep": ["괴이한", "이상야릇한", "괴상망측한"], "new": [{"head": "징그럽다", "axes": ["감정", "질감"], "usage": "소름 돋게 징그러운 벌레", "prompts": ["creepy crawling insects", "gross slimy close-up"], "terms": ["징그러운"]}], "move": [{"to": "기괴하다", "terms": ["괴기스러운"]}]}
+{"head": "굴욕", "keep": ["굴욕", "모멸감", "치욕스러운", "모욕감"], "new": [], "move": []}
+{"head": "굼실굼실", "keep": ["굼실굼실"], "new": [], "move": [{"to": "촐랑촐랑하다", "terms": ["촐랑이는"]}]}
+{"head": "꾸깃꾸깃", "keep": ["꾸깃꾸깃한"], "new": [], "move": [{"to": "우그러들다", "terms": ["쭈그러진", "찌그러진", "찌부러진"]}]}
+{"head": "다채롭다", "keep": ["다채로운", "색색"], "new": [{"head": "밝은색", "axes": ["색감"], "usage": "밝고 선명한 색의 화면", "prompts": ["bright cheerful colors", "vivid light-toned palette"], "terms": ["밝은색"]}], "move": [{"to": "색깔", "terms": ["색채", "채색"]}, {"to": "원색", "terms": ["원색적인"]}]}
+{"head": "단단하다", "keep": ["단단한", "탄탄한", "견고한", "공고한"], "new": [], "move": []}
+{"head": "단아하다", "keep": ["단아한"], "new": [], "move": [{"to": "고풍", "terms": ["고담한"]}, {"to": "아름답다", "terms": ["미려한"]}, {"to": "곱디곱다", "terms": ["고운"]}, {"to": "멋있다", "terms": ["근사한"]}, {"to": "품위", "terms": ["교양미"]}, {"to": "고급스럽다", "terms": ["고급"]}]}
+{"head": "들썽들썽", "keep": ["들썽들썽"], "new": [], "move": [{"to": "꼼지락꼼지락", "terms": ["움직움직"]}, {"to": "뱅뱅", "terms": ["팽팽"]}]}
+{"head": "만족", "keep": ["만족스러운", "충족감", "회심"], "new": [], "move": []}
+{"head": "모정", "keep": ["모성애", "모정", "모성"], "new": [], "move": [{"to": "인자하다", "terms": ["자애로운", "자비로운"]}]}
+{"head": "물렁물렁", "keep": ["물렁물렁한", "말캉말캉한"], "new": [], "move": [{"to": "뽀송뽀송하다", "terms": ["뽀송뽀송한"]}]}
+{"head": "분홍색", "keep": ["분홍색", "분홍빛", "핑크"], "new": [{"head": "연분홍", "axes": ["색감"], "usage": "연하게 물든 연분홍 꽃잎", "prompts": ["pale pink cherry blossoms", "soft pastel pink tones"], "terms": ["연분홍", "연분홍빛"]}], "move": []}
+{"head": "불만", "keep": ["불만스러운", "심통스러운", "뚱한"], "new": [], "move": [{"to": "삐지다", "terms": ["꽁한"]}]}
+{"head": "비틀비틀", "keep": ["비틀비틀", "비실비실", "비슬비슬", "휘청"], "new": [{"head": "뒤뚱뒤뚱", "axes": ["에너지"], "usage": "뒤뚱거리며 걷는 오리나 아기", "prompts": ["waddling duck", "toddler wobbling side to side"], "terms": ["뒤뚱뒤뚱"]}], "move": []}
+{"head": "상냥하다", "keep": ["상냥한", "친절한"], "new": [{"head": "호감", "axes": ["감정", "관계"], "usage": "호감 가는 인상의 인물", "prompts": ["likable friendly face", "warm approachable portrait"], "terms": ["호감"]}], "move": [{"to": "정분", "terms": ["친근한"]}]}
+{"head": "생긋", "keep": ["생긋", "방실", "헤"], "new": [], "move": []}
+{"head": "소용돌이", "keep": ["소용돌이"], "keep_axes": ["에너지"], "new": [], "move": [{"to": "뱅뱅", "terms": ["휘휘", "팽그르르", "빙"]}]}
+{"head": "아쉽다", "keep": ["아쉬운", "유감스러운"], "new": [], "move": [{"to": "탄식하다", "terms": ["한탄하는"]}]}
+{"head": "의구심", "keep": ["의구심", "의혹", "불신감", "회의적인"], "new": [], "move": [{"to": "수상스럽다", "terms": ["수상한"]}]}
+{"head": "질시", "keep": ["질시"], "new": [{"head": "흑심", "axes": ["감정"], "usage": "속셈을 품은 음흉한 눈빛", "prompts": ["scheming sly glance", "sinister hidden motive look"], "terms": ["흑심"]}], "move": []}
+{"head": "정갈하다", "keep": ["정갈한", "깔끔한"], "new": [], "move": [{"to": "가지런하다", "terms": ["정연한"]}, {"to": "무성하다", "terms": ["칠칠한"]}]}
+{"head": "질투", "keep": ["질투하는", "시기하는", "시샘하는", "질시하는"], "new": [], "move": [{"to": "싫다", "terms": ["미운"]}]}
+{"head": "쾌청하다", "keep": ["쾌청한", "맑아진", "공활한", "마른하늘"], "new": [], "move": [{"to": "천진무구하다", "terms": ["해맑은"]}]}
+{"head": "파란색", "keep": ["파란색", "청색"], "new": [], "move": []}
+{"head": "평평하다", "keep": ["평평한", "평탄한", "판판한", "반반한"], "new": [], "move": []}
+{"head": "풍랑", "keep": ["풍랑", "격랑", "풍파", "너울진", "흉흉한"], "new": [], "move": []}
+{"head": "허탈하다", "keep": ["허탈한"], "new": [{"head": "무상감", "axes": ["감정"], "usage": "덧없이 스러져 가는 풍경", "prompts": ["fleeting transience, fallen petals", "ruins fading with time"], "terms": ["무상한"]}, {"head": "무력감", "axes": ["감정", "에너지"], "usage": "아무것도 할 수 없어 늘어진 사람", "prompts": ["helpless person slumped", "powerless defeated posture"], "terms": ["무력한"]}], "move": [{"to": "공허하다", "terms": ["허한", "휑한"]}]}
+{"head": "허허벌판", "keep": ["허허벌판", "드넓은", "광막한", "대평원", "광야", "개활지"], "new": [], "move": []}
+{"head": "가지런하다", "keep": ["가지런한", "반듯반듯한", "나란한"], "new": [], "move": []}
+{"head": "감성", "keep": ["감성", "정서적인", "정감"], "new": [], "move": [{"to": "서정미", "terms": ["서정적인"]}]}
+{"head": "강렬하다", "keep": ["강렬한"], "new": [{"head": "자극적", "axes": ["스타일", "감정"], "usage": "눈길을 확 끄는 자극적인 화면", "prompts": ["provocative eye-catching image", "sensational bold visual"], "terms": ["자극적인"]}], "move": [{"to": "격렬히", "terms": ["격렬한"]}, {"to": "과격하다", "terms": ["과격한"]}, {"to": "짙다", "terms": ["농후한"]}]}
+{"head": "고혹적", "keep": ["고혹적인", "매료시키는"], "new": [], "move": []}
+{"head": "야하다", "keep": ["야한", "에로틱한", "선정적인"], "new": [], "move": []}
+{"head": "까칠까칠", "keep": ["거칠거칠한", "까칠까칠한", "까끌까끌한", "까슬까슬한"], "new": [], "move": []}
+{"head": "늘씬하다", "keep": ["늘씬한", "후리후리한", "훤칠한", "헌칠한"], "new": [{"head": "껑충하다", "axes": ["스타일"], "usage": "멋없이 키만 큰 껑충한 몸", "prompts": ["lanky gangly tall figure", "awkward long-legged person"], "terms": ["껑충한"]}], "move": [{"to": "높다", "terms": ["높다란"]}]}
+{"head": "달갑다", "keep": ["흐뭇한", "달가운", "탐탁한", "시다운"], "new": [], "move": []}
+{"head": "매정하다", "keep": ["매정한", "매몰찬", "비정한", "박정한", "냉혹한"], "new": [], "move": []}
+{"head": "메마르다", "keep": ["메마른", "건조한", "가문", "건기"], "new": [{"head": "꾸덕꾸덕하다", "axes": ["질감"], "usage": "꾸덕하게 반쯤 마른 음식", "prompts": ["half-dried chewy food", "thick semi-dried texture"], "terms": ["꾸덕꾸덕한"]}], "move": []}
+{"head": "방황하다", "keep": ["방황하는"], "new": [{"head": "서성서성", "axes": ["에너지", "감정"], "usage": "한자리를 왔다 갔다 서성이는 사람", "prompts": ["person pacing back and forth", "loitering waiting figure"], "terms": ["서성서성", "얼쩡얼쩡"]}, {"head": "어슬렁어슬렁", "axes": ["에너지"], "usage": "느릿느릿 어슬렁거리는 걸음", "prompts": ["slow lumbering stroll", "animal prowling leisurely"], "terms": ["어슬렁어슬렁"]}], "move": [{"to": "갈팡질팡", "terms": ["갈팡질팡하는"]}]}
+{"head": "복작복작", "keep": ["복작복작", "복닥복닥", "득시글득시글"], "new": [], "move": []}
+{"head": "북적북적", "keep": ["북적이는", "들끓는"], "new": [], "move": [{"to": "소란스럽다", "terms": ["야단스러운", "요란한"]}]}
+{"head": "불안", "keep": ["불안한", "뒤숭숭한"], "new": [], "move": []}
+{"head": "빼곡하다", "keep": ["빼곡한", "가득한", "잔뜩"], "new": [], "move": [{"to": "아기자기하다", "terms": ["오밀조밀한"]}]}
+{"head": "빽빽하다", "keep": ["빽빽한", "다닥다닥"], "new": [{"head": "꾸역꾸역", "axes": ["에너지"], "usage": "입 안 가득 꾸역꾸역 먹는 모습", "prompts": ["stuffing mouth full of food", "eating forcefully cheeks full"], "terms": ["꾸역꾸역"]}], "move": [{"to": "복작복작", "terms": ["우글우글"]}, {"to": "우우", "terms": ["우르르"]}]}
+{"head": "뿔뿔이", "keep": ["뿔뿔이", "분산된"], "new": [{"head": "흩날리다", "axes": ["에너지", "계절·날씨"], "usage": "바람에 흩날리는 꽃잎", "prompts": ["petals scattering in the wind", "snowflakes drifting apart"], "terms": ["흩날리는"]}], "move": [{"to": "부서지다", "terms": ["산산이"]}, {"to": "산발적", "terms": ["띄엄띄엄"]}]}
+{"head": "사명감", "keep": ["사명감", "책임감"], "new": [{"head": "패기", "axes": ["감정", "에너지"], "usage": "해내겠다는 패기 어린 얼굴", "prompts": ["determined ambitious young face", "driven go-getter pose"], "terms": ["패기", "성취동기"]}, {"head": "승부욕", "axes": ["감정", "에너지"], "usage": "이기려는 눈빛의 선수", "prompts": ["competitive athlete fierce eyes", "fighting spirit before a match"], "terms": ["승부욕", "전의"]}], "move": []}
+{"head": "샐쭉", "keep": ["샐쭉한"], "new": [], "move": [{"to": "히쭉", "terms": ["히죽"]}, {"to": "요염", "terms": ["교태"]}]}
+{"head": "설움", "keep": ["서러운", "한스러운", "여한"], "new": [], "move": [{"to": "비통", "terms": ["망극한", "통절한"]}]}
+{"head": "쌀쌀하다", "keep": ["쌀쌀한", "냉기", "찬기", "냉기류", "저온"], "new": [{"head": "서리다", "axes": ["질감", "계절·날씨"], "usage": "김이 뿌옇게 서린 유리창", "prompts": ["foggy condensation on window glass", "steam misted window"], "terms": ["서린"]}], "move": []}
+{"head": "쑥스럽다", "keep": ["쑥스러운", "겸연쩍은", "낯간지러운"], "new": [], "move": [{"to": "창피하다", "terms": ["남우세스러운"]}]}
+{"head": "안쓰럽다", "keep": ["안쓰러운", "가엾은", "측은한", "안된"], "new": [], "move": [{"to": "아쉽다", "terms": ["애석한"]}]}
+{"head": "안정", "keep": ["안정", "고정한"], "new": [], "move": [{"to": "의연하다", "terms": ["의연한"]}, {"to": "찬찬히", "terms": ["찬찬한"]}, {"to": "차분하다", "terms": ["진정된"]}]}
+{"head": "야성적", "keep": ["야성적인", "사나운"], "new": [], "move": [{"to": "용감무쌍하다", "terms": ["용맹한"]}, {"to": "격렬히", "terms": ["극렬한"]}]}
+{"head": "자랑스럽다", "keep": ["자랑스러운", "뿌듯한", "대견한"], "new": [], "move": [{"to": "득의양양하다", "terms": ["의기양양한"]}, {"to": "자부심", "terms": ["자긍"]}]}
+{"head": "자부심", "keep": ["자부심", "자긍심", "프라이드"], "new": [], "move": [{"to": "당당", "terms": ["당찬"]}, {"to": "결연하다", "terms": ["결연한"]}, {"to": "호기롭다", "terms": ["호기로운"]}]}
+{"head": "자세히", "keep": ["자세한", "꼼꼼한", "면밀한", "치밀한"], "new": [], "move": [{"to": "곰살궂다", "terms": ["자상한"]}]}
+{"head": "절망", "keep": ["절망스러운"], "new": [], "move": [{"to": "공허하다", "terms": ["허망한"]}, {"to": "허탈하다", "terms": ["허탈한"]}]}
+{"head": "주룩주룩", "keep": ["주룩주룩", "주르르", "주르륵", "좔좔"], "new": [{"head": "흘러내리다", "axes": ["에너지"], "usage": "뺨이나 유리를 타고 흘러내리는 물줄기", "prompts": ["tears streaming down cheek", "water running down glass"], "terms": ["흘러내리는"]}], "move": []}
+{"head": "찔끔찔끔", "keep": ["찔끔찔끔"], "new": [{"head": "질질", "axes": ["에너지"], "usage": "바닥에 질질 끌리고 흘리는 모습", "prompts": ["dragging along the ground", "trailing and spilling things"], "terms": ["질질"]}], "move": []}
+{"head": "침울하다", "keep": ["우울한", "침울한"], "new": [], "move": [{"to": "절망", "terms": ["비관적인"]}, {"to": "찌뿌드드하다", "terms": ["찌뿌둥한"]}]}
+{"head": "콩콩", "keep": ["콩콩"], "new": [{"head": "털털", "axes": ["에너지"], "usage": "먼지를 털털 털어 내는 손길", "prompts": ["shaking dust off clothes", "patting off dust"], "terms": ["털털"]}], "move": [{"to": "토닥토닥", "terms": ["도닥도닥"]}]}
+{"head": "토실토실", "keep": ["토실토실한", "오동통한"], "new": [], "move": [{"to": "둥글둥글하다", "terms": ["동글동글한"]}]}
+{"head": "펼쳐지다", "keep": ["펼쳐진", "쫙"], "new": [], "move": [{"to": "넓다", "terms": ["넓어진"]}]}
+{"head": "폭염", "keep": ["폭염", "불볕더위", "한더위", "혹서", "강더위"], "new": [], "move": [{"to": "뜨겁다", "terms": ["고온"]}]}
+{"head": "호화롭다", "keep": ["호화로운", "호사로운", "호화찬란한"], "new": [], "move": []}
+{"head": "환희", "keep": ["환희"], "new": [{"head": "축하하다", "axes": ["감정", "관계"], "usage": "함께 축하하며 기뻐하는 자리", "prompts": ["celebrating together with cheers", "festive congratulation party"], "terms": ["축하하는", "경사스러운"]}], "move": []}
+{"head": "쾌락", "keep": ["쾌락", "환락"], "new": [], "move": []}
+{"head": "흔들흔들", "keep": ["흔들대는"], "new": [], "move": [{"to": "불안", "terms": ["동요된"]}]}
+{"head": "힐금", "keep": ["흘끔", "흘긋", "힐금"], "new": [], "move": []}
+{"head": "가뜬하다", "keep": ["가뿐한", "거뜬한"], "new": [], "move": []}
+{"head": "간결하다", "keep": ["간결한", "심플한"], "new": [], "move": [{"to": "단순하다", "terms": ["조촐한"]}, {"to": "말끔", "terms": ["말쑥한"]}]}
+{"head": "간단하다", "keep": ["간단한"], "new": [], "move": [{"to": "순탄히", "terms": ["순탄한"]}]}
+{"head": "감격적", "keep": ["감격스러운", "벅찬", "감개무량한"], "new": [], "move": []}
+{"head": "감사", "keep": ["감사한", "고마운", "감지덕지한"], "new": [], "move": []}
+{"head": "감정", "keep": ["감정", "정서"], "new": [], "move": [{"to": "감수성", "terms": ["다감한"]}]}
+{"head": "감회", "keep": ["감회", "만감"], "new": [{"head": "희로애락", "axes": ["감정"], "usage": "기쁨과 슬픔이 엇갈리는 삶의 한 장면", "prompts": ["joys and sorrows of everyday life", "mixed tears and laughter"], "terms": ["희로애락", "애환", "희비"]}], "move": []}
+{"head": "과격하다", "keep": ["과격한"], "new": [], "move": [{"to": "지독하다", "terms": ["지독한"]}, {"to": "멋있다", "terms": ["죽여주는"]}]}
+{"head": "광명", "keep": ["광명한", "광채", "광휘로운"], "new": [], "move": [{"to": "밝다", "terms": ["밝은"]}]}
+{"head": "홀가분하다", "keep": ["홀가분한"], "new": [], "move": [{"to": "태평하다", "terms": ["태평스러운"]}, {"to": "느긋하다", "terms": ["유유자적한"]}]}
+{"head": "굉장하다", "keep": ["굉장한", "으리으리한"], "new": [{"head": "성대하다", "axes": ["공간", "스타일"], "usage": "크고 성대하게 치러지는 행사", "prompts": ["grand lavish ceremony", "large festive banquet hall"], "terms": ["성대한"]}], "move": [{"to": "위풍", "terms": ["위풍당당한"]}]}
+{"head": "구김", "keep": ["구김", "구김새", "주름투성이"], "new": [], "move": []}
+{"head": "급하다", "keep": ["급한", "다급한"], "new": [], "move": []}
+{"head": "절박하다", "keep": ["절박한"], "new": [], "move": [{"to": "간절하다", "terms": ["절실한"]}]}
+{"head": "기형화", "keep": ["변형된", "기형화된"], "new": [], "move": []}
+{"head": "길쭉하다", "keep": ["길쭉한"], "new": [], "move": [{"to": "좁다", "terms": ["좁다란"]}]}
+{"head": "꼬물대다", "keep": ["꼬물대는", "곰지락곰지락"], "new": [], "move": []}
+{"head": "끈적끈적하다", "keep": ["끈적끈적한", "끈끈한"], "new": [], "move": []}
+{"head": "높아지다", "keep": ["우뚝한", "높아진"], "new": [], "move": [{"to": "거대", "terms": ["거대한"]}]}
+{"head": "눈부시다", "keep": ["눈부신", "휘황한"], "new": [], "move": [{"to": "황홀감", "terms": ["황홀한"]}]}
+{"head": "당당", "keep": ["당당한", "기세등등한"], "new": [], "move": [{"to": "허물없다", "terms": ["스스럼없는"]}]}
+{"head": "모습", "keep": ["모습", "겉보기", "면모", "외양"], "new": [], "move": [{"to": "몸차림", "terms": ["행색"]}]}
+{"head": "몰골", "keep": ["초췌한", "몰골", "파리한", "핼쑥한"], "new": [], "move": [{"to": "홀쭉하다", "terms": ["홀쭉한"]}]}
+{"head": "무료", "keep": ["권태로운", "무료한"], "new": [], "move": []}
+{"head": "평안하다", "keep": ["평안한", "평강한"], "new": [], "move": []}
+{"head": "물컹하다", "keep": ["물컹한"], "new": [], "move": [{"to": "질벅질벅하다", "terms": ["질척한", "질벅한"]}]}
+{"head": "미안", "keep": ["미안한", "죄송한", "송구한"], "new": [], "move": []}
+{"head": "바싹", "keep": ["바싹"], "new": [], "move": [{"to": "바삭", "terms": ["바삭한"]}]}
+{"head": "밤중", "keep": ["밤중", "한밤중", "한밤", "오밤중", "야밤"], "new": [], "move": []}
+{"head": "번잡하다", "keep": ["번잡한", "부산한", "들썽한"], "new": [], "move": [{"to": "혼란", "terms": ["혼돈"]}]}
+{"head": "보라색", "keep": ["보라색", "보랏빛"], "new": [{"head": "자주색", "axes": ["색감"], "usage": "붉은 기가 도는 자줏빛 화면", "prompts": ["deep magenta purple tones", "reddish purple fabric"], "terms": ["자주색", "자줏빛"]}], "move": []}
+{"head": "봄철", "keep": ["봄철", "춘삼월"], "new": [{"head": "초봄", "axes": ["계절·날씨"], "usage": "새싹이 막 돋는 이른 봄", "prompts": ["early spring sprouts", "first buds of early spring"], "terms": ["초봄", "첫봄"]}, {"head": "만개", "axes": ["계절·날씨", "색감"], "usage": "꽃이 활짝 핀 나무", "prompts": ["flowers in full bloom", "tree covered in full blossoms"], "terms": ["만개"]}], "move": []}
+{"head": "사랑하다", "keep": ["사랑하는", "열애하는"], "new": [], "move": [{"to": "섹시하다", "terms": ["성애"]}]}
+{"head": "소곤소곤", "keep": ["소곤소곤", "속삭속삭", "속닥속닥", "속살속살"], "new": [], "move": []}
+{"head": "솟다", "keep": ["솟은", "솟아오르는", "치솟은", "솟구치는"], "new": [], "move": [{"to": "돋다", "terms": ["돋아난"]}]}
+{"head": "습기", "keep": ["습기"], "new": [{"head": "음습하다", "axes": ["질감", "빛"], "usage": "그늘지고 축축한 뒷골목", "prompts": ["dank shadowy alley", "damp dark corner with moss"], "terms": ["음습한"]}], "move": []}
+{"head": "음울하다", "keep": ["음울한"], "new": [], "move": [{"to": "으스스하다", "terms": ["으스스한"]}]}
+{"head": "신비하다", "keep": ["신비한", "신묘한"], "new": [{"head": "초자연적", "axes": ["감정", "빛"], "usage": "설명할 수 없는 기이한 현상", "prompts": ["supernatural eerie glow", "otherworldly paranormal scene"], "terms": ["초자연적인"]}], "move": []}
+{"head": "안타깝다", "keep": ["안타까운", "애끓는", "짠한"], "new": [], "move": [{"to": "짝사랑", "terms": ["가슴앓이"]}]}
+{"head": "얌전", "keep": ["얌전한"], "new": [{"head": "침착", "axes": ["감정"], "usage": "흔들림 없이 차분한 표정", "prompts": ["composed calm face", "calm and collected person"], "terms": ["침착한"]}], "move": [{"to": "고분고분", "terms": ["고분고분한"]}]}
+{"head": "어이없다", "keep": ["어이없는", "어처구니없는", "기막힌", "황당한"], "new": [], "move": []}
+{"head": "온유하다", "keep": ["온유한", "유순한", "순순한"], "new": [], "move": [{"to": "연약하다", "terms": ["유약한"]}]}
+{"head": "원망", "keep": ["원망스러운"], "new": [], "move": [{"to": "분노", "terms": ["의분"]}]}
+{"head": "흉악", "keep": ["흉악한", "흉측한"], "new": [], "move": []}
+{"head": "원양", "keep": ["바다", "해양", "원양", "망망대해", "창해"], "new": [], "move": []}
+{"head": "으스스하다", "keep": ["으스스한", "오싹오싹한", "으슬으슬"], "new": [], "move": [{"to": "서늘하다", "terms": ["선득선득"]}]}
+{"head": "자연히", "keep": ["자연스러운"], "new": [], "move": [{"to": "유연하다", "terms": ["유연한"]}]}
+{"head": "졸졸", "keep": ["졸졸"], "new": [], "move": [{"to": "주룩주룩", "terms": ["주르륵"]}]}
+{"head": "좌절", "keep": ["좌절한", "패배감"], "new": [], "move": []}
+{"head": "쪼글쪼글하다", "keep": ["쭈글쭈글한"], "new": [], "move": [{"to": "겉늙다", "terms": ["조로한"]}]}
+{"head": "천천히", "keep": ["느릿느릿한", "천천한", "더딘"], "new": [], "move": []}
+{"head": "초조하다", "keep": ["초조한", "조바심치는", "애간장"], "new": [], "move": []}
+{"head": "추위", "keep": ["추위", "엄동설한"], "new": [], "move": [{"to": "한겨울", "terms": ["대한"]}, {"to": "올겨울", "terms": ["동계", "겨울날"]}]}
+{"head": "친숙", "keep": ["친숙한"], "new": [], "move": [{"to": "다정하다", "terms": ["다정한"]}, {"to": "화목하다", "terms": ["화기애애한"]}, {"to": "오순도순", "terms": ["오순도순한"]}]}
+{"head": "코믹하다", "keep": ["코믹한", "유머러스한", "익살스러운", "희화적인"], "new": [], "move": [{"to": "장난스럽다", "terms": ["유희적인"]}]}
+{"head": "해빙", "keep": ["해빙된", "해동된"], "new": [], "move": []}
+{"head": "홀홀", "keep": ["파닥파닥", "훌훌"], "new": [], "move": [{"to": "타오르다", "terms": ["활활"]}]}
+{"head": "황황하다", "keep": ["허둥지둥한", "허겁지겁한", "황황한"], "new": [], "move": []}
+{"head": "흐리다", "keep": ["흐린", "탁한", "칙칙한"], "new": [], "move": []}
+{"head": "흑", "keep": ["새까만", "흑", "꺼먼", "깜장"], "new": [], "move": []}
+{"head": "흠모", "keep": ["흠모하는", "경애하는", "추앙하는"], "new": [], "move": [{"to": "경건하다", "terms": ["신앙심"]}]}
+{"head": "가냘프다", "keep": ["가냘픈", "호리호리한"], "new": [], "move": [{"to": "홀쭉하다", "terms": ["홀쭉한"]}, {"to": "가늘다", "terms": ["가느스름한"]}]}
+{"head": "가맣다", "keep": ["검디검은", "시커먼"], "new": [], "move": [{"to": "묵묵하다", "terms": ["가만"]}]}
+{"head": "가지각색", "keep": ["각양각색", "형형색색", "가지각색", "다종다양한"], "new": [], "move": []}
+{"head": "감격", "keep": ["감격", "감명"], "new": [{"head": "통감하다", "axes": ["감정"], "usage": "책임을 깊이 느끼는 무거운 표정", "prompts": ["solemn remorseful face", "deeply regretful bowed head"], "terms": ["통감하는"]}], "move": [{"to": "그립다", "terms": ["사무치는"]}]}
+{"head": "겨울바람", "keep": ["겨울바람", "삭풍", "설한풍", "북풍"], "new": [], "move": []}
+{"head": "골똘하다", "keep": ["골똘한"], "new": [{"head": "심취", "axes": ["감정", "에너지"], "usage": "무언가에 푹 빠져 몰입한 모습", "prompts": ["absorbed in music with eyes closed", "enraptured in a hobby"], "terms": ["심취"]}], "move": []}
+{"head": "광명하다", "keep": ["찬란한", "광명한"], "new": [{"head": "화사하다", "axes": ["빛", "색감"], "usage": "밝고 화사하게 핀 꽃과 옷", "prompts": ["bright pretty pastel flowers", "radiant soft bright portrait"], "terms": ["화사한"]}], "move": [{"to": "화려하다", "terms": ["현란한"]}]}
+{"head": "광범하다", "keep": ["넓디넓은", "광범한", "방대한"], "new": [], "move": [{"to": "넓다", "terms": ["폭"]}]}
+{"head": "근대적", "keep": ["현대식"], "new": [], "move": [{"to": "복고적", "terms": ["근대적인"]}]}
+{"head": "깊숙하다", "keep": ["깊숙한"], "new": [], "move": [{"to": "아득하다", "terms": ["아득한"]}]}
+{"head": "깔깔하다", "keep": ["깔깔대는", "껄껄"], "keep_axes": ["감정"], "new": [], "move": [{"to": "재미있다", "terms": ["희희낙락하는"]}]}
+{"head": "깜찍하다", "keep": ["깜찍한", "앙증맞은"], "new": [{"head": "아담하다", "axes": ["공간", "스타일"], "usage": "작고 아늑한 집", "prompts": ["cozy small house", "neat compact room"], "terms": ["아담한"]}], "move": []}
+{"head": "꺼벙하다", "keep": ["투박한"], "new": [], "move": [{"to": "엉성하다", "terms": ["꺼벙한"]}, {"to": "조잡스럽다", "terms": ["조잡한"]}]}
+{"head": "꺼칠하다", "keep": ["꺼칠한", "꺼끌꺼끌한"], "new": [{"head": "울퉁불퉁", "axes": ["질감", "공간"], "usage": "울퉁불퉁한 돌길", "prompts": ["bumpy uneven stone path", "lumpy uneven surface"], "terms": ["울퉁불퉁한"]}], "move": []}
+{"head": "꼬불탕하다", "keep": ["뒤틀린"], "new": [], "move": [{"to": "구불구불", "terms": ["꼬불탕한"]}, {"to": "일그러지다", "terms": ["이지러진"]}, {"to": "삐쭉삐쭉", "terms": ["삐쭉삐쭉한"]}]}
+{"head": "낮", "keep": ["낮", "대낮"], "new": [], "move": [{"to": "쾌청하다", "terms": ["화창한"]}]}
+{"head": "내", "keep": ["강물", "냇물"], "new": [], "move": [{"to": "급물살", "terms": ["급류"]}]}
+{"head": "널름대다", "keep": ["널름대는"], "new": [{"head": "포르르", "axes": ["에너지"], "usage": "작게 파르르 떠는 잎사귀나 날갯짓", "prompts": ["small leaf trembling lightly in the breeze", "little bird fluttering its wings"], "terms": ["포르르"]}], "move": []}
+{"head": "넘쳐흐르다", "keep": ["넘쳐흐르는", "흘러넘치는", "철철"], "new": [], "move": [{"to": "슬프다", "terms": ["그렁그렁한"]}]}
+{"head": "노곤하다", "keep": ["나른한", "노곤한", "곤한"], "new": [], "move": []}
+{"head": "눅다", "keep": ["말랑한", "눅은"], "new": [], "move": []}
+{"head": "눅진하다", "keep": ["눅눅한", "눅진한"], "new": [], "move": []}
+{"head": "다홍", "keep": ["다홍", "진홍", "홍색"], "new": [], "move": []}
+{"head": "도형", "keep": ["기하학적인", "도형", "다각형"], "new": [{"head": "추상적", "axes": ["스타일"], "usage": "형체를 알 수 없는 추상적인 화면", "prompts": ["abstract composition of shapes and color fields"], "terms": ["추상적인"]}], "move": []}
+{"head": "득실하다", "keep": ["혼잡한", "득실한"], "new": [], "move": []}
+{"head": "따끈따끈하다", "keep": ["따끈따끈한"], "new": [], "move": [{"to": "따듯하다", "terms": ["훈기"]}]}
+{"head": "로맨틱하다", "keep": ["로맨틱한", "낭만"], "new": [], "move": []}
+{"head": "격조", "keep": ["격조"], "new": [], "move": [{"to": "정취", "terms": ["풍취"]}]}
+{"head": "먹구름", "keep": ["먹구름", "먹장구름"], "new": [], "move": [{"to": "침울하다", "terms": ["저기압"]}, {"to": "가무칙칙하다", "terms": ["음한"]}]}
+{"head": "멋있다", "keep": ["멋진", "멋들어진"], "new": [], "move": []}
+{"head": "무뚝뚝하다", "keep": ["무뚝뚝한", "퉁명스러운"], "new": [], "move": []}
+{"head": "무정형", "keep": ["무정형한"], "new": [], "move": [{"to": "삐뚤빼뚤", "terms": ["들쭉날쭉한"]}]}
+{"head": "뭉근하다", "keep": ["뭉근한"], "keep_axes": ["빛"], "new": [{"head": "설핏", "axes": ["빛", "시간대"], "usage": "해가 기울어 볕이 약해진 늦은 오후", "prompts": ["weak slanting late-afternoon sunlight"], "terms": ["설핏"]}], "move": [{"to": "희미하다", "terms": ["어슴푸레한"]}]}
+{"head": "밝히다", "keep": ["밝힌", "빤한"], "new": [], "move": [{"to": "눈부시다", "terms": ["휘황찬란한"]}, {"to": "광명", "terms": ["광휘"]}]}
+{"head": "변화되다", "keep": ["변화된", "변모된"], "new": [], "move": []}
+{"head": "부서지다", "keep": ["부서지는", "산산조각", "으스러진", "작살난"], "new": [], "move": []}
+{"head": "붉다", "keep": ["붉은", "빨간", "새빨간", "선홍색"], "new": [], "move": []}
+{"head": "산발적", "keep": ["드문드문", "산발적인", "간간이"], "new": [], "move": []}
+{"head": "새벽녘", "keep": ["새벽녘", "미명"], "new": [], "move": [{"to": "어둑하다", "terms": ["어스름한"]}]}
+{"head": "색깔", "keep": ["색감", "색깔", "컬러", "채도"], "new": [], "move": []}
+{"head": "서구적", "keep": ["서구적인", "서양적인", "서양식", "서구형"], "new": [], "move": []}
+{"head": "소담하다", "keep": ["소담한", "탐스러운"], "new": [], "move": []}
+{"head": "수줍음", "keep": ["수줍은"], "new": [], "move": [{"to": "무안하다", "terms": ["무안한", "면구스러운"]}]}
+{"head": "순결하다", "keep": ["순결한"], "new": [], "move": [{"to": "천진무구하다", "terms": ["천진한"]}]}
+{"head": "순진하다", "keep": ["순진한", "순진무구한"], "new": [], "move": []}
+{"head": "슬슬", "keep": ["살며시", "슬슬", "살포시", "살짝살짝"], "new": [], "move": []}
+{"head": "시끌벅적", "keep": ["시끌벅적한", "떠들썩한", "왁자지껄한"], "new": [], "move": []}
+{"head": "심리", "keep": ["심리", "심경", "심정", "내색한"], "new": [], "move": []}
+{"head": "안도감", "keep": ["안도감", "다행스러운"], "new": [], "move": [{"to": "홀가분하다", "terms": ["후련한"]}]}
+{"head": "암흑", "keep": ["깜깜한", "암흑"], "new": [], "move": []}
+{"head": "앙심", "keep": ["원한", "앙심"], "new": [], "move": [{"to": "삐치다", "terms": ["꿍한"]}]}
+{"head": "얼빠지다", "keep": ["멍한", "얼빠진"], "new": [{"head": "망연자실하다", "axes": ["감정"], "usage": "넋을 잃고 주저앉은 사람", "prompts": ["person sitting stunned in despair with a blank stare"], "terms": ["망연자실한"]}], "move": [{"to": "당황하다", "terms": ["벙벙한"]}]}
+{"head": "엉키다", "keep": ["엉킨", "뒤엉킨", "엉클어진", "얼기설기"], "new": [], "move": []}
+{"head": "욱하다", "keep": ["욱하는"], "new": [], "move": [{"to": "복받치다", "terms": ["울컥한"]}]}
+{"head": "은밀하다", "keep": ["은밀한", "비밀스러운"], "new": [], "move": []}
+{"head": "의아심", "keep": ["의아한"], "new": [{"head": "호기심", "axes": ["감정"], "usage": "호기심 어린 눈으로 들여다보는 아이", "prompts": ["curious child peering closely at something"], "terms": ["호기심"]}], "move": []}
+{"head": "의젓하다", "keep": ["의젓한"], "new": [{"head": "초연하다", "axes": ["감정"], "usage": "세상일에 얽매이지 않은 담담한 모습", "prompts": ["serene detached figure gazing into the distance"], "terms": ["초연한"]}], "move": []}
+{"head": "이상하다", "keep": ["이상한", "요상한"], "new": [], "move": []}
+{"head": "장엄", "keep": ["장엄한", "장중한"], "new": [], "move": []}
+{"head": "재미없다", "keep": ["재미없는", "따분한"], "new": [{"head": "멋없다", "axes": ["스타일"], "usage": "멋을 부리지 않은 밋밋한 차림과 장면", "prompts": ["plain unstylish outfit in a dull setting"], "terms": ["멋없는"]}], "move": [{"to": "범속하다", "terms": ["범속한"]}]}
+{"head": "적요", "keep": ["적요한"], "new": [], "move": [{"to": "허무하다", "terms": ["허무한"]}]}
+{"head": "점잖다", "keep": ["점잖은", "정중한"], "new": [], "move": [{"to": "의젓하다", "terms": ["어엿한"]}]}
+{"head": "정열", "keep": ["열정적인", "정열적인", "열렬한"], "new": [], "move": []}
+{"head": "꼿꼿이", "keep": ["꼿꼿한", "꼬장꼬장한"], "new": [], "move": []}
+{"head": "죄악감", "keep": ["죄책감", "죄악감", "죄의식", "죄스러운"], "new": [], "move": []}
+{"head": "지다", "keep": ["저문", "지는", "저물녘"], "new": [], "move": []}
+{"head": "질벅질벅하다", "keep": ["질척이는", "질벅질벅한"], "new": [], "move": []}
+{"head": "초조", "keep": ["초조한"], "new": [], "move": [{"to": "걱정", "terms": ["생가슴", "후환"]}, {"to": "하염없이", "terms": ["하염없는"]}]}
+{"head": "폭설", "keep": ["폭설", "대설", "눈발", "강설"], "new": [], "move": []}
+{"head": "풍", "keep": ["풍"], "new": [{"head": "여운", "axes": ["감정", "스타일"], "usage": "일이 끝난 뒤에도 잔잔히 남는 느낌", "prompts": ["quiet lingering moment after the event, empty seats"], "terms": ["여운"]}], "move": [{"to": "서정미", "terms": ["시적인"]}]}
+{"head": "풍부하다", "keep": ["풍부한", "풍성한"], "new": [], "move": []}
+{"head": "햇볕", "keep": ["햇볕", "쨍쨍한"], "new": [], "move": [{"to": "광선", "terms": ["햇발"]}]}
+{"head": "혼란", "keep": ["혼란스러운", "혼돈"], "new": [], "move": []}
+{"head": "환심", "keep": ["환희", "희열", "환심"], "new": [], "move": [{"to": "즐겁다", "terms": ["희희낙락"]}]}
+{"head": "흉악하다", "keep": ["흉악한", "흉측한"], "new": [], "move": [{"to": "찝찝하다", "terms": ["고약한"]}]}
+{"head": "가무칙칙하다", "keep": ["우중충한", "가무칙칙한"], "new": [], "move": [{"to": "침침하다", "terms": ["어둠침침한"]}]}
+{"head": "가을날", "keep": ["가을날", "올가을"], "new": [], "move": [{"to": "첫가을", "terms": ["입추"]}]}
+{"head": "가을바람", "keep": ["가을바람", "소슬바람"], "new": [], "move": []}
+{"head": "개탄", "keep": ["개탄", "통탄"], "new": [], "move": []}
+{"head": "걱정", "keep": ["걱정스러운", "기우"], "new": [], "move": []}
+{"head": "검은색", "keep": ["검은색", "까만색"], "new": [], "move": []}
+{"head": "겉모습", "keep": ["겉모습", "겉모양", "외표"], "new": [], "move": []}
+{"head": "고양되다", "keep": ["고양된", "고취된"], "new": [], "move": []}
+{"head": "고풍", "keep": ["고풍스러운", "예스러운"], "new": [], "move": [{"to": "향수", "terms": ["노스탤지어"]}]}
+{"head": "곡류천", "keep": ["강줄기", "굽이치는", "곡류천"], "new": [], "move": []}
+{"head": "곱다", "keep": ["곡선미", "유려한"], "keep_axes": ["스타일"], "new": [], "move": [{"to": "휘다", "terms": ["곱은"]}]}
+{"head": "곱디곱다", "keep": ["곱디고운", "아리따운"], "new": [], "move": [{"to": "아름답다", "terms": ["미"]}]}
+{"head": "공감", "keep": ["공감하는", "공감대"], "new": [], "move": []}
+{"head": "과민", "keep": ["과민한"], "new": [], "move": [{"to": "짜증", "terms": ["신경질"]}]}
+{"head": "과욕", "keep": ["과욕", "사리사욕"], "new": [], "move": []}
+{"head": "괴로움", "keep": ["괴로운"], "new": [], "move": [{"to": "절망", "terms": ["절망한"]}]}
+{"head": "구릿빛", "keep": ["구릿빛", "고동색", "적갈색"], "new": [], "move": []}
+{"head": "구식", "keep": ["구식", "구닥다리", "구시대적인"], "new": [], "move": []}
+{"head": "구형", "keep": ["동그스름한", "구형"], "new": [], "move": [{"to": "몽실몽실", "terms": ["뭉실뭉실"]}]}
+{"head": "군청색", "keep": ["군청색", "남청색"], "new": [], "move": [{"to": "시퍼렇다", "terms": ["퍼런"]}]}
+{"head": "굵다", "keep": ["굵은", "굵직굵직한", "두꺼운"], "new": [], "move": []}
+{"head": "굽신대다", "keep": ["굽신대는", "조아린"], "new": [], "move": []}
+{"head": "기뻐하다", "keep": ["기쁜", "희색"], "new": [], "move": [{"to": "애정", "terms": ["좋아하는"]}]}
+{"head": "기품", "keep": ["기품"], "new": [{"head": "자태", "axes": ["스타일"], "usage": "여인의 우아한 몸가짐과 자세", "prompts": ["graceful woman posing elegantly"], "terms": ["자태"]}], "move": [{"to": "아름답다", "terms": ["미적인"]}]}
+{"head": "기후", "keep": ["기후", "대기"], "new": [], "move": [{"to": "안개", "terms": ["낀"]}]}
+{"head": "깡마르다", "keep": ["깡마른", "말라빠진"], "new": [], "move": [{"to": "졸아들다", "terms": ["졸아붙은"]}]}
+{"head": "꼼짝", "keep": ["꼼짝", "어물어물"], "new": [], "move": [{"to": "느긋하다", "terms": ["쉬엄쉬엄"]}]}
+{"head": "꾸부정하다", "keep": ["꾸부러진", "꾸부정한"], "new": [], "move": []}
+{"head": "낙조", "keep": ["낙조", "해넘이", "해거름"], "new": [], "move": []}
+{"head": "난폭", "keep": ["난폭한"], "new": [], "move": [{"to": "세차다", "terms": ["거센"]}]}
+{"head": "날뛰다", "keep": ["날뛰는", "껑충"], "new": [], "move": []}
+{"head": "남부끄럽다", "keep": ["부끄러운", "남부끄러운", "쪽팔린"], "new": [], "move": []}
+{"head": "남빛", "keep": ["남색", "남빛", "쪽빛"], "new": [], "move": []}
+{"head": "내리비추다", "keep": ["내리비친", "내리쬐는"], "new": [], "move": []}
+{"head": "내솟다", "keep": ["불끈", "내솟는"], "new": [], "move": []}
+{"head": "넓적하다", "keep": ["넓적한", "너부죽한"], "new": [], "move": []}
+{"head": "노르스레하다", "keep": ["노르스름한", "노르스레한", "노릇한"], "new": [], "move": []}
+{"head": "녹다", "keep": ["녹은", "녹아내리는", "사르르"], "new": [], "move": []}
+{"head": "놀라움", "keep": ["놀라운", "깜짝"], "new": [], "move": [{"to": "말똥하다", "terms": ["말똥말똥한"]}]}
+{"head": "높직이", "keep": ["드높은", "높직한"], "new": [], "move": [{"to": "융기", "terms": ["융기한"]}]}
+{"head": "누르다", "keep": ["누르는", "꾹"], "new": [], "move": []}
+{"head": "누름하다", "keep": ["누르스름한", "누름한"], "new": [], "move": []}
+{"head": "느슨하다", "keep": ["느슨한", "헐렁한"], "new": [], "move": []}
+{"head": "다급하다", "keep": ["다급한", "황급한", "황망한"], "new": [], "move": []}
+{"head": "달라붙다", "keep": ["달라붙은", "들러붙은"], "new": [], "move": []}
+{"head": "달밤", "keep": ["달밤", "보름", "휘영청"], "new": [], "move": []}
+{"head": "동글납작하다", "keep": ["둥글납작한", "둥글넓적한"], "new": [], "move": []}
+{"head": "뒤범벅", "keep": ["뒤범벅된", "뒤죽박죽"], "new": [], "move": []}
+{"head": "드리우다", "keep": ["드리운"], "keep_axes": ["빛"], "new": [], "move": [{"to": "아롱아롱", "terms": ["아른거리는"]}, {"to": "얼씬얼씬", "terms": ["얼씬거리는"]}]}
+{"head": "또랑또랑하다", "keep": ["또랑또랑한", "초롱초롱한"], "new": [], "move": []}
+{"head": "맘껏", "keep": ["맘껏"], "keep_axes": ["감정"], "new": [], "move": [{"to": "흡족", "terms": ["흡족한"]}]}
+{"head": "망막하다", "keep": ["광대한", "망막한", "망망한"], "new": [], "move": []}
+{"head": "매끈대다", "keep": ["매끈대는", "미끈대는"], "new": [], "move": []}
+{"head": "모양", "keep": ["모양", "형상", "꼴"], "new": [], "move": []}
+{"head": "무시", "keep": ["무시"], "new": [], "move": [{"to": "싫다", "terms": ["미운", "정떨어진"]}]}
+{"head": "무정", "keep": ["무정한", "냉혹한"], "new": [], "move": []}
+{"head": "무표정", "keep": ["무표정한"], "new": [], "move": [{"to": "얼빠지다", "terms": ["멍멍한"]}]}
+{"head": "뭉게구름", "keep": ["뭉게구름"], "new": [{"head": "구름", "axes": ["계절·날씨"], "usage": "하늘에 떠 있는 구름", "prompts": ["clouds drifting across the sky"], "terms": ["구름"]}], "move": []}
+{"head": "뭉근히", "keep": ["은은한"], "new": [], "move": [{"to": "뭉근하다", "terms": ["뭉근한"]}, {"to": "발광", "terms": ["발광하는"]}]}
+{"head": "뭐하다", "keep": ["민망스러운", "무엇한"], "new": [], "move": []}
+{"head": "미묘하다", "keep": ["미묘한"], "new": [], "move": [{"to": "수상스럽다", "terms": ["수상한"]}]}
+{"head": "밀림", "keep": ["밀림", "정글", "열대림"], "new": [], "move": []}
+{"head": "발발", "keep": ["발발"], "new": [], "move": [{"to": "버둥버둥", "terms": ["바동대는"]}, {"to": "달싹대다", "terms": ["달싹거리는"]}]}
+{"head": "밝다", "keep": ["밝은"], "new": [], "move": [{"to": "말끔하다", "terms": ["깨끗해진"]}]}
+{"head": "방긋", "keep": ["방긋", "빙긋"], "new": [], "move": []}
+{"head": "배열되다", "keep": ["배열된"], "new": [], "move": [{"to": "천편일률적", "terms": ["천편일률"]}]}
+{"head": "번뇌", "keep": ["번뇌하는", "번민"], "new": [], "move": []}
+{"head": "번뜩거리다", "keep": ["번뜩거리는", "번쩍이는"], "new": [], "move": []}
+{"head": "번잡스럽다", "keep": ["번잡스러운"], "new": [], "move": [{"to": "분주하다", "terms": ["분주한"]}, {"to": "다급하다", "terms": ["황급한"]}]}
+{"head": "활기차다", "keep": ["활기찬", "팔팔한"], "new": [], "move": []}
+{"head": "범속하다", "keep": ["단조로운", "무미건조한", "범속한"], "new": [], "move": []}
+{"head": "벙긋하다", "keep": ["벙긋한", "벙싯"], "new": [], "move": []}
+{"head": "보람", "keep": ["보람된", "보람찬"], "new": [], "move": []}
+{"head": "봄바람", "keep": ["봄바람", "춘풍"], "new": [], "move": []}
+{"head": "부아", "keep": ["부아", "분통", "울화통"], "new": [], "move": []}
+{"head": "불모", "keep": ["불모지", "황무지"], "new": [], "move": []}
+{"head": "붉은빛", "keep": ["붉은빛", "홍"], "new": [], "move": []}
+{"head": "비", "keep": ["비", "빗방울"], "new": [{"head": "흩뿌리다", "axes": ["계절·날씨", "에너지"], "usage": "흩뿌리듯 날리는 빗방울·눈발", "prompts": ["light rain scattering in the wind", "snowflakes sprinkling down"], "terms": ["흩뿌리는"]}], "move": []}
+{"head": "뽀얗다", "keep": ["뽀얀"], "new": [], "move": [{"to": "하얗다", "terms": ["하얘진"]}]}
+{"head": "삐뚤빼뚤", "keep": ["삐뚤빼뚤한"], "new": [], "move": [{"to": "기울어지다", "terms": ["어슷한"]}]}
+{"head": "산골", "keep": ["산골", "산골짝"], "new": [{"head": "궁벽하다", "axes": ["공간"], "usage": "도시에서 멀리 떨어진 외진 마을", "prompts": ["remote secluded village far from the city"], "terms": ["궁벽한"]}], "move": []}
+{"head": "살색", "keep": ["살색", "피부색"], "new": [], "move": []}
+{"head": "새", "keep": ["공백", "새"], "new": [], "move": [{"to": "텅", "terms": ["텅텅"]}]}
+{"head": "생기", "keep": ["생기", "생동감"], "new": [], "move": [{"to": "활기차다", "terms": ["왕성한"]}]}
+{"head": "세모", "keep": ["세모", "삼각형"], "new": [], "move": []}
+{"head": "수고롭다", "keep": ["수고로운"], "new": [], "move": [{"to": "정성스럽다", "terms": ["정성"]}]}
+{"head": "숭엄하다", "keep": ["신성한", "숭엄한"], "new": [], "move": [{"to": "기골", "terms": ["우람스러운"]}]}
+{"head": "시내", "keep": ["개울", "시내"], "new": [], "move": [{"to": "강", "terms": ["하천"]}]}
+{"head": "신나다", "keep": ["신난", "신바람"], "new": [{"head": "쾌감", "axes": ["감정", "에너지"], "usage": "짜릿한 쾌감이 터지는 순간", "prompts": ["thrilling exhilarating moment", "person screaming with delight on a ride"], "terms": ["쾌감"]}], "move": []}
+{"head": "아득하다", "keep": ["아득한", "까마득한", "머나먼"], "new": [], "move": []}
+{"head": "아롱아롱", "keep": ["아롱아롱", "어른거리는"], "new": [{"head": "언뜻언뜻", "axes": ["빛", "에너지"], "usage": "사이사이 언뜻 비치는 모습", "prompts": ["glimpses of a figure between passing things", "light flickering through gaps"], "terms": ["언뜻언뜻"]}], "move": []}
+{"head": "아름다움", "keep": ["아름다운"], "new": [{"head": "눈요기", "axes": ["스타일"], "usage": "눈이 즐거운 볼거리", "prompts": ["eye-catching colorful spectacle", "shop window full of treats"], "terms": ["눈요기"]}], "move": [{"to": "흥미", "terms": ["흥미로운"]}]}
+{"head": "안달", "keep": ["안절부절못하는", "안달"], "new": [], "move": [{"to": "들뜨다", "terms": ["싱숭생숭한"]}]}
+{"head": "압박감", "keep": ["압박감", "중압감"], "new": [{"head": "억압적", "axes": ["감정", "공간"], "usage": "숨 막히게 억누르는 분위기", "prompts": ["oppressive claustrophobic atmosphere", "heavy dark walls closing in"], "terms": ["억압적인"]}], "move": []}
+{"head": "애정", "keep": ["애정", "정나미"], "new": [], "move": [{"to": "친숙", "terms": ["정겨운"]}]}
+{"head": "얌전하다", "keep": ["얌전한"], "new": [], "move": [{"to": "단아하다", "terms": ["참한"]}]}
+{"head": "엉망진창", "keep": ["엉망", "엉망진창", "어지러운"], "new": [], "move": []}
+{"head": "연두색", "keep": ["연두색", "연초록"], "new": [], "move": []}
+{"head": "열혈", "keep": ["정열적인", "열혈"], "new": [], "move": [{"to": "욕정", "terms": ["정염"]}]}
+{"head": "예쁘다", "keep": ["예쁜"], "new": [], "move": [{"to": "귀염성", "terms": ["귀염성스러운"]}]}
+{"head": "완연하다", "keep": ["완연한", "역력한"], "new": [], "move": []}
+{"head": "욕정", "keep": ["욕정", "육욕", "음욕"], "new": [], "move": []}
+{"head": "우려되다", "keep": ["우려스러운", "염려스러운", "근심거리"], "new": [], "move": []}
+{"head": "우묵하다", "keep": ["우묵한", "움푹한"], "new": [], "move": []}
+{"head": "원통", "keep": ["원통한"], "new": [], "move": [{"to": "성화", "terms": ["성화하는"]}]}
+{"head": "위압감", "keep": ["위압감"], "new": [], "move": [{"to": "두려움", "terms": ["무서운"]}]}
+{"head": "육중하다", "keep": ["육중한"], "new": [{"head": "큼직큼직", "axes": ["스타일", "공간"], "usage": "큼직큼직한 덩어리들", "prompts": ["large chunky shapes", "big bold blocks"], "terms": ["큼직큼직한"]}], "move": []}
+{"head": "인내", "keep": ["인내하는"], "new": [{"head": "어려움", "axes": ["감정"], "usage": "힘겨운 처지의 얼굴", "prompts": ["person struggling through hardship"], "terms": ["어려운"]}], "move": []}
+{"head": "자르르하다", "keep": ["자르르한"], "new": [], "move": [{"to": "매끄럽다", "terms": ["매끌매끌한"]}]}
+{"head": "자세", "keep": ["자세"], "new": [{"head": "체위", "axes": ["스타일"], "usage": "몸을 둔 특정한 자세", "prompts": ["specific body position"], "terms": ["체위"]}], "move": [{"to": "얌전하다", "terms": ["몸가짐"]}]}
+{"head": "자신감", "keep": ["자신감", "당당한", "늠름한"], "new": [], "move": []}
+{"head": "자연", "keep": ["자연", "천연"], "new": [], "move": []}
+{"head": "자욱하다", "keep": ["자욱한", "농무"], "new": [], "move": []}
+{"head": "장밋빛", "keep": ["장밋빛"], "new": [], "move": [{"to": "불그스름하다", "terms": ["불그스레한"]}, {"to": "붉어지다", "terms": ["새빨개진"]}]}
+{"head": "저녁", "keep": ["저녁", "저녁녘"], "new": [], "move": []}
+{"head": "저녁때", "keep": ["저녁때", "저녁나절", "저녁내"], "new": [], "move": []}
+{"head": "적막", "keep": ["적막한"], "new": [{"head": "막막하다", "axes": ["감정", "공간"], "usage": "끝이 안 보여 막막한 벌판", "prompts": ["vast empty plain stretching endlessly", "person facing an overwhelming empty expanse"], "terms": ["막막한"]}], "move": []}
+{"head": "정오", "keep": ["한낮", "정오", "점심때"], "new": [], "move": []}
+{"head": "조화롭다", "keep": ["조화로운", "매치된", "배색"], "new": [], "move": []}
+{"head": "지루하다", "keep": ["지루한"], "new": [], "move": [{"to": "진부하다", "terms": ["식상한"]}]}
+{"head": "진갈색", "keep": ["진갈색", "다갈색"], "new": [], "move": []}
+{"head": "진심", "keep": ["진심", "진정한"], "new": [], "move": []}
+{"head": "쪼그맣다", "keep": ["쪼그만"], "new": [{"head": "암팡지다", "axes": ["스타일", "에너지"], "usage": "작지만 야무진 아이", "prompts": ["small but feisty child"], "terms": ["암팡진"]}], "move": []}
+{"head": "찜통더위", "keep": ["찜통더위", "후끈후끈한"], "new": [], "move": []}
+{"head": "참신성", "keep": ["참신한"], "new": [], "move": [{"to": "이색", "terms": ["이채로운"]}]}
+{"head": "천하태평", "keep": ["천하태평"], "new": [], "move": [{"to": "평온하다", "terms": ["화평한"]}]}
+{"head": "출렁출렁하다", "keep": ["출렁출렁하는"], "new": [], "move": [{"to": "찰랑찰랑하다", "terms": ["찰랑찰랑한"]}]}
+{"head": "출렁하다", "keep": ["출렁한"], "new": [], "move": [{"to": "파도", "terms": ["노도"]}]}
+{"head": "충절", "keep": ["충성심", "충절", "충정"], "new": [], "move": []}
+{"head": "치다", "keep": ["강풍", "치는", "휘모는"], "new": [], "move": []}
+{"head": "타박타박", "keep": ["터벅터벅", "터덜터덜"], "new": [], "move": []}
+{"head": "태", "keep": ["태"], "new": [], "move": [{"to": "자세", "terms": ["폼"]}]}
+{"head": "태연", "keep": ["태연한"], "new": [], "move": [{"to": "무심", "terms": ["무심한"]}]}
+{"head": "털털하다", "keep": ["털털거리는", "빌빌"], "new": [{"head": "엉금엉금", "axes": ["에너지"], "usage": "엉금엉금 기어가는 모습", "prompts": ["baby crawling slowly", "turtle crawling on sand"], "terms": ["엉금엉금"]}], "move": []}
+{"head": "통정", "keep": ["친밀한", "통정", "긴밀한"], "new": [], "move": []}
+{"head": "파도", "keep": ["파도"], "new": [], "move": [{"to": "파랗다", "terms": ["파란"]}]}
+{"head": "폭발", "keep": ["폭발"], "new": [{"head": "퍼뜩", "axes": ["감정"], "usage": "문득 무언가 떠오른 표정", "prompts": ["sudden realization on a face"], "terms": ["퍼뜩"]}], "move": []}
+{"head": "표정", "keep": ["표정", "낯빛"], "new": [], "move": [{"to": "모습", "terms": ["형색"]}]}
+{"head": "푸근하다", "keep": ["푸근한"], "keep_axes": ["온도", "감정", "질감"], "new": [{"head": "온화하다", "axes": ["온도", "계절·날씨", "감정"], "usage": "바람 부드럽고 따뜻한 날", "prompts": ["mild warm day with a gentle breeze", "gentle warm smile"], "terms": ["온화한"]}], "move": []}
+{"head": "한겨울", "keep": ["한겨울", "엄동", "영하"], "new": [], "move": []}
+{"head": "헤벌쭉헤벌쭉하다", "keep": ["헤벌쭉한", "벌쭉", "쩍"], "new": [], "move": []}
+{"head": "까칠하다", "keep": ["까칠한"], "new": [], "move": [{"to": "메마르다", "terms": ["마른"]}]}
+{"head": "화풀이", "keep": ["화풀이"], "new": [{"head": "한풀이", "axes": ["감정"], "usage": "맺힌 한을 풀어내는 모습", "prompts": ["releasing pent-up sorrow", "cathartic cry"], "terms": ["한풀이"]}], "move": []}
+{"head": "환상적", "keep": ["환상적인", "공상적인"], "new": [{"head": "미몽", "axes": ["감정"], "usage": "헛된 꿈에 홀린 듯한 얼굴", "prompts": ["dazed person lost in illusion"], "terms": ["미몽"]}], "move": []}
+{"head": "황망", "keep": ["황망한"], "new": [], "move": [{"to": "당황하다", "terms": ["곤혹스러운"]}]}
+{"head": "황홀감", "keep": ["황홀감"], "new": [], "move": [{"to": "감탄스럽다", "terms": ["감탄"]}]}
+{"head": "휘날리다", "keep": ["휘날리는"], "new": [{"head": "풀풀", "axes": ["에너지", "질감"], "usage": "먼지가 풀풀 날리는 길", "prompts": ["dust billowing on a dirt road"], "terms": ["풀풀"]}], "move": [{"to": "회오리", "terms": ["회오리치는"]}]}
+{"head": "휘둥글다", "keep": ["휘둥근"], "new": [{"head": "땡그랗다", "axes": ["감정", "스타일"], "usage": "동그랗게 뜬 눈", "prompts": ["round wide open eyes"], "terms": ["땡그란"]}], "move": []}
+{"head": "흑색", "keep": ["흑색"], "new": [], "move": [{"to": "암흑", "terms": ["깜깜한"]}]}
+{"head": "가깝다", "keep": ["가까운"], "new": [], "move": [{"to": "통정", "terms": ["긴밀한"]}]}
+{"head": "가랑비", "keep": ["가랑비", "보슬비"], "new": [], "move": []}
+{"head": "가파르다", "keep": ["가파른"], "new": [], "move": [{"to": "절벽", "terms": ["깎아지른"]}]}
+{"head": "갈팡질팡", "keep": ["갈팡질팡"], "new": [], "move": [{"to": "이리저리", "terms": ["오락가락"]}]}
+{"head": "감돌다", "keep": ["감도는"], "new": [], "move": [{"to": "뱅뱅", "terms": ["빙글빙글"]}]}
+{"head": "강산", "keep": ["강산", "산천"], "new": [], "move": []}
+{"head": "강안", "keep": ["강기슭", "강안"], "new": [], "move": []}
+{"head": "갯가", "keep": ["해안선", "갯가"], "new": [], "move": []}
+{"head": "갯바람", "keep": ["바닷바람", "갯바람"], "new": [], "move": []}
+{"head": "거꾸로", "keep": ["거꾸로"], "new": [], "move": [{"to": "전도하다", "terms": ["전도된"]}]}
+{"head": "거무데데하다", "keep": ["거무데데한", "거무튀튀한"], "new": [], "move": []}
+{"head": "거무죽죽하다", "keep": ["거무죽죽한", "까무퇴퇴한"], "new": [], "move": []}
+{"head": "건조되다", "keep": ["건조된", "말라붙은"], "new": [], "move": []}
+{"head": "검붉다", "keep": ["검붉은", "뻘건"], "new": [], "move": []}
+{"head": "겨울눈", "keep": ["겨울눈"], "new": [], "move": [{"to": "추위", "terms": ["동절기"]}]}
+{"head": "겨울비", "keep": ["겨울비", "찬비"], "new": [], "move": []}
+{"head": "경사", "keep": ["경사", "경사면"], "new": [], "move": []}
+{"head": "경승", "keep": ["경승"], "new": [], "move": [{"to": "산악", "terms": ["명산"]}]}
+{"head": "계절적", "keep": ["계절적인", "환절기"], "new": [], "move": []}
+{"head": "고지", "keep": ["고지대", "고지"], "new": [], "move": []}
+{"head": "곧다", "keep": ["곧은", "곧바른"], "new": [], "move": []}
+{"head": "곰살궂다", "keep": ["자상한", "곰살궂은"], "new": [], "move": []}
+{"head": "곱슬", "keep": ["곱슬", "파마머리"], "new": [], "move": []}
+{"head": "공교하다", "keep": ["공교한"], "new": [{"head": "교묘히", "axes": ["스타일"], "usage": "재치 있게 짜인 구성", "prompts": ["cleverly composed trick shot"], "terms": ["교묘한"]}], "move": []}
+{"head": "관조적", "keep": ["관조적인", "사색적인"], "new": [], "move": []}
+{"head": "광선", "keep": ["광선", "빛살"], "new": [], "move": []}
+{"head": "교분", "keep": ["우애로운", "교분"], "new": [], "move": []}
+{"head": "굵직하다", "keep": ["굵직한", "두둑한"], "new": [], "move": []}
+{"head": "궂다", "keep": ["악천후", "궂은"], "new": [], "move": []}
+{"head": "규칙적", "keep": ["규칙적인", "파상적인"], "new": [], "move": []}
+{"head": "극한", "keep": ["혹한", "극한"], "new": [], "move": []}
+{"head": "금빛", "keep": ["금빛", "금색"], "new": [], "move": []}
+{"head": "금욕", "keep": ["금욕", "억제된"], "new": [], "move": []}
+{"head": "급물살", "keep": ["급물살"], "new": [], "move": [{"to": "주룩주룩", "terms": ["주룩"]}]}
+{"head": "기겁", "keep": ["기겁"], "new": [], "move": [{"to": "흠칫하다", "terms": ["움찔"]}]}
+{"head": "기골", "keep": ["우람한", "기골"], "new": [], "move": []}
+{"head": "꼬부랑", "keep": ["꼬부랑"], "new": [], "move": [{"to": "꼬불탕하다", "terms": ["뒤틀린"]}]}
+{"head": "꾸물꾸물", "keep": ["꾸물꾸물", "꿈지럭꿈지럭"], "new": [], "move": []}
+{"head": "끈적이다", "keep": ["끈적이는", "착"], "new": [], "move": []}
+{"head": "낙뢰", "keep": ["벼락", "낙뢰"], "new": [], "move": []}
+{"head": "날래다", "keep": ["속도감", "날랜"], "new": [], "move": []}
+{"head": "남동풍", "keep": ["남동풍", "남서풍"], "new": [], "move": []}
+{"head": "남성적", "keep": ["남성적인"], "new": [{"head": "남상", "axes": ["스타일"], "usage": "보이시한 인상의 여자 얼굴", "prompts": ["woman with boyish handsome features"], "terms": ["남상"]}], "move": []}
+{"head": "냉소적", "keep": ["냉소적인", "시니컬한"], "new": [], "move": []}
+{"head": "노랗다", "keep": ["노란"], "new": [], "move": [{"to": "누렇다", "terms": ["누레진"]}]}
+{"head": "노심초사", "keep": ["걱정스러운", "노심초사"], "new": [], "move": []}
+{"head": "녹음", "keep": ["녹음"], "new": [], "move": [{"to": "무성하다", "terms": ["번성한"]}]}
+{"head": "녹작지근하다", "keep": ["녹작지근한"], "new": [], "move": [{"to": "놀라다", "terms": ["기함한"]}]}
+{"head": "농기", "keep": ["익살맞은", "농기"], "new": [], "move": []}
+{"head": "높다", "keep": ["높은", "높직한"], "new": [], "move": []}
+{"head": "누르께하다", "keep": ["누르께한", "누리끼리한"], "new": [], "move": []}
+{"head": "눈웃음", "keep": ["눈웃음", "생글생글"], "new": [], "move": []}
+{"head": "느직하다", "keep": ["느직한"], "new": [], "move": [{"to": "유유하다", "terms": ["유장한"]}]}
+{"head": "늘어지다", "keep": ["늘어진", "휘늘어진"], "new": [], "move": []}
+{"head": "늦가을", "keep": ["늦가을", "만추"], "new": [], "move": []}
+{"head": "늦추위", "keep": ["꽃샘추위", "늦추위"], "new": [], "move": []}
+{"head": "늪", "keep": ["늪"], "new": [{"head": "진흙탕", "axes": ["질감", "공간"], "usage": "질척한 진흙탕 길", "prompts": ["muddy puddle road"], "terms": ["진흙탕"]}], "move": []}
+{"head": "늪가", "keep": ["늪가"], "new": [], "move": [{"to": "강안", "terms": ["둔치"]}]}
+{"head": "덜렁이", "keep": ["덜렁대는"], "new": [], "move": [{"to": "갈팡질팡", "terms": ["이리저리하는"]}]}
+{"head": "돌개바람", "keep": ["회오리바람", "돌개바람"], "new": [], "move": []}
+{"head": "돌풍", "keep": ["돌풍", "쌩"], "new": [], "move": []}
+{"head": "둔하다", "keep": ["둔한"], "new": [], "move": [{"to": "육중하다", "terms": ["둔중한"]}]}
+{"head": "뒤숭숭하다", "keep": ["뒤숭숭한"], "new": [], "move": [{"to": "들뜨다", "terms": ["싱숭생숭한"]}]}
+{"head": "득의", "keep": ["득의"], "new": [], "move": [{"to": "만족", "terms": ["자기만족"]}]}
+{"head": "땅굴", "keep": ["땅굴", "토굴"], "new": [], "move": []}
+{"head": "땅뙈기", "keep": ["땅뙈기", "뙈기밭"], "new": [], "move": []}
+{"head": "똑같다", "keep": ["똑같은"], "new": [], "move": [{"to": "닮다", "terms": ["빼닮은"]}]}
+{"head": "똑바로", "keep": ["똑바른", "곧은"], "new": [], "move": []}
+{"head": "뚜벅뚜벅", "keep": ["뚜벅뚜벅", "저벅저벅"], "new": [], "move": []}
+{"head": "마음고생", "keep": ["속상한"], "new": [], "move": [{"to": "괴롭다", "terms": ["마음고생"]}]}
+{"head": "말없이", "keep": ["말없는", "묵묵한"], "new": [], "move": []}
+{"head": "망가지다", "keep": ["망가진", "작살"], "new": [], "move": []}
+{"head": "매끄럽다", "keep": ["매끄러운"], "new": [{"head": "보드랍다", "axes": ["질감"], "usage": "보드라운 살결과 천", "prompts": ["soft smooth skin close-up", "soft fabric texture"], "terms": ["보드라운"]}], "move": []}
+{"head": "매무새", "keep": ["몸단장", "매무새"], "new": [], "move": []}
+{"head": "맹렬하다", "keep": ["맹렬한"], "new": [], "move": [{"to": "앙칼스럽다", "terms": ["앙칼진"]}]}
+{"head": "먼지투성이", "keep": ["먼지투성이"], "new": [], "move": [{"to": "꼬질꼬질하다", "terms": ["꼬질꼬질"]}]}
+{"head": "멀리", "keep": ["멀리"], "new": [], "move": [{"to": "원양", "terms": ["먼바다"]}]}
+{"head": "명명백백하다", "keep": ["명명백백한"], "new": [{"head": "일목요연하다", "axes": ["스타일"], "usage": "한눈에 정리된 구성", "prompts": ["neatly organized flat lay", "items arranged in a clear grid"], "terms": ["일목요연한"]}], "move": []}
+{"head": "묘하다", "keep": ["묘한"], "new": [], "move": [{"to": "신비하다", "terms": ["오묘한"]}]}
+{"head": "무감동하다", "keep": ["무감동한", "무덤덤한"], "new": [], "move": []}
+{"head": "무게감", "keep": ["중후한"], "keep_axes": ["스타일", "감정"], "new": [], "move": [{"to": "중량감", "terms": ["무게감"]}]}
+{"head": "물보라", "keep": ["물보라"], "new": [{"head": "좌르르", "axes": ["에너지"], "usage": "세차게 쏟아지는 물줄기", "prompts": ["water gushing out in a stream", "water pouring down"], "terms": ["좌르르"]}], "move": []}
+{"head": "물색", "keep": ["물색"], "new": [], "move": [{"to": "파랗다", "terms": ["새파래진"]}]}
+{"head": "뭉치", "keep": ["뭉치"], "new": [], "move": [{"to": "덩어리지다", "terms": ["엉긴"]}]}
+{"head": "미끌미끌하다", "keep": ["미끌미끌한", "미끈거리는"], "new": [], "move": []}
+{"head": "미망", "keep": ["미망"], "new": [{"head": "착란하다", "axes": ["감정"], "usage": "정신이 어지러운 얼굴", "prompts": ["distraught person in a frenzied state", "disoriented face, chaotic blur"], "terms": ["착란한"]}], "move": []}
+{"head": "미모", "keep": ["미모", "곱상한"], "new": [], "move": []}
+{"head": "미색", "keep": ["미색"], "new": [], "move": [{"to": "노르스레하다", "terms": ["노르무레한"]}]}
+{"head": "미적대다", "keep": ["미적대는", "머무적대는"], "new": [], "move": []}
+{"head": "민망하다", "keep": ["민망한"], "new": [], "move": [{"to": "어색하다", "terms": ["뻘쭘한"]}]}
+{"head": "바래다", "keep": ["바랜", "탈색된"], "new": [], "move": []}
+{"head": "박빙", "keep": ["박빙", "살얼음판"], "new": [], "move": []}
+{"head": "발개지다", "keep": ["발개진", "벌게진"], "new": [], "move": []}
+{"head": "배부르다", "keep": ["배부른"], "keep_axes": ["감정"], "new": [], "move": [{"to": "뚱뚱하다", "terms": ["배불뚝이"]}]}
+{"head": "배시시", "keep": ["배시시", "벙싯벙싯"], "new": [], "move": []}
+{"head": "번개", "keep": ["번개", "번갯불"], "new": [], "move": []}
+{"head": "벼랑", "keep": ["벼랑", "낭떠러지"], "new": [], "move": []}
+{"head": "변발", "keep": ["변발"], "new": [{"head": "떠꺼머리", "axes": ["스타일"], "usage": "땋아 늘인 댕기머리", "prompts": ["long single braid hanging down the back", "traditional braided hair of a young man"], "terms": ["떠꺼머리"]}], "move": []}
+{"head": "볼록하다", "keep": ["볼록한", "튀어나온"], "new": [], "move": []}
+{"head": "봄비", "keep": ["봄비"], "new": [], "move": [{"to": "봄철", "terms": ["우수"]}]}
+{"head": "분하다", "keep": ["분한"], "new": [], "move": [{"to": "분노", "terms": ["진노한"]}]}
+{"head": "불볕", "keep": ["불볕", "뙤약볕"], "new": [], "move": []}
+{"head": "비구름", "keep": ["비구름"], "new": [], "move": [{"to": "안개", "terms": ["운무"]}]}
+{"head": "비대하다", "keep": ["비대한", "피둥피둥"], "new": [], "move": []}
+{"head": "비정", "keep": ["비정한"], "new": [], "move": [{"to": "냉랭하다", "terms": ["쌀쌀맞은"]}]}
+{"head": "빗발", "keep": ["빗발", "빗줄기"], "new": [], "move": []}
+{"head": "빗속", "keep": ["빗속", "우중"], "new": [], "move": []}
+{"head": "사각", "keep": ["사각"], "new": [], "move": [{"to": "푸석푸석하다", "terms": ["푸석거리는"]}]}
+{"head": "사계", "keep": ["사계", "사철"], "new": [], "move": []}
+{"head": "사선", "keep": ["사선", "모로"], "new": [], "move": []}
+{"head": "산꼭대기", "keep": ["산봉우리", "산꼭대기"], "new": [], "move": []}
+{"head": "산뜻하다", "keep": ["산뜻한", "쌈박한"], "new": [], "move": []}
+{"head": "산란하다", "keep": ["산란한"], "keep_axes": ["감정", "공간"], "new": [{"head": "널브러지다", "axes": ["공간"], "usage": "아무렇게나 널린 물건", "prompts": ["things strewn messily on the floor", "clothes scattered everywhere"], "terms": ["널브러진"]}], "move": []}
+{"head": "살갑다", "keep": ["살가운", "사근사근한"], "new": [], "move": []}
+{"head": "상강", "keep": ["상강"], "new": [], "move": [{"to": "추위", "terms": ["소한"]}]}
+{"head": "새봄", "keep": ["새봄", "신춘"], "new": [], "move": []}
+{"head": "선심", "keep": ["자혜로운", "선심"], "new": [], "move": []}
+{"head": "섬세하다", "keep": ["섬세한"], "new": [], "move": [{"to": "연약하다", "terms": ["섬약한"]}]}
+{"head": "성욕", "keep": ["성욕", "정욕"], "new": [], "move": []}
+{"head": "세밀하다", "keep": ["세밀한", "정밀한"], "new": [], "move": []}
+{"head": "섹시하다", "keep": ["섹시한", "관능적인"], "new": [], "move": []}
+{"head": "소망스럽다", "keep": ["소망스러운"], "new": [], "move": [{"to": "낙관", "terms": ["낙관적인"]}]}
+{"head": "소망하다", "keep": ["소망하는", "염원하는"], "new": [], "move": []}
+{"head": "소중하다", "keep": ["소중한"], "new": [{"head": "애호하다", "axes": ["감정"], "usage": "좋아하는 것을 즐기며 아끼는 모습", "prompts": ["collector admiring a favorite item", "person enjoying a beloved hobby"], "terms": ["애호하는"]}], "move": []}
+{"head": "솔숲", "keep": ["솔숲", "송림"], "new": [], "move": []}
+{"head": "송연하다", "keep": ["송연한", "오싹한"], "new": [], "move": []}
+{"head": "순수하다", "keep": ["순수한"], "new": [], "move": [{"to": "순결하다", "terms": ["순결한"]}]}
+{"head": "순정", "keep": ["순정", "참사랑"], "new": [], "move": []}
+{"head": "숲", "keep": ["숲", "나무숲"], "new": [], "move": []}
+{"head": "슬쩍슬쩍", "keep": ["슬쩍슬쩍", "은근슬쩍"], "new": [], "move": []}
+{"head": "시샘", "keep": ["시샘", "시기심"], "new": [], "move": []}
+{"head": "시큰둥하다", "keep": ["시큰둥한"], "new": [], "move": [{"to": "무감동하다", "terms": ["덤덤한"]}]}
+{"head": "신선하다", "keep": ["신선한"], "new": [], "move": [{"to": "상쾌하다", "terms": ["청량한"]}]}
+{"head": "싫다", "keep": ["싫은", "거부감"], "new": [], "move": []}
+{"head": "심리적", "keep": ["심리적인"], "new": [{"head": "컨디션", "axes": ["에너지", "감정"], "usage": "몸 상태가 좋아 보이는 모습", "prompts": ["person stretching feeling refreshed", "healthy energetic morning"], "terms": ["컨디션"]}], "move": []}
+{"head": "심중", "keep": ["심중", "심회"], "new": [], "move": []}
+{"head": "심해", "keep": ["심해", "해저"], "new": [], "move": []}
+{"head": "아이보리", "keep": ["아이보리", "상아색"], "new": [], "move": []}
+{"head": "아찔하다", "keep": ["아찔한"], "new": [], "move": [{"to": "얼빠지다", "terms": ["어리벙벙한"]}]}
+{"head": "애잔하다", "keep": ["애잔한"], "new": [], "move": [{"to": "비통", "terms": ["애절한"]}]}
+{"head": "야간", "keep": ["야간"], "new": [], "move": [{"to": "밤사이", "terms": ["하룻밤"]}]}
+{"head": "얇다", "keep": ["얇은", "엷은"], "new": [], "move": []}
+{"head": "양지", "keep": ["양지"], "new": [], "move": [{"to": "따듯하다", "terms": ["따스한"]}]}
+{"head": "어두운색", "keep": ["어두운색"], "new": [], "move": [{"to": "까무잡잡하다", "terms": ["가무잡잡한"]}]}
+{"head": "억울하다", "keep": ["억울한"], "new": [{"head": "박탈감", "axes": ["감정"], "usage": "빼앗긴 듯 허탈한 얼굴", "prompts": ["person looking deprived and dejected", "empty-handed disappointed face"], "terms": ["박탈감"]}], "move": []}
+{"head": "얼다", "keep": ["얼어 있는", "꽁꽁"], "new": [], "move": []}
+{"head": "여름내", "keep": ["여름내"], "new": [], "move": [{"to": "첫여름", "terms": ["입하"]}]}
+{"head": "여성미", "keep": ["여성적인", "여성미"], "new": [], "move": []}
+{"head": "연노랑", "keep": ["연노랑", "병아리색"], "new": [], "move": []}
+{"head": "연약하다", "keep": ["연약한"], "new": [], "move": [{"to": "가늘다", "terms": ["실낱같은"]}]}
+{"head": "열풍", "keep": ["열풍"], "new": [], "move": [{"to": "화끈화끈", "terms": ["화끈화끈한"]}]}
+{"head": "오만상", "keep": ["오만상", "우거지상"], "new": [], "move": []}
+{"head": "옥색", "keep": ["옥색", "청잣빛"], "new": [], "move": []}
+{"head": "욕망하다", "keep": ["욕망하는", "욕심나는"], "new": [], "move": []}
+{"head": "욕심", "keep": ["욕심", "탐욕적인"], "new": [], "move": []}
+{"head": "욕심껏", "keep": ["욕심껏"], "new": [], "move": [{"to": "덥석", "terms": ["덥석"]}]}
+{"head": "우우", "keep": ["우르르", "우우"], "new": [], "move": []}
+{"head": "원색", "keep": ["원색"], "new": [], "move": [{"to": "다채롭다", "terms": ["총천연색"]}]}
+{"head": "월광", "keep": ["월광", "월색"], "new": [], "move": []}
+{"head": "위축하다", "keep": ["위축된", "말라비틀어진"], "new": [], "move": []}
+{"head": "유곡", "keep": ["골짜기", "유곡"], "new": [], "move": []}
+{"head": "유하다", "keep": ["순순한", "유한"], "new": [], "move": []}
+{"head": "윤", "keep": ["광택", "윤기"], "new": [], "move": []}
+{"head": "으슥하다", "keep": ["으슥한"], "new": [{"head": "응달지다", "axes": ["빛", "공간"], "usage": "햇빛이 들지 않는 그늘진 자리", "prompts": ["shaded north-facing alley", "spot in deep shade with no sunlight"], "terms": ["응달진"]}], "move": []}
+{"head": "인간미", "keep": ["인간미", "인간애"], "new": [], "move": []}
+{"head": "인심", "keep": ["인심"], "new": [], "move": [{"to": "선심", "terms": ["선의"]}]}
+{"head": "인위적", "keep": ["인위적인", "인공적인"], "new": [], "move": []}
+{"head": "자괴감", "keep": ["자괴감"], "new": [], "move": [{"to": "굴욕", "terms": ["치욕감"]}]}
+{"head": "적막강산", "keep": ["황량한", "적막강산"], "new": [], "move": []}
+{"head": "적색", "keep": ["적색", "붉디붉은"], "new": [], "move": []}
+{"head": "전통적", "keep": ["전통적인", "재래식"], "new": [], "move": []}
+{"head": "절절", "keep": ["설레설레", "절절"], "new": [], "move": []}
+{"head": "정방형", "keep": ["정사각형", "정방형"], "new": [], "move": []}
+{"head": "정분", "keep": ["친근한"], "new": [], "move": [{"to": "애정", "terms": ["정분"]}]}
+{"head": "정상", "keep": ["정상", "말짱한"], "new": [], "move": []}
+{"head": "조이다", "keep": ["조이는", "조여드는"], "new": [], "move": []}
+{"head": "종잇장", "keep": ["해쓱한", "종잇장"], "new": [], "move": []}
+{"head": "주황색", "keep": ["주황색", "주황빛"], "new": [], "move": []}
+{"head": "준수하다", "keep": ["준수한"], "new": [], "move": [{"to": "정갈하다", "terms": ["단정한"]}]}
+{"head": "중량감", "keep": ["묵직한", "중량감"], "new": [], "move": []}
+{"head": "쥐색", "keep": ["쥐색"], "new": [], "move": [{"to": "거무데데하다", "terms": ["거무튀튀한"]}]}
+{"head": "지독하다", "keep": ["지독한", "혹독한"], "new": [], "move": []}
+{"head": "진저리", "keep": ["진저리", "오슬오슬한"], "new": [], "move": []}
+{"head": "질다", "keep": ["진 땅"], "new": [], "move": [{"to": "흥건히", "terms": ["흥건한"]}]}
+{"head": "쭈뼛쭈뼛하다", "keep": ["쭈뼛쭈뼛한"], "new": [], "move": [{"to": "수줍음", "terms": ["수줍은"]}]}
+{"head": "찝찝하다", "keep": ["찝찝한"], "new": [{"head": "고약스럽다", "axes": ["감정"], "usage": "고약한 냄새에 찌푸린 얼굴", "prompts": ["face grimacing at a nasty smell", "foul unpleasant situation"], "terms": ["고약스러운"]}], "move": []}
+{"head": "찢기다", "keep": ["찢긴", "발기발기"], "new": [], "move": []}
+{"head": "찬바람", "keep": ["찬바람", "칼바람"], "new": [], "move": []}
+{"head": "채광", "keep": ["채광", "들이비치는"], "new": [], "move": []}
+{"head": "첫가을", "keep": ["초가을", "첫가을"], "new": [], "move": []}
+{"head": "첫새벽", "keep": ["첫새벽", "동트는"], "new": [], "move": []}
+{"head": "첫여름", "keep": ["첫여름", "오뉴월"], "new": [], "move": []}
+{"head": "촐랑촐랑하다", "keep": ["찰랑이는", "촐랑이는"], "new": [], "move": []}
+{"head": "춘경", "keep": ["춘경", "춘계"], "new": [], "move": []}
+{"head": "춥다", "keep": ["추운", "한기"], "new": [], "move": []}
+{"head": "충족하다", "keep": ["그득한"], "new": [], "move": [{"to": "만족", "terms": ["충족된"]}]}
+{"head": "층층이", "keep": ["층층이", "켜켜이"], "new": [], "move": []}
+{"head": "치기", "keep": ["치기"], "new": [{"head": "바보스럽다", "axes": ["감정"], "usage": "바보 같은 어수룩한 표정", "prompts": ["goofy silly face", "person acting foolish"], "terms": ["바보스러운"]}], "move": []}
+{"head": "치열하다", "keep": ["치열한"], "new": [], "move": [{"to": "맹렬하다", "terms": ["맹렬한"]}]}
+{"head": "침수", "keep": ["침수"], "new": [{"head": "고수부지", "axes": ["공간"], "usage": "강변 둔치의 공원", "prompts": ["riverside park on the floodplain", "grassy riverbank by the city"], "terms": ["고수부지"]}], "move": []}
+{"head": "침침하다", "keep": ["침침한"], "new": [], "move": [{"to": "희뿌옇다", "terms": ["희멀건"]}]}
+{"head": "커다랗다", "keep": ["커다란", "큼지막한"], "new": [], "move": []}
+{"head": "타오르다", "keep": ["타오르는", "불붙은"], "new": [], "move": []}
+{"head": "파랗다", "keep": ["파란", "새파란"], "new": [], "move": []}
+{"head": "파상", "keep": ["물결무늬", "파상"], "new": [], "move": []}
+{"head": "팔짝", "keep": ["팔짝"], "new": [], "move": [{"to": "잽싸다", "terms": ["후다닥"]}]}
+{"head": "평야", "keep": ["평야", "평원"], "new": [], "move": []}
+{"head": "푸르다", "keep": ["푸른"], "new": [], "move": [{"to": "초록", "terms": ["진초록"]}]}
+{"head": "푸지다", "keep": ["푸진"], "new": [{"head": "흐드러지다", "axes": ["공간"], "usage": "흐드러지게 핀 꽃", "prompts": ["flowers in full lavish bloom", "branches heavy with blossoms"], "terms": ["흐드러진"]}], "move": []}
+{"head": "품위", "keep": ["품위", "고상한"], "new": [], "move": []}
+{"head": "핏기", "keep": ["핏기", "발그스름한"], "new": [], "move": []}
+{"head": "허영심", "keep": ["허영심", "허례허식"], "new": [], "move": []}
+{"head": "허옇다", "keep": ["창백한"], "new": [], "move": [{"to": "희뿌옇다", "terms": ["허연"]}]}
+{"head": "험상", "keep": ["험상", "우악한"], "new": [], "move": []}
+{"head": "혼자", "keep": ["혼자", "홀로"], "new": [], "move": []}
+{"head": "홧김", "keep": ["홧김", "분풀이"], "new": [], "move": []}
+{"head": "황금색", "keep": ["황금색"], "new": [], "move": [{"to": "누런색", "terms": ["황색"]}]}
+{"head": "홱", "keep": ["휙", "홱"], "new": [], "move": []}
+{"head": "회한", "keep": ["회한", "한탄스러운"], "new": [], "move": []}
+{"head": "후줄근하다", "keep": ["후줄근한", "곰삭은"], "new": [], "move": []}
+{"head": "흉물스럽다", "keep": ["흉물스러운"], "new": [], "move": [{"to": "징글징글", "terms": ["징글징글한"]}]}
+{"head": "흙빛", "keep": ["흙빛"], "new": [], "move": [{"to": "불그데데하다", "terms": ["불그죽죽한"]}]}
+{"head": "희뿌옇다", "keep": ["희뿌연", "희끄무레한"], "new": [], "move": []}
+{"head": "흰색", "keep": ["흰색", "하얀색"], "new": [], "move": []}
+{"head": "힘차다", "keep": ["힘찬"], "new": [{"head": "다부지다", "axes": ["에너지", "스타일"], "usage": "야무지고 단단한 체격과 태도", "prompts": ["sturdy determined person", "compact strong build, resolute stance"], "terms": ["다부진"]}], "move": []}

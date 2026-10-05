@@ -1,0 +1,1554 @@
+{
+ "f01": {
+  "prompts_ko": [
+   "돌길을 걷는 사람 주위로 벚꽃이 부드럽게 떨어지는 사진",
+   "부드러운 봄바람에 흩날리는 분홍 꽃잎 클로즈업 사진",
+   "맑고 푸른 하늘 아래 튤립이 만개한 들판 사진",
+   "작약 꽃다발을 든 사람의 얼굴에 부드러운 자연광이 비치는 사진"
+  ],
+  "from": [
+   "a photo of cherry blossoms falling gently around a person walking on a stone path",
+   "a photo of a close-up of pink petals drifting in a soft spring breeze",
+   "a photo of a field covered in blooming tulips under a bright blue sky",
+   "a photo of a person holding a bouquet of peonies with soft natural light glowing on their face"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f02": {
+  "prompts_ko": [
+   "부드러운 조명과 포근한 소파, 따뜻한 색조의 책장이 있는 아늑한 거실 사진",
+   "오두막의 투박한 나무 테이블 위에 양초와 김이 나는 커피잔이 놓인 사진",
+   "자연광이 들어오는 미니멀한 침실, 하얀 침대, 창턱의 화분이 있는 사진",
+   "어두운 조명의 카페, 나무 카운터, 김이 나는 컵, 테이블 위에 쌓인 책들이 있는 사진"
+  ],
+  "from": [
+   "a photo of a cozy living room with soft lighting, a plush sofa, and a bookshelf in warm tones",
+   "a photo of a rustic wooden table in a cabin with candles and a steaming mug of coffee",
+   "a photo of a minimalist bedroom with natural light, a white bed, and a potted plant on the windowsill",
+   "a photo of a dimly lit café with a wooden counter, a steaming cup, and a stack of books on the table"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f03": {
+  "prompts_ko": [
+   "역동적인 자세로 전력 질주하는 운동선수의 움직임이 흐려진 사진",
+   "다리를 넓게 벌리고 팔을 들어 올려 공중으로 뛰어오르는 아이 사진",
+   "바퀴가 흐려질 정도로 움직이며 자신감 있게 웃는 스케이트보더 사진",
+   "머리카락이 흩날리며 리듬감 있게 회전하는 댄서 사진"
+  ],
+  "from": [
+   "a photo of a athlete mid-sprint with blurred motion and dynamic body posture",
+   "a photo of a child jumping in the air with legs spread wide and arms raised",
+   "a photo of a skateboarder in motion with blurred wheels and a confident grin",
+   "a photo of a dancer mid-twirl with flowing hair and a sense of rhythm"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f04": {
+  "prompts_ko": [
+   "네온 불빛이 젖은 거리에 반사되는 밤의 도시 스카이라인 사진",
+   "거친 가로등 아래 노출된 콘크리트 벽과 산업적인 구조물 사진",
+   "밝은 상점 간판과 흐릿하게 지나가는 행인들이 있는 혼잡한 도심 거리 사진",
+   "해질 무렵 우뚝 솟은 고층 빌딩 앞에 홀로 서 있는 사람 사진"
+  ],
+  "from": [
+   "a photo of a city skyline at night with glowing neon lights reflecting on wet streets",
+   "a photo of exposed concrete walls and industrial structures under harsh streetlights",
+   "a photo of a crowded urban street with bright shop signs and blurred pedestrians",
+   "a photo of a lone figure standing in front of towering skyscrapers at dusk"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f05": {
+  "prompts_ko": [
+   "흐린 회색 톤과 부드러운 그림자, 차분한 질감의 인물 사진",
+   "움직임이 흐려지고 명암이 대비되는 흑백 거리 풍경 사진",
+   "배경은 흐리고 얼굴은 선명한 모노크롬 모델 사진",
+   "채도가 낮은 색감과 중립적인 조명 분위기의 인물 사진"
+  ],
+  "from": [
+   "a photo of a person in faded gray tones with soft shadows and muted textures",
+   "a photo of a street scene in black and white with blurred motion and contrasted light",
+   "a photo of a model in monochrome with a blurred background and sharp facial details",
+   "a photo of a portrait with desaturated colors and a neutral lighting atmosphere"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f06": {
+  "prompts_ko": [
+   "눈송이가 내리는 눈 덮인 숲에서 두꺼운 코트를 입은 사람 사진",
+   "바닥을 부드럽게 덮은 눈과 차가운 공기 속에 빛나는 불빛이 있는 거리 사진",
+   "겨울 풍경 속 따뜻한 커피잔 위에서 녹는 눈송이 클로즈업 사진",
+   "눈 덮인 풍경 속에서 차가운 공기에 하얀 입김을 내뱉는 사람 사진"
+  ],
+  "from": [
+   "a photo of a person wearing a thick coat in a snowy forest with falling snowflakes",
+   "a photo of a street with soft snow covering the ground and lights glowing through the cold air",
+   "a photo of a close-up of snowflakes melting on a warm cup of coffee in a winter scene",
+   "a photo of a person breathing into the cold air, visible as white vapor in a snowy landscape"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f07": {
+  "prompts_ko": [
+   "비 내리는 가운데 물방울이 떨어지는 우산 아래 레인코트를 입고 서 있는 사람 사진",
+   "창문에 맺힌 빗방울과 바람에 흩날려 흐려진 머리카락 사진",
+   "흐린 하늘을 비추는 젖은 보도 위로 비를 맞으며 걷는 사람 사진",
+   "옷감에 물방울이 매달린 비에 젖은 옷 클로즈업 사진"
+  ],
+  "from": [
+   "a photo of a person in a raincoat standing under a dripping umbrella in the rain",
+   "a photo of raindrops on a window with blurred motion from wind-blown hair",
+   "a photo of wet pavement reflecting a gray sky with a person walking in the rain",
+   "a photo of a close-up of rain-soaked clothes with droplets hanging from the fabric"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f08": {
+  "prompts_ko": [
+   "나무가 물에 비치는 호숫가 산책길을 걷는 커플 사진",
+   "햇살 가득한 공원의 큰 나무 아래 펼쳐진 피크닉 돗자리 사진",
+   "초록빛 식물로 둘러싸인 옥상 정원에서 바라본 도시 스카이라인 사진",
+   "나무 사이로 부드러운 햇살이 스며드는 강변 벤치 사진"
+  ],
+  "from": [
+   "a photo of a couple walking along a lakeside path with trees reflected in the water",
+   "a photo of a picnic blanket spread under a large tree in a sunny park",
+   "a photo of a city skyline viewed from a rooftop garden with greenery around",
+   "a photo of a bench by a river with soft sunlight filtering through the trees"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f09": {
+  "prompts_ko": [
+   "야자수와 청록빛 바다를 배경으로 모래 해변에 서 있는 사람 사진",
+   "황금빛 노을이 바다에 비치는 일몰 사진",
+   "발자국이 남은 젖은 모래와 멀리 파도가 보이는 클로즈업 사진",
+   "하얀 파라솔과 맑고 푸른 바닷물이 있는 열대 해변에서 편안하게 포즈를 취한 사진"
+  ],
+  "from": [
+   "a photo of a person standing on a sandy beach with palm trees and turquoise ocean in the background",
+   "a photo of a sunset over the ocean with golden light reflecting on the water",
+   "a photo of a close-up of wet sand with footprints and distant waves in the background",
+   "a photo of a tropical beach with a white umbrella, clear blue water, and a relaxed pose"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f10": {
+  "prompts_ko": [
+   "나무 간판이 걸려 있고 종이 등 사이로 부드러운 오후 햇살이 스며드는 좁은 골목 사진",
+   "기와지붕과 문으로 이어지는 조용한 돌길이 있는 전통 한옥 사진",
+   "오래된 포스터가 붙은 빈티지 상점 창문에 따뜻한 황금빛이 부드러운 그림자를 드리우는 사진",
+   "아늑한 옛 카페의 나무 테이블 위 김이 나는 컵과 색 바랜 벽지가 있는 사진"
+  ],
+  "from": [
+   "a photo of a narrow alley with wooden signs and soft afternoon light filtering through paper lanterns",
+   "a photo of a traditional hanok house with tiled roofs and a quiet stone path leading to the door",
+   "a photo of a vintage shop window with old posters and warm golden light casting soft shadows",
+   "a photo of a wooden table in a cozy old cafe with steaming cups and faded wallpaper"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f11": {
+  "prompts_ko": [
+   "멀리서 기차가 다가오는 선로 위에 서 있는 사람 사진",
+   "배낭을 메고 조용한 거리를 걷는 여행자와 멀리 보이는 기차 사진",
+   "터널 벽을 배경으로 승객의 얼굴이 비친 기차 창문 사진",
+   "노을을 배경으로 기찻길 위 다리를 걷는 사람 사진"
+  ],
+  "from": [
+   "a photo of a person standing on a train track with a train approaching in the distance",
+   "a photo of a traveler walking along a quiet street with a backpack and a distant train",
+   "a photo of a train window reflecting a passenger's face against a tunnel wall",
+   "a photo of a person walking on a bridge over train tracks with a sunset in the background"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f12": {
+  "prompts_ko": [
+   "수줍은 미소와 크고 반짝이는 눈으로 시선을 돌린 아이 사진",
+   "혀를 내밀고 장난스럽게 윙크하는 유아 사진",
+   "발그레한 볼과 움켜쥔 손, 부드러운 파스텔 담요에 안긴 아기 사진",
+   "양갈래 머리를 하고 웃음을 짓고 있는 어린 소녀 사진"
+  ],
+  "from": [
+   "a photo of a child with a shy smile and big bright eyes looking away",
+   "a photo of a toddler sticking out their tongue and winking playfully",
+   "a photo of a baby with rosy cheeks and a curled-up fist in a soft pastel blanket",
+   "a photo of a little girl with pigtails and a giggle frozen on her face"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f13": {
+  "prompts_ko": [
+   "맞춤 제작한 검은 수트를 입고 무표정에 바른 자세를 한 남성 사진",
+   "가죽 재킷과 선글라스를 쓰고 차갑고 자신감 있는 시선을 보내는 여성 사진",
+   "무표정한 얼굴로 미니멀한 스타일링을 하고 나란히 서 있는 커플 사진",
+   "모직 목도리와 조종사 선글라스를 쓰고 어둡고 무드 있는 조명 아래 있는 남성 사진"
+  ],
+  "from": [
+   "a photo of a man in a tailored black suit with a neutral expression and sharp posture",
+   "a photo of a woman in a leather jacket and sunglasses with a cold, confident gaze",
+   "a photo of a couple standing side by side with stoic faces and minimalist styling",
+   "a photo of a man in a wool scarf and aviator sunglasses under dim, moody lighting"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f14": {
+  "prompts_ko": [
+   "초점이 선명한 인물 주위로 부드러운 빛 번짐이 있고 배경이 흐린 사진",
+   "인물 사진 배경에 빛이 스며들고 몽환적인 보케가 있는 사진",
+   "얼굴은 선명하고 노을 배경은 부드럽게 흐린 사람 사진",
+   "밝은 원형 빛 번짐과 초점이 맞지 않는 배경이 있는 사진"
+  ],
+  "from": [
+   "a photo of a blurred background with soft light flares around a sharply focused subject",
+   "a photo with glowing light leaks and dreamy bokeh in the background of a portrait",
+   "a photo of a person with a sharp face and softly blurred sunset background",
+   "a photo with bright circular light spills and out-of-focus background details"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f15": {
+  "prompts_ko": [
+   "맑고 푸른 하늘과 뭉게구름 아래 해변에 서 있는 사람 사진",
+   "화창한 여름 하늘 아래 맑은 산속 계곡물에서 물장난치는 어린 소녀 사진",
+   "노을이 물에 비치는 부둣가에 줄무늬 셔츠를 입고 앉아 있는 남성 사진",
+   "여름 소나기 물방울이 초록 잎에 떨어지는 클로즈업 사진"
+  ],
+  "from": [
+   "a photo of a person standing on a beach with bright blue sky and fluffy clouds above",
+   "a photo of a young girl splashing in a clear mountain stream under a sunny summer sky",
+   "a photo of a man in a striped shirt sitting on a dock with a sunset reflecting on the water",
+   "a photo of a close-up of water droplets from a summer shower hitting a green leaf"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f16": {
+  "prompts_ko": [
+   "분홍 접시꽃 밭에 부드러운 분홍 드레스를 입고 서 있는 사람 사진",
+   "파스텔 분홍빛 하늘과 황금빛 조명 속 피치톤 스웨터를 입은 모델 사진",
+   "더스티 핑크 톤과 부드럽게 흐린 배경의 얼굴 클로즈업 사진",
+   "더스티 핑크빛 노을을 배경으로 코랄톤 옷을 입은 커플 사진"
+  ],
+  "from": [
+   "a photo of a person in a soft pink dress standing in a field of pink mallow flowers",
+   "a photo with pastel pink skies and a model wearing a peach-toned sweater in golden light",
+   "a photo of a close-up face with dusty pink tones and a blurred background in soft focus",
+   "a photo of a couple in coral-toned outfits against a dusty pink sunset backdrop"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f17": {
+  "prompts_ko": [
+   "색이 바랜 데님을 입고 부드러운 세피아 톤과 낮은 대비를 보여주는 사람 사진",
+   "채도가 낮은 색감과 부드러운 조명 속 살짝 흐린 배경의 사진",
+   "차분한 톤과 낡은 질감의 빈티지 드레스를 입은 여성 사진",
+   "레트로 필터와 흐려진 테두리, 따뜻한 갈색 톤의 사진"
+  ],
+  "from": [
+   "a photo of a person in faded denim with soft sepia tones and low contrast",
+   "a photo with desaturated colors and a slightly blurred background in soft light",
+   "a photo of a woman wearing a vintage dress with muted tones and a worn texture",
+   "a photo with a retro filter, faded edges, and a warm brownish color palette"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f18": {
+  "prompts_ko": [
+   "차가운 푸른 하늘과 뒤편의 안개를 배경으로 하늘색 셔츠를 입고 서 있는 사람 사진",
+   "날카로운 턱선과 차가운 눈빛을 지닌 남성이 얼음빛 톤의 어두운 방에 있는 사진",
+   "안개 낀 산 속에서 흰 드레스를 입고 머리카락이 바람에 날리는 여성 사진",
+   "창백한 아침 햇살 아래 하얀 피부와 먼 곳을 보는 시선을 담은 얼굴 클로즈업 사진"
+  ],
+  "from": [
+   "a photo of a person in a light blue shirt standing under a cool blue sky with mist in the background",
+   "a photo of a man with a sharp jawline and cold eyes in a dimly lit room with icy tones",
+   "a photo of a woman in a white dress with a breeze blowing through her hair in a misty mountain setting",
+   "a photo of a close-up face with pale skin and a distant look under a pale morning light"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f19": {
+  "prompts_ko": [
+   "따뜻한 황금빛 조명 속에서 부드럽게 웃으며 꼭 껴안은 커플 사진",
+   "흐린 배경 속에서 다정한 눈빛으로 손을 잡은 두 사람 사진",
+   "벚꽃나무 아래에서 로맨틱한 포즈를 취한 젊은 커플 사진",
+   "어두운 카페에서 서로의 눈을 바라보는 남녀 사진"
+  ],
+  "from": [
+   "a photo of a couple in a tight embrace with soft smiles and warm golden light",
+   "a photo of two people holding hands with tender looks and blurred background",
+   "a photo of a young couple in a romantic pose under a cherry blossom tree",
+   "a photo of a man and woman looking into each other's eyes in a dimly lit café"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f20": {
+  "prompts_ko": [
+   "나무 사이로 부드러운 햇살이 스며드는 큰 창가에 앉은 사람 사진",
+   "높은 창문으로 자연광이 쏟아지는 천장이 높은 방 안의 모델 사진",
+   "잎이 무성한 나뭇가지 사이로 햇살이 나무 바닥에 쏟아지는 사진",
+   "유리벽 사이로 밝은 햇살이 비치는 유리 온실 속 식물 사진"
+  ],
+  "from": [
+   "a photo of a person sitting by a large window with soft sunlight filtering through the trees",
+   "a photo of a model in a high-ceilinged room with natural light streaming through tall windows",
+   "a photo with sunlight pouring through leafy branches onto a wooden floor",
+   "a photo of a plant in a glass greenhouse with bright sunlight shining through the glass walls"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f21": {
+  "prompts_ko": [
+   "야생화가 핀 넓은 초원과 멀리 보이는 농가를 배경으로 서 있는 사람 사진",
+   "바구니를 들고 전통 의상을 입은 여성이 초록빛 들판을 걷는 사진",
+   "맑고 푸른 하늘 아래 풀밭 언덕에서 웃는 아이 사진",
+   "나무가 줄지어 있고 부드러운 아침 안개가 낀 조용한 시골길 사진"
+  ],
+  "from": [
+   "a photo of a person standing in a wide meadow with wildflowers and a distant farmhouse",
+   "a photo of a woman in a traditional dress walking through a green field with a basket",
+   "a photo of a child laughing on a grassy hill with a clear blue sky above",
+   "a photo of a quiet countryside road lined with trees and soft morning mist"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f22": {
+  "prompts_ko": [
+   "깔끔한 교복을 입은 청소년이 햇살 가득한 캠퍼스를 걷는 사진",
+   "나무 아래에서 서로 어깨동무를 하고 웃는 두 소년 사진",
+   "복고풍 캠퍼스 건물 앞에 빈티지 재킷을 입고 서 있는 청년 사진",
+   "배낭을 메고 밝게 웃는 학생이 색채가 풍부한 거리에 있는 사진"
+  ],
+  "from": [
+   "a photo of a teenager in a crisp school uniform walking across a sunlit campus",
+   "a photo of two boys laughing with arms around each other under a tree",
+   "a photo of a young man in a vintage jacket standing in front of a retro campus building",
+   "a photo of a student with a backpack and a bright smile in a colorful street scene"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f23": {
+  "prompts_ko": [
+   "해질 무렵 긴 그림자와 황금빛 햇살 속에 서 있는 사람 사진",
+   "따뜻한 주황빛과 분홍빛 저녁 햇살이 감싸는 들판을 걷는 커플 사진",
+   "지는 해의 부드러운 빛을 역광으로 받는 외로운 나무 사진",
+   "황금빛 노을 하늘 아래 고요한 호수에 비친 도시 스카이라인 사진"
+  ],
+  "from": [
+   "a photo of a person standing in golden sunlight with long shadows at sunset",
+   "a photo of a couple walking in a field bathed in warm orange and pink evening light",
+   "a photo of a lone tree backlit by the soft glow of the setting sun",
+   "a photo of a city skyline reflecting in a calm lake under a golden sunset sky"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f24": {
+  "prompts_ko": [
+   "극적인 조명 아래 자신감 있는 포즈를 취한 하이패션 의상의 모델 사진",
+   "매끈한 검은 배경과 세련된 의상·메이크업에 초점을 맞춘 사진",
+   "강렬한 패턴 재킷을 입고 인상적인 에디토리얼 포즈를 취한 사람 사진",
+   "강렬한 눈빛과 화려한 매거진 화보 같은 얼굴 클로즈업 사진"
+  ],
+  "from": [
+   "a photo of a model in a high-fashion outfit with dramatic lighting and a confident pose",
+   "a photo with a sleek black background and sharp focus on a stylish outfit and makeup",
+   "a photo of a person wearing a bold patterned jacket with a striking, editorial pose",
+   "a photo of a close-up face with intense eye contact and a glamorous, magazine-ready look"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f25": {
+  "prompts_ko": [
+   "강렬한 기하학 패턴 옷을 입고 선명한 색감으로 자신감 있게 포즈를 취한 사람 사진",
+   "과일을 테마로 한 의상을 입은 모델과 강렬하고 예술적인 배경의 사진",
+   "독특한 각도의 극적인 조명과 개성 있는 패션이 돋보이는 거리 풍경 사진",
+   "독특한 헤어스타일과 아방가르드한 메이크업을 한 사람이 색채 가득한 도심 배경에 있는 사진"
+  ],
+  "from": [
+   "a photo of a person in bold geometric clothing with a confident pose and vibrant colors",
+   "a photo of a model wearing a fruit-themed outfit with a striking, artistic background",
+   "a photo of a street scene with edgy fashion and dramatic lighting from an unusual angle",
+   "a photo of a person with a unique hairstyle and avant-garde makeup in a colorful urban setting"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f26": {
+  "prompts_ko": [
+   "밤에 분홍과 보라빛 네온 간판이 빛나는 거리 사진",
+   "80년대풍 선글라스를 쓰고 깜빡이는 네온사인 아래 서 있는 사람 사진",
+   "파스텔빛 네온이 젖은 보도에 비치는 도시 풍경 사진",
+   "강렬한 색감과 빈티지 홍콩 분위기를 풍기는 복고 포스터 클로즈업 사진"
+  ],
+  "from": [
+   "a photo of a neon-lit street with pink and purple signs glowing in the night",
+   "a photo of a person in 80s-style sunglasses standing under a flickering neon sign",
+   "a photo of a cityscape with pastel neon lights reflecting on wet pavement",
+   "a photo of a close-up of a retro poster with bold colors and a vintage Hong Kong feel"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f27": {
+  "prompts_ko": [
+   "보름달 아래 빛나는 도시 스카이라인과 물에 비친 모습이 담긴 사진",
+   "밝은 불빛과 별이 가득한 밤하늘 아래 돌아가는 대관람차 사진",
+   "해안가에 색색의 불빛이 반짝이는 어두운 해변 사진",
+   "짙은 푸른 밤공기 속에 네온사인이 빛나는 거리 사진"
+  ],
+  "from": [
+   "a photo of a city skyline glowing under a full moon with reflections on the water",
+   "a photo of a Ferris wheel spinning under bright lights and a starry night sky",
+   "a photo of a dark beach with colorful lights flickering on the shore",
+   "a photo of a street with neon signs glowing in the deep blue night air"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f28": {
+  "prompts_ko": [
+   "강렬한 조명 아래 강한 눈빛과 자신감 있는 자세를 취한 여성 사진",
+   "가죽 재킷을 입고 강렬한 눈빛과 당당한 자세를 취한 모델 사진",
+   "집중한 눈빛으로 역동적으로 펀치를 내지르는 여성 운동선수 사진",
+   "선명한 그림자와 강한 대비의 조명 속에서 파워 포즈를 취한 여성 사진"
+  ],
+  "from": [
+   "a photo of a woman with intense eye contact and a confident stance in bold lighting",
+   "a photo of a model in a leather jacket with a fierce gaze and strong posture",
+   "a photo of a female athlete mid-punch with focused eyes and dynamic motion",
+   "a photo of a woman in a power pose with sharp shadows and high contrast lighting"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f29": {
+  "prompts_ko": [
+   "서로 어깨를 감싸고 가까이서 웃는 단짝 친구 두 명 사진",
+   "아늑한 거실에서 손을 잡고 부드럽게 웃는 커플 사진",
+   "즐겁고 장난스러운 표정으로 함께 노는 아버지와 딸 사진",
+   "다정하고 편안한 자세로 나란히 앉은 부부 사진"
+  ],
+  "from": [
+   "a photo of two best friends laughing closely with arms around each other",
+   "a photo of a couple holding hands and smiling softly in a cozy living room",
+   "a photo of a father and daughter playing together with happy, playful expressions",
+   "a photo of a married couple sitting side by side with affectionate, relaxed body language"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f30": {
+  "prompts_ko": [
+   "안개 낀 숲에서 나무 사이로 은은한 라벤더빛이 스며드는 가운데 서 있는 사람 사진",
+   "몽환적인 배경 속 얼굴을 감싸는 부드럽고 신비로운 빛의 모델 사진",
+   "흐린 테두리와 초현실적인 색감이 신비롭고 비현실적인 분위기를 만드는 사진",
+   "옅은 라벤더빛 하늘과 안개 낀 들판 속 윤곽이 빛나는 인물 사진"
+  ],
+  "from": [
+   "a photo of a person standing in a misty forest with glowing lavender light filtering through the trees",
+   "a photo of a model with soft ethereal light surrounding their face in a dreamlike setting",
+   "a photo with blurred edges and surreal colors creating a mysterious and otherworldly atmosphere",
+   "a photo of a figure in a foggy field under a pale lavender sky with glowing outlines"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f31": {
+  "prompts_ko": [
+   "자연광 아래 부드러운 그림자와 함께 화장을 하지 않은 모습으로 서 있는 사람 사진",
+   "단순한 배경과 수수한 옷차림의 자연스러운 순간을 담은 사진",
+   "배경이 흐리고 인물이 카메라를 정면으로 바라보는 사진",
+   "소박한 옷을 입고 꾸밈없는 흙빛 배경 속에 서 있는 사람 사진"
+  ],
+  "from": [
+   "a photo of a person standing in natural light with soft shadows and no makeup",
+   "a photo of a candid moment with minimal background and plain clothing",
+   "a photo with a blurred background and a subject looking directly at the camera",
+   "a photo of a person wearing simple clothes and standing in a plain, earthy setting"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f32": {
+  "prompts_ko": [
+   "꽃무늬가 있는 플로잉 보헤미안 드레스를 입고 맨발로 서 있는 여성 사진",
+   "맞춤 수트에 가죽 재킷을 걸치고 자신감 있는 자세를 취한 남성 사진",
+   "정교한 무늬와 섬세한 머리 장식이 있는 전통 한복을 입은 소녀 사진",
+   "캐주얼한 오버사이즈 셔츠와 청바지를 입고 편안한 자세를 취한 모델 사진"
+  ],
+  "from": [
+   "a photo of a woman in a flowing bohemian dress with floral patterns and bare feet",
+   "a photo of a man in a tailored suit with a leather jacket and a confident stance",
+   "a photo of a girl in a traditional hanbok with intricate patterns and a delicate headpiece",
+   "a photo of a model in a casual oversized shirt and jeans with a relaxed posture"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f33": {
+  "prompts_ko": [
+   "전구 장식과 나무 가판대가 있는 눈 내리는 크리스마스 마켓을 걷는 커플 사진",
+   "눈 덮인 숲 속 성에 낀 창문으로 따뜻한 불빛이 비치는 아늑한 오두막 사진",
+   "밝은 홀리데이 조명과 눈 덮인 나무, 빨강과 초록으로 장식된 상점이 있는 거리 사진",
+   "유럽 광장의 크리스마스트리 앞에서 핫초코 머그컵을 든 사람 사진"
+  ],
+  "from": [
+   "a photo of a couple walking through a snowy christmas market with string lights and wooden stalls",
+   "a photo of a cozy cabin with warm lights glowing through frosted windows in a snowy forest",
+   "a photo of a street with bright holiday lights, snow-covered trees, and a red and green decorated shop",
+   "a photo of a person holding a mug of hot chocolate in front of a christmas tree in a european square"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f34": {
+  "prompts_ko": [
+   "풀어진 머리와 화장하지 않은 얼굴로 진심으로 웃는 사람 사진",
+   "편안한 자세로 공원에서 자연스럽게 대화하는 두 친구 사진",
+   "대화 중 자연스럽게 포착된 웃음과 부드럽게 흐린 배경의 사진",
+   "꾸미지 않은 진솔한 표정으로 카메라를 정면으로 바라보는 사람 사진"
+  ],
+  "from": [
+   "a photo of a person laughing genuinely with loose hair and no makeup",
+   "a photo of two friends chatting naturally in a park with relaxed body language",
+   "a photo of a candid smile captured mid-conversation with soft background blur",
+   "a photo of someone looking directly at the camera with unposed, authentic expression"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f35": {
+  "prompts_ko": [
+   "지저분한 방에서 오버사이즈 선글라스를 쓰고 익살스러운 미소를 짓는 사람 사진",
+   "과장된 표정과 헝클어진 머리로 크게 웃는 두 친구 사진",
+   "화려한 색상의 우스꽝스러운 의상을 입고 익살스러운 포즈를 취한 사람 사진",
+   "과장되게 큰 망토를 걸치고 우스꽝스러운 표정으로 슈퍼히어로 흉내를 내는 사람 사진"
+  ],
+  "from": [
+   "a photo of a person wearing oversized sunglasses and a silly grin in a messy room",
+   "a photo of two friends laughing loudly with exaggerated expressions and messy hair",
+   "a photo of a person wearing a ridiculous costume with bright colors and a goofy pose",
+   "a photo of someone pretending to be a superhero with a comically oversized cape and silly face"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f36": {
+  "prompts_ko": [
+   "강한 스포트라이트를 역광으로 받아 윤곽이 빛나는 사람 사진",
+   "한쪽 볼에 강한 그림자를 드리우는 극적인 측광 사진",
+   "밝은 배경을 뒤로 하고 실루엣만 보이는 인물 사진",
+   "부드러운 황금빛 속에서 얼굴 윤곽을 따라 림라이트가 빛나는 사진"
+  ],
+  "from": [
+   "a photo of a person backlit by a strong spotlight creating a glowing outline",
+   "a photo with dramatic side lighting casting sharp shadows on one cheek",
+   "a photo of a subject in silhouette against a bright background",
+   "a photo with rim light glowing around the edges of the face in soft golden light"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f37": {
+  "prompts_ko": [
+   "부드러운 입자감과 따뜻한 코닥 필름 톤을 지닌 인물 사진",
+   "빈티지한 느낌과 색이 바랜 색감, 테두리가 살짝 있는 사진",
+   "짙은 명암과 영화 같은 흑백 필름 느낌의 인물 사진",
+   "로모풍 색감과 진한 색조, 몽환적인 보케 효과가 있는 사진"
+  ],
+  "from": [
+   "a photo of a person with soft grainy texture and warm Kodak film tones",
+   "a photo with a vintage look, faded colors and a slight border around the edges",
+   "a photo of a portrait with rich contrast and a cinematic black and white film look",
+   "a photo with a Lomo-style color palette, saturated hues and a dreamy bokeh effect"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f38": {
+  "prompts_ko": [
+   "안개 낀 숲에서 은은하게 빛나는 페어리 라이트에 둘러싸인 플로잉 드레스를 입은 소녀 사진",
+   "빛나는 환상적인 정원에서 꽃 왕관을 쓰고 서 있는 여성 사진",
+   "초현실적인 환상 배경 속 몽환적인 메이크업과 빛나는 피부의 모델 사진",
+   "해질 무렵 안개 낀 신비로운 숲에서 등불을 든 젊은 여성 사진"
+  ],
+  "from": [
+   "a photo of a girl in a flowing dress surrounded by glowing fairy lights in a misty forest",
+   "a photo of a woman with a crown of flowers standing in a glowing enchanted garden",
+   "a photo of a model with dreamy makeup and glowing skin in a surreal fantasy setting",
+   "a photo of a young woman holding a lantern in a misty, magical forest at twilight"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f39": {
+  "prompts_ko": [
+   "따뜻한 노란 조명과 부드러운 그림자가 있는 방 안에 앉은 사람 사진",
+   "버터빛 노란 조명과 부드러운 하이라이트 속에 빛나는 얼굴 클로즈업 사진",
+   "따뜻한 주황빛 톤과 부드러운 조명이 얼굴에 은은한 그림자를 드리우는 사진",
+   "따뜻한 톤의 조명과 배경의 황금빛 색조가 어우러진 아늑한 장면 사진"
+  ],
+  "from": [
+   "a photo of a person sitting in a room lit by warm yellow bulbs with soft shadows",
+   "a photo of a close-up face glowing in buttery yellow light with soft highlights",
+   "a photo with warm orange tones and soft lighting casting gentle shadows on the face",
+   "a photo of a cozy scene with warm-toned lighting and golden hues in the background"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f40": {
+  "prompts_ko": [
+   "부드러운 봄 햇살 아래 튤립이 만개한 들판에 서 있는 사람 사진",
+   "초록 나무와 푸른 하늘이 있는 공원에서 머리에 꽃을 꽂고 웃는 여성 사진",
+   "꽃잎 사이로 부드러운 빛이 스며드는 벚꽃 클로즈업 사진",
+   "산들바람과 파스텔 색감 속 초원을 손잡고 걷는 커플 사진"
+  ],
+  "from": [
+   "a photo of a person standing in a field of blooming tulips under soft spring sunlight",
+   "a photo of a woman with a flower in her hair smiling in a park with green trees and blue sky",
+   "a photo of a close-up of cherry blossoms with soft light filtering through petals",
+   "a photo of a couple walking hand in hand in a meadow with a gentle breeze and pastel colors"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f41": {
+  "prompts_ko": [
+   "황금빛 가을 햇살 속 단풍잎이 떨어지는 가운데 서 있는 사람 사진",
+   "갈색과 붉은 잎으로 덮인 길에 나무 사이로 부드러운 햇살이 스며드는 사진",
+   "황금빛 속에서 흔들리는 억새밭을 갈색 코트를 입고 걷는 사람 사진",
+   "인물의 얼굴 위로 노랗고 붉은 잎 사이에 황금빛 햇살이 비치는 클로즈업 사진"
+  ],
+  "from": [
+   "a photo of a person standing in a golden autumn light with falling maple leaves around them",
+   "a photo of a path covered in brown and red leaves with soft sunlight filtering through the trees",
+   "a photo of a person in a brown coat walking through a field of swaying pampas grass in golden light",
+   "a photo of a close-up of golden sunlight shining through yellow and red leaves above a subject's face"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f42": {
+  "prompts_ko": [
+   "차가운 톤과 부드러운 그림자가 있는 푸른 아침 햇살 속에 서 있는 사람 사진",
+   "옅은 푸른 하늘과 민트빛이 살짝 비치는 도시 풍경 사진",
+   "차가운 조명과 선명한 초점 속 하늘색 드레스를 입은 모델 사진",
+   "차가운 그림자와 옅은 푸른 하늘 아래 새벽의 조용한 거리 사진"
+  ],
+  "from": [
+   "a photo of a person standing in the blue morning light with cool tones and soft shadows",
+   "a photo of a cityscape under a pale blue sky with hints of mint-colored light",
+   "a photo of a model in a light blue dress with cool lighting and sharp focus",
+   "a photo of a quiet street at dawn with cool shadows and a pale blue sky above"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f43": {
+  "prompts_ko": [
+   "먼 곳을 바라보며 벤치에 혼자 앉은 사람의 부드러운 그림자가 담긴 사진",
+   "눈을 감고 편안한 표정으로 벽에 기대어 있는 남성 사진",
+   "창문으로 자연광이 들어오는 고요하고 정적인 방 사진",
+   "무릎에 손을 모으고 편안한 자세로 의자에 앉은 여성 사진"
+  ],
+  "from": [
+   "a photo of a person sitting alone on a bench with a distant gaze and soft shadows",
+   "a photo of a man leaning against a wall with closed eyes and calm facial expression",
+   "a photo of a quiet room with natural light streaming through the window and stillness",
+   "a photo of a woman sitting in a chair with hands in her lap and a relaxed posture"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f44": {
+  "prompts_ko": [
+   "밝은 색의 조명 아래 강렬한 네온 의상을 입은 사람 사진",
+   "선명한 빨강·파랑·노란빛이 어우러진 생동감 있는 거리 사진",
+   "단색 배경 속 다채로운 패턴의 재킷을 입은 모델 사진",
+   "선명하고 진한 색감과 대비되는 톤이 돋보이는 클로즈업 사진"
+  ],
+  "from": [
+   "a photo of a person in a bold neon outfit under bright colored lights",
+   "a photo of a vibrant street scene with vivid red, blue, and yellow hues",
+   "a photo of a model wearing a multicolored patterned jacket against a solid background",
+   "a photo of a close-up with sharp, saturated colors and contrasting tones"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f45": {
+  "prompts_ko": [
+   "부드러운 자연광 속에서 큰 눈과 밝은 웃음이 빛나는 아이 사진",
+   "황금빛 오후 햇살 속에서 볼이 발그레해지고 눈가가 접히도록 웃는 커플 사진",
+   "부드러운 그림자에 둘러싸여 빛나는 볼과 따뜻한 미소를 지은 사람 사진",
+   "살짝 올라간 입꼬리와 환하고 따뜻한 표정이 담긴 얼굴 클로즈업 사진"
+  ],
+  "from": [
+   "a photo of a child with wide eyes and a bright smile shining in soft natural light",
+   "a photo of a couple laughing with cheeks flushed and eyes crinkled in golden afternoon light",
+   "a photo of a person with glowing cheeks and a warm smile framed by soft shadows",
+   "a photo of a close-up face with upturned lips and a radiant, heartwarming expression"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f46": {
+  "prompts_ko": [
+   "거친 질감과 낮은 해상도의 입자감 있는 클로즈업 사진",
+   "필름 그레인이 보이고 부드러운 초점의 따뜻한 조명 사진",
+   "VHS풍 색상 왜곡이 있는 흐릿한 거리 사진",
+   "거친 테두리와 캠코더처럼 흔들리는 핸드헬드 효과가 있는 사진"
+  ],
+  "from": [
+   "a photo of a grainy close-up with rough texture and low resolution",
+   "a photo with visible film grain and soft focus in warm light",
+   "a photo of a blurred street scene with a VHS-style color distortion",
+   "a photo with rough edges and a camcorder-like shaky handheld effect"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f47": {
+  "prompts_ko": [
+   "짙은 파랑과 보라색 옷을 입고 생각에 잠긴 먼 시선을 보이는 사람 사진",
+   "진한 아이라이너와 쓸쓸한 눈빛을 한 모델이 어두운 조명 속에 있는 사진",
+   "진하고 선명한 색감 속에서 먼 곳을 바라보는 인물 사진",
+   "Y2K 패션을 입고 부드러운 그림자 속에서 생각에 잠긴 표정을 한 젊은 사람 사진"
+  ],
+  "from": [
+   "a photo of a person in deep blue and purple clothing with a distant, thoughtful expression",
+   "a photo of a model with heavy eyeliner and a melancholic gaze in dim lighting",
+   "a photo with rich, saturated colors and a subject gazing off into the distance",
+   "a photo of a young person in Y2K fashion with a pensive look and soft shadows"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f48": {
+  "prompts_ko": [
+   "잎 사이로 점점이 햇살이 스며드는 짙은 초록 나무 그늘 아래 서 있는 사람 사진",
+   "짙은 초록빛 큰 나무들이 늘어서고 부드러운 아침 햇살이 비치는 길 사진",
+   "생생한 초록 잎에 둘러싸인 이끼 낀 나무 뿌리 클로즈업 사진",
+   "황금빛 시간대의 긴 그림자가 드리운 울창한 숲을 걷는 인물 사진"
+  ],
+  "from": [
+   "a photo of a person standing under a dense green canopy with dappled sunlight filtering through the leaves",
+   "a photo of a path lined with tall trees in deep green tones and soft morning light",
+   "a photo of a close-up of mossy tree roots surrounded by vibrant green foliage",
+   "a photo of a figure walking through a lush forest with golden hour light casting long shadows"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f49": {
+  "prompts_ko": [
+   "강렬한 붉은 조명과 짙은 대비, 선명한 그림자 속의 사람 사진",
+   "얼굴 반은 어둠에, 반은 극적인 스포트라이트에 비친 사진",
+   "거친 조명 아래 짙은 검은 그림자와 밝은 하이라이트가 대비되는 사진",
+   "하나의 강한 광원이 짙은 그림자를 만드는 어두운 방에 서 있는 인물 사진"
+  ],
+  "from": [
+   "a photo of a person in sharp shadow with intense red lighting and deep contrasts",
+   "a photo of a face half in darkness and half lit by a dramatic spotlight",
+   "a photo with bold black shadows and bright highlights under harsh light",
+   "a photo of a figure standing in a dim room with a single bright light source casting strong shadows"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f50": {
+  "prompts_ko": [
+   "부드러운 조명 아래 리넨 천의 부드러운 질감을 보여주는 클로즈업 사진",
+   "부드러운 그림자 속에서 손이 벨벳 표면을 가볍게 스치는 사진",
+   "빛을 거의 반사하지 않는 매트한 표면이 부드럽고 차분한 느낌을 주는 사진",
+   "은은한 조명 아래 섬세한 디테일과 벨벳처럼 부드러운 느낌의 원단 클로즈업 사진"
+  ],
+  "from": [
+   "a photo of a close-up shot showing the soft texture of a linen fabric with gentle light",
+   "a photo of a hand gently brushing against a velvet surface with soft shadows",
+   "a photo of a matte surface reflecting minimal light with a smooth and calm look",
+   "a photo of a fabric close-up with fine details and a soft, velvety feel under diffused lighting"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f51": {
+  "prompts_ko": [
+   "부드러운 자연광과 차분한 색감 속에서 평온한 표정을 한 사람 사진",
+   "뉴트럴톤 옷을 입고 조용히 내면을 응시하는 모델 사진",
+   "차분한 조명과 흐린 배경이 평화로운 분위기를 보여주는 사진",
+   "부드러운 그림자와 안정되고 차분한 표정의 얼굴 클로즈업 사진"
+  ],
+  "from": [
+   "a photo of a person in soft natural light with muted colors and a calm expression",
+   "a photo of a model in a neutral-toned outfit with a quiet, introspective gaze",
+   "a photo with subdued lighting and a blurred background showing a peaceful atmosphere",
+   "a photo of a close-up face with soft shadows and a steady, composed look"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f52": {
+  "prompts_ko": [
+   "부드러운 분홍빛 조명 아래 발그레한 볼과 반짝이는 눈으로 웃는 커플 사진",
+   "아늑한 방에서 수줍은 미소와 발그레한 볼로 시선을 돌린 소녀 사진",
+   "빛나는 피부와 하트 모양 그림자 속에서 손을 잡은 두 사람 사진",
+   "햇살 가득한 정원에서 몽환적인 표정과 발그레한 볼을 한 젊은 여성 사진"
+  ],
+  "from": [
+   "a photo of a couple laughing with blushing cheeks and bright eyes under soft pink light",
+   "a photo of a girl looking away with a shy smile and flushed cheeks in a cozy room",
+   "a photo of two people holding hands with glowing skin and heart-shaped shadows",
+   "a photo of a young woman with a dreamy look and rosy cheeks in a sunlit garden"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f53": {
+  "prompts_ko": [
+   "파스텔톤 벽과 부드러운 조명 속 대칭적인 구도로 서 있는 사람 사진",
+   "그림 같은 배경과 차분한 톤 속에서 빈티지풍 포즈를 취한 모델 사진",
+   "질감이 있는 예술적인 배경 속에서 책을 든 손 클로즈업 사진",
+   "황금빛 속 창문 틀 안에 담긴 그림 같은 구도의 커플 사진"
+  ],
+  "from": [
+   "a photo of a person standing in a symmetrical composition with pastel-colored walls and soft lighting",
+   "a photo of a model in a vintage-inspired pose with a painterly background and muted tones",
+   "a photo with a close-up of hands holding a book against a textured, artistic backdrop",
+   "a photo of a couple framed in a window with golden light and a stylized, almost painting-like composition"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f54": {
+  "prompts_ko": [
+   "빨간 드레스와 짙은 메이크업, 자신감 있는 자세를 보여주는 여성 사진",
+   "화려한 배경 속 강렬한 눈빛과 매혹적인 미소를 지은 모델 사진",
+   "맞춤 수트를 입고 자신감 있는 미소와 강렬한 눈빛을 보이는 남성 사진",
+   "빛나는 피부와 선명한 입술, 극적인 조명이 담긴 클로즈업 사진"
+  ],
+  "from": [
+   "a photo of a woman in a red dress with bold makeup and confident body language",
+   "a photo of a model with smoldering eyes and a seductive smile in a glamorous setting",
+   "a photo of a man in a tailored suit with a confident smirk and intense gaze",
+   "a photo of a close-up with glowing skin, bold lips, and dramatic lighting"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f55": {
+  "prompts_ko": [
+   "어두운 방 안 색 바랜 쿠션이 놓인 낡은 나무 의자 사진",
+   "빈티지 장난감 자동차를 들고 그리운 미소를 짓는 어린 소녀 사진",
+   "부드러운 아침 햇살 속 선반 위 먼지 쌓인 사진 액자 사진",
+   "누렇게 바랜 페이지와 따뜻한 황금빛이 비치는 낡은 책장 사진"
+  ],
+  "from": [
+   "a photo of an old wooden chair with faded cushions in a dimly lit room",
+   "a photo of a young girl holding a vintage toy car with a nostalgic smile",
+   "a photo of a dusty photograph frame on a shelf with soft morning light",
+   "a photo of a weathered bookshelf with yellowed pages and warm golden light"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f56": {
+  "prompts_ko": [
+   "극적인 그림자와 영화 같은 조명 속 와이드샷으로 서 있는 사람 사진",
+   "강렬한 감정과 얕은 심도로 담긴 얼굴 클로즈업 사진",
+   "빈티지 필터와 부드러운 조명이 영화 장면을 연상시키는 사진",
+   "극적인 배경과 무드 있는 조명 속에서 연출된 포즈를 취한 두 사람 사진"
+  ],
+  "from": [
+   "a photo of a person standing in a wide shot with dramatic shadows and cinematic lighting",
+   "a photo of a close-up face with intense emotion and shallow depth of field",
+   "a photo with a vintage filter and soft lighting resembling a movie scene",
+   "a photo of two people in a staged pose with a dramatic background and moody lighting"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f57": {
+  "prompts_ko": [
+   "부드러운 빛이 얼굴에 반사되어 피부가 빛나는 사람 사진",
+   "몽환적인 흐림과 부드러운 초점 속 밝은 피부 톤의 모델 사진",
+   "흐린 배경과 부드럽게 퍼지는 빛 속에서 빛나는 인물 사진",
+   "따뜻한 햇살이 옆에서 비쳐 광대를 돋보이게 하는 얼굴 사진"
+  ],
+  "from": [
+   "a photo of a person with glowing skin and soft light reflecting off their face",
+   "a photo of a model with a dreamy haze and bright, light-toned skin in soft focus",
+   "a photo with a blurred background and a subject glowing in soft, diffused light",
+   "a photo of a face lit from the side with a soft glow and a pale, porcelain-like complexion"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f58": {
+  "prompts_ko": [
+   "크림색 스웨터를 입고 얼굴에 따뜻한 황금빛이 비치는 사람 사진",
+   "부드러운 그림자와 따뜻한 뉴트럴톤 배경의 나무 테이블 사진",
+   "부드러운 황금빛 간접광 아래 아이보리 드레스를 입은 모델 사진",
+   "따뜻한 나무톤과 창문으로 스며드는 부드러운 황금빛이 있는 방 사진"
+  ],
+  "from": [
+   "a photo of a person in a cream-colored sweater with warm golden light on their face",
+   "a photo of a wooden table with soft shadows and warm neutral tones in the background",
+   "a photo of a model wearing an ivory dress under soft golden ambient lighting",
+   "a photo of a room with warm wood tones and soft golden light filtering through the window"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f59": {
+  "prompts_ko": [
+   "넓고 트인 스튜디오에서 배경이 흐리고 여백이 많은 가운데 서 있는 모델 사진",
+   "넓은 수평선과 최소한의 소품으로 깊이감과 개방감을 주는 사진",
+   "깨끗한 흰 벽 앞에서 여백이 넉넉하게 남은 사람 사진",
+   "여백이 많고 빈 배경에 선명하게 초점을 맞춘 인물 사진"
+  ],
+  "from": [
+   "a photo of a model standing in a vast open studio with a blurred background and empty space",
+   "a photo with a wide horizon line and minimal props creating a sense of depth and openness",
+   "a photo of a person in front of a clean white wall with plenty of empty space around them",
+   "a photo showing a subject with a lot of negative space and a clear focus on the empty background"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f60": {
+  "prompts_ko": [
+   "부드러운 파스텔 색감과 흐린 배경, 옅은 그림자 속의 사람 사진",
+   "맑은 날 수채화 같은 색조와 부드러운 조명이 담긴 사진",
+   "옅은 하늘을 배경으로 하늘색 옷을 입은 모델이 부드러운 초점으로 담긴 사진",
+   "자연광 아래 산뜻한 색감과 희미한 윤곽이 있는 장면 사진"
+  ],
+  "from": [
+   "a photo of a person in soft pastel colors with blurred background and light shadows",
+   "a photo with watercolor-like tones and gentle lighting on a clear day",
+   "a photo of a model wearing light blue clothing against a pale sky with soft focus",
+   "a photo of a scene with airy colors and faint outlines in natural daylight"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f61": {
+  "prompts_ko": [
+   "등 뒤로 해가 비치는 야구장에서 웃는 커플 사진",
+   "영화관에서 남자친구의 손을 잡은 여자 사진",
+   "야구장 관중석에 함께 앉은 커플 사진",
+   "영화관 간판 앞에서 여자친구를 보고 웃는 남자 사진"
+  ],
+  "from": [
+   "a photo of a couple laughing on a baseball field with the sun behind them",
+   "a photo of a girl holding her boyfriend's hand in a movie theater",
+   "a photo of a couple sitting together on a baseball stadium bleacher",
+   "a photo of a boy smiling at his girlfriend in front of a cinema marquee"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f62": {
+  "prompts_ko": [
+   "맞춤 검은 수트에 깔끔한 흰 셔츠와 광이 나는 신발을 신은 남성 사진",
+   "미니멀한 검은 드레스와 각 잡힌 블레이저를 입은 여성 사진",
+   "부드러운 스튜디오 조명이 매끈한 가구와 현대 미술 작품을 돋보이게 하는 사진",
+   "깔끔하고 세련된 디자인의 빈티지 시계를 든 손 클로즈업 사진"
+  ],
+  "from": [
+   "a photo of a man in a tailored black suit with a crisp white shirt and polished shoes",
+   "a photo of a woman in a minimalist black dress with a structured blazer and sharp lines",
+   "a photo with soft studio lighting highlighting sleek furniture and modern art",
+   "a photo of a close-up hand holding a vintage watch with a clean, elegant design"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f63": {
+  "prompts_ko": [
+   "흰옷을 입은 모델이 밝은 흰 방에서 부드러운 그림자와 함께 서 있는 사진",
+   "온통 흰색으로 입은 인물과 강한 대비의 흰 배경 사진",
+   "흰 벽을 배경으로 흰 드레스를 입고 하이라이트가 과노출된 사람 사진",
+   "큰 창문으로 자연광이 쏟아지는 미니멀한 흰색 실내 사진"
+  ],
+  "from": [
+   "a photo of a white-clad model standing in a bright white room with soft shadows",
+   "a photo of a plain white background with a subject in all white and high contrast light",
+   "a photo of a person in a white dress against a white wall with overexposed highlights",
+   "a photo of a minimalist white interior with natural light flooding through large windows"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f64": {
+  "prompts_ko": [
+   "맞춤 코트를 입고 스모키한 조명 속 자신감 있는 눈빛을 보이는 사람 사진",
+   "선이 날렵한 어두운 드레스를 입고 극적인 그림자가 드리운 여성 사진",
+   "낮은 조도와 무드 있는 톤 속에서 렌즈를 정면으로 바라보는 인물 사진",
+   "부드러운 푸른 조명 속 벽돌 벽에 기대어 강렬한 눈빛을 보이는 남성 사진"
+  ],
+  "from": [
+   "a photo of a person in a tailored coat with smoky lighting and a confident gaze",
+   "a photo of a woman in a dark dress with sharp lines and dramatic shadows",
+   "a photo with low light, moody tones, and a subject looking directly into the lens",
+   "a photo of a man with a smoldering look, leaning against a brick wall in soft blue light"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f65": {
+  "prompts_ko": [
+   "블라인드 사이로 부드러운 빛이 스며들어 얼굴에 줄무늬 그림자가 드리운 사진",
+   "나뭇잎 사이로 스며든 점점이 빛이 얼굴과 어깨에 드리운 채 앉은 사람 사진",
+   "어두운 방에서 창틀 그림자가 인물의 윤곽을 그리는 사진",
+   "커튼 틈으로 황금빛이 들어와 바닥에 섬세한 그림자 무늬를 만드는 사진"
+  ],
+  "from": [
+   "a photo of soft light filtering through blinds casting striped shadows on a face",
+   "a photo of a person sitting with dappled sunlight from leaves on their face and shoulders",
+   "a photo of a window frame shadow outlining a figure in a dimly lit room",
+   "a photo of curtain gaps letting in golden light with delicate shadow patterns on the floor"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f66": {
+  "prompts_ko": [
+   "짙은 대비와 어두운 조명 속 그림자에 잠긴 인물 사진",
+   "어두운 가죽옷을 입고 얼굴에 약한 스포트라이트가 비친 사람 사진",
+   "짙은 검정과 회색 톤의 무드 있는 배경과 극적인 조명이 담긴 사진",
+   "강렬한 눈빛과 어두운 톤의 고딕풍 분위기가 담긴 얼굴 클로즈업 사진"
+  ],
+  "from": [
+   "a photo of a figure in shadow with deep contrasts and dim lighting",
+   "a photo of a person wearing dark leather with a low-key spotlight on their face",
+   "a photo with dramatic lighting and a moody background in deep black and gray tones",
+   "a photo of a close-up face with intense eyes and a gothic atmosphere in dark tones"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f67": {
+  "prompts_ko": [
+   "빛을 받아 반짝이는 글리터 메이크업과 메탈릭 하이라이트가 담긴 클로즈업 사진",
+   "밝은 조명 아래 글로시한 입술과 반짝이는 아이섀도를 한 모델 사진",
+   "반사되는 표면이 있는 어두운 방에서 작은 전구들이 은은하게 빛나는 사진",
+   "광택 있는 마무리와 반짝임으로 빛을 반사하는 메탈릭 핸드백 사진"
+  ],
+  "from": [
+   "a photo of a close-up with glittery makeup and metallic highlights catching the light",
+   "a photo of a model wearing glossy lips and shimmering eyeshadow under bright lights",
+   "a photo of tiny light bulbs glowing softly in a dark room with reflective surfaces",
+   "a photo of a shiny metallic purse reflecting light with a glossy finish and sparkles"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f68": {
+  "prompts_ko": [
+   "밝은 햇살이 물에 반사되는 해변에 서 있는 사람 사진",
+   "맑고 푸른 하늘과 부드러운 황금빛이 어우러진 바다 위 일출 사진",
+   "밝은 아침 하늘을 배경으로 앞쪽에 파도가 보이는 실루엣 사진",
+   "화창한 해변에서 햇살에 빛나는 머리카락과 편안한 표정을 한 여유로운 인물 사진"
+  ],
+  "from": [
+   "a photo of a person standing on a beach with bright sunlight reflecting off the water",
+   "a photo of a sunrise over the ocean with clear blue sky and soft golden light",
+   "a photo of a silhouette against a bright morning sky with waves in the foreground",
+   "a photo of a relaxed figure with sunlit hair and a calm expression on a sunny beach day"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f69": {
+  "prompts_ko": [
+   "커피잔과 함께 보는 책이 놓인 테이블 앞 소파에 앉은 커플 사진",
+   "창문으로 햇살이 들어오는 주방에서 요리하는 사람 사진",
+   "뒷마당에서 강아지와 놀며 웃는 아이 사진",
+   "부드러운 자연광을 배경으로 가족 사진첩을 든 손 사진"
+  ],
+  "from": [
+   "a photo of a couple sitting on a couch with coffee cups and a shared book on the table",
+   "a photo of a person cooking in a kitchen with sunlight streaming through the window",
+   "a photo of a child laughing while playing with a dog in a backyard",
+   "a photo of hands holding a family photo album with soft natural light in the background"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f70": {
+  "prompts_ko": [
+   "밝은 햇살 속에서 팔을 활짝 벌리고 뛰어오르는 사람 사진",
+   "색채 가득한 거리에서 웃으며 춤추는 두 친구 사진",
+   "네온 배경 속 반짝이는 눈과 환한 미소를 지은 젊은 여성 사진",
+   "활기찬 야외 파티에서 하이파이브를 하며 손을 들어올린 사람들 사진"
+  ],
+  "from": [
+   "a photo of a person jumping with arms wide open in bright sunlight",
+   "a photo of two friends laughing and dancing in a colorful street scene",
+   "a photo of a young woman with bright eyes and a wide smile against a neon backdrop",
+   "a photo of a group with high-fives and raised hands in a lively outdoor party"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f71": {
+  "prompts_ko": [
+   "다정한 눈빛과 부드러운 미소로 꼭 안은 커플 사진",
+   "사랑스럽고 다정한 표정으로 서로의 눈을 깊이 바라보는 두 사람 사진",
+   "따뜻하게 빛나는 피부 톤과 부드러운 자연광 속에서 손을 잡은 커플 사진",
+   "황금빛 시간대 발그레한 볼과 하트 모양 미소가 담긴 얼굴 클로즈업 사진"
+  ],
+  "from": [
+   "a photo of a couple locked in a tender embrace with loving eyes and soft smiles",
+   "a photo of two people gazing deeply into each other's eyes with sweet, affectionate expressions",
+   "a photo of a couple holding hands with warm, glowing skin tones and soft natural light",
+   "a photo of a close-up face with a blushing cheek and a heart-shaped smile in golden hour light"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f72": {
+  "prompts_ko": [
+   "황금빛 가을 나무 아래 얼굴에 빗방울이 맺힌 채 서 있는 사람 사진",
+   "낙엽이 떨어지는 안개 낀 가을 숲을 외로이 걷는 인물 사진",
+   "젖은 잎 사이로 부드러운 황금빛이 스며들고 비가 흐릿하게 담긴 사진",
+   "볼에 빗방울이 맺힌 채 쓸쓸한 표정을 짓는 얼굴 클로즈업 사진"
+  ],
+  "from": [
+   "a photo of a person standing under a golden autumn tree with raindrops on their face",
+   "a photo of a lonely figure walking through a misty autumn forest with falling leaves",
+   "a photo with soft golden light filtering through wet leaves and blurred rain",
+   "a photo of a close-up face with raindrops on the cheeks and a melancholic expression"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f73": {
+  "prompts_ko": [
+   "흔들리는 촛불 옆에 앉아 얼굴에 부드러운 그림자가 드리운 사람 사진",
+   "별이 가득한 밤하늘 아래 타오르는 캠프파이어 앞에서 손을 잡은 커플 사진",
+   "어두운 테이블 램프의 따뜻한 간접광이 벽에 은은한 그림자를 드리우는 사진",
+   "어두운 방에서 촛불의 부드러운 빛으로 비춰진 얼굴 클로즈업 사진"
+  ],
+  "from": [
+   "a photo of a person sitting by a flickering candlelight with soft shadows on their face",
+   "a photo of a couple holding hands in front of a glowing campfire under a starry sky",
+   "a photo with warm ambient light from a dim table lamp casting gentle shadows on the walls",
+   "a photo of a close-up face illuminated by the soft glow of a candle in a dark room"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f74": {
+  "prompts_ko": [
+   "햇살 가득한 공원에서 반짝이는 눈과 활짝 벌린 팔로 웃는 아이 사진",
+   "아늑한 주방에서 손을 잡고 달콤한 미소를 나누는 커플 사진",
+   "환하게 빛나는 미소로 기쁨의 눈물을 닦는 사람 사진",
+   "발그레한 얼굴과 반짝이는 눈으로 꽃다발을 든 젊은 여성 사진"
+  ],
+  "from": [
+   "a photo of a child laughing with bright eyes and open arms in a sunlit park",
+   "a photo of a couple sharing a sweet smile while holding hands in a cozy kitchen",
+   "a photo of a person wiping happy tears with a wide, glowing smile",
+   "a photo of a young woman with a soft blush and bright eyes holding a flower bouquet"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f75": {
+  "prompts_ko": [
+   "부드러운 파스텔 그라데이션 하늘이 크리미한 구름 가득한 수평선으로 이어지는 사진",
+   "분홍에서 라벤더로 부드럽게 이어지는 그라데이션 드레스를 입은 모델 사진",
+   "부드러운 간접광 속 유리 표면에 홀로그램처럼 빛이 반사되는 사진",
+   "배경이 따뜻한 주황에서 차가운 파랑으로 부드럽게 이어지는 도시 풍경 사진"
+  ],
+  "from": [
+   "a photo of a soft pastel gradient sky blending into a creamy cloud-filled horizon",
+   "a photo of a model wearing a gradient dress with smooth color transitions from pink to lavender",
+   "a photo with a holographic glow reflecting off a glass surface in soft ambient light",
+   "a photo of a cityscape with a smooth gradient from warm orange to cool blue in the background"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f76": {
+  "prompts_ko": [
+   "뉴트럴톤 배경 속 부드러운 베이지색 옷을 입은 모델 사진",
+   "부드러운 조명 속 따뜻한 베이지색 벽과 차분한 갈색 가구가 있는 사진",
+   "옅은 리넨 셔츠 위에 카멜톤 스웨터를 입은 사람 사진",
+   "빛바랜 베이지톤과 나무 질감, 부드러운 그림자가 있는 방 사진"
+  ],
+  "from": [
+   "a photo of a model in soft beige clothing against a neutral-toned background",
+   "a photo with warm beige walls and muted brown furniture in soft light",
+   "a photo of a person wearing a camel-toned sweater with a pale linen shirt",
+   "a photo of a room in aged beige tones with wooden textures and soft shadows"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f77": {
+  "prompts_ko": [
+   "부드러운 자연광 속에서 서로의 손을 가만히 맞잡은 클로즈업 사진",
+   "따뜻한 담요를 두르고 만족스러운 미소를 짓는 사람 사진",
+   "부드러운 그림자가 있는 어두운 방에서 가까이 앉은 두 사람 사진",
+   "벽난로의 따뜻한 빛에 빛나는 얼굴과 편안함이 가득한 눈빛이 담긴 사진"
+  ],
+  "from": [
+   "a photo of a close-up of hands gently holding another with soft natural light",
+   "a photo of a person wrapped in a warm blanket with a contented smile",
+   "a photo of two people sitting close together in a dimly lit room with soft shadows",
+   "a photo of a face glowing in the warm light of a fireplace with eyes full of comfort"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f78": {
+  "prompts_ko": [
+   "눈물로 얼룩진 얼굴과 떨리는 턱으로 시선을 돌린 사람 사진",
+   "붉어진 눈과 고통스러운 표정으로 맞잡은 손 클로즈업 사진",
+   "어린 소녀가 노인을 안고 둘 다 울면서 웃는 사진",
+   "비를 맞으며 눈물 어린 눈과 함께 슬픔에 잠긴 표정을 짓는 커플 사진"
+  ],
+  "from": [
+   "a photo of a person looking away with a tear-streaked face and a trembling jaw",
+   "a photo of a close-up of hands clasped together with red eyes and a pained expression",
+   "a photo of a young girl hugging an elderly man with both crying and smiling",
+   "a photo of a couple standing in the rain with tearful eyes and a shared, heartbroken look"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f79": {
+  "prompts_ko": [
+   "부드러운 초점과 차분한 색감 속 파스텔 드레스를 입은 젊은 여성 사진",
+   "조용한 일본식 정원에서 부드러운 조명과 흐린 배경이 담긴 사진",
+   "차가운 톤과 얕은 심도로 담긴 거리 풍경 사진",
+   "후지필름 느낌과 부드러운 그림자 속에서 은은하게 웃는 남성 사진"
+  ],
+  "from": [
+   "a photo of a young woman in a pastel dress with soft focus and muted colors",
+   "a photo with gentle lighting and a blurred background in a quiet Japanese garden",
+   "a photo of a street scene with cool tones and a shallow depth of field",
+   "a photo of a man smiling softly with a Fuji film look and soft shadows"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f80": {
+  "prompts_ko": [
+   "부드러운 빛이 수면에 비치는 고요한 호숫가에 조용히 앉은 사람 사진",
+   "황금빛 오후 햇살 속 고요한 강변을 천천히 걷는 흐릿한 인물 사진",
+   "평온한 표정과 부드러운 자연광이 담긴 얼굴 클로즈업 사진",
+   "늦은 저녁 은은한 그림자와 차분한 색감이 있는 조용한 거리 사진"
+  ],
+  "from": [
+   "a photo of a person sitting quietly by a still lake with soft light reflecting on the water",
+   "a photo of a blurred figure walking slowly along a calm riverbank in golden afternoon light",
+   "a photo of a close-up face with a peaceful expression and soft natural lighting",
+   "a photo of a quiet street with gentle shadows and muted colors in the late evening"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f81": {
+  "prompts_ko": [
+   "부드러운 푸른 하늘 아래 멀리 에펠탑이 보이는 곳에서 손을 잡고 걷는 커플 사진",
+   "황금빛 시간대 파리의 다리 옆에 플로잉 드레스를 입고 서 있는 여성 사진",
+   "로맨틱한 도시 풍경이 보이는 벤치에 앉아 생각에 잠긴 표정을 한 남성 사진",
+   "부드러운 빛과 흐린 파리 거리 배경 속 꽃 클로즈업 사진"
+  ],
+  "from": [
+   "a photo of a couple walking hand in hand under a soft blue sky with a distant Eiffel Tower",
+   "a photo of a woman in a flowing dress standing by a Parisian bridge at golden hour",
+   "a photo of a man with a thoughtful expression sitting on a bench with a view of a romantic cityscape",
+   "a photo of a close-up of a flower with soft light and a blurred background of a Parisian street"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f82": {
+  "prompts_ko": [
+   "강한 직사 플래시를 받아 짙은 그림자가 생긴 사람 사진",
+   "복고풍 즉석카메라 효과와 밝은 백색 플래시 빛이 담긴 사진",
+   "눈에 플래시 반사가 비치고 평면적인 조명이 담긴 얼굴 클로즈업 사진",
+   "적목 현상과 빈티지 카메라 플래시 빛이 담긴 인물 사진"
+  ],
+  "from": [
+   "a photo of a person lit by harsh direct flash with strong shadows",
+   "a photo with a retro instant camera effect and bright white flash light",
+   "a photo of a close-up face with a flash glare in the eyes and flat lighting",
+   "a photo of a subject with a red-eye effect and a vintage camera flash glow"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f83": {
+  "prompts_ko": [
+   "부드러운 소파에 앉아 차분한 표정으로 책을 든 사람 사진",
+   "따뜻한 빛이 있는 조용한 방에서 차를 마시며 은은하게 웃는 사람 사진",
+   "부드러운 담요와 아침 햇살 속 침대에서 평화롭게 잠든 아이 사진",
+   "햇살 가득한 길을 편안한 걸음으로 웃으며 천천히 걷는 커플 사진"
+  ],
+  "from": [
+   "a photo of a person sitting on a soft couch with a calm expression and a book in hand",
+   "a photo of a quiet room with warm light and a person smiling gently while sipping tea",
+   "a photo of a child sleeping peacefully on a bed with soft blankets and morning light",
+   "a photo of a couple walking slowly on a sunny path with relaxed body language and smiling faces"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f84": {
+  "prompts_ko": [
+   "부드러운 담요와 따뜻한 조명, 테이블 위 책이 있는 아늑한 거실 사진",
+   "두꺼운 담요를 두르고 나무 커피 테이블 위 김이 나는 머그잔이 있는 사람 사진",
+   "촛불이 흔들리고 바닥에 포근한 러그가 깔린 어두운 방 사진",
+   "따뜻하고 조용한 주방에서 핫초코 컵을 든 손 클로즈업 사진"
+  ],
+  "from": [
+   "a photo of a cozy living room with soft blankets, warm lighting, and a book on the table",
+   "a photo of a person wrapped in a thick blanket with a steaming mug on a wooden coffee table",
+   "a photo of a dimly lit room with candles flickering and a plush rug on the floor",
+   "a photo of a close-up of hands holding a cup of hot chocolate in a warm, quiet kitchen"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f85": {
+  "prompts_ko": [
+   "생각에 잠긴 표정으로 먼 곳을 부드럽게 바라보는 사람 사진",
+   "살짝 찌푸린 눈썹으로 미묘한 감정을 드러내는 얼굴 클로즈업 사진",
+   "편지를 들고 조용하고 감정적인 표정을 지은 여성 사진",
+   "다정하고 의미 있는 눈빛을 나누며 함께 앉은 커플 사진"
+  ],
+  "from": [
+   "a photo of a person gazing softly into the distance with a thoughtful expression",
+   "a photo of a close-up face showing subtle emotion with slightly furrowed brows",
+   "a photo of a woman holding a letter with a quiet, emotional look on her face",
+   "a photo of a couple sitting together with tender, meaningful eye contact"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f86": {
+  "prompts_ko": [
+   "가까이 서 있지만 눈을 마주치지 않고 긴장된 자세를 보이는 두 사람 사진",
+   "어두운 방에서 팔짱을 끼고 시선을 돌린 남성 사진",
+   "부드러운 자연광 속에서 먼 시선과 찌푸린 눈썹을 한 여성 사진",
+   "조용하고 말 없는 긴장감이 흐르는 가운데 떨어져 서 있는 두 인물 사진"
+  ],
+  "from": [
+   "a photo of two people standing close but avoiding eye contact with tense body language",
+   "a photo of a man looking away with crossed arms in a dimly lit room",
+   "a photo of a woman with a distant gaze and a furrowed brow in soft natural light",
+   "a photo of two figures standing apart with a quiet, unspoken tension in the air"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f87": {
+  "prompts_ko": [
+   "같은 청청 재킷을 맞춰 입고 카메라를 보며 웃는 두 친구 사진",
+   "같은 흰 셔츠와 검은 바지를 입고 손을 잡고 서 있는 커플 사진",
+   "같은 빨간 옷과 머리 리본을 맞춰 착용한 남매 사진",
+   "황금빛 시간대 공원에서 같은 패턴 셔츠를 맞춰 입은 가족 사진"
+  ],
+  "from": [
+   "a photo of two friends wearing matching blue denim jackets and smiling at the camera",
+   "a photo of a couple in identical white shirts and black pants standing hand in hand",
+   "a photo of siblings in coordinated red outfits with matching hair bows",
+   "a photo of a family wearing the same patterned dress shirts in a park during golden hour"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f88": {
+  "prompts_ko": [
+   "부드러운 조명과 자연스러운 피부 질감이 보이는 얼굴 클로즈업 사진",
+   "흐린 배경 속에서 집중한 표정을 지은 젊은 사람의 상반신 사진",
+   "화면을 가득 채운 얼굴이 선명하게 담기고 강렬한 눈빛을 보이는 사진",
+   "젊은 표정과 캐주얼한 옷차림을 보여주는 반신 사진"
+  ],
+  "from": [
+   "a photo of a close-up face with soft lighting and natural skin texture visible",
+   "a photo of a young person's upper body with a focused expression and blurred background",
+   "a photo of a face filling the frame with sharp details and intense eye contact",
+   "a photo of a half-body shot showing a youthful expression and casual clothing style"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f89": {
+  "prompts_ko": [
+   "텐트와 화로가 보이는 캠핑장 근처에 주차된 차 사진",
+   "맑고 푸른 하늘 아래 배낭을 옆에 두고 텐트를 치는 사람 사진",
+   "저녁에 타오르는 캠프파이어와 주변에 차와 캠핑 장비가 있는 사진",
+   "캠핑 용품이 가득한 차 트렁크와 바닥에 놓인 등산 배낭 사진"
+  ],
+  "from": [
+   "a photo of a car parked near a campsite with a tent and fire pit in the background",
+   "a photo of a person setting up a tent under a clear blue sky with backpacks nearby",
+   "a photo of a campfire glowing in the evening with a car and camping gear around it",
+   "a photo of a car trunk filled with camping supplies and a hiking backpack on the ground"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f90": {
+  "prompts_ko": [
+   "나무 사이로 따뜻한 빛이 스며드는 햇살 가득한 테라스에 앉은 사람 사진",
+   "부드러운 햇살에 빛나는 얼굴, 눈 아래와 볼에 그림자가 진 사진",
+   "잎 사이로 황금빛 햇살이 스며드는 정원 속 커플 사진",
+   "밝은 하늘과 푸르스름한 구름 아래 음식과 음료가 놓인 테이블 사진"
+  ],
+  "from": [
+   "a photo of a person sitting on a sunlit terrace with warm light streaming through the trees",
+   "a photo of a face glowing in soft sunlight with shadows under the eyes and cheeks",
+   "a photo of a couple in a garden with golden sunlight filtering through the leaves",
+   "a photo of a table with food and drinks under a bright sunny sky with blue clouds"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f91": {
+  "prompts_ko": [
+   "부드러운 메이크업과 흘러내리는 머리카락, 은은한 미소를 지은 젊은 여성 사진",
+   "섬세한 인상과 수줍은 표정으로 흰 드레스를 입은 소녀 사진",
+   "매끄러운 피부와 긴 속눈썹, 단아한 포즈를 취한 모델 사진",
+   "자연광 속 차분한 표정으로 파스텔톤 블라우스를 입은 여성 사진"
+  ],
+  "from": [
+   "a photo of a young woman with soft makeup, flowing hair, and a gentle smile",
+   "a photo of a girl in a white dress with delicate features and a shy expression",
+   "a photo of a model with smooth skin, long lashes, and a demure pose",
+   "a photo of a woman in a pastel blouse with a calm face and natural lighting"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f92": {
+  "prompts_ko": [
+   "얼굴에만 최소한의 빛이 비치고 나머지는 그림자에 잠긴 인물 사진",
+   "짙은 어두운 톤과 낮은 대비 조명 속 부드러운 윤곽이 담긴 사진",
+   "검은 배경을 뒤로 하고 윤곽이 희미하게 빛나는 사람 사진",
+   "어두운 간접광 속 차분한 색감과 거의 보이지 않는 디테일이 담긴 사진"
+  ],
+  "from": [
+   "a photo of a figure in shadow with minimal light highlighting only the face",
+   "a photo with deep dark tones and soft outlines in low contrast lighting",
+   "a photo of a person standing against a black background with faint glowing edges",
+   "a photo with muted colors and barely visible details in dim ambient light"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f93": {
+  "prompts_ko": [
+   "강렬한 패턴 재킷을 입고 도심 거리에서 손을 허리에 올리고 포즈를 취한 사람 사진",
+   "현대적인 도심 배경 속 네온빛 머리색과 오버사이즈 선글라스를 쓴 모델 사진",
+   "그라피티 벽 앞에서 기하학 패턴의 스타일리시한 옷을 입고 자신감 있는 미소를 짓는 사진",
+   "파스텔 조명의 트렌디한 카페에서 커플룩을 입고 편안한 포즈를 취한 젊은 커플 사진"
+  ],
+  "from": [
+   "a photo of a person in a bold printed jacket posing with hands on hips in a city street",
+   "a photo of a model with a neon hair color and oversized sunglasses in a modern urban setting",
+   "a photo of a stylish outfit with geometric patterns and a confident smirk in front of a graffiti wall",
+   "a photo of a young couple with matching outfits and a relaxed pose in a trendy café with pastel lighting"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f94": {
+  "prompts_ko": [
+   "창문으로 빛줄기가 쏟아지는 햇살 가득한 방 안에 서 있는 사람 사진",
+   "밝은 머리 위 조명이 만든 부드러운 그림자와 빛나는 피부의 모델 사진",
+   "나무 사이로 햇살이 쏟아져 황금빛 점들을 만드는 거리 풍경 사진",
+   "따뜻한 햇살이 옆에서 비쳐 광대를 돋보이게 하는 얼굴 사진"
+  ],
+  "from": [
+   "a photo of a person standing in a sunlit room with rays streaming through the window",
+   "a photo of a model with glowing skin and soft shadows cast by bright overhead light",
+   "a photo of a street scene with sunlight pouring through trees and creating golden spots",
+   "a photo of a face lit from the side by warm sunlight highlighting the cheekbones"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f95": {
+  "prompts_ko": [
+   "강한 대비의 조명 속에서 또렷한 얼굴 윤곽과 맑은 피부를 지닌 사람 사진",
+   "완벽하게 선명한 윤곽과 생동감 있는 색감이 담긴 클로즈업 사진",
+   "밝은 스튜디오에서 선명한 라인과 또렷한 디테일을 보여주는 모델 사진",
+   "자연광 속 강한 윤곽선과 선명한 초점이 담긴 인물 사진"
+  ],
+  "from": [
+   "a photo of a person with sharp facial features and clear skin in high contrast light",
+   "a photo of a close-up with perfectly defined edges and vivid colors",
+   "a photo of a model with crisp lines and clear details in a bright studio setting",
+   "a photo of a portrait with strong outlines and focused sharpness in natural daylight"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f96": {
+  "prompts_ko": [
+   "담요를 턱까지 끌어올리고 부드러운 침대에 홀로 앉은 어린 소녀 사진",
+   "생각에 잠긴 먼 시선으로 창밖을 바라보는 조용한 소년 사진",
+   "파스텔 드레스를 입고 작은 꽃을 조심스럽게 든 여성 사진",
+   "커튼 사이로 부드러운 아침 햇살이 스며들어 고요하고 텅 빈 방을 비추는 사진"
+  ],
+  "from": [
+   "a photo of a young girl sitting alone on a soft bed with a blanket pulled up to her chin",
+   "a photo of a quiet boy looking out the window with a distant, thoughtful expression",
+   "a photo of a woman in a pastel dress holding a small flower with gentle hands",
+   "a photo of a soft morning light filtering through curtains onto a still, empty room"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ },
+ "f97": {
+  "prompts_ko": [
+   "따뜻한 빛 속에서 은은한 미소와 부드러운 눈빛으로 손을 잡은 커플 사진",
+   "서로를 감싸 안고 함께 웃는 엄마와 아이 사진",
+   "다정한 눈빛과 부드러운 손길로 가까이 기댄 두 사람 사진",
+   "뒤편 나무 사이로 햇살이 스며드는 가운데 안고 있는 커플 사진"
+  ],
+  "from": [
+   "a photo of a couple holding hands with gentle smiles and soft eyes in warm light",
+   "a photo of a mother and child laughing together with arms wrapped around each other",
+   "a photo of two people leaning close with affectionate eyes and a tender touch",
+   "a photo of a couple embracing with sunlight filtering through the trees behind them"
+  ],
+  "by": "claude(sonnet)",
+  "at": "2026-10-01T17:21:06"
+ }
+}

@@ -7,8 +7,12 @@ import { editEdge } from "./actions";
  * 간선 하나를 잇거나 끊는다. 왜 그랬는지 한 줄을 같이 받는다 —
  * 나중에 "이 간선 왜 끊었지" 가 반드시 생기고, 그때 기록이 없으면 다시 판단해야 한다.
  */
-export function EdgeControls({ a, b, connected }: {
-  a: string; b: string; connected: boolean;
+type EdgeAction = (formData: FormData) => void | Promise<void>;
+
+export function EdgeControls({ a, b, names, connected, action = editEdge }: {
+  a: string; b: string; names: [string, string]; connected: boolean;
+  /** 사진 무드 표현 그래프는 기록 파일이 달라 다른 서버 액션을 넘긴다 */
+  action?: EdgeAction;
 }) {
   const [note, setNote] = useState("");
   const [open, setOpen] = useState(false);
@@ -16,14 +20,14 @@ export function EdgeControls({ a, b, connected }: {
     <span className="flex flex-wrap items-center gap-2">
       {open && (
         <input value={note} onChange={(e) => setNote(e.target.value)} maxLength={200}
-          aria-label={`${a} 와 ${b} 를 고치는 이유`} placeholder="왜 그렇게 정했는지"
+          aria-label={`${names[0]} 와 ${names[1]} 를 고치는 이유`} placeholder="왜 그렇게 정했는지"
           className="min-w-0 flex-1 rounded-xl border border-line bg-bg px-3 py-1.5 text-body-sm" />
       )}
       <button type="button" onClick={() => setOpen(!open)}
         className="rounded-xl px-2 py-1 text-caption text-muted underline hover:text-fg">
         {open ? "메모 접기" : "메모"}
       </button>
-      <form action={editEdge} className="contents">
+      <form action={action} className="contents">
         <input type="hidden" name="a" value={a} />
         <input type="hidden" name="b" value={b} />
         <input type="hidden" name="note" value={note} />
@@ -37,11 +41,12 @@ export function EdgeControls({ a, b, connected }: {
 }
 
 /** 후보 밖의 무드와도 이을 수 있어야 한다 — 실제 검색에서 빠진 게 보이면 그 자리에서 잇는다. */
-export function AddEdge({ head, heads }: { head: string; heads: string[] }) {
+export function AddEdge({ head, options, action = editEdge }: { head: string; options: { head: string; name: string }[]; action?: EdgeAction }) {
   const [q, setQ] = useState("");
   const needle = q.trim();
+  // 보이는 이름(깜박이는)과 사전형(깜박이다) 어느 쪽으로 쳐도 걸린다. 저장은 사전형으로.
   const found = needle
-    ? heads.filter((h) => h !== head && h.includes(needle)).slice(0, 8)
+    ? options.filter((o) => o.head !== head && (o.name.includes(needle) || o.head.includes(needle))).slice(0, 8)
     : [];
   return (
     <div className="mt-3 rounded-xl border border-line bg-fg/[0.02] p-3">
@@ -51,11 +56,11 @@ export function AddEdge({ head, heads }: { head: string; heads: string[] }) {
         className="mt-1 w-full rounded-xl border border-line bg-bg px-3 py-2 text-body-sm" />
       {found.length > 0 && (
         <ul className="mt-2 flex flex-wrap gap-2">
-          {found.map((name) => (
-            <li key={name}>
-              <form action={editEdge}>
+          {found.map(({ head: target, name }) => (
+            <li key={target}>
+              <form action={action}>
                 <input type="hidden" name="a" value={head} />
-                <input type="hidden" name="b" value={name} />
+                <input type="hidden" name="b" value={target} />
                 <button name="action" value="add"
                   className="rounded-lg border border-line px-2 py-1 text-caption hover:border-brand hover:text-brand">
                   + {name}

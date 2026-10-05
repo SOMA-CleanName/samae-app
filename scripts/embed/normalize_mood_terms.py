@@ -20,6 +20,9 @@ from korean_form import adnominal, is_adverb
 
 ROOT = pathlib.Path(__file__).resolve().parent
 BUNDLE = ROOT / "mood-axes-bundle.json"
+# 품사를 알아야 활용 여부를 정한다 — "다" 로 끝나는 명사(바다·앞바다)를 형용사처럼
+# 활용시켜 "반"·"앞반" 을 만든 일이 있었다.
+SENSES = ROOT / "mood-review-bundle.json"
 OUT = ROOT / "out" / "mood-vocabulary" / "normalized-terms.jsonl"
 OLLAMA, MODEL = "http://localhost:11434/api/chat", "qwen3:8b"
 
@@ -141,6 +144,7 @@ def main() -> None:
     args = ap.parse_args()
 
     groups = json.load(BUNDLE.open())["groups"]
+    pos = {w: s["pos"] for w, s in json.load(SENSES.open(encoding="utf-8"))["senses"].items()}
     if args.sample:
         rng = random.Random(args.seed)
         big = [g for g in groups if len(g["members"]) >= 3]
@@ -171,7 +175,8 @@ def main() -> None:
                 continue
             terms = []
             for word in picked:
-                form = adnominal(word, verbish(word, group["usage"]))
+                inflects = any(p in pos.get(word, "") for p in ("동사", "형용사"))
+                form = adnominal(word, verbish(word, group["usage"])) if inflects else word
                 if form not in terms:
                     terms.append(form)
             by_stem = {stem(t): t for t in terms}

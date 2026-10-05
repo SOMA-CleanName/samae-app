@@ -299,7 +299,16 @@ export type SearchQueryParse = {
   /** 목적(과 성별)을 뗀 나머지 글자. 비어 있으면 목적만 검색한 것이다. */
   moodText: string;
   vector: number[] | null;
+  /**
+   * 무드 글자와 가까운 사진 뼈대 검색어가 든 가족(KURE, docs/47 §9) — 가까운 순. 갱신 전 맥미니는 안 준다(없음).
+   * 있으면 검색이 그 가족에 확정된 사진을 보여준다(familySearch).
+   */
+  moodFamilies?: MoodFamilyHit[];
+  /** 모든 가족의 가까움(KURE) — 비슷한 큰 무드 · 가족을 연관 검색어로 고른다. 갱신 전 맥미니는 안 준다(없음). */
+  familyScores?: Record<string, number>;
 };
+
+export type MoodFamilyHit = { key: string; score: number; term: string };
 
 const isPurposeKey = (value: unknown): value is PhotoPurposeKey =>
   typeof value === "string" && (PHOTO_PURPOSE_KEYS as readonly string[]).includes(value);
@@ -308,7 +317,7 @@ const isPurposeKey = (value: unknown): value is PhotoPurposeKey =>
 export function parseSearchQueryResponse(value: unknown): SearchQueryParse | null {
   if (!value || typeof value !== "object") return null;
   const response = value as {
-    purposes?: unknown; gender?: unknown; details?: unknown; mood_text?: unknown; vector?: unknown; model?: unknown;
+    purposes?: unknown; gender?: unknown; details?: unknown; mood_text?: unknown; vector?: unknown; model?: unknown; mood_families?: unknown; family_scores?: unknown;
   };
   if (!Array.isArray(response.purposes) || !response.purposes.every(isPurposeKey)) return null;
   if (typeof response.mood_text !== "string") return null;
@@ -325,7 +334,21 @@ export function parseSearchQueryResponse(value: unknown): SearchQueryParse | nul
         typeof detail === "string" && /^[a-z]+\.[a-z_]+$/.test(detail) &&
         (response.purposes as string[]).includes(detail.split(".")[0])))]
     : [];
-  return { purposes: [...response.purposes], gender, details, moodText, vector: moodText ? vector : null };
+  const moodFamilies = moodText && Array.isArray(response.mood_families)
+    ? response.mood_families.flatMap((hit): MoodFamilyHit[] => {
+        const h = hit as { key?: unknown; score?: unknown; term?: unknown } | null;
+        return h && typeof h.key === "string" && /^f\d{2,3}$/.test(h.key) && typeof h.score === "number"
+          ? [{ key: h.key, score: h.score, term: typeof h.term === "string" ? h.term : "" }] : [];
+      })
+    : [];
+  return {
+    purposes: [...response.purposes], gender, details, moodText, vector: moodText ? vector : null,
+    ...(moodFamilies.length ? { moodFamilies } : {}),
+    ...(moodFamilies.length && response.family_scores && typeof response.family_scores === "object"
+      ? { familyScores: Object.fromEntries(Object.entries(response.family_scores as Record<string, unknown>)
+          .filter((kv): kv is [string, number] => typeof kv[1] === "number")) }
+      : {}),
+  };
 }
 
 /**
@@ -538,6 +561,195 @@ export function interleaveGroups<T extends { id: string }>(groups: T[][], maxRun
     }
   }
   return out;
+}
+
+/** 큰 무드 묶음 — 검색이 읽는 색인(mood-family-photos.json)의 일부 */
+export type MoodLayersForSearch = {
+  names: Record<string, string>;
+  big: Record<string, string>;
+  moods: { key: string; name: string; families: string[] }[];
+};
+
+/** 연관 무드 한 칸 — q 는 누르면 갈 검색어(목적 말을 붙였다) */
+export type SearchSuggestion = { label: string; kind: "family" | "big"; group: "sibling" | "similar"; q: string };
+
+export type MoodSearchPlan = {
+  /** family — 누가 봐도 정확한 검색(뼈대 검색어가 그대로 들었다): 그 가족만. big — 애매한 검색: 그 가족의 큰 무드 전체 */
+  mode: "family" | "big";
+  /** 먼저 보여줄 가족(잡힌 가족) */
+  primary: string[];
+  /** 그 뒤에 보여줄 가족(같은 큰 무드의 나머지, 가까운 순). family 면 비어 있다 */
+  secondary: string[];
+  /** 연관 검색어 — 같은 큰 무드의 가족들 먼저, 그 뒤 비슷한 큰 무드 · 가족 몇 개 */
+  suggestions: { label: string; kind: "family" | "big"; group: "sibling" | "similar" }[];
+};
+
+const SIBLING_MAX = 8;
+const SIMILAR_MAX = 4;
+
+/**
+ * 검색 계획(사람 결정 2026-10-04, docs/47 §10).
+ *
+ * - **정확한 검색**("비 오는 날" "벚꽃") — 뼈대 검색어가 무드 글자에 그대로 든 가족이 있다(점수 1.0) → 그 가족 사진만
+ * - **애매한 검색**("고즈넉한") — 가까움으로만 잡혔다 → 그 가족이 든 **큰 무드** 사진 전부(잡힌 가족이 먼저)
+ * - 연관 검색어 — 잡힌 가족의 큰 무드에 든 다른 가족(가까운 순) → 그 뒤 다른 큰 무드 · 가족 중 가까운 것 몇 개
+ *   (큰 무드 이름과 가족 이름이 같으면 한 번만, 검색한 말과 같은 것은 뺀다)
+ */
+export function planMoodSearch(hits: readonly MoodFamilyHit[], scores: Readonly<Record<string, number>>,
+  layers: MoodLayersForSearch, moodText: string): MoodSearchPlan {
+  const exact = hits.filter((hit) => hit.score >= 0.999).map((hit) => hit.key);
+  const primary = exact.length ? exact : hits.map((hit) => hit.key);
+  const score = (key: string) => scores[key] ?? 0;
+  const bigs = [...new Set(primary.map((key) => layers.big[key]).filter(Boolean))];
+  const inBigs = layers.moods.filter((m) => bigs.includes(m.key)).flatMap((m) => m.families);
+  const siblings = [...new Set(inBigs)].filter((key) => !primary.includes(key)).sort((a, b) => score(b) - score(a));
+
+  const similar = [
+    ...layers.moods.filter((m) => !bigs.includes(m.key))
+      .map((m) => ({ label: m.name, kind: "big" as const, score: Math.max(0, ...m.families.map(score)) })),
+    ...Object.keys(layers.names).filter((key) => !primary.includes(key) && !inBigs.includes(key))
+      .map((key) => ({ label: layers.names[key], kind: "family" as const, score: score(key) })),
+  ].filter((s) => s.score > 0).sort((a, b) => b.score - a.score);
+
+  const seen = new Set([moodText.replace(/\s+/g, ""), ...primary.map((key) => (layers.names[key] ?? "").replace(/\s+/g, ""))]);
+  const take = (items: { label: string; kind: "family" | "big" }[], max: number, group: "sibling" | "similar") => {
+    const out: MoodSearchPlan["suggestions"] = [];
+    for (const item of items) {
+      const k = item.label.replace(/\s+/g, "");
+      if (!k || seen.has(k) || out.length >= max) continue;
+      seen.add(k);
+      out.push({ label: item.label, kind: item.kind, group });
+    }
+    return out;
+  };
+  return {
+    mode: exact.length ? "family" : "big",
+    primary,
+    secondary: exact.length ? [] : siblings,
+    suggestions: [
+      ...take(siblings.map((key) => ({ label: layers.names[key] ?? key, kind: "family" as const })), SIBLING_MAX, "sibling"),
+      ...take(similar, SIMILAR_MAX, "similar"),
+    ],
+  };
+}
+
+/** 결과가 이보다 적으면 가까운 무드로 채운다 · 채울 때 이만큼까지 · 이보다 먼 가족은 쓰지 않는다 */
+export const FILL_MIN = 24;
+export const FILL_TARGET = 48;
+const FILL_FLOOR = 0.45;
+
+/**
+ * 채울 가족 순서(사람 결정 2026-10-04, docs/47 §12) — "몽환 커플 스냅" 처럼 잡힌 가족에 그 목적 사진이 없거나 적을 때,
+ * 아무 사진이나 띄우지 않고 **가장 비슷한 무드부터** 채운다. 같은 큰 무드의 가족이 먼저(가까운 순), 그 뒤 다른 가족을 KURE 가까운 순으로.
+ * 이미 쓴 가족(used)과 FILL_FLOOR 보다 먼 가족은 뺀다.
+ */
+export function fillFamilyOrder(used: readonly string[], scores: Readonly<Record<string, number>>, layers: MoodLayersForSearch): string[] {
+  const score = (key: string) => scores[key] ?? 0;
+  const bigs = new Set(used.map((key) => layers.big[key]).filter(Boolean));
+  const taken = new Set(used);
+  const rest = Object.keys(layers.names).filter((key) => !taken.has(key) && score(key) >= FILL_FLOOR);
+  const sameBig = rest.filter((key) => bigs.has(layers.big[key])).sort((a, b) => score(b) - score(a));
+  const others = rest.filter((key) => !bigs.has(layers.big[key])).sort((a, b) => score(b) - score(a));
+  return [...sameBig, ...others];
+}
+
+/**
+ * 개인(과 목적 없는 "스냅") 검색의 연관 무드 — Claude 가 고른 가족(사람 결정 2026-10-04, docs/47 §11).
+ * 개인 사진이 넉넉하고(40장 이상) 큰 무드가 겹치지 않게, 결이 다른 것끼리 번갈아 놓았다. 가로 스크롤로 훑을 만큼만.
+ * 키로 적는다 — 이름은 색인의 지금 이름을 따른다(사람이 이름을 고치면 따라간다).
+ */
+export const PERSONAL_MOOD_PICKS = [
+  "f85", // 감성
+  "f91", // 청순
+  "f37", // 필름
+  "f57", // 몽환
+  "f13", // 시크
+  "f18", // 청량한
+  "f90", // 햇살
+  "f79", // 일본 감성
+  "f66", // 다크
+  "f12", // 귀여운
+  "f24", // 화보
+  "f15", // 여름
+  "f01", // 꽃
+  "f48", // 숲
+  "f51", // 차분한
+  "f25", // 힙한
+  "f04", // 도시
+] as const;
+const PURPOSE_MOOD_MAX = 10;
+
+/**
+ * 목적만 검색했을 때("커플 스냅" "웨딩")의 연관 무드 — 그 목적 사진이 **가장 많이 든 가족** 순(사람 결정 2026-10-04).
+ * 개인만 · 목적 없음은 PERSONAL_MOOD_PICKS. rows — 그 목적으로 고른 사진(공개된 것만).
+ */
+export function purposeMoodSuggestions(
+  purposes: readonly string[],
+  rows: readonly { id: string }[],
+  index: { photos: string[]; families: Record<string, number[]>; names: Record<string, string> },
+): { label: string; kind: "family"; group: "sibling" }[] {
+  const as = (keys: readonly string[]) =>
+    keys.filter((key) => index.names[key]).map((key) => ({ label: index.names[key], kind: "family" as const, group: "sibling" as const }));
+  if (!purposes.length || (purposes.length === 1 && purposes[0] === "personal")) return as(PERSONAL_MOOD_PICKS);
+  const have = new Set(rows.map((row) => row.id));
+  return as(Object.entries(index.families)
+    .map(([key, ids]) => [key, ids.filter((i) => have.has(index.photos[i])).length] as const)
+    .filter(([, n]) => n > 0)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, PURPOSE_MOOD_MAX)
+    .map(([key]) => key));
+}
+
+/**
+ * 가족 검색 결과 줄 세우기(docs/47 §9, 2026-10-04) — 홈 피드처럼 포트폴리오를 섞는다.
+ *
+ * 1. 고른 가족에 **많이 든 사진부터** — "가을 감성" 이면 가을 스냅 · 감성 둘 다에 확정된 사진이 맨 위
+ * 2. 같은 층에서는 가족마다 포트폴리오를 고르게 뿌린 뒤(spreadPortfolios) 가족끼리 1~4장씩 번갈아(interleaveGroups)
+ * 3. personalFirst(목적 없는 검색) — 개인 사진을 먼저, 나머지 목적은 그 뒤에(순서는 지킨다)
+ *
+ * families — 가까운 순으로 가족마다 사진 id(점수 순). rows 에 없는 id(비공개 · 숨김 등)는 버린다.
+ */
+export function arrangeFamilyPhotos<T extends { id: string; album_id?: string | null; admin_purposes?: string[] | null }>(
+  families: readonly (readonly string[])[],
+  rows: readonly T[],
+  { personalFirst }: { personalFirst: boolean },
+): T[] {
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  const hits = new Map<string, number[]>();             // 사진 → 든 가족 순번(가까운 순)
+  families.forEach((ids, f) => {
+    for (const id of ids) if (byId.has(id)) hits.set(id, [...(hits.get(id) ?? []), f]);
+  });
+  const layers = new Map<number, T[][]>();             // 든 가족 수 → 가족(첫째로 든 것)별 사진
+  for (const [id, fams] of hits) {
+    const groups = layers.get(fams.length) ?? families.map(() => []);
+    groups[fams[0]].push(byId.get(id)!);
+    layers.set(fams.length, groups);
+  }
+  const ordered = [...layers.entries()].sort((a, b) => b[0] - a[0])
+    .flatMap(([, groups]) => interleaveGroups(groups.filter((g) => g.length).map((g) => spreadPortfolios(g))));
+  if (!personalFirst) return ordered;
+  const personal = (row: T) => (row.admin_purposes ?? []).includes("personal");
+  return [...ordered.filter(personal), ...ordered.filter((row) => !personal(row))];
+}
+
+/**
+ * 1픽셀까지 같은 사진은 한 번만(사람 요청 2026-10-04) — 같은 사진을 여러 앨범에 올린 경우.
+ * duplicates 는 {뺄 사진: 남길 사진}(find_duplicate_photos.py, SigLIP 코사인 ≥ 0.999). 묶음마다 **먼저 나온 한 장**을 남긴다 —
+ * 남길 사진이 목적에 걸러져 결과에 없으면 다른 한 장이 대신 남는다. exclude — 위 목록에 이미 나온 사진(아래 "비슷한 무드" 용).
+ */
+export function dropDuplicatePhotos<T extends { id: string }>(
+  photos: readonly T[],
+  duplicates: Readonly<Record<string, string>>,
+  exclude: Iterable<string> = [],
+): T[] {
+  const groupOf = (id: string) => duplicates[id] ?? id;
+  const seen = new Set([...exclude].map(groupOf));
+  return photos.filter((photo) => {
+    const group = groupOf(photo.id);
+    if (seen.has(group)) return false;
+    seen.add(group);
+    return true;
+  });
 }
 
 /** 문자열로 씨앗을 정하는 가벼운 난수(mulberry32) — 같은 씨앗이면 같은 수열. */

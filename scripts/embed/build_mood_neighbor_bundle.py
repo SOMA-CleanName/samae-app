@@ -26,6 +26,8 @@ from pathlib import Path
 
 import numpy as np
 
+from build_mood_group_texts import gloss_of
+
 # 이웃이 없는 대표는 검색해도 추천이 아예 안 나온다. 판정이 전부 버렸더라도
 # 유사도가 가장 높은 쪽으로 최소 이 개수만큼은 이어 둔다 — 끊어 두느니 잇는다.
 MIN_DEGREE = 2
@@ -111,12 +113,17 @@ def main():
     review = json.loads((EMBED / "mood-review-bundle.json").read_text(encoding="utf-8"))
     axes_bundle = json.loads((EMBED / "mood-axes-bundle.json").read_text(encoding="utf-8"))
     order = json.loads((OUT / "head-order.json").read_text(encoding="utf-8"))
-    co = np.load(OUT / "head-cooccurrence.npy")
+    # 같은 사진 수는 사진 임베딩(build_mood_photo_links.py)에서 오는 참고값이다. 없는 PC 에서는 0 으로 둔다.
+    co_path = OUT / "head-cooccurrence.npy"
+    co = np.load(co_path) if co_path.exists() else np.zeros((len(order), len(order)), dtype=np.float32)
     knn = np.load(OUT / "head-neighbors.npy")
     knn_scores = np.load(OUT / "head-neighbor-scores.npy")
     judged = load_judgments()
-    heads = [g["head"] for g in axes_bundle["groups"]]
-    senses = {w: v["senses"] for w, v in review["senses"].items()}
+    # 그래프의 단위는 검색어가 있는 묶음이다(build_mood_group_texts.py 와 같은 순서).
+    heads = order
+    rows = {r["head"]: r for r in json.loads((EMBED / "mood-terms-bundle.json").read_text(encoding="utf-8"))["rows"]}
+    # 화면의 뜻풀이도 대표 검색어의 원래 낱말에서 — 혹한 묶음에 극한(極限)의 뜻이 뜨면 안 된다.
+    senses = {h: [gloss_of(rows[h], rows[h]["terms"][0], review["senses"])] for h in heads}
     bundle = build(judged, heads,
                    senses,
                    {g["head"]: g["axes"] for g in axes_bundle["groups"]},

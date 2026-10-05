@@ -9,13 +9,14 @@
  * "비슷한 무드의 사진들이에요" 로 붙는 다른 목적의 가을 사진은 세지 않는다. 합쳐 세면
  * 커플이 229장인데 "300장+" 로 적혀, 검색어에 맞는 사진이 그만큼 있는 것처럼 읽힌다.
  *
+ * 장수는 화면에 적지 않는다(사람 요청 2026-10-04) — count 는 0장일 때 머리줄을 숨기는 데만 쓴다.
+ *
  * 머리줄은 sticky 로 붙이지 않는다 — 빨리 훑는 지면이라 위에 계속 남아 있으면
  * 사진 자리를 먹는다. 붙어 있어야 하는 건 검색창 하나면 된다.
  */
 export function SearchResultsHead({
   query,
   count,
-  capped = false,
 }: {
   query: string;
   /** 검색어에 맞는 사진 수. 아래에 붙는 비슷한 무드 사진은 뺀다. */
@@ -37,9 +38,6 @@ export function SearchResultsHead({
         {query}
         <span aria-hidden className="text-faint">’</span>
       </h1>
-      <span className="shrink-0 text-[11px] font-semibold tabular-nums text-muted">
-        사진 {count}장{capped && "+"}
-      </span>
     </div>
   );
 }

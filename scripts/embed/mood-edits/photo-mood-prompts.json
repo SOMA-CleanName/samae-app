@@ -1,0 +1,3775 @@
+{
+ "눈부신 햇살": {
+  "prompts": [
+   "A photograph with harsh direct sunlight"
+  ],
+  "source": "existing"
+ },
+ "설레는": {
+  "prompts": [
+   "A photograph with excited anticipation"
+  ],
+  "source": "existing"
+ },
+ "강한 대비": {
+  "prompts": [
+   "A photograph with high contrast deep shadows"
+  ],
+  "source": "existing"
+ },
+ "고채도": {
+  "prompts": [
+   "A photograph with vivid saturated colors"
+  ],
+  "source": "existing"
+ },
+ "시네마틱": {
+  "prompts": [
+   "A photograph with cinematic storytelling atmosphere"
+  ],
+  "source": "existing"
+ },
+ "긴장감 있는": {
+  "prompts": [
+   "A photograph with tension and suspense"
+  ],
+  "source": "existing"
+ },
+ "내추럴": {
+  "prompts": [
+   "plain and understated",
+   "simple and unadorned"
+  ],
+  "source": "existing"
+ },
+ "노을": {
+  "prompts": [
+   "reddish sky glow"
+  ],
+  "source": "existing"
+ },
+ "개방감 있는": {
+  "prompts": [
+   "A photograph with wide open expansive space"
+  ],
+  "source": "existing"
+ },
+ "눈 내리는": {
+  "prompts": [
+   "first snowfall"
+  ],
+  "source": "existing"
+ },
+ "따뜻한 색감": {
+  "prompts": [
+   "A photograph with warm amber orange color tones"
+  ],
+  "source": "existing"
+ },
+ "바다": {
+  "prompts": [
+   "open ocean horizon",
+   "vast endless sea",
+   "beach scene"
+  ],
+  "source": "existing"
+ },
+ "사랑이 묻어나는": {
+  "prompts": [
+   "A photograph with tender longing"
+  ],
+  "source": "existing"
+ },
+ "새벽": {
+  "prompts": [
+   "blue hour before dawn",
+   "faint dawn light",
+   "very late night"
+  ],
+  "source": "existing"
+ },
+ "선라이즈": {
+  "prompts": [
+   "sun rising over horizon"
+  ],
+  "source": "existing"
+ },
+ "시크": {
+  "prompts": [
+   "blank expression"
+  ],
+  "source": "existing"
+ },
+ "초록": {
+  "prompts": [
+   "greenish tint"
+  ],
+  "source": "existing"
+ },
+ "cozy": {
+  "prompts": [
+   "A photograph with cozy intimate enclosed space"
+  ],
+  "source": "existing"
+ },
+ "가을 타는": {
+  "prompts": [
+   "A photograph with bare muted late autumn atmosphere"
+  ],
+  "source": "existing"
+ },
+ "공간감 있는": {
+  "prompts": [
+   "A photograph with deep layered perspective"
+  ],
+  "source": "existing"
+ },
+ "구름 맛집": {
+  "prompts": [
+   "puffy clouds",
+   "white fluffy clouds"
+  ],
+  "source": "existing"
+ },
+ "낭만": {
+  "prompts": [
+   "romantic mood",
+   "dreamy romantic scene"
+  ],
+  "source": "existing"
+ },
+ "낮은 대비": {
+  "prompts": [
+   "A photograph with low contrast flat tonal range"
+  ],
+  "source": "existing"
+ },
+ "달밤": {
+  "prompts": [
+   "bright full moon",
+   "full moon night",
+   "moonlit night"
+  ],
+  "source": "existing"
+ },
+ "들판": {
+  "prompts": [
+   "open field"
+  ],
+  "source": "existing"
+ },
+ "멜랑콜리한": {
+  "prompts": [
+   "lonely and sad",
+   "sad and lonely",
+   "lonely and quiet",
+   "isolated and alone"
+  ],
+  "source": "existing"
+ },
+ "봄": {
+  "prompts": [
+   "spring season scenery",
+   "springtime landscape"
+  ],
+  "source": "existing"
+ },
+ "부드러운 빛": {
+  "prompts": [
+   "A photograph with soft diffused lighting",
+   "A photograph with gentle subdued lighting"
+  ],
+  "source": "existing"
+ },
+ "분홍빛의": {
+  "prompts": [
+   "A photograph with pink rosy color palette"
+  ],
+  "source": "existing"
+ },
+ "새벽 공기 같은": {
+  "prompts": [
+   "cool and pale",
+   "chilly cool air",
+   "cool shaded atmosphere"
+  ],
+  "source": "existing"
+ },
+ "생기 있는": {
+  "prompts": [
+   "A photograph with lively vibrant energy"
+  ],
+  "source": "existing"
+ },
+ "선명한 윤곽": {
+  "prompts": [
+   "A photograph with sharp crisp edges and details"
+  ],
+  "source": "existing"
+ },
+ "여백의 미": {
+  "prompts": [
+   "A photograph with generous negative space"
+  ],
+  "source": "existing"
+ },
+ "우중": {
+  "prompts": [
+   "rainy scene",
+   "falling raindrops",
+   "raindrops falling",
+   "scattered raindrops"
+  ],
+  "source": "existing"
+ },
+ "차가운": {
+  "prompts": [
+   "cold and distant",
+   "chilly and bleak",
+   "cold and desolate"
+  ],
+  "source": "existing"
+ },
+ "첫사랑": {
+  "prompts": [
+   "young first love"
+  ],
+  "source": "existing"
+ },
+ "청순": {
+  "prompts": [
+   "pure and fresh",
+   "pure and clear",
+   "pure innocent face"
+  ],
+  "source": "existing"
+ },
+ "흑백": {
+  "prompts": [
+   "black and white"
+  ],
+  "source": "existing"
+ },
+ "힙한": {
+  "prompts": [
+   "A photograph with trendy edgy street style"
+  ],
+  "source": "existing"
+ },
+ "감성": {
+  "prompts": [
+   "emotional atmosphere"
+  ],
+  "source": "existing"
+ },
+ "거리감 있는": {
+  "prompts": [
+   "A photograph with emotional distance"
+  ],
+  "source": "existing"
+ },
+ "거친 질감": {
+  "prompts": [
+   "A photograph with rough gritty textures"
+  ],
+  "source": "existing"
+ },
+ "겨울다운": {
+  "prompts": [
+   "A photograph with crisp wintry atmosphere"
+  ],
+  "source": "existing"
+ },
+ "계절": {
+  "prompts": [
+   "autumn leaves falling"
+  ],
+  "source": "existing"
+ },
+ "꽃향기 나는": {
+  "prompts": [
+   "A photograph with blooming floral spring atmosphere"
+  ],
+  "source": "existing"
+ },
+ "노랑": {
+  "prompts": [
+   "bright yellow"
+  ],
+  "source": "existing"
+ },
+ "녹음이 짙은": {
+  "prompts": [
+   "A photograph with lush midsummer greenery"
+  ],
+  "source": "existing"
+ },
+ "눈": {
+  "prompts": [
+   "pair of eyes"
+  ],
+  "source": "existing"
+ },
+ "눈꽃": {
+  "prompts": [
+   "snowy tree branches"
+  ],
+  "source": "existing"
+ },
+ "동화 같은": {
+  "prompts": [
+   "A photograph with fairytale whimsical atmosphere"
+  ],
+  "source": "existing"
+ },
+ "드라마틱한 빛": {
+  "prompts": [
+   "A photograph with dramatic directional lighting and shadows"
+  ],
+  "source": "existing"
+ },
+ "따뜻한": {
+  "prompts": [
+   "cozy and warm",
+   "warm and cozy",
+   "warm and comforting",
+   "warm and comfortable"
+  ],
+  "source": "existing"
+ },
+ "따스한": {
+  "prompts": [
+   "cozy and warm",
+   "warm and cozy",
+   "warm and comforting",
+   "warm and comfortable"
+  ],
+  "source": "existing"
+ },
+ "말랑한": {
+  "prompts": [
+   "soft and pliable"
+  ],
+  "source": "existing"
+ },
+ "무채색": {
+  "prompts": [
+   "black white and gray tones",
+   "achromatic gray tones"
+  ],
+  "source": "existing"
+ },
+ "밀도 높은": {
+  "prompts": [
+   "A photograph with dense layered composition"
+  ],
+  "source": "existing"
+ },
+ "밤": {
+  "prompts": [
+   "dark night"
+  ],
+  "source": "existing"
+ },
+ "베이지톤": {
+  "prompts": [
+   "A photograph with beige cream neutral tones"
+  ],
+  "source": "existing"
+ },
+ "보송한": {
+  "prompts": [
+   "A photograph with soft fluffy matte textures"
+  ],
+  "source": "existing"
+ },
+ "봄기운 있는": {
+  "prompts": [
+   "A photograph with fresh springtime atmosphere"
+  ],
+  "source": "existing"
+ },
+ "봄날 같은": {
+  "prompts": [
+   "A photograph with gentle blooming spring atmosphere"
+  ],
+  "source": "existing"
+ },
+ "부드러운 질감": {
+  "prompts": [
+   "A photograph with soft delicate textures"
+  ],
+  "source": "existing"
+ },
+ "서정적인": {
+  "prompts": [
+   "emotional beauty"
+  ],
+  "source": "existing"
+ },
+ "설경 같은": {
+  "prompts": [
+   "A photograph with snowy white winter atmosphere"
+  ],
+  "source": "existing"
+ },
+ "세련된": {
+  "prompts": [
+   "A photograph with sophisticated refined styling"
+  ],
+  "source": "existing"
+ },
+ "소나기": {
+  "prompts": [
+   "sudden summer shower",
+   "people running from a sudden downpour"
+  ],
+  "source": "existing"
+ },
+ "소박한": {
+  "prompts": [
+   "humble rustic simple home",
+   "plain modest clothing, unadorned"
+  ],
+  "source": "existing"
+ },
+ "소프트 포커스": {
+  "prompts": [
+   "A photograph with soft focus dreamy blur"
+  ],
+  "source": "existing"
+ },
+ "숲": {
+  "prompts": [
+   "dense tree cover"
+  ],
+  "source": "existing"
+ },
+ "신비로운": {
+  "prompts": [
+   "A photograph with mysterious enchanting atmosphere"
+  ],
+  "source": "existing"
+ },
+ "아련한": {
+  "prompts": [
+   "faintly nostalgic"
+  ],
+  "source": "existing"
+ },
+ "안개": {
+  "prompts": [
+   "foggy haze"
+  ],
+  "source": "existing"
+ },
+ "야간": {
+  "prompts": [
+   "night time",
+   "nighttime scene"
+  ],
+  "source": "existing"
+ },
+ "여름다운": {
+  "prompts": [
+   "A photograph with bright summery atmosphere"
+  ],
+  "source": "existing"
+ },
+ "옅은 색감": {
+  "prompts": [
+   "A photograph with pale delicate colors"
+  ],
+  "source": "existing"
+ },
+ "우아한": {
+  "prompts": [
+   "A photograph with elegant graceful styling"
+  ],
+  "source": "existing"
+ },
+ "우울한": {
+  "prompts": [
+   "dreary gloom",
+   "heavy gloom",
+   "gloomy outlook",
+   "heavy gloomy mood"
+  ],
+  "source": "existing"
+ },
+ "웅장한": {
+  "prompts": [
+   "A photograph with grand monumental scale"
+  ],
+  "source": "existing"
+ },
+ "윤기 나는": {
+  "prompts": [
+   "A photograph with glossy lustrous textures"
+  ],
+  "source": "existing"
+ },
+ "일몰": {
+  "prompts": [
+   "sunset scene"
+  ],
+  "source": "existing"
+ },
+ "자연": {
+  "prompts": [
+   "untouched landscape",
+   "untouched nature"
+  ],
+  "source": "existing"
+ },
+ "자연친화적인": {
+  "prompts": [
+   "A photograph with organic natural surroundings"
+  ],
+  "source": "existing"
+ },
+ "잔잔한": {
+  "prompts": [
+   "calm still water surface",
+   "gentle ripples on a quiet lake"
+  ],
+  "source": "existing"
+ },
+ "절제된": {
+  "prompts": [
+   "A photograph with restrained understated expression"
+  ],
+  "source": "existing"
+ },
+ "진솔한": {
+  "prompts": [
+   "A photograph with authentic heartfelt expression"
+  ],
+  "source": "existing"
+ },
+ "진중한": {
+  "prompts": [
+   "serious and composed"
+  ],
+  "source": "existing"
+ },
+ "짙은 색감": {
+  "prompts": [
+   "A photograph with deep rich colors"
+  ],
+  "source": "existing"
+ },
+ "차분한": {
+  "prompts": [
+   "calm composed expression",
+   "composed person sitting quietly"
+  ],
+  "source": "existing"
+ },
+ "차분한 색감": {
+  "prompts": [
+   "A photograph with muted subdued colors"
+  ],
+  "source": "existing"
+ },
+ "초가을 같은": {
+  "prompts": [
+   "A photograph with mild early autumn atmosphere"
+  ],
+  "source": "existing"
+ },
+ "초여름 같은": {
+  "prompts": [
+   "A photograph with fresh early summer atmosphere"
+  ],
+  "source": "existing"
+ },
+ "초현실적인": {
+  "prompts": [
+   "A photograph with surreal dreamlike imagery"
+  ],
+  "source": "existing"
+ },
+ "포근한": {
+  "prompts": [
+   "cozy warm glow"
+  ],
+  "source": "existing"
+ },
+ "푸른": {
+  "prompts": [
+   "bright vivid green",
+   "dark vivid green"
+  ],
+  "source": "existing"
+ },
+ "푸른 새벽빛": {
+  "prompts": [
+   "A photograph with blue hour twilight light"
+  ],
+  "source": "existing"
+ },
+ "풀숲": {
+  "prompts": [
+   "thick grassy area"
+  ],
+  "source": "existing"
+ },
+ "한겨울 같은": {
+  "prompts": [
+   "A photograph with frozen deep winter atmosphere"
+  ],
+  "source": "existing"
+ },
+ "한여름 같은": {
+  "prompts": [
+   "A photograph with intense midsummer atmosphere"
+  ],
+  "source": "existing"
+ },
+ "한적한": {
+  "prompts": [
+   "A photograph with quiet secluded surroundings"
+  ],
+  "source": "existing"
+ },
+ "행복한": {
+  "prompts": [
+   "radiant joy",
+   "happy smiling face"
+  ],
+  "source": "existing"
+ },
+ "홈": {
+  "prompts": [
+   "deep recessed groove"
+  ],
+  "source": "existing"
+ },
+ "황금빛의": {
+  "prompts": [
+   "A photograph with golden amber color palette"
+  ],
+  "source": "existing"
+ },
+ "흐릿한": {
+  "prompts": [
+   "A photograph with blurred indistinct details"
+  ],
+  "source": "existing"
+ },
+ "흔들린": {
+  "prompts": [
+   "shaking motion"
+  ],
+  "source": "existing"
+ },
+ "희망적인": {
+  "prompts": [
+   "A photograph with hopeful optimism"
+  ],
+  "source": "existing"
+ },
+ "기분 좋아지는": {
+  "prompts": [
+   "happy uplifting scene"
+  ],
+  "source": "qwen3:14b"
+ },
+ "단짝 친구": {
+  "prompts": [
+   "best friend photo"
+  ],
+  "source": "qwen3:14b"
+ },
+ "에너제틱한": {
+  "prompts": [
+   "vibrant and lively"
+  ],
+  "source": "qwen3:14b"
+ },
+ "간접 조명": {
+  "prompts": [
+   "soft ambient light"
+  ],
+  "source": "qwen3:14b"
+ },
+ "글로우": {
+  "prompts": [
+   "soft glowing skin"
+  ],
+  "source": "qwen3:14b"
+ },
+ "꽃비 내리는": {
+  "prompts": [
+   "falling cherry blossoms"
+  ],
+  "source": "qwen3:14b"
+ },
+ "동적인 느낌": {
+  "prompts": [
+   "dynamic motion"
+  ],
+  "source": "qwen3:14b"
+ },
+ "러브러브한": {
+  "prompts": [
+   "loving couple embrace"
+  ],
+  "source": "qwen3:14b"
+ },
+ "배경 날림": {
+  "prompts": [
+   "blurred background"
+  ],
+  "source": "qwen3:14b"
+ },
+ "아트워크": {
+  "prompts": [
+   "creative artistic photo"
+  ],
+  "source": "qwen3:14b"
+ },
+ "톡톡 튀는": {
+  "prompts": [
+   "vibrant and lively"
+  ],
+  "source": "qwen3:14b"
+ },
+ "가을": {
+  "prompts": [
+   "fall foliage colors"
+  ],
+  "source": "qwen3:14b"
+ },
+ "감정선이 살아 있는": {
+  "prompts": [
+   "emotional expression"
+  ],
+  "source": "qwen3:14b"
+ },
+ "개구쟁이 같은": {
+  "prompts": [
+   "playful childlike"
+  ],
+  "source": "qwen3:14b"
+ },
+ "그레인": {
+  "prompts": [
+   "grainy film texture"
+  ],
+  "source": "qwen3:14b"
+ },
+ "그림 같은": {
+  "prompts": [
+   "painting like"
+  ],
+  "source": "qwen3:14b"
+ },
+ "꾸밈없는 모습": {
+  "prompts": [
+   "natural unposed shot"
+  ],
+  "source": "qwen3:14b"
+ },
+ "날것 느낌": {
+  "prompts": [
+   "raw textured photo"
+  ],
+  "source": "qwen3:14b"
+ },
+ "노란 조명": {
+  "prompts": [
+   "warm yellow light"
+  ],
+  "source": "qwen3:14b"
+ },
+ "노출 콘크리트": {
+  "prompts": [
+   "gray concrete walls"
+  ],
+  "source": "qwen3:14b"
+ },
+ "다크": {
+  "prompts": [
+   "dark moody tones"
+  ],
+  "source": "qwen3:14b"
+ },
+ "달달한": {
+  "prompts": [
+   "sweet loving atmosphere"
+  ],
+  "source": "qwen3:14b"
+ },
+ "도시 불빛": {
+  "prompts": [
+   "city lights at night"
+  ],
+  "source": "qwen3:14b"
+ },
+ "따뜻한 톤": {
+  "prompts": [
+   "warm soft tones"
+  ],
+  "source": "qwen3:14b"
+ },
+ "라이트톤": {
+  "prompts": [
+   "bright soft tones"
+  ],
+  "source": "qwen3:14b"
+ },
+ "마음이 편안해지는": {
+  "prompts": [
+   "calm soothing scene"
+  ],
+  "source": "qwen3:14b"
+ },
+ "물 빠진 색감": {
+  "prompts": [
+   "faded colors"
+  ],
+  "source": "qwen3:14b"
+ },
+ "미소 짓게 하는": {
+  "prompts": [
+   "smiling face"
+  ],
+  "source": "qwen3:14b"
+ },
+ "벅찬 감동": {
+  "prompts": [
+   "heartwarming emotion"
+  ],
+  "source": "qwen3:14b"
+ },
+ "부끄부끄": {
+  "prompts": [
+   "shy smile"
+  ],
+  "source": "qwen3:14b"
+ },
+ "사람 냄새 나는": {
+  "prompts": [
+   "warm human presence"
+  ],
+  "source": "qwen3:14b"
+ },
+ "서사가 있는": {
+  "prompts": [
+   "two people sharing a moment"
+  ],
+  "source": "qwen3:14b"
+ },
+ "소소한 행복": {
+  "prompts": [
+   "small everyday joys"
+  ],
+  "source": "qwen3:14b"
+ },
+ "소프트톤": {
+  "prompts": [
+   "soft muted colors"
+  ],
+  "source": "qwen3:14b"
+ },
+ "아늑한 공간": {
+  "prompts": [
+   "cozy interior"
+  ],
+  "source": "qwen3:14b"
+ },
+ "여름": {
+  "prompts": [
+   "bright summer sky"
+  ],
+  "source": "qwen3:14b"
+ },
+ "연출 없는": {
+  "prompts": [
+   "natural candid moment"
+  ],
+  "source": "qwen3:14b"
+ },
+ "윈도우 라이트": {
+  "prompts": [
+   "soft window light"
+  ],
+  "source": "qwen3:14b"
+ },
+ "찐행복": {
+  "prompts": [
+   "radiant happiness"
+  ],
+  "source": "qwen3:14b"
+ },
+ "청춘": {
+  "prompts": [
+   "youthful energy"
+  ],
+  "source": "qwen3:14b"
+ },
+ "촛불 조명": {
+  "prompts": [
+   "soft candlelight"
+  ],
+  "source": "qwen3:14b"
+ },
+ "쿨톤": {
+  "prompts": [
+   "cool blue tones"
+  ],
+  "source": "qwen3:14b"
+ },
+ "화보": {
+  "prompts": [
+   "fashion magazine shoot"
+  ],
+  "source": "qwen3:14b"
+ },
+ "B급": {
+  "prompts": [
+   "kitschy charm"
+  ],
+  "source": "qwen3:14b"
+ },
+ "VHS": {
+  "prompts": [
+   "grainy textured video"
+  ],
+  "source": "qwen3:14b"
+ },
+ "y2k": {
+  "prompts": [
+   "neon bright 2000s"
+  ],
+  "source": "qwen3:14b"
+ },
+ "가든": {
+  "prompts": [
+   "garden scene"
+  ],
+  "source": "qwen3:14b"
+ },
+ "감성 숙소": {
+  "prompts": [
+   "cozy boutique hotel"
+  ],
+  "source": "qwen3:14b"
+ },
+ "감성 캠핑": {
+  "prompts": [
+   "glamorous camping"
+  ],
+  "source": "qwen3:14b"
+ },
+ "걸리시한": {
+  "prompts": [
+   "youthful femininity"
+  ],
+  "source": "qwen3:14b"
+ },
+ "겨울왕국 같은": {
+  "prompts": [
+   "snowy frozen wonderland"
+  ],
+  "source": "qwen3:14b"
+ },
+ "고급진": {
+  "prompts": [
+   "sophisticated elegance"
+  ],
+  "source": "qwen3:14b"
+ },
+ "골든 아워": {
+  "prompts": [
+   "golden hour light"
+  ],
+  "source": "qwen3:14b"
+ },
+ "과감한": {
+  "prompts": [
+   "bold composition"
+  ],
+  "source": "qwen3:14b"
+ },
+ "귀염뽀짝": {
+  "prompts": [
+   "cute and tiny"
+  ],
+  "source": "qwen3:14b"
+ },
+ "그림자": {
+  "prompts": [
+   "shadows and light patterns"
+  ],
+  "source": "qwen3:14b"
+ },
+ "글래머러스한": {
+  "prompts": [
+   "glamorous and alluring"
+  ],
+  "source": "qwen3:14b"
+ },
+ "꼬마전구": {
+  "prompts": [
+   "glowing bulb lights"
+  ],
+  "source": "qwen3:14b"
+ },
+ "나른한 오후": {
+  "prompts": [
+   "drowsy afternoon sunlight"
+  ],
+  "source": "qwen3:14b"
+ },
+ "나뭇잎 사이 햇살": {
+  "prompts": [
+   "sunlight through leaves"
+  ],
+  "source": "qwen3:14b"
+ },
+ "네온": {
+  "prompts": [
+   "neon pink and purple nightlife"
+  ],
+  "source": "qwen3:14b"
+ },
+ "노스탤직한": {
+  "prompts": [
+   "nostalgic old photos"
+  ],
+  "source": "qwen3:14b"
+ },
+ "눈에서 꿀 떨어지는": {
+  "prompts": [
+   "loving gaze"
+  ],
+  "source": "qwen3:14b"
+ },
+ "늦은 오후 햇살": {
+  "prompts": [
+   "golden late afternoon light"
+  ],
+  "source": "qwen3:14b"
+ },
+ "댕댕미": {
+  "prompts": [
+   "cheerful puppy face"
+  ],
+  "source": "qwen3:14b"
+ },
+ "더스티 핑크": {
+  "prompts": [
+   "dusty pink"
+  ],
+  "source": "qwen3:14b"
+ },
+ "도시": {
+  "prompts": [
+   "city skyline"
+  ],
+  "source": "qwen3:14b"
+ },
+ "동남아": {
+  "prompts": [
+   "tropical palm trees"
+  ],
+  "source": "qwen3:14b"
+ },
+ "드라마 같은": {
+  "prompts": [
+   "dramatic scene"
+  ],
+  "source": "qwen3:14b"
+ },
+ "디카": {
+  "prompts": [
+   "flashy old camera shot"
+  ],
+  "source": "qwen3:14b"
+ },
+ "딥톤": {
+  "prompts": [
+   "deep rich colors"
+  ],
+  "source": "qwen3:14b"
+ },
+ "라이트 릭": {
+  "prompts": [
+   "red light leak"
+  ],
+  "source": "qwen3:14b"
+ },
+ "러블리": {
+  "prompts": [
+   "cute and charming"
+  ],
+  "source": "qwen3:14b"
+ },
+ "레이크뷰": {
+  "prompts": [
+   "lakefront view"
+  ],
+  "source": "qwen3:14b"
+ },
+ "로맨스 영화 같은": {
+  "prompts": [
+   "romantic movie scene"
+  ],
+  "source": "qwen3:14b"
+ },
+ "로파이": {
+  "prompts": [
+   "grainy texture"
+  ],
+  "source": "qwen3:14b"
+ },
+ "루프톱": {
+  "prompts": [
+   "roof top view"
+  ],
+  "source": "qwen3:14b"
+ },
+ "마음 따뜻해지는": {
+  "prompts": [
+   "warm heart feeling"
+  ],
+  "source": "qwen3:14b"
+ },
+ "맑은 날": {
+  "prompts": [
+   "clear blue sky"
+  ],
+  "source": "qwen3:14b"
+ },
+ "맑은 색감": {
+  "prompts": [
+   "clear bright colors"
+  ],
+  "source": "qwen3:14b"
+ },
+ "매거진": {
+  "prompts": [
+   "stylish magazine shot"
+  ],
+  "source": "qwen3:14b"
+ },
+ "모노크롬": {
+  "prompts": [
+   "single color tone"
+  ],
+  "source": "qwen3:14b"
+ },
+ "모닥불": {
+  "prompts": [
+   "campfire glow"
+  ],
+  "source": "qwen3:14b"
+ },
+ "몽환": {
+  "prompts": [
+   "dreamy haze"
+  ],
+  "source": "qwen3:14b"
+ },
+ "무해한": {
+  "prompts": [
+   "calm and safe"
+  ],
+  "source": "qwen3:14b"
+ },
+ "벚꽃": {
+  "prompts": [
+   "blossoming cherry trees"
+  ],
+  "source": "qwen3:14b"
+ },
+ "병맛": {
+  "prompts": [
+   "silly and absurd photo"
+  ],
+  "source": "qwen3:14b"
+ },
+ "보케": {
+  "prompts": [
+   "blurred light circles"
+  ],
+  "source": "qwen3:14b"
+ },
+ "보헤미안": {
+  "prompts": [
+   "flowing floral dress"
+  ],
+  "source": "qwen3:14b"
+ },
+ "분위기": {
+  "prompts": [
+   "mood filled atmosphere"
+  ],
+  "source": "qwen3:14b"
+ },
+ "비치 무드": {
+  "prompts": [
+   "beach relaxation"
+  ],
+  "source": "qwen3:14b"
+ },
+ "빈티지": {
+  "prompts": [
+   "faded old tones"
+  ],
+  "source": "qwen3:14b"
+ },
+ "빛 맛집": {
+  "prompts": [
+   "soft glowing light"
+  ],
+  "source": "qwen3:14b"
+ },
+ "빵 터진": {
+  "prompts": [
+   "bursting with laughter"
+  ],
+  "source": "qwen3:14b"
+ },
+ "뽀샤시": {
+  "prompts": [
+   "pale glowing skin"
+  ],
+  "source": "qwen3:14b"
+ },
+ "사랑스러운 눈빛": {
+  "prompts": [
+   "loving gaze"
+  ],
+  "source": "qwen3:14b"
+ },
+ "색 바랜": {
+  "prompts": [
+   "faded sepia"
+  ],
+  "source": "qwen3:14b"
+ },
+ "샤프한": {
+  "prompts": [
+   "sharp clear edges"
+  ],
+  "source": "qwen3:14b"
+ },
+ "소프트한": {
+  "prompts": [
+   "soft pastel tones"
+  ],
+  "source": "qwen3:14b"
+ },
+ "스포트라이트": {
+  "prompts": [
+   "spotlight on face"
+  ],
+  "source": "qwen3:14b"
+ },
+ "시골": {
+  "prompts": [
+   "rural landscape"
+  ],
+  "source": "qwen3:14b"
+ },
+ "씨네스틸": {
+  "prompts": [
+   "red glow in night lights"
+  ],
+  "source": "qwen3:14b"
+ },
+ "액티브한": {
+  "prompts": [
+   "dynamic motion"
+  ],
+  "source": "qwen3:14b"
+ },
+ "앨범커버": {
+  "prompts": [
+   "stylized portrait"
+  ],
+  "source": "qwen3:14b"
+ },
+ "여유로운 분위기": {
+  "prompts": [
+   "leisurely atmosphere"
+  ],
+  "source": "qwen3:14b"
+ },
+ "이국적인 분위기": {
+  "prompts": [
+   "exotic scenery"
+  ],
+  "source": "qwen3:14b"
+ },
+ "인스타": {
+  "prompts": [
+   "trendy photo"
+  ],
+  "source": "qwen3:14b"
+ },
+ "일상": {
+  "prompts": [
+   "casual everyday scene"
+  ],
+  "source": "qwen3:14b"
+ },
+ "자연스러운 웃음": {
+  "prompts": [
+   "genuine smiling"
+  ],
+  "source": "qwen3:14b"
+ },
+ "제주": {
+  "prompts": [
+   "stone wall seaside field"
+  ],
+  "source": "qwen3:14b"
+ },
+ "짙은 그림자": {
+  "prompts": [
+   "strong light deep shadows"
+  ],
+  "source": "qwen3:14b"
+ },
+ "채광 좋은": {
+  "prompts": [
+   "bright sunlight streaming in"
+  ],
+  "source": "qwen3:14b"
+ },
+ "청량": {
+  "prompts": [
+   "cool summer sky"
+  ],
+  "source": "qwen3:14b"
+ },
+ "추억": {
+  "prompts": [
+   "nostalgic scene"
+  ],
+  "source": "qwen3:14b"
+ },
+ "카리스마 넘치는": {
+  "prompts": [
+   "powerful presence"
+  ],
+  "source": "qwen3:14b"
+ },
+ "카페": {
+  "prompts": [
+   "cozy cafe interior"
+  ],
+  "source": "qwen3:14b"
+ },
+ "클린": {
+  "prompts": [
+   "clean white tone"
+  ],
+  "source": "qwen3:14b"
+ },
+ "필름": {
+  "prompts": [
+   "grainy vintage look"
+  ],
+  "source": "qwen3:14b"
+ },
+ "하이틴": {
+  "prompts": [
+   "vibrant teen scene"
+  ],
+  "source": "qwen3:14b"
+ },
+ "호캉스": {
+  "prompts": [
+   "hotel room relaxation"
+  ],
+  "source": "qwen3:14b"
+ },
+ "80년대": {
+  "prompts": [
+   "retro 80s fashion"
+  ],
+  "source": "qwen3:14b"
+ },
+ "90년대": {
+  "prompts": [
+   "faded 90s colors and fashion"
+  ],
+  "source": "qwen3:14b"
+ },
+ "가을 햇살": {
+  "prompts": [
+   "amber autumn light"
+  ],
+  "source": "qwen3:14b"
+ },
+ "가을꽃": {
+  "prompts": [
+   "autumn flowers"
+  ],
+  "source": "qwen3:14b"
+ },
+ "갈대밭": {
+  "prompts": [
+   "swaying reeds field"
+  ],
+  "source": "qwen3:14b"
+ },
+ "감성 공간": {
+  "prompts": [
+   "mood filled room"
+  ],
+  "source": "qwen3:14b"
+ },
+ "감성웨딩": {
+  "prompts": [
+   "emotional wedding"
+  ],
+  "source": "qwen3:14b"
+ },
+ "강렬한 눈빛": {
+  "prompts": [
+   "intense piercing eyes"
+  ],
+  "source": "qwen3:14b"
+ },
+ "개성 넘치는": {
+  "prompts": [
+   "distinctive features"
+  ],
+  "source": "qwen3:14b"
+ },
+ "갬성": {
+  "prompts": [
+   "emotional atmosphere"
+  ],
+  "source": "qwen3:14b"
+ },
+ "건널목": {
+  "prompts": [
+   "crosswalk street scene"
+  ],
+  "source": "qwen3:14b"
+ },
+ "걸크러쉬": {
+  "prompts": [
+   "strong feminine presence"
+  ],
+  "source": "qwen3:14b"
+ },
+ "겨울": {
+  "prompts": [
+   "snowy winter scene"
+  ],
+  "source": "qwen3:14b"
+ },
+ "겨울꽃": {
+  "prompts": [
+   "winter blooming flowers"
+  ],
+  "source": "qwen3:14b"
+ },
+ "계곡": {
+  "prompts": [
+   "clear mountain stream"
+  ],
+  "source": "qwen3:14b"
+ },
+ "고독미": {
+  "prompts": [
+   "lonely charm"
+  ],
+  "source": "qwen3:14b"
+ },
+ "고딕한": {
+  "prompts": [
+   "dark grand gothic"
+  ],
+  "source": "qwen3:14b"
+ },
+ "골드톤": {
+  "prompts": [
+   "warm golden hues"
+  ],
+  "source": "qwen3:14b"
+ },
+ "골목": {
+  "prompts": [
+   "narrow alleyway scene"
+  ],
+  "source": "qwen3:14b"
+ },
+ "공원": {
+  "prompts": [
+   "park path scenery"
+  ],
+  "source": "qwen3:14b"
+ },
+ "공웡": {
+  "prompts": [
+   "relaxed in a park"
+  ],
+  "source": "qwen3:14b"
+ },
+ "공주 같은": {
+  "prompts": [
+   "princess dress and fairy tale decor"
+  ],
+  "source": "qwen3:14b"
+ },
+ "과노출": {
+  "prompts": [
+   "overexposed white"
+  ],
+  "source": "qwen3:14b"
+ },
+ "과일컨셉": {
+  "prompts": [
+   "fresh fruit props"
+  ],
+  "source": "qwen3:14b"
+ },
+ "광대 승천": {
+  "prompts": [
+   "wide grinning face"
+  ],
+  "source": "qwen3:14b"
+ },
+ "교복": {
+  "prompts": [
+   "uniformed students"
+  ],
+  "source": "qwen3:14b"
+ },
+ "교토": {
+  "prompts": [
+   "serene alleyway"
+  ],
+  "source": "qwen3:14b"
+ },
+ "귀여움 폭발": {
+  "prompts": [
+   "cute overload"
+  ],
+  "source": "qwen3:14b"
+ },
+ "그라데이션": {
+  "prompts": [
+   "smooth color transition"
+  ],
+  "source": "qwen3:14b"
+ },
+ "그라데이션 하늘": {
+  "prompts": [
+   "graduated sky colors"
+  ],
+  "source": "qwen3:14b"
+ },
+ "그런지": {
+  "prompts": [
+   "old fashioned worn tones"
+  ],
+  "source": "qwen3:14b"
+ },
+ "그레이톤": {
+  "prompts": [
+   "grayish urban calm"
+  ],
+  "source": "qwen3:14b"
+ },
+ "그리움이 묻어나는": {
+  "prompts": [
+   "nostalgic atmosphere"
+  ],
+  "source": "qwen3:14b"
+ },
+ "글로시": {
+  "prompts": [
+   "shiny smooth surface"
+  ],
+  "source": "qwen3:14b"
+ },
+ "글리터": {
+  "prompts": [
+   "sparkling glitter"
+  ],
+  "source": "qwen3:14b"
+ },
+ "기록": {
+  "prompts": [
+   "everyday moment captured"
+  ],
+  "source": "qwen3:14b"
+ },
+ "기차": {
+  "prompts": [
+   "train in the distance"
+  ],
+  "source": "qwen3:14b"
+ },
+ "기차 여행": {
+  "prompts": [
+   "train window and station travel"
+  ],
+  "source": "qwen3:14b"
+ },
+ "기찻길": {
+  "prompts": [
+   "railway tracks winding through landscape"
+  ],
+  "source": "qwen3:14b"
+ },
+ "긱시크컨셉": {
+  "prompts": [
+   "glasses and knitwear fashion"
+  ],
+  "source": "qwen3:14b"
+ },
+ "깔맞춤": {
+  "prompts": [
+   "matching colors couple photo"
+  ],
+  "source": "qwen3:14b"
+ },
+ "꽁냥한": {
+  "prompts": [
+   "close and affectionate"
+  ],
+  "source": "qwen3:14b"
+ },
+ "꽃": {
+  "prompts": [
+   "bloom arrangement"
+  ],
+  "source": "qwen3:14b"
+ },
+ "꽃길": {
+  "prompts": [
+   "flower lined path"
+  ],
+  "source": "qwen3:14b"
+ },
+ "꽃놀이": {
+  "prompts": [
+   "spring flower viewing"
+  ],
+  "source": "qwen3:14b"
+ },
+ "꽃밭": {
+  "prompts": [
+   "flower field in bloom"
+  ],
+  "source": "qwen3:14b"
+ },
+ "꾸안꾸": {
+  "prompts": [
+   "casual elegance"
+  ],
+  "source": "qwen3:14b"
+ },
+ "나뭇잎 그림자": {
+  "prompts": [
+   "leaf shadows on face"
+  ],
+  "source": "qwen3:14b"
+ },
+ "남친짤": {
+  "prompts": [
+   "couple holding hands"
+  ],
+  "source": "qwen3:14b"
+ },
+ "네추럴": {
+  "prompts": [
+   "natural and unposed"
+  ],
+  "source": "qwen3:14b"
+ },
+ "노포": {
+  "prompts": [
+   "old shop charm"
+  ],
+  "source": "qwen3:14b"
+ },
+ "놀이공원": {
+  "prompts": [
+   "amusement park rides and lights"
+  ],
+  "source": "qwen3:14b"
+ },
+ "놀이터": {
+  "prompts": [
+   "children playing joyfully"
+  ],
+  "source": "qwen3:14b"
+ },
+ "농촌": {
+  "prompts": [
+   "rural village with fields"
+  ],
+  "source": "qwen3:14b"
+ },
+ "누드톤": {
+  "prompts": [
+   "warm neutral tones"
+  ],
+  "source": "qwen3:14b"
+ },
+ "누아르": {
+  "prompts": [
+   "high contrast noir style"
+  ],
+  "source": "qwen3:14b"
+ },
+ "눈물 버튼": {
+  "prompts": [
+   "heartwrenching scene"
+  ],
+  "source": "qwen3:14b"
+ },
+ "뉴욕": {
+  "prompts": [
+   "city streets skyline"
+  ],
+  "source": "qwen3:14b"
+ },
+ "뉴트럴 컬러": {
+  "prompts": [
+   "muted neutral tones"
+  ],
+  "source": "qwen3:14b"
+ },
+ "뉴트로": {
+  "prompts": [
+   "retro modern style"
+  ],
+  "source": "qwen3:14b"
+ },
+ "능소화": {
+  "prompts": [
+   "orange flowers along a wall"
+  ],
+  "source": "qwen3:14b"
+ },
+ "다이렉트 플래시": {
+  "prompts": [
+   "harsh direct flash"
+  ],
+  "source": "qwen3:14b"
+ },
+ "다채로움": {
+  "prompts": [
+   "vibrant colors"
+  ],
+  "source": "qwen3:14b"
+ },
+ "단풍": {
+  "prompts": [
+   "autumn leaves blaze"
+  ],
+  "source": "qwen3:14b"
+ },
+ "단풍 맛집": {
+  "prompts": [
+   "autumn leaves restaurant"
+  ],
+  "source": "qwen3:14b"
+ },
+ "닭살 돋는": {
+  "prompts": [
+   "blushingly cute"
+  ],
+  "source": "qwen3:14b"
+ },
+ "대교": {
+  "prompts": [
+   "majestic bridge"
+  ],
+  "source": "qwen3:14b"
+ },
+ "대만": {
+  "prompts": [
+   "nostalgic street scene"
+  ],
+  "source": "qwen3:14b"
+ },
+ "댄디한": {
+  "prompts": [
+   "sharp tailored style"
+  ],
+  "source": "qwen3:14b"
+ },
+ "도서관": {
+  "prompts": [
+   "quiet library shelves"
+  ],
+  "source": "qwen3:14b"
+ },
+ "도자기 피부": {
+  "prompts": [
+   "smooth porcelain skin"
+  ],
+  "source": "qwen3:14b"
+ },
+ "도쿄": {
+  "prompts": [
+   "narrow Tokyo alleyway"
+  ],
+  "source": "qwen3:14b"
+ },
+ "도파민 터지는": {
+  "prompts": [
+   "thrilling energy burst"
+  ],
+  "source": "qwen3:14b"
+ },
+ "듀오톤": {
+  "prompts": [
+   "two color graphic"
+  ],
+  "source": "qwen3:14b"
+ },
+ "드레스": {
+  "prompts": [
+   "elegant dress"
+  ],
+  "source": "qwen3:14b"
+ },
+ "드림코어": {
+  "prompts": [
+   "dreamlike surreal scene"
+  ],
+  "source": "qwen3:14b"
+ },
+ "디지털": {
+  "prompts": [
+   "sharp digital image"
+  ],
+  "source": "qwen3:14b"
+ },
+ "딥그린": {
+  "prompts": [
+   "deep rich green"
+  ],
+  "source": "qwen3:14b"
+ },
+ "따뜻한 여운": {
+  "prompts": [
+   "warm lingering glow"
+  ],
+  "source": "qwen3:14b"
+ },
+ "따스한 햇살": {
+  "prompts": [
+   "warm sunlight"
+  ],
+  "source": "qwen3:14b"
+ },
+ "라벤더톤": {
+  "prompts": [
+   "lavender hue"
+  ],
+  "source": "qwen3:14b"
+ },
+ "락시크": {
+  "prompts": [
+   "leather black rock style"
+  ],
+  "source": "qwen3:14b"
+ },
+ "러브레터": {
+  "prompts": [
+   "nostalgic and pure love letters"
+  ],
+  "source": "qwen3:14b"
+ },
+ "럽스타": {
+  "prompts": [
+   "couple selfie"
+  ],
+  "source": "qwen3:14b"
+ },
+ "레트로": {
+  "prompts": [
+   "vintage style"
+  ],
+  "source": "qwen3:14b"
+ },
+ "렌즈 플레어": {
+  "prompts": [
+   "bright light streaks"
+  ],
+  "source": "qwen3:14b"
+ },
+ "렘브란트 조명": {
+  "prompts": [
+   "triangle light on cheek"
+  ],
+  "source": "qwen3:14b"
+ },
+ "로모": {
+  "prompts": [
+   "vignette rich colors"
+  ],
+  "source": "qwen3:14b"
+ },
+ "로우키": {
+  "prompts": [
+   "dark background glowing spot"
+  ],
+  "source": "qwen3:14b"
+ },
+ "로코": {
+  "prompts": [
+   "romantic comedy vibe"
+  ],
+  "source": "qwen3:14b"
+ },
+ "룩북": {
+  "prompts": [
+   "outfit photo book"
+  ],
+  "source": "qwen3:14b"
+ },
+ "리드미컬한": {
+  "prompts": [
+   "rhythmic movement"
+  ],
+  "source": "qwen3:14b"
+ },
+ "리버뷰": {
+  "prompts": [
+   "river view from above"
+  ],
+  "source": "qwen3:14b"
+ },
+ "리얼한": {
+  "prompts": [
+   "vivid realistic photo"
+  ],
+  "source": "qwen3:14b"
+ },
+ "리조트": {
+  "prompts": [
+   "tropical resort vibes"
+  ],
+  "source": "qwen3:14b"
+ },
+ "린넨 질감": {
+  "prompts": [
+   "natural linen texture"
+  ],
+  "source": "qwen3:14b"
+ },
+ "림라이트": {
+  "prompts": [
+   "soft light outline"
+  ],
+  "source": "qwen3:14b"
+ },
+ "마피아": {
+  "prompts": [
+   "suited gangsters"
+  ],
+  "source": "qwen3:14b"
+ },
+ "매니시한": {
+  "prompts": [
+   "sharp tailored suit"
+  ],
+  "source": "qwen3:14b"
+ },
+ "매트": {
+  "prompts": [
+   "matte texture"
+  ],
+  "source": "qwen3:14b"
+ },
+ "먹먹한": {
+  "prompts": [
+   "heavy hearted"
+  ],
+  "source": "qwen3:14b"
+ },
+ "멋짐 폭발": {
+  "prompts": [
+   "stylish explosion"
+  ],
+  "source": "qwen3:14b"
+ },
+ "멍때리는": {
+  "prompts": [
+   "blank expression"
+  ],
+  "source": "qwen3:14b"
+ },
+ "메탈릭한": {
+  "prompts": [
+   "shiny metallic sheen"
+  ],
+  "source": "qwen3:14b"
+ },
+ "멜로": {
+  "prompts": [
+   "tender love scene"
+  ],
+  "source": "qwen3:14b"
+ },
+ "명암이 뚜렷한": {
+  "prompts": [
+   "sharp light and shadow"
+  ],
+  "source": "qwen3:14b"
+ },
+ "모닝": {
+  "prompts": [
+   "fresh morning light"
+  ],
+  "source": "qwen3:14b"
+ },
+ "모던": {
+  "prompts": [
+   "modern sleek design"
+  ],
+  "source": "qwen3:14b"
+ },
+ "모던 클래식": {
+  "prompts": [
+   "elegant modern classic"
+  ],
+  "source": "qwen3:14b"
+ },
+ "모델 같은": {
+  "prompts": [
+   "perfect pose and proportion"
+  ],
+  "source": "qwen3:14b"
+ },
+ "모션 블러": {
+  "prompts": [
+   "motion blur effect"
+  ],
+  "source": "qwen3:14b"
+ },
+ "모카톤": {
+  "prompts": [
+   "soft mocha brown"
+  ],
+  "source": "qwen3:14b"
+ },
+ "몽환적": {
+  "prompts": [
+   "dreamy glow"
+  ],
+  "source": "qwen3:14b"
+ },
+ "묘한 분위기": {
+  "prompts": [
+   "uncanny atmosphere"
+  ],
+  "source": "qwen3:14b"
+ },
+ "무드등": {
+  "prompts": [
+   "soft lighting room"
+  ],
+  "source": "qwen3:14b"
+ },
+ "무빙샷": {
+  "prompts": [
+   "moving action sequence"
+  ],
+  "source": "qwen3:14b"
+ },
+ "무심한 듯 시크한": {
+  "prompts": [
+   "calmly stylish"
+  ],
+  "source": "qwen3:14b"
+ },
+ "물가": {
+  "prompts": [
+   "calm water scene"
+  ],
+  "source": "qwen3:14b"
+ },
+ "뮤비": {
+  "prompts": [
+   "video style lighting"
+  ],
+  "source": "qwen3:14b"
+ },
+ "뮤트톤": {
+  "prompts": [
+   "muted grayish tones"
+  ],
+  "source": "qwen3:14b"
+ },
+ "미니멀": {
+  "prompts": [
+   "simple clean background"
+  ],
+  "source": "qwen3:14b"
+ },
+ "미드센추리": {
+  "prompts": [
+   "mid century furniture"
+  ],
+  "source": "qwen3:14b"
+ },
+ "민트빛": {
+  "prompts": [
+   "cool mint hue"
+  ],
+  "source": "qwen3:14b"
+ },
+ "바람 부는 날": {
+  "prompts": [
+   "hair and clothes flying in wind"
+  ],
+  "source": "qwen3:14b"
+ },
+ "바이브 있는": {
+  "prompts": [
+   "vibrant energy"
+  ],
+  "source": "qwen3:14b"
+ },
+ "바캉스": {
+  "prompts": [
+   "summer vacation vibes"
+  ],
+  "source": "qwen3:14b"
+ },
+ "발리": {
+  "prompts": [
+   "tropical palm and rattan decor"
+  ],
+  "source": "qwen3:14b"
+ },
+ "밤바다": {
+  "prompts": [
+   "dark sea with lights"
+  ],
+  "source": "qwen3:14b"
+ },
+ "백빈건널목": {
+  "prompts": [
+   "sunset over railway crossing"
+  ],
+  "source": "qwen3:14b"
+ },
+ "백허그": {
+  "prompts": [
+   "hugging from behind"
+  ],
+  "source": "qwen3:14b"
+ },
+ "버터 옐로우": {
+  "prompts": [
+   "soft butter yellow"
+  ],
+  "source": "qwen3:14b"
+ },
+ "베이비핑크": {
+  "prompts": [
+   "soft pastel pink"
+  ],
+  "source": "qwen3:14b"
+ },
+ "벨벳 질감": {
+  "prompts": [
+   "velvet smooth texture"
+  ],
+  "source": "qwen3:14b"
+ },
+ "별밤": {
+  "prompts": [
+   "starry night sky"
+  ],
+  "source": "qwen3:14b"
+ },
+ "보스": {
+  "prompts": [
+   "confident powerful boss"
+  ],
+  "source": "qwen3:14b"
+ },
+ "보이시한": {
+  "prompts": [
+   "boyish charm"
+  ],
+  "source": "qwen3:14b"
+ },
+ "볼 빨간": {
+  "prompts": [
+   "blushing cheeks"
+  ],
+  "source": "qwen3:14b"
+ },
+ "봄 햇살": {
+  "prompts": [
+   "soft spring light"
+  ],
+  "source": "qwen3:14b"
+ },
+ "봄꽃": {
+  "prompts": [
+   "blossoming spring flowers"
+  ],
+  "source": "qwen3:14b"
+ },
+ "봄바람 살랑": {
+  "prompts": [
+   "spring breeze hair flutter"
+  ],
+  "source": "qwen3:14b"
+ },
+ "봄소풍": {
+  "prompts": [
+   "spring outing joy"
+  ],
+  "source": "qwen3:14b"
+ },
+ "부녀 케미": {
+  "prompts": [
+   "father and daughter bond"
+  ],
+  "source": "qwen3:14b"
+ },
+ "부부 케미": {
+  "prompts": [
+   "loving couple interaction"
+  ],
+  "source": "qwen3:14b"
+ },
+ "북유럽": {
+  "prompts": [
+   "light wood and white nordic"
+  ],
+  "source": "qwen3:14b"
+ },
+ "분위기 깡패": {
+  "prompts": [
+   "dominating atmosphere"
+  ],
+  "source": "qwen3:14b"
+ },
+ "뷰 맛집": {
+  "prompts": [
+   "panoramic view restaurant"
+  ],
+  "source": "qwen3:14b"
+ },
+ "브런치": {
+  "prompts": [
+   "lazy morning table"
+  ],
+  "source": "qwen3:14b"
+ },
+ "블라인드 그림자": {
+  "prompts": [
+   "striped shadow patterns"
+  ],
+  "source": "qwen3:14b"
+ },
+ "블러": {
+  "prompts": [
+   "blurred effect"
+  ],
+  "source": "qwen3:14b"
+ },
+ "블루 아워": {
+  "prompts": [
+   "blue hour sky"
+  ],
+  "source": "qwen3:14b"
+ },
+ "비 갠 뒤": {
+  "prompts": [
+   "wet and bright after rain"
+  ],
+  "source": "qwen3:14b"
+ },
+ "비 내리는 창가": {
+  "prompts": [
+   "raindrops on windowpane"
+  ],
+  "source": "qwen3:14b"
+ },
+ "비 오는 날": {
+  "prompts": [
+   "rainy day atmosphere"
+  ],
+  "source": "qwen3:14b"
+ },
+ "비글미": {
+  "prompts": [
+   "playful and lively dog"
+  ],
+  "source": "qwen3:14b"
+ },
+ "비냄새": {
+  "prompts": [
+   "wet earth scent"
+  ],
+  "source": "qwen3:14b"
+ },
+ "비밀의 정원 같은": {
+  "prompts": [
+   "hidden garden mystery"
+  ],
+  "source": "qwen3:14b"
+ },
+ "비비드톤": {
+  "prompts": [
+   "vivid colors"
+  ],
+  "source": "qwen3:14b"
+ },
+ "비하인드 컷 느낌": {
+  "prompts": [
+   "casual behind the scenes"
+  ],
+  "source": "qwen3:14b"
+ },
+ "빌딩 숲": {
+  "prompts": [
+   "dense skyscraper cluster"
+  ],
+  "source": "qwen3:14b"
+ },
+ "빗속의": {
+  "prompts": [
+   "rain soaked scene"
+  ],
+  "source": "qwen3:14b"
+ },
+ "빛번짐": {
+  "prompts": [
+   "hazy glow"
+  ],
+  "source": "qwen3:14b"
+ },
+ "빛이 쏟아지는": {
+  "prompts": [
+   "blinding light pouring in"
+  ],
+  "source": "qwen3:14b"
+ },
+ "빨간 조명": {
+  "prompts": [
+   "red glowing light"
+  ],
+  "source": "qwen3:14b"
+ },
+ "뽀시래기": {
+  "prompts": [
+   "cute baby animal"
+  ],
+  "source": "qwen3:14b"
+ },
+ "사랑둥이": {
+  "prompts": [
+   "adorable child"
+  ],
+  "source": "qwen3:14b"
+ },
+ "사이드 라이트": {
+  "prompts": [
+   "light from the side"
+  ],
+  "source": "qwen3:14b"
+ },
+ "상반신": {
+  "prompts": [
+   "upper body shot"
+  ],
+  "source": "qwen3:14b"
+ },
+ "상상력": {
+  "prompts": [
+   "mysterious and imaginative"
+  ],
+  "source": "qwen3:14b"
+ },
+ "상큼발랄한": {
+  "prompts": [
+   "bright and lively"
+  ],
+  "source": "qwen3:14b"
+ },
+ "색감 맛집": {
+  "prompts": [
+   "vibrant color palette"
+  ],
+  "source": "qwen3:14b"
+ },
+ "생각에 잠긴": {
+  "prompts": [
+   "pensive expression"
+  ],
+  "source": "qwen3:14b"
+ },
+ "서재": {
+  "prompts": [
+   "bookshelf filled room"
+  ],
+  "source": "qwen3:14b"
+ },
+ "설레임": {
+  "prompts": [
+   "excited atmosphere"
+  ],
+  "source": "qwen3:14b"
+ },
+ "성수": {
+  "prompts": [
+   "industrial chic cafe"
+  ],
+  "source": "qwen3:14b"
+ },
+ "성숙한 분위기": {
+  "prompts": [
+   "mature and calm atmosphere"
+  ],
+  "source": "qwen3:14b"
+ },
+ "세이지 그린": {
+  "prompts": [
+   "muted sage green"
+  ],
+  "source": "qwen3:14b"
+ },
+ "섹시미": {
+  "prompts": [
+   "alluring gaze"
+  ],
+  "source": "qwen3:14b"
+ },
+ "센치한": {
+  "prompts": [
+   "sentimental mood"
+  ],
+  "source": "qwen3:14b"
+ },
+ "소년": {
+  "prompts": [
+   "boyish and innocent"
+  ],
+  "source": "qwen3:14b"
+ },
+ "속도감 있는": {
+  "prompts": [
+   "fast motion blur"
+  ],
+  "source": "qwen3:14b"
+ },
+ "수채화 같은": {
+  "prompts": [
+   "watery pastel colors"
+  ],
+  "source": "qwen3:14b"
+ },
+ "스카이라인": {
+  "prompts": [
+   "city skyline"
+  ],
+  "source": "qwen3:14b"
+ },
+ "스타일리시한": {
+  "prompts": [
+   "stylish fashion"
+  ],
+  "source": "qwen3:14b"
+ },
+ "스튜디오": {
+  "prompts": [
+   "neat studio backdrop"
+  ],
+  "source": "qwen3:14b"
+ },
+ "스트로보": {
+  "prompts": [
+   "bright flash lighting"
+  ],
+  "source": "qwen3:14b"
+ },
+ "스트리트": {
+  "prompts": [
+   "urban street style"
+  ],
+  "source": "qwen3:14b"
+ },
+ "스포티한": {
+  "prompts": [
+   "sporty and active"
+  ],
+  "source": "qwen3:14b"
+ },
+ "시린 느낌": {
+  "prompts": [
+   "cold and lonely"
+  ],
+  "source": "qwen3:14b"
+ },
+ "시크한 커플": {
+  "prompts": [
+   "cool indifferent couple"
+  ],
+  "source": "qwen3:14b"
+ },
+ "시티": {
+  "prompts": [
+   "city night skyline"
+  ],
+  "source": "qwen3:14b"
+ },
+ "시티뷰": {
+  "prompts": [
+   "city skyline view"
+  ],
+  "source": "qwen3:14b"
+ },
+ "시티팝": {
+  "prompts": [
+   "neon city night"
+  ],
+  "source": "qwen3:14b"
+ },
+ "신혼": {
+  "prompts": [
+   "sweet new marriage life"
+  ],
+  "source": "qwen3:14b"
+ },
+ "실루엣 사진": {
+  "prompts": [
+   "outline against bright background"
+  ],
+  "source": "qwen3:14b"
+ },
+ "심플": {
+  "prompts": [
+   "simple and clean"
+  ],
+  "source": "qwen3:14b"
+ },
+ "싸이월드": {
+  "prompts": [
+   "old school selfie"
+  ],
+  "source": "qwen3:14b"
+ },
+ "아날로그": {
+  "prompts": [
+   "grainy vintage photo"
+  ],
+  "source": "qwen3:14b"
+ },
+ "아방가르드한": {
+  "prompts": [
+   "experimental style"
+  ],
+  "source": "qwen3:14b"
+ },
+ "아우라 있는": {
+  "prompts": [
+   "radiant atmosphere"
+  ],
+  "source": "qwen3:14b"
+ },
+ "아이보리톤": {
+  "prompts": [
+   "clean warm ivory"
+  ],
+  "source": "qwen3:14b"
+ },
+ "아지트 같은": {
+  "prompts": [
+   "hidden cozy corner"
+  ],
+  "source": "qwen3:14b"
+ },
+ "아침 햇살": {
+  "prompts": [
+   "soft morning light"
+  ],
+  "source": "qwen3:14b"
+ },
+ "알콩달콩": {
+  "prompts": [
+   "happy couple cuddling"
+  ],
+  "source": "qwen3:14b"
+ },
+ "애교 가득한": {
+  "prompts": [
+   "playful expressions"
+  ],
+  "source": "qwen3:14b"
+ },
+ "애기애기한": {
+  "prompts": [
+   "delicate baby face"
+  ],
+  "source": "qwen3:14b"
+ },
+ "앤티크한": {
+  "prompts": [
+   "old fashioned furniture"
+  ],
+  "source": "qwen3:14b"
+ },
+ "야경": {
+  "prompts": [
+   "sparkling night scene"
+  ],
+  "source": "qwen3:14b"
+ },
+ "야구": {
+  "prompts": [
+   "vibrant baseball scene"
+  ],
+  "source": "qwen3:14b"
+ },
+ "야구장": {
+  "prompts": [
+   "baseball field crowd"
+  ],
+  "source": "qwen3:14b"
+ },
+ "야구장커플": {
+  "prompts": [
+   "baseball field couple"
+  ],
+  "source": "qwen3:14b"
+ },
+ "야외": {
+  "prompts": [
+   "outdoor scene"
+  ],
+  "source": "qwen3:14b"
+ },
+ "어반": {
+  "prompts": [
+   "city streets and concrete"
+  ],
+  "source": "qwen3:14b"
+ },
+ "어스톤": {
+  "prompts": [
+   "earthy tones"
+  ],
+  "source": "qwen3:14b"
+ },
+ "억새": {
+  "prompts": [
+   "golden grass field"
+  ],
+  "source": "qwen3:14b"
+ },
+ "얼굴": {
+  "prompts": [
+   "close up face shot"
+  ],
+  "source": "qwen3:14b"
+ },
+ "얼빡": {
+  "prompts": [
+   "close up face shot"
+  ],
+  "source": "qwen3:14b"
+ },
+ "에스닉한": {
+  "prompts": [
+   "exotic patterns"
+  ],
+  "source": "qwen3:14b"
+ },
+ "에어리한": {
+  "prompts": [
+   "light and airy"
+  ],
+  "source": "qwen3:14b"
+ },
+ "엣지 있는": {
+  "prompts": [
+   "sharp and edgy"
+  ],
+  "source": "qwen3:14b"
+ },
+ "여름꽃": {
+  "prompts": [
+   "bright summer flowers"
+  ],
+  "source": "qwen3:14b"
+ },
+ "여름밤": {
+  "prompts": [
+   "cool summer night"
+  ],
+  "source": "qwen3:14b"
+ },
+ "여운 있는": {
+  "prompts": [
+   "lingering calm"
+  ],
+  "source": "qwen3:14b"
+ },
+ "여친짤": {
+  "prompts": [
+   "girlfriend pose"
+  ],
+  "source": "qwen3:14b"
+ },
+ "여행": {
+  "prompts": [
+   "casual travel shot"
+  ],
+  "source": "qwen3:14b"
+ },
+ "여행 온 듯한": {
+  "prompts": [
+   "eager traveler smile"
+  ],
+  "source": "qwen3:14b"
+ },
+ "역광": {
+  "prompts": [
+   "backlit hair glow"
+  ],
+  "source": "qwen3:14b"
+ },
+ "연남동": {
+  "prompts": [
+   "cute alley cafe"
+  ],
+  "source": "qwen3:14b"
+ },
+ "연말": {
+  "prompts": [
+   "sparkling holiday lights"
+  ],
+  "source": "qwen3:14b"
+ },
+ "연애 세포 깨우는": {
+  "prompts": [
+   "romantic sparkles"
+  ],
+  "source": "qwen3:14b"
+ },
+ "연예인 화보 같은": {
+  "prompts": [
+   "staged celebrity photo"
+  ],
+  "source": "qwen3:14b"
+ },
+ "영화 색감": {
+  "prompts": [
+   "cinematic color palette"
+  ],
+  "source": "qwen3:14b"
+ },
+ "영화관": {
+  "prompts": [
+   "cinema date scene"
+  ],
+  "source": "qwen3:14b"
+ },
+ "오리엔탈한": {
+  "prompts": [
+   "oriental decor"
+  ],
+  "source": "qwen3:14b"
+ },
+ "오묘한 색감": {
+  "prompts": [
+   "uncanny colors"
+  ],
+  "source": "qwen3:14b"
+ },
+ "오션 뷰": {
+  "prompts": [
+   "ocean view"
+  ],
+  "source": "qwen3:14b"
+ },
+ "온실": {
+  "prompts": [
+   "glasshouse plants and light"
+  ],
+  "source": "qwen3:14b"
+ },
+ "올드머니": {
+  "prompts": [
+   "elegant vintage style"
+  ],
+  "source": "qwen3:14b"
+ },
+ "올리브톤": {
+  "prompts": [
+   "olive green vintage"
+  ],
+  "source": "qwen3:14b"
+ },
+ "올화이트": {
+  "prompts": [
+   "all white outfit and background"
+  ],
+  "source": "qwen3:14b"
+ },
+ "왕가위": {
+  "prompts": [
+   "shaky intense colors"
+  ],
+  "source": "qwen3:14b"
+ },
+ "요정": {
+  "prompts": [
+   "fairylike forest scene"
+  ],
+  "source": "qwen3:14b"
+ },
+ "용산": {
+  "prompts": [
+   "urban landscape with skyscrapers"
+  ],
+  "source": "qwen3:14b"
+ },
+ "우드톤": {
+  "prompts": [
+   "warm wooden tones"
+  ],
+  "source": "qwen3:14b"
+ },
+ "우비": {
+  "prompts": [
+   "raincoat in rain"
+  ],
+  "source": "qwen3:14b"
+ },
+ "우산": {
+  "prompts": [
+   "rainy day with umbrella"
+  ],
+  "source": "qwen3:14b"
+ },
+ "우수에 찬": {
+  "prompts": [
+   "gloomy eyes"
+  ],
+  "source": "qwen3:14b"
+ },
+ "운동": {
+  "prompts": [
+   "vibrant movement"
+  ],
+  "source": "qwen3:14b"
+ },
+ "울림 있는": {
+  "prompts": [
+   "moving emotionally"
+  ],
+  "source": "qwen3:14b"
+ },
+ "울컥하는": {
+  "prompts": [
+   "swelling emotion"
+  ],
+  "source": "qwen3:14b"
+ },
+ "웃픈": {
+  "prompts": [
+   "bittersweet smile"
+  ],
+  "source": "qwen3:14b"
+ },
+ "원톤": {
+  "prompts": [
+   "single color outfit and background"
+  ],
+  "source": "qwen3:14b"
+ },
+ "원피스": {
+  "prompts": [
+   "woman in one piece dress"
+  ],
+  "source": "qwen3:14b"
+ },
+ "웨스 앤더슨": {
+  "prompts": [
+   "symmetrical pastel scenes"
+  ],
+  "source": "qwen3:14b"
+ },
+ "윈터": {
+  "prompts": [
+   "winter atmosphere"
+  ],
+  "source": "qwen3:14b"
+ },
+ "유니크한": {
+  "prompts": [
+   "unique style"
+  ],
+  "source": "qwen3:14b"
+ },
+ "유니폼": {
+  "prompts": [
+   "people in matching outfits"
+  ],
+  "source": "qwen3:14b"
+ },
+ "유럽": {
+  "prompts": [
+   "European style buildings"
+  ],
+  "source": "qwen3:14b"
+ },
+ "유채꽃": {
+  "prompts": [
+   "yellow flowers in spring"
+  ],
+  "source": "qwen3:14b"
+ },
+ "유화 같은": {
+  "prompts": [
+   "rich deep texture"
+  ],
+  "source": "qwen3:14b"
+ },
+ "윤슬": {
+  "prompts": [
+   "sunlit water ripples"
+  ],
+  "source": "qwen3:14b"
+ },
+ "은하수": {
+  "prompts": [
+   "galaxy in night sky"
+  ],
+  "source": "qwen3:14b"
+ },
+ "은행나무": {
+  "prompts": [
+   "golden maple leaves"
+  ],
+  "source": "qwen3:14b"
+ },
+ "을지로": {
+  "prompts": [
+   "old print shop alley"
+  ],
+  "source": "qwen3:14b"
+ },
+ "응답하라": {
+  "prompts": [
+   "nostalgic old memories"
+  ],
+  "source": "qwen3:14b"
+ },
+ "익선동": {
+  "prompts": [
+   "retro hanok alley"
+  ],
+  "source": "qwen3:14b"
+ },
+ "인생샷": {
+  "prompts": [
+   "iconic moment"
+  ],
+  "source": "qwen3:14b"
+ },
+ "인형 같은": {
+  "prompts": [
+   "neatly doll like"
+  ],
+  "source": "qwen3:14b"
+ },
+ "일본": {
+  "prompts": [
+   "bright translucent Japanese tones"
+  ],
+  "source": "qwen3:14b"
+ },
+ "일본 영화": {
+  "prompts": [
+   "soft pastel tones"
+  ],
+  "source": "qwen3:14b"
+ },
+ "일본무드": {
+  "prompts": [
+   "calm japanese vibe"
+  ],
+  "source": "qwen3:14b"
+ },
+ "일회용 카메라": {
+  "prompts": [
+   "flashbulb photo"
+  ],
+  "source": "qwen3:14b"
+ },
+ "임팩트 있는": {
+  "prompts": [
+   "strong vivid image"
+  ],
+  "source": "qwen3:14b"
+ },
+ "입김 나는": {
+  "prompts": [
+   "visible breath in cold winter"
+  ],
+  "source": "qwen3:14b"
+ },
+ "입꼬리 올라가는": {
+  "prompts": [
+   "upturned lips"
+  ],
+  "source": "qwen3:14b"
+ },
+ "자동차": {
+  "prompts": [
+   "car in the scene"
+  ],
+  "source": "qwen3:14b"
+ },
+ "자신감 넘치는": {
+  "prompts": [
+   "confident posture"
+  ],
+  "source": "qwen3:14b"
+ },
+ "자연광": {
+  "prompts": [
+   "sunlight only"
+  ],
+  "source": "qwen3:14b"
+ },
+ "자연광 스튜디오": {
+  "prompts": [
+   "sunlit studio shot"
+  ],
+  "source": "qwen3:14b"
+ },
+ "자유로운 영혼": {
+  "prompts": [
+   "carefree spirit"
+  ],
+  "source": "qwen3:14b"
+ },
+ "자취방": {
+  "prompts": [
+   "tiny room with delicate decor"
+  ],
+  "source": "qwen3:14b"
+ },
+ "작업실": {
+  "prompts": [
+   "tools and workbench"
+  ],
+  "source": "qwen3:14b"
+ },
+ "잔잔한 여운": {
+  "prompts": [
+   "calm lingering feeling"
+  ],
+  "source": "qwen3:14b"
+ },
+ "장마": {
+  "prompts": [
+   "rainy and gloomy"
+  ],
+  "source": "qwen3:14b"
+ },
+ "장미": {
+  "prompts": [
+   "red roses in bloom"
+  ],
+  "source": "qwen3:14b"
+ },
+ "점프샷": {
+  "prompts": [
+   "midair leap"
+  ],
+  "source": "qwen3:14b"
+ },
+ "정감 있는": {
+  "prompts": [
+   "warm familiar feeling"
+  ],
+  "source": "qwen3:14b"
+ },
+ "정적인 분위기": {
+  "prompts": [
+   "calm stillness"
+  ],
+  "source": "qwen3:14b"
+ },
+ "조명 맛집": {
+  "prompts": [
+   "soft glowing lights"
+  ],
+  "source": "qwen3:14b"
+ },
+ "지브리": {
+  "prompts": [
+   "sunny meadow animation"
+  ],
+  "source": "qwen3:14b"
+ },
+ "지하철": {
+  "prompts": [
+   "underground train scene"
+  ],
+  "source": "qwen3:14b"
+ },
+ "진심이 느껴지는": {
+  "prompts": [
+   "genuine heartfelt expression"
+  ],
+  "source": "qwen3:14b"
+ },
+ "질감 살린": {
+  "prompts": [
+   "textured surface"
+  ],
+  "source": "qwen3:14b"
+ },
+ "차도남": {
+  "prompts": [
+   "cool city man"
+  ],
+  "source": "qwen3:14b"
+ },
+ "차도녀": {
+  "prompts": [
+   "cold city woman"
+  ],
+  "source": "qwen3:14b"
+ },
+ "차박": {
+  "prompts": [
+   "car trunk camping setup"
+  ],
+  "source": "qwen3:14b"
+ },
+ "차분한 무드": {
+  "prompts": [
+   "calm muted tones"
+  ],
+  "source": "qwen3:14b"
+ },
+ "창문 그림자": {
+  "prompts": [
+   "window shadow indoors"
+  ],
+  "source": "qwen3:14b"
+ },
+ "책방": {
+  "prompts": [
+   "cozy bookshop interior"
+  ],
+  "source": "qwen3:14b"
+ },
+ "청량美": {
+  "prompts": [
+   "cool freshness"
+  ],
+  "source": "qwen3:14b"
+ },
+ "청량한 여름": {
+  "prompts": [
+   "clear cool summer"
+  ],
+  "source": "qwen3:14b"
+ },
+ "청량함": {
+  "prompts": [
+   "cool refreshing clarity"
+  ],
+  "source": "qwen3:14b"
+ },
+ "청록": {
+  "prompts": [
+   "cinematic teal"
+  ],
+  "source": "qwen3:14b"
+ },
+ "츤데레": {
+  "prompts": [
+   "cold but affectionate"
+  ],
+  "source": "qwen3:14b"
+ },
+ "층고 높은": {
+  "prompts": [
+   "high ceiling spacious"
+  ],
+  "source": "qwen3:14b"
+ },
+ "치명미": {
+  "prompts": [
+   "captivating allure"
+  ],
+  "source": "qwen3:14b"
+ },
+ "카키톤": {
+  "prompts": [
+   "muted olive tone"
+  ],
+  "source": "qwen3:14b"
+ },
+ "캐쥬얼": {
+  "prompts": [
+   "casual clothing"
+  ],
+  "source": "qwen3:14b"
+ },
+ "캠퍼스": {
+  "prompts": [
+   "young people on campus"
+  ],
+  "source": "qwen3:14b"
+ },
+ "캠핑": {
+  "prompts": [
+   "camping scene"
+  ],
+  "source": "qwen3:14b"
+ },
+ "커튼 사이 빛": {
+  "prompts": [
+   "soft light through curtains"
+  ],
+  "source": "qwen3:14b"
+ },
+ "컨셉 있는": {
+  "prompts": [
+   "clearly defined concept"
+  ],
+  "source": "qwen3:14b"
+ },
+ "컬러풀한": {
+  "prompts": [
+   "vibrant colors"
+  ],
+  "source": "qwen3:14b"
+ },
+ "케미": {
+  "prompts": [
+   "harmonious duo"
+  ],
+  "source": "qwen3:14b"
+ },
+ "코닥": {
+  "prompts": [
+   "warm yellow film"
+  ],
+  "source": "qwen3:14b"
+ },
+ "코랄톤": {
+  "prompts": [
+   "vibrant coral pink"
+  ],
+  "source": "qwen3:14b"
+ },
+ "코믹 컨셉": {
+  "prompts": [
+   "funny pose"
+  ],
+  "source": "qwen3:14b"
+ },
+ "코스모스": {
+  "prompts": [
+   "autumn cosmos field"
+  ],
+  "source": "qwen3:14b"
+ },
+ "쿨한": {
+  "prompts": [
+   "calm confident pose"
+  ],
+  "source": "qwen3:14b"
+ },
+ "크리스마스": {
+  "prompts": [
+   "christmas lights and tree"
+  ],
+  "source": "qwen3:14b"
+ },
+ "크리스마스 마켓": {
+  "prompts": [
+   "christmas market scene"
+  ],
+  "source": "qwen3:14b"
+ },
+ "크림톤": {
+  "prompts": [
+   "soft cream tones"
+  ],
+  "source": "qwen3:14b"
+ },
+ "클래식": {
+  "prompts": [
+   "timeless elegance"
+  ],
+  "source": "qwen3:14b"
+ },
+ "킹받는": {
+  "prompts": [
+   "smirking confidently"
+  ],
+  "source": "qwen3:14b"
+ },
+ "탁한 색감": {
+  "prompts": [
+   "muted vintage colors"
+  ],
+  "source": "qwen3:14b"
+ },
+ "태권도": {
+  "prompts": [
+   "dynamic martial arts动作"
+  ],
+  "source": "qwen3:14b"
+ },
+ "터널": {
+  "prompts": [
+   "long tunnel interior"
+  ],
+  "source": "qwen3:14b"
+ },
+ "테니스컨셉": {
+  "prompts": [
+   "tennis outfit and racket"
+  ],
+  "source": "qwen3:14b"
+ },
+ "테라스": {
+  "prompts": [
+   "sunlit terrace"
+  ],
+  "source": "qwen3:14b"
+ },
+ "톤온톤": {
+  "prompts": [
+   "similar tones layered"
+  ],
+  "source": "qwen3:14b"
+ },
+ "통창": {
+  "prompts": [
+   "large glass window letting in light"
+  ],
+  "source": "qwen3:14b"
+ },
+ "퇴근길": {
+  "prompts": [
+   "city commute evening"
+  ],
+  "source": "qwen3:14b"
+ },
+ "퇴폐": {
+  "prompts": [
+   "dusky and languid"
+  ],
+  "source": "qwen3:14b"
+ },
+ "튤립": {
+  "prompts": [
+   "tulips in spring garden"
+  ],
+  "source": "qwen3:14b"
+ },
+ "트렌디한": {
+  "prompts": [
+   "modern fashion shot"
+  ],
+  "source": "qwen3:14b"
+ },
+ "트윈": {
+  "prompts": [
+   "matching couple outfits"
+  ],
+  "source": "qwen3:14b"
+ },
+ "틸 앤 오렌지": {
+  "prompts": [
+   "cyan and orange corrected photo"
+  ],
+  "source": "qwen3:14b"
+ },
+ "파리": {
+  "prompts": [
+   "romantic parisian streets"
+  ],
+  "source": "qwen3:14b"
+ },
+ "파스텔 컬러": {
+  "prompts": [
+   "soft pastel hues"
+  ],
+  "source": "qwen3:14b"
+ },
+ "파워풀한": {
+  "prompts": [
+   "strong powerful pose"
+  ],
+  "source": "qwen3:14b"
+ },
+ "판타지": {
+  "prompts": [
+   "fantasy landscape"
+  ],
+  "source": "qwen3:14b"
+ },
+ "패션": {
+  "prompts": [
+   "stylish fashion shoot"
+  ],
+  "source": "qwen3:14b"
+ },
+ "펀한": {
+  "prompts": [
+   "funny and cheerful"
+  ],
+  "source": "qwen3:14b"
+ },
+ "펄감": {
+  "prompts": [
+   "sparkling pearl texture"
+  ],
+  "source": "qwen3:14b"
+ },
+ "페미닌한": {
+  "prompts": [
+   "soft feminine style"
+  ],
+  "source": "qwen3:14b"
+ },
+ "평생 간직할": {
+  "prompts": [
+   "timeless cherished moment"
+  ],
+  "source": "qwen3:14b"
+ },
+ "폐공장": {
+  "prompts": [
+   "rusted factory ruins"
+  ],
+  "source": "qwen3:14b"
+ },
+ "포근한 겨울": {
+  "prompts": [
+   "cozy winter scene"
+  ],
+  "source": "qwen3:14b"
+ },
+ "포멀한": {
+  "prompts": [
+   "smart formal attire"
+  ],
+  "source": "qwen3:14b"
+ },
+ "포트라 색감": {
+  "prompts": [
+   "soft skin tones"
+  ],
+  "source": "qwen3:14b"
+ },
+ "폴라로이드": {
+  "prompts": [
+   "instant camera photo"
+  ],
+  "source": "qwen3:14b"
+ },
+ "풀내음 나는": {
+  "prompts": [
+   "fresh green grass"
+  ],
+  "source": "qwen3:14b"
+ },
+ "풋풋한 연애": {
+  "prompts": [
+   "fresh young love"
+  ],
+  "source": "qwen3:14b"
+ },
+ "프레피한": {
+  "prompts": [
+   "neat campus style"
+  ],
+  "source": "qwen3:14b"
+ },
+ "프렌치": {
+  "prompts": [
+   "soft romantic french"
+  ],
+  "source": "qwen3:14b"
+ },
+ "프렌치 시크": {
+  "prompts": [
+   "casual elegant french style"
+  ],
+  "source": "qwen3:14b"
+ },
+ "플래시": {
+  "prompts": [
+   "bright sudden flash"
+  ],
+  "source": "qwen3:14b"
+ },
+ "플랜테리어": {
+  "prompts": [
+   "plants in room decor"
+  ],
+  "source": "qwen3:14b"
+ },
+ "피치톤": {
+  "prompts": [
+   "soft peachy hue"
+  ],
+  "source": "qwen3:14b"
+ },
+ "피크닉": {
+  "prompts": [
+   "picnic blanket and basket outdoors"
+  ],
+  "source": "qwen3:14b"
+ },
+ "핀터레스트": {
+  "prompts": [
+   "stylish flat lay"
+  ],
+  "source": "qwen3:14b"
+ },
+ "핑크뮬리": {
+  "prompts": [
+   "pink mullein field"
+  ],
+  "source": "qwen3:14b"
+ },
+ "핑크빛 분위기": {
+  "prompts": [
+   "soft pink atmosphere"
+  ],
+  "source": "qwen3:14b"
+ },
+ "핑크빛 하늘": {
+  "prompts": [
+   "pink sky at sunset"
+  ],
+  "source": "qwen3:14b"
+ },
+ "하늘 맛집": {
+  "prompts": [
+   "clear blue sky"
+  ],
+  "source": "qwen3:14b"
+ },
+ "하와이": {
+  "prompts": [
+   "bright summer beach"
+  ],
+  "source": "qwen3:14b"
+ },
+ "하이키": {
+  "prompts": [
+   "bright white glow"
+  ],
+  "source": "qwen3:14b"
+ },
+ "학창시절": {
+  "prompts": [
+   "students with friends"
+  ],
+  "source": "qwen3:14b"
+ },
+ "한강": {
+  "prompts": [
+   "Han River bridge and park"
+  ],
+  "source": "qwen3:14b"
+ },
+ "한강공원": {
+  "prompts": [
+   "grass field by han river park"
+  ],
+  "source": "qwen3:14b"
+ },
+ "한강뷰": {
+  "prompts": [
+   "Han River view"
+  ],
+  "source": "qwen3:14b"
+ },
+ "한낮의": {
+  "prompts": [
+   "bright midday sun"
+  ],
+  "source": "qwen3:14b"
+ },
+ "한복": {
+  "prompts": [
+   "traditional Korean costume"
+  ],
+  "source": "qwen3:14b"
+ },
+ "한옥": {
+  "prompts": [
+   "traditional Korean house floor and window"
+  ],
+  "source": "qwen3:14b"
+ },
+ "할머니 집": {
+  "prompts": [
+   "cozy old farmhouse"
+  ],
+  "source": "qwen3:14b"
+ },
+ "핫걸": {
+  "prompts": [
+   "confident hipster girl"
+  ],
+  "source": "qwen3:14b"
+ },
+ "해맑은 웃음": {
+  "prompts": [
+   "bright smiling face"
+  ],
+  "source": "qwen3:14b"
+ },
+ "햇살 맛집": {
+  "prompts": [
+   "sunlight through trees"
+  ],
+  "source": "qwen3:14b"
+ },
+ "행복 눈물": {
+  "prompts": [
+   "teary eyed joy"
+  ],
+  "source": "qwen3:14b"
+ },
+ "호리존": {
+  "prompts": [
+   "infinite horizon studio shot"
+  ],
+  "source": "qwen3:14b"
+ },
+ "혼자만의 시간": {
+  "prompts": [
+   "solitary peaceful moment"
+  ],
+  "source": "qwen3:14b"
+ },
+ "홀로그램": {
+  "prompts": [
+   "rainbow shimmer"
+  ],
+  "source": "qwen3:14b"
+ },
+ "홀리데이 무드": {
+  "prompts": [
+   "festive and lively atmosphere"
+  ],
+  "source": "qwen3:14b"
+ },
+ "홈카페": {
+  "prompts": [
+   "cozy home cafe"
+  ],
+  "source": "qwen3:14b"
+ },
+ "홍콩": {
+  "prompts": [
+   "neon lit crowded streets"
+  ],
+  "source": "qwen3:14b"
+ },
+ "홍콩 영화": {
+  "prompts": [
+   "neon and red toned 90s hong k"
+  ],
+  "source": "qwen3:14b"
+ },
+ "홍콩느낌": {
+  "prompts": [
+   "neon lit streets"
+  ],
+  "source": "qwen3:14b"
+ },
+ "홍콩컨셉": {
+  "prompts": [
+   "neon hong kong streets"
+  ],
+  "source": "qwen3:14b"
+ },
+ "화목한 분위기": {
+  "prompts": [
+   "warm family togetherness"
+  ],
+  "source": "qwen3:14b"
+ },
+ "화이트 인테리어": {
+  "prompts": [
+   "white walls and furniture"
+  ],
+  "source": "qwen3:14b"
+ },
+ "후지필름": {
+  "prompts": [
+   "fresh soft tones"
+  ],
+  "source": "qwen3:14b"
+ },
+ "훈훈한 분위기": {
+  "prompts": [
+   "warm cozy atmosphere"
+  ],
+  "source": "qwen3:14b"
+ },
+ "휘게": {
+  "prompts": [
+   "cozy nordic lighting"
+  ],
+  "source": "qwen3:14b"
+ },
+ "흐린 날": {
+  "prompts": [
+   "soft cloudy light"
+  ],
+  "source": "qwen3:14b"
+ },
+ "흑백 프로필": {
+  "prompts": [
+   "monochrome portrait"
+  ],
+  "source": "qwen3:14b"
+ },
+ "흑백 필름": {
+  "prompts": [
+   "grainy black and white"
+  ],
+  "source": "qwen3:14b"
+ },
+ "흙냄새": {
+  "prompts": [
+   "wet earth scent"
+  ],
+  "source": "qwen3:14b"
+ },
+ "힘 뺀": {
+  "prompts": [
+   "relaxed and calm"
+  ],
+  "source": "qwen3:14b"
+ }
+}

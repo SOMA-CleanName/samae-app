@@ -20,9 +20,9 @@ export type AxisBundle = {
   groups: AxisGroup[];
 };
 
-/** 축 11개. 순서는 문서 36 §8 과 같다 — 화면에서도 같은 차례로 보여야 헷갈리지 않는다. */
+/** 축 12개. 순서는 문서 36 §8 과 같고 향은 2026-09-22 에 더했다(docs/40 §17-4) — 화면에서도 같은 차례로 보여야 헷갈리지 않는다. */
 export const AXES = [
-  "감정", "관계", "스타일", "온도", "계절·날씨", "빛", "색감", "질감", "에너지", "공간", "시간대",
+  "감정", "관계", "스타일", "온도", "계절·날씨", "빛", "색감", "질감", "에너지", "공간", "시간대", "향",
 ] as const;
 
 /** 축마다 다른 색을 준다. Tailwind 는 클래스 문자열을 통째로 훑으므로 조합해 만들지 않는다. */
@@ -38,13 +38,14 @@ export const AXIS_TONE: Record<string, string> = {
   "에너지": "border-red-400 bg-red-500/10 text-red-700",
   "공간": "border-sky-400 bg-sky-500/10 text-sky-700",
   "시간대": "border-indigo-400 bg-indigo-500/10 text-indigo-700",
+  "향": "border-lime-500 bg-lime-500/10 text-lime-700",
 };
 
 export const AXIS_BAR: Record<string, string> = {
   "감정": "bg-rose-400", "관계": "bg-pink-400", "스타일": "bg-violet-400",
   "온도": "bg-orange-400", "계절·날씨": "bg-emerald-400", "빛": "bg-amber-400",
   "색감": "bg-fuchsia-400", "질감": "bg-stone-400", "에너지": "bg-red-400",
-  "공간": "bg-sky-400", "시간대": "bg-indigo-400",
+  "공간": "bg-sky-400", "시간대": "bg-indigo-400", "향": "bg-lime-500",
 };
 
 /** 축은 대등하다. 어느 축을 골라도 그 축이 붙은 묶음은 모두 나온다 (docs/40 §10-1). */

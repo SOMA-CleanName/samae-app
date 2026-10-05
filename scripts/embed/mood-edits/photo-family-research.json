@@ -1,0 +1,1064 @@
+{
+ "made_at": "2026-10-02T10:43:57.366169Z",
+ "by": "Claude(Sonnet 에이전트 6조각) — 가족마다 인터넷에서 그 무드의 스냅 · 화보 묘사를 찾아 문장을 다시 썼다(사람 요청 2026-10-02)",
+ "families": {
+  "f01": {
+   "findings": [
+    "벚꽃은 꽃가지와 인물을 가깝게 두고 낮은 가지·꽃잎 만지는 손동작·로우앵글 분홍 꽃천장이 대표",
+    "벚꽃 터널·산책로를 걷는 뒷모습, 고개 돌린 옆모습, 흰 드레스·한복 등 의상 다양",
+    "벚꽃 외에 유채꽃·코스모스·장미·능소화 등 계절 꽃밭과 꽃길도 포함"
+   ],
+   "sources": [
+    "https://www.informaticsview.com/news/articleView.html?idxno=4983",
+    "https://kr.pinterest.com/sulfa0_maydays/%EB%B2%9A%EA%BD%83%EC%8A%A4%EB%83%85/"
+   ]
+  },
+  "f02": {
+   "findings": [
+    "카페 스냅은 창가 자연광과 공간의 조명, 커피·디저트 소품이 핵심",
+    "홈카페·한옥 홈카페 등 집 같은 공간과 은은한 전통 조명도 감성 공간으로 소비",
+    "책방·서재·작업실·숙소·자취방 등 머무는 실내에서의 편안한 차림이 중심"
+   ],
+   "sources": [
+    "https://kmong.com/gig/359892",
+    "https://experiences.myrealtrip.com/products/3880410",
+    "https://www.threads.com/@travel_0photo/post/DOIfTD7AaJk/%EB%82%98-%ED%98%BC%EC%9E%90-%EC%B9%B4%ED%8E%98%EA%B0%80%EC%84%9C-%EC%BB%A4%ED%94%BC-%EC%82%AC%EC%A7%84-%EA%B0%90%EA%B0%81%EC%A0%81%EC%9C%BC%EB%A1%9C-%EC%B4%AC%EC%98%81%ED%95%98%EB%8A%94-%EB%B0%A9%EB%B2%95?hl=ko"
+   ]
+  },
+  "f03": {
+   "findings": [
+    "점프샷·무빙샷·모션 블러가 핵심이며 셔터스피드로 움직임을 표현",
+    "스포티 컨셉은 야구·테니스·운동복 등 종목별 소품이 특징",
+    "놀이터·리드미컬한 춤 등 즐거운 에너지도 포함"
+   ],
+   "sources": [
+    "https://www.adobe.com/kr/creativecloud/roc/blog/photography/motion-blur-photography.html",
+    "https://hjsong.net/717"
+   ]
+  },
+  "f04": {
+   "findings": [
+    "빌딩 숲 사이 빛이 스며드는 시간대와 청계천 등 도심 스냅이 인기",
+    "네온사인 앞 인물 뒤로 불빛 잔상이 번지는 야경 스냅",
+    "을지로·용산·폐공장·노출 콘크리트 등 산업적 질감 배경도 포함"
+   ],
+   "sources": [
+    "https://www.seoulcity.co.kr/news/articleView.html?idxno=546109",
+    "https://www.threads.com/@studio_gamsungs/post/DEzPJ6qyyQI"
+   ]
+  },
+  "f05": {
+   "findings": [
+    "흑백 프로필은 창가 부드러운 빛이나 스튜디오 조명으로 명암 대비를 살림",
+    "모노톤은 흰색·검정 등 무채색 기조의 스타일, 톤온톤·원톤 코디도 포함",
+    "세이지 그린·카키·모카 등 한 톤으로 맞춘 뮤트한 색감도 포함"
+   ],
+   "sources": [
+    "https://kmong.com/gig/608533",
+    "https://filmora.wondershare.kr/useful-information/how-to-take-captivating-black-and-white-portraits.html",
+    "https://stylezineblog.com/4574"
+   ]
+  },
+  "f06": {
+   "findings": [
+    "눈 내리는 설경, 눈꽃, 입김이 핵심이고 눈에 묻히지 않게 빨간 옷·목도리로 포인트",
+    "조리개를 열어 배경을 흐려 눈송이를 앞뒤 흐림으로 표현",
+    "두꺼운 코트·니트·털모자 등 포근한 겨울 차림이 대표"
+   ],
+   "sources": [
+    "https://stylezineblog.com/4719",
+    "https://tamron.co.kr/72",
+    "https://kr.canon/magazine/detail/4407"
+   ]
+  },
+  "f07": {
+   "findings": [
+    "비 오는 날은 부드러운 빛과 푸른빛 도는 촉촉한 공기로 고요하고 서정적인 분위기",
+    "우산(컬러풀한 우산 포인트)·물웅덩이 반영이 핵심 구도",
+    "창가 빗방울, 우비, 비 갠 뒤 젖은 거리 등 다양"
+   ],
+   "sources": [
+    "https://tamron.co.kr/entry/%EB%B9%84%EC%98%A4%EB%8A%94-%EB%82%A0%EC%9D%98-%EC%82%AC%EC%A7%84%EC%9D%84-%EC%B0%8D%EB%8A%94-%EB%B0%A9%EB%B2%95-%EC%B4%88%EB%B3%B4%EC%9E%90%EB%9D%BC%EB%8F%84-%EC%8B%A4%ED%8C%A8%ED%95%98%EC%A7%80-%EC%95%8A%EB%8A%94-%EA%B5%AC%EB%8F%84%EC%99%80-%EC%B4%AC%EC%98%81-%ED%85%8C%ED%81%AC%EB%8B%89%EC%9D%84-%ED%95%B4%EC%84%A4",
+    "https://r1.community.samsung.com/t5/%EA%B0%A4%EB%9F%AD%EC%8B%9C-s/%ED%8C%81-%EB%B9%84-%EC%98%A4%EB%8A%94-%EB%82%A0-%EA%B0%90%EC%84%B1%EC%A0%81%EC%9D%B8-%EC%82%AC%EC%A7%84-%EC%B0%8D%EB%8A%94-%EB%B2%95-%EF%B8%8F/td-p/29914934"
+   ]
+  },
+  "f08": {
+   "findings": [
+    "한강공원은 노을·야경·피크닉 평상(망원 등)이 촬영 명소",
+    "한강뷰·리버뷰 루프탑에서 도심과 강을 내려다보는 장면이 인기",
+    "공원·잔디 피크닉, 대교와 강변 산책 등 야외 휴식 장면 중심"
+   ],
+   "sources": [
+    "https://go.seoul.co.kr/news/newsView.php?id=20120712014007",
+    "https://www.spacecloud.kr/space/77844",
+    "https://hangang.seoul.go.kr/archives/2498"
+   ]
+  },
+  "f09": {
+   "findings": [
+    "제주 돌담·푸른 바다, 하와이·발리 리조트 등 휴양지 스냅이 중심",
+    "윤슬은 물 위에 다이아몬드처럼 반짝이는 빛으로 청량하게 표현",
+    "이른 아침 고요한 바다와 노을 매직아워가 선호됨"
+   ],
+   "sources": [
+    "https://triple.guide/articles/ea440c11-7b33-4305-9693-c963cbb2d446",
+    "https://www.waug.com/ko/magazines/1886",
+    "https://r1.community.samsung.com/t5/%EA%B0%A4%EB%9F%AD%EC%8B%9C-s/%ED%8C%81-%EB%B0%94%EB%8B%A4-%EA%B0%80%EC%84%9C-%EA%B0%A4%EB%9F%AD%EC%8B%9C%EB%A1%9C-%EC%9C%A4%EC%8A%AC-%EC%82%AC%EC%A7%84-%EC%98%88%EC%81%98%EA%B2%8C-%EC%B0%8D%EB%8A%94-%EB%B2%95/td-p/38697432"
+   ]
+  },
+  "f10": {
+   "findings": [
+    "익선동은 한옥 처마·기와지붕 곡선·좁은 골목 간판이 배경, 오후 4~5시 낮은 햇살이 좋음",
+    "을지로는 낡은 간판과 네온사인이 어우러진 빈티지 영화 같은 야경",
+    "성수·연남·교토·도쿄 골목과 미드센추리·앤티크 인테리어도 포함"
+   ],
+   "sources": [
+    "https://www.kfoodtimes.com/news/articleView.html?idxno=14045",
+    "https://kr.trip.com/moments/detail/seoul-234-136667526/",
+    "https://www.threads.com/@studio_gamsungs/post/DEzPJ6qyyQI"
+   ]
+  },
+  "f11": {
+   "findings": [
+    "오래된 기찻길은 긴 선과 침목의 리듬, 낮은 앵글과 역광 실루엣이 특징",
+    "톤 다운된 빈티지·필름 색감(라이트 브라운, 오렌지, 페일 블루)이 잘 어울림",
+    "기차 창가·지하철·터널·건널목 등 이동 중 순간이 대표"
+   ],
+   "sources": [
+    "https://www.lifegotrip.com/2025/05/blog-post_726.html",
+    "https://v.daum.net/v/20180405100245469?f=p"
+   ]
+  },
+  "f12": {
+   "findings": [
+    "애교 가득한 표정·부끄러운 듯한 미소·개구쟁이 같은 장난기가 중심",
+    "아기·아이는 꽃머리띠, 모자, 파스텔 소품 등으로 귀여움을 표현",
+    "강아지 같은 순한 눈빛(댕댕미)과 환한 웃음도 포함"
+   ],
+   "sources": [
+    "https://www.pexels.com/search/cute%20baby/",
+    "https://pixabay.com/ko/images/search/%EC%95%84%EA%B8%B0%20%EC%82%AC%EC%A7%84/"
+   ]
+  },
+  "f13": {
+   "findings": [
+    "프렌치 시크는 꾸민 듯 안 꾸민 내추럴한 헤어·메이크업과 단순하고 세련된 믹스매치",
+    "락시크·긱시크·매니시는 가죽 재킷, 안경, 슈트 같은 쿨한 스타일링",
+    "무심한 표정과 담백한 포즈가 핵심"
+   ],
+   "sources": [
+    "https://www.vogue.co.kr/2022/10/31/%EC%BF%A8%EC%9D%98-%EC%A0%95%EC%84%9D-%ED%94%84%EB%A0%8C%EC%B9%98-%EC%8B%9C%ED%81%AC-%EC%8A%A4%ED%83%80%EC%9D%BC%EB%A7%81%EB%B2%95/",
+    "https://www.harpersbazaar.co.kr/article/1892192",
+    "https://ofdebonair.com/en/%ED%94%84%EB%A0%8C%EC%B9%98-%EC%8B%9C%ED%81%AC-%EC%8A%A4%ED%83%80%EC%9D%BC/"
+   ]
+  },
+  "f14": {
+   "findings": [
+    "보케는 초점 밖 빛이 둥근 빛망울로 번지는 효과, 인물 뒤 배경 날림과 함께 쓰임",
+    "역광 + 렌즈 플레어는 따뜻하고 영화 같은 분위기, 개방 촬영시 몽환적",
+    "소프트 포커스와 흐릿한 필름 감성(씨네스틸)도 포함"
+   ],
+   "sources": [
+    "https://blog.lgchem.com/2016/02/bokeh-photo/",
+    "https://www.adobe.com/kr/creativecloud/photography/discover/lens-flare.html",
+    "https://www.lomography.co.kr/magazine/357908-the-cinematic-perspective-that-captures-characters-and-emotions-by-taewoo-kim"
+   ]
+  },
+  "f15": {
+   "findings": [
+    "여름 스냅은 맑고 푸른 하늘, 눈부신 햇살, 하얀 구름이 어우러진 시원한 분위기",
+    "계곡 물놀이, 소나기, 여름밤 하늘 등 장면이 다양",
+    "가벼운 여름옷과 밝고 장난스러운 표정이 핵심"
+   ],
+   "sources": [
+    "https://kr.pinterest.com/ideas/%EC%8B%9C%EC%9B%90%ED%95%9C-%EC%97%AC%EB%A6%84-%EC%82%AC%EC%A7%84/959354372295/",
+    "https://www.threads.com/@camper_puri/post/DbTN6YcEeDu/%ED%95%9C%EC%97%AC%EB%A6%84-%EB%AC%B4%EB%8D%94%EC%9A%B4-%EB%82%A0-%EC%8B%9C%EC%9B%90%ED%95%9C-%EC%86%8C%EB%82%98%EA%B8%B0-%EC%97%AC%EB%A6%84%EB%B3%B4%EB%82%B4%EA%B8%B0%EC%97%AC%EB%A6%84%EC%BA%A0-%EC%86%8C%EB%82%98%EA%B8%B0-%EA%B3%84%EA%B3%A1%EC%A6%90%EA%B8%B0%EB%8A%94%EB%B2%95-%EC%BA%A0%ED%8D%BC%ED%93%A8%EB%A6%AC"
+   ]
+  },
+  "f17": {
+   "findings": [
+    "90년대 필름 사진 느낌은 조금 흔들리고 색이 빛바래고 완벽하지 않음",
+    "물 빠진·탁한 색감은 비브런스를 낮추고 Faded Film 효과",
+    "싸이월드·Y2K 감성의 투박한 스냅 느낌도 포함"
+   ],
+   "sources": [
+    "https://www.adobe.com/kr/creativecloud/photography/discover/add-vintage-aesthetic.html",
+    "https://www.threads.com/@moongi_adventures/post/DYtGOc9lGV_/90%EB%85%84%EB%8C%80-%ED%95%84%EB%A6%84%EC%B9%B4%EB%A9%94%EB%9D%BC%EB%A1%9C-%EC%B0%8D%EC%9D%80-%EB%93%AF%ED%95%9C-%EC%82%AC%EC%A7%84%EB%93%A4-%EA%B0%91%EC%9E%90%EA%B8%B0-%EC%98%9B%EB%82%A0-%EC%83%9D%EA%B0%81%EC%9D%B4-%EB%82%98%EC%84%9C-%ED%95%84%EB%A6%84-%EC%B9%B4%EB%A9%94%EB%9D%BC%EB%A1%9C-%EC%B0%8D%EA%B3%A0%EC%9D%B8%EC%87%84%ED%95%B4%EC%84%9C-%EB%B3%B4%EB%8D%98-%EC%98%9B%EB%82%A0-%EC%96%B4%EB%A6%B0-%EC%8B%9C%EC%A0%88-%EB%8A%90%EB%82%8C%EC%9D%98-%EC%82%AC%EC%A7%84%EC%9D%B4-%EA%B7%B8%EB%A6%AC%EC%9B%8C%EC%A7%80%EB%8D%94%EB%9D%BC%EA%B3%A0-%E3%85%8E/?hl=ko",
+    "https://m.cafe.daum.net/ssaumjil/LnOm/2487296?svc=topRank"
+   ]
+  },
+  "f19": {
+   "findings": [
+    "귓가에 속삭이고 쑥스럽게 웃는 순간, 손 잡고 걷는 뒷모습이 영화 같은 로맨스 장면으로 언급",
+    "백허그·마주보는 눈빛·부드러운 색감 보정이 러블리/첫사랑 무드의 핵심"
+   ],
+   "sources": [
+    "https://www.adobe.com/kr/creativecloud/roc/blog/photography/couple-photoshoot-ideas.html"
+   ]
+  },
+  "f20": {
+   "findings": [
+    "통창·큰 창가에서 들어오는 부드러운 빛이 자연광 스튜디오의 핵심",
+    "온실·식물 인테리어, 높은 층고, 나뭇잎 사이로 비치는 햇살이 함께 언급됨",
+    "흰 벽·화이트 커튼으로 빛이 확산되어 밝고 톤이 살아있는 인물 사진"
+   ],
+   "sources": [
+    "https://slowgraphy.kr/45",
+    "https://groundche.com/%ED%99%94%EB%B3%B4%EC%B4%AC%EC%98%81%EC%8A%A4%ED%8A%9C%EB%94%94%EC%98%A4-%EC%9E%90%EC%97%B0%EA%B4%91-%EC%8A%A4%ED%8A%9C%EB%94%94%EC%98%A4-%EC%84%B8%ED%8C%85%EB%B9%84-%EC%A4%84%EC%9D%B4%EB%8A%94/"
+   ]
+  },
+  "f21": {
+   "findings": [
+    "들판·언덕에서 탁 트인 하늘을 배경으로 한 사진이 시골 감성의 핵심",
+    "할머니집·텃밭·농가 같은 소박한 시골 정경이 소재",
+    "초록 풀숲과 야외의 풀내음 나는 장면"
+   ],
+   "sources": [
+    "https://brunch.co.kr/@travie/152",
+    "https://www.elle.co.kr/article/1869849"
+   ]
+  },
+  "f22": {
+   "findings": [
+    "교복·세라복 스냅과 하이틴 졸업사진 컨셉이 대표적",
+    "놀이공원, 교정, 체크 교복·하이틴룩 등 레트로 스쿨룩",
+    "친구와 함께하는 풋풋하고 장난스러운 학창시절 분위기"
+   ],
+   "sources": [
+    "https://www.cocographer.com/schoollooks",
+    "https://crepe.cm/@zzang_dol/y7b305na"
+   ]
+  },
+  "f23": {
+   "findings": [
+    "골든아워는 일몰 전 빛이 부드러워지고 황금빛으로 물드는 시간",
+    "나무·건물·사람을 역광 실루엣으로 찍는 구도가 서정적",
+    "해 뜰 무렵 일출과 늦은 오후 햇살도 포함"
+   ],
+   "sources": [
+    "https://blog.adobe.com/ko/publish/2021/12/01/how-to-use-natural-light-to-enhance-your-photography",
+    "https://www.travie.com/news/articleView.html?idxno=19256"
+   ]
+  },
+  "f24": {
+   "findings": [
+    "룩북·에디토리얼 스타일 스냅이 최근 트렌드",
+    "잡지 화보처럼 감각적인 구도와 색감, 앨범 커버 같은 느낌",
+    "스튜디오 배경 + 스타일링된 패션이 핵심"
+   ],
+   "sources": [
+    "https://btyplus.co.kr/blog/beuraendeuui-eolgul-rukbuk-chwalyeong-silpae-eobsi-haneun",
+    "https://soomgo.com/portfolio/detail/6981978e8edc936bb7ec4c1f"
+   ]
+  },
+  "f25": {
+   "findings": [
+    "선글라스·베일 등으로 스트릿 무드를 낸 힙한 스냅",
+    "컨셉(과일 등)을 정해 장소·복장·포즈를 맞추는 방식",
+    "'과일 컨셉'·아방가르드는 직접 검색 결과 적어 멤버 정의를 따름"
+   ],
+   "sources": [
+    "https://blog.filmconnect.co.kr/%ED%95%84%EB%A6%84%EC%BB%A4%EB%84%A5%ED%8A%B8-%ED%9E%99%ED%95%9C-%EC%9B%A8%EB%94%A9%EC%8A%A4%EB%83%85%EC%9D%98-%EC%A0%95%EC%84%9D-%EC%9D%B4%EB%8F%84%EC%8A%A4%EB%83%85-%EC%B4%AC%EC%98%81-%EB%B0%A9%EC%8B%9D-%ED%9B%84%EA%B8%B0-103352",
+    "https://kr.canon/magazine/detail/6166?area2List=null&photoVstAreaSeq=null&seqArr=CUR"
+   ]
+  },
+  "f26": {
+   "findings": [
+    "왕가위 영화풍: 채도 높은 색감과 네온사인이 늘어선 거리의 밤",
+    "홍콩 스냅은 몽콕 야경, 네온 간판 배경이 대표",
+    "80년대·시티팝 느낌의 레트로 색감"
+   ],
+   "sources": [
+    "https://experiences.myrealtrip.com/products/3880584",
+    "https://namu.wiki/w/%EC%99%95%EA%B0%80%EC%9C%84"
+   ]
+  },
+  "f27": {
+   "findings": [
+    "놀이공원 밤·야경 인물 스냅이 대표 사례",
+    "별·은하수는 긴 노출로 밤하늘과 전경을 함께 담음",
+    "밤바다·달밤·도시 불빛 배경"
+   ],
+   "sources": [
+    "https://notefolio.net/glowingspace/356701",
+    "https://kr.canon/magazine/detail/8345"
+   ]
+  },
+  "f28": {
+   "findings": [
+    "걸크러쉬 화보는 카메라를 향한 강렬한 눈빛과 당당한 포즈",
+    "록시크 룩·스포티룩 등 센 스타일링",
+    "카리스마·자신감이 표정과 자세로 드러남"
+   ],
+   "sources": [
+    "https://www.sisamagazine.co.kr/news/articleView.html?idxno=365501",
+    "https://www.xportsnews.com/article/1066664"
+   ]
+  },
+  "f29": {
+   "findings": [
+    "신혼·부부 스냅은 서로 바라보며 웃는 자연스러운 모습이 중심",
+    "친구 우정 스냅은 컨셉·장소·복장을 정해 함께 포즈",
+    "이 가족은 검색 결과가 적어 멤버 정의를 따름"
+   ],
+   "sources": [
+    "https://kr.canon/magazine/detail/6166?area2List=null&photoVstAreaSeq=null&seqArr=CUR"
+   ]
+  },
+  "f30": {
+   "findings": [
+    "몽환 인물 사진은 창백하고 밝은 피부톤, 보라·핑크 아이섀도가 특징",
+    "흰색 하늘하늘한 옷과 숲·파란 하늘 등 쿨톤 배경 추천",
+    "초현실 사진은 꿈 같은 요소를 예상 밖으로 결합"
+   ],
+   "sources": [
+    "https://www.adobe.com/kr/creativecloud/photography/discover/surreal-photography.html",
+    "https://stylezineblog.com/4878"
+   ]
+  },
+  "f31": {
+   "findings": [
+    "프로필 비하인드 컷: 자연스럽게 흐트러진 머리, 단순한 민소매·데님 셔츠",
+    "흰 배경, 힘 뺀 자세, 담백한 표정이 내추럴·미니멀의 핵심",
+    "어스톤(베이지·브라운) 소박한 옷차림"
+   ],
+   "sources": [
+    "https://www.starnewskorea.com/star/2026/06/05/2026060510200649250",
+    "https://www.topstarnews.net/news/articleView.html?idxno=16225768"
+   ]
+  },
+  "f32": {
+   "findings": [
+    "한복은 야외·한옥 배경 스냅의 대표 복장 컨셉",
+    "보헤미안·에스닉은 프린지, 패턴, 레이어드 원피스",
+    "포멀(정장·드레스)과 캐주얼 데님·셔츠도 포함"
+   ],
+   "sources": [
+    "https://hanboknam.com/category/%EC%8A%A4%EB%83%85%EC%B4%AC%EC%98%81/141/",
+    "https://happyhippy.kr/product/%EB%B0%94%EB%9E%8C-%EB%A0%88%EC%9D%B4%EC%96%B4%EB%93%9C-%EC%9B%90%ED%94%BC%EC%8A%A4-5%EC%A2%85-%EC%97%90%EC%8A%A4%EB%8B%89-%EB%B3%B4%ED%97%A4%EB%AF%B8%EC%95%88-%EC%8A%A4%ED%83%80%EC%9D%BC-%EC%98%B7/2365/"
+   ]
+  },
+  "f33": {
+   "findings": [
+    "유럽 크리스마스 마켓: 눈 내리는 광장, 반짝이는 트리, 목조 노점",
+    "따뜻한 글뤼바인 한 잔과 겨울 코트·목도리 차림",
+    "북유럽 휘게는 촛불·니트·아늑한 실내 분위기"
+   ],
+   "sources": [
+    "https://www.vogue.co.kr/2023/12/18/%EC%98%AC%EA%B2%A8%EC%9A%B8-%EB%B0%A9%EB%AC%B8%ED%95%B4%EC%95%BC-%ED%95%A0-%EC%B5%9C%EA%B3%A0%EC%9D%98-%EC%9C%A0%EB%9F%BD-%ED%81%AC%EB%A6%AC%EC%8A%A4%EB%A7%88%EC%8A%A4-%EB%A7%88%EC%BC%93/",
+    "https://www.prioritypass.com/ko-KR/blog/christmas-in-europe"
+   ]
+  },
+  "f34": {
+   "findings": [
+    "'꾸안꾸'는 꾸민 듯 안 꾸민 듯한 자연스러운 스타일",
+    "연출·구도 없이 일상에서 우연히 찍힌 듯한 리얼한 스냅 느낌",
+    "직접적인 촬영 사례는 적어 멤버 정의를 따름"
+   ],
+   "sources": [
+    "https://www.dailynk.com/20261002-2/"
+   ]
+  },
+  "f35": {
+   "findings": [
+    "B급·병맛은 일부러 망가지고 어설픈 연출에서 오는 친근한 매력으로 소비된다",
+    "스냅에서는 과장된 표정, 코스프레·소품, 장난스러운 포즈가 핵심",
+    "(자료 적음) 웃음이 터진 순간과 익살스러운 컨셉 의상 중심으로 구성"
+   ],
+   "sources": [
+    "https://www.sedaily.com/article/12506956",
+    "https://www.munhwa.com/article/11595496"
+   ]
+  },
+  "f36": {
+   "findings": [
+    "역광·림라이트는 윤곽을 따라 빛나는 테두리로 피사체를 배경에서 분리한다",
+    "렘브란트 조명은 눈 아래 역삼각형 빛이 생기는 45도 측광, 사이드 라이트는 얼굴 한쪽만 비춘다",
+    "실루엣은 인물을 어두운 윤곽으로만 표현해 밝은 하늘·창 앞에서 많이 쓰인다"
+   ],
+   "sources": [
+    "https://www.shutterstock.com/ko/blog/portrait-photography-rembrandt-lighting/",
+    "https://morphic.com/kr/ai-glossary/rim-light",
+    "https://kr.canon/magazine/detail/2682"
+   ]
+  },
+  "f37": {
+   "findings": [
+    "필름 스냅은 포트라 계열의 따뜻하고 부드러운 색감, 낮은 대비와 곱거나 거친 입자가 특징",
+    "로모·폴라로이드·일회용 카메라 특유의 비네팅, 흰 테두리, 플래시 느낌도 대표적",
+    "영화 색감은 약간 청록·주황으로 기운 시네마틱 톤"
+   ],
+   "sources": [
+    "https://www.onpost.co.kr/2025/09/kodaklist.html",
+    "https://www.onpost.co.kr/2025/09/human.html",
+    "https://www.onpost.co.kr/2025/07/kodakfilm.html"
+   ]
+  },
+  "f38": {
+   "findings": [
+    "드림코어는 파스텔 배경, 슬립 드레스, 별 장식 등 몽환적이고 비현실적인 분위기",
+    "동화·요정 스냅은 숲, 꽃, 레이스·튤 드레스, 반짝이는 소품으로 연출",
+    "올화이트 의상과 숲속 배경이 청초한 요정 느낌으로 쓰인다"
+   ],
+   "sources": [
+    "https://www.topstarnews.net/news/articleView.html?idxno=16225758",
+    "https://namu.wiki/w/%EB%93%9C%EB%A6%BC%EC%BD%94%EC%96%B4",
+    "https://www.enpnow.com/news/articleView.html?idxno=109733"
+   ]
+  },
+  "f39": {
+   "findings": [
+    "따뜻한 톤은 노란·주황 계열의 실내 조명과 햇살 색, 버터 옐로우 파스텔이 중심",
+    "카페·방 안의 전구색 조명과 노을빛이 대표 배경",
+    "틸 앤 오렌지는 따뜻한 피사체에 청록 그림자를 맞춘 영화식 색감"
+   ],
+   "sources": [
+    "https://magazine-acumen.com/ko/%EB%AA%A8%EB%93%9C/%EB%B2%84%ED%84%B0%EC%B2%98%EB%9F%BC-%EB%85%B8%EB%9E%80%EC%83%89--2025%EB%85%84%EC%9D%84-%ED%99%98%ED%95%98%EA%B2%8C-%EB%B9%84%EC%B6%94%EB%8A%94-%ED%96%87%EC%82%B4-%EA%B0%99%EC%9D%80-%EB%8B%AC%EC%BD%A4%ED%95%A8/",
+    "https://kr.canon/magazine/detail/7505"
+   ]
+  },
+  "f40": {
+   "findings": [
+    "봄 스냅은 벚꽃·튤립밭 같은 화사한 꽃 배경이 중심",
+    "따뜻한 햇살, 파스텔 의상, 새로운 시작을 닮은 산뜻한 색감",
+    "봄소풍은 돗자리·바구니 등 소품과 공원 장면, 로우 앵글 꽃 촬영도 흔함"
+   ],
+   "sources": [
+    "https://www.korea.kr/news/visualNewsView.do?newsId=148848552",
+    "https://kr.canon/magazine/detail/4667",
+    "https://kr.pinterest.com/natashalee95/%EB%B4%84-%EC%8A%A4%EB%83%85-%EC%BB%A8%EC%85%89/"
+   ]
+  },
+  "f41": {
+   "findings": [
+    "가을 스냅은 단풍·은행나무길·억새·갈대밭이 대표 배경",
+    "한낮보다 아침·늦은 오후의 부드러운 빛, 얕은 심도로 배경을 흐리게 하는 구도가 흔함",
+    "의상은 베이지·브라운 코트, 니트, 트렌치 등 차분한 톤"
+   ],
+   "sources": [
+    "https://kr.canon/magazine/detail/5166",
+    "https://roistudio.co.kr/blog/?bmode=view&idx=2153068",
+    "https://r1.community.samsung.com/t5/%EA%B0%A4%EB%9F%AD%EC%8B%9C%EB%A1%9C-%EC%99%84%EC%84%B1%ED%95%98%EB%8A%94-%EA%B0%80%EC%9D%84-%ED%95%9C-%EC%BB%B7-%EB%A0%88%EC%8B%9C%ED%94%BC/%EB%8B%A8%ED%92%8D%EC%9D%B4-%EC%9D%B5%EC%96%B4%EA%B0%80%EB%8A%94-%EA%B3%84%EC%A0%88/cns-p/39680551"
+   ]
+  },
+  "f42": {
+   "findings": [
+    "블루 아워는 일출 전·일몰 후 푸르스름한 박명으로 쿨하고 환상적인 분위기",
+    "새벽의 푸른 빛과 청록·민트 포인트, 차가운 쿨톤 보정이 핵심",
+    "(자료 적음) 인물은 차분한 표정에 흰·푸른 계열 옷이 어울림"
+   ],
+   "sources": [
+    "https://ko.wikipedia.org/wiki/%EB%B8%94%EB%A3%A8_%EC%95%84%EC%9B%8C",
+    "https://blog.adobe.com/ko/publish/2021/12/01/how-to-use-natural-light-to-enhance-your-photography",
+    "https://tamron.co.kr/entry/%EB%A7%A4%EC%A7%81%EC%95%84%EC%9B%8C%EB%9E%80-%EC%95%84%EB%A6%84%EB%8B%A4%EC%9B%80%EC%9D%98-%ED%8A%B9%EC%A7%95%EA%B3%BC-%EC%B0%8D%EB%8A%94-%EC%9A%94%EB%A0%B9%EC%9D%84-%EC%86%8C%EA%B0%9C%ED%95%B4%EB%93%9C%EB%A6%BD%EB%8B%88%EB%8B%A4"
+   ]
+  },
+  "f43": {
+   "findings": [
+    "멍때림·한적함·혼자만의 시간은 사람이 풍경에 작게 놓이고 시선이 먼 곳을 향하는 장면",
+    "힘 뺀 자세, 느슨한 옷, 창가·카페·바닷가·벤치 같은 조용한 공간이 흔함",
+    "(자료 적음) 구체 스냅 레퍼런스가 부족해 무드 정의 중심으로 구성"
+   ],
+   "sources": [
+    "https://www.korea.kr/news/cultureColumnView.do?newsId=148868535",
+    "https://stylezineblog.com/4878"
+   ]
+  },
+  "f44": {
+   "findings": [
+    "비비드·고채도는 선명한 원색과 보색 대비, 단색 컬러 배경이 핵심",
+    "형광·네온 포인트, 알록달록한 패턴 의상, 컬러풀한 소품이 흔함",
+    "(자료 적음) 스냅 용례보다 색채·패션 자료 중심"
+   ],
+   "sources": [
+    "https://www.wkorea.com/2026/04/27/%EB%B9%84%EB%B9%84%EB%93%9C%ED%95%9C-%EC%BB%AC%EB%9F%AC-%ED%8C%94%EB%A0%88%ED%8A%B8-%EC%86%8D-%EC%9D%80%EA%B7%BC%ED%9E%88-%EB%AC%B4%EB%93%9C%EB%A5%BC-%EC%9E%A5%EC%95%85%ED%95%98%EA%B3%A0-%EC%9E%88/",
+    "https://brunch.co.kr/@sobrief/186"
+   ]
+  },
+  "f45": {
+   "findings": [
+    "웃음 사진은 눈이 함께 웃고 광대가 올라가며 입꼬리가 올라간 자연스러운 표정이 핵심",
+    "연출보다 대화 중 터진 웃음, 아이·반려동물·친구와의 순간이 마음 따뜻한 느낌",
+    "(자료 적음) 표정 팁 위주의 자료"
+   ],
+   "sources": [
+    "https://www.wikitree.co.kr/articles/849899",
+    "https://www.featuring.co.kr/news/articleView.html?idxno=1275"
+   ]
+  },
+  "f46": {
+   "findings": [
+    "아날로그·로파이는 거친 그레인, 낮은 해상도, 번짐과 노이즈가 핵심",
+    "VHS·캠코더 느낌은 색 번짐, 지지직거리는 화면, 날짜 표시, 흔들림으로 표현",
+    "Y2K 감성과 겹쳐 직접 플래시와 흐릿한 일상 장면이 많다"
+   ],
+   "sources": [
+    "https://blog.hyosung.com/3725",
+    "https://www.slist.kr/news/articleView.html?idxno=19488",
+    "https://filmora.wondershare.kr/ai-prompts/y2k-photo-prompts.html"
+   ]
+  },
+  "f47": {
+   "findings": [
+    "우울·우수에 찬 무드는 짙은 청·보라·검정 등 딥톤과 낮은 조도, 먼 곳을 보는 시선",
+    "Y2K는 대비 강한 색, 거친 노이즈, 캠코더 저화질, 마젠타·형광 포인트가 특징",
+    "(자료 적음) 우울 쪽 직접 스냅 자료 부족"
+   ],
+   "sources": [
+    "https://filmora.wondershare.kr/ai-prompts/y2k-photo-prompts.html",
+    "https://morphic.com/kr/resources/images/y2k-aesthetic-images"
+   ]
+  },
+  "f48": {
+   "findings": [
+    "숲 스냅은 짙은 녹음, 이끼, 나무 터널 같은 깊은 초록 배경",
+    "지브리 감성은 자작나무숲·이끼터널·청보리밭 등 동화처럼 고요한 자연",
+    "올리브·딥그린 톤 옷과 나뭇잎 사이로 스미는 빛이 어울림"
+   ],
+   "sources": [
+    "https://www.telltrip.com/domestic-travel/domestic-ghibli-travel/",
+    "https://keyzard.cc/views/nb/LDE-LwBrJjAqZWVtbWtsZmlmZ25ta2s"
+   ]
+  },
+  "f49": {
+   "findings": [
+    "고대비는 키아로스쿠로처럼 밝고 어두운 영역이 극명하게 나뉘는 조명",
+    "얼굴 반쪽 그림자, 단일 광원, 거친 빛이 만드는 짙은 그림자가 핵심",
+    "빨간 조명은 어두운 배경에서 강렬한 분위기를 더하는 대표 요소"
+   ],
+   "sources": [
+    "https://ko.wikipedia.org/wiki/%ED%82%A4%EC%95%84%EB%A1%9C%EC%8A%A4%EC%BF%A0%EB%A1%9C",
+    "https://www.adobe.com/kr/creativecloud/photography/discover/portrait-lighting.html",
+    "https://v.daum.net/v/20160823112909713?f=p"
+   ]
+  },
+  "f50": {
+   "findings": [
+    "보송한 질감은 린넨·벨벳·니트 같은 소재의 결이 드러나는 클로즈업과 부드러운 확산광",
+    "매트하고 반사가 적은 표면, 낮은 대비의 차분한 톤이 특징",
+    "(자료 적음) 검색 결과가 뷰티 제품 위주여서 소재·조명 일반 지식으로 보완"
+   ],
+   "sources": [
+    "https://www.elle.co.kr/article/50839",
+    "https://www.marieclairekorea.com/newnew/2024/09/marie-beauty-lab-%EC%98%A8%EC%A2%85%EC%9D%BC-%EB%B3%B4%EC%86%A1%ED%95%9C-%ED%94%BC%EB%B6%80%EB%A5%BC-%EC%9C%A0%EC%A7%80%ED%95%B4-%EC%A4%84-best-%EB%A7%A4%ED%8A%B8-%EC%BF%A0%EC%85%98%EC%9D%80/"
+   ]
+  },
+  "f51": {
+   "findings": [
+    "차분한 색감은 필름 뉴트럴 톤·흐린 날의 푸른 기, 단색 의상과 절제된 표정으로 표현된다",
+    "골든아워의 부드러운 빛, 모노톤 필름도 차분한 분위기에 쓰인다"
+   ],
+   "sources": [
+    "https://www.onpost.co.kr/2025/08/allfilms.html",
+    "https://vp-magazine.com/lighting/?bmode=view&idx=160740443",
+    "https://unsplash.com/ko/s/%EC%82%AC%EC%A7%84/%EC%B0%A8%EB%B6%84%ED%95%9C-%EC%82%AC%EB%9E%8C"
+   ]
+  },
+  "f52": {
+   "findings": [
+    "커플 스냅의 설렘은 서로를 바라보는 수줍은 미소, 맞잡은 손, 붉어진 볼, 풍선·꽃 같은 소품으로 표현된다",
+    "로맨틱한 핑크·따뜻한 톤과 가까운 거리감이 핵심"
+   ],
+   "sources": [
+    "https://kr.pinterest.com/ideas/%EC%BB%A4%ED%94%8C-%EC%8A%A4%EB%83%85-%EC%82%AC%EC%A7%84/925556491216/",
+    "https://kr.canon/magazine/detail/6166",
+    "https://brunch.co.kr/@sobrief/186"
+   ]
+  },
+  "f53": {
+   "findings": [
+    "웨스 앤더슨 스타일은 완벽한 중앙 대칭 구도, 정면·측면 구도, 페일 핑크·라임 그린 등 파스텔 팔레트가 특징",
+    "핀터레스트 감성은 그림·화보 같은 정돈된 연출과 빈티지 소품이 중심"
+   ],
+   "sources": [
+    "https://www.elle.co.kr/article/82094",
+    "https://vfx-and-life.com/entry/%EB%AA%A8%EB%91%90%EA%B0%80-%EC%82%AC%EB%9E%91%ED%95%98%EB%8A%94-%EC%9B%A8%EC%8A%A4%EC%95%A4%EB%8D%94%EC%8A%A8-%EC%8A%A4%ED%83%80%EC%9D%BC-%EC%A7%80%EB%8F%85%ED%95%9C-%EB%8C%80%EC%B9%AD-%EA%B5%AC%EC%A1%B0-%EC%8A%A4%ED%83%80%EC%9D%BC",
+    "https://www.vogue.co.kr/2015/10/03/%EC%A1%B0%EA%B8%88-%EB%B3%84%EB%82%9C-%EC%9B%A8%EC%8A%A4-%EC%95%A4%EB%8D%94%EC%8A%A8-%EC%8A%A4%ED%83%80%EC%9D%BC/"
+   ]
+  },
+  "f54": {
+   "findings": [
+    "섹시 컨셉 화보는 몸에 붙는 의상, 진한 립·메이크업, 자신감 있는 포즈와 시선이 공통점",
+    "'핫걸'·'치명미'는 화려한 드레스, 글래머러스한 실루엣, 강한 조명과 연결된다"
+   ],
+   "sources": [
+    "https://www.xportsnews.com/article/2192748",
+    "https://www.xportsnews.com/article/2197112",
+    "https://soomgo.com/portfolio/detail/6981978e8edc936bb7ec4c1f"
+   ]
+  },
+  "f55": {
+   "findings": [
+    "아련·노스탤직 사진은 필름 질감, 바랜 색, 역광과 석양빛, 오래된 골목·교복·앨범 같은 소재로 표현된다",
+    "그리움은 먼 곳을 바라보는 뒷모습·옅은 미소로 보여준다"
+   ],
+   "sources": [
+    "https://brunch.co.kr/@hcosmos/622",
+    "https://brunch.co.kr/@hcosmos/587",
+    "https://www.snaps.com/blog/best-camera-apps-for-photos/"
+   ]
+  },
+  "f56": {
+   "findings": [
+    "시네마틱 스냅은 영화 장면 같은 색보정, 와이드한 화면비, 의도된 구도와 연출이 핵심",
+    "뮤비·드라마 같은 연출: 앨범 자켓처럼 서 있거나 걷는 인물, 인형 같은 스타일링"
+   ],
+   "sources": [
+    "https://carat.im/blog/cinematic-meaning",
+    "https://experiences.myrealtrip.com/products/3881360",
+    "https://experiences.myrealtrip.com/products/3923357"
+   ]
+  },
+  "f57": {
+   "findings": [
+    "몽환·뽀샤시는 밝게 올린 라이트톤, 소프트 포커스, 부드러운 글로우와 도자기처럼 매끈한 피부 보정이 특징",
+    "역광이나 확산광에 뿌옇게 번지는 화면이 자주 쓰인다"
+   ],
+   "sources": [
+    "https://stylezineblog.com/4878",
+    "https://www.adobe.com/kr/creativecloud/photography/hub/guides/how-to-create-a-glow-effect-in-photoshop.html",
+    "https://www.lightroom.kr/forum/view/772333"
+   ]
+  },
+  "f58": {
+   "findings": [
+    "아이보리·크림·우드·골드는 웜톤 계열의 따뜻한 중립색 조합으로 쓰인다",
+    "의상은 베이지·브라운·골드, 공간은 우드 가구와 황금빛 빛 번짐"
+   ],
+   "sources": [
+    "https://v.daum.net/v/M0PA4I6vWD?f=p",
+    "https://personalcolor.weebly.com/44032510125090853668.html",
+    "https://www.palettehunt.com/soft-autumn-color-analysis"
+   ]
+  },
+  "f59": {
+   "findings": [
+    "호리존 스튜디오는 벽과 바닥의 경계가 없는 무한 배경이라 피사체에 집중되고 하이키·로우키 모두 가능",
+    "프로필·컨셉화보에 쓰이며 배경지 색상을 바꿔 여백을 활용한다"
+   ],
+   "sources": [
+    "https://www.spacecloud.kr/space/16928",
+    "https://dpyeye.com/entry/%EC%82%AC%EC%A7%84%EC%98%81%EC%83%81-%EC%B4%AC%EC%98%81-%ED%95%84%EC%88%98-%EA%B3%B5%EA%B0%84-%ED%98%B8%EB%A6%AC%EC%A1%B4-%EC%8A%A4%ED%8A%9C%EB%94%94%EC%98%A4-%EC%99%84%EB%B2%BD-%EA%B0%80%EC%9D%B4%EB%93%9C%EB%B6%81",
+    "https://brunch.co.kr/@nspace/289"
+   ]
+  },
+  "f60": {
+   "findings": [
+    "맑은 색감·에어리한 느낌은 옅은 파스텔, 밝은 하늘색, 수채화처럼 번지는 색과 낮은 대비",
+    "밝은 감성사진으로 자연광에 가볍고 투명한 옷차림"
+   ],
+   "sources": [
+    "https://www.pinterest.com/ideas/%EB%B0%9D%EC%9D%80-%EA%B0%90%EC%84%B1%EC%82%AC%EC%A7%84/910408460229/",
+    "https://kr.canon/magazine/detail/9565",
+    "https://kr.pinterest.com/sms342112/%EA%B0%90%EC%84%B1%EC%82%AC%EC%A7%84/"
+   ]
+  },
+  "f61": {
+   "findings": [
+    "야구장 데이트는 유니폼·응원 도구를 든 커플, 영화관은 손잡고 나란히 앉은 모습이 대표 장면",
+    "남친짤·여친짤은 연인이 찍어준 듯 자연스럽고 다정한 일상 컷"
+   ],
+   "sources": [
+    "https://www.clien.net/service/board/park/1735396",
+    "https://v.daum.net/v/1kqwaZLKbq",
+    "https://m.cafe.daum.net/ok1221/9Zdf/1442404?listURI=/ok1221/9Zdf"
+   ]
+  },
+  "f62": {
+   "findings": [
+    "올드머니 룩은 맞춤 핏, 화이트·베이지·브라운·블랙 같은 뉴트럴 색, 로고 없는 절제된 클래식 아이템",
+    "실크·캐시미어 같은 고급 원단과 미니멀한 액세서리가 핵심"
+   ],
+   "sources": [
+    "https://the-edit.co.kr/55702",
+    "https://www.musinsa.com/cms/magazine/view/8154",
+    "https://brunch.co.kr/@denmagazine/82"
+   ]
+  },
+  "f63": {
+   "findings": [
+    "올화이트는 흰 셔츠·흰 바지 등 전체를 흰 옷으로 맞추고 흰 배경에서 촬영하는 스타일",
+    "하이키·과노출은 밝고 하얗게 날아가는 화면, 화이트 인테리어는 흰 공간에 자연광"
+   ],
+   "sources": [
+    "https://www.ppss.kr/news/articleView.html?idxno=313068",
+    "https://www.enpnow.com/news/articleView.html?idxno=109733",
+    "https://ohou.se/cards/feed?query=%EC%98%AC%ED%99%94%EC%9D%B4%ED%8A%B8"
+   ]
+  },
+  "f64": {
+   "findings": [
+    "분위기·세련됨은 말이 넓어 단정한 실루엣, 로우키 조명, 시선 처리, 도시 배경으로 폭넓게 표현",
+    "우아함은 드레스·긴 머리·부드러운 빛, 훈훈함은 따뜻한 조명과 미소"
+   ],
+   "sources": [
+    "https://unsplash.com/ko/s/%EC%82%AC%EC%A7%84/%EC%9A%B0%EC%95%84%ED%95%9C-%EB%B6%84%EC%9C%84%EA%B8%B0",
+    "https://unsplash.com/ko/s/%EC%82%AC%EC%A7%84/%EC%84%B8%EB%A0%A8%EB%90%9C-%EB%B6%84%EC%9C%84%EA%B8%B0",
+    "https://kr.canon/magazine/detail/6025"
+   ]
+  },
+  "f65": {
+   "findings": [
+    "블라인드 사이로 들어온 빛은 얼굴·몸에 규칙적인 줄무늬 그림자를 만든다",
+    "나뭇잎·창틀 그림자와 커튼 사이 빛은 흰 벽에 감성적인 무늬를 만든다"
+   ],
+   "sources": [
+    "https://allmyuniverse.com/image-prompt-guide-venetian-blinds-golden-hour/",
+    "https://www.adobe.com/kr/creativecloud/photography/discover/shadow-photography.html",
+    "https://www.crowdpic.net/photo/%EC%97%AD%EA%B4%91-%EA%B7%B8%EB%A6%BC%EC%9E%90-%EC%B0%BD%EB%AC%B8-%EB%B9%9B-%EC%96%B4%EB%91%A0-352535"
+   ]
+  },
+  "f66": {
+   "findings": [
+    "고딕은 검은 머리·레이스·십자가 장식·짙은 버건디 립과 음영 메이크업, 체인 액세서리",
+    "누아르·퇴폐·웅장함은 어둠 속 강한 명암, 가죽·검은 의상, 오래된 건축 배경"
+   ],
+   "sources": [
+    "https://www.topstarnews.net/news/articleView.html?idxno=15876554",
+    "https://namu.wiki/w/%EA%B3%A0%EC%8A%A4%20%EB%A3%A9",
+    "https://ko.wikipedia.org/wiki/%EA%B3%A0%EB%94%95_%ED%8C%A8%EC%85%98"
+   ]
+  },
+  "f67": {
+   "findings": [
+    "글리터·펄 메이크업은 눈가에 보석처럼 반짝이되 절제해서 쓰는 것이 포인트",
+    "꼬마전구·메탈릭 의상·글로시 립 등 빛을 반사하는 질감이 핵심",
+    "메이크업 화보와 연말 홀리데이 콘셉트에서 주로 쓰임"
+   ],
+   "sources": [
+    "https://www.wkorea.com/2021/12/01/shining-star/",
+    "https://www.marieclairekorea.com/beauty/2018/12/%EB%B0%98%EC%A7%9D%EB%B0%98%EC%A7%9D-%EA%B8%80%EB%A6%AC%ED%84%B0-%EB%A9%94%EC%9D%B4%ED%81%AC%EC%97%85-1/"
+   ]
+  },
+  "f68": {
+   "findings": [
+    "맑은 날 눈부신 햇살과 파란 하늘이 중심이고 '하늘 맛집'처럼 하늘이 크게 담기는 구도가 많음",
+    "일출 후 1시간 같은 아침 빛은 부드럽고 따뜻해 인물 촬영에 선호됨",
+    "역광으로 머리카락과 옷 가장자리가 빛나는 연출이 흔함"
+   ],
+   "sources": [
+    "https://www.lomography.com/magazine/282103-tips-for-shooting-in-the-summer-kr",
+    "https://m.news.nate.com/view/20260928n21244"
+   ]
+  },
+  "f69": {
+   "findings": [
+    "일상 스냅은 연출 없이 평범한 하루를 기록하는 방식으로, 카페·산책·집 등 생활 공간이 배경",
+    "인생샷은 본인이 가장 만족스러워 보이는 한 컷, 사진 일기처럼 기록으로 남기는 흐름도 있음"
+   ],
+   "sources": [
+    "https://www.harpersbazaar.co.kr/article/55095",
+    "https://play.google.com/store/apps/details?id=io.github.indieappslab.photojournal&hl=ko"
+   ]
+  },
+  "f70": {
+   "findings": [
+    "상큼발랄은 밝고 귀엽고 생기 넘치는 표정과 동작을 가리킴",
+    "점프·달리기·춤처럼 움직임이 있는 포즈와 선명한 컬러 의상이 어울림",
+    "검색 결과가 대부분 스냅 상품이라 구체 시각 요소는 일반 지식으로 보완"
+   ],
+   "sources": [
+    "https://hinative.com/questions/10384145",
+    "https://www.starnewskorea.com/business-life/2026/09/10/2026090915520819307"
+   ]
+  },
+  "f71": {
+   "findings": [
+    "달달한 커플 사진은 서로를 바라보는 꿀 떨어지는 눈빛과 커플룩·하트 포즈가 특징",
+    "웨딩 스냅·커플 화보에서 서로 마주 보며 웃는 표정이 대표적"
+   ],
+   "sources": [
+    "https://www.starnewskorea.com/broadcast-show/2026/01/07/2026010709451171176",
+    "https://www.asiaartistawards.com/news/detail/152930/all"
+   ]
+  },
+  "f72": {
+   "findings": [
+    "'가을 탄다' = 가을바람에 고독하고 쓸쓸한 분위기에 젖는 것 — 혼자, 생각에 잠긴 모습",
+    "화보: 우수에 찬 · 지그시 바라보는 눈빛, 절제된 표정, 석양 배경(변요한 가을 남자 화보)",
+    "의상 · 색: 트렌치코트 · 니트 · 카키/브라운 차분한 톤, 안경",
+    "배경: 나무가 늘어선 벤치 · 가을 거리 · 낙엽(김유정 파리 화보)"
+   ],
+   "sources": [
+    "https://www.cosmopolitan.co.kr/article/26735",
+    "https://www.mksports.co.kr/news/entertain/8955678",
+    "https://www.tenasia.co.kr/article/2026100422264"
+   ],
+   "note": "사람 요청 2026-10-04 — 이름을 '가을 타는'으로 바꾸고 다시 검색"
+  },
+  "f73": {
+   "findings": [
+    "촛불·모닥불·무드등은 어두운 배경 속 작은 따뜻한 빛이 얼굴과 손을 비추는 연출",
+    "검색 결과는 주로 스톡 이미지라 구체 연출은 일반 지식으로 보완",
+    "네온·가게 불빛 같은 작은 광원도 인물 스냅에 쓰임"
+   ],
+   "sources": [
+    "https://unsplash.com/ko/s/%EC%82%AC%EC%A7%84/%EB%AA%A8%EB%8B%A5%EB%B6%88",
+    "https://pixabay.com/ko/images/search/%EC%98%88%EC%81%9C%EC%B4%9B%EB%B6%88%EC%82%AC%EC%A7%84/"
+   ]
+  },
+  "f74": {
+   "findings": [
+    "해맑은 웃음, 아이·가족·친구의 활짝 웃는 얼굴이 행복 사진의 중심",
+    "소소한 일상 속 순간과 행복 눈물 같은 감정 표정도 포함",
+    "검색 결과가 스톡 위주라 일반적 시각 요소로 보완"
+   ],
+   "sources": [
+    "https://unsplash.com/ko/s/%EC%82%AC%EC%A7%84/%ED%96%89%EB%B3%B5%ED%95%9C-%EB%AF%B8%EC%86%8C",
+    "https://pixabay.com/ko/images/search/%ED%96%89%EB%B3%B5/"
+   ]
+  },
+  "f75": {
+   "findings": [
+    "파스텔 그라데이션은 하늘색·분홍·보라가 부드럽게 번지는 하늘이 대표",
+    "홀로그램은 무지갯빛으로 변하는 반사 질감 소재",
+    "소프트 포커스·렌즈 플레어가 색 번짐을 강조"
+   ],
+   "sources": [
+    "https://unsplash.com/ko/s/%EC%82%AC%EC%A7%84/%ED%95%98%EB%8A%98-%EA%B7%B8%EB%9D%BC%EB%8D%B0%EC%9D%B4%EC%85%98",
+    "https://kr.freepik.com/free-photos-vectors/%ED%8C%8C%EC%8A%A4%ED%85%94-%EA%B7%B8%EB%9D%BC%EB%8D%B0%EC%9D%B4%EC%85%98"
+   ]
+  },
+  "f76": {
+   "findings": [
+    "베이지·누드톤·뉴트럴 컬러는 따뜻하고 편안한 감성의 의상·소품 색 조합",
+    "뉴트로는 과거 아이템을 되살린 복고풍으로 빛바랜 톤과 어울림",
+    "촬영에서는 의상 선택이 분위기의 절반이라는 의견"
+   ],
+   "sources": [
+    "https://thehyundaiblog.com/entry/Neutralcolor0108",
+    "https://www.thehandsome.com/ko/DP/theMagazineDetail/10005958",
+    "https://www.kci.go.kr/kciportal/ci/sereArticleSearch/ciSereArtiView.kci?sereArticleSearchBean.artiId=ART002509283"
+   ]
+  },
+  "f77": {
+   "findings": [
+    "'사람 냄새 나는'은 꾸밈없이 진솔하고 정감 있는 사람살이의 분위기를 뜻함",
+    "검색 결과가 적어 노인·가족·시장·부엌 같은 일반적 장면으로 보완"
+   ],
+   "sources": [
+    "https://www.threads.com/@wei.frame/post/DcckEMwGtPl/"
+   ]
+  },
+  "f78": {
+   "findings": [
+    "감동 사진은 졸업식·결혼식에서 눈물을 흘리는 순간처럼 꾸미지 않은 표정이 핵심",
+    "웃음과 눈물이 함께 나오는 장면, 포옹이 대표적"
+   ],
+   "sources": [
+    "https://www.seoul.co.kr/news/society/2026/02/23/20260223800005",
+    "https://news.moyiza.kr/239560",
+    "https://www.fearlessphotographers.com/gallery/201/emotional-moments"
+   ]
+  },
+  "f79": {
+   "findings": [
+    "일본 감성은 일본 영화·필름 같은 차분하고 약간 바랜 색감",
+    "후지필름·코닥 포트라 필름 느낌, 일본 거리·도쿄 스냅이 대표",
+    "검색 결과는 필름 카메라와 도쿄 스냅 위주"
+   ],
+   "sources": [
+    "https://brunch.co.kr/@allankim/255",
+    "https://experiences.myrealtrip.com/products/3885653"
+   ]
+  },
+  "f80": {
+   "findings": [
+    "잔잔한 여운은 호수·강가 같은 물가의 고요한 수면과 안개 낀 풍경과 연결",
+    "사람은 작게, 여백이 크게 담기는 구도가 흔함",
+    "검색 결과가 스톡·여행 위주라 일반적 시각 요소로 보완"
+   ],
+   "sources": [
+    "https://www.waug.com/ko/magazines/2249",
+    "https://www.istockphoto.com/kr/%EC%9D%B4%EB%AF%B8%EC%A7%80/%EC%9E%94%EC%9E%94%ED%95%9C-%EB%AC%BC"
+   ]
+  },
+  "f81": {
+   "findings": [
+    "파리 스냅은 에펠탑·센강·튈르리 공원·루브르가 대표 배경",
+    "흐린 날이나 약한 비도 파리 특유의 낭만적인 색감으로 선호",
+    "내추럴 톤과 로맨틱한 연인 스냅이 많음"
+   ],
+   "sources": [
+    "https://www.waug.com/ko/activities/136305",
+    "https://www.waug.com/ko/activities/135953",
+    "https://experiences.myrealtrip.com/products/3860293"
+   ]
+  },
+  "f82": {
+   "findings": [
+    "직광 플래시는 얼굴이 하얗게 뜨고 배경은 어둡게 떨어지는 클래식한 느낌",
+    "일회용 카메라·디카는 약간 거친 입자와 날것의 스냅 감성",
+    "밤 파티·친구들 스냅에서 자주 쓰임"
+   ],
+   "sources": [
+    "https://thelife.marketing/2025/04/21/%EC%B9%B4%EB%A9%94%EB%9D%BC-%ED%94%8C%EB%9E%98%EC%8B%9C/",
+    "https://namu.wiki/w/%ED%94%8C%EB%9E%98%EC%8B%9C(%EC%B9%B4%EB%A9%94%EB%9D%BC)"
+   ]
+  },
+  "f83": {
+   "findings": [
+    "편안함은 꾸밈없이 자연스러운 표정과 강요하지 않은 스냅에서 나온다",
+    "무해함은 순한 미소, 부드러운 빛, 일상 속 가벼운 동작으로 표현된다",
+    "희망적인 느낌은 밝은 창가 빛과 열린 하늘, 편안한 웃음으로 담긴다"
+   ],
+   "sources": [
+    "https://www.skcareersjournal.com/1625",
+    "https://unsplash.com/ko/s/%EC%82%AC%EC%A7%84/%ED%8E%B8%EC%95%88%ED%95%9C-%EB%B6%84%EC%9C%84%EA%B8%B0"
+   ]
+  },
+  "f84": {
+   "findings": [
+    "아늑함은 우드와 식물, 따뜻한 조명으로 꾸민 공간에서 자주 표현된다",
+    "담요, 머그컵, 니트, 랜턴 같은 소품이 포근한 느낌의 핵심",
+    "따뜻한 노란빛 조명과 낮은 채도의 웜톤 색감이 공통점"
+   ],
+   "sources": [
+    "http://www.living-sense.co.kr/news/articleView.html?idxno=46255",
+    "https://blog.gm-korea.co.kr/4380"
+   ]
+  },
+  "f86": {
+   "findings": [
+    "거리감과 긴장감은 인물 사이 여백과 시선을 피하는 구도로 표현된다",
+    "측광과 낮은 앵글이 극적인 대비로 긴장된 분위기를 만든다",
+    "센치함은 어둑한 톤, 창밖을 보는 쓸쓸한 옆모습으로 드러난다"
+   ],
+   "sources": [
+    "https://brunch.co.kr/@openmobile/360",
+    "https://stylezineblog.com/5050"
+   ]
+  },
+  "f87": {
+   "findings": [
+    "트윈룩은 같은 옷, 또는 색·소재·패턴을 맞춘 시밀러룩으로 연출한다",
+    "커플·친구·가족이 나란히 서서 같은 색 상의로 통일감을 준다",
+    "공원 피크닉, 캠퍼스, 학교 교복·유니폼 콘셉트로 자주 촬영된다"
+   ],
+   "sources": [
+    "https://v.daum.net/v/JZuwazJRgR?f=p",
+    "https://www.directwedding.co.kr/blog/wedding-casual",
+    "https://kr.canon/magazine/detail/6166?area2List=null&photoVstAreaSeq=null&seqArr=CUR"
+   ]
+  },
+  "f88": {
+   "findings": [
+    "얼빡샷은 얼굴이 화면을 여백 없이 꽉 채우는 구도를 뜻한다",
+    "바스트샷은 가슴 위부터 얼굴까지, 표정과 감정을 보여주기에 적합",
+    "클로즈업은 눈, 피부결, 표정에 시선이 집중된다"
+   ],
+   "sources": [
+    "https://namu.wiki/w/%EC%96%BC%EB%B9%A1",
+    "https://www.threads.com/@cinemine_4957/post/DUFLrNNiSRf/",
+    "https://morphic.com/kr/resources/shots/close-up-shot"
+   ]
+  },
+  "f89": {
+   "findings": [
+    "차박·캠핑은 해 질 녘 매직아워와 모닥불, 랜턴의 노란빛이 감성 포인트",
+    "텐트, 의자, 타프, 차량 트렁크와 별 사진이 대표적 장면",
+    "얼굴 표정이 보일 정도로만 랜턴 빛을 비추는 것이 좋다고 소개된다"
+   ],
+   "sources": [
+    "https://blog.gm-korea.co.kr/4380",
+    "https://news.samsung.com/kr/%EC%BA%A0%ED%95%91-%EA%B0%80%EB%8A%94-%EB%8B%B9%EC%8B%A0%EC%9D%B4-%EC%95%8C%EC%95%84%EC%95%BC-%ED%95%A0-%EC%82%AC%EC%A7%84-%EC%B4%AC%EC%98%81-%ED%8C%81-5",
+    "https://www.crowdpic.net/photo/%EA%B0%90%EC%84%B1%EC%82%AC%EC%A7%84-%EA%B8%80%EB%9E%A8%ED%95%91-%EA%B0%90%EC%84%B1-%EC%BA%A0%ED%95%91-%EC%BA%A0%ED%95%91%EA%B0%90%EC%84%B1-815020"
+   ]
+  },
+  "f90": {
+   "findings": [
+    "햇살 맛집은 테라스, 마당, 창가 등 햇볕이 잘 드는 자리를 뜻한다",
+    "나뭇잎 사이로 비치는 싱그러운 햇살과 야외 테이블이 대표 장면",
+    "따스한 햇볕을 쬐며 음료를 마시고 쉬는 모습이 많다"
+   ],
+   "sources": [
+    "https://www.siksinhot.com/theme/magazine/2656",
+    "https://www.elle.co.kr/article/1864331",
+    "https://www.maisonkorea.com/food/2025/07/%EC%82%AC%EC%A7%84-%EC%B0%8D%EA%B3%A0-%EC%8B%B6%EC%96%B4%EC%A7%80%EB%8A%94-%EC%97%AC%EB%A6%84-%ED%85%8C%EB%9D%BC%EC%8A%A4-%EB%A7%9B%EC%A7%91/"
+   ]
+  },
+  "f91": {
+   "findings": [
+    "청순은 투명한 피부, 은은한 메이크업, 긴 생머리가 기본",
+    "흰색·파스텔 블라우스, 퍼프 소매, 원피스 같은 페미닌한 룩이 대표",
+    "걸리시는 리본, 레이스, 치마 같은 소녀적 디테일을 더한다"
+   ],
+   "sources": [
+    "https://view.nate.com/beauty/view/369349/",
+    "https://sellingbooster.io/community/blog/sellingtrend/120",
+    "https://kr.pinterest.com/hjin0153/%EC%B2%AD%EC%88%9C-%EC%B6%94%EA%B5%AC%EB%AF%B8/"
+   ]
+  },
+  "f92": {
+   "findings": [
+    "로우키는 어두운 배경에 그림자가 많고 약간의 하이라이트만 주는 조명",
+    "주변광을 제한하고 어두운 색 배경에서 가장 효과적",
+    "가라앉은 분위기와 심리 표현, 흑백·느와르 인물에 자주 쓰인다"
+   ],
+   "sources": [
+    "https://www.adobe.com/kr/creativecloud/video/discover/low-key-vs-high-key-lighting.html",
+    "https://wordrow.kr/%EC%9D%98%EB%AF%B8/%EB%A1%9C%EC%9A%B0%ED%82%A4/",
+    "https://www.etnews.com/200706200033"
+   ]
+  },
+  "f93": {
+   "findings": [
+    "인스타 감성은 자연스러움, 골든아워 자연광, 깔끔한 배경이 핵심",
+    "트렌디한 룩은 시크한 스트리트 패션과 개성 있는 소품으로 표현",
+    "카페, 거리, 벽 앞에서 찍는 포즈 있는 스냅이 많다"
+   ],
+   "sources": [
+    "https://m.10x10.co.kr/playing/view.asp?didx=228",
+    "https://cultpd.com/%EC%B4%88%EB%B3%B4%EC%9E%90%EB%8F%84-%EC%89%BD%EA%B2%8C-%EB%94%B0%EB%9D%BC%ED%95%98%EB%8A%94-%EC%9D%B8%EC%8A%A4%ED%83%80-%EA%B0%90%EC%84%B1-%EC%82%AC%EC%A7%84-%EC%B4%AC%EC%98%81-%EB%B9%84%EB%B2%95/",
+    "https://blog.filmconnect.co.kr/%ED%95%84%EB%A6%84%EC%BB%A4%EB%84%A5%ED%8A%B8-%ED%9E%99%ED%95%9C-%EC%9B%A8%EB%94%A9%EC%8A%A4%EB%83%85%EC%9D%98-%EC%A0%95%EC%84%9D-%EC%9D%B4%EB%8F%84%EC%8A%A4%EB%83%85-%EC%B4%AC%EC%98%81-%EB%B0%A9%EB%B2%95-%ED%9B%84%EA%B8%B0-103352"
+   ]
+  },
+  "f94": {
+   "findings": [
+    "빛 맛집은 창가, 나뭇잎 사이, 역광으로 빛이 풍성하게 드는 장소",
+    "역광은 머리카락 가장자리를 반짝이게 하고 윤곽을 신비롭게 만든다",
+    "눈동자의 캐치라이트와 창문 빛이 인물 사진에 생기를 준다"
+   ],
+   "sources": [
+    "https://kr.canon/magazine/detail/2682",
+    "https://tamron.co.kr/entry/%EC%97%AD%EA%B4%91%EC%9D%B4%EB%9E%80-%EA%B7%B8-%ED%8A%B9%EC%A7%95%EA%B3%BC-%EC%97%AD%EA%B4%91%EC%9D%84-%ED%99%9C%EC%9A%A9%ED%95%9C-%EC%B4%AC%EC%98%81-%EB%B0%A9%EB%B2%95",
+    "https://vegannews.co.kr/news/article.html?no=387542"
+   ]
+  },
+  "f95": {
+   "findings": [
+    "선명한 윤곽은 또렷한 초점과 맑은 자연광·스튜디오 조명에서 나온다",
+    "얼굴의 눈·코·이마에 초점을 정확히 맞춘 샤프한 프로필 사진",
+    "흑백 프로필처럼 대비가 분명하면 윤곽이 강조된다"
+   ],
+   "sources": [
+    "https://www.adobe.com/kr/creativecloud/photography/discover/headshot-photography.html",
+    "https://www.fnnews.com/news/202609181022002276",
+    "https://www.studiopeople.kr/"
+   ]
+  },
+  "f96": {
+   "findings": [
+    "말랑한 느낌은 파스텔 톤과 부드러운 질감, 포근한 소재에서 연상된다",
+    "뚜렷한 정의는 적고 파스텔·몽글한 이미지 위주라 검색 근거가 얇다",
+    "푹신한 소품과 순한 표정으로 시각화"
+   ],
+   "sources": [
+    "https://www.shutterstock.com/ko/blog/pastel-color-palette-ideas/",
+    "https://kr.pinterest.com/pin/431078995587274649/"
+   ]
+  },
+  "f97": {
+   "findings": [
+    "사랑이 묻어나는 사진은 손잡기, 포옹, 서로를 바라보는 눈빛이 중심",
+    "커플뿐 아니라 가족·부모와 아이 사이의 따뜻한 스킨십도 포함",
+    "공원 피크닉, 햇살 아래 산책 같은 편안한 장면에서 자연스럽게 담긴다"
+   ],
+   "sources": [
+    "https://kr.pinterest.com/kbm100498/%EC%BB%A4%ED%94%8C-%EC%8A%A4%EB%83%85/",
+    "https://unsplash.com/ko/s/%EC%82%AC%EC%A7%84/%EC%86%90%EC%9D%84-%EC%9E%A1%EA%B3%A0-%EC%9E%88%EB%8A%94-%EC%BB%A4%ED%94%8C",
+    "https://v.daum.net/v/JZuwazJRgR?f=p"
+   ]
+  }
+ }
+}

@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  arrangeFamilyPhotos,
+  dropDuplicatePhotos,
+  fillFamilyOrder,
+  planMoodSearch,
+  purposeMoodSuggestions,
   parseSearchQueryResponse,
   requestSearchQuery,
   SIGLIP_EMBED_DIM,
@@ -210,4 +215,73 @@ test("같은 결과면 늘 같은 순서 — 새로고침에 자리가 안 바�
   const a = Array.from({ length: 12 }, (_, i) => ({ id: `a${i}` }));
   const b = Array.from({ length: 12 }, (_, i) => ({ id: `b${i}` }));
   assert.deepEqual(interleaveGroups([a, b]), interleaveGroups([a, b]));
+});
+
+test("무드 가족 — 가까운 사진 뼈대 검색어가 든 가족을 받는다(docs/47 §9) · 틀린 꼴은 버리고 없으면 칸도 없다", () => {
+  const parsed = parseSearchQueryResponse(answer({
+    purposes: [], mood_text: "비 오는 날", vector,
+    mood_families: [{ key: "f07", score: 1, term: "비 오는 날" }, { key: "x", score: 0.9 }, { key: "f43", score: "높음" }],
+  }));
+  assert.deepEqual(parsed?.moodFamilies, [{ key: "f07", score: 1, term: "비 오는 날" }]);
+  assert.equal(parseSearchQueryResponse(answer({ purposes: [], mood_text: "비", vector, mood_families: [] }))?.moodFamilies, undefined);
+});
+
+test("가족 결과 줄 세우기 — 고른 가족에 많이 든 사진부터, 숨은 사진은 버리고, 목적 없으면 개인 먼저", () => {
+  const row = (id: string, album: string, purposes: string[]) => ({ id, album_id: album, admin_purposes: purposes });
+  const rows = [
+    row("a", "A", ["couple"]), row("b", "A", ["personal"]), row("c", "B", ["personal"]),
+    row("d", "C", ["couple"]), row("e", "C", ["personal"]),
+  ];
+  const families = [["a", "b", "c", "hidden"], ["c", "d", "e"]];
+  const mixed = arrangeFamilyPhotos(families, rows, { personalFirst: false });
+  assert.equal(mixed[0].id, "c", "두 가족에 다 든 c 가 맨 위");
+  assert.deepEqual(new Set(mixed.map((r) => r.id)), new Set(["a", "b", "c", "d", "e"]), "숨은 사진은 빠지고 한 번씩만");
+  const personal = arrangeFamilyPhotos(families, rows, { personalFirst: true });
+  assert.deepEqual(personal.slice(0, 3).map((r) => r.admin_purposes?.[0]), ["personal", "personal", "personal"]);
+  assert.equal(personal[0].id, "c", "개인 안에서도 겹친 사진이 먼저");
+});
+
+test("검색 계획 — 정확하면 가족만, 애매하면 큰 무드 전체 · 연관 검색어는 같은 큰 무드 가족 먼저, 그 뒤 비슷한 것", () => {
+  const layers = {
+    names: { f07: "비 오는 날", f51: "차분한", f80: "잔잔한", f84: "아늑한", f83: "편안한", f06: "겨울", f43: "고요한" },
+    big: { f07: "m01", f51: "m01", f80: "m01", f84: "m10", f83: "m10", f06: "m25", f43: "m25" },
+    moods: [
+      { key: "m01", name: "차분한", families: ["f07", "f51", "f80"] },
+      { key: "m10", name: "포근·아늑", families: ["f84", "f83"] },
+      { key: "m25", name: "겨울", families: ["f06", "f43"] },
+    ],
+  };
+  const scores = { f07: 1, f51: 0.6, f80: 0.7, f84: 0.5, f83: 0.4, f06: 0.81, f43: 0.62 };
+  const exact = planMoodSearch([{ key: "f07", score: 1, term: "비 오는 날" }], scores, layers, "비 오는 날");
+  assert.equal(exact.mode, "family");
+  assert.deepEqual(exact.secondary, []);
+  assert.deepEqual(exact.suggestions.map((s) => s.label), ["잔잔한", "차분한", "겨울", "고요한", "포근·아늑", "아늑한"],
+    "같은 큰 무드 가족(가까운 순) → 비슷한 큰 무드 · 가족(가까운 순), 겨울은 큰 무드 · 가족 이름이 같아 한 번만");
+
+  const vague = planMoodSearch([{ key: "f84", score: 0.78, term: "아늑한" }], scores, layers, "고즈넉한");
+  assert.equal(vague.mode, "big");
+  assert.deepEqual(vague.primary, ["f84"]);
+  assert.deepEqual(vague.secondary, ["f83"], "같은 큰 무드의 나머지 가족이 뒤에 붙는다");
+});
+
+test("목적만 검색한 연관 무드 — 커플은 그 목적 사진이 많은 가족 순, 개인 · 목적 없음은 고른 무드", () => {
+  const index = { photos: ["a", "b", "c"], families: { f19: [0, 1], f52: [2], f85: [0, 1, 2] }, names: { f19: "로맨스", f52: "설렘", f85: "감성", f91: "청순" } };
+  assert.deepEqual(purposeMoodSuggestions(["couple"], [{ id: "a" }, { id: "b" }, { id: "c" }], index).map((s) => s.label), ["감성", "로맨스", "설렘"],
+    "커플 사진이 많이 든 가족 순(3 · 2 · 1)");
+  assert.deepEqual(purposeMoodSuggestions(["couple"], [{ id: "c" }], index).map((s) => s.label), ["설렘", "감성"], "커플 사진이 없는 가족은 빠진다 · 같은 수면 번호 순");
+  const personal = purposeMoodSuggestions(["personal"], [], index).map((s) => s.label);
+  assert.deepEqual(personal, ["감성", "청순"], "고른 무드 중 색인에 이름이 있는 것만, 고른 순서대로");
+  assert.deepEqual(purposeMoodSuggestions([], [], index).map((s) => s.label), personal, "목적 없음(스냅)도 개인과 같다");
+});
+
+test("같은 사진은 한 번만 — 먼저 나온 한 장이 남고, 위에 나온 사진은 아래에서도 빠진다", () => {
+  const dup = { b: "a", c: "a" };
+  const rows = [{ id: "c" }, { id: "x" }, { id: "a" }, { id: "b" }];
+  assert.deepEqual(dropDuplicatePhotos(rows, dup).map((r) => r.id), ["c", "x"], "a 묶음은 먼저 나온 c 하나만");
+  assert.deepEqual(dropDuplicatePhotos([{ id: "b" }, { id: "y" }], dup, ["c"]).map((r) => r.id), ["y"], "위에 c 가 나왔으니 b 도 뺀다");
+});
+
+test("채울 가족 — 같은 큰 무드 먼저, 그 뒤 가까운 순, 쓴 가족과 먼 가족은 뺀다", () => {
+  const layers = { names: { f57: "몽환", f30: "신비주의", f38: "동화 속", f66: "다크", f12: "귀여운" }, big: { f57: "m22", f30: "m22", f38: "m22", f66: "m14", f12: "m06" }, moods: [] };
+  assert.deepEqual(fillFamilyOrder(["f57"], { f57: 1, f30: 0.5, f38: 0.7, f66: 0.9, f12: 0.3 }, layers), ["f38", "f30", "f66"]);
 });
