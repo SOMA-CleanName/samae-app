@@ -113,6 +113,8 @@ export async function saveResult(args: {
   ip: string | null;
   /** 분석 표본 평균 벡터(1152d, L2 정규화). 임베딩 서비스 미가동이면 null — 재정렬만 생략된다. */
   embedding?: number[] | null;
+  /** 분석을 돌린 회원 (0143). 로그인해야 분석되므로 지금은 항상 있지만, 옛 행은 null 이다. */
+  profileId?: string | null;
 }): Promise<string | null> {
   try {
     const db = createAdminClient();
@@ -127,6 +129,7 @@ export async function saveResult(args: {
       ip_hash: args.ip ? ipHash(args.ip) : null,
       // pgvector 는 '[..]' 문자열 리터럴을 받는다
       embedding: args.embedding && args.embedding.length === 1152 ? JSON.stringify(args.embedding) : null,
+      profile_id: args.profileId ?? null,
       pipeline_version: PIPELINE_VERSION,
       expires_at: new Date(Date.now() + TTL_HOURS * 3600_000).toISOString(),
     });

@@ -427,8 +427,11 @@ export default function PersonaExperience({
             즉 조회가 죽어도 기능은 살아야 하고, 이 버튼이 그 생명줄이다. */}
         {!looking && preview?.status === "unavailable" && handle.length >= 3 && (
           <div style={reveal(0)} className="space-y-2.5 rounded-3xl border border-line bg-surface p-4 shadow-card" role="status">
+            {/* 미리보기는 **프로덕션에서 거의 늘 꺼져 있다** — 인스타가 데이터센터 IP 를 막는다
+                (lookup.ts 주석). "지금 원활하지 않아요" 는 평상시 상태를 장애처럼 말해서,
+                이벤트로 처음 온 사람에게 서비스가 고장난 것처럼 보였다. 평범한 안내로 바꾼다. */}
             <p className="text-body-sm text-muted">
-              지금 계정 미리보기가 원활하지 않아요. 아이디가 정확하다면 바로 분석할 수 있어요.
+              입력하신 아이디로 바로 분석할게요. 공개 계정인지 한 번만 확인해주세요.
             </p>
             <Button type="submit" variant="brand" size="md" fullWidth>
               @{handle} 계정으로 바로 분석하기
