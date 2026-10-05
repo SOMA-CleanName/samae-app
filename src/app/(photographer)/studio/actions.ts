@@ -356,6 +356,23 @@ export async function agreePhotographerContract(formData: FormData): Promise<voi
   );
   if (acctErr) throw new Error("정산 계좌를 저장하지 못했어요. 다시 시도해주세요.");
 
+  /*
+    동의했으니 **가려 뒀던 사진·패키지를 되돌린다**(0142).
+
+    계약에 동의하지 않은 작가는 AgreeGate 에 막혀 스튜디오에 못 들어온다 = 문의를 받을
+    수 없다. 그 상태로 사진이 노출되면 고객이 **받을 사람 없는 문의**를 넣게 되므로
+    가려 뒀었다. 지금 그 이유가 사라졌다.
+
+    작가가 스스로 숨긴 사진은 건드리지 않는다 — 우리가 가린 것에만 표시가 있다.
+    정지 중이면 공개하지 않고 표시만 지운다(정지가 풀릴 때 올라간다).
+  */
+  const { error: showErr } = await admin.rpc("restore_unagreed_photographer_content", {
+    p_photographer_id: me.photographer.id,
+  });
+  // 동의 자체는 이미 기록됐다. 여기서 던지면 작가가 동의를 다시 하게 된다 —
+  // 노출 복구는 어드민에서 다시 돌릴 수 있으므로 기록만 남기고 진행한다.
+  if (showErr) console.error(`[agree] 노출 복구 실패 (${me.photographer.id}): ${showErr.message}`);
+
   // 운영에 알린다 — 동의 시점이 곧 계약일이고, 사업자 유형에 따라 정산 준비가 갈린다
   await notifyOpsPhotographerAgreed({
     photographerId: me.photographer.id,

@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import {
   getPublishedExploreCategory,
-  fetchExploreCategoryGalleryPhotos,
+  getExploreCategoryPhotoIds,
+  fetchGalleryPhotosByIds,
 } from "@/lib/explore-db";
 import { getPublishedCategory } from "@/lib/categories";
 import { coverPhotoIdForTarget } from "@/lib/target-categories";
@@ -14,6 +15,15 @@ import { JsonLd } from "@/components/JsonLd";
 import { exploreCategoryMetadata, collectionJsonLd, breadcrumbJsonLd } from "@/lib/seo";
 import { CategoryImmersive } from "./CategoryImmersive";
 import type { Metadata } from "next";
+
+/**
+ * 한 카테고리 지면에 실어 보낼 최대 장수.
+ *
+ * 한 장씩 밀어 보는 화면이다 — 한 번에 백 장 넘게 보는 사람은 없다. 그보다 더 담으면
+ * 초기 HTML 만 무거워진다(실측 2026-09-27: 1,124장 = 1.1MB, 본문은 18단어).
+ * `newFeedSeed()` 가 요청마다 달라 다시 들어오면 새 묶음이 나온다.
+ */
+const MAX_GALLERY_PHOTOS = 120;
 
 export const dynamic = "force-dynamic";
 
@@ -55,10 +65,27 @@ export default async function ExploreCategoryPage({
   const adCat = adSlug ? await getPublishedCategory(adSlug) : null;
   const coverId = coverPhotoIdForTarget(cat, adCat?.id ?? null);
 
-  const ordered = await fetchExploreCategoryGalleryPhotos(cat.id);
-  const shuffled = seededShuffle(ordered, newFeedSeed());
-  const cover = coverId ? shuffled.find((p) => p.id === coverId) : undefined;
-  const photos = cover ? [cover, ...shuffled.filter((p) => p.id !== cover.id)] : shuffled;
+  /*
+    🔴 **id 를 먼저 섞고 앞에서만 가져온다.** 전에는 배정된 사진을 **전량** 받아 그대로
+       내보냈다 — `/explore/profile-image` 가 사진 1,124장을 초기 HTML 에 박아
+       **1.1MB** 였다(본문은 18단어). 14개 지면 합이 8MB 가까웠다.
+
+       몰입형 뷰어는 한 번에 한 장씩 밀어 보는 화면이라 1,124장이 필요할 일이 없다.
+       그리고 `newFeedSeed()` 가 요청마다 달라서 **방문할 때마다 다른 묶음**이 나온다 —
+       장수를 줄여도 "매번 같은 사진" 이 되지 않는다.
+
+       ⚠️ 비공개·숨김 사진이 섞여 있을 수 있어 넉넉히 집은 뒤 잘라낸다. 딱 맞게 집으면
+          걸러진 만큼 화면이 비어 보인다.
+  */
+  const allIds = await getExploreCategoryPhotoIds(cat.id);
+  const shuffledIds = seededShuffle(allIds, newFeedSeed());
+  const withCover =
+    coverId && allIds.includes(coverId)
+      ? [coverId, ...shuffledIds.filter((id) => id !== coverId)]
+      : shuffledIds;
+  const photos = (
+    await fetchGalleryPhotosByIds(withCover.slice(0, Math.ceil(MAX_GALLERY_PHOTOS * 1.3)))
+  ).slice(0, MAX_GALLERY_PHOTOS);
 
   // 검색·AI 가 읽을 구조. 사진이 없으면 collectionJsonLd 가 null 을 주고 아무것도 안 심는다.
   const collection = collectionJsonLd({

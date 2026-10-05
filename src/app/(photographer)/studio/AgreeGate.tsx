@@ -40,7 +40,7 @@ export function AgreeGate({
   submit = agreePhotographerContract,
 }: {
   displayName: string;
-  /** 이 작가의 중개 수수료율 (0.2 = 20%). 정액 작가면 null */
+  /** 이 작가의 중개 수수료율 (0.18 = 18%). 정액 작가면 null */
   feeRate: number | null;
   // ⚠️ versions 프로퍼티를 없앴다 — 버전의 진실은 components/legal/photographerDocs 하나다.
   //    무시되는 프로퍼티를 남겨 두면 호출부가 그걸로 버전을 정한다고 착각한다.

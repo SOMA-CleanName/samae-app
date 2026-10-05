@@ -32,6 +32,14 @@ export async function fetchGuideImages(photographerId: string): Promise<GuideIma
   return (data ?? []) as GuideImage[];
 }
 
+/**
+ * 우리가 구워 올린 촬영정보 이미지인가 — 경로에 `/<작가id>/sheet/` 가 들어간다.
+ * 작가가 직접 올린 것과 섞어 보여주면 "내가 안 올렸는데 왜 있지" 가 되고, 지울 수도 있다.
+ */
+export function isSamaeSheet(img: { image_url: string }): boolean {
+  return /\/sheet\//.test(img.image_url);
+}
+
 /** 스튜디오 편집용 — 비공개 포함 전체 (RLS: 작가 본인) */
 export async function listMyGuideImages(photographerId: string): Promise<(GuideImage & { published: boolean })[]> {
   const supabase = await createClient();

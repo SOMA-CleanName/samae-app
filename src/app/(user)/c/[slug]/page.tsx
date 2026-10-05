@@ -35,7 +35,17 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const category = await getPublishedCategory(safeDecode(slug));
-  return category ? categoryMetadata(category.name, slug) : {};
+  if (!category) return {};
+  /*
+    🔴 **검색 색인에 넣지 않는다.** 이 지면은 광고 랜딩이다 — 실제로 문의 35건 중 31건이
+       `/c/snap?utm_source=meta…` 로 들어왔다(2026-09-26). 타겟 검증용으로 만든 것이라
+       태그가 70개 넘게 뭉쳐 있고(개인스냅·교복스냅·벚꽃스냅·한강·경복궁…), 그 상태로
+       색인에 있으면 **우리 다른 지면과 같은 검색어를 두고 서로 경쟁한다.**
+
+       검색은 용도별 지면이 맡고, 여기는 광고만 맡는다. follow 는 남겨 둔다 —
+       색인은 안 해도 여기서 작가·사진으로 가는 링크는 따라가도 된다.
+  */
+  return { ...categoryMetadata(category.name, slug), robots: { index: false, follow: true } };
 }
 
 // 잘못된 인코딩(혹은 이미 디코딩된 값)이 와도 throw 없이 원본을 돌려줌

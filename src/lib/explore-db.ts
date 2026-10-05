@@ -155,6 +155,16 @@ export async function fetchExploreCategoryGalleryPhotos(
   limit?: number
 ): Promise<GalleryPhoto[]> {
   const ids = await getExploreCategoryPhotoIds(categoryId);
+  return fetchGalleryPhotosByIds(typeof limit === "number" ? ids.slice(0, limit) : ids);
+}
+
+/**
+ * 주어진 id 들을 **그 순서대로** 사진으로. 공개·미숨김만 남는다.
+ *
+ * 순서를 밖에서 정할 수 있어야 해서 따로 뺐다 — 카테고리 지면은 id 를 먼저 섞고
+ * 앞에서 N 개만 가져온다(전량을 받아 놓고 버리면 그만큼 낭비다).
+ */
+export async function fetchGalleryPhotosByIds(ids: string[]): Promise<GalleryPhoto[]> {
   if (ids.length === 0) return [];
   const supabase = await createClient();
 
@@ -175,10 +185,7 @@ export async function fetchExploreCategoryGalleryPhotos(
     rows.push(...((data ?? []) as unknown as GalleryPhoto[]));
   }
   const byId = new Map(rows.map((p) => [p.id, p]));
-  const ordered = ids
-    .map((id) => byId.get(id))
-    .filter((p): p is GalleryPhoto => !!p);
-  return typeof limit === "number" ? ordered.slice(0, limit) : ordered;
+  return ids.map((id) => byId.get(id)).filter((p): p is GalleryPhoto => !!p);
 }
 
 // /explore 홈 — 공개 카테고리 각각 앞 perCat 장(position 순). 3쿼리로 배치.

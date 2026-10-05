@@ -51,12 +51,28 @@ export default function robots(): MetadataRoute.Robots {
   if (shouldBlockAll()) {
     return { rules: [{ userAgent: "*", disallow: "/" }] };
   }
-  // 공개해도 되는 것과 아닌 것. 사람이 보는 검색엔진이든 AI 크롤러든 같은 선을 적용한다.
-  const DISALLOW = [
-    "/admin", "/studio", "/api", "/auth",
-    "/chat", "/bookings", "/inquiry", "/login", "/signup",
-    "/my-inquiries", "/favorites", "/notifications", "/settings",
-  ];
+  /*
+    공개해도 되는 것과 아닌 것. 사람이 보는 검색엔진이든 AI 크롤러든 같은 선을 적용한다.
+
+    🔴 **2026-09-21 — 회원 전용 지면을 여기서 뺐다.** 구글이 경고를 보냈다:
+       "색인이 생성되었으나 robots.txt에 의해 차단됨".
+
+       robots.txt 로 막는 것은 **색인을 막는 수단이 아니다.** 크롤러를 못 들어오게 할 뿐이라,
+       어디선가 링크를 발견하면 구글은 **내용을 못 본 채 주소만 들고 색인해 버린다.**
+       그리고 막혀 있으니 우리가 붙인 `noindex` 를 **읽을 기회도 없다** — 빼달라고 적어 둔
+       쪽지를 문 안에 두고 문을 잠근 꼴이다.
+
+       그래서 뒤집었다. 회원 전용 지면은 **크롤을 허용하고 noindex 를 내보낸다.**
+       크롤러가 들어와서 그 지시를 읽고 색인에서 뺀다. 그게 유일하게 작동하는 순서다.
+       (/chat · /bookings · /favorites · /notifications · /settings 에 noindex 를 달았다)
+
+       크롤 예산이 아깝지 않다 — 공개 지면이 1,677개인데 이쪽은 손에 꼽는다.
+
+    ⚠️ 아래 넷은 **계속 막는다.** 색인 문제가 아니라 크롤러를 들이고 싶지 않은 곳이다.
+       /admin·/studio 는 익명에 307(로그인으로)이고, /api·/auth 는 404 + noindex 라
+       어차피 색인될 것이 없다.
+  */
+  const DISALLOW = ["/admin", "/studio", "/api", "/auth"];
 
   // 이름을 붙여 두는 크롤러들. `*` 규칙으로도 이미 허용되지만 **명시해 둔다** —
   // 나중에 `*` 를 조이는 순간 이쪽 노출이 조용히 사라지는 사고를 막는다.

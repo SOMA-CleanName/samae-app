@@ -9,6 +9,7 @@ import { breadcrumbJsonLd, faqJsonLd, ogImages, placeJsonLd } from "@/lib/seo";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { listPublishedSpots, findSpot, type Spot } from "@/lib/spots-db";
 import { fetchSpotDetail, formatKrw, type SpotDetail } from "@/lib/spots";
+import { isSpotLive } from "@/lib/spot-live";
 import { listGuidePageItems, type GuideItem } from "@/lib/guide";
 import { SpotPhotoGrid } from "./SpotPhotoGrid";
 
@@ -117,7 +118,16 @@ export default async function SpotDetailPage({
   const detail = await fetchSpotDetail(spot);
 
   // 사진이 없으면 소개글만 남는데, 그건 블로그가 더 잘 쓴다. 낼 이유가 없다.
-  if (detail.photos.length === 0) notFound();
+  /*
+    사진이 기준에 못 미치면 지면을 세우지 않는다.
+
+    전에는 **0장일 때만** 막았다. 그래서 2~8장짜리 장소가 "여기서 찍힌 사진" 칸에
+    두어 장만 걸고 서 있었다 — 이 지면이 블로그를 이기는 근거가 "여기서 실제로 찍힌
+    사진" 인데, 그게 두 장이면 근거가 없는 셈이다.
+
+    photos 는 화면용으로 잘린 배열이라 totalCount(실제 장수)로 판단한다.
+  */
+  if (!isSpotLive(detail.totalCount)) notFound();
 
   // Q&A 는 한 번만 읽고 이 지면 안에서 돌려 쓴다 — guideExcerpt 도 같은 목록을 받는다
   const guides = await listGuidePageItems();

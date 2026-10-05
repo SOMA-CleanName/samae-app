@@ -5,6 +5,8 @@ import "server-only";
 // RLS 가 published·approved·is_active 를 대신 걸러 주므로 보안도 더 낫다.
 import { createPublicClient } from "@/lib/supabase/public";
 import { listPublishedSpots } from "@/lib/spots-db";
+import { isSpotLive } from "@/lib/spot-live";
+import { isUsablePlace } from "@/lib/location-text";
 import type { GalleryPhoto } from "@/lib/discovery";
 import type { Spot } from "@/lib/spots-db";
 
@@ -62,6 +64,8 @@ const MAX_LISTED_PLACES = 2;
 
 /** 촬영지로 볼 수 있는 표기인가 — 나열이 길면 커버 지역 목록으로 본다. */
 function isSpecificLocation(text: string | null | undefined): boolean {
+  // 「협의」·「서울 어딘가」 류는 장소가 아니다 — 스팟에 붙을 수도 없고 붙어서도 안 된다
+  if (!isUsablePlace(text)) return false;
   if (!text) return false;
   const parts = text
     .split(/[,·/]/)
@@ -224,6 +228,20 @@ export async function countSpotPhotos(spot: Spot): Promise<number> {
   return (await fetchMatched(spot)).length;
 }
 
+/**
+ * 이 작가를 뺐을 때 남는 장수 — 작가 퇴출 점검(lib/removal-facts)이 쓴다.
+ *
+ * 스팟은 FK 가 아니라 `location_text` 매칭이라, 작가를 지워도 **아무 신호가 없다.**
+ * 갤러리가 조용히 줄어들 뿐이다. 그래서 지우기 전에 여기서 미리 세어 본다.
+ * 매칭 규칙(나열형 제외 등)을 두 번 적지 않으려고 fetchMatched 를 그대로 쓴다.
+ */
+export async function countSpotPhotosExcluding(
+  spot: Spot,
+  photographerId: string
+): Promise<number> {
+  return (await fetchMatched(spot)).filter((p) => p.photographer?.id !== photographerId).length;
+}
+
 export function formatKrw(n: number): string {
   return `${Math.round(n / 10000)}만원`;
 }
@@ -268,6 +286,9 @@ export async function listSpotCards(limit = 6): Promise<SpotCard[]> {
   const taken = new Set<string>();
   const cards = matchedBySpot
     .slice()
+    // 사진이 기준에 못 미치는 곳은 목록에서 뺀다. `published` 는 건드리지 않는다 —
+    // 사진이 다시 차면 손대지 않아도 돌아온다(lib/spot-live).
+    .filter(({ matched }) => isSpotLive(matched.length))
     .sort((a, b) => b.matched.length - a.matched.length)
     .map(({ spot: s, matched }) => {
       const urls = matched

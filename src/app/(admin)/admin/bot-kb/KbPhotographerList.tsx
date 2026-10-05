@@ -7,6 +7,8 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Badge } from "@/components/ui";
 
+import type { Freshness } from "@/lib/guide-freshness";
+
 export type KbListRow = {
   id: string;
   name: string;
@@ -16,6 +18,8 @@ export type KbListRow = {
   /** 아직 카드가 없는 핵심 주제 — 봇이 막히는 지점 */
   missing: string[];
   demo: boolean;
+  /** 안내가 옛것인가 — 패키지가 카드보다 최신이거나, 카드가 이미지보다 최신 */
+  freshness: Freshness;
 };
 
 export function KbPhotographerList({
@@ -98,6 +102,10 @@ export function KbPhotographerList({
                     <span className="text-caption text-warning">{r.missing.join("·")} 없음</span>
                   )}
                   {r.count === 0 && r.demo && <span className="text-caption text-faint">파일 데모 있음</span>}
+                  {/* 안내가 옛것 — 고치는 방법이 달라서 둘을 갈라 보여준다.
+                      cards 는 운영이 자료를 다시 읽어야 하고, images 는 [이미지 발행] 한 번이면 된다. */}
+                  {r.freshness.state === "cards" && <Badge tone="danger">카드 갱신 필요</Badge>}
+                  {r.freshness.state === "images" && <Badge tone="warning">이미지 갱신 필요</Badge>}
                   <span className="ml-auto text-caption text-muted">{active ? "닫기" : "편집"}</span>
                 </Link>
                 {active && editor}

@@ -81,25 +81,40 @@ export function ProfileTabs({
         </TabButton>
       </div>
 
-      {/* 탭 내용 */}
+      {/*
+        탭 내용.
+
+        🔴 **글이 있는 탭은 항상 그린다.** 전에는 활성 탭만 마운트했는데, 기본 탭이
+           포트폴리오(=사진)라 **소개와 패키지 글이 초기 HTML 에 아예 없었다.**
+           실측 2026-09-26: 작가 지면 본문 61단어, 패키지 이름·설명은 RSC 페이로드
+           안에만 있었다. JS 를 돌리지 않는 크롤러(AI 봇 상당수)는 "촬영 패키지 2" 에서
+           끝났다. 작가 25명 중 22명이 소개글을, 패키지 52개 중 48개가 설명을 써 뒀는데
+           그게 한 글자도 안 나가고 있었다.
+
+           `hidden` 으로 감추기만 한다 — 사람이 보는 화면은 그대로고, 문서에는 남는다.
+
+        포트폴리오는 그대로 조건부다. 사진이라 글로 얻을 게 없고, 그리드를 늘 마운트하면
+        무겁다.
+      */}
       <div className="mt-5">
-        {tab === "about" ? (
-          aboutSlot
-        ) : tab === "portfolio" ? (
-          posts.length > 0 ? (
+        {hasAbout && <div hidden={tab !== "about"}>{aboutSlot}</div>}
+        {tab === "portfolio" &&
+          (posts.length > 0 ? (
             <PortfolioGrid posts={posts} viewer={viewer} />
           ) : (
             <p className="py-16 text-center text-body-sm text-muted">아직 공개된 포트폴리오가 없어요.</p>
-          )
-        ) : packages.length > 0 ? (
-          <ul className="flex flex-col gap-2.5">
-            {packages.map((pkg) => (
-              <PackageCard key={pkg.id} pkg={pkg} viewer={viewer} />
-            ))}
-          </ul>
-        ) : (
-          <p className="py-16 text-center text-body-sm text-muted">아직 등록된 패키지가 없어요.</p>
-        )}
+          ))}
+        <div hidden={tab !== "packages"}>
+          {packages.length > 0 ? (
+            <ul className="flex flex-col gap-2.5">
+              {packages.map((pkg) => (
+                <PackageCard key={pkg.id} pkg={pkg} viewer={viewer} />
+              ))}
+            </ul>
+          ) : (
+            <p className="py-16 text-center text-body-sm text-muted">아직 등록된 패키지가 없어요.</p>
+          )}
+        </div>
       </div>
     </div>
   );

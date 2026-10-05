@@ -14,6 +14,7 @@ import { photographerHasKb, resolveGreeting } from "@/lib/bot-kb-db";
 import { listOpenQuestions } from "@/lib/bot-handoff";
 import { fetchBotSettings } from "@/lib/bot-settings";
 import { getPlatformAccount, hasAccount } from "@/lib/platform-account";
+import { showsBankAccount } from "@/lib/payment-mode";
 import { normalizeBookingFields } from "@/lib/booking-fields";
 import { seedQaGreetingIfMissing } from "@/lib/inquiry-bot-room";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -100,7 +101,8 @@ export default async function ChatRoomPage({
     ) ||
       // 수락했는데 아직 입금 전인 추가금이 있으면 계좌가 필요하다
       extras.some((e) => e.status === "accepted" && !e.transfer_marked_at));
-  const platformAccount = needsAccount ? await getPlatformAccount() : null;
+  // PG 에서는 계좌 카드를 아예 안 만든다 (lib/payment-mode). 지금은 무통장이라 그대로다.
+  const platformAccount = needsAccount && showsBankAccount() ? await getPlatformAccount() : null;
   const payoutAccount =
     platformAccount && hasAccount(platformAccount)
       ? { bank: platformAccount.bank, number: platformAccount.number, holder: platformAccount.holder }

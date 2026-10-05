@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { SITE_URL, SITE_NAME } from "@/lib/site";
+import { displayPlace } from "@/lib/location-text";
 
 // SEO 공용 — 페이지별 동적 메타데이터 + 구조화데이터(JSON-LD) 빌더.
 // 브랜드는 한/영 병기(samae · 사매)로 한글 검색 노출을 강화. 작가 실명은 노출 금지(익명 정책).
@@ -56,7 +57,7 @@ export type PhotoMeta = {
  */
 export function photoTitle(photo: PhotoMeta): string {
   const tags = (photo.mood_tags ?? []).slice(0, 3);
-  const rawPlace = photo.region || photo.location_text || undefined;
+  const rawPlace = photo.region || displayPlace(photo.location_text) || undefined;
   const place = rawPlace && !tags.includes(rawPlace) ? rawPlace : undefined; // 태그와 중복 방지
   const subject = clean([tags.join(" "), place], " ") || "사진작가의 사진";
   return `${subject} 사진`;
@@ -64,7 +65,7 @@ export function photoTitle(photo: PhotoMeta): string {
 
 export function photoMetadata(photo: PhotoMeta): Metadata {
   const tags = (photo.mood_tags ?? []).slice(0, 3);
-  const rawPlace = photo.region || photo.location_text || undefined;
+  const rawPlace = photo.region || displayPlace(photo.location_text) || undefined;
   const place = rawPlace && !tags.includes(rawPlace) ? rawPlace : undefined; // 태그와 중복 방지
   const title = photoTitle(photo);
   const description = clean(
@@ -271,16 +272,56 @@ export type PackageMeta = {
 };
 
 /**
- * 작가의 촬영 패키지 → Product + Offer.
+ * 작가의 촬영 패키지 → **Service** + Offer.
+ *
  * **가격은 AI 답변에 가장 잘 인용되는 필드다.** "성수 스냅 얼마?" 류 질문에 우리가 답이 된다.
  *
- * ⚠️ 작가 실명은 넣지 않는다(익명 정책). seller 는 브랜드로 둔다.
+ * 🔴 **2026-09-24 — 전에는 `Product` 였다.** 그러자 구글이 이걸 **판매 상품**으로 보고
+ *    「판매자 목록(merchant listing)」 규칙을 적용해 경고를 보냈다 —
+ *    `hasMerchantReturnPolicy`·`shippingDetails`·`gtin`/`brand` 누락, `category` 무효.
+ *
+ *    **그 요구는 만족시킬 수 없고, 만족시키려 하면 거짓이 된다.** 촬영은 배송되지 않고
+ *    반품되지도 않는다. 사진 구조화 데이터에서 「Licensable」 배지를 일부러 뺀 것과 같은
+ *    이유다 — 아닌 것을 맞다고 공표하지 않는다.
+ *
+ *    `Service` 는 애초에 그 규칙의 대상이 아니라 경고가 **사라지는 게 아니라 적용되지
+ *    않는다.** 가격(Offer)은 그대로라 원래 목적은 유지된다.
+ *
+ * ⚠️ 작가 실명은 넣지 않는다(익명 정책). provider·seller 는 브랜드로 둔다.
  * ⚠️ 가격이 없는 패키지는 제외한다 — Offer 에 price 가 없으면 무효 구조라 경고가 뜬다.
  */
-export function packagesJsonLd(photographerId: string, packages: PackageMeta[]): object | null {
+export function packagesJsonLd(
+  photographerId: string,
+  packages: PackageMeta[],
+  opts: {
+    /** 대표 사진. 구글이 **심각(critical)** 으로 잡은 `image` 누락이 이것이다 */
+    imageUrl?: string | null;
+    /** 후기가 **실제로 있을 때만** 별점을 싣는다 (없는 평판을 만들지 않는다) */
+    ratingAvg?: number | null;
+    reviewCount?: number | null;
+  } = {}
+): object | null {
   const priced = packages.filter((p) => typeof p.price_krw === "number" && p.price_krw! > 0);
   if (priced.length === 0) return null;
   const url = `${SITE_URL}/photographers/${photographerId}`;
+  const provider = { "@type": "Organization", name: SITE_NAME } as const;
+
+  /*
+    별점은 **후기가 1건이라도 있을 때만.** rating_avg 는 후기가 없으면 0 인데, 그대로
+    내보내면 "별 0개짜리 서비스" 를 공표하는 꼴이다. 구글이 aggregateRating 누락을
+    「심각하지 않음」 으로 분류한 이유도 이것 — 없으면 비우는 게 맞다.
+  */
+  const rating =
+    opts.reviewCount && opts.reviewCount > 0 && opts.ratingAvg && opts.ratingAvg > 0
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: opts.ratingAvg,
+            reviewCount: opts.reviewCount,
+          },
+        }
+      : {};
+
   return {
     "@context": "https://schema.org",
     "@type": "ItemList",
@@ -289,18 +330,23 @@ export function packagesJsonLd(photographerId: string, packages: PackageMeta[]):
       "@type": "ListItem",
       position: i + 1,
       item: {
-        "@type": "Product",
+        "@type": "Service",
         name: p.name,
         ...(p.description ? { description: p.description } : {}),
         url,
-        category: "사진 촬영",
+        // 구글 상품 분류(category)가 아니라 서비스 종류다. 전에 category:"사진 촬영" 을
+        // 넣었더니 "값이 잘못되었습니다" 로 잡혔다 — 그건 상품 택소노미를 기대하는 칸이다.
+        serviceType: "사진 촬영",
+        ...(opts.imageUrl ? { image: opts.imageUrl } : {}),
+        provider,
+        ...rating,
         offers: {
           "@type": "Offer",
           price: p.price_krw,
           priceCurrency: "KRW",
           availability: "https://schema.org/InStock",
           url,
-          seller: { "@type": "Organization", name: SITE_NAME },
+          seller: provider,
         },
       },
     })),
@@ -362,9 +408,27 @@ export function faqJsonLd(items: Array<{ q: string; a: string }>): object | null
   };
 }
 
-export function photoImageJsonLd(photo: PhotoMeta): object {
+/**
+ * 사진 한 장 → ImageObject.
+ *
+ * ⚠️ **저작권자는 작가다.** 작가 이용약관 제17조 1항("촬영 결과물의 저작권은 이를 촬영한
+ *    작가에게 있습니다")과 제20조 5항("회사는 게재된 사진의 저작권을 취득하지 않는다")이
+ *    그렇게 정한다. 그래서 `copyrightNotice`·`creditText` 에 **사매가 아니라 작가 이름**을
+ *    넣는다. 여기에 회사 이름을 넣으면 약관과 어긋나는 주장을 구조화 데이터로 공표하는 셈이다.
+ *
+ * ⚠️ `license`·`acquireLicensePage` 는 **일부러 비워 둔다**(2026-09-21 결정).
+ *    그 둘을 채우면 구글 이미지에 「Licensable」 배지가 붙는데, 그건 "이 사진의 라이선스를
+ *    받을 수 있다" 는 안내다. 사매가 파는 것은 **촬영**이지 사진 파일이 아니고, 라이선스
+ *    문의를 작가에게 연결하는 경로도 아직 없다. 없는 창구를 광고하면 안 된다.
+ *    (약관 17조 2항상 작가와 협의하면 가능은 하다 — 그 경로를 만들면 그때 채운다)
+ *    GSC 가 이 둘을 "누락" 으로 알리지만 **심각하지 않은 항목**이라 노출에 손해가 없다.
+ */
+export function photoImageJsonLd(photo: PhotoMeta, photographerName?: string | null): object {
   const url = `${SITE_URL}/photos/${photo.id}`;
-  const place = photo.region || photo.location_text || undefined;
+  // 「협의」 를 contentLocation 으로 내보내면 **없는 장소를 사실로 공표**하게 된다
+  const place = photo.region || displayPlace(photo.location_text) || undefined;
+  // 이름을 모르면 예전처럼 일반명사로 둔다. 빈 크레딧을 내보내느니 낫다.
+  const creator = (photographerName ?? "").trim() || "사진작가";
   return {
     "@context": "https://schema.org",
     "@type": "ImageObject",
@@ -373,7 +437,9 @@ export function photoImageJsonLd(photo: PhotoMeta): object {
     ...(photo.width ? { width: photo.width } : {}),
     ...(photo.height ? { height: photo.height } : {}),
     name: clean([(photo.mood_tags ?? []).slice(0, 3).join(" "), place]) || "사진작가의 사진",
-    creator: { "@type": "Person", name: "사진작가" },
+    creator: { "@type": "Person", name: creator },
+    copyrightNotice: `© ${creator}`,
+    creditText: creator,
     isPartOf: { "@type": "WebSite", name: "samae", url: SITE_URL },
     // 촬영 장소를 사실 단위로 만든다. "성수에서 찍은 사진" 같은 장소 질의에 걸리는 지점이다.
     ...(place ? { contentLocation: { "@type": "Place", name: place } } : {}),

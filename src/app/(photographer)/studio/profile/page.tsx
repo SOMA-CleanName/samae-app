@@ -22,6 +22,8 @@ export type ProfileInitial = {
   businessNo: string;
   /** 이미 올려 둔 사업자등록증이 있으면 그 시각 */
   licenseUploadedAt: string | null;
+  /** 이 작가의 중개 수수료율(0.18 = 18%). 정액 작가·미지정이면 null → 화면이 전역 기본값을 쓴다 */
+  feeRate: number | null;
 };
 
 // 작가 프로필 편집
@@ -33,7 +35,7 @@ export default async function ProfilePage() {
   const supabase = await createClient();
   const { data } = await supabase
     .from("photographers")
-    .select("display_name, bio, regions, mood_tags, price_from_krw, contact_methods, legal_name, business_type, business_no, business_license_uploaded_at")
+    .select("display_name, bio, regions, mood_tags, price_from_krw, contact_methods, legal_name, business_type, business_no, business_license_uploaded_at, fee_mode, fee_rate")
     .eq("id", me.photographer.id)
     .single();
 
@@ -57,6 +59,9 @@ export default async function ProfilePage() {
     businessType: data?.business_type ?? "",
     businessNo: data?.business_no ?? "",
     licenseUploadedAt: (data?.business_license_uploaded_at as string | null) ?? null,
+    // 수수료 안내를 **이 작가의 실제 요율**로 말하기 위해. 정액(옛 모델) 작가는 null 이고
+    // 그때는 화면이 전역 기본값으로 떨어진다.
+    feeRate: data?.fee_mode === "flat" ? null : ((data?.fee_rate as number | null) ?? null),
   };
 
   return (
