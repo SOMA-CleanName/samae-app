@@ -36,6 +36,7 @@ export async function scrapeProfiles(usernames: string[]): Promise<IgProfile[]> 
     // 업로드 분석이라는 멀쩡한 길이 있으므로 그쪽으로 넘긴다.
     if (res.status === 402 || res.status === 403 || res.status === 429) {
       console.error(`[persona] Apify 한도·권한 (${res.status}): ${text.slice(0, 200)}`);
+      alertQuotaOnce(res.status);
       throw new PersonaScrapeError("quota");
     }
     throw new Error(`Apify 스크래핑 실패 (${res.status}): ${text.slice(0, 200)}`);
@@ -49,6 +50,30 @@ export async function scrapeProfiles(usernames: string[]): Promise<IgProfile[]> 
   }
   // 요청 순서 보존, 못 찾은 계정은 비공개/실패로 표시
   return clean.map((u) => byName.get(u) ?? emptyProfile(u));
+}
+
+// 한도가 차면 아이디로 분석하는 경로가 통째로 죽고, 들어온 사람은 사진 직접 올리기로 넘어간다.
+// 화면이 그걸 **조용히** 처리하기 때문에(우리 쪽 사정이라 "실패" 로 말하지 않는다)
+// 아무도 모르는 채로 사이클이 풀리는 날까지 갈 수 있다. 그래서 운영진 채널로 알린다.
+let quotaAlerted = false;
+function alertQuotaOnce(status: number): void {
+  const webhook = process.env.DISCORD_OPS_WEBHOOK_URL;
+  if (quotaAlerted || !webhook) return;
+  // 402 는 한 번 차면 계속 난다 — 인스턴스당 한 번만 보내 디스코드를 때리지 않는다.
+  quotaAlerted = true;
+  void fetch(webhook, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      content: [
+        `🔴 **페르소나 — Apify 한도 소진 (${status})**`,
+        "인스타 아이디로는 분석이 안 됩니다. 들어온 사람은 사진 직접 올리기로 넘어갑니다.",
+        "유료로 올리거나, 사이클이 풀릴 때까지 `PERSONA_ANALYSIS_OFF=1` 로 멈추세요.",
+      ].join("\n"),
+    }),
+    // 알림이 분석 흐름을 붙잡으면 안 된다
+    signal: AbortSignal.timeout(5_000),
+  }).catch(() => {});
 }
 
 /** 단일 계정 스크래핑 편의 함수 (이벤트 기본 경로) */
