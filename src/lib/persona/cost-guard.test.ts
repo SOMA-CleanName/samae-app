@@ -3,7 +3,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { dailyCap, analysisOff, kstMidnightUtc } from "./cost-guard.ts";
+import { dailyCap, analysisOff, lookupOff, kstMidnightUtc } from "./cost-guard.ts";
 
 function withEnv(vars: Record<string, string | undefined>, fn: () => void) {
   const saved: Record<string, string | undefined> = {};
@@ -52,4 +52,12 @@ test("경계는 지금보다 과거이고 24시간을 넘지 않는다", () => {
   const now = Date.now();
   assert.ok(ms <= now, "자정이 미래다");
   assert.ok(now - ms < 86_400_000, "자정이 하루보다 멀다 — 날짜 계산이 밀렸다");
+});
+
+// 조회 스위치 — 두 경로가 다 막혀 있어 왕복만 낭비하므로 끌 수 있어야 한다
+test("조회 끄기 스위치도 정확히 '1' 일 때만", () => {
+  withEnv({ PERSONA_LOOKUP_OFF: "1" }, () => assert.equal(lookupOff(), true));
+  withEnv({ PERSONA_LOOKUP_OFF: "0" }, () => assert.equal(lookupOff(), false));
+  withEnv({ PERSONA_LOOKUP_OFF: "true" }, () => assert.equal(lookupOff(), false));
+  withEnv({ PERSONA_LOOKUP_OFF: undefined }, () => assert.equal(lookupOff(), false));
 });

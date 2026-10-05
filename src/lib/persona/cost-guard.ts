@@ -32,3 +32,18 @@ export function dailyCap(env: NodeJS.ProcessEnv = process.env): number {
 export function analysisOff(env: NodeJS.ProcessEnv = process.env): boolean {
   return env.PERSONA_ANALYSIS_OFF === "1";
 }
+
+/**
+ * 입력 중 계정 미리보기를 통째로 끈다.
+ *
+ * 2026-10-06 실측: **두 경로가 모두 죽어 있다.** Vercel(데이터센터 IP)에서 직접 부르면 401,
+ * 맥미니 프록시(주거용 IP)도 unavailable — 인스타가 양쪽을 다 막는다. 그런데도 글자를
+ * 멈출 때마다 두 번 왕복하고 결국 같은 답을 받는다.
+ *
+ * 켜면 즉시 unavailable 을 돌려준다. 화면은 원래 그 경우를 폴백으로 다루고 있어
+ * (확인 카드 없이 바로 분석) 보이는 동작은 같고 기다림만 사라진다.
+ * 인스타가 다시 열리면 이 값을 지우면 된다.
+ */
+export function lookupOff(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.PERSONA_LOOKUP_OFF === "1";
+}
