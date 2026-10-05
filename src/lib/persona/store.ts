@@ -157,3 +157,31 @@ export async function isRateLimited(ip: string | null): Promise<boolean> {
     return false;
   }
 }
+
+// ── 하루 전체 상한 ────────────────────────────────────────────────
+//
+// IP 레이트리밋은 **한 사람**이 몰아치는 걸 막는다. 이벤트가 터지면 막아야 하는 건
+// 그게 아니라 **전체 합계**다 — 서로 다른 사람 300명이 한 번씩 돌려도 비용은 똑같이 나간다.
+// (2026-10-05 22시~10-06 04시 6시간에 335건, 시간당 최대 88건)
+
+/** 하루 상한·끄기 스위치·날짜 경계는 cost-guard 에 있다 (테스트 가능하게 분리) */
+export { dailyCap, analysisOff } from "./cost-guard";
+import { kstMidnightUtc } from "./cost-guard";
+
+/**
+ * 오늘(KST) 돌아간 분석 수. 캐시 히트는 행을 남기지 않으므로 **실제로 돈이 든 횟수**다.
+ * 조회가 실패하면 0 으로 본다 — 세는 데 실패했다고 서비스를 막지는 않는다.
+ */
+export async function countAnalysesToday(): Promise<number> {
+  try {
+    const db = createAdminClient();
+    const { count, error } = await db
+      .from(TABLE)
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", kstMidnightUtc());
+    if (error || count == null) return 0;
+    return count;
+  } catch {
+    return 0;
+  }
+}
