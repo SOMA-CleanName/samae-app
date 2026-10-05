@@ -33,7 +33,16 @@ export type PersonaFailure = {
    * daily_cap     — 오늘 전체 분석 상한에 걸림
    * off           — 운영이 분석을 꺼둠 (PERSONA_ANALYSIS_OFF)
    */
-  reason: "private" | "empty" | "error" | "rate_limited" | "login_required" | "daily_cap" | "off";
+  reason:
+    | "private"
+    | "empty"
+    /** 스크래퍼 한도·결제 — 우리 쪽 사정. 업로드 분석으로 넘긴다 */
+    | "quota"
+    | "error"
+    | "rate_limited"
+    | "login_required"
+    | "daily_cap"
+    | "off";
   message: string;
 };
 

@@ -2,6 +2,7 @@
 // (woori-mirae `lib/instagram/scrape.ts` 포팅 — 다중 username 지원 유지, 이벤트에선 1개만 넘김)
 import "server-only";
 import type { IgProfile, IgPost } from "./types";
+import { PersonaScrapeError } from "./scrape-error";
 
 const APIFY_ACTOR = "apify~instagram-profile-scraper";
 const APIFY_URL = (token: string) =>
@@ -30,6 +31,13 @@ export async function scrapeProfiles(usernames: string[]): Promise<IgProfile[]> 
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
+    // 한도 소진·결제 실패·호출 제한은 **우리 쪽 사정**이다. 일반 에러로 흘리면
+    // 화면에 "분석에 실패했어요" 가 뜨는데, 로그인까지 한 사람에게 그건 최악이다.
+    // 업로드 분석이라는 멀쩡한 길이 있으므로 그쪽으로 넘긴다.
+    if (res.status === 402 || res.status === 403 || res.status === 429) {
+      console.error(`[persona] Apify 한도·권한 (${res.status}): ${text.slice(0, 200)}`);
+      throw new PersonaScrapeError("quota");
+    }
     throw new Error(`Apify 스크래핑 실패 (${res.status}): ${text.slice(0, 200)}`);
   }
 

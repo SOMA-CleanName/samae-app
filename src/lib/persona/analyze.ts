@@ -21,15 +21,10 @@ import type { IgProfile } from "@/lib/persona/types";
 import type { Persona } from "@/lib/persona/schema";
 import type { ShootPersona } from "@/lib/persona/shoot-schema";
 
-export type PersonaScrapeReason = "private" | "empty";
-
-// 비공개/게시물 없음 → 업로드 fallback 으로 유도하기 위한 타입 에러.
-export class PersonaScrapeError extends Error {
-  constructor(public reason: PersonaScrapeReason) {
-    super(`persona scrape unavailable: ${reason}`);
-    this.name = "PersonaScrapeError";
-  }
-}
+// 비공개/게시물 없음/스크래퍼 한도 → 업로드 fallback 으로 유도하기 위한 타입 에러.
+// 정의는 scrape-error.ts 에 있다(scrape.ts 도 던져야 해서 순환 import 를 피한다).
+export { PersonaScrapeError, type PersonaScrapeReason } from "./scrape-error";
+import { PersonaScrapeError } from "./scrape-error";
 
 // 표본 사진 수. 피드 전체에서 등간격으로 뽑고 512px 로 줄인다 (images.ts 주석).
 const SAMPLE_IMAGES = 9;

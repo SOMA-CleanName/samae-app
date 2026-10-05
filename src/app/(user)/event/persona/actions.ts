@@ -254,7 +254,10 @@ export async function runPersonaAnalysis(usernameRaw: string): Promise<PersonaAc
         message:
           e.reason === "private"
             ? "비공개 계정이라 피드를 읽을 수 없어요. 사진을 직접 올려서 분석해볼 수 있어요."
-            : "게시물이 너무 적어 분석이 어려워요. 사진을 직접 올려볼까요?",
+            : e.reason === "quota"
+              // 우리 쪽 사정이다 — "실패" 로 말하지 않는다. 바로 다음 길을 가리킨다.
+              ? "지금 인스타 읽기가 잠시 막혔어요. 사진 3~5장 올리면 바로 분석해드릴게요."
+              : "게시물이 너무 적어 분석이 어려워요. 사진을 직접 올려볼까요?",
       };
     }
     console.error("[persona] 분석 실패:", e);

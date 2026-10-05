@@ -72,12 +72,33 @@ export default function PersonaExperience({
 
   const handle = username.replace(/^@/, "").trim();
 
+  /*
+    퍼널 — 방문 → 로그인 요구 → 로그인 복귀 → 분석 완료.
+    (Mixpanel. 이 repo 에 /api/track 은 없다)
+
+      View Persona Page        이 지면을 봄 (signed_in 으로 로그인 여부가 갈린다)
+      Show Persona Login Gate  비로그인에게 로그인 안내가 보임
+      Click Persona Login Gate 분석을 누르고 로그인으로 보내짐
+      Return From Persona Login 로그인하고 돌아와 자동으로 이어 분석
+      Complete Persona Analysis 분석 완료 (기존)
+
+    한 번만 쏜다 — 리렌더마다 쏘면 전환율 분모가 부풀어 퍼널이 거짓말을 한다.
+  */
+  const viewed = useRef(false);
+  useEffect(() => {
+    if (viewed.current) return;
+    viewed.current = true;
+    mpTrack("View Persona Page", { signed_in: signedIn, prefilled: !!defaultUsername });
+    if (!signedIn) mpTrack("Show Persona Login Gate", {});
+  }, [signedIn, defaultUsername]);
+
   // 로그인하고 돌아온 길 — 누르던 아이디로 바로 이어서 분석한다.
   // 확인 카드를 다시 띄워 한 번 더 누르게 하면 "로그인했는데 왜 또" 가 된다.
   const resumed = useRef(false);
   useEffect(() => {
     if (!autoRun || resumed.current || !handle) return;
     resumed.current = true;
+    mpTrack("Return From Persona Login", { method: "instagram" });
     run("instagram", () => runPersonaAnalysis(handle));
     // run 은 매 렌더 새로 만들어지지만 resumed 가드가 한 번만 돌게 막는다
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -151,7 +172,7 @@ export default function PersonaExperience({
     // 비로그인은 분석을 돌리지 않는다 — 돌려놓고 결과에서 막으면 비용은 이미 나간 뒤다.
     // (서버 액션에도 같은 문지기가 있다. 여기 검사는 **헛걸음을 줄이는 것**이지 보안이 아니다)
     if (!signedIn) {
-      mpTrack("Persona Login Gate", { method: "instagram" });
+      mpTrack("Click Persona Login Gate", { method: "instagram" });
       window.location.href = loginHref(username);
       return;
     }
@@ -178,7 +199,7 @@ export default function PersonaExperience({
   function submitImages() {
     if (files.length === 0 || pending) return;
     if (!signedIn) {
-      mpTrack("Persona Login Gate", { method: "upload" });
+      mpTrack("Click Persona Login Gate", { method: "upload" });
       window.location.href = loginHref(username);
       return;
     }
@@ -205,7 +226,10 @@ export default function PersonaExperience({
   if (pending)
     return <PersonaLoading method={method} username={username.replace(/^@/, "").trim()} />;
 
-  const canFallback = error && (error.reason === "private" || error.reason === "empty");
+  // 셋 다 출구가 같다 — 사진을 직접 올려서 분석.
+  // quota 는 우리 쪽 한도라 그 사람 잘못이 아니지만, 할 수 있는 다음 행동은 똑같다.
+  const canFallback =
+    error && (error.reason === "private" || error.reason === "empty" || error.reason === "quota");
 
   return (
     // 셸의 <main> 이 이미 pb-28(7rem)을 갖고 있다 — 100dvh 면 그만큼 넘쳐 스크롤이 생긴다.
@@ -299,7 +323,7 @@ export default function PersonaExperience({
               setUsername(u);
               // 이 카드는 submit 을 거치지 않는다 — 문지기를 여기서 한 번 더 세운다
               if (!signedIn) {
-                mpTrack("Persona Login Gate", { method: "instagram" });
+                mpTrack("Click Persona Login Gate", { method: "instagram" });
                 window.location.href = loginHref(u);
                 return;
               }
