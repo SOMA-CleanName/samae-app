@@ -22,7 +22,11 @@ export type PhotoMoodTags = {
   z_floor?: number;
   tag_bonus: number;
   measured: Record<string, string>;
+  /** 가족 문장의 지문 — 신규 사진은 같은 지문의 기준으로만 매긴다 */
+  prompts_hash?: string;
   photos: Record<string, PhotoMoodTagRow>;
+  /** 신규 사진(굳힌 기준으로 나중에 매긴 것) → 붙인 시각. 가족 단위 구간 검수에서는 빼고 「신규 사진」에서 본다(docs/47 §6) */
+  added?: Record<string, string>;
 };
 
 /** 가족마다 SigLIP 에 물을 영어 문장 — qwen 초안(photo-family-prompts.json) · 사람이 고친 것(photo-family-prompt-edits.jsonl) */
@@ -40,7 +44,8 @@ export function parsePromptText(text: string): string[] {
   return text.split(/\r?\n/).map((l) => l.trim().replace(/\.$/, "")).filter(Boolean).slice(0, 8).map((l) => l.slice(0, 120));
 }
 
-export type PhotoMoodTagEdit = { photo: string; layer: TagLayer; key: string; action: "drop" | "keep"; at: string };
+/** drop 빼기 · keep 되살리기 · add 사람이 직접 붙이기(점수와 상관없이 — 사진별 태그 [+ 태그 추가], 2026-10-05) */
+export type PhotoMoodTagEdit = { photo: string; layer: TagLayer; key: string; action: "drop" | "keep" | "add"; at: string };
 
 /** 검수에서 뺀 (사진, 층, 키) — 마지막 줄이 이긴다 */
 export function droppedTags(edits: readonly PhotoMoodTagEdit[]): Set<string> {
@@ -49,6 +54,17 @@ export function droppedTags(edits: readonly PhotoMoodTagEdit[]): Set<string> {
     const id = `${e.photo}|${e.layer}|${e.key}`;
     if (e.action === "drop") out.add(id);
     else out.delete(id);
+  }
+  return out;
+}
+
+/** 사람이 직접 붙인 (사진, 층, 키) — 마지막 줄이 add 인 것. 뒤에 빼면(drop) 빠진다 */
+export function addedTags(edits: readonly PhotoMoodTagEdit[]): Set<string> {
+  const out = new Set<string>();
+  for (const e of edits) {
+    const id = `${e.photo}|${e.layer}|${e.key}`;
+    if (e.action === "add") out.add(id);
+    else if (e.action === "drop") out.delete(id);
   }
   return out;
 }
@@ -158,8 +174,13 @@ export function countsAtCuts(rows: readonly TaggedPhotoRow[], cuts: readonly num
  * (점수는 그중 가장 높은 가족 z). 큰 무드를 직접 뺀 것도 거른다.
  */
 export function liveTags(row: PhotoMoodTagRow, photo: string, bigOf: ReadonlyMap<string, string>,
-  { dropped, reviews, base, floor }: { dropped: ReadonlySet<string>; reviews: ReadonlyMap<string, FamilyReviewState>; base: number; floor?: number }): PhotoMoodTagRow {
-  const families = row.families.filter(([k, z]) => z >= familyCut(k, reviews, base, floor) && !dropped.has(tagId(photo, "family", k)));
+  { dropped, reviews, base, floor, added }: { dropped: ReadonlySet<string>; reviews: ReadonlyMap<string, FamilyReviewState>; base: number; floor?: number; added?: ReadonlySet<string> }): PhotoMoodTagRow {
+  const families = row.families.filter(([k, z]) => (z >= familyCut(k, reviews, base, floor) || added?.has(tagId(photo, "family", k))) && !dropped.has(tagId(photo, "family", k)));
+  // 사람이 직접 붙인 가족 — 점수가 없으면(기준 아래로도 저장 안 됨) 기본 기준 점수로 싣는다
+  for (const id of added ?? []) {
+    const [p, layer, k] = id.split("|");
+    if (p === photo && layer === "family" && !families.some(([f]) => f === k) && !dropped.has(id)) families.push([k, base, false]);
+  }
   const best = new Map<string, number>();
   for (const [k, z] of families) {
     const big = bigOf.get(k);
@@ -170,7 +191,7 @@ export function liveTags(row: PhotoMoodTagRow, photo: string, bigOf: ReadonlyMap
 
 /** 검수를 반영한 전체 — 화면들이 이 결과로 센다 */
 export function applyReview(tags: PhotoMoodTags, bigOf: ReadonlyMap<string, string>,
-  opts: { dropped: ReadonlySet<string>; reviews: ReadonlyMap<string, FamilyReviewState> }): PhotoMoodTags {
+  opts: { dropped: ReadonlySet<string>; reviews: ReadonlyMap<string, FamilyReviewState>; added?: ReadonlySet<string> }): PhotoMoodTags {
   const photos: Record<string, PhotoMoodTagRow> = {};
   for (const [photo, row] of Object.entries(tags.photos)) photos[photo] = liveTags(row, photo, bigOf, { ...opts, base: tags.z_cut, floor: tags.z_floor });
   return { ...tags, photos };

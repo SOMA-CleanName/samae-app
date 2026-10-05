@@ -3,13 +3,15 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { decodeVectors, latestNewConfirms, newPhotoRow, proposalCut, proposedFamilies, scoreNewPhoto } from "@/lib/mood-new-photos";
 import {
-  writeFamilyIndex,
+  writeFamilyIndex, appendNewConfirm, loadFamilyModel, loadFamilyReviews, loadNewConfirms, loadNewPhotoTags, loadPhotoMoodTagsBase, writeNewPhotoTags, type NewPhotoTags,
   appendBandConfirm, appendFamilyPromptEdit, appendFamilyPromptKoEdit, appendFamilyReview, appendPhotoMoodTagEdit, loadFamilyPromptDrafts, loadFamilyPromptEdits,
   loadBandConfirms, loadFamilyPromptKoDrafts, loadFamilyPromptKoEdits, loadPhotoMoodLayers, loadPhotoMoodTagEdits, loadPhotoMoodTags,
 } from "@/lib/mood-photo-layers-data";
 import {
-  BANDS, cleanCaption, confirmedPhotos, droppedTags, familyKoFor, familyPromptsFor, hasHangul, inBand, latestConfirms, nextBand, parsePromptText, photosWithTag, planTranslation,
+  addedTags, BANDS, cleanCaption, confirmedPhotos, familyCut, latestReviews, droppedTags, familyKoFor, familyPromptsFor, hasHangul, inBand, latestConfirms, nextBand, parsePromptText, photosWithTag, planTranslation,
   type FamilyReviewStatus, type TagLayer,
 } from "@/lib/mood-photo-tags";
 
@@ -25,8 +27,10 @@ export async function editPhotoMoodTag(formData: FormData) {
   const key = String(formData.get("key") ?? "");
   const action = String(formData.get("action") ?? "");
   if ((layer !== "family" && layer !== "big") || (action !== "drop" && action !== "keep")) return;
-  const row = (await loadPhotoMoodTags())?.photos[photo];
-  const has = layer === "family" ? row?.families.some(([k]) => k === key) : row?.moods.some(([k]) => k === key);
+  const [tags, edits] = await Promise.all([loadPhotoMoodTags(), loadPhotoMoodTagEdits()]);
+  const row = tags?.photos[photo];
+  const has = (layer === "family" ? row?.families.some(([k]) => k === key) : row?.moods.some(([k]) => k === key))
+    || addedTags(edits).has(`${photo}|${layer}|${key}`);    // 사람이 직접 붙인 태그도 뺄 수 있다
   if (!has) return;                                      // 붙지 않은 태그를 빼면 기록만 쌓인다
   await appendPhotoMoodTagEdit({ photo, layer, key, action, at: new Date().toISOString() });
   await writeFamilyIndex();                                   // 검색이 읽는 색인(docs/47 §9)
@@ -202,5 +206,108 @@ export async function dropBand(formData: FormData) {
   const at = new Date().toISOString();
   for (const r of rows) await appendPhotoMoodTagEdit({ photo: r.photo, layer: "family", key, action, at });
   await writeFamilyIndex();                                   // 검색이 읽는 색인(docs/47 §9)
+  revalidatePath("/admin/photo-purpose/tags", "layout");
+}
+
+// ── 신규 사진(docs/47 §6, 2026-10-05) ──────────────────────────────────────────────────────
+
+const NEW_PAGE = "/admin/photo-purpose/tags/new";
+/** 한 번에 매길 새 사진 수 — 벡터를 DB 에서 읽어 와 매기므로 너무 많으면 화면이 오래 멈춘다 */
+const NEW_BATCH = 300;
+
+const parseVec = (v: unknown): number[] | null =>
+  v == null ? null : Array.isArray(v) ? (v as number[]) : typeof v === "string" ? (JSON.parse(v) as number[]) : null;
+
+/**
+ * 새 사진 불러오기 — 공개 · 임베딩이 있는데 아직 무드 점수가 없는 사진을 굳힌 기준(photo-family-model.json)으로 매긴다.
+ * 결과는 photo-mood-tags-new.json 에 쌓이고, 검수 화면이 사진 한 장씩 보여준다. 기존 사진 점수는 건드리지 않는다.
+ * 기준의 문장 지문이 태그 결과와 다르면(문장을 고쳤다) 매기지 않는다 — 전체를 다시 돌려야 한다.
+ */
+export async function fetchNewPhotos() {
+  const me = await getCurrentUser();
+  if (!me || me.role !== "admin") throw new Error("운영자 권한이 필요합니다.");
+  const [model, base, layers, prev] = await Promise.all([loadFamilyModel(), loadPhotoMoodTagsBase(), loadPhotoMoodLayers(), loadNewPhotoTags()]);
+  if (!model || !base || !layers) redirect(`${NEW_PAGE}?err=nomodel`);
+  if (model.prompts_hash !== base.prompts_hash) redirect(`${NEW_PAGE}?err=hash`);
+  const store: NewPhotoTags = prev && prev.prompts_hash === model.prompts_hash
+    ? prev : { made_at: "", prompts_hash: model.prompts_hash, photos: {} };
+
+  const admin = createAdminClient();
+  const ids: string[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await admin.from("photos").select("id")
+      .eq("visibility", "published").not("embedding", "is", null).order("id").range(from, from + 999);
+    if (error) throw error;
+    ids.push(...(data ?? []).map((r) => r.id as string));
+    if ((data ?? []).length < 1000) break;
+  }
+  const fresh = ids.filter((id) => !base.photos[id] && !store.photos[id]).slice(0, NEW_BATCH);
+
+  const vectors = decodeVectors(model);
+  const bigOf = new Map(layers.families.map((f) => [f.key, f.big]));
+  const now = new Date().toISOString();
+  for (let i = 0; i < fresh.length; i += 40) {
+    const { data, error } = await admin.from("photos").select("id, embedding, tone_vec, mood_tags, generated_tags").in("id", fresh.slice(i, i + 40));
+    if (error) throw error;
+    for (const r of data ?? []) {
+      const embedding = parseVec(r.embedding);
+      if (!embedding) continue;
+      const photo = { embedding, tone: parseVec(r.tone_vec), tags: [...((r.mood_tags as string[] | null) ?? []), ...((r.generated_tags as string[] | null) ?? [])] };
+      const all = scoreNewPhoto(model, vectors, photo, -Infinity);
+      const families = all.filter(([, z]) => z >= model.z_floor);
+      store.photos[r.id as string] = { ...newPhotoRow(families, bigOf, model.z_cut, all.slice(0, 3).map(([k, z]) => [k, z])), added_at: now };
+    }
+  }
+  store.made_at = now;
+  await writeNewPhotoTags(store);
+  revalidatePath("/admin/photo-purpose/tags", "layout");
+  redirect(`${NEW_PAGE}?got=${fresh.length}`);
+}
+
+/** 이 사진 확정 — 지금 제안된 가족에서 뺀 것을 빼고 남은 가족을 확정한다. 검색 색인에 바로 들어간다 */
+export async function confirmNewPhoto(formData: FormData) {
+  const me = await getCurrentUser();
+  if (!me || me.role !== "admin") throw new Error("운영자 권한이 필요합니다.");
+  const photo = String(formData.get("photo") ?? "");
+  const [tags, edits, reviewRows, confirmRows] = await Promise.all([loadPhotoMoodTags(), loadPhotoMoodTagEdits(), loadFamilyReviews(), loadBandConfirms()]);
+  const row = tags?.photos[photo];
+  if (!tags || !row || !tags.added?.[photo]) return;
+  const reviews = latestReviews(reviewRows);
+  const confirms = latestConfirms(confirmRows);
+  const dropped = droppedTags(edits);
+  const cutOf = (key: string) => proposalCut(familyCut(key, reviews, tags.z_cut, tags.z_floor), confirms.get(key)?.keys());
+  const proposed = proposedFamilies(photo, row, cutOf, (key) => reviews.get(key)?.status === "rewrite", dropped).filter((f) => !f.dropped).map((f) => f.key);
+  // 사람이 [+ 태그 추가] 로 직접 붙인 가족도 함께 확정한다
+  const mine = [...addedTags(edits)].filter((id) => id.startsWith(`${photo}|family|`) && !dropped.has(id)).map((id) => id.split("|")[2]);
+  const kept = [...new Set([...proposed, ...mine])];
+  await appendNewConfirm({ photo, families: kept, at: new Date().toISOString() });
+  await writeFamilyIndex();
+  revalidatePath("/admin/photo-purpose/tags", "layout");
+}
+
+/** 확정 되돌리기 — 다시 검수 대기로 */
+export async function undoNewPhoto(formData: FormData) {
+  const me = await getCurrentUser();
+  if (!me || me.role !== "admin") throw new Error("운영자 권한이 필요합니다.");
+  const photo = String(formData.get("photo") ?? "");
+  if (!latestNewConfirms(await loadNewConfirms()).has(photo)) return;
+  await appendNewConfirm({ photo, families: null, at: new Date().toISOString() });
+  await writeFamilyIndex();
+  revalidatePath("/admin/photo-purpose/tags", "layout");
+}
+
+/**
+ * 태그 직접 붙이기(사람 요청 2026-10-05) — 점수가 기준에 못 미쳐도 사람이 보기에 맞는 가족을 사진에 붙인다.
+ * 빼기와 같은 기록(photo-mood-tag-edits.jsonl, action add). 확정과 같게 쳐서 검색 색인에 바로 들어간다. 빼면(drop) 다시 빠진다.
+ */
+export async function addPhotoMoodTag(formData: FormData) {
+  const me = await getCurrentUser();
+  if (!me || me.role !== "admin") throw new Error("운영자 권한이 필요합니다.");
+  const photo = String(formData.get("photo") ?? "");
+  const key = String(formData.get("key") ?? "");
+  const [layers, tags] = await Promise.all([loadPhotoMoodLayers(), loadPhotoMoodTags()]);
+  if (!layers?.families.some((f) => f.key === key) || !tags?.photos[photo]) return;
+  await appendPhotoMoodTagEdit({ photo, layer: "family", key, action: "add", at: new Date().toISOString() });
+  await writeFamilyIndex();
   revalidatePath("/admin/photo-purpose/tags", "layout");
 }

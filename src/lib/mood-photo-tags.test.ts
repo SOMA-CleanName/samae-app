@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { applyReview, bandOf, bandTop, BANDS, borderline, confirmedPhotos, inBand, latestConfirms, nextBand, cleanCaption, familyKoFor, planTranslation, hasHangul, countsAtCuts, droppedTags, familyCut, familyPromptsFor, latestReviews, v1KeyFor, parsePromptText, photosWithTag, samplePhotos, listTaggedPhotos, tagCounts, tagId, untaggedPhotos, type PhotoMoodTags } from "./mood-photo-tags";
+import { addedTags, applyReview, bandOf, bandTop, BANDS, borderline, confirmedPhotos, inBand, latestConfirms, nextBand, cleanCaption, familyKoFor, planTranslation, hasHangul, countsAtCuts, droppedTags, familyCut, familyPromptsFor, latestReviews, v1KeyFor, parsePromptText, photosWithTag, samplePhotos, listTaggedPhotos, tagCounts, tagId, untaggedPhotos, type PhotoMoodTags } from "./mood-photo-tags";
 
 const TAGS: PhotoMoodTags = {
   version: "v1", made_at: "2026-10-01", z_cut: 2, tag_bonus: 1.5, measured: {},
@@ -155,4 +155,18 @@ test("단계별 소거 — 구간 · 확정 · 다음 구간", () => {
   assert.equal(nextBand([...open, { photo: "n", z: 3.1, byTag: false, dropped: false }]), 3.0, "통과한 구간이어도 새 사진이 들어오면 다시 본다");
   assert.equal(nextBand(open.map((r) => ({ ...r, dropped: true }))), null, "뺀 사진만 남으면 볼 것이 없다");
   assert.deepEqual(confirmedPhotos("f01", confirms, new Set(["b|family|f01"])), ["a"], "확정한 뒤 뺀 사진은 빠진다");
+});
+
+test("직접 붙인 태그 — 마지막 줄이 add 면 붙고, 점수가 없으면 기본 기준 점수로 싣는다 · 뒤에 빼면 빠진다", () => {
+  const edits = [
+    { photo: "c", layer: "family" as const, key: "f02", action: "add" as const, at: "1" },
+    { photo: "a", layer: "family" as const, key: "f02", action: "add" as const, at: "1" },
+    { photo: "a", layer: "family" as const, key: "f02", action: "drop" as const, at: "2" },
+  ];
+  const added = addedTags(edits);
+  assert.deepEqual([...added], ["c|family|f02"]);
+  const live = applyReview(TAGS, new Map([["f01", "m01"], ["f02", "m02"]]), { dropped: droppedTags(edits), reviews: new Map(), added });
+  assert.deepEqual(live.photos.c.families, [["f02", 2, false]], "c 는 점수가 없던 f02 를 기본 기준(2) 점수로");
+  assert.deepEqual(live.photos.c.moods, [["m02", 2]]);
+  assert.deepEqual(live.photos.a.families.map(([k]) => k), ["f01"], "a 의 f02 는 붙였다 뺐다");
 });

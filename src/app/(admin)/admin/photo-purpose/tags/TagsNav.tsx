@@ -4,11 +4,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 
-/** 사진 태그의 둘째 줄 — 태그 관리(가족 · 큰 무드별 검수) · 사진별 태그(사진 한 장씩 구경) (docs/47 §5, 사람 요청 2026-10-01) */
+/** 사진 태그의 둘째 줄 — 태그 관리(가족 · 큰 무드별 검수) · 사진별 태그(사진 한 장씩 구경) · 신규 사진(새로 올라온 사진 검수) (docs/47 §5 · §6) */
 const T = "/admin/photo-purpose/tags";
 const TABS = [
   { href: T, label: "태그 관리" },
   { href: `${T}/photos`, label: "사진별 태그" },
+  { href: `${T}/new`, label: "신규 사진" },     // 새로 올라온 사진의 무드 태그 검수(docs/47 §6, 2026-10-05)
 ];
 
 export function TagsNav() {

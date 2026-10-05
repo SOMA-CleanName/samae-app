@@ -4,6 +4,7 @@ import path from "node:path";
 import type { ClusterCase, ClusterReview } from "@/lib/mood-cluster";
 import type { Edit, NeighborBundle } from "@/lib/mood-neighbors";
 import type { PhotoFamilies, PhotoFamilyNote, PhotoLayerName } from "@/lib/mood-photo-families";
+import type { FamilyModel, NewPhotoConfirm } from "@/lib/mood-new-photos";
 import type {
   BandConfirm, FamilyPromptDrafts, FamilyPromptEdit, FamilyPromptKoDrafts, FamilyPromptKoEdit, FamilyReview, PhotoMoodLayers, PhotoMoodTagEdit, PhotoMoodTags,
 } from "@/lib/mood-photo-tags";
@@ -28,6 +29,9 @@ const FAMILY_PROMPTS_KO = path.join(EDITS, "photo-family-prompts-ko.json"); // �
 const FAMILY_PROMPT_KO_EDITS = path.join(EDITS, "photo-family-prompt-ko-edits.jsonl"); // 사람이 고친 한글(그때의 영어 짝과 함께)
 const FAMILY_REVIEWS = path.join(EDITS, "photo-mood-family-reviews.jsonl"); // 가족 단위 검수 — 통과 · 기준 올리기 · 문장 고치기
 const TAG_CONFIRMED = path.join(EDITS, "photo-mood-tag-confirmed.jsonl"); // 단계별 소거 — 구간마다 통과해 확정한 사진
+const FAMILY_MODEL = path.join(EDITS, "photo-family-model.json");      // 신규 사진 점수 기준(export_family_model.py) — 가족 벡터 · 고정 통계
+const NEW_TAGS = path.join(EDITS, "photo-mood-tags-new.json");         // 신규 사진 태그 — 어드민 「신규 사진」 이 매겨 쌓는다
+const NEW_CONFIRMED = path.join(EDITS, "photo-mood-new-confirmed.jsonl"); // 신규 사진 확정 — 사진마다 확정한 가족
 
 export type PhotoNeighborBundle = NeighborBundle & { nodes: Record<string, { senses: string[]; axes: string[]; usage: string; members: string[] }> };
 export type PhotoClusters = { reviewed: number; grouped: number; clusters: { members: string[] }[] };
@@ -112,7 +116,31 @@ const readJson = async <T,>(p: string): Promise<T | null> => {
   }
 };
 export const loadPhotoMoodLayers = () => readJson<PhotoMoodLayers>(TAG_LAYERS);
-export const loadPhotoMoodTags = () => readJson<PhotoMoodTags>(TAGS);
+/** 신규 사진 태그 파일 — 기존 결과와 같은 문장 지문일 때만 함께 쓴다 */
+export type NewPhotoTags = { made_at: string; prompts_hash: string; photos: Record<string, PhotoMoodTags["photos"][string] & { added_at: string }> };
+
+/**
+ * 사진 태그 — 검수한 1,945장(photo-mood-tags-v1.json)에 신규 사진(photo-mood-tags-new.json)을 합친다.
+ * 신규 사진은 `added` 에 적어 화면이 가른다. 문장을 고쳐 지문이 달라졌으면 신규를 합치지 않는다(기준이 다르다).
+ */
+export async function loadPhotoMoodTags(): Promise<PhotoMoodTags | null> {
+  const [base, extra] = await Promise.all([readJson<PhotoMoodTags>(TAGS), loadNewPhotoTags()]);
+  if (!base || !extra || extra.prompts_hash !== base.prompts_hash) return base;
+  const photos = { ...base.photos };
+  const added: Record<string, string> = {};
+  for (const [id, { added_at, ...row }] of Object.entries(extra.photos)) {
+    if (photos[id]) continue;                                      // 이미 검수한 사진이 이긴다
+    photos[id] = row;
+    added[id] = added_at;
+  }
+  return { ...base, photos, added };
+}
+export const loadPhotoMoodTagsBase = () => readJson<PhotoMoodTags>(TAGS);
+export const loadNewPhotoTags = () => readJson<NewPhotoTags>(NEW_TAGS);
+export const writeNewPhotoTags = (tags: NewPhotoTags) => writeFile(NEW_TAGS, JSON.stringify(tags), "utf8");
+export const loadFamilyModel = () => readJson<FamilyModel>(FAMILY_MODEL);
+export const loadNewConfirms = () => jsonl<NewPhotoConfirm>(NEW_CONFIRMED);
+export const appendNewConfirm = (row: NewPhotoConfirm) => append(NEW_CONFIRMED, row);
 export const loadPhotoMoodTagEdits = () => jsonl<PhotoMoodTagEdit>(TAG_EDITS);
 export const appendPhotoMoodTagEdit = (row: PhotoMoodTagEdit) => append(TAG_EDITS, row);
 export const loadFamilyPromptDrafts = () => readJson<FamilyPromptDrafts>(FAMILY_PROMPTS);
@@ -133,11 +161,11 @@ const FAMILY_INDEX = path.join(process.cwd(), "src", "lib", "mood-family-photos.
 export async function writeFamilyIndex(): Promise<void> {
   try {
     const { buildFamilyIndex } = await import("@/lib/mood-family-index");
-    const [layers, tags, edits, confirmRows, familyNames, moodNames] = await Promise.all([
-      loadPhotoMoodLayers(), loadPhotoMoodTags(), loadPhotoMoodTagEdits(), loadBandConfirms(), loadPhotoFamilyNames(), loadPhotoMoodNames(),
+    const [layers, tags, edits, confirmRows, familyNames, moodNames, newConfirmRows] = await Promise.all([
+      loadPhotoMoodLayers(), loadPhotoMoodTags(), loadPhotoMoodTagEdits(), loadBandConfirms(), loadPhotoFamilyNames(), loadPhotoMoodNames(), loadNewConfirms(),
     ]);
     if (!layers || !tags) return;
-    const index = buildFamilyIndex({ layers, tags, edits, confirmRows, familyNames, moodNames, now: new Date().toISOString() });
+    const index = buildFamilyIndex({ layers, tags, edits, confirmRows, newConfirmRows, familyNames, moodNames, now: new Date().toISOString() });
     await writeFile(FAMILY_INDEX, JSON.stringify(index), "utf8");
   } catch (error) {
     console.error("[mood] 가족 → 사진 색인 쓰기 실패:", error);

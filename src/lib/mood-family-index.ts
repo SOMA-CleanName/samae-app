@@ -6,7 +6,8 @@
 //
 // 만드는 곳: 검수 · 이름 화면의 서버 액션이 저장할 때마다(writeFamilyIndex), 또는 `npx tsx --conditions=react-server scripts/embed/build-family-photo-index.mts`.
 import { bigMoodNames, layerNameFor, type PhotoLayerName } from "./mood-photo-families.ts";
-import { confirmedPhotos, droppedTags, latestConfirms, tagId, type BandConfirm, type PhotoMoodLayers, type PhotoMoodTagEdit, type PhotoMoodTags } from "./mood-photo-tags.ts";
+import { latestNewConfirms, newConfirmedByFamily, type NewPhotoConfirm } from "./mood-new-photos.ts";
+import { addedTags, confirmedPhotos, droppedTags, latestConfirms, tagId, type BandConfirm, type PhotoMoodLayers, type PhotoMoodTagEdit, type PhotoMoodTags } from "./mood-photo-tags.ts";
 
 export type FamilyIndex = {
   made_at: string;
@@ -28,6 +29,8 @@ export function buildFamilyIndex(input: {
   tags: PhotoMoodTags;
   edits: readonly PhotoMoodTagEdit[];
   confirmRows: readonly BandConfirm[];
+  /** 신규 사진 확정(어드민 「신규 사진」) — 구간 확정과 함께 싣는다 */
+  newConfirmRows?: readonly NewPhotoConfirm[];
   familyNames: readonly PhotoLayerName[];
   moodNames: readonly PhotoLayerName[];
   now: string;
@@ -35,6 +38,13 @@ export function buildFamilyIndex(input: {
   const { layers, tags } = input;
   const dropped = droppedTags(input.edits);
   const confirms = latestConfirms(input.confirmRows);
+  const fresh = newConfirmedByFamily(latestNewConfirms(input.newConfirmRows ?? []), dropped);
+  // 사람이 사진별 태그에서 직접 붙인 가족 — 확정과 같다(사람이 본 것)
+  for (const id of addedTags(input.edits)) {
+    const [photo, layer, key] = id.split("|");
+    if (layer === "family" && !dropped.has(id)) fresh.set(key, [...(fresh.get(key) ?? []), photo]);
+  }
+  const added = new Set(Object.keys(tags.added ?? {}));            // 신규 사진은 확정해야만 싣는다(검수 전 후보로 대신 싣지 않는다)
   const z = new Map<string, number>();                 // 사진|가족 → 점수
   for (const [photo, row] of Object.entries(tags.photos)) for (const [key, score] of row.families) z.set(`${photo}|${key}`, score);
   const zOf = (photo: string, key: string) => z.get(`${photo}|${key}`) ?? 0;
@@ -43,9 +53,9 @@ export function buildFamilyIndex(input: {
   const unreviewed: string[] = [];
   const byFamily = new Map<string, string[]>();
   for (const fam of layers.families) {
-    let ids = [...new Set(confirmedPhotos(fam.key, confirms, dropped))];
+    let ids = [...new Set([...confirmedPhotos(fam.key, confirms, dropped), ...(fresh.get(fam.key) ?? [])])];
     if (!ids.length) {
-      ids = Object.keys(tags.photos).filter((p) => zOf(p, fam.key) >= cut && !dropped.has(tagId(p, "family", fam.key)));
+      ids = Object.keys(tags.photos).filter((p) => !added.has(p) && zOf(p, fam.key) >= cut && !dropped.has(tagId(p, "family", fam.key)));
       if (ids.length) unreviewed.push(fam.key);
     }
     byFamily.set(fam.key, ids.sort((a, b) => zOf(b, fam.key) - zOf(a, fam.key) || a.localeCompare(b)));

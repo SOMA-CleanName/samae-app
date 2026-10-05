@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { bigMoodNames, clustersIn, noteFor } from "@/lib/mood-photo-families";
+import { latestNewConfirms, newConfirmedByFamily } from "@/lib/mood-new-photos";
 import {
-  loadBandConfirms, loadFamilyReviews, loadPhotoFamilyNotes, loadPhotoClusters, loadPhotoMoodLayers, loadPhotoMoodNames, loadPhotoMoodTagEdits, loadPhotoMoodTags,
+  loadBandConfirms, loadFamilyReviews, loadNewConfirms, loadPhotoFamilyNotes, loadPhotoClusters, loadPhotoMoodLayers, loadPhotoMoodNames, loadPhotoMoodTagEdits, loadPhotoMoodTags,
 } from "@/lib/mood-photo-layers-data";
 import {
-  applyReview, bandTop, BANDS, confirmedPhotos, droppedTags, inBand, latestConfirms, latestReviews, nextBand, photosWithTag, tagCounts,
+  addedTags, applyReview, bandTop, BANDS, confirmedPhotos, droppedTags, inBand, latestConfirms, latestReviews, nextBand, photosWithTag, tagCounts,
   untaggedPhotos, type FamilyReviewStatus, type TaggedPhotoRow,
 } from "@/lib/mood-photo-tags";
 import { confirmBand, dropBand, reviewFamily, undoBand } from "./actions";
@@ -34,8 +35,8 @@ export default async function PhotoMoodTagsPage({ searchParams }: { searchParams
   const params = await searchParams;
   const view: "family" | "confirmed" | "big" | "empty" =
     params.view === "big" ? "big" : params.view === "empty" ? "empty" : params.view === "confirmed" ? "confirmed" : "family";
-  const [layers, raw, edits, notes, reviewRows, confirmRows, moodNames, clusterData] = await Promise.all([
-    loadPhotoMoodLayers(), loadPhotoMoodTags(), loadPhotoMoodTagEdits(), loadPhotoFamilyNotes(), loadFamilyReviews(), loadBandConfirms(), loadPhotoMoodNames(), loadPhotoClusters(),
+  const [layers, raw, edits, notes, reviewRows, confirmRows, moodNames, clusterData, newConfirmRows] = await Promise.all([
+    loadPhotoMoodLayers(), loadPhotoMoodTags(), loadPhotoMoodTagEdits(), loadPhotoFamilyNotes(), loadFamilyReviews(), loadBandConfirms(), loadPhotoMoodNames(), loadPhotoClusters(), loadNewConfirms(),
   ]);
 
   const head = <h2 id="photo-tags-heading" className="text-h2 font-semibold">태그 관리 — 단계별 검수</h2>;
@@ -54,7 +55,7 @@ export default async function PhotoMoodTagsPage({ searchParams }: { searchParams
   const reviews = latestReviews(reviewRows);
   const confirms = latestConfirms(confirmRows);
   const bigOf = new Map(layers.families.map((f) => [f.key, f.big]));
-  const live = applyReview(raw, bigOf, { dropped, reviews });
+  const live = applyReview(raw, bigOf, { dropped, reviews, added: addedTags(edits) });   // 사람이 직접 붙인 가족도
   const famName = new Map(layers.families.map((f) => [f.key, f.name]));
   const bigName = bigMoodNames(layers, moodNames);
   const counts = { family: tagCounts(live, "family", new Set()), big: tagCounts(live, "big", new Set()) };
@@ -63,7 +64,10 @@ export default async function PhotoMoodTagsPage({ searchParams }: { searchParams
   // 가족 순서 — 번호 순(F01 → F97). 무드 › D4 가족 화면과 같은 순서라 나란히 놓고 비교하며 검수한다(사람 요청 2026-10-01)
   const order = [...layers.families].sort((a, b) => a.key.localeCompare(b.key));
   const statusOf = (key: string): FamilyReviewStatus => reviews.get(key)?.status ?? "todo";
-  const confirmedOf = (key: string) => confirmedPhotos(key, confirms, dropped);
+  // 신규 사진(굳힌 기준으로 나중에 매긴 것)은 구간 검수에서 빼고 「신규 사진」 에서 본다 — 확정한 것은 여기 확정 수에 합친다
+  const added = new Set(Object.keys(raw.added ?? {}));
+  const freshConfirmed = newConfirmedByFamily(latestNewConfirms(newConfirmRows), dropped);
+  const confirmedOf = (key: string) => [...confirmedPhotos(key, confirms, dropped), ...(freshConfirmed.get(key) ?? [])];
   const totalConfirmed = order.reduce((n, f) => n + confirmedOf(f.key).length, 0);
   const passedBands = order.reduce((n, f) => n + (confirms.get(f.key)?.size ?? 0), 0);
 
@@ -72,7 +76,7 @@ export default async function PhotoMoodTagsPage({ searchParams }: { searchParams
   const page = Math.max(0, Number(params.p ?? 0) || 0);
 
   const family = view === "family" || view === "confirmed" ? layers.families.find((f) => f.key === key) : undefined;
-  const rows: TaggedPhotoRow[] = family ? photosWithTag(raw, "family", family.key, dropped) : view === "big" && key ? photosWithTag(live, "big", key, dropped) : [];
+  const rows: TaggedPhotoRow[] = family ? photosWithTag(raw, "family", family.key, dropped).filter((r) => !added.has(r.photo)) : view === "big" && key ? photosWithTag(live, "big", key, dropped) : [];
   // 가족 화면에서 볼 것 — show=done 확정된 사진 · show=all 전체 · 아니면 구간(기본: 아직 통과 안 한 가장 높은 구간)
   const show = params.show === "done" || view === "confirmed" ? "done" : params.show === "all" ? "all" : "band";
   // 이미 확정한 사진은 구간 검수에서 뺀다(사람 결정 2026-10-02) — 문장을 고쳐 다시 계산하면 점수가 바뀌어 다른 구간으로 옮겨 가는데, 다시 볼 필요가 없다
