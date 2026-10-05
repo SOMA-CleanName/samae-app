@@ -37,22 +37,22 @@ import type { PersonaActionResult, PersonaSuccess, RecoPhoto } from "./view-type
  * getCurrentUser 를 쓰지 않는다: 프로필·작가·신청까지 세 번 더 조회하는데
  * 여기서 알아야 할 건 "로그인했나" 하나뿐이다.
  */
-async function isSignedIn(): Promise<boolean> {
+async function signedInId(): Promise<string | null> {
   try {
     const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    return !!user;
+    return user?.id ?? null;
   } catch {
     // 인증 조회 자체가 실패하면 **막는다.** 비용이 드는 쪽이라 열어두는 게 더 위험하다.
-    return false;
+    return null;
   }
 }
 
 /** 서버에서 본 로그인 여부 — 화면이 버튼 문구·이동을 미리 정하는 데 쓴다 */
 export async function personaViewerSignedIn(): Promise<boolean> {
-  return isSignedIn();
+  return (await signedInId()) !== null;
 }
 
 const LOGIN_REQUIRED = {
@@ -188,7 +188,8 @@ export async function runPersonaAnalysis(usernameRaw: string): Promise<PersonaAc
 
   // 0) 로그인 — **캐시 히트보다 먼저.** 결과를 보려면 로그인해야 한다는 게 요점이라,
   //    "이미 분석된 아이디는 그냥 보여주는" 구멍을 두면 공짜 경로가 하나 남는다.
-  if (!(await isSignedIn())) return LOGIN_REQUIRED;
+  const profileId = await signedInId();
+  if (!profileId) return LOGIN_REQUIRED;
 
   // 1) 캐시 — 같은 아이디의 최근 결과가 있으면 스크래핑·LLM 을 태우지 않는다.
   const cached = await findCached(username);
@@ -243,6 +244,7 @@ export async function runPersonaAnalysis(usernameRaw: string): Promise<PersonaAc
       photoIds: result.photos.map((p) => p.id),
       ip,
       embedding: meanVec,
+      profileId,
     });
     await setResultCookie(shareId);
     return { ...result, shareId };
@@ -278,7 +280,8 @@ export async function analyzeFromImages(
   }
 
   // 업로드 경로도 같은 문지기 — 여기만 열어두면 비공개 계정 안내를 타고 공짜로 돌릴 수 있다
-  if (!(await isSignedIn())) return LOGIN_REQUIRED;
+  const profileId = await signedInId();
+  if (!profileId) return LOGIN_REQUIRED;
   const blocked = await analysisBlocked();
   if (blocked) return blocked;
 
@@ -303,6 +306,7 @@ export async function analyzeFromImages(
       photoIds: result.photos.map((p) => p.id),
       ip,
       embedding: meanVec,
+      profileId,
     });
     await setResultCookie(shareId);
     return { ...result, shareId };
