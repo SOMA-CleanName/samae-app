@@ -1,10 +1,18 @@
 import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
+import { networkInterfaces } from "node:os";
+
+// 같은 와이파이의 폰으로 로컬(dev)에 들어올 때 — 이 컴퓨터의 사설 IPv4 를 켜질 때마다 읽어 허용한다.
+// 와이파이가 바뀌면 주소도 바뀌므로 박아 두지 않는다(사람 요청 2026-10-05: 폰에서 사진 · 검색이 안 됐다 — dev 자바스크립트가 막혔다).
+const lanAddresses = Object.values(networkInterfaces())
+  .flat()
+  .filter((n) => n && n.family === "IPv4" && !n.internal)
+  .map((n) => n!.address);
 
 const nextConfig: NextConfig = {
   // dev 전용 — Tailscale 등 localhost 외 origin 에서 원격 로컬 접속 시 HMR·dev 리소스 차단 해제.
   // 프로덕션 빌드에는 영향 없음.
-  allowedDevOrigins: ["127.0.0.1", "100.79.41.65", "mac-mini.tailf8a21e.ts.net"],
+  allowedDevOrigins: ["127.0.0.1", "100.79.41.65", "mac-mini.tailf8a21e.ts.net", ...lanAddresses],
   images: {
     // Supabase Storage 공개 URL 허용 (실제 프로젝트 호스트로 교체됨)
     remotePatterns: [
