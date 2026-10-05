@@ -214,7 +214,7 @@ export function SearchDock({
         onMouseLeave={() => setHovered(false)}
         onFocusCapture={() => setFocused(true)}
         onAnimationStartCapture={(event) => {
-          // 검색창(SearchPill) 테두리 빛이 출발했다 — 연관 무드 판은 따로 돌지 않고 이 빛에 맞춰 번쩍인다
+          // 검색창(SearchPill) 테두리 빛이 출발했다 — 연관 무드 판 위로 은빛 광택이 한 번 스친다
           if (event.animationName === "search-border-lap") setTraceTick((n) => n + 1);
         }}
         onBlurCapture={() => setFocused(false)}
