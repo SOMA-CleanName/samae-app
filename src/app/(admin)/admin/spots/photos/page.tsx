@@ -41,7 +41,8 @@ function kst(iso: string | null): string {
  * 장소별 사진 — 장소마다 어떤 사진이 걸리는지 보고 고친다(spot_photos, 0145).
  *
  * 장소 정보(이름·주소·키워드·공개)는 「촬영 장소」(/admin/spots)에서 고친다. 여기는 **사진 쪽**만 다룬다.
- * 자동 매칭(키워드 ↔ 사진 장소 메모)은 매일 09:00 다시 계산되고, 여기서 한 일(빼기 · 넣기)은 지켜진다.
+ * 자동 매칭(키워드 ↔ 사진 장소 메모)은 매일 09:00 신규 사진만 더하고, 「전체 다시 계산」 이 전부를 다시 맞춘다.
+ * 여기서 한 일(빼기 · 넣기)은 어느 쪽에서도 지켜진다.
  * 작가가 적은 장소 메모(location_text)는 고치지 않는다 — 작가의 입력을 우리가 덮어쓰지 않는다(lib/location-text).
  */
 export default async function AdminSpotPhotosPage({
@@ -59,7 +60,7 @@ export default async function AdminSpotPhotosPage({
         <h1 className="text-h1 font-semibold">장소별 사진</h1>
         <p className="mt-4 rounded-xl border border-warning/30 bg-warning-soft/40 p-4 text-body-sm text-warning-ink">
           <b>spot_photos 표가 아직 없어요.</b> 마이그레이션 <code>0145_spot_photos.sql</code> 을 운영 DB 에 적용한 뒤
-          「지금 다시 계산」을 누르세요. 그전까지 지면은 예전처럼 키워드로 바로 매칭합니다.
+          「전체 다시 계산」을 누르세요. 그전까지 지면은 예전처럼 키워드로 바로 매칭합니다.
         </p>
       </main>
     );
@@ -96,11 +97,11 @@ export default async function AdminSpotPhotosPage({
 
       <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-line bg-surface p-3 text-body-sm">
         <span className="text-muted">
-          마지막 자동 계산 <b className="font-semibold text-fg">{kst(lastComputedAt)}</b> · 매일 09:00
+          마지막 자동 연결 <b className="font-semibold text-fg">{kst(lastComputedAt)}</b> · 매일 09:00 신규 사진만 · 나중에 장소 메모를 단 사진은 전체 다시 계산으로
         </span>
         <form action={recomputeNow} className="ml-auto">
           <SubmitButton pendingText="계산 중…" className={SMALL_BTN}>
-            지금 다시 계산
+            전체 다시 계산
           </SubmitButton>
         </form>
       </div>

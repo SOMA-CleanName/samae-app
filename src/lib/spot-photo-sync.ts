@@ -23,6 +23,26 @@ export type SyncPlan = {
   remove: string[];
 };
 
+/**
+ * 신규 사진만 볼 때(매일 크론) — **더하기만** 한다.
+ *
+ * 전체를 보지 않았으니 「매칭에서 빠졌다」 를 알 수 없다 → 아무것도 지우지 않는다.
+ * 이미 연결된 사진(자동 · 직접 · 뺀 것 전부)은 건드리지 않는다. 새로 붙는 사진은 기존 것 뒤에 선다
+ * (startSort 부터). 순서를 다시 맞추는 건 전체 계산(어드민 「전체 다시 계산」)의 몫이다.
+ */
+export function planAutoAppend(
+  existing: ExistingLink[],
+  matchedNewIds: string[],
+  startSort: number
+): SyncPlan {
+  const known = new Set(existing.map((l) => l.photoId));
+  const fresh = matchedNewIds.filter((id) => !known.has(id));
+  return {
+    upsert: fresh.map((photoId, i) => ({ photoId, sort: startSort + i, excluded: false })),
+    remove: [],
+  };
+}
+
 export function planAutoSync(existing: ExistingLink[], matchedIds: string[]): SyncPlan {
   const byPhoto = new Map(existing.map((l) => [l.photoId, l]));
   const matched = new Set(matchedIds);

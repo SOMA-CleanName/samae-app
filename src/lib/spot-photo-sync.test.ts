@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { planAutoSync, type ExistingLink } from "./spot-photo-sync";
+import { planAutoAppend, planAutoSync, type ExistingLink } from "./spot-photo-sync";
 
 const auto = (photoId: string, excluded = false): ExistingLink => ({ photoId, source: "auto", excluded });
 const manual = (photoId: string): ExistingLink => ({ photoId, source: "manual", excluded: false });
@@ -37,5 +37,20 @@ test("운영자가 뺀 사진은 매칭에서 빠져도 지우지 않는다 — 
 test("운영자가 넣은 사진은 건드리지 않는다 — 매칭에 걸려도, 빠져도", () => {
   const plan = planAutoSync([manual("m1"), manual("m2")], ["m1", "x"]);
   assert.deepEqual(plan.upsert, [{ photoId: "x", sort: 1, excluded: false }]);
+  assert.deepEqual(plan.remove, []);
+});
+
+test("신규만 볼 때는 새 사진을 기존 것 뒤에 더하기만 한다", () => {
+  const plan = planAutoAppend([auto("a"), manual("m")], ["n1", "n2"], 10);
+  assert.deepEqual(plan.upsert, [
+    { photoId: "n1", sort: 10, excluded: false },
+    { photoId: "n2", sort: 11, excluded: false },
+  ]);
+  assert.deepEqual(plan.remove, []);
+});
+
+test("신규만 볼 때는 이미 연결된 사진을 건드리지 않는다 — 뺀 것도, 직접 넣은 것도", () => {
+  const plan = planAutoAppend([auto("x", true), manual("m")], ["x", "m", "n"], 5);
+  assert.deepEqual(plan.upsert, [{ photoId: "n", sort: 5, excluded: false }]);
   assert.deepEqual(plan.remove, []);
 });

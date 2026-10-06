@@ -132,7 +132,10 @@ export async function removeManualSpotPhoto(formData: FormData) {
   revalidateSurfaces();
 }
 
-/** 지금 다시 계산 — 매일 09:00 크론과 같은 일 */
+/**
+ * 전체 다시 계산 — 공개 사진 전부를 다시 맞춘다(수동 전체 백필).
+ * 매일 09:00 크론은 신규 사진만 더한다. 나중에 장소 메모를 단 사진 같은 예외는 이걸로 처리한다.
+ */
 export async function recomputeNow() {
   const me = await assertAdmin();
   const result = await recomputeSpotPhotos();

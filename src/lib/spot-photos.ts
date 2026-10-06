@@ -3,32 +3,42 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { listAllSpots, type Spot } from "@/lib/spots-db";
 import { isSpecificLocation, matchSpotPhotoIds } from "@/lib/spots";
-import { planAutoSync, type ExistingLink } from "@/lib/spot-photo-sync";
+import { planAutoAppend, planAutoSync, type ExistingLink } from "@/lib/spot-photo-sync";
 import { deriveRegion } from "@/lib/photo-region";
 
 // 촬영 장소 ↔ 사진 연결(spot_photos, 0145) — 계산과 어드민 조회.
 //
 // 공개 지면이 읽는 쪽은 lib/spots(linkedPhotosBySpot)에 있다. 여기는 쓰는 쪽과 운영자가 보는 쪽이다.
 
+/** 매일 크론이 보는 「신규 사진」 범위. 크론이 하루 빠져도 놓치지 않게 이틀. */
+const NEW_PHOTO_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
+
 /**
- * 자동 연결을 다시 계산한다 — 매일 크론(09:00)과 어드민 「다시 계산」이 부른다.
+ * 장소 ↔ 사진 자동 연결을 계산한다.
+ *
+ * · `newOnly` (매일 크론 09:00) — 최근 이틀 안에 올라온 사진만 매칭해 **더하기만** 한다.
+ *   기존 연결은 건드리지 않는다. 나중에 장소 메모를 단 사진 같은 예외는 여기서 안 잡는다(2026-10-06 결정)
+ * · 전체 (어드민 「전체 다시 계산」 · 장소 키워드 저장) — 공개 사진 전부를 다시 맞추고, 안 맞게 된
+ *   자동 연결은 지운다. 그런 예외는 이걸 손으로 돌려 처리한다
  *
  * 비공개 장소도 계산한다 — 운영자가 켜기 전에 어떤 사진이 붙을지 어드민에서 보고 판단한다.
- * 운영자가 넣은 것(manual) · 뺀 것(excluded)은 지킨다(lib/spot-photo-sync).
- * 키워드 매칭은 DB `location_text ilike` 라 무겁지만 하루 한 번, 장소 수만큼이다.
+ * 운영자가 넣은 것(manual) · 뺀 것(excluded)은 어느 쪽이든 지킨다(lib/spot-photo-sync).
  */
-export async function recomputeSpotPhotos(): Promise<{ ok: boolean; [k: string]: unknown }> {
+export async function recomputeSpotPhotos(
+  { newOnly = false }: { newOnly?: boolean } = {}
+): Promise<{ ok: boolean; [k: string]: unknown }> {
   const admin = createAdminClient();
   const spots = await listAllSpots();
   const now = new Date().toISOString();
+  const since = newOnly ? new Date(Date.now() - NEW_PHOTO_WINDOW_MS).toISOString() : undefined;
   let linked = 0;
   let removed = 0;
 
   for (const spot of spots) {
-    const matchedIds = await matchSpotPhotoIds(spot);
+    const matchedIds = await matchSpotPhotoIds(spot, { since });
     const { data: existingRows, error } = await admin
       .from("spot_photos")
-      .select("photo_id, source, excluded")
+      .select("photo_id, source, excluded, sort")
       .eq("spot_id", spot.id);
     // 표가 없으면(0145 전) 여기서 멈춘다 — 장소마다 같은 에러를 반복할 이유가 없다
     if (error) return { ok: false, error: error.message, spot: spot.slug };
@@ -38,7 +48,8 @@ export async function recomputeSpotPhotos(): Promise<{ ok: boolean; [k: string]:
       source: r.source as ExistingLink["source"],
       excluded: r.excluded as boolean,
     }));
-    const plan = planAutoSync(existing, matchedIds);
+    const maxSort = Math.max(-1, ...(existingRows ?? []).map((r) => r.sort as number));
+    const plan = newOnly ? planAutoAppend(existing, matchedIds, maxSort + 1) : planAutoSync(existing, matchedIds);
 
     if (plan.upsert.length > 0) {
       // updated_at 을 이번 계산 시각으로 — 어드민의 「마지막 계산」이 이걸 본다
@@ -69,8 +80,8 @@ export async function recomputeSpotPhotos(): Promise<{ ok: boolean; [k: string]:
     removed += plan.remove.length;
   }
 
-  const regionsFilled = await backfillPhotoRegions(new Map(spots.map((s) => [s.id, s.city])));
-  return { ok: true, spots: spots.length, linked, removed, regionsFilled };
+  const regionsFilled = await backfillPhotoRegions(new Map(spots.map((s) => [s.id, s.city])), since);
+  return { ok: true, mode: newOnly ? "new" : "all", spots: spots.length, linked, removed, regionsFilled };
 }
 
 /**
@@ -78,18 +89,17 @@ export async function recomputeSpotPhotos(): Promise<{ ok: boolean; [k: string]:
  *
  * 「서울」 처럼 장소라기엔 넓은 말만 적힌 사진도 지역으로는 남긴다(2026-10-06 결정).
  * **이미 값이 있는 사진은 건드리지 않는다.** 장소 연결 계산 뒤에 돈다 — 연결된 장소의 시·도를 쓰려고.
+ * `since` 를 주면 그 뒤에 올라온 사진만(매일 크론).
  */
-async function backfillPhotoRegions(cityBySpot: Map<string, string>): Promise<number> {
+async function backfillPhotoRegions(cityBySpot: Map<string, string>, since?: string): Promise<number> {
   const admin = createAdminClient();
 
   const photos: Array<{ id: string; location_text: string | null }> = [];
   for (let from = 0; ; from += 1000) {
-    const { data, error } = await admin
-      .from("photos")
-      .select("id, location_text")
-      .is("region", null)
-      .order("id")
-      .range(from, from + 999);
+    // 신규만 볼 때는 그 사진들만
+    let query = admin.from("photos").select("id, location_text").is("region", null);
+    if (since) query = query.gte("created_at", since);
+    const { data, error } = await query.order("id").range(from, from + 999);
     if (error) return 0;
     photos.push(...((data ?? []) as Array<{ id: string; location_text: string | null }>));
     if ((data ?? []).length < 1000) break;

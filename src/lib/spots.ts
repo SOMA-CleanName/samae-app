@@ -161,22 +161,26 @@ async function fetchMatched(spot: Spot, pool?: MatchedPhoto[] | null): Promise<M
   return arrangeMatched(rows);
 }
 
-/** DB 경로 — 키워드마다 `location_text ilike '%키워드%'` 를 or 로 묶는다. */
-async function queryMatched(spot: Spot): Promise<MatchedPhoto[]> {
+/**
+ * DB 경로 — 키워드마다 `location_text ilike '%키워드%'` 를 or 로 묶는다.
+ * `since` 를 주면 그 뒤에 올라온 사진만 본다(매일 크론의 신규 사진 계산).
+ */
+async function queryMatched(spot: Spot, since?: string): Promise<MatchedPhoto[]> {
   const or = orFilter(spot);
   if (!or) return [];
 
   const supabase = createPublicClient();
-  const { data, error } = await supabase
+  let query = supabase
     .from("photos")
     .select(`${GALLERY_SELECT}, location_text, album_id`)
     .or(or)
     .eq("visibility", "published")
     .eq("feed_hidden", false)
     // RLS 가 이미 '승인 작가만' 을 걸러 주지만, 조인 조건으로 한 겹 더 건다.
-    .eq("photographer.status", "approved")
-    // 정렬을 안 주면 매번 순서가 달라져 ISR 재생성 때마다 지면이 흔들린다.
-    .order("created_at", { ascending: false });
+    .eq("photographer.status", "approved");
+  if (since) query = query.gte("created_at", since);
+  // 정렬을 안 주면 매번 순서가 달라져 ISR 재생성 때마다 지면이 흔들린다.
+  const { data, error } = await query.order("created_at", { ascending: false });
 
   if (error) return [];
   return (data ?? []) as unknown as MatchedPhoto[];
@@ -208,9 +212,10 @@ function arrangeMatched(rows: MatchedPhoto[]): MatchedPhoto[] {
  * 다만 그런 사진은 지면에 자동으로 띄우지 않는다(linkedPhotosBySpot) — 같은 사진이 네 장소 갤러리에
  * 똑같이 뜨던 문제(2026-08-31) 때문이다. 띄울 곳은 운영자가 어드민에서 골라 싣는다(manual).
  * 순서: 지면에 뜨는 것(단독 표기 → 앨범 분산) 다음에 나열형.
+ * `since` 를 주면 그 뒤에 올라온 사진만(매일 크론 — 신규 사진만 더한다).
  */
-export async function matchSpotPhotoIds(spot: Spot): Promise<string[]> {
-  const rows = await queryMatched(spot);
+export async function matchSpotPhotoIds(spot: Spot, { since }: { since?: string } = {}): Promise<string[]> {
+  const rows = await queryMatched(spot, since);
   const shown = arrangeMatched(rows);
   const shownIds = new Set(shown.map((p) => p.id));
   const listed = spreadByAlbum(rows.filter((p) => !shownIds.has(p.id)));
