@@ -430,6 +430,10 @@ node --env-file=.env.local scripts/check-siglip-text-search.cjs
 
 ### 8.6 갱신·재시작·상태 확인
 
+> ⚠️ **맥미니 코드 갱신은 자동이 아니다.** 앱 PR 이 `scripts/embed/` 를 바꿔 머지돼도 맥미니 런타임(`~/srv/samae-app`)에는
+> 사람이 `git pull --ff-only` + 재시작을 해야 들어간다. 10/5 에 쓴 [docs/48](48-macmini-mood-search-handoff.md) 이 실행되지 않은 채
+> 남아 10/6 무드 검색이 예전 방식으로 돌던 걸 어드민 검색 기록으로 알았다. `scripts/embed/` 를 바꾸는 PR 은 맥미니 갱신 담당을 정해 둔다.
+
 맥미니의 런타임 코드 또는 `.env.local` 을 바꿨다면 **등록된 상주 서비스를 재시작**한다. 이미 launchd 로 실행 중일 때 `python serve.py` 를 따로 띄우면 8077 포트가 충돌한다.
 
 ```bash
@@ -453,6 +457,7 @@ tailscale funnel status
 | `/search-query` 가 404 | 옛 코드다. 갱신·재시작. 그동안 앱은 `/embed-text` 로 우회하므로 검색은 된다(목적 분리만 빠짐) |
 | `/search-query` 가 501, `serve.log` 에 `검색어 분리 꺼짐` | 서버 venv 에 `kiwipiepy` 가 없다. §8.2 의 `pip install` 후 재시작. 앱은 `/embed-text` 로 우회 |
 | `/health` 의 `purpose_nearest` 가 false | KURE-v1 을 안 받았거나 `SAMAE_PURPOSE_NEAREST=0` 이다. **장애가 아니다** — 사전에 없는 말만 목적으로 안 잡힌다 |
+| 검색은 되는데 `/search-query` 의 `mood_families` 가 늘 빈 배열 — 어드민 「도구 → 검색」 에서 전부 「무드(태그 + 벡터)」 · 「무드 가족 없음」 | 맥미니가 10/4 무드 검색 코드(`56e1b28`) 전이거나 갱신 뒤 재시작을 안 했거나 KURE-v1 이 없다(10/4 부터 KURE 는 무드 검색에 **필수**). `serve.log` 의 `✅ 무드 가족 찾기 준비` / `⚠️ 무드 가족 찾기 꺼짐` 을 본다. 실행 순서는 [docs/48](48-macmini-mood-search-handoff.md) §3 ~ §6. 2026-10-06 실제로 겪음("시크" → 시크 가족 `f13` 으로 안 감) |
 | 인증 요청이 401 | 양쪽 `PERSONA_SERVICE_TOKEN` 일치 여부, 맥미니 재시작과 앱 재시작·재배포 여부 |
 | 로컬은 정상인데 HTTPS 경로 실패 | Tailscale 연결과 `funnel status` 의 실제 주소·8077 프록시 대상 |
 | 검증 스크립트는 성공하지만 앱 검색 결과가 없음 | 앱의 URL·토큰·배포 환경, 4초 제한, 공개·승인·`feed_hidden=false` 조건 |

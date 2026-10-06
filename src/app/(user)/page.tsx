@@ -127,7 +127,7 @@ export default async function ExploreHome({
     suggestions = search?.suggestions ?? [];
     const basePhotos = search ? search.matches : await fetchPublishedPhotos({});
     // 검색어가 어느 목적 · 무드 가족으로 갔는지도 남긴다 — 어드민 「도구 → 검색」
-    if (query) await logSearch(query, basePhotos.length, me?.id, search?.interpretation);
+    if (query) await logSearch(query, basePhotos.length, me?.id, search?.interpretation, search?.durationMs);
     const merged = adAsGallery
       ? [adAsGallery, ...basePhotos.filter((p) => p.id !== adAsGallery.id)]
       : basePhotos;
@@ -329,7 +329,11 @@ async function searchHomePhotos(query: string): Promise<{
   suggestions: SearchSuggestion[];
   /** 검색어를 어떻게 해석했나 — 검색 기록용(lib/search-interpretation) */
   interpretation: SearchInterpretation;
+  /** 검색에 걸린 시간(ms) — 어드민 「도구 → 검색」 에만 보여준다(0146). 사용자 화면에는 안 나간다 */
+  durationMs: number;
 }> {
+  const startedAt = performance.now();
+  const elapsed = () => Math.round(performance.now() - startedAt);
   const result = await searchPhotos(query, SIGLIP_SEARCH_MAX_RESULTS).catch((error) => {
     console.error("[home] 검색 실패:", error);
     return null;
@@ -341,6 +345,7 @@ async function searchHomePhotos(query: string): Promise<{
       counts: { matches: 0, related: 0, capped: false },
       suggestions: [],
       interpretation: EMPTY_INTERPRETATION,
+      durationMs: elapsed(),
     };
   }
   // 장수는 z 가 정한다 — 여기서 다시 자르지 않는다. 앨범 흩뜨리기만 두 묶음 안에서 따로 한다.
@@ -353,5 +358,6 @@ async function searchHomePhotos(query: string): Promise<{
     counts: { matches: matches.length, related: related.length, capped: result.capped },
     suggestions: result.suggestions ?? [],
     interpretation: interpretationFrom(result),
+    durationMs: elapsed(),
   };
 }

@@ -10,11 +10,13 @@ import { EMPTY_INTERPRETATION, type SearchInterpretation } from "@/lib/search-in
 //
 // interpretation — 검색어를 목적 · 무드로 어떻게 나눴고 어느 무드 가족으로 갔나(lib/search-interpretation).
 // 어드민 「도구 → 검색」 이 검색어마다 연결된 무드를 보여준다.
+// durationMs — 검색에 걸린 시간(0146). 어드민에서만 보여준다.
 export async function logSearch(
   raw: string,
   resultCount: number,
   profileId?: string | null,
-  interpretation: SearchInterpretation = EMPTY_INTERPRETATION
+  interpretation: SearchInterpretation = EMPTY_INTERPRETATION,
+  durationMs?: number | null
 ): Promise<void> {
   const trimmed = raw.trim().slice(0, 80);
   const compact = normalizeQuery(trimmed);
@@ -22,7 +24,7 @@ export async function logSearch(
 
   try {
     const admin = createAdminClient();
-    const { error } = await admin.from("search_logs").insert({
+    const row = {
       raw: trimmed,
       compact,
       result_count: resultCount,
@@ -32,7 +34,13 @@ export async function logSearch(
       mood_mode: interpretation.moodMode,
       mood_families: interpretation.moodFamilies,
       mood_filled: interpretation.moodFilled,
-    });
+    };
+    const duration = Number.isFinite(durationMs) && (durationMs as number) >= 0 ? Math.round(durationMs as number) : null;
+    let { error } = await admin.from("search_logs").insert({ ...row, duration_ms: duration });
+    // 0146(duration_ms) 전이면 그 칸만 빼고 다시 넣는다 — 시간 때문에 검색 기록 자체를 잃지 않게
+    if (error && /duration_ms/.test(error.message)) {
+      ({ error } = await admin.from("search_logs").insert(row));
+    }
     // 테이블이 없던 동안(0049 미적용) 404 를 아무도 몰랐다 — 조용히 삼키지 않고 서버 로그엔 남긴다
     if (error) console.error("[search-log] 검색 기록 실패:", error.message);
 

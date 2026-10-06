@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { interpretationFrom, purposeLabel, routeLabel, EMPTY_INTERPRETATION } from "./search-interpretation";
+import { formatDuration, interpretationFrom, purposeLabel, routeLabel, EMPTY_INTERPRETATION } from "./search-interpretation";
 
 test("무드 가족 검색 결과에서 해석을 뽑는다", () => {
   const i = interpretationFrom({
@@ -38,4 +38,10 @@ test("검색이 실패하면(결과 없음) 빈 해석", () => {
 test("목적 키는 이름으로, 모르는 키는 그대로", () => {
   assert.equal(purposeLabel("pet"), "반려동물");
   assert.equal(purposeLabel("unknown"), "unknown");
+});
+
+test("걸린 시간 — 1초 미만은 ms, 그 위는 초", () => {
+  assert.equal(formatDuration(820), "820ms");
+  assert.equal(formatDuration(1234), "1.2초");
+  assert.equal(formatDuration(null), "—");
 });

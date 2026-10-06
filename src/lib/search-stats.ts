@@ -18,6 +18,9 @@ export type SearchStatGroup = {
   purposes: Tally[]; // 떼어낸 목적 키
   routes: Tally[]; // 어떤 길로 찾았나(lib/search-interpretation routeLabel)
   moodTexts: Tally[]; // 무드로 본 글자
+  // ── 걸린 시간 (0146) — 시간이 남은 검색만으로 센다. 없으면 null ──
+  avgMs: number | null;
+  maxMs: number | null;
 };
 
 export type Tally = { name: string; count: number };
@@ -27,6 +30,7 @@ export type RecentSearch = SearchInterpretation & {
   raw: string;
   resultCount: number;
   at: string;
+  durationMs: number | null; // 걸린 시간(0146 전 기록은 null)
 };
 
 export type SearchStatsResult = {
@@ -36,6 +40,8 @@ export type SearchStatsResult = {
   zeroResultCount: number;
   sinceDays: number | null;
   recent: RecentSearch[]; // 최근 검색 50건 — 검색어 하나하나가 어디로 갔나
+  // 걸린 시간 요약 — 시간이 남은 검색만(0146 뒤). 없으면 null
+  timing: { avgMs: number | null; p95Ms: number | null; measured: number; slowest: RecentSearch[] };
 };
 
 const MAX_ROWS = 5000;
@@ -51,6 +57,9 @@ type Bucket = {
   purposes: Map<string, number>;
   routes: Map<string, number>;
   moodTexts: Map<string, number>;
+  msSum: number;
+  msCount: number;
+  msMax: number | null;
 };
 
 type Row = {
@@ -63,6 +72,7 @@ type Row = {
   mood_mode: "family" | "big" | null;
   mood_families: string[] | null;
   mood_filled: string[] | null;
+  duration_ms?: number | null; // 0146 전이면 칸 자체가 없다
 };
 
 function bump(map: Map<string, number>, key: string | null | undefined, n = 1) {
@@ -95,6 +105,21 @@ function addRow(b: Bucket, r: Row) {
   for (const p of i.purposes) bump(b.purposes, p);
   bump(b.routes, routeLabel(i));
   bump(b.moodTexts, i.moodText);
+  if (typeof r.duration_ms === "number") {
+    b.msSum += r.duration_ms;
+    b.msCount += 1;
+    b.msMax = Math.max(b.msMax ?? 0, r.duration_ms);
+  }
+}
+
+function toRecent(r: Row): RecentSearch {
+  return {
+    ...interpretationOf(r),
+    raw: r.raw,
+    resultCount: r.result_count,
+    at: r.created_at,
+    durationMs: typeof r.duration_ms === "number" ? r.duration_ms : null,
+  };
 }
 
 // 정규화 키가 가까우면(편집거리) 같은 오타군으로 본다.
@@ -122,18 +147,17 @@ function topRaw(raws: Map<string, number>): string {
 
 export async function listSearchStats(sinceDays: number | null = 30): Promise<SearchStatsResult> {
   const admin = createAdminClient();
-
-  let query = admin
-    .from("search_logs")
-    .select("raw, compact, result_count, created_at, purposes, mood_text, mood_mode, mood_families, mood_filled")
-    .order("created_at", { ascending: false })
-    .limit(MAX_ROWS);
-  if (sinceDays) {
-    const since = new Date(Date.now() - sinceDays * 86400000).toISOString();
-    query = query.gte("created_at", since);
-  }
-  const { data } = await query;
-  const rows = (data ?? []) as Row[];
+  const since = sinceDays ? new Date(Date.now() - sinceDays * 86400000).toISOString() : null;
+  const BASE_COLS = "raw, compact, result_count, created_at, purposes, mood_text, mood_mode, mood_families, mood_filled";
+  const load = (cols: string) => {
+    let query = admin.from("search_logs").select(cols).order("created_at", { ascending: false }).limit(MAX_ROWS);
+    if (since) query = query.gte("created_at", since);
+    return query;
+  };
+  // 걸린 시간 칸(0146)이 아직 없으면 그 칸만 빼고 읽는다
+  let { data, error } = await load(`${BASE_COLS}, duration_ms`);
+  if (error && /duration_ms/.test(error.message)) ({ data, error } = await load(BASE_COLS));
+  const rows = (data ?? []) as unknown as Row[];
 
   // 1차: 정규화 키(compact) 단위 집계
   const buckets = new Map<string, Bucket>();
@@ -157,6 +181,9 @@ export async function listSearchStats(sinceDays: number | null = 30): Promise<Se
         purposes: new Map(),
         routes: new Map(),
         moodTexts: new Map(),
+        msSum: 0,
+        msCount: 0,
+        msMax: null,
       };
       addRow(fresh, r);
       buckets.set(r.compact, fresh);
@@ -178,6 +205,9 @@ export async function listSearchStats(sinceDays: number | null = 30): Promise<Se
       merge(host.purposes, bucket.purposes);
       merge(host.routes, bucket.routes);
       merge(host.moodTexts, bucket.moodTexts);
+      host.msSum += bucket.msSum;
+      host.msCount += bucket.msCount;
+      if (bucket.msMax !== null) host.msMax = Math.max(host.msMax ?? 0, bucket.msMax);
     } else {
       canonicals.push(bucket);
     }
@@ -199,6 +229,8 @@ export async function listSearchStats(sinceDays: number | null = 30): Promise<Se
       purposes: tally(c.purposes),
       routes: tally(c.routes),
       moodTexts: tally(c.moodTexts),
+      avgMs: c.msCount ? Math.round(c.msSum / c.msCount) : null,
+      maxMs: c.msMax,
     }))
     .sort((a, b) => b.count - a.count);
 
@@ -209,11 +241,21 @@ export async function listSearchStats(sinceDays: number | null = 30): Promise<Se
     zeroResultCount: groups.filter((g) => g.zeroResult).length,
     sinceDays,
     // rows 는 최신순이다
-    recent: rows.slice(0, 50).map((r) => ({
-      ...interpretationOf(r),
-      raw: r.raw,
-      resultCount: r.result_count,
-      at: r.created_at,
-    })),
+    recent: rows.slice(0, 50).map(toRecent),
+    timing: timingOf(rows),
+  };
+}
+
+/** 걸린 시간 요약 — 평균 · 95번째(느린 쪽 5% 경계) · 가장 느린 5건 */
+function timingOf(rows: Row[]): SearchStatsResult["timing"] {
+  const timed = rows.filter((r) => typeof r.duration_ms === "number");
+  if (!timed.length) return { avgMs: null, p95Ms: null, measured: 0, slowest: [] };
+  const ms = timed.map((r) => r.duration_ms as number).sort((a, b) => a - b);
+  const p95 = ms[Math.min(ms.length - 1, Math.ceil(ms.length * 0.95) - 1)];
+  return {
+    avgMs: Math.round(ms.reduce((a, b) => a + b, 0) / ms.length),
+    p95Ms: p95,
+    measured: timed.length,
+    slowest: [...timed].sort((a, b) => (b.duration_ms as number) - (a.duration_ms as number)).slice(0, 5).map(toRecent),
   };
 }
