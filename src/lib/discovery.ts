@@ -3,6 +3,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { seededShuffle } from "@/lib/seeded-shuffle";
+import { memoTtl } from "@/lib/server-memo";
 import { readAnonFavPhotoIds } from "@/lib/anon-favorites";
 import { diversifySimilarityCandidates, mapSimilarityRows, mergeDemotedSimilar, promotionStage } from "@/lib/feed-demotion";
 import {
@@ -266,30 +267,88 @@ export async function fetchSeededFeedPage(
   }));
 }
 
-// 순수 시드 피드 — 임의 오프셋(feed_photos_seeded). 오류/미적용 시 null.
+/**
+ * 홈 피드에 실릴 수 있는 사진 id — 공개 · 피드에서 안 내림 · 승인 작가(feed_photos_seeded 와 같은 조건).
+ * 섞기 전 기준 순서(id 순). 1분 메모 — 숨긴 사진은 최대 1분 뒤 피드에서 빠진다.
+ *
+ * 🔴 전에는 페이지(48장)마다 feed_photos_seeded RPC 가 **공개 사진 전부에 md5 를 매겨 정렬**했다.
+ *    방문자마다 시드가 달라 재사용이 안 되고, 스크롤할 때마다 처음부터 다시 정렬했다 — 사진 수 × 방문 ×
+ *    스크롤로 커진다. 2026-10-06 장애 때 이 RPC 가 500 · 504 를 냈다. 이제 id 목록만 서버가 들고
+ *    섞기는 여기서(seededShuffle) 한다. DB 는 1분에 id 목록 한 번 + 페이지당 기본키 48개 조회다.
+ */
+const FEED_IDS_TTL_MS = 60_000;
+
+async function feedPhotoIds(): Promise<string[]> {
+  return memoTtl("feed:ids", FEED_IDS_TTL_MS, async () => {
+    const admin = createAdminClient();
+    const ids: string[] = [];
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await admin
+        .from("photos")
+        .select("id, photographer:photographers!photos_photographer_id_fkey!inner(status)")
+        .eq("visibility", "published")
+        .eq("feed_hidden", false)
+        .eq("photographer.status", "approved")
+        .order("id", { ascending: true })
+        .range(from, from + 999);
+      if (error) throw new Error(error.message);
+      ids.push(...((data ?? []) as Array<{ id: string }>).map((r) => r.id));
+      if ((data ?? []).length < 1000) break;
+    }
+    return ids;
+  });
+}
+
+type FeedPhotoRow = Omit<GalleryPhoto, "photographer" | "mood_tags"> & {
+  mood_tags: string[] | null;
+  photographer: { id: string; display_name: string | null };
+};
+
+// 순수 시드 피드 — 임의 오프셋. 같은 시드면 같은 순서(세션 안에서 일관). 오류면 null.
 export async function fetchSeededFeedAt(
   seed: string,
   offset: number,
   limit: number
 ): Promise<GalleryPhoto[] | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("feed_photos_seeded", {
-    p_seed: seed,
-    p_offset: offset,
-    p_limit: limit,
-  });
+  let ids: string[];
+  try {
+    ids = await feedPhotoIds();
+  } catch {
+    return null;
+  }
+  const start = Math.max(0, offset);
+  const pick = seededShuffle(ids, seed).slice(start, start + Math.min(Math.max(limit, 0), 100));
+  if (pick.length === 0) return [];
+
+  // 메모 사이 1분 동안 숨긴 사진이 끼지 않게 조건을 한 번 더 건다(기본키라 가볍다)
+  const { data, error } = await createAdminClient()
+    .from("photos")
+    .select(
+      "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name, status)"
+    )
+    .in("id", pick)
+    .eq("visibility", "published")
+    .eq("feed_hidden", false)
+    .eq("photographer.status", "approved");
   if (error) return null;
-  return ((data ?? []) as FeedRow[]).map((r) => ({
-    id: r.id,
-    src_url: r.src_url,
-    thumb_url: r.thumb_url,
-    width: r.width,
-    height: r.height,
-    region: r.region,
-    mood_tags: r.mood_tags ?? [],
-    price_krw: r.price_krw,
-    photographer: { id: r.photographer_id, display_name: r.photographer_name },
-  }));
+  const byId = new Map(((data ?? []) as unknown as FeedPhotoRow[]).map((r) => [r.id, r]));
+  return pick.flatMap((id) => {
+    const r = byId.get(id);
+    if (!r) return [];
+    return [
+      {
+        id: r.id,
+        src_url: r.src_url,
+        thumb_url: r.thumb_url,
+        width: r.width,
+        height: r.height,
+        region: r.region,
+        mood_tags: r.mood_tags ?? [],
+        price_krw: r.price_krw,
+        photographer: { id: r.photographer.id, display_name: r.photographer.display_name },
+      },
+    ];
+  });
 }
 
 // 운영자가 노출을 낮춘 사진 전용 꼬리. 일반 사진을 모두 본 뒤에만 페이지 단위로 호출한다.
@@ -321,16 +380,25 @@ export async function fetchFeedHiddenIds(): Promise<Set<string>> {
 
 // 카테고리 멤버십 사진 id 집합 (관리자 클라 — 뷰어 무관 전체 멤버십)
 // 운영자 피드 숨김은 여기서 뺀다 — 멤버십 자체는 두고 노출 면에서만 제외.
+/**
+ * 취향 카테고리에 담긴 사진(피드에서 내린 것 제외) — 1분 메모.
+ *
+ * 홈 첫 화면과 **스크롤 페이지마다** 목적 · 무드 두 번씩 불린다. 메모 없이 매번 카테고리 사진 목록과
+ * 숨긴 사진 목록을 읽어, 2026-10-06 Query Performance 에 explore_category_photos 조회가 29만 회 찍혔다.
+ */
 async function categoryMemberIds(catIds: string[]): Promise<Set<string>> {
   if (catIds.length === 0) return new Set();
-  const admin = createAdminClient();
-  const [{ data }, hidden] = await Promise.all([
-    admin.from("explore_category_photos").select("photo_id").in("category_id", catIds),
-    fetchFeedHiddenIds(),
-  ]);
-  const ids = ((data ?? []) as { photo_id: string }[])
-    .map((r) => r.photo_id)
-    .filter((id) => !hidden.has(id));
+  const key = `taste:members:${[...catIds].sort().join(",")}`;
+  const ids = await memoTtl(key, 60_000, async () => {
+    const admin = createAdminClient();
+    const [{ data }, hidden] = await Promise.all([
+      admin.from("explore_category_photos").select("photo_id").in("category_id", catIds),
+      fetchFeedHiddenIds(),
+    ]);
+    return ((data ?? []) as { photo_id: string }[])
+      .map((r) => r.photo_id)
+      .filter((id) => !hidden.has(id));
+  });
   return new Set(ids);
 }
 
