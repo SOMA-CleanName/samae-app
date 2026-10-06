@@ -5,6 +5,7 @@ import { markPastShootsAsShot, notifyDeliveryOverdue } from "@/lib/booking-sweep
 import { sendChatReminders } from "@/lib/chat-reminder";
 import { pingIndexNow } from "@/lib/indexnow";
 import { checkSearchSnapshotFreshness } from "@/lib/snapshot-watch";
+import { recomputeSpotPhotos } from "@/lib/spot-photos";
 
 // 하루 한 번 도는 일과 전부 — 매일 09:00 KST(= 00:00 UTC).
 //
@@ -57,6 +58,8 @@ export async function GET(request: Request) {
     await run("indexnow", pingIndexNow),
     // 06:00 공개 사진 목록이 오늘도 만들어졌나. 검색·장소 카드는 낡아도 계속 쓰므로 여기서 잡는다.
     await run("snapshot-freshness", checkSearchSnapshotFreshness),
+    // 촬영 장소 ↔ 사진 자동 연결(spot_photos, 0145). 운영자가 넣고 뺀 것은 지킨다.
+    await run("spot-photos", recomputeSpotPhotos),
   ];
 
   const ok = tasks.every((t) => t.ok);
