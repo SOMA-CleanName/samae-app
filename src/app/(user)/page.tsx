@@ -10,6 +10,7 @@ import { spreadAlbumsInBands } from "@/lib/siglip-text-search-core";
 import { cookies } from "next/headers";
 import { loadDemotedHomePhotos, loadMorePhotos, loadPersonalizedPhotos } from "./feed-actions";
 import { logSearch } from "@/lib/search-log";
+import { EMPTY_INTERPRETATION, interpretationFrom, type SearchInterpretation } from "@/lib/search-interpretation";
 import { getCurrentUser } from "@/lib/auth";
 import { TASTE_V2_COOKIE, parseTasteV2 } from "@/lib/category-constants";
 import { rerankByPersonaVector } from "@/lib/persona/feed-rerank";
@@ -125,7 +126,8 @@ export default async function ExploreHome({
     relatedPhotos = search?.related ?? [];
     suggestions = search?.suggestions ?? [];
     const basePhotos = search ? search.matches : await fetchPublishedPhotos({});
-    if (query) await logSearch(query, basePhotos.length, me?.id);
+    // 검색어가 어느 목적 · 무드 가족으로 갔는지도 남긴다 — 어드민 「도구 → 검색」
+    if (query) await logSearch(query, basePhotos.length, me?.id, search?.interpretation);
     const merged = adAsGallery
       ? [adAsGallery, ...basePhotos.filter((p) => p.id !== adAsGallery.id)]
       : basePhotos;
@@ -325,12 +327,22 @@ async function searchHomePhotos(query: string): Promise<{
   related: GalleryPhoto[];
   counts: SearchCounts;
   suggestions: SearchSuggestion[];
+  /** 검색어를 어떻게 해석했나 — 검색 기록용(lib/search-interpretation) */
+  interpretation: SearchInterpretation;
 }> {
   const result = await searchPhotos(query, SIGLIP_SEARCH_MAX_RESULTS).catch((error) => {
     console.error("[home] 검색 실패:", error);
     return null;
   });
-  if (!result) return { matches: [], related: [], counts: { matches: 0, related: 0, capped: false }, suggestions: [] };
+  if (!result) {
+    return {
+      matches: [],
+      related: [],
+      counts: { matches: 0, related: 0, capped: false },
+      suggestions: [],
+      interpretation: EMPTY_INTERPRETATION,
+    };
+  }
   // 장수는 z 가 정한다 — 여기서 다시 자르지 않는다. 앨범 흩뜨리기만 두 묶음 안에서 따로 한다.
   // 목적을 번갈아 섞은 결과("커플 강아지")는 순서가 이미 짜여 있다 — 다시 흩뜨리면 한 앨범뿐인 쪽이 뒤로 몰린다.
   const matches = result.arranged ? result.matches : spreadAlbumsInBands(result.matches);
@@ -340,5 +352,6 @@ async function searchHomePhotos(query: string): Promise<{
     related,
     counts: { matches: matches.length, related: related.length, capped: result.capped },
     suggestions: result.suggestions ?? [],
+    interpretation: interpretationFrom(result),
   };
 }
