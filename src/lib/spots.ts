@@ -163,7 +163,7 @@ async function fetchMatched(spot: Spot, pool?: MatchedPhoto[] | null): Promise<M
 
 /**
  * DB 경로 — 키워드마다 `location_text ilike '%키워드%'` 를 or 로 묶는다.
- * `since` 를 주면 그 뒤에 올라온 사진만 본다(매일 크론의 신규 사진 계산).
+ * `since` 를 주면 그 뒤에 올라온 사진만 본다(매일 06:00 배치의 신규 사진 계산).
  */
 async function queryMatched(spot: Spot, since?: string): Promise<MatchedPhoto[]> {
   const or = orFilter(spot);
@@ -205,14 +205,14 @@ function arrangeMatched(rows: MatchedPhoto[]): MatchedPhoto[] {
 
 /**
  * 자동 연결 계산용 — DB 에서 키워드로 매칭해 저장할 순서대로 사진 id 를 준다.
- * 하루 한 번(매일 크론 · 어드민 「다시 계산」)만 부른다(lib/spot-photos). 요청 경로에서 쓰지 않는다.
+ * 하루 한 번(맥미니 06:00 배치 · 어드민 「전체 다시 계산」)만 부른다(lib/spot-photos). 요청 경로에서 쓰지 않는다.
  *
  * 지면 규칙(arrangeMatched)보다 **넓게** 저장한다 — 「경복궁, 창덕궁, 창경궁, 덕수궁」 처럼 여러 곳을
  * 나열한 사진도 네 장소 모두에 연결한다. 사진이 가진 장소 값은 그대로 데이터로 남긴다(2026-10-06 결정).
  * 다만 그런 사진은 지면에 자동으로 띄우지 않는다(linkedPhotosBySpot) — 같은 사진이 네 장소 갤러리에
  * 똑같이 뜨던 문제(2026-08-31) 때문이다. 띄울 곳은 운영자가 어드민에서 골라 싣는다(manual).
  * 순서: 지면에 뜨는 것(단독 표기 → 앨범 분산) 다음에 나열형.
- * `since` 를 주면 그 뒤에 올라온 사진만(매일 크론 — 신규 사진만 더한다).
+ * `since` 를 주면 그 뒤에 올라온 사진만(매일 06:00 배치 — 신규 사진만 더한다).
  */
 export async function matchSpotPhotoIds(spot: Spot, { since }: { since?: string } = {}): Promise<string[]> {
   const rows = await queryMatched(spot, since);

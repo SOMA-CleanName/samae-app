@@ -8,7 +8,8 @@
 --     · 자동 매칭이 틀려도(커버 지역을 나열한 사진, 메모 없이 그 장소에서 찍은 사진) 고칠 데가 없었다.
 --
 --   이 표에 연결을 저장한다.
---     · source = 'auto'   — 매일 크론(09:00)이 키워드 매칭으로 채운다. 규칙은 lib/spots 그대로.
+--     · source = 'auto'   — 키워드 매칭으로 채운다. 매일 06:00 맥미니 배치가 신규 사진만 더하고(docs/28),
+--                           전체는 어드민 「전체 다시 계산」 버튼으로. 규칙은 lib/spots 그대로.
 --     · source = 'manual' — 운영자가 어드민(장소별 사진)에서 직접 넣은 것. 자동 계산이 건드리지 않는다.
 --     · excluded = true   — 운영자가 뺀 자동 매칭. 다음 자동 계산이 되살리지 않는다.
 --
@@ -55,4 +56,4 @@ create policy spot_photos_write on public.spot_photos for all
   with check (public.is_admin());
 
 comment on table public.spot_photos is
-  '촬영 장소 ↔ 사진 연결 — auto 는 매일 크론이 키워드 매칭으로, manual 은 운영자가. excluded 는 운영자가 뺀 자동 매칭.';
+  '촬영 장소 ↔ 사진 연결 — auto 는 키워드 매칭(매일 06:00 신규 · 어드민 버튼 전체)으로, manual 은 운영자가. excluded 는 운영자가 뺀 자동 매칭.';
