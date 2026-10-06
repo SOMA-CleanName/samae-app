@@ -2,41 +2,62 @@
 
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui";
-import type { SearchStatGroup } from "@/lib/search-stats";
+import { purposeLabel } from "@/lib/search-interpretation";
+import type { SearchStatGroup, Tally } from "@/lib/search-stats";
+import { RouteBadge } from "./InterpretationChips";
 
-// 인기 검색어 테이블 — 텍스트 필터 + '결과0만' 토글 + 변형(오타) 펼침. (클라이언트 측)
+// 검색어 순위 — 검색어마다 **어느 목적 · 무드 가족으로 갔는지**를 함께 보여준다.
+// 텍스트 필터(검색어 · 변형 · 무드 이름) + '결과0만' · '애매한 검색만' 토글 + 펼쳐서 자세히. (클라이언트 측)
+
+function Counted({ items, max = 4, render }: { items: Tally[]; max?: number; render: (t: Tally) => React.ReactNode }) {
+  const shown = items.slice(0, max);
+  return (
+    <>
+      {shown.map((t) => (
+        <span key={t.name}>{render(t)}</span>
+      ))}
+      {items.length > max && <span className="text-[11px] text-faint">외 {items.length - max}</span>}
+    </>
+  );
+}
+
 export function SearchStatsTable({ groups }: { groups: SearchStatGroup[] }) {
   const [q, setQ] = useState("");
   const [onlyZero, setOnlyZero] = useState(false);
+  const [onlyBig, setOnlyBig] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
     const kw = q.trim().toLowerCase();
     return groups.filter((g) => {
       if (onlyZero && !g.zeroResult) return false;
-      if (kw && !g.term.toLowerCase().includes(kw) && !g.variants.some((v) => v.raw.toLowerCase().includes(kw)))
-        return false;
-      return true;
+      if (onlyBig && !g.routes.some((r) => r.name === "큰 무드 · 애매")) return false;
+      if (!kw) return true;
+      return (
+        g.term.toLowerCase().includes(kw) ||
+        g.variants.some((v) => v.raw.toLowerCase().includes(kw)) ||
+        g.moods.some((m) => m.name.toLowerCase().includes(kw)) ||
+        g.filled.some((m) => m.name.toLowerCase().includes(kw))
+      );
     });
-  }, [groups, q, onlyZero]);
+  }, [groups, q, onlyZero, onlyBig]);
 
   return (
     <div>
-      <div className="mt-5 flex flex-wrap items-center gap-2">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="검색어 찾기"
-          className="h-9 min-w-[140px] flex-1 rounded-lg border border-line-strong bg-surface px-3 text-body-sm outline-none transition-colors focus:border-fg/40"
+          placeholder="검색어 · 무드 이름으로 찾기"
+          className="h-9 min-w-[160px] flex-1 rounded-lg border border-line-strong bg-surface px-3 text-body-sm outline-none transition-colors focus:border-fg/40"
         />
         <label className="flex items-center gap-1.5 text-body-sm text-muted">
-          <input
-            type="checkbox"
-            checked={onlyZero}
-            onChange={(e) => setOnlyZero(e.target.checked)}
-            className="h-4 w-4 rounded border-fg/30"
-          />
+          <input type="checkbox" checked={onlyZero} onChange={(e) => setOnlyZero(e.target.checked)} className="h-4 w-4" />
           결과0만
+        </label>
+        <label className="flex items-center gap-1.5 text-body-sm text-muted">
+          <input type="checkbox" checked={onlyBig} onChange={(e) => setOnlyBig(e.target.checked)} className="h-4 w-4" />
+          애매한 검색만
         </label>
       </div>
 
@@ -47,39 +68,83 @@ export function SearchStatsTable({ groups }: { groups: SearchStatGroup[] }) {
       ) : (
         <ul className="mt-2 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
           {filtered.map((g) => {
-            const hasVariants = g.variants.length > 1;
             const isOpen = open === g.compact;
+            const topRoute = g.routes[0]?.name;
             return (
-              <li key={g.compact} className="px-4 py-2.5">
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => hasVariants && setOpen(isOpen ? null : g.compact)}
-                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                  >
-                    <span className="min-w-0 truncate text-body-sm font-medium text-fg">{g.term}</span>
-                    {hasVariants && (
-                      <span className="shrink-0 text-caption text-faint">변형 {g.variants.length} {isOpen ? "▲" : "▾"}</span>
-                    )}
-                  </button>
-                  {g.zeroResult && <Badge tone="warning">결과0</Badge>}
-                  <span className="shrink-0 tabular-nums text-caption text-muted">
-                    검색 <b className="text-fg">{g.count}</b>
+              <li key={g.compact} className="px-4 py-3">
+                <button
+                  type="button"
+                  onClick={() => setOpen(isOpen ? null : g.compact)}
+                  className="flex w-full min-w-0 items-center gap-3 text-left"
+                  aria-expanded={isOpen}
+                >
+                  <span className="min-w-0 truncate text-body-sm font-semibold text-fg">{g.term}</span>
+                  {g.variants.length > 1 && (
+                    <span className="shrink-0 text-caption text-faint">변형 {g.variants.length}</span>
+                  )}
+                  <span className="ml-auto flex shrink-0 items-center gap-3">
+                    {g.zeroResult && <Badge tone="warning">결과0</Badge>}
+                    <span className="tabular-nums text-caption text-muted">
+                      검색 <b className="text-fg">{g.count}</b>
+                    </span>
+                    <span className="tabular-nums text-caption text-faint">평균 {g.avgResults}장</span>
+                    <span className="text-caption text-faint">{isOpen ? "▲" : "▾"}</span>
                   </span>
-                  <span className="shrink-0 tabular-nums text-caption text-faint">평균 {g.avgResults}</span>
+                </button>
+
+                {/* 연결된 무드 — 한눈에 */}
+                <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                  {topRoute && <RouteBadge label={topRoute} />}
+                  <Counted
+                    items={g.purposes}
+                    render={(t) => (
+                      <span className="rounded-full border border-line-strong px-2 py-0.5 text-[11px] text-muted">
+                        목적 {purposeLabel(t.name)}
+                      </span>
+                    )}
+                  />
+                  <Counted
+                    items={g.moods}
+                    max={5}
+                    render={(t) => (
+                      <span className="rounded-full bg-fg px-2 py-0.5 text-[11px] font-medium text-bg">
+                        {t.name}
+                        {g.count > 1 && <span className="ml-1 tabular-nums opacity-60">{t.count}</span>}
+                      </span>
+                    )}
+                  />
+                  {g.moods.length === 0 && g.moodTexts[0] && (
+                    <span className="text-[11px] text-faint">무드 가족 없음 · 글자 「{g.moodTexts[0].name}」</span>
+                  )}
                 </div>
 
-                {hasVariants && isOpen && (
-                  <ul className="mt-2 flex flex-wrap gap-1.5 pl-1">
-                    {g.variants.map((v) => (
-                      <li
-                        key={v.raw}
-                        className="rounded-full bg-fg/[0.06] px-2 py-0.5 text-[11px] text-muted"
-                      >
-                        {v.raw} <span className="tabular-nums text-faint">×{v.count}</span>
-                      </li>
-                    ))}
-                  </ul>
+                {isOpen && (
+                  <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 rounded-xl bg-fg/[0.03] p-3 text-caption">
+                    <dt className="text-faint">찾은 길</dt>
+                    <dd className="text-muted">
+                      {g.routes.map((r) => `${r.name} ${r.count}`).join(" · ")}
+                    </dd>
+                    <dt className="text-faint">무드 글자</dt>
+                    <dd className="text-muted">
+                      {g.moodTexts.length ? g.moodTexts.map((m) => `「${m.name}」 ${m.count}`).join(" · ") : "—"}
+                    </dd>
+                    <dt className="text-faint">잡힌 무드</dt>
+                    <dd className="text-muted">
+                      {g.moods.length ? g.moods.map((m) => `${m.name} ${m.count}`).join(" · ") : "—"}
+                    </dd>
+                    <dt className="text-faint">채운 무드</dt>
+                    <dd className="text-muted">
+                      {g.filled.length ? g.filled.map((m) => `${m.name} ${m.count}`).join(" · ") : "—"}
+                    </dd>
+                    <dt className="text-faint">표기 · 오타</dt>
+                    <dd className="flex flex-wrap gap-1">
+                      {g.variants.map((v) => (
+                        <span key={v.raw} className="rounded-full bg-fg/[0.06] px-2 py-0.5 text-[11px] text-muted">
+                          {v.raw} <span className="tabular-nums text-faint">×{v.count}</span>
+                        </span>
+                      ))}
+                    </dd>
+                  </dl>
                 )}
               </li>
             );
