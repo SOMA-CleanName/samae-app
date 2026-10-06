@@ -27,6 +27,16 @@ import { SiteFooter } from "@/components/SiteFooter";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * 🔴 **2026-10-06 — SPOTS 레일을 잠시 끈다.** 홈 피드 장소 카드와 같은 이유다
+ * (lib/feed-interstitials 의 SPOT_CARDS_ENABLED 주석). 다섯 장을 세우려고 공개 장소 전부를
+ * `location_text ilike` 로 훑고, 인스턴스마다 1분마다 다시 한다.
+ *
+ * 빈 배열이면 섹션·러닝헤드 목차가 `spots.length > 0` 을 보고 알아서 빠진다 — UI 는 그대로 둔다.
+ * /spots 지면(하루 1회 재생성)은 그대로 열려 있다. 백필이 들어오면 다시 켠다.
+ */
+const SPOTS_RAIL_ENABLED = false;
+
 /*
   ⚠️ 이게 없으면 이 지면은 **홈의 복제본으로 신고된다.**
 
@@ -81,7 +91,9 @@ export default async function ExplorePage() {
       () => [] as ArticleCard[]
     ),
     // 레일에 다섯 장만 세운다. 나머지는 끝에서 당겨 넘어가는 전체보기가 받는다.
-    memoTtl("explore:spots", 60_000, () => listSpotCards(50)).catch(() => [] as SpotCard[]),
+    SPOTS_RAIL_ENABLED
+      ? memoTtl("explore:spots", 60_000, () => listSpotCards(50)).catch(() => [] as SpotCard[])
+      : Promise.resolve([] as SpotCard[]),
     // 화보에 실을 사진 넷(게시물 단위). 좁은 화면은 3장, 넓으면 2×2 로 넷을 편다.
     memoTtl("explore:featured", 60_000, () => listFeaturedPhotos(4, 30)).catch(
       () => [] as FeaturedPhoto[]

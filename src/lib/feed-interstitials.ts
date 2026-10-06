@@ -2,8 +2,21 @@ import "server-only";
 
 import { memoTtl } from "@/lib/server-memo";
 import { listPublishedArticles } from "@/lib/articles";
-import { listSpotCards } from "@/lib/spots";
+import { listSpotCards, type SpotCard } from "@/lib/spots";
 import type { GalleryPhoto } from "@/lib/discovery";
+
+/**
+ * 🔴 **2026-10-06 — 장소 카드를 잠시 끈다.**
+ *
+ * 그날 09:20~12:30 사이트가 응답없음이었다. Query Performance 1·2위(DB 시간 77%)가
+ * 장소 카드의 `fetchMatched`(lib/spots) — `location_text ilike '%키워드%'` 라 매번 photos 를
+ * 통째로 훑는다. 카드 3장을 고르려고 **공개 장소 전부**를 그렇게 세고, 그걸 인스턴스마다
+ * 1분마다 다시 한다. 아침 트래픽이 10배 넘게 몰리자 DB CPU 가 바닥났다.
+ *
+ * 장소↔사진을 미리 계산해 두는 백필(맥미니 06:00, docs/28)이 들어오면 그걸 읽게 바꾸고 다시 켠다.
+ * 끄는 동안 이 함수는 장소 쿼리를 **하나도 내지 않는다** — 아래에서 호출 자체를 건너뛴다.
+ */
+const SPOT_CARDS_ENABLED = false;
 
 /**
  * 전체 피드 사이에 끼우는 카드.
@@ -80,7 +93,9 @@ export async function buildFeedInterstitials(
 ): Promise<FeedInterstitial[]> {
   const [articles, spots] = await Promise.all([
     memoTtl("home:articles", 60_000, () => listPublishedArticles()).catch(() => []),
-    memoTtl("explore:spots", 60_000, () => listSpotCards(6)).catch(() => []),
+    SPOT_CARDS_ENABLED
+      ? memoTtl("explore:spots", 60_000, () => listSpotCards(6)).catch(() => [] as SpotCard[])
+      : Promise.resolve([] as SpotCard[]),
   ]);
 
   /*
