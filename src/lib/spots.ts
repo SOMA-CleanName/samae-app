@@ -4,6 +4,9 @@ import "server-only";
 // admin(service_role)을 쓰면 그 키가 없는 Vercel Preview 스코프에서 빌드가 죽는다.
 // RLS 가 published·approved·is_active 를 대신 걸러 주므로 보안도 더 낫다.
 import { createPublicClient } from "@/lib/supabase/public";
+// 연결 계산(matchSpotPhotoIds)만 쓴다 — 비공개 사진까지 봐야 해서. 빌드 때 도는 지면 경로에서는 부르지 않는다
+// (서비스 키가 없는 Preview 빌드가 죽는다 — 아래 GALLERY_SELECT 위 주석).
+import { createAdminClient } from "@/lib/supabase/admin";
 import { listPublishedSpots } from "@/lib/spots-db";
 import { isSpotLive } from "@/lib/spot-live";
 import { isUsablePlace } from "@/lib/location-text";
@@ -161,29 +164,55 @@ async function fetchMatched(spot: Spot, pool?: MatchedPhoto[] | null): Promise<M
   return arrangeMatched(rows);
 }
 
-/**
- * DB 경로 — 키워드마다 `location_text ilike '%키워드%'` 를 or 로 묶는다.
- * `since` 를 주면 그 뒤에 올라온 사진만 본다(매일 06:00 배치의 신규 사진 계산).
- */
-async function queryMatched(spot: Spot, since?: string): Promise<MatchedPhoto[]> {
+/** DB 경로 — 키워드마다 `location_text ilike '%키워드%'` 를 or 로 묶는다. 공개 사진만(anon). */
+async function queryMatched(spot: Spot): Promise<MatchedPhoto[]> {
   const or = orFilter(spot);
   if (!or) return [];
 
   const supabase = createPublicClient();
-  let query = supabase
+  const { data, error } = await supabase
     .from("photos")
     .select(`${GALLERY_SELECT}, location_text, album_id`)
     .or(or)
     .eq("visibility", "published")
     .eq("feed_hidden", false)
     // RLS 가 이미 '승인 작가만' 을 걸러 주지만, 조인 조건으로 한 겹 더 건다.
-    .eq("photographer.status", "approved");
-  if (since) query = query.gte("created_at", since);
-  // 정렬을 안 주면 매번 순서가 달라져 ISR 재생성 때마다 지면이 흔들린다.
-  const { data, error } = await query.order("created_at", { ascending: false });
+    .eq("photographer.status", "approved")
+    // 정렬을 안 주면 매번 순서가 달라져 ISR 재생성 때마다 지면이 흔들린다.
+    .order("created_at", { ascending: false });
 
   if (error) return [];
   return (data ?? []) as unknown as MatchedPhoto[];
+}
+
+/**
+ * 연결 계산용 — 키워드에 걸리는 사진을 **공개 여부와 상관없이** 전부 읽는다.
+ *
+ * 연결은 사진이 가진 장소 값 그대로 저장하고, 안 보이는 사진(비공개 · 피드에서 내림 · 미승인 작가)은
+ * 지면에서 읽을 때 거른다(linkedPhotosBySpot, 2026-10-06 결정). 그래서 나중에 공개로 바뀌면 다시 계산하지
+ * 않아도 바로 뜬다. 비공개 사진은 anon 으로는 RLS 에 막혀 안 보여서 서비스 키로 읽는다.
+ */
+async function queryMatchedAnyVisibility(spot: Spot, since?: string): Promise<MatchedPhoto[]> {
+  const or = orFilter(spot);
+  if (!or) return [];
+
+  const admin = createAdminClient();
+  const out: MatchedPhoto[] = [];
+  for (let from = 0; ; from += 1000) {
+    let query = admin
+      .from("photos")
+      .select(`${GALLERY_SELECT}, location_text, album_id`)
+      .or(or);
+    if (since) query = query.gte("created_at", since);
+    const { data, error } = await query
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, from + 999);
+    if (error) throw new Error(`장소 매칭 조회 실패(${spot.slug}): ${error.message}`);
+    out.push(...((data ?? []) as unknown as MatchedPhoto[]));
+    if ((data ?? []).length < 1000) break;
+  }
+  return out;
 }
 
 /** 나열형 표기를 빼고 앞자리를 정리한다 — DB 경로와 메모리 경로가 같은 규칙을 쓴다. */
@@ -212,10 +241,11 @@ function arrangeMatched(rows: MatchedPhoto[]): MatchedPhoto[] {
  * 다만 그런 사진은 지면에 자동으로 띄우지 않는다(linkedPhotosBySpot) — 같은 사진이 네 장소 갤러리에
  * 똑같이 뜨던 문제(2026-08-31) 때문이다. 띄울 곳은 운영자가 어드민에서 골라 싣는다(manual).
  * 순서: 지면에 뜨는 것(단독 표기 → 앨범 분산) 다음에 나열형.
+ * 사진의 공개 여부와 상관없이 연결한다 — 안 보이는 사진은 지면에서 읽을 때 거른다(queryMatchedAnyVisibility).
  * `since` 를 주면 그 뒤에 올라온 사진만(매일 06:00 배치 — 신규 사진만 더한다).
  */
 export async function matchSpotPhotoIds(spot: Spot, { since }: { since?: string } = {}): Promise<string[]> {
-  const rows = await queryMatched(spot, since);
+  const rows = await queryMatchedAnyVisibility(spot, since);
   const shown = arrangeMatched(rows);
   const shownIds = new Set(shown.map((p) => p.id));
   const listed = spreadByAlbum(rows.filter((p) => !shownIds.has(p.id)));
