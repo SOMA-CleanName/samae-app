@@ -43,6 +43,7 @@ export const GROUPS: Group[] = [
       { href: "/admin/articles", label: "아티클" },
       // 아티클 옆에 둔다 — 셋 다 매거진(/explore)에 실리는 읽을거리다
       { href: "/admin/guide", label: "Q&A" },
+      // 안에 탭이 둘이다 — 장소 정보(/admin/spots) · 장소별 사진(/admin/spots/photos, 0145)
       { href: "/admin/spots", label: "촬영 장소" },
       { href: "/admin/categories", label: "타겟 카테고리" },
       { href: "/admin/explore", label: "무드(탐색)" },

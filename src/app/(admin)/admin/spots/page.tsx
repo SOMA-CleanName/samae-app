@@ -1,5 +1,6 @@
 import { listAllSpots } from "@/lib/spots-db";
 import { createSpot, updateSpot, toggleSpotPublished, deleteSpot } from "./actions";
+import { SpotsTabs } from "./SpotsTabs";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,7 @@ export default async function AdminSpotsPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
+      <SpotsTabs current="info" />
       <header className="mb-6">
         <h1 className="text-xl font-bold tracking-tight">촬영 장소</h1>
         <p className="mt-1.5 text-sm text-muted">

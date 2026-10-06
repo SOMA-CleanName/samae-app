@@ -28,6 +28,13 @@ export const ADMIN_ACTIONS = {
   // 게시물
   review_hide: "후기 가림",
   review_show: "후기 다시 보임",
+  // 촬영 장소 ↔ 사진 (0145)
+  spot_photo_exclude: "장소에서 사진 빼기",
+  spot_photo_include: "장소에 뺀 사진 되살리기",
+  spot_photo_add: "장소에 사진 직접 넣기",
+  spot_photo_promote: "나열형 사진을 장소 지면에 싣기",
+  spot_photo_remove: "장소에서 직접 넣은 사진 지우기",
+  spot_photos_recompute: "장소별 사진 다시 계산",
   // 계정
   user_role: "회원 역할 변경",
   user_ban: "회원 차단 변경",
