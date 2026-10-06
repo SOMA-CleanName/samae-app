@@ -49,7 +49,8 @@ launchd (매일 06:00)
         │    ├─ 검수한 포트폴리오의 신규 사진에 기존 목적 상속
         │    └─ /embed-text-backfill + 저장된 사진 벡터로 미처리 목적 분류
         ├─ build_search_tags.py --apply   (2026-09-21, 앞 단계가 실패해도 돈다)
-        │    └─ 무드 태그 검색용 공개 사진 목록을 search_tag_snapshot 한 줄로 저장 (0138, docs/29 §12.15)
+        │    └─ 공개 사진 목록을 search_tag_snapshot 한 줄로 저장 (0138, docs/29 §12.15)
+        │       무드 태그 검색 · 홈 검색 태그 일치 · 홈/매거진 촬영 장소 카드가 이 한 줄을 쓴다 (2026-10-06~, §5.1)
         ├─ purpose_drafts.py --apply --daily --embed-url http://127.0.0.1:8077   (2026-09-23, 실패해도 알리지 않는다)
         │    └─ 비어 있는 세부분류 · 개인 성별 초안(auto) — /search-query(글) 먼저, 없으면 사진 다수결 (docs/39 §7.4)
         ├─ 로그 기록 (최근 14개 유지)
@@ -61,7 +62,7 @@ launchd (매일 06:00)
 | `scripts/embed/macmini-setup.sh` | Python·venv·패키지·모델 캐시·launchd 등록. **재실행 안전** |
 | `scripts/embed/run-embed.sh` | 사진 임베딩 → 목적 분류 → 무드 검색 목록 → 세부분류·성별 초안 실행 래퍼. 로그·락·실패 알림 |
 | `scripts/embed/purpose_backfill.py` | 신규·미처리 목적 분류 및 기존 검수 목적 상속 |
-| `scripts/embed/build_search_tags.py` | 무드 태그 검색용 사진 목록 저장. 사진 표는 읽기만 하고 `search_tag_snapshot` 한 줄만 쓴다 |
+| `scripts/embed/build_search_tags.py` | 공개 사진 목록 저장(검색 · 촬영 장소 카드용). 사진 표는 읽기만 하고 `search_tag_snapshot` 한 줄만 쓴다. 표준 라이브러리만 써서 venv 없이 `python3` 로도 돈다 |
 | `scripts/embed/purpose_drafts.py` | 목적이 붙은 포트폴리오의 비어 있는 세부분류 · 개인 성별 초안 (docs/39 §7.4). 실패해도 알리지 않는다 |
 | `scripts/embed/com.samae.embed.plist.template` | launchd 정의. `__REPO__` 를 설치 시 실제 경로로 치환 |
 
@@ -136,6 +137,43 @@ launchctl unload ~/Library/LaunchAgents/com.samae.embed.plist
 
 **커버리지 판정은 배치 스크립트에 맡긴다.** `embed_photos.py` 가 마지막에 DB 를 다시 조회해 "커버리지 N/N" 을 찍는다. 전송 수를 반영 수로 믿으면 안 되는 이유는 [26 문서](26-interest-similar-recommendations.md) 가 아니라 [22 문서](22-visual-similarity.md) §9.2 에 있다 — PostgREST 는 매칭 0행인 PATCH 에도 204 를 준다.
 
+### 5.1 공개 사진 목록(search_tag_snapshot)은 낡아도 앱이 계속 쓴다 (2026-10-06)
+
+**배경.** 2026-10-06 09:20~12:30 사이트가 응답없음이었다. Supabase Query Performance 1·2위(DB 시간 77%)가
+홈 피드 · 매거진의 촬영 장소 카드 — `location_text ilike '%키워드%'` 로 photos 를 통째로 훑는 걸 공개 장소마다,
+서버마다 1분마다 했다(#422 로 급히 끄고 #423 에서 고침).
+
+**바꾼 것.** 이 배치가 만드는 공개 사진 목록 한 줄을 요청 경로가 DB 대신 쓴다.
+
+| 쓰는 곳 | 전 | 지금 |
+|---|---|---|
+| 홈 · 매거진 촬영 장소 카드 (`lib/spots`) | 장소마다 DB `ilike` | 목록에서 메모리로 매칭. 목록이 아예 없으면 카드를 안 세운다 |
+| 홈 검색 태그 일치 (`searchPhotosByTag`) | 검색마다 1,600장 직접 읽기 | 목록 먼저 |
+| 무드 검색 | 목록, **이틀 넘으면 버리고** 직접 읽기 | 목록. **낡아도 버리지 않는다** |
+
+직접 읽기는 목록을 **한 번도 못 받았을 때**뿐이다(0138 전 · 서비스 키 없는 Preview). `/spots` 처럼 하루 한 번 만드는
+지면만 그때 DB 로 읽는다.
+
+**대가 — 이 배치가 멈추면 화면이 조용히 굳는다.** 숨긴 사진이 남고 새 사진이 안 뜨는데, 화면은 멀쩡해 보인다.
+실제로 10/6 에 굳어 있었다(을지로 DB 66장 · 목록 50장, 장소 11곳 · 16곳). 그래서 화면 대신 **알림**으로 잡는다.
+
+- **매일 09:00 Vercel 크론**(`/api/cron/daily` 의 `snapshot-freshness`, `lib/snapshot-watch.ts`)이 `built_at` 을 본다.
+  **26시간 넘게 그대로면** 디스코드 운영 채널(`DISCORD_OPS_WEBHOOK_URL`)로 알린다. 평소엔 06:00 생성 → 09:00 확인이라 3시간이다
+- 이 알림이 오면 맥미니 배치를 본다(§4 확인 · [38 문서](38-macmini-search-handoff.md)의 `pgrep` · 로그 확인). `build_search_tags.py` 는 앞 단계가 실패해도 돌게 되어 있어서,
+  알림이 왔다면 배치 자체가 안 돌았을 가능성이 크다
+
+**손으로 다시 만들기.** 맥미니가 아니어도 된다 — 표준 라이브러리만 쓰고 `.env.local` 의 서비스 키로 PostgREST 를 부른다.
+
+```bash
+cd <저장소>
+python3 scripts/embed/build_search_tags.py           # 미리보기 — 장수 · 크기만, 쓰지 않는다
+python3 scripts/embed/build_search_tags.py --apply   # search_tag_snapshot 덮어쓰기
+```
+
+`--apply` 는 **운영 DB 의 한 줄을 덮어쓴다**(사진 표는 읽기만). 이미 목록을 든 서버는 10분 안에 만든 시각을 확인하고
+새 목록을 받는다(오늘 06:00 이후 목록을 들고 있는 서버는 다음 06:00 까지 다시 보지 않는다 — docs/29 §12.15).
+10/6 에 이 방법으로 다시 만들었다: `사진 1074장 · 앨범 140개 · 작가 13명 · 808KB`.
+
 ---
 
 ## 6. 알려두는 한계
@@ -171,7 +209,7 @@ python3 scripts/embed/check_db.py        # "임베딩 대기" 줄
 
 | 구성요소 | 실행 시점 | 하는 일 |
 |---|---|---|
-| `com.samae.embed` → `run-embed.sh` | 매일 06:00 | 공개 사진 임베딩을 저장한 뒤 목적 태그도 백필 (§9), 끝나면 무드 태그 검색 목록을 새로 만든다 |
+| `com.samae.embed` → `run-embed.sh` | 매일 06:00 | 공개 사진 임베딩을 저장한 뒤 목적 태그도 백필 (§9), 끝나면 공개 사진 목록(검색 · 장소 카드용)을 새로 만든다 |
 | `com.samae.serve` → `run-serve.sh` → `serve.py` | 로그인 시 시작, 계속 상주 | `127.0.0.1:8077`에서 모델 하나로 검색·사용자 이미지·백필을 우선순위대로 추론 |
 | Tailscale Funnel | 외부 앱이 맥미니를 호출하는 동안 유지 | 공개 HTTPS 주소를 맥미니의 `127.0.0.1:8077` 로 연결 |
 | Next.js 앱 서버 | 사용자가 검색할 때 | 텍스트 벡터를 DB RPC 에 전달하고 사진 결과를 화면에 표시 |
