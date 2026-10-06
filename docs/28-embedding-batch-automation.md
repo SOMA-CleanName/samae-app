@@ -143,7 +143,7 @@ launchctl unload ~/Library/LaunchAgents/com.samae.embed.plist
 
 **배경.** 2026-10-06 09:20~12:30 사이트가 응답없음이었다. Supabase Query Performance 1·2위(DB 시간 77%)가
 홈 피드 · 매거진의 촬영 장소 카드 — `location_text ilike '%키워드%'` 로 photos 를 통째로 훑는 걸 공개 장소마다,
-서버마다 1분마다 했다(#422 로 급히 끄고 #423 에서 고침).
+서버마다 1분마다 했다(#422 로 급히 끄고 #423 에서 고침). 장애 전체 기록은 [49 문서](49-incident-2026-10-06-db-overload.md).
 
 **바꾼 것.** 이 배치가 만드는 공개 사진 목록 한 줄을 요청 경로가 DB 대신 쓴다.
 
