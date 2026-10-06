@@ -87,13 +87,22 @@ function countBy<T extends Record<string, unknown>>(rows: T[] | null, key: keyof
   return m;
 }
 
-type FilterKey = "active" | "pending" | "off" | "all";
+type FilterKey = "active" | "agreed" | "unagreed" | "pending" | "off" | "all";
 
-/** statuses 가 null 이면 거르지 않는다(전체) */
-type Filter = { key: FilterKey; label: string; statuses: readonly string[] | null };
+/** statuses 가 null 이면 거르지 않는다(전체). agreement 가 있으면 입점 동의 상태로 한 번 더 거른다 */
+type Filter = {
+  key: FilterKey;
+  label: string;
+  statuses: readonly string[] | null;
+  agreement?: readonly AgreementState[];
+};
 
 const FILTERS: readonly Filter[] = [
   { key: "active", label: "활동 중", statuses: ["approved"] },
+  // 위 재동의 현황판의 분자와 같은 집합 — 승인된 작가 중 현재 버전에 동의한 사람
+  { key: "agreed", label: "약관 최신", statuses: ["approved"], agreement: ["current"] },
+  // 나머지 — 한 번도 안 한 사람과 옛 버전에 머문 사람. 둘 다 스튜디오에 못 들어오고 사진이 가려진다(0142)
+  { key: "unagreed", label: "약관 미동의", statuses: ["approved"], agreement: ["none", "outdated"] },
   { key: "pending", label: "승인 대기", statuses: ["pending"] },
   { key: "off", label: "정지 · 반려", statuses: ["suspended", "rejected"] },
   { key: "all", label: "전체", statuses: null },
@@ -157,8 +166,12 @@ export default async function AdminPhotographersPage({
   const activeRows = all.filter((r) => r.status === "approved");
   const currentCount = activeRows.filter((r) => agreementStatus(agreementsByPh.get(r.id)).state === "current").length;
 
+  const matches = (f: Filter, r: (typeof all)[number]) =>
+    (!f.statuses || f.statuses.includes(r.status)) &&
+    (!f.agreement || f.agreement.includes(agreementStatus(agreementsByPh.get(r.id)).state));
+
   const rows = all
-    .filter((r) => !filter.statuses || filter.statuses.includes(r.status))
+    .filter((r) => matches(filter, r))
     .map((r) => ({
       ...r,
       avatar: avatarOf.get(r.profile_id) ?? null,
@@ -170,8 +183,7 @@ export default async function AdminPhotographersPage({
     }))
     .sort((a, b) => b.bookings - a.bookings || b.photos - a.photos);
 
-  const countOf = (f: Filter) =>
-    f.statuses ? all.filter((r) => f.statuses!.includes(r.status)).length : all.length;
+  const countOf = (f: Filter) => all.filter((r) => matches(f, r)).length;
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 sm:px-5">
