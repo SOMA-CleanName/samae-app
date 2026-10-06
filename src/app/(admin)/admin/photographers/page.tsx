@@ -77,6 +77,29 @@ function when(iso: string): string {
   }).format(new Date(iso));
 }
 
+type PhotoCountRow = { photographer_id: string; visibility: string; hidden_by_no_agreement: boolean };
+
+/**
+ * 사진은 이미 2천 장 가까이라 한 번에 받으면 PostgREST 기본 상한(1000행)에서 잘린다 —
+ * 그러면 작가별 사진 수가 조용히 줄어든다(2026-10-06: 1,985장 중 1,000장만 셌다).
+ * id 순으로 고정해 range 로 끝까지 받는다.
+ */
+async function fetchPhotoRows(admin: ReturnType<typeof createAdminClient>): Promise<PhotoCountRow[]> {
+  const PAGE = 1000;
+  const out: PhotoCountRow[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data } = await admin
+      .from("photos")
+      .select("photographer_id, visibility, hidden_by_no_agreement")
+      .order("id")
+      .range(from, from + PAGE - 1);
+    const batch = (data ?? []) as PhotoCountRow[];
+    out.push(...batch);
+    if (batch.length < PAGE) break;
+  }
+  return out;
+}
+
 /** 작가별 카운트 — 단일 컬럼만 받아 JS 집계(베타 규모에 충분) */
 function countBy<T extends Record<string, unknown>>(rows: T[] | null, key: keyof T): Map<string, number> {
   const m = new Map<string, number>();
@@ -85,6 +108,15 @@ function countBy<T extends Record<string, unknown>>(rows: T[] | null, key: keyof
     if (k) m.set(k, (m.get(k) ?? 0) + 1);
   }
   return m;
+}
+
+/** 필터 칩·운영진 토글이 서로의 값을 잃지 않게 주소를 만든다 */
+function listHref(status: FilterKey, staff: boolean): string {
+  const q = new URLSearchParams();
+  if (status !== "active") q.set("status", status);
+  if (staff) q.set("staff", "1");
+  const s = q.toString();
+  return s ? `/admin/photographers?${s}` : "/admin/photographers";
 }
 
 type FilterKey = "active" | "agreed" | "unagreed" | "pending" | "off" | "all";
@@ -111,9 +143,10 @@ const FILTERS: readonly Filter[] = [
 export default async function AdminPhotographersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string }>;
+  searchParams: Promise<{ status?: string; staff?: string }>;
 }) {
   const sp = await searchParams;
+  const showStaff = sp.staff === "1";
   const filterKey: FilterKey = FILTERS.find((f) => f.key === sp.status)?.key ?? "active";
   const filter = FILTERS.find((f) => f.key === filterKey)!;
 
@@ -122,7 +155,7 @@ export default async function AdminPhotographersPage({
     { data: phData },
     { data: leadData },
     { data: profData },
-    { data: photoRows },
+    photoRows,
     { data: pkgRows },
     { data: bookingRows },
     { data: inqRows },
@@ -139,8 +172,8 @@ export default async function AdminPhotographersPage({
       .select("id, profile_id, display_name, portfolio_url, phone, bio, status, created_at")
       .in("status", ["new", "contacted"])
       .order("created_at", { ascending: false }),
-    admin.from("profiles").select("id, avatar_url"),
-    admin.from("photos").select("photographer_id"),
+    admin.from("profiles").select("id, avatar_url, role"),
+    fetchPhotoRows(admin),
     admin.from("packages").select("photographer_id, is_active"),
     admin.from("bookings").select("photographer_id, status"),
     admin.from("inquiries").select("photographer_id, status"),
@@ -148,12 +181,22 @@ export default async function AdminPhotographersPage({
     admin.from("photographer_agreements").select("photographer_id, versions, agreed_at"),
   ]);
 
-  const all = (phData ?? []) as Row[];
   const leads = (leadData ?? []) as Lead[];
   const avatarOf = new Map<string, string | null>(
     (profData ?? []).map((p) => [p.id as string, (p.avatar_url as string) ?? null])
   );
-  const photoCount = countBy(photoRows, "photographer_id");
+  // 운영진(어드민 계정)이 작가로도 등록돼 있다 — 테스트·시연용이라 실제 작가 수를 흐린다.
+  // 기본은 빼고 보고, 토글을 켜면 같이 본다. 칩 숫자·동의 현황판도 같은 기준을 따른다.
+  const staffProfiles = new Set(
+    (profData ?? []).filter((p) => p.role === "admin").map((p) => p.id as string)
+  );
+  const isStaff = (r: Row) => !!r.profile_id && staffProfiles.has(r.profile_id);
+  const allRows = (phData ?? []) as Row[];
+  const staffCount = allRows.filter(isStaff).length;
+  const all = showStaff ? allRows : allRows.filter((r) => !isStaff(r));
+  // 「사진」은 고객에게 실제로 보이는 장수 — 초안·보관·미동의로 가린 사진은 빼고, 가린 건 따로 센다
+  const photoCount = countBy(photoRows.filter((p) => p.visibility === "published"), "photographer_id");
+  const hiddenPhotoCount = countBy(photoRows.filter((p) => p.hidden_by_no_agreement), "photographer_id");
   const pkgCount = countBy((pkgRows ?? []).filter((p) => p.is_active), "photographer_id");
   const bookingCount = countBy(bookingRows, "photographer_id");
   const inqCount = countBy(inqRows, "photographer_id");
@@ -176,10 +219,12 @@ export default async function AdminPhotographersPage({
       ...r,
       avatar: avatarOf.get(r.profile_id) ?? null,
       photos: photoCount.get(r.id) ?? 0,
+      hiddenPhotos: hiddenPhotoCount.get(r.id) ?? 0,
       packages: pkgCount.get(r.id) ?? 0,
       bookings: bookingCount.get(r.id) ?? 0,
       inquiries: inqCount.get(r.id) ?? 0,
       agreement: agreementStatus(agreementsByPh.get(r.id)),
+      staff: isStaff(r),
     }))
     .sort((a, b) => b.bookings - a.bookings || b.photos - a.photos);
 
@@ -321,13 +366,13 @@ export default async function AdminPhotographersPage({
 
       {/* 등록된 작가 — 상태로 거른다 */}
       <section className="mt-10">
-        <nav className="flex flex-wrap gap-1.5">
+        <nav className="flex flex-wrap items-center gap-1.5">
           {FILTERS.map((f) => {
             const active = f.key === filterKey;
             return (
               <Link
                 key={f.key}
-                href={f.key === "active" ? "/admin/photographers" : `/admin/photographers?status=${f.key}`}
+                href={listHref(f.key, showStaff)}
                 aria-current={active ? "page" : undefined}
                 className={`rounded-full border px-3 py-1.5 text-caption font-medium transition-colors ${
                   active
@@ -339,6 +384,24 @@ export default async function AdminPhotographersPage({
               </Link>
             );
           })}
+          {staffCount > 0 && (
+            <Link
+              href={listHref(filterKey, !showStaff)}
+              role="switch"
+              aria-checked={showStaff}
+              className="ml-auto inline-flex items-center gap-2 rounded-full px-2 py-1.5 text-caption text-muted hover:text-fg"
+            >
+              <span
+                aria-hidden
+                className={`relative h-4 w-7 rounded-full transition-colors ${showStaff ? "bg-fg" : "bg-line-strong"}`}
+              >
+                <span
+                  className={`absolute top-0.5 h-3 w-3 rounded-full bg-bg transition-all ${showStaff ? "left-3.5" : "left-0.5"}`}
+                />
+              </span>
+              운영진 계정 {staffCount}
+            </Link>
+          )}
         </nav>
 
         {rows.length === 0 ? (
@@ -364,6 +427,11 @@ export default async function AdminPhotographersPage({
                       </Link>
                       <StatusBadge status={r.status} />
                       <AgreementBadge state={r.agreement.state} label={r.agreement.label} />
+                      {r.staff && (
+                        <span className="rounded-full bg-fg/[0.06] px-2 py-0.5 text-caption font-medium text-muted">
+                          운영진
+                        </span>
+                      )}
                     </div>
                     <p className="mt-0.5 truncate text-caption text-faint">
                       {r.regions.length > 0 ? r.regions.slice(0, 3).join(", ") : "지역 미설정"}
@@ -389,7 +457,11 @@ export default async function AdminPhotographersPage({
                 )}
 
                 <div className="mt-3 grid grid-cols-4 gap-2 text-center">
-                  <Mini label="사진" value={r.photos} />
+                  <Mini
+                    label="공개 사진"
+                    value={r.photos}
+                    hint={r.hiddenPhotos > 0 ? `미동의로 가림 ${fmt.format(r.hiddenPhotos)}` : undefined}
+                  />
                   <Mini label="패키지" value={r.packages} />
                   <Mini label="예약" value={r.bookings} />
                   <Mini label="문의" value={r.inquiries} />
@@ -445,11 +517,12 @@ function TagRow({ row }: { row: Row }) {
   );
 }
 
-function Mini({ label, value }: { label: string; value: number }) {
+function Mini({ label, value, hint }: { label: string; value: number; hint?: string }) {
   return (
     <div className="rounded-lg bg-fg/[0.03] px-2 py-1.5">
       <p className="text-body-sm font-bold tabular-nums text-fg">{fmt.format(value)}</p>
       <p className="text-[11px] text-faint">{label}</p>
+      {hint && <p className="text-[11px] text-warning-ink">{hint}</p>}
     </div>
   );
 }
