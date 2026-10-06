@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui";
-import { purposeLabel } from "@/lib/search-interpretation";
+import { formatDuration, formatSearchedAt, purposeLabel } from "@/lib/search-interpretation";
 import type { SearchStatGroup, Tally } from "@/lib/search-stats";
 import { RouteBadge } from "./InterpretationChips";
 
@@ -85,9 +85,15 @@ export function SearchStatsTable({ groups }: { groups: SearchStatGroup[] }) {
                   <span className="ml-auto flex shrink-0 items-center gap-3">
                     {g.zeroResult && <Badge tone="warning">결과0</Badge>}
                     <span className="tabular-nums text-caption text-muted">
-                      검색 <b className="text-fg">{g.count}</b>
+                      횟수: <b className="text-fg">{g.count}</b>
                     </span>
                     <span className="tabular-nums text-caption text-faint">평균 {g.avgResults}장</span>
+                    {g.avgMs !== null && (
+                      <span className="tabular-nums text-caption text-faint">평균 {formatDuration(g.avgMs)}</span>
+                    )}
+                    <span className="hidden tabular-nums text-caption text-faint sm:inline">
+                      마지막 {formatSearchedAt(g.lastSearchedAt)}
+                    </span>
                     <span className="text-caption text-faint">{isOpen ? "▲" : "▾"}</span>
                   </span>
                 </button>
@@ -120,6 +126,12 @@ export function SearchStatsTable({ groups }: { groups: SearchStatGroup[] }) {
 
                 {isOpen && (
                   <dl className="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1.5 rounded-xl bg-fg/[0.03] p-3 text-caption">
+                    <dt className="text-faint">마지막 검색</dt>
+                    <dd className="tabular-nums text-muted">{formatSearchedAt(g.lastSearchedAt)}</dd>
+                    <dt className="text-faint">걸린 시간</dt>
+                    <dd className="tabular-nums text-muted">
+                      {g.avgMs === null ? "— (0146 전 기록)" : `평균 ${formatDuration(g.avgMs)} · 최대 ${formatDuration(g.maxMs)}`}
+                    </dd>
                     <dt className="text-faint">찾은 길</dt>
                     <dd className="text-muted">
                       {g.routes.map((r) => `${r.name} ${r.count}`).join(" · ")}

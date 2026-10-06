@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { runSearchDebug, type DebugState } from "./actions";
 import { InterpretationChips } from "./InterpretationChips";
+import { formatDuration } from "@/lib/search-interpretation";
 
 const INITIAL: DebugState = { ran: false, q: "", data: null };
 
@@ -41,7 +42,8 @@ export function SearchDebug() {
                 <InterpretationChips interpretation={state.live.interpretation} />
               </div>
               <p className="mt-2 text-caption text-muted">
-                결과 <b className="text-fg">{state.live.matches}</b>장
+                결과 <b className="text-fg">{state.live.matches}</b>장 · 걸린 시간{" "}
+                <b className="text-fg">{formatDuration(state.live.durationMs)}</b>
                 {state.live.related > 0 && <> · 비슷한 무드 {state.live.related}장</>}
                 {state.live.suggestions.length > 0 && (
                   <span className="text-faint"> · 연관 검색어 {state.live.suggestions.slice(0, 6).join(", ")}</span>

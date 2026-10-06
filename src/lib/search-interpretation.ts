@@ -67,3 +67,20 @@ export function routeLabel(i: SearchInterpretation): string {
   if (i.moodText) return "무드(태그 + 벡터)";
   return "해석 없음";
 }
+
+/** 걸린 시간 표시 — 1초 미만은 ms, 그 위는 초(소수 한 자리). 어드민 전용 */
+export function formatDuration(ms: number | null | undefined): string {
+  if (ms == null || !Number.isFinite(ms)) return "—";
+  return ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(1)}초`;
+}
+
+/** 검색한 시각(한국 시간) — "10. 6. 오후 7:40" 꼴. 어드민 전용 */
+export function formatSearchedAt(iso: string): string {
+  return new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(iso));
+}

@@ -4,6 +4,7 @@ import { EmptyState } from "@/components/ui";
 import { SearchStatsTable } from "./SearchStatsTable";
 import { SearchDebug } from "./SearchDebug";
 import { InterpretationChips } from "./InterpretationChips";
+import { formatDuration, formatSearchedAt } from "@/lib/search-interpretation";
 
 export const dynamic = "force-dynamic";
 
@@ -22,15 +23,6 @@ type View = (typeof VIEWS)[number]["value"];
 
 const PILL = "rounded-full px-3 py-1 text-caption font-medium transition-colors";
 
-function kst(iso: string): string {
-  return new Intl.DateTimeFormat("ko-KR", {
-    timeZone: "Asia/Seoul",
-    month: "numeric",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(iso));
-}
 
 /** 무드 가족 → 그 무드로 들어온 검색어(많은 순) — 「무드별」 보기 */
 function byMood(groups: SearchStatGroup[], pick: (g: SearchStatGroup) => { name: string; count: number }[]) {
@@ -65,7 +57,7 @@ export default async function AdminSearchPage({
   const sinceDays = daysParam === "all" ? null : Number(daysParam);
   const view: View = VIEWS.some((v) => v.value === sp.view) ? (sp.view as View) : "terms";
 
-  const { groups, totalSearches, uniqueTerms, zeroResultCount, recent } = await listSearchStats(sinceDays);
+  const { groups, totalSearches, uniqueTerms, zeroResultCount, recent, timing } = await listSearchStats(sinceDays);
 
   const routeTotals = new Map<string, number>();
   for (const g of groups) for (const r of g.routes) routeTotals.set(r.name, (routeTotals.get(r.name) ?? 0) + r.count);
@@ -105,13 +97,17 @@ export default async function AdminSearchPage({
       </div>
 
       {/* 요약 */}
-      <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
+      <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         {[
           { label: "총 검색", value: totalSearches },
           { label: "고유 검색어", value: uniqueTerms },
           { label: "결과0 검색어", value: zeroResultCount },
           { label: "무드 가족 · 정확", value: `${exact} (${pct(exact)}%)` },
           { label: "큰 무드 · 애매", value: `${vague} (${pct(vague)}%)` },
+          // 걸린 시간(0146) — 잰 검색만으로. 어드민 전용
+          { label: "평균 검색 시간", value: formatDuration(timing.avgMs) },
+          { label: "느린 검색 (상위 5% 경계)", value: formatDuration(timing.p95Ms) },
+          { label: "시간을 잰 검색", value: timing.measured },
         ].map((s) => (
           <div key={s.label} className="rounded-xl border border-line bg-surface px-3 py-2.5">
             <dt className="text-[11px] text-faint">{s.label}</dt>
@@ -147,7 +143,7 @@ export default async function AdminSearchPage({
       ) : view === "moods" ? (
         <MoodView groups={groups} />
       ) : (
-        <RecentView recent={recent} />
+        <RecentView recent={recent} slowest={timing.slowest} />
       )}
 
       {/* 시뮬레이터 */}
@@ -179,7 +175,7 @@ function MoodView({ groups }: { groups: SearchStatGroup[] }) {
             <li key={m.mood} className="rounded-xl border border-line bg-surface p-3">
               <div className="flex items-baseline gap-2">
                 <span className="rounded-full bg-fg px-2 py-0.5 text-[12px] font-semibold text-bg">{m.mood}</span>
-                <span className="tabular-nums text-caption text-muted">검색 {m.total}</span>
+                <span className="tabular-nums text-caption text-muted">횟수: {m.total}</span>
               </div>
               <p className="mt-2 flex flex-wrap gap-1">
                 {m.terms.map((t) => (
@@ -210,16 +206,37 @@ function MoodView({ groups }: { groups: SearchStatGroup[] }) {
   );
 }
 
-function RecentView({ recent }: { recent: Awaited<ReturnType<typeof listSearchStats>>["recent"] }) {
+type Recent = Awaited<ReturnType<typeof listSearchStats>>["recent"];
+
+function RecentView({ recent, slowest }: { recent: Recent; slowest: Recent }) {
   return (
-    <ul className="mt-4 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
-      {recent.map((r, idx) => (
+    <div className="mt-4 space-y-5">
+      {slowest.length > 0 && (
+        <section>
+          <h3 className="text-body-sm font-semibold">가장 느린 검색</h3>
+          <p className="mt-0.5 text-caption text-faint">맥미니 검색어 분리(4초 제한)나 DB 가 밀리면 여기 먼저 보여요.</p>
+          <RecentList rows={slowest} />
+        </section>
+      )}
+      <section>
+        <h3 className="text-body-sm font-semibold">최근 검색</h3>
+        <RecentList rows={recent} />
+      </section>
+    </div>
+  );
+}
+
+function RecentList({ rows }: { rows: Recent }) {
+  return (
+    <ul className="mt-2 divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface">
+      {rows.map((r, idx) => (
         <li key={`${r.at}-${idx}`} className="flex flex-col gap-1 px-4 py-2.5 sm:flex-row sm:items-center sm:gap-3">
-          <span className="w-24 shrink-0 tabular-nums text-caption text-faint">{kst(r.at)}</span>
+          <span className="w-24 shrink-0 tabular-nums text-caption text-faint">{formatSearchedAt(r.at)}</span>
           <span className="min-w-0 shrink-0 truncate text-body-sm font-semibold sm:w-40">{r.raw}</span>
           <span className={`w-14 shrink-0 tabular-nums text-caption ${r.resultCount === 0 ? "text-warning-ink" : "text-muted"}`}>
             {r.resultCount}장
           </span>
+          <span className="w-14 shrink-0 tabular-nums text-caption text-faint">{formatDuration(r.durationMs)}</span>
           <InterpretationChips interpretation={r} />
         </li>
       ))}

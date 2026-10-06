@@ -14,6 +14,8 @@ export type LiveSearchPreview = {
   sample: { id: string; url: string }[];
   /** 연관 검색어 이름 */
   suggestions: string[];
+  /** 실제 검색에 걸린 시간(ms) */
+  durationMs: number;
 };
 
 export type DebugState = {
@@ -35,6 +37,7 @@ export async function runSearchDebug(_prev: DebugState, formData: FormData): Pro
   const q = String(formData.get("q") ?? "").trim();
   if (!q) return { ran: false, q: "", data: null };
 
+  const startedAt = performance.now();
   const [data, live] = await Promise.all([
     debugSearchPhotos(q),
     searchPhotos(q, 60).then(
@@ -46,6 +49,7 @@ export async function runSearchDebug(_prev: DebugState, formData: FormData): Pro
           related: result.related.length,
           sample: result.matches.slice(0, 8).map((p) => ({ id: p.id, url: p.thumb_url ?? p.src_url })),
           suggestions: (result.suggestions ?? []).map((s) => s.label),
+          durationMs: Math.round(performance.now() - startedAt),
         },
       }),
       (e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) })
