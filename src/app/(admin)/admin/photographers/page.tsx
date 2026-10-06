@@ -77,6 +77,29 @@ function when(iso: string): string {
   }).format(new Date(iso));
 }
 
+type PhotoCountRow = { photographer_id: string; visibility: string; hidden_by_no_agreement: boolean };
+
+/**
+ * 사진은 이미 2천 장 가까이라 한 번에 받으면 PostgREST 기본 상한(1000행)에서 잘린다 —
+ * 그러면 작가별 사진 수가 조용히 줄어든다(2026-10-06: 1,985장 중 1,000장만 셌다).
+ * id 순으로 고정해 range 로 끝까지 받는다.
+ */
+async function fetchPhotoRows(admin: ReturnType<typeof createAdminClient>): Promise<PhotoCountRow[]> {
+  const PAGE = 1000;
+  const out: PhotoCountRow[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data } = await admin
+      .from("photos")
+      .select("photographer_id, visibility, hidden_by_no_agreement")
+      .order("id")
+      .range(from, from + PAGE - 1);
+    const batch = (data ?? []) as PhotoCountRow[];
+    out.push(...batch);
+    if (batch.length < PAGE) break;
+  }
+  return out;
+}
+
 /** 작가별 카운트 — 단일 컬럼만 받아 JS 집계(베타 규모에 충분) */
 function countBy<T extends Record<string, unknown>>(rows: T[] | null, key: keyof T): Map<string, number> {
   const m = new Map<string, number>();
@@ -132,7 +155,7 @@ export default async function AdminPhotographersPage({
     { data: phData },
     { data: leadData },
     { data: profData },
-    { data: photoRows },
+    photoRows,
     { data: pkgRows },
     { data: bookingRows },
     { data: inqRows },
@@ -150,7 +173,7 @@ export default async function AdminPhotographersPage({
       .in("status", ["new", "contacted"])
       .order("created_at", { ascending: false }),
     admin.from("profiles").select("id, avatar_url, role"),
-    admin.from("photos").select("photographer_id"),
+    fetchPhotoRows(admin),
     admin.from("packages").select("photographer_id, is_active"),
     admin.from("bookings").select("photographer_id, status"),
     admin.from("inquiries").select("photographer_id, status"),
@@ -171,7 +194,9 @@ export default async function AdminPhotographersPage({
   const allRows = (phData ?? []) as Row[];
   const staffCount = allRows.filter(isStaff).length;
   const all = showStaff ? allRows : allRows.filter((r) => !isStaff(r));
-  const photoCount = countBy(photoRows, "photographer_id");
+  // 「사진」은 고객에게 실제로 보이는 장수 — 초안·보관·미동의로 가린 사진은 빼고, 가린 건 따로 센다
+  const photoCount = countBy(photoRows.filter((p) => p.visibility === "published"), "photographer_id");
+  const hiddenPhotoCount = countBy(photoRows.filter((p) => p.hidden_by_no_agreement), "photographer_id");
   const pkgCount = countBy((pkgRows ?? []).filter((p) => p.is_active), "photographer_id");
   const bookingCount = countBy(bookingRows, "photographer_id");
   const inqCount = countBy(inqRows, "photographer_id");
@@ -194,6 +219,7 @@ export default async function AdminPhotographersPage({
       ...r,
       avatar: avatarOf.get(r.profile_id) ?? null,
       photos: photoCount.get(r.id) ?? 0,
+      hiddenPhotos: hiddenPhotoCount.get(r.id) ?? 0,
       packages: pkgCount.get(r.id) ?? 0,
       bookings: bookingCount.get(r.id) ?? 0,
       inquiries: inqCount.get(r.id) ?? 0,
@@ -431,7 +457,11 @@ export default async function AdminPhotographersPage({
                 )}
 
                 <div className="mt-3 grid grid-cols-4 gap-2 text-center">
-                  <Mini label="사진" value={r.photos} />
+                  <Mini
+                    label="공개 사진"
+                    value={r.photos}
+                    hint={r.hiddenPhotos > 0 ? `미동의로 가림 ${fmt.format(r.hiddenPhotos)}` : undefined}
+                  />
                   <Mini label="패키지" value={r.packages} />
                   <Mini label="예약" value={r.bookings} />
                   <Mini label="문의" value={r.inquiries} />
@@ -487,11 +517,12 @@ function TagRow({ row }: { row: Row }) {
   );
 }
 
-function Mini({ label, value }: { label: string; value: number }) {
+function Mini({ label, value, hint }: { label: string; value: number; hint?: string }) {
   return (
     <div className="rounded-lg bg-fg/[0.03] px-2 py-1.5">
       <p className="text-body-sm font-bold tabular-nums text-fg">{fmt.format(value)}</p>
       <p className="text-[11px] text-faint">{label}</p>
+      {hint && <p className="text-[11px] text-warning-ink">{hint}</p>}
     </div>
   );
 }
