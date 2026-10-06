@@ -31,7 +31,7 @@ export type GalleryPhoto = {
   recommended?: boolean;
 };
 
-type SearchablePhoto = GalleryPhoto & {
+export type SearchablePhoto = GalleryPhoto & {
   location_text: string | null;
   album_id: string | null;
   photographer_id: string;
@@ -721,17 +721,17 @@ export async function searchPhotosByTag(
   // onlyIds — 이 사진들 안에서만 찾는다(목적으로 고른 사진 안에서 무드 태그 일치)
   // withoutPhotographerTags — 작가 태그를 보지 않는다. 작가 프로필 태그는 그 작가 사진 전부에 걸려
   // 사진 한 장의 무드가 아니다("몽환" 을 단 작가 한 명의 사진 68장이 전부 걸렸다)
-  // fromSnapshot — 매일 06:00 백필 뒤 맥미니가 만든 목록(0138)에서 찾는다. 없으면 직접 읽는다
+  // 사진은 매일 06:00 백필 뒤 맥미니가 만든 목록(0138)에서 찾는다. 한 번도 못 받았을 때만 직접 읽는다
+  // (전에는 fromSnapshot 을 켠 호출만 목록을 썼고, 홈 검색은 검색마다 1,600장을 직접 읽었다 — 2026-10-06 통일)
   options: {
     directOnly?: boolean; limit?: number; signal?: AbortSignal; failOnError?: boolean;
-    onlyIds?: Set<string>; withoutPhotographerTags?: boolean; fromSnapshot?: boolean;
+    onlyIds?: Set<string>; withoutPhotographerTags?: boolean;
   } = {}
 ): Promise<GalleryPhoto[]> {
   const query = buildSearchQuery(qRaw);
   if (!query.compact) return [];
   const supabase = await createClient();
-  const all = (options.fromSnapshot ? await snapshotSearchablePhotos() : null)
-    ?? await fetchAllSearchablePhotos(supabase, options);
+  const all = (await snapshotSearchablePhotos()) ?? await fetchAllSearchablePhotos(supabase, options);
   const picked = options.onlyIds ? all.filter((photo) => options.onlyIds!.has(photo.id)) : all;
   const rows = options.withoutPhotographerTags
     ? picked.map((photo) => ({ ...photo, photographer: { ...photo.photographer, mood_tags: [] } }))
@@ -1264,15 +1264,18 @@ function roundRobinRelated(items: RelatedResultItem[]): RelatedResultItem[] {
 //     새 목록이 생겼으면 그때 한 번 통째로 읽는다
 //   · 서버가 새로 뜨면 메모리가 비어 있으니 처음 한 번 읽는다
 // 낮에 손으로 다시 만든 목록은 이미 오늘 목록을 든 서버에는 다음 06:00 에 반영된다(docs/29 §12.15).
-// 이틀 넘게 새 목록이 없으면 들고 있던 목록을 버리고 예전처럼 직접 읽는다(SNAPSHOT_MAX_AGE_MS).
+//
+// 🔴 **새 목록이 안 생겨도 들고 있던 목록을 계속 쓴다(2026-10-06 결정).** 전에는 이틀 넘으면 버리고
+//    검색마다 1,600장을 직접 읽었는데, 맥미니가 멈추면 그게 곧 요청마다 무거운 조회가 된다 —
+//    같은 날 장소 카드의 직접 조회(location_text ilike)가 DB 시간 77% 를 먹고 사이트를 3시간 멈췄다.
+//    낡은 목록은 화면이 아니라 알림으로 잡는다(lib/snapshot-watch, 매일 크론).
+//    직접 읽는 건 목록을 **한 번도 못 받았을 때**뿐이다(0138 전·서비스 키 없는 Preview).
 //
 // ⚠️ 검색할 때 공개 여부를 다시 보지 않는다(2026-09-21 결정) — 그 사이 비공개로 돌리거나
-//    피드에서 내린 사진도 다음 06:00 까지 무드 태그 검색에 걸린다.
+//    피드에서 내린 사진도 다음 목록이 생길 때까지 무드 태그 검색·장소 카드에 걸린다.
 const SNAPSHOT_RECHECK_MS = 10 * 60_000;
 const DAY_MS = 24 * 60 * 60_000;
 const KST_6AM_IN_UTC_MS = 21 * 60 * 60_000;   // 한국 06:00 = 전날 21:00 UTC
-// 목록이 이틀 넘게 안 바뀌었으면(맥미니 고장·갱신 안 함) 버리고 검색마다 직접 읽는다 — 느려질 뿐 낡은 목록을 계속 쓰지 않는다
-const SNAPSHOT_MAX_AGE_MS = 2 * DAY_MS;
 
 type TagSnapshot = {
   photos: Array<Omit<SearchablePhoto, "album" | "photographer">>;
@@ -1289,8 +1292,8 @@ function lastKst6am(now: number): number {
   return Math.floor((now - KST_6AM_IN_UTC_MS) / DAY_MS) * DAY_MS + KST_6AM_IN_UTC_MS;
 }
 
-/** 목록이 없으면(0138 전·맥미니가 아직 안 만듦) null — 호출하는 쪽이 직접 읽는다. */
-async function snapshotSearchablePhotos(): Promise<SearchablePhoto[] | null> {
+/** 들고 있는 목록이 오늘 06:00 전 것이면 새 목록이 있는지 본다(10분 간격). */
+async function ensureSnapshot(): Promise<void> {
   const now = Date.now();
   const fresh = heldSnapshot && heldSnapshot.builtAt >= lastKst6am(now);
   if (!fresh && now - snapshotCheckedAt >= SNAPSHOT_RECHECK_MS) {
@@ -1298,10 +1301,20 @@ async function snapshotSearchablePhotos(): Promise<SearchablePhoto[] | null> {
     snapshotLoading ??= refreshSnapshot()
       .catch((error) => console.error("[search] 무드 태그 목록 조회 실패 — 들고 있던 것 또는 직접 읽기로:", error))
       .finally(() => { snapshotLoading = null; });
-    await snapshotLoading;
   }
-  if (!heldSnapshot || now - heldSnapshot.builtAt > SNAPSHOT_MAX_AGE_MS) return null;
-  return heldSnapshot.photos;
+  // 받는 중이면 **확인 간격과 상관없이** 끝날 때까지 기다린다. refreshSnapshot 이 확인 시각을 먼저 찍어서,
+  // 서버가 막 뜬 직후 같이 들어온 요청이 "방금 봤다" 며 빈손(null)으로 돌아가고 있었다 —
+  // 장소 카드는 빈 채로 1분 메모에 앉고, 검색은 DB 를 직접 읽었다(2026-10-06 로컬 확인).
+  if (snapshotLoading) await snapshotLoading;
+}
+
+/**
+ * 06:00 공개 사진 목록 — 무드 태그 검색과 촬영 장소 매칭(lib/spots)이 같이 쓴다.
+ * 낡아도 버리지 않는다(위 주석). 한 번도 못 받았으면 null — 호출하는 쪽이 정한다.
+ */
+export async function snapshotSearchablePhotos(): Promise<SearchablePhoto[] | null> {
+  await ensureSnapshot();
+  return heldSnapshot?.photos ?? null;
 }
 
 async function refreshSnapshot(): Promise<void> {

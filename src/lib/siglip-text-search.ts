@@ -365,7 +365,7 @@ async function moodTagMatches(
   if (!moodText.trim()) return [];
   try {
     const direct = await searchPhotosByTag(moodText, {
-      directOnly: true, limit, signal, failOnError: true, onlyIds, withoutPhotographerTags: true, fromSnapshot: true,
+      directOnly: true, limit, signal, failOnError: true, onlyIds, withoutPhotographerTags: true,
     });
     // 무드 층으로 넓힌다(docs/40 §17-7) — 같은 묶음 · 무리는 늘, 가족 · 이웃 · 큰 무드는 EXPAND_UNTIL 장이 찰 때까지만
     const wider = await searchPhotosByMoodTiers(moodText, {

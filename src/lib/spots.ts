@@ -7,7 +7,8 @@ import { createPublicClient } from "@/lib/supabase/public";
 import { listPublishedSpots } from "@/lib/spots-db";
 import { isSpotLive } from "@/lib/spot-live";
 import { isUsablePlace } from "@/lib/location-text";
-import type { GalleryPhoto } from "@/lib/discovery";
+import { snapshotSearchablePhotos, type GalleryPhoto } from "@/lib/discovery";
+import { locationMatchesSpot, usableSpotKeywords } from "@/lib/spot-match";
 import type { Spot } from "@/lib/spots-db";
 
 // 장소 페이지가 블로그와 갈리는 지점은 여기다.
@@ -76,7 +77,7 @@ function isSpecificLocation(text: string | null | undefined): boolean {
 
 /** 키워드를 PostgREST or 필터로. 콤마·괄호가 들어가면 필터가 깨지므로 먼저 막는다. */
 function orFilter(spot: Spot): string | null {
-  const safe = spot.keywords.filter((k) => !/[,()]/.test(k));
+  const safe = usableSpotKeywords(spot.keywords);
   if (safe.length === 0) return null;
   return safe.map((k) => `location_text.ilike.%${k}%`).join(",");
 }
@@ -114,12 +115,54 @@ function spreadByAlbum<T extends { id: string; album_id: string | null }>(photos
 }
 
 /**
- * 키워드가 걸린 공개 사진을 전부 읽어 나열형을 걸러내고, 앞자리를 정리한다.
+ * 06:00 에 만들어 두는 공개 사진 목록(search_tag_snapshot)을 장소 매칭용으로 편다.
+ *
+ * 그 목록은 아래 DB 경로와 조건이 같다 — 공개 · 피드에서 안 내림 · 승인 작가 · 최신순
+ * (scripts/embed/build_search_tags.py). 그래서 같은 사진을 같은 순서로 고른다.
+ * 다른 점은 **늦게 반영된다**는 것뿐이다 — 낮에 숨긴 사진은 다음 목록이 생길 때까지 남는다.
+ * 맥미니가 멈춰 목록이 안 바뀌어도 들고 있던 걸 계속 쓴다(무드 검색과 같은 조건, 2026-10-06 결정).
+ * 낡은 목록은 매일 크론이 알린다(lib/snapshot-watch).
+ *
+ * 목록을 한 번도 못 받았으면 null.
+ */
+async function snapshotPool(): Promise<MatchedPhoto[] | null> {
+  const photos = await snapshotSearchablePhotos();
+  if (!photos) return null;
+  // 검색용 필드(앨범 글·태그)는 떼고 카드·지면에 쓰는 것만 남긴다
+  return photos.map((p) => ({
+    id: p.id,
+    src_url: p.src_url,
+    thumb_url: p.thumb_url,
+    width: p.width,
+    height: p.height,
+    region: p.region,
+    mood_tags: p.mood_tags,
+    price_krw: p.price_krw,
+    photographer: { id: p.photographer.id, display_name: p.photographer.display_name },
+    location_text: p.location_text,
+    album_id: p.album_id,
+  }));
+}
+
+/**
+ * 키워드가 걸린 공개 사진을 전부 모아 나열형을 걸러내고, 앞자리를 정리한다.
+ *
+ * `pool` 이 있으면 그 안에서 고른다(메모리, DB 를 안 친다). 없으면 DB 에서 직접 읽는다 —
+ * 이건 `location_text ilike` 라 photos 를 통째로 훑는다. **요청마다 도는 지면에서는 쓰지 않는다**
+ * (listSpotCards 의 dbFallback). 2026-10-06 이 경로가 DB 시간의 77% 를 먹고 사이트를 3시간 멈췄다.
  *
  * 콤마 개수는 SQL 로 못 세서 받아 온 뒤 자바스크립트로 거른다.
  * 장소가 스무 곳 남짓이고 장소당 수십 장이라 그래도 된다.
  */
-async function fetchMatched(spot: Spot): Promise<MatchedPhoto[]> {
+async function fetchMatched(spot: Spot, pool?: MatchedPhoto[] | null): Promise<MatchedPhoto[]> {
+  const rows = pool
+    ? pool.filter((p) => locationMatchesSpot(p.location_text, spot.keywords))
+    : await queryMatched(spot);
+  return arrangeMatched(rows);
+}
+
+/** DB 경로 — 키워드마다 `location_text ilike '%키워드%'` 를 or 로 묶는다. */
+async function queryMatched(spot: Spot): Promise<MatchedPhoto[]> {
   const or = orFilter(spot);
   if (!or) return [];
 
@@ -136,9 +179,12 @@ async function fetchMatched(spot: Spot): Promise<MatchedPhoto[]> {
     .order("created_at", { ascending: false });
 
   if (error) return [];
-  const matched = ((data ?? []) as unknown as MatchedPhoto[]).filter((p) =>
-    isSpecificLocation(p.location_text)
-  );
+  return (data ?? []) as unknown as MatchedPhoto[];
+}
+
+/** 나열형 표기를 빼고 앞자리를 정리한다 — DB 경로와 메모리 경로가 같은 규칙을 쓴다. */
+function arrangeMatched(rows: MatchedPhoto[]): MatchedPhoto[] {
+  const matched = rows.filter((p) => isSpecificLocation(p.location_text));
 
   /*
     앞자리(= 목록의 대표 사진)에 뭘 세울지가 여기서 정해진다.
@@ -265,12 +311,21 @@ export type SpotCard = {
  *
  * 사진이 0장인 곳은 뺀다. 소개글만 남는 장소는 들어가 봐야 볼 게 없고,
  * 탐색은 사진을 보러 오는 지면이라 더더욱 실을 이유가 없다.
+ *
+ * 사진은 06:00 목록(snapshotPool)에서 고른다 — 장소가 몇 곳이든 DB 를 치지 않는다.
+ * 목록이 아직 없을 때 DB 로 읽을지는 `dbFallback` 으로 정한다. **요청마다 도는 지면(홈·매거진)은
+ * 끄고**(카드를 안 세운다), 하루 한 번 만드는 지면(/spots)만 켠다.
  */
-export async function listSpotCards(limit = 6): Promise<SpotCard[]> {
+export async function listSpotCards(
+  limit = 6,
+  { dbFallback = false }: { dbFallback?: boolean } = {}
+): Promise<SpotCard[]> {
+  const pool = await snapshotPool();  if (!pool && !dbFallback) return [];
+
   const PUBLISHED_SPOTS = await listPublishedSpots();
 
   const matchedBySpot = await Promise.all(
-    PUBLISHED_SPOTS.map(async (s) => ({ spot: s, matched: await fetchMatched(s) }))
+    PUBLISHED_SPOTS.map(async (s) => ({ spot: s, matched: await fetchMatched(s, pool) }))
   );
 
   /*

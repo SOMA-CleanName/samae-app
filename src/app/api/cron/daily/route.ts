@@ -4,6 +4,7 @@ import { sendRefundWindowNotices } from "@/lib/refund-notices";
 import { markPastShootsAsShot, notifyDeliveryOverdue } from "@/lib/booking-sweep";
 import { sendChatReminders } from "@/lib/chat-reminder";
 import { pingIndexNow } from "@/lib/indexnow";
+import { checkSearchSnapshotFreshness } from "@/lib/snapshot-watch";
 
 // 하루 한 번 도는 일과 전부 — 매일 09:00 KST(= 00:00 UTC).
 //
@@ -54,6 +55,8 @@ export async function GET(request: Request) {
     // 검색엔진에 "어제 바뀐 것" 을 알린다. 네이버는 sitemap 만 보고 알아서 오지 않는다.
     // 발행 자리마다 붙이지 않고 여기 한 곳에서 sitemap 을 읽는 이유는 lib/indexnow.ts 주석에.
     await run("indexnow", pingIndexNow),
+    // 06:00 공개 사진 목록이 오늘도 만들어졌나. 검색·장소 카드는 낡아도 계속 쓰므로 여기서 잡는다.
+    await run("snapshot-freshness", checkSearchSnapshotFreshness),
   ];
 
   const ok = tasks.every((t) => t.ok);
