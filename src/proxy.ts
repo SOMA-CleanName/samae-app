@@ -105,7 +105,12 @@ function applyCategoryContext(request: NextRequest, response: NextResponse): Nex
 
 export const config = {
   // 정적 자산·이미지를 제외한 모든 경로에서 세션 갱신
+  //
+  // 🔴 `/api/track`(방문 기록 비콘)도 뺀다(2026-10-06). 페이지마다 1초 간격으로 오는 요청인데,
+  //    세션 갱신(updateSession → auth.getUser())이 **로그인한 사람의 비콘마다 Auth 서버를 한 번씩** 쳤다.
+  //    /auth/v1/user 가 하루 요청 1위(18,559건)였다. 트랙은 누가 봤는지 붙이려고 쿠키만 읽고
+  //    (getSession, 네트워크 없음) 세션을 갱신할 이유가 없다 — 갱신은 같은 사람의 페이지 요청이 한다.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/track(?:/|$)|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };
