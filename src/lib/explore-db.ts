@@ -5,6 +5,36 @@ import { createClient } from "@/lib/supabase/server";
 import { resolveCoverForPurpose } from "@/lib/taste-purposes";
 import { resolveExplorePhotoIds } from "@/lib/target-categories";
 import { fetchAlbumDescriptions, type GalleryPhoto } from "@/lib/discovery";
+import { memoTtl } from "@/lib/server-memo";
+
+/**
+ * 인기 신호용 조회수 — DB 가 센다(0144). 1분 메모 — 조회수가 화면에 바로바로 오르는 게 보이게
+ * (2026-10-06 결정). DB 안에서 세고 숫자표만 받아서 1분이어도 가볍다. 방문 기록이 커져 무거워지면 늘린다.
+ *
+ * 전에는 페이지뷰 원본 행(최근 30·60일)을 통째로 받아 여기서 셌고, 그걸 인스턴스마다 1분마다 했다.
+ * 2026-10-06 장애 때 Query Performance 4위(DB 시간 6%)였고, API 최대 행 수에 걸리면 일부만 세고 있었다.
+ *
+ * 함수가 아직 없으면(0144 적용 전 배포) null — 부르는 쪽이 예전 방식으로 센다. 실패는 메모하지 않는다.
+ */
+const VIEW_COUNTS_TTL_MS = 60_000;
+
+async function cachedViewCounts(
+  fn: "photo_view_counts" | "explore_view_counts",
+  windowDays: number
+): Promise<Map<string, number> | null> {
+  try {
+    const counts = await memoTtl(`views:${fn}:${windowDays}`, VIEW_COUNTS_TTL_MS, async () => {
+      const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
+      const { data, error } = await createAdminClient().rpc(fn, { p_since: since });
+      if (error) throw new Error(error.message);
+      return (data ?? {}) as Record<string, number>;
+    });
+    return new Map(Object.entries(counts).map(([k, n]) => [k, Number(n)]));
+  } catch (e) {
+    console.error(`[explore] ${fn} 실패 — 예전 방식(행을 받아 세기)으로:`, e instanceof Error ? e.message : e);
+    return null;
+  }
+}
 
 const GALLERY_SELECT =
   "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name)";
@@ -433,11 +463,12 @@ async function loadScoredPhotos(
   const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
 
   // 신호 3종 + 운영자 계정 목록을 브로드 조회 (긴 .in URL 회피 — 카테고리 랭커와 동일 패턴)
-  const [{ data: inq }, { data: fav }, { data: pv }, { data: admins }] = await Promise.all([
+  // 조회수는 DB 가 센 것(0144, 1분 메모)을 먼저 쓴다 — 없을 때만 아래에서 행을 받아 센다
+  const [{ data: inq }, { data: fav }, { data: admins }, counted] = await Promise.all([
     admin.from("inquiries").select("source_photo_id, profile_id").not("source_photo_id", "is", null).gte("created_at", since),
     admin.from("favorites").select("target_id, profile_id").eq("target_type", "photo").gte("created_at", since).limit(100000),
-    admin.from("analytics_events").select("path, profile_id").eq("type", "pageview").like("path", "/photos/%").gte("created_at", since).limit(100000),
     admin.from("profiles").select("id").eq("role", "admin"),
+    cachedViewCounts("photo_view_counts", windowDays),
   ]);
   const adminSet = new Set((admins ?? []).map((a) => a.id as string));
 
@@ -457,12 +488,22 @@ async function loadScoredPhotos(
     if (excluded((f.profile_id as string | null) ?? null, id)) continue;
     likeByPhoto.set(id, (likeByPhoto.get(id) ?? 0) + 1);
   }
-  const viewByPhoto = new Map<string, number>();
-  for (const r of pv ?? []) {
-    const m = ((r.path as string) || "").match(/^\/photos\/([^/?#]+)/);
-    if (!m) continue;
-    if (excluded((r.profile_id as string | null) ?? null, m[1])) continue;
-    viewByPhoto.set(m[1], (viewByPhoto.get(m[1]) ?? 0) + 1);
+  // DB 쪽도 같은 규칙(운영자 · 사진 주인 제외)으로 센다(0144)
+  const viewByPhoto = counted ?? new Map<string, number>();
+  if (!counted) {
+    const { data: pv } = await admin
+      .from("analytics_events")
+      .select("path, profile_id")
+      .eq("type", "pageview")
+      .like("path", "/photos/%")
+      .gte("created_at", since)
+      .limit(100000);
+    for (const r of pv ?? []) {
+      const m = ((r.path as string) || "").match(/^\/photos\/([^/?#]+)/);
+      if (!m) continue;
+      if (excluded((r.profile_id as string | null) ?? null, m[1])) continue;
+      viewByPhoto.set(m[1], (viewByPhoto.get(m[1]) ?? 0) + 1);
+    }
   }
 
   // 문의 최우선, 찜 중간, 조회 기본 — 튜닝 포인트
@@ -701,18 +742,22 @@ export async function rankExploreCategoriesByPopularity(windowDays = 60): Promis
 
   const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
 
-  // 카테고리별 조회수 — /explore/{slug} pageview
-  const { data: pv } = await admin
-    .from("analytics_events")
-    .select("path")
-    .eq("type", "pageview")
-    .like("path", "/explore/%")
-    .gte("created_at", since)
-    .limit(100000);
-  const viewsBySlug = new Map<string, number>();
-  for (const r of pv ?? []) {
-    const m = ((r.path as string) || "").match(/^\/explore\/([^/?#]+)/);
-    if (m) viewsBySlug.set(m[1], (viewsBySlug.get(m[1]) ?? 0) + 1);
+  // 카테고리별 조회수 — /explore/{slug} pageview. DB 가 센 것(0144, 1분 메모)을 먼저 쓴다
+  const countedViews = await cachedViewCounts("explore_view_counts", windowDays);
+  const viewsBySlug = countedViews ?? new Map<string, number>();
+  if (!countedViews) {
+    // 함수가 없을 때(0144 적용 전)만 — 예전처럼 행을 받아 센다
+    const { data: pv } = await admin
+      .from("analytics_events")
+      .select("path")
+      .eq("type", "pageview")
+      .like("path", "/explore/%")
+      .gte("created_at", since)
+      .limit(100000);
+    for (const r of pv ?? []) {
+      const m = ((r.path as string) || "").match(/^\/explore\/([^/?#]+)/);
+      if (m) viewsBySlug.set(m[1], (viewsBySlug.get(m[1]) ?? 0) + 1);
+    }
   }
 
   // 멤버십(사진→카테고리) + 문의(source_photo_id) → 카테고리별 문의수
