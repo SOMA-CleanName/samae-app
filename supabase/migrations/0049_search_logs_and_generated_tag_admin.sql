@@ -73,5 +73,15 @@ end;
 $$;
 
 -- service_role 전용 — 클라이언트 역할에는 실행 권한을 주지 않는다.
-revoke all on function public.admin_delete_generated_tag(text) from anon, authenticated;
-revoke all on function public.admin_rename_generated_tag(text, text) from anon, authenticated;
+--
+-- ⚠️ **`public` 까지 빼야 막힌다** (2026-10-06 수정, 운영 적용 전).
+--    Postgres 는 함수를 만들면 PUBLIC(모든 역할)에 EXECUTE 를 준다. anon · authenticated 만 빼면
+--    PUBLIC 을 통해 여전히 실행된다 — 두 함수는 security definer 라 RLS 를 건너뛰고 **모든 사진의
+--    태그를 지우거나 바꾼다.** 처음 쓴 판은 `from anon, authenticated` 뿐이라 그대로 적용됐다면
+--    로그인 없이 /rest/v1/rpc/admin_delete_generated_tag 로 부를 수 있었다.
+--    (이 파일은 운영에 한 번도 적용된 적이 없어 — docs/23 §11 — 새 마이그레이션 대신 여기서 고친다.)
+--    0059 · 0144 와 같은 규약: public · anon · authenticated 를 빼고 service_role 에만 준다.
+revoke all on function public.admin_delete_generated_tag(text) from public, anon, authenticated;
+revoke all on function public.admin_rename_generated_tag(text, text) from public, anon, authenticated;
+grant execute on function public.admin_delete_generated_tag(text) to service_role;
+grant execute on function public.admin_rename_generated_tag(text, text) to service_role;
