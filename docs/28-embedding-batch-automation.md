@@ -45,6 +45,8 @@ launchd (매일 06:00)
    └─ run-embed.sh
         ├─ embed_photos.py --apply --embed-url http://127.0.0.1:8077
         │    └─ 상주 serve.py /embed-backfill로 한 장씩 추론 (검색 우선)
+        ├─ tone_backfill.py --apply   (2026-09-28 다시 넣음)
+        │    └─ 색감(톤) 22차원 벡터 — 모델을 쓰지 않는다(PIL+numpy). 새 사진만 (docs/22 §7.6)
         ├─ purpose_backfill.py --apply --daily --embed-url http://127.0.0.1:8077
         │    ├─ 검수한 포트폴리오의 신규 사진에 기존 목적 상속
         │    └─ /embed-text-backfill + 저장된 사진 벡터로 미처리 목적 분류
@@ -62,7 +64,8 @@ launchd (매일 06:00)
 | 파일 | 역할 |
 |---|---|
 | `scripts/embed/macmini-setup.sh` | Python·venv·패키지·모델 캐시·launchd 등록. **재실행 안전** |
-| `scripts/embed/run-embed.sh` | 사진 임베딩 → 목적 분류 → 무드 검색 목록 → 세부분류·성별 초안 → 촬영 장소 신규 연결 실행 래퍼. 로그·락·실패 알림 |
+| `scripts/embed/run-embed.sh` | 사진 임베딩 → 색감 → 목적 분류 → 무드 검색 목록 → 세부분류·성별 초안 → 촬영 장소 신규 연결 실행 래퍼. 로그·락·실패 알림 |
+| `scripts/embed/tone_backfill.py` | 색감(톤) 벡터 백필. `--fit` 은 배치에 넣지 않는다 — 좌표계가 바뀐다 |
 | `scripts/embed/purpose_backfill.py` | 신규·미처리 목적 분류 및 기존 검수 목적 상속 |
 | `scripts/embed/build_search_tags.py` | 공개 사진 목록 저장(검색 · 촬영 장소 카드용). 사진 표는 읽기만 하고 `search_tag_snapshot` 한 줄만 쓴다. 표준 라이브러리만 써서 venv 없이 `python3` 로도 돈다 |
 | `scripts/embed/purpose_drafts.py` | 목적이 붙은 포트폴리오의 비어 있는 세부분류 · 개인 성별 초안 (docs/39 §7.4). 실패해도 알리지 않는다 |
@@ -184,7 +187,7 @@ python3 scripts/embed/build_search_tags.py --apply   # search_tag_snapshot 덮�
 
 | 언제 | 범위 | 하는 일 |
 |---|---|---|
-| **매일 06:00 이 배치 `[5/5]`** | 최근 이틀 안에 올라온 사진(공개 여부 상관없이) | 장소 키워드에 걸리면 연결을 **더하기만** 한다. 기존 연결은 건드리지 않는다. 비어 있는 사진 지역(`photos.region`)도 같은 범위만 채운다 |
+| **매일 06:00 이 배치 `[6/6]`** | 최근 이틀 안에 올라온 사진(공개 여부 상관없이) | 장소 키워드에 걸리면 연결을 **더하기만** 한다. 기존 연결은 건드리지 않는다. 비어 있는 사진 지역(`photos.region`)도 같은 범위만 채운다 |
 | 매일 09:00 Vercel 크론 (`/api/cron/daily` 의 `spot-photos-backup`) | 06:00 과 같은 범위 | **06:00 의 백업.** 더하기만 하고 이미 연결된 사진은 건너뛰어서, 06:00 이 됐으면 바뀌는 게 없고 안 됐으면(맥미니 꺼짐 · `CRON_SECRET` 없음) 여기서 채운다 |
 | 어드민 **「전체 다시 계산」 버튼** (촬영 장소 → 장소별 사진) | 사진 전부 | 수동 전체 백필. 안 맞게 된 자동 연결은 지운다 |
 | 어드민에서 장소 키워드 저장 | 사진 전부 | 키워드가 바뀌면 모든 사진에 다시 맞춰 봐야 한다 |
@@ -243,8 +246,8 @@ python3 scripts/embed/check_db.py        # "임베딩 대기" 줄
 
 | 구성요소 | 실행 시점 | 하는 일 |
 |---|---|---|
-| `com.samae.embed` → `run-embed.sh` | 매일 06:00 | 공개 사진 임베딩을 저장한 뒤 목적 태그도 백필 (§9), 끝나면 공개 사진 목록(검색 · 장소 카드용)을 새로 만든다 |
-| `com.samae.serve` → `run-serve.sh` → `serve.py` | 로그인 시 시작, 계속 상주 | `127.0.0.1:8077`에서 모델 하나로 검색·사용자 이미지·백필을 우선순위대로 추론 |
+| `com.samae.embed` → `run-embed.sh` | 매일 06:00 | 공개 사진 임베딩·색감 벡터를 저장한 뒤 목적 태그도 백필 (§9), 끝나면 공개 사진 목록(검색 · 장소 카드용)을 새로 만들고 신규 사진을 촬영 장소에 붙인다(§5.2) |
+| `com.samae.serve` → `run-serve.sh` → `serve.py` | 로그인 시 시작, 계속 상주 | `127.0.0.1:8077`에서 모델 하나로 검색·사용자 이미지(사진으로 검색, docs/46)·백필을 우선순위대로 추론 |
 | Tailscale Funnel | 외부 앱이 맥미니를 호출하는 동안 유지 | 공개 HTTPS 주소를 맥미니의 `127.0.0.1:8077` 로 연결 |
 | Next.js 앱 서버 | 사용자가 검색할 때 | 텍스트 벡터를 DB RPC 에 전달하고 사진 결과를 화면에 표시 |
 

@@ -20,7 +20,9 @@ export type EmbedResult = {
 
 function baseUrl(): string | null {
   const url = process.env.PERSONA_EMBED_URL?.trim();
-  return url && url.length > 0 ? url.replace(/\/$/, "") : null;
+  if (url) return url.replace(/\/$/, "");
+  // 개발 기계에서는 상주 서버가 같은 컴퓨터에 뜬다 — 검색(siglip-text-search.ts)과 같은 기본값을 쓴다.
+  return process.env.NODE_ENV === "development" ? "http://127.0.0.1:8077" : null;
 }
 
 /** 임베딩 서비스가 설정돼 있는지 (호출부에서 폴백 판단용) */
@@ -28,8 +30,14 @@ export function embedConfigured(): boolean {
   return baseUrl() !== null;
 }
 
-/** base64 JPEG 배열 → 벡터. 서비스가 없거나 실패하면 null. */
-export async function embedImages(imagesB64: string[]): Promise<EmbedResult | null> {
+/**
+ * base64 JPEG 배열 → 벡터. 서비스가 없거나 실패하면 null.
+ * timeoutMs — 사람이 기다리는 화면(사진으로 검색)은 페르소나 분석보다 짧게 끊는다.
+ */
+export async function embedImages(
+  imagesB64: string[],
+  { timeoutMs = TIMEOUT_MS, signal }: { timeoutMs?: number; signal?: AbortSignal } = {},
+): Promise<EmbedResult | null> {
   const url = baseUrl();
   if (!url || imagesB64.length === 0) return null;
 
@@ -44,7 +52,7 @@ export async function embedImages(imagesB64: string[]): Promise<EmbedResult | nu
           : {}),
       },
       body: JSON.stringify({ images: imagesB64 }),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
+      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeoutMs)]) : AbortSignal.timeout(timeoutMs),
     });
     if (!res.ok) {
       console.warn(`[persona] 임베딩 서비스 ${res.status}`);

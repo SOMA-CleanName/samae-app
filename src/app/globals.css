@@ -306,6 +306,18 @@ select:focus-visible {
   opacity: 0;
   filter: drop-shadow(0 0 2px color-mix(in srgb, var(--brand) 34%, transparent));
 }
+/* 사진으로 검색 버튼 — 검색창에 커서가 생기면 서서히 사라진다(글을 쓰는 동안은 글 검색이다).
+   **마우스가 있는 기기에서만** 그렇게 한다. 손가락 기기는 검색창을 한 번 누르면 키보드가 올라온 채
+   포커스가 남아, 사라진 버튼이 눌리지 않는 상태로 굳는다(2026-09-28 폰에서 신고). */
+.samae-search-camera {
+  transition: color 180ms ease, opacity 300ms ease;
+}
+@media (pointer: fine) {
+  .samae-search-frame input:focus ~ .samae-search-camera {
+    opacity: 0;
+    pointer-events: none;
+  }
+}
 .samae-search-icon {
   transition: color 180ms ease;
 }

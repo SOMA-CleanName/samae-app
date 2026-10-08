@@ -12,6 +12,8 @@ const pages = [
   { href: "/admin/photo-purpose/mood", label: "무드" },
   { href: "/admin/photo-purpose/tags", label: "사진 태그" },
   { href: "/admin/photo-purpose/search-probe", label: "검색 점수" },
+  // 사진을 올려 비슷한 사진을 찾는 실험 화면(docs/46). 「무드 검수」 는 무드 화면 둘째 줄(MoodLayerNav)로 옮겨졌다
+  { href: "/admin/photo-purpose/image-search", label: "사진으로 검색" },
 ];
 
 export function PhotoClassificationNav() {
