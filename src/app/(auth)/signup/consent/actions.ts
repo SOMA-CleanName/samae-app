@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
-import { recordTermsConsent } from "@/lib/consent";
+import { recordMarketingConsent, recordTermsConsent } from "@/lib/consent";
 import { safeNext } from "@/lib/safe-redirect";
 
 /**
@@ -21,6 +21,8 @@ export async function agreeTerms(formData: FormData): Promise<void> {
   if (!terms || !privacy) throw new Error("서비스 이용약관과 개인정보 처리방침에 모두 동의해야 계속할 수 있어요.");
 
   await recordTermsConsent(me.id);
+  // 광고성 정보 수신은 **선택**이라 체크 여부와 무관하게 통과시키고, 고른 값만 남긴다.
+  await recordMarketingConsent(me.id, formData.get("marketing") === "on");
   // 덮개(TermsConsentGate)는 **레이아웃**이 그린다. 레이아웃 RSC 를 다시 안 그리면
   // 돌아간 화면에 캐시된 옛 덮개가 잠깐 남는다 — 동의를 마쳤는데 팝업이 2초쯤
   // 다시 떴다가 사라졌다(2026-09-16 신고). 동의는 곧 레이아웃 상태 변경이다.
@@ -29,8 +31,9 @@ export async function agreeTerms(formData: FormData): Promise<void> {
 }
 
 /** 이메일 가입 직후(세션이 생긴 뒤) 폼에서 이미 체크한 동의를 기록한다 */
-export async function recordSignupConsent(): Promise<void> {
+export async function recordSignupConsent(marketing = false): Promise<void> {
   const me = await getCurrentUser();
   if (!me) return;
   await recordTermsConsent(me.id);
+  await recordMarketingConsent(me.id, marketing);
 }

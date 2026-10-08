@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { archiveAndDelete } from "@/lib/soft-delete";
+import { recordMarketingConsent } from "@/lib/consent";
 
 // 닉네임(profiles.display_name) 수정 — 본인만(RLS check id=auth.uid()).
 export async function updateDisplayName(formData: FormData) {
@@ -24,6 +25,20 @@ export async function updateDisplayName(formData: FormData) {
 
   revalidatePath("/settings");
   revalidatePath("/", "layout"); // 헤더 아바타 메뉴 등 갱신
+}
+
+/**
+ * 광고성 정보 수신 동의 켜고 끄기 (정보통신망법 §50 제4항 — 철회는 언제든 쉬워야 한다).
+ *
+ * 체크 없이 보내면 false 가 된다 — 체크박스는 꺼져 있으면 아예 전송되지 않기 때문이다.
+ * 그래서 "끄기" 가 따로 필요 없다. 끈 시각도 남는다(recordMarketingConsent).
+ */
+export async function updateMarketingConsent(formData: FormData) {
+  const me = await getCurrentUser();
+  if (!me) redirect("/login?next=/settings");
+
+  await recordMarketingConsent(me.id, formData.get("marketing") === "on");
+  revalidatePath("/settings");
 }
 
 // 프로필 사진을 기본(이니셜)으로 되돌리기.

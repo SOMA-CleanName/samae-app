@@ -37,6 +37,9 @@ export function SignupForm({ kakaoTermsTags }: { kakaoTermsTags?: string | null 
   // 이 폼을 거치지 않으므로 콜백이 /signup/consent 로 보내 같은 동의를 받는다.
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [agreedPrivacy, setAgreedPrivacy] = useState(false);
+  // 광고성 정보 수신은 **선택**이다. 아래 제출 가드(!agreedTerms || !agreedPrivacy)에
+  // 절대 넣지 않는다 — 넣으면 동의해야 가입되는 구조가 되어 정보통신망법 §50 위반이다.
+  const [agreedMarketing, setAgreedMarketing] = useState(false);
 
   const signupNext = () => readNextParam(DEFAULT_SIGNUP_NEXT);
 
@@ -119,7 +122,7 @@ export function SignupForm({ kakaoTermsTags }: { kakaoTermsTags?: string | null 
     }
     if (data.session) {
       // 이메일 인증 OFF → 즉시 로그인. 폼에서 받은 동의를 profiles 에 기록한다
-      await recordSignupConsent();
+      await recordSignupConsent(agreedMarketing);
       router.push(signupNext());
       router.refresh();
     } else {
@@ -240,6 +243,14 @@ export function SignupForm({ kakaoTermsTags }: { kakaoTermsTags?: string | null 
                 <span>
                   (필수){" "}
                   <Link href="/privacy?plain=1" target="_blank" className="underline underline-offset-2">개인정보 처리방침</Link>에 동의합니다
+                </span>
+              </label>
+              {/* (선택) 광고성 정보 수신 — 기본값은 꺼둔다. 미리 체크해두면 동의로 치지 않는다 */}
+              <label className="mt-0.5 flex cursor-pointer items-start gap-2 text-muted">
+                <input type="checkbox" checked={agreedMarketing} onChange={(e) => setAgreedMarketing(e.target.checked)} className="mt-0.5 h-4 w-4 accent-brand" />
+                <span>
+                  <span className="text-fg">(선택)</span> 이벤트·혜택 소식을 받아볼래요
+                  <span className="block text-faint">동의하지 않아도 가입할 수 있어요</span>
                 </span>
               </label>
             </div>
