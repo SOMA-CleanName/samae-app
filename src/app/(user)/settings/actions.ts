@@ -39,6 +39,9 @@ export async function updateMarketingConsent(formData: FormData) {
 
   await recordMarketingConsent(me.id, formData.get("marketing") === "on");
   revalidatePath("/settings");
+  // 레이아웃까지 다시 그린다 — 답하자마자 MarketingAskCard 가 사라져야 한다.
+  // 안 하면 답했는데 카드가 그대로 남아 "안 눌렸나" 하고 또 누른다.
+  revalidatePath("/", "layout");
 }
 
 // 프로필 사진을 기본(이니셜)으로 되돌리기.
