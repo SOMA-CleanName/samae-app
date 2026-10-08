@@ -16,7 +16,15 @@ create table if not exists public.search_logs (
   result_count integer not null default 0,                      -- 그 검색이 돌려준 사진 수
   profile_id   uuid references public.profiles(id) on delete set null,
   session_id   text,                                            -- (선택) 클라이언트 세션
-  created_at   timestamptz not null default now()
+  created_at   timestamptz not null default now(),
+  -- ── 검색어를 어떻게 해석했나 (2026-10-06 추가, 운영 적용 전) ──────────────────
+  -- 검색은 검색어를 목적 + 무드로 나누고, 무드는 가까운 무드 가족으로 틀어 찾는다(docs/47 §9 · §10).
+  -- 어드민 「도구 → 검색」 이 검색어마다 어느 무드로 갔는지 보여주려고 함께 남긴다.
+  purposes      text[] not null default '{}',                   -- 떼어낸 목적 키(couple · wedding …)
+  mood_text     text,                                           -- 무드로 본 글자("가을 감성")
+  mood_mode     text check (mood_mode in ('family', 'big')),    -- family=정확(그 가족만) · big=애매(큰 무드 전체) · null=가족 검색 안 탐
+  mood_families text[] not null default '{}',                   -- 잡힌 무드 가족 이름
+  mood_filled   text[] not null default '{}'                    -- 사진이 모자라 이어 붙인 비슷한 무드
 );
 
 create index if not exists idx_search_logs_created on public.search_logs (created_at desc);
@@ -73,5 +81,15 @@ end;
 $$;
 
 -- service_role 전용 — 클라이언트 역할에는 실행 권한을 주지 않는다.
-revoke all on function public.admin_delete_generated_tag(text) from anon, authenticated;
-revoke all on function public.admin_rename_generated_tag(text, text) from anon, authenticated;
+--
+-- ⚠️ **`public` 까지 빼야 막힌다** (2026-10-06 수정, 운영 적용 전).
+--    Postgres 는 함수를 만들면 PUBLIC(모든 역할)에 EXECUTE 를 준다. anon · authenticated 만 빼면
+--    PUBLIC 을 통해 여전히 실행된다 — 두 함수는 security definer 라 RLS 를 건너뛰고 **모든 사진의
+--    태그를 지우거나 바꾼다.** 처음 쓴 판은 `from anon, authenticated` 뿐이라 그대로 적용됐다면
+--    로그인 없이 /rest/v1/rpc/admin_delete_generated_tag 로 부를 수 있었다.
+--    (이 파일은 운영에 한 번도 적용된 적이 없어 — docs/23 §11 — 새 마이그레이션 대신 여기서 고친다.)
+--    0059 · 0144 와 같은 규약: public · anon · authenticated 를 빼고 service_role 에만 준다.
+revoke all on function public.admin_delete_generated_tag(text) from public, anon, authenticated;
+revoke all on function public.admin_rename_generated_tag(text, text) from public, anon, authenticated;
+grant execute on function public.admin_delete_generated_tag(text) to service_role;
+grant execute on function public.admin_rename_generated_tag(text, text) to service_role;

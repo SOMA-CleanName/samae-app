@@ -1,0 +1,13122 @@
+{
+ "entries": [
+  {
+   "label": "2000년대 감성",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "2000년대 초반 분위기의 사진"
+  },
+  {
+   "label": "80년대 감성",
+   "axes": [
+    "스타일",
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "80년대 복고 패션과 색의 사진"
+  },
+  {
+   "label": "90년대 감성",
+   "axes": [
+    "스타일",
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "90년대 사진처럼 바랜 색과 옛 패션의 사진"
+  },
+  {
+   "label": "90년대 느낌",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "90년대 분위기를 재현한 사진"
+  },
+  {
+   "label": "BFF",
+   "axes": [
+    "관계"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "영원한 단짝 친구의 우정 사진"
+  },
+  {
+   "label": "B급 감성",
+   "axes": [
+    "감정",
+    "스타일",
+    "에너지"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "촌스러움과 유머를 일부러 살린 사진"
+  },
+  {
+   "label": "VHS 감성",
+   "axes": [
+    "질감",
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "비디오테이프 화면처럼 번지고 거친 사진"
+  },
+  {
+   "label": "Y2K",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "2000년대 초반 패션·색감의 반짝이는 사진"
+  },
+  {
+   "label": "Y2K 감성",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "밀레니엄 시절 디카·패션 분위기의 사진"
+  },
+  {
+   "label": "가든 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "정원 느낌의 야외 사진"
+  },
+  {
+   "label": "가을 감성",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "단풍·낙엽 등 가을 느낌이 나는 사진"
+  },
+  {
+   "label": "가을 갬성",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "가을 감성의 다른 표기"
+  },
+  {
+   "label": "가을 느낌 물씬",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "가을 분위기가 가득한 사진"
+  },
+  {
+   "label": "가을 분위기",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "선선하고 차분한 가을 분위기의 사진"
+  },
+  {
+   "label": "가을 색감",
+   "axes": [
+    "색감",
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "갈색·주황이 도는 가을 느낌 사진"
+  },
+  {
+   "label": "가을 타는",
+   "axes": [
+    "계절·날씨",
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "가을처럼 쓸쓸하고 센치한 느낌의 사진"
+  },
+  {
+   "label": "가을 햇살",
+   "axes": [
+    "계절·날씨",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "노릇한 가을볕 아래 찍은 사진"
+  },
+  {
+   "label": "가을가을한",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "가을 느낌이 물씬 나는 사진"
+  },
+  {
+   "label": "가을빛의",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with golden autumn atmosphere."
+  },
+  {
+   "label": "가족 케미",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "가족끼리 잘 어울리는 호흡의 사진"
+  },
+  {
+   "label": "가족애 넘치는",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "가족 간 사랑이 가득한 사진"
+  },
+  {
+   "label": "간접 조명",
+   "axes": [
+    "빛",
+    "공간"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "은은하게 반사된 조명 속 아늑한 사진"
+  },
+  {
+   "label": "갈대밭 감성",
+   "axes": [
+    "계절·날씨",
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "갈대가 흔들리는 들판 사진"
+  },
+  {
+   "label": "감성 가득한",
+   "axes": [
+    "스타일",
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "분위기가 물씬 나는 사진"
+  },
+  {
+   "label": "감성 공간",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "분위기 있게 꾸민 장소의 사진"
+  },
+  {
+   "label": "감성 뿜뿜",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "감성적인 분위기가 넘치는 사진"
+  },
+  {
+   "label": "감성 숙소",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "분위기 있게 꾸민 숙소에서 찍은 사진"
+  },
+  {
+   "label": "감성 충만한",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "감성으로 가득 찬 사진"
+  },
+  {
+   "label": "감성 카페",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "분위기 좋은 카페에서 찍은 사진"
+  },
+  {
+   "label": "감성 카페 같은",
+   "axes": [
+    "공간",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "분위기 좋은 카페처럼 꾸민 공간의 사진"
+  },
+  {
+   "label": "감성 캠핑",
+   "axes": [
+    "공간",
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "조명·텐트로 꾸민 캠핑 분위기의 사진"
+  },
+  {
+   "label": "감성 커플",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "감성적인 분위기의 커플 사진"
+  },
+  {
+   "label": "감성 터지는",
+   "axes": [
+    "감정",
+    "스타일"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "감성이 한껏 묻어나는 사진"
+  },
+  {
+   "label": "감성 폭발",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "감성이 넘쳐 나는 사진"
+  },
+  {
+   "label": "감성샷",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "분위기를 살려 찍은 한 컷"
+  },
+  {
+   "label": "감정선이 살아 있는",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "표정과 분위기에 감정의 흐름이 보이는 사진"
+  },
+  {
+   "label": "감정이 담긴",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "인물의 감정이 고스란히 담긴 사진"
+  },
+  {
+   "label": "강렬한 눈빛",
+   "axes": [
+    "에너지",
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "눈빛이 강하게 살아 있는 사진"
+  },
+  {
+   "label": "강한 대비",
+   "axes": [
+    "질감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with high contrast deep shadows."
+  },
+  {
+   "label": "개구쟁이 같은",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "개구쟁이처럼 장난스러운 사진"
+  },
+  {
+   "label": "개방감 있는",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "답답함 없이 넓게 트인 공간의 사진"
+  },
+  {
+   "label": "개성 넘치는",
+   "axes": [
+    "스타일",
+    "에너지"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "뚜렷한 개성이 드러나는 사진"
+  },
+  {
+   "label": "개성 있는",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "나만의 색이 드러나는 사진"
+  },
+  {
+   "label": "갬성",
+   "axes": [
+    "감정",
+    "스타일"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "감성을 과장한 표기, 감성적인 분위기의 사진"
+  },
+  {
+   "label": "갬성 터지는",
+   "axes": [
+    "스타일",
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "감각적인 분위기가 가득한 사진"
+  },
+  {
+   "label": "거리감 있는",
+   "axes": [
+    "관계"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with emotional distance."
+  },
+  {
+   "label": "거친 질감",
+   "axes": [
+    "질감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with rough gritty textures."
+  },
+  {
+   "label": "걸리시한",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "소녀스럽고 여성스러운 사진"
+  },
+  {
+   "label": "걸크 감성",
+   "axes": [
+    "감정",
+    "스타일",
+    "에너지"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "멋있고 당당한 여성 분위기의 사진"
+  },
+  {
+   "label": "걸크러쉬",
+   "axes": [
+    "감정",
+    "스타일",
+    "에너지"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "'걸크러시'의 흔한 표기, 강인한 여성미의 사진"
+  },
+  {
+   "label": "걸크러시",
+   "axes": [
+    "감정",
+    "스타일",
+    "에너지"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "당당하고 멋진 여성의 매력이 담긴 사진"
+  },
+  {
+   "label": "겨울 감성",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "눈·니트·입김 등 겨울 느낌이 나는 사진"
+  },
+  {
+   "label": "겨울 갬성",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "겨울 감성의 다른 표기"
+  },
+  {
+   "label": "겨울 색감",
+   "axes": [
+    "색감",
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "하얗고 푸른 차가운 겨울 느낌 사진"
+  },
+  {
+   "label": "겨울겨울한",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "겨울 느낌이 물씬 나는 사진"
+  },
+  {
+   "label": "겨울다운",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with crisp wintry atmosphere."
+  },
+  {
+   "label": "겨울왕국 같은",
+   "axes": [
+    "계절·날씨",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "온통 눈과 얼음인 동화 같은 겨울 사진"
+  },
+  {
+   "label": "곁에 있는",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "서로의 곁을 지키는 따뜻한 사진"
+  },
+  {
+   "label": "계곡 감성",
+   "axes": [
+    "공간",
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "맑은 계곡물이 흐르는 여름 사진"
+  },
+  {
+   "label": "고급진",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "고급스럽고 품격 있어 보이는 사진"
+  },
+  {
+   "label": "고대비",
+   "axes": [
+    "질감",
+    "빛"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "명암 차이를 크게 준 강렬한 사진"
+  },
+  {
+   "label": "고독미",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "고독한 매력이 느껴지는 사진"
+  },
+  {
+   "label": "고독한 분위기",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "홀로 있는 고독함이 느껴지는 사진"
+  },
+  {
+   "label": "고딕한",
+   "axes": [
+    "스타일",
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "어둡고 장엄한 고딕풍 사진"
+  },
+  {
+   "label": "고채도",
+   "axes": [
+    "색감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "색이 강렬하게 살아 있는 사진"
+  },
+  {
+   "label": "골드톤",
+   "axes": [
+    "색감",
+    "빛"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "금빛이 도는 고급스럽고 따뜻한 사진"
+  },
+  {
+   "label": "골든 아워",
+   "axes": [
+    "빛",
+    "시간대"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "해 뜬 직후나 해 지기 전 황금빛 햇살 속 사진"
+  },
+  {
+   "label": "골든아워",
+   "axes": [
+    "빛",
+    "시간대"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "해 질 녘 황금빛 햇살 속 사진"
+  },
+  {
+   "label": "골목 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "좁은 골목길 풍경이 배경인 사진"
+  },
+  {
+   "label": "골목길 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "정겨운 골목길 분위기의 사진"
+  },
+  {
+   "label": "공간감 있는",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "깊이와 넓이가 느껴지는 사진"
+  },
+  {
+   "label": "공원 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "공원 산책길을 배경으로 한 사진"
+  },
+  {
+   "label": "공주 같은",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "드레스와 화려한 소품의 동화풍 사진"
+  },
+  {
+   "label": "과감한",
+   "axes": [
+    "에너지",
+    "스타일"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "대담한 구도·연출의 사진"
+  },
+  {
+   "label": "과노출",
+   "axes": [
+    "빛",
+    "색감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "일부러 밝게 찍어 하얗게 뜬 사진"
+  },
+  {
+   "label": "광대 승천",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "광대가 올라갈 만큼 활짝 웃는 사진"
+  },
+  {
+   "label": "교토 감성",
+   "axes": [
+    "공간",
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "교토 골목처럼 고즈넉한 사진"
+  },
+  {
+   "label": "구름 맛집",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "뭉게구름이 예쁘게 걸린 하늘 사진"
+  },
+  {
+   "label": "귀여움 폭발",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "귀여움이 넘쳐 나는 사진"
+  },
+  {
+   "label": "귀염뽀짝",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "작고 귀엽고 깜찍한 사진"
+  },
+  {
+   "label": "귀염뽀짝한",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "앙증맞게 귀여운 분위기의 사진"
+  },
+  {
+   "label": "귀요미",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "귀여움이 넘치는 사진"
+  },
+  {
+   "label": "그 시절 감성",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "지난 시절의 추억을 떠올리게 하는 사진"
+  },
+  {
+   "label": "그라데이션",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "색이 서서히 번져 이어지는 사진"
+  },
+  {
+   "label": "그라데이션 하늘",
+   "axes": [
+    "색감",
+    "시간대"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "하늘색이 층층이 번져 가는 노을 사진"
+  },
+  {
+   "label": "그런지 감성",
+   "axes": [
+    "스타일",
+    "질감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "빈티지 옷과 거친 톤의 사진"
+  },
+  {
+   "label": "그런지한",
+   "axes": [
+    "스타일",
+    "질감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "거칠고 헝클어진 반항적 멋의 사진"
+  },
+  {
+   "label": "그레이톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "회색빛이 도는 도시적이고 차분한 사진"
+  },
+  {
+   "label": "그레인",
+   "axes": [
+    "질감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "입자 노이즈를 살린 필름 같은 사진"
+  },
+  {
+   "label": "그레인 감성",
+   "axes": [
+    "질감",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "거친 입자로 아날로그 느낌을 낸 사진"
+  },
+  {
+   "label": "그리움이 묻어나는",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "그리운 마음이 배어나는 사진"
+  },
+  {
+   "label": "그린톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "초록 색감이 주를 이루는 싱그러운 사진"
+  },
+  {
+   "label": "그림 같은",
+   "axes": [
+    "스타일",
+    "질감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "한 폭의 그림처럼 아름다운 사진"
+  },
+  {
+   "label": "그림자 감성",
+   "axes": [
+    "빛",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "빛과 그림자 무늬를 살린 감성 사진"
+  },
+  {
+   "label": "글래머러스한",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "화려하고 매혹적인 사진"
+  },
+  {
+   "label": "글램핑 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "화려하게 꾸민 캠핑장 분위기의 사진"
+  },
+  {
+   "label": "글로시",
+   "axes": [
+    "질감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "반들반들 광택이 나는 사진"
+  },
+  {
+   "label": "글로시한",
+   "axes": [
+    "질감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "윤기와 광택이 도는 사진"
+  },
+  {
+   "label": "글로우",
+   "axes": [
+    "질감",
+    "빛"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "피부와 빛이 은은하게 빛나는 사진"
+  },
+  {
+   "label": "글리터",
+   "axes": [
+    "질감",
+    "빛"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "반짝이 가루가 빛나는 화려한 사진"
+  },
+  {
+   "label": "기분 좋아지는",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "보고 나면 기분이 좋아지는 사진"
+  },
+  {
+   "label": "기차 여행 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "기차 창가·역을 배경으로 한 여행 사진"
+  },
+  {
+   "label": "긴장감 있는",
+   "axes": [
+    "감정"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with tension and suspense."
+  },
+  {
+   "label": "긴장감 흐르는",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "팽팽한 긴장이 느껴지는 사진"
+  },
+  {
+   "label": "깊이감 있는",
+   "axes": [
+    "공간"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with deep layered perspective."
+  },
+  {
+   "label": "깔맞춤",
+   "axes": [
+    "색감",
+    "스타일",
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "커플·가족이 옷 색을 맞춰 찍은 사진"
+  },
+  {
+   "label": "깨 볶는",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "신혼부부처럼 깨가 쏟아지는 다정한 사진"
+  },
+  {
+   "label": "깨가 쏟아지는",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "금슬 좋은 부부·연인의 사진"
+  },
+  {
+   "label": "껌딱지",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "엄마·연인에게 꼭 붙어 있는 사진"
+  },
+  {
+   "label": "꼬마전구",
+   "axes": [
+    "빛"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "작은 전구 불빛이 배경에 반짝이는 사진"
+  },
+  {
+   "label": "꽁냥 커플",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "꽁냥꽁냥 사이좋은 커플 사진"
+  },
+  {
+   "label": "꽁냥꽁냥",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "연인이 다정하게 붙어 장난치는 사진"
+  },
+  {
+   "label": "꽁냥꽁냥한",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "달달하게 꽁냥대는 커플 사진"
+  },
+  {
+   "label": "꽁냥샷",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "커플이 다정하게 꽁냥대는 컷"
+  },
+  {
+   "label": "꽁냥한",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "사이좋게 붙어 있는 다정한 사진"
+  },
+  {
+   "label": "꽃놀이 감성",
+   "axes": [
+    "계절·날씨",
+    "에너지"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "꽃구경 나온 들뜬 봄 사진"
+  },
+  {
+   "label": "꽃밭 감성",
+   "axes": [
+    "공간",
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "꽃이 가득 핀 밭에서 찍은 사진"
+  },
+  {
+   "label": "꽃밭 같은",
+   "axes": [
+    "공간",
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "꽃이 가득해 화사한 사진"
+  },
+  {
+   "label": "꽃비 내리는",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "꽃잎이 흩날려 떨어지는 사진"
+  },
+  {
+   "label": "꽃향기 나는",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with blooming floral spring atmosphere."
+  },
+  {
+   "label": "꾸꾸꾸",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "한껏 꾸미고 찍은 화려한 사진"
+  },
+  {
+   "label": "꾸러기",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "개구쟁이처럼 장난스러운 사진"
+  },
+  {
+   "label": "꾸러기 감성",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "천진하고 장난스러운 분위기의 사진"
+  },
+  {
+   "label": "꾸밈없는 모습",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "연출 없이 있는 그대로의 사진"
+  },
+  {
+   "label": "꾸안꾸",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "꾸민 듯 안 꾸민 듯 자연스러운 사진"
+  },
+  {
+   "label": "꾸안꾸 감성",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "힘 뺀 스타일링의 자연스러운 사진"
+  },
+  {
+   "label": "꿀 떨어지는 눈빛",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "사랑이 가득 담긴 눈빛의 사진"
+  },
+  {
+   "label": "꿀케미",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "달달하게 잘 어울리는 두 사람의 사진"
+  },
+  {
+   "label": "나른한 오후",
+   "axes": [
+    "시간대",
+    "에너지"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "햇살 드는 느긋한 오후의 사진"
+  },
+  {
+   "label": "나뭇잎 그림자",
+   "axes": [
+    "빛",
+    "질감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "얼굴이나 벽에 나뭇잎 그림자가 드리운 사진"
+  },
+  {
+   "label": "나뭇잎 사이 햇살",
+   "axes": [
+    "빛",
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "나뭇잎 틈으로 햇빛이 새어 드는 사진"
+  },
+  {
+   "label": "낙엽 감성",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "낙엽 깔린 길의 가을 사진"
+  },
+  {
+   "label": "낙엽빛의",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with warm fallen autumn leaf colors."
+  },
+  {
+   "label": "날것 그대로",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "다듬지 않은 생생한 순간의 사진"
+  },
+  {
+   "label": "날것 느낌",
+   "axes": [
+    "에너지",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "보정을 덜 한 거친 생동감의 사진"
+  },
+  {
+   "label": "날것의",
+   "axes": [
+    "에너지",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "다듬지 않은 생생한 느낌의 사진"
+  },
+  {
+   "label": "남매 케미",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "남매의 티격태격 친한 모습의 사진"
+  },
+  {
+   "label": "남친 시점",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "남자친구가 바라보는 시선으로 찍은 사진"
+  },
+  {
+   "label": "남친이 찍어 준 듯한",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "연인이 자연스럽게 찍어 준 느낌의 사진"
+  },
+  {
+   "label": "남친짤",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "남자친구와 데이트하는 듯한 시점의 사진"
+  },
+  {
+   "label": "낭만 가득한",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "낭만이 가득 담긴 사진"
+  },
+  {
+   "label": "낭만 감성",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "낭만적인 분위기의 감성 사진"
+  },
+  {
+   "label": "낭만 있는",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "낭만적인 정서가 느껴지는 사진"
+  },
+  {
+   "label": "낮은 대비",
+   "axes": [
+    "질감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with low contrast flat tonal range."
+  },
+  {
+   "label": "내추럴",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "자연광과 자연스러운 포즈의 사진"
+  },
+  {
+   "label": "내추럴 감성",
+   "axes": [
+    "스타일",
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "자연광과 편안한 톤의 사진"
+  },
+  {
+   "label": "내추럴톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "과한 보정 없이 자연스러운 색 사진"
+  },
+  {
+   "label": "내추럴한",
+   "axes": [
+    "관계",
+    "스타일",
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "꾸밈없이 자연스러운 분위기의 사진"
+  },
+  {
+   "label": "네온 감성",
+   "axes": [
+    "빛",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "분홍·보라 네온빛이 도는 힙한 밤 사진"
+  },
+  {
+   "label": "네온 조명",
+   "axes": [
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "네온 조명으로 색을 입힌 사진"
+  },
+  {
+   "label": "네온빛",
+   "axes": [
+    "빛",
+    "색감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "네온 조명의 형광빛이 비치는 밤 사진",
+   "prompt": "A photograph with colorful neon lighting."
+  },
+  {
+   "label": "네온사인",
+   "axes": [
+    "빛",
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "네온 간판 불빛 아래 도시적인 사진"
+  },
+  {
+   "label": "네온사인 감성",
+   "axes": [
+    "시간대",
+    "빛",
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "네온 간판 불빛이 비치는 밤 사진"
+  },
+  {
+   "label": "노란 조명",
+   "axes": [
+    "빛",
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "노란빛 전구 조명 아래 따뜻한 사진"
+  },
+  {
+   "label": "노보정",
+   "axes": [
+    "색감"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "보정을 하지 않은 자연 그대로의 사진"
+  },
+  {
+   "label": "노스탤직한",
+   "axes": [
+    "감정"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "향수와 그리움이 묻어나는 사진"
+  },
+  {
+   "label": "노을 감성",
+   "axes": [
+    "시간대",
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "붉게 물든 노을빛 사진"
+  },
+  {
+   "label": "노을 맛집",
+   "axes": [
+    "빛",
+    "공간",
+    "시간대"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "노을이 예쁘게 지는 장소에서 찍은 사진"
+  },
+  {
+   "label": "노을 지는",
+   "axes": [
+    "빛",
+    "시간대",
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "노을이 물드는 하늘을 배경으로 한 사진"
+  },
+  {
+   "label": "노을빛",
+   "axes": [
+    "빛",
+    "시간대",
+    "색감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "주황·분홍 노을빛이 도는 사진",
+   "prompt": "A photograph with golden sunset light."
+  },
+  {
+   "label": "노이즈 감성",
+   "axes": [
+    "질감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "노이즈를 일부러 남긴 거친 사진"
+  },
+  {
+   "label": "노출 콘크리트",
+   "axes": [
+    "공간",
+    "질감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "회색 콘크리트 벽이 드러난 공간의 사진"
+  },
+  {
+   "label": "노포 감성",
+   "axes": [
+    "공간",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "오래된 가게의 정겨운 분위기의 사진"
+  },
+  {
+   "label": "녹음이 짙은",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with lush midsummer greenery."
+  },
+  {
+   "label": "놀이공원 감성",
+   "axes": [
+    "공간",
+    "에너지"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "회전목마·조명이 있는 놀이공원 사진"
+  },
+  {
+   "label": "누드톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "살구·베이지 계열 옷과 배경의 사진"
+  },
+  {
+   "label": "누아르",
+   "axes": [
+    "스타일",
+    "빛"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "강한 명암의 느와르 영화풍 사진"
+  },
+  {
+   "label": "눈 내리는",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "눈송이가 흩날리는 사진"
+  },
+  {
+   "label": "눈 오는 날 감성",
+   "axes": [
+    "계절·날씨",
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "눈 내리는 날의 설레는 사진"
+  },
+  {
+   "label": "눈꽃 감성",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "나뭇가지에 눈꽃 핀 겨울 사진"
+  },
+  {
+   "label": "눈맞춤",
+   "axes": [
+    "관계"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "두 사람이 눈을 맞추며 교감하는 사진"
+  },
+  {
+   "label": "눈물 버튼",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "볼 때마다 눈물이 나는 사진"
+  },
+  {
+   "label": "눈부신 햇살",
+   "axes": [
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "밝은 햇살에 눈부시게 빛나는 사진"
+  },
+  {
+   "label": "눈빛 교환",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "눈빛으로 마음을 주고받는 사진"
+  },
+  {
+   "label": "눈에서 꿀 떨어지는",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "서로를 애정 가득 바라보는 사진"
+  },
+  {
+   "label": "뉴욕 감성",
+   "axes": [
+    "스타일",
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "뉴욕 거리처럼 도시적인 사진"
+  },
+  {
+   "label": "뉴트럴 컬러",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "튀지 않는 중간색으로 맞춘 사진"
+  },
+  {
+   "label": "뉴트럴톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "베이지·그레이 같은 중간색 위주 사진"
+  },
+  {
+   "label": "뉴트로",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "복고를 요즘식으로 새롭게 해석한 사진"
+  },
+  {
+   "label": "뉴트로 감성",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "레트로 소품과 현대적 연출을 섞은 사진"
+  },
+  {
+   "label": "느와르 감성",
+   "axes": [
+    "스타일",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "흑백·강한 그림자의 범죄 영화풍 사진"
+  },
+  {
+   "label": "늦가을 같은",
+   "axes": [
+    "계절·날씨",
+    "감정"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "낙엽 지는 늦가을의 쓸쓸한 사진",
+   "prompt": "A photograph with bare muted late autumn atmosphere."
+  },
+  {
+   "label": "늦은 오후 햇살",
+   "axes": [
+    "시간대",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "기울어진 늦은 오후빛의 사진"
+  },
+  {
+   "label": "늦은 오후의 빛",
+   "axes": [
+    "빛",
+    "시간대"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "길게 누운 빛과 그림자가 있는 늦은 오후 사진"
+  },
+  {
+   "label": "다이렉트 플래시",
+   "axes": [
+    "빛",
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "플래시를 정면으로 쏴 그림자가 진한 사진"
+  },
+  {
+   "label": "다정한 시선",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "상대를 다정하게 바라보는 사진"
+  },
+  {
+   "label": "다크 감성",
+   "axes": [
+    "스타일",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "어두운 배경과 낮은 키 조명의 사진"
+  },
+  {
+   "label": "다크 무드",
+   "axes": [
+    "스타일",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "그늘지고 가라앉은 분위기의 사진"
+  },
+  {
+   "label": "다크 무디",
+   "axes": [
+    "빛",
+    "색감",
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "어두운 톤에 깊은 그림자가 있는 무드 사진"
+  },
+  {
+   "label": "다크톤",
+   "axes": [
+    "색감",
+    "빛"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "어두운 색 위주의 무게감 있는 사진"
+  },
+  {
+   "label": "다크한",
+   "axes": [
+    "스타일",
+    "빛",
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "어둡고 묵직한 톤의 사진"
+  },
+  {
+   "label": "단짝 친구",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "늘 붙어 다니는 단짝의 사진"
+  },
+  {
+   "label": "단풍 감성",
+   "axes": [
+    "계절·날씨",
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "붉고 노란 단풍이 가득한 사진"
+  },
+  {
+   "label": "단풍 맛집",
+   "axes": [
+    "계절·날씨",
+    "공간"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "단풍이 예쁘게 든 장소의 사진"
+  },
+  {
+   "label": "달달 커플",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "달콤한 애정이 넘치는 커플 사진"
+  },
+  {
+   "label": "달달한",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "달콤한 연인 분위기가 흐르는 사진"
+  },
+  {
+   "label": "달달한 분위기",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "커플의 달콤함이 묻어나는 사진"
+  },
+  {
+   "label": "달밤 감성",
+   "axes": [
+    "시간대",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "달빛이 비치는 밤 사진"
+  },
+  {
+   "label": "달빛 아래",
+   "axes": [
+    "시간대",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "달빛을 받으며 찍은 사진"
+  },
+  {
+   "label": "달콤한 분위기",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "사랑이 달콤하게 느껴지는 사진"
+  },
+  {
+   "label": "닭살 돋는",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "보는 사람이 민망할 만큼 달달한 사진"
+  },
+  {
+   "label": "닭살 커플",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "애정 표현이 넘치는 커플 사진"
+  },
+  {
+   "label": "담백한 감성",
+   "axes": [
+    "감정",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "꾸밈없이 담백한 분위기의 사진"
+  },
+  {
+   "label": "대담한",
+   "axes": [
+    "에너지",
+    "스타일"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "과감한 포즈와 구도의 사진"
+  },
+  {
+   "label": "대만 감성",
+   "axes": [
+    "공간",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "대만 거리·청춘 영화 같은 사진"
+  },
+  {
+   "label": "대비가 강한",
+   "axes": [
+    "질감",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "밝음과 어둠이 확실히 갈린 사진"
+  },
+  {
+   "label": "댄디한",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "단정하고 멋스러운 남성 스타일 사진"
+  },
+  {
+   "label": "댕댕미",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "강아지처럼 해맑고 귀여운 사진"
+  },
+  {
+   "label": "더스티 핑크",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "먼지 낀 듯 탁한 분홍의 빈티지한 사진"
+  },
+  {
+   "label": "데이트 감성",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "데이트하는 일상의 설렘이 담긴 사진"
+  },
+  {
+   "label": "데이트하는 느낌",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "함께 데이트하는 순간을 담은 듯한 사진"
+  },
+  {
+   "label": "데일리 감성",
+   "axes": [
+    "감정"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "편안한 일상 무드의 사진"
+  },
+  {
+   "label": "도서관 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "책장 사이 조용한 도서관 분위기의 사진"
+  },
+  {
+   "label": "도시 감성",
+   "axes": [
+    "스타일",
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "빌딩·거리 배경의 도시적인 사진"
+  },
+  {
+   "label": "도시 불빛",
+   "axes": [
+    "빛",
+    "공간",
+    "시간대"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "밤거리 불빛이 배경에 깔린 사진"
+  },
+  {
+   "label": "도시의 밤",
+   "axes": [
+    "시간대",
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "빌딩 불빛 가득한 밤 도시 사진"
+  },
+  {
+   "label": "도시적인",
+   "axes": [
+    "공간"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with urban architectural atmosphere."
+  },
+  {
+   "label": "도심 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "빌딩·거리가 배경인 도시 사진"
+  },
+  {
+   "label": "도자기 피부",
+   "axes": [
+    "질감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "매끈하고 뽀얗게 보정한 피부의 인물 사진"
+  },
+  {
+   "label": "도쿄 감성",
+   "axes": [
+    "스타일",
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "도쿄 골목 같은 도시 스냅 분위기 사진"
+  },
+  {
+   "label": "도파민 터지는",
+   "axes": [
+    "감정",
+    "에너지"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "짜릿하고 신나는 자극이 있는 사진"
+  },
+  {
+   "label": "동남아 감성",
+   "axes": [
+    "공간",
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "야자수·열대 휴양지 같은 사진"
+  },
+  {
+   "label": "동적인 느낌",
+   "axes": [
+    "에너지"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "정지된 포즈보다 움직임이 느껴지는 사진"
+  },
+  {
+   "label": "동화 같은",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with fairytale whimsical atmosphere."
+  },
+  {
+   "label": "둘만의 분위기",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "두 사람만 아는 분위기가 흐르는 사진"
+  },
+  {
+   "label": "둘만의 세상",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "서로에게만 집중한 연인의 사진"
+  },
+  {
+   "label": "둘만의 시간",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "두 사람만의 오붓한 순간을 담은 사진"
+  },
+  {
+   "label": "듀오톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "두 가지 색으로만 표현한 그래픽한 사진"
+  },
+  {
+   "label": "드라마 같은",
+   "axes": [
+    "감정",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "드라마 속 장면처럼 감정이 담긴 사진"
+  },
+  {
+   "label": "드라마 속 한 장면 같은",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "드라마의 명장면처럼 연출된 듯한 사진"
+  },
+  {
+   "label": "드라마틱한 빛",
+   "axes": [
+    "빛"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with dramatic directional lighting and shadows."
+  },
+  {
+   "label": "드리미한",
+   "axes": [
+    "스타일",
+    "빛",
+    "질감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "꿈결 같은 흐릿한 톤의 사진"
+  },
+  {
+   "label": "들판 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "넓은 들판이 펼쳐진 사진"
+  },
+  {
+   "label": "디카 감성",
+   "axes": [
+    "스타일",
+    "빛",
+    "질감"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "옛 똑딱이 디카로 찍은 듯한 플래시 사진"
+  },
+  {
+   "label": "딥그린",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "짙은 초록이 깔린 깊은 분위기 사진"
+  },
+  {
+   "label": "딥톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "짙고 깊은 색감의 사진"
+  },
+  {
+   "label": "딥한",
+   "axes": [
+    "색감"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "색이 깊고 진한 사진"
+  },
+  {
+   "label": "딥한 색감",
+   "axes": [
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "진하고 깊게 눌러 준 색감의 사진"
+  },
+  {
+   "label": "따뜻한 가족",
+   "axes": [
+    "관계",
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "온기 있는 가족의 모습을 담은 사진"
+  },
+  {
+   "label": "따뜻한 감성",
+   "axes": [
+    "온도",
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "따스한 색과 빛으로 정감 있게 담은 사진"
+  },
+  {
+   "label": "따뜻한 느낌",
+   "axes": [
+    "온도"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "보기만 해도 따스한 느낌이 드는 사진"
+  },
+  {
+   "label": "따뜻한 분위기",
+   "axes": [
+    "온도",
+    "감정"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "온기가 느껴지는 포근한 분위기의 사진",
+   "prompt": "A photograph with warm comforting atmosphere."
+  },
+  {
+   "label": "따뜻한 색감",
+   "axes": [
+    "색감",
+    "온도"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "노랗고 주황빛이 도는 따뜻한 사진",
+   "prompt": "A photograph with warm amber orange color tones."
+  },
+  {
+   "label": "따뜻한 여운",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "따스한 감정이 오래 남는 사진"
+  },
+  {
+   "label": "따뜻한 조명",
+   "axes": [
+    "빛",
+    "온도"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "노란 조명 아래 포근한 실내 사진"
+  },
+  {
+   "label": "따뜻한 톤",
+   "axes": [
+    "색감",
+    "온도"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "따뜻한 색으로 보정한 포근한 사진"
+  },
+  {
+   "label": "따숩한",
+   "axes": [
+    "온도"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "따스하고 정다운 느낌의 사진"
+  },
+  {
+   "label": "따스한 햇살",
+   "axes": [
+    "온도",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "따뜻한 햇볕이 비치는 사진"
+  },
+  {
+   "label": "딸바보",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "딸을 끔찍이 아끼는 아빠의 사진"
+  },
+  {
+   "label": "똑딱이 감성",
+   "axes": [
+    "스타일",
+    "빛",
+    "질감"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "소형 디카 특유의 쨍한 플래시 사진"
+  },
+  {
+   "label": "라벤더톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "연보라 빛이 도는 몽환적인 사진"
+  },
+  {
+   "label": "라이트 릭",
+   "axes": [
+    "빛",
+    "질감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "필름에 빛이 새어 붉은 번짐이 생긴 사진"
+  },
+  {
+   "label": "라이트톤",
+   "axes": [
+    "색감",
+    "빛"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "밝고 가벼운 색감의 사진"
+  },
+  {
+   "label": "락시크",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "가죽·블랙의 록 스타일 시크한 사진"
+  },
+  {
+   "label": "러브 무드",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "사랑 가득한 분위기의 사진"
+  },
+  {
+   "label": "러브러브한",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "애정 표현이 가득한 연인 사진"
+  },
+  {
+   "label": "러브레터 감성",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "영화 러브레터처럼 아련하고 순수한 사진"
+  },
+  {
+   "label": "러블리",
+   "axes": [
+    "감정",
+    "관계",
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "사랑스러운 무드의 사진"
+  },
+  {
+   "label": "러블리 무드",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "전체적으로 사랑스러운 분위기의 사진"
+  },
+  {
+   "label": "러블리 뿜뿜",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "사랑스러움이 넘쳐 나는 사진"
+  },
+  {
+   "label": "러블리 커플",
+   "axes": [
+    "관계"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "사랑스러운 커플의 사진"
+  },
+  {
+   "label": "러블리한",
+   "axes": [
+    "감정",
+    "관계",
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "사랑스럽고 귀여운 분위기의 사진"
+  },
+  {
+   "label": "러프한",
+   "axes": [
+    "스타일",
+    "질감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "거칠고 꾸밈없는 느낌의 사진"
+  },
+  {
+   "label": "러프한 감성",
+   "axes": [
+    "스타일",
+    "질감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "무심하게 툭 찍은 듯한 사진"
+  },
+  {
+   "label": "럽스타 감성",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "커플 인스타그램에 어울리는 사진"
+  },
+  {
+   "label": "럽스타그램 감성",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "인스타에 올리는 달달한 커플 사진 느낌"
+  },
+  {
+   "label": "레이크뷰",
+   "axes": [
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "호수가 보이는 풍경 사진"
+  },
+  {
+   "label": "레트로",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "옛 시대 패션·색감을 살린 복고풍 사진"
+  },
+  {
+   "label": "레트로 감성",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "복고풍 의상과 색감으로 찍은 사진"
+  },
+  {
+   "label": "레트로 색감",
+   "axes": [
+    "색감",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "70~90년대 사진 같은 색의 사진"
+  },
+  {
+   "label": "레트로한",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "7080·90년대 분위기를 재현한 사진",
+   "prompt": "A photograph with retro nostalgic styling."
+  },
+  {
+   "label": "렌즈 플레어",
+   "axes": [
+    "빛"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "햇빛이 렌즈에 맺혀 빛 무늬가 생긴 사진"
+  },
+  {
+   "label": "렘브란트 조명",
+   "axes": [
+    "빛"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "한쪽 뺨에 삼각형 빛이 생기는 클래식 인물 사진"
+  },
+  {
+   "label": "로맨스 영화 같은",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "로맨스 영화의 한 장면 같은 연인 사진"
+  },
+  {
+   "label": "로맨틱 무드",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "로맨틱한 분위기가 흐르는 사진"
+  },
+  {
+   "label": "로맨틱 코미디 같은",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "밝고 장난스러우면서 설레는 연인 사진"
+  },
+  {
+   "label": "로맨틱한 분위기",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "연인의 낭만이 느껴지는 사진"
+  },
+  {
+   "label": "로모 감성",
+   "axes": [
+    "스타일",
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "비네팅과 진한 색의 로모 카메라풍 사진"
+  },
+  {
+   "label": "로우키",
+   "axes": [
+    "빛",
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "어두운 배경에 일부만 빛을 받은 사진"
+  },
+  {
+   "label": "로우키 조명",
+   "axes": [
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "어둠 속 인물만 비춘 무게감 있는 사진"
+  },
+  {
+   "label": "로우한",
+   "axes": [
+    "스타일",
+    "질감"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "정제되지 않고 투박한 날것 느낌의 사진"
+  },
+  {
+   "label": "로코 감성",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "로맨틱 코미디처럼 유쾌하고 설레는 사진"
+  },
+  {
+   "label": "로파이",
+   "axes": [
+    "스타일",
+    "질감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "일부러 저화질·거친 느낌을 살린 사진"
+  },
+  {
+   "label": "로파이 감성",
+   "axes": [
+    "스타일",
+    "질감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "투박하고 흐릿한 레트로 사진"
+  },
+  {
+   "label": "루프탑 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "옥상 테라스에서 하늘·도시를 배경으로 한 사진"
+  },
+  {
+   "label": "루프톱 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "루프탑 감성의 다른 표기"
+  },
+  {
+   "label": "리드미컬한",
+   "axes": [
+    "에너지"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "율동감이 느껴지는 사진"
+  },
+  {
+   "label": "리버뷰",
+   "axes": [
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "강이 내려다보이는 사진"
+  },
+  {
+   "label": "리얼한",
+   "axes": [
+    "관계"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "실제 모습처럼 생생한 사진"
+  },
+  {
+   "label": "리조트 감성",
+   "axes": [
+    "공간",
+    "계절·날씨"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "리조트·수영장 분위기의 사진"
+  },
+  {
+   "label": "린넨 질감",
+   "axes": [
+    "질감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "린넨 천처럼 자연스러운 결이 보이는 사진"
+  },
+  {
+   "label": "림라이트",
+   "axes": [
+    "빛"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "인물 가장자리에 빛 테두리가 생긴 사진"
+  },
+  {
+   "label": "마음 따뜻해지는",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "보는 사람의 마음이 따뜻해지는 사진"
+  },
+  {
+   "label": "마음이 몽글해지는",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "보고 있으면 마음이 말랑해지는 사진"
+  },
+  {
+   "label": "마음이 편안해지는",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "보고 있으면 마음이 차분해지는 사진"
+  },
+  {
+   "label": "말랑한 감성",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "여리고 부드러운 감정의 사진"
+  },
+  {
+   "label": "맑은 날 감성",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "파란 하늘의 맑은 날 사진"
+  },
+  {
+   "label": "맑은 색감",
+   "axes": [
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "탁함 없이 깨끗하고 투명한 색의 사진"
+  },
+  {
+   "label": "매거진 감성",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "잡지 느낌의 세련된 연출 사진"
+  },
+  {
+   "label": "매거진 스타일",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "매거진 지면처럼 편집된 사진"
+  },
+  {
+   "label": "매니시한",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "남성적인 슈트룩 등 멋스러운 사진"
+  },
+  {
+   "label": "매직 아워",
+   "axes": [
+    "빛",
+    "시간대"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "매직아워의 띄어 쓴 표기"
+  },
+  {
+   "label": "매직아워",
+   "axes": [
+    "빛",
+    "시간대"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "해 질 무렵 빛이 가장 예쁜 짧은 시간의 사진"
+  },
+  {
+   "label": "매트",
+   "axes": [
+    "질감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "번들거림 없이 보송한 질감의 사진"
+  },
+  {
+   "label": "매트한",
+   "axes": [
+    "질감",
+    "색감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "광택 없이 차분하게 가라앉은 사진",
+   "prompt": "A photograph with matte low gloss finish."
+  },
+  {
+   "label": "먹먹한 감성",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "가슴이 먹먹해지는 사진"
+  },
+  {
+   "label": "멋짐 폭발",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "멋있음이 넘쳐 나는 사진"
+  },
+  {
+   "label": "멍때리는",
+   "axes": [
+    "감정",
+    "에너지"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "생각 없이 멍하니 있는 편안한 사진"
+  },
+  {
+   "label": "멍뭉미",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "강아지처럼 순하고 귀여운 매력의 사진"
+  },
+  {
+   "label": "메탈릭한",
+   "axes": [
+    "질감",
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "금속처럼 반짝이는 광택의 사진"
+  },
+  {
+   "label": "멜랑꼴리한",
+   "axes": [
+    "감정"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "우수와 쓸쓸함이 감도는 사진"
+  },
+  {
+   "label": "멜랑콜리한",
+   "axes": [
+    "감정"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "우울하고 감상적인 분위기의 사진"
+  },
+  {
+   "label": "멜로 감성",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "애틋하고 진한 연애 감정의 사진"
+  },
+  {
+   "label": "멜로 영화 같은",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "애틋한 멜로 영화 장면 같은 사진"
+  },
+  {
+   "label": "명암이 뚜렷한",
+   "axes": [
+    "빛",
+    "질감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "밝고 어두운 부분이 확실히 나뉜 사진"
+  },
+  {
+   "label": "명화 같은",
+   "axes": [
+    "스타일",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "유화 명화처럼 빛과 구도가 고전적인 사진"
+  },
+  {
+   "label": "모녀 케미",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "엄마와 딸의 다정한 호흡이 보이는 사진"
+  },
+  {
+   "label": "모노크롬",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "한 가지 색조로만 표현한 사진"
+  },
+  {
+   "label": "모노톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "한 가지 색 계열이나 무채색으로 맞춘 사진"
+  },
+  {
+   "label": "모닝 감성",
+   "axes": [
+    "시간대"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "상쾌한 아침 분위기의 사진"
+  },
+  {
+   "label": "모닥불 감성",
+   "axes": [
+    "공간",
+    "빛",
+    "온도"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "불멍하며 따뜻한 불빛 속 사진"
+  },
+  {
+   "label": "모던",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "현대적인 공간·연출의 사진"
+  },
+  {
+   "label": "모던 클래식",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "고전적 우아함에 현대적 깔끔함을 더한 사진"
+  },
+  {
+   "label": "모던한",
+   "axes": [
+    "스타일",
+    "공간"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "군더더기 없이 현대적이고 깔끔한 사진",
+   "prompt": "A photograph with modern contemporary aesthetics."
+  },
+  {
+   "label": "모델 같은",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "모델처럼 포즈와 비율이 멋진 사진"
+  },
+  {
+   "label": "모션 블러",
+   "axes": [
+    "에너지",
+    "질감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "움직임이 번져 속도감이 나는 사진"
+  },
+  {
+   "label": "모션감 있는",
+   "axes": [
+    "에너지",
+    "질감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "움직임의 흐름이 보이는 사진"
+  },
+  {
+   "label": "모카톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "모카 갈색 계열로 맞춘 부드러운 사진"
+  },
+  {
+   "label": "몽환 감성",
+   "axes": [
+    "스타일",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "빛번짐과 뿌연 톤의 꿈같은 사진"
+  },
+  {
+   "label": "몽환적인",
+   "axes": [
+    "스타일",
+    "빛"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "꿈속처럼 흐릿하고 신비로운 사진",
+   "prompt": "A photograph with dreamy ethereal atmosphere."
+  },
+  {
+   "label": "몽환적인 색감",
+   "axes": [
+    "색감",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "꿈속 같은 흐릿하고 오묘한 색의 사진"
+  },
+  {
+   "label": "묘한 긴장감",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "두 사람 사이 미묘한 긴장이 흐르는 사진"
+  },
+  {
+   "label": "묘한 분위기",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "설명하기 어려운 묘한 느낌의 사진"
+  },
+  {
+   "label": "무드 있는",
+   "axes": [
+    "감정",
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "분위기가 살아 있는 사진"
+  },
+  {
+   "label": "무드등 감성",
+   "axes": [
+    "빛",
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "무드등 하나 켠 아늑한 방 사진"
+  },
+  {
+   "label": "무드있는",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "분위기가 있는 사진(붙여 쓴 표기)"
+  },
+  {
+   "label": "무디한",
+   "axes": [
+    "스타일",
+    "빛",
+    "색감"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "어둡고 분위기 있게 가라앉은 톤의 사진"
+  },
+  {
+   "label": "무보정",
+   "axes": [
+    "색감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "보정 없이 원본 그대로의 사진"
+  },
+  {
+   "label": "무빙샷",
+   "axes": [
+    "에너지"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "움직이는 순간을 연속으로 담은 사진"
+  },
+  {
+   "label": "무심한 듯 시크한",
+   "axes": [
+    "감정",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "관심 없는 듯 멋스러운 분위기의 사진"
+  },
+  {
+   "label": "무채색 톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "흰색·회색·검정으로만 이뤄진 사진"
+  },
+  {
+   "label": "무표정 감성",
+   "axes": [
+    "스타일",
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "웃지 않은 무표정으로 멋을 낸 사진"
+  },
+  {
+   "label": "무표정 시크",
+   "axes": [
+    "감정",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "무표정으로 시크함을 살린 사진"
+  },
+  {
+   "label": "무해한",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "순하고 편안해서 마음이 놓이는 사진"
+  },
+  {
+   "label": "물 빠진 색감",
+   "axes": [
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "색이 바랜 듯 옅게 빠진 사진"
+  },
+  {
+   "label": "물광",
+   "axes": [
+    "질감"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "피부가 촉촉하게 빛나는 사진"
+  },
+  {
+   "label": "물광 피부",
+   "axes": [
+    "질감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "촉촉하고 반짝이는 피부 표현의 인물 사진"
+  },
+  {
+   "label": "뭉게구름 감성",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "하얀 뭉게구름이 뜬 여름 하늘 사진"
+  },
+  {
+   "label": "뮤비 감성",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "뮤직비디오 톤의 조명과 연출이 있는 사진"
+  },
+  {
+   "label": "뮤직비디오 같은",
+   "axes": [
+    "스타일",
+    "에너지"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "뮤비 한 장면처럼 강렬하게 연출한 사진"
+  },
+  {
+   "label": "뮤트톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "회색 섞인 듯 탁하고 차분한 색 사진"
+  },
+  {
+   "label": "미니멀",
+   "axes": [
+    "스타일",
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "배경과 소품을 최소화한 사진"
+  },
+  {
+   "label": "미니멀 감성",
+   "axes": [
+    "스타일",
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "단색 배경과 여백으로 정돈된 사진"
+  },
+  {
+   "label": "미니멀한",
+   "axes": [
+    "공간",
+    "스타일"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "요소를 줄이고 여백을 살린 단순한 사진",
+   "prompt": "A photograph with minimal simple composition."
+  },
+  {
+   "label": "미드센추리",
+   "axes": [
+    "스타일",
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "60년대풍 가구·인테리어의 사진"
+  },
+  {
+   "label": "미소 짓게 하는",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "보는 사람을 웃게 만드는 사진"
+  },
+  {
+   "label": "민트빛",
+   "axes": [
+    "색감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "민트색 빛이 감도는 시원한 사진"
+  },
+  {
+   "label": "민트톤",
+   "axes": [
+    "색감",
+    "온도"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "민트색이 도는 산뜻하고 청량한 사진"
+  },
+  {
+   "label": "밀당하는 느낌",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "밀고 당기는 묘한 긴장감이 있는 연인 사진"
+  },
+  {
+   "label": "밀도 높은",
+   "axes": [
+    "공간"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with dense layered composition."
+  },
+  {
+   "label": "바다 감성",
+   "axes": [
+    "공간",
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "바다를 배경으로 시원하게 찍은 사진"
+  },
+  {
+   "label": "바다 갬성",
+   "axes": [
+    "공간",
+    "계절·날씨"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "바다 감성의 다른 표기"
+  },
+  {
+   "label": "바닷가 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "파도치는 바닷가에서 찍은 사진"
+  },
+  {
+   "label": "바람 부는 날",
+   "axes": [
+    "계절·날씨",
+    "에너지"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "바람에 옷·머리칼이 날리는 사진"
+  },
+  {
+   "label": "바랜 색감",
+   "axes": [
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "오래된 사진처럼 색이 바랜 사진"
+  },
+  {
+   "label": "바이브 있는",
+   "axes": [
+    "감정"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "특유의 느낌과 기운이 있는 사진"
+  },
+  {
+   "label": "바캉스 감성",
+   "axes": [
+    "계절·날씨",
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "여름휴가 떠난 듯한 사진"
+  },
+  {
+   "label": "발리 감성",
+   "axes": [
+    "스타일",
+    "공간",
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "야자수와 라탄 소품의 발리풍 사진"
+  },
+  {
+   "label": "밝고 화사한",
+   "axes": [
+    "빛",
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "빛이 가득하고 색이 환한 사진"
+  },
+  {
+   "label": "밝은 톤",
+   "axes": [
+    "색감",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "전체를 밝게 띄운 산뜻한 사진"
+  },
+  {
+   "label": "밤 감성",
+   "axes": [
+    "시간대"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "어둠과 조명이 어우러진 밤 분위기 사진"
+  },
+  {
+   "label": "밤 갬성",
+   "axes": [
+    "시간대"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "밤 감성의 다른 표기"
+  },
+  {
+   "label": "밤 분위기",
+   "axes": [
+    "시간대"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "밤의 차분한 분위기를 담은 사진"
+  },
+  {
+   "label": "밤거리 감성",
+   "axes": [
+    "시간대",
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "가로등·간판 불빛의 밤거리 사진"
+  },
+  {
+   "label": "밤바다 감성",
+   "axes": [
+    "시간대",
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "어두운 바다와 불빛이 어우러진 사진"
+  },
+  {
+   "label": "배경 날림",
+   "axes": [
+    "질감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "배경을 흐리게 날려 인물만 또렷한 사진"
+  },
+  {
+   "label": "배경 흐림",
+   "axes": [
+    "질감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "뒤 배경이 부드럽게 흐려진 사진"
+  },
+  {
+   "label": "백허그",
+   "axes": [
+    "관계"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "뒤에서 안아 주는 다정한 연인 사진"
+  },
+  {
+   "label": "버터 옐로우",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "버터처럼 연한 노랑으로 맞춘 사진"
+  },
+  {
+   "label": "벅찬 감동",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "가슴 가득 감동이 차오르는 사진"
+  },
+  {
+   "label": "벚꽃 감성",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "벚꽃이 흐드러진 봄 사진"
+  },
+  {
+   "label": "벚꽃 맛집",
+   "axes": [
+    "계절·날씨",
+    "공간"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "벚꽃이 예쁘게 핀 장소에서 찍은 사진"
+  },
+  {
+   "label": "벚꽃 흩날리는",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "벚꽃잎이 바람에 날리는 사진"
+  },
+  {
+   "label": "벚꽃비",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "꽃잎이 비처럼 흩날리는 사진"
+  },
+  {
+   "label": "벚꽃엔딩 감성",
+   "axes": [
+    "계절·날씨",
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "벚꽃 흩날리는 설레는 봄 사진"
+  },
+  {
+   "label": "베스트 프렌드",
+   "axes": [
+    "관계"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "가장 친한 친구 사이가 보이는 사진"
+  },
+  {
+   "label": "베이비핑크",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "아주 연한 분홍으로 맞춘 사랑스러운 사진"
+  },
+  {
+   "label": "베이지 톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "옷·배경을 베이지로 맞춘 차분한 사진"
+  },
+  {
+   "label": "베이지톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "베이지 색이 주를 이루는 포근한 사진",
+   "prompt": "A photograph with beige cream neutral tones."
+  },
+  {
+   "label": "베프",
+   "axes": [
+    "관계"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "가장 친한 친구와 함께한 사진"
+  },
+  {
+   "label": "베프 느낌",
+   "axes": [
+    "관계"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "단짝 친구처럼 친밀한 사진"
+  },
+  {
+   "label": "벨벳 질감",
+   "axes": [
+    "질감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "벨벳처럼 부드럽고 깊은 결의 사진"
+  },
+  {
+   "label": "별밤 감성",
+   "axes": [
+    "시간대",
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "별이 쏟아지는 밤하늘 아래 사진"
+  },
+  {
+   "label": "병맛",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "엉뚱하고 어이없어서 웃긴 사진"
+  },
+  {
+   "label": "병맛 컨셉",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "일부러 엉뚱하게 연출한 웃긴 사진"
+  },
+  {
+   "label": "볕 좋은 날",
+   "axes": [
+    "계절·날씨",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "햇볕이 좋은 날 밝게 찍은 사진"
+  },
+  {
+   "label": "보기만 해도 행복한",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "보는 것만으로 행복해지는 사진"
+  },
+  {
+   "label": "보는 사람도 행복해지는",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "행복이 보는 이에게 전해지는 사진"
+  },
+  {
+   "label": "보송한",
+   "axes": [
+    "질감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with soft fluffy matte textures."
+  },
+  {
+   "label": "보이시한",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "소년 같은 중성적 멋의 사진"
+  },
+  {
+   "label": "보케",
+   "axes": [
+    "빛",
+    "질감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "배경 빛이 동그랗게 번져 흐려진 사진"
+  },
+  {
+   "label": "보헤미안",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "자유로운 드레스·들꽃의 보헤미안풍 사진"
+  },
+  {
+   "label": "보헤미안 감성",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "자유분방하고 자연친화적인 사진"
+  },
+  {
+   "label": "볼 빨간",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "설렘에 볼이 발그레한 사진"
+  },
+  {
+   "label": "봄 감성",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "꽃·연두빛 등 봄 느낌이 나는 사진"
+  },
+  {
+   "label": "봄 갬성",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "봄 감성의 다른 표기"
+  },
+  {
+   "label": "봄 느낌 물씬",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "봄 분위기가 가득한 사진"
+  },
+  {
+   "label": "봄 색감",
+   "axes": [
+    "색감",
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "연분홍·연두가 도는 봄 느낌 사진"
+  },
+  {
+   "label": "봄 햇살",
+   "axes": [
+    "계절·날씨",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "부드러운 봄볕 아래 찍은 사진"
+  },
+  {
+   "label": "봄기운 있는",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with fresh springtime atmosphere."
+  },
+  {
+   "label": "봄날 같은",
+   "axes": [
+    "계절·날씨",
+    "온도"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "따스한 봄날처럼 화사한 사진",
+   "prompt": "A photograph with gentle blooming spring atmosphere."
+  },
+  {
+   "label": "봄바람 살랑",
+   "axes": [
+    "계절·날씨",
+    "에너지"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "봄바람에 머리칼이 날리는 산뜻한 사진"
+  },
+  {
+   "label": "봄봄한",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "봄 느낌이 물씬 나는 사진"
+  },
+  {
+   "label": "봄소풍 감성",
+   "axes": [
+    "계절·날씨",
+    "에너지"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "봄나들이 나온 듯 설레는 야외 사진"
+  },
+  {
+   "label": "부끄부끄",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "부끄러워하는 귀여운 모습의 사진"
+  },
+  {
+   "label": "부녀 케미",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "아빠와 딸의 사이좋은 모습의 사진"
+  },
+  {
+   "label": "부드러운 빛",
+   "axes": [
+    "빛"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with soft diffused lighting."
+  },
+  {
+   "label": "부드러운 자연광",
+   "axes": [
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "그림자가 약하고 은은한 햇빛 속 사진"
+  },
+  {
+   "label": "부드러운 질감",
+   "axes": [
+    "질감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with soft delicate textures."
+  },
+  {
+   "label": "부부 케미",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "부부의 호흡과 다정함이 보이는 사진"
+  },
+  {
+   "label": "북유럽 감성",
+   "axes": [
+    "스타일",
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "밝은 우드와 화이트의 북유럽풍 사진"
+  },
+  {
+   "label": "분위기 깡패",
+   "axes": [
+    "감정",
+    "스타일"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "분위기가 압도적으로 좋은 사진"
+  },
+  {
+   "label": "분위기 있는",
+   "axes": [
+    "감정",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "특유의 분위기가 감도는 사진"
+  },
+  {
+   "label": "분홍빛의",
+   "axes": [
+    "색감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with pink rosy color palette."
+  },
+  {
+   "label": "불멍 감성",
+   "axes": [
+    "공간",
+    "온도"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "모닥불 앞에서 멍하니 쉬는 듯한 사진"
+  },
+  {
+   "label": "뷰 맛집",
+   "axes": [
+    "공간"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "전망이 멋진 장소에서 찍은 사진"
+  },
+  {
+   "label": "브라운톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "갈색이 주를 이루는 차분한 가을 느낌 사진"
+  },
+  {
+   "label": "브런치 감성",
+   "axes": [
+    "시간대",
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "여유로운 늦은 아침 식탁 같은 사진"
+  },
+  {
+   "label": "브로맨스",
+   "axes": [
+    "관계"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "남자끼리의 진한 우정이 보이는 사진"
+  },
+  {
+   "label": "블라인드 그림자",
+   "axes": [
+    "빛",
+    "질감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "블라인드 사이 빛이 줄무늬 그림자를 만든 사진"
+  },
+  {
+   "label": "블랙앤화이트",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "흑백으로 찍은 클래식한 사진"
+  },
+  {
+   "label": "블러",
+   "axes": [
+    "질감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "흐릿하게 번진 효과가 있는 사진"
+  },
+  {
+   "label": "블러 감성",
+   "axes": [
+    "에너지",
+    "질감",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "일부러 흐릿하게 흔들린 감각적인 사진"
+  },
+  {
+   "label": "블루 아워",
+   "axes": [
+    "빛",
+    "시간대",
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "새벽이나 저녁 푸른 하늘빛 속 사진"
+  },
+  {
+   "label": "블루아워",
+   "axes": [
+    "빛",
+    "시간대",
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "해 진 직후 하늘이 푸르게 물든 시간의 사진"
+  },
+  {
+   "label": "블루톤",
+   "axes": [
+    "색감",
+    "온도"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "파란 색감이 도는 시원한 사진"
+  },
+  {
+   "label": "비 갠 뒤",
+   "axes": [
+    "계절·날씨",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "비가 그친 뒤 맑고 촉촉한 사진"
+  },
+  {
+   "label": "비 내리는 창가",
+   "axes": [
+    "계절·날씨",
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "빗방울 맺힌 창가에서 찍은 사진"
+  },
+  {
+   "label": "비 오는 날 감성",
+   "axes": [
+    "계절·날씨",
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "빗속 촉촉하고 차분한 분위기의 사진"
+  },
+  {
+   "label": "비 오는 날 같은",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "비 오는 날처럼 촉촉하고 잔잔한 사진"
+  },
+  {
+   "label": "비글미",
+   "axes": [
+    "관계",
+    "에너지"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "비글처럼 장난기 넘치고 발랄한 사진"
+  },
+  {
+   "label": "비글미 넘치는",
+   "axes": [
+    "관계",
+    "에너지"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "장난꾸러기 같은 에너지가 넘치는 사진"
+  },
+  {
+   "label": "비밀의 정원 같은",
+   "axes": [
+    "공간",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "숨겨진 정원처럼 신비로운 사진"
+  },
+  {
+   "label": "비비드톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "원색이 선명하게 살아 있는 사진"
+  },
+  {
+   "label": "비비드한",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "색이 쨍하고 선명한 사진"
+  },
+  {
+   "label": "비치 무드",
+   "axes": [
+    "공간",
+    "계절·날씨"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "해변 휴양 분위기의 사진"
+  },
+  {
+   "label": "비하인드 컷 느낌",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "촬영 중간의 편한 순간 같은 사진"
+  },
+  {
+   "label": "빈티지",
+   "axes": [
+    "스타일",
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "옛날 사진처럼 바랜 톤의 사진"
+  },
+  {
+   "label": "빈티지 감성",
+   "axes": [
+    "스타일",
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "빛바랜 색과 옛 소품이 어울리는 사진"
+  },
+  {
+   "label": "빈티지 색감",
+   "axes": [
+    "색감",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "오래된 사진처럼 바랜 색의 사진"
+  },
+  {
+   "label": "빈티지톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "노랗게 바랜 옛날 느낌의 색 사진"
+  },
+  {
+   "label": "빈티지한",
+   "axes": [
+    "스타일",
+    "색감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "오래된 물건처럼 바랜 색과 옛 느낌이 나는 사진",
+   "prompt": "A photograph with vintage faded aesthetics."
+  },
+  {
+   "label": "빌딩 숲",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "고층 빌딩이 빽빽한 도심 사진"
+  },
+  {
+   "label": "빗속의",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "비를 맞으며 찍은 사진"
+  },
+  {
+   "label": "빛 맛집",
+   "axes": [
+    "빛",
+    "공간"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "빛이 예쁘게 떨어지는 곳에서 찍은 사진"
+  },
+  {
+   "label": "빛 번짐",
+   "axes": [
+    "빛",
+    "질감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "밝은 부분이 부드럽게 번져 흐린 사진"
+  },
+  {
+   "label": "빛과 그림자",
+   "axes": [
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "빛과 그림자의 대비가 돋보이는 사진"
+  },
+  {
+   "label": "빛내림",
+   "axes": [
+    "빛"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "구름·나무 사이로 빛줄기가 내려오는 사진"
+  },
+  {
+   "label": "빛망울",
+   "axes": [
+    "빛",
+    "질감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "배경 불빛이 동그랗게 흐려진 사진"
+  },
+  {
+   "label": "빛번짐",
+   "axes": [
+    "빛",
+    "질감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "빛이 뿌옇게 번져 몽환적인 사진"
+  },
+  {
+   "label": "빛샘",
+   "axes": [
+    "빛",
+    "질감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "필름 카메라 빛샘처럼 색 번짐이 있는 사진"
+  },
+  {
+   "label": "빛이 쏟아지는",
+   "axes": [
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "빛이 한가득 쏟아져 들어오는 사진"
+  },
+  {
+   "label": "빛이 예쁜",
+   "axes": [
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "빛이 인물과 배경에 곱게 떨어진 사진"
+  },
+  {
+   "label": "빨간 조명",
+   "axes": [
+    "빛",
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "붉은 조명으로 강렬하고 무드 있는 사진"
+  },
+  {
+   "label": "빵 터진",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "웃음이 빵 터진 순간의 사진"
+  },
+  {
+   "label": "뻥 뚫린",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "막힘없이 시원하게 펼쳐진 풍경 사진"
+  },
+  {
+   "label": "뽀샤시",
+   "axes": [
+    "질감",
+    "빛"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "피부와 배경이 뽀얗게 빛나는 사진"
+  },
+  {
+   "label": "뽀샤시한",
+   "axes": [
+    "질감",
+    "빛"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "하얗고 뽀얗게 빛이 번진 화사한 사진"
+  },
+  {
+   "label": "뽀시래기",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "작고 귀여운 아기·동물의 사진"
+  },
+  {
+   "label": "뽀짝한",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "작고 귀여워 앙증맞은 사진"
+  },
+  {
+   "label": "사람 냄새 나는",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "인간적인 온기와 정이 느껴지는 사진"
+  },
+  {
+   "label": "사랑 그 자체",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "사랑이 그대로 드러나는 사진"
+  },
+  {
+   "label": "사랑꾼",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "상대를 아끼는 마음이 드러나는 사진"
+  },
+  {
+   "label": "사랑꾼 남편",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "아내를 사랑스럽게 바라보는 남편의 사진"
+  },
+  {
+   "label": "사랑둥이",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "사랑스러움이 넘치는 아이·연인 사진"
+  },
+  {
+   "label": "사랑스러운 눈빛",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "사랑이 가득 담긴 눈빛의 사진"
+  },
+  {
+   "label": "사랑에 빠진",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "사랑에 푹 빠진 연인의 사진"
+  },
+  {
+   "label": "사랑이 넘치는",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "애정이 흘러넘치는 사진"
+  },
+  {
+   "label": "사랑이 묻어나는",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "은근히 애정이 배어나는 사진"
+  },
+  {
+   "label": "사이드 라이트",
+   "axes": [
+    "빛"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "옆에서 빛을 비춰 입체감을 살린 사진"
+  },
+  {
+   "label": "상큼발랄한",
+   "axes": [
+    "에너지",
+    "스타일"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "상큼하고 명랑한 사진"
+  },
+  {
+   "label": "새벽 3시 감성",
+   "axes": [
+    "시간대",
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "깊은 밤 감상에 젖은 듯한 사진"
+  },
+  {
+   "label": "새벽 감성",
+   "axes": [
+    "감정",
+    "시간대"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "새벽처럼 감상적이고 고요한 사진"
+  },
+  {
+   "label": "새벽 갬성",
+   "axes": [
+    "시간대",
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "새벽 감성의 다른 표기"
+  },
+  {
+   "label": "새벽 공기 같은",
+   "axes": [
+    "시간대",
+    "온도"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "차갑고 맑은 새벽 공기 같은 사진"
+  },
+  {
+   "label": "새벽 느낌",
+   "axes": [
+    "시간대"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "어스름한 새벽 분위기의 사진"
+  },
+  {
+   "label": "색 바랜",
+   "axes": [
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "시간이 지난 듯 색이 흐려진 사진"
+  },
+  {
+   "label": "색감 맛집",
+   "axes": [
+    "색감"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "색감 보정이 예쁘기로 유명한 사진"
+  },
+  {
+   "label": "생각에 잠긴",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "사색하는 듯한 표정의 사진"
+  },
+  {
+   "label": "생기 있는",
+   "axes": [
+    "에너지"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "싱싱하고 활기가 도는 사진"
+  },
+  {
+   "label": "생동감 있는",
+   "axes": [
+    "에너지"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with lively vibrant energy."
+  },
+  {
+   "label": "샤프한",
+   "axes": [
+    "질감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "윤곽이 날카롭고 또렷한 사진"
+  },
+  {
+   "label": "서늘한 감성",
+   "axes": [
+    "온도"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "서늘하고 차분한 공기가 느껴지는 사진"
+  },
+  {
+   "label": "서로 기댄",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "서로에게 몸을 기댄 편안한 사진"
+  },
+  {
+   "label": "서로를 바라보는",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "마주 보며 교감하는 사진"
+  },
+  {
+   "label": "서로만 바라보는",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "서로에게 시선이 머무는 연인 사진"
+  },
+  {
+   "label": "서머 무드",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "여름 분위기가 나는 사진"
+  },
+  {
+   "label": "서사가 있는",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "두 사람의 이야기가 느껴지는 사진"
+  },
+  {
+   "label": "서재 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "책장 가득한 서재 분위기의 사진"
+  },
+  {
+   "label": "석양 감성",
+   "axes": [
+    "시간대",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "석양빛에 물든 사진"
+  },
+  {
+   "label": "선라이즈",
+   "axes": [
+    "빛",
+    "시간대"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "해 뜨는 순간의 빛 속 사진"
+  },
+  {
+   "label": "선명한 색감",
+   "axes": [
+    "색감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "색이 맑고 또렷한 사진",
+   "prompt": "A photograph with vivid saturated colors."
+  },
+  {
+   "label": "선명한 윤곽",
+   "axes": [
+    "질감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with sharp crisp edges and details."
+  },
+  {
+   "label": "선셋",
+   "axes": [
+    "빛",
+    "시간대"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "해 지는 풍경과 붉은 빛 속 사진"
+  },
+  {
+   "label": "선셋 감성",
+   "axes": [
+    "시간대",
+    "빛"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "노을 지는 시간의 사진"
+  },
+  {
+   "label": "선셋 무드",
+   "axes": [
+    "시간대",
+    "빛"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "선셋 감성의 다른 표현"
+  },
+  {
+   "label": "선셋 스냅",
+   "axes": [
+    "빛",
+    "시간대"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "일몰 시간에 맞춰 찍은 노을빛 사진"
+  },
+  {
+   "label": "설경 같은",
+   "axes": [
+    "계절·날씨",
+    "공간"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "눈 덮인 풍경 같은 사진",
+   "prompt": "A photograph with snowy white winter atmosphere."
+  },
+  {
+   "label": "설레는",
+   "axes": [
+    "감정"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with excited anticipation."
+  },
+  {
+   "label": "설레는 느낌",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "두근거리는 설렘이 담긴 사진"
+  },
+  {
+   "label": "설레는 분위기",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "연애 초반처럼 설레는 공기의 사진"
+  },
+  {
+   "label": "설레임",
+   "axes": [
+    "감정"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "'설렘'의 흔한 비표준 표기, 설레는 분위기의 사진"
+  },
+  {
+   "label": "설렘 가득한",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "설레는 감정이 화면 가득 느껴지는 사진"
+  },
+  {
+   "label": "설렘 뿜뿜",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "설레는 기운이 넘쳐 나는 사진"
+  },
+  {
+   "label": "설렘 폭발",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "보는 사람까지 설레게 하는 사진"
+  },
+  {
+   "label": "성수 감성",
+   "axes": [
+    "공간",
+    "스타일"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "공장 개조 카페 같은 힙한 공간의 사진"
+  },
+  {
+   "label": "성숙한 분위기",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "어른스럽고 깊은 느낌의 사진"
+  },
+  {
+   "label": "세련된",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with sophisticated refined styling."
+  },
+  {
+   "label": "세이지 그린",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "회색빛 도는 연초록으로 맞춘 차분한 사진"
+  },
+  {
+   "label": "세피아톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "누런 갈색이 도는 옛날 사진 같은 사진"
+  },
+  {
+   "label": "섹시미",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "섹시한 매력이 드러나는 사진"
+  },
+  {
+   "label": "센치한",
+   "axes": [
+    "감정"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "감상에 젖은 분위기의 사진"
+  },
+  {
+   "label": "센치해지는",
+   "axes": [
+    "감정"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "보고 있으면 감상에 빠지게 되는 사진"
+  },
+  {
+   "label": "센티멘털한",
+   "axes": [
+    "감정"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "감상적이고 여린 정서의 사진"
+  },
+  {
+   "label": "소나기 감성",
+   "axes": [
+    "계절·날씨",
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "여름 소나기처럼 풋풋한 사진"
+  },
+  {
+   "label": "소녀 감성",
+   "axes": [
+    "감정",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "소녀처럼 여리고 순수한 사진"
+  },
+  {
+   "label": "소녀미",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "소녀 같은 풋풋한 매력의 사진"
+  },
+  {
+   "label": "소녀소녀한",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "소녀스럽고 사랑스러운 분위기의 사진"
+  },
+  {
+   "label": "소년 감성",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "소년처럼 풋풋하고 순수한 사진"
+  },
+  {
+   "label": "소년미",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "소년 같은 풋풋하고 맑은 매력의 사진"
+  },
+  {
+   "label": "소소한 행복",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "일상의 작은 행복을 담은 사진"
+  },
+  {
+   "label": "소울메이트",
+   "axes": [
+    "관계"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "영혼의 단짝처럼 통하는 두 사람의 사진"
+  },
+  {
+   "label": "소프트 라이트",
+   "axes": [
+    "빛"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "그림자가 부드럽게 퍼진 은은한 조명 사진"
+  },
+  {
+   "label": "소프트 포커스",
+   "axes": [
+    "질감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "빛이 퍼지며 은은하게 흐려진 사진"
+  },
+  {
+   "label": "소프트톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "대비와 채도를 낮춘 부드러운 사진"
+  },
+  {
+   "label": "소프트포커스",
+   "axes": [
+    "질감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "초점을 살짝 흐려 부드러운 사진",
+   "prompt": "A photograph with soft focus dreamy blur."
+  },
+  {
+   "label": "소프트한",
+   "axes": [
+    "색감",
+    "질감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "색과 빛이 부드럽게 풀린 사진"
+  },
+  {
+   "label": "소확행",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "소소하지만 확실한 행복의 순간 사진"
+  },
+  {
+   "label": "속도감 있는",
+   "axes": [
+    "에너지"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "빠른 움직임이 느껴지는 사진"
+  },
+  {
+   "label": "손깍지",
+   "axes": [
+    "관계"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "손가락을 깍지 낀 연인의 사진"
+  },
+  {
+   "label": "수줍은 미소",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "수줍게 웃는 모습의 사진"
+  },
+  {
+   "label": "수채화 같은",
+   "axes": [
+    "질감",
+    "색감",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "물감이 번진 듯 맑고 옅은 색의 사진"
+  },
+  {
+   "label": "순수미",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "꾸밈없이 순수한 매력의 사진"
+  },
+  {
+   "label": "순수한 느낌",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "맑고 때 묻지 않은 느낌의 사진"
+  },
+  {
+   "label": "숲 감성",
+   "axes": [
+    "공간",
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "초록 숲을 배경으로 한 사진"
+  },
+  {
+   "label": "숲 속 같은",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "나무가 우거진 숲에 있는 듯한 사진"
+  },
+  {
+   "label": "숲속 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "우거진 숲 한가운데 분위기의 사진"
+  },
+  {
+   "label": "숲속 같은",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "숲 속 같은의 붙여 쓴 표기"
+  },
+  {
+   "label": "스윗",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "달콤하고 다정한 무드의 사진"
+  },
+  {
+   "label": "스윗한",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "다정하고 달콤한 느낌의 사진"
+  },
+  {
+   "label": "스카이라인",
+   "axes": [
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "빌딩 스카이라인이 배경인 사진"
+  },
+  {
+   "label": "스킨십 있는",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "손잡기·포옹 등 친밀한 접촉이 있는 사진"
+  },
+  {
+   "label": "스타일리시한",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "옷·연출이 멋스러운 사진"
+  },
+  {
+   "label": "스토리가 있는",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "이야기가 담긴 장면 같은 사진"
+  },
+  {
+   "label": "스튜디오 감성",
+   "axes": [
+    "공간",
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "깔끔한 스튜디오 배경의 사진"
+  },
+  {
+   "label": "스트로보",
+   "axes": [
+    "빛"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "스트로보 조명으로 또렷하게 찍은 사진"
+  },
+  {
+   "label": "스트리트 감성",
+   "axes": [
+    "스타일",
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "거리에서 자유롭게 찍은 힙한 사진"
+  },
+  {
+   "label": "스트리트 무드",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "거리 문화 분위기의 자유로운 사진"
+  },
+  {
+   "label": "스트릿",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "스트리트 패션·거리 배경의 사진"
+  },
+  {
+   "label": "스트릿 감성",
+   "axes": [
+    "스타일",
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "스트리트 감성의 흔한 표기"
+  },
+  {
+   "label": "스틸컷 감성",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "영화·드라마 스틸컷 느낌의 사진"
+  },
+  {
+   "label": "스포트라이트",
+   "axes": [
+    "빛"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "한 점 조명이 인물만 비추는 사진"
+  },
+  {
+   "label": "스포티한",
+   "axes": [
+    "에너지",
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "운동복·활동적인 포즈의 사진"
+  },
+  {
+   "label": "시골 감성",
+   "axes": [
+    "공간",
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "정겨운 시골 풍경을 담은 사진"
+  },
+  {
+   "label": "시네마틱",
+   "axes": [
+    "스타일",
+    "빛"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "영화 톤의 와이드한 연출 사진"
+  },
+  {
+   "label": "시네마틱 감성",
+   "axes": [
+    "스타일",
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "영화 색감과 서사가 느껴지는 사진"
+  },
+  {
+   "label": "시네마틱 색감",
+   "axes": [
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "영화 같은 색보정의 사진"
+  },
+  {
+   "label": "시네마틱한",
+   "axes": [
+    "스타일",
+    "빛",
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "영화 장면처럼 색보정·구도를 잡은 사진"
+  },
+  {
+   "label": "시린 느낌",
+   "axes": [
+    "온도",
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "시리도록 차갑고 쓸쓸한 느낌의 사진"
+  },
+  {
+   "label": "시원한 느낌",
+   "axes": [
+    "온도"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "보기만 해도 시원한 여름 느낌의 사진"
+  },
+  {
+   "label": "시원한 색감",
+   "axes": [
+    "색감",
+    "온도"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "파랑·초록이 도는 시원한 사진"
+  },
+  {
+   "label": "시크",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "차갑고 세련된 분위기의 사진"
+  },
+  {
+   "label": "시크 감성",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "절제된 표정과 무채색으로 멋을 낸 사진"
+  },
+  {
+   "label": "시크한",
+   "axes": [
+    "스타일",
+    "감정"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "무심하고 세련된 표정·연출의 사진",
+   "prompt": "A photograph with chic understated styling."
+  },
+  {
+   "label": "시크한 커플",
+   "axes": [
+    "관계",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "무심한 듯 멋스러운 커플 사진"
+  },
+  {
+   "label": "시티 감성",
+   "axes": [
+    "스타일",
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "도심 야경·거리의 세련된 사진"
+  },
+  {
+   "label": "시티뷰",
+   "axes": [
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "도시 전경이 내려다보이는 사진"
+  },
+  {
+   "label": "시티팝 감성",
+   "axes": [
+    "스타일",
+    "색감",
+    "빛",
+    "시간대"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "80년대 도시의 밤과 파스텔 네온 느낌 사진"
+  },
+  {
+   "label": "신비로운",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with mysterious enchanting atmosphere."
+  },
+  {
+   "label": "신혼 감성",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "신혼부부의 달콤한 일상 같은 사진"
+  },
+  {
+   "label": "신혼부부 느낌",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "갓 결혼한 부부처럼 달달한 사진"
+  },
+  {
+   "label": "실루엣 사진",
+   "axes": [
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "밝은 배경 앞 인물 윤곽만 드러난 사진"
+  },
+  {
+   "label": "심도 얕은",
+   "axes": [
+    "질감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "피사체만 선명하고 나머지는 흐린 사진"
+  },
+  {
+   "label": "심야 감성",
+   "axes": [
+    "시간대",
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "늦은 밤 고요하고 쓸쓸한 분위기의 사진"
+  },
+  {
+   "label": "심장 저격",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "마음을 확 사로잡는 설레는 사진"
+  },
+  {
+   "label": "심쿵",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "심장이 쿵 할 만큼 설레는 사진"
+  },
+  {
+   "label": "심쿵하는",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "보는 순간 설렘이 오는 사진"
+  },
+  {
+   "label": "심플",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "단순하고 깔끔하게 연출한 사진"
+  },
+  {
+   "label": "싱그러운 초록",
+   "axes": [
+    "계절·날씨",
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "생기 있는 초록빛 자연 사진"
+  },
+  {
+   "label": "싸이월드 감성",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "싸이월드 시절 셀카·디카 느낌의 사진"
+  },
+  {
+   "label": "썸 타는 느낌",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "사귀기 직전의 미묘한 설렘이 있는 사진"
+  },
+  {
+   "label": "썸머 감성",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "여름 감성의 영어 섞인 표현"
+  },
+  {
+   "label": "썸머 바이브",
+   "axes": [
+    "계절·날씨",
+    "에너지"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "들뜬 여름 분위기의 사진"
+  },
+  {
+   "label": "쑥스러운 미소",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "쑥스러워하며 웃는 사진"
+  },
+  {
+   "label": "쓸쓸한 감성",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "외롭고 쓸쓸한 정서의 사진"
+  },
+  {
+   "label": "씨네스틸 감성",
+   "axes": [
+    "색감",
+    "빛"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "밤 불빛에 붉은 번짐이 도는 필름 사진"
+  },
+  {
+   "label": "아날로그 감성",
+   "axes": [
+    "스타일",
+    "질감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "손때 묻은 옛 매체 느낌의 사진"
+  },
+  {
+   "label": "아날로그한",
+   "axes": [
+    "스타일",
+    "질감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "디지털 티가 덜 나는 따뜻한 사진"
+  },
+  {
+   "label": "아늑한",
+   "axes": [
+    "공간"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with cozy intimate enclosed space."
+  },
+  {
+   "label": "아늑한 공간",
+   "axes": [
+    "공간",
+    "온도"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "포근하고 아담한 실내의 사진"
+  },
+  {
+   "label": "아늑한 분위기",
+   "axes": [
+    "공간",
+    "온도"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "편안하고 아늑한 분위기의 사진"
+  },
+  {
+   "label": "아련미",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "아련한 매력이 담긴 사진"
+  },
+  {
+   "label": "아련아련한",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "아련함이 짙게 감도는 사진"
+  },
+  {
+   "label": "아련한 감성",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "희미하게 그리운 감정의 사진"
+  },
+  {
+   "label": "아방가르드한",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "파격적이고 실험적인 콘셉트 사진"
+  },
+  {
+   "label": "아빠 미소",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "흐뭇한 미소가 절로 나오는 사진"
+  },
+  {
+   "label": "아우라 있는",
+   "axes": [
+    "에너지",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "특별한 분위기가 뿜어져 나오는 사진"
+  },
+  {
+   "label": "아웃포커스",
+   "axes": [
+    "질감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "배경을 흐리게 날려 인물을 강조한 사진"
+  },
+  {
+   "label": "아웃포커싱",
+   "axes": [
+    "질감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "초점 밖 배경이 부드럽게 흐려진 사진"
+  },
+  {
+   "label": "아이돌 화보 같은",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "아이돌 앨범 화보처럼 화사하게 연출한 사진"
+  },
+  {
+   "label": "아이보리톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "아이보리 색이 도는 깨끗하고 따뜻한 사진"
+  },
+  {
+   "label": "아이컨택",
+   "axes": [
+    "관계"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "서로 눈을 마주치는 교감의 사진"
+  },
+  {
+   "label": "아지트 같은",
+   "axes": [
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "나만 아는 은신처 같은 공간의 사진"
+  },
+  {
+   "label": "아침 햇살",
+   "axes": [
+    "빛",
+    "시간대"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "맑고 산뜻한 아침 햇빛 속 사진"
+  },
+  {
+   "label": "아트한",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "예술 작품처럼 연출한 사진"
+  },
+  {
+   "label": "아티스틱한",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "작가적 해석이 들어간 예술적인 사진"
+  },
+  {
+   "label": "안개 감성",
+   "axes": [
+    "계절·날씨",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "뿌연 안개로 몽환적인 분위기의 사진"
+  },
+  {
+   "label": "안개 낀",
+   "axes": [
+    "빛",
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "안개로 빛이 흩어져 뿌연 사진"
+  },
+  {
+   "label": "안정감 있는",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "편안하고 든든한 느낌의 사진"
+  },
+  {
+   "label": "알전구 감성",
+   "axes": [
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "줄전구·알전구 불빛이 반짝이는 사진"
+  },
+  {
+   "label": "알콩달콩",
+   "axes": [
+    "관계"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "사이좋게 오순도순 지내는 커플·부부 사진"
+  },
+  {
+   "label": "알콩달콩한",
+   "axes": [
+    "관계"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "아기자기하게 사랑하는 연인 사진"
+  },
+  {
+   "label": "애교 가득한",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "애교 넘치는 표정과 몸짓의 사진"
+  },
+  {
+   "label": "애기애기한",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "아기처럼 여리고 귀여운 사진"
+  },
+  {
+   "label": "애정 가득한",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "애정이 가득 담긴 사진"
+  },
+  {
+   "label": "애정 어린 시선",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "사랑이 담긴 눈길이 느껴지는 사진"
+  },
+  {
+   "label": "애정이 느껴지는",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "서로를 아끼는 마음이 보이는 사진"
+  },
+  {
+   "label": "애틋한",
+   "axes": [
+    "감정"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with tender longing."
+  },
+  {
+   "label": "애틋한 감성",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "서로를 아끼는 애틋함이 담긴 사진"
+  },
+  {
+   "label": "액티브한",
+   "axes": [
+    "에너지"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "활동적으로 움직이는 사진"
+  },
+  {
+   "label": "앤티크한",
+   "axes": [
+    "스타일",
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "고풍스러운 가구·소품이 있는 사진"
+  },
+  {
+   "label": "앨범 커버 같은",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "음반 재킷처럼 콘셉트가 뚜렷한 사진"
+  },
+  {
+   "label": "야경 감성",
+   "axes": [
+    "빛",
+    "시간대"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "반짝이는 야경을 배경으로 한 밤 사진"
+  },
+  {
+   "label": "야경 맛집",
+   "axes": [
+    "시간대",
+    "공간"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "야경이 예쁘게 나오는 장소의 사진"
+  },
+  {
+   "label": "얕은 심도",
+   "axes": [
+    "질감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "초점 범위가 좁아 앞뒤가 흐린 사진"
+  },
+  {
+   "label": "어반 감성",
+   "axes": [
+    "스타일",
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "콘크리트·골목 배경의 도시 사진"
+  },
+  {
+   "label": "어반한",
+   "axes": [
+    "스타일",
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "도시의 거친 멋을 살린 사진"
+  },
+  {
+   "label": "어스톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "흙·나무 같은 자연색 위주의 사진"
+  },
+  {
+   "label": "억새 감성",
+   "axes": [
+    "계절·날씨",
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "억새밭이 펼쳐진 가을 사진"
+  },
+  {
+   "label": "엄마 미소",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "보는 사람이 흐뭇하게 웃게 되는 사진"
+  },
+  {
+   "label": "에너제틱한",
+   "axes": [
+    "에너지"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "에너지가 넘치는 활기찬 사진"
+  },
+  {
+   "label": "에너지 넘치는",
+   "axes": [
+    "에너지"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "기운이 넘치는 밝은 사진"
+  },
+  {
+   "label": "에디토리얼",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "잡지 기획 촬영처럼 콘셉트가 있는 사진"
+  },
+  {
+   "label": "에디토리얼 감성",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "패션 에디토리얼 같은 연출 사진"
+  },
+  {
+   "label": "에스닉한",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "이국적 민속 문양이 있는 사진"
+  },
+  {
+   "label": "에어리한",
+   "axes": [
+    "빛",
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "밝고 가볍게 공기감이 느껴지는 사진"
+  },
+  {
+   "label": "에어비앤비 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "감각적으로 꾸민 숙소 같은 공간 사진"
+  },
+  {
+   "label": "엔틱한",
+   "axes": [
+    "스타일",
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "앤티크 소품의 고풍스러운 사진(흔한 표기)"
+  },
+  {
+   "label": "엣지 있는",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "날카롭고 개성 있는 멋이 있는 사진"
+  },
+  {
+   "label": "여름 감성",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "강한 햇빛·파란 하늘의 여름 느낌 사진"
+  },
+  {
+   "label": "여름 갬성",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "여름 감성의 다른 표기"
+  },
+  {
+   "label": "여름 바이브",
+   "axes": [
+    "계절·날씨",
+    "에너지"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "활기찬 여름 분위기의 사진"
+  },
+  {
+   "label": "여름 색감",
+   "axes": [
+    "색감",
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "파랗고 쨍한 여름 느낌 사진"
+  },
+  {
+   "label": "여름다운",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with bright summery atmosphere."
+  },
+  {
+   "label": "여름밤 감성",
+   "axes": [
+    "계절·날씨",
+    "시간대"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "선선한 여름밤 분위기의 사진"
+  },
+  {
+   "label": "여름여름한",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "여름 느낌이 물씬 나는 사진"
+  },
+  {
+   "label": "여백의 미",
+   "axes": [
+    "공간",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "비워 둔 공간으로 멋을 낸 사진"
+  },
+  {
+   "label": "여백이 많은",
+   "axes": [
+    "공간"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "빈 공간을 넉넉히 둔 사진",
+   "prompt": "A photograph with generous negative space."
+  },
+  {
+   "label": "여운 있는",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "잔잔한 여운이 감도는 사진"
+  },
+  {
+   "label": "여운이 남는",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "보고 난 뒤에도 감정이 오래 남는 사진"
+  },
+  {
+   "label": "여유로운 분위기",
+   "axes": [
+    "에너지"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "느긋하고 한가로운 사진"
+  },
+  {
+   "label": "여친 시점",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "여자친구가 바라보는 시선으로 찍은 사진"
+  },
+  {
+   "label": "여친짤",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "여자친구와 데이트하는 듯한 시점의 사진"
+  },
+  {
+   "label": "여행 감성",
+   "axes": [
+    "공간",
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "여행지에서 자유롭게 찍은 듯한 사진"
+  },
+  {
+   "label": "여행 온 듯한",
+   "axes": [
+    "공간",
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "여행 중인 것처럼 설레는 사진"
+  },
+  {
+   "label": "역광",
+   "axes": [
+    "빛"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "빛을 뒤에서 받아 머리카락과 윤곽이 빛나는 사진"
+  },
+  {
+   "label": "역광 감성",
+   "axes": [
+    "빛",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "역광으로 뿌옇게 빛이 번지는 감성 사진"
+  },
+  {
+   "label": "역광의",
+   "axes": [
+    "빛"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "해를 등지고 찍어 윤곽이 빛나는 사진",
+   "prompt": "A photograph with backlighting and glowing rim light."
+  },
+  {
+   "label": "역동적인 포즈",
+   "axes": [
+    "에너지"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "점프·회전 등 힘 있는 동작의 사진"
+  },
+  {
+   "label": "역동적인 포즈감",
+   "axes": [
+    "에너지"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "포즈에 역동성이 살아 있는 사진"
+  },
+  {
+   "label": "연남동 감성",
+   "axes": [
+    "공간",
+    "스타일"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "아기자기한 골목 카페 분위기의 사진"
+  },
+  {
+   "label": "연말 감성",
+   "axes": [
+    "계절·날씨",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "반짝이는 조명의 연말 분위기 사진"
+  },
+  {
+   "label": "연말 분위기",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "한 해 끝의 들뜬 분위기의 사진"
+  },
+  {
+   "label": "연애 감성",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "연애하는 설렘이 담긴 사진"
+  },
+  {
+   "label": "연애 세포 깨우는",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "보는 사람도 연애하고 싶어지는 설레는 사진"
+  },
+  {
+   "label": "연애 초반 느낌",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "막 사귀기 시작한 듯 설레는 커플 사진"
+  },
+  {
+   "label": "연애하는 느낌",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "실제 데이트 중인 연인처럼 보이는 사진"
+  },
+  {
+   "label": "연예인 화보 같은",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "연예인 화보처럼 전문적으로 연출한 사진"
+  },
+  {
+   "label": "연인이 찍어 준 듯한",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "사랑하는 사람의 시선이 담긴 사진"
+  },
+  {
+   "label": "연출 없는",
+   "axes": [
+    "에너지",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "꾸미지 않은 있는 그대로의 순간 사진"
+  },
+  {
+   "label": "염장샷",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "솔로를 부럽게 하는 달달한 커플 사진"
+  },
+  {
+   "label": "엽사",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "엽기적인 표정으로 웃기게 찍은 사진"
+  },
+  {
+   "label": "영화 같은",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "영화 속 한 장면처럼 보이는 사진",
+   "prompt": "A photograph with cinematic storytelling atmosphere."
+  },
+  {
+   "label": "영화 색감",
+   "axes": [
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "영화 한 장면 같은 색감의 사진"
+  },
+  {
+   "label": "영화 속 연인 같은",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "영화 주인공 커플처럼 보이는 사진"
+  },
+  {
+   "label": "영화 스틸컷 같은",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "영화 스틸컷처럼 멈춘 장면의 사진"
+  },
+  {
+   "label": "영화 한 장면 같은",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "이야기가 느껴지는 영화 컷 같은 사진"
+  },
+  {
+   "label": "옅은 색감",
+   "axes": [
+    "색감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with pale delicate colors."
+  },
+  {
+   "label": "오래된 연인 같은",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "오래 사귄 연인처럼 편안하고 깊은 사진"
+  },
+  {
+   "label": "오랜 친구 같은",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "오래 알고 지낸 친구처럼 편안한 사진"
+  },
+  {
+   "label": "오렌지빛",
+   "axes": [
+    "색감",
+    "빛"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "주황빛이 감도는 따뜻한 사진"
+  },
+  {
+   "label": "오리엔탈한",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "동양적인 소품·의상의 사진"
+  },
+  {
+   "label": "오묘한 색감",
+   "axes": [
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "한마디로 말하기 어려운 묘한 색의 사진"
+  },
+  {
+   "label": "오션 뷰",
+   "axes": [
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "오션뷰의 띄어 쓴 표기"
+  },
+  {
+   "label": "오션뷰",
+   "axes": [
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "바다가 내려다보이는 사진"
+  },
+  {
+   "label": "오후의 햇살",
+   "axes": [
+    "빛",
+    "시간대"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "나른하고 따뜻한 오후 햇빛 속 사진"
+  },
+  {
+   "label": "옥상 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "옥상에서 하늘을 배경으로 찍은 사진"
+  },
+  {
+   "label": "온기 가득한",
+   "axes": [
+    "온도",
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "따뜻한 기운이 가득 담긴 사진"
+  },
+  {
+   "label": "온기 있는",
+   "axes": [
+    "감정",
+    "온도"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "사람의 따뜻함이 느껴지는 사진"
+  },
+  {
+   "label": "온실 감성",
+   "axes": [
+    "공간",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "유리 온실 속 식물과 빛의 사진"
+  },
+  {
+   "label": "올드머니 감성",
+   "axes": [
+    "스타일",
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "절제된 고급스러움과 클래식 룩의 사진"
+  },
+  {
+   "label": "올드머니 룩",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "니트·셔츠 등 차분한 부유층 스타일 사진"
+  },
+  {
+   "label": "올리브톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "올리브 초록이 감도는 빈티지한 사진"
+  },
+  {
+   "label": "올화이트",
+   "axes": [
+    "색감",
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "옷·배경을 모두 흰색으로 맞춘 사진"
+  },
+  {
+   "label": "왕가위 감성",
+   "axes": [
+    "스타일",
+    "색감",
+    "질감",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "흔들림과 진한 색의 왕가위 영화풍 사진"
+  },
+  {
+   "label": "요정 같은",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "숲속 요정처럼 신비롭고 사랑스러운 사진"
+  },
+  {
+   "label": "우드톤",
+   "axes": [
+    "색감",
+    "질감",
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "나무 가구·바닥의 따뜻한 갈색 공간 사진"
+  },
+  {
+   "label": "우드톤 감성",
+   "axes": [
+    "공간",
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "나무 인테리어로 따뜻한 공간의 사진"
+  },
+  {
+   "label": "우리만의",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "우리만의 이야기가 담긴 사진"
+  },
+  {
+   "label": "우산 감성",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "우산을 소품으로 쓴 비 오는 날 사진"
+  },
+  {
+   "label": "우수에 찬",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "근심 어린 깊은 눈빛의 사진"
+  },
+  {
+   "label": "우아한",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with elegant graceful styling."
+  },
+  {
+   "label": "우울한 감성",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "가라앉은 우울한 정서의 사진"
+  },
+  {
+   "label": "우정 케미",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "친구끼리의 호흡이 잘 맞는 사진"
+  },
+  {
+   "label": "우정샷",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "친구들과 함께 찍은 우정이 담긴 사진"
+  },
+  {
+   "label": "울림 있는",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "마음에 울림을 주는 사진"
+  },
+  {
+   "label": "울컥하는",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "감정이 북받치는 순간의 사진"
+  },
+  {
+   "label": "움직임 있는",
+   "axes": [
+    "에너지"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "걷거나 뛰는 동작이 담긴 사진"
+  },
+  {
+   "label": "움직임이 살아 있는",
+   "axes": [
+    "에너지"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "순간의 움직임을 생생하게 담은 사진"
+  },
+  {
+   "label": "웃음 가득한",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "웃음이 끊이지 않는 즐거운 사진"
+  },
+  {
+   "label": "웃음 폭발",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "크게 웃는 순간이 가득한 사진"
+  },
+  {
+   "label": "웃픈",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "웃기면서도 짠한 사진"
+  },
+  {
+   "label": "웅장한",
+   "axes": [
+    "공간"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with grand monumental scale."
+  },
+  {
+   "label": "워맨스",
+   "axes": [
+    "관계"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "여자끼리의 끈끈한 우정이 보이는 사진"
+  },
+  {
+   "label": "원톤",
+   "axes": [
+    "색감",
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "한 가지 색으로 옷과 배경을 맞춘 사진"
+  },
+  {
+   "label": "웜톤",
+   "axes": [
+    "색감",
+    "온도"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "노랑·주황 기운이 도는 따뜻한 색 사진"
+  },
+  {
+   "label": "웜톤 감성",
+   "axes": [
+    "온도",
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "노란 기가 도는 웜톤으로 맞춘 사진"
+  },
+  {
+   "label": "웜톤 보정",
+   "axes": [
+    "색감",
+    "온도"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "따뜻한 색으로 보정한 사진"
+  },
+  {
+   "label": "웜한",
+   "axes": [
+    "색감",
+    "온도"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "색감이 따뜻한 사진"
+  },
+  {
+   "label": "웜한 톤",
+   "axes": [
+    "온도",
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "전체적으로 따뜻하게 보정한 사진"
+  },
+  {
+   "label": "웨스 앤더슨 감성",
+   "axes": [
+    "스타일",
+    "색감",
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "대칭 구도와 파스텔 색의 동화 같은 사진"
+  },
+  {
+   "label": "웨스 앤더슨 색감",
+   "axes": [
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "파스텔 색을 선명하게 맞춘 사진"
+  },
+  {
+   "label": "위로가 되는",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "보고 있으면 마음이 위로받는 사진"
+  },
+  {
+   "label": "윈도우 라이트",
+   "axes": [
+    "빛"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "창문 빛 하나로 인물을 비춘 사진"
+  },
+  {
+   "label": "윈터 감성",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "겨울 감성의 영어 섞인 표현"
+  },
+  {
+   "label": "윈터 원더랜드",
+   "axes": [
+    "계절·날씨",
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "눈과 조명이 어우러진 동화 같은 겨울 사진"
+  },
+  {
+   "label": "유니크한",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "흔하지 않은 독특한 콘셉트의 사진"
+  },
+  {
+   "label": "유럽 감성",
+   "axes": [
+    "스타일",
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "유럽 거리·건물 같은 분위기의 사진"
+  },
+  {
+   "label": "유럽풍",
+   "axes": [
+    "스타일",
+    "공간"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "유럽식 인테리어·배경의 사진"
+  },
+  {
+   "label": "유채꽃 감성",
+   "axes": [
+    "계절·날씨",
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "노란 유채꽃밭의 봄 사진"
+  },
+  {
+   "label": "유화 같은",
+   "axes": [
+    "질감",
+    "색감",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "유화처럼 진하고 깊은 색과 결의 사진"
+  },
+  {
+   "label": "유화 느낌",
+   "axes": [
+    "질감",
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "그림처럼 붓 터치 같은 질감의 사진"
+  },
+  {
+   "label": "윤광",
+   "axes": [
+    "질감"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "피부에 은은한 윤기가 도는 사진"
+  },
+  {
+   "label": "윤기 나는",
+   "axes": [
+    "질감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with glossy lustrous textures."
+  },
+  {
+   "label": "윤슬",
+   "axes": [
+    "빛",
+    "질감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "햇빛에 물결이 반짝이는 바다·강가 사진"
+  },
+  {
+   "label": "은은한 빛",
+   "axes": [
+    "빛"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with gentle subdued lighting."
+  },
+  {
+   "label": "은은한 조명",
+   "axes": [
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "밝지 않게 은은히 비춘 분위기 있는 사진"
+  },
+  {
+   "label": "은하수 감성",
+   "axes": [
+    "시간대"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "은하수가 보이는 밤하늘 사진"
+  },
+  {
+   "label": "은행나무 감성",
+   "axes": [
+    "계절·날씨",
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "노란 은행잎이 물든 가을 사진"
+  },
+  {
+   "label": "을지로 감성",
+   "axes": [
+    "공간",
+    "스타일"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "낡은 인쇄소 골목 같은 힙한 노포 분위기의 사진"
+  },
+  {
+   "label": "응답하라 감성",
+   "axes": [
+    "감정",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "드라마 응답하라처럼 옛 추억이 떠오르는 사진"
+  },
+  {
+   "label": "이국적인 분위기",
+   "axes": [
+    "공간",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "외국에 온 듯한 풍경의 사진"
+  },
+  {
+   "label": "이모셔널한",
+   "axes": [
+    "감정"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "감정이 짙게 담긴 사진"
+  },
+  {
+   "label": "익선동 감성",
+   "axes": [
+    "공간",
+    "스타일"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "한옥 골목의 레트로 분위기 사진"
+  },
+  {
+   "label": "인더스트리얼 감성",
+   "axes": [
+    "스타일",
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "노출 콘크리트·철제의 공장풍 공간 사진"
+  },
+  {
+   "label": "인디핑크",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "회색 섞인 톤다운 분홍의 차분한 사진"
+  },
+  {
+   "label": "인생샷",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "평생 남길 만큼 잘 나온 사진"
+  },
+  {
+   "label": "인스타 감성",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "인스타그램에 올리기 좋은 트렌디한 사진"
+  },
+  {
+   "label": "인스타 갬성",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "SNS에서 유행하는 톤과 구도의 사진"
+  },
+  {
+   "label": "인스타그래머블한",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "인스타에 올릴 만큼 보기 좋은 사진"
+  },
+  {
+   "label": "인형 같은",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "인형처럼 정돈되고 예쁜 사진"
+  },
+  {
+   "label": "일몰 감성",
+   "axes": [
+    "시간대"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "해 지는 풍경을 담은 사진"
+  },
+  {
+   "label": "일본 감성",
+   "axes": [
+    "스타일",
+    "색감",
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "밝고 투명한 일본풍 톤의 사진"
+  },
+  {
+   "label": "일본 영화 감성",
+   "axes": [
+    "스타일",
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "밝고 물빠진 톤의 잔잔한 사진"
+  },
+  {
+   "label": "일본 영화 같은",
+   "axes": [
+    "스타일",
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "잔잔하고 투명한 색감의 일본 영화풍 사진"
+  },
+  {
+   "label": "일본 영화 색감",
+   "axes": [
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "투명하고 담백한 일본 영화 같은 색 사진"
+  },
+  {
+   "label": "일상 감성",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "꾸밈없는 일상의 분위기를 담은 사진"
+  },
+  {
+   "label": "일상 속 행복",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "평범한 하루의 행복한 순간 사진"
+  },
+  {
+   "label": "일출 감성",
+   "axes": [
+    "시간대"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "해 뜨는 순간을 담은 사진"
+  },
+  {
+   "label": "일회용 카메라 감성",
+   "axes": [
+    "스타일",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "플래시 터진 일회용 카메라 느낌의 사진"
+  },
+  {
+   "label": "임팩트 있는",
+   "axes": [
+    "에너지",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "한눈에 강하게 각인되는 사진"
+  },
+  {
+   "label": "입김 나는",
+   "axes": [
+    "계절·날씨",
+    "온도"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "입김이 보일 만큼 추운 겨울 사진"
+  },
+  {
+   "label": "입꼬리 올라가는",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "보기만 해도 미소가 지어지는 사진"
+  },
+  {
+   "label": "입자감",
+   "axes": [
+    "질감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "사진에 입자가 도드라진 거친 느낌"
+  },
+  {
+   "label": "입자감 있는",
+   "axes": [
+    "질감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "자잘한 입자가 느껴지는 필름 같은 사진",
+   "prompt": "A photograph with visible grainy texture."
+  },
+  {
+   "label": "있는 그대로의",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "꾸미지 않은 모습 그대로의 사진"
+  },
+  {
+   "label": "잉꼬부부 같은",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "금슬 좋은 부부처럼 다정한 사진"
+  },
+  {
+   "label": "자매 케미",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "자매끼리 잘 맞는 호흡의 사진"
+  },
+  {
+   "label": "자신감 넘치는",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "당당한 자신감이 느껴지는 사진"
+  },
+  {
+   "label": "자연광",
+   "axes": [
+    "빛"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "조명 없이 햇빛만으로 찍은 사진"
+  },
+  {
+   "label": "자연광 감성",
+   "axes": [
+    "빛",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "창빛·햇빛만으로 담백하게 찍은 사진"
+  },
+  {
+   "label": "자연광 스튜디오",
+   "axes": [
+    "빛",
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "큰 창으로 햇빛이 드는 스튜디오에서 찍은 사진"
+  },
+  {
+   "label": "자연스러운 순간",
+   "axes": [
+    "에너지",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "포즈 대신 일상 동작을 담은 사진"
+  },
+  {
+   "label": "자연스러운 스킨십",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "꾸밈없이 닿아 있는 친밀한 사진"
+  },
+  {
+   "label": "자연스러운 웃음",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "연출 없이 자연스럽게 웃는 사진"
+  },
+  {
+   "label": "자연친화적인",
+   "axes": [
+    "공간"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with organic natural surroundings."
+  },
+  {
+   "label": "자유로운 영혼",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "얽매이지 않고 자유분방한 사진"
+  },
+  {
+   "label": "자취방 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "작은 방을 아기자기하게 꾸민 사진"
+  },
+  {
+   "label": "작업실 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "작업 도구가 놓인 작업실 분위기의 사진"
+  },
+  {
+   "label": "잔잔한 감성",
+   "axes": [
+    "감정",
+    "에너지"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "조용하고 차분한 감정의 사진"
+  },
+  {
+   "label": "잔잔한 여운",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "조용히 마음에 남는 사진"
+  },
+  {
+   "label": "잡지 화보 같은",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "패션 잡지에 실릴 법한 사진"
+  },
+  {
+   "label": "장기연애 감성",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "오래 만난 커플의 편안함이 담긴 사진"
+  },
+  {
+   "label": "장난기 가득한",
+   "axes": [
+    "감정",
+    "관계",
+    "에너지"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "장난스러운 표정과 몸짓이 가득한 사진"
+  },
+  {
+   "label": "장난기 넘치는",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "유쾌하게 장난치는 모습의 사진"
+  },
+  {
+   "label": "장마 감성",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "비가 이어지는 눅눅하고 차분한 사진"
+  },
+  {
+   "label": "저대비",
+   "axes": [
+    "질감",
+    "빛"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "명암 차이를 줄여 부드러운 사진"
+  },
+  {
+   "label": "저채도",
+   "axes": [
+    "색감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "색 선명도를 낮춰 담담한 사진"
+  },
+  {
+   "label": "저화질 감성",
+   "axes": [
+    "질감",
+    "스타일"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "일부러 화질을 낮춰 옛날 폰카 같은 사진"
+  },
+  {
+   "label": "전원 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "한적한 시골 풍경의 사진"
+  },
+  {
+   "label": "전원적인",
+   "axes": [
+    "공간"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with rustic pastoral atmosphere."
+  },
+  {
+   "label": "절제된",
+   "axes": [
+    "에너지"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with restrained understated expression."
+  },
+  {
+   "label": "절친 느낌",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "절친한 친구끼리의 편한 사진"
+  },
+  {
+   "label": "점프샷",
+   "axes": [
+    "에너지"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "공중으로 뛰어오른 순간의 사진"
+  },
+  {
+   "label": "정감 있는",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "정이 느껴지는 친근한 사진"
+  },
+  {
+   "label": "정원 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "꽃과 나무가 있는 정원 배경의 사진"
+  },
+  {
+   "label": "정적인 분위기",
+   "axes": [
+    "에너지"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "움직임 없이 고요한 사진"
+  },
+  {
+   "label": "제주 감성",
+   "axes": [
+    "스타일",
+    "공간",
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "돌담·바다·들판의 제주풍 사진"
+  },
+  {
+   "label": "제주도 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "제주 감성의 다른 표현"
+  },
+  {
+   "label": "조명 맛집",
+   "axes": [
+    "빛",
+    "공간"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "조명이 예쁜 공간에서 찍은 사진"
+  },
+  {
+   "label": "지브리 감성",
+   "axes": [
+    "스타일",
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "푸른 하늘과 초록 들판의 애니메이션 같은 사진"
+  },
+  {
+   "label": "진솔한",
+   "axes": [
+    "관계"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with authentic heartfelt expression."
+  },
+  {
+   "label": "진심이 느껴지는",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "꾸밈없는 진심이 전해지는 사진"
+  },
+  {
+   "label": "진짜 우리 모습",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "연출 없는 실제 우리 관계를 담은 사진"
+  },
+  {
+   "label": "진한 색감",
+   "axes": [
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "색이 짙고 묵직한 사진"
+  },
+  {
+   "label": "질감 살린",
+   "axes": [
+    "질감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "피부·옷·소재의 결을 살린 사진"
+  },
+  {
+   "label": "짙은 그림자",
+   "axes": [
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "그림자가 진하게 드리운 강한 빛의 사진"
+  },
+  {
+   "label": "짙은 색감",
+   "axes": [
+    "색감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with deep rich colors."
+  },
+  {
+   "label": "짝꿍",
+   "axes": [
+    "관계"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "잘 맞는 짝꿍끼리의 사진"
+  },
+  {
+   "label": "짝사랑 감성",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "혼자 좋아하는 마음처럼 애틋한 사진"
+  },
+  {
+   "label": "쨍한 날씨",
+   "axes": [
+    "계절·날씨",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "구름 없이 맑고 햇빛 강한 날의 사진"
+  },
+  {
+   "label": "쨍한 색감",
+   "axes": [
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "색이 또렷하고 강하게 살아 있는 사진"
+  },
+  {
+   "label": "쨍한 여름",
+   "axes": [
+    "계절·날씨",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "강한 햇빛과 선명한 색의 여름 사진"
+  },
+  {
+   "label": "쨍한 햇빛",
+   "axes": [
+    "빛",
+    "계절·날씨"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "맑은 날 강한 햇빛 아래 선명한 사진",
+   "prompt": "A photograph with harsh direct sunlight."
+  },
+  {
+   "label": "쨍한 화질",
+   "axes": [
+    "질감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "해상도가 높고 또렷한 사진"
+  },
+  {
+   "label": "찐우정",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "진한 우정이 느껴지는 사진"
+  },
+  {
+   "label": "찐웃음",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "억지 없이 진짜로 웃는 순간의 사진"
+  },
+  {
+   "label": "찐친",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "진짜 친한 친구 사이가 보이는 사진"
+  },
+  {
+   "label": "찐친 같은",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "꾸밈없이 친한 친구 같은 사진"
+  },
+  {
+   "label": "찐친 느낌",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "오래된 진짜 친구처럼 편한 사진"
+  },
+  {
+   "label": "찐친 케미",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "진짜 친구끼리의 편한 호흡이 보이는 사진"
+  },
+  {
+   "label": "찐행복",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "진짜 행복이 느껴지는 사진"
+  },
+  {
+   "label": "찡한 감동",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "마음이 찡해지는 감동의 사진"
+  },
+  {
+   "label": "차가운 감성",
+   "axes": [
+    "온도",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "냉한 톤으로 절제된 느낌을 준 사진"
+  },
+  {
+   "label": "차가운 분위기",
+   "axes": [
+    "온도"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "푸르고 서늘한 톤의 차분한 사진",
+   "prompt": "A photograph with cold icy atmosphere."
+  },
+  {
+   "label": "차가운 색감",
+   "axes": [
+    "색감",
+    "온도"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "푸르고 차분한 색의 사진",
+   "prompt": "A photograph with cool blue teal color tones."
+  },
+  {
+   "label": "차도남",
+   "axes": [
+    "감정",
+    "스타일"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "차가운 도시 남자처럼 시크한 사진"
+  },
+  {
+   "label": "차도녀",
+   "axes": [
+    "감정",
+    "스타일"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "차가운 도시 여자처럼 도도한 사진"
+  },
+  {
+   "label": "차박 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "차 트렁크를 꾸며 캠핑하는 분위기의 사진"
+  },
+  {
+   "label": "차분한 감성",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "들뜨지 않고 가라앉은 분위기의 사진"
+  },
+  {
+   "label": "차분한 무드",
+   "axes": [
+    "에너지"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "가라앉은 톤의 차분한 사진"
+  },
+  {
+   "label": "차분한 색감",
+   "axes": [
+    "색감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with muted subdued colors."
+  },
+  {
+   "label": "차분한 톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "튀지 않게 가라앉힌 색의 사진"
+  },
+  {
+   "label": "찰떡 케미",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "찰떡같이 잘 맞는 두 사람의 사진"
+  },
+  {
+   "label": "찰떡궁합",
+   "axes": [
+    "관계"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "서로 딱 맞는 궁합이 보이는 사진"
+  },
+  {
+   "label": "창가 감성",
+   "axes": [
+    "공간",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "창가에 앉아 빛을 받으며 찍은 사진"
+  },
+  {
+   "label": "창가 빛",
+   "axes": [
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "창가에 앉아 창빛을 받으며 찍은 사진"
+  },
+  {
+   "label": "창가의 빛",
+   "axes": [
+    "빛",
+    "공간"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "창으로 들어오는 부드러운 빛 속 사진",
+   "prompt": "A photograph with natural window light."
+  },
+  {
+   "label": "창문 그림자",
+   "axes": [
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "창틀 모양 그림자가 드리운 실내 사진"
+  },
+  {
+   "label": "창빛",
+   "axes": [
+    "빛"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "창문으로 들어오는 빛을 활용한 사진"
+  },
+  {
+   "label": "채광 좋은",
+   "axes": [
+    "빛",
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "햇빛이 잘 드는 밝은 공간의 사진"
+  },
+  {
+   "label": "채도 낮은",
+   "axes": [
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "색이 옅고 차분하게 빠진 사진"
+  },
+  {
+   "label": "채도 높은",
+   "axes": [
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "색이 진하고 선명한 사진"
+  },
+  {
+   "label": "책방 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "작은 동네 책방 분위기의 사진"
+  },
+  {
+   "label": "첫 데이트 같은",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "첫 데이트처럼 수줍고 설레는 사진"
+  },
+  {
+   "label": "첫눈 감성",
+   "axes": [
+    "계절·날씨",
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "첫눈 오는 날처럼 설레는 사진"
+  },
+  {
+   "label": "첫사랑 감성",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "첫사랑의 설렘과 아련함이 담긴 사진"
+  },
+  {
+   "label": "첫사랑 느낌",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "첫사랑처럼 풋풋하고 아련한 사진"
+  },
+  {
+   "label": "첫사랑 영화 같은",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "첫사랑 영화의 장면처럼 순수한 사진"
+  },
+  {
+   "label": "청량 감성",
+   "axes": [
+    "스타일",
+    "온도",
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "여름 하늘처럼 시원한 사진"
+  },
+  {
+   "label": "청량美",
+   "axes": [
+    "스타일",
+    "온도"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "청량미를 한자로 적은 흔한 표기"
+  },
+  {
+   "label": "청량감 있는",
+   "axes": [
+    "온도",
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "맑고 시원한 느낌이 드는 사진"
+  },
+  {
+   "label": "청량미",
+   "axes": [
+    "스타일",
+    "온도"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "시원하고 맑은 매력이 느껴지는 사진"
+  },
+  {
+   "label": "청량한 색감",
+   "axes": [
+    "색감",
+    "온도"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "파랗고 맑아 시원한 느낌의 사진"
+  },
+  {
+   "label": "청량한 여름",
+   "axes": [
+    "계절·날씨",
+    "온도"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "맑고 시원한 여름 사진"
+  },
+  {
+   "label": "청록톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "청록빛이 감도는 영화 같은 사진"
+  },
+  {
+   "label": "청순 감성",
+   "axes": [
+    "감정",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "청순하고 맑은 분위기의 사진"
+  },
+  {
+   "label": "청순미",
+   "axes": [
+    "감정",
+    "스타일"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "맑고 깨끗한 청순한 매력의 사진"
+  },
+  {
+   "label": "청춘 감성",
+   "axes": [
+    "감정",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "젊음의 설렘과 풋풋함이 담긴 사진"
+  },
+  {
+   "label": "청춘 그 자체",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "청춘의 한 장면 같은 사진"
+  },
+  {
+   "label": "청춘 드라마 같은",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "청춘 드라마 속 친구·연인 같은 사진"
+  },
+  {
+   "label": "청춘 영화 같은",
+   "axes": [
+    "감정",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "청춘 영화 장면처럼 풋풋하고 반짝이는 사진"
+  },
+  {
+   "label": "청춘미",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "싱그러운 청춘의 매력이 담긴 사진"
+  },
+  {
+   "label": "체온이 느껴지는",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "사람 사이의 온기가 전해지는 사진"
+  },
+  {
+   "label": "초가을 같은",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "선선해지기 시작한 초가을 느낌의 사진",
+   "prompt": "A photograph with mild early autumn atmosphere."
+  },
+  {
+   "label": "초록빛의",
+   "axes": [
+    "색감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with green tinted color palette."
+  },
+  {
+   "label": "초록초록한",
+   "axes": [
+    "계절·날씨",
+    "색감"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "싱그러운 초록이 가득한 사진"
+  },
+  {
+   "label": "초여름 같은",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "싱그러운 초여름 느낌의 사진",
+   "prompt": "A photograph with fresh early summer atmosphere."
+  },
+  {
+   "label": "초원 같은",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "넓은 풀밭이 펼쳐진 사진"
+  },
+  {
+   "label": "초현실적인",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with surreal dreamlike imagery."
+  },
+  {
+   "label": "촛불 조명",
+   "axes": [
+    "빛",
+    "온도"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "촛불로만 밝힌 은은한 사진"
+  },
+  {
+   "label": "추억 가득한",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "소중한 기억이 담긴 사진"
+  },
+  {
+   "label": "추억 감성",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "추억 속 한 장면 같은 사진"
+  },
+  {
+   "label": "추억 돋는",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "옛 추억이 새록새록 떠오르는 사진"
+  },
+  {
+   "label": "추억 소환",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "지난 기억을 불러오는 사진"
+  },
+  {
+   "label": "츤데레",
+   "axes": [
+    "관계"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "무심한 척하면서 다정함이 묻어나는 사진"
+  },
+  {
+   "label": "츤데레 같은",
+   "axes": [
+    "관계"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "새침한 듯 챙겨 주는 분위기의 사진"
+  },
+  {
+   "label": "층고 높은",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "천장이 높아 시원한 실내 사진"
+  },
+  {
+   "label": "치명미",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "치명적인 매력이 느껴지는 사진"
+  },
+  {
+   "label": "치명적인",
+   "axes": [
+    "감정"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "헤어나기 힘든 매력이 있는 사진"
+  },
+  {
+   "label": "친구 같은 부부",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "친구처럼 편안한 부부의 사진"
+  },
+  {
+   "label": "친구 같은 아빠",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "아이와 친구처럼 노는 아빠의 사진"
+  },
+  {
+   "label": "친구 같은 엄마",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "딸과 친구처럼 지내는 엄마의 사진"
+  },
+  {
+   "label": "친구 같은 커플",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "친구처럼 편하고 장난스러운 커플 사진"
+  },
+  {
+   "label": "친구랑 노는 느낌",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "친구와 놀다 찍힌 듯 자연스러운 사진"
+  },
+  {
+   "label": "칠한",
+   "axes": [
+    "감정",
+    "에너지"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "여유롭고 느긋한 분위기의 사진"
+  },
+  {
+   "label": "카리스마 넘치는",
+   "axes": [
+    "에너지",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "강한 존재감이 느껴지는 사진"
+  },
+  {
+   "label": "카리스마 있는",
+   "axes": [
+    "감정",
+    "에너지",
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "압도하는 기운이 느껴지는 사진"
+  },
+  {
+   "label": "카키톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "카키·올리브 색이 도는 차분한 사진"
+  },
+  {
+   "label": "카페 감성",
+   "axes": [
+    "스타일",
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "감성 카페 같은 아늑한 공간의 사진"
+  },
+  {
+   "label": "카페 같은",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "카페처럼 꾸민 공간의 사진"
+  },
+  {
+   "label": "카페 갬성",
+   "axes": [
+    "공간",
+    "스타일"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "카페 감성의 다른 표기"
+  },
+  {
+   "label": "캐주얼한",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "편한 옷차림의 가벼운 사진"
+  },
+  {
+   "label": "캔들 감성",
+   "axes": [
+    "공간",
+    "빛",
+    "온도"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "촛불 빛으로 따뜻한 실내 사진"
+  },
+  {
+   "label": "캔들라이트",
+   "axes": [
+    "빛",
+    "온도"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "촛불 빛 아래 따뜻하고 로맨틱한 사진"
+  },
+  {
+   "label": "캔디드",
+   "axes": [
+    "관계",
+    "에너지"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "포즈 없이 자연스러운 순간을 포착한 사진"
+  },
+  {
+   "label": "캔디드 샷",
+   "axes": [
+    "에너지",
+    "관계"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "포즈 없이 몰래 찍은 듯한 자연스러운 사진"
+  },
+  {
+   "label": "캔디드 컷",
+   "axes": [
+    "관계"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "모르는 사이 찍힌 듯 자연스러운 컷"
+  },
+  {
+   "label": "캠코더 감성",
+   "axes": [
+    "스타일",
+    "질감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "옛 캠코더 화면처럼 뿌연 저화질 느낌의 사진"
+  },
+  {
+   "label": "캠핑 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "텐트·모닥불이 있는 야외 캠핑 사진"
+  },
+  {
+   "label": "커튼 사이 빛",
+   "axes": [
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "커튼 틈으로 들어온 은은한 빛 속 사진"
+  },
+  {
+   "label": "커플 감성",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "연인끼리의 분위기가 담긴 감성 사진"
+  },
+  {
+   "label": "커플 무드",
+   "axes": [
+    "관계"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "연인다운 분위기가 흐르는 사진"
+  },
+  {
+   "label": "컨셉 있는",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "콘셉트 있는의 흔한 표기"
+  },
+  {
+   "label": "컬러풀한",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "여러 색이 화려하게 어우러진 사진"
+  },
+  {
+   "label": "케미",
+   "axes": [
+    "관계"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "두 사람의 호흡과 어울림이 좋은 사진"
+  },
+  {
+   "label": "케미 있는",
+   "axes": [
+    "관계"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "함께 있는 사람들의 호흡이 좋은 사진"
+  },
+  {
+   "label": "케미 터지는",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "두 사람의 어울림이 폭발하는 사진"
+  },
+  {
+   "label": "케미 폭발",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "호흡과 어울림이 넘쳐 나는 사진"
+  },
+  {
+   "label": "케미스트리",
+   "axes": [
+    "관계"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "사람 사이의 끌림과 호흡이 보이는 사진"
+  },
+  {
+   "label": "코끝 찡한",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "코끝이 찡해질 만큼 뭉클한 사진"
+  },
+  {
+   "label": "코닥 감성",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "코닥 필름처럼 노랗고 따뜻한 색 사진"
+  },
+  {
+   "label": "코닥 색감",
+   "axes": [
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "코닥 필름 특유의 따뜻한 색 사진"
+  },
+  {
+   "label": "코랄톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "산호빛 주황분홍이 도는 생기 있는 사진"
+  },
+  {
+   "label": "코믹 컨셉",
+   "axes": [
+    "감정"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "웃음을 노린 연출의 사진"
+  },
+  {
+   "label": "코스모스 감성",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "코스모스 핀 들길의 가을 사진"
+  },
+  {
+   "label": "코지 감성",
+   "axes": [
+    "스타일",
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "담요·조명의 포근한 실내 사진"
+  },
+  {
+   "label": "코지 무드",
+   "axes": [
+    "온도",
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "아늑한 실내 분위기의 사진"
+  },
+  {
+   "label": "코지한",
+   "axes": [
+    "감정",
+    "온도",
+    "스타일",
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "아늑하고 포근한 분위기의 사진"
+  },
+  {
+   "label": "콘셉트 있는",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "뚜렷한 기획 의도가 있는 사진"
+  },
+  {
+   "label": "콘크리트 감성",
+   "axes": [
+    "공간",
+    "질감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "무채색 콘크리트 공간의 사진"
+  },
+  {
+   "label": "콘트라스트 강한",
+   "axes": [
+    "질감",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "대비가 뚜렷해 선명한 사진"
+  },
+  {
+   "label": "쿨톤",
+   "axes": [
+    "색감",
+    "온도"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "푸른 기운이 도는 시원한 색 사진"
+  },
+  {
+   "label": "쿨톤 감성",
+   "axes": [
+    "온도",
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "푸른 기가 도는 쿨톤으로 맞춘 사진"
+  },
+  {
+   "label": "쿨한",
+   "axes": [
+    "감정",
+    "관계",
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "쿨하고 담담한 태도가 보이는 사진"
+  },
+  {
+   "label": "쿨한 느낌",
+   "axes": [
+    "온도",
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "시원하고 담백한 쿨 톤의 사진"
+  },
+  {
+   "label": "쿨한 톤",
+   "axes": [
+    "색감",
+    "온도"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "차갑고 깔끔한 푸른 색감 사진"
+  },
+  {
+   "label": "크리미한",
+   "axes": [
+    "질감",
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "크림처럼 부드럽게 녹아든 색과 흐림의 사진"
+  },
+  {
+   "label": "크리스마스 감성",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "트리·전구 장식의 크리스마스 분위기 사진"
+  },
+  {
+   "label": "크리스마스 마켓 감성",
+   "axes": [
+    "계절·날씨",
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "유럽 크리스마스 마켓 같은 사진"
+  },
+  {
+   "label": "크리스마스 무드",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "크리스마스 분위기의 사진"
+  },
+  {
+   "label": "크림톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "크림색이 감도는 부드러운 사진"
+  },
+  {
+   "label": "클래식",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "유행을 타지 않는 정석적인 사진"
+  },
+  {
+   "label": "클래식한",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with classic timeless styling."
+  },
+  {
+   "label": "클린 감성",
+   "axes": [
+    "스타일",
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "화이트 톤으로 깨끗하게 정리된 사진"
+  },
+  {
+   "label": "클린한",
+   "axes": [
+    "스타일",
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "밝고 잡티 없이 깨끗한 톤의 사진"
+  },
+  {
+   "label": "키치",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "촌스러움을 일부러 살린 유쾌한 사진"
+  },
+  {
+   "label": "키치 감성",
+   "axes": [
+    "스타일",
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "원색 소품과 장난스러운 연출의 사진"
+  },
+  {
+   "label": "키치한",
+   "axes": [
+    "스타일",
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "유치한 듯 톡톡 튀는 색과 소품의 사진"
+  },
+  {
+   "label": "킹받는",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "얄밉게 웃겨서 약 오르는 표정의 사진"
+  },
+  {
+   "label": "탁 트인",
+   "axes": [
+    "공간"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "시야가 넓게 열린 풍경 사진",
+   "prompt": "A photograph with wide open expansive space."
+  },
+  {
+   "label": "탁한 색감",
+   "axes": [
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "색이 살짝 흐리고 탁해 빈티지한 사진"
+  },
+  {
+   "label": "텅스텐 조명",
+   "axes": [
+    "빛",
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "주황빛 텅스텐 조명 아래 따뜻한 톤의 사진"
+  },
+  {
+   "label": "테라스 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "햇살 드는 테라스에서 찍은 사진"
+  },
+  {
+   "label": "텐션 높은",
+   "axes": [
+    "감정",
+    "에너지"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "흥이 넘치는 신나는 사진"
+  },
+  {
+   "label": "텐션 있는",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "두 사람 사이 끌림과 긴장감이 있는 사진"
+  },
+  {
+   "label": "톡톡 튀는",
+   "axes": [
+    "에너지",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "색과 포즈가 경쾌하게 튀는 사진"
+  },
+  {
+   "label": "톤 다운된",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "색을 한 톤 눌러 차분해진 사진"
+  },
+  {
+   "label": "톤다운",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "색을 차분하게 가라앉힌 보정의 사진"
+  },
+  {
+   "label": "톤다운된",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "채도와 밝기를 낮춰 차분한 사진"
+  },
+  {
+   "label": "톤온톤",
+   "axes": [
+    "색감",
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "비슷한 계열 색을 겹쳐 맞춘 사진"
+  },
+  {
+   "label": "통창 감성",
+   "axes": [
+    "공간",
+    "빛"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "큰 통유리창으로 빛이 드는 공간의 사진"
+  },
+  {
+   "label": "통통 튀는",
+   "axes": [
+    "에너지",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "발랄하고 개성이 튀는 사진"
+  },
+  {
+   "label": "퇴근길 감성",
+   "axes": [
+    "시간대",
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "저녁 무렵 도시 퇴근길 분위기의 사진"
+  },
+  {
+   "label": "퇴폐 감성",
+   "axes": [
+    "감정",
+    "스타일"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "어둡고 나른한 분위기의 사진"
+  },
+  {
+   "label": "퇴폐미",
+   "axes": [
+    "감정",
+    "스타일"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "나른하고 위험한 매력의 사진"
+  },
+  {
+   "label": "투닥투닥",
+   "axes": [
+    "관계"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "가볍게 다투듯 장난치는 친근한 사진"
+  },
+  {
+   "label": "투명한 색감",
+   "axes": [
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "맑고 투명하게 비치는 색의 사진"
+  },
+  {
+   "label": "튤립 감성",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "튤립 핀 봄 정원 느낌의 사진"
+  },
+  {
+   "label": "트렌디한",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "요즘 유행을 반영한 사진"
+  },
+  {
+   "label": "트로피컬한",
+   "axes": [
+    "스타일",
+    "계절·날씨"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "열대 식물과 강한 햇살의 사진"
+  },
+  {
+   "label": "티격태격",
+   "axes": [
+    "관계"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "장난스럽게 투닥대는 친한 사이의 사진"
+  },
+  {
+   "label": "티키타카",
+   "axes": [
+    "관계"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "주고받는 호흡이 척척 맞는 사진"
+  },
+  {
+   "label": "틸 앤 오렌지",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "청록과 주황 보색으로 보정한 사진"
+  },
+  {
+   "label": "틸앤오렌지",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "청록 배경과 주황 피부톤을 대비시킨 영화 같은 사진"
+  },
+  {
+   "label": "파란 하늘 맛집",
+   "axes": [
+    "계절·날씨",
+    "색감"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "새파란 하늘이 돋보이는 사진"
+  },
+  {
+   "label": "파리 감성",
+   "axes": [
+    "스타일",
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "파리 거리처럼 낭만적인 사진"
+  },
+  {
+   "label": "파스텔 컬러",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "파스텔 색 소품과 배경의 사랑스러운 사진"
+  },
+  {
+   "label": "파스텔 톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "옅은 분홍·하늘·민트 색이 도는 사진"
+  },
+  {
+   "label": "파스텔톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "연하고 부드러운 파스텔 색 사진",
+   "prompt": "A photograph with soft pastel colors."
+  },
+  {
+   "label": "파워풀한",
+   "axes": [
+    "에너지"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "힘 있고 강한 동작·표정의 사진"
+  },
+  {
+   "label": "파인아트",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "회화처럼 작품성을 강조한 사진"
+  },
+  {
+   "label": "파인아트 감성",
+   "axes": [
+    "스타일",
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "그림 같은 색과 구도의 웨딩·프로필 사진"
+  },
+  {
+   "label": "팝 컬러",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "경쾌하고 튀는 색을 쓴 사진"
+  },
+  {
+   "label": "팝한",
+   "axes": [
+    "색감",
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "튀는 원색으로 경쾌한 사진"
+  },
+  {
+   "label": "패션 화보 같은",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "옷과 포즈가 돋보이는 패션 화보풍 사진"
+  },
+  {
+   "label": "펀한",
+   "axes": [
+    "감정"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "재미있고 유쾌한 분위기의 사진"
+  },
+  {
+   "label": "펄감",
+   "axes": [
+    "질감"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "반짝이는 펄 입자가 느껴지는 사진"
+  },
+  {
+   "label": "펑키한",
+   "axes": [
+    "스타일",
+    "에너지"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "유쾌하고 톡톡 튀는 스타일의 사진"
+  },
+  {
+   "label": "페미닌한",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "부드럽고 여성스러운 스타일 사진"
+  },
+  {
+   "label": "편한 사이",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "어색함 없이 편한 관계가 보이는 사진"
+  },
+  {
+   "label": "평생 간직할",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "오래 소중히 남겨 두고 싶은 사진"
+  },
+  {
+   "label": "폐공장 감성",
+   "axes": [
+    "공간",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "낡은 공장 건물을 배경으로 한 거친 사진"
+  },
+  {
+   "label": "포근포근한",
+   "axes": [
+    "온도",
+    "질감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "몹시 포근하고 부드러운 느낌의 사진"
+  },
+  {
+   "label": "포근한 감성",
+   "axes": [
+    "감정",
+    "온도"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "포근하게 감싸는 듯한 사진"
+  },
+  {
+   "label": "포근한 겨울",
+   "axes": [
+    "계절·날씨",
+    "온도"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "추운 계절 속 따뜻하고 포근한 사진"
+  },
+  {
+   "label": "포근한 색감",
+   "axes": [
+    "색감",
+    "온도"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "부드럽고 따스한 색의 사진"
+  },
+  {
+   "label": "포멀한",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "정장 차림의 격식 있는 사진"
+  },
+  {
+   "label": "포스 있는",
+   "axes": [
+    "에너지",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "기세와 존재감이 강한 사진"
+  },
+  {
+   "label": "포트라 색감",
+   "axes": [
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "포트라 필름처럼 부드러운 피부톤의 사진"
+  },
+  {
+   "label": "폴라로이드",
+   "axes": [
+    "질감",
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "즉석카메라로 찍은 듯한 사진"
+  },
+  {
+   "label": "폴라로이드 감성",
+   "axes": [
+    "스타일",
+    "색감",
+    "질감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "즉석 사진처럼 바랜 색의 사진"
+  },
+  {
+   "label": "푸른 새벽빛",
+   "axes": [
+    "빛"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with blue hour twilight light."
+  },
+  {
+   "label": "푸른빛의",
+   "axes": [
+    "색감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with blue tinted color palette."
+  },
+  {
+   "label": "풀내음 나는",
+   "axes": [
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "풀밭·숲의 싱그러움이 느껴지는 사진"
+  },
+  {
+   "label": "풋풋한 연애",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "갓 시작한 연인처럼 풋풋한 사진"
+  },
+  {
+   "label": "프레피한",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "교복·니트 같은 단정한 캠퍼스룩 사진"
+  },
+  {
+   "label": "프렌치 감성",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "자연스럽고 낭만적인 프랑스풍 사진"
+  },
+  {
+   "label": "프렌치 시크",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "무심하게 세련된 프랑스풍 스타일 사진"
+  },
+  {
+   "label": "플래시",
+   "axes": [
+    "빛",
+    "질감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "플래시를 터뜨려 번쩍 찍은 사진"
+  },
+  {
+   "label": "플래시 감성",
+   "axes": [
+    "스타일",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "직광 플래시로 강렬하게 찍은 사진"
+  },
+  {
+   "label": "플래시 샷",
+   "axes": [
+    "스타일",
+    "빛"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "플래시를 터뜨려 배경이 어두운 사진"
+  },
+  {
+   "label": "플래시 터뜨린",
+   "axes": [
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "밤이나 실내에서 플래시로 찍은 강렬한 사진"
+  },
+  {
+   "label": "플랜테리어 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "식물로 꾸민 실내 공간의 사진"
+  },
+  {
+   "label": "플레어",
+   "axes": [
+    "빛"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "렌즈에 빛이 들어와 빛줄기가 생긴 사진"
+  },
+  {
+   "label": "피치톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "복숭아빛이 도는 화사한 사진"
+  },
+  {
+   "label": "피크닉 감성",
+   "axes": [
+    "계절·날씨",
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "돗자리·바구니를 둔 야외 소풍 느낌의 사진"
+  },
+  {
+   "label": "피크닉 무드",
+   "axes": [
+    "계절·날씨",
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "피크닉 감성의 다른 표현"
+  },
+  {
+   "label": "핀조명",
+   "axes": [
+    "빛"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "좁은 조명이 인물을 콕 집어 비춘 사진"
+  },
+  {
+   "label": "핀터 감성",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "핀터레스트에 나올 법한 무드 사진"
+  },
+  {
+   "label": "핀터레스트 감성",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "핀터레스트 레퍼런스 같은 감각적인 사진"
+  },
+  {
+   "label": "필름",
+   "axes": [
+    "스타일",
+    "질감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "필름 카메라로 찍거나 필름처럼 보정한 사진"
+  },
+  {
+   "label": "필름 감성",
+   "axes": [
+    "질감",
+    "스타일",
+    "색감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "필름 카메라로 찍은 듯 입자와 바랜 색이 있는 사진",
+   "prompt": "A photograph with analog film grain aesthetics."
+  },
+  {
+   "label": "필름 그레인",
+   "axes": [
+    "질감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "필름 특유의 자글자글한 입자가 있는 사진"
+  },
+  {
+   "label": "필름 느낌",
+   "axes": [
+    "스타일",
+    "질감",
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "필름 사진 같은 톤과 입자감의 사진"
+  },
+  {
+   "label": "필름 사진 같은",
+   "axes": [
+    "스타일",
+    "질감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "필름으로 찍은 듯한 아날로그 사진"
+  },
+  {
+   "label": "필름 색감",
+   "axes": [
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "필름 카메라로 찍은 듯한 색의 사진"
+  },
+  {
+   "label": "필름 카메라 감성",
+   "axes": [
+    "색감",
+    "질감",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "필름 카메라로 찍은 듯 아날로그한 사진"
+  },
+  {
+   "label": "필름 톤",
+   "axes": [
+    "색감",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "필름 특유의 물빠진 색 톤의 사진"
+  },
+  {
+   "label": "필름룩",
+   "axes": [
+    "스타일",
+    "색감",
+    "질감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "디지털을 필름처럼 보정한 사진"
+  },
+  {
+   "label": "필름카메라 감성",
+   "axes": [
+    "스타일",
+    "질감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "필름 카메라 특유의 색과 입자가 있는 사진"
+  },
+  {
+   "label": "필름톤",
+   "axes": [
+    "색감",
+    "질감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "필름 사진 같은 색감으로 보정한 사진"
+  },
+  {
+   "label": "필카 감성",
+   "axes": [
+    "스타일",
+    "질감",
+    "색감"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "필카로 찍은 듯한 바랜 톤의 사진"
+  },
+  {
+   "label": "핑크뮬리 감성",
+   "axes": [
+    "계절·날씨",
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "분홍빛 핑크뮬리 밭의 가을 사진"
+  },
+  {
+   "label": "핑크빛",
+   "axes": [
+    "색감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "분홍 기운이 도는 로맨틱한 사진"
+  },
+  {
+   "label": "핑크빛 분위기",
+   "axes": [
+    "감정",
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "사랑스러운 분홍빛 감정이 흐르는 사진"
+  },
+  {
+   "label": "핑크빛 연애",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "달콤하고 설레는 연애 분위기의 사진"
+  },
+  {
+   "label": "핑크빛 하늘",
+   "axes": [
+    "색감",
+    "시간대"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "노을로 하늘이 분홍빛으로 물든 사진"
+  },
+  {
+   "label": "핑크톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "분홍빛이 감도는 사랑스러운 사진"
+  },
+  {
+   "label": "하늘 맛집",
+   "axes": [
+    "계절·날씨",
+    "공간"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "하늘이 예쁘게 나오는 장소의 사진"
+  },
+  {
+   "label": "하드 라이트",
+   "axes": [
+    "빛"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "그림자 경계가 날카로운 강한 조명 사진"
+  },
+  {
+   "label": "하얗게 날린",
+   "axes": [
+    "빛",
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "밝은 부분이 하얗게 날아간 몽환적인 사진"
+  },
+  {
+   "label": "하와이 감성",
+   "axes": [
+    "공간",
+    "계절·날씨"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "하와이 해변처럼 쨍한 여름 사진"
+  },
+  {
+   "label": "하이 콘트라스트",
+   "axes": [
+    "질감",
+    "빛"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "밝고 어두움 대비가 강한 사진"
+  },
+  {
+   "label": "하이엔드",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "최고급 스튜디오 퀄리티의 사진"
+  },
+  {
+   "label": "하이키",
+   "axes": [
+    "빛",
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "전체가 밝고 하얗게 뜬 화사한 사진"
+  },
+  {
+   "label": "하이키 조명",
+   "axes": [
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "그림자 없이 밝게 비춘 스튜디오 사진"
+  },
+  {
+   "label": "하이텐션",
+   "axes": [
+    "감정",
+    "에너지"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "들뜨고 신난 에너지의 사진"
+  },
+  {
+   "label": "하이틴 감성",
+   "axes": [
+    "감정",
+    "스타일",
+    "에너지"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "10대 학원물처럼 발랄하고 풋풋한 사진"
+  },
+  {
+   "label": "하이틴 무드",
+   "axes": [
+    "감정",
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "하이틴 영화 같은 분위기의 사진"
+  },
+  {
+   "label": "하이틴 영화 같은",
+   "axes": [
+    "스타일",
+    "에너지"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "학교·파티 장면 같은 하이틴풍 사진"
+  },
+  {
+   "label": "하트 뿅뿅",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "눈에서 하트가 나올 듯 사랑스러운 사진"
+  },
+  {
+   "label": "학창시절 감성",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "학창 시절 친구와의 추억 같은 사진"
+  },
+  {
+   "label": "한강 감성",
+   "axes": [
+    "공간",
+    "시간대"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "한강 공원·다리를 배경으로 한 사진"
+  },
+  {
+   "label": "한강뷰",
+   "axes": [
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "한강이 내려다보이는 사진"
+  },
+  {
+   "label": "한겨울 같은",
+   "axes": [
+    "계절·날씨",
+    "온도"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "매서운 한겨울 분위기의 사진",
+   "prompt": "A photograph with frozen deep winter atmosphere."
+  },
+  {
+   "label": "한낮의",
+   "axes": [
+    "시간대",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "해가 높이 뜬 한낮에 찍은 사진"
+  },
+  {
+   "label": "한여름 같은",
+   "axes": [
+    "계절·날씨",
+    "온도"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "뜨거운 한여름 햇살의 사진",
+   "prompt": "A photograph with intense midsummer atmosphere."
+  },
+  {
+   "label": "한옥 감성",
+   "axes": [
+    "스타일",
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "한옥 마루·창호를 배경으로 한 사진"
+  },
+  {
+   "label": "한적한",
+   "axes": [
+    "공간"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with quiet secluded surroundings."
+  },
+  {
+   "label": "할머니 집 감성",
+   "axes": [
+    "공간",
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "옛날 시골집 같은 정겨운 사진"
+  },
+  {
+   "label": "함께하는",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "서로 함께하는 순간을 담은 사진"
+  },
+  {
+   "label": "해 뜰 무렵",
+   "axes": [
+    "시간대",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "동틀 녘 은은한 빛의 사진"
+  },
+  {
+   "label": "해 질 녘 감성",
+   "axes": [
+    "시간대",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "해가 질 무렵 부드러운 빛의 사진"
+  },
+  {
+   "label": "해맑은 웃음",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "티 없이 밝게 웃는 사진"
+  },
+  {
+   "label": "해변 감성",
+   "axes": [
+    "공간",
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "모래사장 해변을 배경으로 한 사진"
+  },
+  {
+   "label": "해외 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "외국 거리처럼 보이는 사진"
+  },
+  {
+   "label": "해질녘 감성",
+   "axes": [
+    "빛",
+    "시간대"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "해가 질 무렵 붉게 물든 빛 속 사진"
+  },
+  {
+   "label": "해피 바이러스",
+   "axes": [
+    "감정"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "행복한 기운을 퍼뜨리는 밝은 사진"
+  },
+  {
+   "label": "해피한",
+   "axes": [
+    "감정"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "밝고 행복한 분위기의 사진"
+  },
+  {
+   "label": "햇살 가득한",
+   "axes": [
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "밝은 햇살이 화면 가득한 사진"
+  },
+  {
+   "label": "햇살 들어오는",
+   "axes": [
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "실내로 햇살이 비쳐 드는 따뜻한 사진"
+  },
+  {
+   "label": "햇살 맛집",
+   "axes": [
+    "빛",
+    "공간"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "햇살이 예쁘게 드는 장소에서 찍은 사진"
+  },
+  {
+   "label": "햇살 좋은 날",
+   "axes": [
+    "계절·날씨",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "햇살 가득한 맑은 날의 사진"
+  },
+  {
+   "label": "행복 가득한",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "행복한 기운이 가득한 사진"
+  },
+  {
+   "label": "행복 그 자체",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "행복이 그대로 드러나는 사진"
+  },
+  {
+   "label": "행복 눈물",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "기쁨에 눈물이 맺힌 순간의 사진"
+  },
+  {
+   "label": "행복 바이러스",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "보는 사람까지 행복해지는 사진"
+  },
+  {
+   "label": "행복 뿜뿜",
+   "axes": [
+    "감정"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "행복한 기운이 넘쳐 나는 사진"
+  },
+  {
+   "label": "향수를 자극하는",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "그리운 옛 정서를 불러오는 사진"
+  },
+  {
+   "label": "헤일레이션",
+   "axes": [
+    "빛",
+    "질감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "밝은 부분 주변에 붉은 빛무리가 도는 필름 사진"
+  },
+  {
+   "label": "현실 남매",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "꾸밈없이 투닥대는 실제 남매 같은 사진"
+  },
+  {
+   "label": "현실 자매",
+   "axes": [
+    "관계"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "꾸밈없는 실제 자매 사이가 보이는 사진"
+  },
+  {
+   "label": "형제 케미",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "형제끼리 잘 어울리는 모습의 사진"
+  },
+  {
+   "label": "호숫가 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "잔잔한 호숫가를 배경으로 한 사진"
+  },
+  {
+   "label": "호캉스 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "호텔에서 쉬는 듯한 여유로운 사진"
+  },
+  {
+   "label": "호텔 감성",
+   "axes": [
+    "공간",
+    "스타일"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "호텔 객실처럼 고급스러운 공간의 사진"
+  },
+  {
+   "label": "호텔 같은",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "호텔처럼 정돈되고 고급스러운 공간 사진"
+  },
+  {
+   "label": "혼자만의 시간",
+   "axes": [
+    "감정",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "홀로 여유를 즐기는 사진"
+  },
+  {
+   "label": "홀로그램",
+   "axes": [
+    "색감",
+    "질감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "무지갯빛으로 반사되는 홀로그램 느낌 사진"
+  },
+  {
+   "label": "홀리데이 무드",
+   "axes": [
+    "계절·날씨",
+    "에너지"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "연휴·축제 분위기의 들뜬 사진"
+  },
+  {
+   "label": "홈카페 감성",
+   "axes": [
+    "공간"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "집을 카페처럼 꾸민 아늑한 사진"
+  },
+  {
+   "label": "홍콩 감성",
+   "axes": [
+    "공간",
+    "시간대"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "네온 간판 빽빽한 홍콩 거리 같은 사진"
+  },
+  {
+   "label": "홍콩 영화 감성",
+   "axes": [
+    "스타일",
+    "색감",
+    "빛"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "네온과 붉은 톤의 90년대 홍콩 영화풍 사진"
+  },
+  {
+   "label": "홍콩 영화 같은",
+   "axes": [
+    "공간",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "90년대 홍콩 영화 속 장면 같은 사진"
+  },
+  {
+   "label": "홍콩 영화 색감",
+   "axes": [
+    "색감",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "네온빛과 짙은 색의 옛 홍콩 영화 같은 사진"
+  },
+  {
+   "label": "화목한 분위기",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "가족이 화목하게 어울리는 사진"
+  },
+  {
+   "label": "화보 감성",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "패션 화보 분위기의 사진"
+  },
+  {
+   "label": "화보 같은",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "잡지 화보처럼 연출된 사진"
+  },
+  {
+   "label": "화보 느낌",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "모델 화보처럼 포즈와 조명을 잡은 사진"
+  },
+  {
+   "label": "화이트 인테리어",
+   "axes": [
+    "공간",
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "흰 벽·가구로 깔끔한 공간의 사진"
+  },
+  {
+   "label": "화이트톤",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "흰색 위주로 깨끗하고 밝은 사진"
+  },
+  {
+   "label": "환상의 짝꿍",
+   "axes": [
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "호흡이 척척 맞는 짝꿍의 사진"
+  },
+  {
+   "label": "황금빛의",
+   "axes": [
+    "색감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with golden amber color palette."
+  },
+  {
+   "label": "회화적인",
+   "axes": [
+    "질감",
+    "스타일"
+   ],
+   "kind": "기타",
+   "sources": [
+    "generated"
+   ],
+   "usage": "그림처럼 색과 빛을 연출한 사진"
+  },
+  {
+   "label": "후지 색감",
+   "axes": [
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "후지 필름처럼 초록·청록이 맑은 사진"
+  },
+  {
+   "label": "후지필름 감성",
+   "axes": [
+    "색감"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "후지 필름 톤의 청량하고 담백한 사진"
+  },
+  {
+   "label": "훈훈한 분위기",
+   "axes": [
+    "온도",
+    "관계"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "정답고 훈훈한 분위기의 사진"
+  },
+  {
+   "label": "휘게",
+   "axes": [
+    "온도",
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "촛불·담요 같은 아늑한 북유럽식 분위기의 사진"
+  },
+  {
+   "label": "휘게 감성",
+   "axes": [
+    "온도",
+    "공간"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "소박하고 아늑한 휘게 스타일의 사진"
+  },
+  {
+   "label": "휴양지 감성",
+   "axes": [
+    "스타일",
+    "공간",
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "리조트·바다 같은 여유로운 사진"
+  },
+  {
+   "label": "휴양지 같은",
+   "axes": [
+    "공간"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "휴양지에 온 듯 여유로운 사진"
+  },
+  {
+   "label": "흐린 날 감성",
+   "axes": [
+    "빛",
+    "계절·날씨"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "구름 낀 날의 부드럽고 차분한 빛 사진"
+  },
+  {
+   "label": "흐린 날의 빛",
+   "axes": [
+    "빛"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with soft overcast daylight."
+  },
+  {
+   "label": "흐릿한",
+   "axes": [
+    "질감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with blurred indistinct details."
+  },
+  {
+   "label": "흐뭇해지는",
+   "axes": [
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "보고 있으면 흐뭇한 사진"
+  },
+  {
+   "label": "흑백 감성",
+   "axes": [
+    "색감",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "흑백으로 담아 깊이 있는 감성 사진"
+  },
+  {
+   "label": "흑백 프로필",
+   "axes": [
+    "색감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "흑백으로 찍어 분위기를 살린 인물 사진"
+  },
+  {
+   "label": "흑백 필름",
+   "axes": [
+    "색감",
+    "질감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "흑백 필름처럼 입자가 있는 사진"
+  },
+  {
+   "label": "흑백의",
+   "axes": [
+    "색감"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "색 없이 흑과 백으로만 담은 사진",
+   "prompt": "A photograph with black and white monochrome tones."
+  },
+  {
+   "label": "흔들린 감성",
+   "axes": [
+    "에너지",
+    "질감"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "흔들림을 살린 자유로운 사진"
+  },
+  {
+   "label": "흔들린 사진 감성",
+   "axes": [
+    "질감",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "일부러 흔들려 찍은 자연스러운 사진"
+  },
+  {
+   "label": "흔들림 있는",
+   "axes": [
+    "에너지"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with motion blur and movement."
+  },
+  {
+   "label": "흥 넘치는",
+   "axes": [
+    "에너지",
+    "감정"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "신나서 흥이 가득한 사진"
+  },
+  {
+   "label": "희망적인",
+   "axes": [
+    "감정"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted"
+   ],
+   "usage": "",
+   "prompt": "A photograph with hopeful optimism."
+  },
+  {
+   "label": "히피 감성",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "자유롭고 이국적인 히피풍 사진"
+  },
+  {
+   "label": "힐링 감성",
+   "axes": [
+    "감정",
+    "에너지"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "마음을 쉬게 하는 편안한 분위기의 사진"
+  },
+  {
+   "label": "힐링되는",
+   "axes": [
+    "감정",
+    "에너지"
+   ],
+   "kind": "외래어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "보는 것만으로 치유되는 편안한 사진"
+  },
+  {
+   "label": "힘 뺀",
+   "axes": [
+    "에너지",
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "과장 없이 편하게 힘을 뺀 사진"
+  },
+  {
+   "label": "힙감성",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "신조어",
+   "sources": [
+    "generated"
+   ],
+   "usage": "힙한 분위기를 한 단어로 붙여 부르는 사진 스타일"
+  },
+  {
+   "label": "힙스터 감성",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "비주류 취향의 자유롭고 개성 있는 사진"
+  },
+  {
+   "label": "힙한",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "기타",
+   "sources": [
+    "shortlisted",
+    "generated"
+   ],
+   "usage": "스트리트 느낌의 개성 있고 트렌디한 사진",
+   "prompt": "A photograph with trendy edgy street style."
+  },
+  {
+   "label": "힙한 감성",
+   "axes": [
+    "스타일"
+   ],
+   "kind": "구절",
+   "sources": [
+    "generated"
+   ],
+   "usage": "요즘 유행하는 개성 강한 분위기의 사진"
+  }
+ ]
+}

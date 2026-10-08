@@ -103,13 +103,21 @@ export function components(heads: string[], byHead: Map<string, Neighbor[]>) {
   return sizes.sort((a, b) => b - a);
 }
 
-/** 검색어로 시작하는 것을 앞에, 그다음 포함하는 것과 뜻풀이에 걸리는 것. */
-export function searchHeads(heads: string[], nodes: Record<string, Node>, q: string, limit = 40) {
+/**
+ * 검색어로 시작하는 것을 앞에, 그다음 포함하는 것과 뜻풀이에 걸리는 것.
+ * 화면에는 대표 검색어(깜박이는)가 뜨므로 사전형(깜박이다)과 둘 다로 찾는다.
+ */
+export function searchHeads(
+  heads: string[], nodes: Record<string, Node>, q: string, limit = 40,
+  labels: Map<string, string> = new Map(),
+) {
   const needle = q.trim();
   if (!needle) return [];
-  const starts = heads.filter((h) => h.startsWith(needle));
-  const rest = heads.filter((h) => !h.startsWith(needle)
-    && (h.includes(needle) || (nodes[h]?.senses ?? []).some((s) => s.includes(needle))));
+  const names = (h: string) => [h, labels.get(h) ?? h];
+  const starts = heads.filter((h) => names(h).some((n) => n.startsWith(needle)));
+  const first = new Set(starts);
+  const rest = heads.filter((h) => !first.has(h)
+    && (names(h).some((n) => n.includes(needle)) || (nodes[h]?.senses ?? []).some((s) => s.includes(needle))));
   return [...starts, ...rest].slice(0, limit);
 }
 

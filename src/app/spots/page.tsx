@@ -33,7 +33,8 @@ export const metadata: Metadata = {
 
 export default async function SpotsIndexPage() {
   // 카드(장수·대표 3장)는 탐색 탭과 같은 함수를 쓴다 — 두 지면이 다른 숫자를 말하면 안 된다.
-  const cards = await listSpotCards(50);
+  // 하루 한 번 만드는 지면이라 목록이 없을 때 DB 로 읽어도 된다
+  const cards = await listSpotCards(50, { dbFallback: true });
   /*
     장소 상세 정보를 slug 로 붙인다.
 

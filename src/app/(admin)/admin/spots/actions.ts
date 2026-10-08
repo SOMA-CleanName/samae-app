@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { recomputeSpotPhotos } from "@/lib/spot-photos";
 
 // 촬영 장소 어드민 액션. 아티클(admin/articles/actions.ts)과 같은 규약을 따른다.
 
@@ -101,6 +102,10 @@ export async function updateSpot(formData: FormData) {
     })
     .eq("id", id);
   if (error) throw new Error(`장소 저장 실패: ${error.message}`);
+  // 키워드가 바뀌었을 수 있다 — 장소별 사진(spot_photos)을 다음 날 아침까지 기다리지 않고 다시 계산한다.
+  // 운영자가 넣고 뺀 것은 지킨다(lib/spot-photo-sync). 표가 없으면(0145 전) 조용히 넘어간다.
+  await recomputeSpotPhotos();
+  revalidatePath("/admin/spots/photos");
   revalidateSpotSurfaces();
 }
 

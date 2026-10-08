@@ -10,7 +10,9 @@ import {
   type SearchDockVariant,
   type SearchScrollDirection,
 } from "@/lib/search-copy";
+import type { SearchSuggestion } from "@/lib/siglip-text-search-core";
 import { SearchPill } from "./SearchPill";
+import { SearchSuggestions } from "./SearchSuggestions";
 
 const SEARCH_DOCK_TOP_OFFSET_PX = 8;
 
@@ -29,6 +31,7 @@ export function SearchDock({
   variant = "home",
   inline = false,
   back,
+  suggestions,
 }: {
   initial?: string;
   placeholder: string;
@@ -41,6 +44,12 @@ export function SearchDock({
    * 겉돌아서, 버튼을 흐름 안으로 들여 같은 줄에 세운다. 그러면 비워 둘 자리도 없다.
    */
   back?: ReactNode;
+  /**
+   * 검색 결과의 연관 무드(사람 요청 2026-10-04) — 떠 있는 검색창이 다시 채워지면(위로 살짝 올리거나 · 올려 두거나 · 누를 때)
+   * 알약 아래로 **위에서 밑으로 미끄러져** 나온다. 평소엔 반투명 회색, 검색창을 누르면 검색창과 같이 빨간 빛이 한 바퀴 돌며 색을 갖는다.
+   * 흐름에 있을 때는 띄우지 않는다 — 그때는 지면에 이미 있다.
+   */
+  suggestions?: SearchSuggestion[];
   /**
    * 상단 한 줄(로고 ─ 검색 ─ 프로필) 안에 끼워 넣을 때.
    *
@@ -56,6 +65,8 @@ export function SearchDock({
   const markerRef = useRef<HTMLDivElement>(null);
   const [mode, setMode] = useState<SearchDockMode>("inline");
   const [hovered, setHovered] = useState(false);
+  /** 검색창 빛이 출발한 횟수 — 연관 무드 판이 꼭짓점에 닿는 때를 맞춘다 */
+  const [traceTick, setTraceTick] = useState(0);
   const [focused, setFocused] = useState(false);
   const [scrollDirection, setScrollDirection] =
     useState<SearchScrollDirection>("idle");
@@ -202,6 +213,10 @@ export function SearchDock({
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         onFocusCapture={() => setFocused(true)}
+        onAnimationStartCapture={(event) => {
+          // 검색창(SearchPill) 테두리 빛이 출발했다 — 연관 무드 판 위로 은빛 광택이 한 번 스친다
+          if (event.animationName === "search-border-lap") setTraceTick((n) => n + 1);
+        }}
         onBlurCapture={() => setFocused(false)}
         style={!inline && rightInset > 0 ? { marginRight: rightInset } : undefined}
         className={
@@ -220,7 +235,7 @@ export function SearchDock({
         <div
           className={
             back
-              ? "min-w-0 flex-1"
+              ? "relative min-w-0 flex-1"
               : /*
                    inline + 떠 있음 — 줄을 떠나 화면 위로 올라온다.
                    좌표·폭은 아래 style 이 정한다(slot → full 로 이어 달린다).
@@ -248,7 +263,14 @@ export function SearchDock({
             placeholder={placeholder}
             surface={surface}
             appearance={appearance}
+            attached={!!suggestions?.length && mode === "floating" && surface === "filled"}
           />
+          {/* 연관 무드 판 — 검색창 밑에 붙어(틈 없이) 검색창 뒤에서 미끄러져 나온다. 번쩍임이 잘리지 않게 옆 · 아래로 여유를 둔다 */}
+          {suggestions && suggestions.length > 0 && mode === "floating" && (
+            <div className="absolute -inset-x-2 top-full -mt-px overflow-hidden px-2 pb-3">
+              <SearchSuggestions items={suggestions} floating shown={surface === "filled"} active={focused} traceTick={traceTick} />
+            </div>
+          )}
         </div>
       </div>
       {!inline && (

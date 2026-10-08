@@ -113,6 +113,8 @@ export async function saveResult(args: {
   ip: string | null;
   /** 분석 표본 평균 벡터(1152d, L2 정규화). 임베딩 서비스 미가동이면 null — 재정렬만 생략된다. */
   embedding?: number[] | null;
+  /** 분석을 돌린 회원 (0143). 로그인해야 분석되므로 지금은 항상 있지만, 옛 행은 null 이다. */
+  profileId?: string | null;
 }): Promise<string | null> {
   try {
     const db = createAdminClient();
@@ -127,6 +129,7 @@ export async function saveResult(args: {
       ip_hash: args.ip ? ipHash(args.ip) : null,
       // pgvector 는 '[..]' 문자열 리터럴을 받는다
       embedding: args.embedding && args.embedding.length === 1152 ? JSON.stringify(args.embedding) : null,
+      profile_id: args.profileId ?? null,
       pipeline_version: PIPELINE_VERSION,
       expires_at: new Date(Date.now() + TTL_HOURS * 3600_000).toISOString(),
     });
@@ -155,5 +158,33 @@ export async function isRateLimited(ip: string | null): Promise<boolean> {
     return count >= RATE_LIMIT;
   } catch {
     return false;
+  }
+}
+
+// ── 하루 전체 상한 ────────────────────────────────────────────────
+//
+// IP 레이트리밋은 **한 사람**이 몰아치는 걸 막는다. 이벤트가 터지면 막아야 하는 건
+// 그게 아니라 **전체 합계**다 — 서로 다른 사람 300명이 한 번씩 돌려도 비용은 똑같이 나간다.
+// (2026-10-05 22시~10-06 04시 6시간에 335건, 시간당 최대 88건)
+
+/** 하루 상한·끄기 스위치·날짜 경계는 cost-guard 에 있다 (테스트 가능하게 분리) */
+export { dailyCap, analysisOff } from "./cost-guard";
+import { kstMidnightUtc } from "./cost-guard";
+
+/**
+ * 오늘(KST) 돌아간 분석 수. 캐시 히트는 행을 남기지 않으므로 **실제로 돈이 든 횟수**다.
+ * 조회가 실패하면 0 으로 본다 — 세는 데 실패했다고 서비스를 막지는 않는다.
+ */
+export async function countAnalysesToday(): Promise<number> {
+  try {
+    const db = createAdminClient();
+    const { count, error } = await db
+      .from(TABLE)
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", kstMidnightUtc());
+    if (error || count == null) return 0;
+    return count;
+  } catch {
+    return 0;
   }
 }

@@ -49,7 +49,6 @@ export default async function MoodReviewPage({ searchParams }: { searchParams: P
     <section aria-labelledby="review-heading">
       <div className="flex flex-wrap items-baseline gap-3">
         <h2 id="review-heading" className="text-h2 font-semibold">무드 그래프 1차 검수</h2>
-        <Link href="/admin/photo-purpose/mood" className="text-body-sm text-muted underline hover:text-fg">무드 목록으로</Link>
       </div>
       <p className="mt-1 text-body-sm text-muted">
         무드 낱말 5,176개를 뜻이 같은 것끼리 묶고 각 묶음의 대표를 정한 결과입니다. 대표만 화면에 보이고 식구는 검색어로 살아 있습니다.

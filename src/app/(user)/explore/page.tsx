@@ -27,6 +27,14 @@ import { SiteFooter } from "@/components/SiteFooter";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * SPOTS 레일 스위치 — 홈 피드 장소 카드와 같은 사정이다(lib/feed-interstitials 의 SPOT_CARDS_ENABLED).
+ * 2026-10-06 DB 병목으로 한 번 껐고(#422), 지금은 06:00 목록에서 메모리로 고른다.
+ *
+ * 끄면 빈 배열이 되고, 섹션·러닝헤드 목차가 `spots.length > 0` 을 보고 알아서 빠진다 — UI 는 그대로 둔다.
+ */
+const SPOTS_RAIL_ENABLED = true;
+
 /*
   ⚠️ 이게 없으면 이 지면은 **홈의 복제본으로 신고된다.**
 
@@ -81,7 +89,9 @@ export default async function ExplorePage() {
       () => [] as ArticleCard[]
     ),
     // 레일에 다섯 장만 세운다. 나머지는 끝에서 당겨 넘어가는 전체보기가 받는다.
-    memoTtl("explore:spots", 60_000, () => listSpotCards(50)).catch(() => [] as SpotCard[]),
+    SPOTS_RAIL_ENABLED
+      ? memoTtl("explore:spots", 60_000, () => listSpotCards(50)).catch(() => [] as SpotCard[])
+      : Promise.resolve([] as SpotCard[]),
     // 화보에 실을 사진 넷(게시물 단위). 좁은 화면은 3장, 넓으면 2×2 로 넷을 편다.
     memoTtl("explore:featured", 60_000, () => listFeaturedPhotos(4, 30)).catch(
       () => [] as FeaturedPhoto[]

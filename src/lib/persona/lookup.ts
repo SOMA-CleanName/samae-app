@@ -13,6 +13,7 @@
 // 이 조회는 편의 기능이지 필수 관문이 아니다.
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { lookupOff } from "./cost-guard";
 
 export type IgProfilePreview = {
   username: string;
@@ -116,6 +117,7 @@ export type LookupResult =
 
 /** 아이디 1개 → 프로필 미리보기. */
 export async function lookupProfile(usernameRaw: string): Promise<LookupResult> {
+  if (lookupOff()) return { status: "unavailable" };
   const username = usernameRaw.replace(/^@/, "").trim().toLowerCase();
   // 인스타 아이디 규칙: 영문/숫자/._ 만, 30자 이하. 형식이 틀리면 존재할 수 없는 계정이다.
   if (!/^[a-z0-9._]{1,30}$/.test(username)) return { status: "not_found" };

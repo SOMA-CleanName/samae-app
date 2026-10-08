@@ -1,0 +1,161 @@
+{
+ "copied_at": "2026-09-22",
+ "rows": [
+  {
+   "slug": "studio-wedding",
+   "title": "스튜디오 웨딩",
+   "kind": "other",
+   "published": false
+  },
+  {
+   "slug": "outdoor-wedding",
+   "title": "야외 웨딩 스냅",
+   "kind": "other",
+   "published": false
+  },
+  {
+   "slug": "casual-wedding",
+   "title": "캐주얼 웨딩",
+   "kind": "other",
+   "published": false
+  },
+  {
+   "slug": "dress",
+   "title": "드레스",
+   "kind": "other",
+   "published": false
+  },
+  {
+   "slug": "bright-mood",
+   "title": "행복한 한때",
+   "kind": "other",
+   "published": true
+  },
+  {
+   "slug": "our-vibe",
+   "title": "우리만의 느낌",
+   "kind": "other",
+   "published": false
+  },
+  {
+   "slug": "vintage-memories",
+   "title": "빈티지 추억",
+   "kind": "other",
+   "published": true
+  },
+  {
+   "slug": "movie-scene",
+   "title": "영화 속 우리",
+   "kind": "other",
+   "published": false
+  },
+  {
+   "slug": "studio",
+   "title": "스튜디오",
+   "kind": "other",
+   "published": false
+  },
+  {
+   "slug": "school-uniform",
+   "title": "교복",
+   "kind": "other",
+   "published": false
+  },
+  {
+   "slug": "striking-pose",
+   "title": "인상적인 포즈",
+   "kind": "other",
+   "published": false
+  },
+  {
+   "slug": "vintage-look",
+   "title": "빈티지",
+   "kind": "other",
+   "published": false
+  },
+  {
+   "slug": "natural-look",
+   "title": "자연스러움",
+   "kind": "other",
+   "published": true
+  },
+  {
+   "slug": "unique-mood",
+   "title": "이색적인 분위기",
+   "kind": "other",
+   "published": true
+  },
+  {
+   "slug": "chic",
+   "title": "시크",
+   "kind": "other",
+   "published": true
+  },
+  {
+   "slug": "dramatic-mood",
+   "title": "극적인 분위기",
+   "kind": "other",
+   "published": true
+  },
+  {
+   "slug": "profile-image",
+   "title": "프로필",
+   "kind": "other",
+   "published": true
+  },
+  {
+   "slug": "date",
+   "title": "데이트",
+   "kind": "other",
+   "published": true
+  },
+  {
+   "slug": "greenery",
+   "title": "푸르른 초목",
+   "kind": "other",
+   "published": false
+  },
+  {
+   "slug": "city",
+   "title": "도시",
+   "kind": "other",
+   "published": false
+  },
+  {
+   "slug": "daily-life",
+   "title": "일상",
+   "kind": "other",
+   "published": false
+  },
+  {
+   "slug": "bright",
+   "title": "밝은",
+   "kind": "mood",
+   "published": true
+  },
+  {
+   "slug": "cinematic-mood",
+   "title": "감성-시네마틱",
+   "kind": "mood",
+   "published": true
+  },
+  {
+   "slug": "film-vintage",
+   "title": "필름-빈티지",
+   "kind": "mood",
+   "published": true
+  },
+  {
+   "slug": "chic-modern",
+   "title": "시크-모던",
+   "kind": "mood",
+   "published": true
+  },
+  {
+   "slug": "natural-mood",
+   "title": "내추럴",
+   "kind": "mood",
+   "published": true
+  }
+ ]
+}

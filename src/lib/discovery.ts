@@ -3,6 +3,7 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { seededShuffle } from "@/lib/seeded-shuffle";
+import { memoTtl } from "@/lib/server-memo";
 import { readAnonFavPhotoIds } from "@/lib/anon-favorites";
 import { diversifySimilarityCandidates, mapSimilarityRows, mergeDemotedSimilar, promotionStage } from "@/lib/feed-demotion";
 import {
@@ -10,6 +11,7 @@ import {
   selectPersonalizationAnchors,
 } from "@/lib/feed-personalization";
 import { matchesDirectPhotoMetadata } from "@/lib/search-metadata-core";
+import { findMoodBundles, rankByMoodTiers } from "@/lib/mood-expansion";
 
 // 탐색 갤러리 사진 1장
 export type GalleryPhoto = {
@@ -30,7 +32,7 @@ export type GalleryPhoto = {
   recommended?: boolean;
 };
 
-type SearchablePhoto = GalleryPhoto & {
+export type SearchablePhoto = GalleryPhoto & {
   location_text: string | null;
   album_id: string | null;
   photographer_id: string;
@@ -265,30 +267,88 @@ export async function fetchSeededFeedPage(
   }));
 }
 
-// 순수 시드 피드 — 임의 오프셋(feed_photos_seeded). 오류/미적용 시 null.
+/**
+ * 홈 피드에 실릴 수 있는 사진 id — 공개 · 피드에서 안 내림 · 승인 작가(feed_photos_seeded 와 같은 조건).
+ * 섞기 전 기준 순서(id 순). 1분 메모 — 숨긴 사진은 최대 1분 뒤 피드에서 빠진다.
+ *
+ * 🔴 전에는 페이지(48장)마다 feed_photos_seeded RPC 가 **공개 사진 전부에 md5 를 매겨 정렬**했다.
+ *    방문자마다 시드가 달라 재사용이 안 되고, 스크롤할 때마다 처음부터 다시 정렬했다 — 사진 수 × 방문 ×
+ *    스크롤로 커진다. 2026-10-06 장애 때 이 RPC 가 500 · 504 를 냈다. 이제 id 목록만 서버가 들고
+ *    섞기는 여기서(seededShuffle) 한다. DB 는 1분에 id 목록 한 번 + 페이지당 기본키 48개 조회다.
+ */
+const FEED_IDS_TTL_MS = 60_000;
+
+async function feedPhotoIds(): Promise<string[]> {
+  return memoTtl("feed:ids", FEED_IDS_TTL_MS, async () => {
+    const admin = createAdminClient();
+    const ids: string[] = [];
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await admin
+        .from("photos")
+        .select("id, photographer:photographers!photos_photographer_id_fkey!inner(status)")
+        .eq("visibility", "published")
+        .eq("feed_hidden", false)
+        .eq("photographer.status", "approved")
+        .order("id", { ascending: true })
+        .range(from, from + 999);
+      if (error) throw new Error(error.message);
+      ids.push(...((data ?? []) as Array<{ id: string }>).map((r) => r.id));
+      if ((data ?? []).length < 1000) break;
+    }
+    return ids;
+  });
+}
+
+type FeedPhotoRow = Omit<GalleryPhoto, "photographer" | "mood_tags"> & {
+  mood_tags: string[] | null;
+  photographer: { id: string; display_name: string | null };
+};
+
+// 순수 시드 피드 — 임의 오프셋. 같은 시드면 같은 순서(세션 안에서 일관). 오류면 null.
 export async function fetchSeededFeedAt(
   seed: string,
   offset: number,
   limit: number
 ): Promise<GalleryPhoto[] | null> {
-  const supabase = await createClient();
-  const { data, error } = await supabase.rpc("feed_photos_seeded", {
-    p_seed: seed,
-    p_offset: offset,
-    p_limit: limit,
-  });
+  let ids: string[];
+  try {
+    ids = await feedPhotoIds();
+  } catch {
+    return null;
+  }
+  const start = Math.max(0, offset);
+  const pick = seededShuffle(ids, seed).slice(start, start + Math.min(Math.max(limit, 0), 100));
+  if (pick.length === 0) return [];
+
+  // 메모 사이 1분 동안 숨긴 사진이 끼지 않게 조건을 한 번 더 건다(기본키라 가볍다)
+  const { data, error } = await createAdminClient()
+    .from("photos")
+    .select(
+      "id, src_url, thumb_url, width, height, region, mood_tags, price_krw, photographer:photographers!photos_photographer_id_fkey!inner(id, display_name, status)"
+    )
+    .in("id", pick)
+    .eq("visibility", "published")
+    .eq("feed_hidden", false)
+    .eq("photographer.status", "approved");
   if (error) return null;
-  return ((data ?? []) as FeedRow[]).map((r) => ({
-    id: r.id,
-    src_url: r.src_url,
-    thumb_url: r.thumb_url,
-    width: r.width,
-    height: r.height,
-    region: r.region,
-    mood_tags: r.mood_tags ?? [],
-    price_krw: r.price_krw,
-    photographer: { id: r.photographer_id, display_name: r.photographer_name },
-  }));
+  const byId = new Map(((data ?? []) as unknown as FeedPhotoRow[]).map((r) => [r.id, r]));
+  return pick.flatMap((id) => {
+    const r = byId.get(id);
+    if (!r) return [];
+    return [
+      {
+        id: r.id,
+        src_url: r.src_url,
+        thumb_url: r.thumb_url,
+        width: r.width,
+        height: r.height,
+        region: r.region,
+        mood_tags: r.mood_tags ?? [],
+        price_krw: r.price_krw,
+        photographer: { id: r.photographer.id, display_name: r.photographer.display_name },
+      },
+    ];
+  });
 }
 
 // 운영자가 노출을 낮춘 사진 전용 꼬리. 일반 사진을 모두 본 뒤에만 페이지 단위로 호출한다.
@@ -320,16 +380,25 @@ export async function fetchFeedHiddenIds(): Promise<Set<string>> {
 
 // 카테고리 멤버십 사진 id 집합 (관리자 클라 — 뷰어 무관 전체 멤버십)
 // 운영자 피드 숨김은 여기서 뺀다 — 멤버십 자체는 두고 노출 면에서만 제외.
+/**
+ * 취향 카테고리에 담긴 사진(피드에서 내린 것 제외) — 1분 메모.
+ *
+ * 홈 첫 화면과 **스크롤 페이지마다** 목적 · 무드 두 번씩 불린다. 메모 없이 매번 카테고리 사진 목록과
+ * 숨긴 사진 목록을 읽어, 2026-10-06 Query Performance 에 explore_category_photos 조회가 29만 회 찍혔다.
+ */
 async function categoryMemberIds(catIds: string[]): Promise<Set<string>> {
   if (catIds.length === 0) return new Set();
-  const admin = createAdminClient();
-  const [{ data }, hidden] = await Promise.all([
-    admin.from("explore_category_photos").select("photo_id").in("category_id", catIds),
-    fetchFeedHiddenIds(),
-  ]);
-  const ids = ((data ?? []) as { photo_id: string }[])
-    .map((r) => r.photo_id)
-    .filter((id) => !hidden.has(id));
+  const key = `taste:members:${[...catIds].sort().join(",")}`;
+  const ids = await memoTtl(key, 60_000, async () => {
+    const admin = createAdminClient();
+    const [{ data }, hidden] = await Promise.all([
+      admin.from("explore_category_photos").select("photo_id").in("category_id", catIds),
+      fetchFeedHiddenIds(),
+    ]);
+    return ((data ?? []) as { photo_id: string }[])
+      .map((r) => r.photo_id)
+      .filter((id) => !hidden.has(id));
+  });
   return new Set(ids);
 }
 
@@ -720,17 +789,17 @@ export async function searchPhotosByTag(
   // onlyIds — 이 사진들 안에서만 찾는다(목적으로 고른 사진 안에서 무드 태그 일치)
   // withoutPhotographerTags — 작가 태그를 보지 않는다. 작가 프로필 태그는 그 작가 사진 전부에 걸려
   // 사진 한 장의 무드가 아니다("몽환" 을 단 작가 한 명의 사진 68장이 전부 걸렸다)
-  // fromSnapshot — 매일 06:00 백필 뒤 맥미니가 만든 목록(0138)에서 찾는다. 없으면 직접 읽는다
+  // 사진은 매일 06:00 백필 뒤 맥미니가 만든 목록(0138)에서 찾는다. 한 번도 못 받았을 때만 직접 읽는다
+  // (전에는 fromSnapshot 을 켠 호출만 목록을 썼고, 홈 검색은 검색마다 1,600장을 직접 읽었다 — 2026-10-06 통일)
   options: {
     directOnly?: boolean; limit?: number; signal?: AbortSignal; failOnError?: boolean;
-    onlyIds?: Set<string>; withoutPhotographerTags?: boolean; fromSnapshot?: boolean;
+    onlyIds?: Set<string>; withoutPhotographerTags?: boolean;
   } = {}
 ): Promise<GalleryPhoto[]> {
   const query = buildSearchQuery(qRaw);
   if (!query.compact) return [];
   const supabase = await createClient();
-  const all = (options.fromSnapshot ? await snapshotSearchablePhotos() : null)
-    ?? await fetchAllSearchablePhotos(supabase, options);
+  const all = (await snapshotSearchablePhotos()) ?? await fetchAllSearchablePhotos(supabase, options);
   const picked = options.onlyIds ? all.filter((photo) => options.onlyIds!.has(photo.id)) : all;
   const rows = options.withoutPhotographerTags
     ? picked.map((photo) => ({ ...photo, photographer: { ...photo.photographer, mood_tags: [] } }))
@@ -754,6 +823,22 @@ export async function searchPhotosByTag(
   }
   const primary = await sortPhotosBySearchScore(supabase, scored);
   return appendRelatedPhotos(primary, rows);
+}
+
+/**
+ * 무드 층으로 넓힌 태그 일치(docs/40 §17-7) — 무드 말의 같은 묶음 · 무리는 늘, 가족 · 이웃 · 큰 무드는 room 장까지만.
+ * 사진 태그(mood_tags · generated_tags)와 정확히 같은 말만 맞춘다. 순서는 층 → 맞은 태그 수 (mood-expansion.ts).
+ * exclude — 태그 직접 일치(searchPhotosByTag)로 이미 나온 사진. 무드 말이 사전에 없으면 빈 목록.
+ */
+export async function searchPhotosByMoodTiers(
+  moodText: string,
+  options: { room: number; exclude?: ReadonlySet<string>; onlyIds?: Set<string>; signal?: AbortSignal; failOnError?: boolean },
+): Promise<GalleryPhoto[]> {
+  const bundles = findMoodBundles(moodText);
+  if (!bundles.length) return [];
+  const all = (await snapshotSearchablePhotos()) ?? await fetchAllSearchablePhotos(await createClient(), options);
+  const picked = options.onlyIds ? all.filter((photo) => options.onlyIds!.has(photo.id)) : all;
+  return rankByMoodTiers(picked, bundles, { exclude: options.exclude, room: options.room }).map((r) => r.photo);
 }
 
 // 검색어 정규화 키 — 검색어 로깅/집계의 그룹핑 키로 쓴다(대소문자·띄어쓰기 차이 흡수).
@@ -1247,15 +1332,18 @@ function roundRobinRelated(items: RelatedResultItem[]): RelatedResultItem[] {
 //     새 목록이 생겼으면 그때 한 번 통째로 읽는다
 //   · 서버가 새로 뜨면 메모리가 비어 있으니 처음 한 번 읽는다
 // 낮에 손으로 다시 만든 목록은 이미 오늘 목록을 든 서버에는 다음 06:00 에 반영된다(docs/29 §12.15).
-// 이틀 넘게 새 목록이 없으면 들고 있던 목록을 버리고 예전처럼 직접 읽는다(SNAPSHOT_MAX_AGE_MS).
+//
+// 🔴 **새 목록이 안 생겨도 들고 있던 목록을 계속 쓴다(2026-10-06 결정).** 전에는 이틀 넘으면 버리고
+//    검색마다 1,600장을 직접 읽었는데, 맥미니가 멈추면 그게 곧 요청마다 무거운 조회가 된다 —
+//    같은 날 장소 카드의 직접 조회(location_text ilike)가 DB 시간 77% 를 먹고 사이트를 3시간 멈췄다.
+//    낡은 목록은 화면이 아니라 알림으로 잡는다(lib/snapshot-watch, 매일 크론).
+//    직접 읽는 건 목록을 **한 번도 못 받았을 때**뿐이다(0138 전·서비스 키 없는 Preview).
 //
 // ⚠️ 검색할 때 공개 여부를 다시 보지 않는다(2026-09-21 결정) — 그 사이 비공개로 돌리거나
-//    피드에서 내린 사진도 다음 06:00 까지 무드 태그 검색에 걸린다.
+//    피드에서 내린 사진도 다음 목록이 생길 때까지 무드 태그 검색·장소 카드에 걸린다.
 const SNAPSHOT_RECHECK_MS = 10 * 60_000;
 const DAY_MS = 24 * 60 * 60_000;
 const KST_6AM_IN_UTC_MS = 21 * 60 * 60_000;   // 한국 06:00 = 전날 21:00 UTC
-// 목록이 이틀 넘게 안 바뀌었으면(맥미니 고장·갱신 안 함) 버리고 검색마다 직접 읽는다 — 느려질 뿐 낡은 목록을 계속 쓰지 않는다
-const SNAPSHOT_MAX_AGE_MS = 2 * DAY_MS;
 
 type TagSnapshot = {
   photos: Array<Omit<SearchablePhoto, "album" | "photographer">>;
@@ -1272,8 +1360,8 @@ function lastKst6am(now: number): number {
   return Math.floor((now - KST_6AM_IN_UTC_MS) / DAY_MS) * DAY_MS + KST_6AM_IN_UTC_MS;
 }
 
-/** 목록이 없으면(0138 전·맥미니가 아직 안 만듦) null — 호출하는 쪽이 직접 읽는다. */
-async function snapshotSearchablePhotos(): Promise<SearchablePhoto[] | null> {
+/** 들고 있는 목록이 오늘 06:00 전 것이면 새 목록이 있는지 본다(10분 간격). */
+async function ensureSnapshot(): Promise<void> {
   const now = Date.now();
   const fresh = heldSnapshot && heldSnapshot.builtAt >= lastKst6am(now);
   if (!fresh && now - snapshotCheckedAt >= SNAPSHOT_RECHECK_MS) {
@@ -1281,10 +1369,20 @@ async function snapshotSearchablePhotos(): Promise<SearchablePhoto[] | null> {
     snapshotLoading ??= refreshSnapshot()
       .catch((error) => console.error("[search] 무드 태그 목록 조회 실패 — 들고 있던 것 또는 직접 읽기로:", error))
       .finally(() => { snapshotLoading = null; });
-    await snapshotLoading;
   }
-  if (!heldSnapshot || now - heldSnapshot.builtAt > SNAPSHOT_MAX_AGE_MS) return null;
-  return heldSnapshot.photos;
+  // 받는 중이면 **확인 간격과 상관없이** 끝날 때까지 기다린다. refreshSnapshot 이 확인 시각을 먼저 찍어서,
+  // 서버가 막 뜬 직후 같이 들어온 요청이 "방금 봤다" 며 빈손(null)으로 돌아가고 있었다 —
+  // 장소 카드는 빈 채로 1분 메모에 앉고, 검색은 DB 를 직접 읽었다(2026-10-06 로컬 확인).
+  if (snapshotLoading) await snapshotLoading;
+}
+
+/**
+ * 06:00 공개 사진 목록 — 무드 태그 검색과 촬영 장소 매칭(lib/spots)이 같이 쓴다.
+ * 낡아도 버리지 않는다(위 주석). 한 번도 못 받았으면 null — 호출하는 쪽이 정한다.
+ */
+export async function snapshotSearchablePhotos(): Promise<SearchablePhoto[] | null> {
+  await ensureSnapshot();
+  return heldSnapshot?.photos ?? null;
 }
 
 async function refreshSnapshot(): Promise<void> {

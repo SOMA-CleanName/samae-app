@@ -2,8 +2,20 @@ import "server-only";
 
 import { memoTtl } from "@/lib/server-memo";
 import { listPublishedArticles } from "@/lib/articles";
-import { listSpotCards } from "@/lib/spots";
+import { listSpotCards, type SpotCard } from "@/lib/spots";
 import type { GalleryPhoto } from "@/lib/discovery";
+
+/**
+ * 장소 카드 스위치 — 끄면 장소 쪽은 **아무것도 읽지 않는다**(호출 자체를 건너뛴다).
+ *
+ * 🔴 2026-10-06 09:20~12:30 사이트가 응답없음이었다. Query Performance 1·2위(DB 시간 77%)가
+ * 이 카드의 장소 매칭 — `location_text ilike '%키워드%'` 로 photos 를 통째로 훑는 걸 공개 장소마다,
+ * 인스턴스마다 1분마다 했다. 그래서 한 번 껐다(#422).
+ *
+ * 지금은 06:00 공개 사진 목록(search_tag_snapshot)에서 메모리로 고른다 — DB 를 안 친다(lib/spots).
+ * 같은 일이 다시 생기면 이 값만 false 로 돌리면 된다.
+ */
+const SPOT_CARDS_ENABLED = true;
 
 /**
  * 전체 피드 사이에 끼우는 카드.
@@ -72,15 +84,18 @@ function topPhotographers(photos: GalleryPhoto[], limit: number) {
 /**
  * 삽입 카드 목록을 만든다.
  *
- * 아티클·장소는 홈의 다른 자리에서 이미 60초 메모로 읽고 있어 키를 공유한다.
- * 작가는 인자로 받은 피드 사진에서 세므로, 이 함수는 **추가 쿼리를 하나도 안 낸다.**
+ * 아티클은 홈의 다른 자리와 60초 메모 키를 공유한다. 장소는 06:00 목록에서 메모리로 고르고,
+ * 작가는 인자로 받은 피드 사진에서 센다 — 장소·작가 카드는 사진 쪽 쿼리를 내지 않는다.
  */
 export async function buildFeedInterstitials(
   photos: GalleryPhoto[]
 ): Promise<FeedInterstitial[]> {
   const [articles, spots] = await Promise.all([
     memoTtl("home:articles", 60_000, () => listPublishedArticles()).catch(() => []),
-    memoTtl("explore:spots", 60_000, () => listSpotCards(6)).catch(() => []),
+    SPOT_CARDS_ENABLED
+      // 매거진(explore:spots, 50곳)과 키를 나눈다 — 같은 키를 쓰면 먼저 채운 쪽 개수가 다른 쪽에 그대로 나갔다
+      ? memoTtl("home:spots", 60_000, () => listSpotCards(6)).catch(() => [] as SpotCard[])
+      : Promise.resolve([] as SpotCard[]),
   ]);
 
   /*

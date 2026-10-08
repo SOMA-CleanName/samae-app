@@ -66,19 +66,27 @@ class EmbedAutomationTest(unittest.TestCase):
         (self.root / ".env.local").write_text("")
         (self.bin / "python").unlink()
         self.executable(self.bin / "python", '#!/bin/sh\nprintf "%s\\n" "$*" >> "$FAKE_ARGS"\ncase "$1" in *embed_photos.py) exit "${FAKE_EMBED_STATUS:-0}";; *tone_backfill.py) exit "${FAKE_TONE_STATUS:-0}";; *build_search_tags.py) exit "${FAKE_TAGS_STATUS:-0}";; *purpose_drafts.py) exit "${FAKE_DRAFT_STATUS:-0}";; *) exit "${FAKE_PURPOSE_STATUS:-0}";; esac\n')
-        # 마지막 칸은 초안 단계 — 실패해도 배치는 실패가 아니다(알림 없음, docs/39 §7.4)
-        for embed_status, tone_status, purpose_status, tags_status, draft_status, expected in [
-            (0, 0, 0, 0, 0, 0), (7, 0, 0, 0, 0, 7), (0, 3, 0, 0, 0, 3), (0, 0, 9, 0, 0, 9),
-            (0, 0, 0, 5, 0, 5), (7, 3, 0, 5, 0, 7), (0, 0, 0, 0, 4, 0),
+        # 장소 연결 단계는 앱 엔드포인트를 curl 로 부른다 — 테스트에선 운영 사이트를 치지 않게 가짜로 바꾼다
+        self.executable(self.bin / "curl",
+                        '#!/bin/sh\nprintf "%s\\n" "$*" >> "$FAKE_CURL"\nprintf \'{"ok":true}\\n%s\' "${FAKE_SPOT_CODE:-200}"\n')
+        self.env["FAKE_CURL"] = str(self.root / "curl")
+        (self.root / ".env.local").write_text("CRON_SECRET=test-secret\n")
+        # 끝의 두 칸(초안 · 장소 연결)은 실패해도 배치는 실패가 아니다(알림 없음, docs/39 §7.4 · docs/28 §5.2)
+        for embed_status, tone_status, purpose_status, tags_status, draft_status, spot_code, expected in [
+            (0, 0, 0, 0, 0, 200, 0), (7, 0, 0, 0, 0, 200, 7), (0, 3, 0, 0, 0, 200, 3), (0, 0, 9, 0, 0, 200, 9),
+            (0, 0, 0, 5, 0, 200, 5), (7, 3, 0, 5, 0, 200, 7), (0, 0, 0, 0, 4, 200, 0),
+            (0, 0, 0, 0, 0, 500, 0), (0, 0, 0, 0, 0, 401, 0),
         ]:
             with self.subTest(embed_status=embed_status, tone_status=tone_status, purpose_status=purpose_status,
-                              tags_status=tags_status, draft_status=draft_status):
+                              tags_status=tags_status, draft_status=draft_status, spot_code=spot_code):
                 (self.root / "args").write_text("")
+                (self.root / "curl").write_text("")
                 self.env["FAKE_EMBED_STATUS"] = str(embed_status)
                 self.env["FAKE_TONE_STATUS"] = str(tone_status)
                 self.env["FAKE_PURPOSE_STATUS"] = str(purpose_status)
                 self.env["FAKE_TAGS_STATUS"] = str(tags_status)
                 self.env["FAKE_DRAFT_STATUS"] = str(draft_status)
+                self.env["FAKE_SPOT_CODE"] = str(spot_code)
                 result = self.run_script("run-embed.sh")
                 self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
                 calls = (self.root / "args").read_text().splitlines()
@@ -92,6 +100,11 @@ class EmbedAutomationTest(unittest.TestCase):
                 self.assertEqual(calls[3], "scripts/embed/build_search_tags.py --apply")
                 # 세부분류 · 성별 초안은 맨 끝 — 앞 단계가 실패해도 돈다
                 self.assertEqual(calls[4], "scripts/embed/purpose_drafts.py --apply --daily --embed-url http://127.0.0.1:8077")
+                # 마지막에 신규 사진을 촬영 장소에 붙인다 — 앱 엔드포인트를 CRON_SECRET 으로
+                curl_calls = (self.root / "curl").read_text().splitlines()
+                self.assertEqual(len(curl_calls), 1)
+                self.assertIn("/api/cron/spot-photos", curl_calls[0])
+                self.assertIn("Authorization: Bearer test-secret", curl_calls[0])
                 self.assertFalse((self.embed / "logs" / ".running").exists())
 
 

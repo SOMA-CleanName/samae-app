@@ -1,16 +1,20 @@
 import Link from "next/link";
 import { loadEdits, loadNeighborBundle } from "@/lib/mood-neighbors-data";
+import { loadTermEdits, loadTermsBundle } from "@/lib/mood-terms-data";
+import { representative, resolveTerms } from "@/lib/mood-terms";
 import {
   components, edgeKey, expand, resolveNeighbors, shakyEdges, searchHeads,
   type Neighbor,
 } from "@/lib/mood-neighbors";
-import { AXIS_TONE } from "@/lib/mood-axes";
+import { AXES, AXIS_BAR, AXIS_TONE } from "@/lib/mood-axes";
 import { EdgeControls, AddEdge } from "./EdgeControls";
 
 export const dynamic = "force-dynamic";
 const BASE = "/admin/photo-purpose/mood/neighbors";
 const QUEUE_SIZE = 25;
-const HEADS_SIZE = 20;
+// 목록은 대표 이름만 칩으로 촘촘히 — 누르면 위에 그 묶음의 이웃·뜻풀이·수정이 펼쳐진다.
+// 카드를 20개씩 늘어놓으면 2,712개를 훑는 데 136쪽이 든다.
+const HEADS_SIZE = 300;
 type Params = { head?: string; q?: string; view?: string; page?: string };
 
 export default async function MoodNeighborsPage({ searchParams }: { searchParams: Promise<Params> }) {
@@ -19,15 +23,22 @@ export default async function MoodNeighborsPage({ searchParams }: { searchParams
   const q = (params.q ?? "").trim().slice(0, 40);
   const page = Math.max(1, Math.min(10000, Math.floor(Number(params.page) || 1)));
 
-  const [bundle, edits] = await Promise.all([loadNeighborBundle(), loadEdits()]);
+  const [bundle, edits, termsBundle, termEdits] = await Promise.all([
+    loadNeighborBundle(), loadEdits(), loadTermsBundle(), loadTermEdits(),
+  ]);
+  // 화면에 뜨는 이름은 사전형(깜박이다)이 아니라 대표 검색어(깜박이는)다 — 축 · 검색어 화면과 같게.
+  // 간선은 여전히 사전형으로 저장한다. 이름은 바뀌어도 묶음은 그대로라서다.
+  const final = resolveTerms(termsBundle, termEdits);
+  const labels = new Map(termsBundle.rows.map((row) => [row.head, representative(row, final.get(row.head) ?? [])]));
+  const label = (h: string) => labels.get(h) ?? h;
   const byHead = resolveNeighbors(bundle, edits);
   const known = new Set(bundle.heads);
   const head = params.head && known.has(params.head) ? params.head : "";
   // 검색은 걸러내기일 뿐, 비워 두면 2,647개가 다 나온다 — 전수로 훑을 수 있어야 한다.
-  const listed = q ? searchHeads(bundle.heads, bundle.nodes, q, bundle.heads.length) : bundle.heads;
+  const listed = q ? searchHeads(bundle.heads, bundle.nodes, q, bundle.heads.length, labels) : bundle.heads;
   const pages = Math.max(1, Math.ceil(listed.length / HEADS_SIZE));
   const at = Math.min(page, pages);
-  const shown = head ? [head] : listed.slice((at - 1) * HEADS_SIZE, at * HEADS_SIZE);
+  const shown = listed.slice((at - 1) * HEADS_SIZE, at * HEADS_SIZE);
   const queue = shakyEdges(bundle, edits);
   const queuePages = Math.max(1, Math.ceil(queue.length / QUEUE_SIZE));
   const queueAt = Math.min(page, queuePages);
@@ -48,7 +59,6 @@ export default async function MoodNeighborsPage({ searchParams }: { searchParams
     <section aria-labelledby="neighbors-heading">
       <div className="flex flex-wrap items-baseline gap-3">
         <h2 id="neighbors-heading" className="text-h2 font-semibold">이웃 그래프</h2>
-        <Link href="/admin/photo-purpose/mood/axes" className="text-body-sm text-muted underline hover:text-fg">축 배정으로</Link>
       </div>
       <p className="mt-1 text-body-sm text-muted">
         검색 결과가 적을 때 대신 보여줄 무드를 잇는 그래프입니다. <b className="text-fg">간선은 무향이라 한쪽만 이어도 양쪽에 섭니다.</b>{" "}
@@ -77,22 +87,48 @@ export default async function MoodNeighborsPage({ searchParams }: { searchParams
             {(q || head) && <Link href={`${BASE}?view=graph`} className="rounded-xl border border-line px-4 py-2 text-body-sm">초기화</Link>}
           </form>
 
-          <p className="mb-4 text-body-sm text-muted">
-            {head
-              ? <>한 무드만 펼쳐 봅니다. <Link href={url({ head: "", q })} className="underline hover:text-fg">전체로 돌아가기</Link></>
-              : <>{q ? <>“{q}” 에 걸린 </> : "전체 "}<b className="text-fg tabular-nums">{listed.length.toLocaleString("ko-KR")}</b>개 중{" "}
-                <b className="text-fg tabular-nums">{((at - 1) * HEADS_SIZE + 1).toLocaleString("ko-KR")}–{Math.min(at * HEADS_SIZE, listed.length).toLocaleString("ko-KR")}</b>번째</>}
+          {head && (
+            <div className="mb-6">
+              <div className="mb-2 flex justify-end">
+                <Link href={url({ head: "", page: String(at) })} className="text-body-sm text-muted underline hover:text-fg">닫기</Link>
+              </div>
+              <HeadPanel {...{ head, byHead, gloss, axesOf, label, terms: final.get(head) ?? [], bundle, url, detail: true }} />
+            </div>
+          )}
+
+          <p className="mb-3 text-body-sm text-muted">
+            {q ? <>“{q}” 에 걸린 </> : "전체 "}<b className="text-fg tabular-nums">{listed.length.toLocaleString("ko-KR")}</b>개
+            {pages > 1 && <> 중 <b className="text-fg tabular-nums">{((at - 1) * HEADS_SIZE + 1).toLocaleString("ko-KR")}–{Math.min(at * HEADS_SIZE, listed.length).toLocaleString("ko-KR")}</b>번째</>}
+            {" "}· 이름을 누르면 이웃과 뜻풀이가 위에 펼쳐집니다. 숫자는 이웃 수, 점은 축입니다.
+          </p>
+          <p className="mb-3 flex flex-wrap gap-x-3 gap-y-1 text-caption text-muted" aria-label="축 색">
+            {AXES.map((axis) => (
+              <span key={axis} className="inline-flex items-center gap-1">
+                <span className={`h-1.5 w-1.5 rounded-full ${AXIS_BAR[axis]}`} aria-hidden />{axis}
+              </span>
+            ))}
           </p>
 
           {!shown.length && <p className="rounded-xl border border-line p-8 text-center text-muted">찾은 무드가 없습니다.</p>}
 
-          <div className="space-y-4">
-            {shown.map((name) => (
-              <HeadPanel key={name} {...{ head: name, byHead, gloss, axesOf, bundle, url, detail: Boolean(head) }} />
-            ))}
-          </div>
+          <ul className="flex flex-wrap gap-1.5">
+            {shown.map((name) => {
+              const active = name === head;
+              return (
+                <li key={name}>
+                  <Link href={url({ head: name, page: String(at) })} aria-current={active ? "true" : undefined}
+                    className={`inline-flex items-baseline gap-1 rounded-lg border px-2.5 py-1 text-body-sm transition-colors ${
+                      active ? "border-brand bg-brand/10 text-brand" : "border-line hover:border-fg/40"}`}>
+                    {label(name)}
+                    <AxisDots axes={axesOf(name)} />
+                    <span className="text-caption text-muted tabular-nums">{(byHead.get(name) ?? []).length}</span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
 
-          {!head && pages > 1 && <Pager {...{ at, pages, url, view, q }} label="무드 페이지" />}
+          {pages > 1 && <Pager {...{ at, pages, url, view, q }} label="무드 페이지" />}
         </>
       )}
 
@@ -106,18 +142,20 @@ export default async function MoodNeighborsPage({ searchParams }: { searchParams
             {queue.slice((queueAt - 1) * QUEUE_SIZE, queueAt * QUEUE_SIZE).map((edge) => (
               <li key={edgeKey(edge.a, edge.b)} className="rounded-xl border border-line p-4">
                 <div className="flex flex-wrap items-baseline gap-2">
-                  <strong className="text-body font-semibold">{edge.a}</strong>
+                  <strong className="text-body font-semibold">{label(edge.a)}</strong>
+                  <AxisTags axes={axesOf(edge.a)} />
                   <span className="text-muted">↔</span>
-                  <strong className="text-body font-semibold">{edge.b}</strong>
+                  <strong className="text-body font-semibold">{label(edge.b)}</strong>
+                  <AxisTags axes={axesOf(edge.b)} />
                   <span className="text-caption text-muted tabular-nums">유사도 {edge.score.toFixed(3)}</span>
                   {edge.photos > 0 && <span className="rounded-lg border border-line px-2 py-0.5 text-caption">같은 사진 {edge.photos}</span>}
                   {edge.sameFirst && <span className="rounded-lg border border-amber-400 bg-amber-500/10 px-2 py-0.5 text-caption text-amber-700">첫 글자 같음</span>}
                 </div>
                 <div className="mt-2 grid gap-1 text-body-sm text-muted sm:grid-cols-2">
-                  <p><b className="text-fg">{edge.a}</b> — {gloss(edge.a) || "뜻풀이 없음"}</p>
-                  <p><b className="text-fg">{edge.b}</b> — {gloss(edge.b) || "뜻풀이 없음"}</p>
+                  <p><b className="text-fg">{label(edge.a)}</b> — {gloss(edge.a) || "뜻풀이 없음"}</p>
+                  <p><b className="text-fg">{label(edge.b)}</b> — {gloss(edge.b) || "뜻풀이 없음"}</p>
                 </div>
-                <EdgeControls a={edge.a} b={edge.b} connected />
+                <EdgeControls a={edge.a} b={edge.b} names={[label(edge.a), label(edge.b)]} connected />
               </li>
             ))}
           </ul>
@@ -128,7 +166,7 @@ export default async function MoodNeighborsPage({ searchParams }: { searchParams
         </>
       )}
 
-      {view === "health" && <Health {...{ bundle, byHead, edits: edits.length, settled: settled.size, url }} />}
+      {view === "health" && <Health {...{ bundle, byHead, label, edits: edits.length, settled: settled.size, url }} />}
     </section>
   );
 }
@@ -157,11 +195,13 @@ function Pager({ at, pages, url, label, view, q }: {
   );
 }
 
-function HeadPanel({ head, byHead, gloss, axesOf, bundle, url, detail }: {
+function HeadPanel({ head, byHead, gloss, axesOf, label, terms, bundle, url, detail }: {
   head: string;
   byHead: Map<string, Neighbor[]>;
   gloss: (n: string) => string;
   axesOf: (n: string) => string[];
+  label: (n: string) => string;
+  terms: string[];
   bundle: Awaited<ReturnType<typeof loadNeighborBundle>>;
   url: (c: Params) => string;
   detail?: boolean;
@@ -172,20 +212,20 @@ function HeadPanel({ head, byHead, gloss, axesOf, bundle, url, detail }: {
   return (
     <div className="rounded-xl border border-line p-4">
       <div className="flex flex-wrap items-baseline gap-2">
-        <strong className="text-h3 font-semibold">{head}</strong>
-        {axesOf(head).map((axis) => (
-          <span key={axis} className={`rounded-lg border px-2 py-0.5 text-caption ${AXIS_TONE[axis] ?? "border-line"}`}>{axis}</span>
-        ))}
+        <strong className="text-h3 font-semibold">{label(head)}</strong>
+        <AxisTags axes={axesOf(head)} />
         <span className="text-caption text-muted">이웃 {neighbors.length}</span>
       </div>
+      {terms.length > 1 && <p className="mt-1 text-body-sm">검색어 {terms.join(" · ")}</p>}
       <p className="mt-1 text-body-sm text-muted">{gloss(head) || "뜻풀이 없음"}</p>
 
-      <AddEdge head={head} heads={bundle.heads} />
+      <AddEdge head={head} options={bundle.heads.map((h) => ({ head: h, name: label(h) }))} />
 
       <ul className="mt-4 space-y-2">
         {neighbors.map((n) => (
           <li key={n.head} className="flex flex-wrap items-baseline gap-2 border-b border-line py-2 last:border-0">
-            <Link href={url({ head: n.head })} className="font-medium underline-offset-2 hover:underline">{n.head}</Link>
+            <Link href={url({ head: n.head })} className="font-medium underline-offset-2 hover:underline">{label(n.head)}</Link>
+            <AxisTags axes={axesOf(n.head)} />
             {n.edited === "add"
               ? <span className="rounded-lg border border-brand bg-brand/10 px-2 py-0.5 text-caption text-brand">직접 이음</span>
               : <span className="text-caption text-muted tabular-nums">{n.score.toFixed(3)}</span>}
@@ -194,7 +234,7 @@ function HeadPanel({ head, byHead, gloss, axesOf, bundle, url, detail }: {
             {n.photos > 0 && <span className="rounded-lg border border-line px-2 py-0.5 text-caption">사진 {n.photos}</span>}
             {n.sameFirst && <span className="rounded-lg border border-amber-400 bg-amber-500/10 px-2 py-0.5 text-caption text-amber-700">첫 글자</span>}
             <span className="w-full text-caption text-muted sm:w-auto sm:flex-1">{gloss(n.head)}</span>
-            <EdgeControls a={head} b={n.head} connected />
+            <EdgeControls a={head} b={n.head} names={[label(head), label(n.head)]} connected />
           </li>
         ))}
       </ul>
@@ -206,7 +246,7 @@ function HeadPanel({ head, byHead, gloss, axesOf, bundle, url, detail }: {
           {layers.map((layer, i) => (
             <p key={i} className="mt-2 text-body-sm">
               <span className="text-caption text-muted">{i + 1}홉 ({layer.length})</span>{" "}
-              {layer.slice(0, 20).join(" · ")}{layer.length > 20 && ` … 외 ${layer.length - 20}개`}
+              {layer.slice(0, 20).map(label).join(" · ")}{layer.length > 20 && ` … 외 ${layer.length - 20}개`}
             </p>
           ))}
         </div>
@@ -215,9 +255,10 @@ function HeadPanel({ head, byHead, gloss, axesOf, bundle, url, detail }: {
   );
 }
 
-function Health({ bundle, byHead, edits, settled, url }: {
+function Health({ bundle, byHead, label, edits, settled, url }: {
   bundle: Awaited<ReturnType<typeof loadNeighborBundle>>;
   byHead: Map<string, Neighbor[]>;
+  label: (n: string) => string;
   edits: number;
   settled: number;
   url: (c: Params) => string;
@@ -277,12 +318,36 @@ function Health({ bundle, byHead, edits, settled, url }: {
           <p className="mt-1 text-muted">이 무드로 검색하면 추천이 아예 안 나옵니다.</p>
           <p className="mt-2 flex flex-wrap gap-2">
             {isolated.slice(0, 40).map((h) => (
-              <Link key={h} href={url({ view: "graph", head: h, q: h })} className="rounded-lg border border-line px-2 py-0.5 text-caption hover:border-fg/40">{h}</Link>
+              <Link key={h} href={url({ view: "graph", head: h, q: h })} className="rounded-lg border border-line px-2 py-0.5 text-caption hover:border-fg/40">{label(h)}</Link>
             ))}
             {isolated.length > 40 && <span className="text-caption text-muted">… 외 {isolated.length - 40}개</span>}
           </p>
         </div>
       )}
     </div>
+  );
+}
+
+
+/** 축은 묶음(D2)에 붙는다 — 이웃이 어느 축에서 왔는지가 보여야 동음이의(빤짝한 = 정신 차림 → 에너지)가 드러난다. */
+function AxisTags({ axes }: { axes: string[] }) {
+  if (!axes.length) return null;
+  return (
+    <span className="inline-flex flex-wrap gap-1">
+      {axes.map((axis) => (
+        <span key={axis} className={`rounded-md border px-1.5 text-caption ${AXIS_TONE[axis] ?? "border-line"}`}>{axis}</span>
+      ))}
+    </span>
+  );
+}
+
+/** 칩 2,700여 개에 글자를 다 달면 목록이 안 읽힌다 — 축마다 색 점 하나, 이름은 마우스를 올리면. */
+function AxisDots({ axes }: { axes: string[] }) {
+  const ordered = AXES.filter((axis) => axes.includes(axis));
+  if (!ordered.length) return null;
+  return (
+    <span className="inline-flex items-center gap-0.5 self-center" title={ordered.join(" · ")} aria-label={`축 ${ordered.join(", ")}`}>
+      {ordered.map((axis) => <span key={axis} className={`h-1.5 w-1.5 rounded-full ${AXIS_BAR[axis]}`} aria-hidden />)}
+    </span>
   );
 }

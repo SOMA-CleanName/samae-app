@@ -1,0 +1,110 @@
+// 검색어를 어떻게 해석했나 — 검색 기록(search_logs)에 남기고 어드민 「도구 → 검색」 이 보여준다.
+//
+// 검색은 검색어를 목적("커플")과 무드("가을 감성")로 나누고, 무드는 가장 가까운 무드 가족으로 틀어 찾는다
+// (lib/siglip-text-search familySearch, docs/47 §9 · §10). 운영자가 "이 검색어가 어느 무드로 갔나" 를 봐야
+// 사전(무드 가족)이 엇나간 곳을 찾는다.
+//
+// `server-only` 가 아닌 건 테스트와 어드민 클라이언트 화면이 같이 쓰기 때문이다.
+
+export type SearchInterpretation = {
+  purposes: string[];
+  moodText: string | null;
+  /** family = 정확한 검색(그 가족만) · big = 애매한 검색(큰 무드 전체) · null = 무드 가족 검색을 안 탔다 */
+  moodMode: "family" | "big" | null;
+  moodFamilies: string[];
+  moodFilled: string[];
+  /**
+   * 맥미니 검색어 분리가 실패했나 — 이유(lib/siglip-text-search-core SearchQueryFailure) 또는 "error"(검색 전체가 터짐).
+   * 실패하면 태그 일치만으로 찾는다. null 이면 정상. 검색 기록에 남는다(0147 search_error).
+   */
+  failure: string | null;
+};
+
+export const EMPTY_INTERPRETATION: SearchInterpretation = {
+  purposes: [],
+  moodText: null,
+  moodMode: null,
+  moodFamilies: [],
+  moodFilled: [],
+  failure: null,
+};
+
+/** 목적 키 → 이름 (lib/siglip-text-search-core PHOTO_PURPOSE_KEYS) */
+export const SEARCH_PURPOSE_LABELS: Record<string, string> = {
+  personal: "개인",
+  couple: "커플",
+  friendship: "우정",
+  wedding: "웨딩",
+  pet: "반려동물",
+  commercial: "상업",
+  event: "행사",
+};
+
+export function purposeLabel(key: string): string {
+  return SEARCH_PURPOSE_LABELS[key] ?? key;
+}
+
+/** 검색 결과(PhotoSearchResult)에서 기록할 해석만 뽑는다 */
+export function interpretationFrom(result: {
+  purposes?: readonly string[];
+  moodText?: string;
+  mood?: { mode: "family" | "big"; families: string[]; filled?: string[] };
+  failure?: string;
+} | null | undefined): SearchInterpretation {
+  if (!result) return EMPTY_INTERPRETATION;
+  const moodText = result.moodText?.trim() || null;
+  return {
+    purposes: [...(result.purposes ?? [])],
+    moodText,
+    moodMode: result.mood?.mode ?? null,
+    moodFamilies: result.mood?.families ?? [],
+    moodFilled: result.mood?.filled ?? [],
+    failure: result.failure ?? null,
+  };
+}
+
+/** 실패 이유 → 사람이 읽는 말. 어드민 전용 */
+export function failureLabel(reason: string | null | undefined): string {
+  if (!reason) return "";
+  if (reason === "timeout") return "맥미니 4초 초과";
+  if (reason === "network") return "맥미니 연결 실패";
+  if (reason === "http_401") return "맥미니 인증 실패(401 · 토큰)";
+  if (reason.startsWith("http_5")) return `맥미니 서버 오류(${reason.slice(5)})`;
+  if (reason.startsWith("http_")) return `맥미니 오류 코드 ${reason.slice(5)}`;
+  if (reason === "bad_response") return "맥미니 답 형식 오류";
+  if (reason === "no_url") return "맥미니 주소 없음";
+  if (reason === "too_long") return "검색어 120자 초과";
+  if (reason === "error") return "검색 전체 오류";
+  return reason;
+}
+
+/**
+ * 어떤 길로 찾았나 — 한 줄 설명.
+ *   무드 가족(정확) · 큰 무드(애매) · 목적 · 목적+무드(벡터) · 무드(태그+벡터) · 해석 없음
+ */
+export function routeLabel(i: SearchInterpretation): string {
+  if (i.failure) return "맥미니 실패 → 태그만";
+  if (i.moodMode === "family") return "무드 가족 · 정확";
+  if (i.moodMode === "big") return "큰 무드 · 애매";
+  if (i.purposes.length && i.moodText) return "목적 + 무드(벡터)";
+  if (i.purposes.length) return "목적만";
+  if (i.moodText) return "무드(태그 + 벡터)";
+  return "해석 없음";
+}
+
+/** 걸린 시간 표시 — 1초 미만은 ms, 그 위는 초(소수 한 자리). 어드민 전용 */
+export function formatDuration(ms: number | null | undefined): string {
+  if (ms == null || !Number.isFinite(ms)) return "—";
+  return ms < 1000 ? `${Math.round(ms)}ms` : `${(ms / 1000).toFixed(1)}초`;
+}
+
+/** 검색한 시각(한국 시간) — "10. 6. 오후 7:40" 꼴. 어드민 전용 */
+export function formatSearchedAt(iso: string): string {
+  return new Intl.DateTimeFormat("ko-KR", {
+    timeZone: "Asia/Seoul",
+    month: "numeric",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(iso));
+}

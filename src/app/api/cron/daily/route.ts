@@ -4,7 +4,8 @@ import { sendRefundWindowNotices } from "@/lib/refund-notices";
 import { markPastShootsAsShot, notifyDeliveryOverdue } from "@/lib/booking-sweep";
 import { sendChatReminders } from "@/lib/chat-reminder";
 import { pingIndexNow } from "@/lib/indexnow";
-
+import { checkSearchSnapshotFreshness } from "@/lib/snapshot-watch";
+import { recomputeSpotPhotos } from "@/lib/spot-photos";
 // 하루 한 번 도는 일과 전부 — 매일 09:00 KST(= 00:00 UTC).
 //
 // **왜 하나로 합쳤나.** Vercel Hobby 는 크론 개수와 빈도가 둘 다 묶여 있다(하루 1회).
@@ -54,6 +55,13 @@ export async function GET(request: Request) {
     // 검색엔진에 "어제 바뀐 것" 을 알린다. 네이버는 sitemap 만 보고 알아서 오지 않는다.
     // 발행 자리마다 붙이지 않고 여기 한 곳에서 sitemap 을 읽는 이유는 lib/indexnow.ts 주석에.
     await run("indexnow", pingIndexNow),
+    // 06:00 공개 사진 목록이 오늘도 만들어졌나. 검색·장소 카드는 낡아도 계속 쓰므로 여기서 잡는다.
+    await run("snapshot-freshness", checkSearchSnapshotFreshness),
+    // 촬영 장소 ↔ 사진 신규 연결(spot_photos) — **06:00 맥미니 배치의 백업**(docs/28 §5.2).
+    // 본 실행은 06:00 배치가 /api/cron/spot-photos 를 부르는 것이다. 더하기만 하고 이미 연결된 사진은
+    // 건너뛰므로, 06:00 이 됐으면 여기선 바뀌는 게 없고, 안 됐으면(맥미니 꺼짐 · CRON_SECRET 없음 → 401)
+    // 여기서 채운다. 성공 여부를 따로 기록해 확인할 필요가 없다.
+    await run("spot-photos-backup", () => recomputeSpotPhotos({ newOnly: true })),
   ];
 
   const ok = tasks.every((t) => t.ok);

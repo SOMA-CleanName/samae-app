@@ -10,13 +10,79 @@ import {
 } from "@/lib/explore-db";
 import { analyzePersona, analyzePersonaFromImages, PersonaScrapeError } from "@/lib/persona/analyze";
 import { imageBlockFromBase64 } from "@/lib/persona/images";
-import { findCached, saveResult, isRateLimited, PERSONA_RESULT_COOKIE } from "@/lib/persona/store";
+import {
+  findCached,
+  saveResult,
+  isRateLimited,
+  countAnalysesToday,
+  dailyCap,
+  analysisOff,
+  PERSONA_RESULT_COOKIE,
+} from "@/lib/persona/store";
+import { createClient } from "@/lib/supabase/server";
 import { fetchLikedPhotosByIds } from "@/lib/discovery";
 import { lookupProfile, type LookupResult } from "@/lib/persona/lookup";
 import type { Persona } from "@/lib/persona/schema";
 import type { ShootPersona } from "@/lib/persona/shoot-schema";
 import type { SimilarPhoto } from "@/lib/persona/similar";
 import type { PersonaActionResult, PersonaSuccess, RecoPhoto } from "./view-types";
+
+/**
+ * 로그인했는가 — **분석 앞에 두는 유일한 문지기.**
+ *
+ * 2026-10-06 인스타에서 이벤트가 터지면서 6시간에 335건이 돌았는데(시간당 최대 88건),
+ * 분석만 하고 나가는 사람이 대부분이라 Apify 스크래핑 + Anthropic 비용만 나갔다.
+ * 비용을 가입자로 바꾸기로 했다 — 분석이 곧 가입 동기다.
+ *
+ * getCurrentUser 를 쓰지 않는다: 프로필·작가·신청까지 세 번 더 조회하는데
+ * 여기서 알아야 할 건 "로그인했나" 하나뿐이다.
+ */
+async function signedInId(): Promise<string | null> {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    return user?.id ?? null;
+  } catch {
+    // 인증 조회 자체가 실패하면 **막는다.** 비용이 드는 쪽이라 열어두는 게 더 위험하다.
+    return null;
+  }
+}
+
+/** 서버에서 본 로그인 여부 — 화면이 버튼 문구·이동을 미리 정하는 데 쓴다 */
+export async function personaViewerSignedIn(): Promise<boolean> {
+  return (await signedInId()) !== null;
+}
+
+const LOGIN_REQUIRED = {
+  ok: false,
+  reason: "login_required",
+  message: "카카오로 3초 로그인하면 바로 분석해드려요.",
+} as const;
+
+/**
+ * 새 분석을 돌려도 되는가 — 끄기 스위치와 하루 상한.
+ * **캐시 히트에는 적용하지 않는다.** 이미 분석된 결과를 꺼내 보는 건 비용이 0 이다.
+ */
+async function analysisBlocked(): Promise<PersonaActionResult | null> {
+  if (analysisOff()) {
+    return {
+      ok: false,
+      reason: "off",
+      message: "지금은 분석을 잠시 멈췄어요. 조금 뒤에 다시 와주세요.",
+    };
+  }
+  const cap = dailyCap();
+  if (cap > 0 && (await countAnalysesToday()) >= cap) {
+    return {
+      ok: false,
+      reason: "daily_cap",
+      message: "오늘 분석이 마감됐어요. 내일 다시 열려요.",
+    };
+  }
+  return null;
+}
 
 /** 아이디 입력 중 프로필 확인 카드용 사전 조회 — 분석 비용이 들지 않는다. */
 export async function lookupInstagramProfile(username: string): Promise<LookupResult> {
@@ -120,6 +186,11 @@ export async function runPersonaAnalysis(usernameRaw: string): Promise<PersonaAc
   const username = usernameRaw.replace(/^@/, "").trim();
   if (!username) return { ok: false, reason: "error", message: "인스타 아이디를 입력해 주세요." };
 
+  // 0) 로그인 — **캐시 히트보다 먼저.** 결과를 보려면 로그인해야 한다는 게 요점이라,
+  //    "이미 분석된 아이디는 그냥 보여주는" 구멍을 두면 공짜 경로가 하나 남는다.
+  const profileId = await signedInId();
+  if (!profileId) return LOGIN_REQUIRED;
+
   // 1) 캐시 — 같은 아이디의 최근 결과가 있으면 스크래핑·LLM 을 태우지 않는다.
   const cached = await findCached(username);
   if (cached) {
@@ -139,7 +210,11 @@ export async function runPersonaAnalysis(usernameRaw: string): Promise<PersonaAc
     return finalize(cached.persona, cached.shoot, username, null, cached.id, restored);
   }
 
-  // 2) 레이트리밋 — 캐시 미스일 때만 센다(재조회는 비용이 0이므로 막을 이유가 없다).
+  // 2) 끄기 스위치·하루 상한 — 캐시 미스일 때만. 여기서부터 실제로 돈이 든다.
+  const blocked = await analysisBlocked();
+  if (blocked) return blocked;
+
+  // 3) 레이트리밋 — 캐시 미스일 때만 센다(재조회는 비용이 0이므로 막을 이유가 없다).
   const ip = await clientIp();
   if (await isRateLimited(ip)) {
     return {
@@ -169,6 +244,7 @@ export async function runPersonaAnalysis(usernameRaw: string): Promise<PersonaAc
       photoIds: result.photos.map((p) => p.id),
       ip,
       embedding: meanVec,
+      profileId,
     });
     await setResultCookie(shareId);
     return { ...result, shareId };
@@ -180,7 +256,10 @@ export async function runPersonaAnalysis(usernameRaw: string): Promise<PersonaAc
         message:
           e.reason === "private"
             ? "비공개 계정이라 피드를 읽을 수 없어요. 사진을 직접 올려서 분석해볼 수 있어요."
-            : "게시물이 너무 적어 분석이 어려워요. 사진을 직접 올려볼까요?",
+            : e.reason === "quota"
+              // 우리 쪽 사정이다 — "실패" 로 말하지 않는다. 바로 다음 길을 가리킨다.
+              ? "지금 인스타 읽기가 잠시 막혔어요. 사진 3~5장 올리면 바로 분석해드릴게요."
+              : "게시물이 너무 적어 분석이 어려워요. 사진을 직접 올려볼까요?",
       };
     }
     console.error("[persona] 분석 실패:", e);
@@ -199,6 +278,12 @@ export async function analyzeFromImages(
   if (blocks.length === 0) {
     return { ok: false, reason: "error", message: "분석할 사진을 올려 주세요. (jpg/png)" };
   }
+
+  // 업로드 경로도 같은 문지기 — 여기만 열어두면 비공개 계정 안내를 타고 공짜로 돌릴 수 있다
+  const profileId = await signedInId();
+  if (!profileId) return LOGIN_REQUIRED;
+  const blocked = await analysisBlocked();
+  if (blocked) return blocked;
 
   const ip = await clientIp();
   if (await isRateLimited(ip)) {
@@ -221,6 +306,7 @@ export async function analyzeFromImages(
       photoIds: result.photos.map((p) => p.id),
       ip,
       embedding: meanVec,
+      profileId,
     });
     await setResultCookie(shareId);
     return { ...result, shareId };

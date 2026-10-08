@@ -43,7 +43,7 @@ test("축 개수 분포로 다축이 실제로 쓰였는지 드러난다", () =>
   assert.deepEqual(axisSpread(GROUPS), [[1, 1], [2, 2]]);
 });
 
-test("축 11개에 모두 색이 있다 — 클래스가 비면 화면에서 구분이 사라진다", () => {
-  assert.equal(AXES.length, 11);
+test("축 12개에 모두 색이 있다 — 클래스가 비면 화면에서 구분이 사라진다", () => {
+  assert.equal(AXES.length, 12);
   for (const axis of AXES) assert.ok(AXIS_TONE[axis], `${axis} 색 없음`);
 });

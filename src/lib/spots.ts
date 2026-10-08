@@ -4,10 +4,14 @@ import "server-only";
 // admin(service_role)을 쓰면 그 키가 없는 Vercel Preview 스코프에서 빌드가 죽는다.
 // RLS 가 published·approved·is_active 를 대신 걸러 주므로 보안도 더 낫다.
 import { createPublicClient } from "@/lib/supabase/public";
+// 연결 계산(matchSpotPhotoIds)만 쓴다 — 비공개 사진까지 봐야 해서. 빌드 때 도는 지면 경로에서는 부르지 않는다
+// (서비스 키가 없는 Preview 빌드가 죽는다 — 아래 GALLERY_SELECT 위 주석).
+import { createAdminClient } from "@/lib/supabase/admin";
 import { listPublishedSpots } from "@/lib/spots-db";
 import { isSpotLive } from "@/lib/spot-live";
 import { isUsablePlace } from "@/lib/location-text";
-import type { GalleryPhoto } from "@/lib/discovery";
+import { snapshotSearchablePhotos, type GalleryPhoto } from "@/lib/discovery";
+import { locationMatchesSpot, usableSpotKeywords } from "@/lib/spot-match";
 import type { Spot } from "@/lib/spots-db";
 
 // 장소 페이지가 블로그와 갈리는 지점은 여기다.
@@ -63,7 +67,7 @@ const MAX_PHOTOS = 24;
 const MAX_LISTED_PLACES = 2;
 
 /** 촬영지로 볼 수 있는 표기인가 — 나열이 길면 커버 지역 목록으로 본다. */
-function isSpecificLocation(text: string | null | undefined): boolean {
+export function isSpecificLocation(text: string | null | undefined): boolean {
   // 「협의」·「서울 어딘가」 류는 장소가 아니다 — 스팟에 붙을 수도 없고 붙어서도 안 된다
   if (!isUsablePlace(text)) return false;
   if (!text) return false;
@@ -76,7 +80,7 @@ function isSpecificLocation(text: string | null | undefined): boolean {
 
 /** 키워드를 PostgREST or 필터로. 콤마·괄호가 들어가면 필터가 깨지므로 먼저 막는다. */
 function orFilter(spot: Spot): string | null {
-  const safe = spot.keywords.filter((k) => !/[,()]/.test(k));
+  const safe = usableSpotKeywords(spot.keywords);
   if (safe.length === 0) return null;
   return safe.map((k) => `location_text.ilike.%${k}%`).join(",");
 }
@@ -114,12 +118,54 @@ function spreadByAlbum<T extends { id: string; album_id: string | null }>(photos
 }
 
 /**
- * 키워드가 걸린 공개 사진을 전부 읽어 나열형을 걸러내고, 앞자리를 정리한다.
+ * 06:00 에 만들어 두는 공개 사진 목록(search_tag_snapshot)을 장소 매칭용으로 편다.
+ *
+ * 그 목록은 아래 DB 경로와 조건이 같다 — 공개 · 피드에서 안 내림 · 승인 작가 · 최신순
+ * (scripts/embed/build_search_tags.py). 그래서 같은 사진을 같은 순서로 고른다.
+ * 다른 점은 **늦게 반영된다**는 것뿐이다 — 낮에 숨긴 사진은 다음 목록이 생길 때까지 남는다.
+ * 맥미니가 멈춰 목록이 안 바뀌어도 들고 있던 걸 계속 쓴다(무드 검색과 같은 조건, 2026-10-06 결정).
+ * 낡은 목록은 매일 크론이 알린다(lib/snapshot-watch).
+ *
+ * 목록을 한 번도 못 받았으면 null.
+ */
+async function snapshotPool(): Promise<MatchedPhoto[] | null> {
+  const photos = await snapshotSearchablePhotos();
+  if (!photos) return null;
+  // 검색용 필드(앨범 글·태그)는 떼고 카드·지면에 쓰는 것만 남긴다
+  return photos.map((p) => ({
+    id: p.id,
+    src_url: p.src_url,
+    thumb_url: p.thumb_url,
+    width: p.width,
+    height: p.height,
+    region: p.region,
+    mood_tags: p.mood_tags,
+    price_krw: p.price_krw,
+    photographer: { id: p.photographer.id, display_name: p.photographer.display_name },
+    location_text: p.location_text,
+    album_id: p.album_id,
+  }));
+}
+
+/**
+ * 키워드가 걸린 공개 사진을 전부 모아 나열형을 걸러내고, 앞자리를 정리한다.
+ *
+ * `pool` 이 있으면 그 안에서 고른다(메모리, DB 를 안 친다). 없으면 DB 에서 직접 읽는다 —
+ * 이건 `location_text ilike` 라 photos 를 통째로 훑는다. **요청마다 도는 지면에서는 쓰지 않는다**
+ * (listSpotCards 의 dbFallback). 2026-10-06 이 경로가 DB 시간의 77% 를 먹고 사이트를 3시간 멈췄다.
  *
  * 콤마 개수는 SQL 로 못 세서 받아 온 뒤 자바스크립트로 거른다.
  * 장소가 스무 곳 남짓이고 장소당 수십 장이라 그래도 된다.
  */
-async function fetchMatched(spot: Spot): Promise<MatchedPhoto[]> {
+async function fetchMatched(spot: Spot, pool?: MatchedPhoto[] | null): Promise<MatchedPhoto[]> {
+  const rows = pool
+    ? pool.filter((p) => locationMatchesSpot(p.location_text, spot.keywords))
+    : await queryMatched(spot);
+  return arrangeMatched(rows);
+}
+
+/** DB 경로 — 키워드마다 `location_text ilike '%키워드%'` 를 or 로 묶는다. 공개 사진만(anon). */
+async function queryMatched(spot: Spot): Promise<MatchedPhoto[]> {
   const or = orFilter(spot);
   if (!or) return [];
 
@@ -136,9 +182,42 @@ async function fetchMatched(spot: Spot): Promise<MatchedPhoto[]> {
     .order("created_at", { ascending: false });
 
   if (error) return [];
-  const matched = ((data ?? []) as unknown as MatchedPhoto[]).filter((p) =>
-    isSpecificLocation(p.location_text)
-  );
+  return (data ?? []) as unknown as MatchedPhoto[];
+}
+
+/**
+ * 연결 계산용 — 키워드에 걸리는 사진을 **공개 여부와 상관없이** 전부 읽는다.
+ *
+ * 연결은 사진이 가진 장소 값 그대로 저장하고, 안 보이는 사진(비공개 · 피드에서 내림 · 미승인 작가)은
+ * 지면에서 읽을 때 거른다(linkedPhotosBySpot, 2026-10-06 결정). 그래서 나중에 공개로 바뀌면 다시 계산하지
+ * 않아도 바로 뜬다. 비공개 사진은 anon 으로는 RLS 에 막혀 안 보여서 서비스 키로 읽는다.
+ */
+async function queryMatchedAnyVisibility(spot: Spot, since?: string): Promise<MatchedPhoto[]> {
+  const or = orFilter(spot);
+  if (!or) return [];
+
+  const admin = createAdminClient();
+  const out: MatchedPhoto[] = [];
+  for (let from = 0; ; from += 1000) {
+    let query = admin
+      .from("photos")
+      .select(`${GALLERY_SELECT}, location_text, album_id`)
+      .or(or);
+    if (since) query = query.gte("created_at", since);
+    const { data, error } = await query
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: true })
+      .range(from, from + 999);
+    if (error) throw new Error(`장소 매칭 조회 실패(${spot.slug}): ${error.message}`);
+    out.push(...((data ?? []) as unknown as MatchedPhoto[]));
+    if ((data ?? []).length < 1000) break;
+  }
+  return out;
+}
+
+/** 나열형 표기를 빼고 앞자리를 정리한다 — DB 경로와 메모리 경로가 같은 규칙을 쓴다. */
+function arrangeMatched(rows: MatchedPhoto[]): MatchedPhoto[] {
+  const matched = rows.filter((p) => isSpecificLocation(p.location_text));
 
   /*
     앞자리(= 목록의 대표 사진)에 뭘 세울지가 여기서 정해진다.
@@ -153,9 +232,93 @@ async function fetchMatched(spot: Spot): Promise<MatchedPhoto[]> {
   return [...spreadByAlbum(solo), ...spreadByAlbum(shared)];
 }
 
-/** location_text 에 키워드가 들어간 공개 사진. 최신순으로 MAX_PHOTOS 장. */
+/**
+ * 자동 연결 계산용 — DB 에서 키워드로 매칭해 저장할 순서대로 사진 id 를 준다.
+ * 하루 한 번(맥미니 06:00 배치 · 어드민 「전체 다시 계산」)만 부른다(lib/spot-photos). 요청 경로에서 쓰지 않는다.
+ *
+ * 지면 규칙(arrangeMatched)보다 **넓게** 저장한다 — 「경복궁, 창덕궁, 창경궁, 덕수궁」 처럼 여러 곳을
+ * 나열한 사진도 네 장소 모두에 연결한다. 사진이 가진 장소 값은 그대로 데이터로 남긴다(2026-10-06 결정).
+ * 다만 그런 사진은 지면에 자동으로 띄우지 않는다(linkedPhotosBySpot) — 같은 사진이 네 장소 갤러리에
+ * 똑같이 뜨던 문제(2026-08-31) 때문이다. 띄울 곳은 운영자가 어드민에서 골라 싣는다(manual).
+ * 순서: 지면에 뜨는 것(단독 표기 → 앨범 분산) 다음에 나열형.
+ * 사진의 공개 여부와 상관없이 연결한다 — 안 보이는 사진은 지면에서 읽을 때 거른다(queryMatchedAnyVisibility).
+ * `since` 를 주면 그 뒤에 올라온 사진만(매일 06:00 배치 — 신규 사진만 더한다).
+ */
+export async function matchSpotPhotoIds(spot: Spot, { since }: { since?: string } = {}): Promise<string[]> {
+  const rows = await queryMatchedAnyVisibility(spot, since);
+  const shown = arrangeMatched(rows);
+  const shownIds = new Set(shown.map((p) => p.id));
+  const listed = spreadByAlbum(rows.filter((p) => !shownIds.has(p.id)));
+  return [...shown, ...listed].map((p) => p.id);
+}
+
+type LinkedRow = {
+  spot_id: string;
+  source: "auto" | "manual";
+  photo: MatchedPhoto & { photographer: MatchedPhoto["photographer"] & { status?: string } };
+};
+
+/**
+ * 저장된 연결(spot_photos, 0145)로 장소별 사진을 읽는다 — 장소 id → 지면 순서대로의 사진.
+ *
+ * 운영자가 넣은 사진(manual)이 먼저, 그다음 자동 매칭(auto)이 계산 순서대로 선다. 운영자가 뺀 것은 오지 않는다.
+ * 자동 매칭 중 여러 곳을 나열한 사진은 저장만 되고 지면엔 안 뜬다(matchSpotPhotoIds) — 운영자가 실으면 manual 이 된다.
+ * 사진의 공개 여부는 **여기서 그 자리에서** 본다 — 숨긴 사진은 다음 계산을 기다리지 않고 빠진다.
+ * 조인이 기본키라 가볍다(장소 카드는 이걸 1분 메모로 든다).
+ *
+ * 표가 없거나(0145 전) 비어 있으면(첫 계산 전) null — 부르는 쪽이 키워드 매칭으로 돌아간다.
+ */
+async function linkedPhotosBySpot(): Promise<Map<string, MatchedPhoto[]> | null> {
+  const supabase = createPublicClient();
+  const out = new Map<string, MatchedPhoto[]>();
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from("spot_photos")
+      .select(`spot_id, source, photo:photos!inner(${GALLERY_SELECT}, location_text, album_id)`)
+      .eq("excluded", false)
+      .eq("photo.visibility", "published")
+      .eq("photo.feed_hidden", false)
+      .eq("photo.photographer.status", "approved")
+      .order("source", { ascending: false }) // 'manual' > 'auto'
+      .order("sort", { ascending: true })
+      .order("photo_id", { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) return null;
+    const rows = (data ?? []) as unknown as LinkedRow[];
+    for (const { spot_id, source, photo: p } of rows) {
+      // 나열형 자동 매칭은 지면에 안 띄운다 — 운영자가 실은 것(manual)만
+      if (source === "auto" && !isSpecificLocation(p.location_text)) continue;
+      const list = out.get(spot_id) ?? [];
+      list.push({
+        id: p.id,
+        src_url: p.src_url,
+        thumb_url: p.thumb_url,
+        width: p.width,
+        height: p.height,
+        region: p.region,
+        mood_tags: p.mood_tags,
+        price_krw: p.price_krw,
+        photographer: { id: p.photographer.id, display_name: p.photographer.display_name },
+        location_text: p.location_text,
+        album_id: p.album_id,
+      });
+      out.set(spot_id, list);
+    }
+    if (rows.length < PAGE) break;
+  }
+  return out.size > 0 ? out : null;
+}
+
+/** 저장된 연결이 있으면 그걸, 없으면 키워드 매칭(DB). 하루 한 번 만드는 지면·어드민 점검용. */
+async function photosForSpot(spot: Spot): Promise<MatchedPhoto[]> {
+  const linked = await linkedPhotosBySpot();
+  return linked ? (linked.get(spot.id) ?? []) : fetchMatched(spot);
+}
+
+/** 이 장소의 공개 사진. 지면 순서대로 MAX_PHOTOS 장. */
 export async function fetchSpotPhotos(spot: Spot): Promise<GalleryPhoto[]> {
-  return (await fetchMatched(spot)).slice(0, MAX_PHOTOS);
+  return (await photosForSpot(spot)).slice(0, MAX_PHOTOS);
 }
 
 /**
@@ -166,7 +329,7 @@ export async function fetchSpotPhotos(spot: Spot): Promise<GalleryPhoto[]> {
  */
 export async function fetchSpotDetail(spot: Spot): Promise<SpotDetail> {
   // 한 번만 읽고 표시분과 전체 수를 함께 뽑는다(같은 쿼리를 두 번 내지 않게).
-  const matched = await fetchMatched(spot);
+  const matched = await photosForSpot(spot);
   const photos = matched.slice(0, MAX_PHOTOS);
   const totalCount = matched.length;
   if (photos.length === 0) {
@@ -225,21 +388,20 @@ export async function fetchSpotDetail(spot: Spot): Promise<SpotDetail> {
  * DB 가 센 숫자를 쓰면 화면에 거른 뒤 장수와 표기가 어긋난다.
  */
 export async function countSpotPhotos(spot: Spot): Promise<number> {
-  return (await fetchMatched(spot)).length;
+  return (await photosForSpot(spot)).length;
 }
 
 /**
  * 이 작가를 뺐을 때 남는 장수 — 작가 퇴출 점검(lib/removal-facts)이 쓴다.
  *
- * 스팟은 FK 가 아니라 `location_text` 매칭이라, 작가를 지워도 **아무 신호가 없다.**
- * 갤러리가 조용히 줄어들 뿐이다. 그래서 지우기 전에 여기서 미리 세어 본다.
- * 매칭 규칙(나열형 제외 등)을 두 번 적지 않으려고 fetchMatched 를 그대로 쓴다.
+ * 작가를 지워도 장소 쪽엔 **아무 신호가 없다** — 갤러리가 조용히 줄어들 뿐이다.
+ * 그래서 지우기 전에 여기서 미리 세어 본다. 지면과 같은 출처(photosForSpot)를 쓴다.
  */
 export async function countSpotPhotosExcluding(
   spot: Spot,
   photographerId: string
 ): Promise<number> {
-  return (await fetchMatched(spot)).filter((p) => p.photographer?.id !== photographerId).length;
+  return (await photosForSpot(spot)).filter((p) => p.photographer?.id !== photographerId).length;
 }
 
 export function formatKrw(n: number): string {
@@ -265,12 +427,27 @@ export type SpotCard = {
  *
  * 사진이 0장인 곳은 뺀다. 소개글만 남는 장소는 들어가 봐야 볼 게 없고,
  * 탐색은 사진을 보러 오는 지면이라 더더욱 실을 이유가 없다.
+ *
+ * 사진은 저장된 연결(spot_photos)에서 읽는다 — 장소가 몇 곳이든 기본키 조인 하나다.
+ * 연결이 아직 없으면(0145 전·첫 계산 전) 06:00 목록(snapshotPool)에서 메모리로 매칭한다.
+ * 둘 다 없을 때 DB 로 읽을지는 `dbFallback` 으로 정한다. **요청마다 도는 지면(홈·매거진)은
+ * 끄고**(카드를 안 세운다), 하루 한 번 만드는 지면(/spots)만 켠다.
  */
-export async function listSpotCards(limit = 6): Promise<SpotCard[]> {
+export async function listSpotCards(
+  limit = 6,
+  { dbFallback = false }: { dbFallback?: boolean } = {}
+): Promise<SpotCard[]> {
+  const linked = await linkedPhotosBySpot();
+  const pool = linked ? null : await snapshotPool();
+  if (!linked && !pool && !dbFallback) return [];
+
   const PUBLISHED_SPOTS = await listPublishedSpots();
 
   const matchedBySpot = await Promise.all(
-    PUBLISHED_SPOTS.map(async (s) => ({ spot: s, matched: await fetchMatched(s) }))
+    PUBLISHED_SPOTS.map(async (s) => ({
+      spot: s,
+      matched: linked ? (linked.get(s.id) ?? []) : await fetchMatched(s, pool),
+    }))
   );
 
   /*
