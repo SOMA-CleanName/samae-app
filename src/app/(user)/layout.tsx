@@ -12,6 +12,7 @@ import { toProfileMe } from "@/lib/profile-me";
 import { createClient } from "@/lib/supabase/server";
 import { termsConsentIsCurrent } from "@/lib/consent";
 import { TermsConsentGate } from "@/components/user/TermsConsentGate";
+import { MarketingAskCard } from "@/components/user/MarketingAskCard";
 
 // 사용자(탐색) 영역 공통 셸 — 기존 하단바/레일 제거.
 // 하단 중앙 플로팅 내비 + 우측 하단 장바구니.
@@ -38,15 +39,19 @@ export default async function UserLayout({
   // 전에는 로그인 직후나 스튜디오 진입 같은 길목에서만 물었다. 그래서 이미 로그인해 둔
   // 사람은 약관을 개정해도 모르고 계속 썼다 — 개정 절차를 밟아도 동의는 못 받는 상태다.
   let termsGate: { revisit: boolean } | null = null;
+  // 광고 수신을 **아직 한 번도 안 물어본** 사람인가. 묻는 것도 답하는 것도 선택이라
+  // 거절(false)도 기록되므로, 기준은 값이 아니라 **응답 시각의 유무**다.
+  let askMarketing = false;
   if (me) {
     const supabase = await createClient();
     const { data: p } = await supabase
       .from("profiles")
-      .select("terms_agreed_at, terms_version")
+      .select("terms_agreed_at, terms_version, marketing_consent_at")
       .eq("id", me.id)
       .maybeSingle();
     // 버전까지 봐야 한다 — 있는지만 보면 개정해도 기존 회원이 그대로 지나간다
     if (!termsConsentIsCurrent(p)) termsGate = { revisit: !!p?.terms_agreed_at };
+    askMarketing = !p?.marketing_consent_at;
   }
 
   return (
@@ -59,6 +64,8 @@ export default async function UserLayout({
         {/* 배지는 '어딘가에 왔다' 만 말한다 — 누가 뭐라고 했는지까지 띄워야 바로 답한다 */}
         {me && <ChatToast meId={me.id} />}
         {termsGate && <TermsConsentGate revisit={termsGate.revisit} />}
+        {/* 약관 덮개와 겹치지 않게 — 필수 동의를 받는 중에 선택 동의를 들이밀지 않는다 */}
+        {me && !termsGate && askMarketing && <MarketingAskCard />}
         {/* 운영 주체는 이제 푸터가 맡는다(SiteFooter). 홈 피드가 자동 이어붙이기를 3회에서
             멈추므로(ExploreGallery AUTO_ADVANCE_BUDGET) 푸터가 **도달 가능한 자리**로
             돌아왔다. 지면 맨 위의 SiteInfoBar 는 첫 화면의 사진을 밀어내기만 했고,
