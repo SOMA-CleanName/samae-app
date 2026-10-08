@@ -72,6 +72,23 @@ export async function recordTermsConsent(userId: string): Promise<void> {
     .eq("id", userId);
 }
 
+/**
+ * 광고성 정보 수신 동의를 기록한다 (정보통신망법 §50).
+ *
+ * ⚠️ **선택 항목이다.** 가입을 막는 조건으로 쓰면 그 자체가 위법이다. 호출부에서
+ *    체크를 강제하지 말 것 — 여기서는 체크하지 않은 것도 그대로(false) 기록한다.
+ *
+ * 거부·철회도 같은 칸에 남긴다. "언제 거부했는가" 도 증적이라, agreed 가 false 여도
+ * 시각을 갱신한다. 버전별 이력이 필요해지면 행을 쌓는 표로 옮겨야 한다 — 지금은 두 칸뿐이다.
+ */
+export async function recordMarketingConsent(userId: string, agreed: boolean): Promise<void> {
+  const admin = createAdminClient();
+  await admin
+    .from("profiles")
+    .update({ marketing_consent: agreed, marketing_consent_at: new Date().toISOString() })
+    .eq("id", userId);
+}
+
 /** 이 작가가 현재 버전의 입점 문서 묶음에 동의했는가 */
 export async function hasCurrentPhotographerAgreement(
   supabase: SupabaseClient,

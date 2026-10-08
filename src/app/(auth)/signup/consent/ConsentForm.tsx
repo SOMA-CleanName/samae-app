@@ -20,6 +20,9 @@ export function ConsentForm({
 }) {
   const [terms, setTerms] = useState(false);
   const [privacy, setPrivacy] = useState(false);
+  // 광고성 정보 수신은 **선택**이다. 제출 조건(both)에 절대 넣지 않는다 —
+  // 넣는 순간 "동의해야 가입되는" 구조가 되어 정보통신망법 §50 위반이다.
+  const [marketing, setMarketing] = useState(false);
   const both = terms && privacy;
 
   return (
@@ -63,6 +66,27 @@ export function ConsentForm({
             에 동의합니다
           </span>
         </label>
+
+        {/*
+          (선택) 광고성 정보 수신 — 정보통신망법 §50. 필수 둘과 **시각적으로 떨어뜨리고**
+          기본값은 꺼둔다. 미리 체크해두면 동의로 치지 않는다.
+        */}
+        <label className="mt-1 flex cursor-pointer items-start gap-2.5 rounded-xl border border-line/60 p-3.5 has-[:checked]:border-fg">
+          <input
+            id="consent-marketing"
+            type="checkbox"
+            name="marketing"
+            checked={marketing}
+            onChange={(e) => setMarketing(e.target.checked)}
+            className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
+          />
+          <span className="text-sm leading-relaxed text-muted">
+            <b className="font-semibold text-fg">(선택)</b> 이벤트·혜택 소식을 받아볼래요
+            <span className="block text-xs text-faint">
+              동의하지 않아도 가입할 수 있어요. 예약·입금 같은 안내는 동의와 무관하게 보내드려요.
+            </span>
+          </span>
+        </label>
       </div>
 
       <button
@@ -73,7 +97,9 @@ export function ConsentForm({
         }}
         className="mt-3 text-xs text-muted underline underline-offset-2"
       >
-        모두 동의
+        {/* 선택 항목은 일부러 빼둔다 — "모두 동의" 한 번에 광고 수신까지 딸려가면
+            눌러놓고 몰랐다는 말이 나온다. 라벨도 그에 맞게 바꿨다. */}
+        필수 항목 모두 동의
       </button>
 
       <Submit disabled={!both} />
