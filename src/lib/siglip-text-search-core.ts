@@ -205,7 +205,17 @@ type TextEmbeddingRequestOptions = {
   fetcher?: typeof fetch;
   timeoutMs?: number;
   signal?: AbortSignal;
+  /** 검색어 분리가 실패하면 이유를 알려준다(requestSearchQuery) — 검색 기록에 남겨 원인을 찾는다(0147) */
+  onFailure?: (reason: SearchQueryFailure) => void;
 };
+
+/**
+ * 맥미니 검색어 분리(/search-query)가 실패한 이유.
+ *   timeout — 4초 안에 답이 없었다 · network — 연결 자체가 안 됐다(Funnel · 맥미니 꺼짐)
+ *   http_NNN — 맥미니가 오류 코드를 줬다(401 토큰 · 5xx 서버) · bad_response — 답의 꼴이 틀렸다
+ *   no_url — 앱에 맥미니 주소가 없다 · too_long — 검색어가 120자를 넘었다
+ */
+export type SearchQueryFailure = "timeout" | "network" | `http_${number}` | "bad_response" | "no_url" | "too_long";
 
 type TextEmbeddingResponse = {
   model?: unknown;
@@ -362,7 +372,9 @@ export async function requestSearchQuery(
 ): Promise<SearchQueryParse | "unsupported" | null> {
   const baseUrl = options.baseUrl?.trim().replace(/\/$/, "");
   const query = rawQuery.trim();
-  if (!baseUrl || !query || query.length > 120) return null;
+  if (!query) return null;
+  if (!baseUrl) { options.onFailure?.("no_url"); return null; }
+  if (query.length > 120) { options.onFailure?.("too_long"); return null; }
 
   try {
     const response = await (options.fetcher ?? fetch)(`${baseUrl}/search-query`, {
@@ -377,9 +389,14 @@ export async function requestSearchQuery(
         : AbortSignal.timeout(options.timeoutMs ?? 4_000),
     });
     if (response.status === 404 || response.status === 501) return "unsupported";
-    if (!response.ok) return null;
-    return parseSearchQueryResponse(await response.json());
-  } catch {
+    if (!response.ok) { options.onFailure?.(`http_${response.status}`); return null; }
+    const parsed = parseSearchQueryResponse(await response.json());
+    if (!parsed) options.onFailure?.("bad_response");
+    return parsed;
+  } catch (error) {
+    // AbortSignal.timeout 은 TimeoutError 로 끊는다 — 그 밖은 연결 실패(DNS · 거절 · Funnel)
+    const name = error instanceof Error ? error.name : "";
+    options.onFailure?.(name === "TimeoutError" || name === "AbortError" ? "timeout" : "network");
     return null;
   }
 }

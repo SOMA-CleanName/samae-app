@@ -344,7 +344,8 @@ async function searchHomePhotos(query: string): Promise<{
       related: [],
       counts: { matches: 0, related: 0, capped: false },
       suggestions: [],
-      interpretation: EMPTY_INTERPRETATION,
+      // 검색 전체가 터졌다(태그 일치 대신 길까지 실패) — 「진짜 결과 없음」 과 구분되게 남긴다
+      interpretation: { ...EMPTY_INTERPRETATION, failure: "error" },
       durationMs: elapsed(),
     };
   }
