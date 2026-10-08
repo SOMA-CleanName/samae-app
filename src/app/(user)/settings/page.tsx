@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { updateDisplayName } from "./actions";
+import { updateDisplayName, updateMarketingConsent } from "./actions";
 import { submitSupportRequest } from "@/app/actions/support";
 import { AvatarUploader } from "./AvatarUploader";
 import { DeleteAccount } from "./DeleteAccount";
 import { loadPhoneConsentState, maskPhone } from "@/lib/phone-consent";
+import { createClient } from "@/lib/supabase/server";
 import { KakaoPhoneConsentButton } from "@/components/user/KakaoPhoneConsentButton";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +27,13 @@ export default async function SettingsPage() {
   const fallback = (me.displayName || me.email || "?").trim().charAt(0).toUpperCase();
   // 채팅방 배너를 접었거나 놓친 사람이 "언제든" 돌아올 수 있는 자리
   const phoneConsent = await loadPhoneConsentState();
+  // 광고성 정보 수신 동의 — 현재 값을 그대로 체크박스에 반영한다(끈 사람에게 켜진 걸 보여주면 안 된다)
+  const { data: consentRow } = await (await createClient())
+    .from("profiles")
+    .select("marketing_consent")
+    .eq("id", me.id)
+    .maybeSingle();
+  const marketingOn = consentRow?.marketing_consent === true;
 
   return (
     <main className="mx-auto max-w-lg px-3.5 sm:px-5 py-8 font-kr">
@@ -96,6 +104,40 @@ export default async function SettingsPage() {
       <p className="mt-8 text-xs text-faint">
         작가 활동용 공개 이름·소개는 스튜디오 → 프로필에서 따로 관리해요.
       </p>
+
+      {/*
+        광고성 정보 수신 — 정보통신망법 §50. 동의도 철회도 여기서 한다(제4항: 철회는 언제든 쉬워야 한다).
+        ⚠️ 예약·입금 같은 **거래 안내는 여기와 무관하다.** 그걸 같이 끄는 줄 알면 끌 사람도 안 끈다.
+      */}
+      <section className="mt-8 border-t border-fg/10 pt-6">
+        <p className="text-sm font-medium">이벤트·혜택 소식</p>
+        <form action={updateMarketingConsent} className="mt-3">
+          <label className="flex cursor-pointer items-start gap-2.5">
+            <input
+              type="checkbox"
+              name="marketing"
+              defaultChecked={marketingOn}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-brand"
+            />
+            <span className="text-sm leading-relaxed text-fg">
+              이벤트·혜택 소식을 받아볼래요
+              <span className="mt-0.5 block text-xs leading-relaxed text-muted">
+                예약·입금·정산 같은 <b className="text-fg/80">거래 안내는 이 설정과 상관없이</b> 보내드려요.
+                끄면 광고성 소식만 멈춰요.
+              </span>
+            </span>
+          </label>
+          <button
+            type="submit"
+            className="mt-3 cursor-pointer rounded-full border border-fg/15 px-4 py-2 text-xs font-semibold text-fg transition-colors hover:bg-fg/5"
+          >
+            저장
+          </button>
+        </form>
+        <p className="mt-2 text-xs text-faint">
+          {marketingOn ? "지금은 받는 중이에요." : "지금은 받지 않고 있어요."}
+        </p>
+      </section>
 
       {/* 약관 — 회원약관 3조: 게시된 문서를 언제든 찾아볼 수 있어야 한다 */}
       <section className="mt-8 border-t border-fg/10 pt-6">
