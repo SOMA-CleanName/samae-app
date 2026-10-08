@@ -6,6 +6,7 @@ import familyIndex from "@/lib/mood-family-photos.json" with { type: "json" };
 import duplicatePhotos from "@/lib/duplicate-photos.json" with { type: "json" };
 import {
   arrangeFamilyPhotos,
+  type SearchQueryFailure,
   diversifySearchResults,
   dropDuplicatePhotos,
   FILL_MIN,
@@ -420,6 +421,11 @@ export type PhotoSearchResult = {
   mood?: { mode: "family" | "big"; families: string[]; /** 모자라 채운 비슷한 무드(가까운 순) */ filled?: string[] };
   /** 연관 검색어 — 같은 큰 무드 가족 먼저, 그 뒤 비슷한 큰 무드 · 가족. q 는 누르면 갈 검색어 */
   suggestions?: SearchSuggestion[];
+  /**
+   * 맥미니 검색어 분리가 실패해 **태그 일치만으로** 찾았다 — 그 이유(SearchQueryFailure).
+   * 목적 분리 · 무드 가족 · SigLIP 없이 06:00 사진 목록의 태그만 본 결과다. 검색 기록에 남는다(0147).
+   */
+  failure?: SearchQueryFailure;
 };
 
 export type { SearchSuggestion } from "@/lib/siglip-text-search-core";
@@ -449,11 +455,13 @@ export async function searchPhotos(
 }
 
 async function findPhotos(query: string, limit: number, signal: AbortSignal): Promise<PhotoSearchResult> {
+  let failure: SearchQueryFailure | null = null;
   const parsed = await requestSearchQuery(query, {
     baseUrl: embedBaseUrl(),
     token: process.env.PERSONA_SERVICE_TOKEN,
     timeoutMs: 4_000,
     signal,
+    onFailure: (reason) => { failure = reason; },
   });
   if (parsed === "unsupported") {
     const [vector, tagged] = await Promise.all([
@@ -463,7 +471,15 @@ async function findPhotos(query: string, limit: number, signal: AbortSignal): Pr
     const matches = withMoodTags(query, tagged, vector, limit);
     return { purposes: [], moodText: query, matches, related: [], capped: matches.length >= limit, arranged: true };
   }
-  if (!parsed) throw new Error("검색어 분리·임베딩을 받지 못했습니다");
+  if (!parsed) {
+    // 🔴 맥미니가 실패하면(4초 초과 · 연결 실패 · 오류 코드) 예전엔 여기서 던졌고, 홈은 그걸 「결과가 없어요」 로 보였다
+    //    — 사진이 없는 건지 검색이 실패한 건지 사용자가 구분할 수 없었다(2026-10-08). 이제 06:00 사진 목록의
+    //    **태그 일치**만으로라도 찾는다(맥미니 없이 도는 길). 목적 분리 · 무드 가족 · SigLIP 은 빠진다.
+    const reason: SearchQueryFailure = failure ?? "bad_response";
+    console.error(`[siglip-search] 검색어 분리 실패(${reason}) — 태그 일치로 찾는다:`, query);
+    const tagged = await moodTagMatches(query, limit, signal);
+    return { purposes: [], moodText: query, matches: tagged, related: [], capped: tagged.length >= limit, failure: reason };
+  }
 
   // 무드가 사진 뼈대 검색어와 닿으면 그 가족에 확정된 사진으로(docs/47 §9). 0장이면 아래 예전 무드 검색으로
   const byFamily = await familySearch(query, parsed, signal);

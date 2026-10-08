@@ -285,3 +285,27 @@ test("채울 가족 — 같은 큰 무드 먼저, 그 뒤 가까운 순, 쓴 가
   const layers = { names: { f57: "몽환", f30: "신비주의", f38: "동화 속", f66: "다크", f12: "귀여운" }, big: { f57: "m22", f30: "m22", f38: "m22", f66: "m14", f12: "m06" }, moods: [] };
   assert.deepEqual(fillFamilyOrder(["f57"], { f57: 1, f30: 0.5, f38: 0.7, f66: 0.9, f12: 0.3 }, layers), ["f38", "f30", "f66"]);
 });
+
+test("검색어 분리가 실패하면 이유를 알려준다 — 검색 기록에 남겨 원인을 찾는다(0147)", async () => {
+  const reasons: string[] = [];
+  const onFailure = (r: string) => reasons.push(r);
+  const status = (code: number) => (async () => new Response("{}", { status: code })) as typeof fetch;
+  await requestSearchQuery("가을", { baseUrl: "http://x", fetcher: status(401), onFailure });
+  await requestSearchQuery("가을", { baseUrl: "http://x", fetcher: status(502), onFailure });
+  const refused = (async () => { throw new TypeError("fetch failed"); }) as typeof fetch;
+  await requestSearchQuery("가을", { baseUrl: "http://x", fetcher: refused, onFailure });
+  const slow = ((_url: string, init: RequestInit) => new Promise((_, reject) =>
+    init.signal?.addEventListener("abort", () => reject(init.signal?.reason)))) as unknown as typeof fetch;
+  await requestSearchQuery("가을", { baseUrl: "http://x", fetcher: slow, timeoutMs: 20, onFailure });
+  const odd = (async () => Response.json({ hello: 1 })) as typeof fetch;
+  await requestSearchQuery("가을", { baseUrl: "http://x", fetcher: odd, onFailure });
+  await requestSearchQuery("가을", { baseUrl: "", onFailure });
+  assert.deepEqual(reasons, ["http_401", "http_502", "network", "timeout", "bad_response", "no_url"]);
+});
+
+test("갱신 전 맥미니(404 · 501)는 실패가 아니다 — 예전 방식으로 가는 신호", async () => {
+  const reasons: string[] = [];
+  const fetcher = (async () => new Response("{}", { status: 501 })) as typeof fetch;
+  assert.equal(await requestSearchQuery("가을", { baseUrl: "http://x", fetcher, onFailure: (r) => reasons.push(r) }), "unsupported");
+  assert.deepEqual(reasons, []);
+});

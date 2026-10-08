@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui";
-import { formatDuration, formatSearchedAt, purposeLabel } from "@/lib/search-interpretation";
+import { failureLabel, formatDuration, formatSearchedAt, purposeLabel } from "@/lib/search-interpretation";
 import type { SearchStatGroup, Tally } from "@/lib/search-stats";
 import { RouteBadge } from "./InterpretationChips";
 
@@ -132,6 +132,14 @@ export function SearchStatsTable({ groups }: { groups: SearchStatGroup[] }) {
                     <dd className="tabular-nums text-muted">
                       {g.avgMs === null ? "— (0146 전 기록)" : `평균 ${formatDuration(g.avgMs)} · 최대 ${formatDuration(g.maxMs)}`}
                     </dd>
+                    {g.failures.length > 0 && (
+                      <>
+                        <dt className="text-danger-ink">맥미니 실패</dt>
+                        <dd className="text-danger-ink">
+                          {g.failures.map((f) => `${failureLabel(f.name)} ${f.count}`).join(" · ")} — 그때는 태그 일치만으로 찾았어요
+                        </dd>
+                      </>
+                    )}
                     <dt className="text-faint">찾은 길</dt>
                     <dd className="text-muted">
                       {g.routes.map((r) => `${r.name} ${r.count}`).join(" · ")}

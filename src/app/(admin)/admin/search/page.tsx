@@ -4,7 +4,7 @@ import { EmptyState } from "@/components/ui";
 import { SearchStatsTable } from "./SearchStatsTable";
 import { SearchDebug } from "./SearchDebug";
 import { InterpretationChips } from "./InterpretationChips";
-import { formatDuration, formatSearchedAt } from "@/lib/search-interpretation";
+import { failureLabel, formatDuration, formatSearchedAt } from "@/lib/search-interpretation";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +57,7 @@ export default async function AdminSearchPage({
   const sinceDays = daysParam === "all" ? null : Number(daysParam);
   const view: View = VIEWS.some((v) => v.value === sp.view) ? (sp.view as View) : "terms";
 
-  const { groups, totalSearches, uniqueTerms, zeroResultCount, recent, timing } = await listSearchStats(sinceDays);
+  const { groups, totalSearches, uniqueTerms, zeroResultCount, recent, timing, failures } = await listSearchStats(sinceDays);
 
   const routeTotals = new Map<string, number>();
   for (const g of groups) for (const r of g.routes) routeTotals.set(r.name, (routeTotals.get(r.name) ?? 0) + r.count);
@@ -108,6 +108,8 @@ export default async function AdminSearchPage({
           { label: "평균 검색 시간", value: formatDuration(timing.avgMs) },
           { label: "느린 검색 (상위 5% 경계)", value: formatDuration(timing.p95Ms) },
           { label: "시간을 잰 검색", value: timing.measured },
+          // 맥미니 검색어 분리 실패(0147) — 그때는 태그 일치만으로 찾았다
+          { label: "맥미니 실패 → 태그만", value: `${failures.total} (${pct(failures.total)}%)` },
         ].map((s) => (
           <div key={s.label} className="rounded-xl border border-line bg-surface px-3 py-2.5">
             <dt className="text-[11px] text-faint">{s.label}</dt>
@@ -143,7 +145,7 @@ export default async function AdminSearchPage({
       ) : view === "moods" ? (
         <MoodView groups={groups} />
       ) : (
-        <RecentView recent={recent} slowest={timing.slowest} />
+        <RecentView recent={recent} slowest={timing.slowest} failures={failures} />
       )}
 
       {/* 시뮬레이터 */}
@@ -208,9 +210,22 @@ function MoodView({ groups }: { groups: SearchStatGroup[] }) {
 
 type Recent = Awaited<ReturnType<typeof listSearchStats>>["recent"];
 
-function RecentView({ recent, slowest }: { recent: Recent; slowest: Recent }) {
+type Failures = Awaited<ReturnType<typeof listSearchStats>>["failures"];
+
+function RecentView({ recent, slowest, failures }: { recent: Recent; slowest: Recent; failures: Failures }) {
   return (
     <div className="mt-4 space-y-5">
+      {failures.total > 0 && (
+        <section>
+          <h3 className="text-body-sm font-semibold text-danger-ink">맥미니 실패 {failures.total}건</h3>
+          <p className="mt-0.5 text-caption text-faint">
+            검색어 분리(맥미니)가 실패해 태그 일치만으로 찾은 검색이에요 —{" "}
+            {failures.byReason.map((r) => `${failureLabel(r.name)} ${r.count}`).join(" · ")}.
+            4초 초과는 맥미니가 바쁘거나(06:00 배치) 깨어나는 중, 연결 실패는 맥미니 · Funnel · 인터넷, 401 은 토큰 불일치예요(docs/28 §8.6).
+          </p>
+          <RecentList rows={failures.recent} />
+        </section>
+      )}
       {slowest.length > 0 && (
         <section>
           <h3 className="text-body-sm font-semibold">가장 느린 검색</h3>

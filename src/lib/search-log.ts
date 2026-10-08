@@ -18,6 +18,10 @@ export async function logSearch(
   interpretation: SearchInterpretation = EMPTY_INTERPRETATION,
   durationMs?: number | null
 ): Promise<void> {
+  // 로컬(개발)에서 친 검색은 남기지 않는다 — 로컬도 운영 DB 를 써서, 실험한 검색어가 운영 검색 기록에 섞였다
+  // (2026-10-07 테스트 기록을 손으로 지웠다). 로컬에서 기록까지 보려면 SEARCH_LOG_IN_DEV=1
+  if (process.env.NODE_ENV !== "production" && process.env.SEARCH_LOG_IN_DEV !== "1") return;
+
   const trimmed = raw.trim().slice(0, 80);
   const compact = normalizeQuery(trimmed);
   if (!compact) return; // 정규화 후 빈 검색어(특수문자만 등)는 버린다
@@ -36,10 +40,15 @@ export async function logSearch(
       mood_filled: interpretation.moodFilled,
     };
     const duration = Number.isFinite(durationMs) && (durationMs as number) >= 0 ? Math.round(durationMs as number) : null;
-    let { error } = await admin.from("search_logs").insert({ ...row, duration_ms: duration });
-    // 0146(duration_ms) 전이면 그 칸만 빼고 다시 넣는다 — 시간 때문에 검색 기록 자체를 잃지 않게
-    if (error && /duration_ms/.test(error.message)) {
-      ({ error } = await admin.from("search_logs").insert(row));
+    // 나중에 생긴 칸 — 0146 duration_ms(걸린 시간) · 0147 search_error(실패 이유).
+    // 운영 DB 에 아직 없으면 그 칸만 빼고 다시 넣는다 — 칸 하나 때문에 검색 기록 자체를 잃지 않게
+    const optional: Record<string, unknown> = { duration_ms: duration, search_error: interpretation.failure };
+    let { error } = await admin.from("search_logs").insert({ ...row, ...optional });
+    for (let tries = 0; error && tries < 2; tries += 1) {
+      const missing = Object.keys(optional).find((col) => error!.message.includes(col));
+      if (!missing) break;
+      delete optional[missing];
+      ({ error } = await admin.from("search_logs").insert({ ...row, ...optional }));
     }
     // 테이블이 없던 동안(0049 미적용) 404 를 아무도 몰랐다 — 조용히 삼키지 않고 서버 로그엔 남긴다
     if (error) console.error("[search-log] 검색 기록 실패:", error.message);

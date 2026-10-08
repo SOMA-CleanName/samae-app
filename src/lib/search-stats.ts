@@ -21,6 +21,7 @@ export type SearchStatGroup = {
   // ── 걸린 시간 (0146) — 시간이 남은 검색만으로 센다. 없으면 null ──
   avgMs: number | null;
   maxMs: number | null;
+  failures: Tally[]; // 맥미니 실패 이유(0147) — 실패해 태그만으로 찾은 횟수
 };
 
 export type Tally = { name: string; count: number };
@@ -42,6 +43,8 @@ export type SearchStatsResult = {
   recent: RecentSearch[]; // 최근 검색 50건 — 검색어 하나하나가 어디로 갔나
   // 걸린 시간 요약 — 시간이 남은 검색만(0146 뒤). 없으면 null
   timing: { avgMs: number | null; p95Ms: number | null; measured: number; slowest: RecentSearch[] };
+  // 맥미니 실패(0147) — 이유별 횟수 · 최근 실패 20건
+  failures: { total: number; byReason: Tally[]; recent: RecentSearch[] };
 };
 
 const MAX_ROWS = 5000;
@@ -60,6 +63,7 @@ type Bucket = {
   msSum: number;
   msCount: number;
   msMax: number | null;
+  failures: Map<string, number>;
 };
 
 type Row = {
@@ -73,6 +77,7 @@ type Row = {
   mood_families: string[] | null;
   mood_filled: string[] | null;
   duration_ms?: number | null; // 0146 전이면 칸 자체가 없다
+  search_error?: string | null; // 0147 전이면 칸 자체가 없다
 };
 
 function bump(map: Map<string, number>, key: string | null | undefined, n = 1) {
@@ -95,6 +100,7 @@ function interpretationOf(r: Row): SearchInterpretation {
     moodMode: r.mood_mode,
     moodFamilies: r.mood_families ?? [],
     moodFilled: r.mood_filled ?? [],
+    failure: r.search_error ?? null,
   };
 }
 
@@ -105,6 +111,7 @@ function addRow(b: Bucket, r: Row) {
   for (const p of i.purposes) bump(b.purposes, p);
   bump(b.routes, routeLabel(i));
   bump(b.moodTexts, i.moodText);
+  bump(b.failures, i.failure);
   if (typeof r.duration_ms === "number") {
     b.msSum += r.duration_ms;
     b.msCount += 1;
@@ -154,9 +161,15 @@ export async function listSearchStats(sinceDays: number | null = 30): Promise<Se
     if (since) query = query.gte("created_at", since);
     return query;
   };
-  // 걸린 시간 칸(0146)이 아직 없으면 그 칸만 빼고 읽는다
-  let { data, error } = await load(`${BASE_COLS}, duration_ms`);
-  if (error && /duration_ms/.test(error.message)) ({ data, error } = await load(BASE_COLS));
+  // 나중에 생긴 칸(0146 걸린 시간 · 0147 실패 이유)이 아직 없으면 그 칸만 빼고 읽는다
+  const optional = ["duration_ms", "search_error"];
+  let { data, error } = await load([BASE_COLS, ...optional].join(", "));
+  for (let tries = 0; error && tries < 2; tries += 1) {
+    const missing = optional.find((col) => error!.message.includes(col));
+    if (!missing) break;
+    optional.splice(optional.indexOf(missing), 1);
+    ({ data, error } = await load([BASE_COLS, ...optional].join(", ")));
+  }
   const rows = (data ?? []) as unknown as Row[];
 
   // 1차: 정규화 키(compact) 단위 집계
@@ -184,6 +197,7 @@ export async function listSearchStats(sinceDays: number | null = 30): Promise<Se
         msSum: 0,
         msCount: 0,
         msMax: null,
+        failures: new Map(),
       };
       addRow(fresh, r);
       buckets.set(r.compact, fresh);
@@ -205,6 +219,7 @@ export async function listSearchStats(sinceDays: number | null = 30): Promise<Se
       merge(host.purposes, bucket.purposes);
       merge(host.routes, bucket.routes);
       merge(host.moodTexts, bucket.moodTexts);
+      merge(host.failures, bucket.failures);
       host.msSum += bucket.msSum;
       host.msCount += bucket.msCount;
       if (bucket.msMax !== null) host.msMax = Math.max(host.msMax ?? 0, bucket.msMax);
@@ -231,6 +246,7 @@ export async function listSearchStats(sinceDays: number | null = 30): Promise<Se
       moodTexts: tally(c.moodTexts),
       avgMs: c.msCount ? Math.round(c.msSum / c.msCount) : null,
       maxMs: c.msMax,
+      failures: tally(c.failures),
     }))
     .sort((a, b) => b.count - a.count);
 
@@ -243,7 +259,16 @@ export async function listSearchStats(sinceDays: number | null = 30): Promise<Se
     // rows 는 최신순이다
     recent: rows.slice(0, 50).map(toRecent),
     timing: timingOf(rows),
+    failures: failuresOf(rows),
   };
+}
+
+/** 맥미니 실패 요약 — 이유별 횟수와 최근 실패(가끔 「결과 없음」 으로 끝나던 원인 찾기, 2026-10-08) */
+function failuresOf(rows: Row[]): SearchStatsResult["failures"] {
+  const failed = rows.filter((r) => r.search_error);
+  const byReason = new Map<string, number>();
+  for (const r of failed) bump(byReason, r.search_error);
+  return { total: failed.length, byReason: tally(byReason), recent: failed.slice(0, 20).map(toRecent) };
 }
 
 /** 걸린 시간 요약 — 평균 · 95번째(느린 쪽 5% 경계) · 가장 느린 5건 */

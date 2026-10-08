@@ -13,6 +13,11 @@ export type SearchInterpretation = {
   moodMode: "family" | "big" | null;
   moodFamilies: string[];
   moodFilled: string[];
+  /**
+   * 맥미니 검색어 분리가 실패했나 — 이유(lib/siglip-text-search-core SearchQueryFailure) 또는 "error"(검색 전체가 터짐).
+   * 실패하면 태그 일치만으로 찾는다. null 이면 정상. 검색 기록에 남는다(0147 search_error).
+   */
+  failure: string | null;
 };
 
 export const EMPTY_INTERPRETATION: SearchInterpretation = {
@@ -21,6 +26,7 @@ export const EMPTY_INTERPRETATION: SearchInterpretation = {
   moodMode: null,
   moodFamilies: [],
   moodFilled: [],
+  failure: null,
 };
 
 /** 목적 키 → 이름 (lib/siglip-text-search-core PHOTO_PURPOSE_KEYS) */
@@ -43,6 +49,7 @@ export function interpretationFrom(result: {
   purposes?: readonly string[];
   moodText?: string;
   mood?: { mode: "family" | "big"; families: string[]; filled?: string[] };
+  failure?: string;
 } | null | undefined): SearchInterpretation {
   if (!result) return EMPTY_INTERPRETATION;
   const moodText = result.moodText?.trim() || null;
@@ -52,7 +59,23 @@ export function interpretationFrom(result: {
     moodMode: result.mood?.mode ?? null,
     moodFamilies: result.mood?.families ?? [],
     moodFilled: result.mood?.filled ?? [],
+    failure: result.failure ?? null,
   };
+}
+
+/** 실패 이유 → 사람이 읽는 말. 어드민 전용 */
+export function failureLabel(reason: string | null | undefined): string {
+  if (!reason) return "";
+  if (reason === "timeout") return "맥미니 4초 초과";
+  if (reason === "network") return "맥미니 연결 실패";
+  if (reason === "http_401") return "맥미니 인증 실패(401 · 토큰)";
+  if (reason.startsWith("http_5")) return `맥미니 서버 오류(${reason.slice(5)})`;
+  if (reason.startsWith("http_")) return `맥미니 오류 코드 ${reason.slice(5)}`;
+  if (reason === "bad_response") return "맥미니 답 형식 오류";
+  if (reason === "no_url") return "맥미니 주소 없음";
+  if (reason === "too_long") return "검색어 120자 초과";
+  if (reason === "error") return "검색 전체 오류";
+  return reason;
 }
 
 /**
@@ -60,6 +83,7 @@ export function interpretationFrom(result: {
  *   무드 가족(정확) · 큰 무드(애매) · 목적 · 목적+무드(벡터) · 무드(태그+벡터) · 해석 없음
  */
 export function routeLabel(i: SearchInterpretation): string {
+  if (i.failure) return "맥미니 실패 → 태그만";
   if (i.moodMode === "family") return "무드 가족 · 정확";
   if (i.moodMode === "big") return "큰 무드 · 애매";
   if (i.purposes.length && i.moodText) return "목적 + 무드(벡터)";
