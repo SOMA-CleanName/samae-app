@@ -33,6 +33,7 @@ import {
 import { refundQuote, penaltyStarts, type RefundOverride, type RefundQuote } from "./refund";
 import { currentPolicySnapshot } from "./policy-version";
 import { computeDeliveryDueAt, deliveryDaysOf } from "./delivery-deadline";
+import { mpRevenueServer, mpTrackServer } from "./mixpanel-server";
 
 const fmtKrw = (n: number) => new Intl.NumberFormat("ko-KR").format(n);
 
@@ -390,6 +391,21 @@ export async function confirmBankTransferAdmin(bookingId: string): Promise<Confi
       shootDate: b.shoot_date,
       settlementKrw: Math.max(0, (b.amount_krw ?? 0) - feeWithVat(fee)),
     });
+
+  // ★ 매출 확정 — **에스크로 입금은 이 길로만 확정된다.**
+  // 예전엔 작가가 직접 입금을 확인하는 confirmTransfer(actions/payments.ts) 에만 이벤트가
+  // 있었다. 2026-08-26 사매 계좌 에스크로로 바뀐 뒤 실제 입금은 운영자가 여기서 확인하는데,
+  // 이 함수엔 이벤트가 없어서 **결제가 나도 Mixpanel 에 매출이 0** 이었다.
+  //
+  // $insert_id 를 작가 확인 경로와 **같게** 맞춘다 — 둘이 한 예약에 겹쳐도 한 번만 센다.
+  // 위의 상태 전이가 .eq("status","accepted") 라 애초에 예약당 한 번만 여기까지 온다.
+  await mpTrackServer(
+    "Confirm Payment",
+    b.user_id,
+    { booking_id: bookingId, photographer_id: b.photographer_id, amount_krw: b.amount_krw, via: "escrow" },
+    `Confirm Payment:${bookingId}`,
+  );
+  await mpRevenueServer(b.user_id, b.amount_krw ?? 0);
   return { ok: true };
 }
 
@@ -486,6 +502,23 @@ export async function markSettlementPaid(bookingId: string): Promise<ConfirmResu
   // 채팅방에는 남기지 않는다 — 정산은 사매와 작가 사이의 일이고,
   // 수령 확인도 카톡으로 오간다. 고객에게는 알 필요도, 알아서 좋을 것도 없다.
   // (고객 입장에서 예약은 [입금 완료]를 누른 순간 끝났다)
+
+  // 정산 지급 — 사매가 작가에게 실제로 돈을 보낸 시점. 운영자만 누른다.
+  // 고객이 아니라 **작가 쪽 사건**이라 distinct_id 를 작가 프로필로 둔다.
+  // 수수료(fee_krw)가 사매 매출의 실체다 — 고객 결제액(Confirm Payment)과 따로 본다.
+  if (ph)
+    await mpTrackServer(
+      "Settlement Paid",
+      ph.profile_id,
+      {
+        booking_id: bookingId,
+        photographer_id: booking.photographer_id,
+        amount_krw: amountKrw,
+        fee_krw: feeKrw,
+        settlement_krw: settlementAmount,
+      },
+      `Settlement Paid:${bookingId}`,
+    );
   return { ok: true };
 }
 

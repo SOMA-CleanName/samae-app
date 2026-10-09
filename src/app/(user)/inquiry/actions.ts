@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getCurrentUser } from "@/lib/auth";
 import { readMetaAdCookies, type MetaAdCookies } from "@/lib/meta-capi";
+import { mpTrackServer } from "@/lib/mixpanel-server";
 import { rememberInquiryIds } from "@/lib/my-inquiries";
 import { promoteBotInquiryToChat } from "@/lib/inquiry-bot-chat";
 import { slotsToAnswers, type BotChatMessage, type LlmSlots } from "@/lib/inquiry-bot-llm";
@@ -193,6 +194,17 @@ export async function ensureBotConversation(
       .insert({ user_id: me.id, photographer_id: photographerId, bot_photo_id: photoId })
       .select("id")
       .single();
+    // 상담 시작 — **새 방이 생겼을 때만.** 재진입은 위에서 이미 반환했으므로 중복이 없다.
+    // 채팅 상주형으로 바뀐 뒤(2026-08-26) 퍼널 맨 위가 비어 있었다: 사진 보기 다음이
+    // 곧장 예약 제안이라, 상담을 시작했다가 그만둔 사람이 하나도 안 보였다.
+    if (created?.id) {
+      await mpTrackServer(
+        "Start Consult",
+        me.id,
+        { conversation_id: created.id, photographer_id: photographerId, photo_id: photoId ?? null },
+        `Start Consult:${created.id}`,
+      );
+    }
     return (created?.id as string) ?? null;
   } catch (err) {
     console.error("[bot-chat] 방 선생성 실패:", err instanceof Error ? err.message : err);
@@ -524,6 +536,26 @@ export async function finalizeBotInquiryFor(params: {
         note: brief.note,
       },
     });
+    // 접수 — 봇이 핵심 4칸(종류·날짜·지역·인원)을 다 받아 요약 카드가 뜬 순간.
+    // 이게 채팅 상주형의 "문의 완료" 다. 옛 폼의 Submit Inquiry 에 해당한다.
+    //
+    // ⚠️ distinct_id 는 **customerId 를 명시**한다. 이 함수는 작가가 대화에 개입할 때도
+    //    불린다(finalizeIfBotCollectionComplete). 그때 현재 사용자로 잡으면 작가에게 붙는다.
+    //    같은 이유로 위의 fbp/fbc(광고 쿠키)는 null 로 둔다 — 여기서 cookies() 를 읽으면
+    //    작가가 개입한 경우 **작가의 광고 쿠키가 고객 문의에 붙는다.**
+    await mpTrackServer(
+      "Submit Consult",
+      params.customerId,
+      {
+        inquiry_id: result.id,
+        photographer_id: params.photographerId,
+        photo_id: params.photoId ?? null,
+        purpose: brief.purpose ?? null,
+        region: brief.region ?? null,
+        party_size: brief.partySize ?? null,
+      },
+      `Submit Consult:${result.id}`,
+    );
   }
   return { ok: true, inquiryId: result.id };
 }

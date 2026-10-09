@@ -39,7 +39,7 @@ export function MetaPixel() {
   useEffect(() => {
     function onClick(e: MouseEvent) {
       const el = (e.target as HTMLElement | null)?.closest?.("[data-quote-lead]");
-      if (el) trackQuoteLead();
+      if (el) trackQuoteLead(el.getAttribute("data-track"));
     }
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);

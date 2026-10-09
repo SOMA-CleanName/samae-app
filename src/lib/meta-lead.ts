@@ -6,12 +6,15 @@ import { mpTrack } from "@/lib/mixpanel";
 // 같은 eventID 로 클라 픽셀 + 서버 CAPI 를 보내 Meta 가 이중 집계를 자동 제거한다.
 const FIRED_KEY = "samae_quote_lead";
 
-export function trackQuoteLead(): void {
+export function trackQuoteLead(cta?: string | null): void {
   try {
     const firstClick = !localStorage.getItem(FIRED_KEY);
     // Mixpanel 은 매 클릭 기록(재클릭 행동도 분석 대상) — Meta 전환 여부는 속성으로 구분.
     // Meta Lead 와 같은 시점·같은 기준이라 광고 지표와 퍼널을 나란히 비교할 수 있다.
-    mpTrack("Click Quote CTA", { path: window.location.pathname, meta_lead: firstClick });
+    //
+    // cta 는 누른 버튼의 data-track(예: cta:consult · cta:inquiry). 사진 상세엔 상담·예약
+    // 두 버튼이 **같은 경로**에 있어서 path 만으로는 어느 쪽인지 갈리지 않는다.
+    mpTrack("Click Quote CTA", { path: window.location.pathname, cta: cta ?? null, meta_lead: firstClick });
     if (!firstClick) return; // 이미 전환한 브라우저 — Meta 는 1회 제한
     const eventID = `quote_${crypto.randomUUID()}`;
     localStorage.setItem(FIRED_KEY, eventID);
