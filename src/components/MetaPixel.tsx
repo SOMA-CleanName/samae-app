@@ -10,6 +10,11 @@ import { trackQuoteLead } from "@/lib/meta-lead";
 // SPA 라우팅이라 최초 진입 PageView 는 인라인 스크립트가 보내고,
 // 이후 페이지 이동마다 fbq PageView 를 다시 전송한다.
 // 전환(Lead)은 '무료로 견적 받아보기' CTA 클릭 — data-quote-lead 위임 캡처로 잡는다.
+// 회원가입(CompleteRegistration)은 /auth/callback 이 새 계정을 판정해 CAPI 로 먼저 보내고,
+// 같은 event_id 를 samae_cr 쿠키로 넘긴다. 아래 인라인 스크립트가 그걸 읽어 픽셀로도 쏜 뒤
+// 지운다 — Meta 가 둘을 한 번으로 친다. **인라인에서 쏘는 이유**: useEffect 에서는 픽셀
+// 스크립트(afterInteractive)보다 먼저 돌 수 있어 window.fbq 가 없을 때 조용히 버려진다.
+// 카카오 콜백 뒤엔 전체 페이지 로드라 이 스크립트가 반드시 다시 돈다.
 const PIXEL_ID = process.env.NEXT_PUBLIC_FB_PIXEL_ID;
 
 declare global {
@@ -60,7 +65,11 @@ t.src=v;s=b.getElementsByTagName(e)[0];
 s.parentNode.insertBefore(t,s)}(window, document,'script',
 'https://connect.facebook.net/en_US/fbevents.js');
 fbq('init', '${PIXEL_ID}');
-fbq('track', 'PageView');`}
+fbq('track', 'PageView');
+(function(){var m=document.cookie.match(/(?:^|; )samae_cr=([^;]+)/);
+if(!m)return;var id=decodeURIComponent(m[1]);
+fbq('track','CompleteRegistration',{},{eventID:id});
+document.cookie='samae_cr=; Max-Age=0; path=/; SameSite=Lax';})();`}
       </Script>
       <noscript>
         {/* eslint-disable-next-line @next/next/no-img-element */}
