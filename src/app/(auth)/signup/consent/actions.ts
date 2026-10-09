@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { getCurrentUser } from "@/lib/auth";
 import { recordMarketingConsent, recordTermsConsent } from "@/lib/consent";
 import { safeNext } from "@/lib/safe-redirect";
+import { sendCapiCompleteRegistration } from "@/lib/meta-capi";
 
 /**
  * 회원약관·개인정보처리방침 동의 기록.
@@ -30,10 +31,19 @@ export async function agreeTerms(formData: FormData): Promise<void> {
   redirect(safeNext(String(formData.get("next") || ""), "/"));
 }
 
-/** 이메일 가입 직후(세션이 생긴 뒤) 폼에서 이미 체크한 동의를 기록한다 */
-export async function recordSignupConsent(marketing = false): Promise<void> {
+/**
+ * 이메일 가입 직후(세션이 생긴 뒤) 폼에서 이미 체크한 동의를 기록한다.
+ *
+ * 이메일 가입은 /auth/callback 을 안 거친다(인증 메일 OFF → signUp 이 바로 세션을 준다).
+ * 그래서 Meta CompleteRegistration 도 여기서 보낸다 — 콜백과 같은 event_id 규칙이라
+ * 돌려준 id 로 폼이 픽셀을 쏘면 Meta 가 둘을 한 번으로 친다.
+ */
+export async function recordSignupConsent(marketing = false): Promise<string | null> {
   const me = await getCurrentUser();
-  if (!me) return;
+  if (!me) return null;
   await recordTermsConsent(me.id);
   await recordMarketingConsent(me.id, marketing);
+  const eventId = `signup_${me.id}`;
+  await sendCapiCompleteRegistration(eventId, me.id);
+  return eventId;
 }
