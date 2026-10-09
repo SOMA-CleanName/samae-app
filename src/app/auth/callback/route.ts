@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { sendCapiCompleteRegistration } from "@/lib/meta-capi";
+import { mpTrackServer } from "@/lib/mixpanel-server";
 import { createClient } from "@/lib/supabase/server";
 import { requestOrigin, safeNext } from "@/lib/safe-redirect";
 import { readAnonFavPhotoIds, ANON_FAV_COOKIE } from "@/lib/anon-favorites";
@@ -40,7 +41,21 @@ export async function GET(request: Request) {
       const isNewSignup =
         !!u?.created_at && Date.now() - new Date(u.created_at).getTime() < 5 * 60 * 1000;
       const signupEventId = isNewSignup && u ? `signup_${u.id}` : null;
-      if (signupEventId && u) await sendCapiCompleteRegistration(signupEventId, u.id);
+      if (signupEventId && u) {
+        await sendCapiCompleteRegistration(signupEventId, u.id);
+        // Mixpanel 가입도 **같은 판정**으로 여기서 센다 — 메타와 숫자가 어긋나지 않게.
+        // 예전엔 MixpanelTracker 가 브라우저의 SIGNED_IN 으로 판정해서 카카오 가입을 놓칠 수 있었다.
+        //
+        // 📌 서버 이벤트엔 브라우저 슈퍼 프로퍼티(utm·landing_path)가 안 실린다.
+        //    유입 경로는 첫 방문 때 프로필에 박힌 first_utm_*(mpPeopleOnce)로 본다 —
+        //    리포트에서 사용자 속성으로 쪼개면 된다.
+        await mpTrackServer(
+          "Sign Up",
+          u.id,
+          { method: (u.app_metadata?.provider as string) || "oauth" },
+          `Sign Up:${u.id}`,
+        );
+      }
 
       // 비로그인 중 쿠키에 쌓인 관심사진 → 계정 favorites 로 병합(중복 무시) 후 쿠키 비움
       await mergeAnonFavorites(supabase);
