@@ -110,15 +110,27 @@ export function MixpanelTracker() {
         const method = (u.app_metadata?.provider as string) || "email";
         const isNew = !!u.created_at && Date.now() - new Date(u.created_at).getTime() < SIGNUP_WINDOW_MS;
         if (isNew) {
-          // 가입은 유저당 1회만
-          const key = `samae_mp_su_${u.id}`;
-          try {
-            if (!localStorage.getItem(key)) {
-              localStorage.setItem(key, "1");
+          // 가입은 유저당 1회만.
+          //
+          // ⚠️ **OAuth(카카오) 가입은 여기서 세지 않는다** — /auth/callback 이 서버에서 센다.
+          //    카카오는 콜백에서 쿠키로 세션을 심어서 브라우저엔 SIGNED_IN 이 안 올 수 있고,
+          //    여기서도 세면 두 번이 된다(서버·클라 이벤트는 시각이 달라 $insert_id 로 안 합쳐진다).
+          //    이메일 가입은 콜백을 안 지나고 브라우저가 바로 세션을 받으므로 여기서만 잡힌다.
+          //    새 가입자는 위 isNew 분기라 아래 Log In 으로도 새지 않는다.
+          //
+          // ponytail: 이메일 가입에 **인증 메일을 켜면** 확인 링크가 /auth/callback 을 지나
+          //    서버도 세므로 두 번이 된다. 지금은 EMAIL_SIGNUP_ENABLED=false(카카오만)라 해당
+          //    없음. 켤 때는 콜백이 세는 경우를 이 분기가 알게 해야 한다(콜백이 쿠키로 표시).
+          if (method === "email") {
+            const key = `samae_mp_su_${u.id}`;
+            try {
+              if (!localStorage.getItem(key)) {
+                localStorage.setItem(key, "1");
+                mpTrack("Sign Up", { method });
+              }
+            } catch {
               mpTrack("Sign Up", { method });
             }
-          } catch {
-            mpTrack("Sign Up", { method });
           }
         } else {
           // 로그인은 탭 세션당 1회 (세션 복원 재발화로 인한 과다 카운트 방지)
