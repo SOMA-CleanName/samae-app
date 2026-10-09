@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { sendCapiCompleteRegistration } from "@/lib/meta-capi";
 import { createClient } from "@/lib/supabase/server";
 import { requestOrigin, safeNext } from "@/lib/safe-redirect";
 import { readAnonFavPhotoIds, ANON_FAV_COOKIE } from "@/lib/anon-favorites";
@@ -27,6 +28,20 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
+      // ── 회원가입 완료 → Meta CompleteRegistration ─────────────────────
+      // **새 계정을 확실히 아는 곳은 여기뿐이다.** 카카오는 이 콜백에서 쿠키로 세션을 심기
+      // 때문에 브라우저에선 SIGNED_IN 이 아니라 '세션 복원' 으로 보일 수 있다 — 클라이언트에서
+      // 판정하면 가입을 놓친다. 그래서 서버가 판정하고 서버(CAPI)로 먼저 보낸다.
+      //
+      // event_id 를 사용자 id 로 **고정**한다. 가입 직후 재로그인해도(5분 안) 같은 id 라
+      // Meta 가 한 번만 센다. 브라우저 픽셀도 같은 id 로 쏘게 쿠키로 넘긴다(아래 res).
+      // 기준 5분은 MixpanelTracker 의 SIGNUP_WINDOW_MS 와 같게 맞췄다.
+      const u = data?.session?.user;
+      const isNewSignup =
+        !!u?.created_at && Date.now() - new Date(u.created_at).getTime() < 5 * 60 * 1000;
+      const signupEventId = isNewSignup && u ? `signup_${u.id}` : null;
+      if (signupEventId && u) await sendCapiCompleteRegistration(signupEventId, u.id);
+
       // 비로그인 중 쿠키에 쌓인 관심사진 → 계정 favorites 로 병합(중복 무시) 후 쿠키 비움
       await mergeAnonFavorites(supabase);
       // 카카오싱크 동의로 번호가 넘어왔으면 여기서 채운다 — 카카오가 검증한 번호라
@@ -70,6 +85,16 @@ export async function GET(request: Request) {
       const res = NextResponse.redirect(`${origin}${dest}`);
       res.cookies.delete(OAUTH_NEXT_COOKIE);
       res.cookies.delete(ANON_FAV_COOKIE);
+      // 브라우저 픽셀이 같은 event_id 로 CompleteRegistration 을 쏘도록 넘긴다.
+      // JS 가 읽어야 하므로 httpOnly 가 아니다. 픽셀 인라인 스크립트가 읽고 바로 지운다.
+      if (signupEventId) {
+        res.cookies.set("samae_cr", signupEventId, {
+          httpOnly: false,
+          maxAge: 10 * 60,
+          path: "/",
+          sameSite: "lax",
+        });
+      }
       // dev 전용 — 카카오 "나에게 보내기" 실험(/dev/kakao-memo)용 provider 토큰 스태시.
       // 프로덕션 채택 시엔 쿠키가 아니라 DB(암호화)에 저장·리프레시하는 본구현으로 교체.
       if (process.env.NODE_ENV !== "production" && data?.session?.provider_token) {
