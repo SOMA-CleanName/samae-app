@@ -122,7 +122,9 @@ export function SignupForm({ kakaoTermsTags }: { kakaoTermsTags?: string | null 
     }
     if (data.session) {
       // 이메일 인증 OFF → 즉시 로그인. 폼에서 받은 동의를 profiles 에 기록한다
-      await recordSignupConsent(agreedMarketing);
+      const signupEventId = await recordSignupConsent(agreedMarketing);
+      // 콜백(카카오)과 달리 전체 페이지 로드가 없어 MetaPixel 인라인이 안 돈다 — 여기서 쏜다
+      if (signupEventId) window.fbq?.("track", "CompleteRegistration", {}, { eventID: signupEventId });
       router.push(signupNext());
       router.refresh();
     } else {
