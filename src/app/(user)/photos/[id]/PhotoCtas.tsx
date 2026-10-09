@@ -36,6 +36,9 @@ export function PhotoCtas({
           fullWidth
           style={{ borderRadius: "16px" }}
           data-track="cta:consult"
+          // 채팅 상담이 지금의 주 경로다(2026-08-26 개편). 예약하기에만 Lead 가 붙어 있어
+          // 상담으로 들어온 문의를 메타가 전환으로 못 보고 있었다 — 같은 기준으로 잡는다.
+          data-quote-lead=""
         >
           작가 상담하기
         </Button>
@@ -46,6 +49,9 @@ export function PhotoCtas({
           fullWidth
           style={{ borderRadius: "16px" }}
           data-track="cta:consult"
+          // 채팅 상담이 지금의 주 경로다(2026-08-26 개편). 예약하기에만 Lead 가 붙어 있어
+          // 상담으로 들어온 문의를 메타가 전환으로 못 보고 있었다 — 같은 기준으로 잡는다.
+          data-quote-lead=""
           onClick={() => setGateOpen(true)}
         >
           작가 상담하기
