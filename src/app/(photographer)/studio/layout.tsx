@@ -9,6 +9,7 @@ import { StudioSidebar } from "./StudioSidebar";
 import { AgreeGate } from "./AgreeGate";
 import { termsConsentIsCurrent } from "@/lib/consent";
 import { TermsConsentGate } from "@/components/user/TermsConsentGate";
+import Link from "next/link";
 
 // 작가 스튜디오 공통 레이아웃 — 승인된 작가에게만 좌측 네비를 씌운다.
 // 미신청·승인대기·반려 등은 사이드바 없이 페이지(상태 카드)만 그대로 노출.
@@ -22,14 +23,16 @@ export default async function StudioLayout({ children }: { children: React.React
   // 작가도 회원이다 — 스튜디오만 드나드는 사람은 (user) 레이아웃을 안 거치므로
   // 회원 약관 덮개를 여기에도 얹는다. 입점 동의(AgreeGate)와는 다른 동의다.
   let termsGate: { revisit: boolean } | null = null;
+  let hasPhone = true;
   if (me) {
     const sb = await createClient();
     const { data: prof } = await sb
       .from("profiles")
-      .select("terms_agreed_at, terms_version")
+      .select("terms_agreed_at, terms_version, phone")
       .eq("id", me.id)
       .maybeSingle();
     if (!termsConsentIsCurrent(prof)) termsGate = { revisit: !!prof?.terms_agreed_at };
+    hasPhone = !!prof?.phone;
   }
   const gate = termsGate && <TermsConsentGate revisit={termsGate.revisit} />;
 
@@ -92,6 +95,28 @@ export default async function StudioLayout({ children }: { children: React.React
       {/* 스튜디오 어느 탭에 있든 새 문의가 오면 바로 보인다 */}
       <ChatToast meId={me.id} />
       <StudioSidebar chatUnread={chatUnread} />
+      {/*
+        번호가 없으면 새 문의·예약 알림(문자·알림톡)이 아예 안 간다 — 2026-10-10 실측 작가 29명 중 9명.
+        사이트 안 알림만 남는데, 그건 작가가 들어와야 보인다. 닫는 버튼은 두지 않는다(거래 안내라 선택이 아니다).
+      */}
+      {!hasPhone && (
+        <div className="mx-auto max-w-5xl px-4 pt-4 md:px-8">
+          <div className="flex flex-col gap-3 rounded-2xl border border-brand/30 bg-brand-soft p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold text-fg">알림 받을 휴대폰 번호를 등록해 주세요</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted">
+                번호가 없으면 <b className="text-fg/80">새 문의 · 예약 알림이 문자로 가지 않아요.</b> 고객 연락처로 공개되지는 않습니다.
+              </p>
+            </div>
+            <Link
+              href="/signup/contact?next=/studio"
+              className="shrink-0 rounded-full bg-fg px-4 py-2.5 text-center text-xs font-semibold text-bg transition-opacity hover:opacity-90"
+            >
+              번호 등록하기
+            </Link>
+          </div>
+        </div>
+      )}
       {children}
     </div>
   );
