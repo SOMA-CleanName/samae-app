@@ -28,6 +28,7 @@ export type ConversationListItem = {
   bot_slots?: BotSlots | null; // 봇이 수집한 문의 슬롯 — 작가용 체크리스트
   bot_disabled_at?: string | null; // 작가 첫 발화 시각 — 세팅되면 봇은 다시 발화하지 않는다(단방향)
   bot_handoff_notified_at?: string | null; // "작가님이 들어왔어요" 안내를 이미 게시했는지
+  customer_engaged_at?: string | null; // 고객이 시드 사진 말고 실제로 무언가 보낸 첫 시각(0149) — 작가 목록 노출 기준
   photographer: { display_name: string | null; profile_id?: string | null } | null;
   user: { display_name: string | null } | null;
   // 상대 아바타 — profiles는 RLS상 본인만 조회 가능해 admin으로 보강(아래 fillCounterpartInfo)
@@ -113,7 +114,7 @@ export type ChatMessage = {
 const CONV_COLS =
   "id, user_id, photographer_id, last_message_at, user_unread, photographer_unread, " +
   "user_hidden_at, photographer_hidden_at, source_photo_path, bot_photo_id, bot_slots, " +
-  "bot_disabled_at, bot_handoff_notified_at, " +
+  "bot_disabled_at, bot_handoff_notified_at, customer_engaged_at, " +
   "photographer:photographers(display_name, profile_id), " +
   "user:profiles!conversations_user_id_fkey(display_name)";
 
@@ -206,6 +207,8 @@ function isVisibleTo(c: ConversationListItem, me: CurrentUser, withBrief: Set<st
   // 메시지 없으면: 상담정보가 있거나, 내(고객)가 시작한 챗봇 문의 진행 중일 때만.
   // (작가에게는 여전히 숨김 — 수집이 끝나야 요약 카드와 함께 보인다)
   if (!c.last_message_at) return withBrief.has(c.id) || (c.bot_photo_id != null && c.user_id === me.id);
+  // 작가 쪽: 고객이 아무 말도 안 한 방(시드 사진 + 봇 인사뿐)은 숨긴다 — 문의 버튼만 누르고 간 손님
+  if (c.user_id !== me.id && !c.customer_engaged_at && !withBrief.has(c.id)) return false;
   const myHidden = c.user_id === me.id ? c.user_hidden_at : c.photographer_hidden_at;
   return !myHidden || c.last_message_at > myHidden;
 }
