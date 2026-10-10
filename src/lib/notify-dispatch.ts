@@ -123,6 +123,7 @@ export async function dispatchNotify(params: DispatchParams): Promise<DispatchRe
 
     if (!profile?.phone) {
       await finish("skipped", { error: "no_phone" });
+      await alertOpsNoPhone(admin, params.profileId, params.kind, body, params.dedupeKey);
       return "skipped";
     }
     if (!sendingAllowed()) {
@@ -184,3 +185,51 @@ export async function photographerNotifyTarget(
 }
 
 export { NOTIFY_TEMPLATES };
+
+/**
+ * 작가에게 갈 알림이 번호가 없어 막혔을 때 운영진(디스코드)에게 대신 알린다 — 정훈이 직접 연락하는 안전망.
+ * 2026-10-10: 작가 29명 중 9명이 번호가 없어 새 문의가 아무에게도 안 갔다. 번호 등록 안내(스튜디오 배너)가 근본 해결이고
+ * 이건 그동안의 땜질이다. 고객 쪽 no_phone 은 알리지 않는다(문의한 본인이 화면을 보고 있다).
+ * 같은 건(dedupe_key)은 12시간에 한 번만 — 채팅 알림은 메시지마다 불리기 때문이다.
+ */
+async function alertOpsNoPhone(
+  admin: ReturnType<typeof createAdminClient>,
+  profileId: string,
+  kind: string,
+  body: string,
+  dedupeKey: string
+): Promise<void> {
+  const webhook = process.env.DISCORD_INQUIRY_WEBHOOK_URL || process.env.DISCORD_OPS_WEBHOOK_URL;
+  if (!webhook || !sendingAllowed()) return;
+  try {
+    const { data: ph } = await admin
+      .from("photographers")
+      .select("display_name")
+      .eq("profile_id", profileId)
+      .maybeSingle();
+    if (!ph) return; // 작가가 아니다
+    const { count } = await admin
+      .from("notification_queue")
+      .select("id", { count: "exact", head: true })
+      .eq("dedupe_key", dedupeKey)
+      .eq("error", "no_phone")
+      .gte("created_at", new Date(Date.now() - 12 * 3600e3).toISOString());
+    if ((count ?? 0) > 1) return; // 방금 넣은 1건 말고 또 있으면 이미 알렸다
+    await fetch(webhook, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content: [
+          `📵 **${ph.display_name ?? "작가"}** 님께 알림이 안 갔어요 — 휴대폰 번호 없음 (${kind})`,
+          "직접 연락해 주세요. 스튜디오에 번호 등록 배너가 떠 있습니다.",
+          "```",
+          body.slice(0, 600),
+          "```",
+        ].join("\n"),
+      }),
+      signal: AbortSignal.timeout(5_000),
+    });
+  } catch {
+    /* 운영 알림 실패가 본 흐름을 막으면 안 된다 */
+  }
+}
