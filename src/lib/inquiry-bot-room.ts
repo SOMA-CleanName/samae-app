@@ -96,6 +96,10 @@ function toLangChainMessages(
 }
 
 /** LLM 한 턴 — 시스템 프롬프트 구성 → 구조화 출력(1회 재시도) → sanitize */
+/** 방을 열 때 고객 명의로 까는 '문의한 사진' 문구. DB 트리거(0149)가 이 문구로 시드를 알아보고
+ *  안읽음·알림·작가 목록 노출에서 뺀다 — **바꾸면 마이그레이션도 같이 바꿀 것.** */
+export const SEED_PHOTO_BODY = "이 사진 보고 문의드려요";
+
 export async function runBotLlmTurn(params: {
   photographerName: string;
   script: PhotographerScript;
@@ -209,7 +213,7 @@ export async function seedBotRoomMessages(params: {
       conversation_id: params.conversationId,
       sender_id: params.customerId,
       type: "image",
-      body: "이 사진 보고 문의드려요",
+      body: SEED_PHOTO_BODY,
       image_path: params.photo.thumbUrl,
       created_at: new Date(now - 40).toISOString(),
     });
