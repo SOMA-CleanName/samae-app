@@ -59,6 +59,8 @@ export type DispatchParams = {
 export async function dispatchNotify(params: DispatchParams): Promise<DispatchResult> {
   try {
     if (!params.profileId) return "skipped";
+    // 알림톡 전용인데 템플릿이 아직 없으면(심사 전) 큐에 남기지도 않는다 — 문자로 대체하지 않는다
+    if (NOTIFY_TEMPLATES[params.kind].alimtalkOnly && !alimtalkAvailable(params.kind)) return "skipped";
     const admin = createAdminClient();
 
     // 중복 억제 — 이미 나간 이력이 있으면 조용히 스킵
@@ -140,6 +142,10 @@ export async function dispatchNotify(params: DispatchParams): Promise<DispatchRe
       if (res.ok) {
         await finish("sent", { channel: "alimtalk", groupId: res.groupId });
         return "sent";
+      }
+      if (NOTIFY_TEMPLATES[params.kind].alimtalkOnly) {
+        await finish("failed", { channel: "alimtalk", error: res.error });
+        return "failed";
       }
       // 요청 자체가 거부됨(템플릿 미승인·pfId 오류 등) — 문자로 한 번 더.
       // 알림을 못 받는 것보다 문자로라도 가는 게 낫다. 채널은 실제 나간 쪽으로 기록한다.

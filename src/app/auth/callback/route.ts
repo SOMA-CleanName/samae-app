@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { sendCapiCompleteRegistration } from "@/lib/meta-capi";
+import { sendWelcomeIfNew } from "@/lib/notify-user";
 import { mpTrackServer } from "@/lib/mixpanel-server";
 import { createClient } from "@/lib/supabase/server";
 import { requestOrigin, safeNext } from "@/lib/safe-redirect";
@@ -66,6 +67,8 @@ export async function GET(request: Request) {
       // provider_token 을 같이 넘기는 이유는 adoptKakaoPhone 주석 참고. 이 토큰은
       // Supabase 가 보관하지 않으므로 **지금 이 순간에만** 손에 있다.
       const adopted = await adoptKakaoPhone(supabase, data?.session?.provider_token);
+      // 가입 환영 알림톡 — 번호가 방금 들어왔으면 여기서 나가고, 없으면 /signup/contact 가 보낸다
+      if (isNewSignup && u) await sendWelcomeIfNew(u.id);
       // 카카오 프로필 사진 → profiles.avatar_url (본인이 올린 사진은 건드리지 않는다)
       await adoptKakaoAvatar(supabase);
       // 카카오 간편가입에서 약관에 동의했으면 그걸 우리 기록으로 가져온다.

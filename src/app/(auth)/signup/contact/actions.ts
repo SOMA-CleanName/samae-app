@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentUser } from "@/lib/auth";
 import { requestOtp, verifyOtp } from "@/lib/phone-otp";
+import { sendWelcomeIfNew } from "@/lib/notify-user";
 
 // 가입 마무리 — 전화번호 OTP 인증 후 profiles.phone 저장.
 // SMS(작가 답장 알림)의 유일한 채널이라 형식 검증이 아니라 실수신 검증을 한다.
@@ -58,6 +59,7 @@ export async function verifyPhoneCode(
   const supabase = await createClient();
   const { error } = await supabase.from("profiles").update({ phone }).eq("id", me.id);
   if (error) return { ok: false, error: "저장에 실패했어요. 잠시 후 다시 시도해 주세요." };
+  await sendWelcomeIfNew(me.id); // 가입 24시간 안의 계정만, 계정당 1회
   return { ok: true, error: null };
 }
 

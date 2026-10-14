@@ -23,7 +23,8 @@ export type NotifyKind =
   | "booking_accepted" // 예약 수락 → 제안자 (예약당 1회)
   | "deposit_confirmed" // 운영 입금 확인 → 고객 (예약당 1회)
   | "booking_confirmed" // 운영 입금 확인 → 작가 (예약당 1회)
-  | "settlement_paid"; // 정산 완료 → 작가 (예약당 1회)
+  | "settlement_paid" // 정산 완료 → 작가 (예약당 1회)
+  | "welcome"; // 회원가입 완료 → 본인 (계정당 1회, 알림톡 전용)
 
 export type NotifyTemplate = {
   kind: NotifyKind;
@@ -56,6 +57,11 @@ export type NotifyTemplate = {
    * 본문에는 `#{링크}` 가 그대로 남아 있어야 한다 — 문자로 대체 발송될 땐 버튼이 없다.
    */
   button: { name: string; url: string; urlVariable?: string };
+  /**
+   * 알림톡으로만 보낸다 — 템플릿이 없거나 카카오 수신이 실패해도 **문자로 대체하지 않는다.**
+   * 거래를 멈추지 않는 안내(환영 인사)에 돈 들여 문자를 보낼 이유가 없다.
+   */
+  alimtalkOnly?: true;
 };
 
 export const NOTIFY_TEMPLATES: Record<NotifyKind, NotifyTemplate> = {
@@ -229,6 +235,28 @@ export const NOTIFY_TEMPLATES: Record<NotifyKind, NotifyTemplate> = {
 받으신 내역을 스튜디오에서 확인해 주세요.
 #{링크}`,
     button: { name: "정산 내역 보기", url: "https://samae.ai/studio/settlements" },
+  },
+  // ── 가입 환영 (2026-10-14) ───────────────────────────────────
+  //
+  // 알림톡은 정보성만 된다 — 할인·쿠폰·이벤트 문구가 들어가면 반려된다(그건 친구톡/브랜드 메시지).
+  // 첫 줄에 수신자의 행위(가입), 마지막 줄에 발송 조건을 박는다 — 예약 제안 템플릿이 두 번
+  // 반려되며 배운 형식이다.
+  //
+  // 콘솔 등록 시 템플릿 유형은 **채널추가형**으로 한다 → 카카오가 하단에 [채널 추가] 버튼과
+  // 고정 안내문을 붙인다. 우리 쪽 button 은 웹링크 1개만 둔다(채널추가 버튼은 코드에서 보내는 값이 없다).
+  welcome: {
+    kind: "welcome",
+    label: "회원가입 완료",
+    recipient: "customer",
+    variables: ["이름", "링크"],
+    body: `[사매] #{이름}님, 사매 회원가입이 완료되었어요.
+마음에 드는 사진을 고르면 그 사진을 찍은 작가님께 바로 문의할 수 있어요.
+작가님 답장과 예약 진행 안내는 이 채널로 보내드려요.
+#{링크}
+
+※ 이 메시지는 사매에 회원가입하신 분께 1회 발송됩니다.`,
+    button: { name: "사진 둘러보기", url: "https://samae.ai/" },
+    alimtalkOnly: true,
   },
 };
 

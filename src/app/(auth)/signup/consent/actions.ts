@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { recordMarketingConsent, recordTermsConsent } from "@/lib/consent";
 import { safeNext } from "@/lib/safe-redirect";
 import { sendCapiCompleteRegistration } from "@/lib/meta-capi";
+import { sendWelcomeIfNew } from "@/lib/notify-user";
 
 /**
  * 회원약관·개인정보처리방침 동의 기록.
@@ -43,6 +44,7 @@ export async function recordSignupConsent(marketing = false): Promise<string | n
   if (!me) return null;
   await recordTermsConsent(me.id);
   await recordMarketingConsent(me.id, marketing);
+  await sendWelcomeIfNew(me.id); // 번호가 아직 없으면 건너뛰고 /signup/contact 가 보낸다
   const eventId = `signup_${me.id}`;
   await sendCapiCompleteRegistration(eventId, me.id);
   return eventId;
