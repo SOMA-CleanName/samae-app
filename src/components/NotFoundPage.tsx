@@ -41,13 +41,14 @@ export function NotFoundPage() {
         내려간 사진의 주소는 다시 살아나지 않아요.
       </p>
 
-      <Link
-        href="/"
+      {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- <Link> 는 리다이렉트의 쿠키 삭제가 반영되지 않아 카테고리로 다시 튕긴다. 풀 로드로 홈 */}
+      <a
+        href="/?nocat=1"
         className="mt-7 inline-flex w-fit items-center gap-2 rounded-full bg-brand-solid px-5 py-2.5 text-body-sm font-bold text-white transition-opacity hover:opacity-90"
       >
         사진 보러 가기
         <span aria-hidden>→</span>
-      </Link>
+      </a>
 
       <nav aria-label="다른 지면" className="mt-10 border-t border-line pt-2">
         {WAYS_OUT.map((w) => (
