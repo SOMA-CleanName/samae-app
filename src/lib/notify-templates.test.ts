@@ -194,3 +194,11 @@ test("PG 문안이 있는 kind 만 _PG env 키를 쓴다", () => {
   // 기본(무통장)은 지금과 똑같아야 한다
   assert.equal(alimtalkTemplateEnvKey("deposit_confirmed"), "ALIMTALK_TPL_DEPOSIT_CONFIRMED");
 });
+
+test("환영 알림톡은 알림톡 전용이고 광고성 문구가 없다 — 정보성이 아니면 카카오가 반려한다", () => {
+  const t = NOTIFY_TEMPLATES.welcome;
+  assert.equal(t.alimtalkOnly, true);
+  for (const w of ["할인", "쿠폰", "이벤트", "혜택", "무료", "%"]) {
+    assert.ok(!t.body.includes(w), `welcome 본문에 광고성 단어: ${w}`);
+  }
+});

@@ -302,3 +302,35 @@ export async function notifySettlementPaid(params: {
     },
   });
 }
+
+// ── 가입 환영 ────────────────────────────────────────────────
+
+/**
+ * 회원가입 환영 알림톡 — **계정당 1회.** 번호가 생기는 지점마다 불러도 된다(dedupe 가 막는다).
+ *
+ * 부르는 곳이 셋인 이유: 카카오 가입은 콜백에서 번호를 받을 수도(카카오싱크) 못 받을 수도
+ * 있고, 못 받으면 /signup/contact 에서 문자 인증으로 들어온다. 이메일 가입은 콜백을 안 거친다.
+ * 번호가 없을 때 부르면 no_phone 으로 건너뛰고, 번호가 생긴 다음 호출이 실제로 보낸다.
+ *
+ * 가입 24시간 안의 계정만 — 오래된 회원이 뒤늦게 번호를 등록할 때 "가입 완료" 가 가면 안 된다.
+ */
+export async function sendWelcomeIfNew(userId: string): Promise<void> {
+  try {
+    const admin = createAdminClient();
+    const { data } = await admin.auth.admin.getUserById(userId);
+    const createdAt = data?.user?.created_at;
+    if (!createdAt || Date.now() - new Date(createdAt).getTime() > 24 * 3600 * 1000) return;
+    const { data: profile } = await admin.from("profiles").select("display_name").eq("id", userId).maybeSingle();
+    await dispatchNotify({
+      kind: "welcome",
+      profileId: userId,
+      dedupeKey: `welcome:${userId}`,
+      variables: {
+        이름: nameVar(profile?.display_name as string | null, "회원"),
+        링크: notifyLink("/"),
+      },
+    });
+  } catch (err) {
+    console.error("[notify] welcome 실패:", err instanceof Error ? err.message : err);
+  }
+}

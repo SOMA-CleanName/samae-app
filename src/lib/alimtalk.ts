@@ -1,6 +1,6 @@
 import "server-only";
 import { solapiConfigured, solapiSend, solapiSender } from "@/lib/solapi";
-import { alimtalkTemplateId, type NotifyKind } from "@/lib/notify-templates";
+import { NOTIFY_TEMPLATES, alimtalkTemplateId, type NotifyKind } from "@/lib/notify-templates";
 
 // 카카오 알림톡 발송 어댑터 — 솔라피 경유 (문자와 같은 계정·같은 엔드포인트).
 //
@@ -54,7 +54,8 @@ export async function sendAlimtalk(params: {
         pfId,
         templateId,
         variables: params.variables,
-        disableSms: false,
+        // 알림톡 전용(환영 인사)은 카카오 실패 시 솔라피 문자 대체도 끈다
+        disableSms: !!NOTIFY_TEMPLATES[params.kind].alimtalkOnly,
       },
     },
     `alimtalk:${params.kind}`
