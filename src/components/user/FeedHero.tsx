@@ -74,7 +74,7 @@ export function FeedHero({
         samae
         {/* 화면에는 안 보이지만 검색엔진·스크린리더에는 이 페이지가 무엇인지 남긴다.
             워드마크만 남기면 제목이 브랜드명 한 단어뿐이라 무슨 서비스인지 읽히지 않는다. */}
-        <span className="sr-only"> — 사진으로 고르는 촬영, 사진작가 매칭</span>
+        <span className="sr-only"> 사매 — 스냅사진 촬영 작가 찾기·예약</span>
       </h1>
 
       {search && <div className="flex min-w-0 flex-1">{search}</div>}
