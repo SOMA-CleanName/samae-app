@@ -27,6 +27,7 @@ export const revalidate = 86400;
 */
 const STATIC_ROUTES = [
   "",
+  "/snap",
   "/explore",
   "/apply",
   "/guide",
@@ -96,7 +97,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticEntries: MetadataRoute.Sitemap = STATIC_ROUTES.map((path) => ({
     url: `${SITE_URL}${path}`,
     changeFrequency: path === "/privacy" ? "yearly" : "weekly",
-    priority: path === "" ? 1 : LOW_PRIORITY.has(path) ? 0.4 : 0.7,
+    // /snap 은 헤드 키워드("스냅사진 촬영") 지면이라 홈 다음으로 높게 (2026-10-16)
+    priority: path === "" ? 1 : path === "/snap" ? 0.9 : LOW_PRIORITY.has(path) ? 0.4 : 0.7,
   }));
 
   // 촬영 가이드 — 질문-답 페이지. AI 답변이 가장 잘 인용하는 형식이라 우선순위를 높게 준다.
