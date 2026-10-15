@@ -36,13 +36,13 @@ function parseFee(raw: FormDataEntryValue | null, label: string): number {
 // 알림 생성 헬퍼 (service_role)
 // 예약서 검열 — 메모와 작가 정의 추가 항목도 채팅과 같은 규칙으로 막는다.
 // 채팅만 막으면 예약서의 "연락처" 항목으로 번호가 그대로 넘어간다 (회원약관 6조 2항 위반 경로).
-// 연락처 전달이 끝난 예약(contact_delivered_at)은 이미 열린 방이므로 검열하지 않는다.
+// 연락처를 보낼 수 있는 단계(입금 + 촬영 3일 이내)거나 이미 전달된 예약은 검열하지 않는다 (lib/moderation).
 function assertBookingTextClean(
   memo: string,
   customFields: Array<{ label: string; value: string }>,
-  contactDeliveredAt: string | null | undefined
+  booking: Parameters<typeof contactExchangeAllowed>[0]
 ) {
-  if (contactExchangeAllowed(contactDeliveredAt)) return;
+  if (contactExchangeAllowed(booking)) return;
   const texts = [memo, ...customFields.map((f) => f.value)];
   for (const t of texts) {
     if (t && detectOffPlatform(t).length > 0) {
@@ -352,7 +352,9 @@ export async function updateBooking(formData: FormData) {
     formData.get(n) == null ? null : String(formData.get(n))
   );
   if (fieldErrors.length > 0) throw new Error(fieldErrors[0]);
-  assertBookingTextClean(memo, customFields, b.contact_delivered_at);
+  assertBookingTextClean(memo, customFields, {
+    contactDeliveredAt: b.contact_delivered_at, status: b.status, shootAt: b.shoot_at,
+  });
   const shootDate = resolveShootDate(shootAt, shootDateRaw);
 
   // 입금 후 날짜 변경은 여기서 하지 않는다 — 상대 동의가 필요한 일이라 일정 변경 카드로만 한다

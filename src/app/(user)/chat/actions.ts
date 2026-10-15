@@ -98,18 +98,20 @@ export async function sendMessage(conversationId: string, body: string): Promise
       .eq("id", conversationId)
       .maybeSingle();
 
-    // 작가가 보내고 고객이 동의해 받은 뒤에만 열린다 (docs/32 §3-3).
-    // 그 전까지는 양쪽 다 막는다 — 한쪽만 막으면 반대 방향으로 새어 나간다.
-    let contactDeliveredAt: string | null = null;
+    // 연락처를 보낼 수 있는 시점(입금 + 촬영 3일 이내) 또는 받은 뒤에 열린다 (lib/moderation)
+    type Bk = { contact_delivered_at: string | null; status: string; shoot_at: string | null; shoot_date: string | null };
+    let bk: Bk | null = null;
     if (conv?.booking_id) {
-      const { data: bk } = await admin
+      const { data } = await admin
         .from("bookings")
-        .select("contact_delivered_at")
+        .select("contact_delivered_at, status, shoot_at, shoot_date")
         .eq("id", conv.booking_id)
         .maybeSingle();
-      contactDeliveredAt = (bk?.contact_delivered_at as string) ?? null;
+      bk = (data as Bk | null) ?? null;
     }
-    if (contactExchangeAllowed(contactDeliveredAt)) {
+    if (contactExchangeAllowed(bk && {
+      contactDeliveredAt: bk.contact_delivered_at, status: bk.status, shootAt: bk.shoot_at, shootDate: bk.shoot_date,
+    })) {
       if (!conv?.contact_exchanged_at) {
         await admin
           .from("conversations")
