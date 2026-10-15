@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import {
   acceptPhotographerContact,
   sendPhotographerContact,
+  type ContactSendResult,
 } from "@/app/actions/contact-handover";
 import {
   contactHref,
@@ -41,7 +42,7 @@ export function SendContactMenuItem({
   /** 아직 안 열렸으면 메뉴에 아예 올리지 않는다 (HANDOFF §3-1) */
   gate?: { allowed: boolean };
   /** 기본은 진짜 서버 액션. QA 샌드박스만 갈아 끼운다 (chat-io.ts) */
-  sendAction?: (formData: FormData) => Promise<void>;
+  sendAction?: (formData: FormData) => Promise<ContactSendResult>;
 }) {
   const router = useRouter();
   const [sending, start] = useTransition();
@@ -61,7 +62,8 @@ export function SendContactMenuItem({
             try {
               const fd = new FormData();
               fd.set("id", bookingId);
-              await sendAction(fd);
+              const r = await sendAction(fd);
+              if (r?.error) return setError(r.error);
               onDone();
               router.refresh();
             } catch (e) {
@@ -100,7 +102,7 @@ export function SendContactCardButton({
   /** 아직 안 열렸으면 왜 닫혀 있는지 — 버튼 자리를 이 문구가 대신한다 (HANDOFF §3-1) */
   gate?: { allowed: boolean; notice?: string };
   /** 기본은 진짜 서버 액션. QA 샌드박스만 갈아 끼운다 (chat-io.ts) */
-  sendAction?: (formData: FormData) => Promise<void>;
+  sendAction?: (formData: FormData) => Promise<ContactSendResult>;
 }) {
   const router = useRouter();
   const [sending, start] = useTransition();
@@ -142,7 +144,8 @@ export function SendContactCardButton({
             try {
               const fd = new FormData();
               fd.set("id", bookingId);
-              await sendAction(fd);
+              const r = await sendAction(fd);
+              if (r?.error) return setError(r.error);
               router.refresh();
             } catch (e) {
               setError(e instanceof Error ? e.message : "보내지 못했습니다.");

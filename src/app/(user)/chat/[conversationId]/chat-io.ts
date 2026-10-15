@@ -14,7 +14,7 @@ import { sendBotTurn } from "../bot-actions";
 import { acceptBooking, rejectBooking, cancelBooking } from "@/app/actions/bookings";
 import { agreeLateBooking, markTransferSent } from "@/app/actions/payments";
 import { submitSupportRequest } from "@/app/actions/support";
-import { acceptPhotographerContact, sendPhotographerContact } from "@/app/actions/contact-handover";
+import { acceptPhotographerContact, sendPhotographerContact, type ContactSendResult } from "@/app/actions/contact-handover";
 import { proposeReschedule, respondReschedule } from "@/app/actions/reschedule";
 import { getCustomerRefundQuote, type CustomerRefundQuote } from "@/app/actions/refund-quote";
 import { mpTrack } from "@/lib/mixpanel";
@@ -36,7 +36,7 @@ export type ChatIO = {
   submitSupportRequest: (formData: FormData) => Promise<void>;
   getCustomerRefundQuote: (bookingId: string) => Promise<CustomerRefundQuote | null>;
   // 연락처 전달 (docs/32 §3-3) — 받는 순간 중개가 끝나는 지점이라 기록이 남아야 한다
-  sendPhotographerContact: (formData: FormData) => Promise<void>;
+  sendPhotographerContact: (formData: FormData) => Promise<ContactSendResult>;
   acceptPhotographerContact: (formData: FormData) => Promise<void>;
   // 일정 변경 (취소환불 7조) — 동의하면 환불 기준이 새 날짜로 다시 계산된다
   proposeReschedule: (formData: FormData) => Promise<void>;

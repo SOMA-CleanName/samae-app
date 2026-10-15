@@ -21,9 +21,16 @@ import { contactSendGate } from "@/lib/contact-gate";
 import { postContactDeliveredNotice } from "@/lib/payments";
 
 /** 작가: 등록해둔 연락 수단을 이 예약의 고객에게 보낸다 */
-export async function sendPhotographerContact(formData: FormData): Promise<void> {
+/**
+ * 작가가 고칠 수 있는 거절은 **던지지 않고 돌려준다.** 운영 빌드는 서버 액션이 던진 문구를
+ * 가리고 "Server Components render" 오류로만 보여준다 — 2026-10-15 작가가 연락 수단 미등록으로
+ * 6번 눌렀는데 이유를 못 봤다. 돌려준 값은 그대로 화면에 뜬다.
+ */
+export type ContactSendResult = { error: string } | void;
+
+export async function sendPhotographerContact(formData: FormData): Promise<ContactSendResult> {
   const me = await getCurrentUser();
-  if (!me?.photographer) throw new Error("작가만 보낼 수 있어요.");
+  if (!me?.photographer) return { error: "작가만 보낼 수 있어요." };
   const bookingId = String(formData.get("id"));
 
   const admin = createAdminClient();
@@ -32,8 +39,8 @@ export async function sendPhotographerContact(formData: FormData): Promise<void>
     .select("id, status, photographer_id, user_id, contact_sent_at, shoot_at, shoot_date")
     .eq("id", bookingId)
     .maybeSingle();
-  if (!b) throw new Error("예약을 찾을 수 없습니다.");
-  if (b.photographer_id !== me.photographer.id) throw new Error("이 예약의 작가가 아니에요.");
+  if (!b) return { error: "예약을 찾을 수 없습니다." };
+  if (b.photographer_id !== me.photographer.id) return { error: "이 예약의 작가가 아니에요." };
 
   // 입금 확인 + **촬영 7일 이내** 여야 열린다 (HANDOFF §3-1).
   // 8일 이상 전은 취소 위약금이 0% 라, 연락처가 먼저 나가면 "취소하고 직접 하시죠" 가
@@ -43,7 +50,7 @@ export async function sendPhotographerContact(formData: FormData): Promise<void>
     shootAt: (b.shoot_at as string | null) ?? null,
     shootDate: (b.shoot_date as string | null) ?? null,
   });
-  if (!gate.allowed) throw new Error(gate.notice);
+  if (!gate.allowed) return { error: gate.notice ?? "아직 연락처를 보낼 수 없어요." };
 
   const { data: ph } = await admin
     .from("photographers")
@@ -52,7 +59,7 @@ export async function sendPhotographerContact(formData: FormData): Promise<void>
     .maybeSingle();
   const methods: ContactMethod[] = normalizeContactMethods(ph?.contact_methods);
   if (methods.length === 0)
-    throw new Error("먼저 스튜디오 프로필에서 연락 수단을 등록해주세요.");
+    return { error: "연락 수단이 아직 없어요. 스튜디오 → 프로필에서 연락 수단(오픈채팅·전화 등)을 먼저 등록해주세요." };
 
   // 전달 당시의 값을 굳힌다 — 나중에 프로필을 바꿔도 무엇을 줬는지는 남아야 한다
   await admin
