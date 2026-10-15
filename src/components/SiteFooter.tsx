@@ -93,6 +93,28 @@ export function SiteFooter() {
         ))}
       </dl>
 
+      {/*
+        KG이니시스 인증마크 — 가맹 심사에서 사이트에 걸어달라고 요구했다(2026-10-15).
+        누르면 이니시스가 이 MID 의 결제시스템 유효성을 확인해 주는 창이 열린다.
+        이니시스가 준 태그는 onclick 팝업이었는데, 서버 컴포넌트라 새 탭 링크로 바꿨다.
+        에스크로 마크는 달지 않는다 — 카드·간편결제만 받아 에스크로를 쓰지 않는다.
+      */}
+      <a
+        href="https://mark.inicis.com/mark/popup_v3.php?mid=samae00001"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="KG이니시스 결제시스템 인증마크 — 유효성 확인 (새 창)"
+        className="mt-4 inline-flex min-h-11 items-center"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="https://image.inicis.com/mkt/certmark/inipay/inipay_43x43_gray.png"
+          alt="KG이니시스 인증마크"
+          width={43}
+          height={43}
+        />
+      </a>
+
       <p className="mt-5 text-[11px] leading-relaxed text-faint">
         나만의 무드, 나만의 촬영. 사매
       </p>
