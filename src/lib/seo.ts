@@ -195,8 +195,9 @@ export function siteJsonLd(): object[] {
     alternateName: ["사매", "samae.ai"],
     url: SITE_URL,
     logo: `${SITE_URL}/icon.png`,
-    description: "취향에 맞는 사진작가를 탐색·상담·예약하는 사진 촬영 매칭 플랫폼.",
-    // 소셜 계정이 생기면 sameAs 에 추가 (브랜드 검색 강화)
+    description: "스냅사진 촬영 작가를 사진으로 고르고 바로 문의·예약하는 플랫폼. 개인스냅·커플스냅·웨딩스냅·프로필 촬영.",
+    // 공식 소셜 계정 — 브랜드 검색에서 같은 주체로 묶인다
+    sameAs: ["https://www.instagram.com/samae_photo_official/"],
   };
   const website = {
     "@context": "https://schema.org",
