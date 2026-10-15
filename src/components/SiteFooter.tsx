@@ -35,6 +35,7 @@ export function SiteFooter() {
         */}
         <nav aria-label="사매 안내" className="-my-3 flex flex-wrap gap-x-5 text-body-sm">
           {[
+            { href: "/snap", label: "스냅사진 촬영" },
             { href: "/articles", label: "아티클" },
             { href: "/spots", label: "촬영 장소" },
             { href: "/guide", label: "Q&A" },
