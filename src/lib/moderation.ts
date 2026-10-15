@@ -1,3 +1,4 @@
+import { contactSendGate } from "./contact-gate";
 // 오프플랫폼 유도 감지 — 채팅에서 개인 SNS·연락처로 대화를 빼돌리는 텍스트를 잡는다.
 // 순수 함수 (클라이언트·서버 공용). 매칭된 규칙 라벨 목록을 돌려준다 — 비면 통과.
 //
@@ -81,15 +82,27 @@ export function detectOffPlatform(text: string): string[] {
 /**
  * 이 대화에서 연락처 교환을 허용해도 되는가.
  *
- * 시간이 지나면 저절로 열리는 방식은 폐기했다(구 '결제 후 7일 자동 개방'). 저절로 열리면
- * 고지도 동의도 기록도 없이 추적만 끊긴다 — 정작 그 기록이 있어야 청약철회 제한을
- * 주장할 수 있다.
+ * **연락처를 보낼 수 있는 시점부터 연다** (정훈 2026-10-15) — 입금 확인 + 촬영 3일 이내
+ * (`contactSendGate`, 작가약관 8조 2항 · 회원약관 6조 3항). 그때부터는 [연락처 보내기]로
+ * 어차피 넘길 수 있는 단계라, 채팅에서 "카톡 남겨주세요" 를 막을 이유가 없다.
+ * 3일 이내는 위약금 90% 구간이라 취소하고 직거래로 돌릴 유인도 이미 없다.
  *
- * 지금은 **작가가 보내고 고객이 동의해 받은 뒤**에만 열린다 (docs/32 §3-3).
- * 그 전까지는 양쪽 다 막는다 — 한쪽만 막으면 반대 방향으로 새어 나간다.
+ * 그 전(입금 전 · 촬영 4일 이상 전)은 양쪽 다 막는다 — 한쪽만 막으면 반대 방향으로 새어 나간다.
+ * 고객이 연락처를 받은 뒤(contact_delivered_at)는 시점과 무관하게 연다.
+ *
+ * ⚠️ 시간이 지나면 고지 없이 열리는 구 '결제 후 7일 자동 개방'과는 다르다 — 열리는 시점이
+ *    약관이 정한 연락처 전달 가능 시점과 같다.
  */
-export function contactExchangeAllowed(contactDeliveredAt: string | null | undefined): boolean {
-  return !!contactDeliveredAt;
+export function contactExchangeAllowed(b: {
+  contactDeliveredAt?: string | null;
+  status?: string | null;
+  shootAt?: string | null;
+  shootDate?: string | null;
+} | null): boolean {
+  if (!b) return false;
+  if (b.contactDeliveredAt) return true;
+  if (!b.status) return false;
+  return contactSendGate({ status: b.status, shootAt: b.shootAt ?? null, shootDate: b.shootDate ?? null }).allowed;
 }
 
 export const MODERATION_NOTICE =

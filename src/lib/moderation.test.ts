@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { detectOffPlatform } from "./moderation.ts";
+import { contactExchangeAllowed, detectOffPlatform } from "./moderation.ts";
 
 test("오프플랫폼 유도 — 확실한 신호는 차단", () => {
   const blocked = [
@@ -57,4 +57,15 @@ test("오프플랫폼 유도 — 단순 언급·일상 대화는 통과", () => 
     "일정이 삼일 뒤라 조금 빠듯해요",
   ];
   for (const t of allowed) assert.deepEqual(detectOffPlatform(t), [], `통과돼야 함: ${t}`);
+});
+
+test("연락처를 보낼 수 있는 시점(입금 + 촬영 3일 이내)부터 오프플랫폼 차단이 풀린다", () => {
+  const now = Date.now();
+  const inDays = (d: number) => new Date(now + d * 864e5).toISOString();
+  assert.equal(contactExchangeAllowed(null), false);
+  assert.equal(contactExchangeAllowed({ status: "accepted", shootAt: inDays(1) }), false); // 입금 전
+  assert.equal(contactExchangeAllowed({ status: "paid", shootAt: inDays(10) }), false); // 너무 이름
+  assert.equal(contactExchangeAllowed({ status: "paid", shootAt: inDays(2) }), true); // 3일 이내
+  assert.equal(contactExchangeAllowed({ status: "paid", shootAt: null }), false); // 촬영일 없음
+  assert.equal(contactExchangeAllowed({ contactDeliveredAt: inDays(-1), status: "paid", shootAt: inDays(10) }), true); // 받은 뒤
 });
