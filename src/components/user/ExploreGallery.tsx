@@ -21,6 +21,7 @@ import { AddToCartButton } from "@/components/user/cart/AddToCartButton";
 import { useCart } from "@/components/user/cart/CartProvider";
 import { mpTrack } from "@/lib/mixpanel";
 import { EmptyState } from "@/components/ui";
+import { FeedGridSkeleton } from "@/components/user/skeletons";
 import { rememberPhotoAspect } from "@/lib/photo-aspect";
 import { appendFeedClick, readFeedClicks, recordFeedClick } from "@/lib/feed-click-history";
 import { FEED_ALGO_VERSION } from "@/lib/feed-version";
@@ -929,15 +930,27 @@ export function ExploreGallery({
     // 스크롤 복원·해시 점프·리사이즈처럼 위치가 한 번에 튀는 경우마다 생긴다.
     //
     // 그래서 지금 기준으로 이미 지났거나 닿은 것은 즉시 켜고, 아직 아래에 있는 것만 관찰한다.
+    //
+    // **즉시 켤 때는 연출 없이 켠다.** 위치를 재는 순간(getBoundingClientRect) 브라우저가
+    // opacity:0 을 한 번 계산해 두기 때문에, 그냥 data-shown 만 붙이면 0 → 1 페이드가 돈다.
+    // 첫 방문 튜토리얼이 끝나며 feed-rise 가 한꺼번에 붙을 때 이미 보이던 사진이 전부
+    // 사라졌다가 다시 나타났다(실측 2026-10-14). 이미 화면에 있는 카드는 그대로 서 있어야 한다.
     const sweep = () => {
       const line = window.innerHeight * 1.06; // rootMargin 과 같은 기준선
       const rest = grid.querySelectorAll<HTMLElement>(".feed-rise:not([data-shown])");
+      const instant: HTMLElement[] = [];
       rest.forEach((el) => {
         if (el.getBoundingClientRect().top < line) {
+          el.style.transition = "none";
           el.dataset.shown = "1";
           io.unobserve(el);
+          instant.push(el);
         }
       });
+      if (instant.length > 0) {
+        void grid.offsetHeight; // 연출 없는 상태로 한 번 확정한 뒤 transition 을 되돌린다
+        requestAnimationFrame(() => instant.forEach((el) => (el.style.transition = "")));
+      }
       return rest.length;
     };
 
@@ -987,7 +1000,10 @@ export function ExploreGallery({
       if (frame !== null) cancelAnimationFrame(frame);
       stop();
     };
-  }, [columnsReady, visible, items.length]);
+    // obActive 도 지켜본다. 첫 방문 튜토리얼 중에는 카드에 feed-rise 가 없어서 훑을 게 0장이고,
+    // 튜토리얼이 끝나면 class 가 한꺼번에 붙는다. 그때 다시 안 돌면 첫 줄 몇 장만 남고
+    // 나머지가 opacity:0 인 채 빈 화면으로 남았다(실측 2026-10-14: 48장 중 2장만 보임).
+  }, [columnsReady, visible, items.length, obActive]);
 
   /*
     삽입 간격. 사진 14장마다 한 장, 첫 삽입은 12번째 뒤.
@@ -1047,114 +1063,121 @@ export function ExploreGallery({
   return (
     <>
       {/* 메이슨리 갤러리 — JS 컬럼 버킷(추가 시 기존 사진 위치 고정) */}
-      <div
-        ref={(node) => {
-          gridEl.current = node;
-          setGridRef(node);
-        }}
-        data-feed-grid
-        className={cn(
-          "flex gap-2.5 transition-opacity sm:gap-4",
-          columnsReady && feedSessionReady ? "opacity-100" : "opacity-0"
+      <div className="relative">
+        {/* 칸 수를 재기 전엔 그리드가 투명하다. 그 자리에 로딩 스켈레톤과 같은 뼈대를 깔아
+            뼈대 → 빈칸 → 사진 으로 끊기지 않게 한다(FeedGridSkeleton 주석). */}
+        {!(columnsReady && feedSessionReady) && (
+          <FeedGridSkeleton className="pointer-events-none absolute inset-x-0 top-0" />
         )}
-        // 멈춘 자리에서만 밑단을 가지런히 자른다 — 잘린 선은 바로 아래 페이드가 덮는다
-        style={trimHeight ? { height: trimHeight, overflow: "hidden" } : undefined}
-      >
-        {columns.map((col, ci) => (
-          <div key={ci} className="flex min-w-0 flex-1 flex-col gap-2.5 sm:gap-4">
-            {col.map(({ photo, feedIndex }) => {
-              const feedInstanceId = `${photo.id}:${feedIndex}`;
-              // 온보딩 중 강조(스포트라이트) 카드 — 이 카드에선 담기('+') 버튼을 숨긴다.
-              // (온보딩이 끝나면서 자동으로 담기 연출이 실행되므로 버튼 노출이 혼란스러움)
-              const isSpotlightCard =
-                !!spotlightTargetId && photo.id === spotlightTargetId && obActive;
-              const card = (
-                <PhotoCard
-                  photo={photo}
-                  feedInstanceId={feedInstanceId}
-                  routeKey={routeKey}
-                  feedRank={feedIndex + 1}
-                  onOpen={() => {
-                    recordPhotoClick(photo.id);
-                    // 피드 카드 클릭 — 추천 혼입 여부·피드 내 위치·알고리즘 세대까지 실어
-                    // "버전별 추천 vs 일반 클릭률" 분해가 조인 없이 되게 한다.
-                    mpTrack("Click Photo", {
-                      photo_id: photo.id,
-                      source: "feed",
-                      path: window.location.pathname,
-                      is_recommended: !!photo.recommended,
-                      feed_rank: feedIndex + 1,
-                      feed_algo_version: FEED_ALGO_VERSION,
-                    });
-                  }}
-                  showPrice={showPrice}
-                  showName={showName}
-                  // 온보딩 디밍 중엔 브랜드 빨간 테두리가 비쳐 어색해 보여 숨김
-                  accent={obActive || !SHOW_ACCENTS ? undefined : accentMap.get(photo.id)}
-                  hideCart={isSpotlightCard}
-                />
-              );
-              // 스포트라이트 카드 — 오버레이(z-100) 위로 띄워 제자리 그대로 밝게(온보딩 활성 중에만).
-              // done 이후엔 일반 카드로 렌더돼 그리드에 그대로 남는다(도크엔 담긴 복제본).
-              if (isSpotlightCard) {
-                return (
-                  <div
-                    key={feedInstanceId}
-                    className={cn(
-                      "transition-all duration-[560ms] ease-[cubic-bezier(.5,0,.2,1)]",
-                      // 소개(enter/ready) 중에만 카드를 띄움. 담기(adding)·나가기(leaving) 땐 z 를 낮춰
-                      // fly 폴라로이드(도크로 날아가는 z-50)가 카드에 가려지지 않게 한다.
-                      (obPhase === "enter" || obPhase === "ready") && "relative z-[110]",
-                      // 세로 긴 사진/작은 화면에서 카드가 하단 문구를 덮지 않게 높이 캡(모바일만).
-                      // 윗변이 화면 50% 에 오므로 46svh 까지만 — 하단 내비까지 덮지 않게
-                        obShown && "max-h-[42svh] overflow-hidden rounded-2xl ring-2 ring-white/70 ring-offset-2 ring-offset-black md:max-h-none"
-                    )}
-                  >
-                    {card}
-                  </div>
+        <div
+          ref={(node) => {
+            gridEl.current = node;
+            setGridRef(node);
+          }}
+          data-feed-grid
+          className={cn(
+            "flex gap-2.5 transition-opacity sm:gap-4",
+            columnsReady && feedSessionReady ? "opacity-100" : "opacity-0"
+          )}
+          // 멈춘 자리에서만 밑단을 가지런히 자른다 — 잘린 선은 바로 아래 페이드가 덮는다
+          style={trimHeight ? { height: trimHeight, overflow: "hidden" } : undefined}
+        >
+          {columns.map((col, ci) => (
+            <div key={ci} className="flex min-w-0 flex-1 flex-col gap-2.5 sm:gap-4">
+              {col.map(({ photo, feedIndex }) => {
+                const feedInstanceId = `${photo.id}:${feedIndex}`;
+                // 온보딩 중 강조(스포트라이트) 카드 — 이 카드에선 담기('+') 버튼을 숨긴다.
+                // (온보딩이 끝나면서 자동으로 담기 연출이 실행되므로 버튼 노출이 혼란스러움)
+                const isSpotlightCard =
+                  !!spotlightTargetId && photo.id === spotlightTargetId && obActive;
+                const card = (
+                  <PhotoCard
+                    photo={photo}
+                    feedInstanceId={feedInstanceId}
+                    routeKey={routeKey}
+                    feedRank={feedIndex + 1}
+                    onOpen={() => {
+                      recordPhotoClick(photo.id);
+                      // 피드 카드 클릭 — 추천 혼입 여부·피드 내 위치·알고리즘 세대까지 실어
+                      // "버전별 추천 vs 일반 클릭률" 분해가 조인 없이 되게 한다.
+                      mpTrack("Click Photo", {
+                        photo_id: photo.id,
+                        source: "feed",
+                        path: window.location.pathname,
+                        is_recommended: !!photo.recommended,
+                        feed_rank: feedIndex + 1,
+                        feed_algo_version: FEED_ALGO_VERSION,
+                      });
+                    }}
+                    showPrice={showPrice}
+                    showName={showName}
+                    // 온보딩 디밍 중엔 브랜드 빨간 테두리가 비쳐 어색해 보여 숨김
+                    accent={obActive || !SHOW_ACCENTS ? undefined : accentMap.get(photo.id)}
+                    hideCart={isSpotlightCard}
+                  />
                 );
-              }
-              /*
-                삽입 카드 — 사진 N장마다 한 장.
+                // 스포트라이트 카드 — 오버레이(z-100) 위로 띄워 제자리 그대로 밝게(온보딩 활성 중에만).
+                // done 이후엔 일반 카드로 렌더돼 그리드에 그대로 남는다(도크엔 담긴 복제본).
+                if (isSpotlightCard) {
+                  return (
+                    <div
+                      key={feedInstanceId}
+                      className={cn(
+                        "transition-all duration-[560ms] ease-[cubic-bezier(.5,0,.2,1)]",
+                        // 소개(enter/ready) 중에만 카드를 띄움. 담기(adding)·나가기(leaving) 땐 z 를 낮춰
+                        // fly 폴라로이드(도크로 날아가는 z-50)가 카드에 가려지지 않게 한다.
+                        (obPhase === "enter" || obPhase === "ready") && "relative z-[110]",
+                        // 세로 긴 사진/작은 화면에서 카드가 하단 문구를 덮지 않게 높이 캡(모바일만).
+                        // 윗변이 화면 50% 에 오므로 46svh 까지만 — 하단 내비까지 덮지 않게
+                          obShown && "max-h-[42svh] overflow-hidden rounded-2xl ring-2 ring-white/70 ring-offset-2 ring-offset-black md:max-h-none"
+                      )}
+                    >
+                      {card}
+                    </div>
+                  );
+                }
+                /*
+                  삽입 카드 — 사진 N장마다 한 장.
 
-                자리를 feedIndex 로 정한다. 어느 열에 떨어지든 "피드에서 몇 번째냐"가
-                기준이라 화면 폭이 바뀌어도 나오는 지점이 흔들리지 않는다.
-                (열 인덱스로 정하면 2열·3열에서 개수가 달라진다)
-              */
-              const slot =
-                interstitialList.length > 0 &&
-                !obActive &&
-                feedIndex >= FIRST_INTERSTITIAL_AT &&
-                (feedIndex - FIRST_INTERSTITIAL_AT) % INTERSTITIAL_EVERY === 0
-                  ? interstitialList[
-                      Math.floor((feedIndex - FIRST_INTERSTITIAL_AT) / INTERSTITIAL_EVERY) %
-                        interstitialList.length
-                    ]
-                  : null;
+                  자리를 feedIndex 로 정한다. 어느 열에 떨어지든 "피드에서 몇 번째냐"가
+                  기준이라 화면 폭이 바뀌어도 나오는 지점이 흔들리지 않는다.
+                  (열 인덱스로 정하면 2열·3열에서 개수가 달라진다)
+                */
+                const slot =
+                  interstitialList.length > 0 &&
+                  !obActive &&
+                  feedIndex >= FIRST_INTERSTITIAL_AT &&
+                  (feedIndex - FIRST_INTERSTITIAL_AT) % INTERSTITIAL_EVERY === 0
+                    ? interstitialList[
+                        Math.floor((feedIndex - FIRST_INTERSTITIAL_AT) / INTERSTITIAL_EVERY) %
+                          interstitialList.length
+                      ]
+                    : null;
 
-              // 나머지 카드 — 흩어지지 않고 제자리 유지(오버레이의 블러+딤으로만 살짝 가려짐).
-              // 온보딩 중에는 떠오르는 연출을 끈다. 딤/블러 위에서 같이 움직이면 어수선하다.
-              return (
-                <div key={feedInstanceId} className="contents">
-                  <div
-                    className={obActive ? undefined : "feed-rise"}
-                    style={obActive ? undefined : ({ ["--c"]: ci } as React.CSSProperties)}
-                  >
-                    {card}
-                  </div>
-                  {slot && (
+                // 나머지 카드 — 흩어지지 않고 제자리 유지(오버레이의 블러+딤으로만 살짝 가려짐).
+                // 온보딩 중에는 떠오르는 연출을 끈다. 딤/블러 위에서 같이 움직이면 어수선하다.
+                return (
+                  <div key={feedInstanceId} className="contents">
                     <div
                       className={obActive ? undefined : "feed-rise"}
                       style={obActive ? undefined : ({ ["--c"]: ci } as React.CSSProperties)}
                     >
-                      <FeedInterstitialCard item={slot} />
+                      {card}
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        ))}
+                    {slot && (
+                      <div
+                        className={obActive ? undefined : "feed-rise"}
+                        style={obActive ? undefined : ({ ["--c"]: ci } as React.CSSProperties)}
+                      >
+                        <FeedInterstitialCard item={slot} />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/*

@@ -62,6 +62,8 @@ function setCatCookie(response: NextResponse, slug: string) {
 // 카테고리는 단일 페이지 /c/<slug> 로 통일. 홈(/)에 카테고리 컨텍스트가 있으면 /c/<slug> 로 리다이렉트.
 // · /c/<slug> 진입 → 그 카테고리로 컨텍스트 고정 (쿠키)
 // · /?cat=<slug> 또는 유지 쿠키(samae_cat) → /c/<slug> 로 리다이렉트 (?ad 유지)
+//   단 쿠키는 사이트 안에서 홈으로 올 때만 따른다. 밖에서 들어오면 홈 + 쿠키 삭제
+
 // · /?nocat=1 (전체 보기) → 컨텍스트 해제(쿠키 삭제) + 홈 전체 피드 유지
 // · /?q=... (검색) → 리다이렉트 안 함
 function applyCategoryContext(request: NextRequest, response: NextResponse): NextResponse {
@@ -86,6 +88,14 @@ function applyCategoryContext(request: NextRequest, response: NextResponse): Nex
       redir.cookies.delete(CATEGORY_COOKIE);
       return redir;
     }
+    // 밖에서 들어온 첫 요청(인스타 프로필 링크·주소창·북마크)은 쿠키로 끌고 가지 않는다.
+    // 예전에 /c/wedding 을 한 번 봤다는 이유로 30일 동안 samae.ai 를 열 때마다 웨딩이 떴다
+    // (2026-10-14, 폰 인스타 프로필 링크). 홈을 보여주고 유지 쿠키도 지운다 — 남겨 두면
+    // 다음 홈 이동에서 다시 튕긴다. 명시적인 ?cat= 은 그대로 따른다.
+    if (!searchParams.has("cat") && isExternalEntry(request)) {
+      if (request.cookies.has(CATEGORY_COOKIE)) response.cookies.delete(CATEGORY_COOKIE);
+      return response;
+    }
     const cat = searchParams.get("cat") || request.cookies.get(CATEGORY_COOKIE)?.value;
     if (cat) {
       // /c/<cat> 로 통일 리다이렉트. ?ad 는 유지, cat/nocat 은 제거.
@@ -101,6 +111,23 @@ function applyCategoryContext(request: NextRequest, response: NextResponse): Nex
     }
   }
   return response;
+}
+
+/**
+ * 사이트 밖에서 들어온 요청인가.
+ * Sec-Fetch-Site: none(주소창·북마크·앱 웹뷰) / cross-site(다른 사이트 링크) → 밖.
+ * 이 헤더가 없는 브라우저는 Referer 로 본다 — 없거나 다른 호스트면 밖.
+ */
+function isExternalEntry(request: NextRequest): boolean {
+  const site = request.headers.get("sec-fetch-site");
+  if (site) return site === "none" || site === "cross-site";
+  const referer = request.headers.get("referer");
+  if (!referer) return true;
+  try {
+    return new URL(referer).host !== request.nextUrl.host;
+  } catch {
+    return true;
+  }
 }
 
 export const config = {

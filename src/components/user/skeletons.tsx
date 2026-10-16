@@ -67,16 +67,32 @@ export function HomeSkeleton() {
         <div className="mb-2 h-[2px] w-6 bg-surface-2" />
         <div className="h-6 w-16 animate-pulse rounded bg-surface-2" />
       </div>
-      <div className="mx-auto max-w-screen-2xl columns-2 gap-2.5 sm:columns-3 sm:gap-4 md:columns-4 lg:columns-5 xl:columns-6 [&>*]:mb-2.5 sm:[&>*]:mb-4">
-        {Array.from({ length: 10 }).map((_, i) => (
-          <div
-            key={i}
-            className="w-full animate-pulse bg-surface-2"
-            style={{ height: MASONRY_HEIGHTS[i % MASONRY_HEIGHTS.length] }}
-          />
-        ))}
-      </div>
+      <FeedGridSkeleton count={10} />
     </section>
+  );
+}
+
+/**
+ * 사진 격자 뼈대 — 홈 스켈레톤의 격자, 그리고 ExploreGallery 가 칸 수를 재기 전에 깔아 두는 자리.
+ *
+ * 둘이 **같은 모양**이어야 한다. 로딩 스켈레톤이 걷히고 실제 지면이 들어온 뒤에도 갤러리는
+ * 칸 수를 잴 때까지 투명하게 숨어 있어서, 그 사이(첫 방문은 JS 를 받느라 더 길다)가
+ * 빈 화면으로 보였다 — 뼈대 → 빈칸 → 사진. 같은 뼈대를 이어 깔면 뼈대 → 사진이 된다.
+ */
+export function FeedGridSkeleton({ count = 12, className = "" }: { count?: number; className?: string }) {
+  return (
+    <div
+      aria-hidden
+      className={`mx-auto max-w-screen-2xl columns-2 gap-2.5 sm:columns-3 sm:gap-4 md:columns-4 lg:columns-5 xl:columns-6 [&>*]:mb-2.5 sm:[&>*]:mb-4 ${className}`}
+    >
+      {Array.from({ length: count }).map((_, i) => (
+        <div
+          key={i}
+          className="w-full animate-pulse bg-surface-2"
+          style={{ height: MASONRY_HEIGHTS[i % MASONRY_HEIGHTS.length] }}
+        />
+      ))}
+    </div>
   );
 }
 

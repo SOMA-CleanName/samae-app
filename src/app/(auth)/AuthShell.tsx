@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 import { fetchAuthBackdropPhotos } from "@/lib/auth-backdrop";
 
@@ -93,8 +92,9 @@ export async function AuthShell({
             history.back() 은 안 쓴다 — 로그인은 검색·외부 링크로 바로 들어오는 일이 잦아
             사람마다 다른 데로 가 버린다. 홈은 어디서 들어왔든 같은 곳이다.
           */}
-          <Link
-            href="/"
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- <Link> 는 리다이렉트의 쿠키 삭제가 반영되지 않아 카테고리로 다시 튕긴다. 풀 로드로 홈 */}
+          <a
+            href="/?nocat=1"
             // 높이 17px 였다(실측 100×17). 로그인 화면에서 빠져나가는 유일한 문이라
             // 세로만 44px 로 키운다 — `-mt-3` 로 늘어난 위쪽은 상쇄.
             className="ed-back group -ml-1 -mt-3 mb-2 inline-flex min-h-11 items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-faint transition-colors hover:text-brand"
@@ -103,14 +103,15 @@ export async function AuthShell({
               ←
             </span>
             사진 보러 가기
-          </Link>
+          </a>
 
-          <Link
-            href="/"
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- 위 버튼과 같은 이유(쿠키 삭제 반영 위해 풀 로드) */}
+          <a
+            href="/?nocat=1"
             className="block font-display text-2xl italic leading-none text-brand transition-opacity hover:opacity-80"
           >
             samae
-          </Link>
+          </a>
 
           {header ?? (
             <>

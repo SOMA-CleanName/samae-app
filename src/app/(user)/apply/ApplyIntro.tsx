@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { InlineDocSheet } from "@/components/legal/InlineDocSheet";
 import { PhotographerContractBody } from "@/components/legal/docs/PhotographerContractBody";
 import { PhotographerTermsBody } from "@/components/legal/docs/PhotographerTermsBody";
@@ -95,12 +94,13 @@ export function ApplyIntro() {
         을 미리 보실 수 있어요. 승인 뒤 스튜디오에서 다시 한 번 확인하고 동의하게 됩니다.
       </p>
 
-      <Link
-        href="/"
+      {/* eslint-disable-next-line @next/next/no-html-link-for-pages -- <Link> 는 리다이렉트의 쿠키 삭제가 반영되지 않아 카테고리로 다시 튕긴다. 풀 로드로 홈 */}
+      <a
+        href="/?nocat=1"
         className="mt-9 inline-block text-body-sm font-medium text-muted transition-colors hover:text-fg"
       >
         ← 사진 보러 가기
-      </Link>
+      </a>
     </main>
   );
 }
