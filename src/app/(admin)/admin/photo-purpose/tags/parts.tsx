@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { isMarketingUsable } from "@/lib/marketing-photos";
 import type { TagLayer } from "@/lib/mood-photo-tags";
 import { editPhotoMoodTag } from "./actions";
 
@@ -12,6 +13,26 @@ export async function loadThumbs(ids: string[]): Promise<Map<string, string>> {
   for (let i = 0; i < ids.length; i += 100) {
     const { data } = await admin.from("photos").select("id, thumb_url, src_url").in("id", ids.slice(i, i + 100));
     for (const row of data ?? []) out.set(row.id as string, (row.thumb_url ?? row.src_url) as string);
+  }
+  return out;
+}
+
+/**
+ * 이 사진들 중 **마케팅에 써도 되는** 사진 — 판정은 lib/marketing-photos 한 곳(앨범 광고 사용 동의 · 공개 사진).
+ * 「확정된 사진 → 마케팅 허용만」 보기가 쓴다. 100장씩 끊어 읽는다(주소 길이).
+ */
+export async function loadMarketingUsable(ids: string[]): Promise<Set<string>> {
+  const out = new Set<string>();
+  if (!ids.length) return out;
+  const admin = createAdminClient();
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data } = await admin
+      .from("photos")
+      .select("id, visibility, album:albums(ad_consent)")
+      .in("id", ids.slice(i, i + 100));
+    for (const row of (data ?? []) as unknown as Array<{ id: string; visibility: string; album: { ad_consent: boolean } | null }>) {
+      if (isMarketingUsable({ albumAdConsent: !!row.album?.ad_consent, visibility: row.visibility })) out.add(row.id);
+    }
   }
   return out;
 }
