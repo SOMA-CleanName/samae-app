@@ -43,3 +43,20 @@ export function statusTone(s: BookingStatus): string {
   if (s === "rejected" || s === "cancelled" || s === "refunded") return "bg-brand/15 text-brand";
   return "bg-fg/10 text-fg/60";
 }
+
+/**
+ * 촬영 시작 시각이 지났는가 — 작가가 [촬영 완료]를 직접 누를 수 있는 시점.
+ *
+ * 촬영이 끝나자마자 보정본을 넘기려는 작가가 다음 날 오전 크론(booking-sweep)까지
+ * 기다리지 않게 한다. 시작 시각만 알기 때문에 시작이 지났으면 연다 — 끝났는지는 작가가 안다.
+ * 시간 미정(날짜만)이면 그날 0시(KST)부터, 날짜도 없으면 열지 않는다.
+ */
+export function shootStarted(
+  shootAt: string | null | undefined,
+  shootDate: string | null | undefined,
+  now: Date = new Date()
+): boolean {
+  if (shootAt) return new Date(shootAt).getTime() <= now.getTime();
+  if (shootDate) return new Date(`${shootDate.slice(0, 10)}T00:00:00+09:00`).getTime() <= now.getTime();
+  return false;
+}

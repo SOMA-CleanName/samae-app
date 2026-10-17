@@ -98,6 +98,9 @@ export function ChatSandbox({ stage, role }: { stage: string; role?: string }) {
       markTransferSent: async () => {
         bump({ transfer_marked_at: new Date().toISOString() });
       },
+      markShot: async () => {
+        bump({ status: "shot" });
+      },
 
       submitSupportRequest: async () => {},
       getCustomerRefundQuote: async () => null,

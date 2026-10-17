@@ -26,6 +26,7 @@ import { ReviewForm } from "./ReviewForm";
 import { DeliveryUploader } from "./DeliveryUploader";
 import { DeliveryGallery } from "./DeliveryGallery";
 import { overdueDays } from "@/lib/delivery-deadline";
+import { shootStarted } from "@/lib/booking-status";
 
 const fmtDay = (iso: string) =>
   new Intl.DateTimeFormat("ko-KR", { month: "long", day: "numeric", timeZone: "Asia/Seoul" }).format(new Date(iso));
@@ -244,8 +245,8 @@ export default async function BookingDetail({
           </section>
         )}
 
-        {/* 작가: 결제됨 → 촬영 완료 */}
-        {isOwner && b.status === "paid" && (
+        {/* 작가: 결제됨 → 촬영 완료 (촬영 시작 시각이 지난 뒤에만 — 서버 markShot 과 같은 판정) */}
+        {isOwner && b.status === "paid" && shootStarted(b.shoot_at, b.shoot_date) && (
           <form action={markShot}>
             <input type="hidden" name="id" value={b.id} />
             <button className="w-full rounded-xl bg-fg py-3 text-sm font-semibold text-bg hover:opacity-90">
