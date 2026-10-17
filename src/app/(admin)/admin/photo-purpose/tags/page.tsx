@@ -11,7 +11,7 @@ import {
 import { confirmBand, dropBand, reviewFamily, undoBand } from "./actions";
 import { nameBigMood } from "../mood/families/photo/actions";
 import { ChipSearch } from "./ChipSearch";
-import { DropThumb, loadThumbs, PhotoThumb, TagButton } from "./parts";
+import { DropThumb, loadMarketingUsable, loadThumbs, PhotoThumb, TagButton } from "./parts";
 
 export const dynamic = "force-dynamic";
 const BASE = "/admin/photo-purpose/tags";
@@ -77,11 +77,15 @@ export default async function PhotoMoodTagsPage({ searchParams }: { searchParams
 
   const family = view === "family" || view === "confirmed" ? layers.families.find((f) => f.key === key) : undefined;
   const rows: TaggedPhotoRow[] = family ? photosWithTag(raw, "family", family.key, dropped).filter((r) => !added.has(r.photo)) : view === "big" && key ? photosWithTag(live, "big", key, dropped) : [];
-  // 가족 화면에서 볼 것 — show=done 확정된 사진 · show=all 전체 · 아니면 구간(기본: 아직 통과 안 한 가장 높은 구간)
-  const show = params.show === "done" || view === "confirmed" ? "done" : params.show === "all" ? "all" : "band";
+  // 가족 화면에서 볼 것 — show=done 확정된 사진 · show=marketing 그중 마케팅 허용 · show=all 전체 · 아니면 구간(기본: 아직 통과 안 한 가장 높은 구간)
+  const show = params.show === "marketing" ? "marketing"
+    : params.show === "done" || view === "confirmed" ? "done" : params.show === "all" ? "all" : "band";
   // 이미 확정한 사진은 구간 검수에서 뺀다(사람 결정 2026-10-02) — 문장을 고쳐 다시 계산하면 점수가 바뀌어 다른 구간으로 옮겨 가는데, 다시 볼 필요가 없다
   const doneIds = family ? confirmedOf(family.key) : [];
   const doneSet = new Set(doneIds);
+  // 확정된 사진 중 마케팅에 써도 되는 것 — 앨범 광고 사용 동의 · 공개(lib/marketing-photos). 버튼에 장수를 보이려고 늘 센다
+  const marketingOk = family ? await loadMarketingUsable(doneIds) : new Set<string>();
+  const doneMarketing = doneIds.filter((id) => marketingOk.has(id));
   const open = rows.filter((r) => !doneSet.has(r.photo));
   const passedHere = family ? confirms.get(family.key) : undefined;
   const band = family && show === "band"
@@ -95,7 +99,8 @@ export default async function PhotoMoodTagsPage({ searchParams }: { searchParams
   const bandRows = showingDone ? passedHere!.get(band!)!.filter((p) => doneSet.has(p)).map(asRow) : openHere;
   const confirmedSet = new Set(family ? confirms.get(family.key)?.get(band ?? -1) ?? [] : []);
   const shown = show === "all" || view === "big" ? rows.slice(page * PAGE, (page + 1) * PAGE) : [];
-  const doneShown = show === "done" ? doneIds.slice(page * PAGE, (page + 1) * PAGE) : [];
+  const doneShown = show === "done" ? doneIds.slice(page * PAGE, (page + 1) * PAGE)
+    : show === "marketing" ? doneMarketing.slice(page * PAGE, (page + 1) * PAGE) : [];
   const thumbs = await loadThumbs([...new Set([...bandRows.map((r) => r.photo), ...shown.map((r) => r.photo), ...doneShown,
     ...(view === "empty" ? untagged.map((r) => r.photo) : [])])]);
   const famUrl = (k: string, extra: Record<string, string> = {}) => `${BASE}?${new URLSearchParams({ key: k, ...extra })}`;
@@ -184,6 +189,9 @@ export default async function PhotoMoodTagsPage({ searchParams }: { searchParams
               <span className="mx-1 text-muted">|</span>
               <Link href={famUrl(family.key, { show: "done" })} aria-current={show === "done" ? "true" : undefined}
                 className={`rounded-lg border px-2.5 py-1 text-caption ${show === "done" ? "border-brand bg-brand/10 font-semibold text-brand" : "border-success text-success-ink"}`}>확정된 사진 {doneIds.length}</Link>
+              <Link href={famUrl(family.key, { show: "marketing" })} aria-current={show === "marketing" ? "true" : undefined}
+                title="확정된 사진 중 포트폴리오에 광고 사용 동의가 있는 공개 사진"
+                className={`rounded-lg border px-2.5 py-1 text-caption ${show === "marketing" ? "border-brand bg-brand/10 font-semibold text-brand" : "border-info text-info-ink"}`}>└ 마케팅 허용 {doneMarketing.length}</Link>
               <Link href={famUrl(family.key, { show: "all" })} aria-current={show === "all" ? "true" : undefined}
                 className={`rounded-lg border px-2.5 py-1 text-caption ${show === "all" ? "border-brand bg-brand/10 font-semibold text-brand" : "border-line text-muted"}`}>전체 {rows.length}</Link>
               <span className="ml-auto flex gap-1.5">
@@ -241,6 +249,21 @@ export default async function PhotoMoodTagsPage({ searchParams }: { searchParams
                 </ul>
                 {!doneIds.length && <p className="mt-2 text-caption text-muted">아직 확정한 사진이 없습니다 — 구간을 통과하면 여기 쌓입니다.</p>}
                 <Pager total={doneIds.length} page={page} href={(p) => famUrl(family.key, { show: "done", p: String(p) })} />
+              </div>
+            )}
+
+            {show === "marketing" && (
+              <div className="mt-4">
+                <h3 className="text-body font-semibold">확정된 사진 중 마케팅 허용 — {doneMarketing.length}장 <span className="text-caption font-normal text-muted">/ 확정 {doneIds.length}장</span></h3>
+                <p className="text-caption text-muted">
+                  「{family.name}」 로 확정된 사진 중 <b>포트폴리오에 광고 사용 동의</b>가 있는 <b>공개</b> 사진입니다(판정은 마케팅 사용 화면과 같은 규칙).
+                  회원(피사체)의 초상 사용 거부는 아직 사진까지 이어지지 않아 여기서 보지 못합니다 — 실제로 쓰기 전에 확인하세요.
+                </p>
+                <ul className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                  {doneShown.map((id) => <PhotoCell key={id} r={asRow(id)} k={family.key} url={thumbs.get(id)} done />)}
+                </ul>
+                {!doneMarketing.length && <p className="mt-2 text-caption text-muted">확정된 사진 중 마케팅에 써도 되는 사진이 없습니다.</p>}
+                <Pager total={doneMarketing.length} page={page} href={(p) => famUrl(family.key, { show: "marketing", p: String(p) })} />
               </div>
             )}
 
@@ -347,11 +370,11 @@ function Verdict({ k, status, label, tone }: { k: string; status: FamilyReviewSt
   );
 }
 
-/** 사진 칸 — 사진 한 장씩만 뺀다(사람 결정 2026-10-01). 사진을 눌러도, [빼기] 를 눌러도 같다. 확정된 사진은 초록 테두리 */
+/** 사진 칸 — 사진 한 장씩만 뺀다(사람 결정 2026-10-01). 빼기는 [빼기] 버튼으로만, 사진을 누르면 포트폴리오(새 탭). 확정된 사진은 초록 테두리 */
 function PhotoCell({ r, k, url, done }: { r: TaggedPhotoRow; k: string; url?: string; done?: boolean }) {
   return (
     <li className={`rounded-xl border p-1.5 ${done ? "border-success" : "border-line"}`}>
-      <DropThumb id={r.photo} url={url} layer="family" k={k} dropped={r.dropped} />
+      <DropThumb id={r.photo} url={url} dropped={r.dropped} />
       <div className="mt-1 flex flex-wrap items-center gap-1 text-caption">
         <span className="tabular-nums text-muted">z {Number.isNaN(r.z) ? "—" : r.z.toFixed(2)}</span>
         {r.byTag && <span className="rounded border border-line px-1 text-muted">태그</span>}
