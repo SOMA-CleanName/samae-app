@@ -370,11 +370,11 @@ function Verdict({ k, status, label, tone }: { k: string; status: FamilyReviewSt
   );
 }
 
-/** 사진 칸 — 사진 한 장씩만 뺀다(사람 결정 2026-10-01). 사진을 눌러도, [빼기] 를 눌러도 같다. 확정된 사진은 초록 테두리 */
+/** 사진 칸 — 사진 한 장씩만 뺀다(사람 결정 2026-10-01). 빼기는 [빼기] 버튼으로만, 사진을 누르면 포트폴리오(새 탭). 확정된 사진은 초록 테두리 */
 function PhotoCell({ r, k, url, done }: { r: TaggedPhotoRow; k: string; url?: string; done?: boolean }) {
   return (
     <li className={`rounded-xl border p-1.5 ${done ? "border-success" : "border-line"}`}>
-      <DropThumb id={r.photo} url={url} layer="family" k={k} dropped={r.dropped} />
+      <DropThumb id={r.photo} url={url} dropped={r.dropped} />
       <div className="mt-1 flex flex-wrap items-center gap-1 text-caption">
         <span className="tabular-nums text-muted">z {Number.isNaN(r.z) ? "—" : r.z.toFixed(2)}</span>
         {r.byTag && <span className="rounded border border-line px-1 text-muted">태그</span>}

@@ -59,21 +59,18 @@ export function TagButton({ photo, layer, k, dropped }: { photo: string; layer: 
   );
 }
 
-/** 사진을 누르면 빼기 · 되살리기 — 검수는 빼는 일이라 버튼보다 사진 자체가 빠르다(사람 결정 2026-10-01) */
-export function DropThumb({ id, url, layer, k, dropped }: { id: string; url?: string; layer: TagLayer; k: string; dropped: boolean }) {
+/**
+ * 검수 칸의 사진 — **누르면 그 사진의 포트폴리오로 간다**(새 탭, /photos/{id} 가 같은 포트폴리오 사진을 이어 보여준다).
+ * 빼기는 [빼기] 버튼으로만 한다 — 예전엔 사진을 누르면 바로 빠져서, 포트폴리오를 보려다 실수로 빼는 일이 있었다(사람 요청 2026-10-17).
+ */
+export function DropThumb({ id, url, dropped }: { id: string; url?: string; dropped: boolean }) {
   return (
-    <form action={editPhotoMoodTag}>
-      <input type="hidden" name="photo" value={id} />
-      <input type="hidden" name="layer" value={layer} />
-      <input type="hidden" name="key" value={k} />
-      <input type="hidden" name="action" value={dropped ? "keep" : "drop"} />
-      <button title={dropped ? "눌러서 되살리기" : "눌러서 빼기"}
-        className={`relative block aspect-square w-full overflow-hidden rounded-lg bg-line/40 ${dropped ? "ring-4 ring-inset ring-info" : "hover:ring-2 hover:ring-inset hover:ring-info/60"}`}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        {url ? <img src={url} alt="" loading="lazy" className="h-full w-full object-contain" /> : null}
-        {/* 뺀 사진은 흐리게 덮지 않고 파란 테두리로 고른 것처럼(사람 요청 2026-10-03) — 사진을 그대로 보면서 무엇을 뺐는지 안다 */}
-        {dropped && <span className="absolute left-1.5 top-1.5 rounded-md bg-info px-1.5 py-0.5 text-caption font-semibold text-white">뺌</span>}
-      </button>
-    </form>
+    <a href={`/photos/${id}`} target="_blank" rel="noreferrer" title="포트폴리오 보기 (새 탭)"
+      className={`relative block aspect-square w-full overflow-hidden rounded-lg bg-line/40 ${dropped ? "ring-4 ring-inset ring-info" : "hover:ring-2 hover:ring-inset hover:ring-info/60"}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      {url ? <img src={url} alt="" loading="lazy" className="h-full w-full object-contain" /> : null}
+      {/* 뺀 사진은 흐리게 덮지 않고 파란 테두리로 고른 것처럼(사람 요청 2026-10-03) — 사진을 그대로 보면서 무엇을 뺐는지 안다 */}
+      {dropped && <span className="absolute left-1.5 top-1.5 rounded-md bg-info px-1.5 py-0.5 text-caption font-semibold text-white">뺌</span>}
+    </a>
   );
 }
