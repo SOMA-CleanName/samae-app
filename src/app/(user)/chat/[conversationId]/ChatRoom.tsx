@@ -11,7 +11,7 @@ import { READ_HEARTBEAT_MS } from "@/lib/notification-policy";
 import { REAL_CHAT_IO, type ChatIO } from "./chat-io";
 import { contactSendGate } from "@/lib/contact-gate";
 import type { ChatMessage, BookingSnapshot, ConsultationBrief, BotSlots } from "@/lib/chat";
-import { bookingStatusLabel, type BookingStatus } from "@/lib/booking-status";
+import { bookingStatusLabel, shootStarted, type BookingStatus } from "@/lib/booking-status";
 import type { PayoutAccount } from "@/lib/payments";
 import { DeliveryUploader } from "@/app/(user)/bookings/[id]/DeliveryUploader";
 import {
@@ -1419,6 +1419,21 @@ function BookingCard({
         />
       )}
 
+      {/* 작가: 촬영 시작 시각이 지나면 직접 [촬영 완료] — 다음 날 오전 자동 전이를 기다리지 않고
+          바로 보정본 업로더를 연다. 안 누르면 크론(booking-sweep)이 대신 넘긴다 */}
+      {amPhotographer &&
+        status === "paid" &&
+        shootStarted(booking.shoot_at, booking.shoot_date) && (
+          <MarkShotButton
+            bookingId={booking.id}
+            action={io.markShot}
+            onDone={() => {
+              setActed("shot");
+              router.refresh();
+            }}
+          />
+        )}
+
       {/* 작가: 촬영됨 → 보정본 전달 업로더 (req9) */}
       {amPhotographer && status === "shot" && (
         <div className="mt-3 border-t border-line pt-3">
@@ -1749,6 +1764,49 @@ function SummaryCardBubble({
         </div>
       </div>
       <span className="mt-0.5 text-label text-faint">{time}</span>
+    </div>
+  );
+}
+
+// [촬영 완료] — 누르면 카드가 곧장 보정본 업로더로 바뀐다
+function MarkShotButton({
+  bookingId,
+  action,
+  onDone,
+}: {
+  bookingId: string;
+  action: (formData: FormData) => Promise<void>;
+  onDone: () => void;
+}) {
+  const [pending, start] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <div className="mt-3 border-t border-line pt-3">
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() =>
+          start(async () => {
+            setError(null);
+            try {
+              const fd = new FormData();
+              fd.set("id", bookingId);
+              await action(fd);
+              onDone();
+            } catch {
+              // 운영 빌드에선 서버 액션의 e.message 가 가려진다
+              setError("처리하지 못했어요. 잠시 후 다시 시도해주세요.");
+            }
+          })
+        }
+        className="w-full cursor-pointer rounded-full bg-fg py-2.5 text-body-sm font-semibold text-bg transition-opacity hover:opacity-90 disabled:opacity-50"
+      >
+        {pending ? "처리 중…" : "촬영 완료 · 보정본 전달하기"}
+      </button>
+      <p className="mt-1.5 text-center text-caption text-faint">
+        누르면 고객님께 촬영 완료 알림이 가고, 여기서 보정본을 올릴 수 있어요.
+      </p>
+      {error && <p className="mt-1.5 text-center text-caption text-brand-ink">{error}</p>}
     </div>
   );
 }

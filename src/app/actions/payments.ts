@@ -9,6 +9,7 @@ import { DELIVERY_BUCKET, signDeliveryAssets } from "@/lib/deliveries";
 import { mpTrackServer, mpRevenueServer } from "@/lib/mixpanel-server";
 import { isLateBooking } from "@/lib/refund";
 import { overdueDays } from "@/lib/delivery-deadline";
+import { shootStarted } from "@/lib/booking-status";
 
 // 알림 헬퍼 (service_role)
 async function notify(
@@ -153,6 +154,14 @@ export async function markShot(formData: FormData) {
   if (!me?.photographer) throw new Error("작가만 가능합니다.");
 
   const admin = createAdminClient();
+  // 촬영 시작 전에는 못 누른다 — 버튼은 화면이 숨기지만 판정의 진실은 여기다
+  const { data: b } = await admin
+    .from("bookings")
+    .select("shoot_at, shoot_date")
+    .eq("id", id)
+    .maybeSingle();
+  if (!b || !shootStarted(b.shoot_at, b.shoot_date)) throw new Error("촬영 시간이 지난 뒤에 누를 수 있어요.");
+
   const { data: moved } = await admin
     .from("bookings")
     .update({ status: "shot", shot_at: new Date().toISOString() })

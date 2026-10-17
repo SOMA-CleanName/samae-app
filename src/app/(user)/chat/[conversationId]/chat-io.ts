@@ -12,7 +12,7 @@
 import { sendMessage, markRead, sendPortfolioPhoto } from "../actions";
 import { sendBotTurn } from "../bot-actions";
 import { acceptBooking, rejectBooking, cancelBooking } from "@/app/actions/bookings";
-import { agreeLateBooking, markTransferSent } from "@/app/actions/payments";
+import { agreeLateBooking, markTransferSent, markShot } from "@/app/actions/payments";
 import { submitSupportRequest } from "@/app/actions/support";
 import { acceptPhotographerContact, sendPhotographerContact, type ContactSendResult } from "@/app/actions/contact-handover";
 import { proposeReschedule, respondReschedule } from "@/app/actions/reschedule";
@@ -32,6 +32,8 @@ export type ChatIO = {
   // 수락 버튼을 누르는 순간 진짜 서버 액션이 나가 "로그인이 필요합니다" 로 터진다.
   agreeLateBooking: (formData: FormData) => Promise<void>;
   markTransferSent: (formData: FormData) => Promise<void>;
+  // [촬영 완료] — 촬영 시작 시각이 지나면 작가가 직접 넘긴다. 넘어가야 보정본 업로더가 열린다
+  markShot: (formData: FormData) => Promise<void>;
   // [사매에 문의] — 가짜 예약에 붙은 문의가 실제 support_requests 에 쌓이면 안 된다
   submitSupportRequest: (formData: FormData) => Promise<void>;
   getCustomerRefundQuote: (bookingId: string) => Promise<CustomerRefundQuote | null>;
@@ -56,6 +58,7 @@ export const REAL_CHAT_IO: ChatIO = {
   cancelBooking,
   agreeLateBooking,
   markTransferSent,
+  markShot,
   submitSupportRequest,
   getCustomerRefundQuote,
   sendPhotographerContact,
